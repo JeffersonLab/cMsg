@@ -119,17 +119,7 @@ public class cMsgMonitorClient extends Thread {
                                        info.getName() + "\n");
                 }
 
-                domainServer.killAllThreads();
-                domainServer.requestCue.clear();
-
-                try {
-                    if (!domainServer.calledShutdown) {
-                        domainServer.calledShutdown = true;
-                        domainServer.getSubdomainHandler().handleClientShutdown();
-                    }
-                }
-                catch (cMsgException e1) {}
-
+                domainServer.shutdown();
                 return;
             }
 
@@ -145,17 +135,7 @@ public class cMsgMonitorClient extends Thread {
                                        info.getName() + "\n");
                 }
 
-                domainServer.killAllThreads();
-                domainServer.requestCue.clear();
-                
-                try {
-                    if (!domainServer.calledShutdown) {
-                        domainServer.calledShutdown = true;
-                        domainServer.getSubdomainHandler().handleClientShutdown();
-                    }
-                }
-                catch (cMsgException e1) {}
-
+                domainServer.shutdown();
                 return;
             }
 
