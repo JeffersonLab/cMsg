@@ -183,40 +183,32 @@ public class database implements cMsgHandleRequests {
             //  extract params
             Pattern p;
             Matcher m;
-            try {
-                // driver required
-                p = Pattern.compile("[&\\?]driver=(.*?)&", Pattern.CASE_INSENSITIVE);
-                m = p.matcher(remainder);
-                m.find();
-                driver = m.group(1);
 
-                // URL required
-                p = Pattern.compile("[&\\?]url=(.*?)&", Pattern.CASE_INSENSITIVE);
-                m = p.matcher(remainder);
-                m.find();
-                URL = m.group(1);
-
-                // account not required
-                p = Pattern.compile("[&\\?]account=(.*?)&", Pattern.CASE_INSENSITIVE);
-                m = p.matcher(remainder);
-                if (m.find()) {
-                    account = m.group(1);
-                }
-
-                // password not required
-                p = Pattern.compile("[&\\?]password=(.*?)&", Pattern.CASE_INSENSITIVE);
-                m = p.matcher(remainder);
-                if (m.find()) {
-                    password = m.group(1);
-                }
-
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-                cMsgException ce = new cMsgException(e.getMessage());
-                ce.setReturnCode(1);
-                throw ce;
-            }
+	    // driver required
+	    p = Pattern.compile("[&\\?]driver=(.*?)&", Pattern.CASE_INSENSITIVE);
+	    m = p.matcher(remainder);
+	    m.find();
+	    driver = m.group(1);
+	    
+	    // URL required
+	    p = Pattern.compile("[&\\?]url=(.*?)&", Pattern.CASE_INSENSITIVE);
+	    m = p.matcher(remainder);
+	    m.find();
+	    URL = m.group(1);
+	    
+	    // account not required
+	    p = Pattern.compile("[&\\?]account=(.*?)&", Pattern.CASE_INSENSITIVE);
+	    m = p.matcher(remainder);
+	    if (m.find()) {
+		account = m.group(1);
+	    }
+	    
+	    // password not required
+	    p = Pattern.compile("[&\\?]password=(.*?)&", Pattern.CASE_INSENSITIVE);
+	    m = p.matcher(remainder);
+	    if (m.find()) {
+		password = m.group(1);
+	    }
         }
 
 
@@ -224,7 +216,7 @@ public class database implements cMsgHandleRequests {
         try {
             Class.forName(driver);
         }
-        catch (Exception e) {
+        catch (ClassNotFoundException e) {
             System.out.println(e);
             e.printStackTrace();
             cMsgException ce = new cMsgException("registerClient: unable to load driver");
@@ -234,10 +226,9 @@ public class database implements cMsgHandleRequests {
 
 
         // create connection
-        try {
+	try {
             myCon = DriverManager.getConnection(URL, account, password);
-        }
-        catch (Exception e) {
+        } catch (SQLException e) {
             System.out.println(e);
             e.printStackTrace();
             cMsgException ce = new cMsgException("registerClient: unable to connect to database");
@@ -250,7 +241,7 @@ public class database implements cMsgHandleRequests {
         try {
             myStmt = myCon.createStatement();
         }
-        catch (Exception e) {
+        catch (SQLException e) {
             System.out.println(e);
             e.printStackTrace();
             cMsgException ce = new cMsgException("registerClient: unable to create statement");
@@ -285,7 +276,7 @@ public class database implements cMsgHandleRequests {
             try {
                 myStmt.executeUpdate(sql);
             }
-            catch (Exception e) {
+            catch (SQLException e) {
                 System.out.println(e);
                 e.printStackTrace();
                 throw new cMsgException("handleSendRequest: unable to execute: " + sql);
@@ -407,7 +398,7 @@ public class database implements cMsgHandleRequests {
             myStmt.close();
             myCon.close();
         }
-        catch (Exception e) {
+        catch (SQLException e) {
             throw(new cMsgException("database sub-domain handler shutdown error"));
         }
     }
