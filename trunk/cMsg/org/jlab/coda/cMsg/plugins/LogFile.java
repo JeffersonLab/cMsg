@@ -34,7 +34,7 @@ import java.io.*;
 
 
 /**
- * cMsg subdomain handler for Logfile subdomain.
+ * cMsg subdomain handler for LogFile subdomain.
  *
  * Current implementation uses a PrintWriter.
  *
@@ -42,10 +42,6 @@ import java.io.*;
  * @version 1.0
  */
 public class LogFile implements cMsgHandleRequests {
-
-
-    // debug...
-    private static String myLogFileName = "LogFile.log";
 
 
     /** Hash table to store all client info.  Name is key and file object is value. */
@@ -74,6 +70,10 @@ public class LogFile implements cMsgHandleRequests {
     private String name;
 
 
+    /** UDL remainder for this subdomain handler. */
+    private String myUDLRemainder;
+
+
 
     /**
      * Method to give the subdomain handler the appropriate part
@@ -83,7 +83,7 @@ public class LogFile implements cMsgHandleRequests {
      * @throws cMsgException
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
-        // do nothing...
+        myUDLRemainder=UDLRemainder;
     }
     
 
@@ -114,12 +114,16 @@ public class LogFile implements cMsgHandleRequests {
         this.name = name;
 
 
+	// debug...will extract file name from myUDLRemainder
+	String fname = "LogFile.log";
+
+
 	// check if this file already open
 	synchronized (clients) {
 	    LogFileObject o;
 	    for(Iterator i = clients.values().iterator(); i.hasNext();) {
 		o=(LogFileObject)i.next();
-		if((o.logFileName).equals(myLogFileName)) {
+		if((o.logFileName).equals(fname)) {
 		    myLogFileObject=o;
 		    break;
 		}
@@ -129,9 +133,9 @@ public class LogFile implements cMsgHandleRequests {
 	    // file not open...open new file, create LogFileObject, write initial XML stuff to file
 	    if(myLogFileObject==null) {
 		try {
-		    myLogFileObject = new LogFileObject(myLogFileName,
-							new PrintWriter(new BufferedWriter(new FileWriter(myLogFileName))));
-		    ((PrintWriter)(myLogFileObject.logFileHandle)).println("<cMsgLogFile  name=\"" + myLogFileName + "\""
+		    myLogFileObject = new LogFileObject(fname,
+							new PrintWriter(new BufferedWriter(new FileWriter(fname))));
+		    ((PrintWriter)(myLogFileObject.logFileHandle)).println("<cMsgLogFile  name=\"" + fname + "\""
 									   + "  date=\"" + (new Date()) + "\"\n\n");
 		} catch (Exception e) {
 		    System.out.println(e);
@@ -216,25 +220,12 @@ public class LogFile implements cMsgHandleRequests {
      * before the domain server thread is killed (since that is what is running this
      * method).
      */
-    public void handleClientShutdown() {
+    public void handleClientShutdown() throws cMsgException {
         synchronized (clients) {
             clients.remove(name);
         }
-
-        // close out all files
-        System.out.println("closing log files...");  // debug...
-        PrintWriter pw;
-        for (Iterator i = clients.values().iterator(); i.hasNext();) {
-            pw = (PrintWriter) (((LogFileObject) i.next()).logFileHandle);
-            try {
-                pw.println("\n\n<cMsgLogFile>");
-                pw.close();
-            }
-            catch (Exception e) {
-                // ignore errors
-            }
-        }
     }
+
 
     /**
      * Method to handle a complete name server down.
@@ -242,8 +233,7 @@ public class LogFile implements cMsgHandleRequests {
      * before the server is killed (since that is what is running this
      * method).
      */
-    public void handleShutdown(String name) {
-	System.out.println("closing log files...");  // debug...
+    public void handleServerShutdown() throws cMsgException {
 	PrintWriter pw;
 	for(Iterator i = clients.values().iterator(); i.hasNext();) {
 	    pw=(PrintWriter)(((LogFileObject)i.next()).logFileHandle);
