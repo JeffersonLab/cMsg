@@ -77,8 +77,14 @@ public class cMsgConsumer {
           *                   message.
           */
          public void callback(cMsgMessage msg, Object userObject) {
+             //try { Thread.sleep(1); }
+             //catch (InterruptedException e) {}
              count++;
          }
+
+        public boolean maySkipMessages() {return false;}
+
+        public boolean mustSerializeMessages() {return true;}
 
      }
 
@@ -123,6 +129,12 @@ public class cMsgConsumer {
             iterations++;
             System.out.println("count = " + count + ", " + doubleToString(freq, 0) + " Hz, Avg = " + doubleToString(freqAvg, 0) + " Hz");
 
+            if (!coda.isConnected()) {
+                System.out.println("No longer connected to domain server, quitting");
+                try { Thread.sleep(20000); }
+                catch (InterruptedException e) {}
+                System.exit(-1);
+            }
         }
     }
 }
