@@ -39,9 +39,6 @@ public class cMsgNameServer extends Thread {
     /** Type of domain this is. */
     private String domain = "cMsg";
 
-    /** Type of domain this is. */
-    private String subdomain = "cMsg";
-
     /** Port number to listen on. */
     private int port;
   
