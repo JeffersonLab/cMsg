@@ -259,7 +259,7 @@ public class cMsgMessageFull extends cMsgMessage {
         this.sysMsgId    = msg.getSysMsgId();
         this.senderToken = msg.getSenderToken();
         this.getResponse = true;
-        msg.info = isGetResponse;
+        this.info = isGetResponse;
     }
 
 
@@ -267,7 +267,7 @@ public class cMsgMessageFull extends cMsgMessage {
         this.sysMsgId    = msg.getSysMsgId();
         this.senderToken = msg.getSenderToken();
         this.getResponse = true;
-        msg.info = isGetResponse | isNullGetResponse;
+        this.info = isGetResponse | isNullGetResponse;
     }
 
 
