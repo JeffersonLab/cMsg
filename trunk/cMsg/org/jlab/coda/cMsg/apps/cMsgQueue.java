@@ -1,4 +1,4 @@
-//  general purpose cMsg user info queue
+//  general purpose cMsg queue utility
 
 
 /*----------------------------------------------------------------------------*
@@ -33,6 +33,8 @@ import java.io.*;
 import java.sql.*;
 import java.util.Date;
 import java.net.*;
+import java.nio.*;
+import java.nio.channels.*;
 
 
 //-----------------------------------------------------------------------------
@@ -43,9 +45,14 @@ import java.net.*;
  * Only stores user-settable information.
  * I.e. subject,type,text,userTime,userInt,priority.
  *
- * To use with a database:
- *   java cMsgQueue -udl cMsg:cMsg://ollie/cMsg
- *                  -url jdbc:mysql://xdaq/test -driver com.mysql.jdbc.Driver -account davidl
+ * To use, e.g, with a database queue:
+ *   java cMsgQueue -udl cMsg:cMsg://ollie/cMsg -name myQueue
+ *                  -url jdbc:mysql://xdaq/test -driver com.mysql.jdbc.Driver -account fred
+ *
+ * To use, e.g, with a file-based queue:
+ *   java cMsgQueue -udl cMsg:cMsg://ollie/cMsg  -name myQueue
+ *                  -dir myDir -base myFileBaseName
+ *
  *
  * @version 1.0
  */
@@ -81,8 +88,12 @@ public class cMsgQueue {
 
 
     /** dir not null to use file queue. */
-    private static String dir        = null;
-    private static String fileBase   = null;
+    private static String dir             = null;
+    private static String base            = null;
+    private static String fileBase        = null;
+    private static String hiSeqFile       = null;
+    private static String loSeqFile       = null;
+
 
 
     /** url not null to use database queue. */
@@ -118,8 +129,36 @@ public class cMsgQueue {
 
             recvCount++;
 
+
             // queue to files
             if(dir!=null) {
+                try {
+
+                    // lock hi file
+                    RandomAccessFile r = new RandomAccessFile(hiSeqFile,"rw");
+                    FileChannel c = r.getChannel();
+                    FileLock l = c.lock();
+
+                    // read hi file, increment, write out new hi value
+                    long hi = Long.parseLong(r.readLine());
+                    hi++;
+                    r.seek(0);
+                    r.writeBytes(hi+"\n");
+
+                    // write message to queue file
+                    FileWriter fw = new FileWriter(String.format("%s%08d",fileBase,hi));
+                    fw.write(msg.toString());
+                    fw.close();
+
+                    // unlock and close hi file
+                    l.release();
+                    r.close();
+
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    System.exit(-1);
+                }
             }
 
 
@@ -158,17 +197,71 @@ public class cMsgQueue {
 
 
             getCount++;
-            cMsgMessageFull response = new cMsgMessageFull();
+            cMsgMessageFull response = null;
 
 
             // retrieve from files
             if(dir!=null) {
+                try {
+
+                    // lock hi file
+                    RandomAccessFile rHi = new RandomAccessFile(hiSeqFile,"rw");
+                    FileChannel cHi = rHi.getChannel();
+                    FileLock lHi = cHi.lock();
+
+                    // lock lo file
+                    RandomAccessFile rLo = new RandomAccessFile(loSeqFile,"rw");
+                    FileChannel cLo = rLo.getChannel();
+                    FileLock lLo = cLo.lock();
+
+                    // read files
+                    long hi = Long.parseLong(rHi.readLine());
+                    long lo = Long.parseLong(rLo.readLine());
+
+                    // message file exists only if hi>lo
+                    if(hi>lo) {
+                        lo++;
+                        rLo.seek(0);
+                        rLo.writeBytes(lo+"\n");
+
+                        // create response from file
+                        File f = new File(String.format("%s%08d",fileBase,lo));
+                        if(f.exists()) {
+                            response = new cMsgMessageFull(f);
+                            response.makeResponse(msg);
+                            f.delete();
+                        } else {
+                            response = new cMsgMessageFull();
+                            response.makeNullResponse(msg);
+                            System.err.println("?missing message file " + lo + " in queue " + queueName);
+                        }
+
+                    } else {
+                        response = new cMsgMessageFull();
+                        response.makeNullResponse(msg);
+                    }
+
+                    // unlock and close files
+                    lLo.release();
+                    lHi.release();
+                    rHi.close();
+                    rLo.close();
+
+                } catch (cMsgException e) {
+                    e.printStackTrace();
+                    System.exit(-1);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    System.exit(-1);
+                }
             }
 
 
             // retrieve from database
             if(url!=null) {
                 try {
+                    response = new cMsgMessageFull();
+
                     // lock table
                     stmt.execute("lock tables " + table + " write");
 
@@ -268,6 +361,22 @@ public class cMsgQueue {
 
         // init queue files
         if(dir!=null) {
+            if(base==null)base = "cMsgQueue_" + queueName + "_";
+            fileBase  = dir + "/" + base;
+            hiSeqFile = fileBase + "Hi";
+            loSeqFile = fileBase + "Lo";
+
+            File hi = new File(hiSeqFile);
+            File lo = new File(loSeqFile);
+            if(!hi.exists()||!lo.exists()) {
+                try {
+                    FileWriter h = new FileWriter(hi);  h.write("0\n");  h.close();
+                    FileWriter l = new FileWriter(lo);  l.write("0\n");  l.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    System.exit(-1);
+                }
+            }
         }
 
 
@@ -319,7 +428,7 @@ public class cMsgQueue {
                     "creator,subject,type,text," +
                     "userTime,userInt,priority" +
                     ") values (" +
-                    "?,?,?," + "?,?,?" + ")";
+                    "?,?,?,?," + "?,?,?" + ")";
                 pStmt = con.prepareStatement(sql);
             } catch (SQLException e) {
                 System.err.println("?unable to prepare statement\n" + e);
@@ -386,7 +495,7 @@ public class cMsgQueue {
         String help = "\nUsage:\n\n" +
             "   java cMsgQueue [-name name] [-descr description] [-udl domain] [-subject subject] [-type type]\n" +
             "                  [-queue queueName] [-getSubject getSubject] [-getType getType]\n" +
-            "                  [-dir dir] [-file fileBase]\n" +
+            "                  [-dir dir] [-base base]\n" +
             "                  [-url url] [-driver driver] [-account account] [-pwd password] [-table table]\n";
 
 
@@ -443,8 +552,8 @@ public class cMsgQueue {
                 i++;
 
             }
-            else if (args[i].equalsIgnoreCase("-file")) {
-                fileBase = args[i + 1];
+            else if (args[i].equalsIgnoreCase("-base")) {
+                base = args[i + 1];
                 i++;
 
             }
