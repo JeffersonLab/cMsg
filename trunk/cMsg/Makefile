@@ -8,6 +8,7 @@
 
 # Operating system we are using
 OSNAME := $(shell uname)
+FILENAME = Makefile.unix
 
 ifeq ($(OSNAME),SunOS)
 LIB_DIR = ./lib/SunOS
@@ -16,6 +17,7 @@ BIN_DIR = ./bin/SunOS
 ifeq ($(ARCH),VXWORKSPPC)
 OSNAME = vxworks
 LIB_DIR = ./lib/vxworks
+FILENAME = Makefile.vxworks
 endif
 
 endif
@@ -26,37 +28,32 @@ LIB_DIR = ./lib/Linux
 BIN_DIR = ./bin/Linux
 endif
 
-all: mkdirs $(OSNAME) java doc
+# send this down to lower level makefiles
+export OSNAME
+
+all: mkdirs cCode java doc
 
 mkdirs:
-	mkdir ./lib
-	mkdir ./bin
-	mkdir ./inc
-	mkdir $(LIB_DIR)
-	mkdir $(BIN_DIR)
+	-mkdir ./lib
+	-mkdir ./bin
+	-mkdir ./inc
+	-mkdir $(LIB_DIR)
+	-mkdir $(BIN_DIR)
 
-Linux:
-	cd ./src/regexp; make -f Makefile.Linux install;
-	cd ./src; make -f Makefile.Linux install;
-
-SunOS:
-	cd ./src/regexp; make -f Makefile.SunOS install;
-	cd ./src; make -f Makefile.SunOS install;
-
-vxworks:
-	cd ./src; make -f Makefile.vxworks;
-	cd ./src/regexp; make -f Makefile.vxworks;
+cCode:
+	cd ./src/regexp;  $(MAKE) -f $(FILENAME) install;
+	cd ./src;  $(MAKE) -f $(FILENAME) install;
 
 jar:
 	jar cf cMsg.jar `find org/ -type f | grep -v SCCS`
 
 java:
-	cd ./org/jlab/coda/cMsg; make;
-	cd ./org/jlab/coda/cMsg/cMsgDomain; make;
-	cd ./org/jlab/coda/cMsg/subdomains; make;
-	cd ./org/jlab/coda/cMsg/apps; make;
-	cd ./org/jlab/coda/cMsg/FileDomain; make;
-	cd ./org/jlab/coda/cMsg/CADomain; make;
+	cd ./org/jlab/coda/cMsg; $(MAKE);
+	cd ./org/jlab/coda/cMsg/cMsgDomain;  $(MAKE);
+	cd ./org/jlab/coda/cMsg/subdomains;  $(MAKE);
+	cd ./org/jlab/coda/cMsg/apps;  $(MAKE);
+	cd ./org/jlab/coda/cMsg/FileDomain;  $(MAKE);
+	cd ./org/jlab/coda/cMsg/CADomain;  $(MAKE);
 	cd ./;
 
 doc:  javadoc doxygen
@@ -65,23 +62,22 @@ javadoc:
 	javadoc -package -d doc/javadoc org.jlab.coda.cMsg
 
 doxygen:
-	doxygen doc/doxygen/doxygenConfig
-#	doxygen doc/doxygen/Doxyfile
+	doxygen ./doc/doxygen/Doxyfile
 
 clean: 
 	rm -f core *~ *.o *.so *.a *.class
-	cd ./src; make clean;
+	cd ./src;  $(MAKE) -f $(FILENAME) clean;
 jclean: 
-	cd ./org/jlab/coda/cMsg; make clean;
-	cd ./org/jlab/coda/cMsg/cMsgDomain; make clean;
-	cd ./org/jlab/coda/cMsg/subdomains; make clean;
-	cd ./org/jlab/coda/cMsg/apps; make clean;
-	cd ./org/jlab/coda/cMsg/FileDomain; make clean;
-	cd ./org/jlab/coda/cMsg/CADomain; make clean;
+	cd ./org/jlab/coda/cMsg;  $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg/cMsgDomain;  $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg/subdomains;  $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg/apps;  $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg/FileDomain;  $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg/CADomain;  $(MAKE) clean;
 
 # SUFFIX RULES
 
 .SUFFIXES: .java .class
 
 .java.class:
-	$(JAVAC) $< $(JAVAC_FLAGS)
+	java $< $(JAVAC_FLAGS)
