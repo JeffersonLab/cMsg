@@ -265,19 +265,19 @@ public class cMsgNameServer extends Thread {
             else if (subdomain.equalsIgnoreCase("CA")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.subdomains.CA";
             }
-            else if (subdomain.equalsIgnoreCase("database")) {
+            else if (subdomain.equalsIgnoreCase("Database")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.subdomains.database";
             }
             else if (subdomain.equalsIgnoreCase("LogFile")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.subdomains.LogFile";
             }
-            else if (subdomain.equalsIgnoreCase("queue")) {
+            else if (subdomain.equalsIgnoreCase("Queue")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.subdomains.queue";
             }
-            else if (subdomain.equalsIgnoreCase("smartsockets")) {
+            else if (subdomain.equalsIgnoreCase("SmartSockets")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.subdomains.smartsockets";
             }
-            else if (subdomain.equalsIgnoreCase("tcpserver")) {
+            else if (subdomain.equalsIgnoreCase("TcpServer")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.subdomains.tcpserver";
             }
             else if (subdomain.equalsIgnoreCase("FileQueue")) {
