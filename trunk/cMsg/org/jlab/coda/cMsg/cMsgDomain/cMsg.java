@@ -115,12 +115,12 @@ public class cMsg extends cMsgDomainAdapter {
     /**
      * Collection of all of this client's {@link #subscribeAndGet} calls, NOT directed to
      * a specific receiver, currently in execution.
-     * General gets are very similar to subscriptions and can be thought of as
+     * SubscribeAndGets are very similar to subscriptions and can be thought of as
      * one-shot subscriptions.
      *
-     * Key is senderToken object, value is {@link cMsgHolder} object.
+     * Key is receiverSubscribeId object, value is {@link cMsgHolder} object.
      */
-    ConcurrentHashMap<Integer,cMsgHolder> generalGets;
+    ConcurrentHashMap<Integer,cMsgHolder> subscribeAndGets;
 
     /**
      * Collection of all of this client's {@link #sendAndGet} calls, directed to a specific
@@ -128,7 +128,7 @@ public class cMsg extends cMsgDomainAdapter {
      *
      * Key is senderToken object, value is {@link cMsgHolder} object.
      */
-    ConcurrentHashMap<Integer,cMsgHolder> specificGets;
+    ConcurrentHashMap<Integer,cMsgHolder> sendAndGets;
 
     /**
      * This lock is for controlling access to the methods of this class.
@@ -186,6 +186,9 @@ public class cMsg extends cMsgDomainAdapter {
     /** The subdomain server object or client handler implements {@link #unsubscribe}. */
     private boolean hasUnsubscribe;
 
+    /** The subdomain server object or client handler implements {@link #shutdown}. */
+    private boolean hasShutdown;
+
     /** Level of debug output for this class. */
     int debug = cMsgConstants.debugError;
 
@@ -211,10 +214,10 @@ public class cMsg extends cMsgDomainAdapter {
     public cMsg() throws cMsgException {
         domain = "cMsg";
 
-        subscriptions = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
-        generalGets   = new ConcurrentHashMap<Integer,cMsgHolder>(20);
-        specificGets  = new ConcurrentHashMap<Integer,cMsgHolder>(20);
-        uniqueId      = new AtomicInteger();
+        subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
+        subscribeAndGets = new ConcurrentHashMap<Integer,cMsgHolder>(20);
+        sendAndGets      = new ConcurrentHashMap<Integer,cMsgHolder>(20);
+        uniqueId         = new AtomicInteger();
 
         // store our host's name
         try {
@@ -223,6 +226,23 @@ public class cMsg extends cMsgDomainAdapter {
         catch (UnknownHostException e) {
             throw new cMsgException("cMsg: cannot find host name");
         }
+
+        // create a shutdown handler class which does a disconnect
+        class myShutdownHandler implements cMsgShutdownHandlerInterface {
+            cMsgDomainInterface cMsgObject;
+
+            myShutdownHandler(cMsgDomainInterface cMsgObject) {
+                this.cMsgObject = cMsgObject;
+            }
+
+            public void handleShutdown() {
+                try {cMsgObject.disconnect();}
+                catch (cMsgException e) {}
+            }
+        }
+
+        // Now make an instance of the shutdown handler
+        // setShutdownHandler(new myShutdownHandler());
     }
 
 
@@ -446,7 +466,7 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             // wakeup all gets
-            Iterator iter = specificGets.values().iterator();
+            Iterator iter = sendAndGets.values().iterator();
             for (; iter.hasNext();) {
                 cMsgHolder holder = (cMsgHolder) iter.next();
                 holder.message = null;
@@ -499,7 +519,7 @@ public class cMsg extends cMsgDomainAdapter {
             int outGoing[] = new int[13];
             outGoing[0]  = cMsgConstants.msgSendRequest;
             outGoing[1]  = cMsgConstants.version;
-            outGoing[2]  = message.getPriority();
+            outGoing[2]  = 0; // reserved for future use
             outGoing[3]  = message.getUserInt();
             outGoing[4]  = message.getSysMsgId();
             outGoing[5]  = message.getSenderToken();
@@ -596,7 +616,7 @@ public class cMsg extends cMsgDomainAdapter {
             int outGoing[] = new int[13];
             outGoing[0]  = cMsgConstants.msgSyncSendRequest;
             outGoing[1]  = cMsgConstants.version;
-            outGoing[2]  = message.getPriority();
+            outGoing[2]  = 0; // reserved for future use
             outGoing[3]  = message.getUserInt();
             outGoing[4]  = message.getSysMsgId();
             outGoing[5]  = message.getSenderToken();
@@ -723,10 +743,10 @@ public class cMsg extends cMsgDomainAdapter {
             id = uniqueId.getAndIncrement();
 
             // for get, create cMsgHolder object (not callback thread object)
-            holder = new cMsgHolder();
+            holder = new cMsgHolder(subject, type);
 
             // keep track of get calls
-            generalGets.put(id, holder);
+            subscribeAndGets.put(id, holder);
 
             int[] outGoing = new int[4];
             // first send message id to server
@@ -798,16 +818,16 @@ public class cMsg extends cMsgDomainAdapter {
         if (holder.timedOut) {
             System.out.println("subscribeAndGet: timed out");
             // remove the get from server
-            generalGets.remove(id);
+            subscribeAndGets.remove(id);
             unSubscribeAndGet(id);
             throw new TimeoutException();
         }
 
         // If msg is received, server has removed subscription from his records.
         // Client listening thread has also removed subscription from client's
-        // records (generalGets HashSet).
+        // records (subscribeAndGets HashSet).
 
-//System.out.println("get: SUCCESS!!!");
+System.out.println("subscribeAndGet: SUCCESS!!!");
 
         return holder.message;
     }
@@ -866,12 +886,12 @@ public class cMsg extends cMsgDomainAdapter {
             holder = new cMsgHolder();
 
             // track specific get requests
-            specificGets.put(id, holder);
+            sendAndGets.put(id, holder);
 
             int outGoing[] = new int[11];
             outGoing[0] = cMsgConstants.msgSendAndGetRequest;
             outGoing[1] = cMsgConstants.version;
-            outGoing[2] = message.getPriority();
+            outGoing[2]  = 0; // reserved for future use
             outGoing[3] = message.getUserInt();
             outGoing[4] = id;
             outGoing[5] = (int) ((new Date()).getTime() / 1000L);
@@ -945,14 +965,14 @@ public class cMsg extends cMsgDomainAdapter {
         if (holder.timedOut) {
             System.out.println("sendAndGet: timed out");
             // remove the get from server
-            specificGets.remove(id);
+            sendAndGets.remove(id);
             unSendAndGet(id);
             throw new TimeoutException();
         }
 
         // If msg arrived (may be null), server has removed subscription from his records.
         // Client listening thread has also removed subscription from client's
-        // records (generalGets HashSet).
+        // records (subscribeAndGets HashSet).
 
 //System.out.println("get: SUCCESS!!!");
 
@@ -1287,6 +1307,77 @@ public class cMsg extends cMsgDomainAdapter {
 
 //-----------------------------------------------------------------------------
 
+
+    /**
+     * Method to shutdown the given clients and/or servers.
+     *
+     * @param client client(s) to be shutdown
+     * @param server server(s) to be shutdown
+     * @param flag   flag describing the mode of shutdown
+     * @throws cMsgException
+     */
+    public void shutdown(String client, String server, int flag) throws cMsgException {
+        // cannot run this simultaneously with any other public method
+        connectLock.lock();
+        try {
+            if (!connected) {
+                throw new cMsgException("not connected to server");
+            }
+
+            if (!hasShutdown) {
+                throw new cMsgException("shutdown is not implemented by this subdomain");
+            }
+
+            // make sure null args are sent as blanks
+            if (client == null) {
+                client = new String("");
+            }
+            if (server == null) {
+                server = new String("");
+            }
+
+            int outGoing[] = new int[4];
+            outGoing[0] = cMsgConstants.msgShutdown;
+            outGoing[1] = flag;
+            outGoing[2] = client.length();
+            outGoing[3] = server.length();
+
+            // get ready to write
+            sendBuffer.clear();
+            // send ints over together using view buffer
+            sendBuffer.asIntBuffer().put(outGoing);
+            // position original buffer at position of view buffer
+            sendBuffer.position(16);
+
+            // write strings
+            try {
+                sendBuffer.put(client.getBytes("US-ASCII"));
+                sendBuffer.put(server.getBytes("US-ASCII"));
+            }
+            catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            }
+
+            try {
+                // send buffer over the socket
+                sendBuffer.flip();
+                while (sendBuffer.hasRemaining()) {
+                    domainChannel.write(sendBuffer);
+                }
+            }
+            catch (IOException e) {
+                throw new cMsgException(e.getMessage());
+            }
+        }
+        finally {
+            connectLock.unlock();
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
     /**
      * This method gets the host and port of the domain server from the name server.
      * It also gets information about the subdomain handler object.
@@ -1397,7 +1488,7 @@ public class cMsg extends cMsgDomainAdapter {
         //   2) domain server host & port
 
         // Read attributes
-        cMsgUtilities.readSocketBytes(buffer, channel, 6, debug);
+        cMsgUtilities.readSocketBytes(buffer, channel, 7, debug);
         buffer.flip();
 
         hasSend            = (buffer.get() == (byte)1) ? true : false;
@@ -1406,6 +1497,7 @@ public class cMsg extends cMsgDomainAdapter {
         hasSendAndGet      = (buffer.get() == (byte)1) ? true : false;
         hasSubscribe       = (buffer.get() == (byte)1) ? true : false;
         hasUnsubscribe     = (buffer.get() == (byte)1) ? true : false;
+        hasShutdown        = (buffer.get() == (byte)1) ? true : false;
 
         // Read port & length of host name.
         // first read 2 ints of data
