@@ -50,11 +50,19 @@ java:
 	cd ./org/jlab/coda/cMsg/CADomain; make;
 	cd ./;
 
-doc:
+
+doc:  javadoc doxygen
+
+
+javadoc:
 	javah -package org.jlab.coda.cMsg
 	javah -package org.jlab.coda.cMsg.cMsgDomain
 	javah -package org.jlab.coda.cMsg.cMsgDomain.subdomains
 	javah -package org.jlab.coda.cMsg.apps
+
+doxygen:
+	doxygen doc/doxygen/Doxyfile
+
 
 install: install-lib install-inc install-bin
 
