@@ -43,7 +43,7 @@ cCode:
 	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) install;
 	cd ./src;  $(MAKE) -f $(MAKEFILE) install;
 
-jar:
+jars:
 	jar cf cMsg.jar `find org/ -type f | grep -v SCCS`
 
 java:
