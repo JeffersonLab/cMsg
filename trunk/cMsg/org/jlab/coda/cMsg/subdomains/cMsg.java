@@ -21,7 +21,7 @@ import org.jlab.coda.cMsg.cMsgConstants;
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgClientInfo;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
-import org.jlab.coda.cMsg.cMsgSubdomainAbstract;
+import org.jlab.coda.cMsg.cMsgSubdomainAdapter;
 
 import java.util.*;
 import java.util.regex.Pattern;
@@ -37,7 +37,7 @@ import java.io.IOException;
  * @author Carl Timmer
  * @version 1.0
  */
-public class cMsg extends cMsgSubdomainAbstract {
+public class cMsg extends cMsgSubdomainAdapter {
     /** Used to create a unique id number associated with a specific message. */
     private static AtomicInteger sysMsgId = new AtomicInteger();
 

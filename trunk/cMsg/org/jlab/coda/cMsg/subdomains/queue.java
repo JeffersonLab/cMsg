@@ -54,7 +54,7 @@ import java.util.Date;
  * @version 1.0
  *
  */
-public class queue extends cMsgSubdomainAbstract {
+public class queue extends cMsgSubdomainAdapter {
 
 
     /** registration params. */

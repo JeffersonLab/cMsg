@@ -26,7 +26,7 @@ import org.jlab.coda.cMsg.cMsgConstants;
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgClientInfo;
-import org.jlab.coda.cMsg.cMsgSubdomainAbstract;
+import org.jlab.coda.cMsg.cMsgSubdomainAdapter;
 
 import java.util.*;
 import java.util.regex.*;
@@ -49,7 +49,7 @@ import com.smartsockets.*;
  * @version 1.0
  *
  */
-public class smartsockets extends cMsgSubdomainAbstract {
+public class smartsockets extends cMsgSubdomainAdapter {
 
 
     /** static collections. */
