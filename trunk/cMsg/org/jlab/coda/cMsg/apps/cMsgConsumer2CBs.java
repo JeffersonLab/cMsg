@@ -3,7 +3,7 @@ package org.jlab.coda.cMsg.apps;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgCallback;
 import org.jlab.coda.cMsg.cMsgMessage;
-import org.jlab.coda.cMsg.cMsgCallbackImpl;
+import org.jlab.coda.cMsg.cMsgCallbackAdapter;
 import org.jlab.coda.cMsg.cMsgDomain.cMsg;
 
 /**
@@ -15,7 +15,7 @@ import org.jlab.coda.cMsg.cMsgDomain.cMsg;
  */
 public class cMsgConsumer2CBs {
     String name;
-    long count1, count2;
+    long count1, count2, count3, count4, count;
 
     cMsgConsumer2CBs(String name) {
         this.name = name;
@@ -68,7 +68,7 @@ public class cMsgConsumer2CBs {
     }
 
 
-    class myCallback1 extends cMsgCallbackImpl {
+    class myCallback1 extends cMsgCallbackAdapter {
          /**
           * Callback method definition.
           *
@@ -89,7 +89,7 @@ public class cMsgConsumer2CBs {
      }
 
 
-    class myCallback2 extends cMsgCallbackImpl {
+    class myCallback2 extends cMsgCallbackAdapter {
         /**
          * Callback method definition.
          *
@@ -106,12 +106,48 @@ public class cMsgConsumer2CBs {
      }
 
 
+    class myCallback3 extends cMsgCallbackAdapter {
+        /**
+         * Callback method definition.
+         *
+         * @param msg message received from domain server
+         * @param userObject object passed as an argument which was set when the
+         *                   client orginally subscribed to a subject and type of
+         *                   message.
+         */
+        public void callback(cMsgMessage msg, Object userObject) {
+            count3++;
+        }
+
+        public boolean mustSerializeMessages() {return false;}
+     }
+
+
+    class myCallback4 extends cMsgCallbackAdapter {
+        /**
+         * Callback method definition.
+         *
+         * @param msg message received from domain server
+         * @param userObject object passed as an argument which was set when the
+         *                   client orginally subscribed to a subject and type of
+         *                   message.
+         */
+        public void callback(cMsgMessage msg, Object userObject) {
+            count4++;
+        }
+
+        public boolean mustSerializeMessages() {return false;}
+     }
+
+
     /**
      * This method is executed as a thread.
      */
     public void run() throws cMsgException {
-        String subject1 = "SUBJECT1", type1 = "TYPE1";
-        String subject2 = "SUBJECT2", type2 = "TYPE2";
+        String subject1 = "SUBJECT", type1 = "TYPE";
+        String subject2 = "S*", type2 = "T*";
+        String subject3 = "SU*", type3 = "TY*";
+        String subject4 = "SUB*", type4 = "TYP*";
 
         System.out.println("Running Message Consumer\n");
 
@@ -127,20 +163,30 @@ public class cMsgConsumer2CBs {
         System.out.println("Subscribe to subject = " + subject1 + ", type = " + type1);
         cMsgCallback cb1 = new cMsgConsumer2CBs.myCallback1();
         coda.subscribe(subject1, type1, cb1, null);
+
         System.out.println("Subscribe to subject = " + subject2 + ", type = " + type2);
         cMsgCallback cb2 = new cMsgConsumer2CBs.myCallback2();
         coda.subscribe(subject2, type2, cb2, null);
+
+        System.out.println("Subscribe to subject = " + subject3 + ", type = " + type3);
+        cMsgCallback cb3 = new cMsgConsumer2CBs.myCallback3();
+        coda.subscribe(subject3, type3, cb3, null);
+
+        System.out.println("Subscribe to subject = " + subject4 + ", type = " + type4);
+        cMsgCallback cb4 = new cMsgConsumer2CBs.myCallback4();
+        coda.subscribe(subject4, type4, cb4, null);
 
 
         double freq=0., freqAvg=0., freqTotal=0.;
         long   iterations=1;
 
         while (true) {
-            count1 = count2 = 0;
+            count1 = count2 = count3 = count4 = 0;
             try { Thread.sleep(10000); }
             catch (InterruptedException e) {}
 
-            freq = (double) (count1 + count2)/10.;
+            count = count1 + count2 + count3 + count4;
+            freq = (double) count/10.;
             if (Double.MAX_VALUE - freqTotal < freq) {
                 freqTotal  = 0.;
                 iterations = 1;
@@ -148,8 +194,10 @@ public class cMsgConsumer2CBs {
             freqTotal += freq;
             freqAvg = freqTotal/iterations;
             iterations++;
-            System.out.println("count = " + (count1+count2) + ", " + doubleToString(freq, 0) +
-                               " Hz, Avg = " + doubleToString(freqAvg, 0) + " Hz");
+            System.out.println("count = " + count + " (" + count1 + ", " + count2 + ", " +
+                               count3 + ", " + count4 + "), " +
+                               doubleToString(freq, 0) + " Hz, Avg = " +
+                               doubleToString(freqAvg, 0) + " Hz");
 
         }
     }
