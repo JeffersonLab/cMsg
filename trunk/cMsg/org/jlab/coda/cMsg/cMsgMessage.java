@@ -35,6 +35,14 @@ import java.util.*;
  * @version 1.0
  */
 public class cMsgMessage implements Cloneable {
+
+    /** Is message a sendAndGet request?, is stored in first bit of info. */
+    public static final int isGetRequest  = 0x0001;
+    /** Is message a response to a sendAndGet?, is stored in second bit of info. */
+    public static final int isGetResponse = 0x0002;
+    /** Is the response message null instead of a message?, is stored in third bit of info. */
+    public static final int isNullGetResponse = 0x0004;
+
     // general quantities
 
     /**
@@ -51,6 +59,14 @@ public class cMsgMessage implements Cloneable {
 
     /** Is this message a response to a sendAndGet request? */
     boolean getResponse;
+
+    /**
+     * Condensed information stored in bits.
+     * Is message a sendAndGet request?, is stored in first bit.
+     * Is message a response to a sendAndGet?, is stored in second bit.
+     * Is the response message null instead of a message?, is stored in third bit.
+     */
+    int info;
 
     /** Version number of cMsg. */
     int version;
@@ -162,22 +178,48 @@ public class cMsgMessage implements Cloneable {
 
 
     /**
-     * Creates a proper response message to this message sent by a client calling
+     * Creates a proper response message to this message which was sent by a client calling
+     * sendAndGet.
      *
      * @return message with the response fields properly set.
-     * @throws cMsgException if this message was not sent from a "get" method call
+     * @throws cMsgException if this message was not sent from a "sendAndGet" method call
      */
     public cMsgMessage response() throws cMsgException {
-        // If this message was not sent from a "get" method call,
+        // If this message was not sent from a "sendAndGet" method call,
         // a proper response is not possible, since the sysMsgId
         // and senderToken fields will not have been properly set.
         if (!getRequest) {
-            throw new cMsgException("this message not sent by client calling get");
+            throw new cMsgException("this message not sent by client calling sendAndGet");
         }
         cMsgMessage msg = new cMsgMessage();
         msg.sysMsgId = sysMsgId;
         msg.senderToken = senderToken;
         msg.getResponse = true;
+        msg.info = isGetResponse;
+        return msg;
+    }
+
+
+    /**
+     * Creates a proper response message to this message which was sent by a client calling
+     * sendAndGet. In this case, the response message is encoded so that the receiver of this
+     * message (original sendAndGet caller) does not receive a message at all, but only a null.
+     *
+     * @return message with the response fields properly set so original sender gets a null
+     * @throws cMsgException if this message was not sent from a "sendAndGet" method call
+     */
+    public cMsgMessage nullResponse() throws cMsgException {
+        // If this message was not sent from a "get" method call,
+        // a proper response is not possible, since the sysMsgId
+        // and senderToken fields will not have been properly set.
+        if (!getRequest) {
+            throw new cMsgException("this message not sent by client calling sendAndGet");
+        }
+        cMsgMessage msg = new cMsgMessage();
+        msg.sysMsgId = sysMsgId;
+        msg.senderToken = senderToken;
+        msg.getResponse = true;
+        msg.info = isGetResponse | isNullGetResponse;
         return msg;
     }
 
@@ -205,10 +247,20 @@ public class cMsgMessage implements Cloneable {
      */
     public boolean isGetResponse() {return getResponse;}
     /**
+     * Is this message a response to a "sendAndGet" request with a null
+     * pointer to be delivered instead of this message?
+     * @return true if this message is a response to a "sendAndGet" request
+     *         with a null pointer to be delivered instead of this message
+     */
+    public boolean isNullGetResponse() {return ((info & isNullGetResponse) == isNullGetResponse ? true : false);}
+    /**
      * Specify whether this message is a response to a "sendAndGet" message.
      * @param getResponse true if this message is a response to a "sendAndGet" message
      */
-    public void setGetResponse(boolean getResponse) {this.getResponse = getResponse;}
+    public void setGetResponse(boolean getResponse) {
+        this.getResponse = getResponse;
+        info = getResponse ? info|isGetResponse : info & ~isGetResponse;
+    }
 
 
     /**
@@ -216,6 +268,17 @@ public class cMsgMessage implements Cloneable {
      * @return true if this message is a "sendAndGet" request
      */
     public boolean isGetRequest() {return getRequest;}
+
+
+    /**
+     * Gets information compacted into a bit pattern. This method is not useful
+     * to the general user and is for use only by system developers.
+     *
+     * @return integer containing bit pattern of information
+     */
+    public int getInfo() {
+        return info;
+    }
 
 
     /**

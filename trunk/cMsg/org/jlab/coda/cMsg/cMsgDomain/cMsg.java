@@ -503,7 +503,8 @@ public class cMsg extends cMsgDomainAdapter {
             outGoing[3]  = message.getUserInt();
             outGoing[4]  = message.getSysMsgId();
             outGoing[5]  = message.getSenderToken();
-            outGoing[6]  = message.isGetResponse() ? 1 : 0;
+            //outGoing[6]  = message.isGetResponse() ? 1 : 0;
+            outGoing[6]  = message.getInfo();
             outGoing[7]  = (int) ((new Date()).getTime() / 1000L);
             outGoing[8]  = (int) (message.getUserTime().getTime() / 1000L);
 
@@ -600,7 +601,8 @@ public class cMsg extends cMsgDomainAdapter {
             outGoing[3]  = message.getUserInt();
             outGoing[4]  = message.getSysMsgId();
             outGoing[5]  = message.getSenderToken();
-            outGoing[6]  = message.isGetResponse() ? 1 : 0;
+            //outGoing[6]  = message.isGetResponse() ? 1 : 0;
+            outGoing[6]  = message.getInfo();
             outGoing[7]  = (int) ((new Date()).getTime() / 1000L);
             outGoing[8]  = (int) (message.getUserTime().getTime() / 1000L);
 

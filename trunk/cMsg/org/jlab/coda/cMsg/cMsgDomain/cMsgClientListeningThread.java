@@ -19,6 +19,7 @@ package org.jlab.coda.cMsg.cMsgDomain;
 import org.jlab.coda.cMsg.cMsgConstants;
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgException;
+import org.jlab.coda.cMsg.cMsgMessage;
 
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.Selector;
@@ -334,7 +335,8 @@ public class cMsgClientListeningThread extends Thread {
         msg.setVersion(inComing[0]);
         msg.setPriority(inComing[1]);
         msg.setUserInt(inComing[2]);
-        msg.setGetRequest(inComing[3] == 0 ? false : true);
+        msg.setGetRequest((inComing[3] & cMsgMessage.isGetRequest) == 0 ? false : true);
+        msg.setInfo(inComing[3]);
         // time sent in seconds since midnight GMT, Jan 1, 1970
         msg.setSenderTime(new Date(((long)inComing[4])*1000));
         msg.setUserTime(new Date(((long)inComing[5])*1000));
@@ -497,7 +499,7 @@ public class cMsgClientListeningThread extends Thread {
 
 
     /**
-     * This method wakes up an active sendAndGet method.
+     * This method wakes up an active sendAndGet method and delivers a message to it.
      *
      * @param msg incoming message
      */
@@ -530,7 +532,8 @@ public class cMsgClientListeningThread extends Thread {
 
 
     /**
-     * This method wakes up an active sendAndGet method.
+     * This method wakes up an active sendAndGet method and supplies
+     * a null message to the client associated with senderToken.
      *
      * @param senderToken sendAndGet caller to wake up
      */

@@ -412,7 +412,8 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
             outGoing[1] = msg.getVersion();
             outGoing[2] = msg.getPriority();
             outGoing[3] = msg.getUserInt();
-            outGoing[4] = msg.isGetRequest() ? 1 : 0;
+            //outGoing[4] = msg.isGetRequest() ? 1 : 0;
+            outGoing[4] = msg.getInfo();
             outGoing[5] = (int) (msg.getSenderTime().getTime() / 1000L);
             outGoing[6] = (int) (msg.getUserTime().getTime() / 1000L);
             outGoing[7] = msg.getSysMsgId();
@@ -422,8 +423,6 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
             outGoing[11] = msg.getSubject().length();
             outGoing[12] = msg.getType().length();
             outGoing[13] = msg.getText().length();
-//            System.out.println("Sending creator = " + msg.getCreator() + ", len = " +
-//                               msg.getCreator().length());
             outGoing[14] = msg.getCreator().length();
             outGoing[15] = size;  // number of receiverSubscribeIds to be sent
 
