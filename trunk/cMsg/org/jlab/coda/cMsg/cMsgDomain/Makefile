@@ -17,12 +17,9 @@ JAVA_OBJS = \
 	cMsgNetworkConstants.class \
 	cMsgUtilities.class \
 	cMsgCallbackThread.class \
-	cMsgClientInfo.class \
 	cMsgSubscription.class \
 	cMsgClientListeningThread.class \
 	cMsgMonitorClient.class \
-	cMsgSubdomainHandler.class \
-	cMsgSubdomainAdapter.class \
 	cMsgNameServer.class \
 	cMsgDomainServer.class \
 	cMsg.class
