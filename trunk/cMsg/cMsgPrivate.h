@@ -66,7 +66,7 @@ typedef struct cMsgDomain_t {
   /* init state */
   int initComplete; /* 0 = No, 1 = Yes */
   int id;           /* index into an array of this domain structure */
-  int implId;       /* index into the array of the domain implementation struct */
+  int implId;       /* index into the array of the implementation domain struct */
 
   /* other state variables */
   int receiveState;
@@ -96,7 +96,7 @@ typedef struct cMsg_t {
   int     sysMsgId;         /* set by system */
   
   char   *sender;
-  int     senderId;         /* in case fred dies and resurrects */
+  int     senderId;         /* in case fred dies and resurrects - not necessary! */
   char   *senderHost;
   time_t  senderTime;
   int     senderMsgId;      /* set by client system */
