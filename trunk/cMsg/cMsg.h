@@ -259,10 +259,10 @@
 
 /* debug levels */
 #define CMSG_DEBUG_NONE    0
-#define CMSG_DEBUG_INFO    1
-#define CMSG_DEBUG_WARN    2
-#define CMSG_DEBUG_ERROR   3
-#define CMSG_DEBUG_SEVERE  4
+#define CMSG_DEBUG_SEVERE  1
+#define CMSG_DEBUG_ERROR   2
+#define CMSG_DEBUG_WARN    3
+#define CMSG_DEBUG_INFO    4
 
 
 /* sccs id */
@@ -305,6 +305,7 @@ extern "C" {
   int      cMsgFreeMessage(void *msg);
   void    *cMsgCreateMessage(void);
   void    *cMsgCopyMessage(void *msg);
+  void     cMsgInitMessage(void *msg);
 
   int      cMsgGetSysMsgId(void *msg);
 
@@ -363,7 +364,8 @@ enum {
   CMSG_LIMIT_EXCEEDED,
   CMSG_BAD_DOMAIN_ID,
   CMSG_BAD_MESSAGE,
-  CMSG_WRONG_DOMAIN_TYPE
+  CMSG_WRONG_DOMAIN_TYPE,
+  CMSG_NO_CLASS_FOUND
 };
 
 
