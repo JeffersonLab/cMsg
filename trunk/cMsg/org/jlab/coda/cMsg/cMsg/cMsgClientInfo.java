@@ -51,6 +51,9 @@ public class cMsgClientInfo {
     /** Collection of all message subscriptions. */
     HashSet subscriptions = new HashSet(20);
 
+    /** Collection of all message subscriptions. */
+    HashSet gets = new HashSet(20);
+
 
     cMsgClientInfo() {}
     
@@ -88,6 +91,14 @@ public class cMsgClientInfo {
      */
     public HashSet getSubscriptions() {
         return subscriptions;
+    }
+
+    /**
+     * Gets HashSet collection of all message gets.
+     * @return HashSet of all message gets
+     */
+    public HashSet getGets() {
+        return gets;
     }
 
     /**
