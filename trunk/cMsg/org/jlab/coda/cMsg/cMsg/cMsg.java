@@ -88,6 +88,21 @@ public class cMsg extends cMsgImpl {
     /** Used to create unique id numbers associated with a specific message subject/type pair. */
     private int uniqueId;
 
+    /** The subdomain server object or client handler implements {@link #send}. */
+    private boolean hasSend;
+
+    /** The subdomain server object or client handler implements {@link #syncSend}. */
+    private boolean hasSyncSend;
+
+    /** The subdomain server object or client handler implements {@link #get}. */
+    private boolean hasGet;
+
+    /** The subdomain server object or client handler implements {@link #subscribe}. */
+    private boolean hasSubscribe;
+
+    /** The subdomain server object or client handler implements {@link #unsubscribe}. */
+    private boolean hasUnsubscribe;
+
     /** Level of debug output for this class. */
     int debug = cMsgConstants.debugError;
 
@@ -336,7 +351,13 @@ public class cMsg extends cMsgImpl {
      */
     synchronized public void send(cMsgMessage message) throws cMsgException {
 
-        if (!connected) return;
+        if (!connected) {
+            throw new cMsgException("not connected to server");
+        }
+
+        if (!hasSend) {
+            throw new cMsgException("send is not implemented by this subdomain");
+        }
 
         int outGoing[] = new int[9];
         // message id to domain server
@@ -403,6 +424,86 @@ public class cMsg extends cMsgImpl {
 //-----------------------------------------------------------------------------
 
 
+
+    /**
+     * Method to send a message to the domain server for further distribution
+     * and wait for a response from the subdomain handler that got it.
+     *
+     * @param message message
+     * @return response from subdomain handler
+     * @throws cMsgException
+     */
+    synchronized public int syncSend(cMsgMessage message) throws cMsgException {
+
+        if (!connected) {
+            throw new cMsgException("not connected to server");
+        }
+
+        if (!hasSyncSend) {
+            throw new cMsgException("send is not implemented by this subdomain");
+        }
+
+        int outGoing[] = new int[9];
+        // message id to domain server
+        outGoing[0] = cMsgConstants.msgSyncSendRequest;
+        // system message
+        outGoing[1] = message.getSysMsgId();
+        // sender id
+        outGoing[2] = message.getSenderId();
+        // time message sent (right now)
+        outGoing[3] = (int) ((new Date()).getTime());
+        // sender message id
+        outGoing[4] = message.getSenderMsgId();
+        // sender token
+        outGoing[5] = message.getSenderToken();
+
+        // length of "subject" string
+        outGoing[6] = message.getSubject().length();
+        // length of "type" string
+        outGoing[7] = message.getType().length();
+        // length of "text" string
+        outGoing[8] = message.getText().length();
+
+        // get ready to write
+        buffer.clear();
+        // send ints over together using view buffer
+        buffer.asIntBuffer().put(outGoing);
+        // position original buffer at position of view buffer
+        buffer.position(36);
+
+        // write strings
+        try {
+            buffer.put(message.getSubject().getBytes("US-ASCII"));
+            buffer.put(message.getType().getBytes("US-ASCII"));
+            buffer.put(message.getText().getBytes("US-ASCII"));
+        }
+        catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            // send buffer over the socket
+            buffer.flip();
+            while (buffer.hasRemaining()) {
+                domainChannel.write(buffer);
+            }
+            // read acknowledgment - 1 int of data
+            cMsgUtilities.readSocketBytes(buffer, domainChannel, 4, debug);
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
+        }
+
+        // go back to reading-from-buffer mode
+        buffer.flip();
+
+        int response = buffer.getInt();
+        return response;
+
+    }
+
+
+//-----------------------------------------------------------------------------
     /**
      * Method to force cMsg client to send pending communications with domain server.
      * In the cMsg domain implementation, this method does nothing.
@@ -428,7 +529,13 @@ public class cMsg extends cMsgImpl {
     synchronized public void subscribe(String subject, String type, cMsgCallback cb, Object userObj)
             throws cMsgException {
 
-        if (!connected) return;
+        if (!connected) {
+            throw new cMsgException("not connected to server");
+        }
+
+        if (!hasSend) {
+            throw new cMsgException("subscribe is not implemented by this subdomain");
+        }
 
         // add to callback list if subscription to same subject/type exists
 
@@ -524,7 +631,14 @@ public class cMsg extends cMsgImpl {
     synchronized public void unsubscribe(String subject, String type, cMsgCallback cb)
             throws cMsgException {
 
-        if (!connected) return;
+        if (!connected) {
+            throw new cMsgException("not connected to server");
+        }
+
+        if (!hasSend) {
+            throw new cMsgException("unsubscribe is not implemented by this subdomain");
+        }
+
 
         // look for and remove any subscription to subject/type with this callback object
 
@@ -673,16 +787,26 @@ public class cMsg extends cMsgImpl {
             throw new cMsgException(cMsgUtilities.printError(error, cMsgConstants.debugNone));
         }
 
-        // Since everything's OK, we expect to get domain server host & port.
+        // Since everything's OK, we expect to get:
+        //   1) attributes of subdomain handler object
+        //   2) domain server host & port
+
+        // Read attributes
+        cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
+        buffer.flip();
+
+        hasSend        = (buffer.get() == (byte)1) ? true : false;
+        hasGet         = (buffer.get() == (byte)1) ? true : false;
+        hasSubscribe   = (buffer.get() == (byte)1) ? true : false;
+        hasUnsubscribe = (buffer.get() == (byte)1) ? true : false;
+
         // Read port & length of host name.
-
-        // read 2 ints of data
+        // first read 2 ints of data
         cMsgUtilities.readSocketBytes(buffer, channel, 8, debug);
-
         buffer.flip();
 
         domainServerPort = buffer.getInt();
-        int hostLength = buffer.getInt();
+        int hostLength   = buffer.getInt();
 
         // read host name
         cMsgUtilities.readSocketBytes(buffer, channel, hostLength, debug);
