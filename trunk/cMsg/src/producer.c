@@ -23,87 +23,94 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <time.h>
-#ifdef sun
-#include <thread.h>
-#endif
 
 #include "cMsg.h"
 
 
-#define DOUBLE_MAX   1.7976931348623157E+308
-#define NUMLOOPS 20000
-
-
 int main(int argc,char **argv) {  
-  char *myName = "VX-producer";
-  char *myDescription = "produce messages as fast as possible";
-  int err, domainId = -1;
+
+  char *myName = "C Producer";
+  char *myDescription = "C producer";
+  char *subject = "SUBJECT";
+  char *type    = "TYPE";
+  char *text    = "TEXT";
+  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
+  int   err, debug=1, domainId = -1;
   void *msg;
   
-  /* freq measuring variables */
-  int             iterations=1, count=1, i;
-  double          freq=0.0, freq_tot=0.0, freq_avg=0.0;
+  /* msg rate measuring variables */
+  int             count, i, delay=0, loops=20000;
   struct timespec t1, t2;
-  double          time;
+  double          freq, freqAvg=0., deltaT, totalT=0.;
+  long long       totalC=0;
   
   
   if (argc > 1) {
     myName = argv[1];
   }
-  /* printf("My name is %s\n", myName);*/
   
-  /* printf("cMsgConnect ...\n"); */
-  err = cMsgConnect("cMsg:cMsg://aslan:3456/cMsg/vx", myName, myDescription, &domainId);
-  if (err != CMSG_OK) {
-    /* printf("cMsgConnect: %s\n",cMsgPerror(err)); */
-    fflush(stdout);
-    exit(1);
+  if (debug) {
+    printf("Running the cMsg producer, \"%s\"\n", myName);
   }
-  /* printf("\n"); */
   
+  /* connect to cMsg server */
+  err = cMsgConnect(UDL, myName, myDescription, &domainId);
+  if (err != CMSG_OK) {
+      if (debug) {
+          printf("cMsgConnect: %s\n",cMsgPerror(err));
+      }
+      exit(1);
+  }
+  
+  /* create message to be sent */
   msg = cMsgCreateMessage();
-  cMsgSetSubject(msg, "SUBJECT");
-  cMsgSetType(msg, "TYPE");
-  cMsgSetText(msg, "Message 1");
-  /* printf("\n"); */
+  cMsgSetSubject(msg, subject);
+  cMsgSetType(msg, type);
+  cMsgSetText(msg, text);
+  
+  if (delay != 0) {
+      loops = loops/(2000*delay);      
+  }
   
   while (1) {
-      /* read time for future statistics calculations */
+      count = 0;
+      
+      /* read time for rate calculations */
       clock_gettime(CLOCK_REALTIME, &t1);
 
-      for (i=0; i < NUMLOOPS; i++) {
-          err = cMsgSend(domainId, msg);
-          if (err != CMSG_OK) {
+      for (i=0; i < loops; i++) {
+          /* send msg */
+          if (cMsgSend(domainId, msg) != CMSG_OK) {
             printf("cMsgSend: %s\n",cMsgPerror(err));
             fflush(stdout);
             goto end;
           }
+          cMsgFlush(domainId);
+          count++;
+          
+          if (delay != 0) {
+              sleep(delay);
+          }          
       }
 
-      /* statistics */
+      /* rate */
       clock_gettime(CLOCK_REALTIME, &t2);
-      time = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
-      freq = (count*NUMLOOPS)/time;
-      if ((DOUBLE_MAX - freq_tot) < freq) {
-        freq_tot   = 0.0;
-	iterations = 1;
-      }
-      freq_tot += freq;
-      freq_avg = freq_tot/(double)iterations;
-      iterations++;
+      deltaT  = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
+      totalT += deltaT;
+      totalC += count;
+      freq    = count/deltaT;
+      freqAvg = (double)totalC/totalT;
       
-      printf("%s: %9.0f Hz,  %9.0f Hz Avg.\n", argv[0], freq, freq_avg);
+      printf("count = %d, %9.0f Hz, %9.0f Hz Avg.\n", count, freq, freqAvg);
   } 
   
   end:
   
-  /* printf("cMsgDisconnect ...\n\n\n"); */
   err = cMsgDisconnect(domainId);
   if (err != CMSG_OK) {
-    /*
-    printf("%s\n",cMsgPerror(err));
-    fflush(stdout);
-    */
+      if (debug) {
+          printf("%s\n",cMsgPerror(err));
+      }
   }
     
   return(0);
