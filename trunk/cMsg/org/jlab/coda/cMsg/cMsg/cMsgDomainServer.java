@@ -273,6 +273,7 @@ public class cMsgDomainServer extends Thread {
      */
     private void handleClient(SocketChannel channel) {
         int msgId = 0;
+        cMsgMessage msg;
 
         try {
             // keep reading until we have an int (4 bytes) of data
@@ -293,8 +294,17 @@ public class cMsgDomainServer extends Thread {
                     if (debug >= cMsgConstants.debugInfo) {
                         System.out.println("dServer handleClient: got send request from " + info.name);
                     }
-                    cMsgMessage msg = readIncomingMessage(channel);
+                    msg = readIncomingMessage(channel);
                     clientHandler.handleSendRequest(msg);
+                    break;
+
+                case cMsgConstants.msgSyncSendRequest: // receiving a message
+                    // read the message here
+                    if (debug >= cMsgConstants.debugInfo) {
+                        System.out.println("dServer handleClient: got send request from " + info.name);
+                    }
+                    msg = readIncomingMessage(channel);
+                    clientHandler.handleSyncSendRequest(msg);
                     break;
 
                 case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
