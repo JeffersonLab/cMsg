@@ -421,9 +421,16 @@ public class cMsg extends cMsgDomainAdapter {
                 while (sendBuffer.hasRemaining()) {
                     domainChannel.write(sendBuffer);
                 }
+                sendBuffer.rewind();
+                while (sendBuffer.hasRemaining()) {
+                    keepAliveChannel.write(sendBuffer);
+                }
             }
             catch (IOException e) {
             }
+
+            try { Thread.sleep(100); }
+            catch (InterruptedException e) {}
 
             // stop listening and client communication thread & close channel
             listeningThread.killThread();
@@ -580,7 +587,7 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             if (!hasSyncSend) {
-                throw new cMsgException("send is not implemented by this subdomain");
+                throw new cMsgException("sync send is not implemented by this subdomain");
             }
 
             String subject = message.getSubject();
@@ -1350,12 +1357,8 @@ public class cMsg extends cMsgDomainAdapter {
             // read string
             buffer.get(buf, 0, len);
             String err = new String(buf, 0, len, "US-ASCII");
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  error code = " + error + ", string = " + err);
-            }
 
-            throw new cMsgException(cMsgUtilities.printError(error, cMsgConstants.debugNone) +
-                                    ": " + err);
+            throw new cMsgException("Error from server: " + err);
         }
 
         // Since everything's OK, we expect to get:
@@ -1513,7 +1516,7 @@ class KeepAlive extends Thread {
     private SocketChannel channel;
 
     /** A direct buffer is necessary for nio socket IO. */
-    private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+    private ByteBuffer buffer = ByteBuffer.allocateDirect(8);
 
     /** cMsg client object. */
     private cMsg client;
@@ -1572,8 +1575,8 @@ class KeepAlive extends Thread {
                 // read 1 int
                 buffer.getInt();
 
-               // sleep for 3 seconds and try again
-               try {Thread.sleep(3000);}
+               // sleep for 1 second and try again
+               try {Thread.sleep(1000);}
                catch (InterruptedException e) {}
             }
         }
