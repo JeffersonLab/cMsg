@@ -117,9 +117,9 @@ typedef struct cMsg_t {
 /* system msg id types */
 enum msgId {
   CMSG_SERVER_CONNECT     = 0,
+  CMSG_SERVER_DISCONNECT,
   CMSG_SERVER_RESPONSE,
   CMSG_KEEP_ALIVE,
-  CMSG_HEARTBEAT,
   CMSG_SHUTDOWN,
   CMSG_GET_REQUEST,
   CMSG_GET_RESPONSE,
