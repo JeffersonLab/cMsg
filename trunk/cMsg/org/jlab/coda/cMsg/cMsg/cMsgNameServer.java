@@ -179,8 +179,8 @@ public class cMsgNameServer extends Thread {
 
         // If it wasn't given on the command line,
         // check the appropriate environmental variable.
-        Jgetenv env = null;
         try {
+            Jgetenv env = new Jgetenv();
             if (clientHandlerClass == null) {
                 clientHandlerClass = env.echo("CMSG_HANDLER");
             }
