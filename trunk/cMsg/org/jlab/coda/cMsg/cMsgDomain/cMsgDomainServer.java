@@ -560,10 +560,10 @@ public class cMsgDomainServer extends Thread {
 
             // time message was sent = 2 ints (hightest byte first)
             // in milliseconds since midnight GMT, Jan 1, 1970
-            long time = ((long)inComing[6] << 32) | inComing[7];
+            long time = ((long)inComing[6] << 32) | ((long)inComing[7] & 0x00000000FFFFFFFFL);
             msg.setSenderTime(new Date(time));
             // user time
-            time = ((long)inComing[8] << 32) | inComing[9];
+            time = ((long)inComing[8] << 32) | ((long)inComing[9] & 0x00000000FFFFFFFFL);
             msg.setUserTime(new Date(time));
 
             int lengthSubject = inComing[10];
