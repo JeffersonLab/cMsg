@@ -18,15 +18,24 @@
 *             Fax:   (757) 269-5800             Newport News, VA 23606       *
 *                                                                            *
 *----------------------------------------------------------------------------*/
-// cMsg callback interface definition for cMsg system
 
 package org.jlab.coda.cMsg;
 
+/**
+ * This interface provides an API for the client callbacks in the cMsg system.
+ *
+ * @author Carl Timmer
+ * @version 1.0
+ */
 public interface cMsgCallback {
-
+    /**
+     * Callback method definition.
+     *
+     * @param msg message received from domain server
+     * @param userObject object passed as an argument which was set when the
+     *                   client orginally subscribed to a subject and type of
+     *                   message.
+     */
     public void callback(cMsgMessage msg, Object userObject);
 
-
-//-----------------------------------------------------------------------------
-}        //  end interface definition
-//-----------------------------------------------------------------------------
+}
