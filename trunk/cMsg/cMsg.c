@@ -246,6 +246,22 @@ int cMsgSend(int domainId, void *msg) {
 /*-------------------------------------------------------------------*/
 
 
+int cMsgSyncSend(int domainId, void *msg, int *response) {
+  
+  int id = domainId - DOMAIN_ID_OFFSET;
+  
+  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
+  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
+  if (msg == NULL || response == NULL) return(CMSG_BAD_ARGUMENT);
+
+  /* dispatch to function registered for this domain type */
+  return(domains[id].functions->syncSend(domains[id].id, msg, response));
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
 int cMsgFlush(int domainId) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
@@ -771,6 +787,8 @@ static void initMessage(cMsgMessage *msg) {
     
     if (msg == NULL) return;
     
+    msg->getRequest   = 0;
+    msg->getResponse  = 0;
     msg->sysMsgId     = 0;
 
     msg->sender       = NULL;
@@ -885,6 +903,20 @@ int cMsgSetSender(void *vmsg, char *sender) {
 /*-------------------------------------------------------------------*/
 
 
+int cMsgSetGetRequest(void *vmsg, int getRequest) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  msg->getRequest = getRequest;
+
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
 int cMsgFreeMessage(void *vmsg) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
@@ -916,7 +948,9 @@ int cMsgFreeMessage(void *vmsg) {
       return NULL;
     }
     
-    newMsg->sysMsgId = msg->sysMsgId;
+    newMsg->sysMsgId    = msg->sysMsgId;
+    newMsg->getRequest  = msg->getRequest;
+    newMsg->getResponse = msg->getResponse;
     
     if (msg->sender != NULL) newMsg->sender = (char *) strdup(msg->sender);
     else                     newMsg->sender = NULL;
@@ -970,25 +1004,8 @@ int cMsgFreeMessage(void *vmsg) {
     if (msg->subject != NULL)      free(msg->subject);
     if (msg->type != NULL)         free(msg->type);
     if (msg->text != NULL)         free(msg->text);
-
-    msg->sysMsgId     = 0;
-
-    msg->sender       = NULL;
-    msg->senderId     = 0;
-    msg->senderHost   = NULL;
-    msg->senderTime   = 0;
-    msg->senderMsgId  = 0;
-    msg->senderToken  = 0;
-
-    msg->receiver     = NULL;
-    msg->receiverHost = NULL;
-    msg->receiverTime = 0;
-    msg->receiverSubscribeId = 0;
-
-    msg->domain  = NULL;
-    msg->subject = NULL;
-    msg->type    = NULL;
-    msg->text    = NULL;    
+    
+    initMessage(msg);
   }
 
 
@@ -1001,6 +1018,30 @@ int cMsgGetSysMsgId(void *vmsg) {
 
   if (msg == NULL) return(-1);
   return(msg->sysMsgId);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cMsgGetGetRequest(void *vmsg) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(-1);
+  return(msg->getRequest);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cMsgGetGetResponse(void *vmsg) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(-1);
+  return(msg->getResponse);
 }
 
 
