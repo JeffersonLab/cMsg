@@ -234,21 +234,6 @@ public class tcpserver extends cMsgSubdomainAdapter{
 
 
 //-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle keepalive sent by domain client checking to see
-     * if the domain server socket is still up. Normally nothing needs to
-     * be done as the domain server simply returns an "OK" to all keepalives.
-     * This method is run after all exchanges between domain server and client.
-     */
-    public void handleKeepAlive() {
-        // do nothing...
-    }
-
-
-
-//-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 }
 
