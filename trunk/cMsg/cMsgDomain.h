@@ -17,8 +17,8 @@
  *
  *----------------------------------------------------------------------------*/
  
-#ifndef __cMsg_CODA_h
-#define __cMsg_CODA_h
+#ifndef __cMsgDomain_h
+#define __cMsgDomain_h
 
 #include "cMsg.h"
 
@@ -82,12 +82,13 @@ typedef struct getInfo_t {
 
 /* structure containing all domain info */
 typedef struct cMsgDomain_CODA_t {  
-  int initComplete;  /* 0 = No, 1 = Yes */
+  
   int id;
   
-  /* other state variables */
-  int receiveState;
-  int lostConnection;
+  /* state variables */
+  volatile int initComplete;  /* 0 = No, 1 = Yes */
+  volatile int receiveState;
+  volatile int lostConnection;
   
   int sendSocket;      /* file descriptor for TCP socket to send messages on */
   int listenSocket;    /* file descriptor for socket this program listens on for TCP connections */
@@ -115,7 +116,8 @@ typedef struct cMsgDomain_CODA_t {
   pthread_t pendThread;      /* listening thread */
   pthread_t keepAliveThread; /* thread sending keep alives to server */
   
-  pthread_mutex_t sendMutex;      /* mutex to ensure thread-safety of send socket */
+  pthread_mutex_t socketMutex;    /* mutex to ensure thread-safety of socket use */
+  pthread_mutex_t syncSendMutex;  /* mutex to ensure thread-safety of syncSends */
   pthread_mutex_t subscribeMutex; /* mutex to ensure thread-safety of (un)subscribes */
   
   /* array of structures - each of which contain a subscription */
