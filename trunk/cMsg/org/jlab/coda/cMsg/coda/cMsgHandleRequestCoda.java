@@ -152,6 +152,9 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
                     // Deliver this msg to this client. If there
                     //  is no socket connection, make one.
                     if (info.channel == null) {
+                        if (debug >= cMsgConstants.debugInfo) {
+                            System.out.println("handleSendRequest: make a socket connection to " + client);
+                        }
                         try {
                             channel = SocketChannel.open(new InetSocketAddress(info.clientHost,
                                                                                info.clientPort));
@@ -290,7 +293,7 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
         buffer.clear();
 
         // write 12 ints
-        int[] outGoing = new int[12];
+        int outGoing[] = new int[12];
         outGoing[0]  = cMsgConstants.msgSubscribeResponse;
         outGoing[1]  = msg.getSysMsgId();
         outGoing[2]  = id;
@@ -307,24 +310,29 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
 
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("    DELIVERING MESSAGE");
-            System.out.println("      msg: " + cMsgConstants.msgSubscribeResponse);
-            System.out.println("      SysMsgId: " + msg.getSysMsgId());
-            System.out.println("      ReceiverSubscribeId: " + id);
-            System.out.println("      SenderId: " + msg.getSenderId());
-            System.out.println("      Time: " + ((new Date()).getTime())/1000L);
-            System.out.println("      SenderMsgId: " + msg.getSenderMsgId());
-            System.out.println("      SenderToken: " + msg.getSenderToken());
-            System.out.println("      Sender length: " + msg.getSender().length());
-            System.out.println("      SenderHost length: " + msg.getSenderHost().length());
-            System.out.println("      Subject length: " + msg.getSubject().length());
-            System.out.println("      Type length: " + msg.getType().length());
-            System.out.println("      Text length: " + msg.getText().length());
+            System.out.println("      msg: " +                 outGoing[0]);
+            System.out.println("      SysMsgId: " +            outGoing[1]);
+            System.out.println("      ReceiverSubscribeId: " + outGoing[2]);
+            System.out.println("      SenderId: " +            outGoing[3]);
+            System.out.println("      Time: " +                outGoing[4]);
+            System.out.println("      SenderMsgId: " +         outGoing[5]);
+            System.out.println("      SenderToken: " +         outGoing[6]);
+            System.out.println("      Sender length: " +       outGoing[7]);
+            System.out.println("      SenderHost length: " +   outGoing[8]);
+            System.out.println("      Subject length: " +      outGoing[9]);
+            System.out.println("      Type length: " +         outGoing[10]);
+            System.out.println("      Text length: " +         outGoing[11]);
         }
 
+        // send ints over together using view buffer
         buffer.asIntBuffer().put(outGoing);
+
+        // position original buffer at position of view buffer
+        buffer.position(48);
 
         // write strings
         try {
+            //buffer.put("blah blah".getBytes("US-ASCII"));
             buffer.put(msg.getSender().getBytes("US-ASCII"));
             buffer.put(msg.getSenderHost().getBytes("US-ASCII"));
             buffer.put(msg.getSubject().getBytes("US-ASCII"));
