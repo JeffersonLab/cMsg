@@ -132,9 +132,9 @@ public class cMsgLogger {
         decode_command_line(args, logger);
 
         // connect to cMsg server
-        cMsgConnect cmsg = null;
+        cMsg cmsg = null;
         try {
-            cmsg = new cMsgConnect(logger.domain, logger.name, logger.description);
+            cmsg = new cMsg(logger.domain, logger.name, logger.description);
         }
         catch (cMsgException e) {
             e.printStackTrace();

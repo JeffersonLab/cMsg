@@ -2,7 +2,7 @@ package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessage;
-import org.jlab.coda.cMsg.cMsgConnect;
+import org.jlab.coda.cMsg.cMsg;
 
 /**
  * Created by IntelliJ IDEA.
@@ -84,7 +84,7 @@ public class cMsgProducer {
 
         String UDL = "cMsg:cMsg://aslan:3456/cMsg";
 
-        cMsgConnect coda = new cMsgConnect(UDL, name, "message producer");
+        cMsg coda = new cMsg(UDL, name, "message producer");
         coda.connect();
 
         cMsgMessage msg = new cMsgMessage();

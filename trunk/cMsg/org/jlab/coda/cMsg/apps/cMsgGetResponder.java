@@ -14,7 +14,7 @@ import java.util.Date;
 public class cMsgGetResponder {
     String name;
     long count;
-    cMsgConnect coda;
+    cMsg coda;
 
     cMsgGetResponder(String name) {
         this.name = name;
@@ -61,7 +61,6 @@ public class cMsgGetResponder {
             catch (cMsgException e) {
                 e.printStackTrace();
             }
-            //System.out.println(".");
         }
 
         public boolean maySkipMessages() {
@@ -90,7 +89,7 @@ public class cMsgGetResponder {
         String UDL = "cMsg:cMsg://aslan:3456/cMsg";
 
         System.out.print("Try to connect ...");
-        coda = new cMsgConnect(UDL, name, "getResponder");
+        coda = new cMsg(UDL, name, "getResponder");
         coda.connect();
         System.out.println(" done");
 
