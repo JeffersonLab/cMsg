@@ -393,7 +393,7 @@ public class cMsgDomainServer extends Thread {
          */
         public void run() {
             int msgId;
-            boolean isSubscribe = false;
+            boolean isSubscribe;
 
             try {
                 while (true) {
@@ -426,6 +426,7 @@ public class cMsgDomainServer extends Thread {
                     msgId = buffer.getInt();
 
                     cMsgHolder holder = null;
+                    isSubscribe = false;
 
                     switch (msgId) {
 
@@ -457,6 +458,7 @@ public class cMsgDomainServer extends Thread {
 
                         case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
                             holder = readSubscribeInfo(channel);
+                            isSubscribe = true;
                             break;
 
                         case cMsgConstants.msgKeepAlive: // see if this end is still here
@@ -477,6 +479,14 @@ public class cMsgDomainServer extends Thread {
                             }
                             return;
 
+                        case cMsgConstants.msgShutdown: // tell server to shutdown
+                            // need to shutdown this domain server
+                            if (calledShutdown.compareAndSet(false,true)) {
+                                //System.out.println("SHUTDOWN TO BE RUN BY msgShutdown");
+                                shutdown();
+                            }
+                            return;
+
                         default:
                             if (debug >= cMsgConstants.debugWarn) {
                                 System.out.println("dServer handleClient: can't understand your message " + info.getName());
@@ -489,17 +499,12 @@ public class cMsgDomainServer extends Thread {
                     if (holder != null) {
                         holder.request = msgId;
                         if (isSubscribe) {
-                            try {
-                                subscribeCue.put(holder);
-                            }
-                            catch (InterruptedException e) {
-                            }
-                            return;
+                            try {subscribeCue.put(holder);}
+                            catch (InterruptedException e) {}
                         }
-                        try {
-                            requestCue.put(holder);
-                        }
-                        catch (InterruptedException e) {
+                        else {
+                            try {requestCue.put(holder);}
+                            catch (InterruptedException e) {}
                         }
                     }
 
