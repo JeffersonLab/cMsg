@@ -68,7 +68,7 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
 
     /** UDL remainder. */
     private String myUDLRemainder = null;
-    
+
 
     /** for smartsockets. */
     private TipcSrv mySrv     = null;
@@ -81,58 +81,58 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
 
     /** smartsockets callback delivers message to client. */
     private class ProcessCb implements TipcProcessCb {
-	public void process(TipcMsg msg, Object arg) { 	
-	    ArrayList subscribeList = new ArrayList(1);
-	    try {
-		msg.setCurrent(0);
-		cMsgMessage cmsg = new cMsgMessage();
+        public void process(TipcMsg msg, Object arg) {
+            ArrayList subscribeList = new ArrayList(1);
+            try {
+                msg.setCurrent(0);
+                cMsgMessage cmsg = new cMsgMessage();
 
-		cmsg.setDomain("cMsg");                   // just use domain for now
-		cmsg.setSysMsgId(msg.getSeqNum());
-		cmsg.setSender(msg.getSender());
-		cmsg.setSenderHost("unknown");            // no easy way to get this
-		cmsg.setSenderTime(new Date((long)msg.getSenderTimestamp()*1000));
-		//  cmsg.setSenderId(msg.getStreamID());  // no field matches
-		cmsg.setSenderMsgId(msg.getSeqNum());
-		cmsg.setReceiver(myClientInfo.getName());
-		cmsg.setReceiverHost(myClientInfo.getClientHost());
-		cmsg.setReceiverTime(new Date());
-		cmsg.setReceiverSubscribeId(((Integer)arg).intValue());
-		cmsg.setSubject(msg.getDest());
-		cmsg.setType(msg.getType().getName());
-		cmsg.setText(msg.nextStr());
+                cmsg.setDomain("cMsg");                   // just use domain for now
+                cmsg.setSysMsgId(msg.getSeqNum());
+                cmsg.setSender(msg.getSender());
+                cmsg.setSenderHost("unknown");            // no easy way to get this
+                cmsg.setSenderTime(new Date((long)msg.getSenderTimestamp()*1000));
+                //  cmsg.setSenderId(msg.getStreamID());  // no field matches
+                cmsg.setSenderMsgId(msg.getSeqNum());
+                cmsg.setReceiver(myClientInfo.getName());
+                cmsg.setReceiverHost(myClientInfo.getClientHost());
+                cmsg.setReceiverTime(new Date());
+                cmsg.setReceiverSubscribeId(((Integer)arg).intValue());
+                cmsg.setSubject(msg.getDest());
+                cmsg.setType(msg.getType().getName());
+                cmsg.setText(msg.nextStr());
 
-		subscribeList.add((Integer)arg);  // add receiver subscribe ID to list
-		deliverMessage(myClientInfo.getChannel(),myBuffer,cmsg,subscribeList,cMsgConstants.msgSubscribeResponse);
+                subscribeList.add((Integer)arg);  // add receiver subscribe ID to list
+                deliverMessage(myClientInfo.getChannel(),myBuffer,cmsg,subscribeList,cMsgConstants.msgSubscribeResponse);
 
-	    } catch (TipcException e) {
-		System.err.println(e);
+            } catch (TipcException e) {
+                System.err.println(e);
 
-	    } catch (IOException e) {
-		System.err.println(e);
-	    }
-	}
+            } catch (IOException e) {
+                System.err.println(e);
+            }
+        }
     }
 
 
     /** for smartsockets main loop. */
     private class MainLoop extends Thread {
-	public void run() {
- 	    try {
-		while(!done) {
-		    mySrv.mainLoop(0.5);
- 		}
-	    } catch (TipcException e) {
-		System.err.println(e);
-	    }
-	    System.out.println("...main loop done");
-	}
+        public void run() {
+            try {
+                while(!done) {
+                    mySrv.mainLoop(0.5);
+                }
+            } catch (TipcException e) {
+                System.err.println(e);
+            }
+            System.out.println("...main loop done");
+        }
     }
 
 
     // for counting subscriptions in subject hash
     private class MyInt {
-	int count;
+        int count;
     }
 
 
@@ -225,7 +225,7 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
         myUDLRemainder=UDLRemainder;
     }
-    
+
 
 //-----------------------------------------------------------------------------
 
@@ -238,40 +238,41 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
 
-	myClientInfo = info;
+        myClientInfo = info;
 
 
-	// extract project from UDL remainder
-	if(myUDLRemainder.indexOf("?")>0) {
-	    Pattern p = Pattern.compile("^(.+?)(\\?)(.*)$");
-	    Matcher m = p.matcher(myUDLRemainder);
-	    m.find();
-	    myProject = m.group(1);
-	} else {
-	    myProject = myUDLRemainder;
-	}
+        // extract project from UDL remainder
+        if(myUDLRemainder.indexOf("?")>0) {
+            Pattern p = Pattern.compile("^(.+?)(\\?)(.*)$");
+            Matcher m = p.matcher(myUDLRemainder);
+            m.find();
+            myProject = m.group(1);
+        } else {
+            myProject = myUDLRemainder;
+        }
 
 
-	// connect to server
-	try {
-	    mySrv=TipcSvc.createSrv();
-	    mySrv.setOption("ss.project",         myProject);
-	    mySrv.setOption("ss.unique_subject",  myClientInfo.getName());
-	    if(!mySrv.create())throw new cMsgException("?unable to connect to server");
+        // connect to server
+        try {
+            mySrv=TipcSvc.createSrv();
+            mySrv.setOption("ss.project",         myProject);
+            mySrv.setOption("ss.unique_subject",  myClientInfo.getName());
+            mySrv.setOption("ss.monitor_ident",   myClientInfo.getDescription());
+            if(!mySrv.create())throw new cMsgException("?unable to connect to server");
 
-	} catch (TipcException e) {
-	    e.printStackTrace();
-	    System.err.println(e);
-	    cMsgException ce = new cMsgException(e.toString());
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+        } catch (TipcException e) {
+            e.printStackTrace();
+            System.err.println(e);
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        }
 
 
-	// launch server main loop in its own thread
-	(new MainLoop()).start();
+        // launch server main loop in its own thread
+        (new MainLoop()).start();
     }
-    
+
 
 
 //-----------------------------------------------------------------------------
@@ -285,49 +286,49 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
      */
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
 
-	String type = msg.getType();
-	TipcMt mt   = null;
+        String type = msg.getType();
+        TipcMt mt   = null;
 
 
-	// form smartsockets message type
-	if(type.matches("\\d+")) {
-	    mt=TipcSvc.lookupMt(Integer.parseInt(type));
-	    if(mt==null) {
-		try {
-		    mt=TipcSvc.createMt(type,Integer.parseInt(type),"verbose");
-		} catch (TipcException e) {
-		    cMsgException ce = new cMsgException("?unable to create message type: " + type);
-		    ce.setReturnCode(1);
-		    throw ce;
-		}
-	    }
-	} else {
-	    mt=TipcSvc.lookupMt(type);
-	    if(mt==null) {
-		cMsgException ce = new cMsgException("?unknown message type: " + type);
-		ce.setReturnCode(1);
-		throw ce;
-	    }
-	}
-	
+        // form smartsockets message type
+        if(type.matches("\\d+")) {
+            mt=TipcSvc.lookupMt(Integer.parseInt(type));
+            if(mt==null) {
+                try {
+                    mt=TipcSvc.createMt(type,Integer.parseInt(type),"verbose");
+                } catch (TipcException e) {
+                    cMsgException ce = new cMsgException("?unable to create message type: " + type);
+                    ce.setReturnCode(1);
+                    throw ce;
+                }
+            }
+        } else {
+            mt=TipcSvc.lookupMt(type);
+            if(mt==null) {
+                cMsgException ce = new cMsgException("?unknown message type: " + type);
+                ce.setReturnCode(1);
+                throw ce;
+            }
+        }
 
-	// create, fill, send, and flush message
-	try { 
-	    TipcMsg ssMsg = TipcSvc.createMsg(mt);
-	    ssMsg.setDest(msg.getSubject()); 
-	    ssMsg.setSenderTimestamp(msg.getSenderTime().getTime()/1000);
-	    ssMsg.appendStr(msg.getText()); 
-	    mySrv.send(ssMsg); 
-	    mySrv.flush(); 
-	} catch (TipcException e) { 
-	    e.printStackTrace();
-	    cMsgException ce = new cMsgException(e.getMessage());
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+
+        // create, fill, send, and flush message
+        try {
+            TipcMsg ssMsg = TipcSvc.createMsg(mt);
+            ssMsg.setDest(msg.getSubject());
+            ssMsg.setSenderTimestamp(msg.getSenderTime().getTime()/1000);
+            ssMsg.appendStr(msg.getText());
+            mySrv.send(ssMsg);
+            mySrv.flush();
+        } catch (TipcException e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException(e.getMessage());
+            ce.setReturnCode(1);
+            throw ce;
+        }
 
     }
-	
+
 
 //-----------------------------------------------------------------------------
 
@@ -341,9 +342,9 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
      * @throws cMsgException
      */
     public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
-	return(0);  // do nothing
+        return(0);  // do nothing
     }
-    
+
 
 //-----------------------------------------------------------------------------
 
@@ -360,67 +361,67 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
     public void handleSubscribeRequest(String subject, String type,
                                        int receiverSubscribeId) throws cMsgException {
 
-	TipcMt mt = null;
-	TipcCb cb = null;
-	MyInt m;
+        TipcMt mt = null;
+        TipcCb cb = null;
+        MyInt m;
 
 
-	if(type.matches("\\d+")) {
-	    mt=TipcSvc.lookupMt(Integer.parseInt(type));
-	    if(mt==null) {
-		try {
-		    mt=TipcSvc.createMt(type,Integer.parseInt(type),"verbose");
-		} catch (TipcException e) {
-		    cMsgException ce = new cMsgException("?unable to create message type: " + type);
-		    ce.setReturnCode(1);
-		    throw ce;
-		}
-	    }
-	} else {
-	    mt=TipcSvc.lookupMt(type);
-	}
-	if(mt==null) {
-	    cMsgException ce = new cMsgException("?unknown message type: " + type);
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+        if(type.matches("\\d+")) {
+            mt=TipcSvc.lookupMt(Integer.parseInt(type));
+            if(mt==null) {
+                try {
+                    mt=TipcSvc.createMt(type,Integer.parseInt(type),"verbose");
+                } catch (TipcException e) {
+                    cMsgException ce = new cMsgException("?unable to create message type: " + type);
+                    ce.setReturnCode(1);
+                    throw ce;
+                }
+            }
+        } else {
+            mt=TipcSvc.lookupMt(type);
+        }
+        if(mt==null) {
+            cMsgException ce = new cMsgException("?unknown message type: " + type);
+            ce.setReturnCode(1);
+            throw ce;
+        }
 
 
-	// create and register callback
-	cb=mySrv.addProcessCb(new ProcessCb(),mt,subject,receiverSubscribeId);
-	if(cb==null) {
-	    cMsgException ce = new cMsgException("?unable to create callback");
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+        // create and register callback
+        cb=mySrv.addProcessCb(new ProcessCb(),mt,subject,receiverSubscribeId);
+        if(cb==null) {
+            cMsgException ce = new cMsgException("?unable to create callback");
+            ce.setReturnCode(1);
+            throw ce;
+        }
 
 
-	// subscribe
-	try {
-	    mySrv.setSubjectSubscribe(subject, true);
-	} catch (TipcException e) {
-	    cMsgException ce = new cMsgException("?unable to subscribe to: " + subject);
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+        // subscribe
+        try {
+            mySrv.setSubjectSubscribe(subject, true);
+        } catch (TipcException e) {
+            cMsgException ce = new cMsgException("?unable to subscribe to: " + subject);
+            ce.setReturnCode(1);
+            throw ce;
+        }
 
 
-	// update subject count for new subscription
+        // update subject count for new subscription
         if(subjects.containsKey(subject)) {
-	    m = (MyInt)subjects.get(subject);
-	    m.count++;
-	    subjects.put(subject,m);
-	} else {
-	    m = new MyInt();
-	    m.count=1;
-	    subjects.put(subject,m);
-	}
+            m = (MyInt)subjects.get(subject);
+            m.count++;
+            subjects.put(subject,m);
+        } else {
+            m = new MyInt();
+            m.count=1;
+            subjects.put(subject,m);
+        }
 
 
-	// hash callbacks by id
-	callbacks.put(receiverSubscribeId,cb);
+        // hash callbacks by id
+        callbacks.put(receiverSubscribeId,cb);
 
-	return;
+        return;
     }
 
 
@@ -436,31 +437,31 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
      * @param receiverSubscribeId receiver subscribe id
      */
     public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId) {
-	try {
-	    if(callbacks.containsKey(receiverSubscribeId)) {
-		mySrv.removeProcessCb((TipcCb)callbacks.get(receiverSubscribeId));
-		callbacks.remove(receiverSubscribeId);
-	    }		
-	} catch (TipcException e) {
-	    System.err.println("?unable to unsubscribe from subject " + subject);
-	}
+        try {
+            if(callbacks.containsKey(receiverSubscribeId)) {
+                mySrv.removeProcessCb((TipcCb)callbacks.get(receiverSubscribeId));
+                callbacks.remove(receiverSubscribeId);
+            }
+        } catch (TipcException e) {
+            System.err.println("?unable to unsubscribe from subject " + subject);
+        }
 
 
-	// update subject table
+        // update subject table
         if(subjects.containsKey(subject)) {
-	    MyInt m = (MyInt)subjects.get(subject);
-	    m.count--;
-	    if(m.count>=1) {
-		subjects.put(subject,m);
-	    } else {
-		subjects.remove(subject);
-		try {
-		    mySrv.setSubjectSubscribe(subject,false);
-		} catch (TipcException e) {
-		    System.err.println("?unable to unsubscribe from subject " + subject);
-		}
-	    }
-	}
+            MyInt m = (MyInt)subjects.get(subject);
+            m.count--;
+            if(m.count>=1) {
+                subjects.put(subject,m);
+            } else {
+                subjects.remove(subject);
+                try {
+                    mySrv.setSubjectSubscribe(subject,false);
+                } catch (TipcException e) {
+                    System.err.println("?unable to unsubscribe from subject " + subject);
+                }
+            }
+        }
     }
 
 
@@ -514,13 +515,13 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
      * @throws cMsgException
      */
     public void handleClientShutdown() throws cMsgException {
-	done=true;
-	System.out.println("...shutdown for client " + myClientInfo.getName());
-	try {
-	    mySrv.destroy(TipcSrv.CONN_NONE);
-	} catch (TipcException e) {
-	    System.err.println(e);
-	}
+        done=true;
+        System.out.println("...shutdown for client " + myClientInfo.getName());
+        try {
+            mySrv.destroy(TipcSrv.CONN_NONE);
+        } catch (TipcException e) {
+            System.err.println(e);
+        }
     }
 
 
