@@ -60,6 +60,18 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
+     * Method to give the subdomain handler on object able to deliver messages
+     * to the client.
+     *
+     * @param deliverer object able to deliver messages to the client
+     * @throws org.jlab.coda.cMsg.cMsgException
+     */
+    public void setMessageDeliverer(cMsgDeliverMessageInterface deliverer) throws cMsgException {
+        throw new cMsgException("setMessageDeliverer is not implemented");
+    }
+
+
+    /**
      * Method to register domain client.
      *
      * @param info information about client
@@ -173,6 +185,21 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
+     * Method to handle shutdown request sent by domain client.
+     *
+     * @param client client(s) to be shutdown
+     * @param server server(s) to be shutdown
+     * @param flag   flag describing the mode of shutdown
+     * @throws cMsgException
+     */
+    public void handleShutdownRequest(String client, String server,
+                                      int flag) throws cMsgException {
+
+        throw new cMsgException("handleShutdownRequest is not implemented");
+    }
+
+
+    /**
      * Method to handle keepalive sent by domain client checking to see
      * if the domain server socket is still up.
      *
@@ -275,200 +302,16 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-      * Creates a socket communication channel to a client.
-      * @param info client information object
-      * @throws IOException if socket cannot be created
-      */
-    public static void createChannel(cMsgClientInfo info) throws IOException {
-         SocketChannel channel = SocketChannel.open(new InetSocketAddress(info.getClientHost(),
-                                                            info.getClientPort()));
-         // set socket options
-         Socket socket = channel.socket();
-         // Set tcpNoDelay so no packets are delayed
-         socket.setTcpNoDelay(true);
-         // set buffer sizes
-         socket.setReceiveBufferSize(65535);
-         socket.setSendBufferSize(65535);
-         info.setChannel(channel);
-     }
-
-
-    /**
-     * Creates a socket communication channel to a client.
+     * Method to tell if the "shutdown" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleShutdownRequest}
+     * method.
      *
-     * @param host host client resides on
-     * @param port port client listens on
-     * @return SocketChannel object for communicating with client
-     * @throws IOException if socket cannot be created
+     * @return true if shutdown implemented in {@link #handleShutdownRequest}
      */
-    public static SocketChannel createChannel(String host, int port) throws IOException {
-        SocketChannel channel = SocketChannel.open(new InetSocketAddress(host, port));
-        // set socket options
-        Socket socket = channel.socket();
-        // Set tcpNoDelay so no packets are delayed
-        socket.setTcpNoDelay(true);
-        // set buffer sizes
-        socket.setReceiveBufferSize(65535);
-        socket.setSendBufferSize(65535);
-        return channel;
+    public boolean hasShutdown() {
+        return false;
     }
 
-
-    /**
-     * Method to deliver a message to a client.
-     *
-     * @param channel communication channel to client
-     * @param buffer byte buffer needed for channel communication
-     * @param msg message to be sent
-     * @param idList list of receiverSubscribeIds matching the message's subject and type
-     * @param msgType type of communication with the client
-     * @throws java.io.IOException if the message cannot be sent over the channel
-     *                             or client returns an error
-     */
-    public static void deliverMessage(SocketChannel channel, ByteBuffer buffer,
-                                     cMsgMessageFull msg, List<Integer> idList,
-                                     int msgType) throws IOException {
-        deliverMessageReal(channel, buffer, msg, idList, msgType);
-    }
-
-
-    /**
-     * Method to deliver a message to a client and receive acknowledgment that the
-     * message was received.
-     *
-     * @param channel communication channel to client
-     * @param buffer  byte buffer needed for channel communication
-     * @param msg     message to be sent
-     * @param idList  list of receiverSubscribeIds matching the message's subject and type
-     * @param msgType type of communication with the client
-     * @return true if message acknowledged by receiver, otherwise false
-     * @throws cMsgException if the msgType arg is not cMsgConstants.msgGetResponseWithAck
-     *                       or cMsgConstants.msgSubscribeResponseWithAck
-     * @throws java.io.IOException if the message cannot be sent over the channel
-     *                             or client returns an error
-     */
-    public static boolean deliverMessageAndAcknowledge(SocketChannel channel, ByteBuffer buffer,
-                                                    cMsgMessageFull msg, List<Integer> idList,
-                                                    int msgType)  throws cMsgException, IOException {
-        if (msgType != cMsgConstants.msgGetResponseWithAck &&
-            msgType != cMsgConstants.msgSubscribeResponseWithAck) {
-            throw new cMsgException("Wrong message type, must be msgGetResponseWithAck or msgSubscribeResponseWithAck");
-        }
-        return deliverMessageReal(channel, buffer, msg, idList, msgType);
-    }
-
-
-    /**
-     * Method to deliver a message to a client.
-     *
-     * @param channel communication channel to client
-     * @param buffer  byte buffer needed for channel communication
-     * @param msg     message to be sent
-     * @param idList  list of receiverSubscribeIds matching the message's subject and type
-     * @param msgType type of communication with the client
-     * @return true if message acknowledged by receiver, otherwise false
-     * @throws java.io.IOException if the message cannot be sent over the channel
-     *                             or client returns an error
-     */
-    private static boolean deliverMessageReal(SocketChannel channel, ByteBuffer buffer,
-                                              cMsgMessageFull msg, List<Integer> idList,
-                                              int msgType) throws IOException {
-
-        // expect 2 particular types of messages to receive an acknowledgment from client
-        boolean acknowlege = false;
-        if (msgType == cMsgConstants.msgGetResponseWithAck ||
-            msgType == cMsgConstants.msgSubscribeResponseWithAck) {
-            acknowlege = true;
-        }
-
-        // if a get has a null response ...
-        boolean nullResponse = false;
-        if (msgType == cMsgConstants.msgGetResponseIsNull) {
-            nullResponse = true;
-        }
-
-        int size = 0;
-        if (idList != null) {
-            size = idList.size();
-        }
-
-        // get ready to write
-        buffer.clear();
-
-        if (nullResponse) {
-            buffer.putInt(msgType);
-            // send senderToken (there is no idList in this case)
-            buffer.putInt(msg.getSenderToken());
-            // send buffer over the socket
-            buffer.flip();
-            while (buffer.hasRemaining()) {
-                channel.write(buffer);
-            }
-        }
-        else {
-            // write 14 ints
-            int outGoing[] = new int[16];
-            outGoing[0] = msgType;
-            outGoing[1] = msg.getVersion();
-            outGoing[2] = msg.getPriority();
-            outGoing[3] = msg.getUserInt();
-            outGoing[4] = msg.getInfo();
-            outGoing[5] = (int) (msg.getSenderTime().getTime() / 1000L);
-            outGoing[6] = (int) (msg.getUserTime().getTime() / 1000L);
-            outGoing[7] = msg.getSysMsgId();
-            outGoing[8] = msg.getSenderToken();
-            outGoing[9] = msg.getSender().length();
-            outGoing[10] = msg.getSenderHost().length();
-            outGoing[11] = msg.getSubject().length();
-            outGoing[12] = msg.getType().length();
-            outGoing[13] = msg.getText().length();
-            outGoing[14] = msg.getCreator().length();
-            outGoing[15] = size;  // number of receiverSubscribeIds to be sent
-
-            // send ints over together using view buffer
-            buffer.asIntBuffer().put(outGoing);
-
-            // position original buffer at position of view buffer
-            buffer.position(64);
-
-            // now send ids
-            if (idList != null) {
-                for (Integer i : idList) {
-                    buffer.putInt(i.intValue());
-                }
-            }
-
-            // write strings
-            try {
-                buffer.put(msg.getSender().getBytes("US-ASCII"));
-                buffer.put(msg.getSenderHost().getBytes("US-ASCII"));
-                buffer.put(msg.getSubject().getBytes("US-ASCII"));
-                buffer.put(msg.getType().getBytes("US-ASCII"));
-                buffer.put(msg.getText().getBytes("US-ASCII"));
-                buffer.put(msg.getCreator().getBytes("US-ASCII"));
-            }
-            catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
-            }
-
-            // send buffer over the socket
-            buffer.flip();
-            while (buffer.hasRemaining()) {
-                channel.write(buffer);
-            }
-
-            if (!acknowlege) {
-                return true;
-            }
-
-            // read acknowledgment - 1 int of data
-            cMsgUtilities.readSocketBytes(buffer, channel, 4, cMsgConstants.debugNone);
-            buffer.flip();
-
-            if (buffer.getInt() != cMsgConstants.ok) return false;
-        }
-        return true;
-    }
 
 
 }
