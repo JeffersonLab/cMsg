@@ -18,6 +18,7 @@ JAVA_OBJS = \
 	cMsgUtilities.class \
 	cMsgCallbackThread.class \
 	cMsgSubscription.class \
+	cMsgMessageDeliverer.class \
 	cMsgClientListeningThread.class \
 	cMsgMonitorClient.class \
 	cMsgNameServer.class \
