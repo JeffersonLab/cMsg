@@ -213,17 +213,14 @@ public class cMsgClientListeningThread extends Thread {
                      msg = readIncomingMessage(channel);
                      msg.setGetResponse(true);
 
-                     // run callbacks for this message
+                     // wakeup caller with this message
                      wakeGets(msg);
 
                      break;
 
                  case cMsgConstants.msgGetResponseIsNull: // receiving null for sendAndGet
-                     // read the ids to be notified
-                     readIds(channel);
-
-                     // run callbacks for this message
-                     wakeGets(null);
+                     // read the id to be notified & wakeup it up with this message
+                     wakeGets(readSenderToken(channel));
 
                      break;
 
@@ -412,36 +409,17 @@ public class cMsgClientListeningThread extends Thread {
      * This method reads incoming receiver-subscribe ids from a clientHandler object.
      *
      * @param channel nio socket communication channel
-     * @throws IOException if socket read or write error
+     * @return senderToken
+     * @throws IOException
      */
-    private void readIds(SocketChannel channel) throws IOException {
-
+    private int readSenderToken(SocketChannel channel) throws IOException {
         // keep reading until we have 1 int of data
         cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
 
         // go back to reading-from-buffer mode
         buffer.flip();
 
-        // number of receiverSubscribe ids to come
-        rsIdCount = buffer.getInt();
-
-        if (rsIdCount > 0) {
-            // keep reading until we have "rsIdCount" ints of data
-            cMsgUtilities.readSocketBytes(buffer, channel, rsIdCount*4, debug);
-
-            // go back to reading-from-buffer mode
-            buffer.flip();
-
-            // make sure we have enough space in the int array
-            if (rsIdCount > rsIds.length) {
-                rsIds = new int[rsIdCount];
-            }
-
-            // read ints into array for future use
-            buffer.asIntBuffer().get(rsIds, 0, rsIdCount);
-        }
-
-        return;
+        return buffer.getInt();
     }
 
 
@@ -513,7 +491,7 @@ public class cMsgClientListeningThread extends Thread {
 
 
     /**
-     * This method wakes up all active specific-get methods.
+     * This method wakes up an active sendAndGet method.
      *
      * @param msg incoming message
      */
@@ -522,12 +500,11 @@ public class cMsgClientListeningThread extends Thread {
         // if gets have been stopped, return
         if (!client.isReceiving()) {
             if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("wakeSpecificGet: all gets have been stopped");
+                System.out.println("wakeGets: all gets have been stopped");
             }
             return;
         }
 
-        // handle specific get (aimed at a receiver)
         cMsgHolder holder = client.specificGets.remove(msg.getSenderToken());
 
         if (holder == null) {
@@ -536,7 +513,40 @@ public class cMsgClientListeningThread extends Thread {
         holder.timedOut = false;
         // Do NOT need to copy msg as only 1 receiver gets it
         holder.message = msg;
-        // Tell the get-calling thread to wakeup and retrieved the held msg
+
+        // Tell the get-calling thread to wakeup and retrieve the held msg
+        synchronized (holder) {
+            holder.notify();
+        }
+
+        return;
+    }
+
+
+    /**
+     * This method wakes up an active sendAndGet method.
+     *
+     * @param senderToken sendAndGet caller to wake up
+     */
+    private void wakeGets(int senderToken) {
+
+        // if gets have been stopped, return
+        if (!client.isReceiving()) {
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("wakeGets: all gets have been stopped");
+            }
+            return;
+        }
+
+        cMsgHolder holder = client.specificGets.remove(senderToken);
+
+        if (holder == null) {
+            return;
+        }
+        holder.timedOut = false;
+        holder.message  = null;
+
+        // Tell the get-calling thread to wakeup
         synchronized (holder) {
             holder.notify();
         }
