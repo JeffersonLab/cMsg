@@ -73,9 +73,12 @@ public class LogFile implements cMsgHandleRequests {
     /** UDL remainder for this subdomain handler. */
     private String myUDLRemainder;
 
+    /**
+      * Method to tell if the "send" cMsg API function is implemented
+      * by this interface implementation in the {@link #handleSendRequest}
       * method.
       *
-      * @return true if send implemented in {@link #handleSendRequest}
+      * @return true if get implemented in {@link #handleSendRequest}
       */
      public boolean hasSend() {return true;};
 
@@ -194,6 +197,19 @@ public class LogFile implements cMsgHandleRequests {
      */
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
         ((PrintWriter)myLogFileObject.logFileHandle).println(msg);
+    }
+
+
+    /**
+     * Method to handle message sent by domain client in synchronous mode.
+     * It requries an integer response from the subdomain handler.
+     *
+     * @param msg message from sender
+     * @return response from subdomain handler
+     * @throws cMsgException
+     */
+    public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
+        return 0;
     }
 
 
