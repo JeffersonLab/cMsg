@@ -1,7 +1,5 @@
 // still to do:
-//   isRegistered vs registerClient
 //   server shutdown
-//   redo all errors, catches, etc.
 
 
 
@@ -27,21 +25,20 @@ package org.jlab.coda.cMsg.cMsgDomain.subdomains;
 import org.jlab.coda.cMsg.cMsgConstants;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequests;
+import org.jlab.coda.cMsg.cMsgDomain.cMsgClientInfo;
+import org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequestsAbstract;
+
 import java.util.*;
 import java.util.regex.*;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
 
 import com.smartsockets.*;
 
-// may not be needed
-import java.nio.channels.SocketChannel;
-import java.net.Socket;
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 
-
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
 
 /**
@@ -53,87 +50,93 @@ import java.io.UnsupportedEncodingException;
  * @version 1.0
  *
  */
-public class smartsockets implements cMsgHandleRequests {
+public class smartsockets extends cMsgHandleRequestsAbstract {
 
 
-    /// static collections
+    /** static collections. */
     private static Map subjects  = Collections.synchronizedMap(new HashMap(100));
     private static Map callbacks = Collections.synchronizedMap(new HashMap(100));
 
 
-    /// client registration parameters
-    private String myDomain = "mydomain";  // ???
-    private String myName;
-    private String myHost;
-    private int myPort;
-    private SocketChannel myChannel = null;
+    /** client registration info. */
+    private cMsgClientInfo myClientInfo;
 
 
-    // may not be needed
-    /** A direct buffer is necessary for nio socket IO. */
-    private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+    /** direct buffer needed for nio socket IO. */
+    private ByteBuffer myBuffer = ByteBuffer.allocateDirect(2048);
 
 
-    /// UDL remainder
+    /** UDL remainder. */
     private String myUDLRemainder = null;
     
 
-    /// for smartsockets
+    /** for smartsockets. */
     private TipcSrv mySrv     = null;
     private String myProject;
+
+
+    /** misc */
     private boolean done      = false;
 
 
-    /// smartsockets callback delivers message to client
+    /** smartsockets callback delivers message to client. */
     private class ProcessCb implements TipcProcessCb {
 	public void process(TipcMsg msg, Object arg) { 	
+	    ArrayList subscribeList = new ArrayList(1);
 	    try {
-		cMsgMessage cmsg = new cMsgMessage();
 		msg.setCurrent(0);
-		cmsg.setDomain(myDomain);
-		cmsg.setSysMsgId(msg.getMessageId());
+		cMsgMessage cmsg = new cMsgMessage();
+
+		cmsg.setDomain("cMsg");                   // just use domain for now
+		cmsg.setSysMsgId(msg.getSeqNum());
 		cmsg.setSender(msg.getSender());
-		cmsg.setSenderHost("unknown");
-		cmsg.setSenderTime(msg.get());
-		cmsg.setSenderId(msg.get());
-		cmsg.setSenderMsgId(msg.get());
-		cmsg.setSenderToken(0);
-		cmsg.setReceiver(myName);
-		cmsg.setReceiverHost(myHost);
+		cmsg.setSenderHost("unknown");            // no easy way to get this
+		cmsg.setSenderTime(new Date((long)msg.getSenderTimestamp()*1000));
+		//  cmsg.setSenderId(msg.getStreamID());  // no field matches
+		cmsg.setSenderMsgId(msg.getSeqNum());
+		cmsg.setReceiver(myClientInfo.getName());
+		cmsg.setReceiverHost(myClientInfo.getClientHost());
 		cmsg.setReceiverTime(new Date());
 		cmsg.setReceiverSubscribeId(((Integer)arg).intValue());
 		cmsg.setSubject(msg.getDest());
 		cmsg.setType(msg.getType().getName());
 		cmsg.setText(msg.nextStr());
-		System.out.println("...delivering msg: \n" + cmsg);
-		deliverMessage(myChannel,((Integer)arg).intValue(),cMsgConstants.msgSubscribeResponse,cmsg);
 
-	    } catch (Exception e) {
+		subscribeList.add((Integer)arg);  // add receiver subscribe ID to list
+		deliverMessage(myClientInfo.getChannel(),myBuffer,cmsg,subscribeList,cMsgConstants.msgSubscribeResponse);
+
+	    } catch (TipcException e) {
+		System.out.println(e);
+
+	    } catch (IOException e) {
 		System.out.println(e);
 	    }
 	}
     }
 
 
-    /// for smartsockets main loop
+    /** for smartsockets main loop. */
     private class MainLoop extends Thread {
 	public void run() {
  	    try {
 		while(!done) {
 		    mySrv.mainLoop(0.5);
  		}
-	    } catch (Exception e) {
+	    } catch (TipcException e) {
 		System.out.println(e);
 	    }
 	}
     }
 
 
-    // object counts subject subscriptions
+    // for counting subscriptions in subject hash
     private class MyInt {
 	int count;
     }
 
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -148,6 +151,9 @@ public class smartsockets implements cMsgHandleRequests {
     };
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to tell if the "get" cMsg API function is implemented
      * by this interface implementation in the {@link #handleGetRequest}
@@ -158,6 +164,9 @@ public class smartsockets implements cMsgHandleRequests {
     public boolean hasGet() {
         return false;
     };
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -172,6 +181,9 @@ public class smartsockets implements cMsgHandleRequests {
     };
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to tell if the "subscribe" cMsg API function is implemented
      * by this interface implementation in the {@link #handleSubscribeRequest}
@@ -182,6 +194,9 @@ public class smartsockets implements cMsgHandleRequests {
     public boolean hasSubscribe() {
         return true;
     };
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -196,6 +211,9 @@ public class smartsockets implements cMsgHandleRequests {
     };
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to give the subdomain handler the appropriate part
      * of the UDL the client used to talk to the domain server.
@@ -208,30 +226,28 @@ public class smartsockets implements cMsgHandleRequests {
     }
     
 
+//-----------------------------------------------------------------------------
+
+
     /**
-     * Method to see if domain client is registered.
+     * Method to register domain client.
      *
-     * @param name name of client
-     * @return true if client registered, false otherwise
+     * @param info contains all client info
+     * @throws cMsgException upon error
      */
-    public boolean isRegistered(String name) {
+    public void registerClient(cMsgClientInfo info) throws cMsgException {
 
-	myName=name;
+	myClientInfo = info;
 
-	// must attempt to register to see if name is unique
-	// extract ss params from UDL
-	try {
-	    if(myUDLRemainder.indexOf("?")>0) {
-		Pattern p = Pattern.compile("^(.+?)(\\?)(.*)$");
-		Matcher m = p.matcher(myUDLRemainder);
-		m.find();
-		myProject   = m.group(1);
-	    } else {
-		myProject   = myUDLRemainder;
-	    }
-	} catch (Exception e) {
-	    e.printStackTrace();
-	    return(false);
+
+	// extract project from UDL remainder
+	if(myUDLRemainder.indexOf("?")>0) {
+	    Pattern p = Pattern.compile("^(.+?)(\\?)(.*)$");
+	    Matcher m = p.matcher(myUDLRemainder);
+	    m.find();
+	    myProject = m.group(1);
+	} else {
+	    myProject = myUDLRemainder;
 	}
 
 
@@ -239,45 +255,23 @@ public class smartsockets implements cMsgHandleRequests {
 	try {
 	    mySrv=TipcSvc.createSrv();
 	    mySrv.setOption("ss.project",         myProject);
-	    mySrv.setOption("ss.unique_subject",  myName);
-	    return(!mySrv.create());
+	    mySrv.setOption("ss.unique_subject",  myClientInfo.getName());
+	    if(!mySrv.create())throw new cMsgException("?unable to connect to server");
 
-	} catch (Exception e) {
-	    e.printStackTrace();
-	    return(false);
-	}
-    }
-
-
-    /**
-     * Method to register domain client.
-     *
-     * @param name name of client
-     * @param host host client is running on
-     * @param port port client is listening on
-     * @throws cMsgException upon error
-     */
-    public void registerClient(String name, String host, int port) throws cMsgException {
-	myHost=host;
-	myPort=port;
-
-	// may not be needed...
-	try {
-	    myChannel = SocketChannel.open(new InetSocketAddress(myHost,myPort));
-	    Socket socket = myChannel.socket();
-	    socket.setTcpNoDelay(true);
-	    socket.setReceiveBufferSize(65535);
-	    socket.setSendBufferSize(65535);
-	} catch (Exception e) {
+	} catch (TipcException e) {
+	    cMsgException ce = new cMsgException(e.toString());
+	    ce.setReturnCode(1);
+	    throw ce;
 	}
 
 
-	// launch server main loop
+	// launch server main loop in its own thread
 	(new MainLoop()).start();
-
-	return;
     }
     
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -292,13 +286,13 @@ public class smartsockets implements cMsgHandleRequests {
 	TipcMt mt   = null;
 
 
-	// form ss message type
+	// form smartsockets message type
 	if(type.matches("\\d+")) {
 	    mt=TipcSvc.lookupMt(Integer.parseInt(type));
 	    if(mt==null) {
 		try {
 		    mt=TipcSvc.createMt(type,Integer.parseInt(type),"verbose");
-		} catch (Exception e) {
+		} catch (TipcException e) {
 		    cMsgException ce = new cMsgException("?unable to create message type: " + type);
 		    ce.setReturnCode(1);
 		    throw ce;
@@ -306,22 +300,23 @@ public class smartsockets implements cMsgHandleRequests {
 	    }
 	} else {
 	    mt=TipcSvc.lookupMt(type);
-	}
-	if(mt==null) {
-	    cMsgException ce = new cMsgException("?unknown message type: " + type);
-	    ce.setReturnCode(1);
-	    throw ce;
+	    if(mt==null) {
+		cMsgException ce = new cMsgException("?unknown message type: " + type);
+		ce.setReturnCode(1);
+		throw ce;
+	    }
 	}
 	
 
 	// create, fill, send, and flush message
-	TipcMsg ssMsg = TipcSvc.createMsg(mt);
-	ssMsg.setDest(msg.getSubject()); 
-	ssMsg.appendStr(msg.getText()); 
 	try { 
+	    TipcMsg ssMsg = TipcSvc.createMsg(mt);
+	    ssMsg.setDest(msg.getSubject()); 
+	    ssMsg.setSenderTimestamp(msg.getSenderTime().getTime()/1000);
+	    ssMsg.appendStr(msg.getText()); 
 	    mySrv.send(ssMsg); 
 	    mySrv.flush(); 
-	} catch (Exception e) { 
+	} catch (TipcException e) { 
 	    e.printStackTrace();
 	    cMsgException ce = new cMsgException(e.getMessage());
 	    ce.setReturnCode(1);
@@ -330,6 +325,9 @@ public class smartsockets implements cMsgHandleRequests {
 
     }
 	
+
+//-----------------------------------------------------------------------------
+
 
     /**
      * Method to handle message sent by domain client in synchronous mode.
@@ -343,6 +341,9 @@ public class smartsockets implements cMsgHandleRequests {
 	return(0);  // do nothing
     }
     
+
+//-----------------------------------------------------------------------------
+
 
     /**
      * Method to handle subscribe request sent by domain client.
@@ -366,7 +367,7 @@ public class smartsockets implements cMsgHandleRequests {
 	    if(mt==null) {
 		try {
 		    mt=TipcSvc.createMt(type,Integer.parseInt(type),"verbose");
-		} catch (Exception e) {
+		} catch (TipcException e) {
 		    cMsgException ce = new cMsgException("?unable to create message type: " + type);
 		    ce.setReturnCode(1);
 		    throw ce;
@@ -385,7 +386,7 @@ public class smartsockets implements cMsgHandleRequests {
 	// tell SS server about new subscription
 	try {
 	    mySrv.setSubjectSubscribe(subject, true);
-	} catch (Exception e) {
+	} catch (TipcException e) {
 	    cMsgException ce = new cMsgException("?unable to subscribe to: " + subject);
 	    ce.setReturnCode(1);
 	    throw ce;
@@ -420,22 +421,25 @@ public class smartsockets implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to handle sunsubscribe request sent by domain client.
      * This method is run after all exchanges between domain server and client.
      *
      * @param subject message subject subscribed to
      * @param type message type subscribed to
+     * @param receiverSubscribeId receiver subscribe id
      */
-    public void handleUnsubscribeRequest(String subject, String type) {
+    public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId) {
 	try {
-	    //	    Integer I = new Integer(receiverSubscribeId);  ???
-	    Integer I = new Integer(1);
+	    Integer I = new Integer(receiverSubscribeId);
 	    if(callbacks.containsKey(I)) {
 		mySrv.removeProcessCb((TipcCb)callbacks.get(I));
 		callbacks.remove(I);
 	    }		
-	} catch (Exception e) {
+	} catch (TipcException e) {
 	    System.out.println("?unable to unsubscribe from subject " + subject);
 	}
 
@@ -450,12 +454,15 @@ public class smartsockets implements cMsgHandleRequests {
 		subjects.remove(subject);
 		try {
 		    mySrv.setSubjectSubscribe(subject,false);
-		} catch (Exception e) {
+		} catch (TipcException e) {
 		    System.out.println("?unable to unsubscribe from subject " + subject);
 		}
 	    }
 	}
     }
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -469,6 +476,9 @@ public class smartsockets implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to handle unget request sent by domain client (hidden from user).
      *
@@ -478,6 +488,9 @@ public class smartsockets implements cMsgHandleRequests {
     public void handleUngetRequest(String subject, String type) {
         // do nothing
     }
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -491,6 +504,9 @@ public class smartsockets implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to handle a client shutdown.
      *
@@ -500,9 +516,12 @@ public class smartsockets implements cMsgHandleRequests {
 	done=true;
 	try {
 	    mySrv.destroy(TipcSrv.CONN_NONE);
-	} catch (Exception e) {
+	} catch (TipcException e) {
 	}
     }
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -514,66 +533,7 @@ public class smartsockets implements cMsgHandleRequests {
     public void handleServerShutdown() throws cMsgException {
     }
 
-
-
-// may not be needed -----------------------------------
-    /**
-     * Method to deliver a message to a client that is
-     * subscribed to the message's subject and type.
-     *
-     * @param channel communication channel to client
-     * @param id message id refering to message's subject and type
-     * @param msgType type of communication with the client
-     * @param msg message to be sent
-     * @throws IOException if the message cannot be sent over the channel
-     *                          or client returns an error
-     */
-    private void deliverMessage(SocketChannel channel, int id, int msgType, cMsgMessage msg) throws IOException {
-        // get ready to write
-        buffer.clear();
-
-        // write 14 ints
-        int outGoing[] = new int[14];
-        outGoing[0]  = msgType;
-        outGoing[1]  = msg.getSysMsgId();
-        outGoing[2]  = msg.isGetRequest()  ? 1 : 0;
-        outGoing[3]  = msg.isGetResponse() ? 1 : 0;
-        outGoing[4]  = id;  // receiverSubscribeId, 0 for specific gets
-        outGoing[5]  = msg.getSenderId();
-        outGoing[6]  = (int) (msg.getSenderTime().getTime()/1000L);
-        outGoing[7]  = msg.getSenderMsgId();
-        outGoing[8]  = msg.getSenderToken();
-        outGoing[9]  = msg.getSender().length();
-        outGoing[10] = msg.getSenderHost().length();
-        outGoing[11] = msg.getSubject().length();
-        outGoing[12] = msg.getType().length();
-        outGoing[13] = msg.getText().length();
-
-        // send ints over together using view buffer
-        buffer.asIntBuffer().put(outGoing);
-
-        // position original buffer at position of view buffer
-        buffer.position(56);
-
-        // write strings
-        try {
-            buffer.put(msg.getSender().getBytes("US-ASCII"));
-            buffer.put(msg.getSenderHost().getBytes("US-ASCII"));
-            buffer.put(msg.getSubject().getBytes("US-ASCII"));
-            buffer.put(msg.getType().getBytes("US-ASCII"));
-            buffer.put(msg.getText().getBytes("US-ASCII"));
-        }
-        catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
-
-        // send buffer over the socket
-        buffer.flip();
-        while (buffer.hasRemaining()) {
-            channel.write(buffer);
-        }
-
-        return;
-    }
-
 }
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
