@@ -715,7 +715,7 @@ public class cMsg extends cMsgImpl {
             throw new cMsgException("invalid UDL");
         }
 
-        // CODA domain UDL is of the form:
+        // cMsg domain UDL is of the form:
         //       cMsg:<domainType>://<host>:<port>/<subdomainType>/<remainder>
         // 1) initial cMsg: in not necessary
         // 2) port is not necessary
@@ -725,7 +725,7 @@ public class cMsg extends cMsgImpl {
         // 5) remainder is past on to the subdomain plug-in
 
 
-        Pattern pattern = Pattern.compile("(cMsg:)?(\\w+)://(\\w+):?(\\d+)?/?(\\w+)?/?(.*)");
+        Pattern pattern = Pattern.compile("(cMsg)?:?(\\w+)://(\\w+):?(\\d+)?/?(\\w+)?/?(.*)");
         Matcher matcher = pattern.matcher(UDL);
 
         String s0=null, s1=null, s2=null, s3=null, s4=null, s5=null;
@@ -749,9 +749,13 @@ public class cMsg extends cMsgImpl {
         }
 
         if (debug >= cMsgConstants.debugInfo) {
-           System.out.println("parseUDL: domain = " + s1 + ", host = " + s2 +
-                              ", port = " + s3 + ", subdomain = " + s4 +
-                              ", remainder = " + s5);
+           System.out.println("\nparseUDL: " +
+                              "\n  space     = " + s0 +
+                              "\n  domain    = " + s1 +
+                              "\n  host      = " + s2 +
+                              "\n  port      = " + s3 +
+                              "\n  subdomain = " + s4 +
+                              "\n  remainder = " + s5);
         }
 
         // must be in cMsg space
@@ -806,8 +810,9 @@ public class cMsg extends cMsgImpl {
         }
 
         // any remaining UDL is put here
-        if (s5 != null && s5.length() > 0) {
-            UDLremainder = s5;
+        UDLremainder = s5;
+        if (s5 == null) {
+            s5 = "";
         }
     }
 
