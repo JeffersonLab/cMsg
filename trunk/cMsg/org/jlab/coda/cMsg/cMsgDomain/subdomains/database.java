@@ -394,7 +394,7 @@ public class database implements cMsgHandleRequests {
 	    myStmt.close();
 	    myCon.close();
 	} catch (Exception e) {
-	    throw(new cMsgException("sub-domain handler shutdown error"));
+	    throw(new cMsgException("database sub-domain handler shutdown error"));
 	}
     }
 
