@@ -28,6 +28,7 @@
 
 /* recent versions of linux put float.h (and DBL_MAX) in a strange place */
 #define DOUBLE_MAX   1.7976931348623157E+308
+#define NUMGETS 1000
 
 int count = 0;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -98,8 +99,8 @@ int cMsgGetConsumer(void) {
     char *myDescription = "trial run";
     int   i, err, domainId = -1;
     
-    double freq=0., freqAvg=0., freqTotal=0.;
-    long   iterations=1, count=0;
+    double freq=0., freqAvg=0., countTotal=0., timeTotal=0.;
+    long   count=0;
     void  *msg, *getMsg;
     struct timespec t1, t2, timeout;
     double time;
@@ -117,7 +118,7 @@ int cMsgGetConsumer(void) {
     cMsgSetType(msg, type);
     cMsgSetText(msg, "Message 1");
     
-    timeout.tv_sec  = 5;
+    timeout.tv_sec  = 1;
     timeout.tv_nsec = 0;
   
     while (1) {
@@ -125,14 +126,17 @@ int cMsgGetConsumer(void) {
         clock_gettime(CLOCK_REALTIME, &t1);
 
         /* do a bunch of gets */
-        for (i=0; i < 2000; i++) {
-            cMsgSendAndGet(domainId, msg, &timeout, &getMsg);
+        for (i=0; i < NUMGETS; i++) {
+            err = cMsgSendAndGet(domainId, msg, &timeout, &getMsg);
 
-            if (getMsg == NULL) {
+            if (err == CMSG_TIMEOUT) {
                 printf("TIMEOUT in sendAndGet\n");
             }
             else {
                 count++;
+                if (getMsg != NULL) {
+                  cMsgFreeMessage(getMsg);
+                }
             }
         }
         
@@ -140,14 +144,15 @@ int cMsgGetConsumer(void) {
         time = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
         
         freq = count/time;
-        if ((DOUBLE_MAX - freqTotal) < freq) {
-          freqTotal   = 0.0;
-	  iterations = 1;
+        if ( ((DOUBLE_MAX - countTotal) < count)  ||
+             ((DOUBLE_MAX - timeTotal)  < time ) )  {
+          countTotal = 0.;
+          timeTotal  = 0.;
         }
-        freqTotal += freq;
-        freqAvg = freqTotal/(double)iterations;
-        iterations++;
-        printf("%9.1f Hz,  %10.2f Hz Avg.\n", freq, freqAvg);                    
+        countTotal += count;
+        timeTotal  += time;
+        freqAvg = countTotal/timeTotal;
+        printf("%9.0f Hz,  %9.0f Hz Avg.\n", freq, freqAvg);                    
         t1 = t2;        
     }
 }
