@@ -52,8 +52,8 @@ public class cMsgGateway {
 
 
     /** Names, generally must be unique within domain. */
-    private static String name1 = "cMsgGateway1";
-    private static String name2 = "cMsgGateway2";
+    private static String name1 = "cMsgGateway";
+    private static String name2 = "cMsgGateway";
 
 
     /** UDL's. */
