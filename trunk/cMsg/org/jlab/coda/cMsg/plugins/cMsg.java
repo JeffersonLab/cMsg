@@ -42,17 +42,24 @@ public class cMsg implements cMsgHandleRequests {
     /** Hash table to store clients. Name is key and cMsgClientInfo is value. */
     private static HashMap clients = new HashMap(100);
 
-    /** List of subscriptions matching the msg. */
-    private ArrayList subList  = new ArrayList(100);
+    /** Hash table to store specific get in progress. sysMsgId of get msg is key,
+     * and client name is value. */
+    private static HashMap specificGets = new HashMap(100);
 
-    /** List of client info objects corresponding to entries in "subList" subscriptions. */
+    /** Used to create a unique id number associated with a specific message. */
+    private static int sysMsgId = 0;
+
+    /** List of subscriptions & gets matching the msg. */
+    private ArrayList subGetList  = new ArrayList(100);
+
+    /** List of client info objects corresponding to entries in "subGetList" subscriptions. */
     private ArrayList infoList = new ArrayList(100);
 
     /** A direct buffer is necessary for nio socket IO. */
     private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
     /** Level of debug output for this class. */
-    private int debug = cMsgConstants.debugError;
+    private int debug = cMsgConstants.debugWarn;
 
     /** Remainder of UDL client used to connect to domain server. */
     private String UDLRemainder;
@@ -114,7 +121,7 @@ public class cMsg implements cMsgHandleRequests {
      *
      * @return true if get implemented in {@link #handleGetRequest}
      */
-    public boolean hasGet() {return false;};
+    public boolean hasGet() {return true;};
 
 
     /**
@@ -166,15 +173,15 @@ public class cMsg implements cMsgHandleRequests {
      * @throws cMsgException if client already exists
      */
     public void registerClient(String name, String host, int port) throws cMsgException {
-        // Check to see if name is taken already
-        if (clients.containsKey(name)) {
-            cMsgException e = new cMsgException("client already exists");
-            e.setReturnCode(cMsgConstants.errorNameExists);
-            throw e;
-        }
-
-        cMsgClientInfo info = new cMsgClientInfo(name, port, host);
         synchronized (clients) {
+            // Check to see if name is taken already
+            if (clients.containsKey(name)) {
+                cMsgException e = new cMsgException("client already exists");
+                e.setReturnCode(cMsgConstants.errorNameExists);
+                throw e;
+            }
+
+            cMsgClientInfo info = new cMsgClientInfo(name, port, host);
             clients.put(name, info);
         }
 
@@ -188,56 +195,104 @@ public class cMsg implements cMsgHandleRequests {
      * with matching subscriptions.  This method is run after all exchanges between
      * domain server and client.
      *
-     * @param msg message from sender
+     * @param message message from sender
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                          or socket properties cannot be set
      */
-    public void handleSendRequest(cMsgMessage msg) throws cMsgException {
+    public void handleSendRequest(cMsgMessage message) throws cMsgException {
         String client;
         cMsgSubscription sub;
         cMsgClientInfo   info;
-        HashSet subscriptions;
+        HashSet subscriptions, gets;
 
-        subList.clear();
+        subGetList.clear();
         infoList.clear();
+        // If message is sent in response to a get ...
+        if (message.isGetResponse()) {
+            int id = message.getSysMsgId();
+            synchronized (specificGets) {
+                // Recall the client who originally sent the get request
+                // and remove the item from the hashtable
+                info = (cMsgClientInfo) specificGets.remove(new Integer(id));
+            }
+            // Add to list of clients getting messages.
+            // In this case there will only be 1 on that list.
+            if (info != null) {
+                infoList.add(info);
+                // subscription is not used, but here for ease of programming
+                subGetList.add(new cMsgSubscription(null, null, 0));
+//System.out.println("Handler sending msg for SPECIFIC GET");
+            }
+            // If someone else responded to the get first, tough luck!
+            else return;
+        }
 
-        // Scan through all clients.
-        // Cannot have clients hashtable changing during this exercise
-        synchronized (clients) {
-            Iterator iter = clients.keySet().iterator();
+        else {
+            // Scan through all clients.
+            // Cannot have clients hashtable changing during this exercise.
+            synchronized (clients) {
+                Iterator iter = clients.keySet().iterator();
 
-            while (iter.hasNext()) {
-                client = (String) iter.next();
-                // Don't deliver a message to the sender
-                if (client.equals(name)) {
-                    continue;
-                }
-                info = (cMsgClientInfo) clients.get(client);
-                subscriptions = info.getSubscriptions();
+                while (iter.hasNext()) {
+                    client = (String) iter.next();
+                    // Don't deliver a message to the sender
+                    //if (client.equals(name)) {
+                    //    continue;
+                    //}
+                    info = (cMsgClientInfo) clients.get(client);
+                    gets = info.getGets();
+                    subscriptions = info.getSubscriptions();
+                    Iterator it;
 
-                // Look at all subscriptions
-                Iterator it = subscriptions.iterator();
-                while (it.hasNext()) {
-                    sub = (cMsgSubscription) it.next();
-                    // if subscription matches the msg ...
-                    // if (sub.subject.equals(msg.getSubject()) && sub.type.equals(msg.getType())) {
-                    if (matches(sub.getSubject(), msg.getSubject()) &&
-                              matches(sub.getType(), msg.getType()))  {
-                        // store sub and info for later use (in non-synchronized code)
-                        subList.add(sub);
-                        infoList.add(info);
+                    // Look at all subscriptions
+                    synchronized (subscriptions) {
+                        it = subscriptions.iterator();
+                        while (it.hasNext()) {
+                            sub = (cMsgSubscription) it.next();
+                            // if subscription matches the msg ...
+                            if (matches(sub.getSubject(), message.getSubject()) &&
+                                    matches(sub.getType(), message.getType())) {
+                                // store sub and info for later use (in non-synchronized code)
+                                subGetList.add(sub);
+                                infoList.add(info);
+                                // no more subscriptions of this sub/type for this client, go to next
+//System.out.println("Handler sending msg for SUBSCRIBE");
+                                break;
+                            }
+                        }
+                    }
+
+                    // Look at all gets
+                    synchronized (gets) {
+                        it = gets.iterator();
+                        while (it.hasNext()) {
+                            sub = (cMsgSubscription) it.next();
+                            // if get matches the msg ...
+                            if (matches(sub.getSubject(), message.getSubject()) &&
+                                    matches(sub.getType(), message.getType())) {
+                                // store get and info for later use (in non-synchronized code)
+                                subGetList.add(sub);
+                                infoList.add(info);
+                                // no more gets of this sub/type for this client,
+                                // so delete the get and go to next client
+                                it.remove();
+//System.out.println("Handler sending msg for GENERAL GET");
+                                break;
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // Once we have the subscription, msg, and client info, no more need for sychronization
+        // Once we have the subscription/get, msg, and client info,
+        // no more need for sychronization
         SocketChannel channel = null;
 
-        for (int i = 0; i < subList.size(); i++) {
+        for (int i = 0; i < subGetList.size(); i++) {
 
-            info = (cMsgClientInfo)  infoList.get(i);
-            sub  = (cMsgSubscription) subList.get(i);
+            info = (cMsgClientInfo)     infoList.get(i);
+            sub  = (cMsgSubscription) subGetList.get(i);
 
             // Deliver this msg to this client. If there is no socket connection, make one.
             if (info.getChannel() == null) {
@@ -266,7 +321,7 @@ public class cMsg implements cMsgHandleRequests {
             }
 
             try {
-                deliverMessage(info.getChannel(), sub.getId(), msg);
+                deliverMessage(info.getChannel(), sub.getId(), message);
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
@@ -284,10 +339,10 @@ public class cMsg implements cMsgHandleRequests {
      * not implemented in the cMsg (this) subdomain. It's here only in order
      * to implement the required interface.
      *
-     * @param msg message from sender
+     * @param message message from sender
      * @return response from this object
      */
-    public int handleSyncSendRequest(cMsgMessage msg) {
+    public int handleSyncSendRequest(cMsgMessage message) {
         return 0;
     }
 
@@ -304,30 +359,38 @@ public class cMsg implements cMsgHandleRequests {
      */
     public void handleSubscribeRequest(String subject, String type,
                                        int receiverSubscribeId) throws cMsgException {
-        // Each client (name) has a cMsgClientInfo object associated with it
-        // that contains all relevant information. Retrieve that object
-        // from the "clients" table, add subscription to it.
-        cMsgClientInfo info = (cMsgClientInfo) clients.get(name);
+        cMsgClientInfo info;
+
+        synchronized (clients) {
+            // Each client (name) has a cMsgClientInfo object associated with it
+            // that contains all relevant information. Retrieve that object
+            // from the "clients" table, add subscription to it.
+            info = (cMsgClientInfo) clients.get(name);
+        }
+
         if (info == null) {
             throw new cMsgException("handleSubscribeRequest: no client information stored for " + name);
         }
-
         // do not add duplicate subscription
         HashSet subscriptions = info.getSubscriptions();
-        Iterator it = subscriptions.iterator();
-        cMsgSubscription sub;
-        while (it.hasNext()) {
-            sub = (cMsgSubscription) it.next();
-            if (receiverSubscribeId == sub.getId()  ||
-                    sub.getSubject().equals(subject) && sub.getType().equals(type)) {
-                throw new cMsgException("handleSubscribeRequest: subscription already exists for subject = " +
-                                        subject + " and type = " + type);
+
+        synchronized (subscriptions) {
+            Iterator it = subscriptions.iterator();
+            cMsgSubscription sub;
+            while (it.hasNext()) {
+                sub = (cMsgSubscription) it.next();
+                if (receiverSubscribeId == sub.getId() ||
+                        sub.getSubject().equals(subject) && sub.getType().equals(type)) {
+                    throw new cMsgException("handleSubscribeRequest: subscription already exists for subject = " +
+                                            subject + " and type = " + type);
+                }
             }
+
+            // add new subscription
+            sub = new cMsgSubscription(subject, type, receiverSubscribeId);
+            subscriptions.add(sub);
         }
 
-        // add new subscription
-        sub = new cMsgSubscription(subject, type, receiverSubscribeId);
-        subscriptions.add(sub);
     }
 
 
@@ -339,44 +402,132 @@ public class cMsg implements cMsgHandleRequests {
      * @param type message type subscribed to
      */
      public void handleUnsubscribeRequest(String subject, String type) {
-        cMsgClientInfo info = (cMsgClientInfo) clients.get(name);
+        cMsgClientInfo info;
+        synchronized (clients) {
+            info = (cMsgClientInfo) clients.get(name);
+        }
+
         if (info == null) {
             return;
         }
         HashSet subscriptions = info.getSubscriptions();
-        Iterator it = subscriptions.iterator();
-        cMsgSubscription sub;
-        while (it.hasNext()) {
-            sub = (cMsgSubscription) it.next();
-            if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
-                it.remove();
-                return;
+
+        synchronized (subscriptions) {
+            Iterator it = subscriptions.iterator();
+            cMsgSubscription sub;
+            while (it.hasNext()) {
+                sub = (cMsgSubscription) it.next();
+                if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
+                    it.remove();
+                    return;
+                }
             }
         }
     }
 
 
     /**
-     * Method to handle keepalive sent by domain client checking to see
-     * if the domain server socket is still up. Normally nothing needs to
-     * be done as the domain server simply returns an "OK" to all keepalives.
-     * This method is run after all exchanges between domain server and client.
+      * Method to synchronously get a single message from the server for a given
+      * subject and type -- perhaps from a specified receiver.
+      *
+      * @param message message requesting what sort of message to get
+      * @throws cMsgException if no client information is available or a subscription for this
+      *                          subject and type already exists
+      */
+     public void handleGetRequest(cMsgMessage message) throws cMsgException {
+        cMsgClientInfo info;
+        synchronized (clients) {
+            // Each client (name) has a cMsgClientInfo object associated with it
+            // that contains all relevant information. Retrieve that object
+            // from the "clients" table, add get (actually a subscription) to it.
+            info = (cMsgClientInfo) clients.get(name);
+        }
+        if (info == null) {
+            throw new cMsgException("handleGetRequest: no client information stored for " + name);
+        }
+
+        // If sender is not doing a specific get, do a get "subscribe".
+        if (!message.isGetRequest()) {
+            // do not add duplicate get
+            HashSet gets = info.getGets();
+
+            int receiverSubscribeId = message.getReceiverSubscribeId();
+            String subject = message.getSubject();
+            String type    = message.getType();
+
+            synchronized (gets) {
+                Iterator it = gets.iterator();
+                cMsgSubscription sub;
+                while (it.hasNext()) {
+                    sub = (cMsgSubscription) it.next();
+                    if (receiverSubscribeId == sub.getId() ||
+                            sub.getSubject().equals(subject) && sub.getType().equals(type)) {
+                        throw new cMsgException("handleGetRequest: get already exists for subject = " +
+                                                subject + " and type = " + type);
+                    }
+                }
+
+                // add new get
+                sub = new cMsgSubscription(subject, type, receiverSubscribeId);
+                gets.add(sub);
+            }
+        }
+        // Else specially register this get so its response can be identified.
+        // Use sysMsgId which we must generate now.
+        else {
+            synchronized (specificGets) {
+                int id = sysMsgId++;
+                message.setSysMsgId(id);
+                specificGets.put(new Integer(id), info);
+            }
+
+            // now send this message on its way to any receivers out there
+            handleSendRequest(message);
+        }
+
+     }
+
+
+    /**
+     * Method to handle unget request sent by domain client (hidden from user).
+     *
+     * @param subject message subject subscribed to
+     * @param type message type subscribed to
      */
-    public void handleKeepAlive() {
+    public void handleUngetRequest(String subject, String type) {
+        cMsgClientInfo info;
+        synchronized (clients) {
+            info = (cMsgClientInfo) clients.get(name);
+        }
+
+        if (info == null) {
+            return;
+        }
+
+        HashSet gets = info.getGets();
+
+        synchronized (gets) {
+            Iterator it = gets.iterator();
+            cMsgSubscription sub;
+            while (it.hasNext()) {
+                sub = (cMsgSubscription) it.next();
+                if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
+                    it.remove();
+                    return;
+                }
+            }
+        }
     }
 
 
     /**
-     * Method to get a single message from the server for a given
-     * subject and type.
-     *
-     * @param subject subject of message to get
-     * @param type type of message to get
-     * @return cMsgMessage message obtained by this get
-     */
-    public cMsgMessage handleGetRequest(String subject, String type) {
-        return null;
-    }
+      * Method to handle keepalive sent by domain client checking to see
+      * if the domain server socket is still up. Normally nothing needs to
+      * be done as the domain server simply returns an "OK" to all keepalives.
+      * This method is run after all exchanges between domain server and client.
+      */
+     public void handleKeepAlive() {
+     }
 
 
     /**
@@ -387,6 +538,9 @@ public class cMsg implements cMsgHandleRequests {
      */
     public void handleClientShutdown() {
         synchronized (clients) {
+            if (debug >= cMsgConstants.debugWarn) {
+                System.out.println("dHandler: SHUTDOWN client " + name);
+            }
             clients.remove(name);
         }
     }
@@ -416,36 +570,39 @@ public class cMsg implements cMsgHandleRequests {
         // get ready to write
         buffer.clear();
 
-        // write 12 ints
-        int outGoing[] = new int[12];
+        // write 14 ints
+        int outGoing[] = new int[14];
         outGoing[0]  = cMsgConstants.msgSubscribeResponse;
         outGoing[1]  = msg.getSysMsgId();
-        outGoing[2]  = id;
-        outGoing[3]  = msg.getSenderId();
-        // send the current time in seconds since Jan 1, 1970 as senderTime
-        outGoing[4]  = (int) (((new Date()).getTime())/1000L);
-        outGoing[5]  = msg.getSenderMsgId();
-        outGoing[6]  = msg.getSenderToken();
-        outGoing[7]  = msg.getSender().length();
-        outGoing[8]  = msg.getSenderHost().length();
-        outGoing[9]  = msg.getSubject().length();
-        outGoing[10] = msg.getType().length();
-        outGoing[11] = msg.getText().length();
+        outGoing[2]  = msg.isGetRequest()  ? 1 : 0;
+        outGoing[3]  = msg.isGetResponse() ? 1 : 0;
+        outGoing[4]  = id;  // receiverSubscribeId, 0 for specific gets
+        outGoing[5]  = msg.getSenderId();
+        outGoing[6]  = (int) (msg.getSenderTime().getTime()/1000L);
+        outGoing[7]  = msg.getSenderMsgId();
+        outGoing[8]  = msg.getSenderToken();
+        outGoing[9]  = msg.getSender().length();
+        outGoing[10] = msg.getSenderHost().length();
+        outGoing[11] = msg.getSubject().length();
+        outGoing[12] = msg.getType().length();
+        outGoing[13] = msg.getText().length();
 
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("    DELIVERING MESSAGE");
             System.out.println("      msg: " +                 outGoing[0]);
             System.out.println("      SysMsgId: " +            outGoing[1]);
-            System.out.println("      ReceiverSubscribeId: " + outGoing[2]);
-            System.out.println("      SenderId: " +            outGoing[3]);
-            System.out.println("      Time: " +                outGoing[4]);
-            System.out.println("      SenderMsgId: " +         outGoing[5]);
-            System.out.println("      SenderToken: " +         outGoing[6]);
-            System.out.println("      Sender length: " +       outGoing[7]);
-            System.out.println("      SenderHost length: " +   outGoing[8]);
-            System.out.println("      Subject length: " +      outGoing[9]);
-            System.out.println("      Type length: " +         outGoing[10]);
-            System.out.println("      Text length: " +         outGoing[11]);
+            System.out.println("      isGetRequest: " +        outGoing[2]);
+            System.out.println("      isGetResponse: " +       outGoing[3]);
+            System.out.println("      ReceiverSubscribeId: " + outGoing[4]);
+            System.out.println("      SenderId: " +            outGoing[5]);
+            System.out.println("      Time: " +                outGoing[6]);
+            System.out.println("      SenderMsgId: " +         outGoing[7]);
+            System.out.println("      SenderToken: " +         outGoing[8]);
+            System.out.println("      Sender length: " +       outGoing[9]);
+            System.out.println("      SenderHost length: " +   outGoing[10]);
+            System.out.println("      Subject length: " +      outGoing[11]);
+            System.out.println("      Type length: " +         outGoing[12]);
+            System.out.println("      Text length: " +         outGoing[13]);
 
             System.out.println("      Sender: " +       msg.getSender());
             System.out.println("      SenderHost: " +   msg.getSenderHost());
@@ -458,11 +615,10 @@ public class cMsg implements cMsgHandleRequests {
         buffer.asIntBuffer().put(outGoing);
 
         // position original buffer at position of view buffer
-        buffer.position(48);
+        buffer.position(56);
 
         // write strings
         try {
-            //buffer.put("blah blah".getBytes("US-ASCII"));
             buffer.put(msg.getSender().getBytes("US-ASCII"));
             buffer.put(msg.getSenderHost().getBytes("US-ASCII"));
             buffer.put(msg.getSubject().getBytes("US-ASCII"));
@@ -479,18 +635,6 @@ public class cMsg implements cMsgHandleRequests {
             channel.write(buffer);
         }
 
-        // read acknowledgment & keep reading until we have 1 int of data
-        //cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
-        /*
-        // go back to reading-from-buffer mode
-        buffer.flip();
-
-        int error = buffer.getInt();
-
-        if (error != cMsgConstants.ok) {
-            throw new cMsgException("deliverMessage: error in sending message");
-        }
-        */
         return;
     }
 
