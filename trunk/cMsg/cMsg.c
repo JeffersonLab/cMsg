@@ -39,12 +39,14 @@
 #ifdef VXWORKS
 #include <vxWorks.h>
 #include <taskLib.h>
+#else
+#include <strings.h>
 #endif
 
 #include <stdio.h>
-#include <strings.h>
 #include <pthread.h>
-
+#include <string.h>
+#include <ctype.h>
 
 /* package includes */
 #include "errors.h"
@@ -64,7 +66,6 @@ int cMsgDebug = CMSG_DEBUG_NONE;
 /* local variables */
 static int oneTimeInitialized = 0;
 static pthread_mutex_t connectMutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t generalMutex = PTHREAD_MUTEX_INITIALIZER;
 static domainTypeInfo dTypeInfo[MAXDOMAINS];
 static cMsgDomain domains[MAXDOMAINS];
 
@@ -89,12 +90,75 @@ static void  registerDomainTypeInfo(void);
 static void  domainInit(cMsgDomain *domain);
 static void  domainFree(cMsgDomain *domain);
 static int   parseUDL(const char *UDL, char **domainType, char **UDLremainder);
-static void  mutexLock(void);
-static void  mutexUnlock(void);
 static void  connectMutexLock(void);
 static void  connectMutexUnlock(void);
 static void  cMsgDomainClear(cMsgDomain *domain);
 static void  initMessage(cMsgMessage *msg);
+
+#ifdef VXWORKS
+
+static char *strdup(const char *s1) {
+    char *s;    
+    if (s1 == NULL) return NULL;    
+    if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;    
+    return strcpy(s, s1);
+}
+
+static int strcasecmp(const char *s1, const char *s2) {
+  int i, len1, len2;
+  
+  /* handle NULL's */
+  if (s1 == NULL && s2 == NULL) {
+    return 0;
+  }
+  else if (s1 == NULL) {
+    return -1;  
+  }
+  else if (s2 == NULL) {
+    return 1;  
+  }
+  
+  len1 = strlen(s1);
+  len2 = strlen(s2);
+  
+  /* handle different lengths */
+  if (len1 < len2) {
+    for (i=0; i<len1; i++) {
+      if (toupper((int) s1[i]) < toupper((int) s2[i])) {
+        return -1;
+      }
+      else if (toupper((int) s1[i]) > toupper((int) s2[i])) {
+         return 1;   
+      }
+    }
+    return -1;
+  }
+  else if (len1 > len2) {
+    for (i=0; i<len2; i++) {
+      if (toupper((int) s1[i]) < toupper((int) s2[i])) {
+        return -1;
+      }
+      else if (toupper((int) s1[i]) > toupper((int) s2[i])) {
+         return 1;   
+      }
+    }
+    return 1;  
+  }
+  
+  /* handle same lengths */
+  for (i=0; i<len1; i++) {
+    if (toupper((int) s1[i]) < toupper((int) s2[i])) {
+      return -1;
+    }
+    else if (toupper((int) s1[i]) > toupper((int) s2[i])) {
+       return 1;   
+    }
+  }
+  
+  return 0;
+}
+
+#endif
 
 
 
@@ -103,8 +167,7 @@ static void  initMessage(cMsgMessage *msg);
 
 int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
 
-  int i, id=-1, err, serverfd, status, implId;
-  char *portEnvVariable=NULL, temp[CMSG_MAXHOSTNAMELEN];
+  int i, id=-1, err, implId;
   
   /* check args */
   if ( (checkString(myName)        != CMSG_OK) ||
@@ -662,28 +725,6 @@ static void connectMutexUnlock(void) {
 
 
 /*-------------------------------------------------------------------*/
-
-
-static void mutexLock(void) {
-  int status = pthread_mutex_lock(&generalMutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex lock");
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-static void mutexUnlock(void) {
-  int status = pthread_mutex_unlock(&generalMutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex unlock");
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
 /*   miscellaneous local functions                                   */
 /*-------------------------------------------------------------------*/
 
@@ -696,8 +737,7 @@ static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
    * The initial cMsg is optional.
    */
 
-  int i;
-  char *p, *c, *udl, *pudl, *pdomainType;
+  char *p, *udl, *pudl;
 
   if (UDL == NULL) {
     return(CMSG_BAD_ARGUMENT);
@@ -762,7 +802,7 @@ static int checkString(char *s) {
 
   /* check for printable character */
   for (i=0; i<strlen(s); i++) {
-    if (isprint(s[i]) == 0) return(CMSG_ERROR);
+    if (isprint((int)s[i]) == 0) return(CMSG_ERROR);
   }
 
   /* check for excluded chars */

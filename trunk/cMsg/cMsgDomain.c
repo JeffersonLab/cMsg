@@ -32,6 +32,8 @@
 #ifdef VXWORKS
 #include <vxWorks.h>
 #include <taskLib.h>
+#include <hostLib.h>
+#include <timers.h>
 #endif
 
 #include <stdio.h>
@@ -63,7 +65,6 @@ static int *rsIds = NULL; /* allocate an integer array to read in receiverSubscr
 static int rsIdSize = 0;  /* size of rsIds array */
 static int rsIdCount = 0; /* number of rsId's received */
 
-static pthread_mutex_t initMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t generalMutex = PTHREAD_MUTEX_INITIALIZER;
 /*
  * Lock to prevent connect or disconnect from being
@@ -73,11 +74,6 @@ static rwlock_t connectLock = RWL_INITIALIZER;
 
 /* id which uniquely defines a subject/type pair */
 static int subjectTypeId = 1;
-
-
-/* temp */
-static int counter = 0;
-
 
 /* for c++ */
 #ifdef __cplusplus
@@ -125,12 +121,12 @@ static void  connectReadLock(void);
 static void  connectReadUnlock(void);
 static void  connectWriteLock(void);
 static void  connectWriteUnlock(void);
-static int   socketMutexLock(cMsgDomain_CODA *domain);
-static int   socketMutexUnlock(cMsgDomain_CODA *domain);
-static int   syncSendMutexLock(cMsgDomain_CODA *domain);
-static int   syncSendMutexUnlock(cMsgDomain_CODA *domain);
-static int   subscribeMutexLock(cMsgDomain_CODA *domain);
-static int   subscribeMutexUnlock(cMsgDomain_CODA *domain);
+static void  socketMutexLock(cMsgDomain_CODA *domain);
+static void  socketMutexUnlock(cMsgDomain_CODA *domain);
+static void  syncSendMutexLock(cMsgDomain_CODA *domain);
+static void  syncSendMutexUnlock(cMsgDomain_CODA *domain);
+static void  subscribeMutexLock(cMsgDomain_CODA *domain);
+static void  subscribeMutexUnlock(cMsgDomain_CODA *domain);
 
 /* threads */
 static void *keepAliveThread(void *arg);
@@ -145,14 +141,21 @@ static void  getInfoInit(getInfo *info);
 static void  subscribeInfoInit(subscribeInfo *info);
 static void  getInfoFree(getInfo *info);
 static void  subscribeInfoFree(subscribeInfo *info);
-static void  getInfoClear(getInfo *info);
-static void  subscribeInfoClear(subscribeInfo *info);
 
 /* misc */
 static int   parseUDL(const char *UDLremainder, char **host, unsigned short *port,
                       char **subdomainType, char **UDLsubRemainder);
 static int   unget(int domainId, int id);
 static struct timespec getAbsoluteTime(struct timespec *deltaTime);
+
+#ifdef VXWORKS
+static char *strdup(const char *s1) {
+    char *s;    
+    if (s1 == NULL) return NULL;    
+    if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;    
+    return strcpy(s, s1);
+}
+#endif
 
 /*-------------------------------------------------------------------*/
 
@@ -329,7 +332,9 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription,
    
   /* get system clock rate - probably 100 Hz */
   hz = 100;
+#ifndef VXWORKS
   hz = sysconf(_SC_CLK_TCK);
+#endif
   /* wait up to WAIT_FOR_THREADS seconds for a thread to start */
   try_max = hz * WAIT_FOR_THREADS;
   num_try = 0;
@@ -450,7 +455,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription,
 
 static int coda_send(int domainId, void *vmsg) {
   
-  int err, lenSubject, lenType, lenText;
+  int lenSubject, lenType, lenText;
   int outGoing[12];
   char *subject, *type, *text;
   cMsgMessage *msg = (cMsgMessage *) vmsg;
@@ -701,7 +706,7 @@ static int subscribeAndGet(int domainId, char *subject, char *type,
   int i, uniqueId, status, lenSubject, lenType;
   int gotSpot, fd = domain->sendSocket;
   int outGoing[4];
-  getInfo *info;
+  getInfo *info = NULL;
   struct timespec wait;
   
   if (!domain->hasSubscribeAndGet) {
@@ -898,7 +903,7 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   int i, uniqueId, status, lenSubject, lenType, lenText;
   int gotSpot, fd = domain->sendSocket;
   int outGoing[10];
-  getInfo *info;
+  getInfo *info = NULL;
   struct timespec wait;
   
   if (!domain->hasSendAndGet) {
@@ -1207,7 +1212,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
   subscribeMutexLock(domain);
   
   /* add to callback list if subscription to same subject/type exists */
-  iok = 0;
+  iok = jok = 0;
   for (i=0; i<MAX_SUBSCRIBE; i++) {
     if ((domain->subscribeInfo[i].active == 1) && 
        (strcmp(domain->subscribeInfo[i].subject, subject) == 0) && 
@@ -1260,14 +1265,14 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
   /* no match, make new entry and notify server */
   iok = 0;
   for (i=0; i<MAX_SUBSCRIBE; i++) {
+    int lenSubject, lenType;
+    int fd = domain->sendSocket;
+    int outGoing[4];
+    
     if (domain->subscribeInfo[i].active != 0) {
       continue;
     }
 
-    int err, lenSubject, lenType;
-    int fd = domain->sendSocket;
-    int outGoing[4];
-    
     domain->subscribeInfo[i].active  = 1;
     domain->subscribeInfo[i].subject = (char *) strdup(subject);
     domain->subscribeInfo[i].type    = (char *) strdup(type);
@@ -1426,7 +1431,7 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
    * to begin with and now there are none for this subject/type */
   if ((cbCount > 0) && (cbCount-cbsRemoved < 1)) {
 
-    int err, lenSubject, lenType;
+    int lenSubject, lenType;
     int fd = domain->sendSocket;
     int outGoing[4];
 
@@ -1595,7 +1600,7 @@ static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
   int  lengthHost, lengthName, lengthUDL, lengthDescription;
   int  outgoing[11], incoming[2];
   char temp[CMSG_MAXHOSTNAMELEN], atts[6];
-  char *errMsg, *domainType = "cMsg";
+  char *domainType = "cMsg";
 
   /* first send message id (in network byte order) to server */
   outgoing[0] = htonl(CMSG_SERVER_CONNECT);
@@ -1879,7 +1884,7 @@ static void *keepAliveThread(void *arg)
     thr_setconcurrency(con);
   #endif
     
-    return;
+    return NULL;
 }
 
 
@@ -2009,7 +2014,7 @@ static void *callbackThread(void *arg)
     thr_setconcurrency(con);
   #endif
     
-    return;
+    return NULL;
 }
 
 
@@ -2074,7 +2079,7 @@ static void *supplementalThread(void *arg)
   #ifdef sun
             thr_setconcurrency(con);
   #endif
-            return;
+            return NULL;
           }
 
         }
@@ -2125,7 +2130,7 @@ static void *supplementalThread(void *arg)
     thr_setconcurrency(con);
   #endif
     
-    return;
+    return NULL;
 }
 
 
@@ -2135,10 +2140,8 @@ static void *supplementalThread(void *arg)
 int cMsgRunCallbacks(int domainId, cMsgMessage *msg) {
 
   int i, j, k, ii, status;
-  dispatchCbInfo *dcbi;
   subscribeCbInfo *subscription;
   getInfo *info;
-  pthread_t newThread;
   cMsgDomain_CODA *domain;
   cMsgMessage *message, *oldHead;
   
@@ -2299,10 +2302,9 @@ fprintf(stderr, "cMsgRunCallbacks G: domainId = %d, uniqueId = %d, msg id = %d\n
 
 int cMsgWakeGets(int domainId, cMsgMessage *msg) {
 
-  int i, j, status;
+  int i, status;
   getInfo *info;
   cMsgDomain_CODA *domain;
-  cMsgMessage *message, *oldHead;
   
   domain = &cMsgDomains[domainId];
   
@@ -2345,7 +2347,7 @@ fprintf(stderr, "cMsgWakeGets: domainId = %d, uniqueId = %d, msg sender token = 
  */
 int cMsgReadMessage(int fd, cMsgMessage *msg) {
   
-  int i, err, time, lengths[5], inComing[14];
+  int i, lengths[5], inComing[14];
   int memSize = CMSG_MESSAGE_SIZE;
   char *string, storage[CMSG_MESSAGE_SIZE + 1];
   
@@ -2598,12 +2600,11 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
 
 /* translate a delta time into an absolute time for pthread_cond_wait */
 static struct timespec getAbsoluteTime(struct timespec *deltaTime) {
-    struct timeval now;
-    struct timespec absTime;
+    struct timespec absTime, now;
     long   nsecTotal;
     
-    gettimeofday(&now, NULL);
-    nsecTotal = deltaTime->tv_nsec + 1000*now.tv_usec;
+    clock_gettime(CLOCK_REALTIME, &now);
+    nsecTotal = deltaTime->tv_nsec + now.tv_nsec;
     if (nsecTotal >= 1000000000L) {
       absTime.tv_nsec = nsecTotal - 1000000000L;
       absTime.tv_sec  = deltaTime->tv_sec + now.tv_sec + 1;
@@ -2630,8 +2631,8 @@ static int parseUDL(const char *UDLremainder, char **host, unsigned short *port,
    * stripped off (in the software layer one up).
    */
 
-  int i, Port;
-  char *p, *portString, *udl, *pdomainType;
+  int   Port;
+  char *p, *portString, *udl;
 
   if (UDLremainder == NULL) {
     return(CMSG_BAD_ARGUMENT);
@@ -2757,7 +2758,7 @@ static void subscribeInfoInit(subscribeInfo *info) {
 
 
 static void domainInit(cMsgDomain_CODA *domain) {
-  int i, j;
+  int i;
  
   domain->id                 = 0;
 
@@ -2851,7 +2852,7 @@ static void getInfoFree(getInfo *info) {
 
 
 static void domainFree(cMsgDomain_CODA *domain) {  
-  int i, j;
+  int i;
   
   if (domain->myHost      != NULL) free(domain->myHost);
   if (domain->sendHost    != NULL) free(domain->sendHost);
@@ -2876,24 +2877,6 @@ static void domainFree(cMsgDomain_CODA *domain) {
   for (i=0; i<MAX_SPECIFIC_GET; i++) {
     getInfoFree(&domain->specificGetInfo[i]);
   }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-static void getInfoClear(getInfo *info) {
-  getInfoFree(info);
-  getInfoInit(info);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-static void subscribeInfoClear(subscribeInfo *info) {
-  subscribeInfoFree(info);
-  subscribeInfoInit(info);
 }
 
 
@@ -2981,7 +2964,7 @@ static void connectWriteUnlock(void) {
 /*-------------------------------------------------------------------*/
 
 
-static int socketMutexLock(cMsgDomain_CODA *domain) {
+static void socketMutexLock(cMsgDomain_CODA *domain) {
 
   int status;
   
@@ -2995,7 +2978,7 @@ static int socketMutexLock(cMsgDomain_CODA *domain) {
 /*-------------------------------------------------------------------*/
 
 
-static int socketMutexUnlock(cMsgDomain_CODA *domain) {
+static void socketMutexUnlock(cMsgDomain_CODA *domain) {
 
   int status;
 
@@ -3009,7 +2992,7 @@ static int socketMutexUnlock(cMsgDomain_CODA *domain) {
 /*-------------------------------------------------------------------*/
 
 
-static int syncSendMutexLock(cMsgDomain_CODA *domain) {
+static void syncSendMutexLock(cMsgDomain_CODA *domain) {
 
   int status;
   
@@ -3023,7 +3006,7 @@ static int syncSendMutexLock(cMsgDomain_CODA *domain) {
 /*-------------------------------------------------------------------*/
 
 
-static int syncSendMutexUnlock(cMsgDomain_CODA *domain) {
+static void syncSendMutexUnlock(cMsgDomain_CODA *domain) {
 
   int status;
 
@@ -3037,7 +3020,7 @@ static int syncSendMutexUnlock(cMsgDomain_CODA *domain) {
 /*-------------------------------------------------------------------*/
 
 
-static int subscribeMutexLock(cMsgDomain_CODA *domain) {
+static void subscribeMutexLock(cMsgDomain_CODA *domain) {
 
   int status;
   
@@ -3051,7 +3034,7 @@ static int subscribeMutexLock(cMsgDomain_CODA *domain) {
 /*-------------------------------------------------------------------*/
 
 
-static int subscribeMutexUnlock(cMsgDomain_CODA *domain) {
+static void subscribeMutexUnlock(cMsgDomain_CODA *domain) {
 
   int status;
 
