@@ -392,6 +392,7 @@ public class cMsgMessage implements Cloneable {
             + "     " + "sysMsgId            = \"" + this.getSysMsgId() + "\"\n"
             + "     " + "getRequest          = \"" + this.isGetRequest() + "\"\n"
             + "     " + "getResponse         = \"" + this.isGetResponse() + "\"\n"
+            + "     " + "creator             = \"" + this.getCreator() + "\"\n"
             + "     " + "sender              = \"" + this.getSender() + "\"\n"
             + "     " + "senderHost          = \"" + this.getSenderHost() + "\"\n"
             + "     " + "senderTime          = \"" + this.getSenderTime() + "\"\n"
