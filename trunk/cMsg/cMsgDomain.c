@@ -44,7 +44,9 @@
 #include "cMsgNetwork.h"
 #include "cMsg.h"
 #include "cMsgPrivate.h"
-#include "cMsg_CODA.h"
+#include "cMsgDomain.h"
+#include "errors.h"
+#include "rwlock.h"
 
 
 /* built-in limits */
@@ -60,8 +62,14 @@ static int oneTimeInitialized = 0;
 static int *rsIds = NULL; /* allocate an integer array to read in receiverSubscribeIds */
 static int rsIdSize = 0;  /* size of rsIds array */
 static int rsIdCount = 0; /* number of rsId's received */
-static pthread_mutex_t connectMutex = PTHREAD_MUTEX_INITIALIZER;
+
+static pthread_mutex_t initMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t generalMutex = PTHREAD_MUTEX_INITIALIZER;
+/*
+ * Lock to prevent connect or disconnect from being
+ * simultaneously with any other function.
+ */
+static rwlock_t connectLock = RWL_INITIALIZER; 
 
 /* id which uniquely defines a subject/type pair */
 static int subjectTypeId = 1;
@@ -105,32 +113,41 @@ void *cMsgClientListeningThread(void *arg);
 /* local prototypes */
 static int   getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
                                           char *subdomain, char *UDLremainder);
+/* mutexes and read/write locks */
 static void  mutexLock(void);
 static void  mutexUnlock(void);
-static void  connectMutexLock(void);
-static void  connectMutexUnlock(void);
-static int   sendMutexLock(cMsgDomain_CODA *domain);
-static int   sendMutexUnlock(cMsgDomain_CODA *domain);
+static void  connectReadLock(void);
+static void  connectReadUnlock(void);
+static void  connectWriteLock(void);
+static void  connectWriteUnlock(void);
+static int   socketMutexLock(cMsgDomain_CODA *domain);
+static int   socketMutexUnlock(cMsgDomain_CODA *domain);
+static int   syncSendMutexLock(cMsgDomain_CODA *domain);
+static int   syncSendMutexUnlock(cMsgDomain_CODA *domain);
 static int   subscribeMutexLock(cMsgDomain_CODA *domain);
 static int   subscribeMutexUnlock(cMsgDomain_CODA *domain);
-static int   parseUDL(const char *UDL, char **domainType, char **host,
-                      unsigned short *port, char **subdomainType, char **UDLremainder);
-static void  domainInit(cMsgDomain_CODA *domain);
-static void  domainFree(cMsgDomain_CODA *domain);  
-static void  domainClear(cMsgDomain_CODA *domain);
+
+/* threads */
 static void *keepAliveThread(void *arg);
 static void *callbackThread(void *arg);
 static void *supplementalThread(void *arg);
+
+/* initialization and freeing */
+static void  domainInit(cMsgDomain_CODA *domain);
+static void  domainFree(cMsgDomain_CODA *domain);  
+static void  domainClear(cMsgDomain_CODA *domain);
 static void  getInfoInit(getInfo *info);
 static void  subscribeInfoInit(subscribeInfo *info);
 static void  getInfoFree(getInfo *info);
 static void  subscribeInfoFree(subscribeInfo *info);
 static void  getInfoClear(getInfo *info);
 static void  subscribeInfoClear(subscribeInfo *info);
+
+/* misc */
+static int   parseUDL(const char *UDL, char **domainType, char **host,
+                      unsigned short *port, char **subdomainType, char **UDLremainder);
 static int   unget(int domainId, int id);
 static struct timespec getAbsoluteTime(struct timespec *deltaTime);
-
-
 
 /*-------------------------------------------------------------------*/
 
@@ -145,16 +162,15 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   struct timespec waitForThread;
   
     
-  /* First, grab mutex for thread safety. This mutex must be held until
+  /* First, grab lock for thread safety. This lock must be held until
    * the initialization is completely finished. Otherwise, if we set
    * initComplete = 1 (so that we reserve space in the cMsgDomains array)
-   * before it's finished and then release the mutex, we may give an
+   * before it's finished and then release the lock, we may give an
    * "existing" connection to a user who does a second init
    * when in fact, an error may still occur in that "existing"
    * connection. Hope you caught that.
    */
-  connectMutexLock();
-  
+  connectWriteLock();  
 
   /* do one time initialization */
   if (!oneTimeInitialized) {
@@ -199,7 +215,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   /* found the id of a valid connection - return that */
   if (id > -1) {
     *domainId = id + DOMAIN_ID_OFFSET;
-    connectMutexUnlock();
+    connectWriteUnlock();
     return(CMSG_OK);
   }
   
@@ -217,10 +233,9 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
 
   /* exceeds number of domain connections allowed */
   if (id < 0) {
-    connectMutexUnlock();
+    connectWriteUnlock();
     return(CMSG_LIMIT_EXCEEDED);
   }
-
 
   /* reserve this element of the "cMsgDomains" array */
   cMsgDomains[id].initComplete = 1;
@@ -241,7 +256,8 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   if ( (err = parseUDL(myUDL, NULL, &cMsgDomains[id].serverHost,
                        &cMsgDomains[id].serverPort, &subdomain, &UDLremainder)) != CMSG_OK ) {
     /* there's been a parsing error */
-    connectMutexUnlock();
+    domainClear(&cMsgDomains[id]);
+    connectWriteUnlock();
     return(err);
   }
   
@@ -282,7 +298,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
                                      &cMsgDomains[id].listenPort,
                                      &cMsgDomains[id].listenSocket)) != CMSG_OK) {
     domainClear(&cMsgDomains[id]);
-    connectMutexUnlock();
+    connectWriteUnlock();
     return(err);
   }
 
@@ -339,7 +355,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
     /* stop listening & connection threads */
     pthread_cancel(cMsgDomains[id].pendThread);
     domainClear(&cMsgDomains[id]);
-    connectMutexUnlock();
+    connectWriteUnlock();
     return(err);
   }
   
@@ -353,7 +369,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
     close(serverfd);
     pthread_cancel(cMsgDomains[id].pendThread);
     domainClear(&cMsgDomains[id]);
-    connectMutexUnlock();
+    connectWriteUnlock();
     return(err);
   }
   
@@ -378,7 +394,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
     close(serverfd);
     pthread_cancel(cMsgDomains[id].pendThread);
     domainClear(&cMsgDomains[id]);
-    connectMutexUnlock();
+    connectWriteUnlock();
     return(err);
   }
 
@@ -388,7 +404,6 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   
   /* init is complete */
   *domainId = id + DOMAIN_ID_OFFSET;
-  cMsgDomains[id].initComplete = 1;
 
   if ( (err = cMsgTcpConnect(cMsgDomains[id].sendHost,
                              cMsgDomains[id].sendPort,
@@ -396,7 +411,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
     close(cMsgDomains[id].sendSocket);
     pthread_cancel(cMsgDomains[id].pendThread);
     domainClear(&cMsgDomains[id]);
-    connectMutexUnlock();
+    connectWriteUnlock();
     return(err);
   }
   
@@ -415,9 +430,10 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
     fprintf(stderr, "coda_connect: created keep alive thread\n");
   }
   
-  
+  cMsgDomains[id].lostConnection = 0;
+    
   /* no more mutex protection is necessary */
-  connectMutexUnlock();
+  connectWriteUnlock();
   
   return(CMSG_OK);
 }
@@ -438,9 +454,18 @@ static int coda_send(int domainId, void *vmsg) {
   if (!domain->hasSend) {
     return(CMSG_NOT_IMPLEMENTED);
   }
- 
-  if (cMsgDomains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (cMsgDomains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
+  
+  /* Cannot run this while connecting/disconnecting */
+  connectReadLock();
+  
+  if (cMsgDomains[domainId].initComplete != 1) {
+    connectReadUnLock();
+    return(CMSG_NOT_INITIALIZED);
+  }
+  if (cMsgDomains[domainId].lostConnection == 1) {
+    connectReadUnLock();
+    return(CMSG_LOST_CONNECTION);
+  }
 
   subject = cMsgGetSubject(vmsg);
   type    = cMsgGetType(vmsg);
@@ -474,91 +499,52 @@ static int coda_send(int domainId, void *vmsg) {
   outGoing[10] = htonl(lenText);
 
   /* make send socket communications thread-safe */
-  sendMutexLock(domain);
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "coda_send: sending 4 ints\n");
-  }
+  socketMutexLock(domain);
   
   /* send ints over together */
   if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
-    sendMutexUnlock(domain);
-    subscribeMutexUnlock(domain);
+    socketMutexUnlock(domain);
+    connectReadUnLock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "coda_send: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
-  }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "coda_send: sending subject (%s)\n", subject);
   }
   
   /* send subject */
   if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
-    sendMutexUnlock(domain);
-    subscribeMutexUnlock(domain);
+    socketMutexUnlock(domain);
+    connectReadUnLock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "coda_send: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
-  }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "coda_send: sending type (%s)\n", type);
   }
   
   /* send type */
   if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
-    sendMutexUnlock(domain);
-    subscribeMutexUnlock(domain);
+    socketMutexUnlock(domain);
+    connectReadUnLock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "coda_send: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
-  }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "coda_send: sending text (%s)\n", text);
   }
   
   /* send text */
   if (cMsgTcpWrite(fd, (void *) text, lenText) != lenText) {
-    sendMutexUnlock(domain);
-    subscribeMutexUnlock(domain);
+    socketMutexUnlock(domain);
+    connectReadUnLock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "coda_send: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "coda_send: will read reply\n");
-  }
   
-  /* now read reply */
-  /*
-  if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
-    sendMutexUnlock(domain);
-    subscribeMutexUnlock(domain);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "coda_send: read failure\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-  */
-
   /* done protecting communications */
-  sendMutexUnlock(domain);
+  socketMutexUnlock(domain);
+  connectReadUnLock();
 
-  /* return domain server's reply */
-  /*
-  err = ntohl(err);
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "coda_send: read reply (%d), am done\n", err);
-  }
-  */
-  
   return(CMSG_OK);
 }
 
@@ -579,8 +565,16 @@ static int syncSend(int domainId, void *vmsg, int *response) {
     return(CMSG_NOT_IMPLEMENTED);
   }
  
-  if (cMsgDomains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (cMsgDomains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
+  connectReadLock();
+
+  if (cMsgDomains[domainId].initComplete != 1) {
+    connectReadUnLock();
+    return(CMSG_NOT_INITIALIZED);
+  }
+  if (cMsgDomains[domainId].lostConnection == 1) {
+    connectReadUnLock();
+    return(CMSG_LOST_CONNECTION);
+  }
 
   subject = cMsgGetSubject(vmsg);
   type    = cMsgGetType(vmsg);
@@ -613,86 +607,75 @@ static int syncSend(int domainId, void *vmsg, int *response) {
   lenText      = strlen(text);
   outGoing[10] = htonl(lenText);
 
-  /* make send socket communications thread-safe */
-  sendMutexLock(domain);
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "syncSend: sending 4 ints\n");
-  }
-  
+  /* make syncSends be synchronous 'cause we need a reply */
+  syncSendMutexLock(domain);
+ 
+  /* make outgoing socket communications thread-safe */
+  socketMutexLock(domain);
+ 
   /* send ints over together */
   if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
-    sendMutexUnlock(domain);
-    subscribeMutexUnlock(domain);
+    socketMutexUnlock(domain);
+    syncSendMutexUnLock(domain);
+    connectReadUnLock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "syncSend: sending subject (%s)\n", subject);
-  }
-  
+ 
   /* send subject */
   if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
-    sendMutexUnlock(domain);
-    subscribeMutexUnlock(domain);
+    socketMutexUnlock(domain);
+    syncSendMutexUnLock(domain);
+    connectReadUnLock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
-  }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "syncSend: sending type (%s)\n", type);
   }
   
   /* send type */
   if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
-    sendMutexUnlock(domain);
-    subscribeMutexUnlock(domain);
+    socketMutexUnlock(domain);
+    syncSendMutexUnLock(domain);
+    connectReadUnLock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
 
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "syncSend: sending text (%s)\n", text);
-  }
-  
   /* send text */
   if (cMsgTcpWrite(fd, (void *) text, lenText) != lenText) {
-    sendMutexUnlock(domain);
-    subscribeMutexUnlock(domain);
+    socketMutexUnlock(domain);
+    syncSendMutexUnLock(domain);
+    connectReadUnLock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "syncSend: will read reply\n");
-  }
+  
+  /* done protecting outgoing communications */
+  socketMutexUnlock(domain);
   
   /* now read reply */
-  
   if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
-    sendMutexUnlock(domain);
-    subscribeMutexUnlock(domain);
+    socketMutexUnlock(domain);
+    syncSendMutexUnLock(domain);
+    connectReadUnLock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: read failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
   
-  /* done protecting communications */
-  sendMutexUnlock(domain);
+  syncSendMutexUnLock(domain);
+  connectReadUnLock();
 
   /* return domain server's reply */  
-  *response = ntohl(err);
-  
+  *response = ntohl(err);  
   
   return(CMSG_OK);
 }
@@ -712,9 +695,6 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
   getInfo *info;
   struct timespec wait;
   
-  if (cMsgDomains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (cMsgDomains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
-
   if (!domain->hasGet) {
     return(CMSG_NOT_IMPLEMENTED);
   }   
@@ -732,6 +712,17 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
   }
   else if (strlen(subject) < 1 || strlen(type) < 1) {
     return(CMSG_BAD_ARGUMENT);
+  }
+
+  connectReadLock();
+
+  if (cMsgDomains[domainId].initComplete != 1) {
+    connectReadUnLock();
+    return(CMSG_NOT_INITIALIZED);
+  }
+  if (cMsgDomains[domainId].lostConnection == 1) {
+    connectReadUnLock();
+    return(CMSG_LOST_CONNECTION);
   }
 
   /* watch out for null text */
@@ -770,8 +761,10 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
       break;
     }
     
-    if (!gotSpot)
+    if (!gotSpot) {
+      connectReadUnLock();
       return(CMSG_OUT_OF_MEMORY);
+    }
   }
   
   else {
@@ -794,8 +787,10 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
       break;
     } 
     
-    if (!gotSpot)
+    if (!gotSpot) {
+      connectReadUnLock();
       return(CMSG_OUT_OF_MEMORY);
+    }
   }
   
   /* notify domain server */
@@ -826,50 +821,42 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
   outGoing[9] = htonl(lenText);
 
   /* make send socket communications thread-safe */
-  sendMutexLock(domain);
+  socketMutexLock(domain);
   
   /* send ints over together */
   if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
-    sendMutexUnlock(domain);
+    socketMutexUnlock(domain);
+    connectReadUnLock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "get: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
-  }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "get: sending subject (%s)\n", subject);
   }
   
   /* send subject */
   if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
-    sendMutexUnlock(domain);
+    socketMutexUnlock(domain);
+    connectReadUnLock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "get: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
 
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "get: sending type (%s)\n", type);
-  }
-  
   /* send type */
   if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
-    sendMutexUnlock(domain);
+    socketMutexUnlock(domain);
+    connectReadUnLock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "get: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
-  }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "get: sending text (%s)\n", text);
   }
   
   /* send text */
   if (cMsgTcpWrite(fd, (void *) text, lenText) != lenText) {
-    sendMutexUnlock(domain);
+    socketMutexUnlock(domain);
+    connectReadUnLock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "get: write failure\n");
     }
@@ -877,7 +864,8 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
   }  
 
   /* done protecting communications */
-  sendMutexUnlock(domain);
+  socketMutexUnlock(domain);
+  connectReadUnLock();
   
   /* Now ..., wait for asynchronous response */
   
@@ -975,18 +963,18 @@ static int unget(int domainId, int id) {
   outGoing[1] = htonl(id);
 
   /* make send socket communications thread-safe */
-  sendMutexLock(domain);
+  socketMutexLock(domain);
   
   /* send ints over together */
   if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
-    sendMutexUnlock(domain);
+    socketMutexUnlock(domain);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "coda_send: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
  
-  sendMutexUnlock(domain);
+  socketMutexUnlock(domain);
 
   return(CMSG_OK);
 }
@@ -1008,11 +996,11 @@ static int flush(int domainId) {
   file = fdopen(fd, "w");
 
   /* make send socket communications thread-safe */
-  sendMutexLock(domain);
+  socketMutexLock(domain);
   /* flush outgoing buffers */
   fflush(file);
   /* done with mutex */
-  sendMutexUnlock(domain);
+  socketMutexUnlock(domain);
   
   return(CMSG_OK);
 }
@@ -1028,13 +1016,21 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
   cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
   subscribeConfig *sConfig = (subscribeConfig *) config;
 
-  if (cMsgDomains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (cMsgDomains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
-
   if (!domain->hasSubscribe) {
     return(CMSG_NOT_IMPLEMENTED);
   } 
   
+  connectReadLock();
+
+  if (cMsgDomains[domainId].initComplete != 1) {
+    connectReadUnLock();
+    return(CMSG_NOT_INITIALIZED);
+  }
+  if (cMsgDomains[domainId].lostConnection == 1) {
+    connectReadUnLock();
+    return(CMSG_LOST_CONNECTION);
+  }
+
   /* use default configuration if none given */
   if (config == NULL) {
     sConfig = (subscribeConfig *) cMsgSubscribeConfigCreate();
@@ -1082,10 +1078,17 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
 
     }
   }
-fprintf(stderr, "subscribe: done with first loop\n");
   
-  if ((iok == 1) && (jok == 0)) return(CMSG_OUT_OF_MEMORY);
-  if ((iok == 1) && (jok == 1)) return(CMSG_OK);
+  if ((iok == 1) && (jok == 0)) {
+    subscribeMutexUnlock(domain);
+    connectReadUnLock();
+    return(CMSG_OUT_OF_MEMORY);
+  }
+  if ((iok == 1) && (jok == 1)) {
+    subscribeMutexUnlock(domain);
+    connectReadUnLock();
+    return(CMSG_OK);
+  }
 
   /* no match, make new entry and notify server */
   iok = 0;
@@ -1148,81 +1151,54 @@ fprintf(stderr, "subscribe: done with first loop\n");
     lenType     = strlen(type);
     outGoing[3] = htonl(lenType);
 
-      fprintf(stderr, "subscribe: write id = %d to server\n",uniqueId);
     /* make send socket communications thread-safe */
-    sendMutexLock(domain);
+    socketMutexLock(domain);
 
     /* send ints over together */
     if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
-      sendMutexUnlock(domain);
+      socketMutexUnlock(domain);
       subscribeMutexUnlock(domain);
+      connectReadUnLock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "subscribe: write failure\n");
       }
       return(CMSG_NETWORK_ERROR);
-    }
-
-    if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "subscribe: sending subject (%s)\n", subject);
     }
 
     /* send subject */
     if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
-      sendMutexUnlock(domain);
+      socketMutexUnlock(domain);
       subscribeMutexUnlock(domain);
+      connectReadUnLock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "subscribe: write failure\n");
       }
       return(CMSG_NETWORK_ERROR);
-    }
-
-    if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "subscribe: sending type (%s)\n", type);
     }
 
     /* send type */
     if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
-      sendMutexUnlock(domain);
+      socketMutexUnlock(domain);
       subscribeMutexUnlock(domain);
+      connectReadUnLock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "subscribe: write failure\n");
       }
       return(CMSG_NETWORK_ERROR);
     }
 
-    if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "subscribe: will read reply\n");
-    }
-
-    /* now read reply */
-    /*
-    if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
-      sendMutexUnlock(domain);
-      subscribeMutexUnlock(domain);
-      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "subscribe: read failure\n");
-      }
-      return(CMSG_NETWORK_ERROR);
-    }
-    */
-
     /* done protecting communications */
-    sendMutexUnlock(domain);
+    socketMutexUnlock(domain);
     /* done protecting subscribe */
     subscribeMutexUnlock(domain);
+    connectReadUnLock();
 
-    /* return domain server's reply */
-    /*
-    err = ntohl(err);
-    if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "subscribe: read reply (%d)\n", err);
-    }
-    */
     return(CMSG_OK);
   }
   
   /* done protecting subscribe */
   subscribeMutexUnlock(domain);
+  connectReadUnLock();
   
   /* iok == 0 here */
   return(CMSG_OUT_OF_MEMORY);
@@ -1243,6 +1219,17 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
     return(CMSG_NOT_IMPLEMENTED);
   }
  
+  connectReadLock();
+
+  if (cMsgDomains[domainId].initComplete != 1) {
+    connectReadUnLock();
+    return(CMSG_NOT_INITIALIZED);
+  }
+  if (cMsgDomains[domainId].lostConnection == 1) {
+    connectReadUnLock();
+    return(CMSG_LOST_CONNECTION);
+  }
+
   /* make sure subscribe and unsubscribe are not run at the same time */
   subscribeMutexLock(domain);
   
@@ -1297,86 +1284,54 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
     lenType     = strlen(type);
     outGoing[3] = htonl(lenType);
 
-    if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "unsubscribe: write 3 (%d, %d, %d) ints to server\n",
-              CMSG_UNSUBSCRIBE_REQUEST, lenSubject, lenType);
-    }
-
     /* make send socket communications thread-safe */
-    sendMutexLock(domain);
+    socketMutexLock(domain);
 
     /* send ints over together */
     if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
-      sendMutexUnlock(domain);
+      socketMutexUnlock(domain);
       subscribeMutexUnlock(domain);
+      connectReadUnLock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "unsubscribe: write failure\n");
       }
       return(CMSG_NETWORK_ERROR);
-    }
-
-    if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "unsubscribe: write subject (%s)\n", subject);
     }
 
     /* send subject */
     if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
-      sendMutexUnlock(domain);
+      socketMutexUnlock(domain);
       subscribeMutexUnlock(domain);
+      connectReadUnLock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "unsubscribe: write failure\n");
       }
       return(CMSG_NETWORK_ERROR);
-    }
-
-    if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "unsubscribe: write type (%s)\n", type);
     }
 
     /* send type */
     if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
-      sendMutexUnlock(domain);
+      socketMutexUnlock(domain);
       subscribeMutexUnlock(domain);
+      connectReadUnLock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "unsubscribe: write failure\n");
       }
       return(CMSG_NETWORK_ERROR);
     }
 
-    if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "unsubscribe: will read reply\n");
-    }
-
-    /* now read reply */
-    /*
-    if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
-      sendMutexUnlock(domain);
-      subscribeMutexUnlock(domain);
-      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "unsubscribe: read failure\n");
-      }
-      return(CMSG_NETWORK_ERROR);
-    }
-    */
-
     /* done protecting communications */
-    sendMutexUnlock(domain);
+    socketMutexUnlock(domain);
     /* done protecting unsubscribe */
     subscribeMutexUnlock(domain);
-
-    /* return domain server's reply */
-    /*
-    err = ntohl(err);
-    if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "unsubscribe: read replay (%d)\n", err);
-    }
-    */
+    connectReadUnLock();
 
     return(CMSG_OK);
   }
 
   /* done protecting unsubscribe */
   subscribeMutexUnlock(domain);
+  connectReadUnLock();
   
   return(CMSG_OK);
 }
@@ -1414,8 +1369,10 @@ static int disconnect(int domainId) {
 
   if (cMsgDomains[domainId].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
-  /* When changing initComplete / connection status, mutex protect it */
-  connectMutexLock();
+  /* When changing initComplete / connection status, protect it */
+  connectWriteLock();
+  
+  cMsgDomains[domainId].lostConnection = 1;
   
   /* close sending and listening sockets */
   close(domain->sendSocket);
@@ -1437,7 +1394,7 @@ static int disconnect(int domainId) {
   /* reset vars, free memory */
   domainClear(domain);
   
-  connectMutexUnlock();
+  connectWriteUnlock();
 
   return(CMSG_OK);
 }
@@ -2592,11 +2549,11 @@ static void subscribeInfoInit(subscribeInfo *info) {
 static void domainInit(cMsgDomain_CODA *domain) {
   int i, j;
  
-  domain->initComplete    = 0;
   domain->id              = 0;
 
+  domain->initComplete    = 0;
   domain->receiveState    = 0;
-  domain->lostConnection  = 0;
+  domain->lostConnection  = 1;
       
   domain->sendSocket      = 0;
   domain->listenSocket    = 0;
@@ -2621,7 +2578,8 @@ static void domainInit(cMsgDomain_CODA *domain) {
   domain->description     = NULL;
 
   /* pthread_mutex_init mallocs memory */
-  pthread_mutex_init(&domain->sendMutex, NULL);
+  pthread_mutex_init(&domain->socketMutex, NULL);
+  pthread_mutex_init(&domain->syncSendMutex, NULL);
   pthread_mutex_init(&domain->subscribeMutex, NULL);
   
   for (i=0; i<MAX_SUBSCRIBE; i++) {
@@ -2692,7 +2650,8 @@ static void domainFree(cMsgDomain_CODA *domain) {
   if (domain->description != NULL) free(domain->description);
   
   /* pthread_mutex_destroy frees memory */
-  pthread_mutex_destroy(&domain->sendMutex);
+  pthread_mutex_destroy(&domain->socketMutex);
+  pthread_mutex_destroy(&domain->syncSendMutex);
   pthread_mutex_destroy(&domain->subscribeMutex);
   
   for (i=0; i<MAX_SUBSCRIBE; i++) {
@@ -2763,11 +2722,11 @@ static void mutexUnlock(void) {
 /*-------------------------------------------------------------------*/
 
 
-static void connectMutexLock(void) {
+static void connectReadLock(void) {
 
-  int status = pthread_mutex_lock(&connectMutex);
+  int status = rwl_readlock(&connectLock);
   if (status != 0) {
-    err_abort(status, "Failed mutex lock");
+    err_abort(status, "Failed read lock");
   }
 }
 
@@ -2775,11 +2734,11 @@ static void connectMutexLock(void) {
 /*-------------------------------------------------------------------*/
 
 
-static void connectMutexUnlock(void) {
+static void connectReadUnlock(void) {
 
-  int status = pthread_mutex_unlock(&connectMutex);
+  int status = rwl_readunlock(&connectLock);
   if (status != 0) {
-    err_abort(status, "Failed mutex unlock");
+    err_abort(status, "Failed read unlock");
   }
 }
 
@@ -2787,13 +2746,37 @@ static void connectMutexUnlock(void) {
 /*-------------------------------------------------------------------*/
 
 
-static int sendMutexLock(cMsgDomain_CODA *domain) {
+static void connectWriteLock(void) {
+
+  int status = rwl_writelock(&connectLock);
+  if (status != 0) {
+    err_abort(status, "Failed read lock");
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+static void connectWriteUnlock(void) {
+
+  int status = rwl_writeunlock(&connectLock);
+  if (status != 0) {
+    err_abort(status, "Failed read unlock");
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+static int socketMutexLock(cMsgDomain_CODA *domain) {
 
   int status;
   
-  status = pthread_mutex_lock(&domain->sendMutex);
+  status = pthread_mutex_lock(&domain->socketMutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex lock");
+    err_abort(status, "Failed socket mutex lock");
   }
 }
 
@@ -2801,13 +2784,41 @@ static int sendMutexLock(cMsgDomain_CODA *domain) {
 /*-------------------------------------------------------------------*/
 
 
-static int sendMutexUnlock(cMsgDomain_CODA *domain) {
+static int socketMutexUnlock(cMsgDomain_CODA *domain) {
 
   int status;
 
-  status = pthread_mutex_unlock(&domain->sendMutex);
+  status = pthread_mutex_unlock(&domain->socketMutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex unlock");
+    err_abort(status, "Failed socket mutex unlock");
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+static int syncSendMutexLock(cMsgDomain_CODA *domain) {
+
+  int status;
+  
+  status = pthread_mutex_lock(&domain->syncSendMutex);
+  if (status != 0) {
+    err_abort(status, "Failed syncSend mutex lock");
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+static int syncSendMutexUnlock(cMsgDomain_CODA *domain) {
+
+  int status;
+
+  status = pthread_mutex_unlock(&domain->syncSendMutex);
+  if (status != 0) {
+    err_abort(status, "Failed syncSend mutex unlock");
   }
 }
 
@@ -2821,7 +2832,7 @@ static int subscribeMutexLock(cMsgDomain_CODA *domain) {
   
   status = pthread_mutex_lock(&domain->subscribeMutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex lock");
+    err_abort(status, "Failed subscribe mutex lock");
   }
 }
 
@@ -2835,7 +2846,7 @@ static int subscribeMutexUnlock(cMsgDomain_CODA *domain) {
 
   status = pthread_mutex_unlock(&domain->subscribeMutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex unlock");
+    err_abort(status, "Failed subscribe mutex unlock");
   }
 }
 
