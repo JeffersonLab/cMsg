@@ -548,8 +548,8 @@ public class cMsgDomainServer extends Thread {
                     if (debug >= cMsgConstants.debugInfo) {
                         System.out.println("dServer handleClient: got unget request from " + info.name);
                     }
-                    readSubscribeInfo(channel);
-                    clientHandler.handleUngetRequest(subject, type);
+                    readUngetInfo(channel);
+                    clientHandler.handleUngetRequest(receiverSubscribeId);
                     break;
 
                 case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
@@ -873,5 +873,24 @@ public class cMsgDomainServer extends Thread {
             return;
         }
 
+        /**
+         * This method reads an incoming unget request from a client.
+         *
+         * @param channel nio socket communication channel
+         * @throws IOException If socket read or write error
+         */
+        private void readUngetInfo(SocketChannel channel) throws IOException {
+            // keep reading until we have 1 ints of data
+            cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
+
+            // go back to reading-from-buffer mode
+            buffer.flip();
+
+            // id of subject/type combination  (senderToken actually)
+            receiverSubscribeId = buffer.getInt();
+
+            return;
+        }
+
     }
- }
+}

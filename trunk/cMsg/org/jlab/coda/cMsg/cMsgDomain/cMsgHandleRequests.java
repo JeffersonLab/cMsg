@@ -88,34 +88,33 @@ public interface cMsgHandleRequests {
     /**
      * Method to handle unget request sent by domain client (hidden from user).
      *
-     * @param subject message subject subscribed to
-     * @param type message type subscribed to
+     * @param id message id refering to these specific subject and type values
      * @throws cMsgException
      */
-    public void handleUngetRequest(String subject, String type) throws cMsgException;
+    public void handleUngetRequest(int id) throws cMsgException;
 
 
     /**
-      * Method to handle subscribe request sent by domain client.
-      *
-      * @param subject message subject to subscribe to
-      * @param type message type to subscribe to
-      * @param receiverSubscribeId message id refering to these specific subject and type values
-      * @throws cMsgException
-      */
+     * Method to handle subscribe request sent by domain client.
+     *
+     * @param subject message subject subscribed to
+     * @param type    message type subscribed to
+     * @param id      message id refering to these specific subject and type values
+     * @throws cMsgException
+     */
     public void handleSubscribeRequest(String subject, String type,
-                                       int receiverSubscribeId) throws cMsgException;
+                                       int id) throws cMsgException;
 
     /**
      * Method to handle unsubscribe request sent by domain client.
      *
      * @param subject message subject subscribed to
-     * @param type message type subscribed to
-     * @param receiverSubscribeId message id refering to these specific subject and type values
+     * @param type    message type subscribed to
+     * @param id      message id refering to these specific subject and type values
      * @throws cMsgException
      */
     public void handleUnsubscribeRequest(String subject, String type,
-                                         int receiverSubscribeId) throws cMsgException;
+                                         int id) throws cMsgException;
 
 
     /**
