@@ -488,18 +488,13 @@ public class cMsg extends cMsgDomainAdapter {
             String text = message.getText();
 
             // check args first
-            if (subject == null || type == null) {
-                throw new cMsgException("message subject or type is null");
-            }
-            else if (subject.length() < 1 || type.length() < 1) {
-                throw new cMsgException("message subject or type is blank string");
+            if (subject == null || type == null || text == null) {
+                throw new cMsgException("message subject, type, or text is null");
             }
 
-            // watch out for null text
-            if (text == null) {
-                message.setText("");
-                text = message.getText();
-            }
+            //if (subject.length() < 1 || type.length() < 1) {
+            //    throw new cMsgException("message subject or type is blank string");
+            //}
 
             int outGoing[] = new int[13];
             outGoing[0]  = cMsgConstants.msgSendRequest;
@@ -594,17 +589,8 @@ public class cMsg extends cMsgDomainAdapter {
             String text = message.getText();
 
             // check args first
-            if (subject == null || type == null) {
-                throw new cMsgException("message subject or type is null");
-            }
-            else if (subject.length() < 1 || type.length() < 1) {
-                throw new cMsgException("message subject or type is blank string");
-            }
-
-            // watch out for null text
-            if (text == null) {
-                message.setText("");
-                text = message.getText();
+            if (subject == null || type == null || text == null) {
+                throw new cMsgException("message subject, type, or text is null");
             }
 
             int outGoing[] = new int[13];
@@ -864,17 +850,8 @@ public class cMsg extends cMsgDomainAdapter {
             String text = message.getText();
 
             // check args first
-            if (subject == null || type == null) {
-                throw new cMsgException("message subject or type is null");
-            }
-            else if (subject.length() < 1 || type.length() < 1) {
-                throw new cMsgException("message subject or type is blank string");
-            }
-
-            // watch out for null text
-            if (text == null) {
-                message.setText("");
-                text = message.getText();
+            if (subject == null || type == null || text == null) {
+                throw new cMsgException("message subject, type, or text is null");
             }
 
             // We need send msg to domain server who will see we get a response.
