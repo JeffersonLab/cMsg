@@ -341,10 +341,13 @@ public class cMsgDomainServer extends Thread {
                     }
                     // close channel and unregister from selector
                     channel.close();
+                    // tell client handler to shutdown
                     clientHandler.handleShutdown(info.name);
+                    // need to shutdown this server
+                    killAllThreads();
                     break;
 
-                case cMsgConstants.msgShutdown: // told this server to shutdown
+                case cMsgConstants.msgShutdown: // told this domain server to shutdown
                     if (debug >= cMsgConstants.debugInfo) {
                         System.out.println("handleClient: got shutdown from " + info.name);
                     }
@@ -356,8 +359,9 @@ public class cMsgDomainServer extends Thread {
                     }
                     // close channel and unregister from selector
                     channel.close();
+                    // tell client handler to shutdown
                     clientHandler.handleShutdown(info.name);
-                    // need to shutdown this server now
+                    // need to shutdown this server
                     killAllThreads();
                     break;
 
