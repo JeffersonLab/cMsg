@@ -52,8 +52,10 @@ public class cMsgGetResponder {
         public void callback(cMsgMessage msg, Object userObject) {
             try {
                 cMsgMessage sendMsg = msg.response();
+                //cMsgMessage sendMsg = msg.nullResponse();
                 sendMsg.setSubject("RESPONDING");
                 sendMsg.setType("TO MESSAGE");
+                sendMsg.setText("responder's text");
                 //try {Thread.sleep(1000);}
                 //catch (InterruptedException e) { }
                 coda.send(sendMsg);

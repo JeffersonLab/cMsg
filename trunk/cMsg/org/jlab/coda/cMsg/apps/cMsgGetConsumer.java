@@ -118,6 +118,7 @@ public class cMsgGetConsumer {
         cMsgMessage sendMsg = new cMsgMessage();
         sendMsg.setSubject(subject);
         sendMsg.setType(type);
+        sendMsg.setText("text");
 
         while (true) {
             count = 0;
@@ -125,16 +126,24 @@ public class cMsgGetConsumer {
 
             // do a bunch of gets
             for (int i=0; i < 1000; i++) {
-                try {msg = coda.sendAndGet(sendMsg, 1000);}
-                catch (TimeoutException e) {}
 
-                //msg = coda.subscribeAndGet(subject, type, 1000);
-                if (msg == null) {
+                try {msg = coda.sendAndGet(sendMsg, 1000);}
+                catch (TimeoutException e) {
                     System.out.println("TIMEOUT in GET");
+                    continue;
                 }
-                else {
-                    count++;
+
+                /*
+                try {msg = coda.subscribeAndGet(subject, type, 1000);}
+                catch (TimeoutException e) {
+                    System.out.println("TIMEOUT in GET");
+                    continue;
                 }
+                */
+                if (msg == null) {
+                    System.out.println("got null msg");
+                }
+                count++;
                 //try {Thread.sleep(2000);}
                 //catch (InterruptedException e) { }
             }
