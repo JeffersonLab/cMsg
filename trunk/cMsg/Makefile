@@ -35,8 +35,7 @@ JAVA_OBJS = \
 
 # C stuff
 AC_FLAGS  = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
-#CFLAGS    = -O2 -fPIC -I./ $(AC_FLAGS)
-CFLAGS    = -g -fPIC -I./ $(AC_FLAGS)
+CFLAGS    = -O2 -fPIC -I./ $(AC_FLAGS)
 CXXFLAGS  = $(CFLAGS)
 SHLIB_LD  = ld -G
 
@@ -47,11 +46,12 @@ LIB_DYNAMIC = $(LIBNAM).so
 CMSG_LIBS = $(LIB_STATIC) $(LIB_DYNAMIC)
 LIBS    = -lieee -lm -lpthread -lm -lnsl -lresolv -ldl
 
-OBJS =  cMsgNetwork.o \
+OBJS =  cMsg.o \
+	cMsgNetwork.o \
 	cMsgServer.o \
-	cMsg.o
+	cMsgDomain_CODA.o
 
-HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h
+HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h cMsg_CODA.h
 
 PROGS = client
 
@@ -61,7 +61,6 @@ java:
 	cd ./org/jlab/coda/cMsg; make;
 	cd ./org/jlab/coda/cMsg/coda; make;
 	cd ./;
-
 
 doc:
 	$(JAVAD) -package org.jlab.coda.cMsg
@@ -90,6 +89,9 @@ install-bin: $(PROGS)
 	   $(INSTALL) $$i $(BIN_DIR)/$$i; \
            done;
 
+$(PROGS) : % : %.c  ./cMsg.h
+	$(CC) -o $@ $(CFLAGS) $< -L./ -lcmsg $(LIBS)
+
 # libraries
 $(LIB_STATIC): $(OBJS)
 	$(AR) cr $@ $?
@@ -97,9 +99,6 @@ $(LIB_STATIC): $(OBJS)
 
 $(LIB_DYNAMIC): $(OBJS)
 	$(SHLIB_LD) $(OBJS) -o $@
-
-$(LIB_REMOTE): $(REMOTE_OBJS)
-	$(SHLIB_LD) $(REMOTE_OBJS) -o $@
 
 # file dependencies
 $(OBJS) : $(HFILES)

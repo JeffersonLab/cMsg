@@ -59,7 +59,7 @@
 #include "cMsg.h"
 
 /* set the debug level here */
-static int debug = CMSG_DEBUG_INFO;
+/* static int cMsgDebug = CMSG_DEBUG_INFO; */
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
@@ -68,17 +68,17 @@ static int debug = CMSG_DEBUG_INFO;
 int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
 {
   int                 listenfd, err, val;
-  const int           debug=0, on=1, size=CMSG_SOCKBUFSIZE /* bytes */;
+  const int           on=1, size=CMSG_SOCKBUFSIZE /* bytes */;
   struct sockaddr_in  servaddr;
 
   if (listenFd == NULL) {
-     if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: null \"listenFd\" argument\n");
+     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: null \"listenFd\" argument\n");
      return(CMSG_BAD_ARGUMENT);
   }
   
   err = listenfd = socket(AF_INET, SOCK_STREAM, 0);
   if (err < 0) {
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: socket error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: socket error\n");
     return(CMSG_SOCKET_ERROR);
   }
 
@@ -91,7 +91,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   err = setsockopt(listenfd, IPPROTO_TCP, TCP_NODELAY, (const void *) &on, sizeof(on));
   if (err < 0) {
     close(listenfd);
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
     return(CMSG_SOCKET_ERROR);
   }
   
@@ -99,7 +99,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   err = setsockopt(listenfd, SOL_SOCKET, SO_SNDBUF, (const void *) &size, sizeof(size));
   if (err < 0) {
     close(listenfd);
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
     return(CMSG_SOCKET_ERROR);
   }
   
@@ -107,7 +107,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   err = setsockopt(listenfd, SOL_SOCKET, SO_RCVBUF, (const void *) &size, sizeof(size));
   if (err < 0) {
     close(listenfd);
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
     return(CMSG_SOCKET_ERROR);
   }
   
@@ -115,7 +115,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   err = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &on, sizeof(on));
   if (err < 0) {
     close(listenfd);
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
     return(CMSG_SOCKET_ERROR);
   }
   
@@ -123,7 +123,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   err = setsockopt(listenfd, SOL_SOCKET, SO_KEEPALIVE, (const void *) &on, sizeof(on));
   if (err < 0) {
     close(listenfd);
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
     return(CMSG_SOCKET_ERROR);
   }
   
@@ -139,7 +139,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   err = bind(listenfd, (SA *) &servaddr, sizeof(servaddr));
   if (err < 0) {
     close(listenfd);
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: bind error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: bind error\n");
     return(CMSG_SOCKET_ERROR);
   }
   
@@ -147,7 +147,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   err = listen(listenfd, LISTENQ);
   if (err < 0) {
     close(listenfd);
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: listen error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: listen error\n");
     return(CMSG_SOCKET_ERROR);
   }
   
@@ -169,7 +169,7 @@ int cMsgGetListeningSocket(int blocking, unsigned short startingPort, unsigned s
   for (i=0; i < trylimit; i++) {
     /* try to listen on a port */
     if (cMsgTcpListen(blocking, port, &listenFd) != CMSG_OK) {
-      if (debug >= CMSG_DEBUG_WARN) {
+      if (cMsgDebug >= CMSG_DEBUG_WARN) {
 	fprintf(stderr, "cMsgGetListeningPort: tried but could not listen on port %hu\n", port);
       }
       port++;
@@ -179,13 +179,13 @@ int cMsgGetListeningSocket(int blocking, unsigned short startingPort, unsigned s
   }
 
   if (listenFd < 0) {
-    if (debug >= CMSG_DEBUG_ERROR) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cMsgServerListeningThread: ports %hu thru %hu busy\n", startingPort, startingPort+499);
     }
     return(CMSG_SOCKET_ERROR);
   }
   
-  if (debug >= CMSG_DEBUG_INFO) {
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "cMsgServerListeningThread: listening on port %hu\n", port);
   }
   
@@ -202,18 +202,18 @@ int cMsgGetListeningSocket(int blocking, unsigned short startingPort, unsigned s
 int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
 {
   int                 sockfd, err;
-  const int           debug=1, on=1, size=CMSG_SOCKBUFSIZE /* bytes */;
+  const int           on=1, size=CMSG_SOCKBUFSIZE /* bytes */;
   struct sockaddr_in  servaddr;
   struct in_addr      **pptr;
   struct hostent      *hp;
   
   if (ip_address == NULL || fd == NULL) {
-     if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: null argument(s)\n");
+     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: null argument(s)\n");
      return(CMSG_BAD_ARGUMENT);
   }
   
   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-     if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: socket error, %s\n", strerror(errno));
+     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: socket error, %s\n", strerror(errno));
      return(CMSG_SOCKET_ERROR);
   }
 	
@@ -221,7 +221,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   err = setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const void *) &on, sizeof(on));
   if (err < 0) {
     close(sockfd);
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
     return(CMSG_SOCKET_ERROR);
   }
   
@@ -229,7 +229,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   err = setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (const void *) &size, sizeof(size));
   if (err < 0) {
     close(sockfd);
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
     return(CMSG_SOCKET_ERROR);
   }
   
@@ -237,7 +237,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   err = setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, (const void *) &size, sizeof(size));
   if (err < 0) {
     close(sockfd);
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
     return(CMSG_SOCKET_ERROR);
   }
 	
@@ -250,24 +250,24 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   servaddr.sin_addr.s_addr = hostGetByName(ip_address);
   if (servaddr.sin_addr.s_addr == ERROR) {
     close(sockfd);
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: unknown server address for host %s\n",ip_address);
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: unknown server address for host %s\n",ip_address);
     return(CMSG_NETWORK_ERROR);
   }
 
   if (connect(sockfd,(struct sockaddr *) &servaddr, sizeof(servaddr)) == ERROR) {
     close(sockfd);
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: error in connect\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: error in connect\n");
     return(CMSG_NETWORK_ERROR);
   }
   else {
-    if (debug >= CMSG_DEBUG_INFO) fprintf(stderr, "cMsgTcpConnect: connected to server\n");
+    if (cMsgDebug >= CMSG_DEBUG_INFO) fprintf(stderr, "cMsgTcpConnect: connected to server\n");
   }   
 
 #else
 	
   if ((hp = gethostbyname(ip_address)) == NULL) {
     close(sockfd);
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errno));
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errno));
     return(CMSG_NETWORK_ERROR);
   }
   pptr = (struct in_addr **) hp->h_addr_list;
@@ -275,10 +275,10 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   for ( ; *pptr != NULL; pptr++) {
     memcpy(&servaddr.sin_addr, *pptr, sizeof(struct in_addr));
     if ((err = connect(sockfd, (SA *) &servaddr, sizeof(servaddr))) < 0) {
-      if (debug >= CMSG_DEBUG_WARN) fprintf(stderr, "cMsgTcpConnect: error attempting to connect to server\n");
+      if (cMsgDebug >= CMSG_DEBUG_WARN) fprintf(stderr, "cMsgTcpConnect: error attempting to connect to server\n");
     }
     else {
-      if (debug >= CMSG_DEBUG_INFO) fprintf(stderr, "cMsgTcpConnect: connected to server\n");
+      if (cMsgDebug >= CMSG_DEBUG_INFO) fprintf(stderr, "cMsgTcpConnect: connected to server\n");
       break;
     }
   }
@@ -302,7 +302,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   
   if (err == -1) {
     close(sockfd);
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: socket connect error, %s\n", strerror(errno));
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: socket connect error, %s\n", strerror(errno));
     return(CMSG_NETWORK_ERROR);
   }
   
@@ -328,7 +328,7 @@ again:
       goto again;
     }
     else {
-      if (debug >= CMSG_DEBUG_ERROR) {
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "cMsgAccept: error, errno = %d\n", errno);
       }
     }
@@ -362,7 +362,7 @@ int cMsgTcpWritev(int fd, struct iovec iov[], int nbufs, int iov_max)
       if (errno == EWOULDBLOCK) {
         goto retry;
       }
-      if (debug >= CMSG_DEBUG_ERROR) {
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr,"tcp_writev(%d,,%d) = writev(%d,,%d) = %d\n",
 		fd,nbufs,fd,n_write,cc);
       }
@@ -456,12 +456,12 @@ int cMsgByteOrder(int *endian)
       return(CMSG_OK);
     }
     else {
-      if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgByteOrder: unknown endian\n");
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgByteOrder: unknown endian\n");
       return(CMSG_ERROR);
     }
   }
   else {
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgByteOrder: sizeof(short) = %d\n", sizeof(short));
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgByteOrder: sizeof(short) = %d\n", sizeof(short));
     return(CMSG_ERROR);
   }
 }
@@ -499,7 +499,7 @@ int cMsgDefaultHost(char *host, int length)
 {
 #ifdef VXWORKS
   if (host == NULL) {
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultHost: bad argument\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultHost: bad argument\n");
     return(CMSG_ERROR);
   }
 
@@ -511,17 +511,17 @@ int cMsgDefaultHost(char *host, int length)
   struct hostent *hptr;
   
   if (host == NULL) {
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultHost: bad argument\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultHost: bad argument\n");
     return(CMSG_ERROR);
   }
 
   /* find out the name of the machine we're on */
   if (uname(&myname) < 0) {
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultHost: cannot find hostname\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultHost: cannot find hostname\n");
     return(CMSG_ERROR);
   }
   if ( (hptr = gethostbyname(myname.nodename)) == NULL) {
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultHost: cannot find hostname\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultHost: cannot find hostname\n");
     return(CMSG_ERROR);
   }
 
@@ -549,7 +549,7 @@ int cMsgDefaultAddress(char *address, int length)
   } u;
 
   if (address == NULL) {
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultAddress: bad argument\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultAddress: bad argument\n");
     return(CMSG_ERROR);
   }
 
@@ -569,17 +569,17 @@ int cMsgDefaultAddress(char *address, int length)
   char           **pptr, *val;
   
   if (address == NULL) {
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultAddress: bad argument\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultAddress: bad argument\n");
     return(CMSG_ERROR);
   }
 
   /* find out the name of the machine we're on */
   if (uname(&myname) < 0) {
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultAddress: cannot find hostname\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultAddress: cannot find hostname\n");
     return(CMSG_ERROR);
   }
   if ( (hptr = gethostbyname(myname.nodename)) == NULL) {
-    if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultAddress: cannot find hostname\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultAddress: cannot find hostname\n");
     return(CMSG_ERROR);
   }
 

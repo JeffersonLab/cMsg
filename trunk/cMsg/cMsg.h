@@ -298,12 +298,13 @@ extern "C" {
 
 
   /* message access functions */
-  void    *cMsgCreateMessage(void);
   int      cMsgSetSubject(void *msg, char *subject);
   int      cMsgSetType(void *msg, char *type);
   int      cMsgSetText(void *msg, char *text);
   int      cMsgSetSenderToken(void *msg, int senderToken);
   int      cMsgFreeMessage(void *msg);
+  void    *cMsgCreateMessage(void);
+  void    *cMsgCopyMessage(void *msg);
 
   int      cMsgGetSysMsgId(void *msg);
 
@@ -312,8 +313,8 @@ extern "C" {
 
   char*    cMsgGetSender(void *msg);
   int      cMsgGetSenderId(void *msg);
-  int      cMsgGetSenderHost(void *msg);
-  int      cMsgGetSenderTime(void *msg);
+  char*    cMsgGetSenderHost(void *msg);
+  time_t   cMsgGetSenderTime(void *msg);
   int      cMsgGetSenderMsgId(void *msg);
   int      cMsgGetSenderToken(void *msg);
 
@@ -327,7 +328,6 @@ extern "C" {
   int cMsgGetUDL(int domainId, char *udl, size_t size);
   int cMsgGetName(int domainId, char *name, size_t size);
   int cMsgGetDescription(int domainId, char *description, size_t size);
-  int cMsgGetHost(int domainId, char *host, size_t size);
   int cMsgGetInitState(int domainId, int *initState);
   int cMsgGetReceiveState(int domainId, int *receiveState);
 
