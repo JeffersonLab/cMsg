@@ -29,12 +29,16 @@ import java.nio.channels.SocketChannel;
  * @version 1.0
  */
 public class cMsgClientInfo {
+    /** Client supplied UDL. */
+    String UDL;
+    /** Client supplied description. */
+    String description;
     /** Client's name. */
     String name;
     /** Subdomain client wishes to use. */
     String subdomain;
     /** Remainder from client's UDL. */
-    String UDLRemainder;
+    String UDLremainder;
     /** Client's port. */
     int    clientPort;
     /** Client's host. */
@@ -80,25 +84,30 @@ public class cMsgClientInfo {
      * @param name  client's name
      * @param port  client's listening port
      * @param host  client's host
-     * @param subdomain  client's subdomain
-     * @param UDLRemainder  client UDL's remainder
+     * @param subdomain    client's subdomain
+     * @param UDLRemainder client's UDL's remainder
+     * @param UDL          client's UDL
+     * @param description  client's description
      */
-    public cMsgClientInfo(String name, int port, String host, String subdomain, String UDLRemainder) {
+    public cMsgClientInfo(String name, int port, String host, String subdomain,
+                          String UDLRemainder, String UDL, String description) {
         this.name = name;
         clientPort = port;
         clientHost = host;
         this.subdomain = subdomain;
-        this.UDLRemainder = UDLRemainder;
+        this.UDLremainder = UDLRemainder;
+        this.UDL = UDL;
+        this.description = description;
     }
     /**
-     * Constructor specifing client's name, port, host,.
+     * Constructor specifing client's name, port, host.
      *
      * @param name  client's name
      * @param port  client's listening port
      * @param host  client's host
      */
     public cMsgClientInfo(String name, int port, String host) {
-        this(name, port, host, null, null);
+        this(name, port, host, null, null, null, null);
     }
 
 
@@ -167,6 +176,22 @@ public class cMsgClientInfo {
     }
 
     /**
+     * Gets client's description.
+     * @return client's description
+     */
+    public String getDescription() {
+        return description;
+    }
+
+    /**
+     * Gets client's UDL.
+     * @return client's UDL
+     */
+    public String getUDL() {
+        return UDL;
+    }
+
+    /**
      * Gets client's name.
      * @return client's name
      */
@@ -187,8 +212,8 @@ public class cMsgClientInfo {
      * connect to the domain server.
      * @return remainder of the UDL
      */
-    public String getUDLRemainder() {
-        return UDLRemainder;
+    public String getUDLremainder() {
+        return UDLremainder;
     }
 
     /**
