@@ -1428,37 +1428,15 @@ static int unSubscribeAndGet(int domainId, int id) {
 
 /**
  * This routine sends any pending (queued up) communication with the server.
- * It does a flush on the socket communicating with the server. However, in the
- * cMsg domain all sockets are set to TCP_NODELAY -- meaning all writes over the
- * socket are sent immediately. Thus, this routine does nothing of significance.
+ * In the cMsg domain, however, all sockets are set to TCP_NODELAY -- meaning
+ * all writes over the socket are sent immediately. Thus, this routine does
+ * nothing.
  *
  * @param domainId id number of the domain connection
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
- *                               since cMsgConnect() was never called
- * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
- *                               by a call to cMsgDisconnect()
+ * @returns CMSG_OK always
  */   
-static int codaFlush(int domainId) {
-
-  FILE *file;  
-  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
-  int fd = domain->sendSocket;
-
-  if (domain->initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domain->lostConnection == 1) return(CMSG_LOST_CONNECTION);
-
-  /* turn file descriptor into FILE pointer */
-  file = fdopen(fd, "w");
-
-  /* make send socket communications thread-safe */
-  socketMutexLock(domain);
-  /* flush outgoing buffers */
-  fflush(file);
-  /* done with mutex */
-  socketMutexUnlock(domain);
-  
+static int codaFlush(int domainId) {  
   return(CMSG_OK);
 }
 
