@@ -39,20 +39,23 @@ import java.io.IOException;
  */
 public class cMsg extends cMsgSubdomainAbstract {
     /** HashMap to store clients. Name is key and cMsgClientInfo is value. */
-    private static HashMap<String,cMsgClientInfo> clients = new HashMap<String,cMsgClientInfo>(100);
+    private static ConcurrentHashMap<String,cMsgClientInfo> clients =
+            new ConcurrentHashMap<String,cMsgClientInfo>(100);
 
     /**
      * HashMap to store specific "get" in progress. sysMsgId of get msg is key,
      * and client name is value.
      */
-    private static Map<Integer,cMsgClientInfo> specificGets = new ConcurrentHashMap<Integer,cMsgClientInfo>(100);
+    private static Map<Integer,cMsgClientInfo> specificGets =
+            new ConcurrentHashMap<Integer,cMsgClientInfo>(100);
 
     /**
      * HashMap to store mappings of local client's senderTokens to static sysMsgIds.
      * This allows the cancellation of a "get" using a senderToken (which the
      * client knows) which can then be used to look up the sysMsgId and cancel the get.
      */
-    private Map<Integer,Integer> deleteGets = new ConcurrentHashMap<Integer,Integer>(100);
+    private Map<Integer,Integer> deleteGets =
+            new ConcurrentHashMap<Integer,Integer>(100);
 
     /** Used to create a unique id number associated with a specific message. */
     private static AtomicInteger sysMsgId = new AtomicInteger();
@@ -72,7 +75,7 @@ public class cMsg extends cMsgSubdomainAbstract {
     private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
     /** Level of debug output for this class. */
-    private int debug = cMsgConstants.debugWarn;
+    private int debug = cMsgConstants.debugError;
 
     /** Remainder of UDL client used to connect to domain server. */
     private String UDLRemainder;
@@ -140,7 +143,7 @@ public class cMsg extends cMsgSubdomainAbstract {
      *
      * @return true if send implemented in {@link #handleSyncSendRequest}
      */
-    public boolean hasSyncSend() {return false;};
+    public boolean hasSyncSend() {return true;};
 
 
     /**
@@ -289,71 +292,63 @@ public class cMsg extends cMsgSubdomainAbstract {
 
         // Scan through all clients.
 
-        // Cannot have clients hashtable changing during this exercise,
-        // so read lock for "clients" hashmap.
-        readLock.lock();
-        try {
-            Iterator iter = clients.keySet().iterator();
+        Iterator iter = clients.keySet().iterator();
 
-            while (iter.hasNext()) {
-                client = (String) iter.next();
-                // Don't deliver a message to the sender
-                //if (client.equals(name)) {
-                //    continue;
-                //}
-                info = clients.get(client);
-                gets = info.getGets();
-                subscriptions = info.getSubscriptions();
-                Iterator it;
-                ArrayList idList = new ArrayList(20);
-                haveMatch = false;
+        while (iter.hasNext()) {
+            client = (String) iter.next();
+            // Don't deliver a message to the sender
+            //if (client.equals(name)) {
+            //    continue;
+            //}
+            info = clients.get(client);
+            gets = info.getGets();
+            subscriptions = info.getSubscriptions();
+            Iterator it;
+            ArrayList idList = new ArrayList(20);
+            haveMatch = false;
 
-                // read lock for client's "subscription" and "gets" hashsets
-                info.getReadLock().lock();
-                try {
-                    // Look at all subscriptions
-                    it = subscriptions.iterator();
-                    while (it.hasNext()) {
-                        sub = (cMsgSubscription) it.next();
-                        // if subscription matches the msg ...
-                        if (matches(sub.getSubject(), message.getSubject()) &&
-                                matches(sub.getType(), message.getType())) {
-                            // store sub and info for later use (in non-synchronized code)
-                            idList.add(sub.getId());
-                            haveMatch = true;
+            // read lock for client's "subscription" and "gets" hashsets
+            info.getReadLock().lock();
+            try {
+                // Look at all subscriptions
+                it = subscriptions.iterator();
+                while (it.hasNext()) {
+                    sub = (cMsgSubscription) it.next();
+                    // if subscription matches the msg ...
+                    if (matches(sub.getSubject(), message.getSubject()) &&
+                            matches(sub.getType(), message.getType())) {
+                        // store sub and info for later use (in non-synchronized code)
+                        idList.add(sub.getId());
+                        haveMatch = true;
 //System.out.println(" handle send msg for subscribe to " + info.getName());
-                        }
                     }
+                }
 
-                    // Look at all gets
-                    it = gets.iterator();
-                    while (it.hasNext()) {
-                        sub = (cMsgSubscription) it.next();
-                        // if get matches the msg ...
-                        if (matches(sub.getSubject(), message.getSubject()) &&
-                                matches(sub.getType(), message.getType())) {
-                            // store get and info for later use (in non-synchronized code)
-                            idList.add(sub.getId());
-                            haveMatch = true;
-                            // get subscription is 1-shot deal so now remove it
-                            it.remove();
+                // Look at all gets
+                it = gets.iterator();
+                while (it.hasNext()) {
+                    sub = (cMsgSubscription) it.next();
+                    // if get matches the msg ...
+                    if (matches(sub.getSubject(), message.getSubject()) &&
+                            matches(sub.getType(), message.getType())) {
+                        // store get and info for later use (in non-synchronized code)
+                        idList.add(sub.getId());
+                        haveMatch = true;
+                        // get subscription is 1-shot deal so now remove it
+                        it.remove();
 //System.out.println(" handle send msg for subscribe&get to " + info.getName());
-                        }
                     }
-                }
-                finally {
-                    info.getReadLock().unlock();
-                }
-
-                // store info only if client getting a msg
-                if (haveMatch) {
-                    rsIdLists.add(idList);
-                    infoList.add(info);
                 }
             }
-        }
-        finally {
-            readLock.unlock();
+            finally {
+                info.getReadLock().unlock();
+            }
+
+            // store info only if client getting a msg
+            if (haveMatch) {
+                rsIdLists.add(idList);
+                infoList.add(info);
+            }
         }
 
         // Once we have the subscription/get, msg, and client info,
@@ -397,8 +392,11 @@ public class cMsg extends cMsgSubdomainAbstract {
      *
      * @param message message from sender
      * @return response from this object
+     * @throws cMsgException if a channel to the client is closed, cannot be created,
+     *                          or socket properties cannot be set
      */
-    public int handleSyncSendRequest(cMsgMessageFull message) {
+    public int handleSyncSendRequest(cMsgMessageFull message) throws cMsgException {
+        handleSendRequest(message);
         return 0;
     }
 
@@ -418,9 +416,7 @@ public class cMsg extends cMsgSubdomainAbstract {
         // Each client (name) has a cMsgClientInfo object associated with it
         // that contains all relevant information. Retrieve that object
         // from the "clients" table, add subscription to it.
-        readLock.lock();
         cMsgClientInfo info = clients.get(name);
-        readLock.unlock();
         if (info == null) {
             throw new cMsgException("handleSubscribeRequest: no client information stored for " + name);
         }
@@ -461,9 +457,7 @@ public class cMsg extends cMsgSubdomainAbstract {
      * @param id       message id refering to these specific subject and type values
      */
      public void handleUnsubscribeRequest(String subject, String type, int id) {
-        readLock.lock();
         cMsgClientInfo info = clients.get(name);
-        readLock.unlock();
         if (info == null) {
             return;
         }
@@ -499,9 +493,7 @@ public class cMsg extends cMsgSubdomainAbstract {
         // Each client (name) has a cMsgClientInfo object associated with it
         // that contains all relevant information. Retrieve that object
         // from the "clients" table, add get (actually a subscription) to it.
-        readLock.lock();
         cMsgClientInfo info = clients.get(name);
-        readLock.unlock();
         if (info == null) {
             throw new cMsgException("handleGetRequest: no client information stored for " + name);
         }
@@ -533,9 +525,7 @@ public class cMsg extends cMsgSubdomainAbstract {
      */
     public void handleSubscribeAndGetRequest(String subject, String type, int id)
             throws cMsgException {
-        readLock.lock();
         cMsgClientInfo info = clients.get(name);
-        readLock.unlock();
         if (info == null) {
             throw new cMsgException("handleGetRequest: no client information stored for " + name);
         }
@@ -554,9 +544,7 @@ public class cMsg extends cMsgSubdomainAbstract {
      * @param id message id refering to these specific subject and type values
      */
     public void handleUngetRequest(int id) {
-        readLock.lock();
         cMsgClientInfo info = clients.get(name);
-        readLock.unlock();
         if (info == null) {
             return;
         }
@@ -608,9 +596,7 @@ System.out.println("Removed general Get");
         if (debug >= cMsgConstants.debugWarn) {
             System.out.println("dHandler: SHUTDOWN client " + name);
         }
-        writeLock.lock();
         clients.remove(name);
-        writeLock.unlock();
     }
 
 
