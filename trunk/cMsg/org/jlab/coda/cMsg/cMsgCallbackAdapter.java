@@ -17,11 +17,9 @@
 package org.jlab.coda.cMsg;
 
 /**
- * Created by IntelliJ IDEA.
- * User: timmer
- * Date: Oct 15, 2004
- * Time: 12:29:21 PM
- * To change this template use File | Settings | File Templates.
+ * This class is an adapter which implements the cMsgCallbackInterface.
+ * It implements the methods so extending this adapter is simpler than
+ * implementing the full interface.
  */
 public class cMsgCallbackAdapter implements cMsgCallbackInterface {
     /**

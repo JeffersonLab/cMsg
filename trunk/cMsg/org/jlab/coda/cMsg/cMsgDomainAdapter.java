@@ -190,8 +190,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      *
      * @param subject message subject
      * @param type    message type
-     * @param cb      callback object whose single method is called upon receiving a message
-     *                of subject and type
+     * @param cb      callback object whose {@link cMsgCallbackInterface#callback(cMsgMessage, Object)}
+     *                method is called upon receiving a message of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
@@ -350,7 +350,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Get boolean tells whether callbacks are activated or not. The
+     * Method telling whether callbacks are activated or not. The
      * start and stop methods activate and deactivate the callbacks.
      * @return true if callbacks are activated, false if they are not
      */
