@@ -137,12 +137,16 @@ public class cMsgMonitorClient extends Thread {
                 }
 
                 // wait 2 seconds for client to answer keepalive
-                int n = selector.select(3000);
+                int n = selector.select(2000);
 
                 // if no answer, this client is dead so remove it
                 if (n == 0) {
-                    selector.close();
-                    channel.close();
+                    try {
+                        selector.close();
+                        channel.close();
+                    }
+                    catch (IOException ex) {}
+
                     if (debug >= cMsgConstants.debugError) {
                         System.out.println("cMsgMonitorClient: CANNOT COMMUNICATE with " +
                                            info.getName() + "\n");
@@ -180,6 +184,12 @@ public class cMsgMonitorClient extends Thread {
             }
             catch (IOException e) {
                 // client has died, time to bail.
+                try {
+                    selector.close();
+                    channel.close();
+                }
+                catch (IOException ex) {}
+
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("cMsgMonitorClient: CANNOT COMMUNICATE with client " +
                                        info.getName() + "\n");
@@ -199,6 +209,12 @@ public class cMsgMonitorClient extends Thread {
 
             if (error != cMsgConstants.ok) {
                 // something wrong with the client, time to bail
+                try {
+                    selector.close();
+                    channel.close();
+                }
+                catch (IOException ex) {}
+
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("cMsgMonitorClient: keep alive returns ERROR from client " +
                                        info.getName() + "\n");
