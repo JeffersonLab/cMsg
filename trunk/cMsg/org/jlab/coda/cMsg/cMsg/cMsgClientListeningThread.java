@@ -152,9 +152,6 @@ public class cMsgClientListeningThread extends Thread {
                     // is there data to read on this channel?
                     if (key.isValid() && key.isReadable()) {
                         SocketChannel channel = (SocketChannel) key.channel();
-                        if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("cMsgClientListeningThread: request from server");
-                        }
                         handleClient(channel);
                     }
 
@@ -201,9 +198,6 @@ public class cMsgClientListeningThread extends Thread {
 
                  case cMsgConstants.msgSubscribeResponse: // receiving a message
                      // read the message here
-                     if (debug >= cMsgConstants.debugInfo) {
-                         System.out.println("handleClient: got send request from server");
-                     }
                      cMsgMessage msg = readIncomingMessage(channel);
 
                      // run callbacks for this message
@@ -406,10 +400,6 @@ public class cMsgClientListeningThread extends Thread {
 
             // if the subject/type id's match, run callbacks for this sub/type
             if (sub.id == msg.getReceiverSubscribeId()) {
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("runCallbacks: found subscription to match receiveSubscriberId = " + sub.id);
-                }
-
                 // run through all callbacks
                 Iterator iter2 = sub.callbacks.iterator();
                 for (; iter2.hasNext();) {
