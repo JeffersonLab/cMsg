@@ -87,6 +87,8 @@ public class cMsgConstants {
   public static final int    errorBadMessage         = 19;
   /** Specifying a different domain type than expected. */
   public static final int    errorWrongDomainType    = 20;
+  /** Error due to no Java class found for specified subdomain. */
+  public static final int    errorNoClassFound       = 21;
 
   // codes sent over the network to identify cMsg messages
 
