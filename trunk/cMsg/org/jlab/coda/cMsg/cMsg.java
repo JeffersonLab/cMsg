@@ -19,6 +19,7 @@ package org.jlab.coda.cMsg;
 
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.Iterator;
 
 /**
  * Class to direct a cMsg client to the proper subdomain based on the UDL given.
@@ -139,11 +140,20 @@ public class cMsg {
     private cMsgDomainInterface createDomainConnection()
             throws cMsgException {
 
+        String domainConnectionClass = null;
+
         /** Object to handle client */
         cMsgDomainInterface domainConnection = null;
 
-         // First check to see if connection class name was set on the command line.
-        String domainConnectionClass = System.getProperty(domain);
+        // First check to see if connection class name was set on the command line.
+        // Do this by scanning through all the properties.
+        for (Iterator i = System.getProperties().keySet().iterator(); i.hasNext(); ) {
+            String s = (String) i.next();
+            if (s.contains(".")) {continue;}
+            if (s.equalsIgnoreCase(domain)) {
+                domainConnectionClass = System.getProperty(s);
+            }
+        }
 
         // If it wasn't given on the command line,
         // check the appropriate environmental variable.

@@ -167,12 +167,23 @@ public class cMsgNameServer extends Thread {
     }
 
 
-    static private cMsgSubdomainInterface createClientHandler(String subdomain, String UDLRemainder) throws cMsgException {
+    static private cMsgSubdomainInterface createClientHandler(String subdomain, String UDLRemainder)
+            throws cMsgException {
+
         /** Object to handle clients' inputs */
         cMsgSubdomainInterface clientHandler = null;
 
-         // First check to see if handler class name was set on the command line.
-        String clientHandlerClass = System.getProperty(subdomain);
+        String clientHandlerClass = null;
+
+        // First check to see if handler class name was set on the command line.
+        // Do this by scanning through all the properties.
+        for (Iterator i = System.getProperties().keySet().iterator(); i.hasNext(); ) {
+            String s = (String) i.next();
+            if (s.contains(".")) {continue;}
+            if (s.equalsIgnoreCase(subdomain)) {
+                clientHandlerClass = System.getProperty(s);
+            }
+        }
 
         // If it wasn't given on the command line,
         // check the appropriate environmental variable.
