@@ -81,10 +81,11 @@
 #include <string.h>
 #include <ctype.h>
 
+
 /* package includes */
 #include "errors.h"
-#include "cMsg.h"
 #include "cMsgPrivate.h"
+#include "cMsgBase.h"
 
 /**
  * Because MAXHOSTNAMELEN is defined to be 256 on Solaris and 64 on Linux,
