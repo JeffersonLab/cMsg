@@ -31,7 +31,7 @@ LIB_DIR  = $(TOP_DIR)/lib/SunOS
 BIN_DIR  = $(TOP_DIR)/bin/SunOS
 AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
 CFLAGS   = -mt -xO5 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
-LIBS     = -lm -lposix4 -lsocket -lnsl -lresolv -ldl
+LIBS     = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
 endif
 
 CXXFLAGS  = $(CFLAGS)
@@ -55,10 +55,14 @@ OBJS =  rwlock.o \
 	cMsg.o \
 	cMsgDomainListenThread.o \
 	cMsgDomain.o
+#	rcadUtil.o \
+#	rcAgentDomain.o
+
 
 HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h cMsgDomain.h rwlock.h errors.h
+#HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h cMsgDomain.h rwlock.h errors.h rcAgentDomain.h
 
-PROGS   = producer consumer getConsumer
+PROGS   = producer consumer getConsumer getResponder cMsgTest
 PROGSXX =
 
 all: $(CMSG_LIBS) $(CMSG_LIBSXX) $(PROGS) $(PROGSXX)
