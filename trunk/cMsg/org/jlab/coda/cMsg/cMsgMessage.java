@@ -281,6 +281,13 @@ public class cMsgMessage implements Cloneable {
     public void setGetResponse(boolean getResponse) {
         info = getResponse ? info|isGetResponse : info & ~isGetResponse;
     }
+    /**
+     * Specify whether this message is a response to a "sendAndGet" message.
+     * @param getResponse true if this message is a response to a "sendAndGet" message
+     */
+    public void setNullGetResponse(boolean nullGetResponse) {
+        info = nullGetResponse ? info|isNullGetResponse : info & ~isNullGetResponse;
+    }
 
 
     /**
@@ -473,9 +480,9 @@ public class cMsgMessage implements Cloneable {
             + "     " + "version              = \"" + this.getVersion() + "\"\n"
             + "     " + "domain               = \"" + this.getDomain() + "\"\n"
             + "     " + "sysMsgId             = \"" + this.getSysMsgId() + "\"\n"
-            + "     " + "is get request       = \"" + this.isGetRequest() + "\"\n"
-            + "     " + "is get response      = \"" + this.isGetResponse() + "\"\n"
-            + "     " + "is null get response = \"" + this.isNullGetResponse() + "\"\n"
+            + "     " + "getRequest           = \"" + this.isGetRequest() + "\"\n"
+            + "     " + "getResponse          = \"" + this.isGetResponse() + "\"\n"
+            + "     " + "nullGetResponse      = \"" + this.isNullGetResponse() + "\"\n"
             + "     " + "creator              = \"" + this.getCreator() + "\"\n"
             + "     " + "sender               = \"" + this.getSender() + "\"\n"
             + "     " + "senderHost           = \"" + this.getSenderHost() + "\"\n"
