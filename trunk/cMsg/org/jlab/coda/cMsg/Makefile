@@ -16,14 +16,19 @@ JAVA_OBJS = \
 	cMsgException.class \
 	cMsgMessage.class \
 	cMsgMessageFull.class \
+	cMsgMessageMatcher.class \
 	cMsgConstants.class \
 	cMsgClientInfo.class \
+	cMsgDeliverMessage.class \
 	cMsgCallbackInterface.class \
 	cMsgCallbackAdapter.class \
 	cMsgSubdomainInterface.class\
-	cMsgSubdomainAbstract.class \
+	cMsgSubdomainAdapter.class \
+	cMsgShutdownHandlerInterface.class \
+	cMsgShutdownHandlerDefault.class \
 	cMsgDomainInterface.class \
-	cMsgDomainAdapter.class
+	cMsgDomainAdapter.class \
+	cMsg.class
 
 all: $(JAVA_OBJS)
 
