@@ -25,6 +25,12 @@
 #include "errors.h"
 #include "rwlock.h"
 
+/* for c++ */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /*
  * Initialize a read-write lock
  */
@@ -274,3 +280,7 @@ int rwl_writeunlock (rwlock_t *rwl)
     status = pthread_mutex_unlock (&rwl->mutex);
     return status;
 }
+
+#ifdef __cplusplus
+}
+#endif
