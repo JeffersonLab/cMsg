@@ -143,7 +143,7 @@ public class cMsgConnect {
         cMsgInterface domainConnection = null;
 
          // First check to see if connection class name was set on the command line.
-        String domainConnectionClass = System.getProperty("domain");
+        String domainConnectionClass = System.getProperty(domain);
 
         // If it wasn't given on the command line,
         // check the appropriate environmental variable.
