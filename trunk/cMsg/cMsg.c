@@ -327,7 +327,7 @@ int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callb
 /*-------------------------------------------------------------------*/
 
 
-int cMsgGet(int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg) {
+int cMsgSendAndGet(int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
@@ -340,7 +340,29 @@ int cMsgGet(int domainId, void *sendMsg, struct timespec *timeout, void **replyM
     return(CMSG_BAD_ARGUMENT);
   }
 
-  return(domains[id].functions->get(domains[id].implId, sendMsg, timeout, replyMsg));
+  return(domains[id].functions->sendAndGet(domains[id].implId, sendMsg, timeout, replyMsg));
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cMsgSubscribeAndGet(int domainId, char *subject, char *type,
+                        struct timespec *timeout, void **replyMsg) {
+
+  int id = domainId - DOMAIN_ID_OFFSET;
+
+  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
+  if (replyMsg == NULL)              return(CMSG_BAD_ARGUMENT);
+  
+  /* check args */
+  if ( (checkString(subject) !=0 ) ||
+       (checkString(type)    !=0 ))  {
+    return(CMSG_BAD_ARGUMENT);
+  }
+
+  return(domains[id].functions->subscribeAndGet(domains[id].implId, subject, type,
+                                                timeout, replyMsg));
 }
 
 

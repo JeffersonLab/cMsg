@@ -101,8 +101,8 @@ public class cMsgGetConsumer {
      * This method is executed as a thread.
      */
     public void run() throws cMsgException {
-        String subject = "responder", type = "TYPE";
-        //String subject = "SUBJECT", type = "TYPE";
+        //String subject = "responder", type = "TYPE";
+        String subject = "SUBJECT", type = "TYPE";
 
         System.out.println("Running Message GET Consumer\n");
 
@@ -127,7 +127,8 @@ public class cMsgGetConsumer {
 
             // do a bunch of gets
             for (int i=0; i < 2000; i++) {
-                msg = coda.sendAndGet(sendMsg, 1000);
+                //msg = coda.sendAndGet(sendMsg, 1000);
+                msg = coda.subscribeAndGet(subject, type, 1000);
                 if (msg == null) {
                     System.out.println("TIMEOUT in GET");
                 }
