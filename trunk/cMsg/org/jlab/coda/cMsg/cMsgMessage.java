@@ -25,9 +25,6 @@ package org.jlab.coda.cMsg;
 
 import java.lang.*;
 import java.util.*;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 
 
 /**
@@ -42,12 +39,25 @@ public class cMsgMessage implements Cloneable {
 
     /**
      * Unique message id created by cMsg system.
-     * Used by domain server to track client's "get" calls.
+     * Used by domain server to track client's "sendAndGet" calls.
      */
     private int sysMsgId;
 
     /** Message exists in this domain. */
     private String domain;
+
+    /** Is this message a sendAndGet request? */
+    private boolean getRequest;
+
+    /** Is this message a response to a sendAndGet request? */
+    private boolean getResponse;
+
+    /** Version number of cMsg. */
+    private int version;
+
+
+    // user-settable quantities
+
 
     /** Subject of message. */
     private String subject;
@@ -58,23 +68,21 @@ public class cMsgMessage implements Cloneable {
     /** Text of message. */
     private String text;
 
-    /** Is this message a get request? */
-    boolean getRequest;
+    /** Message priority set by user where 0 is both the default and the lowest value. */
+    private int priority;
 
-    /** Is this message a response to a get request? */
-    boolean getResponse;
+    /** Integer supplied by user. */
+    private int userInt;
+
+    /** Time supplied by user in milliseconds from midnight GMT, Jan 1st, 1970. */
+    private long userTime;
 
 
     // sender quantities
 
+
     /** Unique name of message sender. */
     private String sender;
-
-    /**
-     * Unique id of message sender. This distinguishes between two identically
-     * named senders - one of whom dies and is replaced by the other.
-     */
-    private int senderId;
 
     /** Host sender is running on. */
     private String senderHost;
@@ -82,22 +90,12 @@ public class cMsgMessage implements Cloneable {
     /** Time message was sent in milliseconds from midnight GMT, Jan 1st, 1970. */
     private long senderTime;
 
-    /** Unique message id created by sender. */
-    private int senderMsgId;
-
-    /**
-     * Sender given integer used to track asynchronous responses to
-     * messages requesting responses from other clients.
-     */
+   /** Field used by domain server in implementing "sendAndGet". */
     private int senderToken;
+
 
     // receiver quantities
 
-    /**
-     * Message receiver's id number corresponding to a subject & type pair
-     * of a message subscription.
-     */
-    private int receiverSubscribeId;
 
     /** Unique name of message receiver. */
     private String receiver;
@@ -108,11 +106,17 @@ public class cMsgMessage implements Cloneable {
     /** Time message was received in milliseconds from midnight GMT, Jan 1st, 1970. */
     private long receiverTime;
 
+    /**
+     * Message receiver's id number corresponding to a subject & type pair
+     * of a message subscription.
+     */
+    private int receiverSubscribeId;
+
 
 
     /**
      * Creates a proper response message to this message sent by a client calling
-     * @return message with the response fields properly set
+     * @return message with the response fields properly set.
      * @throws cMsgException if this message was not sent from a "get" method call
      */
     public cMsgMessage response() throws cMsgException {
@@ -132,7 +136,7 @@ public class cMsgMessage implements Cloneable {
 
     /**
      * Creates a complete copy of this message.
-     * @return copy of this message
+     * @return copy of this message.
      */
     public cMsgMessage copy() {
         cMsgMessage msg = null;
@@ -145,16 +149,84 @@ public class cMsgMessage implements Cloneable {
     // general quantities
 
 
-    /** Get domain this message exists in. */
+    /**
+     * Get system id of message.
+     * @return system id of message.
+     */
+    public int getSysMsgId() {return sysMsgId;}
+    /**
+     * Set system id of message. Used by the system in doing sendAndGet.
+     * The user should not use this method. The cMsg system overwrites any user input.
+     * @param sysMsgId system id of message.
+     */
+    public void setSysMsgId(int sysMsgId) {this.sysMsgId = sysMsgId;}
+
+
+    /**
+     * Get domain this message exists in.
+     * @return domain message exists in.
+     */
     public String getDomain() {return domain;}
     /**
      * Set domain this message exists in.
+     * The user should not use this method. The cMsg system overwrites any user input.
      * @param domain domain this message exists in.
      */
     public void setDomain(String domain) {this.domain = domain;}
 
 
-    /** Get subject of message. */
+    /**
+     * Is this message a response to a "sendAndGet" request?
+     * @return true if this message is a response to a "sendAndGet" request.
+     */
+    public boolean isGetResponse() {return getResponse;}
+    /**
+     * Specify whether this message is a response to a "sendAndGet" message.
+     * @param getResponse true if this message is a response to a "sendAndGet" message
+     */
+    public void setGetResponse(boolean getResponse) {this.getResponse = getResponse;}
+
+
+    /**
+     * Is this message a "sendAndGet" request?
+     * @return true if this message is a "sendAndGet" request
+     */
+    public boolean isGetRequest() {return getRequest;}
+    /**
+     * Specify whether this message is a "sendAndGet" request.
+     * The user should not use this method. The cMsg system overwrites any user input.
+     * @param getRequest true if this message is a "sendAndGet" request
+     */
+    public void setGetRequest(boolean getRequest) {this.getRequest = getRequest;}
+
+
+    /**
+     * Gets the version number of this message which is the same
+     * as that of the cMsg software package that created it.
+     * @return version number of message.
+     */
+    public int getVersion() {
+        return version;
+    }
+    /**
+     * Sets the version number of this message. The version number must be the same as the
+     * version number of the cMsg package - given by {@link cMsgConstants#version}.
+     * The user should not use this method. The cMsg system overwrites any user input.
+     * @param version version number of message
+     */
+    public void setVersion(int version) {
+        if (version < 0) version = 0;
+        this.version = version;
+    }
+
+
+    // user-settable quantities
+
+
+    /**
+     * Get subject of message.
+     * @return subject of message.
+     */
     public String getSubject() {return subject;}
     /**
      * Set subject of message.
@@ -163,16 +235,10 @@ public class cMsgMessage implements Cloneable {
     public void setSubject(String subject) {this.subject = subject;}
 
 
-    /** Get text of message. */
-    public String getText() {return text;}
     /**
-     * Set text of message.
-     * @param text ext of message.
+     * Get type of message.
+     * @return type of message.
      */
-    public void setText(String text) {this.text = text;}
-
-
-    /** Get type of message. */
     public String getType() {return type;}
     /**
      * Set type of message.
@@ -181,124 +247,100 @@ public class cMsgMessage implements Cloneable {
     public void setType(String type) {this.type = type;}
 
 
-    /** Get system id of message. */
-    public int getSysMsgId() {return sysMsgId;}
     /**
-     * Set system id of message. Set automatically by cMsg system.
-     * @param sysMsgId system id of message.
+     * Get text of message.
+     * @return text of message.
      */
-    public void setSysMsgId(int sysMsgId) {this.sysMsgId = sysMsgId;}
-
+    public String getText() {return text;}
     /**
-     * Is this message a response to a "get" request?
-     * @return true if this message is a response to a "get" request
+     * Set text of message.
+     * @param text ext of message.
      */
-    public boolean isGetResponse() {return getResponse;}
+    public void setText(String text) {this.text = text;}
+
+
     /**
-     * Specify whether this message is a response to a "get" message.
-     * @param getResponse true if this message is a response to a "get" message
+     * Get message's priority.
+     * @return priority of message.
      */
-    public void setGetResponse(boolean getResponse) {this.getResponse = getResponse;}
-
+    public int getPriority() {return priority;}
     /**
-     * Is this message a "get" request?
-     * @return true if this message is a "get" request
-     */
-    public boolean isGetRequest() {return getRequest;}
-    /**
-     * Specify whether this message is a "get" request.
-     * @param getRequest true if this message is a "get" request
-     */
-    public void setGetRequest(boolean getRequest) {this.getRequest = getRequest;}
-
-
-    // receiver
-
-
-    /** Get message receiver. */
-    public String getReceiver() {return receiver;}
-    /**
-     * Set message receiver.  Set automatically by cMsg system.
-     * @param receiver message receiver.
-     */
-    public void setReceiver(String receiver) {this.receiver = receiver;}
-
-
-    /** Get message receiver's host computer. */
-    public String getReceiverHost() {return receiverHost;}
-    /**
-     * Set message receiver's host computer. Set automatically by cMsg system.
-     * @param receiverHost message receiver's host computer.
-     */
-    public void setReceiverHost(String receiverHost) {this.receiverHost = receiverHost;}
-
-
-    /** Get receiver's id number corresponding to a subject & type pair of a message subscription. */
-    public int getReceiverSubscribeId() {return receiverSubscribeId;}
-    /**
-     * Set receiver's subscription id number.
-     * @param receiverSubscribeId  receiver's subscription id number.
-     */
-    public void setReceiverSubscribeId(int receiverSubscribeId) {this.receiverSubscribeId = receiverSubscribeId;}
-
-    /** Get time message was received. */
-    public Date   getReceiverTime() {return new Date(receiverTime);}
-    /**
-      * Set time message was receivered. Set automatically by cMsg system.
-      * @param time time message received.
+      * Set message's priority.
+      * @param priority message's priority.
       */
-    public void setReceiverTime(Date time) {this.receiverTime = time.getTime();}
+    public void setPriority(int priority) {
+        if (priority < 0) priority = 0;
+        this.priority = priority;
+    }
+
+
+    /**
+     * Get user supplied integer.
+     * @return user supplied integer.
+     */
+    public int getUserInt() {return userInt;}
+    /**
+     * Set message sender's id.
+     * @param userInt message sender's id.
+     */
+    public void setUserInt(int userInt) {this.userInt = userInt;}
+
+
+    /**
+     * Get user supplied time.
+     * @return user supplied time.
+     */
+    public Date getUserTime() {return new Date(userTime);}
+    /**
+     * Set time.
+     * @param time time.
+     */
+    public void setUserTime(Date time) {this.userTime = time.getTime();}
 
 
     // sender
 
 
-    /** Get message sender. */
+    /**
+     * Get message sender.
+     * @return message sender.
+     */
     public String getSender() {return sender;}
     /**
      * Set message sender.
+     * The user should not use this method. The cMsg system overwrites any user input.
      * @param sender message sender.
      */
     public void setSender(String sender) {this.sender = sender;}
 
 
-    /** Get message sender's host computer. */
+    /**
+     * Get message sender's host computer.
+     * @return message sender's host computer.
+     */
     public String getSenderHost() {return senderHost;}
     /**
-      * Set message sender's host computer. Set automatically by cMsg system.
-      * @param senderHost message sender's host computer.
-      */
+     * Set message sender's host computer. Set automatically by cMsg system.
+     * The user should not use this method. The cMsg system overwrites any user input.
+     * @param senderHost message sender's host computer.
+     */
     public void setSenderHost(String senderHost) {this.senderHost = senderHost;}
 
 
     /**
-      * Get unique id of message sender. This id distinguishes between two identically
-      * named senders - one of whom dies and is replaced by the other.
-      */
-    public int getSenderId() {return senderId;}
-    /**
-      * Set message sender's id.
-      * @param senderId message sender's id.
-      */
-    public void setSenderId(int senderId) {this.senderId = senderId;}
-
-
-    /** Get sender message's id. */
-    public int getSenderMsgId() {return senderMsgId;}
-    /**
-      * Set sender message's id.
-      * @param senderMsgId sender message's id.
-      */
-    public void setSenderMsgId(int senderMsgId) {this.senderMsgId = senderMsgId;}
-
-
-    /** Get time message was sent. */
+     * Get time message was sent.
+     * @return time message sent.
+     */
     public Date getSenderTime() {return new Date(senderTime);}
     /**
-      * Set time message was sent. Set automatically by cMsg system.
-      * @param time time message sent.
-      */
-    public void setSenderTime(Date time) {this.senderTime = time.getTime();}
+     * Set time message was sent. Set automatically by cMsg system.
+     * The user should not use this method. The cMsg system overwrites any user input.
+     *
+     * @param time time message sent.
+     */
+    public void setSenderTime(Date time) {
+        this.senderTime = time.getTime();
+    }
 
 
     /**
@@ -307,25 +349,84 @@ public class cMsgMessage implements Cloneable {
      */
     public int getSenderToken() {return senderToken;}
     /**
-      * Set sender's token.
-      * @param senderToken sender's token.
-      */
+     * Set sender's token. Used by the system in doing sendAndGet.
+     * The user should not use this method. The cMsg system overwrites any user input.
+     * @param senderToken sender's token.
+     */
     public void setSenderToken(int senderToken) {this.senderToken = senderToken;}
+
+
+    // receiver
+
+
+    /**
+     * Get message receiver.
+     * @return message receiver.
+     */
+    public String getReceiver() {return receiver;}
+    /**
+     * Set message receiver.  Set automatically by cMsg system.
+     * The user should not use this method. The cMsg system overwrites any user input.
+     * @param receiver message receiver.
+     */
+    public void setReceiver(String receiver) {this.receiver = receiver;}
+
+
+    /**
+     * Get message receiver's host computer.
+     * @return message receiver's host computer.
+     */
+    public String getReceiverHost() {return receiverHost;}
+    /**
+     * Set message receiver's host computer. Set automatically by cMsg system.
+     * The user should not use this method. The cMsg system overwrites any user input.
+     * @param receiverHost message receiver's host computer.
+     */
+    public void setReceiverHost(String receiverHost) {this.receiverHost = receiverHost;}
+
+
+    /**
+     * Get time message was received.
+     * @return time message received.
+     */
+    public Date   getReceiverTime() {return new Date(receiverTime);}
+    /**
+      * Set time message was receivered. Set automatically by cMsg system.
+     * The user should not use this method. The cMsg system overwrites any user input.
+      * @param time time message received.
+      */
+    public void setReceiverTime(Date time) {this.receiverTime = time.getTime();}
+
+
+    /**
+     * Get receiver's id number corresponding to a subject & type pair of a message subscription.
+     * @return receiver's subscription id number.
+     */
+    public int getReceiverSubscribeId() {return receiverSubscribeId;}
+    /**
+     * Set receiver's subscription id number.
+     * The user should not use this method. The cMsg system overwrites any user input.
+     * @param receiverSubscribeId  receiver's subscription id number.
+     */
+    public void setReceiverSubscribeId(int receiverSubscribeId) {this.receiverSubscribeId = receiverSubscribeId;}
+
 
 
     /**
       * Returns XML representation of message as a string
       */
     public String toString() {
-        return(
-               "<cMsgMessage date=\"" + (new Date()) + "\"\n"
+	return(
+	       "<cMsgMessage date=\"" + (new Date()) + "\"\n"
             + "     " + "domain         = \"" + this.getDomain() + "\"\n"
-            + "     " + "sysMsgId       = \"" + this.getSysMsgId() + "\"\n"
+            + "     " + "version        = \"" + this.getVersion() + "\"\n"
+            + "     " + "getResponse    = \"" + this.isGetResponse() + "\"\n"
+            + "     " + "getRequest     = \"" + this.isGetRequest() + "\"\n"
             + "     " + "sender         = \"" + this.getSender() + "\"\n"
             + "     " + "senderHost     = \"" + this.getSenderHost() + "\"\n"
             + "     " + "senderTime     = \"" + this.getSenderTime() + "\"\n"
-            + "     " + "senderId       = \"" + this.getSenderId() + "\"\n"
-            + "     " + "senderMsgId    = \"" + this.getSenderMsgId() + "\"\n"
+            + "     " + "userInt        = \"" + this.getUserInt() + "\"\n"
+            + "     " + "priority       = \"" + this.getPriority() + "\"\n"
             + "     " + "receiver       = \"" + this.getReceiver() + "\"\n"
             + "     " + "receiverHost   = \"" + this.getReceiverHost() + "\"\n"
             + "     " + "receiverTime   = \"" + this.getReceiverTime() + "\"\n"
