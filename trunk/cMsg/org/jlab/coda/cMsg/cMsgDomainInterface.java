@@ -120,8 +120,8 @@ public interface cMsgDomainInterface {
      * @param userObj any user-supplied object to be given to the callback method as an argument
      * @throws cMsgException
      */
-    public void subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj) throws cMsgException;
-
+    public void subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+            throws cMsgException;
 
     /**
      * Method to unsubscribe a previous subscription to receive messages of a subject and type
@@ -146,6 +146,30 @@ public interface cMsgDomainInterface {
      * Method to stop or deactivate the subscription callbacks.
      */
     public void stop();
+
+    /**
+     * Method to shutdown the given clients and/or servers.
+     *
+     * @param client client(s) to be shutdown
+     * @param server server(s) to be shutdown
+     * @param flag   flag describing the mode of shutdown
+     * @throws cMsgException
+     */
+    public void shutdown(String client, String server, int flag) throws cMsgException;
+
+    /**
+     * Method to set the shutdown handler of the client.
+     *
+     * @param handler shutdown handler
+     */
+    public void setShutdownHandler(cMsgShutdownHandlerInterface handler);
+
+    /**
+     * Method to get the shutdown handler of the client.
+     *
+     * @return shutdown handler object
+     */
+    public cMsgShutdownHandlerInterface getShutdownHandler();
 
     /**
      * Get the name of the domain connected to.
