@@ -63,7 +63,7 @@ public class cMsgDomainServer extends Thread {
     private String host;
 
     /** Level of debug output. */
-    private int debug = cMsgConstants.debugNone;
+    private int debug = cMsgConstants.debugError;
 
     /**
      * Object containing information about the domain client.
@@ -77,12 +77,6 @@ public class cMsgDomainServer extends Thread {
 
     /** Reference to subdomain handler object. */
     private cMsgSubdomainInterface subdomainHandler;
-
-    /**
-     * Keep track of whether the handleShutdown method of the subdomain
-     * handler has already been called.
-     */
-    volatile boolean calledShutdown;
 
     /**
      * Thread-safe queue to hold cMsgHolder objects. This cue holds
@@ -101,6 +95,12 @@ public class cMsgDomainServer extends Thread {
 
     /** Current number of temporary threads. */
     private AtomicInteger tempThreads = new AtomicInteger();
+
+    /**
+     * Keep track of whether the handleShutdown method of the subdomain
+     * handler has already been called.
+     */
+    volatile boolean calledShutdown;
 
     /** Tell the server to kill this and all spawned threads. */
     private volatile boolean killAllThreads;
@@ -262,7 +262,8 @@ public class cMsgDomainServer extends Thread {
 
                         // set socket options
                         Socket socket = channel.socket();
-                        // set socket timeout to 1 second in case we need to die
+                        // Set socket timeout to 1 second in case we need to die.
+                        // This doesn't seem to work for some reason!
                         socket.setSoTimeout(1000);
                         // Set tcpNoDelay so no packets are delayed
                         socket.setTcpNoDelay(true);
@@ -329,6 +330,9 @@ public class cMsgDomainServer extends Thread {
             // start up 1 permanent worker thread on the (un)subscribe cue
             new RequestThread(true, true);
 
+            // die if main thread dies
+            setDaemon(true);
+
             start();
         }
 
@@ -347,6 +351,8 @@ public class cMsgDomainServer extends Thread {
                         // keep reading until we have an int (4 bytes) of data
                         if (cMsgUtilities.readSocketBytes(buffer, channel, 4, debug) < 4) {
                             // got less than 1 int, something's wrong, kill connection
+                            killAllThreads();
+                            return;
                         }
                     }
                     // socket timed out, check to see if we must die
@@ -472,7 +478,7 @@ public class cMsgDomainServer extends Thread {
             }
             catch (IOException ex) {
             }
-
+            System.out.flush();
         }
 
 
@@ -719,11 +725,19 @@ public class cMsgDomainServer extends Thread {
         /** Does this thread read from the (un)subscribe cue only*/
         boolean subscribe;
 
+        /** A direct buffer is necessary for nio socket IO. */
+        private ByteBuffer buffer = ByteBuffer.allocateDirect(8);
+
+
         /** Self-starting constructor. */
         RequestThread() {
             // by default thread is not permanent or reading (un)subscribe requests
             tempThreads.getAndIncrement();
             //System.out.println(temp +" temp");
+
+            // die if main thread dies
+            setDaemon(true);
+
             this.start();
         }
 
@@ -779,7 +793,9 @@ public class cMsgDomainServer extends Thread {
                             break;
 
                         case cMsgConstants.msgSyncSendRequest: // receiving a message
+                            System.out.println("calling subdomain's handleSyncSend");
                             answer = subdomainHandler.handleSyncSendRequest(holder.message);
+                            System.out.println("sync send answer = " + answer);
                             syncSendReply(holder.channel, answer);
                             break;
 
@@ -832,14 +848,11 @@ public class cMsgDomainServer extends Thread {
         private void syncSendReply(SocketChannel channel, int answer) throws IOException {
 
             // send back answer
-            channel.socket().getOutputStream().write(answer);
-/*
-                buffer.clear();
-                buffer.putInt(answer).flip();
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
-*/
+            buffer.clear();
+            buffer.putInt(answer).flip();
+            while (buffer.hasRemaining()) {
+                channel.write(buffer);
+            }
         }
     }
 }
