@@ -115,7 +115,7 @@ public class cMsgNameServer extends Thread {
 
         // Get handler class name and create handler object
         try {
-            clientHandler = (cMsgHandleRequests) Class.forName(clientHandlerClass).newInstance();
+            clientHandler = (cMsgHandleRequests) (Class.forName(clientHandlerClass).newInstance());
         }
         catch (InstantiationException e) {
             e.printStackTrace();
@@ -340,6 +340,7 @@ public class cMsgNameServer extends Thread {
             buffer.get(buf, 0, lengthName);
             String name = new String(buf, 0, lengthName, "US-ASCII");
             if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  port = " + clientListeningPort);
                 System.out.println("  name = " + name);
             }
 
