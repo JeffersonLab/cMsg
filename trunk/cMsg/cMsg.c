@@ -478,6 +478,10 @@ char *cMsgPerror(int error) {
     sprintf(temp, "CMSG_WRONG_DOMAIN_TYPE: when a UDL does not match the server type\n");
     if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_WRONG_DOMAIN_TYPE: when a UDL does not match the server type\n");
     break;
+  case CMSG_NO_CLASS_FOUND:
+    sprintf(temp, "CMSG_NO_CLASS_FOUND: when a class cannot be found to instantiate a subdomain client handler\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_NO_CLASS_FOUND: when a class cannot be found to instantiate a subdomain client handler\n");
+    break;
 
   default:
     sprintf(temp, "?cMsgPerror...no such error: %d\n",error);
@@ -525,7 +529,7 @@ static void cMsgDomainClear(cMsgDomain *domain) {
 
 static void registerDomainTypeInfo(void) {
 
-  /* coda type */
+  /* cMsg type */
   dTypeInfo[0].type = (char *)strdup(codaDomainTypeInfo.type); 
   dTypeInfo[0].functions = codaDomainTypeInfo.functions;
 
@@ -885,15 +889,16 @@ int cMsgFreeMessage(void *vmsg) {
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-
-  free(msg->sender);
-  free(msg->senderHost);
-  free(msg->receiver);
-  free(msg->receiverHost);
-  free(msg->domain);
-  free(msg->subject);
-  free(msg->type);
-  free(msg->text);
+  
+  if (msg->sender != NULL)       free(msg->sender);
+  if (msg->senderHost != NULL)   free(msg->senderHost);
+  if (msg->receiver != NULL)     free(msg->receiver);
+  if (msg->receiverHost != NULL) free(msg->receiverHost);
+  if (msg->domain != NULL)       free(msg->domain);
+  if (msg->subject != NULL)      free(msg->subject);
+  if (msg->type != NULL)         free(msg->type);
+  if (msg->text != NULL)         free(msg->text);
+  
   free(msg);
 
   return(CMSG_OK);
@@ -910,26 +915,79 @@ int cMsgFreeMessage(void *vmsg) {
       return NULL;
     }
     
-    newMsg->sysMsgId     = msg->sysMsgId;
+    newMsg->sysMsgId = msg->sysMsgId;
+    
+    if (msg->sender != NULL) newMsg->sender = (char *) strdup(msg->sender);
+    else                     newMsg->sender = NULL;
+    
+    if (msg->senderHost != NULL) newMsg->senderHost = (char *) strdup(msg->senderHost);
+    else                         newMsg->senderHost = NULL;
+    
+    newMsg->senderId    = msg->senderId;
+    newMsg->senderTime  = msg->senderTime;
+    newMsg->senderMsgId = msg->senderMsgId;
+    newMsg->senderToken = msg->senderToken;
+    
+    if (msg->receiver != NULL) newMsg->receiver = (char *) strdup(msg->receiver);
+    else                       newMsg->receiver = NULL;
+        
+    if (msg->receiverHost != NULL) newMsg->receiverHost = (char *) strdup(msg->receiverHost);
+    else                           newMsg->receiverHost = NULL;    
 
-    newMsg->sender       = (char *) strdup(msg->sender);
-    newMsg->senderId     = msg->senderId;
-    newMsg->senderHost   = (char *) strdup(msg->senderHost);
-    newMsg->senderTime   = msg->senderTime;
-    newMsg->senderMsgId  = msg->senderMsgId;
-    newMsg->senderToken  = msg->senderToken;
-
-    newMsg->receiver     = (char *) strdup(msg->receiver);
-    newMsg->receiverHost = (char *) strdup(msg->receiverHost);
     newMsg->receiverTime = msg->receiverTime;
     newMsg->receiverSubscribeId = msg->receiverSubscribeId;
 
-    newMsg->domain  = (char *) strdup(msg->domain);
-    newMsg->subject = (char *) strdup(msg->subject);
-    newMsg->type    = (char *) strdup(msg->type);
-    newMsg->text    = (char *) strdup(msg->text);
-    
+    if (msg->domain != NULL) newMsg->domain = (char *) strdup(msg->domain);
+    else                     newMsg->domain = NULL;
+        
+    if (msg->subject != NULL) newMsg->subject = (char *) strdup(msg->subject);
+    else                      newMsg->subject = NULL;
+        
+    if (msg->type != NULL) newMsg->type = (char *) strdup(msg->type);
+    else                   newMsg->type = NULL;
+        
+    if (msg->text != NULL) newMsg->text = (char *) strdup(msg->text);
+    else                   newMsg->text = NULL;
+            
     return (void *)newMsg;
+  }
+
+
+/*-------------------------------------------------------------------*/
+
+
+  void cMsgInitMessage(void *vmsg) {
+    cMsgMessage *msg = (cMsgMessage *)vmsg;
+    
+    if (msg == NULL) return;
+    
+    if (msg->sender != NULL)       free(msg->sender);
+    if (msg->senderHost != NULL)   free(msg->senderHost);
+    if (msg->receiver != NULL)     free(msg->receiver);
+    if (msg->receiverHost != NULL) free(msg->receiverHost);
+    if (msg->domain != NULL)       free(msg->domain);
+    if (msg->subject != NULL)      free(msg->subject);
+    if (msg->type != NULL)         free(msg->type);
+    if (msg->text != NULL)         free(msg->text);
+
+    msg->sysMsgId     = 0;
+
+    msg->sender       = NULL;
+    msg->senderId     = 0;
+    msg->senderHost   = NULL;
+    msg->senderTime   = 0;
+    msg->senderMsgId  = 0;
+    msg->senderToken  = 0;
+
+    msg->receiver     = NULL;
+    msg->receiverHost = NULL;
+    msg->receiverTime = 0;
+    msg->receiverSubscribeId = 0;
+
+    msg->domain  = NULL;
+    msg->subject = NULL;
+    msg->type    = NULL;
+    msg->text    = NULL;    
   }
 
 
