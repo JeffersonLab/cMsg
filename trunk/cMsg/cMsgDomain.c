@@ -84,7 +84,8 @@ static int counter = 0;
 extern "C" {
 #endif
 
-static int   coda_connect(char *myUDL, char *myName, char *myDescription, int *domainId);
+static int   coda_connect(char *myUDL, char *myName, char *myDescription,
+                          char *UDLremainder,int *domainId);
 static int   coda_send(int domainId, void *msg);
 static int   syncSend(int domainId, void *msg, int *response);
 static int   flush(int domainId);
@@ -144,19 +145,20 @@ static void  getInfoClear(getInfo *info);
 static void  subscribeInfoClear(subscribeInfo *info);
 
 /* misc */
-static int   parseUDL(const char *UDL, char **domainType, char **host,
-                      unsigned short *port, char **subdomainType, char **UDLremainder);
+static int   parseUDL(const char *UDLremainder, char **host, unsigned short *port,
+                      char **subdomainType, char **UDLsubRemainder);
 static int   unget(int domainId, int id);
 static struct timespec getAbsoluteTime(struct timespec *deltaTime);
 
 /*-------------------------------------------------------------------*/
 
 
-static int coda_connect(char *myUDL, char *myName, char *myDescription, int *domainId) {
+static int coda_connect(char *myUDL, char *myName, char *myDescription,
+                        char *UDLremainder, int *domainId) {
 
   int i, id=-1, err, serverfd, status, hz, num_try, try_max;
   char *portEnvVariable=NULL, temp[CMSG_MAXHOSTNAMELEN];
-  char *subdomain=NULL, *UDLremainder=NULL;
+  char *subdomain=NULL, *UDLsubRemainder=NULL;
   unsigned short startingPort;
   mainThreadInfo *threadArg;
   struct timespec waitForThread;
@@ -198,12 +200,10 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   for (i=0; i<MAXDOMAINS_CODA; i++) {
     if (cMsgDomains[i].initComplete == 1   &&
         cMsgDomains[i].name        != NULL &&
-        cMsgDomains[i].udl         != NULL &&
-        cMsgDomains[i].description != NULL)  {
+        cMsgDomains[i].udl         != NULL)  {
         
-      if ( (strcmp(cMsgDomains[i].name,        myName       ) == 0)  &&
-           (strcmp(cMsgDomains[i].udl,         myUDL        ) == 0)  &&
-           (strcmp(cMsgDomains[i].description, myDescription) == 0) )  {
+      if ( (strcmp(cMsgDomains[i].name, myName) == 0)  &&
+           (strcmp(cMsgDomains[i].udl,  myUDL ) == 0) )  {
         /* got a match */
         id = i;
         break;
@@ -214,7 +214,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
 
   /* found the id of a valid connection - return that */
   if (id > -1) {
-    *domainId = id + DOMAIN_ID_OFFSET;
+    *domainId = id;
     connectWriteUnlock();
     return(CMSG_OK);
   }
@@ -252,9 +252,11 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   cMsgDomains[id].udl         = (char *) strdup(myUDL);
   cMsgDomains[id].description = (char *) strdup(myDescription);
   
-  /* parse the UDL - Uniform Domain Locator */
-  if ( (err = parseUDL(myUDL, NULL, &cMsgDomains[id].serverHost,
-                       &cMsgDomains[id].serverPort, &subdomain, &UDLremainder)) != CMSG_OK ) {
+  /* Parse the UDL (Uniform Domain Locator) remainder
+   * passed down from the level above.
+   */
+  if ( (err = parseUDL(UDLremainder, &cMsgDomains[id].serverHost,
+                       &cMsgDomains[id].serverPort, &subdomain, &UDLsubRemainder)) != CMSG_OK ) {
     /* there's been a parsing error */
     domainClear(&cMsgDomains[id]);
     connectWriteUnlock();
@@ -364,7 +366,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   }
   
   /* get host & port to send messages to */
-  err = getHostAndPortFromNameServer(&cMsgDomains[id], serverfd, subdomain, UDLremainder);
+  err = getHostAndPortFromNameServer(&cMsgDomains[id], serverfd, subdomain, UDLsubRemainder);
   if (err != CMSG_OK) {
     close(serverfd);
     pthread_cancel(cMsgDomains[id].pendThread);
@@ -403,7 +405,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   }
   
   /* init is complete */
-  *domainId = id + DOMAIN_ID_OFFSET;
+  *domainId = id ;
 
   if ( (err = cMsgTcpConnect(cMsgDomains[id].sendHost,
                              cMsgDomains[id].sendPort,
@@ -459,11 +461,11 @@ static int coda_send(int domainId, void *vmsg) {
   connectReadLock();
   
   if (cMsgDomains[domainId].initComplete != 1) {
-    connectReadUnLock();
+    connectReadUnlock();
     return(CMSG_NOT_INITIALIZED);
   }
   if (cMsgDomains[domainId].lostConnection == 1) {
-    connectReadUnLock();
+    connectReadUnlock();
     return(CMSG_LOST_CONNECTION);
   }
 
@@ -504,7 +506,7 @@ static int coda_send(int domainId, void *vmsg) {
   /* send ints over together */
   if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
     socketMutexUnlock(domain);
-    connectReadUnLock();
+    connectReadUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "coda_send: write failure\n");
     }
@@ -514,7 +516,7 @@ static int coda_send(int domainId, void *vmsg) {
   /* send subject */
   if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
     socketMutexUnlock(domain);
-    connectReadUnLock();
+    connectReadUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "coda_send: write failure\n");
     }
@@ -524,7 +526,7 @@ static int coda_send(int domainId, void *vmsg) {
   /* send type */
   if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
     socketMutexUnlock(domain);
-    connectReadUnLock();
+    connectReadUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "coda_send: write failure\n");
     }
@@ -534,7 +536,7 @@ static int coda_send(int domainId, void *vmsg) {
   /* send text */
   if (cMsgTcpWrite(fd, (void *) text, lenText) != lenText) {
     socketMutexUnlock(domain);
-    connectReadUnLock();
+    connectReadUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "coda_send: write failure\n");
     }
@@ -543,7 +545,7 @@ static int coda_send(int domainId, void *vmsg) {
   
   /* done protecting communications */
   socketMutexUnlock(domain);
-  connectReadUnLock();
+  connectReadUnlock();
 
   return(CMSG_OK);
 }
@@ -568,11 +570,11 @@ static int syncSend(int domainId, void *vmsg, int *response) {
   connectReadLock();
 
   if (cMsgDomains[domainId].initComplete != 1) {
-    connectReadUnLock();
+    connectReadUnlock();
     return(CMSG_NOT_INITIALIZED);
   }
   if (cMsgDomains[domainId].lostConnection == 1) {
-    connectReadUnLock();
+    connectReadUnlock();
     return(CMSG_LOST_CONNECTION);
   }
 
@@ -616,8 +618,8 @@ static int syncSend(int domainId, void *vmsg, int *response) {
   /* send ints over together */
   if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
     socketMutexUnlock(domain);
-    syncSendMutexUnLock(domain);
-    connectReadUnLock();
+    syncSendMutexUnlock(domain);
+    connectReadUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: write failure\n");
     }
@@ -627,8 +629,8 @@ static int syncSend(int domainId, void *vmsg, int *response) {
   /* send subject */
   if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
     socketMutexUnlock(domain);
-    syncSendMutexUnLock(domain);
-    connectReadUnLock();
+    syncSendMutexUnlock(domain);
+    connectReadUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: write failure\n");
     }
@@ -638,8 +640,8 @@ static int syncSend(int domainId, void *vmsg, int *response) {
   /* send type */
   if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
     socketMutexUnlock(domain);
-    syncSendMutexUnLock(domain);
-    connectReadUnLock();
+    syncSendMutexUnlock(domain);
+    connectReadUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: write failure\n");
     }
@@ -649,8 +651,8 @@ static int syncSend(int domainId, void *vmsg, int *response) {
   /* send text */
   if (cMsgTcpWrite(fd, (void *) text, lenText) != lenText) {
     socketMutexUnlock(domain);
-    syncSendMutexUnLock(domain);
-    connectReadUnLock();
+    syncSendMutexUnlock(domain);
+    connectReadUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: write failure\n");
     }
@@ -663,16 +665,16 @@ static int syncSend(int domainId, void *vmsg, int *response) {
   /* now read reply */
   if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
     socketMutexUnlock(domain);
-    syncSendMutexUnLock(domain);
-    connectReadUnLock();
+    syncSendMutexUnlock(domain);
+    connectReadUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: read failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
   
-  syncSendMutexUnLock(domain);
-  connectReadUnLock();
+  syncSendMutexUnlock(domain);
+  connectReadUnlock();
 
   /* return domain server's reply */  
   *response = ntohl(err);  
@@ -706,11 +708,11 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
   connectReadLock();
 
   if (cMsgDomains[domainId].initComplete != 1) {
-    connectReadUnLock();
+    connectReadUnlock();
     return(CMSG_NOT_INITIALIZED);
   }
   if (cMsgDomains[domainId].lostConnection == 1) {
-    connectReadUnLock();
+    connectReadUnlock();
     return(CMSG_LOST_CONNECTION);
   }
 
@@ -751,7 +753,7 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
     }
     
     if (!gotSpot) {
-      connectReadUnLock();
+      connectReadUnlock();
       return(CMSG_OUT_OF_MEMORY);
     }
   }
@@ -777,7 +779,7 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
     } 
     
     if (!gotSpot) {
-      connectReadUnLock();
+      connectReadUnlock();
       return(CMSG_OUT_OF_MEMORY);
     }
   }
@@ -815,7 +817,7 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
   /* send ints over together */
   if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
     socketMutexUnlock(domain);
-    connectReadUnLock();
+    connectReadUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "get: write failure\n");
     }
@@ -825,7 +827,7 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
   /* send subject */
   if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
     socketMutexUnlock(domain);
-    connectReadUnLock();
+    connectReadUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "get: write failure\n");
     }
@@ -835,7 +837,7 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
   /* send type */
   if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
     socketMutexUnlock(domain);
-    connectReadUnLock();
+    connectReadUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "get: write failure\n");
     }
@@ -845,7 +847,7 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
   /* send text */
   if (cMsgTcpWrite(fd, (void *) text, lenText) != lenText) {
     socketMutexUnlock(domain);
-    connectReadUnLock();
+    connectReadUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "get: write failure\n");
     }
@@ -854,7 +856,7 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
 
   /* done protecting communications */
   socketMutexUnlock(domain);
-  connectReadUnLock();
+  connectReadUnlock();
   
   /* Now ..., wait for asynchronous response */
   
@@ -1012,11 +1014,11 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
   connectReadLock();
 
   if (cMsgDomains[domainId].initComplete != 1) {
-    connectReadUnLock();
+    connectReadUnlock();
     return(CMSG_NOT_INITIALIZED);
   }
   if (cMsgDomains[domainId].lostConnection == 1) {
-    connectReadUnLock();
+    connectReadUnlock();
     return(CMSG_LOST_CONNECTION);
   }
 
@@ -1070,12 +1072,12 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
   
   if ((iok == 1) && (jok == 0)) {
     subscribeMutexUnlock(domain);
-    connectReadUnLock();
+    connectReadUnlock();
     return(CMSG_OUT_OF_MEMORY);
   }
   if ((iok == 1) && (jok == 1)) {
     subscribeMutexUnlock(domain);
-    connectReadUnLock();
+    connectReadUnlock();
     return(CMSG_OK);
   }
 
@@ -1147,7 +1149,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
     if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
       socketMutexUnlock(domain);
       subscribeMutexUnlock(domain);
-      connectReadUnLock();
+      connectReadUnlock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "subscribe: write failure\n");
       }
@@ -1158,7 +1160,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
     if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
       socketMutexUnlock(domain);
       subscribeMutexUnlock(domain);
-      connectReadUnLock();
+      connectReadUnlock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "subscribe: write failure\n");
       }
@@ -1169,7 +1171,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
     if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
       socketMutexUnlock(domain);
       subscribeMutexUnlock(domain);
-      connectReadUnLock();
+      connectReadUnlock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "subscribe: write failure\n");
       }
@@ -1180,14 +1182,14 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
     socketMutexUnlock(domain);
     /* done protecting subscribe */
     subscribeMutexUnlock(domain);
-    connectReadUnLock();
+    connectReadUnlock();
 
     return(CMSG_OK);
   }
   
   /* done protecting subscribe */
   subscribeMutexUnlock(domain);
-  connectReadUnLock();
+  connectReadUnlock();
   
   /* iok == 0 here */
   return(CMSG_OUT_OF_MEMORY);
@@ -1211,11 +1213,11 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
   connectReadLock();
 
   if (cMsgDomains[domainId].initComplete != 1) {
-    connectReadUnLock();
+    connectReadUnlock();
     return(CMSG_NOT_INITIALIZED);
   }
   if (cMsgDomains[domainId].lostConnection == 1) {
-    connectReadUnLock();
+    connectReadUnlock();
     return(CMSG_LOST_CONNECTION);
   }
 
@@ -1280,7 +1282,7 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
     if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
       socketMutexUnlock(domain);
       subscribeMutexUnlock(domain);
-      connectReadUnLock();
+      connectReadUnlock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "unsubscribe: write failure\n");
       }
@@ -1291,7 +1293,7 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
     if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
       socketMutexUnlock(domain);
       subscribeMutexUnlock(domain);
-      connectReadUnLock();
+      connectReadUnlock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "unsubscribe: write failure\n");
       }
@@ -1302,7 +1304,7 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
     if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
       socketMutexUnlock(domain);
       subscribeMutexUnlock(domain);
-      connectReadUnLock();
+      connectReadUnlock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "unsubscribe: write failure\n");
       }
@@ -1313,14 +1315,14 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
     socketMutexUnlock(domain);
     /* done protecting unsubscribe */
     subscribeMutexUnlock(domain);
-    connectReadUnLock();
+    connectReadUnlock();
 
     return(CMSG_OK);
   }
 
   /* done protecting unsubscribe */
   subscribeMutexUnlock(domain);
-  connectReadUnLock();
+  connectReadUnlock();
   
   return(CMSG_OK);
 }
@@ -1394,8 +1396,9 @@ static int disconnect(int domainId) {
 static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
                                         char *subdomain, char *UDLremainder) {
 
-  int err, lengthDomain, lengthSubdomain, lengthRemainder, lengthHost, lengthName;
-  int outgoing[7], incoming[2];
+  int  err, lengthDomain, lengthSubdomain, lengthRemainder;
+  int  lengthHost, lengthName, lengthUDL, lengthDescription;
+  int  outgoing[9], incoming[2];
   char temp[CMSG_MAXHOSTNAMELEN], atts[5];
   char *domainType = "cMsg";
 
@@ -1410,21 +1413,27 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
   lengthSubdomain = strlen(subdomain);
   outgoing[3] = htonl(lengthSubdomain);
   /* send length of the UDL remainder.*/
-  lengthRemainder = strlen(UDLremainder);
-  outgoing[4] = htonl(lengthRemainder);
+  /* this may be null */
+  if (UDLremainder == NULL) {
+    lengthRemainder = outgoing[4] = 0;
+  }
+  else {
+    lengthRemainder = strlen(UDLremainder);
+    outgoing[4] = htonl(lengthRemainder);
+  }
   /* send length of my host name to server */
   lengthHost  = strlen(domain->myHost);
   outgoing[5] = htonl(lengthHost);
   /* send length of my name to server */
   lengthName  = strlen(domain->name);
   outgoing[6] = htonl(lengthName);
-  
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "getHostAndPortFromNameServer: write 7 (%d, %d, %d, %d, %d, %d, %d) ints to server\n",
-            CMSG_SERVER_CONNECT, (int) domain->listenPort,
-            lengthDomain, lengthSubdomain, lengthRemainder, lengthHost, lengthName);
-  }
-  
+  /* send length of my udl to server */
+  lengthUDL   = strlen(domain->udl);
+  outgoing[7] = htonl(lengthUDL);
+  /* send length of my description to server */
+  lengthDescription  = strlen(domain->description);
+  outgoing[8] = htonl(lengthDescription);
+    
   /* first send all the ints */
   if (cMsgTcpWrite(serverfd, (void *) outgoing, sizeof(outgoing)) != sizeof(outgoing)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -1432,12 +1441,7 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
     }
     return(CMSG_NETWORK_ERROR);
   }
-  
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "getHostAndPortFromNameServer: write 5 strings to server\n",
-            domain->name);
-  }
-  
+    
   /* send the type of domain server I'm expecting to connect to */
   if (cMsgTcpWrite(serverfd, (void *) domainType, lengthDomain) != lengthDomain) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -1455,11 +1459,13 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
   }
 
   /* send the UDL remainder */
-  if (cMsgTcpWrite(serverfd, (void *) UDLremainder, lengthRemainder) != lengthRemainder) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+  if (UDLremainder != NULL) {
+    if (cMsgTcpWrite(serverfd, (void *) UDLremainder, lengthRemainder) != lengthRemainder) {
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+        fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+      }
+      return(CMSG_NETWORK_ERROR);
     }
-    return(CMSG_NETWORK_ERROR);
   }
 
   /* send my host name to server */
@@ -1477,11 +1483,23 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
     }
     return(CMSG_NETWORK_ERROR);
   }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "getHostAndPortFromNameServer: read error reply from server\n");
-  }
   
+  /* send my udl to server */
+  if (cMsgTcpWrite(serverfd, (void *) domain->udl, lengthUDL) != lengthUDL) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+ 
+  /* send my description to server */
+  if (cMsgTcpWrite(serverfd, (void *) domain->description, lengthDescription) != lengthDescription) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+ 
   /* now read server reply */
   if (cMsgTcpRead(serverfd, (void *) &err, sizeof(err)) != sizeof(err)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -1490,11 +1508,7 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
     return(CMSG_NETWORK_ERROR);
   }
   err = ntohl(err);
-  
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "getHostAndPortFromNameServer: read err = %d\n", err);
-  }
-  
+    
   /* if there's an error, quit */
   if (err != CMSG_OK) {
     return(err);
@@ -2366,58 +2380,35 @@ static struct timespec getAbsoluteTime(struct timespec *deltaTime) {
 
 
 /*-------------------------------------------------------------------*/
-static int parseUDL(const char *UDL, char **domainType, char **host,
-                    unsigned short *port, char **subdomainType, char **UDLremainder) {
+static int parseUDL(const char *UDLremainder, char **host, unsigned short *port,
+                    char **subdomainType, char **UDLsubRemainder) {
 
-  /* note: cMsg UDL is of the form:
-           cMsg:<domainType>://<host>:<port>/<subdomainType>/<remainder>
-     where the first "cMsg:" is optional. If it is the cMsg domainType,
-     then the subdomain is optional with the default being cMsg.
-  */
+  /* note: the full cMsg UDL is of the form:
+   *       cMsg:<domainType>://<host>:<port>/<subdomainType>/<remainder>
+   *
+   * where the first "cMsg:" is optional. The subdomain is optional with
+   * the default being cMsg.
+   *
+   * However, we're parsing the UDL with the initial  "cMsg:<domainType>://"
+   * stripped off (in the software layer one up).
+   */
 
   int i, Port;
-  char *p, *portString, *udl, *pudl, *pdomainType;
+  char *p, *portString, *udl, *pdomainType;
 
-  if (UDL  == NULL) {
+  if (UDLremainder == NULL) {
     return(CMSG_BAD_ARGUMENT);
   }
   
   /* strtok modifies the string it tokenizes, so make a copy */
-  pudl = udl = (char *) strdup(UDL);
+  udl = (char *) strdup(UDLremainder);
   
-/*printf("UDL = %s\n", udl);*/
-
-  /*
-   * Check to see if optional "cMsg:" in front.
-   * Start by looking for any occurance.
-   */  
-  p = strstr(udl, "cMsg:");
-  
-  /* if there a "cMsg:" in front ... */
-  if (p == udl) {
-    /* if there is still the domain before "://", strip off first "cMsg:" */
-    pudl = udl+5;
-    p = strstr(pudl, "//");
-    if (p == pudl) {
-      pudl = udl;
-    }
-  }
+/*printf("UDL remainder = %s\n", udl);*/
     
   /* get tokens separated by ":" or "/" */
-  
-  /* find domain */
-  if ( (p = (char *) strtok(pudl, ":/")) == NULL) {
-    free(udl);
-    return (CMSG_BAD_FORMAT);
-  }
-  if (domainType != NULL) *domainType = (char *) strdup(p);
-  pdomainType = (char *) strdup(p);
-/*printf("domainType = %s\n", p);*/  
-  
+    
   /* find host */
-  if ( (p = (char *) strtok(NULL, ":/")) == NULL) {
-    if (domainType != NULL)  free(*domainType);
-    free (pdomainType);
+  if ( (p = (char *) strtok(udl, ":/")) == NULL) {
     free(udl);
     return (CMSG_BAD_FORMAT);
   }
@@ -2427,9 +2418,7 @@ static int parseUDL(const char *UDL, char **domainType, char **host,
   
   /* find port */
   if ( (p = (char *) strtok(NULL, "/")) == NULL) {
-    if (host != NULL)       free(*host);
-    if (domainType != NULL) free(*domainType);
-    free (pdomainType);
+    if (host != NULL) free(*host);
     free(udl);
     return (CMSG_BAD_FORMAT);
   }
@@ -2438,12 +2427,10 @@ static int parseUDL(const char *UDL, char **domainType, char **host,
   if (port != NULL) {
     *port = Port;
   }
-/*printf("port string = %s, port int = %hu\n", portString, Port);*/   
+/*printf("port string = %s, port int = %hu\n", portString, Port);*/
   if (Port < 1024 || Port > 65535) {
     if (port != NULL) free((void *) portString);
     if (host != NULL) free((void *) *host);
-    if (domainType != NULL) free((void *) *domainType);
-    free (pdomainType);
     free(udl);
     return (CMSG_OUT_OF_RANGE);
   }
@@ -2455,7 +2442,7 @@ static int parseUDL(const char *UDL, char **domainType, char **host,
     }
   }
   else {
-    if ((strcmp(pdomainType, "cMsg") == 0) && (subdomainType != NULL)) {
+    if (subdomainType != NULL) {
         *subdomainType = (char *) strdup("cMsg");
     }
 /*printf("subdomainType = cMsg\n");*/
@@ -2465,16 +2452,15 @@ static int parseUDL(const char *UDL, char **domainType, char **host,
   
 /*printf("subdomainType = %s\n", p);*/
 
-  /* find UDL remainder */
+  /* find UDL remainder's remainder */
   if ( (p = (char *) strtok(NULL, "")) != NULL) {
-    if (UDLremainder != NULL) {
-      *UDLremainder = (char *) strdup(p);
+    if (UDLsubRemainder != NULL) {
+      *UDLsubRemainder = (char *) strdup(p);
     }
 /*printf("remainder = %s\n", p);*/
   }
   
   /* UDL parsed ok */
-  free (pdomainType);
   free(udl);
   return(CMSG_OK);
 }
