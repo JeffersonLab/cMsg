@@ -162,10 +162,7 @@ public class cMsgMessageFull extends cMsgMessage {
         this.setVersion(m.getVersion());
         this.setDomain(m.getDomain());
         this.setSysMsgId(m.getSysMsgId());
-
-        this.setGetRequest(m.isGetRequest());
-        this.setGetResponse(m.isGetResponse());
-
+        this.setInfo(m.getInfo());
         this.setCreator(m.getCreator());
 
         this.setSender(m.getSender());
@@ -215,13 +212,12 @@ public class cMsgMessageFull extends cMsgMessage {
         // If this message was not sent from a "sendAndGet" method call,
         // a proper response is not possible, since the sysMsgId
         // and senderToken fields will not have been properly set.
-        if (!getRequest) {
+        if (!isGetRequest()) {
             throw new cMsgException("this message not sent by client calling sendAndGet");
         }
         cMsgMessageFull msg = new cMsgMessageFull();
         msg.sysMsgId = sysMsgId;
         msg.senderToken = senderToken;
-        msg.getResponse = true;
         msg.info = isGetResponse;
         return msg;
     }
@@ -239,13 +235,12 @@ public class cMsgMessageFull extends cMsgMessage {
         // If this message was not sent from a "get" method call,
         // a proper response is not possible, since the sysMsgId
         // and senderToken fields will not have been properly set.
-        if (!getRequest) {
+        if (!isGetRequest()) {
             throw new cMsgException("this message not sent by client calling sendAndGet");
         }
         cMsgMessageFull msg = new cMsgMessageFull();
         msg.sysMsgId = sysMsgId;
         msg.senderToken = senderToken;
-        msg.getResponse = true;
         msg.info = isGetResponse | isNullGetResponse;
         return msg;
     }
@@ -258,7 +253,6 @@ public class cMsgMessageFull extends cMsgMessage {
     public void makeResponse(cMsgMessageFull msg) {
         this.sysMsgId    = msg.getSysMsgId();
         this.senderToken = msg.getSenderToken();
-        this.getResponse = true;
         this.info = isGetResponse;
     }
 
@@ -266,7 +260,6 @@ public class cMsgMessageFull extends cMsgMessage {
     public void makeNullResponse(cMsgMessageFull msg) {
         this.sysMsgId    = msg.getSysMsgId();
         this.senderToken = msg.getSenderToken();
-        this.getResponse = true;
         this.info = isGetResponse | isNullGetResponse;
     }
 
@@ -293,7 +286,6 @@ public class cMsgMessageFull extends cMsgMessage {
      * @param getRequest true if this message is a "sendAndGet" request
      */
     public void setGetRequest(boolean getRequest) {
-        this.getRequest = getRequest;
         info = getRequest ? info|isGetRequest : info & ~isGetRequest;
     }
 

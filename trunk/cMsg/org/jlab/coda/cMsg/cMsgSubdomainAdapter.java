@@ -412,7 +412,6 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
             outGoing[1] = msg.getVersion();
             outGoing[2] = msg.getPriority();
             outGoing[3] = msg.getUserInt();
-            //outGoing[4] = msg.isGetRequest() ? 1 : 0;
             outGoing[4] = msg.getInfo();
             outGoing[5] = (int) (msg.getSenderTime().getTime() / 1000L);
             outGoing[6] = (int) (msg.getUserTime().getTime() / 1000L);

@@ -559,7 +559,6 @@ public class cMsgDomainServer extends Thread {
             msg.setUserInt(inComing[2]);
             msg.setSysMsgId(inComing[3]);
             msg.setSenderToken(inComing[4]);
-            msg.setGetResponse((inComing[5] & cMsgMessage.isGetResponse) == 0 ? false : true);
             msg.setInfo(inComing[5]);
             // time message sent in seconds since midnight GMT, Jan 1, 1970
             msg.setSenderTime(new Date(((long) inComing[6]) * 1000));
