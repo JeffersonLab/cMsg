@@ -52,7 +52,7 @@ public class cMsgClientListeningThread extends Thread {
     private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
     /** Allocate int array once (used for reading in data) for efficiency's sake. */
-    private int[] inComing = new int[13];
+    private int[] inComing = new int[14];
 
     /** List of all receiverSubscribeIds that match the incoming message. */
     private int[] rsIds = new int[20];
@@ -290,43 +290,33 @@ public class cMsgClientListeningThread extends Thread {
         // create a message
         cMsgMessage msg = new cMsgMessage();
 
-        // keep reading until we have 13 ints of data
-        cMsgUtilities.readSocketBytes(buffer, channel, 52, debug);
+        // keep reading until we have 14 ints of data
+        cMsgUtilities.readSocketBytes(buffer, channel, 56, debug);
 
         // go back to reading-from-buffer mode
         buffer.flip();
 
-        // read 13 ints
-        buffer.asIntBuffer().get(inComing, 0, 13);
+        // read 14 ints
+        buffer.asIntBuffer().get(inComing, 0, 14);
 
-        // system message id
-        msg.setSysMsgId(inComing[0]);
-        // is get request
-        msg.setGetRequest(inComing[1] == 0 ? false : true);
-        // is get response
-        msg.setGetResponse(inComing[2] == 0 ? false : true);
-        // sender id
-        msg.setSenderId(inComing[3]);
-        // time message sent in seconds since midnight GMT, Jan 1, 1970
+        msg.setVersion(inComing[0]);
+        msg.setPriority(inComing[1]);
+        msg.setUserInt(inComing[2]);
+        msg.setGetRequest(inComing[3] == 0 ? false : true);
+        // time sent in seconds since midnight GMT, Jan 1, 1970
         msg.setSenderTime(new Date(((long)inComing[4])*1000));
-        // sender message id
-        msg.setSenderMsgId(inComing[5]);
-        // sender token
-        msg.setSenderToken(inComing[6]);
-
-        // length of message sender
-        int lengthSender = inComing[7];
-        // length of message senderHost
-        int lengthSenderHost = inComing[8];
-        // length of message subject
-        int lengthSubject = inComing[9];
-        // length of message type
-        int lengthType = inComing[10];
-        // length of message text
-        int lengthText = inComing[11];
+        msg.setUserTime(new Date(((long)inComing[5])*1000));
+        msg.setSysMsgId(inComing[6]);
+        msg.setSenderToken(inComing[7]);
+        // String lengths
+        int lengthSender     = inComing[8];
+        int lengthSenderHost = inComing[9];
+        int lengthSubject    = inComing[10];
+        int lengthType       = inComing[11];
+        int lengthText       = inComing[12];
 
         // number of receiverSubscribe ids to come
-        rsIdCount = inComing[12];
+        rsIdCount = inComing[13];
 
         if (rsIdCount > 0) {
             // keep reading until we have "rsIdCount" ints of data
@@ -374,50 +364,6 @@ public class cMsgClientListeningThread extends Thread {
 
         // read text
         msg.setText(new String(bytes, bytesToRead-lengthText, lengthText, "US-ASCII"));
-
-        /*
-        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("    DELIVERING MESSAGE");
-            System.out.println("      SysMsgId: " +            msg.getSysMsgId());
-            System.out.println("      isGetRequest: " +        msg.isGetRequest());
-            System.out.println("      isGetResponse: " +       msg.isGetResponse());
-            System.out.println("      ReceiverSubscribeId: " + msg.getReceiverSubscribeId());
-            System.out.println("      SenderId: " +            msg.getSenderId());
-            System.out.println("      Time: " +                msg.getSenderTime());
-            System.out.println("      SenderMsgId: " +         msg.getSenderMsgId());
-            System.out.println("      SenderToken: " +         msg.getSenderToken());
-
-            System.out.println("      Sender: " +       msg.getSender());
-            System.out.println("      SenderHost: " +   msg.getSenderHost());
-            System.out.println("      Subject: " +      msg.getSubject());
-            System.out.println("      Type: " +         msg.getType());
-            System.out.println("      Text: " +         msg.getText());
-        }
-        */
-        /*
-        int num = Integer.parseInt(msg.getText());
-        if (num%2 > 0) {
-            if (num - lastOdd != 2) {
-                System.out.println("         " + lastOdd + " -> " + msg.getText());
-            }
-            lastOdd = num;
-        }
-        else {
-            if (num - lastEven != 2) {
-                System.out.println(lastEven + " -> " + msg.getText());
-            }
-            lastEven = num;
-        }
-        */
-
-        /*
-        // send ok back as acknowledgment
-        buffer.clear();
-        buffer.putInt(cMsgConstants.ok).flip();
-        while (buffer.hasRemaining()) {
-            channel.write(buffer);
-        }
-        */
 
         // fill in message object's members
         msg.setDomain(domainType);
@@ -499,7 +445,7 @@ public class cMsgClientListeningThread extends Thread {
 // BUG BUG copy message??
 
                 holder.message = msg;
-//System.out.println("Sending notify for SPECIFIC GET");
+//System.out.println("Sending notify for subscribeAndGet");
                 // Tell the get-calling thread to wakeup and retrieved the held msg
                 synchronized (holder) {
                     holder.notify();
@@ -532,7 +478,6 @@ public class cMsgClientListeningThread extends Thread {
         }
 // BUG BUG copy message??
         holder.message = msg;
-//System.out.println("Sending notify for SPECIFIC GET");
         // Tell the get-calling thread to wakeup and retrieved the held msg
         synchronized (holder) {
             holder.notify();

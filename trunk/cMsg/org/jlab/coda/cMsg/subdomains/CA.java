@@ -129,7 +129,7 @@ public class CA extends cMsgSubdomainAbstract {
                 cMsgMessage cmsg = new cMsgMessage();
                 cmsg.setDomain("cMsg");
                 cmsg.setSender("CA");
-                cmsg.setSenderId(mySenderId);
+                cmsg.setUserInt(mySenderId);
                 cmsg.setSenderHost(host);
                 cmsg.setSenderTime(new Date());
                 cmsg.setReceiver(myClientInfo.getName());
@@ -416,7 +416,7 @@ public class CA extends cMsgSubdomainAbstract {
         //response = message.response();
         response.setDomain("cMsg");
         response.setSender("CA");
-        response.setSenderId(mySenderId);
+        response.setUserInt(mySenderId);
         response.setSenderHost(host);
         response.setSenderTime(new Date());
         response.setReceiver(myClientInfo.getName());

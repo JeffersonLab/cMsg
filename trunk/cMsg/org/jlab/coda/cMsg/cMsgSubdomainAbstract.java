@@ -275,7 +275,7 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainHandler {
      *                             or client returns an error
      */
     public static void deliverMessage(SocketChannel channel, ByteBuffer buffer,
-                                  cMsgMessage msg, List idList, int msgType) throws IOException {
+                                  cMsgMessage msg, List<Integer> idList, int msgType) throws IOException {
         int size = 0;
         if (idList != null) {
             size = idList.size();
@@ -285,60 +285,34 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainHandler {
         buffer.clear();
 
         // write 14 ints
-        int outGoing[] = new int[14];
+        int outGoing[] = new int[15];
         outGoing[0]  = msgType;
-        outGoing[1]  = msg.getSysMsgId();
-        outGoing[2]  = msg.isGetRequest()  ? 1 : 0;
-        outGoing[3]  = msg.isGetResponse() ? 1 : 0;
-        outGoing[4]  = msg.getSenderId();
+        outGoing[1]  = msg.getVersion();
+        outGoing[2]  = msg.getPriority();
+        outGoing[3]  = msg.getUserInt();
+        outGoing[4]  = msg.isGetRequest() ? 1 : 0;
         outGoing[5]  = (int) (msg.getSenderTime().getTime() / 1000L);
-        outGoing[6]  = msg.getSenderMsgId();
-        outGoing[7]  = msg.getSenderToken();
-        outGoing[8]  = msg.getSender().length();
-        outGoing[9]  = msg.getSenderHost().length();
-        outGoing[10] = msg.getSubject().length();
-        outGoing[11] = msg.getType().length();
-        outGoing[12] = msg.getText().length();
-        outGoing[13] = size;  // number of receiverSubscribeIds to be sent
+        outGoing[6]  = (int) (msg.getUserTime().getTime() / 1000L);
+        outGoing[7]  = msg.getSysMsgId();
+        outGoing[8]  = msg.getSenderToken();
+        outGoing[9]  = msg.getSender().length();
+        outGoing[10] = msg.getSenderHost().length();
+        outGoing[11] = msg.getSubject().length();
+        outGoing[12] = msg.getType().length();
+        outGoing[13] = msg.getText().length();
+        outGoing[14] = size;  // number of receiverSubscribeIds to be sent
 
         // send ints over together using view buffer
         buffer.asIntBuffer().put(outGoing);
 
         // position original buffer at position of view buffer
-        buffer.position(56);
+        buffer.position(60);
 
         // now send ids
         if (idList != null) {
-            for (int i = 0; i < size; i++) {
-                buffer.putInt(((Integer) idList.get(i)).intValue());
+            for (Integer i : idList) {
+                buffer.putInt(i.intValue());
             }
-        }
-
-        if (false) {
-            System.out.println("    DELIVERING MESSAGE");
-            System.out.println("      msg type: " + outGoing[0]);
-            System.out.println("      SysMsgId: " + outGoing[1]);
-            System.out.println("      isGetRequest: " + outGoing[2]);
-            System.out.println("      isGetResponse: " + outGoing[3]);
-            System.out.println("      SenderId: " + outGoing[4]);
-            System.out.println("      Time: " + outGoing[5]);
-            System.out.println("      SenderMsgId: " + outGoing[6]);
-            System.out.println("      SenderToken: " + outGoing[7]);
-            System.out.println("      Sender length: " + outGoing[8]);
-            System.out.println("      SenderHost length: " + outGoing[9]);
-            System.out.println("      Subject length: " + outGoing[10]);
-            System.out.println("      Type length: " + outGoing[11]);
-            System.out.println("      Text length: " + outGoing[12]);
-            System.out.println("      ReceiverSubscribeIds: (" + outGoing[13] + ")");
-            for (int i = 0; i < size; i++) {
-                System.out.println("        " + ((Integer) idList.get(i)).intValue());
-            }
-
-            System.out.println("      Sender: " + msg.getSender());
-            System.out.println("      SenderHost: " + msg.getSenderHost());
-            System.out.println("      Subject: " + msg.getSubject());
-            System.out.println("      Type: " + msg.getType());
-            System.out.println("      Text: " + msg.getText());
         }
 
         // write strings

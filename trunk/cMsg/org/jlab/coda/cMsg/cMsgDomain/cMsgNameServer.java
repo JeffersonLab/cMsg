@@ -367,40 +367,64 @@ public class cMsgNameServer extends Thread {
     /**
      * This method handles all communication between a cMsg user
      * and this name server for that domain.
+     * Note to those who would make changes in the protocol, keep the first three
+     * ints the same. That way the server can reliably check for mismatched versions.
      *
      * @param channel nio socket communication channel
      */
     private void handleClient(SocketChannel channel) {
 
         try {
-            // keep reading until we have 7 ints of data
-            cMsgUtilities.readSocketBytes(buffer, channel, 36, debug);
+            int[] inComing = new int[8];
 
-            // go back to reading-from-buffer mode
+            // keep reading until we have 3 ints of data
+            cMsgUtilities.readSocketBytes(buffer, channel, 12, debug);
             buffer.flip();
-
-            // read 7 ints
-            int[] inComing = new int[9];
-            buffer.asIntBuffer().get(inComing);
+            buffer.asIntBuffer().get(inComing, 0, 3);
 
             // message id
             int msgId = inComing[0];
+            // major version
+            int version = inComing[1];
+            // minor version
+            int minorVersion = inComing[2];
+
+            // immediately check if this domain server is different cMsg version than client
+            if (version != cMsgConstants.version) {
+                // send error to client
+                buffer.clear();
+                buffer.putInt(cMsgConstants.errorDifferentVersion);
+                // send error string to client
+                String s = "version mismatch";
+                buffer.putInt(s.length());
+                buffer.put(s.getBytes("US-ASCII")).flip();
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer);
+                }
+                return;
+            }
+
+            // keep reading until we have 8 ints of data
+            cMsgUtilities.readSocketBytes(buffer, channel, 32, debug);
+            buffer.flip();
+            buffer.asIntBuffer().get(inComing);
+
             // listening port of client
-            int clientListeningPort = inComing[1];
+            int clientListeningPort = inComing[0];
             // length of domain type client is expecting to connect to
-            int lengthDomainType = inComing[2];
+            int lengthDomainType = inComing[1];
             // length of subdomain type client is expecting to use
-            int lengthSubdomainType = inComing[3];
+            int lengthSubdomainType = inComing[2];
             // length of UDL remainder to pass to subdomain handler
-            int lengthUDLRemainder = inComing[4];
+            int lengthUDLRemainder = inComing[3];
             // length of client's host name
-            int lengthHost = inComing[5];
+            int lengthHost = inComing[4];
             // length of client's name
-            int lengthName = inComing[6];
+            int lengthName = inComing[5];
             // length of client's UDL
-            int lengthUDL = inComing[7];
+            int lengthUDL = inComing[6];
             // length of client's description
-            int lengthDescription = inComing[8];
+            int lengthDescription = inComing[7];
 
             // bytes expected
             int bytesToRead = lengthDomainType + lengthSubdomainType +
@@ -470,13 +494,16 @@ public class cMsgNameServer extends Thread {
             if (!domainType.equalsIgnoreCase(this.domain)) {
                 // send error to client
                 buffer.clear();
-                buffer.putInt(cMsgConstants.errorWrongDomainType).flip();
+                buffer.putInt(cMsgConstants.errorWrongDomainType);
+                // send error string to client
+                String s = "this server implements " + this.domain + " domain";
+                buffer.putInt(s.length());
+                buffer.put(s.getBytes("US-ASCII")).flip();
                 while (buffer.hasRemaining()) {
                     channel.write(buffer);
                 }
                 return;
             }
-
 
             // Try to register this client. If the cMsg system already has a
             // client by this name, it will fail.
@@ -517,9 +544,12 @@ public class cMsgNameServer extends Thread {
 
             }
             catch (cMsgException ex) {
-                // send error to client
                 buffer.clear();
-                buffer.putInt(ex.getReturnCode()).flip();
+                // send int error code to client
+                buffer.putInt(ex.getReturnCode());
+                // send error string to client
+                buffer.putInt(ex.getMessage().length());
+                buffer.put(ex.getMessage().getBytes("US-ASCII")).flip();
                 while (buffer.hasRemaining()) {
                     channel.write(buffer);
                 }
