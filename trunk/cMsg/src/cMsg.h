@@ -115,8 +115,12 @@
 /** When shutting down clients, include the calling client (me). */
 #define CMSG_SHUTDOWN_INCLUDE_ME 1
 
+#ifdef	__cplusplus
+#include "cMsg.hxx"
+#else
 /** Message receiving callback. */
 typedef void (cMsgCallback) (void *msg, void *userArg);
+#endif
 
 /** Subscribe configuration. */
 typedef void *cMsgSubscribeConfig;
