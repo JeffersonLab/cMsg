@@ -9,7 +9,7 @@ import org.jlab.coda.cMsg.*;
  * Time: 11:27:05 AM
  * To change this template use File | Settings | File Templates.
  */
-public class cMsgCoda extends cMsgAdapter {
+public class cMsgCoda extends cMsgImpl {
 
 
 //-----------------------------------------------------------------------------
