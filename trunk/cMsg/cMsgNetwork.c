@@ -71,6 +71,11 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   const int           debug=0, on=1, size=CMSG_SOCKBUFSIZE /* bytes */;
   struct sockaddr_in  servaddr;
 
+  if (listenFd == NULL) {
+     if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: null \"listenFd\" argument\n");
+     return(CMSG_BAD_ARGUMENT);
+  }
+  
   err = listenfd = socket(AF_INET, SOCK_STREAM, 0);
   if (err < 0) {
     if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: socket error\n");
@@ -201,7 +206,12 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   struct sockaddr_in  servaddr;
   struct in_addr      **pptr;
   struct hostent      *hp;
-	
+  
+  if (ip_address == NULL || fd == NULL) {
+     if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: null argument(s)\n");
+     return(CMSG_BAD_ARGUMENT);
+  }
+  
   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
      if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: socket error, %s\n", strerror(errno));
      return(CMSG_SOCKET_ERROR);
@@ -428,7 +438,7 @@ int cMsgTcpRead(int fd, void *vptr, int n)
 /*-------------------------------------------------------------------*/
 
 
-int cMsgByteOrder(void)
+int cMsgByteOrder(int *endian)
 {
   union {
     short  s;
@@ -438,10 +448,12 @@ int cMsgByteOrder(void)
   un.s = 0x0102;
   if (sizeof(short) == 2) {
     if (un.c[0] == 1 && un.c[1] == 2) {
-      return(CMSG_ENDIAN_BIG);
+      *endian = CMSG_ENDIAN_BIG;
+      return(CMSG_OK);
     }
     else if (un.c[0] == 2 && un.c[1] == 1) {
-      return(CMSG_ENDIAN_LITTLE);
+      *endian = CMSG_ENDIAN_LITTLE;
+      return(CMSG_OK);
     }
     else {
       if (debug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgByteOrder: unknown endian\n");
