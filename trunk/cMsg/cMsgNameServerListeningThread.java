@@ -182,6 +182,9 @@ class cMsgNameServerClientThread extends Thread {
       // read listening port of client
       int clientListeningPort = in.readInt();
       
+      // read length of domain type client is expecting to connect to
+      int lengthType = in.readInt();
+      
       // read length of client's host name
       int lengthHost = in.readInt();
       
@@ -193,8 +196,16 @@ if (debug >= cMsgConstants.debugInfo) {
 }      
       // allocate buffer
       int lengthBuf = lengthHost > lengthName ? lengthHost : lengthName;
+      lengthBuf = lengthBuf > lengthType ? lengthBuf : lengthType;
       byte[] buf = new byte[lengthBuf];
       
+      // read domain type expected
+      in.readFully(buf, 0, lengthType);
+      String type = new String(buf, 0, lengthType, "ASCII");
+
+if (debug >= cMsgConstants.debugInfo) {
+  System.out.println("type = " + type);
+}      
       // read host name
       in.readFully(buf, 0, lengthHost);
       String host = new String(buf, 0, lengthHost, "ASCII");
@@ -208,7 +219,16 @@ if (debug >= cMsgConstants.debugInfo) {
 
 if (debug >= cMsgConstants.debugInfo) {
   System.out.println("name = " + name);
-}      
+} 
+     
+      // if this is not the type of server the client is expecting, return an error
+      if (!type.equalsIgnoreCase(server.getType())) {
+        // send error to client
+        out.writeInt(cMsgConstants.errorWrongDomainType);
+        out.flush();
+        return;
+      }
+
       // Try to register this client. If the cMsg system already has a
       // client by this name, it will fail.
       try {
