@@ -116,7 +116,7 @@ public class cMsgConsumer2CBs {
 
         System.out.println("Running Message Consumer\n");
 
-        String UDL = "coda://aslan:3456/junk";
+        String UDL = "cMsg:cMsg://aslan:3456/cMsg";
 
         System.out.print("Try to connect ...");
         cMsg coda = new cMsg(UDL, name, "message consumer");
