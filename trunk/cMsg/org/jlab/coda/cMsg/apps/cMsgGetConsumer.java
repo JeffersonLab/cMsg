@@ -1,7 +1,7 @@
 package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgCallbackImpl;
+import org.jlab.coda.cMsg.cMsgCallbackAdapter;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgCallback;
 import org.jlab.coda.cMsg.cMsgDomain.cMsg;
@@ -70,7 +70,7 @@ public class cMsgGetConsumer {
     }
 
 
-    class myCallback extends cMsgCallbackImpl {
+    class myCallback extends cMsgCallbackAdapter {
         /**
          * Callback method definition.
          *
@@ -105,7 +105,8 @@ public class cMsgGetConsumer {
      * This method is executed as a thread.
      */
     public void run() throws cMsgException {
-        String subject = "responder", type = "TYPE";
+        //String subject = "responder", type = "TYPE";
+        String subject = "SUBJECT", type = "TYPE";
 
         System.out.println("Running Message GET Consumer\n");
 
@@ -125,7 +126,7 @@ public class cMsgGetConsumer {
         cMsgMessage sendMsg = new cMsgMessage();
         sendMsg.setSubject(subject);
         sendMsg.setType(type);
-        sendMsg.setGetRequest(true);
+        //sendMsg.setGetRequest(true);
 
 
         while (true) {

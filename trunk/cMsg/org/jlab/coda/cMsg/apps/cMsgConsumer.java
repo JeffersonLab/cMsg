@@ -3,7 +3,7 @@ package org.jlab.coda.cMsg.apps;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgCallback;
-import org.jlab.coda.cMsg.cMsgCallbackImpl;
+import org.jlab.coda.cMsg.cMsgCallbackAdapter;
 import org.jlab.coda.cMsg.cMsgDomain.cMsg;
 
 /**
@@ -68,7 +68,7 @@ public class cMsgConsumer {
     }
 
 
-    class myCallback extends cMsgCallbackImpl {
+    class myCallback extends cMsgCallbackAdapter {
         /**
          * Callback method definition.
          *
