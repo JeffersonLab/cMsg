@@ -186,6 +186,7 @@ public class cMsgClientListeningThread extends Thread {
          try {
              // keep reading until we have an int (4 bytes) of data
              if (cMsgUtilities.readSocketBytes(buffer, channel, 4, debug) < 0) {
+//BUG BUG not the best way to handle an error
                  return;
              }
 
