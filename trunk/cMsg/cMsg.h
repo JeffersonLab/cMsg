@@ -23,32 +23,27 @@
  *  Defines cMsg API and return codes                                         *
  *                                                                            *
  *                                                                            *
- *----------------------------------------------------------------------------*
+ *----------------------------------------------------------------------------*/
+ 
+/**
+ * @file
+ * This is the one necessary header file for all cMsg users.
+ 
+ * <b>INTRODUCTION</b>
  *
- *
- *
- *  Still to do:
- *    add Doxygen comments
- *
- *
- *
- * Introduction
- * ------------
- *
- * cMsg is a simple, abstract API to an arbitrary underlying message service.  It is 
- * powerful enough to support synchronous and asynchronous point-to-point and 
+ * cMsg is a simple, abstract API to an arbitrary underlying message service. It 
+ * is powerful enough to support synchronous and asynchronous point-to-point and 
  * publish/subscribe communication, and network-accessible message queues.  Note 
  * that a given underlying implementation may not necessarily implement all these 
  * features.  
  *
  *
- * Domains
- * -------
+ * <b>DOMAINS</b>
  *
  * The abstraction relies on the important concept of a "domain", specified via a 
  * "Universal Domain Locator" (UDL) of the form:
  * 
- *       cMsg:domainType://domainInfo
+ * <code><b>cMsg:domainType://domainInfo</b></code>
  *
  * The domain type refers to an underlying messaging software implementation, 
  * and the domain info is interpreted by the implementation. Generally domains with
@@ -58,7 +53,7 @@
  * 
  * The full domain specifier for the full cMsg domain looks like:
  *
- *      cMsg:cMsg://node:port/cMsg/namespace?param1=val1(&param2=val2)
+ * <code><b>cMsg:cMsg://node:port/cMsg/namespace?param1=val1(&param2=val2)</b></code>
  *
  * where node:port correspond to the node and port of a cMsg nameserver, and 
  * namespace allows for multiple namespaces on the same server.  If the port is missing 
@@ -67,8 +62,7 @@
  * process can connect to multiple domains if desired. 
  *
  *
- * Messages
- * --------
+ * <b>MESSAGES</b>
  *
  * Messages are sent via cMsgSend() and related functions.  Messages have a type and are 
  * sent to a subject, and both are arbitrary strings.  The payload consists of
@@ -91,138 +85,12 @@
  *
  *
 
- * Additional Information
- * ----------------------
+ * <b>ADDITIONAL INFORMATION</b>
  *
  * See the cMsg User's Guide and the cMsg Developer's Guide for more information.
  * See the cMsg Doxygen and Java docs for the full API specification.
  *
- *
- *
- * --------------------------------------------------------------------------------------
- * cMsg API Specification
- * --------------------------------------------------------------------------------------
- *
- *   Note:  most calls return an integer cMsg error code, defined below.
- *
- *
- *
- * int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId)
- *
- *   Called once to connect to a domain.  myName must be unique within the domain.  
- *   myDesctiption is an arbitrary string.  If successful, fills domainId, required
- *   by many calls below.  
- *  
- *
- *
- *  void *cMsgCreateMessage(void)
- *
- *   Create an empty message object (some meta-data is set by default).  Returns NULL
- *   on failure.  Must call cMsgFree() after cMsgSend() to avoid memory leaks.  Note
- *   that a message can be modified and sent multiple times before cMsgFree() is 
- *   called.
- *
- *
- *
- * int cMsgSetSubject(void *msg, char *subject)
- *
- *   Set the subject field of a message object
- *
- *
- *
- * int cMsgSetType(void *msg, char *type)
- *
- *   Set the type field of a message object
- *
- *
- *
- * int cMsgSetText(void *msg, char *text)
- *
- *   Set the text field of a message object
- *
- *
- *
- * int cMsgSend(int domainId, void *msg)
- *
- *   Queue up a message for delivery.  Must call cMsgFlush() to force delivery,
- *   although the system may deliver messages before the flush call.
- *
- *
- *
- * int cMsgFlush(int domainId)
- *
- *   Force flush of all outgoing send message queues.  An implementation may flush queues
- *   on occasion by itself.
- *
- *
- *
- * int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback, void *userArg)
- *
- *    Subscribe to subject/type and deliver message to callback(userarg).
- *
- *
- *
- * int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback)
- *
- *    Unsubscribe from subject/type/callback combination.
- *
- *
- *
- *  int cMsgSendAndGet(int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg);
- *
- *   Synchronously send message and get reply.  Fail if no reply message
- *   received within timeout. Independent of receive start/stop state.
- *
- *
- *
- * int cMsgReceiveStart(int domainId)
- *
- *    Enable receipt of subscribed messages and delivery to callbacks.  
- *
- *
- *
- * int cMsgReceiveStop(int domainId)
- *
- *    Stop receipt of subscribed messages and delivery to callbacks.  
- *
- *
- *
- * int cMsgFreeMessage(void *msg)
- *
- *    Free message and deallocate memory.  Must be called to avoid memory leaks.
- *
- *
- *
- * int cMsgDisconnect(int domainId)
- *
- *    Disconnect from domain, unregister all callbacks, stop message receipt, etc.
- *
- *
- *
- * char *cMsgPerror(int errorCode)
- *
- *    Return information about a cMsg error return code, NULL if illegal errorCode.
- *
- *
- *
- *  Access functions
- *  ----------------
- *
- * See below for a long list of information access functions, all of which should
- * be self-explanatory (e.g. cMsgGetName(), etc.)
- *
- *
- *
- *  Debug
- *  -----
- *
- *  int cMsgSetDebugLevel(int level)
- *
- *    Controls debug printout.  Default level is CMSG_DEBUG_ERROR, see below for 
- *    other levels.
- *
- *
- *----------------------------------------------------------------------------*/
+ */
 
 
 #ifndef _cMsg_h
@@ -230,10 +98,15 @@
 
 
 /* debug levels */
+/** No debugging output. */
 #define CMSG_DEBUG_NONE    0
+/** Output only severe (process-ending) errors for debugging. */
 #define CMSG_DEBUG_SEVERE  1
+/** Output only errors for debugging. */
 #define CMSG_DEBUG_ERROR   2
+/** Output warnings and errors for debugging. */
 #define CMSG_DEBUG_WARN    3
+/** Output everything for debugging. */
 #define CMSG_DEBUG_INFO    4
 
 
@@ -259,80 +132,101 @@ extern "C" {
 
 
   /* basic functions */
-  int 	cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId);
-  int 	cMsgSend(int domainId, void *msg);
-  int   cMsgSyncSend(int domainId, void *msg, int *response);
-  int 	cMsgFlush(int domainId);
-  int 	cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
-                      void *userArg, cMsgSubscribeConfig *config);
-  int 	cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback);
-  int   cMsgSendAndGet(int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg);
+  int 	cMsgConnect        (char *myUDL, char *myName, char *myDescription, int *domainId);
+  int 	cMsgSend           (int domainId, void *msg);
+  int   cMsgSyncSend       (int domainId, void *msg, int *response);
+  int 	cMsgFlush          (int domainId);
+  int 	cMsgSubscribe      (int domainId, char *subject, char *type, cMsgCallback *callback,
+                            void *userArg, cMsgSubscribeConfig *config);
+  int 	cMsgUnSubscribe    (int domainId, char *subject, char *type, cMsgCallback *callback);
+  int   cMsgSendAndGet     (int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg);
   int   cMsgSubscribeAndGet(int domainId, char *subject, char *type,
                             struct timespec *timeout, void **replyMsg);
-  int 	cMsgReceiveStart(int domainId);
-  int 	cMsgReceiveStop(int domainId);
-  int 	cMsgDisconnect(int domainId);
-  char *cMsgPerror(int errorCode);
+  int 	cMsgReceiveStart   (int domainId);
+  int 	cMsgReceiveStop    (int domainId);
+  int 	cMsgDisconnect     (int domainId);
+  char *cMsgPerror         (int errorCode);
   
-
-
+  
   /* message access functions */
-  int    cMsgFreeMessage(void *msg);
-  void  *cMsgCreateMessage(void);
-  void  *cMsgCreateNewMessage(void *vmsg);
-  void  *cMsgCopyMessage(void *msg);
-  void   cMsgInitMessage(void *msg);
+  int    cMsgFreeMessage       (void *msg);
+  void  *cMsgCreateMessage     (void);
+  void  *cMsgCreateNewMessage  (void *vmsg);
+  void  *cMsgCopyMessage       (void *msg);
+  void   cMsgInitMessage       (void *msg);
   
-  int    cMsgGetVersion(void *vmsg);
-  int    cMsgSetGetResponse(void *vmsg, int getReponse);
-  int    cMsgGetGetResponse(void *vmsg);
-  int    cMsgGetGetRequest(void *vmsg);
-  char  *cMsgGetDomain(void *vmsg);
-  char  *cMsgGetCreator(void *vmsg);
-  int    cMsgSetSubject(void *vmsg, char *subject);
-  char  *cMsgGetSubject(void *vmsg);
-  int    cMsgSetType(void *vmsg, char *type);
-  char  *cMsgGetType(void *vmsg);
-  int    cMsgSetText(void *vmsg, char *text);
-  char  *cMsgGetText(void *vmsg);
-  int    cMsgSetPriority(void *vmsg, int priority);
-  int    cMsgGetPriority(void *vmsg);
-  int    cMsgSetUserInt(void *vmsg, int userInt);
-  int    cMsgGetUserInt(void *vmsg);
-  int    cMsgSetUserTime(void *vmsg, time_t userTime);
-  time_t cMsgGetUserTime(void *vmsg);
-  char  *cMsgGetSender(void *vmsg);
-  char  *cMsgGetSenderHost(void *vmsg);
-  time_t cMsgGetSenderTime(void *vmsg);
-  char  *cMsgGetReceiver(void *vmsg);
-  char  *cMsgGetReceiverHost(void *vmsg);
-  time_t cMsgGetReceiverTime(void *vmsg);
+  int    cMsgGetVersion        (void *vmsg, int *version);
+  int    cMsgGetGetRequest     (void *vmsg, int *getRequest);
+  
+  int    cMsgSetGetResponse    (void *vmsg, int  getReponse);
+  int    cMsgGetGetResponse    (void *vmsg, int *getReponse);
+  
+  int    cMsgSetNullGetResponse(void *vmsg, int  nullGetResponse);
+  int    cMsgGetNullGetResponse(void *vmsg, int *nullGetResponse);
+    
+  int    cMsgGetDomain         (void *vmsg, char **domain);
+  int    cMsgGetCreator        (void *vmsg, char **creator);
+  
+  int    cMsgSetSubject        (void *vmsg, char  *subject);
+  int    cMsgGetSubject        (void *vmsg, char **subject);
+  
+  int    cMsgSetType           (void *vmsg, char  *type);
+  int    cMsgGetType           (void *vmsg, char **type);
+  
+  int    cMsgSetText           (void *vmsg, char  *text);
+  int    cMsgGetText           (void *vmsg, char **text);
+  
+  int    cMsgSetPriority       (void *vmsg, int  priority);
+  int    cMsgGetPriority       (void *vmsg, int *priority);
+  
+  int    cMsgSetUserInt        (void *vmsg, int  userInt);
+  int    cMsgGetUserInt        (void *vmsg, int *userInt);
+  
+  int    cMsgSetUserTime       (void *vmsg, time_t  userTime);
+  int    cMsgGetUserTime       (void *vmsg, time_t *userTime);
+  
+  int    cMsgGetSender         (void *vmsg, char  **sender);
+  int    cMsgGetSenderHost     (void *vmsg, char  **senderHost);
+  int    cMsgGetSenderTime     (void *vmsg, time_t *senderTime);
+  
+  int    cMsgGetReceiver       (void *vmsg, char  **receiver);
+  int    cMsgGetReceiverHost   (void *vmsg, char  **receiverHost);
+  int    cMsgGetReceiverTime   (void *vmsg, time_t *receiverTime);
+
 
   /* system and domain info access functions */
-  int cMsgGetUDL(int domainId, char *udl, size_t size);
-  int cMsgGetName(int domainId, char *name, size_t size);
-  int cMsgGetDescription(int domainId, char *description, size_t size);
-  int cMsgGetInitState(int domainId, int *initState);
-  int cMsgGetReceiveState(int domainId, int *receiveState);
+  int cMsgGetUDL         (int domainId, char **udl);
+  int cMsgGetName        (int domainId, char **name);
+  int cMsgGetDescription (int domainId, char **description);
+  int cMsgGetInitState   (int domainId, int   *initState);
+  int cMsgGetReceiveState(int domainId, int   *receiveState);
+
   
   /* subscribe configuration functions */
   cMsgSubscribeConfig *cMsgSubscribeConfigCreate(void);
-  int cMsgSubscribeConfigDestroy(cMsgSubscribeConfig *config);
-  int cMsgSubscribeSetMaxCueSize(cMsgSubscribeConfig *config, int size);
-  int cMsgSubscribeGetMaxCueSize(cMsgSubscribeConfig *config);
-  int cMsgSubscribeSetSkipSize(cMsgSubscribeConfig *config, int size);
-  int cMsgSubscribeGetSkipSize(cMsgSubscribeConfig *config);
-  int cMsgSubscribeSetMaySkip(cMsgSubscribeConfig *config, int maySkip);
-  int cMsgSubscribeGetMaySkip(cMsgSubscribeConfig *config);
-  int cMsgSubscribeSetMustSerialize(cMsgSubscribeConfig *config, int serialize);
-  int cMsgSubscribeGetMustSerialize(cMsgSubscribeConfig *config);
-  int cMsgSubscribeSetMaxThreads(cMsgSubscribeConfig *config, int threads);
-  int cMsgSubscribeGetMaxThreads(cMsgSubscribeConfig *config);
-  int cMsgSubscribeSetMessagesPerThread(cMsgSubscribeConfig *config, int mpt);
-  int cMsgSubscribeGetMessagesPerThread(cMsgSubscribeConfig *config);
+  int cMsgSubscribeConfigDestroy       (cMsgSubscribeConfig *config);
+  
+  int cMsgSubscribeSetMaxCueSize       (cMsgSubscribeConfig *config, int  size);
+  int cMsgSubscribeGetMaxCueSize       (cMsgSubscribeConfig *config, int *size);
+  
+  int cMsgSubscribeSetSkipSize         (cMsgSubscribeConfig *config, int  size);
+  int cMsgSubscribeGetSkipSize         (cMsgSubscribeConfig *config, int *size);
+  
+  int cMsgSubscribeSetMaySkip          (cMsgSubscribeConfig *config, int  maySkip);
+  int cMsgSubscribeGetMaySkip          (cMsgSubscribeConfig *config, int *maySkip);
+  
+  int cMsgSubscribeSetMustSerialize    (cMsgSubscribeConfig *config, int  serialize);
+  int cMsgSubscribeGetMustSerialize    (cMsgSubscribeConfig *config, int *serialize);
+  
+  int cMsgSubscribeSetMaxThreads       (cMsgSubscribeConfig *config, int  threads);
+  int cMsgSubscribeGetMaxThreads       (cMsgSubscribeConfig *config, int *threads);
+  
+  int cMsgSubscribeSetMessagesPerThread(cMsgSubscribeConfig *config, int  mpt);
+  int cMsgSubscribeGetMessagesPerThread(cMsgSubscribeConfig *config, int *mpt);
+
 
   /* for debugging */
-  int  	cMsgSetDebugLevel(int level);
+  int cMsgSetDebugLevel(int level);
 
 
 #ifdef __cplusplus
@@ -340,31 +234,31 @@ extern "C" {
 #endif
 
 
-/* return codes */
+/** Return codes. */
 enum {
-  CMSG_OK               = 0,
-  CMSG_ERROR,
-  CMSG_TIMEOUT,
-  CMSG_NOT_IMPLEMENTED,
-  CMSG_BAD_ARGUMENT,
-  CMSG_BAD_FORMAT,
-  CMSG_BAD_DOMAIN_TYPE,
-  CMSG_NAME_EXISTS,
-  CMSG_NOT_INITIALIZED,
-  CMSG_ALREADY_INIT,
-  CMSG_LOST_CONNECTION,
-  CMSG_NETWORK_ERROR,
-  CMSG_SOCKET_ERROR,
-  CMSG_PEND_ERROR,
-  CMSG_ILLEGAL_MSGTYPE,
-  CMSG_OUT_OF_MEMORY,
-  CMSG_OUT_OF_RANGE,
-  CMSG_LIMIT_EXCEEDED,
-  CMSG_BAD_DOMAIN_ID,
-  CMSG_BAD_MESSAGE,
-  CMSG_WRONG_DOMAIN_TYPE,
-  CMSG_NO_CLASS_FOUND,
-  CMSG_DIFFERENT_VERSION
+  CMSG_OK              = 0, /**< No error. */
+  CMSG_ERROR,               /**< Generic error. */
+  CMSG_TIMEOUT,             /**< Timeout. */
+  CMSG_NOT_IMPLEMENTED,     /**< Feature not implemented. */
+  CMSG_BAD_ARGUMENT,        /**< Function argument(s) have illegal value. */
+  CMSG_BAD_FORMAT,          /**< Function argument(s) in wrong format. */
+  CMSG_BAD_DOMAIN_TYPE,     /**< Domain type not supported. */
+  CMSG_NAME_EXISTS,         /**< Unique name already exists. */
+  CMSG_NOT_INITIALIZED,     /**< Connection not established - call cMsgConnect. */
+  CMSG_ALREADY_INIT,        /**< Connection already established. */
+  CMSG_LOST_CONNECTION,     /**< No network connection to cMsg server. */
+  CMSG_NETWORK_ERROR,       /**< Communication error talking to server. */
+  CMSG_SOCKET_ERROR,        /**< Error setting TCP socket option(s). */
+  CMSG_PEND_ERROR,          /**< Error when waiting for messages to arrive. */
+  CMSG_ILLEGAL_MSGTYPE,     /**< Received illegal message type. */
+  CMSG_OUT_OF_MEMORY,       /**< No more memory available. */
+  CMSG_OUT_OF_RANGE,        /**< Argument out of acceptable range. */
+  CMSG_LIMIT_EXCEEDED,      /**< Trying to create too many of an item. */
+  CMSG_BAD_DOMAIN_ID,       /**< Id does not match any existing domain. */
+  CMSG_BAD_MESSAGE,         /**< Message is not in the correct form. */
+  CMSG_WRONG_DOMAIN_TYPE,   /**< UDL does not match the server type. */
+  CMSG_NO_CLASS_FOUND,      /**< Java class cannot be found to instantiate subdomain handler. */
+  CMSG_DIFFERENT_VERSION    /**< Client and server are different cMsg versions. */
 };
 
 
