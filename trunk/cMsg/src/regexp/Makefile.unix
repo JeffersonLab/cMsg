@@ -40,11 +40,11 @@ OBJPRODN=regcomp.o regexec.o regerror.o regfree.o
 
 default: solib lib $(PROGS)
 
-lib:	purge $(OBJPRODN)
+lib:	$(OBJPRODN)
 	rm -f libcMsgRegex.a
 	ar crv libcMsgRegex.a $(OBJPRODN)
         
-solib:	purge $(OBJPRODN)
+solib:	$(OBJPRODN)
 	rm -f libcMsgRegex.so
 	$(SHLIB_LD) $(OBJPRODN) -o libcMsgRegex.so
 
