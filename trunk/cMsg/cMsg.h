@@ -18,6 +18,10 @@
 #define _cMsg_h
 
 
+/* sccs id */
+char sccsid[] = "%Z% Implementation of cMsg publish/subscribe API using FIPA agents";
+
+
 /* required includes */
 #include <time.h>
 
