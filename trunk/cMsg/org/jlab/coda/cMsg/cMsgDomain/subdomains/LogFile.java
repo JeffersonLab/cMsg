@@ -1,7 +1,7 @@
 // still to do:
 //   need file open parameters: new/append, etc.
-//   does object go away if already registered?
 //   return code values?
+//   server and client shutdown?
 
 
 
@@ -45,30 +45,38 @@ import java.util.regex.*;
 public class LogFile implements cMsgHandleRequests {
 
 
-    /** Hash table to store all client info.  Name is key and file object is value. */
-    private static HashMap clients = new HashMap(100);
+    /** Hash table to store all client info.  Canonical name is key. */
+    private static HashMap openFiles = new HashMap(100);
 
 
 
     /** Class to hold log file name and handle. */
     private static class LogFileObject {
-        String logFileName;
         Object logFileHandle;
+	int logFileCount;
 
-        LogFileObject(String name, Object handle) {
-            logFileName   = name;
+        LogFileObject(Object handle) {
             logFileHandle = handle;
+            logFileCount  = 0;
         }
 
     }
 
 
-    /**  file object for this client. */
-    private LogFileObject myLogFileObject = null;
-
-
     /** Name of client using this subdomain handler. */
     private String myName;
+
+
+    /** File name for this client. */
+    private String myFileName;
+
+
+    /** Canonical file name for this client. */
+    private String myCanonicalName;
+
+
+    /** print handle for this client. */
+    private Object myPrintHandle = null;
 
 
     /** UDL remainder for this subdomain handler. */
@@ -149,14 +157,12 @@ public class LogFile implements cMsgHandleRequests {
 
     /**
      * Method to see if domain client is registered.
+     *
      * @param name name of client
      * @return true if client registered, false otherwise
      */
     public boolean isRegistered(String name) {
-	synchronized (clients) {
-	    if (clients.containsKey(name)) return true;
-	    return false;
-	}
+	return false;
     }
 
 
@@ -172,17 +178,19 @@ public class LogFile implements cMsgHandleRequests {
 
         myName = name;
 	String fname;
+	String remainder = null;
 
 
 	//  extract file name from UDL remainder
 	try {
 	    if(myUDLRemainder.indexOf("?")>0) {
-		Pattern p = Pattern.compile("^(.+)(\\?)(.*)$");
+		Pattern p = Pattern.compile("^(.+?)(\\?)(.*)$");
 		Matcher m = p.matcher(myUDLRemainder);
 		m.find();
-		fname = m.group(1);
+		fname     = m.group(1);
+		remainder = m.group(2);
 	    } else {
-		fname=myUDLRemainder;
+		fname = myUDLRemainder;
 	    }
 	} catch (Exception e) {
 	    e.printStackTrace();
@@ -192,40 +200,34 @@ public class LogFile implements cMsgHandleRequests {
 	}
 
 
-	// check if this file already open
-	synchronized (clients) {
-	    LogFileObject o;
-	    for(Iterator i = clients.values().iterator(); i.hasNext();) {
-		o=(LogFileObject)i.next();
-		if((o.logFileName).equals(fname)) {
-		    myLogFileObject=o;
-		    break;
-		}
+	// get canonical name
+	myCanonicalName=xxx;
+
+	
+	// increment count if file already open
+        if (openFiles.containsKey(myCanonicalName)) {
+	    myPrintHandle=(Object)openFiles(myCanonicalName).logFileHandle;
+	    openFiles(myCanonicalName).logFileCount++;
+
+
+	// file not open...open new file, create print object and hash entry, write initial XML stuff
+	} else {
+	    try {
+		myPrintHandle = (Object)(new PrintWriter(new BufferedWriter(new FileWriter(myFileName))));
+		openFiles(myCanonicalName)= new LogFileObject(myPrintHandle);
+		((PrintWriter)(myPrintHandle)).println("<cMsgLogFile  name=\"" + fname + "\""
+						       + "  date=\"" + (new Date()) + "\"\n\n");
+	    } catch (Exception e) {
+		System.out.println(e);
+		e.printStackTrace();
+		cMsgException ce = new cMsgException("registerClient: unable to open file");
+		ce.setReturnCode(1);
+		throw ce;
 	    }
-	    
-	    
-	    // file not open...open new file, create LogFileObject, write initial XML stuff to file
-	    if(myLogFileObject==null) {
-		try {
-		    myLogFileObject = new LogFileObject(fname,
-							new PrintWriter(new BufferedWriter(new FileWriter(fname))));
-		    ((PrintWriter)(myLogFileObject.logFileHandle)).println("<cMsgLogFile  name=\"" + fname + "\""
-									   + "  date=\"" + (new Date()) + "\"\n\n");
-		} catch (Exception e) {
-		    System.out.println(e);
-		    e.printStackTrace();
-		    cMsgException ce = new cMsgException("registerClient: unable to open file");
-		    ce.setReturnCode(1);
-		    throw ce;
-		}
-	    }
-	    
-	    // register file name and object
-	    clients.put(myName,myLogFileObject);
 	}
     }
     
-
+    
     /**
      * Method to handle message sent by client.
      *
@@ -235,7 +237,7 @@ public class LogFile implements cMsgHandleRequests {
      */
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
 	msg.setReceiver("cMsg:LogFile");
-        ((PrintWriter)myLogFileObject.logFileHandle).println(msg);
+        ((PrintWriter)myPrintHandle).println(msg);
     }
 
 
@@ -249,7 +251,7 @@ public class LogFile implements cMsgHandleRequests {
      */
     public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
 	msg.setReceiver("cMsg:LogFile");
-        ((PrintWriter)myLogFileObject.logFileHandle).println(msg);
+        ((PrintWriter)myPrintHandle).println(msg);
         return 0;
     }
 
@@ -315,35 +317,28 @@ public class LogFile implements cMsgHandleRequests {
 
 
     /**
-     * Method to handle a client or domain server shutdown.
-     * This method is run after all exchanges between domain server and client but
-     * before the domain server thread is killed (since that is what is running this
-     * method).
+     * Method to handle a client shutdown.
+     *
+     * @throws cMsgException
      */
     public void handleClientShutdown() throws cMsgException {
-        synchronized (clients) {
-            clients.remove(myName);
-        }
+	openFiles(myCanonicalName).logFileCount=--;
+	if(openFiles(myCanonicalName).logFileCount<=0) {
+	    ((PrintWriter)myPrintHandle).println("\n\n<cMsgLogFile>\n\n");
+	    ((PrintWriter)myPrintHandle).close();
+	    openFiles.remove(myCanonicalName);
+	}
     }
 
 
     /**
-     * Method to handle a complete name server down.
+     * Method to handle a complete name server shutdown.
      * This method is run after all exchanges between domain server and client but
      * before the server is killed (since that is what is running this
      * method).
      */
     public void handleServerShutdown() throws cMsgException {
-	PrintWriter pw;
-	for(Iterator i = clients.values().iterator(); i.hasNext();) {
-	    pw=(PrintWriter)(((LogFileObject)i.next()).logFileHandle);
-	    try {
-		pw.println("\n\n<cMsgLogFile>");
-		pw.close();
-	    } catch (Exception e) {
-		// ignore errors
-	    }
-	}
+	// not working yet...
     }
 
 }
