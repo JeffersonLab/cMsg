@@ -11,7 +11,7 @@
 *             Fax:   (757) 269-5800             Newport News, VA 23606       *
 *                                                                            *
 *----------------------------------------------------------------------------*/
-//package org.jlab.coda.util.db;
+package org.jlab.coda.cMsg.coda;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;

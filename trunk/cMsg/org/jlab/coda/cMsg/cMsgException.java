@@ -12,7 +12,7 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-//package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg;
 
 /**
  * Signals that an error occurred while attempting

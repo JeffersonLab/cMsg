@@ -15,11 +15,12 @@
  *----------------------------------------------------------------------------*/
 
 
-// package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.coda;
 
 import java.io.*;
 import java.net.*;
 import java.lang.*;
+import org.jlab.coda.cMsg.*;
 
 /**
  * This class implements a thread which listens for connections to a cMsg
