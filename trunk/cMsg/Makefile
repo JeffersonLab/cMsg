@@ -63,7 +63,10 @@ javadoc:
 doxygen:
 	doxygen ./doc/doxygen/Doxyfile
 
-clean: 
+
+clean: cclean jclean
+
+cclean: 
 	rm -f core *~ *.o *.so *.a *.class
 	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) clean;
 	cd ./src;  $(MAKE) -f $(MAKEFILE) clean;
