@@ -109,7 +109,7 @@ public class cMsgNameServer {
     clients.put(name, info);
     
     // Create either a domain server thread or process, and get back its host & port
-    startDomainServer(info, true);
+    startDomainServer(info);
     
   }
   
@@ -120,46 +120,15 @@ public class cMsgNameServer {
    *
    * @param info object containing information about the client with whom the
    *             domain server will be communicating
-   * @param asThread starts the domain server as a thread in the name server
-   *                 if true, else it gets started as a separate process
    * @exception cMsgException If a domain server could not be started due to
    *                          not finding a port to listen on, or trouble
    *                          starting a separate process for the server
    */
-  private void startDomainServer(cMsgClientInfo info, boolean asThread)
+  private void startDomainServer(cMsgClientInfo info)
                                                            throws cMsgException {
-    // if starting domain server as thread ...
-    if (asThread) {
-      cMsgDomainServer server = new cMsgDomainServer(info, cMsgNetworkConstants.domainServerStartingPort);
-      info.server = server;
-    }
-    // if starting domain server as separate process ...
-    else {
-      Process p = null;
-      BufferedReader br = null;
-      
-      try {
-        p  = Runtime.getRuntime().exec("java cMsgDomainServer");
-        br = new BufferedReader(new InputStreamReader(p.getInputStream()));
-        info.domainHost = br.readLine();
-        info.domainPort = Integer.parseInt(br.readLine());
-      }
-      catch (NumberFormatException ex) {
-        throw new cMsgException("cannot read port number: " + ex.getMessage());
-      }
-      catch (IOException ex) {
-        throw new cMsgException("cannot spawn domain server: " + ex.getMessage());
-      }
-      finally {
-        try {
-            br.close();
-            p.destroy();
-        }
-        catch (java.io.IOException e) {
-        }
-      }
-    }
-    
+    cMsgDomainServer server = new cMsgDomainServer(info, cMsgNetworkConstants.domainServerStartingPort);
+    info.server = server;
+
     return;
   }
   
