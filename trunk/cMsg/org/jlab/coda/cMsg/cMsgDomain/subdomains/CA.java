@@ -20,7 +20,7 @@
  *----------------------------------------------------------------------------*/
 
 
-package org.jlab.coda.cMsg.plugins;
+package org.jlab.coda.cMsg.cMsgDomain.subdomains;
 
 import org.jlab.coda.cMsg.cMsgConstants;
 import org.jlab.coda.cMsg.cMsgMessage;
@@ -29,10 +29,8 @@ import org.jlab.coda.cMsg.cMsgDomain.cMsgClientInfo;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequestsAbstract;
 
 import gov.aps.jca.*;
-import gov.aps.jca.dbr.DOUBLE;
 import gov.aps.jca.dbr.DBR;
 
-import java.util.*;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 
