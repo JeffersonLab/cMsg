@@ -22,10 +22,9 @@ JAVA_OBJS = \
 	cMsgSubscription.class \
 	cMsgClientListeningThread.class \
 	cMsgMonitorClient.class \
-	cMsgHandleRequestCoda.class \
 	cMsgNameServer.class \
 	cMsgDomainServer.class \
-	cMsgCoda.class
+	cMsg.class
 
 all: $(JAVA_OBJS)
 
