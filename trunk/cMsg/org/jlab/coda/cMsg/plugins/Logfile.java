@@ -44,15 +44,16 @@ import java.io.*;
 public class Logfile implements cMsgHandleRequests {
 
     // debug...
-    static String myLogFileName = "Logfile.log";
+    private static String myLogFileName = "Logfile.log";
 
 
     /** Hash table to store all client info.  Name is key and file object is value. */
-    static HashMap clients = new HashMap(100);
+    private static HashMap clients = new HashMap(100);
 
 
-    /** Object to hold log file name and handle */
-    class LogFileObject {
+
+    /** Class to hold log file name and handle. */
+    private static class LogFileObject {
         String logFileName;
         Object logFileHandle;
 
@@ -64,8 +65,12 @@ public class Logfile implements cMsgHandleRequests {
     }
 
 
-    //  file object for this client
-    LogFileObject myLogFileObject = null;
+    /**  file object for this client. */
+    private LogFileObject myLogFileObject = null;
+
+
+    /** Name of client using this subdomain handler. */
+    private String name;
 
 
 
@@ -106,6 +111,7 @@ public class Logfile implements cMsgHandleRequests {
             throw new cMsgException("registerClient: client already exists");
         }
 
+        this.name = name;
 
         // check if this file already open
         LogFileObject f;
@@ -142,12 +148,11 @@ public class Logfile implements cMsgHandleRequests {
     /**
      * Method to handle message sent by client.
      *
-     * @param name name of client
      * @param msg message from sender
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                          or socket properties cannot be set
      */
-    public void handleSendRequest(String name, cMsgMessage msg) throws cMsgException {
+    public void handleSendRequest(cMsgMessage msg) throws cMsgException {
         ((PrintWriter)myLogFileObject.logFileHandle).println(msg);
     }
 
@@ -156,12 +161,11 @@ public class Logfile implements cMsgHandleRequests {
      * Method to get a single message from the server for a given
      * subject and type.
      *
-     * @param name name of client
      * @param subject subject of message to get
      * @param type type of message to get
      * @return cMsgMessage message obtained by this get
      */
-    public cMsgMessage handleGetRequest(String name, String subject, String type) {
+    public cMsgMessage handleGetRequest(String subject, String type) {
         // do nothing...
         return null;
     }
@@ -170,14 +174,13 @@ public class Logfile implements cMsgHandleRequests {
     /**
      * Method to handle subscribe request sent by domain client.
      *
-     * @param name name of client
      * @param subject message subject to subscribe to
      * @param type message type to subscribe to
      * @param receiverSubscribeId message id refering to these specific subject and type values
      * @throws cMsgException if no client information is available or a subscription for this
      *                          subject and type already exists
      */
-    public void handleSubscribeRequest(String name, String subject, String type,
+    public void handleSubscribeRequest(String subject, String type,
                                        int receiverSubscribeId) throws cMsgException {
         // do nothing...
     }
@@ -187,11 +190,10 @@ public class Logfile implements cMsgHandleRequests {
      * Method to handle sunsubscribe request sent by domain client.
      * This method is run after all exchanges between domain server and client.
      *
-     * @param name name of client
      * @param subject message subject subscribed to
      * @param type message type subscribed to
      */
-    public void handleUnsubscribeRequest(String name, String subject, String type) {
+    public void handleUnsubscribeRequest(String subject, String type) {
         // do nothing...
     }
 
@@ -201,23 +203,19 @@ public class Logfile implements cMsgHandleRequests {
      * if the domain server socket is still up. Normally nothing needs to
      * be done as the domain server simply returns an "OK" to all keepalives.
      * This method is run after all exchanges between domain server and client.
-     *
-     * @param name name of client
      */
-    public void handleKeepAlive(String name) {
+    public void handleKeepAlive() {
         // do nothing...
     }
 
 
     /**
-     * Method to handle a domain server shutdown.
+     * Method to handle a client or domain server shutdown.
      * This method is run after all exchanges between domain server and client but
      * before the domain server thread is killed (since that is what is running this
      * method).
-     *
-     * @param name name of client
      */
-    public void handleShutdown(String name) {
+    public void handleClientShutdown() {
         synchronized (clients) {
             clients.remove(name);
         }
@@ -237,4 +235,12 @@ public class Logfile implements cMsgHandleRequests {
         }
     }
 
+    /**
+     * Method to handle a complete name server down.
+     * This method is run after all exchanges between domain server and client but
+     * before the server is killed (since that is what is running this
+     * method).
+     */
+    public void handleServerShutdown() {
+    }
 }

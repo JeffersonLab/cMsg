@@ -30,6 +30,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.io.File;
 
 /**
  * Class to handles all client cMsg requests.
@@ -39,7 +40,7 @@ import java.io.UnsupportedEncodingException;
  */
 public class cMsg implements cMsgHandleRequests {
     /** Hash table to store clients. Name is key and cMsgClientInfo is value. */
-    static HashMap clients = new HashMap(100);
+    private static HashMap clients = new HashMap(100);
 
     /** List of subscriptions matching the msg. */
     private ArrayList subList  = new ArrayList(100);
@@ -48,13 +49,16 @@ public class cMsg implements cMsgHandleRequests {
     private ArrayList infoList = new ArrayList(100);
 
     /** A direct buffer is necessary for nio socket IO. */
-    ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+    private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
     /** Level of debug output for this class. */
     private int debug = cMsgConstants.debugError;
 
     /** Remainder of UDL client used to connect to domain server. */
     private String UDLRemainder;
+
+    /** Name of client using this subdomain handler. */
+    private String name;
 
 
     /**
@@ -124,6 +128,8 @@ public class cMsg implements cMsgHandleRequests {
         synchronized (clients) {
             clients.put(name, info);
         }
+
+        this.name = name;
     }
 
 
@@ -133,12 +139,11 @@ public class cMsg implements cMsgHandleRequests {
      * with matching subscriptions.  This method is run after all exchanges between
      * domain server and client.
      *
-     * @param name name of client
      * @param msg message from sender
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                          or socket properties cannot be set
      */
-    public void handleSendRequest(String name, cMsgMessage msg) throws cMsgException {
+    public void handleSendRequest(cMsgMessage msg) throws cMsgException {
         String client;
         cMsgSubscription sub;
         cMsgClientInfo   info;
@@ -228,14 +233,13 @@ public class cMsg implements cMsgHandleRequests {
      * Method to handle subscribe request sent by domain client.
      * This method is run after all exchanges between domain server and client.
      *
-     * @param name name of client
      * @param subject message subject to subscribe to
      * @param type message type to subscribe to
      * @param receiverSubscribeId message id refering to these specific subject and type values
      * @throws cMsgException if no client information is available or a subscription for this
      *                          subject and type already exists
      */
-    public void handleSubscribeRequest(String name, String subject, String type,
+    public void handleSubscribeRequest(String subject, String type,
                                        int receiverSubscribeId) throws cMsgException {
         // Each client (name) has a cMsgClientInfo object associated with it
         // that contains all relevant information. Retrieve that object
@@ -268,11 +272,10 @@ public class cMsg implements cMsgHandleRequests {
      * Method to handle sunsubscribe request sent by domain client.
      * This method is run after all exchanges between domain server and client.
      *
-     * @param name name of client
      * @param subject message subject subscribed to
      * @param type message type subscribed to
      */
-     public void handleUnsubscribeRequest(String name, String subject, String type) {
+     public void handleUnsubscribeRequest(String subject, String type) {
         cMsgClientInfo info = (cMsgClientInfo) clients.get(name);
         if (info == null) {
             return;
@@ -295,10 +298,8 @@ public class cMsg implements cMsgHandleRequests {
      * if the domain server socket is still up. Normally nothing needs to
      * be done as the domain server simply returns an "OK" to all keepalives.
      * This method is run after all exchanges between domain server and client.
-     *
-     * @param name name of client
      */
-    public void handleKeepAlive(String name) {
+    public void handleKeepAlive() {
     }
 
 
@@ -306,30 +307,36 @@ public class cMsg implements cMsgHandleRequests {
      * Method to get a single message from the server for a given
      * subject and type.
      *
-     * @param name name of client
      * @param subject subject of message to get
      * @param type type of message to get
      * @return cMsgMessage message obtained by this get
      */
-    public cMsgMessage handleGetRequest(String name, String subject, String type) {
+    public cMsgMessage handleGetRequest(String subject, String type) {
         return null;
     }
 
 
     /**
-     * Method to handle a domain server shutdown.
+     * Method to handle a client or domain server shutdown.
      * This method is run after all exchanges between domain server and client but
      * before the domain server thread is killed (since that is what is running this
      * method).
-     *
-     * @param name name of client
      */
-    public void handleShutdown(String name) {
+    public void handleClientShutdown() {
         synchronized (clients) {
             clients.remove(name);
         }
     }
 
+
+    /**
+     * Method to handle a complete name server down.
+     * This method is run after all exchanges between domain server and client but
+     * before the server is killed (since that is what is running this
+     * method).
+     */
+    public void handleServerShutdown() {
+    }
 
 
     /**
