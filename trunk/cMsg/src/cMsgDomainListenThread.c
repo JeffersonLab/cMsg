@@ -585,7 +585,7 @@ static void *clientThread(void *arg)
 /** This routine reads a message sent from the server to the client. */
 static int cMsgReadMessage(int fd, cMsgMessage *msg) {
   
-  int i, lengths[6], inComing[17];
+  int lengths[6], inComing[17];
   int memSize = CMSG_MESSAGE_SIZE;
   char *string, storage[CMSG_MESSAGE_SIZE + 1];
   long long llTime;
