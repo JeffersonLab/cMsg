@@ -8,37 +8,92 @@ import org.jlab.coda.cMsg.cMsg;
  * An example class which creates a cMsg message producer.
  */
 public class cMsgProducer {
-    String name, subject="SUBJECT", type="TYPE";
+    String  name = "producer";
+    String  description = "java producer";
+    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
+    String  subject = "SUBJECT";
+    String  type = "TYPE";
+    String  text = "TEXT";
+    int     delay;
+    boolean debug;
+    long    count;
 
-    cMsgProducer(String name) {
-        this.name = name;
+
+    /** Constructor. */
+    cMsgProducer(String[] args) {
+        decodeCommandLine(args);
     }
+
+
+    /**
+     * Method to decode the command line used to start this application.
+     * @param args command line arguments
+     */
+    public void decodeCommandLine(String[] args) {
+
+        // loop over all args
+        for (int i = 0; i < args.length; i++) {
+
+            if (args[i].equalsIgnoreCase("-h")) {
+                usage();
+                System.exit(-1);
+            }
+            else if (args[i].equalsIgnoreCase("-n")) {
+                name = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-d")) {
+                description = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-u")) {
+                UDL= args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-s")) {
+                subject = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-t")) {
+                type = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-text")) {
+                text = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-delay")) {
+                delay = Integer.parseInt(args[i + 1]);
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-debug")) {
+                debug = true;
+            }
+            else {
+                usage();
+                System.exit(-1);
+            }
+        }
+
+        return;
+    }
+
+
+    /** Method to print out correct program command line usage. */
+    private static void usage() {
+        System.out.println("\nUsage:\n\n" +
+            "   java cMsgProducer [-n name] [-d description] [-u UDL]\n" +
+            "                     [-s subject] [-t type] [-text text]\n" +
+            "                     [-delay millisec] [-debug]\n");
+    }
+
 
     /**
      * Run as a stand-alone application.
      */
     public static void main(String[] args) {
         try {
-            cMsgProducer producer = null;
-            if (args.length > 0) {
-                producer = new cMsgProducer(args[0]);
-
-                if (args.length > 1) {
-                    producer.subject = args[1];
-                    System.out.println("  producing messages with subject = " + producer.subject);
-                }
-                if (args.length > 2) {
-                    producer.type = args[2];
-                    System.out.println("  producing messages with type = " + producer.type);
-                }
-            }
-            else {
-                producer = new cMsgProducer("producer");
-                System.out.println("Name of this client is \"producer\"");
-                System.out.println("  producing messages with subject = " + producer.subject);
-                System.out.println("  producing messages with type = " + producer.type);
-                System.out.println("  producing messages with \"JUNK\" as text");
-            }
+            cMsgProducer producer = new cMsgProducer(args);
             producer.run();
         }
         catch (cMsgException e) {
@@ -76,44 +131,50 @@ public class cMsgProducer {
      * This method is executed as a thread.
      */
     public void run() throws cMsgException {
-        System.out.println("Running Message Producer\n");
 
-        String UDL = "cMsg:cMsg://aslan:3456/cMsg/vx";
+        if (debug) {
+            System.out.println("Running cMsg producer sending to:\n" +
+                               "    subject = " + subject +
+                               "\n    type    = " + type);
+        }
 
-        cMsg coda = new cMsg(UDL, name, "message producer");
+        // connect to cMsg server
+        cMsg coda = new cMsg(UDL, name, description);
         coda.connect();
 
+        // create a message
         cMsgMessage msg = new cMsgMessage();
         msg.setSubject(subject);
         msg.setType(type);
-        msg.setText("Junk");
+        msg.setText(text);
 
-        double freq=0., freqAvg=0., freqTotal=0.;
-        long t1, t2, deltaT, count = 20000, iterations=1;
-        int a;
+        // variables to track message rate
+        double freq=0., freqAvg=0.;
+        long t1, t2, deltaT, totalT=0, totalC=0, count=10000;
 
-        System.out.println("Sending messages ...");
-        int j=0;
+        // delay between messages
+        if (delay != 0) count = count/(20 + delay);
+
         while (true) {
             t1 = System.currentTimeMillis();
             for (int i = 0; i < count; i++) {
-                //try {Thread.sleep(1000);}
-                //catch (InterruptedException e) {}
+                // delay between messages sent
+                if (delay != 0) {
+                    try {Thread.sleep(delay);}
+                    catch (InterruptedException e) {}
+                }
                 coda.send(msg);
-                //a = coda.syncSend(msg);
             }
             t2 = System.currentTimeMillis();
 
-            deltaT = t2 - t1; // millisec
-            freq = (double)count/deltaT*1000;
-            if (Double.MAX_VALUE - freqTotal < freq) {
-                freqTotal = 0.;
-                iterations = 1;
-            }
-            freqTotal += freq;
-            freqAvg = freqTotal/iterations;
-            iterations++;
-            System.out.println(doubleToString(freq, 0) + " Hz, Avg = " + doubleToString(freqAvg, 0) + " Hz");
+            deltaT  = t2 - t1; // millisec
+            freq    = (double)count/deltaT*1000;
+            totalT += deltaT;
+            totalC += count;
+            freqAvg = (double)totalC/totalT*1000;
+
+            System.out.println(doubleToString(freq, 1) + " Hz, Avg = " +
+                               doubleToString(freqAvg, 1) + " Hz");
 
         }
     }

@@ -6,26 +6,82 @@ import org.jlab.coda.cMsg.*;
  * An example class which creates a cMsg message consumer.
  */
 public class cMsgConsumer {
-    String name;
-    long count;
 
-    cMsgConsumer(String name) {
-        this.name = name;
+    String  name = "consumer";
+    String  description = "java consumer";
+    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
+    String  subject = "SUBJECT";
+    String  type = "TYPE";
+    boolean debug;
+    long    count;
+
+
+    /** Constructor. */
+    cMsgConsumer(String[] args) {
+        decodeCommandLine(args);
     }
+
+
+    /**
+     * Method to decode the command line used to start this application.
+     * @param args command line arguments
+     */
+    public void decodeCommandLine(String[] args) {
+
+        // loop over all args
+        for (int i = 0; i < args.length; i++) {
+
+            if (args[i].equalsIgnoreCase("-h")) {
+                usage();
+                System.exit(-1);
+            }
+            else if (args[i].equalsIgnoreCase("-n")) {
+                name = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-d")) {
+                description = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-u")) {
+                UDL= args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-s")) {
+                subject = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-t")) {
+                type= args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-debug")) {
+                debug = true;
+            }
+            else {
+                usage();
+                System.exit(-1);
+            }
+        }
+
+        return;
+    }
+
+
+    /** Method to print out correct program command line usage. */
+    private static void usage() {
+        System.out.println("\nUsage:\n\n" +
+            "   java cMsgConsumer [-n name] [-d description] [-u UDL]\n" +
+            "                     [-s subject] [-t type] [-debug]\n");
+    }
+
 
     /**
      * Run as a stand-alone application.
      */
     public static void main(String[] args) {
         try {
-            cMsgConsumer consumer = null;
-            if (args.length > 0) {
-                consumer = new cMsgConsumer(args[0]);
-            }
-            else {
-                consumer = new cMsgConsumer("consumer");
-                System.out.println("Name of this client is \"consumer\"");
-            }
+            cMsgConsumer consumer = new cMsgConsumer(args);
             consumer.run();
         }
         catch (cMsgException e) {
@@ -60,6 +116,10 @@ public class cMsgConsumer {
     }
 
 
+    /**
+     * This class defines the callback to be run when a message matching
+     * our subscription arrives.
+     */
     class myCallback extends cMsgCallbackAdapter {
         /**
          * Callback method definition.
@@ -73,18 +133,11 @@ public class cMsgConsumer {
             count++;
         }
 
-        public boolean maySkipMessages() {
-            return false;
-        }
+        public boolean maySkipMessages() {return false;}
 
-        public boolean mustSerializeMessages() {
-            return true;
-        }
+        public boolean mustSerializeMessages() {return true;}
 
-        public int  getMaximumThreads() {
-            return 200;
-        }
-
+        public int  getMaximumThreads() {return 200;}
      }
 
 
@@ -92,40 +145,45 @@ public class cMsgConsumer {
      * This method is executed as a thread.
      */
     public void run() throws cMsgException {
-        String subject = "SUBJECT", type = "TYPE";
 
-        System.out.println("Running Message Consumer\n");
+        if (debug) {
+            System.out.println("Running cMsg consumer subscribed to:\n" +
+                               "    subject = " + subject +
+                               "\n    type    = " + type);
+        }
 
-        String UDL = "cMsg:cMsg://aslan:3456/cMsg/vx";
-
-        cMsg coda = new cMsg(UDL, name, "message consumer");
+        // connect to cMsg server
+        cMsg coda = new cMsg(UDL, name, description);
         coda.connect();
 
-        System.out.println("Enable message receiving");
+        // enable message reception
         coda.start();
 
-        System.out.println("Subscribe to subject = " + subject + ", type = " + type);
+        // subscribe to subject/type
         cMsgCallbackInterface cb = new myCallback();
         coda.subscribe(subject, type, cb, null);
 
-        double freq=0., freqAvg=0., freqTotal=0.;
-        long   iterations=1;
-        int    period = 5000; // millisec
+        // variables to track incoming message rate
+        double freq=0., freqAvg=0.;
+        long   totalT=0, totalC=0, period = 5000; // millisec
 
         while (true) {
             count = 0;
+
+            // wait
             try { Thread.sleep(period); }
             catch (InterruptedException e) {}
 
-            freq = (double)count/(period/1000.);
-            if (Double.MAX_VALUE - freqTotal < freq) {
-                freqTotal  = 0.;
-                iterations = 1;
+            freq    = (double)count/period*1000;
+            totalT += period;
+            totalC += count;
+            freqAvg = (double)totalC/totalT*1000;
+
+            if (debug) {
+                System.out.println("count = " + count + ", " +
+                                   doubleToString(freq, 0) + " Hz, Avg = " +
+                                   doubleToString(freqAvg, 0) + " Hz");
             }
-            freqTotal += freq;
-            freqAvg = freqTotal/iterations;
-            iterations++;
-            System.out.println("count = " + count + ", " + doubleToString(freq, 0) + " Hz, Avg = " + doubleToString(freqAvg, 0) + " Hz");
 
             if (!coda.isConnected()) {
                 System.out.println("No longer connected to domain server, quitting");

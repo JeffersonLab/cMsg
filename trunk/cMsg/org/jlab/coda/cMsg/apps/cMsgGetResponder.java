@@ -5,33 +5,91 @@ import org.jlab.coda.cMsg.*;
 import java.util.Date;
 
 /**
- * An example class which creates a cMsg message consumer/producer
- * which subscribes to a subject/type and then responds to incoming
- * messages by sending a message for the sender only.
+ * This is an example class which creates a client designed to respond to
+ * sendAndGet messages from another client.
+ * This client is essentially a cMsg message consumer which subscribes to a
+ * subject/type and then responds to incoming messages by sending a message
+ * for the sender only.
  */
 public class cMsgGetResponder {
-    String name;
-    long count;
-    cMsg coda;
 
-    cMsgGetResponder(String name) {
-        this.name = name;
+    String  name = "getResponder";
+    String  description = "java getResponder";
+    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
+    String  subject = "SUBJECT";
+    String  type = "TYPE";
+    boolean debug;
+    long    count;
+    cMsg    coda;
+
+
+    /** Constructor. */
+    cMsgGetResponder(String[] args) {
+        decodeCommandLine(args);
     }
+
+
+    /**
+     * Method to decode the command line used to start this application.
+     * @param args command line arguments
+     */
+    public void decodeCommandLine(String[] args) {
+
+        // loop over all args
+        for (int i = 0; i < args.length; i++) {
+
+            if (args[i].equalsIgnoreCase("-h")) {
+                usage();
+                System.exit(-1);
+            }
+            else if (args[i].equalsIgnoreCase("-n")) {
+                name = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-d")) {
+                description = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-u")) {
+                UDL= args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-s")) {
+                subject = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-t")) {
+                type= args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-debug")) {
+                debug = true;
+            }
+            else {
+                usage();
+                System.exit(-1);
+            }
+        }
+
+        return;
+    }
+
+
+    /** Method to print out correct program command line usage. */
+    private static void usage() {
+        System.out.println("\nUsage:\n\n" +
+            "   java cMsgConsumer [-n name] [-d description] [-u UDL]\n" +
+            "                     [-s subject] [-t type] [-debug]\n");
+    }
+
 
     /**
      * Run as a stand-alone application.
      */
     public static void main(String[] args) {
         try {
-            cMsgGetResponder responder = null;
-            if (args.length > 0) {
-                responder = new cMsgGetResponder(args[0]);
-            }
-            else {
-                responder = new cMsgGetResponder("responder");
-                System.out.println("Name of this client is \"responder\"");
-            }
-            responder.run();
+            cMsgGetResponder getResponder = new cMsgGetResponder(args);
+            getResponder.run();
         }
         catch (cMsgException e) {
             e.printStackTrace();
@@ -40,6 +98,32 @@ public class cMsgGetResponder {
     }
 
 
+    /**
+     * Method to convert a double to a string with a specified number of decimal places.
+     *
+     * @param d double to convert to a string
+     * @param places number of decimal places
+     * @return string representation of the double
+     */
+    private static String doubleToString(double d, int places) {
+        if (places < 0) places = 0;
+
+        double factor = Math.pow(10,places);
+        String s = "" + (double) (Math.round(d * factor)) / factor;
+
+        if (places == 0) {
+            return s.substring(0, s.length()-2);
+        }
+
+        while (s.length() - s.indexOf(".") < places+1) {
+            s += "0";
+        }
+
+        return s;
+    }
+
+
+    /** This class defines our callback object. */
     class myCallback extends cMsgCallbackAdapter {
         /**
          * Callback method definition.
@@ -56,27 +140,19 @@ public class cMsgGetResponder {
                 sendMsg.setSubject("RESPONDING");
                 sendMsg.setType("TO MESSAGE");
                 sendMsg.setText("responder's text");
-                //try {Thread.sleep(1000);}
-                //catch (InterruptedException e) { }
                 coda.send(sendMsg);
+                count++;
             }
             catch (cMsgException e) {
                 e.printStackTrace();
             }
         }
 
-        public boolean maySkipMessages() {
-            return false;
-        }
+        public boolean maySkipMessages() {return false;}
 
-        public boolean mustSerializeMessages() {
-            return true;
-        }
+        public boolean mustSerializeMessages() {return true;}
 
-        public int  getMaximumThreads() {
-            return 200;
-        }
-
+        public int  getMaximumThreads() {return 200;}
      }
 
 
@@ -84,22 +160,50 @@ public class cMsgGetResponder {
      * This method is executed as a thread.
      */
     public void run() throws cMsgException {
-        String subject = "responder", type = "TYPE";
 
-        System.out.println("Running Message GET Responder\n");
+        if (debug) {
+            System.out.println("Running cMsg getResponder subscribed to:\n" +
+                               "    subject = " + subject +
+                               "\n    type    = " + type);
+        }
 
-        String UDL = "cMsg:cMsg://aslan:3456/cMsg/vx";
-
-        System.out.print("Try to connect ...");
-        coda = new cMsg(UDL, name, "getResponder");
+        // connect to cMsg server
+        coda = new cMsg(UDL, name, description);
         coda.connect();
-        System.out.println(" done");
 
-        System.out.println("Enable message receiving");
+        // enable message reception
         coda.start();
 
-        System.out.println("Subscribe to subject = " + subject + ", type = " + type);
+        // subscribe to subject/type
         cMsgCallbackInterface cb = new cMsgGetResponder.myCallback();
         coda.subscribe(subject, type, cb, null);
+
+        // variables to track incoming message rate
+        double freq=0., freqAvg=0.;
+        long   totalT=0, totalC=0, period = 5000; // millisec
+
+        while (true) {
+            count = 0;
+
+            // wait
+            try { Thread.sleep(period); }
+            catch (InterruptedException e) {}
+
+            freq    = (double)count/period*1000;
+            totalT += period;
+            totalC += count;
+            freqAvg = (double)totalC/totalT*1000;
+
+            if (debug) {
+                System.out.println("count = " + count + ", " +
+                                   doubleToString(freq, 0) + " Hz, Avg = " +
+                                   doubleToString(freqAvg, 0) + " Hz");
+            }
+
+            if (!coda.isConnected()) {
+                System.out.println("No longer connected to domain server, quitting");
+                System.exit(-1);
+            }
+        }
     }
 }
