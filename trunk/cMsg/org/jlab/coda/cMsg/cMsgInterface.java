@@ -80,15 +80,24 @@ public interface cMsgInterface {
     public void flush() throws cMsgException;
 
     /**
-     * Method to get a message for a particular subject and type from the domain server.
+     * This method does two separate things depending on the specifics of message in the
+     * argument. If the message to be sent has its "getRequest" field set to be true using
+     * {@link cMsgMessage#isGetRequest}, then the message is sent as it would be in the
+     * {@link #send} method. The server notes the fact that a response to it is expected,
+     * and sends it to all subscribed to its subject and type. When a marked response is
+     * received from a client, it sends that first response back to the original sender
+     * regardless of its subject or type.
      *
-     * @param subject message subject
-     * @param type    message type
-     * @param timeout time in milliseconds to wait for a message
-     * @param msg     object used to hold retrieved message
+     * In a second usage, if the message did NOT set its "getRequest" field to be true,
+     * then the server grabs the first incoming message of the requested subject and type
+     * and sends that to the original sender in response to the get.
+     *
+     * @param message message sent to server
+     * @param timeout time in milliseconds to wait for a reponse message
+     * @return response message
      * @throws cMsgException
      */
-    public void get(String subject, String type, int timeout, cMsgMessage msg) throws cMsgException;
+    public cMsgMessage get(cMsgMessage message, int timeout) throws cMsgException;
 
     /**
      * Method to subscribe to receive messages of a subject and type from the domain server.
