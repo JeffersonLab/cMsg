@@ -53,7 +53,6 @@ public class cMsgClientListeningThread extends Thread {
 
     /** Allocate int array once (used for reading in data) for efficiency's sake. */
     private int[] inComing = new int[13];
-    //private int lastOdd=1,lastEven=0;
 
     /** List of all receiverSubscribeIds that match the incoming message. */
     private int[] rsIds = new int[20];
@@ -586,13 +585,8 @@ public class cMsgClientListeningThread extends Thread {
         // hashmap, so no new gets on that subject and type can be added.
         // Otherwise, new gets will be waiting forever (after msg already distributed).
         // This must sync on client object since the client's get method is too.
-        //
-        // Actually, only the "iter.remove" statement must be so protected,
-        // however, we may not grab the set mutex before the client mutex
-        // or deadlock may result. That is because in the "get" method of
-        // the client, the client mutex is grabbed before the set mutex.
+        // All accesses of the "generalGets" set is done when synchronized on client.
         synchronized (client) {
-            //synchronized (set) {
                 iter = set.iterator();
 
                 // for each general get of this client ...
@@ -624,7 +618,6 @@ public class cMsgClientListeningThread extends Thread {
                         }
                     }
                 }
-            //}
         }
     }
 
