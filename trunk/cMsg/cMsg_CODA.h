@@ -57,13 +57,15 @@ struct subscribeInfo_t {
 /* structure containing all domain info */
 typedef struct cMsgDomain_CODA_t {  
   int initComplete;  /* 0 = No, 1 = Yes */
+  int id;
   
   /* other state variables */
   int receiveState;
   int lostConnection;
   
-  int sendSocket;    /* file descriptor for TCP socket to send messages on */
-  int listenSocket;  /* file descriptor for socket this program listens on for TCP connections */
+  int sendSocket;      /* file descriptor for TCP socket to send messages on */
+  int listenSocket;    /* file descriptor for socket this program listens on for TCP connections */
+  int keepAliveSocket; /* file descriptor for socket to tell if server is still alive or not */
 
   char *myHost;      /* this hostname */
   char *sendHost;    /* host to send messages to */
@@ -78,6 +80,7 @@ typedef struct cMsgDomain_CODA_t {
   unsigned short listenPort; /* port this program listens on for this domain's TCP connections */
   
   pthread_t pendThread; /* listening thread */
+  pthread_t keepAliveThread; /* thread sending keep alives to server */
   
   pthread_mutex_t sendMutex;      /* mutex to ensure thread-safety of send socket */
   pthread_mutex_t subscribeMutex; /* mutex to ensure thread-safety of (un)subscribes */
@@ -97,6 +100,9 @@ typedef struct mainThreadInfo_t {
   cMsgDomain_CODA *domain; /* pointer to domain structure corresponding to domainId */
 } mainThreadInfo;
 
+/* prototypes */
+int cMsgReadMessage(int fd, cMsgMessage *msg);
+int cMsgRunCallbacks(cMsgDomain_CODA *domain, int command, cMsgMessage *msg);
 
 #ifdef	__cplusplus
 }

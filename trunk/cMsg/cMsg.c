@@ -99,7 +99,7 @@ static void  cMsgDomainClear(cMsgDomain *domain);
 
 int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
 
-  int i, id=-1, err, serverfd, status, realId;
+  int i, id=-1, err, serverfd, status, implId;
   char *portEnvVariable=NULL, temp[CMSG_MAXHOSTNAMELEN];
   
 
@@ -174,6 +174,9 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
   /* reserve this element of the "domains" array */
   domains[id].initComplete = 1;
       
+  /* save ref to self */
+  domains[id].id = id;
+      
   /* check args */
   if ( (checkString(myName)        != CMSG_OK)  ||
        (checkString(myUDL)         != CMSG_OK)  ||
@@ -208,12 +211,13 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
       }
     }
   }
-  if(domains[id].functions == NULL) return(CMSG_BAD_DOMAIN_TYPE);
+  if (domains[id].functions == NULL) return(CMSG_BAD_DOMAIN_TYPE);
   
 
   /* dispatch to connect function registered for this domain type */
-  err = domains[id].functions->connect(myUDL, myName, myDescription, &realId);
-  domains[id].id = realId;
+  err = domains[id].functions->connect(myUDL, myName, myDescription, &implId);
+  domains[id].implId = implId;
+  *domainId = id + DOMAIN_ID_OFFSET;
   
   connectMutexUnlock();
   
@@ -230,8 +234,7 @@ int cMsgSend(int domainId, void *msg) {
   
   if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
   if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
-  if (msg==NULL)return(CMSG_BAD_ARGUMENT);
-
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
 
   /* dispatch to function registered for this domain type */
   return(domains[id].functions->send(domains[id].id, msg));
@@ -265,9 +268,9 @@ int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callbac
   if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
 
   /* check args */
-  if( (checkString(subject) !=0 )  ||
-      (checkString(type)    !=0 )  ||
-      (callback == NULL)          )  {
+  if ( (checkString(subject) !=0 )  ||
+       (checkString(type)    !=0 )  ||
+       (callback == NULL)          )  {
     return(CMSG_BAD_ARGUMENT);
   }
   
@@ -290,9 +293,8 @@ int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callb
 
 
   /* check args */
-  if( (checkString(subject) != 0)  ||
-      (checkString(type)    != 0)  ||
-      (callback == NULL)          )  {
+  if ( (checkString(subject) != 0) ||
+       (checkString(type)    != 0))  {
     return(CMSG_BAD_ARGUMENT);
   }
   
@@ -311,7 +313,7 @@ int cMsgGet(int domainId, void *sendMsg, time_t timeout, void **replyMsg) {
 
   if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
   if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
-  if (sendMsg==NULL)return(CMSG_BAD_ARGUMENT);
+  if (sendMsg == NULL) return(CMSG_BAD_ARGUMENT);
 
   return(domains[id].functions->get(domains[id].id, sendMsg, timeout, replyMsg));
 }
@@ -372,97 +374,112 @@ char *cMsgPerror(int error) {
 
   case CMSG_OK:
     sprintf(temp, "CMSG_OK:  action completed successfully\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_OK:  action completed successfully\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_OK:  action completed successfully\n");
     break;
 
   case CMSG_ERROR:
     sprintf(temp, "CMSG_ERROR:  generic error return\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_ERROR:  generic error return\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_ERROR:  generic error return\n");
     break;
 
   case CMSG_TIMEOUT:
     sprintf(temp, "CMSG_TIMEOUT:  no response from cMsg server within timeout period\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_TIMEOUT:  no response from cMsg server within timeout period\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_TIMEOUT:  no response from cMsg server within timeout period\n");
     break;
 
   case CMSG_NOT_IMPLEMENTED:
     sprintf(temp, "CMSG_NOT_IMPLEMENTED:  function not implemented\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_NOT_IMPLEMENTED:  function not implemented\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_NOT_IMPLEMENTED:  function not implemented\n");
     break;
 
   case CMSG_BAD_ARGUMENT:
     sprintf(temp, "CMSG_BAD_ARGUMENT:  one or more arguments bad\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_BAD_ARGUMENT:  one or more arguments bad\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_BAD_ARGUMENT:  one or more arguments bad\n");
     break;
 
   case CMSG_BAD_FORMAT:
     sprintf(temp, "CMSG_BAD_FORMAT:  one or more arguments in the wrong format\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_BAD_FORMAT:  one or more arguments in the wrong format\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_BAD_FORMAT:  one or more arguments in the wrong format\n");
+    break;
+
+  case CMSG_BAD_DOMAIN_TYPE:
+    sprintf(temp, "CMSG_BAD_DOMAIN_TYPE:  domain type not supported\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_BAD_DOMAIN_TYPE:  domain type not supported\n");
     break;
 
   case CMSG_NAME_EXISTS:
     sprintf(temp, "CMSG_NAME_EXISTS: another process in this domain is using this name\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_NAME_EXISTS: another process in this domain is using this name\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_NAME_EXISTS:  another process in this domain is using this name\n");
     break;
 
   case CMSG_NOT_INITIALIZED:
     sprintf(temp, "CMSG_NOT_INITIALIZED:  cMsgConnect needs to be called\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_NOT_INITIALIZED:  cMsgConnect needs to be called\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_NOT_INITIALIZED:  cMsgConnect needs to be called\n");
     break;
 
   case CMSG_ALREADY_INIT:
     sprintf(temp, "CMSG_ALREADY_INIT:  cMsgConnect already called\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_ALREADY_INIT:  cMsgConnect already called\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_ALREADY_INIT:  cMsgConnect already called\n");
     break;
 
   case CMSG_LOST_CONNECTION:
     sprintf(temp, "CMSG_LOST_CONNECTION:  connection to cMsg server lost\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_LOST_CONNECTION:  connection to cMsg server lost\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_LOST_CONNECTION:  connection to cMsg server lost\n");
     break;
 
   case CMSG_NETWORK_ERROR:
     sprintf(temp, "CMSG_NETWORK_ERROR:  error talking to cMsg server\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_NETWORK_ERROR:  error talking to cMsg server\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_NETWORK_ERROR:  error talking to cMsg server\n");
     break;
 
   case CMSG_SOCKET_ERROR:
     sprintf(temp, "CMSG_NETWORK_ERROR:  error setting socket options\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_NETWORK_ERROR:  error setting socket options\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_NETWORK_ERROR:  error setting socket options\n");
     break;
 
   case CMSG_PEND_ERROR:
     sprintf(temp, "CMSG_PEND_ERROR:  error waiting for messages to arrive\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_PEND_ERROR:  error waiting for messages to arrive\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_PEND_ERROR:  error waiting for messages to arrive\n");
     break;
 
   case CMSG_ILLEGAL_MSGTYPE:
     sprintf(temp, "CMSG_ILLEGAL_MSGTYPE:  pend received illegal message type\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_ILLEGAL_MSGTYPE:  pend received illegal message type\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_ILLEGAL_MSGTYPE:  pend received illegal message type\n");
     break;
 
   case CMSG_OUT_OF_MEMORY:
     sprintf(temp, "CMSG_OUT_OF_MEMORY:  ran out of memory\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_OUT_OF_MEMORY:  ran out of memory\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_OUT_OF_MEMORY:  ran out of memory\n");
     break;
 
   case CMSG_OUT_OF_RANGE:
     sprintf(temp, "CMSG_OUT_OF_RANGE:  argument is out of range\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_OUT_OF_RANGE:  argument is out of range\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_OUT_OF_RANGE:  argument is out of range\n");
     break;
 
   case CMSG_LIMIT_EXCEEDED:
     sprintf(temp, "CMSG_LIMIT_EXCEEDED:  trying to create too many of something\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_LIMIT_EXCEEDED:  trying to create too many of something\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_LIMIT_EXCEEDED:  trying to create too many of something\n");
+    break;
+
+  case CMSG_BAD_DOMAIN_ID:
+    sprintf(temp, "CMSG_BAD_DOMAIN_ID: id does not match any existing domain\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_BAD_DOMAIN_ID: id does not match any existing domain\n");
+    break;
+
+  case CMSG_BAD_MESSAGE:
+    sprintf(temp, "CMSG_BAD_MESSAGE: message is not in the correct form\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_BAD_MESSAGE: message is not in the correct form\n");
     break;
 
   case CMSG_WRONG_DOMAIN_TYPE:
     sprintf(temp, "CMSG_WRONG_DOMAIN_TYPE: when a UDL does not match the server type\n");
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_WRONG_DOMAIN_TYPE: when a UDL does not match the server type\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_WRONG_DOMAIN_TYPE: when a UDL does not match the server type\n");
     break;
 
   default:
     sprintf(temp, "?cMsgPerror...no such error: %d\n",error);
-    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("?cMsgPerror...no such error: %d\n",error);
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("?cMsgPerror...no such error: %d\n",error);
     break;
   }
 
@@ -474,6 +491,14 @@ char *cMsgPerror(int error) {
 
 
 int cMsgSetDebugLevel(int level) {
+  
+  if ((level != CMSG_DEBUG_NONE)  &&
+      (level != CMSG_DEBUG_INFO)  &&
+      (level != CMSG_DEBUG_WARN)  &&
+      (level != CMSG_DEBUG_ERROR) &&
+      (level != CMSG_DEBUG_SEVERE)) {
+    return(CMSG_BAD_ARGUMENT);
+  }
   
   cMsgDebug = level;
   return(CMSG_OK);
@@ -511,10 +536,13 @@ static void registerDomainTypeInfo(void) {
 
 static void domainInit(cMsgDomain *domain) {  
   domain->initComplete   = 0;
+  domain->id             = 0;
+  domain->implId         = 0;
   
   domain->receiveState   = 0;
   domain->lostConnection = 0;
       
+  domain->type           = NULL;
   domain->name           = NULL;
   domain->udl            = NULL;
   domain->description    = NULL;
@@ -526,6 +554,7 @@ static void domainInit(cMsgDomain *domain) {
 
 
 static void domainFree(cMsgDomain *domain) {  
+  if (domain->type        != NULL) free(domain->type);
   if (domain->name        != NULL) free(domain->name);
   if (domain->udl         != NULL) free(domain->udl);
   if (domain->description != NULL) free(domain->description);
@@ -622,12 +651,12 @@ static int checkString(char *s) {
   if (s == NULL) return(CMSG_ERROR);
 
   /* check for printable character */
-  for(i=0; i<strlen(s); i++) {
+  for (i=0; i<strlen(s); i++) {
     if (isprint(s[i]) == 0) return(CMSG_ERROR);
   }
 
   /* check for excluded chars */
-  if (strpbrk(s,excludedChars) != 0) return(CMSG_ERROR);
+  if (strpbrk(s, excludedChars) != 0) return(CMSG_ERROR);
   
   /* string ok */
   return(CMSG_OK);
@@ -731,9 +760,12 @@ int cMsgGetReceiveState(int domainId, int *receiveState) {
 /*-------------------------------------------------------------------*/
 
 
-void *cMsgCreateMesssage(void) {
-
-  return(CMSG_OK);
+void *cMsgCreateMessage(void) {
+  cMsgMessage *msg;
+  
+  msg = (cMsgMessage *) malloc(sizeof(cMsgMessage));
+  
+  return((void *)msg);
 }
 
 

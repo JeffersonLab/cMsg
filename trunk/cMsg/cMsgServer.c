@@ -68,6 +68,9 @@ static void  cleanUpHandler(void *arg);
 #define CMSG_CLIENTSMAX 1000
 
 
+static int domainId ;
+static cMsgDomain_CODA *domain;
+
 
 /*-------------------------------------------------------------------*
  * The listening thread needs a pthread cancellation cleanup handler.
@@ -90,9 +93,6 @@ static void cleanUpHandler(void *arg) {
   }
 }
 
-
-static int domainId ;
-static cMsgDomain_CODA *domain;
 
 /*-------------------------------------------------------------------*
  * cMsgServerListeningThread is a server listening thread used
@@ -364,7 +364,39 @@ static void *clientThread(void *arg)
           }
           
           /* run callbacks for this message */
-          cMsgRunCallbacks(domainId, msgId, message);
+          cMsgRunCallbacks(domain, msgId, message);
+      }
+      break;
+
+      case  CMSG_KEEP_ALIVE:
+      {
+        int alive;
+        
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+          fprintf(stderr, "clientThread: keep alive received\n");
+        }
+        
+        /* read an int */
+        if ((err = cMsgTcpRead(connfd, &alive, sizeof(alive))) != sizeof(alive)) {
+          if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+            fprintf(stderr, "clientThread: error reading command\n");
+          }
+          goto end;
+        }
+        
+        /* respond with ok */
+        alive = htonl(CMSG_OK);
+        if (cMsgTcpWrite(connfd, (void *) alive, sizeof(alive)) != sizeof(alive)) {
+          if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+            fprintf(stderr, "clientThread: write failure\n");
+          }
+          goto end;
+        }
+
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+          fprintf(stderr, "clientThread: sent keep alive ok to server\n");
+        }
+        
       }
       break;
 
