@@ -134,8 +134,7 @@ extern "C" {
 
 
 /* local prototypes */
-static int checkString(char *s);
-static cMsg *extractMsg(void *);
+static int  checkString(char *s);
 static cMsg *copyMsg(cMsg *msgIn);
 static void *dispatchCallback(void *param);
 static void *pend(void *param);
@@ -386,19 +385,22 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
 
 
 static int getHostAndPortFromNameServer(cMsgDomain *domain, int serverfd) {
-  int err, lengthHost, lengthName, outgoing[4], incoming[2];
+  int err, lengthHost, lengthName, lengthType, outgoing[5], incoming[2];
   char temp[CMSG_MAXHOSTNAMELEN];
 
   /* first send message id (in network byte order) to server */
   outgoing[0] = htonl(CMSG_SERVER_CONNECT);
-  /* send my listening port (as an int in network byte order) to server */
+  /* send my listening port (as an int) to server */
   outgoing[1] = htonl((int)domain->listenPort);
-  /* send length (in network byte order) of my host name to server */
+  /* send length of the type of domain server I'm expecting to connect to.*/
+  lengthType  = strlen(domain->type);
+  outgoing[2] = htonl(lengthType);
+  /* send length of my host name to server */
   lengthHost  = strlen(domain->myHost);
-  outgoing[2] = htonl(lengthHost);
-  /* send length (in network byte order) of my name to server */
+  outgoing[3] = htonl(lengthHost);
+  /* send length of my name to server */
   lengthName  = strlen(domain->name);
-  outgoing[3] = htonl(lengthName);
+  outgoing[4] = htonl(lengthName);
   
   if (debug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "getHostAndPortFromNameServer: write 4 (%d, %d, %d, %d) ints to server\n",
@@ -414,7 +416,20 @@ static int getHostAndPortFromNameServer(cMsgDomain *domain, int serverfd) {
   }
 
   if (debug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "getHostAndPortFromNameServer: send host name (%s) to server\n",
+    fprintf(stderr, "getHostAndPortFromNameServer: send my domain type (%s) to server\n",
+            domain->type);
+  }
+  
+  /* send the type of domain server I'm expecting to connect to */
+  if (cMsgTcpWrite(serverfd, (void *) domain->type, lengthType) != lengthType) {
+    if (debug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+
+  if (debug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "getHostAndPortFromNameServer: send my host name (%s) to server\n",
             domain->myHost);
   }
   
@@ -458,7 +473,7 @@ static int getHostAndPortFromNameServer(cMsgDomain *domain, int serverfd) {
   
   /* if there's an error, quit */
   if (err != CMSG_OK) {
-    return(CMSG_NETWORK_ERROR);
+    return(err);
   }
   
   /* if everything's OK, we expect to get send host & port */
@@ -982,7 +997,7 @@ int cMsgFree(cMsg *msg) {
 /*-------------------------------------------------------------------*/
 
 
-int cMsgDone(int domainId) {
+int cMsgDisconnect(int domainId) {
   
   int status;
   int id = domainId - DOMAIN_ID_OFFSET;
@@ -1060,7 +1075,7 @@ int cMsgRunCallbacks(int domainId, int command, cMsg *msg) {
             /* the message was malloced in cMsgClientThread,
              * so it must be freed in the dispatch thread
              */
-	    dcbi->msg = msg;
+	    dcbi->msg = copyMsg(msg);
             
             /* run dispatch thread */
 	    status = pthread_create(&newThread, NULL, dispatchCallback, (void *)dcbi);
@@ -1086,7 +1101,7 @@ int cMsgRunCallbacks(int domainId, int command, cMsg *msg) {
 /* This routine is used in cMsgGet & cMsgClientThread                */
 
 
-int readMessage(int fd, cMsg *msg) {
+int cMsgReadMessage(int fd, cMsg *msg) {
   
   int err, lengths[5], inComing[9];
   int memSize = CMSG_MESSAGE_SIZE;
@@ -1315,12 +1330,20 @@ int cMsgPerror(int error) {
     fprintf(stderr, "CMSG_ERROR:  generic error return\n");
     break;
 
+  case CMSG_TIMEOUT:
+    fprintf(stderr, "CMSG_TIMEOUT:  no response from cMsg server within timeout period\n");
+    break;
+
   case CMSG_NOT_IMPLEMENTED:
     fprintf(stderr, "CMSG_NOT_IMPLEMENTED:  function not implemented\n");
     break;
 
   case CMSG_BAD_ARGUMENT:
     fprintf(stderr, "CMSG_BAD_ARGUMENT:  one or more arguments bad\n");
+    break;
+
+  case CMSG_BAD_FORMAT:
+    fprintf(stderr, "CMSG_BAD_FORMAT:  one or more arguments in the wrong format\n");
     break;
 
   case CMSG_NAME_EXISTS:
@@ -1339,12 +1362,12 @@ int cMsgPerror(int error) {
     fprintf(stderr, "CMSG_LOST_CONNECTION:  connection to cMsg server lost\n");
     break;
 
-  case CMSG_TIMEOUT:
-    fprintf(stderr, "CMSG_TIMEOUT:  no response from cMsg server within timeout period\n");
-    break;
-
   case CMSG_NETWORK_ERROR:
     fprintf(stderr, "CMSG_NETWORK_ERROR:  error talking to cMsg server\n");
+    break;
+
+  case CMSG_SOCKET_ERROR:
+    fprintf(stderr, "CMSG_NETWORK_ERROR:  error setting socket options\n");
     break;
 
   case CMSG_PEND_ERROR:
@@ -1357,6 +1380,18 @@ int cMsgPerror(int error) {
 
   case CMSG_OUT_OF_MEMORY:
     fprintf(stderr, "CMSG_OUT_OF_MEMORY:  ran out of memory\n");
+    break;
+
+  case CMSG_OUT_OF_RANGE:
+    fprintf(stderr, "CMSG_OUT_OF_RANGE:  argument is out of range\n");
+    break;
+
+  case CMSG_LIMIT_EXCEEDED:
+    fprintf(stderr, "CMSG_LIMIT_EXCEEDED:  trying to create too many of something\n");
+    break;
+
+  case CMSG_WRONG_DOMAIN_TYPE:
+    fprintf(stderr, "CMSG_WRONG_DOMAIN_TYPE: when a UDL does not match the server type\n");
     break;
 
   default:
@@ -1655,37 +1690,6 @@ static int checkString(char *s) {
   
   /* string ok */
   return(CMSG_OK);
-}
-
-
-
-/*-------------------------------------------------------------------*/
-
-
-static cMsg *extractMsg(void *something) {
-
-  cMsg *msg;
-  
-  /* allocate memory for message */
-  msg = (cMsg*) malloc(sizeof(cMsg));
-
-  /* fill message fields */
-  msg->domainId      =  5;
-  msg->sysMsgId	     =	5;
-  msg->sender  	     =	(char *) strdup("blah");
-  msg->senderId      =	5;
-  msg->senderHost    =	(char *) strdup("blah");
-  msg->senderTime    =	time(NULL);
-  msg->senderMsgId   =	5;
-  msg->receiver      =	(char *) strdup("name");
-  msg->receiverHost  =	(char *) strdup("host");
-  msg->receiverTime  =	time(NULL);
-  msg->domain	     =	(char *) strdup("blah");
-  msg->subject	     =	(char *) strdup("blah");
-  msg->type   	     =	(char *) strdup("blah");
-  msg->text   	     =	(char *) strdup("blah");
-  
-  return(msg);
 }
 
 
