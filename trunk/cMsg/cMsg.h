@@ -294,7 +294,9 @@ extern "C" {
   int 	cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
                       void *userArg, cMsgSubscribeConfig *config);
   int 	cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback);
-  int   cMsgGet(int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg);
+  int   cMsgSendAndGet(int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg);
+  int   cMsgSubscribeAndGet(int domainId, char *subject, char *type,
+                            struct timespec *timeout, void **replyMsg);
   int 	cMsgReceiveStart(int domainId);
   int 	cMsgReceiveStop(int domainId);
   int 	cMsgDisconnect(int domainId);

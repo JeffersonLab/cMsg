@@ -44,17 +44,20 @@ extern int cMsgDebug;
 
 /* holds domain implementation function pointers */
 typedef struct domainFunctions_t {
-  int (*connect)    (char *udl, char *name, char *description, char *UDLremainder, int *domainId); 
-  int (*send)       (int domainId, void *msg);
-  int (*syncSend)   (int domainId, void *msg, int *response);
-  int (*flush)      (int domainId);
-  int (*subscribe)  (int domainId, char *subject, char *type, cMsgCallback *callback,
-                     void *userArg, cMsgSubscribeConfig *config);
-  int (*unsubscribe)(int domainId, char *subject, char *type, cMsgCallback *callback);
-  int (*get)        (int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg);
-  int (*start)      (int domainId);
-  int (*stop)       (int domainId);
-  int (*disconnect) (int domainId);
+  int (*connect)         (char *udl, char *name, char *description, char *UDLremainder,
+                          int *domainId); 
+  int (*send)            (int domainId, void *msg);
+  int (*syncSend)        (int domainId, void *msg, int *response);
+  int (*flush)           (int domainId);
+  int (*subscribe)       (int domainId, char *subject, char *type, cMsgCallback *callback,
+                          void *userArg, cMsgSubscribeConfig *config);
+  int (*unsubscribe)     (int domainId, char *subject, char *type, cMsgCallback *callback);
+  int (*subscribeAndGet) (int domainId, char *subject, char *type,
+                          struct timespec *timeout, void **replyMsg);
+  int (*sendAndGet)      (int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg);
+  int (*start)           (int domainId);
+  int (*stop)            (int domainId);
+  int (*disconnect)      (int domainId);
 } domainFunctions;
 
 

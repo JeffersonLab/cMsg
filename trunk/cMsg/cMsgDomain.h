@@ -99,11 +99,12 @@ typedef struct cMsgDomain_CODA_t {
   unsigned short listenPort; /* port this program listens on for this domain's TCP connections */
   
   /* subdomain handler attributes */
-  char hasSend;        /* subdomain implements meaningful send function */
-  char hasSyncSend;    /* subdomain implements meaningful syncSend function */
-  char hasGet;         /* subdomain implements meaningful get function */
-  char hasSubscribe;   /* subdomain implements meaningful subscribe function */
-  char hasUnsubscribe; /* subdomain implements meaningful unsubscribe function */
+  char hasSend;            /* subdomain implements meaningful send function */
+  char hasSyncSend;        /* subdomain implements meaningful syncSend function */
+  char hasSubscribeAndGet; /* subdomain implements meaningful subscribeAndGet function */
+  char hasSendAndGet;      /* subdomain implements meaningful sendAndGet function */
+  char hasSubscribe;       /* subdomain implements meaningful subscribe function */
+  char hasUnsubscribe;     /* subdomain implements meaningful unsubscribe function */
 
   char *myHost;       /* this hostname */
   char *sendHost;     /* host to send messages to */
