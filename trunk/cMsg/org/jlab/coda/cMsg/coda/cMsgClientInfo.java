@@ -18,7 +18,7 @@ package org.jlab.coda.cMsg.coda;
 
 import java.lang.*;
 import java.util.*;
-import java.nio.channels.Channel;
+import java.nio.channels.SocketChannel;
 
 /**
  * Class in which to store a domain's client information.
@@ -42,13 +42,20 @@ class cMsgClientInfo {
      * Communication channel used by domain server (or clientHandler)
      * to talk to client (keepAlive).
      */
-    Channel channel;
+    SocketChannel channel;
 
     /** Collection of all messages subscriptions. */
     HashSet subscriptions = new HashSet(20);
 
     cMsgClientInfo() {}
     
+    /**
+     * Constructor specifing client's name, port and host.
+     *
+     * @param name  client's name
+     * @param port  client's listening port
+     * @param host  client's host
+     */
     cMsgClientInfo(String name, int port, String host) {
         clientName = name;
         clientPort = port;
