@@ -170,7 +170,9 @@ public class cMsgNameServer extends Thread {
         if ((clientHandlerClass == null) && subdomain.equals("cMsg")) {
             clientHandlerClass = "org.jlab.coda.cMsg.plugins.cMsg";
         }
-        else {
+
+        // all options are exhaused, throw error
+        if (clientHandlerClass == null) {
             cMsgException ex = new cMsgException("no handler class found");
             ex.setReturnCode(cMsgConstants.errorNoClassFound);
             throw ex;
@@ -423,11 +425,12 @@ public class cMsgNameServer extends Thread {
             // Try to register this client. If the cMsg system already has a
             // client by this name, it will fail.
             try {
+                cMsgClientInfo info = new cMsgClientInfo(name, clientListeningPort, host,
+                                                         subdomainType, UDLRemainder);
                 if (debug >= cMsgConstants.debugInfo) {
                     System.out.println("name server to register " + name);
                 }
-                cMsgClientInfo info = new cMsgClientInfo(name, clientListeningPort, host,
-                                                         subdomainType, UDLRemainder);
+
                 registerClient(name, info);
 
                 buffer.clear();
