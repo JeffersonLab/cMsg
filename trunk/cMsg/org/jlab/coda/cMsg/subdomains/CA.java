@@ -302,12 +302,12 @@ public class CA extends cMsgSubdomainAbstract {
 
         // parse remainder and set JCA context options
         DefaultConfiguration conf = new DefaultConfiguration("myContext");
-        conf.addAttribute("class", JCALibrary.CHANNEL_ACCESS_JAVA);
-        conf.addAttribute("auto_addr_list","false");
+        conf.setAttribute("class", JCALibrary.CHANNEL_ACCESS_JAVA);
+        conf.setAttribute("auto_addr_list","false");
         if(remainder!=null) {
             p = Pattern.compile("[&\\?]addr_list=(.*?)&", Pattern.CASE_INSENSITIVE);
             m = p.matcher(remainder);
-            if(m.find())conf.addAttribute("addr_list",m.group(1));
+            if(m.find())conf.setAttribute("addr_list",m.group(1));
         }
 
 
@@ -446,7 +446,10 @@ public class CA extends cMsgSubdomainAbstract {
 
         // return response
         try {
-            deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponse);
+            ArrayList<Integer> l = new ArrayList<Integer>(1);
+            l.add(id);
+            deliverMessage(myClientInfo.getChannel(),myBuffer,response,
+                           l,cMsgConstants.msgSubscribeResponse);
         } catch (IOException e) {
             e.printStackTrace();
             cMsgException ce = new cMsgException(e.toString());
