@@ -27,6 +27,7 @@ import java.util.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 
@@ -38,20 +39,20 @@ import java.io.IOException;
  */
 public class cMsg extends cMsgHandleRequestsAbstract {
     /** HashMap to store clients. Name is key and cMsgClientInfo is value. */
-    private static HashMap clients = new HashMap(100);
+    private static HashMap<String,cMsgClientInfo> clients = new HashMap<String,cMsgClientInfo>(100);
 
     /**
      * HashMap to store specific "get" in progress. sysMsgId of get msg is key,
      * and client name is value.
      */
-    private static Map specificGets = Collections.synchronizedMap(new HashMap(100));
+    private static Map<Integer,cMsgClientInfo> specificGets = new ConcurrentHashMap<Integer,cMsgClientInfo>(100);
 
     /**
      * HashMap to store mappings of local client's senderTokens to static sysMsgIds.
      * This allows the cancellation of a "get" using a senderToken (which the
      * client knows) which can then be used to look up the sysMsgId and cancel the get.
      */
-    private Map deleteGets = Collections.synchronizedMap(new HashMap(100));
+    private Map<Integer,Integer> deleteGets = new ConcurrentHashMap<Integer,Integer>(100);
 
     /** Used to create a unique id number associated with a specific message. */
     private static AtomicInteger sysMsgId = new AtomicInteger();
@@ -249,7 +250,7 @@ public class cMsg extends cMsgHandleRequestsAbstract {
             int id = message.getSysMsgId();
             // Recall the client who originally sent the get request
             // and remove the item from the hashtable
-            info = (cMsgClientInfo) specificGets.remove(new Integer(id));
+            info = specificGets.remove(id);
 
             // If someone else responded to the get first (info == null),
             // skip the next block and send message as a regular "send".
@@ -290,7 +291,7 @@ public class cMsg extends cMsgHandleRequestsAbstract {
                 //if (client.equals(name)) {
                 //    continue;
                 //}
-                info = (cMsgClientInfo) clients.get(client);
+                info = clients.get(client);
                 gets = info.getGets();
                 subscriptions = info.getSubscriptions();
                 Iterator it;
@@ -408,7 +409,7 @@ public class cMsg extends cMsgHandleRequestsAbstract {
         // that contains all relevant information. Retrieve that object
         // from the "clients" table, add subscription to it.
         readLock.lock();
-        cMsgClientInfo info = (cMsgClientInfo) clients.get(name);
+        cMsgClientInfo info = clients.get(name);
         readLock.unlock();
         if (info == null) {
             throw new cMsgException("handleSubscribeRequest: no client information stored for " + name);
@@ -451,7 +452,7 @@ public class cMsg extends cMsgHandleRequestsAbstract {
      */
      public void handleUnsubscribeRequest(String subject, String type, int id) {
         readLock.lock();
-        cMsgClientInfo info = (cMsgClientInfo) clients.get(name);
+        cMsgClientInfo info = clients.get(name);
         readLock.unlock();
         if (info == null) {
             return;
@@ -489,7 +490,7 @@ public class cMsg extends cMsgHandleRequestsAbstract {
         // that contains all relevant information. Retrieve that object
         // from the "clients" table, add get (actually a subscription) to it.
         readLock.lock();
-        cMsgClientInfo info = (cMsgClientInfo) clients.get(name);
+        cMsgClientInfo info = clients.get(name);
         readLock.unlock();
         if (info == null) {
             throw new cMsgException("handleGetRequest: no client information stored for " + name);
@@ -527,14 +528,14 @@ public class cMsg extends cMsgHandleRequestsAbstract {
      */
     public void handleUngetRequest(int id) {
         readLock.lock();
-        cMsgClientInfo info = (cMsgClientInfo) clients.get(name);
+        cMsgClientInfo info = clients.get(name);
         readLock.unlock();
         if (info == null) {
             return;
         }
  System.out.println("UNGETTING");
         // first check to see if we're removing a specific get
-        if (specificGets.remove((Integer)(deleteGets.get(id))) != null) {
+        if (specificGets.remove(deleteGets.get(id)) != null) {
             System.out.println("Removed specific Get");
             return;
         }
