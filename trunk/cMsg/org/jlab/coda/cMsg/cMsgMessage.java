@@ -37,58 +37,58 @@ import java.util.*;
 public class cMsgMessage {
 
     /** Unique message id created by cMsg system. */
-    int      sysMsgId;
+    private int sysMsgId;
 
     /**
      * Message receiver's id number corresponding to a subject & type pair
      * of a message subscription.
      */
-    int      receiverSubscribeId;
+    private int receiverSubscribeId;
 
     /** Unique name of message sender. */
-    String   sender;
+    private String sender;
 
     /**
      * Unique id of message sender. This distinguishes between two identically
      * named senders - one of whom dies and is replaced by the other.
      */
-    int      senderId;
+    private int senderId;
 
     /** Host sender is running on. */
-    String   senderHost;
+    private String senderHost;
 
     /** Time message was sent. */
-    Date     senderTime;
+    private Date senderTime;
 
     /** Unique message id created by sender. */
-    int      senderMsgId;
+    private int senderMsgId;
 
     /**
      * Sender given integer used to track asynchronous responses to
      * messages requesting responses from other clients.
      */
-    int      senderToken;
+    private int senderToken;
 
     /** Unique name of message receiver. */
-    String   receiver;
+    private String receiver;
 
     /** Host receiver is running on. */
-    String   receiverHost;
+    private String receiverHost;
 
     /** Time message was received. */
-    Date     receiverTime;
+    private Date receiverTime;
 
     /** Message exists in this domain. */
-    String   domain;
+    private String domain;
 
     /** Subject of message. */
-    String   subject;
+    private String subject;
 
     /** Type of message. */
-    String   type;
+    private String type;
 
     /** Text of message. */
-    String   text;
+    private String text;
 
 
     /** Get domain this message exists in. */
