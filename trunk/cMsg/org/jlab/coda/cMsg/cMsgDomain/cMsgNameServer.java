@@ -63,7 +63,7 @@ public class cMsgNameServer extends Thread {
     private WeakHashMap domainServers;
 
     /** Level of debug output for this class. */
-    private int debug = cMsgConstants.debugInfo;
+    private int debug = cMsgConstants.debugError;
 
     /** Tell the server to kill spawned threads. */
     private boolean killAllThreads;
@@ -182,6 +182,7 @@ public class cMsgNameServer extends Thread {
             if (s.contains(".")) {continue;}
             if (s.equalsIgnoreCase(subdomain)) {
                 clientHandlerClass = System.getProperty(s);
+                break;
             }
         }
 
