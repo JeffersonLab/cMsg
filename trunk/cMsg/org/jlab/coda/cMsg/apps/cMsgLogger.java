@@ -117,7 +117,10 @@ public class cMsgLogger {
                 System.exit(-1);
             }
         }
-    }    
+        public boolean maySkipMessages() {return false;}
+
+        public boolean mustSerializeMessages() {return false;}
+    }
 
 
 //-----------------------------------------------------------------------------

@@ -77,8 +77,13 @@ public class cMsgConsumer2CBs {
           *                   message.
           */
          public void callback(cMsgMessage msg, Object userObject) {
+             //try { Thread.sleep(1000); }
+             //catch (InterruptedException e) {}
              count1++;
          }
+        public boolean maySkipMessages() {return false;}
+
+        public boolean mustSerializeMessages() {return false;}
 
      }
 
@@ -95,6 +100,9 @@ public class cMsgConsumer2CBs {
          public void callback(cMsgMessage msg, Object userObject) {
              count2++;
          }
+        public boolean maySkipMessages() {return false;}
+
+        public boolean mustSerializeMessages() {return false;}
 
      }
 
