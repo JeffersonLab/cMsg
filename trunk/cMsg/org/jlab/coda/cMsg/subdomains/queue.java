@@ -47,7 +47,7 @@ import java.util.Date;
  * stores/retrieves cMsgMessageFull messages from SQL database.
  * Gets database parameters from UDL.
  *
- * Supported database so far:  mySQL
+ * Supported database so far:  mySQL, PostgreSQL (not tested yet...)
  *
  * @author Elliiott Wolin
  * @version 1.0
@@ -66,10 +66,6 @@ public class queue extends cMsgSubdomainAbstract {
 
     /** direct buffer needed for nio socket IO. */
     private ByteBuffer myBuffer = ByteBuffer.allocateDirect(2048);
-
-
-    /** linked hash map stores column names and datat types. */
-    LinkedHashMap<String,String> myColumnInfo = new LinkedHashMap<String,String>(15);
 
 
     // database access objects
@@ -227,10 +223,6 @@ public class queue extends cMsgSubdomainAbstract {
         myClientInfo=info;
 
 
-        // get column names from message system
-        cMsgMessage.getMsgFieldsAndTypes(myColumnInfo);
-
-
         // extract queue name from UDL remainder
         if(myUDLRemainder.indexOf("?")>0) {
             p = Pattern.compile("^(.+?)(\\?.*)$");
@@ -336,65 +328,11 @@ public class queue extends cMsgSubdomainAbstract {
 
 
         // create table if it doesn't exist
-        if(!tableExists) {
-            System.out.println("Creating new table for queue " + myQueueName);
-            if(myDBType.equalsIgnoreCase("mysql")) {
-                String t;
-                sql="create table " + myTableName + " (id int not null primary key auto_increment";
-                for(String c : myColumnInfo.keySet()) {
-                    sql+=", " + c + " ";
-                    t=myColumnInfo.get(c);
-                    if(t.equalsIgnoreCase("time")) {
-                        sql+="datetime";
-                    } else if(t.equalsIgnoreCase("boolean")) {
-                        sql+="int";
-                    } else {
-                        sql+=t;
-                    }
-                }
-                sql+=")";
-            } else {
-                sql="create table " + myTableName + " (id int not null";
-                for(String c : myColumnInfo.keySet()) {
-                    sql+=", " + c + " " + myColumnInfo.get(c);
-                }
-                sql+=")";
-            }
-            try {
-                myStmt.executeUpdate(sql);
-            } catch (SQLException e) {
-                e.printStackTrace();
-                cMsgException ce = new cMsgException("?registerClient: unable to create table " + myTableName);
-                ce.setReturnCode(1);
-                throw ce;
-            }
-        }
+        if(!tableExists) createTable(myDBType);
 
 
         // create prepared statement
-        String sqlbeg,sqlend;
-        if(myDBType.equalsIgnoreCase("mysql")) {
-            sqlbeg = "insert delayed into " + myTableName + " (";
-            sqlend = ") values (";
-        } else {
-            sqlbeg = "insert into " + myTableName + " (";
-            sqlend = ",id) values (?,";
-        }
-        for(String c : myColumnInfo.keySet()) {
-            sqlbeg+=c+",";
-            sqlend+="?,";
-        }
-
-        sql=sqlbeg.substring(0,sqlbeg.length()-1)+sqlend.substring(0,sqlend.length()-1)+")";
-
-        try {
-            myPStmt = myCon.prepareStatement(sql);
-        } catch (SQLException e) {
-            e.printStackTrace();
-            cMsgException ce = new cMsgException("?registerClient: unable to create prepared statement for " + myTableName);
-            ce.setReturnCode(1);
-            throw ce;
-        }
+        createPreparedStatement(myDBType);
 
     }
 
@@ -413,22 +351,31 @@ public class queue extends cMsgSubdomainAbstract {
     public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
 
         try {
-            int i = 0;
-            String type;
-            for(String c : myColumnInfo.keySet()) {
-                i++;
-                type=myColumnInfo.get(c);
-                if(type.equalsIgnoreCase("int")) {
-                    myPStmt.setInt(i,((Integer)msg.getField(i)).intValue());
-                } else if(type.equalsIgnoreCase("time")) {
-                    myPStmt.setTimestamp(i,new java.sql.Timestamp(((java.util.Date)msg.getField(i)).getTime()));
-                } else if(type.equalsIgnoreCase("boolean")) {
-                    myPStmt.setInt(i,((Boolean)msg.getField(i))?1:0);
-                } else {
-                    myPStmt.setString(i,(String)msg.getField(i));
-                }
-            }
-            //        if(!myDBType.equalsIgnoreCase("mysql"))myPStmt.set(++i,???);
+            int i=1;
+            myPStmt.setInt(i++,       msg.getVersion());
+            myPStmt.setString(i++,    msg.getDomain());
+            myPStmt.setInt(i++,       msg.getSysMsgId());
+
+            myPStmt.setInt(i++,       (msg.isGetRequest()?1:0));
+            myPStmt.setInt(i++,       (msg.isGetResponse()?1:0));
+
+            myPStmt.setString(i++,    msg.getSender());
+            myPStmt.setString(i++,    msg.getSenderHost());
+            myPStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getSenderTime().getTime()));
+            myPStmt.setInt(i++,       msg.getSenderToken());
+
+            myPStmt.setInt(i++,       msg.getUserInt());
+            myPStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getUserTime().getTime()));
+            myPStmt.setInt(i++,       msg.getPriority());
+
+            myPStmt.setString(i++,    msg.getReceiver());
+            myPStmt.setString(i++,    msg.getReceiverHost());
+            myPStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getReceiverTime().getTime()));
+            myPStmt.setInt(i++,       msg.getReceiverSubscribeId());
+
+            myPStmt.setString(i++,    msg.getSubject());
+            myPStmt.setString(i++,    msg.getType());
+            myPStmt.setString(i++,    msg.getText());
 
             myPStmt.executeUpdate();
 
@@ -655,6 +602,85 @@ public class queue extends cMsgSubdomainAbstract {
 
 
 //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+//  misc functions
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+
+    private void createTable(String type) throws cMsgException {
+
+        System.out.println("Creating new table for queue " + myQueueName);
+
+        String sql;
+        try {
+            if(type.equalsIgnoreCase("mysql")) {
+                sql="create table " + myTableName + " (id int not null primary key auto_increment" +
+                    "version int, domain varchar(255), sysMsgId int," +
+                    "getRequest int, getResponse int," +
+                    "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
+                    "userInt int, userTime datetime, priority int," +
+                    "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
+                    "subject  varchar(255), type varchar(128), text text)";
+                myStmt.executeUpdate(sql);
+
+            } else if(type.equalsIgnoreCase("postgresql")) {
+                String seq = "cMsgQueueSeq_" + myQueueName;
+                myStmt.executeUpdate("create sequence " + seq);
+                sql="create table " + myTableName + " (id int not null primary key default nextval('" + seq + "')," +
+                    "version int, domain varchar(255), sysMsgId int," +
+                    "getRequest int, getResponse int," +
+                    "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
+                    "userInt int, userTime datetime, priority int," +
+                    "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
+                    "subject  varchar(255), type varchar(128), text text)";
+                myStmt.executeUpdate(sql);
+
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException("?createTable: unable to create table " + myTableName);
+            ce.setReturnCode(1);
+            throw ce;
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    private void createPreparedStatement(String type) throws cMsgException {
+
+        String sql = "insert into " + myTableName + " (" +
+            "version,domain,sysMsgId," +
+            "getRequest,getResponse," +
+            "sender,senderHost,senderTime,senderToken," +
+            "userInt,userTime,priority," +
+            "receiver,receiverHost,receiverTime,receiverSubscribeId," +
+            "subject,type,text" +
+            ") values (" +
+            "?,?,?," +
+            "?,?," +
+            "?,?,?,?," +
+            "?,?,?," +
+            "?,?,?,?," +
+            "?,?,?" +
+            ")";
+        try {
+            myPStmt = myCon.prepareStatement(sql);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException("?createPreparedStatement: unable to create prepared statement for " + myTableName);
+            ce.setReturnCode(1);
+            throw ce;
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+//  end class
 //-----------------------------------------------------------------------------
 }
 
