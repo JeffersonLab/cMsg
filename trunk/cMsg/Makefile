@@ -14,8 +14,7 @@ BIN_DIR = ./
 
 # C stuff
 AC_FLAGS  = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
-#CFLAGS    = -O2 -fPIC -I./ $(AC_FLAGS)
-CFLAGS    = -fPIC -I./ $(AC_FLAGS)
+CFLAGS    = -O2 -fPIC -I./ $(AC_FLAGS)
 CXXFLAGS  = $(CFLAGS)
 SHLIB_LD  = ld -G
 
@@ -39,14 +38,15 @@ all: $(CMSG_LIBS) $(PROGS)
 
 java:
 	cd ./org/jlab/coda/cMsg; make;
-	cd ./org/jlab/coda/cMsg/cMsg; make;
+	cd ./org/jlab/coda/cMsg/cMsgDomain; make;
+	cd ./org/jlab/coda/cMsg/cMsgDomain/subdomains; make;
 	cd ./org/jlab/coda/cMsg/apps; make;
-	cd ./org/jlab/coda/cMsg/plugins; make;
 	cd ./;
 
 doc:
 	javah -package org.jlab.coda.cMsg
-	javah -package org.jlab.coda.cMsg.cMsg
+	javah -package org.jlab.coda.cMsg.cMsgDomain
+	javah -package org.jlab.coda.cMsg.cMsgDomain.subdomains
 	javah -package org.jlab.coda.cMsg.apps
 
 install: install-lib install-inc install-bin
@@ -90,9 +90,9 @@ clean:
 	rm -f core *~ *.o *.so *.a *.class $(PROGS)
 jclean: 
 	cd ./org/jlab/coda/cMsg; make clean;
-	cd ./org/jlab/coda/cMsg/cMsg; make clean;
+	cd ./org/jlab/coda/cMsg/cMsgDomain; make clean;
+	cd ./org/jlab/coda/cMsg/cMsgDomain/subdomains; make clean;
 	cd ./org/jlab/coda/cMsg/apps; make clean;
-	cd ./org/jlab/coda/cMsg/plugins; make clean;
 
 # SUFFIX RULES
 

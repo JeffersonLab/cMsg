@@ -4,7 +4,7 @@ import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgCallback;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgCallbackImpl;
-import org.jlab.coda.cMsg.cMsg.cMsg;
+import org.jlab.coda.cMsg.cMsgDomain.cMsg;
 
 /**
  * Created by IntelliJ IDEA.
