@@ -35,7 +35,7 @@ public class cMsgLogger {
 
     // for cMsg
     /** UDL or Universal Domain Locator of cMsg name server. */
-    private String domain = "coda://aslan:3456/coda";
+    private String domain = "cMsg:cMsg://aslan:3456/cMsg";
 
     /** Name of this cMsg client. */
     private String name = "cMsgLogger";

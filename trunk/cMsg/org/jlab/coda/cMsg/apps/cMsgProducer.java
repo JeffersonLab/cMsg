@@ -100,7 +100,7 @@ public class cMsgProducer {
     public void run() throws cMsgException {
         System.out.println("Running Message Producer\n");
 
-        String UDL = "coda://aslan:3456/junk";
+        String UDL = "cMsg:cMsg://aslan:3456/cMsg";
 
         System.out.print("Try to connect ...");
         cMsg coda = new cMsg(UDL, name, "message producer");
