@@ -30,7 +30,8 @@ import org.jlab.coda.cMsg.*;
 import java.lang.*;
 import java.io.*;
 import java.sql.*;
-
+import java.util.Date;
+import java.net.*;
 
 
 //-----------------------------------------------------------------------------
@@ -38,19 +39,20 @@ import java.sql.*;
 
 /**
  * Logs cMsg messages to screen, file, and/or database.
- * subject/type specified on command line.
+ * subject/type specified on command line, defaults to *.
  *
  * @version 1.0
  */
 public class cMsgLogger {
 
 
-    /** Universal Domain Locator. */
+    /** Universal Domain Locator and cMsg system object. */
     private static String UDL = "cMsg:cMsg://ollie/cMsg";
+    private static cMsg cmsg  = null;
 
 
-    /** Name of this client, generally must be unique. */
-    private static String name = "cMsgLogger";
+    /** Name of this client, generally must be unique within domain. */
+    private static String name = null;
 
 
     /** Description of this client. */
@@ -64,10 +66,12 @@ public class cMsgLogger {
 
     /** toScreen true to log to screen. */
     private static boolean toScreen = false;
+    private static boolean verbose  = false;
 
 
     /** filename not null to log to file. */
-    private static String filename = null;
+    private static String filename     = null;
+    private static PrintWriter pWriter = null;
 
 
     /** url not null to log to database. */
@@ -81,6 +85,7 @@ public class cMsgLogger {
 
 
     // misc
+    private static int count     = 0;
     private static boolean done  = false;
     private static boolean debug = false;
 
@@ -95,21 +100,74 @@ public class cMsgLogger {
          */
         public void callback(cMsgMessage msg, Object userObject) {
 
+            count++;
+
+            // output to screen
             if(toScreen) {
+                if(!verbose) {
+                    System.out.println(String.format("%-6d  %12s  %12s  %14s %10s  %10s    %s",
+                                                     count,
+                                                     msg.getSender(),
+                                                     msg.getSenderHost(),
+                                                     new java.sql.Timestamp(msg.getSenderTime().getTime()),
+                                                     msg.getSubject(),
+                                                     msg.getType(),
+                                                     msg.getText()));
+                } else {
+                    System.out.println("msg count is: " + count);
+                    System.out.println(msg.toString());
+                }
             }
 
+
+            // output to file
             if(filename!=null) {
+                if(!verbose) {
+                    pWriter.println(String.format("%-6d  %12s  %12s  %14s %10s  %10s    %s",
+                                                  count,
+                                                  msg.getSender(),
+                                                  msg.getSenderHost(),
+                                                  new java.sql.Timestamp(msg.getSenderTime().getTime()),
+                                                  msg.getSubject(),
+                                                  msg.getType(),
+                                                  msg.getText()));
+                } else {
+                    pWriter.println("msg count is: " + count);
+                    pWriter.println(msg);
+                }
+                pWriter.flush();
             }
 
+
+            // output to database
             if(url!=null) {
                 try {
-                    pStmt.setString(1, msg.getSender());
-                    pStmt.setString(2, msg.getSenderHost());
-                    pStmt.setString(3, msg.getSenderTime().toString());
-                    pStmt.setString(4, msg.getDomain());
-                    pStmt.setString(5, msg.getSubject().substring(subject.length() + 1));
-                    pStmt.setString(6, msg.getType());
-                    pStmt.setString(7, msg.getText());
+                    int i = 1;
+                    pStmt.setInt(i++,       msg.getVersion());
+                    pStmt.setString(i++,    msg.getDomain());
+                    pStmt.setInt(i++,       msg.getSysMsgId());
+
+                    pStmt.setInt(i++,       (msg.isGetRequest()?1:0));
+                    pStmt.setInt(i++,       (msg.isGetResponse()?1:0));
+
+                    pStmt.setString(i++,    msg.getSender());
+                    pStmt.setString(i++,    msg.getSenderHost());
+                    pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getSenderTime().getTime()));
+                    pStmt.setInt(i++,       msg.getSenderToken());
+
+                    pStmt.setInt(i++,       msg.getUserInt());
+                    pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getUserTime().getTime()));
+                    pStmt.setInt(i++,       msg.getPriority());
+
+                    pStmt.setString(i++,    msg.getReceiver());
+                    pStmt.setString(i++,    msg.getReceiverHost());
+                    pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getReceiverTime().getTime()));
+                    pStmt.setInt(i++,       msg.getReceiverSubscribeId());
+
+                    pStmt.setString(i++,    msg.getSubject());
+                    pStmt.setString(i++,    msg.getType());
+                    pStmt.setString(i++,    msg.getText());
+
                     pStmt.execute();
                 } catch (SQLException e) {
                     System.err.println("?sql error in callback\n" + e);
@@ -131,8 +189,19 @@ public class cMsgLogger {
         decode_command_line(args);
 
 
+        // generate name if not set
+        if(name==null) {
+            String host="";
+            try {
+                host=InetAddress.getLocalHost().getHostName();
+            } catch (UnknownHostException e) {
+                System.err.println("?unknown host exception");
+            }
+            name = "cMsgLogger:" + host + ":" + (new Date()).getTime();
+        }
+
+
         // connect to cMsg system
-        cMsg cmsg = null;
         try {
             cmsg = new cMsg(UDL, name, description);
             cmsg.connect();
@@ -157,6 +226,12 @@ public class cMsgLogger {
 
         // init file logging
         if(filename!=null) {
+            try {
+                pWriter = new PrintWriter(new BufferedWriter(new FileWriter(filename,true)));
+            } catch (IOException e) {
+                System.err.println("?unable to open file " + filename);
+                filename=null;
+            }
         }
 
 
@@ -179,9 +254,36 @@ public class cMsgLogger {
                 System.exit(-1);
             }
 
+            // check if table exists, create if needed
+            try {
+                DatabaseMetaData dbmeta = con.getMetaData();
+                ResultSet dbrs = dbmeta.getTables(null,null,table,new String [] {"TABLE"});
+                if((!dbrs.next())||(!dbrs.getString(3).equalsIgnoreCase(table))) {
+                    String sql="create table " + table + " (" +
+                        "version int, domain varchar(255), sysMsgId int," +
+                        "getRequest int, getResponse int," +
+                        "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
+                        "userInt int, userTime datetime, priority int," +
+                        "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
+                        "subject  varchar(255), type varchar(128), text text)";
+                    con.createStatement().executeUpdate(sql);
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+                System.exit(-1);
+            }
+
             // get prepared statement object
             try {
-                String sql = "insert into " + table + " (" + "???";
+                String sql = "insert into " + table + " (" +
+                    "version,domain,sysMsgId," +
+                    "getRequest,getResponse," +
+                    "sender,senderHost,senderTime,senderToken," +
+                    "userInt,userTime,priority," +
+                    "receiver,receiverHost,receiverTime,receiverSubscribeId," +
+                    "subject,type,text" +
+                    ") values (" +
+                    "?,?,?," + "?,?," + "?,?,?,?," + "?,?,?," + "?,?,?,?," + "?,?,?" + ")";
                 pStmt = con.prepareStatement(sql);
             } catch (SQLException e) {
                 System.err.println("?unable to prepare statement\n" + e);
@@ -195,31 +297,33 @@ public class cMsgLogger {
 
 
         // wait for messages (forever at the moment...)
-        while (!done) {
-            try {
+        try {
+            while (!done) {
                 Thread.sleep(1);
-            } catch (InterruptedException e) {
             }
+        } catch (Exception e) {
+            System.err.println(e);
         }
 
 
         // done
         try {
-            con.close();
-        } catch (SQLException e) {
-        }
-
-        try {
+            if(filename!=null) {
+                pWriter.flush();
+                pWriter.close();
+            }
+            if(url!=null)con.close();
             cmsg.disconnect();
-        } catch (cMsgException e) {
+        } catch (Exception e) {
+            System.exit(-1);
         }
-
         System.exit(0);
 
     }
 
 
 //-----------------------------------------------------------------------------
+
 
     /**
      * Method to decode the command line used to start this application.
@@ -228,8 +332,8 @@ public class cMsgLogger {
     static public void decode_command_line(String[] args) {
 
         String help = "\nUsage:\n\n" +
-            "   java cMsgLogger [-name name] [-udl domain] [-subject subject] [-type type]\n" +
-            "                   [-screen] [-file filename]\n" +
+            "   java cMsgLogger [-name name] [-descr description] [-udl domain] [-subject subject] [-type type]\n" +
+            "                   [-screen] [-file filename] [-verbose]\n" +
             "                   [-url url] [-table table] [-driver driver] [-account account] [-pwd password]\n" +
             "                   [-debug]\n\n";
 
@@ -240,6 +344,16 @@ public class cMsgLogger {
             if (args[i].equalsIgnoreCase("-h")) {
                 System.out.println(help);
                 System.exit(-1);
+
+            }
+            else if (args[i].equalsIgnoreCase("-name")) {
+                name = args[i + 1];
+                i++;
+
+            }
+            else if (args[i].equalsIgnoreCase("-descr")) {
+                description = args[i + 1];
+                i++;
 
             }
             else if (args[i].equalsIgnoreCase("-udl")) {
@@ -261,7 +375,11 @@ public class cMsgLogger {
                 toScreen=true;
 
             }
-            else if (args[i].equalsIgnoreCase("-filename")) {
+            else if (args[i].equalsIgnoreCase("-verbose")) {
+                verbose=true;
+
+            }
+            else if (args[i].equalsIgnoreCase("-file")) {
                 filename= args[i + 1];
                 i++;
 
@@ -301,31 +419,6 @@ public class cMsgLogger {
 
 
 //-----------------------------------------------------------------------------
-
-
-    /**
-     * Formats string for sql.
-     * @param s string to be formatted
-     * @return formatted string
-     */
-    static public String sqlfmt(String s) {
-
-        if (s == null) return ("''");
-
-        StringBuffer sb = new StringBuffer();
-
-        sb.append("'");
-        for (int i = 0; i < s.length(); i++) {
-            sb.append(s.charAt(i));
-            if (s.charAt(i) == '\'') sb.append("'");
-        }
-        sb.append("'");
-
-        return (sb.toString());
-    }
-
-
+//  end class definition:  cMsgLogger
 //-----------------------------------------------------------------------------
-}        //  end class definition:  cMsgLogger
-
-//-----------------------------------------------------------------------------
+}
