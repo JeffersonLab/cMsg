@@ -56,10 +56,10 @@ public class cMsgClientInfo {
      */
     private SocketChannel channel;
 
-    /** Collection of all message subscriptions. */
+    /** Collection of all subscriptions. */
     private HashSet subscriptions = new HashSet(20);
 
-    /** Collection of all message 1-shot get "subscriptions". */
+    /** Collection of all subscribeAndGet "subscriptions". */
     private HashSet gets = new HashSet(20);
 
     /**
