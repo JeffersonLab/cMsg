@@ -41,7 +41,7 @@ public class cMsgNameServer extends Thread {
 
     /** Port number to listen on. */
     private int port;
-  
+
     /** Port number from which to start looking for a suitable listening port. */
     private int startingPort;
 
@@ -64,19 +64,19 @@ public class cMsgNameServer extends Thread {
 
     /** Level of debug output for this class. */
     private int debug = cMsgConstants.debugInfo;
-  
+
     /** Tell the server to kill spawned threads. */
     private boolean killAllThreads;
-  
+
     /**
      * Sets boolean to kill this and all spawned threads.
      * @param b setting to true will kill this and all spawned threads
      */
     public void setKillAllThreads(boolean b) {killAllThreads = b;}
-  
+
     /** Gets boolean value specifying whether to kill this and all spawned threads. */
     public boolean getKillAllThreads() {return killAllThreads;}
-  
+
     /** Gets type of domain this object serves. */
     public String getDomain() {return domain;}
 
@@ -136,8 +136,8 @@ public class cMsgNameServer extends Thread {
             }
         }
     }
-  
-  
+
+
     /** Run as a stand-alone application. */
     public static void main(String[] args) {
         try {
@@ -196,8 +196,8 @@ public class cMsgNameServer extends Thread {
             else if (subdomain.equalsIgnoreCase("LogFile")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.subdomains.LogFile";
             }
-            else if (subdomain.equalsIgnoreCase("LogTable")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.LogTable";
+            else if (subdomain.equalsIgnoreCase("queue")) {
+                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.queue";
             }
             else if (subdomain.equalsIgnoreCase("smartsockets")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.subdomains.smartsockets";
