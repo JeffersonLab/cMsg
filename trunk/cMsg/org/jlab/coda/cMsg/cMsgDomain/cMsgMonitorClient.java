@@ -21,10 +21,15 @@ import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgClientInfo;
 
 import java.nio.channels.SocketChannel;
+import java.nio.channels.Selector;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.ServerSocketChannel;
 import java.nio.ByteBuffer;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.util.Iterator;
 
 /**
  * This class implements an object to monitor the health of a cMsg client.
@@ -51,6 +56,12 @@ public class cMsgMonitorClient extends Thread {
 
     /** Level of debug output for this class. */
     private int debug = cMsgConstants.debugNone;
+    
+    /**
+     * Do a select before reading a keepalive response. This will catch
+     * dead vxWorks tasks.
+     */
+    private Selector selector;
 
 
     /**
@@ -64,8 +75,17 @@ public class cMsgMonitorClient extends Thread {
         this.domainServer = server;
 
         try {
+            // There is a problem with vxWorks clients in that its sockets are
+            // global and do not close when the client disappears. In fact, the
+            // board can reboot and the other end of the socket will know nothing
+            // about this since apparently no "reset" is sent on that socket.
+            // Since sockets have no timeout on Solaris, the only solution is to
+            // do a select on the read and remove client when it times out.
+            selector = Selector.open();
+
             channel = SocketChannel.open(new InetSocketAddress(info.getClientHost(),
                                                                info.getClientPort()));
+            channel.configureBlocking(false);
             // set socket options
             Socket socket = channel.socket();
             // Set tcpNoDelay so no packets are delayed
@@ -73,6 +93,10 @@ public class cMsgMonitorClient extends Thread {
             // set buffer sizes
             socket.setReceiveBufferSize(65535);
             socket.setSendBufferSize(65535);
+
+            // register the channel with the selector for reads
+            channel.register(selector, SelectionKey.OP_READ);
+
         }
         catch (IOException e) {
             e.printStackTrace();
@@ -108,15 +132,51 @@ public class cMsgMonitorClient extends Thread {
                     channel.write(buffer);
                 }
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("cMsgMonitorClient: wrote keepAlive & 1 to client " +
-                                       info.getName() + "\n");
+                    System.out.println("cMsgMonitorClient: wrote keepAlive & 1 to " +
+                                       info.getName());
                 }
-                // read acknowledgment & keep reading until we have 1 int of data
-                cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("cMsgMonitorClient: read keepAlive client (" +
-                                       info.getName() + ") response\n");
+
+                // wait 2 seconds for client to answer keepalive
+                int n = selector.select(3000);
+
+                // if no answer, this client is dead so remove it
+                if (n == 0) {
+                    selector.close();
+                    channel.close();
+                    if (debug >= cMsgConstants.debugError) {
+                        System.out.println("cMsgMonitorClient: CANNOT COMMUNICATE with " +
+                                           info.getName() + "\n");
+                    }
+
+                    if (domainServer.calledShutdown.compareAndSet(false,true)) {
+                        //System.out.println("SHUTDOWN TO BE RUN BY monitor client thd");
+                        domainServer.shutdown();
+                    }
+                    return;
                 }
+
+                // get an iterator of selected keys (ready sockets)
+                Iterator it = selector.selectedKeys().iterator();
+
+                // look at each key
+                while (it.hasNext()) {
+                    SelectionKey key = (SelectionKey) it.next();
+
+                    // is a readable socket?
+                    if (key.isValid() && key.isReadable()) {
+
+                        // read acknowledgment & keep reading until we have 1 int of data
+                        cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
+                        if (debug >= cMsgConstants.debugInfo) {
+                            System.out.println("  cMsgMonitorClient: read keepAlive response for " +
+                                               info.getName() + "\n\n");
+                        }
+
+                    }
+                    // remove key from selected set since it's been handled
+                    it.remove();
+                }
+
             }
             catch (IOException e) {
                 // client has died, time to bail.
@@ -151,7 +211,7 @@ public class cMsgMonitorClient extends Thread {
                 return;
             }
 
-            try {Thread.sleep(1000);}
+            try {Thread.sleep(2000);}
             catch (InterruptedException e) {}
         }
 
