@@ -115,6 +115,8 @@ public class cMsgMessageFull extends cMsgMessage {
         this.setGetRequest(Boolean.getBoolean(e.getAttribute("getRequest")));
         this.setGetResponse(Boolean.getBoolean(e.getAttribute("getResponse")));
 
+        this.setCreator(e.getAttribute("creator"));
+
         this.setSender(e.getAttribute("sender"));
         this.setSenderHost(e.getAttribute("senderHost"));
         //this.setSenderTime(new Date(e.getAttribute("senderTime")));
@@ -163,6 +165,8 @@ public class cMsgMessageFull extends cMsgMessage {
 
         this.setGetRequest(m.isGetRequest());
         this.setGetResponse(m.isGetResponse());
+
+        this.setCreator(m.getCreator());
 
         this.setSender(m.getSender());
         this.setSenderHost(m.getSenderHost());
