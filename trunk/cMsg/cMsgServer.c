@@ -81,6 +81,10 @@ static void cleanUpHandler(void *arg) {
   int i, status;
   cMsgClientThreadInfo *clientThreads = (cMsgClientThreadInfo *) arg;
   
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "cMsgServerListeningThread: in cleanup handler\n");
+  }
+
   /* for each element in the array ... */
   for (i=0; i<CMSG_CLIENTSMAX; i++) {
     /* if there's a client thread running ... */
@@ -106,8 +110,8 @@ static void cleanUpHandler(void *arg) {
 void *cMsgServerListeningThread(void *arg)
 {
   mainThreadInfo *threadarg = (mainThreadInfo *) arg;
-  int             listenFd = threadarg->listenFd;
-  int             blocking = threadarg->blocking;
+  int             listenFd  = threadarg->listenFd;
+  int             blocking  = threadarg->blocking;
   int             i, err, endian, iov_max, index, status;
   fd_set          readSet;
   struct timeval  timeout;
@@ -121,6 +125,7 @@ void *cMsgServerListeningThread(void *arg)
   cMsgClientThreadInfo clientThreads[CMSG_CLIENTSMAX];
   
   
+  addrlen  = sizeof(cliaddr);
   domain   = (cMsgDomain_CODA *) threadarg->domain;
   domainId = threadarg->domainId;
 
@@ -169,9 +174,12 @@ void *cMsgServerListeningThread(void *arg)
   
   /* install cleanup handler for this thread's cancellation */
   pthread_cleanup_push(cleanUpHandler, (void *) clientThreads);
-
+  
+  /* Tell spawning thread that we're up and running */
+fprintf(stderr, "cMsgServerListeningThread: tell folks we're running\n");
+  threadarg->isRunning = 1;
+  
   /* spawn threads to deal with each client */
-  addrlen = sizeof(cliaddr);
   for ( ; ; ) {
     
     /* if we want things not to block, then use select */
@@ -383,10 +391,10 @@ static void *clientThread(void *arg)
           }
           goto end;
         }
-        
+    
         /* respond with ok */
         alive = htonl(CMSG_OK);
-        if (cMsgTcpWrite(connfd, (void *) alive, sizeof(alive)) != sizeof(alive)) {
+        if (cMsgTcpWrite(connfd, (void *) &alive, sizeof(alive)) != sizeof(alive)) {
           if (cMsgDebug >= CMSG_DEBUG_ERROR) {
             fprintf(stderr, "clientThread: write failure\n");
           }
