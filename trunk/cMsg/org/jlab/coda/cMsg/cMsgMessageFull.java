@@ -203,25 +203,53 @@ public class cMsgMessageFull extends cMsgMessage {
         return msg;
     }
 
+
     /**
-     * Creates a proper response message to this message sent by a client calling "sendAndGet".
+     * Creates a proper response message to this message which was sent by a client calling
+     * sendAndGet.
      *
      * @return message with the response fields properly set.
      * @throws cMsgException if this message was not sent from a "sendAndGet" method call
      */
     public cMsgMessageFull response() throws cMsgException {
-        // If this message was not sent from a "get" method call,
+        // If this message was not sent from a "sendAndGet" method call,
         // a proper response is not possible, since the sysMsgId
         // and senderToken fields will not have been properly set.
         if (!getRequest) {
-            throw new cMsgException("this message not sent by client calling get");
+            throw new cMsgException("this message not sent by client calling sendAndGet");
         }
         cMsgMessageFull msg = new cMsgMessageFull();
         msg.sysMsgId = sysMsgId;
         msg.senderToken = senderToken;
         msg.getResponse = true;
+        msg.info = isGetResponse;
         return msg;
     }
+
+
+    /**
+     * Creates a proper response message to this message which was sent by a client calling
+     * sendAndGet. In this case, the response message is encoded so that the receiver of this
+     * message (original sendAndGet caller) does not receive a message at all, but only a null.
+     *
+     * @return message with the response fields properly set so original sender gets a null
+     * @throws cMsgException if this message was not sent from a "sendAndGet" method call
+     */
+    public cMsgMessageFull nullResponse() throws cMsgException {
+        // If this message was not sent from a "get" method call,
+        // a proper response is not possible, since the sysMsgId
+        // and senderToken fields will not have been properly set.
+        if (!getRequest) {
+            throw new cMsgException("this message not sent by client calling sendAndGet");
+        }
+        cMsgMessageFull msg = new cMsgMessageFull();
+        msg.sysMsgId = sysMsgId;
+        msg.senderToken = senderToken;
+        msg.getResponse = true;
+        msg.info = isGetResponse | isNullGetResponse;
+        return msg;
+    }
+
 
 
     /**
@@ -255,7 +283,19 @@ public class cMsgMessageFull extends cMsgMessage {
      * Specify whether this message is a "sendAndGet" request.
      * @param getRequest true if this message is a "sendAndGet" request
      */
-    public void setGetRequest(boolean getRequest) {this.getRequest = getRequest;}
+    public void setGetRequest(boolean getRequest) {
+        this.getRequest = getRequest;
+        info = getRequest ? info|isGetRequest : info & ~isGetRequest;
+    }
+
+
+    /**
+     * Set the info member.
+     * @param info value of info member
+     */
+    public void setInfo(int info) {
+        this.info = info;
+    }
 
 
     /**

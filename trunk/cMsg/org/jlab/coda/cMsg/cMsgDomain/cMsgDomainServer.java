@@ -559,7 +559,8 @@ public class cMsgDomainServer extends Thread {
             msg.setUserInt(inComing[2]);
             msg.setSysMsgId(inComing[3]);
             msg.setSenderToken(inComing[4]);
-            msg.setGetResponse(inComing[5] == 0 ? false : true);
+            msg.setGetResponse((inComing[5] & cMsgMessage.isGetResponse) == 0 ? false : true);
+            msg.setInfo(inComing[5]);
             // time message sent in seconds since midnight GMT, Jan 1, 1970
             msg.setSenderTime(new Date(((long) inComing[6]) * 1000));
             // user time in seconds since midnight GMT, Jan 1, 1970
@@ -681,6 +682,7 @@ public class cMsgDomainServer extends Thread {
                                       lengthCreator, "US-ASCII"));
 
             // fill in message object's members
+            msg.setInfo(cMsgMessage.isGetRequest);
             msg.setGetRequest(true);
             msg.setDomain(domainType);
             msg.setReceiver("cMsg domain server");
@@ -838,7 +840,7 @@ public class cMsgDomainServer extends Thread {
                     if (permanent) {
                         continue;
                     }
-                    // if this is a temp thread, disappear after no requests for a second
+                    // if this is a temp thread, disappear after no requests for 1/2 second
                     else {
                         tempThreads.getAndDecrement();
                         //System.out.println(temp +" temp");

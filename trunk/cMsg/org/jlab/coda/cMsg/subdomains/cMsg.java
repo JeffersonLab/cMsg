@@ -311,8 +311,7 @@ public class cMsg extends cMsgSubdomainAdapter {
             info = specificGets.remove(id);
             deleteGets.remove(id);
 
-            // If someone else responded to the get first (info == null),
-            // skip the next block and send message as a regular "send".
+            // If this is the first response to a sendAndGet ...
             if (info != null) {
                 // Deliver this msg to this client. If there is no socket connection, make one.
                 if (info.getChannel() == null) {
@@ -326,14 +325,27 @@ public class cMsg extends cMsgSubdomainAdapter {
 
                 try {
 //System.out.println(" handle send msg for send&get to " + info.getName());
-                    deliverMessage(info.getChannel(), buffer, message, null,
-                                   cMsgConstants.msgGetResponse);
+                    if (message.isNullGetResponse()) {
+                        deliverMessage(info.getChannel(), buffer, message, null,
+                                       cMsgConstants.msgGetResponseIsNull);
+                    }
+                    else {
+                        deliverMessage(info.getChannel(), buffer, message, null,
+                                       cMsgConstants.msgGetResponse);
+                    }
                 }
                 catch (IOException e) {
                     return;
                 }
                 return;
             }
+            // If this is an Nth response to the sendAndGet ...
+            else if (message.isNullGetResponse()) {
+                // if the message is a null response, just dump it
+                return;
+            }
+            // If we're here, it's a normal message.
+            // Send it like any other to all subscribers.
         }
 
         // Scan through all clients.
