@@ -62,6 +62,17 @@ public class LogTable implements cMsgHandleRequests {
 
 
     /**
+     * Method to give the subdomain handler the appropriate part
+     * of the UDL the client used to talk to the domain server.
+     *
+     * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
+     * @throws cMsgException
+     */
+    public void setUDLRemainder(String UDLRemainder) throws cMsgException {
+    }
+    
+
+    /**
      * Method to register domain client.
      * Creates separate database connection for each client connection.
      * UDL contains driver name, database JDBC URL, account, password, and table name to use.
@@ -106,9 +117,8 @@ public class LogTable implements cMsgHandleRequests {
 
     /**
      * Method to unregister domain client.
-     * @param name name of client
      */
-    public void unregisterClient(String name) {
+    public void unregisterClient() {
     }
 
 
@@ -116,12 +126,11 @@ public class LogTable implements cMsgHandleRequests {
      * Method to handle message sent by client.
      * Inserts message into SQL database table via JDBC.
      *
-     * @param name name of client
      * @param msg message from sender
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                          or socket properties cannot be set
      */
-    public void handleSendRequest(String name, cMsgMessage msg) throws cMsgException {
+    public void handleSendRequest(cMsgMessage msg) throws cMsgException {
 	try {
 	    myStmt.setString	(1,  msg.getDomain());
 	    myStmt.setInt   	(2,  msg.getSysMsgId());
@@ -150,14 +159,13 @@ public class LogTable implements cMsgHandleRequests {
      * Method to handle subscribe request sent by domain client.
      * Not implemented.
      *
-     * @param name name of client
      * @param subject message subject to subscribe to
      * @param type message type to subscribe to
      * @param receiverSubscribeId message id refering to these specific subject and type values
      * @throws cMsgException if no client information is available or a subscription for this
      *                          subject and type already exists
      */
-    public void handleSubscribeRequest(String name, String subject, String type,
+    public void handleSubscribeRequest(String subject, String type,
                                        int receiverSubscribeId) throws cMsgException {
 	// do nothing...
     }
@@ -168,12 +176,25 @@ public class LogTable implements cMsgHandleRequests {
      * This method is run after all exchanges between domain server and client.
      * Not implemented.
      *
-     * @param name name of client
      * @param subject message subject subscribed to
      * @param type message type subscribed to
      */
-    public void handleUnsubscribeRequest(String name, String subject, String type) {
+    public void handleUnsubscribeRequest(String subject, String type) {
 	// do nothing...
+    }
+
+
+    /**
+     * Method to get a single message from the server for a given
+     * subject and type.
+     *
+     * @param subject subject of message to get
+     * @param type type of message to get
+     * @return cMsgMessage message obtained by this get
+     */
+    public cMsgMessage handleGetRequest(String subject, String type) {
+        // do nothing...
+        return null;
     }
 
 
@@ -182,12 +203,9 @@ public class LogTable implements cMsgHandleRequests {
      * if the domain server socket is still up. Normally nothing needs to
      * be done as the domain server simply returns an "OK" to all keepalives.
      * This method is run after all exchanges between domain server and client.
-     * Not implemented.
-     *
-     * @param name name of client
      */
-    public void handleKeepAlive(String name) {
-	// do nothing...
+    public void handleKeepAlive() {
+        // do nothing...
     }
 
 
@@ -196,26 +214,24 @@ public class LogTable implements cMsgHandleRequests {
      * Normally nothing needs to be done as the domain server simply returns an
      * "OK" and closes the channel. This method is run after all exchanges between
      * domain server and client.
-     * Not implemented.
-     *
-     * @param name name of client
      */
-    public void handleDisconnect(String name) {
+    public void handleDisconnect() {
+	// do nothing...
+    }
+
+
+    public void handleClientShutdown() throws cMsgException {
 	// do nothing...
     }
 
 
     /**
-     * Method to handle a request sent by domain client to shut the domain server down.
+     * Method to handle a complete name server down.
      * This method is run after all exchanges between domain server and client but
-     * before the domain server thread is killed (since that is what is running this
+     * before the server is killed (since that is what is running this
      * method).
-     * Not implemented.
-     *
-     * @param name name of client
      */
-    public void handleShutdown(String name) {
-	// do nothing
+    public void handleServerShutdown() throws cMsgException {
     }
 
 }
