@@ -81,6 +81,9 @@ public class cMsgMessage implements Cloneable {
     /** Creator of the this message. */
     String creator;
 
+    /** Class member reserved for future use. */
+    int reserved;
+
 
     // user-settable quantities
 
@@ -93,9 +96,6 @@ public class cMsgMessage implements Cloneable {
 
     /** Text of message. */
     String text;
-
-    /** Message priority set by user where 0 is both the default and the lowest value. */
-    int priority;
 
     /** Integer supplied by user. */
     int userInt;
@@ -153,7 +153,7 @@ public class cMsgMessage implements Cloneable {
         subject             = msg.subject;
         type                = msg.type;
         text                = msg.text;
-        priority            = msg.priority;
+        reserved            = msg.reserved;
         userInt             = msg.userInt;
         userTime            = msg.userTime;
         sender              = msg.sender;
@@ -268,6 +268,15 @@ public class cMsgMessage implements Cloneable {
      */
     public boolean isGetResponse() {return ((info & isGetResponse) == isGetResponse ? true : false);}
     /**
+     * Specify whether this message is a response to a "sendAndGet" message.
+     * @param getResponse true if this message is a response to a "sendAndGet" message
+     */
+    public void setGetResponse(boolean getResponse) {
+        info = getResponse ? info|isGetResponse : info & ~isGetResponse;
+    }
+
+
+    /**
      * Is this message a response to a "sendAndGet" request with a null
      * pointer to be delivered instead of this message?
      * @return true if this message is a response to a "sendAndGet" request
@@ -275,15 +284,10 @@ public class cMsgMessage implements Cloneable {
      */
     public boolean isNullGetResponse() {return ((info & isNullGetResponse) == isNullGetResponse ? true : false);}
     /**
-     * Specify whether this message is a response to a "sendAndGet" message.
-     * @param getResponse true if this message is a response to a "sendAndGet" message
-     */
-    public void setGetResponse(boolean getResponse) {
-        info = getResponse ? info|isGetResponse : info & ~isGetResponse;
-    }
-    /**
-     * Specify whether this message is a response to a "sendAndGet" message.
-     * @param getResponse true if this message is a response to a "sendAndGet" message
+     * Specify whether this message is a response to a "sendAndGet" request with a null
+     * pointer to be delivered instead of this message.
+     * @param nullGetResponse true if this message is a response to a "sendAndGet" request
+     *                        with a null pointer to be delivered instead of this message
      */
     public void setNullGetResponse(boolean nullGetResponse) {
         info = nullGetResponse ? info|isNullGetResponse : info & ~isNullGetResponse;
@@ -364,21 +368,6 @@ public class cMsgMessage implements Cloneable {
      * @param text ext of message.
      */
     public void setText(String text) {this.text = text;}
-
-
-    /**
-     * Get message's priority.
-     * @return priority of message.
-     */
-    public int getPriority() {return priority;}
-    /**
-      * Set message's priority.
-      * @param priority message's priority.
-      */
-    public void setPriority(int priority) {
-        if (priority < 0) priority = 0;
-        this.priority = priority;
-    }
 
 
     /**
@@ -490,7 +479,6 @@ public class cMsgMessage implements Cloneable {
             + "     " + "senderToken          = \"" + this.getSenderToken() + "\"\n"
             + "     " + "userInt              = \"" + this.getUserInt() + "\"\n"
             + "     " + "userTime             = \"" + this.getUserTime() + "\"\n"
-            + "     " + "priority             = \"" + this.getPriority() + "\"\n"
             + "     " + "receiver             = \"" + this.getReceiver() + "\"\n"
             + "     " + "receiverHost         = \"" + this.getReceiverHost() + "\"\n"
             + "     " + "receiverTime         = \"" + this.getReceiverTime() + "\"\n"
