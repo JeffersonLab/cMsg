@@ -272,7 +272,7 @@ public class cMsgDomainServer extends Thread {
      * @param channel nio socket communication channel
      */
     private void handleClient(SocketChannel channel) {
-        int msgId = 0;
+        int msgId = 0, answer = 0;
         cMsgMessage msg;
 
         try {
@@ -304,7 +304,8 @@ public class cMsgDomainServer extends Thread {
                         System.out.println("dServer handleClient: got send request from " + info.name);
                     }
                     msg = readIncomingMessage(channel);
-                    clientHandler.handleSyncSendRequest(msg);
+                    answer = clientHandler.handleSyncSendRequest(msg);
+                    syncSendReply(channel, answer);
                     break;
 
                 case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
@@ -495,6 +496,25 @@ public class cMsgDomainServer extends Thread {
         msg.setSenderHost(info.clientHost);
 
         return msg;
+    }
+
+
+    /**
+     * This method returns the value received from the subdomain handler object's
+     * handleSyncSend method to the client.
+     *
+     * @param channel nio socket communication channel
+     * @param answer handleSyncSend return value to pass to client
+     * @throws IOException If socket read or write error
+     */
+    private void syncSendReply(SocketChannel channel, int answer) throws IOException {
+
+        // send back answer
+        buffer.clear();
+        buffer.putInt(answer).flip();
+        while (buffer.hasRemaining()) {
+            channel.write(buffer);
+        }
     }
 
 
