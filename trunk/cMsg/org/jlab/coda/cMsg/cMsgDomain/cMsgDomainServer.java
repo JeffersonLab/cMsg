@@ -21,8 +21,7 @@ import java.net.*;
 import java.lang.*;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.locks.Condition;
+import java.util.concurrent.TimeUnit;
 import java.nio.channels.Selector;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
@@ -67,8 +66,22 @@ public class cMsgDomainServer extends Thread {
     /** Server channel (contains socket). */
     ServerSocketChannel serverChannel;
 
-    private static final int MAX_THREADS = 50;
-    private ThreadPool pool = new ThreadPool(10, MAX_THREADS);
+    /**
+     * Thread-safe queue to hold cMsgHolder objects.
+     * These are client request to be passed on the server.
+     */
+    LinkedBlockingQueue<cMsgHolder> requestCue;
+
+    /** A direct buffer is necessary for nio socket IO. */
+    private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+
+    /** Allocate int array once (used for reading in data) for efficiency's sake. */
+    private int[] inComing = new int[10];
+
+    /** Allocate byte array once (used for reading in data) for efficiency's sake. */
+    byte[] bytes = new byte[5000];
+
+    int temp, perm;
 
     /** Tell the server to kill this and all spawned threads. */
     boolean killAllThreads;
@@ -111,6 +124,12 @@ public class cMsgDomainServer extends Thread {
         // Port number to listen on
         port = startingPort;
         this.info = info;
+        requestCue = new LinkedBlockingQueue<cMsgHolder>(5000);
+
+        // start up permanent worker threads
+        for (int i = 0; i < 1; i++) {
+            new RequestThread(true);
+        }
 
         // At this point, find a port to bind to. If that isn't possible, throw
         // an exception. We want to do this in the constructor, because it's much
@@ -237,6 +256,12 @@ public class cMsgDomainServer extends Thread {
                 }
             }
         }
+//BUGBUG
+        catch (cMsgException ex) {
+            if (debug >= cMsgConstants.debugError) {
+                //ex.printStackTrace();
+            }
+        }
         catch (IOException ex) {
             if (debug >= cMsgConstants.debugError) {
                 //ex.printStackTrace();
@@ -251,551 +276,465 @@ public class cMsgDomainServer extends Thread {
     }
 
 
-    private void handleClient(SelectionKey key) {
-        WorkerThread worker = pool.getWorker();
-
-        if (worker == null) {
-            // No threads available, do nothing, the selection
-            // loop will keep calling this method until a
-            // thread becomes available.  This design could
-            // be improved.
-            return;
-        }
-
-        // invoking this wakes up the worker thread then returns
-        worker.serviceChannel(key);
-    }
-
-
     /**
-     * A very simple thread pool class. The pool size is set at
-     * construction time but can expand up to a limit. Threads are
-     * cycled through a FIFO idle queue.
-     */
-    private class ThreadPool {
-        /** Thread-safe queue to hold worker threads. */
-        LinkedBlockingQueue<WorkerThread> cue;
-        /** Current number of threads in pool. */
-        int poolSize;
-        /** Size limit of pool. */
-        final int sizeLimit;
-
-        /**
-         * Constructor with initial pool size and limit inputs.
-         * @param poolSize initial number of worker threads in pool
-         * @param sizeLimit maximum number of worker threads in pool
-         */
-        ThreadPool(int poolSize, int sizeLimit) {
-            this.poolSize  = poolSize;
-            this.sizeLimit = sizeLimit;
-            cue = new LinkedBlockingQueue<WorkerThread>(sizeLimit);
-
-            // fill up the pool with worker threads
-            for (int i = 0; i < poolSize; i++) {
-                WorkerThread thread = new WorkerThread(this);
-
-                // set thread name for debugging, start it
-                thread.setName("Worker" + (i + 1));
-                thread.start();
-
-                // add to list of idle threads
-                cue.offer(thread);
-            }
-        }
-
-        /**
-         * Find an idle worker thread, if any.  Could return null.
-         * @return worker thread
-         */
-        WorkerThread getWorker() {
-            WorkerThread worker = null;
-
-            // return first available thread
-            worker = cue.poll();
-            if (worker != null) {
-                return worker;
-            }
-
-            synchronized (cue) {
-                if (poolSize < sizeLimit) {
-                    // increment while mutex protected
-                    poolSize++;
-
-                    // create another worker
-                    worker = new WorkerThread(this);
-                    worker.setName("Worker" + poolSize);
-                    worker.start();
-                    return worker;
-                }
-            }
-
-            // block here waiting for next thread
-            try { worker = cue.take(); }
-            catch (InterruptedException e) {}
-
-            return (worker);
-        }
-
-        /**
-         * Called by the worker thread to return itself to the idle pool.
-         * @param worker thread to be returned to the pool
-         */
-        void returnWorker(WorkerThread worker) {
-            if (!cue.offer(worker)) {
-                return;
-            }
-        }
-    }
-
-
-    /**
-     * A worker thread class which reads the socket for a client instruction
-     * and information. There is one client connection for one worker thread.
-     * Each instance is constructed with a reference to the owning thread
-     * pool object. When started, the thread is forever waiting to be awakened
-     * to service by the channel associated with a SelectionKey object.
+     * This method handles all communication between a cMsg user who has
+     * connected to a domain and this server for that domain.
      *
-     * The worker is tasked by calling its serviceChannel() method
-     * with a SelectionKey object.  The serviceChannel() method stores
-     * the key reference in the thread object then calls notify()
-     * to wake it up.  When the channel has been dealt with, the worker
-     * thread returns itself to its parent pool.
+     * @param key selection key contains socket to client
      */
-    private class WorkerThread extends Thread {
-        /** A direct buffer is necessary for nio socket IO. */
-        private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
-        /** Thread pool this worker thread belongs to. */
-        private ThreadPool pool;
-        /** From select statement. */
-        private SelectionKey key;
+    private void handleClient(SelectionKey key) throws IOException, cMsgException {
+        int msgId;
+        SocketChannel channel = (SocketChannel) key.channel();
 
-        /** Allocate int array once (used for reading in data) for efficiency's sake. */
-        private int[] inComing = new int[10];
-
-        /** Allocate byte array once (used for reading in data) for efficiency's sake. */
-        byte[] bytes = new byte[5000];
-
-        // The following 3 members are holders for information that comes from the client
-        // so that information can be passed on to the object which handles all the client
-        // requests.
-
-        /** Identifier that uniquely determines the subject/type pair for a client subscription. */
-        private int receiverSubscribeId;
-        /** Message subject. */
-        private String subject;
-        /** Message type. */
-        private String type;
-
-        /**
-         * Lock used with condition variable to wait on signal. Slightly more
-         * efficient than wait & notify.
-         */
-        private ReentrantLock lock = new ReentrantLock();
-        /** Condition variable to wait on signal. */
-        private Condition threadNeeded = lock.newCondition();
-
-
-        /**
-         * Constructor.
-         * @param pool reference to thread pool this worker thread is a member of
-         */
-        WorkerThread(ThreadPool pool) {
-            this.pool = pool;
+        // keep reading until we have an int (4 bytes) of data
+        if (cMsgUtilities.readSocketBytes(buffer, channel, 4, debug) < 4) {
+            // got less than 1 int, something's wrong, kill connection
+            throw new cMsgException("Command from client is not proper format");
         }
 
-        /** Loop forever waiting for work to do. */
-        public void run() {
+        // make buffer readable
+        buffer.flip();
 
-            //System.out.println(this.getName() + " is ready");
+        // read client's request
+        msgId = buffer.getInt();
+
+        cMsgHolder holder = null;
+
+        switch (msgId) {
+
+            case cMsgConstants.msgSendRequest: // receiving a message
+                holder = readSendInfo(channel);
+                break;
+
+            case cMsgConstants.msgSyncSendRequest: // receiving a message
+                holder = readSendInfo(channel);
+                holder.channel = channel;
+                break;
+
+            case cMsgConstants.msgGetRequest: // getting a message of subject & type
+                holder = readGetInfo(channel);
+                break;
+
+            case cMsgConstants.msgUngetRequest: // ungetting from a subject & type
+                holder = readUngetInfo(channel);
+                break;
+
+            case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
+                holder = readSubscribeInfo(channel);
+                break;
+
+            case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
+                holder = readSubscribeInfo(channel);
+                break;
+
+            case cMsgConstants.msgKeepAlive: // see if this end is still here
+                // send ok back as acknowledgment
+                buffer.clear();
+                buffer.putInt(cMsgConstants.ok).flip();
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer);
+                }
+                clientHandler.handleKeepAlive();
+                break;
+
+            case cMsgConstants.msgDisconnectRequest: // client disconnecting
+                // send ok back as acknowledgment
+                buffer.clear();
+                buffer.putInt(cMsgConstants.ok).flip();
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer);
+                }
+                // close channel and unregister from selector
+                channel.close();
+                // tell client handler to shutdown
+                clientHandler.handleClientShutdown();
+                // need to shutdown this domain server
+                killAllThreads();
+                break;
+
+            case cMsgConstants.msgShutdown: // told this domain server to shutdown
+                // send ok back as acknowledgment
+                buffer.clear();
+                buffer.putInt(cMsgConstants.ok).flip();
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer);
+                }
+                // close channel and unregister from selector
+                channel.close();
+                // tell client handler to shutdown
+                clientHandler.handleClientShutdown();
+                // need to shutdown this domain server
+                killAllThreads();
+                break;
+
+            default:
+                if (debug >= cMsgConstants.debugWarn) {
+                    System.out.println("dServer handleClient: can't understand your message " + info.name);
+                }
+                break;
+        }
+
+        // resume interest in OP_READ
+        key.interestOps(key.interestOps() | SelectionKey.OP_READ);
+
+        // cycle the selector so this key is active again
+        key.selector().wakeup();
+
+        // if we got something to put on the cue, do it
+        if (holder != null) {
+            holder.request = msgId;
+            try {requestCue.put(holder);}
+            catch (InterruptedException e) {}
+        }
+
+        // if the cue is getting large, add temp threads to handle the load
+        if (requestCue.size() > 2000) {
+            new RequestThread();
+        }
+
+        return;
+    }
+
+
+      /**
+       * This method reads an incoming cMsgMessage from a client.
+       *
+       * @param channel nio socket communication channel
+       * @return object holding message read from channel
+       * @throws IOException If socket read or write error
+       */
+      private cMsgHolder readSendInfo(SocketChannel channel) throws IOException {
+
+          // create a message
+          cMsgMessage msg = new cMsgMessage();
+
+          // keep reading until we have 10 ints of data
+          cMsgUtilities.readSocketBytes(buffer, channel, 40, debug);
+
+          // go back to reading-from-buffer mode
+          buffer.flip();
+
+          // read 10 ints
+          buffer.asIntBuffer().get(inComing, 0, 10);
+
+          // system message id
+          msg.setSysMsgId(inComing[0]);
+          // is sender doing get request?
+          msg.setGetRequest(inComing[1] == 0 ? false : true);
+          // is sender doing get response?
+          msg.setGetResponse(inComing[2] == 0 ? false : true);
+          // sender id
+          msg.setSenderId(inComing[3]);
+          // time message sent in seconds since midnight GMT, Jan 1, 1970
+          msg.setSenderTime(new Date(((long) inComing[4]) * 1000));
+          // sender message id
+          msg.setSenderMsgId(inComing[5]);
+          // sender token
+          msg.setSenderToken(inComing[6]);
+          // length of message subject
+          int lengthSubject = inComing[7];
+          // length of message type
+          int lengthType = inComing[8];
+          // length of message text
+          int lengthText = inComing[9];
+
+          // bytes expected
+          int bytesToRead = lengthSubject + lengthType + lengthText;
+
+          // read in all remaining bytes
+          cMsgUtilities.readSocketBytes(buffer, channel, bytesToRead, debug);
+
+          // go back to reading-from-buffer mode
+          buffer.flip();
+
+          // allocate bigger byte array if necessary
+          // (allocate more than needed for speed's sake)
+          if (bytesToRead > bytes.length) {
+              bytes = new byte[bytesToRead];
+              System.out.println("DS:  ALLOCATING BUFFER, bytes = " + bytesToRead);
+          }
+
+          // read into array
+          buffer.get(bytes, 0, bytesToRead);
+
+          // read subject
+          msg.setSubject(new String(bytes, 0, lengthSubject, "US-ASCII"));
+
+          // read type
+          msg.setType(new String(bytes, lengthSubject, lengthType, "US-ASCII"));
+
+          // read text
+          msg.setText(new String(bytes, lengthSubject + lengthType, lengthText, "US-ASCII"));
+
+          // fill in message object's members
+          msg.setDomain(domainType);
+          msg.setReceiver("cMsg domain server");
+          msg.setReceiverHost(host);
+          msg.setReceiverTime(new Date()); // current time
+          msg.setSender(info.name);
+          msg.setSenderHost(info.clientHost);
+
+          return new cMsgHolder(msg);
+      }
+
+
+      /**
+       * This method reads an incoming cMsgMessage from a client doing a "get".
+       *
+       * @param channel nio socket communication channel
+       * @return object holding message read from channel
+       * @throws IOException If socket read or write error
+       */
+      private cMsgHolder readGetInfo(SocketChannel channel) throws IOException {
+
+          // create a message
+          cMsgMessage msg = new cMsgMessage();
+
+          // keep reading until we have 9 ints of data
+          cMsgUtilities.readSocketBytes(buffer, channel, 36, debug);
+
+          // go back to reading-from-buffer mode
+          buffer.flip();
+
+          // read 9 ints
+          buffer.asIntBuffer().get(inComing, 0, 9);
+
+          // is sender doing specific get or just 1-shot subscribe?
+          msg.setGetRequest(inComing[0] == 1 ? true : false);
+          // sender's unique receiverSubscribeId (for general get)
+          msg.setReceiverSubscribeId(inComing[1]);
+          // sender id
+          msg.setSenderId(inComing[2]);
+          // time message sent in seconds since midnight GMT, Jan 1, 1970
+          msg.setSenderTime(new Date(((long) inComing[3]) * 1000));
+          // sender message id
+          msg.setSenderMsgId(inComing[4]);
+          // sender token (for specific get)
+          msg.setSenderToken(inComing[5]);
+          // length of message subject
+          int lengthSubject = inComing[6];
+          // length of message type
+          int lengthType = inComing[7];
+          // length of message text
+          int lengthText = inComing[8];
+
+          // bytes expected
+          int bytesToRead = lengthSubject + lengthType + lengthText;
+
+          // read in all remaining bytes
+          cMsgUtilities.readSocketBytes(buffer, channel, bytesToRead, debug);
+
+          // go back to reading-from-buffer mode
+          buffer.flip();
+
+          // allocate bigger byte array if necessary
+          // (allocate more than needed for speed's sake)
+          if (bytesToRead > bytes.length) {
+              bytes = new byte[bytesToRead];
+          }
+
+          // read into array
+          buffer.get(bytes, 0, bytesToRead);
+
+          // read subject
+          msg.setSubject(new String(bytes, 0, lengthSubject, "US-ASCII"));
+
+          // read type
+          msg.setType(new String(bytes, lengthSubject, lengthType, "US-ASCII"));
+
+          // read text
+          msg.setText(new String(bytes, lengthSubject + lengthType, lengthText, "US-ASCII"));
+
+          // fill in message object's members
+          msg.setDomain(domainType);
+          msg.setReceiver("cMsg domain server");
+          msg.setReceiverHost(host);
+          msg.setReceiverTime(new Date()); // current time
+          msg.setSender(info.name);
+          msg.setSenderHost(info.clientHost);
+
+          return new cMsgHolder(msg);
+      }
+
+
+      /**
+       * This method reads an incoming subscribe request from a client.
+       *
+       * @param channel nio socket communication channel
+       * @return object holding subject, type, and id read from channel
+       * @throws IOException If socket read or write error
+       */
+      private cMsgHolder readSubscribeInfo(SocketChannel channel) throws IOException {
+          cMsgHolder holder = new cMsgHolder();
+
+          // keep reading until we have 3 ints of data
+          cMsgUtilities.readSocketBytes(buffer, channel, 12, debug);
+
+          // go back to reading-from-buffer mode
+          buffer.flip();
+
+          // read 3 ints
+          buffer.asIntBuffer().get(inComing, 0, 3);
+
+          // id of subject/type combination  (receiverSubscribedId)
+          holder.id = inComing[0];
+          // length of subject
+          int lengthSubject = inComing[1];
+          // length of type
+          int lengthType = inComing[2];
+
+          // bytes expected
+          int bytesToRead = lengthSubject + lengthType;
+
+          // read in all remaining bytes
+          cMsgUtilities.readSocketBytes(buffer, channel, bytesToRead, debug);
+
+          // go back to reading-from-buffer mode
+          buffer.flip();
+
+          // allocate bigger byte array if necessary
+          // (allocate more than needed for speed's sake)
+          if (bytesToRead > bytes.length) {
+              bytes = new byte[bytesToRead];
+          }
+
+          // read into array
+          buffer.get(bytes, 0, bytesToRead);
+
+          // read subject
+          holder.subject = new String(bytes, 0, lengthSubject, "US-ASCII");
+          if (debug >= cMsgConstants.debugInfo) {
+              System.out.println("  subject = " + holder.subject);
+          }
+
+          // read type
+          holder.type = new String(bytes, lengthSubject, lengthType, "US-ASCII");
+          if (debug >= cMsgConstants.debugInfo) {
+              System.out.println("  type = " + holder.type);
+          }
+
+          return holder;
+      }
+
+      /**
+       * This method reads an incoming unget request from a client.
+       *
+       * @param channel nio socket communication channel
+       * @return object holding id read from channel
+       * @throws IOException If socket read or write error
+       */
+      private cMsgHolder readUngetInfo(SocketChannel channel) throws IOException {
+          // keep reading until we have 1 ints of data
+          cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
+
+          // go back to reading-from-buffer mode
+          buffer.flip();
+
+          // id of subject/type combination  (senderToken actually)
+          cMsgHolder holder = new cMsgHolder();
+          holder.id = buffer.getInt();
+
+          return holder;
+      }
+
+
+    /** Class for taking a cued-up request from the client and processing it. */
+    private class RequestThread extends Thread {
+        /** Is this thread temporary or permanent? */
+        boolean permanent;
+
+        /** Self-starting constructor. */
+        RequestThread() {
+            this.permanent = false;
+            //temp++;
+            //System.out.println(temp +" temp");
+            this.start();
+        }
+
+        /** Self-starting constructor. */
+        RequestThread(boolean permanent) {
+            this.permanent = permanent;
+            //perm++;
+            //System.out.println(perm + " perm");
+            this.start();
+        }
+
+        /**
+         * Loop forever waiting for work to do.
+         */
+        public void run() {
+            // grab a request from the cue
+            cMsgHolder holder = null;
+            int answer;
 
             while (true) {
-                lock.lock();
-                try {
-                    while (key == null)  {
-                        threadNeeded.await();
+                // if this is a permanent thread, we can block on a request
+                if (permanent) {
+                    try {holder = requestCue.take();}
+                    catch (InterruptedException e) {}
+                }
+                // if this is a temp thread, poll for a while and then disappear
+                else {
+                    try {holder = requestCue.poll(1, TimeUnit.SECONDS);}
+                    catch (InterruptedException e) {}
+                    if (holder == null) {
+                        //temp--;
+                        //System.out.println(temp +" temp Q");
+                        return;
                     }
                 }
-                catch (InterruptedException e) {
-                    e.printStackTrace();
-                    // clear interrupt status
-                    this.interrupted();
-                }
-                finally {
-                    lock.unlock();
-                }
-
-/*
-                try {
-                    // sleep and release object lock
-                    this.wait();
-                }
-                catch (InterruptedException e) {
-                    e.printStackTrace();
-                    // clear interrupt status
-                    this.interrupted();
-                }
-
-                if (key == null) {continue;}
-*/
 
                 try {
-                    handleClient(key);
+                    switch (holder.request) {
+
+                        case cMsgConstants.msgSendRequest: // receiving a message
+
+                            //try {
+                               // if (permanent)
+                               //     Thread.sleep(1);
+                           // }
+                           // catch (InterruptedException e) {
+                           // }
+
+                            clientHandler.handleSendRequest(holder.message);
+                            break;
+
+                        case cMsgConstants.msgSyncSendRequest: // receiving a message
+                            answer = clientHandler.handleSyncSendRequest(holder.message);
+                            syncSendReply(holder.channel, answer);
+                            break;
+
+                        case cMsgConstants.msgGetRequest: // getting a message of subject & type
+                            clientHandler.handleGetRequest(holder.message);
+                            break;
+
+                        case cMsgConstants.msgUngetRequest: // ungetting from a subject & type
+                            clientHandler.handleUngetRequest(holder.id);
+                            break;
+
+                        case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
+                            clientHandler.handleSubscribeRequest(holder.subject, holder.type, holder.id);
+                            break;
+
+                        case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
+                            clientHandler.handleUnsubscribeRequest(holder.subject, holder.type, holder.id);
+                            break;
+
+                        default:
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("dServer handleClient: can't understand your message " + info.name);
+                            }
+                            break;
+                    }
                 }
-                catch (Exception e) {
-                    System.out.println("Caught '" + e + "' closing channel");
-                    if (debug >= cMsgConstants.debugError) {
-                        System.out.println("dServer handleClient: I/O ERROR in cMsg client " + info.name + ": " + e.getMessage());
-                    }
-
-                    // close channel and nudge selector
-                    try {
-                        key.channel().close();
-                    }
-                    catch (IOException ex) {
-                        ex.printStackTrace();
-                    }
-
-                    key.selector().wakeup();
+                catch (cMsgException e) {
                 }
-
-                key = null;
-
-                // done, ready for more, return to pool
-                this.pool.returnWorker(this);
-            }
-        }
-
-        /**
-         * Called to initiate a unit of work by this worker thread
-         * on the provided SelectionKey object.  This method is
-         * synchronized, as is the run() method, so only one key
-         * can be serviced at a given time.
-         * Before waking the worker thread, and before returning
-         * to the main selection loop, this key's interest set is
-         * updated to remove OP_READ.  This will cause the selector
-         * to ignore read-readiness for this channel while the
-         * worker thread is servicing it.
-         *
-         * @param key selection key containing socket to client
-         */
-        void serviceChannel(SelectionKey key) {
-            this.key = key;
-            key.interestOps(key.interestOps() & (~SelectionKey.OP_READ));
-            // awaken the thread
-            //this.notify();
-            lock.lock();
-            threadNeeded.signal();
-            lock.unlock();
-        }
-
-
-        /**
-         * This method handles all communication between a cMsg user who has
-         * connected to a domain and this server for that domain.
-         *
-         * @param key selection key contains socket to client
-         */
-        private void handleClient(SelectionKey key) throws IOException, cMsgException {
-            int msgId = 0, answer = 0;
-            cMsgMessage msg;
-            SocketChannel channel = (SocketChannel) key.channel();
-
-            // keep reading until we have an int (4 bytes) of data
-            if (cMsgUtilities.readSocketBytes(buffer, channel, 4, debug) < 4) {
-                // got less than 1 int, something's wrong, kill connection
-                throw new cMsgException("Command from client is not proper format");
+                catch (IOException e) {
+                }
             }
 
-            // make buffer readable
-            buffer.flip();
-
-            // read client's request
-            msgId = buffer.getInt();
-
-            switch (msgId) {
-
-                case cMsgConstants.msgSendRequest: // receiving a message
-                    // read the message here
-                    //if (debug >= cMsgConstants.debugInfo) {
-                    //    System.out.println("dServer handleClient: got SEND request from " + info.name);
-                    //}
-                    msg = readSendInfo(channel);
-                    clientHandler.handleSendRequest(msg);
-                    break;
-
-                case cMsgConstants.msgSyncSendRequest: // receiving a message
-                    // read the message here
-                    if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("dServer handleClient: got syncSend request from " + info.name);
-                    }
-                    msg = readSendInfo(channel);
-                    answer = clientHandler.handleSyncSendRequest(msg);
-                    syncSendReply(channel, answer);
-                    break;
-
-                case cMsgConstants.msgGetRequest: // getting a message of subject & type
-                    // read the message here
-                    //if (debug >= cMsgConstants.debugInfo) {
-                    //    System.out.println("dServer handleClient: got GET request from " + info.name);
-                    //}
-                    // get subject, type, and receiverSubscribeId
-                    msg = readGetInfo(channel);
-                    clientHandler.handleGetRequest(msg);
-                    break;
-
-                case cMsgConstants.msgUngetRequest: // ungetting from a subject & type
-                    // read the subject and type here
-                    if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("dServer handleClient: got unget request from " + info.name);
-                    }
-                    readUngetInfo(channel);
-                    clientHandler.handleUngetRequest(receiverSubscribeId);
-                    break;
-
-                case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
-                    // read the subject and type here
-                    if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("dServer handleClient: got subscribe request from " + info.name);
-                    }
-                    // get subject, type, and receiverSubscribeId
-                    readSubscribeInfo(channel);
-                    clientHandler.handleSubscribeRequest(subject, type, receiverSubscribeId);
-                    break;
-
-                case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
-                    // read the subject and type here
-                    if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("dServer handleClient: got unsubscribe request from " + info.name);
-                    }
-                    readSubscribeInfo(channel);
-                    clientHandler.handleUnsubscribeRequest(subject, type, receiverSubscribeId);
-                    break;
-
-                case cMsgConstants.msgKeepAlive: // see if this end is still here
-                    //if (debug >= cMsgConstants.debugInfo) {
-                    //    System.out.println("dServer handleClient: got keep alive from " + info.name);
-                    //}
-                    // send ok back as acknowledgment
-                    buffer.clear();
-                    buffer.putInt(cMsgConstants.ok).flip();
-                    while (buffer.hasRemaining()) {
-                        channel.write(buffer);
-                    }
-                    clientHandler.handleKeepAlive();
-                    break;
-
-                case cMsgConstants.msgDisconnectRequest: // client disconnecting
-                    if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("dServer handleClient: got disconnect from " + info.name);
-                    }
-                    // send ok back as acknowledgment
-                    buffer.clear();
-                    buffer.putInt(cMsgConstants.ok).flip();
-                    while (buffer.hasRemaining()) {
-                        channel.write(buffer);
-                    }
-                    // close channel and unregister from selector
-                    channel.close();
-                    // tell client handler to shutdown
-                    clientHandler.handleClientShutdown();
-                    // need to shutdown this domain server
-                    killAllThreads();
-                    break;
-
-                case cMsgConstants.msgShutdown: // told this domain server to shutdown
-                    if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("handleClient: got shutdown from " + info.name);
-                    }
-                    // send ok back as acknowledgment
-                    buffer.clear();
-                    buffer.putInt(cMsgConstants.ok).flip();
-                    while (buffer.hasRemaining()) {
-                        channel.write(buffer);
-                    }
-                    // close channel and unregister from selector
-                    channel.close();
-                    // tell client handler to shutdown
-                    clientHandler.handleClientShutdown();
-                    // need to shutdown this domain server
-                    killAllThreads();
-                    break;
-
-                default:
-                    if (debug >= cMsgConstants.debugWarn) {
-                        System.out.println("dServer handleClient: can't understand your message " + info.name);
-                    }
-                    break;
-            }
-
-            // resume interest in OP_READ
-            key.interestOps(key.interestOps() | SelectionKey.OP_READ);
-
-            // cycle the selector so this key is active again
-            key.selector().wakeup();
-
-            return;
         }
 
-
-        /**
-         * This method reads an incoming cMsgMessage from a client.
-         *
-         * @param channel nio socket communication channel
-         * @return message read from channel
-         * @throws IOException If socket read or write error
-         */
-        private cMsgMessage readSendInfo(SocketChannel channel) throws IOException {
-
-            // create a message
-            cMsgMessage msg = new cMsgMessage();
-
-            // keep reading until we have 10 ints of data
-            cMsgUtilities.readSocketBytes(buffer, channel, 40, debug);
-
-            // go back to reading-from-buffer mode
-            buffer.flip();
-
-            // read 10 ints
-            buffer.asIntBuffer().get(inComing, 0, 10);
-
-            // system message id
-            msg.setSysMsgId(inComing[0]);
-            // is sender doing get request?
-            msg.setGetRequest(inComing[1] == 0 ? false : true);
-            // is sender doing get response?
-            msg.setGetResponse(inComing[2] == 0 ? false : true);
-            // sender id
-            msg.setSenderId(inComing[3]);
-            // time message sent in seconds since midnight GMT, Jan 1, 1970
-            msg.setSenderTime(new Date(((long) inComing[4]) * 1000));
-            // sender message id
-            msg.setSenderMsgId(inComing[5]);
-            // sender token
-            msg.setSenderToken(inComing[6]);
-            // length of message subject
-            int lengthSubject = inComing[7];
-            // length of message type
-            int lengthType = inComing[8];
-            // length of message text
-            int lengthText = inComing[9];
-
-            // bytes expected
-            int bytesToRead = lengthSubject + lengthType + lengthText;
-
-            // read in all remaining bytes
-            cMsgUtilities.readSocketBytes(buffer, channel, bytesToRead, debug);
-
-            // go back to reading-from-buffer mode
-            buffer.flip();
-
-            // allocate bigger byte array if necessary
-            // (allocate more than needed for speed's sake)
-            if (bytesToRead > bytes.length) {
-                bytes = new byte[bytesToRead];
-                System.out.println("DS:  ALLOCATING BUFFER, bytes = " + bytesToRead);
-            }
-
-            // read into array
-            buffer.get(bytes, 0, bytesToRead);
-
-            // read subject
-            msg.setSubject(new String(bytes, 0, lengthSubject, "US-ASCII"));
-
-            // read type
-            msg.setType(new String(bytes, lengthSubject, lengthType, "US-ASCII"));
-
-            // read text
-            msg.setText(new String(bytes, lengthSubject + lengthType, lengthText, "US-ASCII"));
-
-            // fill in message object's members
-            msg.setDomain(domainType);
-            msg.setReceiver("cMsg domain server");
-            msg.setReceiverHost(host);
-            msg.setReceiverTime(new Date()); // current time
-            msg.setSender(info.name);
-            msg.setSenderHost(info.clientHost);
-
-            return msg;
-        }
-
-
-        /**
-         * This method reads an incoming cMsgMessage from a client doing a "get".
-         *
-         * @param channel nio socket communication channel
-         * @return message read from channel
-         * @throws IOException If socket read or write error
-         */
-        private cMsgMessage readGetInfo(SocketChannel channel) throws IOException {
-
-            // create a message
-            cMsgMessage msg = new cMsgMessage();
-
-            // keep reading until we have 9 ints of data
-            cMsgUtilities.readSocketBytes(buffer, channel, 36, debug);
-
-            // go back to reading-from-buffer mode
-            buffer.flip();
-
-            // read 9 ints
-            buffer.asIntBuffer().get(inComing, 0, 9);
-
-            // is sender doing specific get or just 1-shot subscribe?
-            msg.setGetRequest(inComing[0] == 1 ? true : false);
-            // sender's unique receiverSubscribeId (for general get)
-            msg.setReceiverSubscribeId(inComing[1]);
-            // sender id
-            msg.setSenderId(inComing[2]);
-            // time message sent in seconds since midnight GMT, Jan 1, 1970
-            msg.setSenderTime(new Date(((long) inComing[3]) * 1000));
-            // sender message id
-            msg.setSenderMsgId(inComing[4]);
-            // sender token (for specific get)
-            msg.setSenderToken(inComing[5]);
-            // length of message subject
-            int lengthSubject = inComing[6];
-            // length of message type
-            int lengthType = inComing[7];
-            // length of message text
-            int lengthText = inComing[8];
-
-            // bytes expected
-            int bytesToRead = lengthSubject + lengthType + lengthText;
-
-            // read in all remaining bytes
-            cMsgUtilities.readSocketBytes(buffer, channel, bytesToRead, debug);
-
-            // go back to reading-from-buffer mode
-            buffer.flip();
-
-            // allocate bigger byte array if necessary
-            // (allocate more than needed for speed's sake)
-            if (bytesToRead > bytes.length) {
-                bytes = new byte[bytesToRead];
-            }
-
-            // read into array
-            buffer.get(bytes, 0, bytesToRead);
-
-            // read subject
-            msg.setSubject(new String(bytes, 0, lengthSubject, "US-ASCII"));
-
-            // read type
-            msg.setType(new String(bytes, lengthSubject, lengthType, "US-ASCII"));
-
-            // read text
-            msg.setText(new String(bytes, lengthSubject + lengthType, lengthText, "US-ASCII"));
-
-            // fill in message object's members
-            msg.setDomain(domainType);
-            msg.setReceiver("cMsg domain server");
-            msg.setReceiverHost(host);
-            msg.setReceiverTime(new Date()); // current time
-            msg.setSender(info.name);
-            msg.setSenderHost(info.clientHost);
-
-            return msg;
-        }
 
 
         /**
@@ -815,82 +754,5 @@ public class cMsgDomainServer extends Thread {
                 channel.write(buffer);
             }
         }
-
-
-        /**
-         * This method reads an incoming subscribe request from a client.
-         *
-         * @param channel nio socket communication channel
-         * @throws IOException If socket read or write error
-         */
-        private void readSubscribeInfo(SocketChannel channel) throws IOException {
-            // keep reading until we have 3 ints of data
-            cMsgUtilities.readSocketBytes(buffer, channel, 12, debug);
-
-            // go back to reading-from-buffer mode
-            buffer.flip();
-
-            // read 3 ints
-            buffer.asIntBuffer().get(inComing, 0, 3);
-
-            // id of subject/type combination  (receiverSubscribedId)
-            receiverSubscribeId = inComing[0];
-            // length of subject
-            int lengthSubject = inComing[1];
-            // length of type
-            int lengthType = inComing[2];
-
-            // bytes expected
-            int bytesToRead = lengthSubject + lengthType;
-
-            // read in all remaining bytes
-            cMsgUtilities.readSocketBytes(buffer, channel, bytesToRead, debug);
-
-            // go back to reading-from-buffer mode
-            buffer.flip();
-
-            // allocate bigger byte array if necessary
-            // (allocate more than needed for speed's sake)
-            if (bytesToRead > bytes.length) {
-                bytes = new byte[bytesToRead];
-            }
-
-            // read into array
-            buffer.get(bytes, 0, bytesToRead);
-
-            // read subject
-            subject = new String(bytes, 0, lengthSubject, "US-ASCII");
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  subject = " + subject);
-            }
-
-            // read type
-            type = new String(bytes, lengthSubject, lengthType, "US-ASCII");
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  type = " + type);
-            }
-
-            return;
-        }
-
-        /**
-         * This method reads an incoming unget request from a client.
-         *
-         * @param channel nio socket communication channel
-         * @throws IOException If socket read or write error
-         */
-        private void readUngetInfo(SocketChannel channel) throws IOException {
-            // keep reading until we have 1 ints of data
-            cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
-
-            // go back to reading-from-buffer mode
-            buffer.flip();
-
-            // id of subject/type combination  (senderToken actually)
-            receiverSubscribeId = buffer.getInt();
-
-            return;
-        }
-
     }
 }
