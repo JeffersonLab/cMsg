@@ -70,13 +70,13 @@ public class Queue extends cMsgSubdomainAdapter {
 
 
     // database access objects
-    String myQueueName        = null;
-    String myTableName        = null;
-    String myDBType           = null;
-    String myHost             = null;
-    Connection myCon          = null;
-    Statement myStmt          = null;
-    PreparedStatement myPStmt = null;
+    private String myQueueName        = null;
+    private String myTableName        = null;
+    private String myDBType           = null;
+    private String myHost             = null;
+    private Connection myCon          = null;
+    private Statement myStmt          = null;
+    private PreparedStatement myPStmt = null;
 
 
 //-----------------------------------------------------------------------------
