@@ -66,7 +66,7 @@ public class cMsgConnect {
         // Pass in the name
         connection.setName(name);
         // Pass in the description
-        connection.setDescription(UDLremainder);
+        connection.setDescription(description);
         // Pass in the UDL remainder
         connection.setUDLRemainder(UDLremainder);
     }
@@ -158,10 +158,10 @@ public class cMsgConnect {
         // If there is still no handler class, look for the
         // standard, provided classes.
         if (domainConnectionClass == null) {
-            if (domain.equals("cMsg")) {
+            if (domain.equalsIgnoreCase("cMsg")) {
                 domainConnectionClass = "org.jlab.coda.cMsg.cMsgDomain.cMsg";
             }
-            else if (domain.equals("file")) {
+            else if (domain.equalsIgnoreCase("file")) {
                 domainConnectionClass = "org.jlab.coda.cMsg.FileDomain.File";
             }
         }
