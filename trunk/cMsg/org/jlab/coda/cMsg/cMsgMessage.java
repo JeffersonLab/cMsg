@@ -362,107 +362,65 @@ public class cMsgMessage implements Cloneable {
     }
 
 
-//     /**
-//       * Returns SQL create table string.
-//       */
-//     public static String createTableString(String table, String idOption, String timeType,
-//                                            String textType, String tableOptions) {
-//         return(
-//                "create table " + table + " (id int not null " + idOption + "," +
-//                " domain varchar(255), sysMsgId int," +
-//                " sender varchar(128), senderHost varchar(128), senderTime " + timeType +", senderId int, senderMsgId int," +
-//                " receiver varchar(128), receiverHost varchar(128), receiverTime " + timeType +"," +
-//                " subject varchar(255), type varchar(128), text " + textType + ") " +
-//                tableOptions
-//                );
-//     }
+    /**
+     * Returns list of user fields and types.
+     *
+     * Types include:  varchar(size),int,time,text
+     *
+     */
+    public static void getMsgFieldsAndTypes(LinkedHashMap l) {
+
+        l.clear();
+
+        l.put("domain","varchar(255)");
+        l.put("version","int");
+
+        l.put("sender","varchar(128)");
+        l.put("senderHost","varchar(128)");
+        l.put("senderTime","time");
+
+        l.put("userInt","int");
+        l.put("priority","int");
+
+        l.put("receiver","varchar(128)");
+        l.put("receiverHost","varchar(128)");
+        l.put("receiverTime","time");
+
+        l.put("subject","varchar(255)");
+        l.put("type","varchar(128)");
+        l.put("text","text");
+    }
 
 
-//     /**
-//       * Returns SQL preparted statement string.
-//       */
-//     public static String createPreparedStatementString(String table, String insertOption, boolean setID) {
-//         return(
-//                "insert " + insertOption + " into " + table + " (" +
-//                (setID?"id,":"") +
-//                "domain,sysMsgId," +
-//                "sender,senderHost,senderTime,senderId,senderMsgId," +
-//                "receiver,receiverHost,receiverTime," +
-//                "subject,type,text" +
-//                ") values (" +
-//                (setID?"?,":"") +
-//                "?,?," +
-//                "?,?,?,?,?," +
-//                "?,?,?," +
-//                "?,?,?" +
-//                ")"
-//                );
-//     }
+    /**
+     * Returns message field indexed by integer.
+     *
+     */
+    public Object getField(int index) {
 
+        switch(index) {
 
-//     /**
-//       * Returns SQL preparted statement string for message.
-//       */
-//     public void fillPreparedStatement(PreparedStatement pStmt, boolean setID) {
+        case 1:    return(this.getDomain());
+        case 2:    return(this.getVersion());
 
-// //             msg.setReceiver("cMsg:queue");
-// //             new java.sql.Timestamp(msg.getSenderTime().getTime()));
-// //        pStmt.set(2,this.get());
+        case 3:    return(this.getSender());
+        case 4:    return(this.getSenderHost());
+        case 5:    return(this.getSenderTime());
 
-//     }
+        case 6:    return(this.getUserInt());
+        case 7:    return(this.getPriority());
 
+        case 8:    return(this.getReceiver());
+        case 9:    return(this.getReceiverHost());
+        case 10:   return(this.getReceiverTime());
 
-//     /**
-//       * Fills message from SQL result set.
-//       */
-//     public void fillFromResultSet(ResultSet rs) throws cMsgException {
+        case 11:   return(this.getSubject());
+        case 12:   return(this.getType());
+        case 13:   return(this.getText());
 
-//         if(rs!=null) {
-//             try {
-//                 this.setDomain(rs.getString("domain"));
-//                 this.setSysMsgId(rs.getInt("sysMsgId"));
+        default:   return(0);
 
-//                 this.setSender(rs.getString("sender"));
-//                 this.setSenderHost(rs.getString("senderHost"));
-//                 this.setSenderId(rs.getInt("senderId"));
-//                 this.setSenderTime(rs.getTime("senderTime"));
-//                 this.setSenderMsgId(rs.getInt("senderMsgId"));
-
-//                 this.setReceiver(rs.getString("receiver"));
-//                 this.setReceiverHost(rs.getString("receiverHost"));
-//                 this.setReceiverTime(rs.getTime("receiverTime"));
-
-//                 this.setSubject(rs.getString("subject"));
-//                 this.setType(rs.getString("type"));
-//                 this.setText(rs.getString("text"));
-
-//             } catch (SQLException e) {
-//                 cMsgException ce = new cMsgException("?unable to fill msg from result set");
-//                 ce.setReturnCode(1);
-//                 throw ce;
-//             }
-
-//         } else {
-
-//             this.setDomain("");
-//             this.setSysMsgId(0);
-
-//             this.setSender("");
-//             this.setSenderHost("");
-//             this.setSenderId(0);
-//             this.setSenderTime(new Date());
-//             this.setSenderMsgId(0);
-
-//             this.setReceiver("");
-//             this.setReceiverHost("");
-//             this.setReceiverTime(new Date());
-
-//             this.setSubject("");
-//             this.setType("");
-//             this.setText("");
-//         }
-//     }
-
-
+        }
+    }
 
 }
