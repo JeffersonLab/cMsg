@@ -259,7 +259,7 @@ public class cMsg extends cMsgSubdomainAdapter {
         // If ci is not null, this key already existed.
         if (ci != null) {
             cMsgException e = new cMsgException("client already exists");
-            e.setReturnCode(cMsgConstants.errorNameExists);
+            e.setReturnCode(cMsgConstants.errorAlreadyExists);
             throw e;
         }
 
@@ -358,8 +358,8 @@ public class cMsg extends cMsgSubdomainAdapter {
                 while (it.hasNext()) {
                     sub = (cMsgSubscription) it.next();
                     // if subscription matches the msg ...
-                    if (cMsgMessageMatcher.matches(sub.getSubject(), message.getSubject()) &&
-                            cMsgMessageMatcher.matches(sub.getType(), message.getType())) {
+                    if (message.getSubject().matches(sub.getSubjectRegexp()) &&
+                            message.getType().matches(sub.getTypeRegexp())) {
                         haveMatch = true;
                         // we know we must send at least 1 message, so we're done
 //System.out.println(" handle send msg for subscribe to " + info.getName());
@@ -372,8 +372,8 @@ public class cMsg extends cMsgSubdomainAdapter {
                 while (it.hasNext()) {
                     sub = (cMsgSubscription) it.next();
                     // if get matches the msg ...
-                    if (cMsgMessageMatcher.matches(sub.getSubject(), message.getSubject()) &&
-                            cMsgMessageMatcher.matches(sub.getType(), message.getType())) {
+                    if (message.getSubject().matches(sub.getSubjectRegexp()) &&
+                            message.getType().matches(sub.getTypeRegexp())) {
                         haveMatch = true;
                         // get subscription is 1-shot deal so now remove it
                         it.remove();
