@@ -216,6 +216,7 @@ public class LogFile implements cMsgHandleRequests {
      *                          or socket properties cannot be set
      */
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
+	msg.setReceiver("cMsg:LogFile");
         ((PrintWriter)myLogFileObject.logFileHandle).println(msg);
     }
 
