@@ -470,12 +470,16 @@ public class cMsgQueue {
 
         // wait for messages (forever at the moment...)
         try {
-            while (!done) {
+            while (!done&&cmsg.isConnected()) {
                 Thread.sleep(1);
             }
         } catch (Exception e) {
             System.err.println(e);
         }
+
+
+        // disable message delivery
+        cmsg.stop();
 
 
         // done
