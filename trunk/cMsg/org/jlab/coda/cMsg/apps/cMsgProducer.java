@@ -40,6 +40,7 @@ public class cMsgProducer {
                         System.out.println("  producing messages with even numbers as text");
                     }
                     else {
+                        producer.evenOddMessage = false;
                         System.out.println("  producing messages with \"JUNK\" as text");
                     }
                 }
@@ -56,6 +57,9 @@ public class cMsgProducer {
             else {
                 producer = new cMsgProducer("producer");
                 System.out.println("Name of this client is \"producer\"");
+                System.out.println("  producing messages with subject = " + producer.subject);
+                System.out.println("  producing messages with type = " + producer.type);
+                System.out.println("  producing messages with \"JUNK\" as text");
             }
             producer.run();
         }
