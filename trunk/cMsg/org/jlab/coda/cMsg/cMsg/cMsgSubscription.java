@@ -27,20 +27,25 @@ import java.util.HashSet;
 public class cMsgSubscription {
 
     /** Subject subscribed to. */
-    String subject;
+    private String subject;
 
     /** Type subscribed to. */
-    String type;
+    private String type;
 
     /**
      * Id which eliminates the need to parse subject and type
      * strings upon client's receipt of a message. Sometimes referred
      * to as receiverSubscribeId.
      */
-    int id;
+    private int id;
 
-    /** Set of all callback objects (cMsgCallbackThread). */
-    HashSet callbacks;
+    /**
+     * When this class is used with subscriptions, this set contains all
+     * of the callback objects {@link cMsgCallbackThread}. When this class
+     * is used with general gets, this set contains message storage objects
+     * {@link cMsgMessageHolder}
+     */
+    private HashSet callbacks;
 
 
     /**
@@ -74,6 +79,22 @@ public class cMsgSubscription {
 
 
     /**
+     * Constructor.
+     * @param subject subscription subject
+     * @param type subscription type
+     * @param id unique id referring to subject and type combination
+     * @param holder object for holding message and synchronizing on
+     */
+    public cMsgSubscription(String subject, String type, int id, cMsgMessageHolder holder) {
+        this.subject = subject;
+        this.type = type;
+        this.id = id;
+        callbacks = new HashSet(30);
+        callbacks.add(holder);
+    }
+
+
+    /**
      * Gets subject subscribed to.
      * @return subject subscribed to
      */
@@ -100,6 +121,15 @@ public class cMsgSubscription {
 
 
     /**
+     * Gets the hashset storing callback threads.
+     * @return hashset storing callback threads
+     */
+    public HashSet getCallbacks() {
+        return callbacks;
+    }
+
+
+    /**
      * Method to add a callback.
      * @param cbThread  object containing callback, its argument, and the thread to run it
      */
@@ -122,6 +152,42 @@ public class cMsgSubscription {
      * @return number of callback registered
      */
     public int numberOfCallbacks() {
+        return callbacks.size();
+    }
+
+
+    /**
+     * Gets the hashset storing message holders.
+     * @return hashset storing message holders
+     */
+    public HashSet getHolders() {
+        return callbacks;
+    }
+
+
+    /**
+     * Method to add a helping object for running a "get" method.
+     * @param holder  object for holding message and synchronizing on
+     */
+    public void addHolder(cMsgMessageHolder holder) {
+        callbacks.add(holder);
+    }
+
+
+    /**
+     * Method to remove a helping object for running a "get" method.
+     * @param holder  object to be removed
+     */
+    public void removeHolder(cMsgMessageHolder holder) {
+        callbacks.remove(holder);
+    }
+
+
+    /**
+     * Method to return the number of active get calls.
+     * @return number of active get calls
+     */
+    public int numberOfGets() {
         return callbacks.size();
     }
 }
