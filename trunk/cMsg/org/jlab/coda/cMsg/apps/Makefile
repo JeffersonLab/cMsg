@@ -12,7 +12,11 @@ INSTALL  = ../../../../../../install-sh -c
 JAVAC_FLAGS = -classpath ../../../../../
 #JAVAC_FLAGS = -classpath ../../../../../:$(CLASSPATH)
 
-JAVA_OBJS = cMsgLogger.class
+JAVA_OBJS = \
+	cMsgLogger.class \
+	cMsgConsumer.class \
+	cMsgProducer.class \
+	cMsgConsumer2CBs.class
 
 all: $(JAVA_OBJS)
 
