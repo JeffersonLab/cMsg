@@ -166,91 +166,98 @@ public class LogFile implements cMsgHandleRequests {
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
 
-	String remainder = null;  // not used yet...could hold file open flags..
-	LogFileObject l;
-	PrintWriter pw;
-
-        myName = name;  // not used for anything
-	myHost = host;  //         "
-	myPort = port;  //         "
+        myName = info.getName();
+        myHost = info.getClientHost();
+        myPort = info.getClientPort();
 
 
-	//  extract file name from UDL remainder
-	try {
-	    if(myUDLRemainder.indexOf("?")>0) {
-		Pattern p = Pattern.compile("^(.+?)(\\?)(.*)$");
-		Matcher m = p.matcher(myUDLRemainder);
-		m.find();
-		myFileName = m.group(1);
-		remainder  = m.group(2);
-	    } else {
-		myFileName = myUDLRemainder;
-	    }
-	} catch (Exception e) {
-	    e.printStackTrace();
-	    cMsgException ce = new cMsgException(e.getMessage());
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+        String remainder = null;  // not used yet...could hold file open flags..
+        LogFileObject l;
+        PrintWriter pw;
 
 
-	// get canonical name
-	try {
-	    File f = new File(myFileName);
-	    if(f.exists())myCanonicalName=f.getCanonicalPath();
-	} catch (Exception e) {
-	    e.printStackTrace();
-	    cMsgException ce = new cMsgException("Unable to get canonical name");
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+        //  extract file name from UDL remainder
+        try {
+            if (myUDLRemainder.indexOf("?") > 0) {
+                Pattern p = Pattern.compile("^(.+?)(\\?)(.*)$");
+                Matcher m = p.matcher(myUDLRemainder);
+                m.find();
+                myFileName = m.group(1);
+                remainder = m.group(2);
+            }
+            else {
+                myFileName = myUDLRemainder;
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException(e.getMessage());
+            ce.setReturnCode(1);
+            throw ce;
+        }
 
 
-	// check if file already open
-	synchronized(openFiles) {
-	    if(openFiles.containsKey(myCanonicalName)) {
-		l=(LogFileObject)openFiles.get(myCanonicalName);
-		myPrintHandle=l.printHandle;
-		l.count.incrementAndGet();
-		
-		
- 	    // file not open...open file in append mode, create print object and hash entry, write initial XML stuff, etc.
-	    } else {
-		try {
-		    pw = new PrintWriter(new BufferedWriter(new FileWriter(myFileName,true)));
-		    myPrintHandle = (Object)pw;
-		    openFiles.put(myCanonicalName,new LogFileObject(myPrintHandle));
-		    pw.println("<cMsgLogFile  name=\"" + myFileName + "\"" + "  date=\"" + (new Date()) + "\">\n\n");
-		} catch (Exception e) {
-		    System.out.println(e);
-		    e.printStackTrace();
-		    cMsgException ce = new cMsgException("registerClient: unable to open file");
-		    ce.setReturnCode(1);
-		    throw ce;
-		}
-	    }
-	}
+        // get canonical name
+        try {
+            File f = new File(myFileName);
+            if (f.exists()) myCanonicalName = f.getCanonicalPath();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException("Unable to get canonical name");
+            ce.setReturnCode(1);
+            throw ce;
+        }
+
+
+        // check if file already open
+        synchronized (openFiles) {
+            if (openFiles.containsKey(myCanonicalName)) {
+                l = (LogFileObject) openFiles.get(myCanonicalName);
+                myPrintHandle = l.printHandle;
+                l.count.incrementAndGet();
+
+
+                // file not open...open file in append mode, create print object and hash entry, write initial XML stuff, etc.
+            }
+            else {
+                try {
+                    pw = new PrintWriter(new BufferedWriter(new FileWriter(myFileName, true)));
+                    myPrintHandle = (Object) pw;
+                    openFiles.put(myCanonicalName, new LogFileObject(myPrintHandle));
+                    pw.println("<cMsgLogFile  name=\"" + myFileName + "\"" + "  date=\"" + (new Date()) + "\">\n\n");
+                }
+                catch (Exception e) {
+                    System.out.println(e);
+                    e.printStackTrace();
+                    cMsgException ce = new cMsgException("registerClient: unable to open file");
+                    ce.setReturnCode(1);
+                    throw ce;
+                }
+            }
+        }
     }
-    
-    
+
+
     /**
      * Method to handle message sent by client.
      *
      * @param msg message from sender
      * @throws cMsgException if a channel to the client is closed, cannot be created,
-     *                          or socket properties cannot be set
+     *                       or socket properties cannot be set
      */
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
-	msg.setReceiver("cMsg:LogFile");
-	try {
-	    ((PrintWriter)myPrintHandle).println(msg);
-	} catch (Exception e) {
-	    System.out.println(e);
-	    e.printStackTrace();
-	    cMsgException ce = new cMsgException("handleSendRequest: unable to write");
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+        msg.setReceiver("cMsg:LogFile");
+        try {
+            ((PrintWriter) myPrintHandle).println(msg);
+        }
+        catch (Exception e) {
+            System.out.println(e);
+            e.printStackTrace();
+            cMsgException ce = new cMsgException("handleSendRequest: unable to write");
+            ce.setReturnCode(1);
+            throw ce;
+        }
     }
 
 
@@ -263,7 +270,7 @@ public class LogFile implements cMsgHandleRequests {
      * @throws cMsgException
      */
     public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
-	handleSendRequest(msg);
+        handleSendRequest(msg);
         return 0;
     }
 
@@ -335,15 +342,15 @@ public class LogFile implements cMsgHandleRequests {
      * @throws cMsgException
      */
     public void handleClientShutdown() throws cMsgException {
-	synchronized(openFiles) {
-	    LogFileObject l = (LogFileObject)openFiles.get(myCanonicalName);
-	    if(l.count.decrementAndGet()<=0) {
-		((PrintWriter)myPrintHandle).println("</cMsgLogFile>\n");
-		((PrintWriter)myPrintHandle).println("\n\n\n<!--===========================================================================================-->\n\n\n");
-		((PrintWriter)myPrintHandle).close();
-		openFiles.remove(myCanonicalName);
-	    }
-	}
+        synchronized (openFiles) {
+            LogFileObject l = (LogFileObject) openFiles.get(myCanonicalName);
+            if (l.count.decrementAndGet() <= 0) {
+                ((PrintWriter) myPrintHandle).println("</cMsgLogFile>\n");
+                ((PrintWriter) myPrintHandle).println("\n\n\n<!--===========================================================================================-->\n\n\n");
+                ((PrintWriter) myPrintHandle).close();
+                openFiles.remove(myCanonicalName);
+            }
+        }
     }
 
 
@@ -354,7 +361,7 @@ public class LogFile implements cMsgHandleRequests {
      * method).
      */
     public void handleServerShutdown() throws cMsgException {
-	// not working yet...
+	    // not working yet...
     }
 
 }
