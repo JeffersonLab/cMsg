@@ -71,7 +71,7 @@ typedef struct mainThreadInfo_t {
 } mainThreadInfo;
 
 /* prototypes of non-public functions */
-int   readMessage(int fd, cMsg *msg);
+int   cMsgReadMessage(int fd, cMsg *msg);
 int   cMsgRunCallbacks(int domainId, int command, cMsg *msg);
 void *cMsgServerListeningThread(void *arg);
 
