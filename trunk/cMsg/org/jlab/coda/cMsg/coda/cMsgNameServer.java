@@ -14,12 +14,13 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-// package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.coda;
 
 import java.io.*;
 import java.net.*;
 import java.lang.*;
 import java.util.*;
+import org.jlab.coda.cMsg.*;
 
 /**
  * This class implements a cMsg name server for a particular cMsg domain.
@@ -76,7 +77,7 @@ public class cMsgNameServer {
     
     // port #'s < 1024 are reserved
     if (startingPort < 1024) {
-      startingPort = cMsgConstants.nameServerStartingPort;
+      startingPort = cMsgNetworkConstants.nameServerStartingPort;
     }
     
     // start up a listening thread
@@ -129,7 +130,7 @@ public class cMsgNameServer {
                                                            throws cMsgException {
     // if starting domain server as thread ...
     if (asThread) {
-      cMsgDomainServer server = new cMsgDomainServer(info, cMsgConstants.domainServerStartingPort);
+      cMsgDomainServer server = new cMsgDomainServer(info, cMsgNetworkConstants.domainServerStartingPort);
       info.server = server;
     }
     // if starting domain server as separate process ...
