@@ -91,8 +91,6 @@ public class smartsockets extends cMsgSubdomainAbstract {
                 cmsg.setSender(msg.getSender());
                 cmsg.setSenderHost("unknown");            // no easy way to get this
                 cmsg.setSenderTime(new Date((long)msg.getSenderTimestamp()*1000));
-                //  cmsg.setSenderId(msg.getStreamID());  // no field matches
-                cmsg.setSenderMsgId(msg.getSeqNum());
                 cmsg.setReceiver(myClientInfo.getName());
                 cmsg.setReceiverHost(myClientInfo.getClientHost());
                 cmsg.setReceiverTime(new Date());

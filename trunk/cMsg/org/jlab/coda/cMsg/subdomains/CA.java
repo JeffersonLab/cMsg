@@ -103,8 +103,6 @@ public class CA extends cMsgSubdomainAbstract {
     private double myContextPend = 3.0;
     private double myGetPend     = 3.0;
     private double myPutPend     = 3.0;
-    private int myGetCount       = 0;
-    private int mySubCount       = 0;
     private int mySenderId       = 0;
 
 
@@ -134,7 +132,6 @@ public class CA extends cMsgSubdomainAbstract {
                 cmsg.setSenderId(mySenderId);
                 cmsg.setSenderHost(host);
                 cmsg.setSenderTime(new Date());
-                cmsg.setSenderMsgId(++mySubCount);
                 cmsg.setReceiver(myClientInfo.getName());
                 cmsg.setReceiverHost(myClientInfo.getClientHost());
                 cmsg.setReceiverTime(new Date());
@@ -422,7 +419,6 @@ public class CA extends cMsgSubdomainAbstract {
         response.setSenderId(mySenderId);
         response.setSenderHost(host);
         response.setSenderTime(new Date());
-        response.setSenderMsgId(++myGetCount);
         response.setReceiver(myClientInfo.getName());
         response.setReceiverHost(myClientInfo.getClientHost());
         response.setReceiverTime(new Date());
