@@ -128,8 +128,7 @@ void *cMsgClientListeningThread(void *arg);
 
 
 /* local prototypes */
-static int   talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
-                                          char *subdomain, char *UDLremainder);
+
 /* mutexes and read/write locks */
 static void  mutexLock(void);
 static void  mutexUnlock(void);
@@ -159,11 +158,14 @@ static void  getInfoFree(getInfo *info);
 static void  subscribeInfoFree(subscribeInfo *info);
 
 /* misc */
+static int   talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
+                                          char *subdomain, char *UDLremainder);
 static int   parseUDL(const char *UDLremainder, char **host, unsigned short *port,
                       char **subdomainType, char **UDLsubRemainder);
 static int   unSendAndGet(int domainId, int id);
 static int   unSubscribeAndGet(int domainId, int id);
 static int   getAbsoluteTime(struct timespec *deltaTime, struct timespec *absTime);
+static void  defaultShutdownHandler(void *userArg);
 
 #ifdef VXWORKS
 /** Implementation of strdup() to cover vxWorks operating system. */
@@ -474,6 +476,9 @@ static int codaConnect(char *myUDL, char *myName, char *myDescription,
     fprintf(stderr, "codaConnect: created keep alive thread\n");
   }
   
+  /* install default shutdown handler (exits program) */
+  codaSetShutdownHandler(id, defaultShutdownHandler, NULL);
+    
   cMsgDomains[id].lostConnection = 0;
     
   /* no more mutex protection is necessary */
@@ -1922,6 +1927,21 @@ static int codaDisconnect(int domainId) {
 
 
 /**
+ * This routine is the default shutdown handler function.
+ * @param userArg argument to shutdown handler 
+ */   
+static void defaultShutdownHandler(void *userArg) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "Ran default shutdown handler\n");
+    }
+    exit(-1);      
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
  * This routine sets the shutdown handler function.
  *
  * @param domainId id number of the domain connection
@@ -1944,7 +1964,9 @@ static int codaSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, vo
   return CMSG_OK;
 }
 
+
 /*-------------------------------------------------------------------*/
+
 
 /**
  * Method to shutdown the given clients and/or servers.
@@ -2041,6 +2063,7 @@ static int codaShutdown(int domainId, char *client, char *server, int flag) {
 
 
 /*-------------------------------------------------------------------*/
+
 
 /** This routine exchanges information with the name server. */
 static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
@@ -2623,10 +2646,13 @@ int cMsgRunCallbacks(int domainId, cMsgMessage *msg) {
       /* if the subject & type's match, run callbacks */      
       if ( (cMsgRegexpMatches(domain->subscribeInfo[i].subjectRegexp, msg->subject) == 1) &&
            (cMsgRegexpMatches(domain->subscribeInfo[i].typeRegexp, msg->type) == 1)) {
-
-fprintf(stderr, "cMsgRunCallbacks: sub matches msg subject (%s) & type(%S)\n",
-         msg->subject, msg->type);
-
+/*
+printf("cMsgRunCallbacks: MATCHES:\n");
+printf("                  SUBJECT = msg (%s), subscription (%s)\n",
+                          msg->subject, domain->subscribeInfo[i].subject);
+printf("                  TYPE    = msg (%s), subscription (%s)\n",
+                          msg->type, domain->subscribeInfo[i].type);
+*/
         /* search callback list */
         for (j=0; j<MAX_CALLBACK; j++) {
 	  /* if there is an existing callback ... */
@@ -2708,7 +2734,7 @@ fprintf(stderr, "cMsgRunCallbacks: there is a callback\n");
             }
 	  }
         } /* search callback list */
-      } /* if subscribe sub/type matches msg sub/type */      
+      } /* if subscribe sub/type matches msg sub/type */
     } /* for each subscription */
   
     /* for each subscribeAndGet ... */
