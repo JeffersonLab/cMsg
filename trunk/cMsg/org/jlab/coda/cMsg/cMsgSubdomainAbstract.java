@@ -84,13 +84,26 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainHandler {
 
 
     /**
-     * Method to synchronously get a single message from the server for a given
-     * subject and type -- perhaps from a specified receiver.
+     * Method to synchronously get a single message from the server for a one-time
+     * subscription of a subject and type.
+     *
+     * @param subject message subject subscribed to
+     * @param type    message type subscribed to
+     * @param id      message id refering to these specific subject and type values
+     * @throws cMsgException
+     */
+    public abstract void handleSubscribeAndGetRequest(String subject, String type,
+                                                      int id) throws cMsgException;
+
+
+    /**
+     * Method to synchronously get a single message from a receiver by sending out a
+     * message to be responded to.
      *
      * @param message message requesting what sort of message to get
      * @throws cMsgException
      */
-    public abstract void handleGetRequest(cMsgMessage message) throws cMsgException;
+    public abstract void handleSendAndGetRequest(cMsgMessage message) throws cMsgException;
 
 
     /**
@@ -170,13 +183,23 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainHandler {
 
 
     /**
-     * Method to tell if the "get" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleGetRequest}
+     * Method to tell if the "subscribeAndGet" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleSubscribeAndGetRequest}
      * method.
      *
-     * @return true if get implemented in {@link #handleGetRequest}
+     * @return true if subscribeAndGet implemented in {@link #handleSubscribeAndGetRequest}
      */
-    public abstract boolean hasGet();
+    public abstract boolean hasSubscribeAndGet();
+
+
+    /**
+     * Method to tell if the "sendAndGet" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleSendAndGetRequest}
+     * method.
+     *
+     * @return true if sendAndGet implemented in {@link #handleSendAndGetRequest}
+     */
+    public abstract boolean hasSendAndGet();
 
 
     /**

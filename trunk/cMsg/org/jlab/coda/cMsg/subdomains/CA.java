@@ -191,15 +191,29 @@ public class CA extends cMsgSubdomainAbstract {
 
 
     /**
-     * Method to tell if the "get" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleGetRequest}
+     * Method to tell if the "subscribeAndGet" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleSubscribeAndGetRequest}
      * method.
      *
-     * @return true if get implemented in {@link #handleGetRequest}
+     * @return true if subscribeAndGet implemented in {@link #handleSubscribeAndGetRequest}
      */
-    public boolean hasGet() {
+    public boolean hasSubscribeAndGet() {
         return true;
-    };
+    }
+
+
+//-----------------------------------------------------------------------------
+
+    /**
+     * Method to tell if the "sendAndGet" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleSendAndGetRequest}
+     * method.
+     *
+     * @return true if sendAndGet implemented in {@link #handleSendAndGetRequest}
+     */
+    public boolean hasSendAndGet() {
+        return false;
+    }
 
 
 //-----------------------------------------------------------------------------
@@ -374,16 +388,35 @@ public class CA extends cMsgSubdomainAbstract {
 
 
     /**
-     * Method to synchronously get a single message from the server for a given
-     * subject and type -- perhaps from a specified receiver.
+     * Method to synchronously get a single message from a receiver by sending out a
+     * message to be responded to.
      *
      * @param message message requesting what sort of message to get
      */
-    public void handleGetRequest(cMsgMessage message) throws cMsgException {
+    public void handleSendAndGetRequest(cMsgMessage message) {
+        // do nothing
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to synchronously get a single message from the server for a one-time
+     * subscription of a subject and type.
+     *
+     * @param subject message subject subscribed to
+     * @param type    message type subscribed to
+     * @param id      message id refering to these specific subject and type values
+     * @throws cMsgException
+     */
+    public void handleSubscribeAndGetRequest(String subject, String type, int id)
+            throws cMsgException {
 
 
         // create response message
-        cMsgMessage response = message.response();
+        cMsgMessage response = new cMsgMessage();
+        //response = message.response();
         response.setDomain("cMsg");
         response.setSender("CA");
         response.setSenderId(mySenderId);
@@ -393,8 +426,8 @@ public class CA extends cMsgSubdomainAbstract {
         response.setReceiver(myClientInfo.getName());
         response.setReceiverHost(myClientInfo.getClientHost());
         response.setReceiverTime(new Date());
-        response.setSubject(message.getSubject());
-        response.setType(message.getType());
+        response.setSubject(subject);
+        response.setType(type);
 
 
         // get value as double, and return as string representation of double

@@ -347,7 +347,11 @@ public class cMsgDomainServer extends Thread {
                 holder.channel = channel;
                 break;
 
-            case cMsgConstants.msgGetRequest: // getting a message of subject & type
+            case cMsgConstants.msgSubscribeAndGetRequest: // 1-shot subscription of subject & type
+                holder = readSubscribeInfo(channel);
+                break;
+
+            case cMsgConstants.msgSendAndGetRequest: // getting a message
                 holder = readGetInfo(channel);
                 break;
 
@@ -768,8 +772,14 @@ public class cMsgDomainServer extends Thread {
                             syncSendReply(holder.channel, answer);
                             break;
 
-                        case cMsgConstants.msgGetRequest: // getting a message of subject & type
-                            clientHandler.handleGetRequest(holder.message);
+                        case cMsgConstants.msgSubscribeAndGetRequest: // getting a message of subject & type
+                            clientHandler.handleSubscribeAndGetRequest(holder.subject,
+                                                                       holder.type,
+                                                                       holder.id);
+                            break;
+
+                        case cMsgConstants.msgSendAndGetRequest: // sending a message to a responder
+                            clientHandler.handleSendAndGetRequest(holder.message);
                             break;
 
                         case cMsgConstants.msgUngetRequest: // ungetting from a subject & type

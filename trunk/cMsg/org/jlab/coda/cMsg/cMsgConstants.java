@@ -93,32 +93,34 @@ public class cMsgConstants {
     // codes sent over the network to identify cMsg messages
 
     /** Connect to the server. */
-    public static final int    msgConnectRequest     =  0;
+    public static final int    msgConnectRequest         =  0;
     /** Disconnect from the server. */
-    public static final int    msgDisconnectRequest  =  1;
+    public static final int    msgDisconnectRequest      =  1;
     /** Respond to the server. */
-    public static final int    msgServerResponse     =  2;
+    public static final int    msgServerResponse         =  2;
     /** See if the other end of the socket is still open. */
-    public static final int    msgKeepAlive          =  3;
+    public static final int    msgKeepAlive              =  3;
     /** Exit your cMsg-related methods and threads. */
-    public static final int    msgShutdown           =  4;
-    /** Get a message. */
-    public static final int    msgGetRequest         =  5;
+    public static final int    msgShutdown               =  4;
+    /** Get a message with 1-shot subscribe. */
+    public static final int    msgSubscribeAndGetRequest =  5;
+    /** Get a message from a responder of sent message. */
+    public static final int    msgSendAndGetRequest      =  6;
     /** Respond to a "get message" command. */
-    public static final int    msgGetResponse        =  6;
+    public static final int    msgGetResponse            =  7;
     /** Send a message. */
-    public static final int    msgSendRequest        =  7;
+    public static final int    msgSendRequest            =  8;
     /** Respond to a "send message" command. */
-    public static final int    msgSendResponse       =  8;
+    public static final int    msgSendResponse           =  9;
     /** Subscribe to messages. */
-    public static final int    msgSubscribeRequest   =  9;
+    public static final int    msgSubscribeRequest       = 10;
     /** Unsubscribe to messages. */
-    public static final int    msgUnsubscribeRequest = 10;
+    public static final int    msgUnsubscribeRequest     = 11;
     /** Respond to the subscribe/unsubscribe commands. */
-    public static final int    msgSubscribeResponse  = 11;
+    public static final int    msgSubscribeResponse      = 12;
     /** Send a message. */
-    public static final int    msgSyncSendRequest    = 12;
+    public static final int    msgSyncSendRequest        = 13;
     /** Remove "get" request. */
-    public static final int    msgUngetRequest       = 13;
+    public static final int    msgUngetRequest           = 14;
 
 }
