@@ -175,8 +175,8 @@ void *cMsgClientListeningThread(void *arg)
     /* if we want things not to block, then use select */
     if (blocking == CMSG_NONBLOCKING) {
       /* Linux modifies timeout, so reset each round */
-      /* 3 second timed wait on select */
-      timeout.tv_sec  = 3;
+      /* 1 second timed wait on select */
+      timeout.tv_sec  = 1;
       timeout.tv_usec = 0;
 
       FD_ZERO(&readSet);
@@ -311,8 +311,8 @@ static void *clientThread(void *arg)
   /* wait for and process client requests */
   /*--------------------------------------*/
   
-  /* set socket timeout (10 sec) for reading commands */
-  timeout.tv_sec  = 6;
+  /* set socket timeout (5 sec) for reading commands */
+  timeout.tv_sec  = 5;
   timeout.tv_usec = 0;
   
   err = cMsgSetSocketTimeout(connfd, &timeout);
@@ -333,7 +333,9 @@ static void *clientThread(void *arg)
     err = cMsgTcpRead(connfd, &msgId, sizeof(msgId));
     if (err != sizeof(msgId)) {
       /* if there's a timeout, try again */
-      if (errno == EWOULDBLOCK) {
+      if (errno == EWOULDBLOCK || errno == EAGAIN) {
+        /* test to see if someone wants to shutdown this thread */
+        pthread_testcancel();
         goto retry;
       }
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
