@@ -61,8 +61,8 @@ typedef struct cMsgThreadInfo_t {
 } cMsgThreadInfo;
 
 
-/* set debug level here */
-/* static int cMsgDebug = CMSG_DEBUG_INFO; */
+/* set debug level here for convenience (else declared global in cMsgPrivate.h */
+/*static int cMsgDebug = CMSG_DEBUG_INFO;*/
 
 /** Maximum number of clients to track. */
 #define CMSG_CLIENTSMAX 1000
@@ -133,6 +133,7 @@ void *cMsgClientListeningThread(void *arg)
   int             listenFd  = threadArg->listenFd;
   int             blocking  = threadArg->blocking;
   int             i, err, index, status;
+  const int       on=1;
   fd_set          readSet;
   struct timeval  timeout;
   struct sockaddr_in cliaddr;
@@ -257,6 +258,17 @@ void *cMsgClientListeningThread(void *arg)
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "cMsgClientListeningThread: error accepting client connection\n");
       }
+      free(pinfo);
+      continue;
+    }
+    
+    /* don't wait for messages to cue up, send any message immediately */
+    err = setsockopt(pinfo->connfd, IPPROTO_TCP, TCP_NODELAY, (void *) &on, sizeof(on));
+    if (err < 0) {
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+          fprintf(stderr, "cMsgClientListeningThread: error setting socket to TCP_NODELAY\n");
+      }
+      close(pinfo->connfd);
       free(pinfo);
       continue;
     }
@@ -544,11 +556,11 @@ static void *clientThread(void *arg)
       break;
       
       default:
-         if (cMsgDebug >= CMSG_DEBUG_INFO) {
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "clientThread %d: given unknown message (%d)\n", localCount, msgId);
         }
      
-    }
+    } /* switch */
 
   } /* while(1) - command loop */
 
@@ -611,12 +623,14 @@ static int cMsgReadMessage(int fd, cMsgMessage *msg) {
    * Time arrives as the high 32 bits followed by the low 32 bits
    * of a 64 bit integer in units of milliseconds.
    */
-  llTime = (((long long) (ntohl(inComing[4]))) << 32) | ntohl(inComing[5]);
+  llTime = (((long long) ntohl(inComing[4])) << 32) |
+           (((long long) ntohl(inComing[5])) & 0x00000000FFFFFFFF);
   /* turn long long into struct timespec */
   msg->senderTime.tv_sec  =  llTime/1000;
   msg->senderTime.tv_nsec = (llTime%1000)*1000000;
   
-  llTime = (((long long) (ntohl(inComing[6]))) << 32) | ntohl(inComing[7]);
+  llTime = (((long long) ntohl(inComing[6])) << 32) |
+           (((long long) ntohl(inComing[7])) & 0x00000000FFFFFFFF);
   msg->userTime.tv_sec  =  llTime/1000;
   msg->userTime.tv_nsec = (llTime%1000)*1000000;
   
