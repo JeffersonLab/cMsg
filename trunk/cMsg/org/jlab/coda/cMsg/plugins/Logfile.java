@@ -146,7 +146,7 @@ public class Logfile implements cMsgHandleRequests {
     public void unregisterClient(String name) {
         synchronized (clients) {
             clients.remove(name);
-	}
+        }
     }
 
 
@@ -166,11 +166,12 @@ public class Logfile implements cMsgHandleRequests {
      * Method to get a single message from the server for a given
      * subject and type.
      *
+     * @param name name of client
      * @param subject subject of message to get
      * @param type type of message to get
      * @return cMsgMessage message obtained by this get
      */
-    public cMsgMessage handleGetRequest(String subject, String type) {
+    public cMsgMessage handleGetRequest(String name, String subject, String type) {
         // do nothing...
         return null;
     }
@@ -219,20 +220,7 @@ public class Logfile implements cMsgHandleRequests {
 
 
     /**
-     * Method to handle a disconnect request sent by domain client.
-     * Normally nothing needs to be done as the domain server simply returns an
-     * "OK" and closes the channel. This method is run after all exchanges between
-     * domain server and client.
-     *
-     * @param name name of client
-     */
-    public void handleDisconnect(String name) {
-        // do nothing...
-    }
-
-
-    /**
-     * Method to handle a request sent by domain client to shut the domain server down.
+     * Method to handle a domain server shutdown.
      * This method is run after all exchanges between domain server and client but
      * before the domain server thread is killed (since that is what is running this
      * method).
