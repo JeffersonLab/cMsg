@@ -89,7 +89,7 @@ public class cMsgLogger {
 //-----------------------------------------------------------------------------
 
     /** Class that implements the callback interface. */
-    class cb extends cMsgCallbackImpl {
+    class cb extends cMsgCallbackAdapter {
         /**
          * Callback method.
          * @param msg cMsg message
