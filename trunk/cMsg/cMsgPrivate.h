@@ -113,6 +113,8 @@ typedef struct cMsg_t {
   char   *subject;
   char   *type;
   char   *text;
+  
+  struct cMsg_t *next; /* for using messages in a linked list */
 } cMsgMessage;
 
 
