@@ -580,7 +580,7 @@ public class queue extends cMsgSubdomainAbstract {
     public void handleClientShutdown() throws cMsgException {
         try {
             myStmt.close();
-            //            myPStmt.close();
+            myPStmt.close();
             myCon.close();
         } catch (SQLException e) {
             throw(new cMsgException("?queue sub-domain handler shutdown error"));
