@@ -42,6 +42,7 @@ int main(int argc,char **argv) {
   
   double freq=0., freqAvg=0., freqTotal=0.;
   long   iterations=1;
+  int    period = 5; /* sec */
   
   if (argc > 1) {
     myName = argv[1];
@@ -68,9 +69,9 @@ int main(int argc,char **argv) {
 
   while (1) {
       count = 0;
-      sleep(5);
+      sleep(period);
 
-      freq = (double)count/10.;
+      freq = (double)count/(double)period;
       if (DOUBLE_MAX - freqTotal < freq) {
           freqTotal  = 0.;
           iterations = 1;
@@ -86,8 +87,14 @@ int main(int argc,char **argv) {
 }
 
 static void callback(void *msg, void *arg) {
-pthread_mutex_lock(&mutex);
+  /*char *creator;*/
+  
+  pthread_mutex_lock(&mutex);
   count++;
-pthread_mutex_unlock(&mutex);
+  pthread_mutex_unlock(&mutex);
+  /*
+  creator = cMsgGetCreator(msg);
+  free(creator);
+  */
   cMsgFreeMessage(msg);
 }

@@ -36,13 +36,14 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 static void callback(void *msg, void *arg);
 
 int cMsgConsumer(void) {  
-  char *myName   = "VX-consumer";
+  char *myName   = "VX-consumer3";
   char *myDescription = "trial run";
   int err, domainId = -1;
   cMsgSubscribeConfig *config;
   
   double freq=0., freqAvg=0., freqTotal=0.;
   long   iterations=1;
+  int    period = 5; /* sec */
   
   printf("My name is %s\n", myName);
   
@@ -66,9 +67,9 @@ int cMsgConsumer(void) {
 
   while (1) {
       count = 0;
-      sleep(5);
+      sleep(period);
 
-      freq = (double)count/10.;
+      freq = (double)count/(double)period;
       if (DOUBLE_MAX - freqTotal < freq) {
           freqTotal  = 0.;
           iterations = 1;
@@ -92,10 +93,11 @@ pthread_mutex_unlock(&mutex);
 
 
 int cMsgGetConsumer(void) {
-    char *subject = "responder";
+    /*char *subject = "responder";*/
+    char *subject = "SUBJECT";
     char *type    = "TYPE";
     char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/vx";
-    char *myName  = "VX-consumer";
+    char *myName  = "VX-getconsumer";
     char *myDescription = "trial run";
     int   i, err, domainId = -1;
     
@@ -127,7 +129,8 @@ int cMsgGetConsumer(void) {
 
         /* do a bunch of gets */
         for (i=0; i < NUMGETS; i++) {
-            err = cMsgSendAndGet(domainId, msg, &timeout, &getMsg);
+            /*err = cMsgSendAndGet(domainId, msg, &timeout, &getMsg);*/
+            err = cMsgSubscribeAndGet(domainId, subject, type, &timeout, &getMsg);
 
             if (err == CMSG_TIMEOUT) {
                 printf("TIMEOUT in sendAndGet\n");
