@@ -35,15 +35,34 @@ import java.util.*;
  * @version 1.0
  */
 public class cMsgMessage implements Cloneable {
-
-    /** Unique message id created by cMsg system. */
-    private int sysMsgId;
+    // general quantities
 
     /**
-     * Message receiver's id number corresponding to a subject & type pair
-     * of a message subscription.
+     * Unique message id created by cMsg system.
+     * Used by domain server to track client's "get" calls.
      */
-    private int receiverSubscribeId;
+    private int sysMsgId;
+
+    /** Message exists in this domain. */
+    private String domain;
+
+    /** Subject of message. */
+    private String subject;
+
+    /** Type of message. */
+    private String type;
+
+    /** Text of message. */
+    private String text;
+
+    /** Is this message a get request? */
+    boolean getRequest;
+
+    /** Is this message a response to a get request? */
+    boolean getResponse;
+
+
+    // sender quantities
 
     /** Unique name of message sender. */
     private String sender;
@@ -69,6 +88,14 @@ public class cMsgMessage implements Cloneable {
      */
     private int senderToken;
 
+    // receiver quantities
+
+    /**
+     * Message receiver's id number corresponding to a subject & type pair
+     * of a message subscription.
+     */
+    private int receiverSubscribeId;
+
     /** Unique name of message receiver. */
     private String receiver;
 
@@ -78,19 +105,32 @@ public class cMsgMessage implements Cloneable {
     /** Time message was received in milliseconds from midnight GMT, Jan 1st, 1970. */
     private long receiverTime;
 
-    /** Message exists in this domain. */
-    private String domain;
-
-    /** Subject of message. */
-    private String subject;
-
-    /** Type of message. */
-    private String type;
-
-    /** Text of message. */
-    private String text;
 
 
+    /**
+     * Creates a proper response message to this message sent by a client calling
+     * @return message with the response fields properly set
+     * @throws cMsgException if this message was not sent from a "get" method call
+     */
+    public cMsgMessage response() throws cMsgException {
+        // If this message was not sent from a "get" method call,
+        // a proper response is not possible, since the sysMsgId
+        // and senderToken fields will not have been properly set.
+        if (!getRequest) {
+            throw new cMsgException("this message not sent by client calling get");
+        }
+        cMsgMessage msg = new cMsgMessage();
+        msg.sysMsgId    = sysMsgId;
+        msg.senderToken = senderToken;
+        msg.getResponse = true;
+        return msg;
+    }
+
+
+    /**
+     * Creates a complete copy of this message.
+     * @return copy of this message
+     */
     public cMsgMessage copy() {
         cMsgMessage msg = null;
         try {msg = (cMsgMessage) this.clone();}
@@ -98,13 +138,17 @@ public class cMsgMessage implements Cloneable {
         return msg;
     }
 
+
+    // general quantities
+
+
     /** Get domain this message exists in. */
     public String getDomain() {return domain;}
     /**
      * Set domain this message exists in.
      * @param domain domain this message exists in.
      */
-    public void   setDomain(String domain) {this.domain = domain;}
+    public void setDomain(String domain) {this.domain = domain;}
 
 
     /** Get subject of message. */
@@ -113,7 +157,7 @@ public class cMsgMessage implements Cloneable {
      * Set subject of message.
      * @param subject subject of message.
      */
-    public void   setSubject(String subject) {this.subject = subject;}
+    public void setSubject(String subject) {this.subject = subject;}
 
 
     /** Get text of message. */
@@ -122,7 +166,7 @@ public class cMsgMessage implements Cloneable {
      * Set text of message.
      * @param text ext of message.
      */
-    public void   setText(String text) {this.text = text;}
+    public void setText(String text) {this.text = text;}
 
 
     /** Get type of message. */
@@ -131,16 +175,38 @@ public class cMsgMessage implements Cloneable {
      * Set type of message.
      * @param type type of message.
      */
-    public void   setType(String type) {this.type = type;}
+    public void setType(String type) {this.type = type;}
 
 
     /** Get system id of message. */
-    public int    getSysMsgId() {return sysMsgId;}
+    public int getSysMsgId() {return sysMsgId;}
     /**
      * Set system id of message. Set automatically by cMsg system.
      * @param sysMsgId system id of message.
      */
-    public void   setSysMsgId(int sysMsgId) {this.sysMsgId = sysMsgId;}
+    public void setSysMsgId(int sysMsgId) {this.sysMsgId = sysMsgId;}
+
+    /**
+     * Is this message a response to a "get" request?
+     * @return true if this message is a response to a "get" request
+     */
+    public boolean isGetResponse() {return getResponse;}
+    /**
+     * Specify whether this message is a response to a "get" message.
+     * @param getResponse true if this message is a response to a "get" message
+     */
+    public void setGetResponse(boolean getResponse) {this.getResponse = getResponse;}
+
+    /**
+     * Is this message a "get" request?
+     * @return true if this message is a "get" request
+     */
+    public boolean isGetRequest() {return getRequest;}
+    /**
+     * Specify whether this message is a "get" request.
+     * @param getRequest true if this message is a "get" request
+     */
+    public void setGetRequest(boolean getRequest) {this.getRequest = getRequest;}
 
 
     // receiver
@@ -152,7 +218,7 @@ public class cMsgMessage implements Cloneable {
      * Set message receiver.  Set automatically by cMsg system.
      * @param receiver message receiver.
      */
-    public void   setReceiver(String receiver) {this.receiver = receiver;}
+    public void setReceiver(String receiver) {this.receiver = receiver;}
 
 
     /** Get message receiver's host computer. */
@@ -161,16 +227,16 @@ public class cMsgMessage implements Cloneable {
      * Set message receiver's host computer. Set automatically by cMsg system.
      * @param receiverHost message receiver's host computer.
      */
-    public void   setReceiverHost(String receiverHost) {this.receiverHost = receiverHost;}
+    public void setReceiverHost(String receiverHost) {this.receiverHost = receiverHost;}
 
 
     /** Get receiver's id number corresponding to a subject & type pair of a message subscription. */
-    public int    getReceiverSubscribeId() {return receiverSubscribeId;}
+    public int getReceiverSubscribeId() {return receiverSubscribeId;}
     /**
      * Set receiver's subscription id number.
      * @param receiverSubscribeId  receiver's subscription id number.
      */
-    public void   setReceiverSubscribeId(int receiverSubscribeId) {this.receiverSubscribeId = receiverSubscribeId;}
+    public void setReceiverSubscribeId(int receiverSubscribeId) {this.receiverSubscribeId = receiverSubscribeId;}
 
     /** Get time message was received. */
     public Date   getReceiverTime() {return new Date(receiverTime);}
@@ -178,7 +244,7 @@ public class cMsgMessage implements Cloneable {
       * Set time message was receivered. Set automatically by cMsg system.
       * @param time time message received.
       */
-    public void   setReceiverTime(Date time) {this.receiverTime = time.getTime();}
+    public void setReceiverTime(Date time) {this.receiverTime = time.getTime();}
 
 
     // sender
@@ -190,7 +256,7 @@ public class cMsgMessage implements Cloneable {
      * Set message sender.
      * @param sender message sender.
      */
-    public void   setSender(String sender) {this.sender = sender;}
+    public void setSender(String sender) {this.sender = sender;}
 
 
     /** Get message sender's host computer. */
@@ -199,49 +265,49 @@ public class cMsgMessage implements Cloneable {
       * Set message sender's host computer. Set automatically by cMsg system.
       * @param senderHost message sender's host computer.
       */
-    public void   setSenderHost(String senderHost) {this.senderHost = senderHost;}
+    public void setSenderHost(String senderHost) {this.senderHost = senderHost;}
 
 
     /**
       * Get unique id of message sender. This id distinguishes between two identically
       * named senders - one of whom dies and is replaced by the other.
       */
-    public int    getSenderId() {return senderId;}
+    public int getSenderId() {return senderId;}
     /**
       * Set message sender's id.
       * @param senderId message sender's id.
       */
-    public void   setSenderId(int senderId) {this.senderId = senderId;}
+    public void setSenderId(int senderId) {this.senderId = senderId;}
 
 
     /** Get sender message's id. */
-    public int    getSenderMsgId() {return senderMsgId;}
+    public int getSenderMsgId() {return senderMsgId;}
     /**
       * Set sender message's id.
       * @param senderMsgId sender message's id.
       */
-    public void   setSenderMsgId(int senderMsgId) {this.senderMsgId = senderMsgId;}
+    public void setSenderMsgId(int senderMsgId) {this.senderMsgId = senderMsgId;}
 
 
     /** Get time message was sent. */
-    public Date   getSenderTime() {return new Date(senderTime);}
+    public Date getSenderTime() {return new Date(senderTime);}
     /**
       * Set time message was sent. Set automatically by cMsg system.
       * @param time time message sent.
       */
-    public void   setSenderTime(Date time) {this.senderTime = time.getTime();}
+    public void setSenderTime(Date time) {this.senderTime = time.getTime();}
 
 
     /**
      * Get sender's token. Used to track asynchronous responses to
      * messages requesting responses from other clients.
      */
-    public int    getSenderToken() {return senderToken;}
+    public int getSenderToken() {return senderToken;}
     /**
       * Set sender's token.
       * @param senderToken sender's token.
       */
-    public void   setSenderToken(int senderToken) {this.senderToken = senderToken;}
+    public void setSenderToken(int senderToken) {this.senderToken = senderToken;}
 
 
     /**
@@ -250,21 +316,24 @@ public class cMsgMessage implements Cloneable {
     public String toString() {
 	return(
 	       "<cMsgMessage date=\"" + (new Date()) + "\"\n"
-	       + "     " + "domain         = \"" + this.getDomain() + "\"\n"
-	       + "     " + "sysMsgId       = \"" + this.getSysMsgId() + "\"\n"
-	       + "     " + "sender         = \"" + this.getSender() + "\"\n"
-	       + "     " + "senderHost     = \"" + this.getSenderHost() + "\"\n"
-	       + "     " + "senderTime     = \"" + this.getSenderTime() + "\"\n"
-	       + "     " + "senderId       = \"" + this.getSenderId() + "\"\n"
-	       + "     " + "senderMsgId    = \"" + this.getSenderMsgId() + "\"\n"
-	       + "     " + "senderToken    = \"" + this.getSenderToken() + "\"\n"
-	       + "     " + "receiver       = \"" + this.getReceiver() + "\"\n"
-	       + "     " + "receiverHost   = \"" + this.getReceiverHost() + "\"\n"
-	       + "     " + "receiverTime   = \"" + this.getReceiverTime() + "\"\n"
-	       + "     " + "subject        = \"" + this.getSubject() + "\"\n"
-	       + "     " + "type           = \"" + this.getType() + "\">\n"
-	       + "<![CDATA[\n" + this.getText() + "\n]]>\n"
-	       + "</cMsgMessage>\n\n");
+            + "     " + "domain         = \"" + this.getDomain() + "\"\n"
+            + "     " + "sysMsgId       = \"" + this.getSysMsgId() + "\"\n"
+            + "     " + "getResponse    = \"" + this.isGetResponse() + "\"\n"
+            + "     " + "getRequest     = \"" + this.isGetRequest() + "\"\n"
+            + "     " + "sender         = \"" + this.getSender() + "\"\n"
+            + "     " + "senderHost     = \"" + this.getSenderHost() + "\"\n"
+            + "     " + "senderTime     = \"" + this.getSenderTime() + "\"\n"
+            + "     " + "senderId       = \"" + this.getSenderId() + "\"\n"
+            + "     " + "senderMsgId    = \"" + this.getSenderMsgId() + "\"\n"
+            + "     " + "senderToken    = \"" + this.getSenderToken() + "\"\n"
+            + "     " + "receiver       = \"" + this.getReceiver() + "\"\n"
+            + "     " + "receiverHost   = \"" + this.getReceiverHost() + "\"\n"
+            + "     " + "receiverTime   = \"" + this.getReceiverTime() + "\"\n"
+            + "     " + "receiverSubId  = \"" + this.getReceiverSubscribeId() + "\"\n"
+            + "     " + "subject        = \"" + this.getSubject() + "\"\n"
+            + "     " + "type           = \"" + this.getType() + "\">\n"
+            + "<![CDATA[\n" + this.getText() + "\n]]>\n"
+            + "</cMsgMessage>\n\n");
     }
 
 }
