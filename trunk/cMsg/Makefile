@@ -43,7 +43,12 @@ cCode:
 	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) install;
 	cd ./src;  $(MAKE) -f $(MAKEFILE) install;
 
-jars:
+tarfile:
+	-$(RM) cMsg.tar.gz
+	tar cfz cMsg.tar.gz `find . -type f | grep -v SCCS | grep -v BitKeeper | grep -v PENDING`
+
+
+jarfile:
 	jar cf cMsg.jar `find org/ -type f | grep -v SCCS`
 
 java:
@@ -55,6 +60,7 @@ java:
 	cd ./org/jlab/coda/cMsg/CADomain;  $(MAKE);
 	cd ./;
 
+
 doc:  javadoc doxygen
 
 javadoc:
@@ -64,19 +70,29 @@ doxygen:
 	doxygen ./doc/doxygen/Doxyfile
 
 
-clean: cclean jclean
 
-cclean: 
+clean: cClean jClean tarClean jarClean
+
+cClean: 
 	rm -f core *~ *.o *.so *.a *.class
 	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) clean;
 	cd ./src;  $(MAKE) -f $(MAKEFILE) clean;
-jclean: 
-	cd ./org/jlab/coda/cMsg;  $(MAKE) clean;
+
+jClean: 
+	cd ./org/jlab/coda/cMsg;             $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/cMsgDomain;  $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/subdomains;  $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/apps;  $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg/apps;        $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/FileDomain;  $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/CADomain;  $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg/CADomain;    $(MAKE) clean;
+
+tarClean:
+	-$(RM) *.tar.gz
+
+jarClean:
+	-$(RM) *.jar
+
+
 
 # SUFFIX RULES
 
