@@ -76,7 +76,7 @@ typedef struct subscribeInfo_t {
   char *subjectRegexp; /**< Subject of subscription made into regular expression. */
   char *typeRegexp;    /**< Type of subscription made into regular expression. */
   struct subscribeCbInfo_t cbInfo[MAX_CALLBACK]; /**< Array of callbacks. */
-} subscribeInfo;
+} subInfo;
 
 
 /** This structure represents a sendAndGet of a certain subject and type. */
@@ -139,7 +139,7 @@ typedef struct cMsgDomain_CODA_t {
   pthread_mutex_t subscribeMutex; /**< Mutex to ensure thread-safety of (un)subscribes. */
   
   /** Array of structures - each of which contain a subscription */
-  subscribeInfo subscribeInfo[MAX_SUBSCRIBE]; 
+  subInfo subscribeInfo[MAX_SUBSCRIBE]; 
   /** Array of structures - each of which contain a subscribeAndGet */
   getInfo subscribeAndGetInfo[MAX_SUBSCRIBE_AND_GET];
   /** Array of structures - each of which contain a sendAndGet */
