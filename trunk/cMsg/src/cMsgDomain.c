@@ -96,7 +96,8 @@ static int   codaSyncSend(int domainId, void *msg, int *response);
 static int   codaFlush(int domainId);
 static int   codaSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
                            void *userArg, cMsgSubscribeConfig *config);
-static int   codaUnsubscribe(int domainId, char *subject, char *type, cMsgCallback *callback);
+static int   codaUnsubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+                             void *userArg);
 static int   codaSubscribeAndGet(int domainId, char *subject, char *type,
                                  struct timespec *timeout, void **replyMsg);
 static int   codaSendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
@@ -1428,6 +1429,8 @@ static int codaFlush(int domainId) {
  * This routine is called by the user through cMsgSubscribe() given the
  * appropriate UDL. In this domain cMsgFlush() does nothing and does not
  * need to be called for the subscription to be started immediately.
+ * Only 1 subscription for a specific combination of subject, type, callback
+ * and userArg is allowed.
  *
  * @param domainId id number of the domain connection
  * @param subject subject of messages subscribed to
@@ -1440,6 +1443,7 @@ static int codaFlush(int domainId) {
  * @returns CMSG_OUT_OF_MEMORY if all available subscription memory has been used
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement
  *                               subscribe
+ * @returns CMSG_ALREADY_EXISTS if an identical subscription already exists
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
@@ -1485,6 +1489,19 @@ static int codaSubscribe(int domainId, char *subject, char *type, cMsgCallback *
       iok = 1;
 
       jok = 0;
+      
+      /* scan through callbacks looking for duplicates */ 
+      for (j=0; j<MAX_CALLBACK; j++) {
+	if ( (domain->subscribeInfo[i].cbInfo[j].callback == callback) &&
+             (domain->subscribeInfo[i].cbInfo[j].userArg  ==  userArg))  {
+        
+          subscribeMutexUnlock(domain);
+          connectReadUnlock();
+          return(CMSG_ALREADY_EXISTS);
+        }
+      }
+      
+      /* scan through callbacks looking for empty space */ 
       for (j=0; j<MAX_CALLBACK; j++) {
 	if (domain->subscribeInfo[i].cbInfo[j].callback == NULL) {
 	  domain->subscribeInfo[i].cbInfo[j].callback = callback;
@@ -1663,15 +1680,17 @@ static int codaSubscribe(int domainId, char *subject, char *type, cMsgCallback *
 
 
 /**
- * This routine unsubscribes to messages of the given subject, type and
- * callback. This routine is called by the user through cMsgUnSubscribe()
- * given the appropriate UDL. In this domain cMsgFlush() does nothing and
- * does not need to be called for codaUnsubscribe to be started immediately.
+ * This routine unsubscribes to messages of the given subject, type,
+ * callback, and user argument. This routine is called by the user through
+ * cMsgUnSubscribe() given the appropriate UDL. In this domain cMsgFlush()
+ * does nothing and does not need to be called for codaUnsubscribe to be
+ * started immediately.
  *
  * @param domainId id number of the domain connection
  * @param subject subject of messages to unsubscribed from
  * @param type type of messages to unsubscribed from
  * @param callback pointer to callback to be removed
+ * @param userArg user-specified pointer to be passed to the callback
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement
@@ -1682,7 +1701,8 @@ static int codaSubscribe(int domainId, char *subject, char *type, cMsgCallback *
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaUnsubscribe(int domainId, char *subject, char *type, cMsgCallback *callback) {
+static int codaUnsubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+                           void *userArg) {
 
   int i, j;
   int cbCount = 0;     /* total number of callbacks for the subject/type pair of interest */
@@ -1718,7 +1738,9 @@ static int codaUnsubscribe(int domainId, char *subject, char *type, cMsgCallback
       for (j=0; j<MAX_CALLBACK; j++) {
 	if (domain->subscribeInfo[i].cbInfo[j].callback != NULL) {
 	  cbCount++;
-          if (domain->subscribeInfo[i].cbInfo[j].callback == callback) {
+	  if ( (domain->subscribeInfo[i].cbInfo[j].callback == callback) &&
+               (domain->subscribeInfo[i].cbInfo[j].userArg  ==  userArg))  {
+
             domain->subscribeInfo[i].cbInfo[j].callback == NULL;
             cbsRemoved++;
           }

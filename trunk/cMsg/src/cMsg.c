@@ -455,6 +455,8 @@ int cMsgFlush(int domainId) {
  * When a message is received, the given callback is passed the message
  * pointer and the userArg pointer and then is executed. A configuration
  * structure is given to determine the behavior of the callback.
+ * Only 1 subscription for a specific combination of subject, type, callback
+ * and userArg is allowed.
  *
  * @param domainId id number of the domain connection
  * @param subject subject of messages subscribed to
@@ -493,13 +495,14 @@ int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callbac
 
 
 /**
- * This routine unsubscribes to messages of the given subject, type and
- * callback.
+ * This routine unsubscribes to messages of the given subject, type,
+ * callback, and user argument.
  *
  * @param domainId id number of the domain connection
  * @param subject subject of messages to unsubscribed from
  * @param type type of messages to unsubscribed from
  * @param callback pointer to callback to be removed
+ * @param userArg user-specified pointer to be passed to the callback
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
@@ -507,7 +510,8 @@ int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callbac
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgUnSubscribe
  */   
-int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback) {
+int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+                    void *userArg) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
@@ -524,7 +528,8 @@ int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callb
   
 
   /* dispatch to function registered for this domain type */
-  return(domains[id].functions->unsubscribe(domains[id].implId, subject, type, callback));
+  return(domains[id].functions->unsubscribe(domains[id].implId, subject, type, callback,
+                                            userArg));
 } 
 
 
@@ -807,9 +812,9 @@ char *cMsgPerror(int error) {
     if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_BAD_DOMAIN_TYPE:  domain type not supported\n");
     break;
 
-  case CMSG_NAME_EXISTS:
-    sprintf(temp, "CMSG_NAME_EXISTS: another process in this domain is using this name\n");
-    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_NAME_EXISTS:  another process in this domain is using this name\n");
+  case CMSG_ALREADY_EXISTS:
+    sprintf(temp, "CMSG_ALREADY_EXISTS: a unique item with that property already exists\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_ALREADY_EXISTS:  a unique item with that property already exists\n");
     break;
 
   case CMSG_NOT_INITIALIZED:

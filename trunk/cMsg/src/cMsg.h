@@ -133,7 +133,7 @@ enum {
   CMSG_BAD_ARGUMENT,        /**< Function argument(s) have illegal value. */
   CMSG_BAD_FORMAT,          /**< Function argument(s) in wrong format. */
   CMSG_BAD_DOMAIN_TYPE,     /**< Domain type not supported. */
-  CMSG_NAME_EXISTS,         /**< Unique name already exists. */
+  CMSG_ALREADY_EXISTS,      /**< Unique item already exists. */
   CMSG_NOT_INITIALIZED,     /**< Connection not established - call cMsgConnect. */
   CMSG_ALREADY_INIT,        /**< Connection already established. */
   CMSG_LOST_CONNECTION,     /**< No network connection to cMsg server. */
@@ -165,7 +165,8 @@ extern "C" {
   int 	cMsgFlush          (int domainId);
   int 	cMsgSubscribe      (int domainId, char *subject, char *type, cMsgCallback *callback,
                             void *userArg, cMsgSubscribeConfig *config);
-  int 	cMsgUnSubscribe    (int domainId, char *subject, char *type, cMsgCallback *callback);
+  int 	cMsgUnSubscribe    (int domainId, char *subject, char *type, cMsgCallback *callback,
+                            void *userArg);
   int   cMsgSendAndGet     (int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg);
   int   cMsgSubscribeAndGet(int domainId, char *subject, char *type,
                             struct timespec *timeout, void **replyMsg);
