@@ -35,6 +35,8 @@
 #include "cMsg_CODA.h"
 
 
+extern cMsgDomain_CODA cMsgDomains[];
+
 /*-------------------------------------------------------------------*
  * Structure to keep track of each client thread so it can be
  * disposed of later when the user is done with cMsg.
@@ -51,15 +53,10 @@ typedef struct cMsgClientThreadInfo_t {
  *-------------------------------------------------------------------*/
 typedef struct cMsgThreadInfo_t {
   int connfd;   /* socket connection's fd */
-  int endian;   /* endian of server */
-  int iov_max;  /* max iov size */
+  int domainId; /* index into the "cMsgDomains" array */
   cMsgClientThreadInfo *clientInfo; /* pointer to client thread info of this thread */
 } cMsgThreadInfo;
 
-
-/* prototypes */
-static void *clientThread(void *arg);
-static void  cleanUpHandler(void *arg);
 
 /* set debug level here */
 /* static int cMsgDebug = CMSG_DEBUG_INFO; */
@@ -69,9 +66,16 @@ static void  cleanUpHandler(void *arg);
 
 
 static int counter = 1;
-static int domainId;
-static cMsgDomain_CODA *domain;
 
+
+/* for c++ */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* prototypes */
+static void *clientThread(void *arg);
+static void  cleanUpHandler(void *arg);
 
 /*-------------------------------------------------------------------*
  * The listening thread needs a pthread cancellation cleanup handler.
@@ -110,9 +114,9 @@ static void cleanUpHandler(void *arg) {
  *-------------------------------------------------------------------*/
 void *cMsgClientListeningThread(void *arg)
 {
-  mainThreadInfo *threadarg = (mainThreadInfo *) arg;
-  int             listenFd  = threadarg->listenFd;
-  int             blocking  = threadarg->blocking;
+  mainThreadInfo *threadArg = (mainThreadInfo *) arg;
+  int             listenFd  = threadArg->listenFd;
+  int             blocking  = threadArg->blocking;
   int             i, err, endian, iov_max, index, status;
   fd_set          readSet;
   struct timeval  timeout;
@@ -125,12 +129,11 @@ void *cMsgClientListeningThread(void *arg)
   /* keep info about client threads here */
   cMsgClientThreadInfo clientThreads[CMSG_CLIENTSMAX];
   
+  int domainId;
   
   addrlen  = sizeof(cliaddr);
-  domain   = (cMsgDomain_CODA *) threadarg->domain;
-  domainId = threadarg->domainId;
-
-  
+  domainId = threadArg->domainId;
+    
   /* increase concurrency for this thread for early Solaris */
 #ifdef sun
   int  con;
@@ -142,28 +145,6 @@ void *cMsgClientListeningThread(void *arg)
   for (i=0; i<CMSG_CLIENTSMAX; i++) {
     clientThreads[i].isUsed = 0;
   }
-
-  /* find servers's endian value */
-  if (cMsgByteOrder(&endian) == CMSG_ERROR) {
-    if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-      fprintf(stderr, "cMsgClientListeningThread: strange byteorder\n");
-    }
-    exit(1);
-  }
-
-  /* find servers's iov_max value */
-#ifndef __APPLE__
-
-  if ( (iov_max = sysconf(_SC_IOV_MAX)) < 0) {
-    /* set it to POSIX minimum by default (it always bombs on Linux) */
-    iov_max = CMSG_IOV_MAX;
-  }
-  
-#else
-
-  iov_max = CMSG_IOV_MAX;
-  
-#endif
 
   /* get thread attribute ready */
   if ( (status = pthread_attr_init(&attr)) != 0) {
@@ -177,8 +158,7 @@ void *cMsgClientListeningThread(void *arg)
   pthread_cleanup_push(cleanUpHandler, (void *) clientThreads);
   
   /* Tell spawning thread that we're up and running */
-fprintf(stderr, "cMsgClientListeningThread: tell folks we're running\n");
-  threadarg->isRunning = 1;
+  threadArg->isRunning = 1;
   
   /* spawn threads to deal with each client */
   for ( ; ; ) {
@@ -235,8 +215,7 @@ fprintf(stderr, "cMsgClientListeningThread: tell folks we're running\n");
     }
     
     /* set values to pass on to thread */
-    pinfo->endian     = endian;
-    pinfo->iov_max    = iov_max;
+    pinfo->domainId   = domainId;
     pinfo->clientInfo = NULL;
     index = -1;
     for (i=0; i<CMSG_CLIENTSMAX; i++) {
@@ -283,6 +262,9 @@ fprintf(stderr, "cMsgClientListeningThread: tell folks we're running\n");
     }
   }
   
+  /* don't forget to free mem allocated for the argument passed to this routine */
+  free(threadArg);
+  
   /* on some operating systems (Linux) this call is necessary - calls cleanup handler */
   pthread_cleanup_pop(1);
   
@@ -295,7 +277,7 @@ fprintf(stderr, "cMsgClientListeningThread: tell folks we're running\n");
 
 static void *clientThread(void *arg)
 {
-  int  msgId, err, connfd, endian, length=0;
+  int  msgId, err, connfd, domainId, length=0;
   int  outgoing[2], incoming[2], localCount;
   char host[CMSG_MAXHOSTNAMELEN+1];
   unsigned short port;
@@ -305,8 +287,9 @@ static void *clientThread(void *arg)
 #ifdef sun
   int  con;
 #endif
-
+  
   info       = (cMsgThreadInfo *) arg;
+  domainId   = info->domainId;
   connfd     = info->connfd;
   clientInfo = info->clientInfo;
   free(arg);
@@ -317,7 +300,7 @@ static void *clientThread(void *arg)
   thr_setconcurrency(con + 1);
 #endif
 
-  /*--------------------------------------*/
+ /*--------------------------------------*/
   /* wait for and process client requests */
   /*--------------------------------------*/
   
@@ -328,13 +311,13 @@ static void *clientThread(void *arg)
   err = setsockopt(connfd, SOL_SOCKET, SO_RCVTIMEO, (const void *) &timeout, sizeof(timeout));
   if (err < 0) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "clientThread: setsockopt error\n");
+      fprintf(stderr, "clientThread %d: setsockopt error\n", localCount);
     }
     return;
   }
   
   localCount = counter++;
-
+ 
   /* the command loop */
   while (1) {
 
@@ -346,7 +329,7 @@ static void *clientThread(void *arg)
         goto retry;
       }
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "clientThread: error reading command\n");
+        fprintf(stderr, "clientThread %d: error reading command\n", localCount);
       }
       goto end;
     }
@@ -357,22 +340,29 @@ static void *clientThread(void *arg)
       case CMSG_SUBSCRIBE_RESPONSE:
       {
           cMsgMessage *message;
-          message = (cMsgMessage *) malloc(sizeof(cMsgMessage));
-          
+          message = (cMsgMessage *) cMsgCreateMessage();
+          if (message == NULL) {
+            if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+              fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
+            }
+            exit(1);
+          }
+
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "clientThread %d: subscribe response received\n", localCount);
+            /*fprintf(stderr, "clientThread %d: subscribe response received\n", localCount);*/
           }
           
           /* fill in known message fields */
-          message->domain       = (char *) strdup(domain->udl);
+          message->next         = NULL;
+          message->domain       = (char *) strdup("cMsg");
           message->receiverTime = time(NULL);
-          message->receiver     = (char *) strdup(domain->name);
-          message->receiverHost = (char *) strdup(domain->myHost);
+          message->receiver     = (char *) strdup(cMsgDomains[domainId].name);
+          message->receiverHost = (char *) strdup(cMsgDomains[domainId].myHost);
           
           /* read the message */
           if ( (err = cMsgReadMessage(connfd, message)) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "  clientThread: error reading message\n");
+              fprintf(stderr, "  clientThread %d: error reading message\n", localCount);
             }
             free((void *) message->domain);
             free((void *) message->receiver);
@@ -381,10 +371,7 @@ static void *clientThread(void *arg)
           }
           
           /* run callbacks for this message */
-          if (cMsgDebug >= CMSG_DEBUG_INFO) {
-              fprintf(stderr, "  clientThread %d: will run callbacks, msgId = \n",localCount, msgId);
-          }
-          cMsgRunCallbacks(domain, msgId, message);
+          cMsgRunCallbacks(domainId, msgId, message);
       }
       break;
 
@@ -399,7 +386,7 @@ static void *clientThread(void *arg)
         /* read an int */
         if ((err = cMsgTcpRead(connfd, &alive, sizeof(alive))) != sizeof(alive)) {
           if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-            fprintf(stderr, "clientThread: error reading command\n");
+            fprintf(stderr, "clientThread %d: error reading command\n", localCount);
           }
           goto end;
         }
@@ -408,7 +395,7 @@ static void *clientThread(void *arg)
         alive = htonl(CMSG_OK);
         if (cMsgTcpWrite(connfd, (void *) &alive, sizeof(alive)) != sizeof(alive)) {
           if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-            fprintf(stderr, "clientThread: write failure\n");
+            fprintf(stderr, "clientThread %d: write failure\n", localCount);
           }
           goto end;
         }        
@@ -418,7 +405,7 @@ static void *clientThread(void *arg)
       case  CMSG_SHUTDOWN:
       {
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          fprintf(stderr, "clientThread: told to shutdown\n");
+          fprintf(stderr, "clientThread %d: told to shutdown\n", localCount);
         }
         goto end;
       }
@@ -440,7 +427,7 @@ static void *clientThread(void *arg)
       clientInfo->isUsed = 0;
     }
 
-    fprintf(stderr, "clientThread: remote client connection broken\n");
+    fprintf(stderr, "clientThread %d: remote client connection broken\n", localCount);
 
     /* we are done with the socket */
     close(connfd);
@@ -454,3 +441,8 @@ static void *clientThread(void *arg)
     /* quit thread */
     pthread_exit(NULL);
 }
+
+#ifdef __cplusplus
+}
+#endif
+
