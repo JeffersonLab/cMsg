@@ -694,12 +694,20 @@ public class cMsg extends cMsgAdapter {
      * then the server grabs the first incoming message of the requested subject and type
      * and sends that to the original sender in response to the get.
      *
+     * NOTE: Disconnecting when one thread is in the waiting part of a get may cause that
+     * thread to block forever. It is best to always use a timeout with "get" so the thread
+     * is assured of eventually resuming execution.
+     *
      * @param message message sent to server
      * @param timeout time in milliseconds to wait for a reponse message
      * @return response message
      * @throws cMsgException if there are communication problems with the server
      */
     public cMsgMessage get(cMsgMessage message, int timeout) throws cMsgException {
+
+        int id;
+        cMsgHolder holder = null;
+
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
 
@@ -729,9 +737,6 @@ public class cMsg extends cMsgAdapter {
                 message.setText("");
                 text = message.getText();
             }
-
-            cMsgHolder holder = null;
-            int id;
 
             // We need send msg to domain server who will see we get a response.
             // First generate a unique id for the receiveSubscribeId and senderToken field.
@@ -816,52 +821,51 @@ public class cMsg extends cMsgAdapter {
             finally {
                 getBufferLock.unlock();
             }
-
-            // WAIT for the msg-receiving thread to wake us up
-            try {
-                synchronized (holder) {
-                    if (timeout > 0) {
-                        holder.wait(timeout);
-                    }
-                    else {
-                        holder.wait();
-                    }
-                }
-            }
-            catch (InterruptedException e) {
-            }
-
-
-            // Check the message stored for us in holder.
-            // If msg is null, we timed out.
-            // Tell server to forget the get if necessary.
-            if (holder.message == null) {
-                System.out.println("get: timed out");
-                // remove the specific get from server
-                if (message.isGetRequest()) {
-                    specificGets.remove(id);
-                }
-                // remove the general get from server
-                else {
-                    generalGets.remove(id);
-                }
-                unget(id);
-                return null;
-            }
-
-            // If msg is not null, server has removed subscription from his records.
-            // Client listening thread has also removed subscription from client's
-            // records (generalGets HashSet).
-
-            // Make a copy of message and return it.
-            cMsgMessage msg = holder.message.copy();
-//System.out.println("get: SUCCESS!!!");
-
-            return msg;
         }
+        // release lock 'cause we can't block connect/disconnect forever
         finally {
             notConnectLock.unlock();
         }
+
+        // WAIT for the msg-receiving thread to wake us up
+        try {
+            synchronized (holder) {
+                if (timeout > 0) {
+                    holder.wait(timeout);
+                }
+                else {
+                    holder.wait();
+                }
+            }
+        }
+        catch (InterruptedException e) {
+        }
+
+
+        // Check the message stored for us in holder.
+        // If msg is null, we timed out.
+        // Tell server to forget the get if necessary.
+        if (holder.message == null) {
+            System.out.println("get: timed out");
+            // remove the specific get from server
+            if (message.isGetRequest()) {
+                specificGets.remove(id);
+            }
+            // remove the general get from server
+            else {
+                generalGets.remove(id);
+            }
+            unget(id);
+            return null;
+        }
+
+        // If msg is not null, server has removed subscription from his records.
+        // Client listening thread has also removed subscription from client's
+        // records (generalGets HashSet).
+
+//System.out.println("get: SUCCESS!!!");
+
+        return holder.message;
     }
 
 
@@ -1160,7 +1164,7 @@ public class cMsg extends cMsgAdapter {
         // A direct buffer is necessary for nio socket IO.
         ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
-        int[] outGoing = new int[7];
+        int[] outGoing = new int[9];
 
         // first send message id to server
         outGoing[0] = cMsgConstants.msgConnectRequest;
@@ -1176,13 +1180,17 @@ public class cMsg extends cMsgAdapter {
         outGoing[5] = host.length();
         // send length of my name to server
         outGoing[6] = name.length();
+        // send length of my UDL to server
+        outGoing[7] = UDL.length();
+        // send length of my description to server
+        outGoing[8] = description.length();
 
         // get ready to write
         buffer.clear();
         // send ints over together using view buffer
         buffer.asIntBuffer().put(outGoing);
         // position original buffer at position of view buffer
-        buffer.position(28);
+        buffer.position(36);
 
         try {
             // send the type of domain server I'm expecting to connect to
@@ -1199,6 +1207,12 @@ public class cMsg extends cMsgAdapter {
 
             // send my name to server
             buffer.put(name.getBytes("US-ASCII"));
+
+            // send UDL for completeness
+            buffer.put(UDL.getBytes("US-ASCII"));
+
+            // send description for completeness
+            buffer.put(description.getBytes("US-ASCII"));
         }
         catch (UnsupportedEncodingException e) {
         }
