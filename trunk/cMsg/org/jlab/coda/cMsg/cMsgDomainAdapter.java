@@ -79,7 +79,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void connect() throws cMsgException {
-        throw new cMsgException("connect is not implemented yet");
+        throw new cMsgException("connect is not implemented");
     }
 
 
@@ -93,7 +93,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void disconnect() throws cMsgException {
-        throw new cMsgException("disconnect is not implemented yet");
+        throw new cMsgException("disconnect is not implemented");
     }
 
 
@@ -107,7 +107,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void send(cMsgMessage message) throws cMsgException {
-        throw new cMsgException("send is not implemented yet");
+        throw new cMsgException("send is not implemented");
     }
 
 
@@ -122,7 +122,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      * @throws cMsgException
      */
     public int syncSend(cMsgMessage message) throws cMsgException {
-        throw new cMsgException("syncSend is not implemented yet");
+        throw new cMsgException("syncSend is not implemented");
     }
 
 
@@ -135,7 +135,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void flush() throws cMsgException {
-        throw new cMsgException("flush is not implemented yet");
+        throw new cMsgException("flush is not implemented");
     }
 
 
@@ -156,7 +156,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      */
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
             throws cMsgException, TimeoutException {
-        throw new cMsgException("subscribeAndGet is not implemented yet");
+        throw new cMsgException("subscribeAndGet is not implemented");
     }
 
 
@@ -178,7 +178,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      */
     public cMsgMessage sendAndGet(cMsgMessage message, int timeout)
             throws cMsgException, TimeoutException {
-        throw new cMsgException("sendAndGet is not implemented yet");
+        throw new cMsgException("sendAndGet is not implemented");
     }
 
 
@@ -196,7 +196,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj) throws cMsgException {
-        throw new cMsgException("subscribe is not implemented yet");
+        throw new cMsgException("subscribe is not implemented");
     }
 
 
@@ -216,7 +216,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void unsubscribe(String subject, String type, cMsgCallbackInterface cb) throws cMsgException {
-        throw new cMsgException("unsubscribe is not implemented yet");
+        throw new cMsgException("unsubscribe is not implemented");
     }
 
 
