@@ -8,9 +8,12 @@ JAVAH = javah
 JAVAD = javadoc
 JAR   = jar
 
-INSTALL  = ../../../../../../install-sh -c
-#JAVAC_FLAGS = -classpath ../../../../../
-JAVAC_FLAGS = -classpath ../../../../../:$(CLASSPATH)
+TOPDIR = ../../../../..
+JARDIR = $(TOPDIR)/jar
+JARS = $(JARDIR)/jca-2.1.5.jar
+
+INSTALL  = $(TOPDIR)/install-sh -c
+JAVAC_FLAGS = -classpath $(TOPDIR)/:$(JARS)
 
 JAVA_OBJS = \
 	CA.class

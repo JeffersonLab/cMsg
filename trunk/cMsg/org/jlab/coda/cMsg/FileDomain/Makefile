@@ -4,13 +4,13 @@
 JAR_INSTALL = ./
 
 JAVAC = javac
-JAVAH = javah
 JAVAD = javadoc
 JAR   = jar
 
-INSTALL  = ../../../../../../install-sh -c
-JAVAC_FLAGS = -classpath ../../../../../
-#JAVAC_FLAGS = -classpath ../../../../../:$(CLASSPATH)
+TOPDIR = ../../../../..
+
+INSTALL  = $(TOPDIR)/install-sh -c
+JAVAC_FLAGS = -classpath $(TOPDIR)
 
 JAVA_OBJS = \
 	File.class
