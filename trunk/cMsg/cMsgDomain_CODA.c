@@ -45,7 +45,8 @@
 
 
 /* built-in limits */
-#define MAXDOMAINS_CODA 10
+#define MAXDOMAINS_CODA  10
+#define WAIT_FOR_THREADS 10 /* seconds to wait for thread to start */
 
 
 static int   coda_connect(char *myUDL, char *myName, char *myDescription, int *domainId);
@@ -111,11 +112,13 @@ static void *keepAliveThread(void *arg);
 
 static int coda_connect(char *myUDL, char *myName, char *myDescription, int *domainId) {
 
-  int i, id=-1, err, serverfd, status;
+  int i, id=-1, err, serverfd, status, hz, num_try, try_max;
   char *portEnvVariable=NULL, temp[CMSG_MAXHOSTNAMELEN];
   unsigned short startingPort;
   mainThreadInfo threadArg;
+  struct timespec waitForThread;
   
+    
   /* First, grab mutex for thread safety. This mutex must be held until
    * the initialization is completely finished. Otherwise, if we set
    * initComplete = 1 (so that we reserve space in the domains array)
@@ -189,7 +192,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
     return(err);
   }
   
-   /*
+  /*
    * First find a port on which to receive incoming messages.
    * Do this by trying to open a listening socket at a given
    * port number. If that doesn't work add one to port number
@@ -231,13 +234,43 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   }
 
   /* launch pend thread and start listening on receive socket */
-  threadArg.domain   = &domains[id];
-  threadArg.listenFd = domains[id].listenSocket;
-  threadArg.blocking = CMSG_NONBLOCKING;
+  threadArg.isRunning = 0;
+  threadArg.domain    = &domains[id];
+  threadArg.listenFd  = domains[id].listenSocket;
+  threadArg.blocking  = CMSG_NONBLOCKING;
   status = pthread_create(&domains[id].pendThread, NULL,
                           cMsgServerListeningThread, (void *)&threadArg);
   if (status != 0) {
     err_abort(status, "Creating message listening thread");
+  }
+  
+  /*
+   * Wait for flag to indicate thread is actually running before
+   * continuing on. This thread must be running before we talk to
+   * the name server since the server tries to communicate with
+   * the listening thread.
+   */
+   
+  /* get system clock rate - probably 100 Hz */
+  hz = 100;
+  hz = sysconf(_SC_CLK_TCK);
+  /* wait up to WAIT_FOR_THREADS seconds for a thread to start */
+  try_max = hz * WAIT_FOR_THREADS;
+  num_try = 0;
+  waitForThread.tv_sec  = 0;
+  waitForThread.tv_nsec = 1000000000/hz;
+fprintf(stderr, "coda_connect, launched listening thread, wait for flag\n");
+  
+  while((threadArg.isRunning != 1) && (num_try++ < try_max)) {
+    nanosleep(&waitForThread, NULL);
+fprintf(stderr, ".");
+  }
+fprintf(stderr, "\n\n");
+  if (num_try > try_max) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "coda_connect, cannot start listening thread\n");
+    }
+    exit(-1);
   }
      
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
@@ -574,7 +607,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
       outGoing[3] = htonl(lenType);
       
       if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "coda_subscribe: write 4 (%d, %d, %d, %d) ints to server\n",
+        fprintf(stderr, "subscribe: write 4 (%d, %d, %d, %d) ints to server\n",
                 CMSG_SUBSCRIBE_REQUEST, uniqueId, lenSubject, lenType);
       }
   
@@ -592,7 +625,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
       }
 
       if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "coda_subscribe: sending subject (%s)\n", subject);
+        fprintf(stderr, "subscribe: sending subject (%s)\n", subject);
       }
   
       /* send subject */
@@ -606,7 +639,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
       }
 
       if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "coda_subscribe: sending type (%s)\n", type);
+        fprintf(stderr, "subscribe: sending type (%s)\n", type);
       }
   
       /* send type */
@@ -620,7 +653,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
       }
       
       if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "coda_subscribe: will read reply\n");
+        fprintf(stderr, "subscribe: will read reply\n");
       }
   
       /* now read reply */
@@ -641,7 +674,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
       /* return domain server's reply */
       err = ntohl(err);
       if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "coda_subscribe: read reply (%d)\n", err);
+        fprintf(stderr, "subscribe: read reply (%d)\n", err);
       }
   
       return(err);
@@ -713,6 +746,11 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
         lenType     = strlen(type);
         outGoing[2] = htonl(lenType);
         
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+          fprintf(stderr, "unsubscribe: write 3 (%d, %d, %d) ints to server\n",
+                  CMSG_UNSUBSCRIBE_REQUEST, lenSubject, lenType);
+        }
+  
         /* make send socket communications thread-safe */
         sendMutexLock(domain);
 
@@ -726,6 +764,10 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
           return(CMSG_NETWORK_ERROR);
         }
 
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+          fprintf(stderr, "unsubscribe: write subject (%s)\n", subject);
+        }
+  
         /* send subject */
         if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
           sendMutexUnlock(domain);
@@ -736,6 +778,10 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
           return(CMSG_NETWORK_ERROR);
         }
 
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+          fprintf(stderr, "unsubscribe: write type (%s)\n", type);
+        }
+  
         /* send type */
         if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
           sendMutexUnlock(domain);
@@ -746,6 +792,10 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
           return(CMSG_NETWORK_ERROR);
         }
 
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+          fprintf(stderr, "unsubscribe: will read reply\n");
+        }
+  
         /* now read reply */
         if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
           sendMutexUnlock(domain);
@@ -763,6 +813,10 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
         
         /* return domain server's reply */
         err = ntohl(err);
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+          fprintf(stderr, "unsubscribe: read replay (%d)\n", err);
+        }
+  
         return(err);
 
       }
