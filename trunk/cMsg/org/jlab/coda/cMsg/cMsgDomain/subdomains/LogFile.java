@@ -1,7 +1,5 @@
 // still to do:
-//   need file open parameters: new/append, etc.
-//   return code values?
-//   server and client shutdown?
+//   server shutdown?
 
 
 
@@ -29,6 +27,7 @@ import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequests;
 import java.util.*;
+import java.util.concurrent.atomic.*;
 import java.io.*;
 import java.util.regex.*;
 
@@ -49,22 +48,22 @@ public class LogFile implements cMsgHandleRequests {
     private static HashMap openFiles = new HashMap(100);
 
 
-
-    /** Class to hold log file name and handle. */
+    /** Inner class to hold log file information. */
     private static class LogFileObject {
-        Object logFileHandle;
-	int logFileCount;
+        Object printHandle;
+	AtomicInteger count;
 
         LogFileObject(Object handle) {
-            logFileHandle = handle;
-            logFileCount  = 0;
+            printHandle = handle;
+            count       = new AtomicInteger(1);
         }
-
     }
 
 
     /** Name of client using this subdomain handler. */
     private String myName;
+    private String myHost;
+    private int myPort;
 
 
     /** File name for this client. */
@@ -79,8 +78,10 @@ public class LogFile implements cMsgHandleRequests {
     private Object myPrintHandle = null;
 
 
-    /** UDL remainder for this subdomain handler. */
+    /** UDL remainder for this client. */
     private String myUDLRemainder;
+
+
 
 
     /**
@@ -162,7 +163,7 @@ public class LogFile implements cMsgHandleRequests {
      * @return true if client registered, false otherwise
      */
     public boolean isRegistered(String name) {
-	return false;
+	return false;  // no limit on how many registrations per client
     }
 
 
@@ -176,9 +177,13 @@ public class LogFile implements cMsgHandleRequests {
      */
     public void registerClient(String name, String host, int port) throws cMsgException {
 
-        myName = name;
-	String fname;
-	String remainder = null;
+	String remainder = null;  // not used yet...could hold file open flags..
+	LogFileObject l;
+	PrintWriter pw;
+
+        myName = name;  // not used for anything
+	myHost = host;  //         "
+	myPort = port;  //         "
 
 
 	//  extract file name from UDL remainder
@@ -187,10 +192,10 @@ public class LogFile implements cMsgHandleRequests {
 		Pattern p = Pattern.compile("^(.+?)(\\?)(.*)$");
 		Matcher m = p.matcher(myUDLRemainder);
 		m.find();
-		fname     = m.group(1);
-		remainder = m.group(2);
+		myFileName = m.group(1);
+		remainder  = m.group(2);
 	    } else {
-		fname = myUDLRemainder;
+		myFileName = myUDLRemainder;
 	    }
 	} catch (Exception e) {
 	    e.printStackTrace();
@@ -201,28 +206,39 @@ public class LogFile implements cMsgHandleRequests {
 
 
 	// get canonical name
-	myCanonicalName=xxx;
+	try {
+	    File f = new File(myFileName);
+	    if(f.exists())myCanonicalName=f.getCanonicalPath();
+	} catch (Exception e) {
+	    e.printStackTrace();
+	    cMsgException ce = new cMsgException("Unable to get canonical name");
+	    ce.setReturnCode(1);
+	    throw ce;
+	}
 
-	
-	// increment count if file already open
-        if (openFiles.containsKey(myCanonicalName)) {
-	    myPrintHandle=(Object)openFiles(myCanonicalName).logFileHandle;
-	    openFiles(myCanonicalName).logFileCount++;
 
-
-	// file not open...open new file, create print object and hash entry, write initial XML stuff
-	} else {
-	    try {
-		myPrintHandle = (Object)(new PrintWriter(new BufferedWriter(new FileWriter(myFileName))));
-		openFiles(myCanonicalName)= new LogFileObject(myPrintHandle);
-		((PrintWriter)(myPrintHandle)).println("<cMsgLogFile  name=\"" + fname + "\""
-						       + "  date=\"" + (new Date()) + "\"\n\n");
-	    } catch (Exception e) {
-		System.out.println(e);
-		e.printStackTrace();
-		cMsgException ce = new cMsgException("registerClient: unable to open file");
-		ce.setReturnCode(1);
-		throw ce;
+	// check if file already open
+	synchronized(openFiles) {
+	    if(openFiles.containsKey(myCanonicalName)) {
+		l=(LogFileObject)openFiles.get(myCanonicalName);
+		myPrintHandle=l.printHandle;
+		l.count.incrementAndGet();
+		
+		
+ 	    // file not open...open file in append mode, create print object and hash entry, write initial XML stuff, etc.
+	    } else {
+		try {
+		    pw = new PrintWriter(new BufferedWriter(new FileWriter(myFileName,true)));
+		    myPrintHandle = (Object)pw;
+		    openFiles.put(myCanonicalName,new LogFileObject(myPrintHandle));
+		    pw.println("<cMsgLogFile  name=\"" + myFileName + "\"" + "  date=\"" + (new Date()) + "\">\n\n");
+		} catch (Exception e) {
+		    System.out.println(e);
+		    e.printStackTrace();
+		    cMsgException ce = new cMsgException("registerClient: unable to open file");
+		    ce.setReturnCode(1);
+		    throw ce;
+		}
 	    }
 	}
     }
@@ -237,7 +253,15 @@ public class LogFile implements cMsgHandleRequests {
      */
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
 	msg.setReceiver("cMsg:LogFile");
-        ((PrintWriter)myPrintHandle).println(msg);
+	try {
+	    ((PrintWriter)myPrintHandle).println(msg);
+	} catch (Exception e) {
+	    System.out.println(e);
+	    e.printStackTrace();
+	    cMsgException ce = new cMsgException("handleSendRequest: unable to write");
+	    ce.setReturnCode(1);
+	    throw ce;
+	}
     }
 
 
@@ -250,8 +274,7 @@ public class LogFile implements cMsgHandleRequests {
      * @throws cMsgException
      */
     public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
-	msg.setReceiver("cMsg:LogFile");
-        ((PrintWriter)myPrintHandle).println(msg);
+	handleSendRequest(msg);
         return 0;
     }
 
@@ -322,11 +345,14 @@ public class LogFile implements cMsgHandleRequests {
      * @throws cMsgException
      */
     public void handleClientShutdown() throws cMsgException {
-	openFiles(myCanonicalName).logFileCount=--;
-	if(openFiles(myCanonicalName).logFileCount<=0) {
-	    ((PrintWriter)myPrintHandle).println("\n\n<cMsgLogFile>\n\n");
-	    ((PrintWriter)myPrintHandle).close();
-	    openFiles.remove(myCanonicalName);
+	synchronized(openFiles) {
+	    LogFileObject l = (LogFileObject)openFiles.get(myCanonicalName);
+	    if(l.count.decrementAndGet()<=0) {
+		((PrintWriter)myPrintHandle).println("</cMsgLogFile>\n");
+		((PrintWriter)myPrintHandle).println("\n\n\n<!--===========================================================================================-->\n\n\n");
+		((PrintWriter)myPrintHandle).close();
+		openFiles.remove(myCanonicalName);
+	    }
 	}
     }
 
