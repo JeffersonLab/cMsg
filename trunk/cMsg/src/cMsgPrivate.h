@@ -61,8 +61,8 @@ extern int cMsgDebug;
 /** This structure holds domain implementation function pointers. */
 typedef struct domainFunctions_t {
   /** This function connects to a cMsg server. */
-  int (*connect)         (char *udl, char *name, char *description, char *UDLremainder,
-                          int *domainId); 
+  int (*connect)         (const char *udl, const char *name, const char *description,
+                          const char *UDLremainder, int *domainId); 
   
   /** This function sends a message to a cMsg server. */
   int (*send)            (int domainId, void *msg);
@@ -74,18 +74,18 @@ typedef struct domainFunctions_t {
   int (*flush)           (int domainId);
   
   /** This function subscribes to messages of the given subject and type. */
-  int (*subscribe)       (int domainId, char *subject, char *type, cMsgCallback *callback,
+  int (*subscribe)       (int domainId, const char *subject, const char *type, cMsgCallback *callback,
                           void *userArg, cMsgSubscribeConfig *config);
   
   /** This functin unsubscribes to messages of the given subject, type and callback. */
-  int (*unsubscribe)     (int domainId, char *subject, char *type, cMsgCallback *callback,
+  int (*unsubscribe)     (int domainId, const char *subject, const char *type, cMsgCallback *callback,
                           void *userArg);
   
   /**
    * This function gets one message from a one-time subscription to the given
    * subject and type.
    */
-  int (*subscribeAndGet) (int domainId, char *subject, char *type,
+  int (*subscribeAndGet) (int domainId, const char *subject, const char *type,
                           struct timespec *timeout, void **replyMsg);
   /**
    * This function gets one message from another cMsg client by sending out
@@ -103,7 +103,7 @@ typedef struct domainFunctions_t {
   int (*disconnect)      (int domainId);
   
   /** This function shuts down the given clients and/or servers. */
-  int (*shutdown)        (int domainId, char *client, char *server, int flag);
+  int (*shutdown)        (int domainId, const char *client, const char *server, int flag);
   
   /** This function sets the shutdown handler. */
   int (*setShutdownHandler) (int domainId, cMsgShutdownHandler *handler, void *userArg);
