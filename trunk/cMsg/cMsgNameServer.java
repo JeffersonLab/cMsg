@@ -29,6 +29,9 @@ import java.util.*;
  */
 public class cMsgNameServer {
 
+  /** Type of domain this is. */
+  private String type = "CODA";
+  
   /** Port number to listen on. */
   private int port;
   
@@ -55,6 +58,9 @@ public class cMsgNameServer {
   
   /** Gets boolean value specifying whether to kill all spawned threads. */
   public boolean getKillAllThreads() {return killAllThreads;}
+  
+  /** Gets type of domain this object serves. */
+  public String getType() {return type;}
   
   
 
