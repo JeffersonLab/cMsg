@@ -145,27 +145,41 @@ public class cMsgCallbackThread extends Thread {
     /** This method is executed as a thread which runs the callback method */
     public void run() {
         cMsgMessage message, msgCopy;
-        SupplementalThread thd;
-        int threadsAdded;
+        int threadsAdded, need, maxToAdd, wantToAdd;
 
         while (true) {
             threadsAdded = 0;
 
-            if (!callback.mustSerializeMessages() && threads < 1000 && messageList.size() > 50) {
-                // find number of threads needed (1 per 50 messages)
-                int need = messageList.size()/50;
+            if (!callback.mustSerializeMessages() &&
+                threads < callback.getMaximumCueSize() &&
+                messageList.size() > callback.getMessagesPerThread()) {
+
+                // find number of threads needed
+                need = messageList.size()/callback.getMessagesPerThread();
+
+                // at this point, threads may only decrease, it is only increased below
 
                 // add more threads if necessary
                 if (need > threads) {
-                    threadsAdded = need - threads;
+                    // maximum # of threads that can be added w/o exceeding limit
+                    maxToAdd  = callback.getMaximumThreads() - threads;
+
+                    // number of threads we want to add to handle the load
+                    wantToAdd = need - threads;
+
+                    // number of threads that we will add
+                    threadsAdded = maxToAdd > wantToAdd ? wantToAdd : maxToAdd;
+
                     for (int i=0; i < threadsAdded; i++) {
-                        thd = new SupplementalThread();
+                        new SupplementalThread();
                     }
 
                     // do the following bookkeeping under mutex protection
-                    synchronized (sync) {
-                        threads += threadsAdded;
-                        //System.out.println("t += " + threads);
+                    if (threadsAdded > 0) {
+                        synchronized (sync) {
+                            threads += threadsAdded;
+                            //System.out.println("t += " + threads);
+                        }
                     }
                 }
             }
