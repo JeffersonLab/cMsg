@@ -1,5 +1,4 @@
 // still to do:
-//   server shutdown
 
 
 
@@ -25,7 +24,7 @@ package org.jlab.coda.cMsg.subdomains;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgSubdomainInterface;
+import org.jlab.coda.cMsg.cMsgSubdomainAdapter;
 import org.jlab.coda.cMsg.cMsgClientInfo;
 
 import java.sql.*;
@@ -46,7 +45,7 @@ import java.util.regex.*;
  * @version 1.0
  *
  */
-public class database implements cMsgSubdomainInterface {
+public class database extends cMsgSubdomainAdapter {
 
 
     /** UDL remainder for this subdomain handler. */
@@ -77,36 +76,6 @@ public class database implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to tell if the "subscribeAndGet" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSubscribeAndGetRequest}
-     * method.
-     *
-     * @return true if subscribeAndGet implemented in {@link #handleSubscribeAndGetRequest}
-     */
-    public boolean hasSubscribeAndGet() {
-        return false;
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to tell if the "sendAndGet" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendAndGetRequest}
-     * method.
-     *
-     * @return true if sendAndGet implemented in {@link #handleSendAndGetRequest}
-     */
-    public boolean hasSendAndGet() {
-        return false;
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
      * Method to tell if the "syncSend" cMsg API function is implemented
      * by this interface implementation in the {@link #handleSyncSendRequest}
      * method.
@@ -115,36 +84,6 @@ public class database implements cMsgSubdomainInterface {
      */
     public boolean hasSyncSend() {
         return true;
-    };
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to tell if the "subscribe" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSubscribeRequest}
-     * method.
-     *
-     * @return true if subscribe implemented in {@link #handleSubscribeRequest}
-     */
-    public boolean hasSubscribe() {
-        return false;
-    };
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to tell if the "unsubscribe" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleUnsubscribeRequest}
-     * method.
-     *
-     * @return true if unsubscribe implemented in {@link #handleUnsubscribeRequest}
-     */
-    public boolean hasUnsubscribe() {
-        return false;
     };
 
 
@@ -161,7 +100,7 @@ public class database implements cMsgSubdomainInterface {
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
         myUDLRemainder=UDLRemainder;
     }
-    
+
 
 //-----------------------------------------------------------------------------
 
@@ -199,31 +138,31 @@ public class database implements cMsgSubdomainInterface {
             Pattern p;
             Matcher m;
 
-	    // driver required
-	    p = Pattern.compile("[&\\?]driver=(.*?)&", Pattern.CASE_INSENSITIVE);
-	    m = p.matcher(remainder);
-	    m.find();
-	    driver = m.group(1);
-	    
-	    // URL required
-	    p = Pattern.compile("[&\\?]url=(.*?)&", Pattern.CASE_INSENSITIVE);
-	    m = p.matcher(remainder);
-	    m.find();
-	    URL = m.group(1);
-	    
-	    // account not required
-	    p = Pattern.compile("[&\\?]account=(.*?)&", Pattern.CASE_INSENSITIVE);
-	    m = p.matcher(remainder);
-	    if (m.find()) {
-		account = m.group(1);
-	    }
-	    
-	    // password not required
-	    p = Pattern.compile("[&\\?]password=(.*?)&", Pattern.CASE_INSENSITIVE);
-	    m = p.matcher(remainder);
-	    if (m.find()) {
-		password = m.group(1);
-	    }
+            // driver required
+            p = Pattern.compile("[&\\?]driver=(.*?)&", Pattern.CASE_INSENSITIVE);
+            m = p.matcher(remainder);
+            m.find();
+            driver = m.group(1);
+
+            // URL required
+            p = Pattern.compile("[&\\?]url=(.*?)&", Pattern.CASE_INSENSITIVE);
+            m = p.matcher(remainder);
+            m.find();
+            URL = m.group(1);
+
+            // account not required
+            p = Pattern.compile("[&\\?]account=(.*?)&", Pattern.CASE_INSENSITIVE);
+            m = p.matcher(remainder);
+            if (m.find()) {
+                account = m.group(1);
+            }
+
+            // password not required
+            p = Pattern.compile("[&\\?]password=(.*?)&", Pattern.CASE_INSENSITIVE);
+            m = p.matcher(remainder);
+            if (m.find()) {
+                password = m.group(1);
+            }
         }
 
 
@@ -241,7 +180,7 @@ public class database implements cMsgSubdomainInterface {
 
 
         // create connection
-	try {
+        try {
             myCon = DriverManager.getConnection(URL, account, password);
         } catch (SQLException e) {
             System.out.println(e);
@@ -326,114 +265,6 @@ public class database implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle subscribe request sent by domain client.
-     * Not implemented.
-     *
-     * @param subject             message subject to subscribe to
-     * @param type                message type to subscribe to
-     * @param receiverSubscribeId message id refering to these specific subject and type values
-     * @throws cMsgException if no client information is available or a subscription for this
-     *                       subject and type already exists
-     */
-    public void handleSubscribeRequest(String subject, String type,
-                                       int receiverSubscribeId) throws cMsgException {
-        // do nothing...
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle sunsubscribe request sent by domain client.
-     * This method is run after all exchanges between domain server and client.
-     * Not implemented.
-     *
-     * @param subject message subject subscribed to
-     * @param type message type subscribed to
-     * @param receiverSubscribeId message id refering to these specific subject and type values
-     */
-    public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId) {
-        // do nothing...
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to synchronously get a single message from a receiver by sending out a
-     * message to be responded to.
-     *
-     * @param message message requesting what sort of message to get
-     */
-    public void handleSendAndGetRequest(cMsgMessageFull message) {
-        // do nothing
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to synchronously get a single message from the server for a one-time
-     * subscription of a subject and type.
-     *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id      message id refering to these specific subject and type values
-     */
-    public void handleSubscribeAndGetRequest(String subject, String type, int id) {
-        // no nothing
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle remove sendAndGet request sent by domain client
-     * (hidden from user).
-     *
-     * @param id message id refering to these specific subject and type values
-     */
-    public void handleUnSendAndGetRequest(int id) {
-        // do nothing
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle remove subscribeAndGet request sent by domain client
-     * (hidden from user).
-     *
-     * @param id message id refering to these specific subject and type values
-     */
-    public void handleUnSubscribeAndGetRequest(int id) {
-        // do nothing
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle keepalive sent by domain client checking to see
-     * if the domain server socket is still up. Normally nothing needs to
-     * be done as the domain server simply returns an "OK" to all keepalives.
-     * This method is run after all exchanges between domain server and client.
-     */
-    public void handleKeepAlive() {
-        // do nothing...
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
      * Method to handle a client shutdown.
      *
      * @throws cMsgException
@@ -446,19 +277,6 @@ public class database implements cMsgSubdomainInterface {
         catch (SQLException e) {
             throw(new cMsgException("database sub-domain handler shutdown error"));
         }
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle a complete name server down.
-     * This method is run after all exchanges between domain server and client but
-     * before the server is killed (since that is what is running this
-     * method).
-     */
-    public void handleServerShutdown() throws cMsgException {
     }
 
 
