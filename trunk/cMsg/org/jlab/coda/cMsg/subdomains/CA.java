@@ -137,8 +137,9 @@ public class CA extends cMsgSubdomainAdapter {
 
                 synchronized (mySubscribeIdList) {
                     try {
-                        deliverMessage(myClientInfo.getChannel(),myBuffer,cmsg,mySubscribeIdList,
-                                       cMsgConstants.msgSubscribeResponse);
+                        myDeliverer.deliverMessage(cmsg,myClientInfo, cMsgConstants.msgSubscribeResponse);
+                    } catch (cMsgException e) {
+                        e.printStackTrace();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
