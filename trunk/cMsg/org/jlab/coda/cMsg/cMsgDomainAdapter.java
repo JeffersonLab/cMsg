@@ -16,6 +16,8 @@
 
 package org.jlab.coda.cMsg;
 
+import java.util.concurrent.TimeoutException;
+
 /**
  * This class provides a very basic (non-functional/dummy) implementation
  * of the cMsgDomainInterface interface. Its non-getter/setter methods throw a
@@ -143,15 +145,17 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
     /**
      * This method is like a one-time subscribe. The server grabs the first incoming
      * message of the requested subject and type and sends that to the caller.
+     * A return of null means a timeout has occurred.
      *
      * @param subject subject of message desired from server
      * @param type type of message desired from server
      * @param timeout time in milliseconds to wait for a message
      * @return response message
      * @throws cMsgException
+     * @throws TimeoutException if timeout occurs
      */
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
-            throws cMsgException {
+            throws cMsgException, TimeoutException {
         throw new cMsgException("subscribeAndGet is not implemented yet");
     }
 
@@ -164,13 +168,16 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      * the fact that a response to it is expected, and sends it to all subscribed to its
      * subject and type. When a marked response is received from a client, it sends that
      * first response back to the original sender regardless of its subject or type.
+     * The response may be null.
      *
      * @param message message sent to server
      * @param timeout time in milliseconds to wait for a reponse message
      * @return response message
      * @throws cMsgException
+     * @throws TimeoutException if timeout occurs
      */
-    public cMsgMessage sendAndGet(cMsgMessage message, int timeout) throws cMsgException {
+    public cMsgMessage sendAndGet(cMsgMessage message, int timeout)
+            throws cMsgException, TimeoutException {
         throw new cMsgException("sendAndGet is not implemented yet");
     }
 

@@ -30,6 +30,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -687,9 +688,10 @@ public class cMsg extends cMsgDomainAdapter {
      * @param timeout time in milliseconds to wait for a message
      * @return response message
      * @throws cMsgException
+     * @throws TimeoutException if timeout occurs
      */
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
-            throws cMsgException {
+            throws cMsgException, TimeoutException {
 
         int id;
         cMsgHolder holder = null;
@@ -703,7 +705,7 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             if (!hasSubscribeAndGet) {
-                throw new cMsgException("get is not implemented by this subdomain");
+                throw new cMsgException("subscribeAndGet is not implemented by this subdomain");
             }
 
             // check args first
@@ -795,15 +797,15 @@ public class cMsg extends cMsgDomainAdapter {
         // Check the message stored for us in holder.
         // If msg is null, we timed out.
         // Tell server to forget the get if necessary.
-        if (holder.message == null) {
-            System.out.println("get: timed out");
+        if (holder.timedOut) {
+            System.out.println("subscribeAndGet: timed out");
             // remove the get from server
             generalGets.remove(id);
             unget(id);
-            return null;
+            throw new TimeoutException();
         }
 
-        // If msg is not null, server has removed subscription from his records.
+        // If msg is received, server has removed subscription from his records.
         // Client listening thread has also removed subscription from client's
         // records (generalGets HashSet).
 
@@ -826,8 +828,10 @@ public class cMsg extends cMsgDomainAdapter {
      * @param timeout time in milliseconds to wait for a reponse message
      * @return response message
      * @throws cMsgException
+     * @throws TimeoutException if timeout occurs
      */
-    public cMsgMessage sendAndGet(cMsgMessage message, int timeout) throws cMsgException {
+    public cMsgMessage sendAndGet(cMsgMessage message, int timeout)
+            throws cMsgException, TimeoutException {
         int id;
         cMsgHolder holder = null;
 
@@ -840,7 +844,7 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             if (!hasSendAndGet) {
-                throw new cMsgException("get is not implemented by this subdomain");
+                throw new cMsgException("sendAndGet is not implemented by this subdomain");
             }
 
             String subject = message.getSubject();
@@ -943,18 +947,16 @@ public class cMsg extends cMsgDomainAdapter {
         }
 
 
-        // Check the message stored for us in holder.
-        // If msg is null, we timed out.
         // Tell server to forget the get if necessary.
-        if (holder.message == null) {
-            System.out.println("get: timed out");
+        if (holder.timedOut) {
+            System.out.println("sendAndGet: timed out");
             // remove the get from server
             specificGets.remove(id);
             unget(id);
-            return null;
+            throw new TimeoutException();
         }
 
-        // If msg is not null, server has removed subscription from his records.
+        // If msg arrived (may be null), server has removed subscription from his records.
         // Client listening thread has also removed subscription from client's
         // records (generalGets HashSet).
 

@@ -20,6 +20,7 @@ package org.jlab.coda.cMsg;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.Iterator;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Class to direct a cMsg client to the proper subdomain based on the UDL given.
@@ -282,9 +283,10 @@ public class cMsg {
      * @param timeout time in milliseconds to wait for a message
      * @return response message
      * @throws cMsgException
+     * @throws TimeoutException if timeout occurs
      */
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
-            throws cMsgException {
+            throws cMsgException, TimeoutException {
         return connection.subscribeAndGet(subject, type, timeout);
     }
 
@@ -293,13 +295,16 @@ public class cMsg {
      * the fact that a response to it is expected, and sends it to all subscribed to its
      * subject and type. When a marked response is received from a client, it sends that
      * first response back to the original sender regardless of its subject or type.
+     * The response may be null.
      *
      * @param message message sent to server
      * @param timeout time in milliseconds to wait for a reponse message
      * @return response message
      * @throws cMsgException
+     * @throws TimeoutException if timeout occurs
      */
-    public cMsgMessage sendAndGet(cMsgMessage message, int timeout) throws cMsgException {
+    public cMsgMessage sendAndGet(cMsgMessage message, int timeout)
+            throws cMsgException, TimeoutException {
         return connection.sendAndGet(message, timeout);
     }
 
