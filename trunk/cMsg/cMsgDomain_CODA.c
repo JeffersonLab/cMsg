@@ -497,6 +497,7 @@ static int coda_send(int domainId, void *vmsg) {
   }
   
   /* now read reply */
+  /*
   if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
     sendMutexUnlock(domain);
     subscribeMutexUnlock(domain);
@@ -505,17 +506,20 @@ static int coda_send(int domainId, void *vmsg) {
     }
     return(CMSG_NETWORK_ERROR);
   }
+  */
 
   /* done protecting communications */
   sendMutexUnlock(domain);
 
   /* return domain server's reply */
+  /*
   err = ntohl(err);
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "coda_send: read reply (%d), am done\n", err);
   }
+  */
   
-  return(err);
+  return(CMSG_OK);
 }
 
 
@@ -684,6 +688,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
     }
 
     /* now read reply */
+    /*
     if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
       sendMutexUnlock(domain);
       subscribeMutexUnlock(domain);
@@ -692,6 +697,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
       }
       return(CMSG_NETWORK_ERROR);
     }
+    */
 
     /* done protecting communications */
     sendMutexUnlock(domain);
@@ -699,12 +705,14 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
     subscribeMutexUnlock(domain);
 
     /* return domain server's reply */
+    /*
     err = ntohl(err);
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "subscribe: read reply (%d)\n", err);
     }
+    */
 
-    return(err);
+    return(CMSG_OK);
   }
   
   /* done protecting subscribe */
@@ -828,6 +836,7 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
     }
 
     /* now read reply */
+    /*
     if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
       sendMutexUnlock(domain);
       subscribeMutexUnlock(domain);
@@ -836,6 +845,7 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
       }
       return(CMSG_NETWORK_ERROR);
     }
+    */
 
     /* done protecting communications */
     sendMutexUnlock(domain);
@@ -843,12 +853,14 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
     subscribeMutexUnlock(domain);
 
     /* return domain server's reply */
+    /*
     err = ntohl(err);
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "unsubscribe: read replay (%d)\n", err);
     }
+    */
 
-    return(err);
+    return(CMSG_OK);
   }
 
   /* done protecting unsubscribe */
@@ -1442,6 +1454,7 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
       
 
   /* reply value */
+  /*
   err = htonl(CMSG_OK);
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
@@ -1461,6 +1474,7 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
     free((void *) msg->type);
     return(CMSG_NETWORK_ERROR);
   }
+  */
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "cMsgClientThread: msg arrived: %s\n", string);
@@ -1578,6 +1592,8 @@ static void domainInit(cMsgDomain_CODA *domain) {
     for (j=0; j<MAXCALLBACK; j++) {
       domain->subscribeInfo[i].cbInfo[j].callback = NULL;
       domain->subscribeInfo[i].cbInfo[j].userArg  = NULL;
+      pthread_cond_init (&domain->subscribeInfo[i].cbInfo[j].cond,  NULL);
+      pthread_mutex_init(&domain->subscribeInfo[i].cbInfo[j].mutex, NULL);
     }
   }
 }
