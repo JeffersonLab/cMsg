@@ -1,5 +1,4 @@
 // still to do:
-//    synchronize things (subList, etc.)
 //    other CA datatypes besides double
 
 
@@ -99,10 +98,12 @@ public class CA extends cMsgDomainAdapter {
 
 
                 // dispatch cMsg to all registered callbacks
-                for(SubInfo s : mySubList) {
-                    cmsg.setSubject(s.subject);
-                    cmsg.setType(s.type);
-                    new Thread(new DispatchCB(s,(cMsgMessage)cmsg)).start();
+                synchronized (mySubList) {
+                    for(SubInfo s : mySubList) {
+                        cmsg.setSubject(s.subject);
+                        cmsg.setType(s.type);
+                        new Thread(new DispatchCB(s,(cMsgMessage)cmsg)).start();
+                    }
                 }
 
 
@@ -380,7 +381,9 @@ public class CA extends cMsgDomainAdapter {
      */
     public void subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj) throws cMsgException {
 
-        mySubList.add(new SubInfo(subject,type,cb,userObj));
+        synchronized (mySubList) {
+            mySubList.add(new SubInfo(subject,type,cb,userObj));
+        }
 
         if(myMonitor==null) {
             try {
@@ -418,13 +421,15 @@ public class CA extends cMsgDomainAdapter {
 
 
         // remove subscrition from list
-        for(SubInfo s : mySubList) {
-            if((s.subject.equals(subject)) &&
-               (s.type.equals(type)) &&
-               (s.cb==cb) ) {
-                mySubList.remove(s);
-            } else {
-                cnt++;
+        synchronized (mySubList) {
+            for(SubInfo s : mySubList) {
+                if((s.subject.equals(subject)) &&
+                   (s.type.equals(type)) &&
+                   (s.cb==cb) ) {
+                    mySubList.remove(s);
+                } else {
+                    cnt++;
+                }
             }
         }
 
