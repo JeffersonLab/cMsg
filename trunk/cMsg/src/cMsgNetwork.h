@@ -49,7 +49,7 @@
 extern "C" {
 #endif
 
-#if defined sun || defined linux || defined VXWORKS || defined __APPLE__
+#if defined sun || defined VXWORKS || defined __APPLE__
 #  define socklen_t int
 #endif
 
