@@ -191,6 +191,7 @@ public class LogTable implements cMsgHandleRequests {
      *                          or socket properties cannot be set
      */
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
+	msg.setReceiver("cMsg:LogTable");
 	try {
 	    myStmt.setString	(1,  msg.getDomain());
 	    myStmt.setInt   	(2,  msg.getSysMsgId());
