@@ -58,10 +58,10 @@ public class cMsgDomainServerListeningThread extends Thread {
   public String getHost() {return host;}
   
   /** Print the listening port of this object to std out. */
-  public void printPort() {System.out.println("blah " + port);}
+  public void printPort() {System.out.println("" + port);}
   
   /** Print the host running this object to std out. */
-  public void printHost() {System.out.println("blah " + host);}
+  public void printHost() {System.out.println(host);}
   
 
   /**
@@ -150,7 +150,7 @@ public class cMsgDomainServerListeningThread extends Thread {
         sock.setReceiveBufferSize(65535);
         sock.setSendBufferSize(65535);
 	// create thread to deal with client
-	ClientThread connection = new ClientThread(server, sock, debug);
+	cMsgDomainServerClientThread connection = new cMsgDomainServerClientThread(server, sock, debug);
 	connection.start();
       }
     }
@@ -171,7 +171,7 @@ public class cMsgDomainServerListeningThread extends Thread {
  * @author Carl Timmer
  * @version 1.0
  */
-class ClientThread extends Thread {
+class cMsgDomainServerClientThread extends Thread {
 
   /** Name server object. */
   private cMsgDomainServer server;
@@ -192,13 +192,13 @@ class ClientThread extends Thread {
   private DataOutputStream out;
 
   /**
-   * Create a new ClientThread object.
+   * Create a new cMsgDomainServerClientThread object.
    *
    * @param server name server object.
    * @param sock Tcp socket.
    * @param debug level of debug output for this object
    */
-  ClientThread(cMsgDomainServer server, Socket sock, int debug) {
+  cMsgDomainServerClientThread(cMsgDomainServer server, Socket sock, int debug) {
     this.server = server;
     this.sock   = sock;
     this.debug  = debug;
