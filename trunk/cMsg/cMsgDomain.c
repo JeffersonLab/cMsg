@@ -538,7 +538,10 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription,
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement sending
  *                               messages
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server
- * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
+ *                               since cMsgConnect() was never called
+ * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
+ *                               by a call to cMsgDisconnect()
  */   
 static int coda_send(int domainId, void *vmsg) {
   
@@ -666,6 +669,26 @@ static int coda_send(int domainId, void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine sends a msg to the specified domain server and receives a response.
+ * It is a synchronous routine and as a result blocks until it receives a status
+ * integer from the cMsg server. It is called by the user through cMsgSyncSend()
+ * given the appropriate UDL. In this domain cMsgFlush() does nothing and
+ * does not need to be called for the message to be sent immediately.
+ *
+ * @param domainId id number of the domain connection
+ * @param vmsg pointer to a message structure
+ * @param response integer pointer that gets filled with the server's response
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement the
+ *                               synchronous sending of messages
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
+ *                               since cMsgConnect() was never called
+ * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
+ *                               by a call to cMsgDisconnect()
+ */   
 static int syncSend(int domainId, void *vmsg, int *response) {
   
   int err, lenSubject, lenType, lenText, lenCreator;
@@ -815,6 +838,29 @@ static int syncSend(int domainId, void *vmsg, int *response) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine gets one message from a one-shot subscription to the given
+ * subject and type. It is called by the user through cMsgSubscribeAndGet()
+ * given the appropriate UDL. In this domain cMsgFlush() does nothing and
+ * does not need to be called for the subscription to be started immediately.
+ *
+ * @param domainId id number of the domain connection
+ * @param subject subject of message subscribed to
+ * @param type type of message subscribed to
+ * @param timeout amount of time to wait for the message; if NULL, wait forever
+ * @param replyMsg message received
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_TIMEOUT if routine received no message in the specified time
+ * @returns CMSG_OUT_OF_MEMORY if all available subscription memory has been used
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement
+ *                               subscribeAndGet
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
+ *                               since cMsgConnect() was never called
+ * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
+ *                               by a call to cMsgDisconnect()
+ */   
 static int subscribeAndGet(int domainId, char *subject, char *type,
                            struct timespec *timeout, void **replyMsg) {
                              
@@ -1015,6 +1061,35 @@ static int subscribeAndGet(int domainId, char *subject, char *type,
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine gets one message from another cMsg client by sending out
+ * an initial message to that responder. It is a synchronous routine that
+ * fails when no reply is received with the given timeout. This function
+ * can be thought of as a peer-to-peer exchange of messages.
+ * One message is sent to all listeners. The first responder
+ * to the initial message will have its single response message sent back
+ * to the original sender. This routine is called by the user through
+ * cMsgSendAndGet() given the appropriate UDL. In this domain cMsgFlush()
+ * does nothing and does not need to be called for the mesage to be
+ * sent immediately.
+ *
+ * @param domainId id number of the domain connection
+ * @param sendMsg messages to send to all listeners
+ * @param timeout amount of time to wait for the response message; if NULL,
+ *                wait forever
+ * @param replyMsg message received from the responder
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_TIMEOUT if routine received no message in the specified time
+ * @returns CMSG_OUT_OF_MEMORY if all available sendAndGet memory has been used
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement
+ *                               sendAndGet
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
+ *                               since cMsgConnect() was never called
+ * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
+ *                               by a call to cMsgDisconnect()
+ */   
 static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
                       void **replyMsg) {
   
@@ -1267,6 +1342,10 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine tells the cMsg server to "forget" about the cMsgSendAndGet()
+ * call (specified by the id argument) since a timeout occurred.
+ */   
 static int unSendAndGet(int domainId, int id) {
   
   int outGoing[2];
@@ -1299,6 +1378,10 @@ static int unSendAndGet(int domainId, int id) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine tells the cMsg server to "forget" about the cMsgSubscribeAndGet()
+ * call (specified by the id argument) since a timeout occurred.
+ */   
 static int unSubscribeAndGet(int domainId, int id) {
   
   int outGoing[2];
@@ -1331,6 +1414,20 @@ static int unSubscribeAndGet(int domainId, int id) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine sends any pending (queued up) communication with the server.
+ * It does a flush on the socket communicating with the server. However, in the
+ * cMsg domain all sockets are set to TCP_NODELAY -- meaning all writes over the
+ * socket are sent immediately. Thus, this routine does nothing of significance.
+ *
+ * @param domainId id number of the domain connection
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
+ *                               since cMsgConnect() was never called
+ * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
+ *                               by a call to cMsgDisconnect()
+ */   
 static int flush(int domainId) {
 
   FILE *file;  
@@ -1357,6 +1454,32 @@ static int flush(int domainId) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine subscribes to messages of the given subject and type.
+ * When a message is received, the given callback is passed the message
+ * pointer and the userArg pointer and then is executed. A configuration
+ * structure is given to determine the behavior of the callback.
+ * This routine is called by the user through cMsgSubscribe() given the
+ * appropriate UDL. In this domain cMsgFlush() does nothing and does not
+ * need to be called for the subscription to be started immediately.
+ *
+ * @param domainId id number of the domain connection
+ * @param subject subject of messages subscribed to
+ * @param type type of messages subscribed to
+ * @param callback pointer to callback to be executed on receipt of message
+ * @param userArg user-specified pointer to be passed to the callback
+ * @param config pointer to callback configuration structure
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_OUT_OF_MEMORY if all available subscription memory has been used
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement
+ *                               subscribe
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
+ *                               since cMsgConnect() was never called
+ * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
+ *                               by a call to cMsgDisconnect()
+ */   
 static int subscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
                      void *userArg, cMsgSubscribeConfig *config) {
 
@@ -1556,6 +1679,26 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine unsubscribes to messages of the given subject, type and
+ * callback. This routine is called by the user through cMsgUnSubscribe()
+ * given the appropriate UDL. In this domain cMsgFlush() does nothing and
+ * does not need to be called for unsubscribe to be started immediately.
+ *
+ * @param domainId id number of the domain connection
+ * @param subject subject of messages to unsubscribed from
+ * @param type type of messages to unsubscribed from
+ * @param callback pointer to callback to be removed
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement
+ *                               unsubscribe
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
+ *                               since cMsgConnect() was never called
+ * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
+ *                               by a call to cMsgDisconnect()
+ */   
 static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *callback) {
 
   int i, j;
@@ -1688,6 +1831,15 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine enables the receiving of messages and delivery to callbacks.
+ * The receiving of messages is disabled by default and must be explicitly
+ * enabled.
+ *
+ * @param domainId id number of the domain connection
+ *
+ * @returns CMSG_OK if successful
+ */   
 static int start(int domainId) {
   
   cMsgDomains[domainId].receiveState = 1;
@@ -1698,6 +1850,15 @@ static int start(int domainId) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine disables the receiving of messages and delivery to callbacks.
+ * The receiving of messages is disabled by default. This routine only has an
+ * effect when cMsgReceiveStart() was previously called.
+ *
+ * @param domainId id number of the domain connection
+ *
+ * @returns CMSG_OK if successful
+ */   
 static int stop(int domainId) {
   
   cMsgDomains[domainId].receiveState = 0;
@@ -1708,6 +1869,16 @@ static int stop(int domainId) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine disconnects the client from the cMsg server.
+ *
+ * @param domainId id number of the domain connection
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
+ *                               since cMsgConnect() was never called
+ */   
 static int disconnect(int domainId) {
   
   int status, out;
@@ -1768,7 +1939,7 @@ static int disconnect(int domainId) {
 
 /*-------------------------------------------------------------------*/
 
-
+/** This routine exchanges information with the name server. */
 static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
                                         char *subdomain, char *UDLremainder) {
 
@@ -1999,6 +2170,10 @@ static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
  * to other cMsg-enabled programs. If there is no response or there is
  * an I/O error. The other end of the socket is presumed dead.
  *-------------------------------------------------------------------*/
+/**
+ * This routine is run as a thread which is used to send keep alive
+ * communication to a cMsg server.
+ */
 static void *keepAliveThread(void *arg)
 {
     cMsgDomain_CODA *domain = (cMsgDomain_CODA *) arg;
@@ -2067,9 +2242,7 @@ static void *keepAliveThread(void *arg)
 }
 
 
-/*-------------------------------------------------------------------*
- * callbackThread is a thread used to run a single callback in.
- *-------------------------------------------------------------------*/
+/** This routine is run as a thread in which a single callback is executed. */
 static void *callbackThread(void *arg)
 {
     /* subscription information passed in thru arg */
@@ -2206,6 +2379,10 @@ static void *callbackThread(void *arg)
  * with the callbackThread. As many supplemental threads are created
  * as needed to keep the cue size manageable.
  *-------------------------------------------------------------------*/
+/**
+ * This routine is run as a thread in which a callback is executed in
+ * parallel with other similar threads.
+ */
 static void *supplementalThread(void *arg)
 {
     /* subscription information passed in thru arg */
@@ -2321,7 +2498,10 @@ static void *supplementalThread(void *arg)
 
 /*-------------------------------------------------------------------*/
 
-
+/**
+ * This routine runs all the appropriate subscribe and subscribeAndGet
+ * callbacks when a message arrives from the server. 
+ */
 int cMsgRunCallbacks(int domainId, cMsgMessage *msg) {
 
   int i, j, k, ii, status;
@@ -2486,6 +2666,10 @@ fprintf(stderr, "cMsgRunCallbacks G: domainId = %d, uniqueId = %d, msg id = %d\n
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine runs all the appropriate sendAndGet
+ * callbacks when a message arrives from the server. 
+ */
 int cMsgWakeGet(int domainId, cMsgMessage *msg) {
 
   int i, status;
@@ -2527,6 +2711,10 @@ fprintf(stderr, "cMsgWakeGets: domainId = %d, uniqueId = %d, msg sender token = 
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine runs all the appropriate sendAndGet
+ * callbacks when a NULL arrives from the server. 
+ */
 int cMsgWakeGetWithNull(int domainId, int senderToken) {
 
   int i, status;
@@ -2568,6 +2756,7 @@ int cMsgWakeGetWithNull(int domainId, int senderToken) {
  * listening thread. Since it's called serially, it can safely use
  * arrays declared at the top of the file.
  */
+/** This routine reads a message sent from the server to the client. */
 int cMsgReadMessage(int fd, cMsgMessage *msg) {
   
   int i, lengths[6], inComing[15];
@@ -2861,7 +3050,7 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
 /*   miscellaneous local functions                                   */
 /*-------------------------------------------------------------------*/
 
-/* translate a delta time into an absolute time for pthread_cond_wait */
+/** This routine translates a delta time into an absolute time for pthread_cond_wait. */
 static int getAbsoluteTime(struct timespec *deltaTime, struct timespec *absTime) {
     struct timespec now;
     long   nsecTotal;
@@ -2885,6 +3074,10 @@ static int getAbsoluteTime(struct timespec *deltaTime, struct timespec *absTime)
 
 
 /*-------------------------------------------------------------------*/
+/**
+ * This routine parses the cMsg domain portion of the UDL sent from the 
+ * "next level up" in the API.
+ */
 static int parseUDL(const char *UDLremainder, char **host, unsigned short *port,
                     char **subdomainType, char **UDLsubRemainder) {
 
@@ -2974,7 +3167,10 @@ static int parseUDL(const char *UDLremainder, char **host, unsigned short *port,
 
 /*-------------------------------------------------------------------*/
 
-
+/**
+ * This routine initializes the structure used to handle a get - 
+ * either a sendAndGet or a subscribeAndGet.
+ */
 static void getInfoInit(getInfo *info, int reInit) {
     int status;
     
@@ -3005,6 +3201,7 @@ static void getInfoInit(getInfo *info, int reInit) {
 /*-------------------------------------------------------------------*/
 
 
+/** This routine initializes the structure used to handle a subscribe. */
 static void subscribeInfoInit(subscribeInfo *info, int reInit) {
     int j, status;
     
@@ -3049,7 +3246,10 @@ static void subscribeInfoInit(subscribeInfo *info, int reInit) {
 
 /*-------------------------------------------------------------------*/
 
-
+/**
+ * This routine initializes the structure used to hold connection-to-
+ * a-domain information.
+ */
 static void domainInit(cMsgDomain_CODA *domain, int reInit) {
   int i, status;
  
@@ -3119,7 +3319,10 @@ static void domainInit(cMsgDomain_CODA *domain, int reInit) {
 
 /*-------------------------------------------------------------------*/
 
-
+/**
+ * This routine frees allocated memory in a structure used to hold
+ * subscribe information.
+ */
 static void subscribeInfoFree(subscribeInfo *info) {  
 #ifndef VXWORKS    
     /* cannot destroy mutexes and cond vars in vxworks */
@@ -3151,6 +3354,10 @@ static void subscribeInfoFree(subscribeInfo *info) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine frees allocated memory in a structure used to hold
+ * subscribeAndGet/sendAndGet information.
+ */
 static void getInfoFree(getInfo *info) {  
 #ifndef VXWORKS    
     /* cannot destroy mutexes and cond vars in vxworks */
@@ -3185,6 +3392,10 @@ static void getInfoFree(getInfo *info) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine frees memory allocated for the structure used to hold
+ * connection-to-a-domain information.
+ */
 static void domainFree(cMsgDomain_CODA *domain) {  
   int i;
 #ifndef VXWORKS
@@ -3232,7 +3443,10 @@ static void domainFree(cMsgDomain_CODA *domain) {
 
 /*-------------------------------------------------------------------*/
 
-
+/**
+ * This routine both frees and clears the structure used to hold
+ * connection-to-a-domain information.
+ */
 static void domainClear(cMsgDomain_CODA *domain) {
   domainFree(domain);
   domainInit(domain, 1);
@@ -3241,7 +3455,7 @@ static void domainClear(cMsgDomain_CODA *domain) {
  
 /*-------------------------------------------------------------------*/
 
-
+/** This routine locks the pthread mutex used when creating unique id numbers. */
 static void mutexLock(void) {
 
   int status = pthread_mutex_lock(&generalMutex);
@@ -3254,6 +3468,7 @@ static void mutexLock(void) {
 /*-------------------------------------------------------------------*/
 
 
+/** This routine unlocks the pthread mutex used when creating unique id numbers. */
 static void mutexUnlock(void) {
 
   int status = pthread_mutex_unlock(&generalMutex);
@@ -3266,6 +3481,12 @@ static void mutexUnlock(void) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine locks the read lock used to allow simultaneous
+ * execution of coda_send, syncSend, subscribe, unsubscribe,
+ * sendAndGet, and subscribeAndGet, but NOT allow simultaneous
+ * execution of those routines with coda_connect or disconnect.
+ */
 static void connectReadLock(void) {
 
   int status = rwl_readlock(&connectLock);
@@ -3278,6 +3499,12 @@ static void connectReadLock(void) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine unlocks the read lock used to allow simultaneous
+ * execution of coda_send, syncSend, subscribe, unsubscribe,
+ * sendAndGet, and subscribeAndGet, but NOT allow simultaneous
+ * execution of those routines with coda_connect or disconnect.
+ */
 static void connectReadUnlock(void) {
 
   int status = rwl_readunlock(&connectLock);
@@ -3290,6 +3517,12 @@ static void connectReadUnlock(void) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine locks the write lock used to allow simultaneous
+ * execution of coda_send, syncSend, subscribe, unsubscribe,
+ * sendAndGet, and subscribeAndGet, but NOT allow simultaneous
+ * execution of those routines with coda_connect or disconnect.
+ */
 static void connectWriteLock(void) {
 
   int status = rwl_writelock(&connectLock);
@@ -3302,6 +3535,12 @@ static void connectWriteLock(void) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine unlocks the write lock used to allow simultaneous
+ * execution of coda_send, syncSend, subscribe, unsubscribe,
+ * sendAndGet, and subscribeAndGet, but NOT allow simultaneous
+ * execution of those routines with coda_connect or disconnect.
+ */
 static void connectWriteUnlock(void) {
 
   int status = rwl_writeunlock(&connectLock);
@@ -3314,6 +3553,10 @@ static void connectWriteUnlock(void) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine locks the pthread mutex used to make network
+ * communication thread-safe.
+ */
 static void socketMutexLock(cMsgDomain_CODA *domain) {
 
   int status;
@@ -3328,6 +3571,10 @@ static void socketMutexLock(cMsgDomain_CODA *domain) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine unlocks the pthread mutex used to make network
+ * communication thread-safe.
+ */
 static void socketMutexUnlock(cMsgDomain_CODA *domain) {
 
   int status;
@@ -3342,6 +3589,7 @@ static void socketMutexUnlock(cMsgDomain_CODA *domain) {
 /*-------------------------------------------------------------------*/
 
 
+/** This routine locks the pthread mutex used to serialize syncSend calls. */
 static void syncSendMutexLock(cMsgDomain_CODA *domain) {
 
   int status;
@@ -3356,6 +3604,7 @@ static void syncSendMutexLock(cMsgDomain_CODA *domain) {
 /*-------------------------------------------------------------------*/
 
 
+/** This routine unlocks the pthread mutex used to serialize syncSend calls. */
 static void syncSendMutexUnlock(cMsgDomain_CODA *domain) {
 
   int status;
@@ -3370,6 +3619,10 @@ static void syncSendMutexUnlock(cMsgDomain_CODA *domain) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine locks the pthread mutex used to serialize
+ * subscribe and unsubscribe calls.
+ */
 static void subscribeMutexLock(cMsgDomain_CODA *domain) {
 
   int status;
@@ -3384,6 +3637,10 @@ static void subscribeMutexLock(cMsgDomain_CODA *domain) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine unlocks the pthread mutex used to serialize
+ * subscribe and unsubscribe calls.
+ */
 static void subscribeMutexUnlock(cMsgDomain_CODA *domain) {
 
   int status;
