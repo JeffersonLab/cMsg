@@ -163,21 +163,21 @@ extern "C" {
 
 
   /* basic functions */
-  int 	cMsgConnect        (char *myUDL, char *myName, char *myDescription, int *domainId);
+  int 	cMsgConnect        (const char *myUDL, const char *myName, const char *myDescription, int *domainId);
   int 	cMsgSend           (int domainId, void *msg);
   int   cMsgSyncSend       (int domainId, void *msg, int *response);
   int 	cMsgFlush          (int domainId);
-  int 	cMsgSubscribe      (int domainId, char *subject, char *type, cMsgCallback *callback,
+  int 	cMsgSubscribe      (int domainId, const char *subject, const char *type, cMsgCallback *callback,
                             void *userArg, cMsgSubscribeConfig *config);
-  int 	cMsgUnSubscribe    (int domainId, char *subject, char *type, cMsgCallback *callback,
+  int 	cMsgUnSubscribe    (int domainId, const char *subject, const char *type, cMsgCallback *callback,
                             void *userArg);
   int   cMsgSendAndGet     (int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg);
-  int   cMsgSubscribeAndGet(int domainId, char *subject, char *type,
+  int   cMsgSubscribeAndGet(int domainId, const char *subject, const char *type,
                             struct timespec *timeout, void **replyMsg);
   int 	cMsgReceiveStart   (int domainId);
   int 	cMsgReceiveStop    (int domainId);
   int 	cMsgDisconnect     (int domainId);
-  int   cMsgShutdown       (int domainId, char *client, char *server, int flag);
+  int   cMsgShutdown       (int domainId, const char *client, const char *server, int flag);
   char *cMsgPerror         (int errorCode);
   
   

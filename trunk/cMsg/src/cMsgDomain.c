@@ -89,16 +89,16 @@ extern "C" {
 #endif
 
 /* Prototypes of the functions which implement the standard cMsg tasks in the cMsg domain. */
-static int   codaConnect(char *myUDL, char *myName, char *myDescription,
-                          char *UDLremainder,int *domainId);
+static int   codaConnect(const char *myUDL, const char *myName, const char *myDescription,
+                         const char *UDLremainder,int *domainId);
 static int   codaSend(int domainId, void *msg);
 static int   codaSyncSend(int domainId, void *msg, int *response);
 static int   codaFlush(int domainId);
-static int   codaSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+static int   codaSubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
                            void *userArg, cMsgSubscribeConfig *config);
-static int   codaUnsubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+static int   codaUnsubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
                              void *userArg);
-static int   codaSubscribeAndGet(int domainId, char *subject, char *type,
+static int   codaSubscribeAndGet(int domainId, const char *subject, const char *type,
                                  struct timespec *timeout, void **replyMsg);
 static int   codaSendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
                             void **replyMsg);
@@ -106,7 +106,7 @@ static int   codaStart(int domainId);
 static int   codaStop(int domainId);
 static int   codaDisconnect(int domainId);
 static int   codaSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, void *userArg);
-static int   codaShutdown(int domainId, char *client, char *server, int flag);
+static int   codaShutdown(int domainId, const char *client, const char *server, int flag);
 
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
@@ -218,8 +218,8 @@ static char *strdup(const char *s1) {
  * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
  *                             or a communication error with either server occurs.
  */   
-static int codaConnect(char *myUDL, char *myName, char *myDescription,
-                        char *UDLremainder, int *domainId) {
+static int codaConnect(const char *myUDL, const char *myName, const char *myDescription,
+                       const char *UDLremainder, int *domainId) {
 
   int i, id=-1, err, serverfd, status, hz, num_try, try_max;
   char *portEnvVariable=NULL, temp[CMSG_MAXHOSTNAMELEN];
@@ -858,7 +858,7 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSubscribeAndGet(int domainId, char *subject, char *type,
+static int codaSubscribeAndGet(int domainId, const char *subject, const char *type,
                            struct timespec *timeout, void **replyMsg) {
                              
   cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
@@ -1473,7 +1473,7 @@ static int codaFlush(int domainId) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+static int codaSubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
                      void *userArg, cMsgSubscribeConfig *config) {
 
   int i, j, iok, jok, uniqueId, status;
@@ -1724,7 +1724,7 @@ static int codaSubscribe(int domainId, char *subject, char *type, cMsgCallback *
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaUnsubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+static int codaUnsubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
                            void *userArg) {
 
   int i, j;
@@ -2028,7 +2028,7 @@ static int codaSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, vo
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */
-static int codaShutdown(int domainId, char *client, char *server, int flag) {
+static int codaShutdown(int domainId, const char *client, const char *server, int flag) {
   
   int cLen, sLen, outGoing[4];
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];

@@ -56,7 +56,7 @@ static char *replaceWith[] = {"\\\\", "\\(", "\\)", "\\{", "\\}", "\\[","\\]",
  * @param s string to be escaped
  * @return escaped string
  */
-char *cMsgStringEscape(char *s) {
+char *cMsgStringEscape(const char *s) {
     int i, len, subIndex=0;
     char *c, *sub, catString[2];
 

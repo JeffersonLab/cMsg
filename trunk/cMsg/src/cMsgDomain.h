@@ -168,7 +168,7 @@ typedef struct mainThreadInfo_t {
 int   cMsgRunCallbacks(int domainId, cMsgMessage *msg);
 int   cMsgWakeGet(int domainId, cMsgMessage *msg);
 int   cMsgWakeGetWithNull(int domainId, int senderToken);
-char *cMsgStringEscape(char *s);
+char *cMsgStringEscape(const char *s);
 int   cMsgStringMatches(char *regexp, const char *s);
 int   cMsgRegexpMatches(char *regexp, const char *s);
 int   sun_setconcurrency(int newLevel);
