@@ -42,7 +42,7 @@ import java.net.Socket;
 public class cMsgClientListeningThread extends Thread {
 
     /** Type of domain this is. */
-    private String domainType = "CODA";
+    private String domainType = "cMsg";
 
     /** cMsg client that created this object. */
     private cMsg client;
