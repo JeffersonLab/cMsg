@@ -16,12 +16,8 @@
 
 package org.jlab.coda.cMsg.subdomains;
 
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgConstants;
-import org.jlab.coda.cMsg.cMsgMessageFull;
-import org.jlab.coda.cMsg.cMsgClientInfo;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
-import org.jlab.coda.cMsg.cMsgSubdomainAdapter;
+import org.jlab.coda.cMsg.*;
 
 import java.util.*;
 import java.util.regex.Pattern;
@@ -78,17 +74,6 @@ public class cMsg extends cMsgSubdomainAdapter {
     /** List of client info objects corresponding to entries in "subGetList" subscriptions. */
     private ArrayList infoList = new ArrayList(100);
 
-    /**
-     * List of lists, with each sublist made of receiverSubscribeId's for a single client.
-     * This is used so only 1 copy of a msg gets sent to 1 client. With that msg, a sublist
-     * of ids is also sent, so the client knows which callbacks the message is for (without
-     * having to parse the subject/type).
-     */
-    private ArrayList rsIdLists = new ArrayList(100);
-
-    /** A direct buffer is necessary for nio socket IO. */
-    private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
-
     /** Level of debug output for this class. */
     private int debug = cMsgConstants.debugError;
 
@@ -101,33 +86,8 @@ public class cMsg extends cMsgSubdomainAdapter {
     /** Name of client using this subdomain handler. */
     private String name;
 
-
-
-    /**
-     * Implement a simple wildcard matching scheme where "*" means any or no characters and
-     * "?" means 1 or no character.
-     *
-     * @param regexp subscription string that can contain wildcards (* and ?)
-     * @param s message string to be matched (can be blank which only matches *)
-     * @return true if there is a match, false if there is not
-     */
-    static private boolean matches(String regexp, String s) {
-        // It's a match if regexp (subscription string) is null
-        if (regexp == null) return true;
-
-        // If the message's string is null, something's wrong
-        if (s == null) return false;
-
-        // The first order of business is to take the regexp arg and modify it so that it is
-        // a regular expression that Java can understand. This means takings all occurrences
-        // of "*" and "?" and adding a period in front.
-        String rexp = regexp.replaceAll("\\*", ".*");
-        rexp = rexp.replaceAll("\\?", ".?");
-
-        // Now see if there's a match with the string arg
-        if (s.matches(rexp)) return true;
-        return false;
-    }
+    /** Object used to deliver messages to the client. */
+    private cMsgDeliverMessageInterface deliverer;
 
 
     /**
@@ -189,6 +149,19 @@ public class cMsg extends cMsgSubdomainAdapter {
      */
     public boolean hasUnsubscribe() {return true;};
 
+
+    /**
+     * Method to tell if the "shutdown" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleShutdownRequest}
+     * method.
+     *
+     * @return true if shutdown implemented in {@link #handleShutdownRequest}
+     */
+    public boolean hasShutdown() {
+        return true;
+    }
+
+
     /**
      * Method to give the subdomain handler the appropriate part
      * of the UDL the client used to talk to the domain server.
@@ -246,6 +219,22 @@ public class cMsg extends cMsgSubdomainAdapter {
         }
     }
 
+
+    /**
+     * Method to give the subdomain handler on object able to deliver messages
+     * to the client.
+     *
+     * @param deliverer object able to deliver messages to the client
+     * @throws cMsgException
+     */
+    public void setMessageDeliverer(cMsgDeliverMessageInterface deliverer) throws cMsgException {
+        if (deliverer == null) {
+            throw new cMsgException("cMsg subdomain must be able to deliver messages, set the deliverer.");
+        }
+        this.deliverer = deliverer;
+    }
+
+
     /**
      * Method to see if domain client is registered.
      * @param name name of client
@@ -282,10 +271,11 @@ public class cMsg extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle message sent by domain client. The message's subject and type
-     * are matched against all client subscriptions. The message is sent to all clients
-     * with matching subscriptions.  This method is run after all exchanges between
-     * domain server and client.
+     * This method handles a message sent by the domain client. The message's subject and type
+     * are matched against all clients' subscriptions. For each client, the message is
+     * compared to each of its subscriptions until a match is found. At that point, the message
+     * is sent to that client. The client is responsible for finding all the matching gets
+     * and subscribes and distributing the message among them as necessary.
      *
      * This method is synchronized because the use of rsIdLists and infoList is not
      * thread-safe otherwise. Multiple threads in the domain server can be calling
@@ -299,9 +289,8 @@ public class cMsg extends cMsgSubdomainAdapter {
 
         if (message == null) return;
 
-        cMsgClientInfo   info;
+        cMsgClientInfo info;
         infoList.clear();
-        rsIdLists.clear();
 
         // If message is sent in response to a specific get ...
         if (message.isGetResponse()) {
@@ -313,25 +302,13 @@ public class cMsg extends cMsgSubdomainAdapter {
 
             // If this is the first response to a sendAndGet ...
             if (info != null) {
-                // Deliver this msg to this client. If there is no socket connection, make one.
-                if (info.getChannel() == null) {
-                    try {
-                        createChannel(info);
-                    }
-                    catch (IOException e) {
-                        return;
-                    }
-                }
-
                 try {
 //System.out.println(" handle send msg for send&get to " + info.getName());
                     if (message.isNullGetResponse()) {
-                        deliverMessage(info.getChannel(), buffer, message, null,
-                                       cMsgConstants.msgGetResponseIsNull);
+                        deliverer.deliverMessage(message, info, cMsgConstants.msgGetResponseIsNull);
                     }
                     else {
-                        deliverMessage(info.getChannel(), buffer, message, null,
-                                       cMsgConstants.msgGetResponse);
+                        deliverer.deliverMessage(message, info, cMsgConstants.msgGetResponse);
                     }
                 }
                 catch (IOException e) {
@@ -362,37 +339,41 @@ public class cMsg extends cMsgSubdomainAdapter {
             gets = info.getGets();
             subscriptions = info.getSubscriptions();
             Iterator it;
-            ArrayList idList = new ArrayList(20);
             haveMatch = false;
+
+            // First test to see if the messages sent by this client (in namespace)
+            // can be sent to other clients in their namespaces.
+            if (!namespace.equalsIgnoreCase(info.getNamespace())) {
+//System.out.println(" handleSendRequest message in wrong namespace (" + info.getNamespace()
+//                   + ") for " + info.getName());
+                continue;
+            }
 
             // read lock for client's "subscription" and "gets" hashsets
             info.getReadLock().lock();
+
             try {
                 // Look at all subscriptions
                 it = subscriptions.iterator();
                 while (it.hasNext()) {
                     sub = (cMsgSubscription) it.next();
                     // if subscription matches the msg ...
-                    if (namespace.equalsIgnoreCase(info.getNamespace()) &&
-                            matches(sub.getSubject(), message.getSubject()) &&
-                            matches(sub.getType(), message.getType())) {
-                        // store sub and info for later use (in non-synchronized code)
-                        idList.add(sub.getId());
+                    if (cMsgMessageMatcher.matches(sub.getSubject(), message.getSubject()) &&
+                            cMsgMessageMatcher.matches(sub.getType(), message.getType())) {
                         haveMatch = true;
+                        // we know we must send at least 1 message, so we're done
 //System.out.println(" handle send msg for subscribe to " + info.getName());
+                        break;
                     }
                 }
 
-                // Look at all gets
+                // Look at all gets (since we need to remove all those that match)
                 it = gets.iterator();
                 while (it.hasNext()) {
                     sub = (cMsgSubscription) it.next();
                     // if get matches the msg ...
-                    if (namespace.equalsIgnoreCase(info.getNamespace()) &&
-                            matches(sub.getSubject(), message.getSubject()) &&
-                            matches(sub.getType(), message.getType())) {
-                        // store get and info for later use (in non-synchronized code)
-                        idList.add(sub.getId());
+                    if (cMsgMessageMatcher.matches(sub.getSubject(), message.getSubject()) &&
+                            cMsgMessageMatcher.matches(sub.getType(), message.getType())) {
                         haveMatch = true;
                         // get subscription is 1-shot deal so now remove it
                         it.remove();
@@ -406,36 +387,20 @@ public class cMsg extends cMsgSubdomainAdapter {
 
             // store info only if client getting a msg
             if (haveMatch) {
-                rsIdLists.add(idList);
                 infoList.add(info);
             }
         }
 
         // Once we have the subscription/get, msg, and client info,
         // no more need for sychronization
-        ArrayList idList;
 
         for (int i = 0; i < infoList.size(); i++) {
 
             info = (cMsgClientInfo) infoList.get(i);
-            idList = (ArrayList) rsIdLists.get(i);
 
-            // Deliver this msg to this client. If there is no socket connection, make one.
-            if (info.getChannel() == null) {
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("handleSendRequest: make a socket connection to " + info.getName());
-                }
-                try {
-                    createChannel(info);
-                }
-                catch (IOException e) {
-                    continue;
-                }
-            }
-
+            // Deliver this msg to this client.
             try {
-                deliverMessage(info.getChannel(), buffer, message, idList,
-                               cMsgConstants.msgSubscribeResponse);
+                deliverer.deliverMessage(message, info, cMsgConstants.msgSubscribeResponse);
             }
             catch (IOException e) {
                 continue;
@@ -669,6 +634,47 @@ public class cMsg extends cMsgSubdomainAdapter {
         finally {
             info.getWriteLock().unlock();
         }
+    }
+
+
+    /**
+     * Method to handle shutdown request sent by domain client.
+     *
+     * @param client client(s) to be shutdown
+     * @param server server(s) to be shutdown
+     * @param flag   flag describing the mode of shutdown
+     * @throws cMsgException
+     */
+    public void handleShutdownRequest(String client, String server,
+                                      int flag) throws cMsgException {
+
+System.out.println("dHandler: try to kill client " + client);
+        // Match all clients that need to be shutdown.
+        // Scan through all clients.
+        cMsgClientInfo info;
+
+        for (String clientName : clients.keySet()) {
+            // Do not shutdown client sending this command, unless told to with flag "includeMe"
+            if ( ((flag & cMsgConstants.includeMe) == 0) && (clientName.equals(name)) ) {
+                System.out.println("  dHandler: skip client " + clientName);
+                continue;
+            }
+
+            info = clients.get(clientName);
+            if (cMsgMessageMatcher.matches(client, clientName)) {
+                try {
+                    System.out.println("  dHandler: deliver shutdown message to client " + clientName);
+                    deliverer.deliverMessage(null, info, cMsgConstants.msgShutdown);
+                }
+                catch (IOException e) {
+                    if (debug >= cMsgConstants.debugError) {
+                        System.out.println("dHandler: cannot tell client " + name + " to shutdown");
+                    }
+                }
+            }
+        }
+
+        // match all servers that need to be shutdown (not implemented yet)
     }
 
 
