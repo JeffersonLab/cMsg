@@ -16,6 +16,8 @@
 
 package org.jlab.coda.cMsg;
 
+import org.jlab.coda.cMsg.cMsgDomain.cMsgUtilities;
+
 import java.util.List;
 import java.nio.channels.SocketChannel;
 import java.nio.ByteBuffer;
@@ -263,8 +265,7 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to deliver a message to a client that is
-     * subscribed to the message's subject and type.
+     * Method to deliver a message to a client.
      *
      * @param channel communication channel to client
      * @param buffer byte buffer needed for channel communication
@@ -275,7 +276,61 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainInterface {
      *                             or client returns an error
      */
     public static void deliverMessage(SocketChannel channel, ByteBuffer buffer,
-                                  cMsgMessageFull msg, List<Integer> idList, int msgType) throws IOException {
+                                     cMsgMessageFull msg, List<Integer> idList,
+                                     int msgType) throws IOException {
+        deliverMessageReal(channel, buffer, msg, idList, msgType);
+    }
+
+
+    /**
+     * Method to deliver a message to a client.
+     *
+     * @param channel communication channel to client
+     * @param buffer  byte buffer needed for channel communication
+     * @param msg     message to be sent
+     * @param idList  list of receiverSubscribeIds matching the message's subject and type
+     * @param msgType type of communication with the client
+     * @return true if message acknowledged by receiver, otherwise false
+     * @throws cMsgException if the msgType arg is not cMsgConstants.msgGetResponseAndAck
+     *                       or cMsgConstants.msgSubscribeResponseAndAck
+     * @throws java.io.IOException if the message cannot be sent over the channel
+     *                             or client returns an error
+     */
+    public static boolean deliverMessageAndAcknowledge(SocketChannel channel, ByteBuffer buffer,
+                                                    cMsgMessageFull msg, List<Integer> idList,
+                                                    int msgType)  throws cMsgException, IOException {
+        if (msgType != cMsgConstants.msgGetResponseAndAck &&
+            msgType != cMsgConstants.msgSubscribeResponseAndAck) {
+            throw new cMsgException("Wrong message type, must be msgGetResponseAndAck or msgSubscribeResponseAndAck");
+        }
+        return deliverMessageReal(channel, buffer, msg, idList, msgType);
+    }
+
+
+    /**
+     * Method to deliver a message to a client.
+     *
+     * @param channel communication channel to client
+     * @param buffer  byte buffer needed for channel communication
+     * @param msg     message to be sent
+     * @param idList  list of receiverSubscribeIds matching the message's subject and type
+     * @param msgType type of communication with the client
+     * @return true if message acknowledged by receiver, otherwise false
+     * @throws java.io.IOException if the message cannot be sent over the channel
+     *                             or client returns an error
+     */
+    private static boolean deliverMessageReal(SocketChannel channel, ByteBuffer buffer,
+                                              cMsgMessageFull msg, List<Integer> idList,
+                                              int msgType) throws IOException {
+
+        // expect 2 particular types of messages to receive an acknowledgment from client
+        boolean acknowlege = false;
+
+        if (msgType == cMsgConstants.msgGetResponseAndAck ||
+            msgType == cMsgConstants.msgSubscribeResponseAndAck) {
+            acknowlege = true;
+        }
+
         int size = 0;
         if (idList != null) {
             size = idList.size();
@@ -333,7 +388,16 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainInterface {
             channel.write(buffer);
         }
 
-        return;
+        if (!acknowlege) {
+            return true;
+        }
+
+        // read acknowledgment - 1 int of data
+        cMsgUtilities.readSocketBytes(buffer, channel, 4, cMsgConstants.debugNone);
+        buffer.flip();
+
+        if (buffer.getInt() != cMsgConstants.ok) return false;
+        return true;
     }
 
 
