@@ -464,35 +464,29 @@ public class cMsgDomainServer extends Thread {
           // create a message
           cMsgMessage msg = new cMsgMessage();
 
-          // keep reading until we have 10 ints of data
-          cMsgUtilities.readSocketBytes(buffer, channel, 40, debug);
+          // keep reading until we have 7 ints of data
+          cMsgUtilities.readSocketBytes(buffer, channel, 28, debug);
 
           // go back to reading-from-buffer mode
           buffer.flip();
 
-          // read 10 ints
-          buffer.asIntBuffer().get(inComing, 0, 10);
+          // read 7 ints
+          buffer.asIntBuffer().get(inComing, 0, 7);
 
-          // system message id
-          msg.setSysMsgId(inComing[0]);
-          // is sender doing get request?
-          msg.setGetRequest(inComing[1] == 0 ? false : true);
           // is sender doing get response?
-          msg.setGetResponse(inComing[2] == 0 ? false : true);
+          msg.setGetResponse(inComing[0] == 0 ? false : true);
           // sender id
-          msg.setSenderId(inComing[3]);
+          msg.setSenderId(inComing[1]);
           // time message sent in seconds since midnight GMT, Jan 1, 1970
-          msg.setSenderTime(new Date(((long) inComing[4]) * 1000));
+          msg.setSenderTime(new Date(((long) inComing[2]) * 1000));
           // sender message id
-          msg.setSenderMsgId(inComing[5]);
-          // sender token
-          msg.setSenderToken(inComing[6]);
+          msg.setSenderMsgId(inComing[3]);
           // length of message subject
-          int lengthSubject = inComing[7];
+          int lengthSubject = inComing[4];
           // length of message type
-          int lengthType = inComing[8];
+          int lengthType = inComing[5];
           // length of message text
-          int lengthText = inComing[9];
+          int lengthText = inComing[6];
 
           // bytes expected
           int bytesToRead = lengthSubject + lengthType + lengthText;

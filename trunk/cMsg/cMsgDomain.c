@@ -451,7 +451,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription,
 static int coda_send(int domainId, void *vmsg) {
   
   int err, lenSubject, lenType, lenText;
-  int outGoing[11];
+  int outGoing[8];
   char *subject, *type, *text;
   cMsgMessage *msg = (cMsgMessage *) vmsg;
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
@@ -479,30 +479,24 @@ static int coda_send(int domainId, void *vmsg) {
 
   /* message id (in network byte order) to domain server */
   outGoing[0] = htonl(CMSG_SEND_REQUEST);
-  /* system message id */
-  outGoing[1] = htonl(msg->sysMsgId);
-  /* is get request? */
-  outGoing[2] = htonl(msg->getRequest);
   /* is get response? */
-  outGoing[3] = htonl(msg->getResponse);
+  outGoing[1] = htonl(msg->getResponse);
   /* sender id */
-  outGoing[4] = htonl(msg->senderId);
+  outGoing[2] = htonl(msg->senderId);
   /* time message sent (right now) */
-  outGoing[5] = htonl((int) time(NULL));
+  outGoing[3] = htonl((int) time(NULL));
   /* sender message id */
-  outGoing[6] = htonl(msg->senderMsgId);
-  /* sender token */
-  outGoing[7] = htonl(msg->senderToken);
+  outGoing[4] = htonl(msg->senderMsgId);
 
   /* length of "subject" string */
   lenSubject  = strlen(subject);
-  outGoing[8] = htonl(lenSubject);
+  outGoing[5] = htonl(lenSubject);
   /* length of "type" string */
   lenType     = strlen(type);
-  outGoing[9] = htonl(lenType);
+  outGoing[6] = htonl(lenType);
   /* length of "text" string */
-  lenText      = strlen(text);
-  outGoing[10] = htonl(lenText);
+  lenText     = strlen(text);
+  outGoing[7] = htonl(lenText);
 
   /* make send socket communications thread-safe */
   socketMutexLock(domain);
