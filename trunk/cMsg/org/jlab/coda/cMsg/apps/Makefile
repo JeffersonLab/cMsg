@@ -14,6 +14,7 @@ JAVAC_FLAGS = -classpath ../../../../../
 
 JAVA_OBJS = \
 	cMsgLogger.class \
+	cMsgGateway.class \
 	cMsgConsumer.class \
 	cMsgGetConsumer.class \
 	cMsgProducer.class \
