@@ -109,7 +109,7 @@ public class cMsgDomainServer extends Thread {
      * Keep track of whether the handleShutdown method of the subdomain
      * handler has already been called.
      */
-    private volatile boolean calledShutdown;
+    volatile boolean calledShutdown;
 
     /** Tell the server to kill this and all spawned threads. */
     private volatile boolean killAllThreads;

@@ -123,7 +123,12 @@ public class cMsgMonitorClient extends Thread {
                 domainServer.killAllThreads();
                 domainServer.requestCue.clear();
 
-                try {domainServer.getClientHandler().handleClientShutdown();}
+                try {
+                    if (!domainServer.calledShutdown) {
+                        domainServer.calledShutdown = true;
+                        domainServer.getClientHandler().handleClientShutdown();
+                    }
+                }
                 catch (cMsgException e1) {}
 
                 return;
@@ -144,7 +149,12 @@ public class cMsgMonitorClient extends Thread {
                 domainServer.killAllThreads();
                 domainServer.requestCue.clear();
                 
-                try {domainServer.getClientHandler().handleClientShutdown();}
+                try {
+                    if (!domainServer.calledShutdown) {
+                        domainServer.calledShutdown = true;
+                        domainServer.getClientHandler().handleClientShutdown();
+                    }
+                }
                 catch (cMsgException e1) {}
 
                 return;
