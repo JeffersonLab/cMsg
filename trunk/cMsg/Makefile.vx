@@ -1,5 +1,5 @@
 
-#
+# cMsg will not compile properly under Linux cross compiler
 #
 
 # Check Operating system we are using
@@ -11,7 +11,7 @@ ifndef ARCH
   ARCH = VXWORKSPPC
 endif
 
-ifeq ($(OSNAME),Linux)
+ifeq ($(OSNAME),SunOS)
 LIBDIR = $(CODA)/$(ARCH)/lib
 CFLAGS = -O $(DEFS) 
 
@@ -20,10 +20,12 @@ ifeq ($(ARCH),VXWORKSPPC)
 # vxWorks 5.5
 INCDIR=/site/vxworks/5.5/ppc/target/h
 CC = ccppc
+LD = ldppc -r
 DEFS = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
 INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I$(INCDIR)
 
 endif
+
 
 endif
 
@@ -33,9 +35,8 @@ OBJS =  rwlock.o \
 	cMsgDomainListenThread.o \
 	cMsgDomain.o
 
-PROGS = producer.o \
-	consumer.o \
-	getConsumer.o
+PROGS = vxproducer.o \
+	vxconsumer.o
 
 HFILES = cMsgNetwork.h \
 	cMsgPrivate.h \
@@ -44,10 +45,13 @@ HFILES = cMsgNetwork.h \
 	rwlock.h \
 	errors.h
 
-all: echoarch $(OBJS) $(PROGS)
+all: echoarch $(OBJS) $(PROGS) cMsgLib
+
+cMsgLib: $(OBJS)
+	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
 
 clean:
-	rm -f core *~ *.o
+	rm -f core *~ *.o cMsgLib
 #	rm -f core *~ *.o *.so *.a *.class $(PROGS)
 
 echoarch:
