@@ -1,6 +1,6 @@
 // still to do:
-//   need db open parameters
-//   need to feed back "not implemented" to caller
+//   close db connection
+//   return code values?
 
 
 
@@ -28,6 +28,7 @@ import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgHandleRequests;
 import org.jlab.coda.cMsg.cMsgException;
 import java.sql.*;
+import java.util.regex.*;
 
 
 
@@ -42,6 +43,14 @@ import java.sql.*;
  *
  */
 public class LogTable implements cMsgHandleRequests {
+
+
+    // name
+    private String myName;
+
+
+    /** UDL remainder for this subdomain handler. */
+    private String myUDLRemainder;
 
 
     // database access objects
@@ -81,7 +90,7 @@ public class LogTable implements cMsgHandleRequests {
      * @return true if send implemented in {@link #handleSyncSendRequest}
      */
     public boolean hasSyncSend() {
-        return false;
+        return true;
     };
 
 
@@ -129,6 +138,7 @@ public class LogTable implements cMsgHandleRequests {
      * @throws cMsgException
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
+        myUDLRemainder=UDLRemainder;
     }
     
 
@@ -145,20 +155,108 @@ public class LogTable implements cMsgHandleRequests {
      */
     public void registerClient(String name, String host, int port) throws cMsgException {
 
+	myName=name;
 
-	// debug...will extract from UDL
-	String driver    = "com.mysql.jdbc.Driver";
-	String URL       = "jdbc:mysql://lucy/cmsg";
-	String account   = "wolin";
-	String password  = "";
-	String tableName = "cmsg";
+
+	// extract db params from UDL
+// 	    String driver    = "com.mysql.jdbc.Driver";
+// 	    String URL       = "jdbc:mysql://lucy/cmsg";
+	String driver    = null;
+	String URL       = null;
+	String account   = null;
+	String password  = null;
+	String table     = null;
+	
+	
+	// get table name, etc from UDLRemainder
+	int ind= myUDLRemainder.indexOf("?");
+	if(ind!=0) {
+	    cMsgException ce = new cMsgException("illegal UDL");
+	    ce.setReturnCode(1);
+	    throw ce;
+	} else {
+	    String remainder=myUDLRemainder + "&";
+
+
+	    //  extract database params
+	    Pattern p;
+	    Matcher m;
+	    try {
+		// driver required
+		p = Pattern.compile("[&\\?]driver=(.*?)&",Pattern.CASE_INSENSITIVE);
+		m = p.matcher(remainder);
+		m.find();
+		driver = m.group(1);
+		
+		// URL required
+		p = Pattern.compile("[&\\?]url=(.*?)&",Pattern.CASE_INSENSITIVE);
+		m = p.matcher(remainder);
+		m.find();
+		URL= m.group(1);
+		
+		// account not required
+		p = Pattern.compile("[&\\?]account=(.*?)&",Pattern.CASE_INSENSITIVE);
+		m = p.matcher(remainder);
+		if(m.find()) {
+			account = m.group(1);
+		}
+		
+		// password not required
+		p = Pattern.compile("[&\\?]password=(.*?)&",Pattern.CASE_INSENSITIVE);
+		m = p.matcher(remainder);
+		if(m.find()) {
+			password = m.group(1);
+		}
+
+		// table required
+		p = Pattern.compile("[&\\?]table=(.*?)&",Pattern.CASE_INSENSITIVE);
+		m = p.matcher(remainder);
+		m.find();
+		table = m.group(1);
+
+	    } catch (Exception e) {
+		e.printStackTrace();
+		cMsgException ce = new cMsgException(e.getMessage());
+		ce.setReturnCode(1);
+		throw ce;
+	    }
+	}
+
+
+	System.out.println("driver: " + driver);
+	System.out.println("url: " + URL);
+	System.out.println("account: " + account);
+	System.out.println("password: " + password);
+	System.out.println("table: " + table);
+
+
 
 
 	// create database connection for each client connection
 	try {
 	    Class.forName(driver);
+	} catch (Exception e) {
+	    System.out.println(e);
+	    e.printStackTrace();
+	    cMsgException ce = new cMsgException("registerClient: unable to load driver");
+	    ce.setReturnCode(1);
+	    throw ce;
+	}
+
+
+	try {
 	    myCon  = DriverManager.getConnection(URL,account,password);
-	    myStmt = myCon.prepareStatement("insert into " + tableName + " (" + 
+	} catch (Exception e) {
+	    System.out.println(e);
+	    e.printStackTrace();
+	    cMsgException ce = new cMsgException("registerClient: unable to connect to database");
+	    ce.setReturnCode(1);
+	    throw ce;
+	}
+
+
+	try {
+	    myStmt = myCon.prepareStatement("insert into " + table + " (" + 
 					    "domain,sysMsgId,sender,senderHost,senderTime," +
 					    "senderId,senderMsgId,senderToken,receiver,receiverHost,"+
 					    "receiverTime,subject,type,text" +
@@ -170,7 +268,9 @@ public class LogTable implements cMsgHandleRequests {
 	} catch (Exception e) {
 	    System.out.println(e);
 	    e.printStackTrace();
-	    throw new cMsgException("registerClient: unable to connect to database");
+	    cMsgException ce = new cMsgException("registerClient: unable to create statement object");
+	    ce.setReturnCode(1);
+	    throw ce;
 	}
     }
     
@@ -191,8 +291,8 @@ public class LogTable implements cMsgHandleRequests {
      *                          or socket properties cannot be set
      */
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
-	msg.setReceiver("cMsg:LogTable");
 	try {
+	    msg.setReceiver("cMsg:LogTable");
 	    myStmt.setString	(1,  msg.getDomain());
 	    myStmt.setInt   	(2,  msg.getSysMsgId());
 	    myStmt.setString	(3,  msg.getSender());
@@ -225,7 +325,12 @@ public class LogTable implements cMsgHandleRequests {
      * @throws cMsgException
      */
     public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
-        return 0;
+	try {
+	    handleSendRequest(msg);
+	    return(0);
+	} catch (cMsgException e) {
+	    throw e;
+	}
     }
 
 
