@@ -7,7 +7,7 @@ package org.jlab.coda.cMsg;
  * Time: 11:35:31 AM
  * To change this template use File | Settings | File Templates.
  */
-public class cMsgAdapter {
+public class cMsgAdapter implements cMsg {
     // instance variables (is private needed?)
     protected boolean initialized  = false;
     protected String domain        = null;
