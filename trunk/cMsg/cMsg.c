@@ -26,8 +26,37 @@
  *  Includes all message functions
  *
  *
+
  *----------------------------------------------------------------------------*/
 
+/**
+ * @mainpage
+ * 
+ * <H2>
+ * cMsg (pronounced "see message") is a software package conceived and written
+ * at Jefferson Lab by Elliott Wolin, Carl Timmer, and Vardan Gyurjyan. At one
+ * level this package is an API to a message-passing system (or domain as we
+ * refer to it). Users can create messages and have them handled knowing only
+ * a UDL (Uniform Domain Locator) to specify a particular server (domain) to use.
+ * Thus the API acts essentially as a multiplexor, diverting messages to the
+ * desired domain.
+ * <p></H2>
+ * <H2>
+ * At another level, cMsg is an implementation of a domain. Not only can cMsg
+ * pass off messages to Channel Access, SmartSockets, or a number of other
+ * domains, it can handle messages itself. It was designed to be extremely
+ * flexible and so adding another domain is relatively easy.
+ * <p></H2>
+ * <H2>
+ * At the moment, cMsg is in beta testing -- version 0.9.
+ * There is a User's Guide, API documentation in the form of web pages generated
+ * by javadoc and doxygen, and a Developer's Guide. Try it and let us know what
+ * you think about it. If you find any bugs, we have a bug-report web page at
+ * http://xdaq.jlab.org/CODA/portal/html/ .
+ * <p></H2>
+ */
+  
+ 
 /**
  * @file
  * This file contains the entire cMsg user API.
@@ -73,9 +102,9 @@ static int oneTimeInitialized = 0;
 /** Pthread mutex serializing calls to cMsgConnect() and cMsgDisconnect(). */
 static pthread_mutex_t connectMutex = PTHREAD_MUTEX_INITIALIZER;
 /** Store references to different domains and their cMsg implementations. */
-static domainTypeInfo dTypeInfo[MAXDOMAINS];
+static domainTypeInfo dTypeInfo[MAX_DOMAINS];
 /** Store information about each domain connected to. */
-static cMsgDomain domains[MAXDOMAINS];
+static cMsgDomain domains[MAX_DOMAINS];
 
 
 /** Excluded characters from subject, type, and description strings. */
@@ -229,8 +258,8 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
   if (!oneTimeInitialized) {
 
     /* clear arrays */
-    for (i=0; i<MAXDOMAINTYPES; i++) dTypeInfo[i].type = NULL;
-    for (i=0; i<MAXDOMAINS; i++) domainInit(&domains[i]);
+    for (i=0; i<MAX_DOMAIN_TYPES; i++) dTypeInfo[i].type = NULL;
+    for (i=0; i<MAX_DOMAINS; i++) domainInit(&domains[i]);
 
     /* register domain types */
     registerDomainTypeInfo();
@@ -240,7 +269,7 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
 
   
   /* find an existing connection to this domain if possible */
-  for (i=0; i<MAXDOMAINS; i++) {
+  for (i=0; i<MAX_DOMAINS; i++) {
     if (domains[i].initComplete == 1   &&
         domains[i].name        != NULL &&
         domains[i].udl         != NULL)  {
@@ -264,7 +293,7 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
   
 
   /* no existing connection, so find the first available place in the "domains" array */
-  for (i=0; i<MAXDOMAINS; i++) {
+  for (i=0; i<MAX_DOMAINS; i++) {
     if (domains[i].initComplete > 0) {
       continue;
     }
@@ -302,7 +331,7 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
 
   /* if such a domain type exists, store pointer to functions */
   domains[id].functions = NULL;
-  for (i=0; i<MAXDOMAINTYPES; i++) {
+  for (i=0; i<MAX_DOMAIN_TYPES; i++) {
     if (dTypeInfo[i].type != NULL) {
       if (strcasecmp(dTypeInfo[i].type, domains[id].type) == 0) {
 	domains[id].functions = dTypeInfo[i].functions;
@@ -571,7 +600,7 @@ int cMsgSendAndGet(int domainId, void *sendMsg, struct timespec *timeout, void *
 
 
 /**
- * This routine gets one message from a one-shot subscription to the given
+ * This routine gets one message from a one-time subscription to the given
  * subject and type.
  *
  * @param domainId id number of the domain connection
@@ -1154,7 +1183,7 @@ int cMsgGetUDL(int domainId, char **udl) {
   int id  = domainId - DOMAIN_ID_OFFSET;
   int len = strlen(domains[id].udl);
 
-  if (id < 0 || id >= MAXDOMAINS) return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
   if (domains[id].udl == NULL) {
     *udl = NULL;
@@ -1184,7 +1213,7 @@ int cMsgGetName(int domainId, char **name) {
   int id  = domainId - DOMAIN_ID_OFFSET;
   int len = strlen(domains[id].name);
 
-  if (id < 0 || id >= MAXDOMAINS) return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
   if (domains[id].name == NULL) {
     *name = NULL;
@@ -1214,7 +1243,7 @@ int cMsgGetDescription(int domainId, char **description) {
   int id  = domainId - DOMAIN_ID_OFFSET;
   int len = strlen(domains[id].description);
 
-  if (id < 0 || id >= MAXDOMAINS) return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
   if (domains[id].description == NULL) {
     *description = NULL;
@@ -1244,7 +1273,7 @@ int cMsgGetInitState(int domainId, int *initState) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
-  if (id < 0 || id >= MAXDOMAINS) return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
   *initState=domains[id].initComplete;
   return(CMSG_OK);
@@ -1270,7 +1299,7 @@ int cMsgGetReceiveState(int domainId, int *receiveState) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
-  if (id < 0 || id >= MAXDOMAINS) return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
   *receiveState=domains[id].receiveState;
   return(CMSG_OK);
