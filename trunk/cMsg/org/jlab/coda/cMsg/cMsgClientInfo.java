@@ -39,6 +39,8 @@ public class cMsgClientInfo {
     private String UDLremainder;
     /** Subdomain client wishes to use. */
     private String subdomain;
+    /** cMsg subdomain namespace client is using. */
+    private String namespace;
     /** Client's host. */
     private String clientHost;
     /** Client's port. */
@@ -179,6 +181,20 @@ public class cMsgClientInfo {
      * @param subdomain subdomain client is using
      */
     public void setSubdomain(String subdomain) {this.subdomain = subdomain;}
+
+    //-----------------------------------------------------------------------------------
+
+    /**
+     * Gets the namespace of client's cMsg subdomain.
+     * @return namespace of client's cMsg subdomain
+     */
+    public String getNamespace() {return namespace;}
+
+    /**
+     * Sets the namespace of client's cMsg subdomain.
+     * @param namespace namespace of client's cMsg subdomain
+     */
+    public void setNamespace(String namespace) {this.namespace = namespace;}
 
     //-----------------------------------------------------------------------------------
 
