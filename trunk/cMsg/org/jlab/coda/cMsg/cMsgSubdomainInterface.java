@@ -99,12 +99,23 @@ public interface cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle unget request sent by domain client (hidden from user).
+     * Method to handle remove sendAndGet request sent by domain client
+     * (hidden from user).
      *
      * @param id message id refering to these specific subject and type values
      * @throws cMsgException
      */
-    public void handleUngetRequest(int id) throws cMsgException;
+    public void handleUnSendAndGetRequest(int id) throws cMsgException;
+
+
+    /**
+     * Method to handle remove subscribeAndGet request sent by domain client
+     * (hidden from user).
+     *
+     * @param id message id refering to these specific subject and type values
+     * @throws cMsgException
+     */
+    public void handleUnSubscribeAndGetRequest(int id) throws cMsgException;
 
 
     /**

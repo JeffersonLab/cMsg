@@ -49,16 +49,31 @@ public class cMsg extends cMsgSubdomainAbstract {
      * HashMap to store specific "get" in progress. sysMsgId of get msg is key,
      * and client name is value.
      */
-    private static Map<Integer,cMsgClientInfo> specificGets =
+    private static ConcurrentHashMap<Integer,cMsgClientInfo> specificGets =
             new ConcurrentHashMap<Integer,cMsgClientInfo>(100);
 
     /**
+     * Convenience class for storing data in a hashmap used for removing
+     * sendAndGets which have timed out.
+     */
+    private class DeleteGetInfo {
+        String name;
+        int senderToken;
+        int sysMsgId;
+        DeleteGetInfo(String name, int senderToken, int sysMsgId) {
+            this.name = name;
+            this.senderToken = senderToken;
+            this.sysMsgId = sysMsgId;
+        }
+    }
+
+    /**
      * HashMap to store mappings of local client's senderTokens to static sysMsgIds.
-     * This allows the cancellation of a "get" using a senderToken (which the
+     * This allows the cancellation of a "sendAndGet" using a senderToken (which the
      * client knows) which can then be used to look up the sysMsgId and cancel the get.
      */
-    private Map<Integer,Integer> deleteGets =
-            new ConcurrentHashMap<Integer,Integer>(100);
+    private static ConcurrentHashMap<Integer,DeleteGetInfo> deleteGets =
+            new ConcurrentHashMap<Integer,DeleteGetInfo>(100);
 
     /** List of client info objects corresponding to entries in "subGetList" subscriptions. */
     private ArrayList infoList = new ArrayList(100);
@@ -298,6 +313,7 @@ public class cMsg extends cMsgSubdomainAbstract {
             // Recall the client who originally sent the get request
             // and remove the item from the hashtable
             info = specificGets.remove(id);
+            deleteGets.remove(id);
 
             // If someone else responded to the get first (info == null),
             // skip the next block and send message as a regular "send".
@@ -537,8 +553,18 @@ public class cMsg extends cMsgSubdomainAbstract {
         int id = sysMsgId.getAndIncrement();
         message.setSysMsgId(id);
         specificGets.put(id, info);
-        deleteGets.put(message.getSenderToken(), id);
+        DeleteGetInfo dgi = new DeleteGetInfo(name, message.getSenderToken(), id);
+        deleteGets.put(id, dgi);
 
+        /*
+        if (deleteGets.size() % 500 == 0) {
+            System.out.println("sdHandler: deleteGets size = " + deleteGets.size());
+        }
+        if (specificGets.size() % 500 == 0) {
+            System.out.println("sdHandler: specificGets = " + specificGets.size());
+        }
+        */
+        
         // Now send this message on its way to any receivers out there.
         // SenderToken and sysMsgId get sent back by response. The sysMsgId
         // tells us which client to send to and the senderToken tells the
@@ -546,8 +572,6 @@ public class cMsg extends cMsgSubdomainAbstract {
         handleSendRequest(message);
     }
 
-
-//-----------------------------------------------------------------------------
 
 
     /**
@@ -574,20 +598,48 @@ public class cMsg extends cMsgSubdomainAbstract {
     }
 
 
+
     /**
-     * Method to handle unget request sent by domain client (hidden from user).
+     * Method to handle remove sendAndGet request sent by domain client
+     * (hidden from user).
      *
      * @param id message id refering to these specific subject and type values
      */
-    public void handleUngetRequest(int id) {
-        cMsgClientInfo info = clients.get(name);
-        if (info == null) {
+    public void handleUnSendAndGetRequest(int id) {
+        int sysId = -1;
+        DeleteGetInfo dgi;
+
+        // Scan through list of name/senderToken value pairs. (This combo is unique.)
+        // Find the one that matches ours and get its associated sysMsgId number.
+        // Use that number as a key to remove the specificGet (sendAndGet).
+        for (Iterator i=deleteGets.values().iterator(); i.hasNext(); ) {
+            dgi = (DeleteGetInfo) i.next();
+            if (dgi.name.equals(name) && dgi.senderToken == id) {
+                sysId = dgi.sysMsgId;
+                i.remove();
+                break;
+            }
+        }
+
+        // If it has already been removed, forget about it
+        if (sysId < 0) {
             return;
         }
-// System.out.println("UNGETTING");
-        // first check to see if we're removing a specific get
-        if (specificGets.remove(deleteGets.get(id)) != null) {
-//System.out.println("Removed specific Get");
+
+        specificGets.remove(sysId);
+    }
+
+
+
+    /**
+     * Method to handle remove subscribeAndGet request sent by domain client
+     * (hidden from user).
+     *
+     * @param id message id refering to these specific subject and type values
+     */
+    public void handleUnSubscribeAndGetRequest(int id) {
+        cMsgClientInfo info = clients.get(name);
+        if (info == null) {
             return;
         }
 
@@ -600,7 +652,7 @@ public class cMsg extends cMsgSubdomainAbstract {
             while (it.hasNext()) {
                 sub = (cMsgSubscription) it.next();
                 if (sub.getId() == id) {
-System.out.println("Removed general Get");
+//System.out.println("Removed general Get");
                     it.remove();
                     return;
                 }
@@ -610,6 +662,7 @@ System.out.println("Removed general Get");
             info.getWriteLock().unlock();
         }
     }
+
 
 
     /**

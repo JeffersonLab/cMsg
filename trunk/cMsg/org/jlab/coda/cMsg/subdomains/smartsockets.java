@@ -509,14 +509,28 @@ public class smartsockets extends cMsgSubdomainAbstract {
 //-----------------------------------------------------------------------------
 
 
-
     /**
-     * Method to handle unget request sent by domain client (hidden from user).
+     * Method to handle remove sendAndGet request sent by domain client
+     * (hidden from user).
      *
      * @param id message id refering to these specific subject and type values
      */
-    public void handleUngetRequest(int id) {
-        // do mothing
+    public void handleUnSendAndGetRequest(int id) {
+        // do nothing
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to handle remove subscribeAndGet request sent by domain client
+     * (hidden from user).
+     *
+     * @param id message id refering to these specific subject and type values
+     */
+    public void handleUnSubscribeAndGetRequest(int id) {
+        // do nothing
     }
 
 
