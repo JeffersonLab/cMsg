@@ -455,7 +455,10 @@ public class queue extends cMsgSubdomainAbstract {
      */
     public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException {
 
-        // create msg
+        boolean null_response = false;
+
+
+        // create msg as get response
         cMsgMessageFull response = message.response();
 
 
@@ -489,16 +492,7 @@ public class queue extends cMsgSubdomainAbstract {
                 myStmt.execute("delete from " + myTableName + " where id=" + id);
 
             } else {
-                response.setSysMsgId(0);
-                response.setSender("");
-                response.setSenderHost("");
-                response.setSenderTime(new Date());
-                response.setUserInt(0);
-                response.setUserTime(new Date(0));
-                response.setPriority(0);
-                response.setSubject("");
-                response.setType("");
-                response.setText("");
+                null_response=true;
             }
 
             // unlock table
@@ -515,7 +509,11 @@ public class queue extends cMsgSubdomainAbstract {
 
         // send message
         try {
-            deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponse);
+            if(null_response) {
+                deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponseIsNull);
+            } else {
+                deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponse);
+            }
 
         } catch (IOException e) {
             e.printStackTrace();
