@@ -19,9 +19,8 @@ JAVA_OBJS = \
 	cMsgConsumer.class \
 	cMsgGetConsumer.class \
 	cMsgProducer.class \
-	cMsgDualProducer.class \
 	cMsgGetResponder.class \
-	cMsgConsumer2CBs.class
+	cMsgShutdowner.class
 
 all: $(JAVA_OBJS)
 
