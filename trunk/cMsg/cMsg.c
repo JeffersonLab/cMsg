@@ -28,7 +28,17 @@
  *
  *----------------------------------------------------------------------------*/
 
-
+/**
+ * @file
+ * This file contains the entire cMsg user API.
+ *
+ * <b>Introduction</b>
+ *
+ * The user API acts as a multiplexor. Depending on the particular UDL used to
+ * connect to a specific cMsg server, the API will direct the user's library
+ * calls to the appropriate cMsg implementation.
+ */  
+ 
 /* system includes */
 #ifdef VXWORKS
 #include <vxWorks.h>
@@ -53,7 +63,7 @@
  */
 #define CMSG_MAXHOSTNAMELEN 256
 
-/* set the "global" debug level */
+/** Global debug level. */
 int cMsgDebug = CMSG_DEBUG_ERROR;
 
 
@@ -64,7 +74,7 @@ static domainTypeInfo dTypeInfo[MAXDOMAINS];
 static cMsgDomain domains[MAXDOMAINS];
 
 
-/* excluded chars */
+/** Excluded characters from subject, type, and description strings. */
 static char *excludedChars = "`\'\"";
 
 
@@ -80,6 +90,7 @@ extern "C" {
 
 /* local prototypes */
 static int   checkString(char *s);
+static int   checkTextString(char *s);
 static void  registerDomainTypeInfo(void);
 static void  domainInit(cMsgDomain *domain);
 static void  domainFree(cMsgDomain *domain);
@@ -91,6 +102,7 @@ static void  initMessage(cMsgMessage *msg);
 
 #ifdef VXWORKS
 
+/** Implementation of strdup for vxWorks. */
 static char *strdup(const char *s1) {
     char *s;    
     if (s1 == NULL) return NULL;    
@@ -98,6 +110,7 @@ static char *strdup(const char *s1) {
     return strcpy(s, s1);
 }
 
+/** Implementation of strcasecmp for vxWorks. */
 static int strcasecmp(const char *s1, const char *s2) {
   int i, len1, len2;
   
@@ -159,6 +172,32 @@ static int strcasecmp(const char *s1, const char *s2) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine is called once to connect to a domain.
+ * The argument "myUDL" is the Universal Domain Locator used to uniquely
+ * identify the cMsg server to connect to. It has the form:<p>
+ *       <b><i>cMsg:domainType://domainInfo </i></b><p>
+ * The argument "myName" is the client's name and may be required to be
+ * unique within the domain depending on the domain.
+ * The argument "myDescription" is an arbitrary string used to describe the
+ * client.
+ * If successful, this routine fills the argument "domainId", which identifies
+ * the connection uniquely and is required as an argument by many other routines.
+ * 
+ * @param myUDL the Universal Domain Locator used to uniquely identify the cMsg
+ *        server to connect to
+ * @param myName name of this client
+ * @param myDescription description of this client
+ * @param domainId pointer to integer which gets filled with a unique id referring
+ *        to this connection.
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
+ * @returns CMSG_LIMIT_EXCEEDED if the maximum number of domain connections has
+ *          been exceeded
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgConnect
+ */   
 int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
 
   int i, id=-1, err, implId;
@@ -292,12 +331,37 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine sends a msg to the specified domain server. It is completely
+ * asynchronous and never blocks. The domain may require cMsgFlush() to be
+ * called to force delivery.
+ * The domainId argument is created by calling cMsgConnect()
+ * and establishing a connection to a cMsg server. The message to be sent
+ * may be created by calling cMsgCreateMessage(),
+ * cMsgCreateNewMessage(), or cMsgCopyMessage().
+ *
+ * @param domainId id number of the domain connection
+ * @param msg pointer to a message structure
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
+ * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgSend
+ */   
 int cMsgSend(int domainId, void *msg) {
   
   int id = domainId - DOMAIN_ID_OFFSET;
+  cMsgMessage *cmsg = (cMsgMessage *)msg;
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
-  if (msg == NULL)                   return(CMSG_BAD_ARGUMENT);
+  /* check args */
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if ( (checkString(cmsg->subject)  !=0 ) ||
+       (checkString(cmsg->type)     !=0 ) ||
+       (checkTextString(cmsg->text) !=0 )   ) {
+    return(CMSG_BAD_ARGUMENT);
+  }
 
   /* dispatch to function registered for this domain type */
   return(domains[id].functions->send(domains[id].implId, msg));
@@ -307,12 +371,39 @@ int cMsgSend(int domainId, void *msg) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine sends a msg to the specified domain server and receives a response.
+ * It is a synchronous routine and as a result blocks until it receives a status
+ * integer from the cMsg server.
+ * The domainId argument is created by calling cMsgConnect()
+ * and establishing a connection to a cMsg server. The message to be sent
+ * may be created by calling cMsgCreateMessage(),
+ * cMsgCreateNewMessage(), or cMsgCopyMessage().
+ *
+ * @param domainId id number of the domain connection
+ * @param msg pointer to a message structure
+ * @param response pointer to an integer that gets filled with the server's response
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
+ * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgSyncSend
+ */   
 int cMsgSyncSend(int domainId, void *msg, int *response) {
   
   int id = domainId - DOMAIN_ID_OFFSET;
+  cMsgMessage *cmsg = (cMsgMessage *)msg;
   
   if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
+  /* check args */
   if (msg == NULL || response == NULL) return(CMSG_BAD_ARGUMENT);
+  if ( (checkString(cmsg->subject)  !=0 ) ||
+       (checkString(cmsg->type)     !=0 ) ||
+       (checkTextString(cmsg->text) !=0 )   ) {
+    return(CMSG_BAD_ARGUMENT);
+  }
+  
 
   /* dispatch to function registered for this domain type */
   return(domains[id].functions->syncSend(domains[id].implId, msg, response));
@@ -322,6 +413,19 @@ int cMsgSyncSend(int domainId, void *msg, int *response) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine sends any pending (queued up) communication with the server.
+ * The implementation of this routine depends entirely on the domain in which 
+ * it is being used. In the cMsg domain, this routine does nothing as all server
+ * communications are sent immediately upon calling any function.
+ *
+ * @param domainId id number of the domain connection
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgFlush
+ */   
 int cMsgFlush(int domainId) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
@@ -337,6 +441,25 @@ int cMsgFlush(int domainId) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine subscribes to messages of the given subject and type.
+ * When a message is received, the given callback is passed the userArg
+ * pointer and is executed. A configuration structure is given to determine
+ * the behavior of the callback.
+ *
+ * @param domainId id number of the domain connection
+ * @param subject subject of messages subscribed to
+ * @param type type of messages subscribed to
+ * @param callback pointer to callback to be executed on receipt of message
+ * @param userArg user-specified pointer to be passed to the callback
+ * @param config pointer to callback configuration structure
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgSubscribe
+ */   
 int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
                   void *userArg, cMsgSubscribeConfig *config) {
 
@@ -360,6 +483,21 @@ int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callbac
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine unsubscribes to messages of the given subject, type and
+ * callback.
+ *
+ * @param domainId id number of the domain connection
+ * @param subject subject of messages to unsubscribed from
+ * @param type type of messages to unsubscribed from
+ * @param callback pointer to callback to be removed
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgUnSubscribe
+ */   
 int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
@@ -384,6 +522,26 @@ int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callb
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine gets one message from another cMsg client by sending out
+ * an initial message to that responder. It is a synchronous routine that
+ * fails when no reply is received with the given timeout. This function
+ * can be thought of as a peer-to-peer exchange of messages.
+ * One message is sent to all listeners. The first responder
+ * to the initial message will have its single response message sent back
+ * to the original sender.
+ *
+ * @param domainId id number of the domain connection
+ * @param sendMsg messages to send to all listeners
+ * @param timeout amount of time to wait for the response message
+ * @param replyMsg message received from the responder
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgSendAndGet
+ */   
 int cMsgSendAndGet(int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
@@ -395,8 +553,9 @@ int cMsgSendAndGet(int domainId, void *sendMsg, struct timespec *timeout, void *
   msg = (cMsgMessage *)sendMsg;
   
   /* check msg fields */
-  if ( (checkString(msg->subject) !=0 ) ||
-       (checkString(msg->type)    !=0 ))  {
+  if ( (checkString(msg->subject)  !=0 ) ||
+       (checkString(msg->type)     !=0 ) ||
+       (checkTextString(msg->text) !=0 )   ) {
     return(CMSG_BAD_ARGUMENT);
   }
 
@@ -407,6 +566,22 @@ int cMsgSendAndGet(int domainId, void *sendMsg, struct timespec *timeout, void *
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine gets one message from a one-shot subscription to the given
+ * subject and type.
+ *
+ * @param domainId id number of the domain connection
+ * @param subject subject of message subscribed to
+ * @param type type of message subscribed to
+ * @param timeout amount of time to wait for the message
+ * @param replyMsg message received
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgSendAndGet
+ */   
 int cMsgSubscribeAndGet(int domainId, char *subject, char *type,
                         struct timespec *timeout, void **replyMsg) {
 
@@ -429,6 +604,15 @@ int cMsgSubscribeAndGet(int domainId, char *subject, char *type,
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine enables the receiving of messages and delivery to callbacks.
+ * The receiving of messages is disabled by default and must be explicitly enabled.
+ *
+ * @param domainId id number of the domain connection
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ */   
 int cMsgReceiveStart(int domainId) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
@@ -449,6 +633,16 @@ int cMsgReceiveStart(int domainId) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine disables the receiving of messages and delivery to callbacks.
+ * The receiving of messages is disabled by default. This routine only has an
+ * effect when cMsgReceiveStart() was previously called.
+ *
+ * @param domainId id number of the domain connection
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ */   
 int cMsgReceiveStop(int domainId) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
@@ -469,6 +663,14 @@ int cMsgReceiveStop(int domainId) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine disconnects the client from the cMsg server.
+ *
+ * @param domainId id number of the domain connection
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ */   
 int cMsgDisconnect(int domainId) {
   
   int id = domainId - DOMAIN_ID_OFFSET;
@@ -493,6 +695,17 @@ int cMsgDisconnect(int domainId) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine returns a string describing the given error condition.
+ * It can also print out that same string with printf if the debug level
+ * is set to CMSG_DEBUG_ERROR or CMSG_DEBUG_SEVERE by cMsgSetDebugLevel().
+ * The returned string is a static char array. This means it is not 
+ * thread-safe and will be overwritten on subsequent calls.
+ *
+ * @param error error condition
+ *
+ * @returns error string
+ */   
 char *cMsgPerror(int error) {
 
   static char temp[256];
@@ -626,6 +839,20 @@ char *cMsgPerror(int error) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine sets the level of debug output. The argument should be
+ * one of:<p>
+ * - #CMSG_DEBUG_NONE
+ * - #CMSG_DEBUG_INFO
+ * - #CMSG_DEBUG_SEVERE
+ * - #CMSG_DEBUG_ERROR
+ * - #CMSG_DEBUG_WARN
+ *
+ * @param level debug level desired
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if debug level is bad
+ */   
 int cMsgSetDebugLevel(int level) {
   
   if ((level != CMSG_DEBUG_NONE)  &&
@@ -641,15 +868,6 @@ int cMsgSetDebugLevel(int level) {
 }
 
 
-/*-------------------------------------------------------------------*/
-
-
-static void domainClear(cMsgDomain *domain) {
-  domainFree(domain);
-  domainInit(domain);
-}
-
-
 /*-------------------------------------------------------------------*
  *
  * Internal functions
@@ -657,6 +875,15 @@ static void domainClear(cMsgDomain *domain) {
  *-------------------------------------------------------------------*/
 
 
+/**
+ * This routine registers the name of a domain implementation
+ * along with the set of functions that implement all the basic domain
+ * functionality (connect, disconnect, send, syncSend, flush, subscribe,
+ * unsubscribe, sendAndGet, subscribeAndGet, start, and stop).
+ * 
+ * This routine must be updated to include each new domain accessible
+ * from the "C" language.
+ */   
 static void registerDomainTypeInfo(void) {
 
   /* cMsg type */
@@ -670,6 +897,12 @@ static void registerDomainTypeInfo(void) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine initializes the given domain data structure. All strings
+ * are set to null.
+ *
+ * @param domain pointer to structure holding domain info
+ */   
 static void domainInit(cMsgDomain *domain) {  
   domain->id             = 0;
   domain->implId         = -1;
@@ -688,6 +921,12 @@ static void domainInit(cMsgDomain *domain) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine frees all of the allocated memory of the given domain
+ * data structure. 
+ *
+ * @param domain pointer to structure holding domain info
+ */   
 static void domainFree(cMsgDomain *domain) {  
   if (domain->type         != NULL) free(domain->type);
   if (domain->name         != NULL) free(domain->name);
@@ -697,11 +936,30 @@ static void domainFree(cMsgDomain *domain) {
 }
 
 
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine clears the given domain data structure. Any allocated
+ * memory is freed, and the structure is initialized.
+ *
+ * @param domain pointer to structure holding domain info
+ */   
+static void domainClear(cMsgDomain *domain) {
+  domainFree(domain);
+  domainInit(domain);
+}
+
+
 /*-------------------------------------------------------------------*
  * Mutex functions
  *-------------------------------------------------------------------*/
 
 
+/**
+ * This routine locks the mutex used to prevent cMsgConnect() and
+ * cMsgDisconnect() from being called concurrently.
+ */   
 static void connectMutexLock(void) {
   int status = pthread_mutex_lock(&connectMutex);
   if (status != 0) {
@@ -713,6 +971,10 @@ static void connectMutexLock(void) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine unlocks the mutex used to prevent cMsgConnect() and
+ * cMsgDisconnect() from being called concurrently.
+ */   
 static void connectMutexUnlock(void) {
   int status = pthread_mutex_unlock(&connectMutex);
   if (status != 0) {
@@ -726,6 +988,26 @@ static void connectMutexUnlock(void) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine parses the UDL given by the client in cMsgConnect().
+ *
+ * The UDL is the Universal Domain Locator used to uniquely
+ * identify the cMsg server to connect to. It has the form:<p>
+ *       <b><i>cMsg:domainType://domainInfo </i></b><p>
+ * The domainType portion gets returned as the domainType.
+ * The domainInfo portion gets returned the the UDLremainder.
+ * Memory gets allocated for both the domainType and domainInfo which
+ * must be freed by the caller.
+ *
+ * @param UDL UDL
+ * @param domainType string which gets filled in with the domain type (eg. cMsg)
+ * @param UDLremainder string which gets filled in with everything in the UDL
+ *                     after the ://
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the UDL is null
+ * @returns CMSG_BAD_FORMAT if the UDL is formatted incorrectly
+ */   
 static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
 
   /* note:  cMsg domain UDL is of the form:
@@ -791,6 +1073,16 @@ static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine checks a string given as a function argument.
+ * It returns an error if it contains an unprintable character or any
+ * character from a list of excluded characters (`'").
+ *
+ * @param s string to check
+ *
+ * @returns CMSG_OK if string is OK
+ * @returns CMSG_ERROR if string contains excluded or unprintable characters
+ */   
 static int checkString(char *s) {
 
   int i;
@@ -811,72 +1103,139 @@ static int checkString(char *s) {
 
 
 /*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine checks a string given as message text.
+ * It returns an error if it's NULL or contains an unprintable character
+ *
+ * @param s string to check
+ *
+ * @returns CMSG_OK if string is OK
+ * @returns CMSG_ERROR if string is NULL or contains unprintable characters
+ */   
+static int checkTextString(char *s) {
+
+  int i;
+
+  if (s == NULL) return(CMSG_ERROR);
+
+  /* check for printable character */
+  for (i=0; i<strlen(s); i++) {
+    if (isprint((int)s[i]) == 0) return(CMSG_ERROR);
+  }
+  
+  /* string ok */
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
 /*   system accessor functions                                       */
 /*-------------------------------------------------------------------*/
 
-
-int cMsgGetUDL(int domainId, char *udl, size_t size) {
+/**
+ * This routine gets the UDL used to establish a cMsg connection.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param domainId id number of the domain connection
+ * @param domain pointer to pointer which gets filled with the UDL
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_DOMAIN_ID if an out-of-range domain id is used
+ */   
+int cMsgGetUDL(int domainId, char **udl) {
 
   int id  = domainId - DOMAIN_ID_OFFSET;
   int len = strlen(domains[id].udl);
 
   if (id < 0 || id >= MAXDOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
-  if (size>len) {
-    strcpy(udl,domains[id].udl);
-    return(CMSG_OK);
-  } else {
-    strncpy(udl,domains[id].udl,size-1);
-    udl[size-1]='\0';
-    return(CMSG_LIMIT_EXCEEDED);
+  if (domains[id].udl == NULL) {
+    *udl = NULL;
   }
+  else {
+    *udl = (char *) (strdup(domains[id].udl));
+  }
+  return(CMSG_OK);
 }
   
   
 /*-------------------------------------------------------------------*/
 
-
-int cMsgGetName(int domainId, char *name, size_t size) {
+/**
+ * This routine gets the client name used in a cMsg connection.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param domainId id number of the domain connection
+ * @param domain pointer to pointer which gets filled with the name
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_DOMAIN_ID if an out-of-range domain id is used
+ */   
+int cMsgGetName(int domainId, char **name) {
 
   int id  = domainId - DOMAIN_ID_OFFSET;
   int len = strlen(domains[id].name);
 
   if (id < 0 || id >= MAXDOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
-  if (size>len) {
-    strcpy(name,domains[id].name);
-    return(CMSG_OK);
-  } else {
-    strncpy(name,domains[id].name,size-1);
-    name[size-1]='\0';
-    return(CMSG_LIMIT_EXCEEDED);
+  if (domains[id].name == NULL) {
+    *name = NULL;
   }
+  else {
+    *name = (char *) (strdup(domains[id].name));
+  }
+  return(CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 
 
-int cMsgGetDescription(int domainId, char *description, size_t size) {
+/**
+ * This routine gets the client description used in a cMsg connection.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param domainId id number of the domain connection
+ * @param domain pointer to pointer which gets filled with the description
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_DOMAIN_ID if an out-of-range domain id is used
+ */   
+int cMsgGetDescription(int domainId, char **description) {
 
   int id  = domainId - DOMAIN_ID_OFFSET;
   int len = strlen(domains[id].description);
 
   if (id < 0 || id >= MAXDOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
-  if (size>len) {
-    strcpy(description,domains[id].description);
-    return(CMSG_OK);
-  } else {
-    strncpy(description,domains[id].description,size-1);
-    description[size-1]='\0';
-    return(CMSG_LIMIT_EXCEEDED);
+  if (domains[id].description == NULL) {
+    *description = NULL;
   }
+  else {
+    *description = (char *) (strdup(domains[id].description));
+  }
+  return(CMSG_OK);
 }
 
 
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine gets the state of a cMsg connection. If initState gets
+ * filled with a one, there is a valid connection. Anything else (zero
+ * in this case), indicates no connection to a cMsg server.
+ *
+ * @param domainId id number of the domain connection
+ * @param initState integer pointer to be filled in with the connection state
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_DOMAIN_ID if an out-of-range domain id is used
+ */   
 int cMsgGetInitState(int domainId, int *initState) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
@@ -891,6 +1250,18 @@ int cMsgGetInitState(int domainId, int *initState) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine gets the message receiving state of a cMsg connection. If
+ * receiveState gets filled with a one, all messages sent to the client
+ * will be received and sent to appropriate callbacks . Anything else (zero
+ * in this case), indicates no messages will be received or sent to callbacks.
+ *
+ * @param domainId id number of the domain connection
+ * @param receiveState integer pointer to be filled in with the receive state
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_DOMAIN_ID if an out-of-range domain id is used
+ */   
 int cMsgGetReceiveState(int domainId, int *receiveState) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
@@ -907,14 +1278,18 @@ int cMsgGetReceiveState(int domainId, int *receiveState) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine initializes a given message structure.
+ *
+ * @param msg pointer to message structure being initialized
+ */   
 static void initMessage(cMsgMessage *msg) {
     
     if (msg == NULL) return;
     
     msg->version      = 0;
     msg->sysMsgId     = 0;
-    msg->getRequest   = 0;
-    msg->getResponse  = 0;
+    msg->info         = 0;
     
     msg->domain       = NULL;
     msg->creator      = NULL;
@@ -943,6 +1318,16 @@ static void initMessage(cMsgMessage *msg) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine frees the memory allocated in the creation of a message.
+ * The cMsg client must call this routine on any messages created to avoid
+ * memory leaks.
+ *
+ * @param msg pointer to message structure being freed
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if msg is NULL
+ */   
 int cMsgFreeMessage(void *vmsg) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
@@ -968,8 +1353,21 @@ int cMsgFreeMessage(void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine copies a message. Memory is allocated with this
+ * function and can be freed by cMsgFreeMessage().
+ *
+ * @param msg pointer to message structure being copied
+ *
+ * @returns a pointer to the message copy
+ * @returns NULL if argument is NULL or no memory available
+ */   
   void *cMsgCopyMessage(void *vmsg) {
     cMsgMessage *newMsg, *msg = (cMsgMessage *)vmsg;
+    
+    if (vmsg == NULL) {
+      return NULL;
+    }
     
     if ((newMsg = (cMsgMessage *)malloc(sizeof(cMsgMessage))) == NULL) {
       return NULL;
@@ -977,8 +1375,7 @@ int cMsgFreeMessage(void *vmsg) {
     
     newMsg->version     = msg->version;
     newMsg->sysMsgId    = msg->sysMsgId;
-    newMsg->getRequest  = msg->getRequest;
-    newMsg->getResponse = msg->getResponse;
+    newMsg->info        = msg->info;
     
     if (msg->domain != NULL) newMsg->domain = (char *) strdup(msg->domain);
     else                     newMsg->domain = NULL;
@@ -1024,6 +1421,13 @@ int cMsgFreeMessage(void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine initializes a message. It frees all allocated memory,
+ * sets all strings to NULL, and sets all numeric values to their default
+ * state.
+ *
+ * @param msg pointer to message structure being initialized
+ */   
   void cMsgInitMessage(void *vmsg) {
     cMsgMessage *msg = (cMsgMessage *)vmsg;
     
@@ -1046,6 +1450,13 @@ int cMsgFreeMessage(void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine creates a new, initialized message. Memory is allocated with this
+ * function and can be freed by cMsgFreeMessage().
+ *
+ * @returns a pointer to the new message
+ * @returns NULL if no memory available
+ */   
 void *cMsgCreateMessage(void) {
   cMsgMessage *msg;
   
@@ -1061,6 +1472,16 @@ void *cMsgCreateMessage(void) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine creates a new, initialized message with the creator
+ * field taken from the given message. Memory is allocated with this
+ * function and can be freed by cMsgFreeMessage().
+ *
+ * @param msg pointer to message from which creator field is taken
+ *
+ * @returns a pointer to the new message
+ * @returns NULL if no memory available or message argument is NULL
+ */   
 void *cMsgCreateNewMessage(void *vmsg) {  
     cMsgMessage *newMsg;
     
@@ -1082,142 +1503,388 @@ void *cMsgCreateNewMessage(void *vmsg) {
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
-int cMsgGetVersion(void *vmsg) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(-1);
-  return(msg->version);
-}
-
-/*-------------------------------------------------------------------*/
-/*-------------------------------------------------------------------*/
-
-int cMsgSetGetResponse(void *vmsg, int getReponse) {
+/**
+ * This routine gets the cMsg major version number of a message.
+ *
+ * @param msg pointer to message
+ * @param version integer pointer to be filled in with cMsg major version
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetVersion(void *vmsg, int *version) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  msg->getResponse = getReponse;
+  *version = msg->version;
+  return (CMSG_OK);
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine sets the "get response" field of a message. The "get
+ * reponse" field indicates the message is a response to a message sent
+ * by a sendAndGet call, if it has a value of 1. Any other value indicates
+ * it is not a response to a sendAndGet.
+ *
+ * @param msg pointer to message
+ * @param getResponse set to 1 if message is a response to a sendAndGet,
+ *                    anything else otherwise
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message argument is NULL
+ */   
+int cMsgSetGetResponse(void *vmsg, int getResponse) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  msg->info = getResponse ? msg->info |  CMSG_IS_GET_RESPONSE :
+                            msg->info & ~CMSG_IS_GET_RESPONSE;
 
   return(CMSG_OK);
 }
 
-int cMsgGetGetResponse(void *vmsg) {
+/**
+ * This routine gets the "get response" field of a message. The "get
+ * reponse" field indicates the message is a response to a message sent
+ * by a sendAndGet call, if it has a value of 1. A value of 0 indicates
+ * it is not a response to a sendAndGet.
+ *
+ * @param msg pointer to message
+ * @param getResponse integer pointer to be filled in 1 if message
+ *                    is a response to a sendAndGet and 0 otherwise
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetGetResponse(void *vmsg, int *getResponse) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if (msg == NULL) return(-1);
-  return(msg->getResponse);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  *getResponse = (msg->info & CMSG_IS_GET_RESPONSE) == CMSG_IS_GET_RESPONSE ? 1 : 0;
+  return(CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
-int cMsgGetGetRequest(void *vmsg) {
+/**
+ * This routine sets the "null get response" field of a message. If it
+ * has a value of 1, the "null get response" field indicates that if the
+ * message is a response to a message sent by a sendAndGet call, when sent
+ * it will be received as a NULL pointer - not a message. Any other value
+ * indicates it is not a null get response to a sendAndGet.
+ *
+ * @param msg pointer to message
+ * @param getResponse set to 1 if message is a null get response to a sendAndGet,
+ *                    anything else otherwise
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message argument is NULL
+ */   
+int cMsgSetNullGetResponse(void *vmsg, int nullGetResponse) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if (msg == NULL) return(-1);
-  return(msg->getRequest);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  msg->info = nullGetResponse ? msg->info |  CMSG_IS_NULL_GET_RESPONSE :
+                                msg->info & ~CMSG_IS_NULL_GET_RESPONSE;
+
+  return(CMSG_OK);
+}
+
+/**
+ * This routine gets the "NULL get response" field of a message. If it
+ * has a value of 1, the "NULL get response" field indicates that if the
+ * message is a response to a message sent by a sendAndGet call, when sent
+ * it will be received as a NULL pointer - not a message. Any other value
+ * indicates it is not a null get response to a sendAndGet.
+ *
+ * @param msg pointer to message
+ * @param nullGetResponse integer pointer to be filled in with 1 if message
+ *                        is a NULL response to a sendAndGet and 0 otherwise
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetNullGetResponse(void *vmsg, int *nullGetResponse) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  *nullGetResponse = (msg->info & CMSG_IS_NULL_GET_RESPONSE) == CMSG_IS_NULL_GET_RESPONSE ? 1 : 0;
+  return(CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
-char *cMsgGetDomain(void *vmsg) {
+/**
+ * This routine gets the "get request" field of a message. The "get
+ * request" field indicates the message was sent by a sendAndGet call,
+ * if it has a value of 1. A value of 0 indicates it was not sent by
+ * a sendAndGet.
+ *
+ * @param msg pointer to message
+ * @param nullGetResponse integer pointer to be filled in with 1 if message
+ *                        sent by a sendAndGet and 0 otherwise
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetGetRequest(void *vmsg, int *getRequest) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if (msg == NULL) return(NULL);
-  if (msg->domain == NULL) return NULL;
-  return( (char *) (strdup(msg->domain)) );
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  *getRequest = (msg->info & CMSG_IS_GET_REQUEST) == CMSG_IS_GET_REQUEST ? 1 : 0;
+  return(CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
-char *cMsgGetCreator(void *vmsg) {
+/**
+ * This routine gets the domain of a message. When a message is newly
+ * created (eg. by cMsgCreateMessage()), the domain field of a message
+ * is not set. In the cMsg domain, the cMsg server sets this field
+ * when it receives a client's sent message.
+ * Messages received from the server will have this field set.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param msg pointer to message
+ * @param domain pointer to pointer which gets filled with a message's 
+ *               cMsg domain
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetDomain(void *vmsg, char **domain) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if (msg == NULL) return(NULL);
-  if (msg->creator == NULL) return NULL;
-  return( (char *) (strdup(msg->creator)) );
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->domain == NULL) {
+    *domain = NULL;
+  }
+  else {
+    *domain = (char *) (strdup(msg->domain));
+  }
+  return(CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
+/**
+ * This routine gets the creator of a message. When a newly created
+ * message is sent, on the server it's creator field is set to the sender.
+ * Once set, this value never changes. On the client, this field never gets
+ * set. Messages received from the server will have this field set.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param msg pointer to message
+ * @param domain pointer to pointer which gets filled with a message's 
+ *               creator
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetCreator(void *vmsg, char **creator) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->creator == NULL) {
+    *creator = NULL;
+  }
+  else {
+    *creator = (char *) (strdup(msg->creator));
+  }
+  return(CMSG_OK);
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine sets the subject of a message.
+ *
+ * @param msg pointer to message
+ * @param subject message subject
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
 int cMsgSetSubject(void *vmsg, char *subject) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  if (msg->subject != NULL) free(msg->subject);
-  msg->subject = (char *)strdup(subject);
+  if (msg->subject != NULL) free(msg->subject);  
+  if (subject == NULL) {
+    msg->subject = NULL;    
+  }
+  else {
+    msg->subject = (char *)strdup(subject);
+  }
 
   return(CMSG_OK);
 }
 
-char *cMsgGetSubject(void *vmsg) {
+/**
+ * This routine gets the subject of a message.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param msg pointer to message
+ * @param domain pointer to pointer which gets filled with a message's 
+ *               subject
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetSubject(void *vmsg, char **subject) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(NULL);
-  if (msg->subject == NULL) return NULL;
-  return( (char *) (strdup(msg->subject)) );
+  
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->subject == NULL) {
+    *subject = NULL;
+  }
+  else {
+    *subject = (char *) (strdup(msg->subject));
+  }
+  return(CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
+/**
+ * This routine sets the type of a message.
+ *
+ * @param msg pointer to message
+ * @param type message type
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
 int cMsgSetType(void *vmsg, char *type) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->type != NULL) free(msg->type);
-  msg->type = (char *)strdup(type);
+  if (type == NULL) {
+    msg->type = NULL;    
+  }
+  else {
+    msg->type = (char *)strdup(type);
+  }
 
   return(CMSG_OK);
 }
 
-char *cMsgGetType(void *vmsg) {
+/**
+ * This routine gets the type of a message.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param msg pointer to message
+ * @param domain pointer to pointer which gets filled with a message's 
+ *               type
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetType(void *vmsg, char **type) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(NULL);
-  if (msg->type == NULL) return NULL;
-  return( (char *) (strdup(msg->type)) );
+  
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->type == NULL) {
+    *type = NULL;
+  }
+  else {
+    *type = (char *) (strdup(msg->type));
+  }
+  return(CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
+/**
+ * This routine sets the text of a message.
+ *
+ * @param msg pointer to message
+ * @param text message text
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
 int cMsgSetText(void *vmsg, char *text) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->text != NULL) free(msg->text);
-  msg->text = (char *)strdup(text);
+  if (text == NULL) {
+    msg->text = NULL;    
+  }
+  else {
+    msg->text = (char *)strdup(text);
+  }
 
   return(CMSG_OK);
 }
 
-char *cMsgGetText(void *vmsg) {
+/**
+ * This routine gets the text of a message.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param msg pointer to message
+ * @param domain pointer to pointer which gets filled with a message's 
+ *               text
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetText(void *vmsg, char **text) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(NULL);
-  if (msg->text == NULL) return NULL;
-  return( (char *) (strdup(msg->text)) );
+  
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->text == NULL) {
+    *text = NULL;
+  }
+  else {
+    *text = (char *) (strdup(msg->text));
+  }
+  return(CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
+/**
+ * This routine sets the priority of a message.
+ *
+ * @param msg pointer to message
+ * @param priority message priority
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
 int cMsgSetPriority(void *vmsg, int priority) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
@@ -1228,17 +1895,36 @@ int cMsgSetPriority(void *vmsg, int priority) {
   return(CMSG_OK);
 }
 
-int cMsgGetPriority(void *vmsg) {
+/**
+ * This routine gets the priority of a message.
+ *
+ * @param msg pointer to message
+ * @param priority integer pointer to be filled in with message priority
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetPriority(void *vmsg, int *priority) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if (msg == NULL) return(-1);
-  return(msg->priority);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  *priority = msg->priority;
+  return (CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
+/**
+ * This routine sets a message's user-defined integer.
+ *
+ * @param msg pointer to message
+ * @param userInt message's user-defined integer
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
 int cMsgSetUserInt(void *vmsg, int userInt) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
@@ -1249,17 +1935,37 @@ int cMsgSetUserInt(void *vmsg, int userInt) {
   return(CMSG_OK);
 }
 
-int cMsgGetUserInt(void *vmsg) {
+/**
+ * This routine gets a message's user-defined integer.
+ *
+ * @param msg pointer to message
+ * @param userInt integer pointer to be filled with message's user-defined integer
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetUserInt(void *vmsg, int *userInt) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if (msg == NULL) return(-1);
-  return(msg->userInt);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  *userInt = msg->userInt;
+  return (CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
+/**
+ * This routine sets a message's user-defined time (in seconds since
+ * midnight GMT, Jan 1st, 1970).
+ *
+ * @param msg pointer to message
+ * @param userTime message's user-defined time
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
 int cMsgSetUserTime(void *vmsg, time_t userTime) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
@@ -1270,82 +1976,184 @@ int cMsgSetUserTime(void *vmsg, time_t userTime) {
   return(CMSG_OK);
 }
 
-time_t cMsgGetUserTime(void *vmsg) {
+/**
+ * This routine gets a message's user-defined time (in seconds since
+ * midnight GMT, Jan 1st, 1970).
+ *
+ * @param msg pointer to message
+ * @param userInt time_t pointer to be filled with message's user-defined time
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetUserTime(void *vmsg, time_t *userTime) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if (msg == NULL) return(-1);
-  return(msg->userTime);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  *userTime = msg->userTime;
+  return (CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
-char *cMsgGetSender(void *vmsg) {
+/**
+ * This routine gets the sender of a message.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param msg pointer to message
+ * @param domain pointer to pointer which gets filled with a message's 
+ *               sender
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetSender(void *vmsg, char **sender) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(NULL);
-  if (msg->sender == NULL) return NULL;
-  return( (char *) (strdup(msg->sender)) );
+  
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->sender == NULL) {
+    *sender = NULL;
+  }
+  else {
+    *sender = (char *) (strdup(msg->sender));
+  }
+  return(CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
-char *cMsgGetSenderHost(void *vmsg) {
+/**
+ * This routine gets the host of the sender of a message.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param msg pointer to message
+ * @param domain pointer to pointer which gets filled with the host of
+ *               the sender of a message
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetSenderHost(void *vmsg, char **senderHost) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(NULL);
-  if (msg->senderHost == NULL) return NULL;
-  return( (char *) (strdup(msg->senderHost)) );
+  
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->senderHost == NULL) {
+    *senderHost = NULL;
+  }
+  else {
+    *senderHost = (char *) (strdup(msg->senderHost));
+  }
+  return(CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
-time_t cMsgGetSenderTime(void *vmsg) {
+/**
+ * This routine gets the time a message was last sent (in seconds since
+ * midnight GMT, Jan 1st, 1970).
+ *
+ * @param msg pointer to message
+ * @param userInt time_t pointer to be filled with time message was last sent
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetSenderTime(void *vmsg, time_t *senderTime) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if (msg == NULL) return(-1);
-  return(msg->senderTime);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  *senderTime = msg->senderTime;
+  return (CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
-char *cMsgGetReceiver(void *vmsg) {
+/**
+ * This routine gets the receiver of a message.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param msg pointer to message
+ * @param domain pointer to pointer which gets filled with a message's 
+ *               receiver
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetReceiver(void *vmsg, char **receiver) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(NULL);
-  if (msg->receiver == NULL) return NULL;
-  return( (char *) (strdup(msg->receiver)) );
+  
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->receiver == NULL) {
+    *receiver = NULL;
+  }
+  else {
+    *receiver = (char *) (strdup(msg->receiver));
+  }
+  return(CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
-char *cMsgGetReceiverHost(void *vmsg) {
+/**
+ * This routine gets the host of the receiver of a message. This field
+ * is NULL for a newly created message.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param msg pointer to message
+ * @param domain pointer to pointer which gets filled with the host of
+ *               the receiver of a message
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetReceiverHost(void *vmsg, char **receiverHost) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(NULL);
-  if (msg->receiverHost == NULL) return NULL;
-  return( (char *) (strdup(msg->receiverHost)) );
+  
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->receiverHost == NULL) {
+    *receiverHost = NULL;
+  }
+  else {
+    *receiverHost = (char *) (strdup(msg->receiverHost));
+  }
+  return(CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
-time_t cMsgGetReceiverTime(void *vmsg) {
+/**
+ * This routine gets the time a message was received (in seconds since
+ * midnight GMT, Jan 1st, 1970).
+ *
+ * @param msg pointer to message
+ * @param userInt time_t pointer to be filled with time message was received
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetReceiverTime(void *vmsg, time_t *receiverTime) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if (msg == NULL) return(-1);
-  return(msg->receiverTime);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  *receiverTime = msg->receiverTime;
+  return (CMSG_OK);
 }
 
 /*-------------------------------------------------------------------*/
@@ -1353,6 +2161,27 @@ time_t cMsgGetReceiverTime(void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine creates a structure of configuration information used
+ * to determine the behavior of a cMsgSubscribe()'s callback. The
+ * configuration is filled with default values. Each aspect of the
+ * configuration may be modified by setter and getter functions. The
+ * defaults are:
+ * - maximum messages to cue for callback is 10000
+ * - no messages may be skipped
+ * - calls to the callback function must be serialized
+ * - may skip up to 2000 messages at once if skipping is enabled
+ * - maximum number of threads when parallelizing calls to the callback
+ *   function is 100
+ * - enough supplemental threads are started so that there are
+ *   at most 150 unprocessed messages for each thread
+ *
+ * Note that this routine allocates memory and cMsgSubscribeConfigDestroy()
+ * must be called to free it.
+ *
+ * @returns NULL if no memory available
+ * @returns pointer to configuration if successful
+ */   
 cMsgSubscribeConfig *cMsgSubscribeConfigCreate(void) {
   subscribeConfig *sc;
   
@@ -1381,6 +2210,15 @@ cMsgSubscribeConfig *cMsgSubscribeConfigCreate(void) {
 /*-------------------------------------------------------------------*/
 
 
+
+/**
+ * This routine frees the memory associated with a configuration
+ * created by cMsgSubscribeConfigCreate();
+ * 
+ * @param config pointer to configuration
+ *
+ * @returns CMSG_OK
+ */   
 int cMsgSubscribeConfigDestroy(cMsgSubscribeConfig *config) {
   if (config != NULL) {
     free((subscribeConfig *) config);
@@ -1390,7 +2228,20 @@ int cMsgSubscribeConfigDestroy(cMsgSubscribeConfig *config) {
 
 
 /*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
 
+/**
+ * This routine sets a subscribe configuration's maximum message cue
+ * size. Messages are kept in the cue until they can be processed by
+ * the callback function.
+ *
+ * @param config pointer to configuration
+ * @param size maximum cue size
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if configuration was not initialized
+ * @returns CMSG_BAD_ARGUMENT if configuration is NULL or size < 1
+ */   
 int cMsgSubscribeSetMaxCueSize(cMsgSubscribeConfig *config, int size) {
   subscribeConfig *sc = (subscribeConfig *) config;
   
@@ -1398,7 +2249,7 @@ int cMsgSubscribeSetMaxCueSize(cMsgSubscribeConfig *config, int size) {
     return CMSG_NOT_INITIALIZED;
   }
    
-  if (size < 1)  {
+  if (config == NULL || size < 1)  {
     return CMSG_BAD_ARGUMENT;
   }
   
@@ -1407,17 +2258,41 @@ int cMsgSubscribeSetMaxCueSize(cMsgSubscribeConfig *config, int size) {
 }
 
 
-/*-------------------------------------------------------------------*/
-
-
-int cMsgSubscribeGetMaxCueSize(cMsgSubscribeConfig *config) {
+/**
+ * This routine gets a subscribe configuration's maximum message cue
+ * size. Messages are kept in the cue until they can be processed by
+ * the callback function.
+ *
+ * @param config pointer to configuration
+ * @param size integer pointer to be filled with configuration's maximum
+ *             cue size
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ */   
+int cMsgSubscribeGetMaxCueSize(cMsgSubscribeConfig *config, int *size) {
   subscribeConfig *sc = (subscribeConfig *) config;   
-  return sc->maxCueSize;
+  
+  if (config == NULL) return(CMSG_BAD_ARGUMENT);
+  *size = sc->maxCueSize;
+  return(CMSG_OK);
 }
 
-
+/*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
+/**
+ * This routine sets the number of messages to skip over (delete) if too
+ * many messages are piling up in the cue. Messages are only skipped if
+ * cMsgSubscribeSetMaySkip() sets the configuration to do so.
+ *
+ * @param config pointer to configuration
+ * @param size number of messages to skip (delete)
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if configuration was not initialized
+ * @returns CMSG_BAD_ARGUMENT if configuration is NULL or size < 0
+ */   
 int cMsgSubscribeSetSkipSize(cMsgSubscribeConfig *config, int size) {
   subscribeConfig *sc = (subscribeConfig *) config;
   
@@ -1425,7 +2300,7 @@ int cMsgSubscribeSetSkipSize(cMsgSubscribeConfig *config, int size) {
     return CMSG_NOT_INITIALIZED;
   }
    
-  if (size < 0)  {
+  if (config == NULL || size < 0)  {
     return CMSG_BAD_ARGUMENT;
   }
   
@@ -1433,43 +2308,93 @@ int cMsgSubscribeSetSkipSize(cMsgSubscribeConfig *config, int size) {
   return CMSG_OK;
 }
 
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgSubscribeGetSkipSize(cMsgSubscribeConfig *config) {
+/**
+ * This routine gets the number of messages to skip over (delete) if too
+ * many messages are piling up in the cue. Messages are only skipped if
+ * cMsgSubscribeSetMaySkip() sets the configuration to do so.
+ *
+ * @param config pointer to configuration
+ * @param size integer pointer to be filled with the number of messages
+ *             to skip (delete)
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ */   
+int cMsgSubscribeGetSkipSize(cMsgSubscribeConfig *config, int *size) {
   subscribeConfig *sc = (subscribeConfig *) config;    
-  return sc->skipSize;
+
+  if (config == NULL) return(CMSG_BAD_ARGUMENT);
+  *size = sc->skipSize;
+  return(CMSG_OK);
 }
 
-
+/*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
-
+/**
+ * This routine sets whether messages may be skipped over (deleted)
+ * if too many messages are piling up in the cue. The maximum number
+ * of messages skipped at once is determined by cMsgSubscribeSetSkipSize().
+ *
+ * @param config pointer to configuration
+ * @param maySkip set to 0 if messages may NOT be skipped, set to anything
+ *                else otherwise
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if configuration was not initialized
+ * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ */   
 int cMsgSubscribeSetMaySkip(cMsgSubscribeConfig *config, int maySkip) {
   subscribeConfig *sc = (subscribeConfig *) config;
 
   if (sc->init != 1) {
     return CMSG_NOT_INITIALIZED;
-  }   
+  } 
+    
+  if (config == NULL)  {
+    return CMSG_BAD_ARGUMENT;
+  }
     
   sc->maySkip = maySkip;
   return CMSG_OK;
 }
 
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgSubscribeGetMaySkip(cMsgSubscribeConfig *config) {
+/**
+ * This routine gets whether messages may be skipped over (deleted)
+ * if too many messages are piling up in the cue. The maximum number
+ * of messages skipped at once is determined by cMsgSubscribeSetSkipSize().
+ *
+ * @param config pointer to configuration
+ * @param maySkip integer pointer to be filled with 0 if messages may NOT
+ *                be skipped (deleted), or anything else otherwise
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ */   
+int cMsgSubscribeGetMaySkip(cMsgSubscribeConfig *config, int *maySkip) {
   subscribeConfig *sc = (subscribeConfig *) config;    
-  return sc->maySkip;
+
+  if (config == NULL) return(CMSG_BAD_ARGUMENT);
+  *maySkip = sc->maySkip;
+  return(CMSG_OK);
 }
 
-
+/*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
-
+/**
+ * This routine sets whether a subscribe's callback must be run serially
+ * (in one thread), or may be parallelized (run simultaneously in more
+ * than one thread) if more than 1 message is waiting in the cue.
+ *
+ * @param config pointer to configuration
+ * @param serialize set to 0 if callback may be parallelized, or set to
+ *                  anything else if callback must be serialized
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if configuration was not initialized
+ * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ */   
 int cMsgSubscribeSetMustSerialize(cMsgSubscribeConfig *config, int serialize) {
   subscribeConfig *sc = (subscribeConfig *) config;
 
@@ -1477,22 +2402,50 @@ int cMsgSubscribeSetMustSerialize(cMsgSubscribeConfig *config, int serialize) {
     return CMSG_NOT_INITIALIZED;
   }   
     
+  if (config == NULL)  {
+    return CMSG_BAD_ARGUMENT;
+  }
+    
   sc->mustSerialize = serialize;
   return CMSG_OK;
 }
 
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgSubscribeGetMustSerialize(cMsgSubscribeConfig *config) {
+/**
+ * This routine gets whether a subscribe's callback must be run serially
+ * (in one thread), or may be parallelized (run simultaneously in more
+ * than one thread) if more than 1 message is waiting in the cue.
+ *
+ * @param config pointer to configuration
+ * @param maySkip integer pointer to be filled with 0 if callback may be
+ *                parallelized, or anything else if callback must be serialized
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ */   
+int cMsgSubscribeGetMustSerialize(cMsgSubscribeConfig *config, int *serialize) {
   subscribeConfig *sc = (subscribeConfig *) config;
-  return sc->mustSerialize;
+
+  if (config == NULL) return(CMSG_BAD_ARGUMENT);
+  *serialize = sc->mustSerialize;
+  return(CMSG_OK);
 }
 
-
+/*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
+/**
+ * This routine sets the maximum number of threads a parallelized
+ * subscribe's callback can run at once. This setting is only used if
+ * cMsgSubscribeSetMustSerialize() was called with an argument of 0.
+ *
+ * @param config pointer to configuration
+ * @param threads the maximum number of threads a parallelized
+ *                subscribe's callback can run at once
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if configuration was not initialized
+ * @returns CMSG_BAD_ARGUMENT if configuration is NULL or threads < 0
+ */   
 int cMsgSubscribeSetMaxThreads(cMsgSubscribeConfig *config, int threads) {
   subscribeConfig *sc = (subscribeConfig *) config;
   
@@ -1500,7 +2453,7 @@ int cMsgSubscribeSetMaxThreads(cMsgSubscribeConfig *config, int threads) {
     return CMSG_NOT_INITIALIZED;
   }
    
-  if (threads < 0)  {
+  if (config == NULL || threads < 0)  {
     return CMSG_BAD_ARGUMENT;
   }
   
@@ -1508,18 +2461,42 @@ int cMsgSubscribeSetMaxThreads(cMsgSubscribeConfig *config, int threads) {
   return CMSG_OK;
 }
 
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgSubscribeGetMaxThreads(cMsgSubscribeConfig *config) {
+/**
+ * This routine gets the maximum number of threads a parallelized
+ * subscribe's callback can run at once. This setting is only used if
+ * cMsgSubscribeSetMustSerialize() was called with an argument of 0.
+ *
+ * @param config pointer to configuration
+ * @param threads integer pointer to be filled with the maximum number
+ *                of threads a parallelized subscribe's callback can run at once
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ */   
+int cMsgSubscribeGetMaxThreads(cMsgSubscribeConfig *config, int *threads) {
   subscribeConfig *sc = (subscribeConfig *) config;    
-  return sc->maxThreads;
+
+  if (config == NULL) return(CMSG_BAD_ARGUMENT);
+  *threads = sc->maxThreads;
+  return(CMSG_OK);
 }
 
-
+/*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
+/**
+ * This routine sets the maximum number of unprocessed messages per thread
+ * before a new thread is started, if a callback is parallelized 
+ * (cMsgSubscribeSetMustSerialize() set to 0).
+ *
+ * @param config pointer to configuration
+ * @param mpt set to maximum number of unprocessed messages per thread
+ *            before starting another thread
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if configuration was not initialized
+ * @returns CMSG_BAD_ARGUMENT if configuration is NULL or mpt < 1
+ */   
 int cMsgSubscribeSetMessagesPerThread(cMsgSubscribeConfig *config, int mpt) {
   subscribeConfig *sc = (subscribeConfig *) config;
   
@@ -1527,7 +2504,7 @@ int cMsgSubscribeSetMessagesPerThread(cMsgSubscribeConfig *config, int mpt) {
     return CMSG_NOT_INITIALIZED;
   }
    
-  if (mpt < 1)  {
+  if (config == NULL || mpt < 1)  {
     return CMSG_BAD_ARGUMENT;
   }
   
@@ -1535,16 +2512,27 @@ int cMsgSubscribeSetMessagesPerThread(cMsgSubscribeConfig *config, int mpt) {
   return CMSG_OK;
 }
 
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgSubscribeGetMessagesPerThread(cMsgSubscribeConfig *config) {
+/**
+ * This routine gets the maximum number of unprocessed messages per thread
+ * before a new thread is started, if a callback is parallelized 
+ * (cMsgSubscribeSetMustSerialize() set to 0).
+ *
+ * @param config pointer to configuration
+ * @param mpt integer pointer to be filled with the maximum number of
+ *            unprocessed messages per thread before starting another thread
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ */   
+int cMsgSubscribeGetMessagesPerThread(cMsgSubscribeConfig *config, int *mpt) {
   subscribeConfig *sc = (subscribeConfig *) config;    
-  return sc->msgsPerThread;
+
+  if (config == NULL) return(CMSG_BAD_ARGUMENT);
+  *mpt = sc->msgsPerThread;
+  return(CMSG_OK);
 }
 
-
+/*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
 
