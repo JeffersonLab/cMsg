@@ -16,12 +16,11 @@ package org.jlab.coda.cMsg;
 
 /**
  * This interface defines some useful constants. These constants correspond
- * to similar constants defined in the C implementation of cMsg.
+ * to identical constants defined in the C implementation of cMsg.
  *
  * @author Carl Timmer
  * @version 1.0
  */
-
 public class cMsgConstants {
 
   private cMsgConstants() {}
@@ -52,36 +51,42 @@ public class cMsgConstants {
   public static final int    error                   =  1;
   /** Error specifying a time out. */
   public static final int    errorTimeout            =  2;
-  /** Error specifying a feature is not implemented. */
+  /** Specifying a feature not implemented. */
   public static final int    errorNotImplemented     =  3;
-  /** Error specifying a bad argument. */
+  /** Specifying a bad argument. */
   public static final int    errorBadArgument        =  4;
-  /** Error specifying a bad format. */
+  /** Specifying a bad format. */
   public static final int    errorBadFormat          =  5;
-  /** Error specifying that a name already exists. */
-  public static final int    errorNameExists         =  6;
-  /** Error specifying not initialized. */
-  public static final int    errorNotInitialized     =  7;
-  /** Error specifying already initialized. */
-  public static final int    errorInitialized        =  8;
-  /** Error specifying lost network connection. */
-  public static final int    errorLostConnection     =  9;
-  /** Error specifying network communication problem. */
-  public static final int    errorNetwork            = 10;
-  /** Error specifying bad socket specification. */
-  public static final int    errorSocket             = 11;
-  /** Error specifying ?. */
-  public static final int    errorPend               = 12;
-  /** Error specifying illegal message type. */
-  public static final int    errorIllegalMessageType = 13;
-  /** Error specifying no more computer memory. */
-  public static final int    errorNoMemory           = 14;
-  /** Error specifying out-of-range. */
-  public static final int    errorOutOfRange         = 15;
-  /** Error specifying a limit was exceeded. */
-  public static final int    errorLimitExceeded      = 16;
-  /** Error specifying different domain type than expected. */
-  public static final int    errorWrongDomainType    = 17;
+  /** Specifying a domain type that does not exist or is not supported. */
+  public static final int    errorBadDomainType      =  6;
+  /** Specifying that a name already exists. */
+  public static final int    errorNameExists         =  7;
+  /** Error since not initialized. */
+  public static final int    errorNotInitialized     =  8;
+  /** Error since already initialized. */
+  public static final int    errorAlreadyInitialized =  9;
+  /** Error since lost network connection. */
+  public static final int    errorLostConnection     = 10;
+  /** Error due to network communication problem. */
+  public static final int    errorNetwork            = 11;
+  /** Error due to bad socket specification. */
+  public static final int    errorSocket             = 12;
+  /** Error waiting for messages to arrive. */
+  public static final int    errorPend               = 13;
+  /** Specifying illegal message type. */
+  public static final int    errorIllegalMessageType = 14;
+  /** Error due to no more computer memory. */
+  public static final int    errorNoMemory           = 15;
+  /** Specifying out-of-range parameter. */
+  public static final int    errorOutOfRange         = 16;
+  /** Error due to a limit that was exceeded. */
+  public static final int    errorLimitExceeded      = 17;
+  /** Error due to not matching any existing domain. */
+  public static final int    errorBadDomainId        = 18;
+  /** Error due to message not being in the correct form. */
+  public static final int    errorBadMessage         = 19;
+  /** Specifying a different domain type than expected. */
+  public static final int    errorWrongDomainType    = 20;
 
   // codes sent over the network to identify cMsg messages
 
