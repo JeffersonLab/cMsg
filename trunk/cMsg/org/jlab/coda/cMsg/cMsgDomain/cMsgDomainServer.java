@@ -393,7 +393,7 @@ public class cMsgDomainServer extends Thread {
          */
         public void run() {
             int msgId;
-            boolean isSubscribe;
+            boolean useSubscribeCue;
 
             try {
                 while (true) {
@@ -426,7 +426,7 @@ public class cMsgDomainServer extends Thread {
                     msgId = buffer.getInt();
 
                     cMsgHolder holder = null;
-                    isSubscribe = false;
+                    useSubscribeCue = false;
 
                     switch (msgId) {
 
@@ -457,12 +457,12 @@ public class cMsgDomainServer extends Thread {
 
                         case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
                             holder = readSubscribeInfo(channel);
-                            isSubscribe = true;
+                            useSubscribeCue = true;
                             break;
 
                         case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
                             holder = readSubscribeInfo(channel);
-                            isSubscribe = true;
+                            useSubscribeCue = true;
                             break;
 
                         case cMsgConstants.msgKeepAlive: // see if this end is still here
@@ -483,13 +483,10 @@ public class cMsgDomainServer extends Thread {
                             }
                             return;
 
-                        case cMsgConstants.msgShutdown: // tell server to shutdown
-                            // need to shutdown this domain server
-                            if (calledShutdown.compareAndSet(false,true)) {
-                                //System.out.println("SHUTDOWN TO BE RUN BY msgShutdown");
-                                shutdown();
-                            }
-                            return;
+                        case cMsgConstants.msgShutdown: // tell clients/servers to shutdown
+                            holder = readShutdownInfo(channel);
+                            useSubscribeCue = true;
+                            break;
 
                         default:
                             if (debug >= cMsgConstants.debugWarn) {
@@ -502,7 +499,7 @@ public class cMsgDomainServer extends Thread {
                     // if we got something to put on a cue, do it
                     if (holder != null) {
                         holder.request = msgId;
-                        if (isSubscribe) {
+                        if (useSubscribeCue) {
                             try {subscribeCue.put(holder);}
                             catch (InterruptedException e) {}
                         }
@@ -555,7 +552,7 @@ public class cMsgDomainServer extends Thread {
             buffer.asIntBuffer().get(inComing, 0, 12);
 
             msg.setVersion(inComing[0]);
-            msg.setPriority(inComing[1]);
+            // inComing[1] is for future use
             msg.setUserInt(inComing[2]);
             msg.setSysMsgId(inComing[3]);
             msg.setSenderToken(inComing[4]);
@@ -626,17 +623,17 @@ public class cMsgDomainServer extends Thread {
             // create a message
             cMsgMessageFull msg = new cMsgMessageFull();
 
-            // keep reading until we have 9 ints of data
+            // keep reading until we have 10 ints of data
             cMsgUtilities.readSocketBytes(buffer, channel, 40, debug);
 
             // go back to reading-from-buffer mode
             buffer.flip();
 
-            // read 9 ints
+            // read 10 ints
             buffer.asIntBuffer().get(inComing, 0, 10);
 
             msg.setVersion(inComing[0]);
-            msg.setPriority(inComing[1]);
+            // inComing[1] is for future use
             msg.setUserInt(inComing[2]);
             msg.setSenderToken(inComing[3]);
             // time message sent in seconds since midnight GMT, Jan 1, 1970
@@ -740,17 +737,61 @@ public class cMsgDomainServer extends Thread {
 
             // read subject
             holder.subject = new String(bytes, 0, lengthSubject, "US-ASCII");
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  subject = " + holder.subject);
-            }
 
             // read type
             holder.type = new String(bytes, lengthSubject, lengthType, "US-ASCII");
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  type = " + holder.type);
-            }
 
             return holder;
+        }
+
+
+        /**
+         * This method reads incoming information from a client doing a shutdown.
+         *
+         * @param channel nio socket communication channel
+         * @return object holding message read from channel
+         * @throws java.io.IOException If socket read or write error
+         */
+        private cMsgHolder readShutdownInfo(SocketChannel channel) throws IOException {
+
+            // keep reading until we have 3 ints of data
+            cMsgUtilities.readSocketBytes(buffer, channel, 12, debug);
+
+            // go back to reading-from-buffer mode
+            buffer.flip();
+
+            // read 3 ints
+            buffer.asIntBuffer().get(inComing, 0, 3);
+
+            int flag         = inComing[0];
+            int lengthClient = inComing[1];
+            int lengthServer = inComing[2];
+
+            // bytes expected
+            int bytesToRead = lengthClient + lengthServer;
+
+            // read in all remaining bytes
+            cMsgUtilities.readSocketBytes(buffer, channel, bytesToRead, debug);
+
+            // go back to reading-from-buffer mode
+            buffer.flip();
+
+            // allocate bigger byte array if necessary
+            // (allocate more than needed for speed's sake)
+            if (bytesToRead > bytes.length) {
+                bytes = new byte[bytesToRead];
+            }
+
+            // read into array
+            buffer.get(bytes, 0, bytesToRead);
+
+            // read client
+            String client = new String(bytes, 0, lengthClient, "US-ASCII");
+
+            // read client
+            String server = new String(bytes, 0, lengthServer, "US-ASCII");
+
+            return new cMsgHolder(client, server, flag);
         }
 
 
@@ -883,6 +924,10 @@ public class cMsgDomainServer extends Thread {
 
                         case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
                             subdomainHandler.handleUnsubscribeRequest(holder.subject, holder.type, holder.id);
+                            break;
+
+                        case cMsgConstants.msgShutdown: // shutting down various clients and servers
+                            subdomainHandler.handleShutdownRequest(holder.client, holder.server, holder.flag);
                             break;
 
                         default:
