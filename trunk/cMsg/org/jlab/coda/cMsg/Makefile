@@ -18,7 +18,7 @@ JAVA_OBJS = \
 	cMsgConstants.class \
 	cMsgHandleRequests.class \
 	cMsgCallback.class \
-	cMsg.class \
+	cMsgInterface.class \
 	cMsgImpl.class
 
 all: $(JAVA_OBJS)
