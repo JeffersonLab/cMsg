@@ -50,7 +50,7 @@ typedef struct dispatchCbInfo_t {
 
 /** This structure represents a single subscription's callback. */
 typedef struct subscribeCbInfo_t {
-  cMsgCallback   *callback; /**< Callback function to be called. */
+  cMsgCallback   *callback; /**< Callback function (or C++ callback class instance) to be called. */
   void           *userArg;  /**< User argument to be passed to the callback. */
   cMsgMessage    *head;     /**< Head of linked list of messages given to callback. */
   cMsgMessage    *tail;     /**< Tail of linked list of messages given to callback. */

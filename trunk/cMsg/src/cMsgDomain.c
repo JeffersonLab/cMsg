@@ -2521,7 +2521,11 @@ static void *callbackThread(void *arg)
       }
       
       /* run callback */
+#ifdef	__cplusplus
+      subscription->callback->callback(msg, subscription->userArg);
+#else
       subscription->callback(msg, subscription->userArg);
+#endif
       
       /* quit if commanded to */
       if (subscription->quit) {
