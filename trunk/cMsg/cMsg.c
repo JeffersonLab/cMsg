@@ -54,7 +54,7 @@
 #define CMSG_MAXHOSTNAMELEN 256
 
 /* set the "global" debug level */
-int cMsgDebug = CMSG_DEBUG_INFO;
+int cMsgDebug = CMSG_DEBUG_ERROR;
 
 
 /* local variables */
@@ -1055,6 +1055,27 @@ void *cMsgCreateMessage(void) {
   initMessage(msg);
   
   return((void *)msg);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+void *cMsgCreateNewMessage(void *vmsg) {  
+    cMsgMessage *newMsg;
+    
+    if (vmsg == NULL) return NULL;  
+    
+    if ((newMsg = (cMsgMessage *)cMsgCopyMessage(vmsg)) == NULL) {
+      return NULL;
+    }
+    
+    if (newMsg->creator != NULL) {
+        free(newMsg->creator);
+        newMsg->creator = NULL;
+    }
+    
+    return (void *)newMsg;
 }
 
 
