@@ -14,6 +14,7 @@ JAVAC_FLAGS = -classpath ../../../../../../
 
 JAVA_OBJS = \
 	cMsg.class \
+	CA.class \
 	database.class \
 	LogFile.class \
 	LogTable.class
