@@ -197,7 +197,7 @@
 
 
 /* sccs id */
-char sccsid[] = "%Z% cMsg abstract API definition";
+/* char sccsid[] = "%Z% cMsg abstract API definition"; */
 
 
 /* required includes */
@@ -205,27 +205,30 @@ char sccsid[] = "%Z% cMsg abstract API definition";
 
 
 /* message structure */
-typedef struct cMsg {
-  int domainId;
-  int sysMsgId;
-  int receiverSubscribeId;
-  char *sender;
-  int senderId;
-  char *senderHost;
-  time_t senderTime;
-  int senderMsgId;
-  char *receiver;
-  char *receiverHost;
-  time_t receiverTime;
-  char *domain;
-  char *subject;
-  char *type;
-  char *text;
-};
+typedef struct cMsg_t {
+  int     domainId;
+  int     sysMsgId;
+  int     receiverSubscribeId;
+  
+  char   *sender;
+  int     senderId; /* in case fred dies and resurrects */
+  char   *senderHost;
+  time_t  senderTime;
+  int     senderMsgId;
+  
+  char   *receiver;
+  char   *receiverHost;
+  time_t  receiverTime;
+  
+  char   *domain;
+  char   *subject;
+  char   *type;
+  char   *text;
+} cMsg;
 
 
 /* message receive callback */
-typedef void cMsgCallback(cMsg *msg, void *userArg);
+typedef void (cMsgCallback) (cMsg *msg, void *userArg);
 
 
 /* function prototypes */
