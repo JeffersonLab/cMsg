@@ -1,5 +1,5 @@
 // still to do:
-//  lock queue and files
+// check file permissions
 
 
 /*----------------------------------------------------------------------------*
@@ -28,6 +28,7 @@ import java.io.*;
 import java.nio.*;
 import java.nio.channels.*;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.regex.*;
 import java.util.Date;
 
@@ -52,6 +53,10 @@ import java.util.Date;
 public class FileQueue extends cMsgSubdomainAbstract {
 
 
+    /** global list of queue names, for synchronizing access to queues */
+    private static HashMap<String,Object> queueHashMap = new HashMap<String,Object>(100);
+
+
     /** registration params. */
     private cMsgClientInfo myClientInfo;
 
@@ -64,13 +69,19 @@ public class FileQueue extends cMsgSubdomainAbstract {
     private ByteBuffer myBuffer  = ByteBuffer.allocateDirect(2048);
 
 
+    /** for synchronizing access to queue */
+    private Object mySyncObject;
+
+
     // database access objects
-    String myQueueName        = null;
-    String myDirectory        = ".";
-    String myFileNameBase     = null;
-    String myLoSeqFile        = null;
-    String myHiSeqFile        = null;
-    String myHost             = null;
+    private String myQueueName          = null;
+    private String myQueueNameFull      = null;
+    private String myDirectory          = ".";
+    private String myCanonicalDir       = null;
+    private String myFileNameBase       = null;
+    private String myLoSeqFile          = null;
+    private String myHiSeqFile          = null;
+    private String myHost               = null;
 
 
 //-----------------------------------------------------------------------------
@@ -227,7 +238,7 @@ public class FileQueue extends cMsgSubdomainAbstract {
         }
 
 
-        // extract directory from remainder
+        // extract directory name from remainder
         if(remainder!=null) {
             p = Pattern.compile("[&\\?]dir=(.*?)&", Pattern.CASE_INSENSITIVE);
             m = p.matcher(remainder);
@@ -235,26 +246,60 @@ public class FileQueue extends cMsgSubdomainAbstract {
         }
 
 
-        // form various file names
-        myFileNameBase = myDirectory + "/cMsgFileQueue_" + myQueueName + "_";
-        myHiSeqFile    = myFileNameBase + "Hi";
-        myLoSeqFile    = myFileNameBase + "Lo";
+        // get canonical dir name
+        try {
+            myCanonicalDir = new File(myDirectory).getCanonicalPath();
+        } catch (IOException e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException("Unable to get directory canonical name for " + myDirectory);
+            ce.setReturnCode(1);
+            throw ce;
+        }
 
 
-        // init hi,lo files if they don't exist  ??? tricky to get locks straight
-        File hi = new File(myHiSeqFile);
-        File lo = new File(myLoSeqFile);
-        if(!hi.exists()||!lo.exists()) {
-            try {
-                FileWriter h = new FileWriter(hi);  h.write("0\n");  h.close();
-                FileWriter l = new FileWriter(lo);  l.write("0\n");  l.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-                cMsgException ce = new cMsgException(e.toString());
-                ce.setReturnCode(1);
-                throw ce;
+        // form various file names using canonical dir name
+        if(myCanonicalDir!=null) {
+            myQueueNameFull = myCanonicalDir + "/cMsgFileQueue_" + myQueueName;
+            myFileNameBase  = myQueueNameFull + "_";
+            myHiSeqFile     = myFileNameBase + "Hi";
+            myLoSeqFile     = myFileNameBase + "Lo";
+        } else {
+            cMsgException ce = new cMsgException("?null canonical dir name for " + myDirectory);
+            ce.setReturnCode(1);
+            throw ce;
+        }
+
+
+        // create queue entry if needed
+        synchronized(queueHashMap) {
+             if(!queueHashMap.containsKey(myQueueNameFull)) {
+                 queueHashMap.put(myQueueNameFull,new Object());
+             }
+        }
+
+
+        // get sync/lock object for this queue
+        mySyncObject=queueHashMap.get(myQueueNameFull);
+
+
+        // synchronize on queue name, then init files if needed
+        synchronized(mySyncObject) {
+
+            File hi = new File(myHiSeqFile);
+            File lo = new File(myLoSeqFile);
+            if(!hi.exists()||!lo.exists()) {
+                try {
+                    FileWriter h = new FileWriter(hi);  h.write("0\n");  h.close();
+                    FileWriter l = new FileWriter(lo);  l.write("0\n");  l.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    cMsgException ce = new cMsgException(e.toString());
+                    ce.setReturnCode(1);
+                    throw ce;
+                }
             }
         }
+
 
     }
 
@@ -274,33 +319,41 @@ public class FileQueue extends cMsgSubdomainAbstract {
 
         long hi;
 
+
         // write message to queue
-        try {
+        synchronized(mySyncObject) {
 
-            // lock queue and hi file
+            try {
 
-            // read hi file, increment, write new hi value to file
-            RandomAccessFile r = new RandomAccessFile(myHiSeqFile,"rw");
-            hi=Long.parseLong(r.readLine());
-            hi++;
-            r.seek(0);
-            r.writeBytes(hi+"\n");
-            r.close();
+                // lock hi file
+                RandomAccessFile r = new RandomAccessFile(myHiSeqFile,"rw");
+                FileChannel c = r.getChannel();
+                FileLock l = c.lock();
 
-            // write message to queue
-            FileWriter fw = new FileWriter(myFileNameBase + hi);
-            fw.write(msg.toString());
-            fw.close();
+                // read hi file, increment, write out new hi value
+                hi=Long.parseLong(r.readLine());
+                hi++;
+                r.seek(0);
+                r.writeBytes(hi+"\n");
 
-            // unlock queue and hi file
+                // write message to queue file
+                FileWriter fw = new FileWriter(String.format("%s%08d",myFileNameBase,hi));
+                fw.write(msg.toString());
+                fw.close();
+
+                // unlock and close hi file
+                l.release();
+                r.close();
 
 
-        } catch (IOException e) {
-            e.printStackTrace();
-            cMsgException ce = new cMsgException(e.toString());
-            ce.setReturnCode(1);
-            throw ce;
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    cMsgException ce = new cMsgException(e.toString());
+                    ce.setReturnCode(1);
+                    throw ce;
+                }
         }
+
     }
 
 
@@ -374,55 +427,66 @@ public class FileQueue extends cMsgSubdomainAbstract {
     public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException {
 
         cMsgMessageFull response;
-        RandomAccessFile r;
+        RandomAccessFile rHi,rLo;
         long hi,lo;
         boolean null_response = false;
 
-        try {
-            // lock queue and both hi and lo files
 
-            // read and close hi file
-            r = new RandomAccessFile(myHiSeqFile,"r");
-            hi=Long.parseLong(r.readLine());
-            r.close();
-            // unlock hi file
+        // get message off queue
+        synchronized(mySyncObject) {
 
-            // read lo file
-            r = new RandomAccessFile(myLoSeqFile,"rw");
-            lo=Long.parseLong(r.readLine());
+            try {
 
-            // message file exists only if hi>lo
-            if(hi>lo) {
-                lo++;
-                r.seek(0);
-                r.writeBytes(lo+"\n");
+                // lock hi file
+                rHi = new RandomAccessFile(myHiSeqFile,"rw");
+                FileChannel cHi = rHi.getChannel();
+                FileLock lHi = cHi.lock();
 
-                // create response from file
-                File f = new File(myFileNameBase + lo);
-                if(f.exists()) {
-                    response = new cMsgMessageFull(f);
-                    f.delete();
+                // lock lo file
+                rLo = new RandomAccessFile(myLoSeqFile,"rw");
+                FileChannel cLo = rLo.getChannel();
+                FileLock lLo = cLo.lock();
+
+                // read files
+                hi=Long.parseLong(rHi.readLine());
+                lo=Long.parseLong(rLo.readLine());
+
+                // message file exists only if hi>lo
+                if(hi>lo) {
+                    lo++;
+                    rLo.seek(0);
+                    rLo.writeBytes(lo+"\n");
+
+                    // create response from file
+                    File f = new File(String.format("%s%08d",myFileNameBase,lo));
+                    if(f.exists()) {
+                        response = new cMsgMessageFull(f);
+                        f.delete();
+                    } else {
+                        System.err.println("?missing message file " + lo + " in queue " + myQueueNameFull);
+                        null_response=true;
+                        response = new cMsgMessageFull();
+                    }
+
                 } else {
                     null_response=true;
                     response = new cMsgMessageFull();
                 }
 
-            } else {
-                null_response=true;
-                response = new cMsgMessageFull();
+
+                // unlock and close files
+                lLo.release();
+                lHi.release();
+                rHi.close();
+                rLo.close();
+
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                cMsgException ce = new cMsgException(e.toString());
+                ce.setReturnCode(1);
+                throw ce;
             }
-
-            // close lo file
-            r.close();
-
-            // unlock queue and lo file
-
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            cMsgException ce = new cMsgException(e.toString());
-            ce.setReturnCode(1);
-            throw ce;
         }
 
 
@@ -433,7 +497,7 @@ public class FileQueue extends cMsgSubdomainAbstract {
         // send response to client
         try {
             if(null_response) {
-                deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponse);
+                deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponseIsNull);
             } else {
                 deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponse);
             }
@@ -443,6 +507,7 @@ public class FileQueue extends cMsgSubdomainAbstract {
             ce.setReturnCode(1);
             throw ce;
         }
+
     }
 
 
