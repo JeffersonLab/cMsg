@@ -9,7 +9,7 @@
  *
  *  Still to do:
  *    should cMsgPerror print or just return string?
- *
+ *    should strings be case sensitive?
  *
  *
  *
