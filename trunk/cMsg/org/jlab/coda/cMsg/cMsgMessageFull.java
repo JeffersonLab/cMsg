@@ -46,7 +46,8 @@ public class cMsgMessageFull extends cMsgMessage {
 
         try {
             DocumentBuilder p = f.newDocumentBuilder();
-            Document d = p.parse(new StringBufferInputStream(XML));
+            //Document d = p.parse(new StringBufferInputStream(XML));
+            Document d = p.parse(new ByteArrayInputStream(XML.getBytes()));
             Element e = d.getDocumentElement();
 
             fillMsgFromElement(e);
@@ -116,16 +117,34 @@ public class cMsgMessageFull extends cMsgMessage {
 
         this.setSender(e.getAttribute("sender"));
         this.setSenderHost(e.getAttribute("senderHost"));
-        this.setSenderTime(new Date(e.getAttribute("senderTime")));
+        //this.setSenderTime(new Date(e.getAttribute("senderTime")));
+        try {
+            this.setSenderTime(new Date(Long.parseLong(e.getAttribute("senderTime"))));
+        }
+        catch (NumberFormatException ex) {
+            this.setSenderTime(new Date());
+        }
         this.setSenderToken(Integer.parseInt(e.getAttribute("senderToken")));
 
         this.setUserInt(Integer.parseInt(e.getAttribute("userInt")));
         this.setPriority(Integer.parseInt(e.getAttribute("priority")));
-        this.setUserTime(new Date(e.getAttribute("userTime")));
+        //this.setUserTime(new Date(e.getAttribute("userTime")));
+        try {
+            this.setUserTime(new Date(Long.parseLong(e.getAttribute("userTime"))));
+        }
+        catch (NumberFormatException ex) {
+            this.setUserTime(new Date());
+        }
 
         this.setReceiver(e.getAttribute("receiver"));
         this.setReceiverHost(e.getAttribute("receiverHost"));
-        this.setReceiverTime(new Date(e.getAttribute("receiverTime")));
+        //this.setReceiverTime(new Date(e.getAttribute("receiverTime")));
+        try {
+            this.setReceiverTime(new Date(Long.parseLong(e.getAttribute("receiverTime"))));
+        }
+        catch (NumberFormatException ex) {
+            this.setReceiverTime(new Date());
+        }
         this.setReceiverSubscribeId(Integer.parseInt(e.getAttribute("receiverSubscribeId")));
 
         this.setSubject(e.getAttribute("subject"));
