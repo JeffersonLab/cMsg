@@ -413,6 +413,14 @@ public class cMsg extends cMsgDomainAdapter {
             if (!connected) return;
             connected = false;
 
+            // Stop keep alive thread & close channel so when domain server
+            // shuts down, we don't detect it's dead and make a fuss.
+            keepAliveThread.killThread();
+
+            // give thread a chance to shutdown
+            try { Thread.sleep(100); }
+            catch (InterruptedException e) {}
+
             // tell server we're disconnecting
             sendBuffer.clear();
             sendBuffer.putInt(cMsgConstants.msgDisconnectRequest);
@@ -421,23 +429,16 @@ public class cMsg extends cMsgDomainAdapter {
                 while (sendBuffer.hasRemaining()) {
                     domainChannel.write(sendBuffer);
                 }
-                sendBuffer.rewind();
-                while (sendBuffer.hasRemaining()) {
-                    keepAliveChannel.write(sendBuffer);
-                }
             }
             catch (IOException e) {
             }
 
-            // give threads a chance to shutdown
+            // give server a chance to shutdown
             try { Thread.sleep(100); }
             catch (InterruptedException e) {}
 
             // stop listening and client communication thread & close channel
             listeningThread.killThread();
-
-            // stop keep alive thread & close channel
-            keepAliveThread.killThread();
 
             // stop all callback threads
             Iterator iter = subscriptions.iterator();
