@@ -2522,7 +2522,8 @@ static void *callbackThread(void *arg)
       
       /* run callback */
 #ifdef	__cplusplus
-      subscription->callback->callback(msg, subscription->userArg);
+      cMsgMessageBase c(msg);
+      subscription->callback->callback(c, subscription->userArg);
 #else
       subscription->callback(msg, subscription->userArg);
 #endif
@@ -2642,8 +2643,13 @@ static void *supplementalThread(void *arg)
         err_abort(status, "Failed callback mutex unlock");
       }
       
+
       /* run callback */
+#ifdef	__cplusplus
+      subscription->callback->callback(*(new cMsgMessageBase(msg)), subscription->userArg);
+#else
       subscription->callback(msg, subscription->userArg);
+#endif
       
       /* quit if commanded to */
       if (subscription->quit) {
