@@ -164,6 +164,7 @@ public class cMsgProducer {
                     catch (InterruptedException e) {}
                 }
                 coda.send(msg);
+                coda.flush();
             }
             t2 = System.currentTimeMillis();
 
