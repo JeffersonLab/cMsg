@@ -220,12 +220,19 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
 
   /* dispatch to connect function registered for this domain type */
   err = domains[id].functions->connect(myUDL, myName, myDescription, &implId);
+  
+  if (err != CMSG_OK) {
+    cMsgDomainClear(&domains[id]);
+    connectMutexUnlock();
+    return err;
+  }  
+  
   domains[id].implId = implId;
   *domainId = id + DOMAIN_ID_OFFSET;
   
   connectMutexUnlock();
   
-  return err;
+  return CMSG_OK;
 }
 
 
@@ -236,12 +243,11 @@ int cMsgSend(int domainId, void *msg) {
   
   int id = domainId - DOMAIN_ID_OFFSET;
   
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
+  if (msg == NULL)                   return(CMSG_BAD_ARGUMENT);
 
   /* dispatch to function registered for this domain type */
-  return(domains[id].functions->send(domains[id].id, msg));
+  return(domains[id].functions->send(domains[id].implId, msg));
 }
 
 
@@ -253,11 +259,10 @@ int cMsgSyncSend(int domainId, void *msg, int *response) {
   int id = domainId - DOMAIN_ID_OFFSET;
   
   if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
   if (msg == NULL || response == NULL) return(CMSG_BAD_ARGUMENT);
 
   /* dispatch to function registered for this domain type */
-  return(domains[id].functions->syncSend(domains[id].id, msg, response));
+  return(domains[id].functions->syncSend(domains[id].implId, msg, response));
 }
 
 
@@ -268,12 +273,11 @@ int cMsgFlush(int domainId) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
+  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
 
   /* dispatch to function registered for this domain type */
-  return(domains[id].functions->flush(domains[id].id));
+  return(domains[id].functions->flush(domains[id].implId));
 }
 
 
@@ -285,8 +289,7 @@ int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callbac
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
+  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
 
   /* check args */
   if ( (checkString(subject) !=0 )  ||
@@ -296,7 +299,7 @@ int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callbac
   }
   
   /* dispatch to function registered for this domain type */
-  return(domains[id].functions->subscribe(domains[id].id, subject, type, callback,
+  return(domains[id].functions->subscribe(domains[id].implId, subject, type, callback,
                                           userArg, config));
 }
 
@@ -309,19 +312,19 @@ int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callb
   int id = domainId - DOMAIN_ID_OFFSET;
 
 
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
+  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
 
 
   /* check args */
-  if ( (checkString(subject) != 0) ||
-       (checkString(type)    != 0))  {
+  if ( (checkString(subject) !=0 )  ||
+       (checkString(type)    !=0 )  ||
+       (callback == NULL)          )  {
     return(CMSG_BAD_ARGUMENT);
   }
   
 
   /* dispatch to function registered for this domain type */
-  return(domains[id].functions->unsubscribe(domains[id].id, subject, type, callback));
+  return(domains[id].functions->unsubscribe(domains[id].implId, subject, type, callback));
 } 
 
 
@@ -332,11 +335,16 @@ int cMsgGet(int domainId, void *sendMsg, struct timespec *timeout, void **replyM
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
-  if (sendMsg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (domains[id].initComplete != 1)       return(CMSG_NOT_INITIALIZED);
+  if (sendMsg == NULL || replyMsg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  /* check msg fields */
+  if ( (checkString(cMsgGetSubject(sendMsg)) !=0 ) ||
+       (checkString(cMsgGetType(sendMsg))    !=0 ))  {
+    return(CMSG_BAD_ARGUMENT);
+  }
 
-  return(domains[id].functions->get(domains[id].id, sendMsg, timeout, replyMsg));
+  return(domains[id].functions->get(domains[id].implId, sendMsg, timeout, replyMsg));
 }
 
 
@@ -344,13 +352,19 @@ int cMsgGet(int domainId, void *sendMsg, struct timespec *timeout, void **replyM
 
 
 int cMsgReceiveStart(int domainId) {
+
   int id = domainId - DOMAIN_ID_OFFSET;
+  int err;
 
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
-
+  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
+  
+  if ( (err = domains[id].functions->start(domains[id].implId)) != CMSG_OK) {
+    return err;
+  }
+  
   domains[id].receiveState = 1;
-  return(domains[id].functions->start(domains[id].id));
+  
+  return(CMSG_OK);
 }
 
 
@@ -358,13 +372,19 @@ int cMsgReceiveStart(int domainId) {
 
 
 int cMsgReceiveStop(int domainId) {
+
   int id = domainId - DOMAIN_ID_OFFSET;
+  int err;
 
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
+  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
 
+  if ( (err = domains[id].functions->stop(domains[id].implId)) != CMSG_OK) {
+    return err;
+  }
+  
   domains[id].receiveState = 0;
-  return(domains[id].functions->stop(domains[id].id));
+  
+  return(CMSG_OK);
 }
 
 
@@ -374,12 +394,21 @@ int cMsgReceiveStop(int domainId) {
 int cMsgDisconnect(int domainId) {
   
   int id = domainId - DOMAIN_ID_OFFSET;
+  int err;
 
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
-
-  /* dispatch to function registered for this domain type */
-  return(domains[id].functions->disconnect(domains[id].id));
+  connectMutexLock();
+  if ( (err = domains[id].functions->disconnect(domains[id].implId)) != CMSG_OK) {
+    connectMutexUnLock();
+    return err;
+  }
+  
+  domains[id].initComplete = 0;
+  
+  connectMutexUnLock();
+  
+  return(CMSG_OK);
 }
 
 
@@ -389,7 +418,6 @@ int cMsgDisconnect(int domainId) {
 char *cMsgPerror(int error) {
 
   static char temp[256];
-
 
   switch(error) {
 
@@ -560,12 +588,10 @@ static void registerDomainTypeInfo(void) {
 
 
 static void domainInit(cMsgDomain *domain) {  
-  domain->initComplete   = 0;
   domain->id             = 0;
-  domain->implId         = 0;
-  
+  domain->implId         = -1;
+  domain->initComplete   = 0;
   domain->receiveState   = 0;
-  domain->lostConnection = 0;
       
   domain->type           = NULL;
   domain->name           = NULL;
