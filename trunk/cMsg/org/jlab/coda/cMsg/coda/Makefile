@@ -20,7 +20,8 @@ JAVA_OBJS = \
 	cMsgNameServer.class \
 	cMsgNameServerListeningThread.class \
 	cMsgDomainServer.class \
-	cMsgDomainServerListeningThread.class
+	cMsgDomainServerListeningThread.class \
+	cMsgCoda.class
 
 all: $(JAVA_OBJS)
 
