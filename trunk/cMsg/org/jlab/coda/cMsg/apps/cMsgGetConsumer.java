@@ -1,7 +1,6 @@
 package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgDomain.cMsg;
 
 import java.util.Date;
 
@@ -128,7 +127,7 @@ public class cMsgGetConsumer {
 
             // do a bunch of gets
             for (int i=0; i < 2000; i++) {
-                msg = coda.get(sendMsg, 1000);
+                msg = coda.sendAndGet(sendMsg, 1000);
                 if (msg == null) {
                     System.out.println("TIMEOUT in GET");
                 }
