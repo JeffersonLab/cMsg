@@ -23,13 +23,24 @@ import java.util.Iterator;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Class to direct a cMsg client to the proper subdomain based on the UDL given.
- * It implements the cMsgDomainInterface for the most part with the exception of a few
- * irrelevant methods.
+ * This class is instantiated by a client in order to connect to a cMsg server.
+ * The instantiated object will be the main means by which the client will
+ * interact with cMsg.</p>
+ * This class acts as a multiplexor to direct a cMsg client to the proper
+ * subdomain based on the UDL given.
  */
 public class cMsg {
     /** Level of debug output for this class. */
     int debug = cMsgConstants.debugError;
+
+    /** String containing the whole UDL. */
+    private String UDL;
+
+    /** String containing the client's name. */
+    private String name;
+
+    /** String containing the client's description. */
+    private String description;
 
     /** String containing the remainder part of the UDL. */
     private String UDLremainder;
@@ -53,6 +64,10 @@ public class cMsg {
      *                       with the name/domain server.
      */
     public cMsg(String UDL, String name, String description) throws cMsgException {
+        this.UDL = UDL;
+        this.name = name;
+        this.description = description;
+
         // parse the UDL - Uniform Domain Locator
         parseUDL(UDL);
 
@@ -313,8 +328,8 @@ public class cMsg {
      *
      * @param subject message subject
      * @param type    message type
-     * @param cb      callback object whose single method is called upon receiving a message
-     *                of subject and type
+     * @param cb      callback object whose {@link cMsgCallbackInterface#callback(cMsgMessage, Object)}
+     *                method is called upon receiving a message of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
      * @throws cMsgException
      */
@@ -363,11 +378,28 @@ public class cMsg {
     }
 
     /**
+     * Get the UDL of the client.
+     * @return client's UDL
+     */
+    public String getUDL() {
+        return UDL;
+    }
+
+    /**
+     * Get the UDL remainder (UDL after cMsg:domain:// is stripped off)
+     * of the client.
+     * @return client's UDL remainder
+     */
+    public String getUDLRemainder() {
+        return UDLremainder;
+    }
+
+    /**
      * Get the name of the client.
      * @return client's name
      */
     public String getName() {
-        return connection.getName();
+        return name;
     }
 
     /**
@@ -375,7 +407,7 @@ public class cMsg {
      * @return client's description
      */
     public String getDescription() {
-        return connection.getDescription();
+        return description;
     }
 
     /**
@@ -387,7 +419,7 @@ public class cMsg {
     }
 
     /**
-     * Get boolean tells whether callbacks are activated or not. The
+     * Method telling whether callbacks are activated or not. The
      * start and stop methods activate and deactivate the callbacks.
      * @return true if callbacks are activated, false if they are not
      */
