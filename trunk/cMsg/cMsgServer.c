@@ -371,7 +371,50 @@ static void *clientThread(void *arg)
           }
           
           /* run callbacks for this message */
-          if ( (err = cMsgRunCallbacks(domainId, msgId, message)) != CMSG_OK) {
+          if ( (err = cMsgRunCallbacks(domainId, message)) != CMSG_OK) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+              fprintf(stderr, "clientThread %d: too many messages cued up\n", localCount);
+            }
+            goto end;
+          }
+      }
+      break;
+
+      case CMSG_GET_RESPONSE:
+      {
+          cMsgMessage *message;
+          message = (cMsgMessage *) cMsgCreateMessage();
+          if (message == NULL) {
+            if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+              fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
+            }
+            exit(1);
+          }
+
+          if (cMsgDebug >= CMSG_DEBUG_INFO) {
+            fprintf(stderr, "clientThread %d: subscribe response received\n", localCount);
+          }
+          
+          /* fill in known message fields */
+          message->next         = NULL;
+          message->domain       = (char *) strdup("cMsg");
+          message->receiverTime = time(NULL);
+          message->receiver     = (char *) strdup(cMsgDomains[domainId].name);
+          message->receiverHost = (char *) strdup(cMsgDomains[domainId].myHost);
+          
+          /* read the message */
+          if ( (err = cMsgReadMessage(connfd, message)) != CMSG_OK) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+              fprintf(stderr, "clientThread %d: error reading message\n", localCount);
+            }
+            free((void *) message->domain);
+            free((void *) message->receiver);
+            free((void *) message->receiverHost);
+            goto end;
+          }
+          
+          /* run callbacks for this message */
+          if ( (err = cMsgWakeGets(domainId, message)) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread %d: too many messages cued up\n", localCount);
             }
