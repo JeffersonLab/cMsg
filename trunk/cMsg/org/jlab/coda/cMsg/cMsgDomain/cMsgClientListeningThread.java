@@ -212,6 +212,7 @@ public class cMsgClientListeningThread extends Thread {
                  case cMsgConstants.msgGetResponse: // receiving a message for specific get
                      // read the message here
                      msg = readIncomingMessage(channel);
+                     msg.setGetResponse(true);
 
                      // run callbacks for this message
                      wakeGets(msg);
