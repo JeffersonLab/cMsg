@@ -289,6 +289,7 @@ extern "C" {
   /* basic functions */
   int 	cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId);
   int 	cMsgSend(int domainId, void *msg);
+  int   cMsgSyncSend(int domainId, void *msg, int *response);
   int 	cMsgFlush(int domainId);
   int 	cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
                       void *userArg, cMsgSubscribeConfig *config);
@@ -306,12 +307,16 @@ extern "C" {
   int      cMsgSetType(void *msg, char *type);
   int      cMsgSetText(void *msg, char *text);
   int      cMsgSetSenderToken(void *msg, int senderToken);
+  int      cMsgSetGetRequest(void *msg, int getRequest);
+  
   int      cMsgFreeMessage(void *msg);
   void    *cMsgCreateMessage(void);
   void    *cMsgCopyMessage(void *msg);
   void     cMsgInitMessage(void *msg);
 
   int      cMsgGetSysMsgId(void *msg);
+  int      cMsgGetGetRequest(void *msg);
+  int      cMsgGetGetResponse(void *msg);
 
   time_t   cMsgGetReceiverTime(void *msg);
   int      cMsgGetReceiverSubscribeId(void *msg);

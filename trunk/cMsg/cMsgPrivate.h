@@ -46,6 +46,7 @@ extern int cMsgDebug;
 typedef struct domainFunctions_t {
   int (*connect)    (char *udl, char *name, char *description, int *domainId); 
   int (*send)       (int domainId, void *msg);
+  int (*syncSend)   (int domainId, void *msg, int *response);
   int (*flush)      (int domainId);
   int (*subscribe)  (int domainId, char *subject, char *type, cMsgCallback *callback,
                      void *userArg, cMsgSubscribeConfig *config);
@@ -97,6 +98,8 @@ typedef struct cMsgDomain_t {
 /* message structure */
 typedef struct cMsg_t {
   int     sysMsgId;         /* set by system */
+  int     getRequest;       /* is message a get request? 0=n,else=y */
+  int     getResponse;      /* is message a response to a get request? 0=n,else=y */
   
   char   *sender;
   int     senderId;         /* in case fred dies and resurrects - not necessary! */
