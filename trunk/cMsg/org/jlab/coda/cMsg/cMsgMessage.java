@@ -34,7 +34,7 @@ import java.util.*;
  * @author Carl Timmer
  * @version 1.0
  */
-public class cMsgMessage {
+public class cMsgMessage implements Cloneable {
 
     /** Unique message id created by cMsg system. */
     private int sysMsgId;
@@ -57,8 +57,8 @@ public class cMsgMessage {
     /** Host sender is running on. */
     private String senderHost;
 
-    /** Time message was sent. */
-    private Date senderTime;
+    /** Time message was sent in milliseconds from midnight GMT, Jan 1st, 1970. */
+    private long senderTime;
 
     /** Unique message id created by sender. */
     private int senderMsgId;
@@ -75,8 +75,8 @@ public class cMsgMessage {
     /** Host receiver is running on. */
     private String receiverHost;
 
-    /** Time message was received. */
-    private Date receiverTime;
+    /** Time message was received in milliseconds from midnight GMT, Jan 1st, 1970. */
+    private long receiverTime;
 
     /** Message exists in this domain. */
     private String domain;
@@ -90,6 +90,13 @@ public class cMsgMessage {
     /** Text of message. */
     private String text;
 
+
+    public cMsgMessage copy() {
+        cMsgMessage msg = null;
+        try {msg = (cMsgMessage) this.clone();}
+        catch (CloneNotSupportedException e) {}
+        return msg;
+    }
 
     /** Get domain this message exists in. */
     public String getDomain() {return domain;}
@@ -166,12 +173,12 @@ public class cMsgMessage {
     public void   setReceiverSubscribeId(int receiverSubscribeId) {this.receiverSubscribeId = receiverSubscribeId;}
 
     /** Get time message was received. */
-    public Date   getReceiverTime() {return receiverTime;}
+    public Date   getReceiverTime() {return new Date(receiverTime);}
     /**
       * Set time message was receivered. Set automatically by cMsg system.
-      * @param receiverTime time message received.
+      * @param time time message received.
       */
-    public void   setReceiverTime(Date receiverTime) {this.receiverTime = receiverTime;}
+    public void   setReceiverTime(Date time) {this.receiverTime = time.getTime();}
 
 
     // sender
@@ -217,12 +224,12 @@ public class cMsgMessage {
 
 
     /** Get time message was sent. */
-    public Date   getSenderTime() {return senderTime;}
+    public Date   getSenderTime() {return new Date(senderTime);}
     /**
       * Set time message was sent. Set automatically by cMsg system.
-      * @param senderTime time message sent.
+      * @param time time message sent.
       */
-    public void   setSenderTime(Date senderTime) {this.senderTime = senderTime;}
+    public void   setSenderTime(Date time) {this.senderTime = time.getTime();}
 
 
     /**
