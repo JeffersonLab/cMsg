@@ -67,14 +67,12 @@ typedef struct domainTypeInfo_t {
 
 /* structure containing all domain info */
 typedef struct cMsgDomain_t {
-  /* init state */
-  int initComplete; /* 0 = No, 1 = Yes */
   int id;           /* index into an array of this domain structure */
   int implId;       /* index into the array of the implementation domain struct */
 
   /* other state variables */
-  int receiveState;
-  int lostConnection;
+  int initComplete; /* init state: 0 = No, 1 = Yes */
+  int receiveState; /* receiving callback messages? 0 = No, 1 = Yes */
   
   char *type;        /* domain type (coda, JMS, SmartSockets, etc.) */
   char *name;        /* name of user (this program) */

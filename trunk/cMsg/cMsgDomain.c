@@ -703,17 +703,6 @@ static int get(int domainId, void *sendMsg, struct timespec *timeout, void **rep
   type    = cMsgGetType(sendMsg);
   text    = cMsgGetText(sendMsg);
 
-  /* check args first */
-  if (sendMsg == NULL || replyMsg == NULL) {
-    return(CMSG_BAD_ARGUMENT);
-  }
-  else if (subject == NULL || type == NULL)  {
-    return(CMSG_BAD_ARGUMENT);
-  }
-  else if (strlen(subject) < 1 || strlen(type) < 1) {
-    return(CMSG_BAD_ARGUMENT);
-  }
-
   connectReadLock();
 
   if (cMsgDomains[domainId].initComplete != 1) {
@@ -1347,7 +1336,6 @@ static int start(int domainId) {
 }
 
 
-
 /*-------------------------------------------------------------------*/
 
 
@@ -1356,7 +1344,6 @@ static int stop(int domainId) {
   cMsgDomains[domainId].receiveState = 0;
   return(CMSG_OK);
 }
-
 
 
 /*-------------------------------------------------------------------*/
