@@ -42,6 +42,7 @@
 #endif
 
 #include <stdio.h>
+#include <strings.h>
 #include <pthread.h>
 
 
@@ -87,7 +88,7 @@ static int   checkString(char *s);
 static void  registerDomainTypeInfo(void);
 static void  domainInit(cMsgDomain *domain);
 static void  domainFree(cMsgDomain *domain);
-static int   parseUDL(const char *UDL, char **domainType);
+static int   parseUDL(const char *UDL, char **domainType, char **UDLremainder);
 static void  mutexLock(void);
 static void  mutexUnlock(void);
 static void  connectMutexLock(void);
@@ -105,7 +106,14 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
   int i, id=-1, err, serverfd, status, implId;
   char *portEnvVariable=NULL, temp[CMSG_MAXHOSTNAMELEN];
   
-
+  /* check args */
+  if ( (checkString(myName)        != CMSG_OK) ||
+       (checkString(myUDL)         != CMSG_OK) ||
+       (checkString(myDescription) != CMSG_OK) ||
+       (domainId                   == NULL   ))  {
+    return(CMSG_BAD_ARGUMENT);
+  }
+      
   /* First, grab mutex for thread safety. This mutex must be held until
    * the initialization is completely finished. Otherwise, if we set
    * initComplete = 1 (so that we reserve space in the domains array)
@@ -135,12 +143,10 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
   for (i=0; i<MAXDOMAINS; i++) {
     if (domains[i].initComplete == 1   &&
         domains[i].name        != NULL &&
-        domains[i].udl         != NULL &&
-        domains[i].description != NULL)  {
+        domains[i].udl         != NULL)  {
         
-      if ( (strcmp(domains[i].name,        myName       ) == 0)  &&
-           (strcmp(domains[i].udl,         myUDL        ) == 0)  &&
-           (strcmp(domains[i].description, myDescription) == 0) )  {
+      if ( (strcmp(domains[i].name, myName) == 0)  &&
+           (strcmp(domains[i].udl,  myUDL ) == 0) )  {
         /* got a match */
         id = i;
         break;
@@ -181,29 +187,18 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
   /* save ref to self */
   domains[id].id = id;
       
-  /* check args */
-  if ( (checkString(myName)        != CMSG_OK)  ||
-       (checkString(myUDL)         != CMSG_OK)  ||
-       (checkString(myDescription) != CMSG_OK) )  {
-    domainInit(&domains[i]);
-    connectMutexUnlock();
-    return(CMSG_BAD_ARGUMENT);
-  }
-    
-
   /* store names, can be changed until server connection established */
   domains[id].name        = (char *) strdup(myName);
   domains[id].udl         = (char *) strdup(myUDL);
   domains[id].description = (char *) strdup(myDescription);
   
   /* parse the UDL - Uniform Domain Locator */
-  if ( (err = parseUDL(myUDL, &domains[id].type)) != CMSG_OK ) {
+  if ( (err = parseUDL(myUDL, &domains[id].type, &domains[id].UDLremainder)) != CMSG_OK ) {
     /* there's been a parsing error */
     cMsgDomainClear(&domains[id]);
     connectMutexUnlock();
     return(err);
   }
-  
 
   /* if such a domain type store pointer to functions */
   domains[id].functions = NULL;
@@ -219,8 +214,9 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
   
 
   /* dispatch to connect function registered for this domain type */
-  err = domains[id].functions->connect(myUDL, myName, myDescription, &implId);
-  
+  err = domains[id].functions->connect(myUDL, myName, myDescription,
+                                       domains[id].UDLremainder, &implId);
+
   if (err != CMSG_OK) {
     cMsgDomainClear(&domains[id]);
     connectMutexUnlock();
@@ -400,13 +396,13 @@ int cMsgDisconnect(int domainId) {
   
   connectMutexLock();
   if ( (err = domains[id].functions->disconnect(domains[id].implId)) != CMSG_OK) {
-    connectMutexUnLock();
+    connectMutexUnlock();
     return err;
   }
   
   domains[id].initComplete = 0;
   
-  connectMutexUnLock();
+  connectMutexUnlock();
   
   return(CMSG_OK);
 }
@@ -597,6 +593,7 @@ static void domainInit(cMsgDomain *domain) {
   domain->name           = NULL;
   domain->udl            = NULL;
   domain->description    = NULL;
+  domain->UDLremainder   = NULL;
   domain->functions      = NULL;  
 }
 
@@ -605,10 +602,11 @@ static void domainInit(cMsgDomain *domain) {
 
 
 static void domainFree(cMsgDomain *domain) {  
-  if (domain->type        != NULL) free(domain->type);
-  if (domain->name        != NULL) free(domain->name);
-  if (domain->udl         != NULL) free(domain->udl);
-  if (domain->description != NULL) free(domain->description);
+  if (domain->type         != NULL) free(domain->type);
+  if (domain->name         != NULL) free(domain->name);
+  if (domain->udl          != NULL) free(domain->udl);
+  if (domain->description  != NULL) free(domain->description);
+  if (domain->UDLremainder != NULL) free(domain->UDLremainder);
 }
 
 
@@ -663,29 +661,63 @@ static void mutexUnlock(void) {
 /*-------------------------------------------------------------------*/
 
 
-static int parseUDL(const char *UDL, char **domainType) {
+static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
 
-/* note:  CODA domain UDL is of the form:   domainType://somethingDomainSpecific */
+  /* note:  cMsg domain UDL is of the form:
+   *                    cMsg:domainType://somethingDomainSpecific
+   *
+   * The initial cMsg is optional.
+   */
 
   int i;
-  char *p, *portString, *udl;
+  char *p, *c, *udl, *pudl, *pdomainType;
 
-  if (UDL  == NULL) {
+  if (UDL == NULL) {
     return(CMSG_BAD_ARGUMENT);
   }
   
   /* strtok modifies the string it tokenizes, so make a copy */
-  udl = (char *) strdup(UDL);
+  pudl = udl = (char *) strdup(UDL);
   
 /*printf("UDL = %s\n", udl);*/
+
+  /*
+   * Check to see if optional "cMsg:" in front.
+   * Start by looking for any occurance.
+   */  
+  p = strstr(udl, "cMsg:");
+  
+  /* if there a "cMsg:" in front ... */
+  if (p == udl) {
+    /* if there is still the domain before "://", strip off first "cMsg:" */
+    pudl = udl+5;
+    p = strstr(pudl, "//");
+    if (p == pudl) {
+      pudl = udl;
+    }
+  }
+    
   /* get tokens separated by ":" or "/" */
-  if ( (p = (char *) strtok(udl, ":/")) == NULL) {
+  
+  /* find domain */
+  if ( (p = (char *) strtok(pudl, ":/")) == NULL) {
     free(udl);
     return (CMSG_BAD_FORMAT);
   }
   if (domainType != NULL) *domainType = (char *) strdup(p);
-/*printf("domainType = %s\n", *domainType);*/
+/*printf("domainType = %s\n", p);*/
+   
+  /* find UDL remainder */
+  if ( (p = (char *) strtok(NULL, "")) != NULL) {
+    /* skip over any beginning "/" chars */
+    while (*p == '/') {
+      p++;
+    }
     
+    if (UDLremainder != NULL) *UDLremainder = (char *) strdup(p);
+/*printf("remainder = %s\n", p);*/
+  }
+
   /* UDL parsed ok */
   free(udl);
   return(CMSG_OK);
