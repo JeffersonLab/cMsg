@@ -1,4 +1,5 @@
 // still to do:
+//  lock queue and files
 
 
 /*----------------------------------------------------------------------------*
@@ -23,8 +24,9 @@ package org.jlab.coda.cMsg.subdomains;
 import org.jlab.coda.cMsg.*;
 
 import java.net.*;
-import java.nio.ByteBuffer;
-import java.io.IOException;
+import java.io.*;
+import java.nio.*;
+import java.nio.channels.*;
 import java.util.*;
 import java.util.regex.*;
 import java.util.Date;
@@ -38,15 +40,14 @@ import java.util.Date;
 /**
  * cMsg subdomain handler for FileQueue subdomain.
  *
- * UDL:  cMsg:cMsg://host:port/FileQueue/myQueueName?dir=myDirName
+ * UDL:  cMsg:cMsg://host:port/FileQueue/myQueueName?dir=myDirName.
  *
- * e.g. cMsg:cMsg://ollie/FileQueue/ejw?dir=/home/wolin/qdir
+ * e.g. cMsg:cMsg://ollie/FileQueue/ejw?dir=/home/wolin/qdir.
  *
- * stores/retrieves cMsgMessageFull messages from file-based queue
+ * stores/retrieves cMsgMessageFull messages from file-based queue.
  *
  * @author Elliiott Wolin
  * @version 1.0
- *
  */
 public class FileQueue extends cMsgSubdomainAbstract {
 
@@ -59,15 +60,16 @@ public class FileQueue extends cMsgSubdomainAbstract {
     private String myUDLRemainder;
 
 
-    /** direct buffer needed for nio socket IO. */
-    private ByteBuffer myBuffer = ByteBuffer.allocateDirect(2048);
+    /** nio buffers. */
+    private ByteBuffer myBuffer  = ByteBuffer.allocateDirect(2048);
 
 
     // database access objects
     String myQueueName        = null;
-    String myDirectory        = null;
+    String myDirectory        = ".";
     String myFileNameBase     = null;
-    int myFileCount           = 0;
+    String myLoSeqFile        = null;
+    String myHiSeqFile        = null;
     String myHost             = null;
 
 
@@ -221,23 +223,37 @@ public class FileQueue extends cMsgSubdomainAbstract {
                 throw ce;
             }
         } else {
-            cMsgException ce = new cMsgException("?illegal UDL...no remainder");
-            ce.setReturnCode(1);
-            throw ce;
+            myQueueName=myUDLRemainder;
         }
-        myFileNameBase = "cMsgQueue_" + myQueueName;
 
 
         // extract directory from remainder
-        p = Pattern.compile("[&\\?]dir=(.*?)&", Pattern.CASE_INSENSITIVE);
-        m = p.matcher(remainder);
-        try {
-            m.find();
-            myDirectory = m.group(1);
-        } catch (IllegalStateException e) {
-            cMsgException ce = new cMsgException("?illegal UDL...no URL");
-            ce.setReturnCode(1);
-            throw ce;
+        if(remainder!=null) {
+            p = Pattern.compile("[&\\?]dir=(.*?)&", Pattern.CASE_INSENSITIVE);
+            m = p.matcher(remainder);
+            if(m.find()) myDirectory = m.group(1);
+        }
+
+
+        // form various file names
+        myFileNameBase = myDirectory + "/cMsgFileQueue_" + myQueueName + "_";
+        myHiSeqFile    = myFileNameBase + "Hi";
+        myLoSeqFile    = myFileNameBase + "Lo";
+
+
+        // init hi,lo files if they don't exist  ??? tricky to get locks straight
+        File hi = new File(myHiSeqFile);
+        File lo = new File(myLoSeqFile);
+        if(!hi.exists()||!lo.exists()) {
+            try {
+                FileWriter h = new FileWriter(hi);  h.write("0\n");  h.close();
+                FileWriter l = new FileWriter(lo);  l.write("0\n");  l.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+                cMsgException ce = new cMsgException(e.toString());
+                ce.setReturnCode(1);
+                throw ce;
+            }
         }
 
     }
@@ -256,8 +272,35 @@ public class FileQueue extends cMsgSubdomainAbstract {
      */
     public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
 
-        // ???
+        long hi;
 
+        // write message to queue
+        try {
+
+            // lock queue and hi file
+
+            // read hi file, increment, write new hi value to file
+            RandomAccessFile r = new RandomAccessFile(myHiSeqFile,"rw");
+            hi=Long.parseLong(r.readLine());
+            hi++;
+            r.seek(0);
+            r.writeBytes(hi+"\n");
+            r.close();
+
+            // write message to queue
+            FileWriter fw = new FileWriter(myFileNameBase + hi);
+            fw.write(msg.toString());
+            fw.close();
+
+            // unlock queue and hi file
+
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        }
     }
 
 
@@ -330,16 +373,70 @@ public class FileQueue extends cMsgSubdomainAbstract {
      */
     public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException {
 
-        // create msg
-        cMsgMessageFull response = message.response();
+        cMsgMessageFull response;
+        RandomAccessFile r;
+        long hi,lo;
+        boolean null_response = false;
 
-
-        // get and delete oldest message in file queue
-
-
-        // send message to client
         try {
-            deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponse);
+            // lock queue and both hi and lo files
+
+            // read and close hi file
+            r = new RandomAccessFile(myHiSeqFile,"r");
+            hi=Long.parseLong(r.readLine());
+            r.close();
+            // unlock hi file
+
+            // read lo file
+            r = new RandomAccessFile(myLoSeqFile,"rw");
+            lo=Long.parseLong(r.readLine());
+
+            // message file exists only if hi>lo
+            if(hi>lo) {
+                lo++;
+                r.seek(0);
+                r.writeBytes(lo+"\n");
+
+                // create response from file
+                File f = new File(myFileNameBase + lo);
+                if(f.exists()) {
+                    response = new cMsgMessageFull(f);
+                    f.delete();
+                } else {
+                    null_response=true;
+                    response = new cMsgMessageFull();
+                }
+
+            } else {
+                null_response=true;
+                response = new cMsgMessageFull();
+            }
+
+            // close lo file
+            r.close();
+
+            // unlock queue and lo file
+
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        }
+
+
+        // mark as response to message
+        response.makeResponse(message);
+
+
+        // send response to client
+        try {
+            if(null_response) {
+                deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponse);
+            } else {
+                deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponse);
+            }
         } catch (IOException e) {
             e.printStackTrace();
             cMsgException ce = new cMsgException(e.toString());
@@ -374,7 +471,7 @@ public class FileQueue extends cMsgSubdomainAbstract {
      * @param id message id refering to these specific subject and type values
      */
     public void handleUngetRequest(int id) throws cMsgException {
-        // do mothing
+        // do nothing
     }
 
 
