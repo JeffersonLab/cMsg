@@ -26,12 +26,6 @@
  *  Includes all message functions
  *
  *
- * still to do:
- *     move cMsgDomainClear() to this file but careful about locking (also change name and scope)
- *     careful of return(err) 
- *     perror must include all cMsg.h error codes
- *
- *
  *----------------------------------------------------------------------------*/
 
 
@@ -92,7 +86,7 @@ static void  domainFree(cMsgDomain *domain);
 static int   parseUDL(const char *UDL, char **domainType, char **UDLremainder);
 static void  connectMutexLock(void);
 static void  connectMutexUnlock(void);
-static void  cMsgDomainClear(cMsgDomain *domain);
+static void  domainClear(cMsgDomain *domain);
 static void  initMessage(cMsgMessage *msg);
 
 #ifdef VXWORKS
@@ -231,7 +225,7 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
     if (domains[i].initComplete > 0) {
       continue;
     }
-    domainInit(&domains[i]);
+    domainClear(&domains[i]);
     id = i;
     break;
   }
@@ -258,7 +252,7 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
   /* parse the UDL - Uniform Domain Locator */
   if ( (err = parseUDL(myUDL, &domains[id].type, &domains[id].UDLremainder)) != CMSG_OK ) {
     /* there's been a parsing error */
-    cMsgDomainClear(&domains[id]);
+    domainClear(&domains[id]);
     connectMutexUnlock();
     return(err);
   }
@@ -281,7 +275,7 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
                                        domains[id].UDLremainder, &implId);
 
   if (err != CMSG_OK) {
-    cMsgDomainClear(&domains[id]);
+    domainClear(&domains[id]);
     connectMutexUnlock();
     return err;
   }  
@@ -393,13 +387,16 @@ int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callb
 int cMsgSendAndGet(int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
+  cMsgMessage *msg;
 
   if (domains[id].initComplete != 1)       return(CMSG_NOT_INITIALIZED);
   if (sendMsg == NULL || replyMsg == NULL) return(CMSG_BAD_ARGUMENT);
   
+  msg = (cMsgMessage *)sendMsg;
+  
   /* check msg fields */
-  if ( (checkString(cMsgGetSubject(sendMsg)) !=0 ) ||
-       (checkString(cMsgGetType(sendMsg))    !=0 ))  {
+  if ( (checkString(msg->subject) !=0 ) ||
+       (checkString(msg->type)    !=0 ))  {
     return(CMSG_BAD_ARGUMENT);
   }
 
@@ -647,7 +644,7 @@ int cMsgSetDebugLevel(int level) {
 /*-------------------------------------------------------------------*/
 
 
-static void cMsgDomainClear(cMsgDomain *domain) {
+static void domainClear(cMsgDomain *domain) {
   domainFree(domain);
   domainInit(domain);
 }
