@@ -22,11 +22,10 @@ import java.lang.*;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.nio.channels.Selector;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.nio.channels.*;
 import java.nio.ByteBuffer;
 
 import org.jlab.coda.cMsg.*;
@@ -93,6 +92,18 @@ public class cMsgDomainServer extends Thread {
      */
     private LinkedBlockingQueue<cMsgHolder> subscribeCue;
 
+    /**
+     * Thread-safe list of RequestThread objects. This cue is used
+     * to end these threads nicely during a shutdown.
+     */
+    private ConcurrentLinkedQueue<RequestThread> requestThreads;
+
+    /**
+     * List of all ClientHandler objects. This list is used to
+     * end these threads nicley during a shutdown.
+     */
+    private ArrayList<ClientHandler> handlerThreads;
+
     /** Current number of temporary threads. */
     private AtomicInteger tempThreads = new AtomicInteger();
 
@@ -100,23 +111,17 @@ public class cMsgDomainServer extends Thread {
      * Keep track of whether the handleShutdown method of the subdomain
      * handler has already been called.
      */
-    volatile boolean calledShutdown;
+    private AtomicBoolean calledSubdomainShutdown = new AtomicBoolean();
 
-    /** Tell the server to kill this and all spawned threads. */
-    private volatile boolean killAllThreads;
+    /** Kill main thread if true. */
+    private volatile boolean killMainThread;
 
-    /** Kill this and all spawned threads. */
-    public void killAllThreads() {
-        killAllThreads = true;
-    }
+    /** Kill all spawned threads if true. */
+    private volatile boolean killSpawnedThreads;
 
-    /**
-     * Gets boolean value specifying whether to kill this and all spawned threads.
-     *
-     * @return value specifying whether this thread has been told to kill itself or not
-     */
-    public boolean getKillAllThreads() {
-        return killAllThreads;
+    /** Kill spawned threads. */
+    public void killSpawnedThreads() {
+        killSpawnedThreads = true;
     }
 
     /**
@@ -125,23 +130,6 @@ public class cMsgDomainServer extends Thread {
      */
     public cMsgSubdomainInterface getSubdomainHandler() {
         return subdomainHandler;
-    }
-
-
-    /**
-     * Method to be run when this server's client is dead or disconnected and
-     * the server threads will be killed. It runs the "shutdown" method of its
-     * subdomainHandler object.
-     * <p/>
-     * Finalize methods are run after an object has become unreachable and
-     * before the garbage collector is run;
-     */
-    public void finalize() throws cMsgException {
-        if (!calledShutdown) {
-            calledShutdown = true;
-            subdomainHandler.handleClientShutdown();
-        }
-        //System.out.println("\nFINALIZE !!!\n");
     }
 
 
@@ -162,6 +150,9 @@ public class cMsgDomainServer extends Thread {
 
         requestCue   = new LinkedBlockingQueue<cMsgHolder>(5000);
         subscribeCue = new LinkedBlockingQueue<cMsgHolder>(100);
+
+        requestThreads = new ConcurrentLinkedQueue<RequestThread>();
+        handlerThreads = new ArrayList<ClientHandler>(10);
 
         // At this point, find a port to bind to. If that isn't possible, throw
         // an exception. We want to do this in the constructor, because it's much
@@ -214,6 +205,60 @@ public class cMsgDomainServer extends Thread {
     }
 
 
+    /**
+     * Method to be run when this server's client is dead or disconnected and
+     * the server threads will be killed. It runs the "shutdown" method of its
+     * subdomainHandler object.
+     * <p/>
+     * Finalize methods are run after an object has become unreachable and
+     * before the garbage collector is run;
+     */
+    public void finalize() throws cMsgException {
+        if (calledSubdomainShutdown.compareAndSet(false,true)) {
+            subdomainHandler.handleClientShutdown();
+        }
+        //System.out.println("\nFINALIZE !!!\n");
+    }
+
+
+    /** Method to gracefully shutdown this object's threads. */
+    void shutdown() {
+        // tell subdomain handler to shutdown
+        if (calledSubdomainShutdown.compareAndSet(false,true)) {
+            try {subdomainHandler.handleClientShutdown();}
+            catch (cMsgException e) {}
+        }
+
+        // tell spawned threads to stop
+        killSpawnedThreads = true;
+
+        try { Thread.sleep(10); }
+        catch (InterruptedException e) {}
+
+        // first stop threads that get client commands over sockets
+        for (ClientHandler h : handlerThreads) {
+            h.interrupt();
+            try {h.channel.close();}
+            catch (IOException e) {}
+        }
+
+        // give threads a chance to shutdown
+        try { Thread.sleep(10); }
+        catch (InterruptedException e) {}
+
+        // clear cue, no more requests should be coming in
+        requestCue.clear();
+
+        // Give request handling threads a chance to shutdown.
+        // They wakeup every .5 sec
+        try { Thread.sleep(800); }
+        catch (InterruptedException e) {}
+
+        // now shutdown the main thread which shouldn't take more than 1 second
+        killMainThread = true;
+    }
+
+
     /** This method is executed as a thread. */
     public void run() {
         if (debug >= cMsgConstants.debugInfo) {
@@ -231,7 +276,7 @@ public class cMsgDomainServer extends Thread {
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
             while (true) {
-                if (getKillAllThreads()) {
+                if (killMainThread) {
                     return;
                 }
 
@@ -241,7 +286,7 @@ public class cMsgDomainServer extends Thread {
                 // if no channels (sockets) are ready, listen some more
                 if (n == 0) {
                     // but first check to see if we've been commanded to die
-                    if (getKillAllThreads()) {
+                    if (killMainThread) {
                         return;
                     }
                     continue;
@@ -271,8 +316,8 @@ public class cMsgDomainServer extends Thread {
                         socket.setReceiveBufferSize(65535);
                         socket.setSendBufferSize(65535);
 
-                        // start up client handling thread
-                        new ClientHandler(channel);
+                        // start up client handling thread & store reference
+                        handlerThreads.add(new ClientHandler(channel));
 
                         if (debug >= cMsgConstants.debugInfo) {
                             System.out.println("cMsgDomainServer: new connection from " +
@@ -325,10 +370,10 @@ public class cMsgDomainServer extends Thread {
 
             // start up permanent worker threads on the regular cue
             for (int i = 0; i < permanentThreads; i++) {
-                new RequestThread(true, false);
+                requestThreads.add(new RequestThread(true, false));
             }
             // start up 1 permanent worker thread on the (un)subscribe cue
-            new RequestThread(true, true);
+            requestThreads.add(new RequestThread(true, true));
 
             // die if main thread dies
             setDaemon(true);
@@ -348,19 +393,27 @@ public class cMsgDomainServer extends Thread {
             try {
                 while (true) {
                     try {
+                        if (killSpawnedThreads) return;
                         // keep reading until we have an int (4 bytes) of data
                         if (cMsgUtilities.readSocketBytes(buffer, channel, 4, debug) < 4) {
                             // got less than 1 int, something's wrong, kill connection
-                            killAllThreads();
+                            killSpawnedThreads();
                             return;
                         }
+                        if (killSpawnedThreads) return;
                     }
                     // socket timed out, check to see if we must die
                     catch (InterruptedIOException ex) {
                         System.out.println("domain server client connection timeout");
-                        if (killAllThreads) return;
+                        if (killSpawnedThreads) return;
                         continue;
                     }
+                    // interrupt was called while reading
+                    catch (ClosedByInterruptException ex) {
+                        System.out.println("domain server client connection read interrupted");
+                        return;
+                    }
+
                     // make buffer readable
                     buffer.flip();
 
@@ -412,34 +465,8 @@ public class cMsgDomainServer extends Thread {
                             break;
 
                         case cMsgConstants.msgDisconnectRequest: // client disconnecting
-                            // send ok back as acknowledgment
-                            // close channel and unregister from selector
-                            channel.close();
-                            // tell client handler to shutdown
-                            if (!calledShutdown) {
-                                calledShutdown = true;
-                                subdomainHandler.handleClientShutdown();
-                            }
                             // need to shutdown this domain server
-                            killAllThreads();
-                            return;
-
-                        case cMsgConstants.msgShutdown: // told this domain server to shutdown
-                            // send ok back as acknowledgment
-                            buffer.clear();
-                            buffer.putInt(cMsgConstants.ok).flip();
-                            while (buffer.hasRemaining()) {
-                                channel.write(buffer);
-                            }
-                            // close channel and unregister from selector
-                            channel.close();
-                            // tell client handler to shutdown
-                            if (!calledShutdown) {
-                                calledShutdown = true;
-                                subdomainHandler.handleClientShutdown();
-                            }
-                            // need to shutdown this domain server
-                            killAllThreads();
+                            shutdown();
                             return;
 
                         default:
@@ -478,7 +505,6 @@ public class cMsgDomainServer extends Thread {
             }
             catch (IOException ex) {
             }
-            System.out.flush();
         }
 
 
@@ -758,15 +784,15 @@ public class cMsgDomainServer extends Thread {
 
             while (true) {
 
-                if (killAllThreads) return;
+                if (killSpawnedThreads) return;
 
                 try {
-                    // try for up to 1 second to read a request from the cue
+                    // try for up to 1/2 second to read a request from the cue
                     if (!subscribe) {
-                        holder = requestCue.poll(1, TimeUnit.SECONDS);
+                        holder = requestCue.poll(500, TimeUnit.MILLISECONDS);
                     }
                     else {
-                        holder = subscribeCue.poll(1, TimeUnit.SECONDS);
+                        holder = subscribeCue.poll(500, TimeUnit.MILLISECONDS);
                     }
                 }
                 catch (InterruptedException e) {
@@ -793,9 +819,7 @@ public class cMsgDomainServer extends Thread {
                             break;
 
                         case cMsgConstants.msgSyncSendRequest: // receiving a message
-                            System.out.println("calling subdomain's handleSyncSend");
                             answer = subdomainHandler.handleSyncSendRequest(holder.message);
-                            System.out.println("sync send answer = " + answer);
                             syncSendReply(holder.channel, answer);
                             break;
 
@@ -846,7 +870,6 @@ public class cMsgDomainServer extends Thread {
          * @throws java.io.IOException If socket read or write error
          */
         private void syncSendReply(SocketChannel channel, int answer) throws IOException {
-
             // send back answer
             buffer.clear();
             buffer.putInt(answer).flip();
