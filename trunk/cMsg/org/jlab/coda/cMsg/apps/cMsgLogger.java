@@ -68,6 +68,14 @@ public class cMsgLogger {
     private static boolean toScreen = false;
     private static boolean verbose  = false;
     private static boolean header   = false;
+    private static boolean wide     = false;
+
+    private static String normalFormat    = "%-6d  %18s  %18s  %24s    %-18s  %-18s    %s";
+    private static String normalHeader    = "%-6s  %18s  %18s  %24s    %-18s  %-18s    %s";
+
+    private static String wideFormat      = "%-6d  %18s  %18s  %24s    %-30s  %-30s    %s";
+    private static String wideHeader      = "%-6s  %18s  %18s  %24s    %-30s  %-30s    %s";
+
 
 
     /** filename not null to log to file. */
@@ -106,7 +114,7 @@ public class cMsgLogger {
             // output to screen
             if(toScreen) {
                 if(!verbose) {
-                    System.out.println(String.format("%-6d  %18s  %18s  %24s  %18s  %18s    %s",
+                    System.out.println(String.format(wide?wideFormat:normalFormat,
                                                      count,
                                                      msg.getCreator(),
                                                      msg.getSenderHost(),
@@ -124,7 +132,7 @@ public class cMsgLogger {
             // output to file
             if(filename!=null) {
                 if(!verbose) {
-                    pWriter.println(String.format("%-6d  %18s  %18s  %24s  %18s  %18s    %s",
+                    pWriter.println(String.format(wide?wideFormat:normalFormat,
                                                   count,
                                                   msg.getCreator(),
                                                   msg.getSenderHost(),
@@ -225,8 +233,10 @@ public class cMsgLogger {
         if((filename==null)&&(url==null)) toScreen=true;
         if(verbose)header=false;
         if(toScreen&&header) {
-            System.out.println(String.format("%-6s  %18s  %18s  %24s  %18s  %18s    %s",
-                                             "Count","Creator","SenderHost","SenderTime","Subject","Type","Text"));
+            System.out.println(String.format(wide?wideHeader:normalHeader,
+                                             "Count","Creator","SenderHost","SenderTime      ","Subject","Type","Text"));
+            System.out.println(String.format(wide?wideHeader:normalHeader,
+                                             "-----","-------","----------","----------      ","-------","----","----"));
         }
 
 
@@ -343,7 +353,7 @@ public class cMsgLogger {
 
         String help = "\nUsage:\n\n" +
             "   java cMsgLogger [-name name] [-descr description] [-udl domain] [-subject subject] [-type type]\n" +
-            "                   [-screen] [-file filename] [-verbose] [-header]\n" +
+            "                   [-screen] [-file filename] [-verbose] [-header] [-wide]\n" +
             "                   [-url url] [-table table] [-driver driver] [-account account] [-pwd password]\n" +
             "                   [-debug]\n\n";
 
@@ -421,6 +431,10 @@ public class cMsgLogger {
             else if (args[i].equalsIgnoreCase("-pwd")) {
                 password = args[i + 1];
                 i++;
+
+            }
+            else if (args[i].equalsIgnoreCase("-wide")) {
+                wide = true;
 
             }
             else if (args[i].equalsIgnoreCase("-debug")) {
