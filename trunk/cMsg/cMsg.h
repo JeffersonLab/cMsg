@@ -6,7 +6,7 @@
  *    This software was developed under a United States Government license    *
  *    described in the NOTICE file included as part of this distribution.     *
  *                                                                            *
- *    E.Wolin, 14-Jul-2004, Jefferson Lab                                      *
+ *    E.Wolin, 14-Jul-2004, Jefferson Lab                                     *
  *                                                                            *
  *    Authors: Elliott Wolin                                                  *
  *             wolin@jlab.org                    Jefferson Lab, MS-6B         *
@@ -17,13 +17,12 @@
  *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
  *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
  *             Fax:   (757) 269-5800             Newport News, VA 23606       *
- *
  *                                                                            *
- * Description:
- *
- *  Defines cMsg (CODA Message) API and return codes
- *
- *
+ * Description:                                                               *
+ *                                                                            *
+ *  Defines cMsg (CODA Message) API and return codes                          *
+ *                                                                            *
+ *                                                                            *
  *----------------------------------------------------------------------------*
  *
  *
@@ -138,7 +137,7 @@
  *  
  *
  *
- * cMsgMessage *cMsgCreateMessage(void)
+ *  void *cMsgCreateMessage(void)
  *
  *   Create an empty message object (some meta-data is set by default).  Returns NULL
  *   on failure.  Must call cMsgFree() after cMsgSend() to avoid memory leaks.  Note
@@ -147,31 +146,31 @@
  *
  *
  *
- * int cMsgSetSubject(cMsgMessage *msg, char *subject)
+ * int cMsgSetSubject(void *msg, char *subject)
  *
  *   Set the subject field of a message object
  *
  *
  *
- * int cMsgSetType(cMsgMessage *msg, char *type)
+ * int cMsgSetType(void *msg, char *type)
  *
  *   Set the type field of a message object
  *
  *
  *
- * int cMsgSetText(cMsgMessage *msg, char *text)
+ * int cMsgSetText(void *msg, char *text)
  *
  *   Set the text field of a message object
  *
  *
  *
- * int cMsgSetSenderToken(cMsgMessage *msg, int senderToken)
+ * int cMsgSetSenderToken(void *msg, int senderToken)
  *
  *   Set the senderToken field of a message object
  *
  *
  *
- * int cMsgSend(int domainId, cMsgMessage *msg)
+ * int cMsgSend(int domainId, void *msg)
  *
  *   Queue up a message for delivery.  Must call cMsgFlush() to force delivery,
  *   although the system may deliver messages before the flush call.
@@ -197,7 +196,7 @@
  *
  *
  *
- *  int cMsgGet(int domainId, cMsgMessage *sendMsg, time_t timeout, cMsgMessage *replyMsg)
+ *  int cMsgGet(int domainId, void *sendMsg, time_t timeout, void **replyMsg)
  *
  *   Synchronously send message and get reply.  Fail if no reply message
  *   received within timeout. Independent of receive start/stop state.
@@ -216,7 +215,7 @@
  *
  *
  *
- * int cMsgFreeMessage(cMsgMessage *msg)
+ * int cMsgFreeMessage(void *msg)
  *
  *    Free message and deallocate memory.  Must be called to avoid memory leaks.
  *
@@ -234,8 +233,6 @@
  *
  *
  *
- *
- *
  *  Access functions
  *  ----------------
  *
@@ -244,11 +241,28 @@
  *
  *
  *
+ *  Debug
+ *  -----
+ *
+ *  int cMsgSetDebugLevel(int level)
+ *
+ *    Controls debug printout.  Default level is CMSG_DEBUG_ERROR, see below for 
+ *    other levels.
+ *
+ *
  *----------------------------------------------------------------------------*/
 
 
 #ifndef _cMsg_h
 #define _cMsg_h
+
+
+/* debug levels */
+#define CMSG_DEBUG_NONE    0
+#define CMSG_DEBUG_INFO    1
+#define CMSG_DEBUG_WARN    2
+#define CMSG_DEBUG_ERROR   3
+#define CMSG_DEBUG_SEVERE  4
 
 
 /* sccs id */
@@ -260,7 +274,7 @@
 
 
 /* message receive callback */
-typedef void (cMsgCallback) (cMsgMessage *msg, void *userArg);
+typedef void (cMsgCallback) (void *msg, void *userArg);
 
 
 /* function prototypes */
@@ -271,11 +285,11 @@ extern "C" {
 
   /* basic functions */
   int 	cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId);
-  int 	cMsgSend(int domainId, cMsgMessage *msg);
+  int 	cMsgSend(int domainId, void *msg);
   int 	cMsgFlush(int domainId);
   int 	cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback, void *userArg);
   int 	cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback);
-  int   cMsgGet(int domainId, cMsgMessage *sendMsg, time_t timeout, cMsgMessage *replyMsg);
+  int   cMsgGet(int domainId, void *sendMsg, time_t timeout, void **replyMsg);
   int 	cMsgReceiveStart(int domainId);
   int 	cMsgReceiveStop(int domainId);
   int 	cMsgDisconnect(int domainId);
@@ -284,38 +298,42 @@ extern "C" {
 
 
   /* message access functions */
-  cMsgMessage *cMsgCreateMessage(void);
-  int          cMsgSetSubject(cMsgMessage *msg, char *subject);
-  int          cMsgSetType(cMsgMessage *msg, char *type);
-  int          cMsgSetText(cMsgMessage *msg, char *text);
-  int          cMsgSetSenderToken(cMsgMessage *msg, int senderToken);
-  int          cMsgFreeMessage(cMsgMessage *msg);
+  void    *cMsgCreateMessage(void);
+  int      cMsgSetSubject(void *msg, char *subject);
+  int      cMsgSetType(void *msg, char *type);
+  int      cMsgSetText(void *msg, char *text);
+  int      cMsgSetSenderToken(void *msg, int senderToken);
+  int      cMsgFreeMessage(void *msg);
 
-  int          cMsgGetSysMsgId(cMsgMessage *msg);
+  int      cMsgGetSysMsgId(void *msg);
 
-  time_t       cMsgGetReceiverTime(cMsgMessage *msg);
-  int          cMsgGetReceiverSubscribeId(cMsgMessage *msg);
+  time_t   cMsgGetReceiverTime(void *msg);
+  int      cMsgGetReceiverSubscribeId(void *msg);
 
-  char*        cMsgGetSender(cMsgMessage *msg);
-  int          cMsgGetSenderId(cMsgMessage *msg);
-  int          cMsgGetSenderHost(cMsgMessage *msg);
-  int          cMsgGetSenderTime(cMsgMessage *msg);
-  int          cMsgGetSenderMsgId(cMsgMessage *msg);
-  int          cMsgGetSenderToken(cMsgMessage *msg);
+  char*    cMsgGetSender(void *msg);
+  int      cMsgGetSenderId(void *msg);
+  int      cMsgGetSenderHost(void *msg);
+  int      cMsgGetSenderTime(void *msg);
+  int      cMsgGetSenderMsgId(void *msg);
+  int      cMsgGetSenderToken(void *msg);
 
-  char*        cMsgGetDomain(cMsgMessage *msg);
-  char*        cMsgGetSubject(cMsgMessage *msg);
-  char*        cMsgGetType(cMsgMessage *msg);
-  char*        cMsgGetText(cMsgMessage *msg);
+  char*    cMsgGetDomain(void *msg);
+  char*    cMsgGetSubject(void *msg);
+  char*    cMsgGetType(void *msg);
+  char*    cMsgGetText(void *msg);
 
 
   /* system and domain info access functions */
-  int  	cMsgGetUDL(int domainId, char *udl, size_t size);
-  int  	cMsgGetName(int domainId, char *name, size_t size);
-  int  	cMsgGetDescription(int domainId, char *description, size_t size);
-  int  	cMsgGetHost(int domainId, char *host, size_t size);
-  int  	cMsgGetInitState(int domainId, int *initState);
-  int  	cMsgGetReceiveState(int domainId, int *receiveState);
+  int cMsgGetUDL(int domainId, char *udl, size_t size);
+  int cMsgGetName(int domainId, char *name, size_t size);
+  int cMsgGetDescription(int domainId, char *description, size_t size);
+  int cMsgGetHost(int domainId, char *host, size_t size);
+  int cMsgGetInitState(int domainId, int *initState);
+  int cMsgGetReceiveState(int domainId, int *receiveState);
+
+
+  /* for debugging */
+  int  	cMsgSetDebugLevel(int level);
 
 
 #ifdef __cplusplus
@@ -331,6 +349,7 @@ enum {
   CMSG_NOT_IMPLEMENTED,
   CMSG_BAD_ARGUMENT,
   CMSG_BAD_FORMAT,
+  CMSG_BAD_DOMAIN_TYPE,
   CMSG_NAME_EXISTS,
   CMSG_NOT_INITIALIZED,
   CMSG_ALREADY_INIT,
