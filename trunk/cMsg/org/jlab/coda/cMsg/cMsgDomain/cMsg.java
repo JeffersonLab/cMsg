@@ -605,37 +605,31 @@ public class cMsg extends cMsgAdapter {
                 text = message.getText();
             }
 
-            int outGoing[] = new int[11];
+            int outGoing[] = new int[8];
             // message id to domain server
             outGoing[0] = cMsgConstants.msgSyncSendRequest;
-            // system message
-            outGoing[1] = message.getSysMsgId();
-            // is get request
-            outGoing[2] = message.isGetRequest() ? 1 : 0;
             // is get response
-            outGoing[3] = message.isGetResponse() ? 1 : 0;
+            outGoing[1] = message.isGetResponse() ? 1 : 0;
             // sender id
-            outGoing[4] = message.getSenderId();
+            outGoing[2] = message.getSenderId();
             // time message sent (right now) in seconds
-            outGoing[5] = (int) ((new Date()).getTime() / 1000L);
+            outGoing[3] = (int) ((new Date()).getTime() / 1000L);
             // sender message id
-            outGoing[6] = message.getSenderMsgId();
-            // sender token
-            outGoing[7] = message.getSenderToken();
+            outGoing[4] = message.getSenderMsgId();
 
             // length of "subject" string
-            outGoing[8] = subject.length();
+            outGoing[5] = subject.length();
             // length of "type" string
-            outGoing[9] = type.length();
+            outGoing[6] = type.length();
             // length of "text" string
-            outGoing[10] = text.length();
+            outGoing[7] = text.length();
 
             // get ready to write
             syncSendBuffer.clear();
             // send ints over together using view buffer
             syncSendBuffer.asIntBuffer().put(outGoing);
             // position original buffer at position of view buffer
-            syncSendBuffer.position(44);
+            syncSendBuffer.position(32);
 
             // write strings
             try {
