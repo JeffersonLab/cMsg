@@ -19,7 +19,6 @@ JAVA_OBJS = \
 	cMsgMessageMatcher.class \
 	cMsgConstants.class \
 	cMsgClientInfo.class \
-	cMsgDeliverMessage.class \
 	cMsgCallbackInterface.class \
 	cMsgCallbackAdapter.class \
 	cMsgSubdomainInterface.class\
