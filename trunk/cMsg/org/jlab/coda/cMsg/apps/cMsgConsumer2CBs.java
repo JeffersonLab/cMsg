@@ -150,7 +150,7 @@ public class cMsgConsumer2CBs {
         String UDL = "cMsg:cMsg://aslan:3456/cMsg";
 
         System.out.print("Try to connect ...");
-        cMsgConnect coda = new cMsgConnect(UDL, name, "message consumer");
+        cMsg coda = new cMsg(UDL, name, "message consumer");
         System.out.println(" done");
 
         System.out.println("Enable message receiving");

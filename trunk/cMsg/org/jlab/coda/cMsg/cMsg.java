@@ -25,7 +25,7 @@ import java.util.regex.Matcher;
  * It implements the cMsgInterface for the most part with the exception of a few
  * irrelevant methods.
  */
-public class cMsgConnect {
+public class cMsg {
     /** Level of debug output for this class. */
     int debug = cMsgConstants.debugError;
 
@@ -38,7 +38,7 @@ public class cMsgConnect {
     private cMsgInterface connection;
 
     /** Constructor. */
-    private cMsgConnect() {
+    private cMsg() {
     }
 
     /**
@@ -50,7 +50,7 @@ public class cMsgConnect {
      * @throws cMsgException if domain in not implemented or there are problems communicating
      *                       with the name/domain server.
      */
-    public cMsgConnect(String UDL, String name, String description) throws cMsgException {
+    public cMsg(String UDL, String name, String description) throws cMsgException {
         // parse the UDL - Uniform Domain Locator
         parseUDL(UDL);
 
@@ -203,7 +203,7 @@ public class cMsgConnect {
         return domainConnection;
     }
 
-
+    
     /**
       * Method to connect to a particular domain server.
       *

@@ -104,7 +104,7 @@ public class cMsgConsumer {
 
         String UDL = "cMsg:cMsg://aslan:3456/cMsg";
 
-        cMsgConnect coda = new cMsgConnect(UDL, name, "message consumer");
+        cMsg coda = new cMsg(UDL, name, "message consumer");
         coda.connect();
 
         System.out.println("Enable message receiving");

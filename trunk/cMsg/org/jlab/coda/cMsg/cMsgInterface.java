@@ -191,7 +191,7 @@ public interface cMsgInterface {
     public String getUDLRemainder();
 
     /**
-     * Set the UDL remainder of the client. The cMsgConnect class parses the
+     * Set the UDL remainder of the client. The cMsg class parses the
      * UDL and strips off the beginning domain information. The remainder is
      * passed on to the domain implementations (implementors of this interface).
      *
