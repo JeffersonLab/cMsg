@@ -349,7 +349,7 @@ static void *clientThread(void *arg)
           }
 
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            /*fprintf(stderr, "clientThread %d: subscribe response received\n", localCount);*/
+            fprintf(stderr, "clientThread %d: subscribe response received\n", localCount);
           }
           
           /* fill in known message fields */
