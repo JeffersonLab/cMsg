@@ -91,7 +91,7 @@ static void  mutexUnlock(void);
 static void  connectMutexLock(void);
 static void  connectMutexUnlock(void);
 static void  cMsgDomainClear(cMsgDomain *domain);
-static void initMessage(cMsgMessage *msg);
+static void  initMessage(cMsgMessage *msg);
 
 
 
@@ -331,7 +331,7 @@ int cMsgReceiveStart(int domainId) {
   if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
 
   domains[id].receiveState = 1;
-  return(CMSG_OK);
+  return(domains[id].functions->start(domains[id].id));
 }
 
 
@@ -345,7 +345,7 @@ int cMsgReceiveStop(int domainId) {
   if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
 
   domains[id].receiveState = 0;
-  return(CMSG_OK);
+  return(domains[id].functions->stop(domains[id].id));
 }
 
 
