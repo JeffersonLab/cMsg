@@ -102,7 +102,6 @@ public class SmartSockets extends cMsgSubdomainAdapter {
                 cmsg.setType(msg.getType().getName());
                 cmsg.setText(msg.nextStr());
                 cmsg.setUserInt(msg.getUserProp());
-                cmsg.setPriority(msg.getPriority());
 
                 subscribeList.add((Integer)arg);  // add receiver subscribe ID to list
                 deliverMessage(myClientInfo.getChannel(),myBuffer,cmsg,subscribeList,cMsgConstants.msgSubscribeResponse);
@@ -289,7 +288,6 @@ public class SmartSockets extends cMsgSubdomainAdapter {
             TipcMsg ssMsg = TipcSvc.createMsg(mt);
             ssMsg.setDest(msg.getSubject());
             ssMsg.setUserProp(msg.getUserInt());
-            ssMsg.setPriority((short)msg.getPriority());
             ssMsg.setSenderTimestamp(msg.getSenderTime().getTime()/1000);
             ssMsg.appendStr(msg.getText());
             mySrv.send(ssMsg);

@@ -43,7 +43,7 @@ import java.nio.channels.*;
 /**
  * Queues messages to file or MySQL database.
  * Only stores user-settable information.
- * I.e. subject,type,text,userTime,userInt,priority.
+ * I.e. subject,type,text,userTime,userInt.
  *
  * To use, e.g, with a database queue:
  *   java cMsgQueue -udl cMsg:cMsg://ollie/cMsg -name myQueue
@@ -177,7 +177,6 @@ public class cMsgQueue {
                     pStmt.setString(i++,    msg.getText());
                     pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getUserTime().getTime()));
                     pStmt.setInt(i++,       msg.getUserInt());
-                    pStmt.setInt(i++,       msg.getPriority());
                     pStmt.executeUpdate();
                 } catch (SQLException e) {
                     e.printStackTrace();
@@ -284,7 +283,6 @@ public class cMsgQueue {
                         response.setText(rs.getString("text"));
                         response.setUserTime(rs.getTimestamp("userTime"));
                         response.setUserInt(rs.getInt("userInt"));
-                        response.setPriority(rs.getInt("priority"));
 
                         stmt.execute("delete from " + table + " where id=" + id);
                     } else {
@@ -419,7 +417,7 @@ public class cMsgQueue {
                     String sql = "create table " + table +
                         "(id int not null primary key auto_increment, " +
                         "creator varchar(128),subject varchar(255), type varchar(128), text text," +
-                        "userTime datetime, userInt int, priority int)";
+                        "userTime datetime, userInt int)";
                     con.createStatement().executeUpdate(sql);
                 }
             } catch (SQLException e) {
@@ -433,9 +431,9 @@ public class cMsgQueue {
 
                 String sql = "insert into " + table + " (" +
                     "creator,subject,type,text," +
-                    "userTime,userInt,priority" +
+                    "userTime,userInt" +
                     ") values (" +
-                    "?,?,?,?," + "?,?,?" + ")";
+                    "?,?,?,?," + "?,?" + ")";
                 pStmt = con.prepareStatement(sql);
             } catch (SQLException e) {
                 System.err.println("?unable to prepare statement\n" + e);

@@ -159,7 +159,6 @@ public class cMsgLogger {
 
                     pStmt.setInt(i++,       msg.getUserInt());
                     pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getUserTime().getTime()));
-                    pStmt.setInt(i++,       msg.getPriority());
 
                     pStmt.setString(i++,    msg.getReceiver());
                     pStmt.setString(i++,    msg.getReceiverHost());
@@ -270,7 +269,7 @@ public class cMsgLogger {
                         "version int, domain varchar(255), sysMsgId int," +
                         "getRequest int, getResponse int, creator varchar(128)," +
                         "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
-                        "userInt int, userTime datetime, priority int," +
+                        "userInt int, userTime datetime," +
                         "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
                         "subject  varchar(255), type varchar(128), text text)";
                     con.createStatement().executeUpdate(sql);
@@ -286,11 +285,11 @@ public class cMsgLogger {
                     "version,domain,sysMsgId," +
                     "getRequest,getResponse,creator" +
                     "sender,senderHost,senderTime,senderToken," +
-                    "userInt,userTime,priority," +
+                    "userInt,userTime," +
                     "receiver,receiverHost,receiverTime,receiverSubscribeId," +
                     "subject,type,text" +
                     ") values (" +
-                    "?,?,?," + "?,?," + "?,?,?,?," + "?,?,?," + "?,?,?,?," + "?,?,?" + ")";
+                    "?,?,?," + "?,?," + "?,?,?,?," + "?,?," + "?,?,?,?," + "?,?,?" + ")";
                 pStmt = con.prepareStatement(sql);
             } catch (SQLException e) {
                 System.err.println("?unable to prepare statement\n" + e);
