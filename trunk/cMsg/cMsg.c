@@ -46,6 +46,7 @@
 
 
 /* package includes */
+#include "errors.h"
 #include "cMsg.h"
 #include "cMsgPrivate.h"
 
