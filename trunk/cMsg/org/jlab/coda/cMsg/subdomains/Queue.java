@@ -43,7 +43,7 @@ import java.util.Date;
  *
  * UDL:  cMsg:cMsg://host:port/Queue/myQueueName?driver=myDriver&url=myURL&account=myAccount&password=myPassword
  *
- * e.g. cMsg:cMsg://ollie/queue/ejw?driver=com.mysql.jdbc.Driver&url=jdbc:mysql://xdaq/test&user=davidl
+ * e.g. cMsg:cMsg://ollie/Queue/ejw?driver=com.mysql.jdbc.Driver&url=jdbc:mysql://xdaq/test&user=davidl
  *
  * stores/retrieves cMsgMessageFull messages from SQL database.
  * Gets database parameters from UDL.
