@@ -99,10 +99,6 @@ public class cMsgMonitorClient extends Thread {
             try {
                 // send buffer over the socket
                 buffer.flip();
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("cMsgMonitorClient: will send keep alive to " +
-                                       info.clientName + "\n");
-                }
                 while (buffer.hasRemaining()) {
                     channel.write(buffer);
                 }
@@ -110,7 +106,6 @@ public class cMsgMonitorClient extends Thread {
                 cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
             }
             catch (IOException e) {
-                e.printStackTrace();
                 // client has died, time to bail.
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("cMsgMonitorClient: CANNOT COMMUNICATE with client " +

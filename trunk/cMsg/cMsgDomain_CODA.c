@@ -285,7 +285,6 @@ fprintf(stderr, "coda_connect, launched listening thread, wait for flag\n");
     nanosleep(&waitForThread, NULL);
 fprintf(stderr, ".");
   }
-fprintf(stderr, "\n\n");
   if (num_try > try_max) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "coda_connect, cannot start listening thread\n");
@@ -352,17 +351,12 @@ fprintf(stderr, "\n\n");
   }
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "coda_connect: created sending socket\n");
+    fprintf(stderr, "coda_connect: created sending socket fd = %d\n", domains[id].sendSocket);
   }
   
   /* init is complete */
   *domainId = id + DOMAIN_ID_OFFSET;
   domains[id].initComplete = 1;
-
-  /* create keep alive socket and store */
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "coda_connect: create keepalive socket\n");
-  }
 
   if ( (err = cMsgTcpConnect(domains[id].sendHost,
                              domains[id].sendPort,
@@ -375,7 +369,7 @@ fprintf(stderr, "\n\n");
   }
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "coda_connect: keepalive socket fd = %d\n",domains[id].keepAliveSocket );
+    fprintf(stderr, "coda_connect: created keepalive socket fd = %d\n",domains[id].keepAliveSocket );
   }
   
   /* create thread to send periodic keep alives and handle dead server */
