@@ -25,12 +25,13 @@ LIB_DYNAMIC = $(LIBNAM).so
 CMSG_LIBS = $(LIB_STATIC) $(LIB_DYNAMIC)
 LIBS    = -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
 
-OBJS =  cMsgNetwork.o \
+OBJS =  rwlock.o \
+	cMsgNetwork.o \
 	cMsg.o \
-	cMsgServer.o \
-	cMsgDomain_CODA.o
+	cMsgDomainListenThread.o \
+	cMsgDomain.o
 
-HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h cMsg_CODA.h
+HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h cMsgDomain.h rwlock.h errors.h
 
 PROGS = client client2
 
