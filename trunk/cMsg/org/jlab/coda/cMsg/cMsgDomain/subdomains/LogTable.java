@@ -1,5 +1,4 @@
 // still to do:
-//   return code values
 //   server shutdown
 
 
@@ -46,8 +45,10 @@ import java.util.regex.*;
 public class LogTable implements org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequests {
 
 
-    // name
+    // register args
     private String myName;
+    private String myHost;
+    private int myPort;
 
 
     /** UDL remainder for this subdomain handler. */
@@ -127,7 +128,7 @@ public class LogTable implements org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequest
      * @return true if client registered, false otherwise
      */
     public boolean isRegistered(String name) {
-        return false;
+        return false;  /// No limit on number of connections per client.
     }
 
 
@@ -157,11 +158,11 @@ public class LogTable implements org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequest
     public void registerClient(String name, String host, int port) throws cMsgException {
 
 	myName=name;
+	myHost=host;
+	myPort=port;
 
 
-	// extract db params from UDL
-// 	    String driver    = "com.mysql.jdbc.Driver";
-// 	    String URL       = "jdbc:mysql://lucy/cmsg";
+	// db parameters
 	String driver    = null;
 	String URL       = null;
 	String account   = null;
@@ -169,7 +170,7 @@ public class LogTable implements org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequest
 	String table     = null;
 	
 	
-	// get table name, etc from UDLRemainder
+	// extract db params from UDL
 	int ind= myUDLRemainder.indexOf("?");
 	if(ind!=0) {
 	    cMsgException ce = new cMsgException("illegal UDL");
@@ -179,7 +180,7 @@ public class LogTable implements org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequest
 	    String remainder=myUDLRemainder + "&";
 
 
-	    //  extract database params
+	    //  extract params
 	    Pattern p;
 	    Matcher m;
 	    try {
@@ -248,14 +249,14 @@ public class LogTable implements org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequest
 	}
 
 
-	// create statement 
+	// create prepared statement 
 	try {
 	    myStmt = myCon.prepareStatement("insert into " + table + " (" + 
-					    "domain,sysMsgId,sender,senderHost,senderTime," +
+					    "domain,sysMsgId,getResponse,getRequest,sender,senderHost,senderTime," +
 					    "senderId,senderMsgId,senderToken,receiver,receiverHost,"+
 					    "receiverTime,subject,type,text" +
 					    ") values (" +
-					    "?,?,?,?,?," +
+					    "?,?,?,?,?,?,?," +
 					    "?,?,?,?,?," +
 					    "?,?,?,?" +
 					    ")");
@@ -266,6 +267,7 @@ public class LogTable implements org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequest
 	    ce.setReturnCode(1);
 	    throw ce;
 	}
+
     }
     
 
@@ -289,19 +291,25 @@ public class LogTable implements org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequest
 	    msg.setReceiver("cMsg:LogTable");
 	    myStmt.setString	(1,  msg.getDomain());
 	    myStmt.setInt   	(2,  msg.getSysMsgId());
-	    myStmt.setString	(3,  msg.getSender());
-	    myStmt.setString	(4,  msg.getSenderHost());
-	    myStmt.setTimestamp (5,  new java.sql.Timestamp(msg.getSenderTime().getTime()));
-	    myStmt.setInt   	(6,  msg.getSenderId());
-	    myStmt.setInt   	(7,  msg.getSenderMsgId());
-	    myStmt.setInt   	(8,  msg.getSenderToken());
-	    myStmt.setString	(9,  msg.getReceiver());
-	    myStmt.setString	(10, msg.getReceiverHost());
-	    myStmt.setTimestamp (11, new java.sql.Timestamp(msg.getReceiverTime().getTime()));
-	    myStmt.setString	(12, msg.getSubject());
-	    myStmt.setString	(13, msg.getType());
-	    myStmt.setString	(14, msg.getText());
+	    myStmt.setBoolean	(3,  msg.isGetResponse());
+	    myStmt.setBoolean	(4,  msg.isGetRequest());
+	    myStmt.setString	(5,  msg.getSender());
+	    myStmt.setString	(6,  msg.getSenderHost());
+	    myStmt.setTimestamp (7,  new java.sql.Timestamp(msg.getSenderTime().getTime()));
+
+	    myStmt.setInt   	(8,  msg.getSenderId());
+	    myStmt.setInt   	(9,  msg.getSenderMsgId());
+	    myStmt.setInt   	(10, msg.getSenderToken());
+	    myStmt.setString	(11, msg.getReceiver());
+	    myStmt.setString	(12, msg.getReceiverHost());
+
+	    myStmt.setTimestamp (13, new java.sql.Timestamp(msg.getReceiverTime().getTime()));
+	    myStmt.setString	(14, msg.getSubject());
+	    myStmt.setString	(15, msg.getType());
+	    myStmt.setString	(16, msg.getText());
+	    
 	    myStmt.executeUpdate();
+
 	} catch (Exception e) {
 	    System.out.println(e);
 	    e.printStackTrace();
@@ -319,12 +327,8 @@ public class LogTable implements org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequest
      * @throws cMsgException
      */
     public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
-	try {
-	    handleSendRequest(msg);
-	    return(0);
-	} catch (cMsgException e) {
-	    throw e;
-	}
+	handleSendRequest(msg);
+	return(0);
     }
 
 
