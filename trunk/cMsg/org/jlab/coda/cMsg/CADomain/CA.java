@@ -155,7 +155,13 @@ public class CA extends cMsgAdapter {
      * @throws cMsgException if domain in not implemented or there are problems
      */
     public CA() throws cMsgException {
-        // do nothing
+        try {
+            host = InetAddress.getLocalHost().getHostName();
+        }
+        catch (UnknownHostException e) {
+            System.err.println(e);
+            host = "unknown";
+        }
     }
 
 
@@ -325,19 +331,19 @@ public class CA extends cMsgAdapter {
      * @return response message
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public cMsgMessage get(cMsgMessage message, int timeout) throws cMsgException {
+    public cMsgMessage subscribeAndGet(String subject, String type, int timeout) throws cMsgException {
 
         cMsgMessage response = new cMsgMessage();
-        response.setDomain(message.getDomain());
+        response.setDomain(domain);
         response.setSender(myChannelName);
         response.setSenderHost(myAddrList);
         response.setSenderTime(new Date());
         response.setSenderMsgId(++myGetCount);
-        response.setReceiver(message.getSender());
+        response.setReceiver(name);
         response.setReceiverHost(host) ;
         response.setReceiverTime(new Date());
-        response.setSubject(message.getSubject());
-        response.setType(message.getType());
+        response.setSubject(subject);
+        response.setType(type);
 
 
         // get channel data
