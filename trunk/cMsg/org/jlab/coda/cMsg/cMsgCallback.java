@@ -51,4 +51,18 @@ public interface cMsgCallback {
      */
     public boolean mustSerializeMessages();
 
+    /**
+     * Method to get the maximum number of messages to cue for the callback.
+     * @return maximum number of messages to cue for the callback
+     */
+    public int getMaximumCueSize();
+
+    /**
+     * Method to get the maximum number of messages to skip over (delete) from
+     * the cue for the callback when the cue size has reached it limit.
+     * This is only used when the {@link #maySkipMessages} method returns true;
+     * @return maximum number of messages to skip over from the cue
+     */
+    public int getSkipSize();
+
 }
