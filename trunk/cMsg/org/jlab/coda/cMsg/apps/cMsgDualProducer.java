@@ -15,6 +15,7 @@ import org.jlab.coda.cMsg.cMsgDomain.cMsg;
 public class cMsgDualProducer {
     String name, subject="SUBJECT", type="TYPE";
     cMsgConnect coda;
+    long[] counts = new long[2];
 
 
     cMsgDualProducer(String name) {
@@ -23,9 +24,11 @@ public class cMsgDualProducer {
 
     class SendThread extends Thread {
         String id;
+        int index;
 
-        SendThread(String id) {
+        SendThread(String id, int index) {
             this.id = id;
+            this.index = index;
         }
 
         public void run() {
@@ -34,13 +37,11 @@ public class cMsgDualProducer {
             msg.setType(type);
             msg.setText("Junk");
 
-            double freq=0., freqAvg=0., freqTotal=0.;
-            long t1, t2, deltaT, count = 20000, iterations=1;
+            long count = 20000;
 
             System.out.println(id + " sending messages ...");
             int j=0;
             while (true) {
-                t1 = System.currentTimeMillis();
                 for (int i = 0; i < count; i++) {
                     //try {Thread.sleep(1000);}
                     //catch (InterruptedException e) {}
@@ -51,19 +52,8 @@ public class cMsgDualProducer {
                         e.printStackTrace();
                         System.exit(-1);
                     }
+                    counts[index]++;
                 }
-                t2 = System.currentTimeMillis();
-
-                deltaT = t2 - t1; // millisec
-                freq = (double)count/deltaT*1000;
-                if (Double.MAX_VALUE - freqTotal < freq) {
-                    freqTotal = 0.;
-                    iterations = 1;
-                }
-                freqTotal += freq;
-                freqAvg = freqTotal/iterations;
-                iterations++;
-                System.out.println(id + " " + doubleToString(freq, 0) + " Hz, Avg = " + doubleToString(freqAvg, 0) + " Hz");
             }
 
         }
@@ -122,13 +112,42 @@ public class cMsgDualProducer {
 
         System.out.print("Try to connect ...");
         coda = new cMsgConnect(UDL, name, "message producer");
+        coda.connect();
         System.out.println(" done");
 
-        SendThread sender1 = new SendThread("1");
-        SendThread sender2 = new SendThread("2");
+        SendThread sender1 = new SendThread("1", 0);
+        SendThread sender2 = new SendThread("2", 1);
 
         sender1.start();
         sender2.start();
-    }
+
+
+        double freq=0., freqAvg=0., freqTotal=0.;
+        long   iterations=1;
+        int    period = 5000; // msec
+
+        while (true) {
+            counts[0] = counts[1] = 0;
+            try { Thread.sleep(period); }
+            catch (InterruptedException e) {}
+
+            freq = (double)(counts[0]+counts[1])/(period/1000.);
+            if (Double.MAX_VALUE - freqTotal < freq) {
+                freqTotal  = 0.;
+                iterations = 1;
+            }
+            freqTotal += freq;
+            freqAvg = freqTotal/iterations;
+            iterations++;
+            System.out.println("count = " + (counts[0]+counts[1]) + ", " + doubleToString(freq, 0) + " Hz, Avg = " + doubleToString(freqAvg, 0) + " Hz");
+
+            if (!coda.isConnected()) {
+                System.out.println("No longer connected to domain server, quitting");
+                //try { Thread.sleep(20000); }
+                //catch (InterruptedException e) {}
+                System.exit(-1);
+            }
+        }
+     }
 
 }
