@@ -16,10 +16,7 @@
 
 package org.jlab.coda.cMsg.cMsgDomain;
 
-import org.jlab.coda.cMsg.cMsgConstants;
-import org.jlab.coda.cMsg.cMsgMessageFull;
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.*;
 
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.Selector;
@@ -57,6 +54,9 @@ public class cMsgClientListeningThread extends Thread {
     /** List of all receiverSubscribeIds that match the incoming message. */
     private int[] rsIds = new int[20];
     private int rsIdCount = 0;
+
+    /** Does the server want an acknowledgment returned? */
+    private boolean acknowledge;
 
     /** Allocate byte array once (used for reading in data) for efficiency's sake. */
     byte[] bytes = new byte[5000];
@@ -206,6 +206,16 @@ public class cMsgClientListeningThread extends Thread {
                      // read the message here
                      msg = readIncomingMessage(channel);
 
+                     // if server wants an acknowledgment, send one back
+                     if (acknowledge) {
+                         // send ok back as acknowledgment
+                         buffer.clear();
+                         buffer.putInt(cMsgConstants.ok).flip();
+                         while (buffer.hasRemaining()) {
+                             channel.write(buffer);
+                         }
+                     }
+
                      // run callbacks for this message
                      runCallbacks(msg);
 
@@ -216,44 +226,37 @@ public class cMsgClientListeningThread extends Thread {
                      msg = readIncomingMessage(channel);
                      msg.setGetResponse(true);
 
+                     // if server wants an acknowledgment, send one back
+                     if (acknowledge) {
+                         // send ok back as acknowledgment
+                         buffer.clear();
+                         buffer.putInt(cMsgConstants.ok).flip();
+                         while (buffer.hasRemaining()) {
+                             channel.write(buffer);
+                         }
+                     }
+
                      // wakeup caller with this message
                      wakeGets(msg);
 
                      break;
 
                  case cMsgConstants.msgGetResponseIsNull: // receiving null for sendAndGet
-                     // read the id to be notified & wakeup it up with this message
-                     wakeGets(readSenderToken(channel));
+                     // read the id to be notified
+                     int token = readSenderToken(channel);
 
-                     break;
-
-                 case cMsgConstants.msgSubscribeResponseWithAck: // receiving a message, send ack
-                     // read the message here
-                     msg = readIncomingMessage(channel);
-                     // run callbacks for this message
-                     runCallbacks(msg);
-                     // send ok back as acknowledgment
-                     buffer.clear();
-                     buffer.putInt(cMsgConstants.ok).flip();
-                     while (buffer.hasRemaining()) {
-                         channel.write(buffer);
+                     // if server wants an acknowledgment, send one back
+                     if (acknowledge) {
+                         // send ok back as acknowledgment
+                         buffer.clear();
+                         buffer.putInt(cMsgConstants.ok).flip();
+                         while (buffer.hasRemaining()) {
+                             channel.write(buffer);
+                         }
                      }
 
-
-                     break;
-
-                 case cMsgConstants.msgGetResponseWithAck: // receiving message for sendAndGet, send ack
-                     // read the message here
-                     msg = readIncomingMessage(channel);
-                     msg.setGetResponse(true);
-                     // run callbacks for this message
-                     wakeGets(msg);
-                     // send ok back as acknowledgment
-                     buffer.clear();
-                     buffer.putInt(cMsgConstants.ok).flip();
-                     while (buffer.hasRemaining()) {
-                         channel.write(buffer);
-                     }
+                     // wakeup caller with null
+                     wakeGets(token);
 
                      break;
 
@@ -275,10 +278,21 @@ public class cMsgClientListeningThread extends Thread {
                      if (debug >= cMsgConstants.debugInfo) {
                          System.out.println("handleClient: got shutdown from server");
                      }
-                     // close channel and unregister from selector
-                     channel.close();
-                     // need to shutdown this server now
-                     killThread();
+
+                     // If server wants an acknowledgment, send one back.
+                     // Do this BEFORE running shutdown.
+                     if (acknowledge) {
+                         // send ok back as acknowledgment
+                         buffer.clear();
+                         buffer.putInt(cMsgConstants.ok).flip();
+                         while (buffer.hasRemaining()) {
+                             channel.write(buffer);
+                         }
+                     }
+
+                     if (client.getShutdownHandler() != null) {
+                         client.getShutdownHandler().handleShutdown();
+                     }
                      break;
 
                  default:
@@ -333,7 +347,7 @@ public class cMsgClientListeningThread extends Thread {
         buffer.asIntBuffer().get(inComing, 0, 15);
 
         msg.setVersion(inComing[0]);
-        msg.setPriority(inComing[1]);
+        // inComing[1] is for future use
         msg.setUserInt(inComing[2]);
         msg.setInfo(inComing[3]);
         // time sent in seconds since midnight GMT, Jan 1, 1970
@@ -348,24 +362,7 @@ public class cMsgClientListeningThread extends Thread {
         int lengthType       = inComing[11];
         int lengthText       = inComing[12];
         int lengthCreator    = inComing[13];
-        // number of receiverSubscribe ids to come
-        rsIdCount = inComing[14];
-
-        if (rsIdCount > 0) {
-            // keep reading until we have "rsIdCount" ints of data
-            cMsgUtilities.readSocketBytes(buffer, channel, rsIdCount*4, debug);
-
-            // go back to reading-from-buffer mode
-            buffer.flip();
-
-            // make sure we have enough space in the int array
-            if (rsIdCount > rsIds.length) {
-                rsIds = new int[rsIdCount];
-            }
-
-            // read ints into array for future use
-            buffer.asIntBuffer().get(rsIds, 0, rsIdCount);
-        }
+        acknowledge          = inComing[14] == 1 ? true : false;
 
         // bytes expected
         int bytesToRead = lengthSender + lengthSenderHost + lengthSubject +
@@ -420,13 +417,16 @@ public class cMsgClientListeningThread extends Thread {
      * @throws IOException
      */
     private int readSenderToken(SocketChannel channel) throws IOException {
-        // keep reading until we have 1 int of data
-        cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
+        // keep reading until we have 2 ints of data
+        cMsgUtilities.readSocketBytes(buffer, channel, 8, debug);
 
         // go back to reading-from-buffer mode
         buffer.flip();
 
-        return buffer.getInt();
+        int token   = buffer.getInt();
+        acknowledge = buffer.getInt() == 1 ? true : false;
+
+        return token;
     }
 
 
@@ -447,52 +447,51 @@ public class cMsgClientListeningThread extends Thread {
             return;
         }
 
-        cMsgHolder holder;
-
         // handle subscriptions
         Set<cMsgSubscription> set = client.subscriptions;
 
         if (set.size() > 0) {
+
             // set is NOT modified here
             synchronized (set) {
+
                 // for each subscription of this client ...
                 for (cMsgSubscription sub : set) {
-                    // run through list of receiverSubscribeIds that msg matches
-                    for (int i = 0; i < rsIdCount; i++) {
 
-                        // if the subject/type id's match, run callbacks for this sub/type
-                        if (sub.getId() == rsIds[i]) {
+                    // if subject & type of incoming message equal those in subscription ...
+                    if (cMsgMessageMatcher.matches(sub.getSubject(), msg.getSubject()) &&
+                        cMsgMessageMatcher.matches(sub.getType(), msg.getType())) {
+//System.out.println(" handle send msg");
 
-                            // run through all callbacks
-                            for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
-                                cbThread.sendMessage(msg);
-//System.out.println("Sending wakeup for SUBSCRIBE");
-                            }
-
-                            // look at next subscription
-                            break;
+                        // run through all callbacks
+                        for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
+                            cbThread.sendMessage(msg);
+//System.out.println(" sent wakeup for SUBSCRIBE");
                         }
                     }
                 }
             }
         }
 
-        if (client.generalGets.size() < 1) return;
+        if (client.subscribeAndGets.size() < 1) return;
 
-        // run through list of receiverSubscribeIds that msg matches
-        for (int i = 0; i < rsIdCount; i++) {
-            // take care of any general gets first
-            holder = client.generalGets.remove(rsIds[i]);
+        // for each subscription of this client ...
+        cMsgHolder holder;
+        for (Iterator i = client.subscribeAndGets.values().iterator(); i.hasNext();) {
+            holder = (cMsgHolder)i.next();
+            if (cMsgMessageMatcher.matches(holder.subject, msg.getSubject()) &&
+                cMsgMessageMatcher.matches(holder.type, msg.getType())) {
+//System.out.println(" handle subscribeAndGet msg");
 
-            if (holder != null) {
                 holder.timedOut = false;
                 holder.message  = msg.copy();
-//System.out.println("Sending notify for subscribeAndGet");
+//System.out.println(" sending notify for subscribeAndGet");
                 // Tell the get-calling thread to wakeup and retrieved the held msg
                 synchronized (holder) {
                     holder.notify();
                 }
             }
+            i.remove();
         }
     }
 
@@ -512,7 +511,7 @@ public class cMsgClientListeningThread extends Thread {
             return;
         }
 
-        cMsgHolder holder = client.specificGets.remove(msg.getSenderToken());
+        cMsgHolder holder = client.sendAndGets.remove(msg.getSenderToken());
 
         if (holder == null) {
             return;
@@ -546,7 +545,7 @@ public class cMsgClientListeningThread extends Thread {
             return;
         }
 
-        cMsgHolder holder = client.specificGets.remove(senderToken);
+        cMsgHolder holder = client.sendAndGets.remove(senderToken);
 
         if (holder == null) {
             return;
