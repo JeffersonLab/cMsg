@@ -18,7 +18,7 @@ JAVA_OBJS = \
 	CA.class \
 	database.class \
 	LogFile.class \
-	LogTable.class
+	queue.class
 
 all: $(JAVA_OBJS)
 
