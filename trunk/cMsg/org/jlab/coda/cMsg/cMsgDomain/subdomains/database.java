@@ -1,5 +1,4 @@
 // still to do:
-//   return code values
 //   server shutdown
 
 
@@ -46,8 +45,10 @@ import java.util.regex.*;
 public class database implements cMsgHandleRequests {
 
 
-    // name
+    // register params
     private String myName;
+    private String myHost;
+    private int myPort;
 
 
     /** UDL remainder for this subdomain handler. */
@@ -127,7 +128,7 @@ public class database implements cMsgHandleRequests {
      * @return true if client registered, false otherwise
      */
     public boolean isRegistered(String name) {
-        return false;
+        return false;  /// No limit on number of connections per client.
     }
 
 
@@ -157,18 +158,18 @@ public class database implements cMsgHandleRequests {
     public void registerClient(String name, String host, int port) throws cMsgException {
 
 	myName=name;
+	myHost=host;
+	myPort=port;
 
 
-	// extract db params from UDL
-// 	    String driver    = "com.mysql.jdbc.Driver";
-// 	    String URL       = "jdbc:mysql://lucy/cmsg";
+	// db params
 	String driver    = null;
 	String URL       = null;
 	String account   = null;
 	String password  = null;
 	
 	
-	// get driver, etc from UDLRemainder
+	// extract db params from UDL
 	int ind= myUDLRemainder.indexOf("?");
 	if(ind!=0) {
 	    cMsgException ce = new cMsgException("illegal UDL");
@@ -178,7 +179,7 @@ public class database implements cMsgHandleRequests {
 	    String remainder=myUDLRemainder + "&";
 
 
-	    //  extract database params
+	    //  extract params
 	    Pattern p;
 	    Matcher m;
 	    try {
@@ -255,13 +256,6 @@ public class database implements cMsgHandleRequests {
     
 
     /**
-     * Method to unregister domain client.
-     */
-    public void unregisterClient() {
-    }
-
-
-    /**
      * Executes sql insert or update statement from message payload.
      *
      * @param msg message from sender.
@@ -273,11 +267,13 @@ public class database implements cMsgHandleRequests {
 
 	Pattern p1 = Pattern.compile("^\\s*insert\\s+",Pattern.CASE_INSENSITIVE);
 	Pattern p2 = Pattern.compile("^\\s*update\\s+",Pattern.CASE_INSENSITIVE);
+	Pattern p3 = Pattern.compile("^\\s*delete\\s+",Pattern.CASE_INSENSITIVE);
 
 	Matcher m1 = p1.matcher(sql);
 	Matcher m2 = p2.matcher(sql);
+	Matcher m3 = p3.matcher(sql);
 
-	if(m1.find()||m2.find()) {
+	if(m1.find()||m2.find()||m3.find()) {
 	    try {
 		myStmt.executeUpdate(sql);
 	    } catch (Exception e) {
@@ -291,7 +287,7 @@ public class database implements cMsgHandleRequests {
 	    throw ce;
 	}
     }
-    
+	
 
     /**
      * Method to handle message sent by domain client in synchronous mode.
@@ -302,14 +298,10 @@ public class database implements cMsgHandleRequests {
      * @throws cMsgException
      */
     public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
-	try {
-	    handleSendRequest(msg);
-	    return(0);
-	} catch (cMsgException e) {
-	    throw e;
-	}
+	handleSendRequest(msg);
+	return(0);
     }
-
+    
 
     /**
      * Method to handle subscribe request sent by domain client.
@@ -358,7 +350,7 @@ public class database implements cMsgHandleRequests {
      * @param type message type subscribed to
      */
     public void handleUngetRequest(String subject, String type) {
-        // do mothing
+        // do nothing
     }
 
 
@@ -370,17 +362,6 @@ public class database implements cMsgHandleRequests {
      */
     public void handleKeepAlive() {
         // do nothing...
-    }
-
-
-    /**
-     * Method to handle a disconnect request sent by domain client.
-     * Normally nothing needs to be done as the domain server simply returns an
-     * "OK" and closes the channel. This method is run after all exchanges between
-     * domain server and client.
-     */
-    public void handleDisconnect() {
-	// do nothing...
     }
 
 
