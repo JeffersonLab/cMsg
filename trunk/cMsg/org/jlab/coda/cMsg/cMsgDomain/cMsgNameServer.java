@@ -39,12 +39,6 @@ public class cMsgNameServer extends Thread {
     /** Type of domain this is. */
     private String domain = "cMsg";
 
-    /** Port number to listen on. */
-    private int port;
-
-    /** Port number from which to start looking for a suitable listening port. */
-    private int startingPort;
-
     /** Server channel (contains socket). */
     private ServerSocketChannel serverChannel;
 
@@ -63,7 +57,7 @@ public class cMsgNameServer extends Thread {
     private WeakHashMap domainServers;
 
     /** Level of debug output for this class. */
-    private int debug = cMsgConstants.debugError;
+    private int debug;
 
     /** Tell the server to kill spawned threads. */
     private boolean killAllThreads;
@@ -88,61 +82,130 @@ public class cMsgNameServer extends Thread {
      *                          no handler class has been specified
      *                          (command line or in env var CMSG_HANDLER)
      */
-    public cMsgNameServer() throws cMsgException {
+    public cMsgNameServer(int port, int debug) throws cMsgException {
         domainServers = new WeakHashMap(20);
 
+        this.debug = debug;
+
         // read env variable for starting (desired) port number
-        try {
-            String env = System.getenv("CMSG_PORT");
-            if (env != null) {
-                startingPort = Integer.parseInt(env);
+        if (port < 1) {
+            try {
+                String env = System.getenv("CMSG_PORT");
+                if (env != null) {
+                    port = Integer.parseInt(env);
+                }
+            }
+            catch (NumberFormatException ex) {
+                System.out.println("\nBad port number specified in CMSG_PORT env variable\n");
+                ex.printStackTrace();
+                System.exit(-1);
             }
         }
-        catch (NumberFormatException ex) {
+
+        if (port < 1) {
+            port = cMsgNetworkConstants.nameServerStartingPort;
         }
 
         // port #'s < 1024 are reserved
-        if (startingPort < 1024) {
-            startingPort = cMsgNetworkConstants.nameServerStartingPort;
+        if (port < 1024) {
+            System.out.println("\nPort number must be > 1023");
+            System.exit(-1);
         }
 
-        // At this point, find a port to bind to. If that isn't possible, throw
+        // At this point, bind to the port. If that isn't possible, throw
         // an exception.
         try {
             serverChannel = ServerSocketChannel.open();
         }
         catch (IOException ex) {
+            System.out.println("\nExiting Server: cannot open a listening socket\n");
             ex.printStackTrace();
-            throw new cMsgException("Exiting Server: cannot open a listening socket");
+            System.exit(-1);
         }
 
-        port = startingPort;
         ServerSocket listeningSocket = serverChannel.socket();
 
-        while (true) {
-            try {
-                listeningSocket.bind(new InetSocketAddress(port));
-                break;
-            }
-            catch (IOException ex) {
-                // try another port by adding one
-                if (port < 65536) {
-                    port++;
-                }
-                else {
-                    ex.printStackTrace();
-                    throw new cMsgException("Exiting Server: cannot find port to listen on");
-                }
-            }
+        try {
+            listeningSocket.bind(new InetSocketAddress(port));
         }
+        catch (IOException ex) {
+            System.out.println("\nPort number " + port + " in use.\n");
+            ex.printStackTrace();
+            System.exit(-1);
+        }
+    }
+
+
+    /** Method to print out correct program command line usage. */
+    private static void usage() {
+        System.out.println("\nUsage: java cMsgNameServer [-p <listening port>] [-d(ebug) <level>]\n");
+        System.out.println("       -p      port number from 1024 to 65535\n");
+        System.out.println("       -d");
+        System.out.println("       -debug  level of output with acceptable values of:\n");
+        System.out.println("               info   for full output");
+        System.out.println("               warn   for severity of warning or greater");
+        System.out.println("               error  for severity of error or greater");
+        System.out.println("               severe for severity of \"cannot go on\"");
+        System.out.println("               none   for no debug output (default)");
+        System.out.println();
     }
 
 
     /** Run as a stand-alone application. */
     public static void main(String[] args) {
         try {
-            cMsgNameServer server = new cMsgNameServer();
+            int debug = cMsgConstants.debugNone;
+            int numberArgs = args.length;
+            int port=0, index=0;
+            String arg;
+
+            if (numberArgs != 0 && numberArgs != 2 && numberArgs != 4) {
+                usage();
+                System.exit(-1);
+            }
+
+            while (index < numberArgs) {
+                arg = args[index++];
+
+                if (arg.equalsIgnoreCase("-p")) {
+                    port = Integer.parseInt(args[index++]);
+                }
+                else if (arg.equalsIgnoreCase("-d") || arg.equalsIgnoreCase("-debug")) {
+                    arg = args[index++];
+                    if (arg.equalsIgnoreCase("info")) {
+                        debug = cMsgConstants.debugInfo;
+                    }
+                    else if (arg.equalsIgnoreCase("warn")) {
+                        debug = cMsgConstants.debugWarn;
+                    }
+                    else if (arg.equalsIgnoreCase("error")) {
+                        debug = cMsgConstants.debugError;
+                    }
+                    else if (arg.equalsIgnoreCase("severe")) {
+                        debug = cMsgConstants.debugSevere;
+                    }
+                    else if (arg.equalsIgnoreCase("none")) {
+                        debug = cMsgConstants.debugNone;
+                    }
+                    else {
+                        System.out.println("\nBad debug value");
+                        usage();
+                        System.exit(-1);
+                    }
+                }
+                else {
+                    usage();
+                    System.exit(-1);
+                }
+            }
+            cMsgNameServer server = new cMsgNameServer(port, debug);
             server.start();
+        }
+        catch (NumberFormatException e) {
+            System.out.println("\nBad port number specified");
+            usage();
+            e.printStackTrace();
+            System.exit(-1);
         }
         catch (cMsgException e) {
             e.printStackTrace();
@@ -372,7 +435,7 @@ public class cMsgNameServer extends Thread {
         }
 
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("\n\nQuitting Name Server");
+            System.out.println("\nQuitting Name Server");
         }
 
         return;
