@@ -28,8 +28,8 @@ extern "C" {
 
 
 /* version numbers */
-#define CMSG_VERSION_MAJOR 1
-#define CMSG_VERSION_MINOR 0
+#define CMSG_VERSION_MAJOR 0
+#define CMSG_VERSION_MINOR 9
 
 
 /* user's domain id is index into "domains" array, offset by this amount + */
@@ -91,26 +91,31 @@ typedef struct cMsgDomain_t {
 
 /* message structure */
 typedef struct cMsg_t {
+  /* general quantities */
+  int     version;          /* major version of cMsg */
   int     sysMsgId;         /* set by system */
   int     getRequest;       /* is message a get request? 0=n,else=y */
   int     getResponse;      /* is message a response to a get request? 0=n,else=y */
+  char   *domain;           /* message generated in this domain */
   
-  char   *sender;
-  int     senderId;         /* in case fred dies and resurrects - not necessary! */
-  char   *senderHost;
-  time_t  senderTime;       /* time in seconds since Jan 1, 1970 */
-  int     senderMsgId;      /* set by client system */
-  int     senderToken;      /* set by sender user code */
-  
-  char   *receiver;
-  char   *receiverHost;
-  time_t  receiverTime;     /* time in seconds since Jan 1, 1970 */
-  int     receiverSubscribeId;
-  
-  char   *domain;
+  /* user-settable quantities */
   char   *subject;
   char   *type;
   char   *text;
+  int     priority;
+  int     userInt;
+  time_t  userTime;
+
+  /* sender quantities */
+  char   *sender;
+  char   *senderHost;
+  time_t  senderTime;       /* time in seconds since Jan 1, 1970 */
+  int     senderToken;      /* used by system for sendAndGet */
+  
+  char   *receiver;
+  char   *receiverHost;
+  time_t  receiverTime;        /* time in seconds since Jan 1, 1970 */
+  int     receiverSubscribeId; /* used by system in subscribes and subscribeAndGets */  
   
   struct cMsg_t *next; /* for using messages in a linked list */
 } cMsgMessage;

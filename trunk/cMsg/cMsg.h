@@ -305,36 +305,34 @@ extern "C" {
 
 
   /* message access functions */
-  int      cMsgSetSubject(void *msg, char *subject);
-  int      cMsgSetType(void *msg, char *type);
-  int      cMsgSetText(void *msg, char *text);
-  int      cMsgSetSenderToken(void *msg, int senderToken);
-  int      cMsgSetGetRequest(void *msg, int getRequest);
+  int    cMsgFreeMessage(void *msg);
+  void  *cMsgCreateMessage(void);
+  void  *cMsgCopyMessage(void *msg);
+  void   cMsgInitMessage(void *msg);
   
-  int      cMsgFreeMessage(void *msg);
-  void    *cMsgCreateMessage(void);
-  void    *cMsgCopyMessage(void *msg);
-  void     cMsgInitMessage(void *msg);
-
-  int      cMsgGetSysMsgId(void *msg);
-  int      cMsgGetGetRequest(void *msg);
-  int      cMsgGetGetResponse(void *msg);
-
-  time_t   cMsgGetReceiverTime(void *msg);
-  int      cMsgGetReceiverSubscribeId(void *msg);
-
-  char*    cMsgGetSender(void *msg);
-  int      cMsgGetSenderId(void *msg);
-  char*    cMsgGetSenderHost(void *msg);
-  time_t   cMsgGetSenderTime(void *msg);
-  int      cMsgGetSenderMsgId(void *msg);
-  int      cMsgGetSenderToken(void *msg);
-
-  char*    cMsgGetDomain(void *msg);
-  char*    cMsgGetSubject(void *msg);
-  char*    cMsgGetType(void *msg);
-  char*    cMsgGetText(void *msg);
-
+  int    cMsgGetVersion(void *vmsg);
+  int    cMsgSetGetResponse(void *vmsg, int getReponse);
+  int    cMsgGetGetResponse(void *vmsg);
+  int    cMsgGetGetRequest(void *vmsg);
+  char  *cMsgGetDomain(void *vmsg);
+  int    cMsgSetSubject(void *vmsg, char *subject);
+  char  *cMsgGetSubject(void *vmsg);
+  int    cMsgSetType(void *vmsg, char *type);
+  char  *cMsgGetType(void *vmsg);
+  int    cMsgSetText(void *vmsg, char *text);
+  char  *cMsgGetText(void *vmsg);
+  int    cMsgSetPriority(void *vmsg, int priority);
+  int    cMsgGetPriority(void *vmsg);
+  int    cMsgSetUserInt(void *vmsg, int userInt);
+  int    cMsgGetUserInt(void *vmsg);
+  int    cMsgSetUserTime(void *vmsg, time_t userTime);
+  time_t cMsgGetUserTime(void *vmsg);
+  char  *cMsgGetSender(void *vmsg);
+  char  *cMsgGetSenderHost(void *vmsg);
+  time_t cMsgGetSenderTime(void *vmsg);
+  char  *cMsgGetReceiver(void *vmsg);
+  char  *cMsgGetReceiverHost(void *vmsg);
+  time_t cMsgGetReceiverTime(void *vmsg);
 
   /* system and domain info access functions */
   int cMsgGetUDL(int domainId, char *udl, size_t size);
@@ -391,7 +389,8 @@ enum {
   CMSG_BAD_DOMAIN_ID,
   CMSG_BAD_MESSAGE,
   CMSG_WRONG_DOMAIN_TYPE,
-  CMSG_NO_CLASS_FOUND
+  CMSG_NO_CLASS_FOUND,
+  CMSG_DIFFERENT_VERSION
 };
 
 

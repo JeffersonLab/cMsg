@@ -116,7 +116,7 @@ void *cMsgClientListeningThread(void *arg);
 
 
 /* local prototypes */
-static int   getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
+static int   talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
                                           char *subdomain, char *UDLremainder);
 /* mutexes and read/write locks */
 static void  mutexLock(void);
@@ -370,7 +370,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription,
   }
   
   /* get host & port to send messages to */
-  err = getHostAndPortFromNameServer(&cMsgDomains[id], serverfd, subdomain, UDLsubRemainder);
+  err = talkToNameServer(&cMsgDomains[id], serverfd, subdomain, UDLsubRemainder);
   if (err != CMSG_OK) {
     close(serverfd);
     pthread_cancel(cMsgDomains[id].pendThread);
@@ -451,7 +451,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription,
 static int coda_send(int domainId, void *vmsg) {
   
   int err, lenSubject, lenType, lenText;
-  int outGoing[8];
+  int outGoing[12];
   char *subject, *type, *text;
   cMsgMessage *msg = (cMsgMessage *) vmsg;
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
@@ -479,24 +479,32 @@ static int coda_send(int domainId, void *vmsg) {
 
   /* message id (in network byte order) to domain server */
   outGoing[0] = htonl(CMSG_SEND_REQUEST);
+  /* version */
+  outGoing[1] = htonl(CMSG_VERSION_MAJOR);
+  /* priority */
+  outGoing[2] = htonl(msg->priority);
+  /* user int */
+  outGoing[3] = htonl(msg->userInt);
+  /* system msg id */
+  outGoing[4] = htonl(msg->sysMsgId);
+  /* sender token */
+  outGoing[5] = htonl(msg->senderToken);
   /* is get response? */
-  outGoing[1] = htonl(msg->getResponse);
-  /* sender id */
-  outGoing[2] = htonl(msg->senderId);
+  outGoing[6] = htonl(msg->getResponse);
   /* time message sent (right now) */
-  outGoing[3] = htonl((int) time(NULL));
-  /* sender message id */
-  outGoing[4] = htonl(msg->senderMsgId);
+  outGoing[7] = htonl((int) time(NULL));
+  /* user time */
+  outGoing[8] = htonl((int) msg->userTime);
 
   /* length of "subject" string */
-  lenSubject  = strlen(subject);
-  outGoing[5] = htonl(lenSubject);
+  lenSubject   = strlen(subject);
+  outGoing[9]  = htonl(lenSubject);
   /* length of "type" string */
-  lenType     = strlen(type);
-  outGoing[6] = htonl(lenType);
+  lenType      = strlen(type);
+  outGoing[10] = htonl(lenType);
   /* length of "text" string */
-  lenText     = strlen(text);
-  outGoing[7] = htonl(lenText);
+  lenText      = strlen(text);
+  outGoing[11] = htonl(lenText);
 
   /* make send socket communications thread-safe */
   socketMutexLock(domain);
@@ -555,7 +563,7 @@ static int coda_send(int domainId, void *vmsg) {
 static int syncSend(int domainId, void *vmsg, int *response) {
   
   int err, lenSubject, lenType, lenText;
-  int outGoing[8];
+  int outGoing[12];
   char *subject, *type, *text;
   cMsgMessage *msg = (cMsgMessage *) vmsg;
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
@@ -582,24 +590,32 @@ static int syncSend(int domainId, void *vmsg, int *response) {
 
   /* message id (in network byte order) to domain server */
   outGoing[0] = htonl(CMSG_SYNC_SEND_REQUEST);
+  /* version */
+  outGoing[1] = htonl(CMSG_VERSION_MAJOR);
+  /* priority */
+  outGoing[2] = htonl(msg->priority);
+  /* user int */
+  outGoing[3] = htonl(msg->userInt);
+  /* system msg id */
+  outGoing[4] = htonl(msg->sysMsgId);
+  /* sender token */
+  outGoing[5] = htonl(msg->senderToken);
   /* is get response? */
-  outGoing[1] = htonl(msg->getResponse);
-  /* sender id */
-  outGoing[2] = htonl(msg->senderId);
+  outGoing[6] = htonl(msg->getResponse);
   /* time message sent (right now) */
-  outGoing[3] = htonl((int) time(NULL));
-  /* sender message id */
-  outGoing[4] = htonl(msg->senderMsgId);
+  outGoing[7] = htonl((int) time(NULL));
+  /* user time */
+  outGoing[8] = htonl((int) msg->userTime);
 
   /* length of "subject" string */
-  lenSubject  = strlen(subject);
-  outGoing[5] = htonl(lenSubject);
+  lenSubject   = strlen(subject);
+  outGoing[9]  = htonl(lenSubject);
   /* length of "type" string */
-  lenType     = strlen(type);
-  outGoing[6] = htonl(lenType);
+  lenType      = strlen(type);
+  outGoing[10] = htonl(lenType);
   /* length of "text" string */
-  lenText     = strlen(text);
-  outGoing[7] = htonl(lenText);
+  lenText      = strlen(text);
+  outGoing[11] = htonl(lenText);
 
   /* make syncSends be synchronous 'cause we need a reply */
   syncSendMutexLock(domain);
@@ -881,7 +897,7 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   cMsgMessage *msg = (cMsgMessage *) sendMsg;
   int i, uniqueId, status, lenSubject, lenType, lenText;
   int gotSpot, fd = domain->sendSocket;
-  int outGoing[8];
+  int outGoing[10];
   getInfo *info;
   struct timespec wait;
   
@@ -948,24 +964,28 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
 
   /* message id (in network byte order) to domain server */
   outGoing[0] = htonl(CMSG_SEND_AND_GET_REQUEST);
-  /* sender id */
-  outGoing[1] = htonl(msg->senderId);
-  /* time message sent (right now) */
-  outGoing[2] = htonl((int) time(NULL));
-  /* sender message id */
-  outGoing[3] = htonl(msg->senderMsgId);
-  /* unique id for sender token */
+  /* version */
+  outGoing[1] = htonl(CMSG_VERSION_MAJOR);
+  /* priority */
+  outGoing[2] = htonl(msg->priority);
+  /* user int */
+  outGoing[3] = htonl(msg->userInt);
+  /* unique id (senderToken) */
   outGoing[4] = htonl(uniqueId);
+  /* time message sent (right now) */
+  outGoing[5] = htonl((int) time(NULL));
+  /* user time */
+  outGoing[6] = htonl((int) msg->userTime);
 
   /* length of "subject" string */
   lenSubject  = strlen(subject);
-  outGoing[5] = htonl(lenSubject);
+  outGoing[7] = htonl(lenSubject);
   /* length of "type" string */
   lenType     = strlen(type);
-  outGoing[6] = htonl(lenType);
+  outGoing[8] = htonl(lenType);
   /* length of "text" string */
   lenText     = strlen(text);
-  outGoing[7] = htonl(lenText);
+  outGoing[9] = htonl(lenText);
 
   /* make send socket communications thread-safe */
   socketMutexLock(domain);
@@ -1524,7 +1544,7 @@ static int disconnect(int domainId) {
   /* make send socket communications thread-safe */
   socketMutexLock(domain);
   
-  /* send ints over together */
+  /* send int */
   if (cMsgTcpWrite(fd, (void *) &out, sizeof(out)) != sizeof(out)) {
     socketMutexUnlock(domain);
     connectWriteUnlock();
@@ -1568,51 +1588,55 @@ static int disconnect(int domainId) {
 /*-------------------------------------------------------------------*/
 
 
-static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
+static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
                                         char *subdomain, char *UDLremainder) {
 
   int  err, lengthDomain, lengthSubdomain, lengthRemainder;
   int  lengthHost, lengthName, lengthUDL, lengthDescription;
-  int  outgoing[9], incoming[2];
+  int  outgoing[11], incoming[2];
   char temp[CMSG_MAXHOSTNAMELEN], atts[6];
-  char *domainType = "cMsg";
+  char *errMsg, *domainType = "cMsg";
 
   /* first send message id (in network byte order) to server */
   outgoing[0] = htonl(CMSG_SERVER_CONNECT);
+  /* major version number */
+  outgoing[1] = htonl(CMSG_VERSION_MAJOR);
+  /* minor version number */
+  outgoing[2] = htonl(CMSG_VERSION_MINOR);
   /* send my listening port (as an int) to server */
-  outgoing[1] = htonl((int)domain->listenPort);
+  outgoing[3] = htonl((int)domain->listenPort);
   /* send length of the type of domain server I'm expecting to connect to.*/
   lengthDomain = strlen(domainType);
-  outgoing[2]  = htonl(lengthDomain);
+  outgoing[4]  = htonl(lengthDomain);
   /* send length of the type of subdomain handler I'm expecting to use.*/
   lengthSubdomain = strlen(subdomain);
-  outgoing[3] = htonl(lengthSubdomain);
+  outgoing[5] = htonl(lengthSubdomain);
   /* send length of the UDL remainder.*/
   /* this may be null */
   if (UDLremainder == NULL) {
-    lengthRemainder = outgoing[4] = 0;
+    lengthRemainder = outgoing[6] = 0;
   }
   else {
     lengthRemainder = strlen(UDLremainder);
-    outgoing[4] = htonl(lengthRemainder);
+    outgoing[6] = htonl(lengthRemainder);
   }
   /* send length of my host name to server */
   lengthHost  = strlen(domain->myHost);
-  outgoing[5] = htonl(lengthHost);
+  outgoing[7] = htonl(lengthHost);
   /* send length of my name to server */
   lengthName  = strlen(domain->name);
-  outgoing[6] = htonl(lengthName);
+  outgoing[8] = htonl(lengthName);
   /* send length of my udl to server */
   lengthUDL   = strlen(domain->udl);
-  outgoing[7] = htonl(lengthUDL);
+  outgoing[9] = htonl(lengthUDL);
   /* send length of my description to server */
   lengthDescription  = strlen(domain->description);
-  outgoing[8] = htonl(lengthDescription);
+  outgoing[10] = htonl(lengthDescription);
     
   /* first send all the ints */
   if (cMsgTcpWrite(serverfd, (void *) outgoing, sizeof(outgoing)) != sizeof(outgoing)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+      fprintf(stderr, "talkToNameServer: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1620,7 +1644,7 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
   /* send the type of domain server I'm expecting to connect to */
   if (cMsgTcpWrite(serverfd, (void *) domainType, lengthDomain) != lengthDomain) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+      fprintf(stderr, "talkToNameServer: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1628,7 +1652,7 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
   /* send the type of subdomain handler I'm expecting to use */
   if (cMsgTcpWrite(serverfd, (void *) subdomain, lengthSubdomain) != lengthSubdomain) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+      fprintf(stderr, "talkToNameServer: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1637,7 +1661,7 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
   if (UDLremainder != NULL) {
     if (cMsgTcpWrite(serverfd, (void *) UDLremainder, lengthRemainder) != lengthRemainder) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+        fprintf(stderr, "talkToNameServer: write failure\n");
       }
       return(CMSG_NETWORK_ERROR);
     }
@@ -1646,7 +1670,7 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
   /* send my host name to server */
   if (cMsgTcpWrite(serverfd, (void *) domain->myHost, lengthHost) != lengthHost) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+      fprintf(stderr, "talkToNameServer: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1654,7 +1678,7 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
   /* send my name to server */
   if (cMsgTcpWrite(serverfd, (void *) domain->name, lengthName) != lengthName) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+      fprintf(stderr, "talkToNameServer: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1662,7 +1686,7 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
   /* send my udl to server */
   if (cMsgTcpWrite(serverfd, (void *) domain->udl, lengthUDL) != lengthUDL) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+      fprintf(stderr, "talkToNameServer: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1670,7 +1694,7 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
   /* send my description to server */
   if (cMsgTcpWrite(serverfd, (void *) domain->description, lengthDescription) != lengthDescription) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+      fprintf(stderr, "talkToNameServer: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1678,14 +1702,50 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
   /* now read server reply */
   if (cMsgTcpRead(serverfd, (void *) &err, sizeof(err)) != sizeof(err)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: read failure\n");
+      fprintf(stderr, "talkToNameServer: read failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
   err = ntohl(err);
     
-  /* if there's an error, quit */
+  /* if there's an error, read error string then quit */
   if (err != CMSG_OK) {
+    int   len;
+    char *string;
+
+    /* read length of error string */
+    if (cMsgTcpRead(serverfd, (void *) &len, sizeof(len)) != sizeof(len)) {
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+        fprintf(stderr, "talkToNameServer: read failure\n");
+      }
+      return(CMSG_NETWORK_ERROR);
+    }
+    len = ntohl(len);
+
+    /* allocate memory for error string */
+    string = (char *) malloc((size_t) (len+1));
+    if (string == NULL) {
+      if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+        fprintf(stderr, "talkToNameServer: cannot allocate memory\n");
+      }
+      exit(1);
+    }
+      
+    if (cMsgTcpRead(serverfd, (void *) string, len) != len) {
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+        fprintf(stderr, "talkToNameServer: cannot read error string\n");
+      }
+      free(string);
+      return(CMSG_NETWORK_ERROR);
+    }
+    /* add null terminator to C string */
+    string[len] = 0;
+    
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "talkToNameServer: %s\n", string);
+    }
+    
+    free(string);
     return(err);
   }
   
@@ -1696,13 +1756,13 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
    */
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "getHostAndPortFromNameServer: read subdomain handler attributes\n");
+    fprintf(stderr, "talkToNameServer: read subdomain handler attributes\n");
   }
   
   /* read 6 chars */
   if (cMsgTcpRead(serverfd, (void *) atts, sizeof(atts)) != sizeof(atts)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: read failure\n");
+      fprintf(stderr, "talkToNameServer: read failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1716,13 +1776,13 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
   if (atts[5] == 1) domain->hasUnsubscribe     = 1;
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "getHostAndPortFromNameServer: read port and length of host from server\n");
+    fprintf(stderr, "talkToNameServer: read port and length of host from server\n");
   }
   
   /* read port & length of host name to send to*/
-  if (cMsgTcpRead(serverfd, (void *) &incoming, sizeof(incoming)) != sizeof(incoming)) {
+  if (cMsgTcpRead(serverfd, (void *) incoming, sizeof(incoming)) != sizeof(incoming)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: read failure\n");
+      fprintf(stderr, "talkToNameServer: read failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1730,15 +1790,15 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
   lengthHost = ntohl(incoming[1]);
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "getHostAndPortFromNameServer: port = %hu, host len = %d\n",
+    fprintf(stderr, "talkToNameServer: port = %hu, host len = %d\n",
               domain->sendPort, lengthHost);
-    fprintf(stderr, "getHostAndPortFromNameServer: read host from server\n");
+    fprintf(stderr, "talkToNameServer: read host from server\n");
   }
   
   /* read host name to send to */
   if (cMsgTcpRead(serverfd, (void *) temp, lengthHost) != lengthHost) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: read failure\n");
+      fprintf(stderr, "talkToNameServer: read failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1746,7 +1806,7 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
   temp[lengthHost] = 0;
   domain->sendHost = (char *) strdup(temp);
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "getHostAndPortFromNameServer: host = %s\n", domain->sendHost);
+    fprintf(stderr, "talkToNameServer: host = %s\n", domain->sendHost);
   }
   
   return(CMSG_OK);
@@ -2285,7 +2345,7 @@ fprintf(stderr, "cMsgWakeGets: domainId = %d, uniqueId = %d, msg sender token = 
  */
 int cMsgReadMessage(int fd, cMsgMessage *msg) {
   
-  int i, err, time, lengths[5], inComing[13];
+  int i, err, time, lengths[5], inComing[14];
   int memSize = CMSG_MESSAGE_SIZE;
   char *string, storage[CMSG_MESSAGE_SIZE + 1];
   
@@ -2302,19 +2362,20 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
   }
 
   /* swap to local endian */
-  msg->sysMsgId            = ntohl(inComing[0]);  /*  */
-  msg->getRequest          = ntohl(inComing[1]);  /*  */
-  msg->getResponse         = ntohl(inComing[2]);  /*  */
-  msg->senderId            = ntohl(inComing[3]);  /*  */
+  msg->version             = ntohl(inComing[0]);  /* major version of cMsg */
+  msg->priority            = ntohl(inComing[1]);  /* priority */
+  msg->userInt             = ntohl(inComing[2]);  /* user int */
+  msg->getRequest          = ntohl(inComing[3]);  /* is this a get request? */
   msg->senderTime = (time_t) ntohl(inComing[4]);  /* time in sec since Jan 1, 1970 */
-  msg->senderMsgId         = ntohl(inComing[5]);  /*  */
-  msg->senderToken         = ntohl(inComing[6]);  /*  */
-  lengths[0]               = ntohl(inComing[7]);  /* sender length */
-  lengths[1]               = ntohl(inComing[8]);  /* senderHost length */
-  lengths[2]               = ntohl(inComing[9]);  /* subject length */
-  lengths[3]               = ntohl(inComing[10]); /* type length */
-  lengths[4]               = ntohl(inComing[11]); /* text length */
-  rsIdCount                = ntohl(inComing[12]); /* # of receiverSubscribeIds to follow */
+  msg->userTime   = (time_t) ntohl(inComing[5]);  /* user's time in sec since Jan 1, 1970 */
+  msg->sysMsgId            = ntohl(inComing[6]);  /* system msg id */
+  msg->senderToken         = ntohl(inComing[7]);  /* sender token */
+  lengths[0]               = ntohl(inComing[8]);  /* sender length */
+  lengths[1]               = ntohl(inComing[9]);  /* senderHost length */
+  lengths[2]               = ntohl(inComing[10]); /* subject length */
+  lengths[3]               = ntohl(inComing[11]); /* type length */
+  lengths[4]               = ntohl(inComing[12]); /* text length */
+  rsIdCount                = ntohl(inComing[13]); /* # of receiverSubscribeIds to follow */
   
   /* make sure there's enough room to read all rsIds */
   if (rsIdSize < rsIdCount) {

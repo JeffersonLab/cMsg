@@ -548,6 +548,11 @@ char *cMsgPerror(int error) {
     if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_NO_CLASS_FOUND: when a class cannot be found to instantiate a subdomain client handler\n");
     break;
 
+  case CMSG_DIFFERENT_VERSION:
+    sprintf(temp, "CMSG_DIFFERENT_VERSION: when client and server are different versions\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_DIFFERENT_VERSION: when a client and server are different versions\n");
+    break;
+
   default:
     sprintf(temp, "?cMsgPerror...no such error: %d\n",error);
     if (cMsgDebug>CMSG_DEBUG_ERROR) printf("?cMsgPerror...no such error: %d\n",error);
@@ -869,15 +874,23 @@ static void initMessage(cMsgMessage *msg) {
     
     if (msg == NULL) return;
     
+    msg->version      = 0;
+    msg->sysMsgId     = 0;
     msg->getRequest   = 0;
     msg->getResponse  = 0;
-    msg->sysMsgId     = 0;
+    
+    msg->domain       = NULL;
+    msg->subject      = NULL;
+    msg->type         = NULL;
+    msg->text         = NULL;
+    
+    msg->priority     = 0;
+    msg->userInt      = 0;
+    msg->userTime     = 0;
 
     msg->sender       = NULL;
-    msg->senderId     = 0;
     msg->senderHost   = NULL;
     msg->senderTime   = 0;
-    msg->senderMsgId  = 0;
     msg->senderToken  = 0;
 
     msg->receiver     = NULL;
@@ -885,116 +898,8 @@ static void initMessage(cMsgMessage *msg) {
     msg->receiverTime = 0;
     msg->receiverSubscribeId = 0;
 
-    msg->domain  = NULL;
-    msg->subject = NULL;
-    msg->type    = NULL;
-    msg->text    = NULL;
-    
     return;
   }
-
-
-/*-------------------------------------------------------------------*/
-
-
-void *cMsgCreateMessage(void) {
-  cMsgMessage *msg;
-  
-  msg = (cMsgMessage *) malloc(sizeof(cMsgMessage));
-  if (msg == NULL) return NULL;
-  /* initialize the memory */
-  initMessage(msg);
-  
-  return((void *)msg);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgSetSubject(void *vmsg, char *subject) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  if (msg->subject != NULL) free(msg->subject);
-  msg->subject = (char *)strdup(subject);
-
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgSetType(void *vmsg, char *type) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  if (msg->type != NULL) free(msg->type);
-  msg->type = (char *)strdup(type);
-
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgSetText(void *vmsg, char *text) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  if (msg->text != NULL) free(msg->text);
-  msg->text = (char *)strdup(text);
-
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgSetSenderToken(void *vmsg, int senderToken) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  msg->senderToken = senderToken;
-
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgSetSender(void *vmsg, char *sender) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  if (msg->sender != NULL) free(msg->sender);
-  msg->sender = (char *)strdup(sender);
-
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgSetGetRequest(void *vmsg, int getRequest) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  msg->getRequest = getRequest;
-
-  return(CMSG_OK);
-}
 
 
 /*-------------------------------------------------------------------*/
@@ -1031,30 +936,11 @@ int cMsgFreeMessage(void *vmsg) {
       return NULL;
     }
     
+    newMsg->version     = msg->version;
     newMsg->sysMsgId    = msg->sysMsgId;
     newMsg->getRequest  = msg->getRequest;
     newMsg->getResponse = msg->getResponse;
     
-    if (msg->sender != NULL) newMsg->sender = (char *) strdup(msg->sender);
-    else                     newMsg->sender = NULL;
-    
-    if (msg->senderHost != NULL) newMsg->senderHost = (char *) strdup(msg->senderHost);
-    else                         newMsg->senderHost = NULL;
-    
-    newMsg->senderId    = msg->senderId;
-    newMsg->senderTime  = msg->senderTime;
-    newMsg->senderMsgId = msg->senderMsgId;
-    newMsg->senderToken = msg->senderToken;
-    
-    if (msg->receiver != NULL) newMsg->receiver = (char *) strdup(msg->receiver);
-    else                       newMsg->receiver = NULL;
-        
-    if (msg->receiverHost != NULL) newMsg->receiverHost = (char *) strdup(msg->receiverHost);
-    else                           newMsg->receiverHost = NULL;    
-
-    newMsg->receiverTime = msg->receiverTime;
-    newMsg->receiverSubscribeId = msg->receiverSubscribeId;
-
     if (msg->domain != NULL) newMsg->domain = (char *) strdup(msg->domain);
     else                     newMsg->domain = NULL;
         
@@ -1066,7 +952,29 @@ int cMsgFreeMessage(void *vmsg) {
         
     if (msg->text != NULL) newMsg->text = (char *) strdup(msg->text);
     else                   newMsg->text = NULL;
-            
+
+    newMsg->priority    = msg->priority;
+    newMsg->userInt     = msg->userInt;
+    newMsg->userTime    = msg->userTime;
+
+    if (msg->sender != NULL) newMsg->sender = (char *) strdup(msg->sender);
+    else                     newMsg->sender = NULL;
+    
+    if (msg->senderHost != NULL) newMsg->senderHost = (char *) strdup(msg->senderHost);
+    else                         newMsg->senderHost = NULL;
+    
+    newMsg->senderTime  = msg->senderTime;
+    newMsg->senderToken = msg->senderToken;
+    
+    if (msg->receiver != NULL) newMsg->receiver = (char *) strdup(msg->receiver);
+    else                       newMsg->receiver = NULL;
+        
+    if (msg->receiverHost != NULL) newMsg->receiverHost = (char *) strdup(msg->receiverHost);
+    else                           newMsg->receiverHost = NULL;    
+
+    newMsg->receiverTime = msg->receiverTime;
+    newMsg->receiverSubscribeId = msg->receiverSubscribeId;
+
     return (void *)newMsg;
   }
 
@@ -1079,14 +987,14 @@ int cMsgFreeMessage(void *vmsg) {
     
     if (msg == NULL) return;
     
-    if (msg->sender != NULL)       free(msg->sender);
-    if (msg->senderHost != NULL)   free(msg->senderHost);
-    if (msg->receiver != NULL)     free(msg->receiver);
-    if (msg->receiverHost != NULL) free(msg->receiverHost);
     if (msg->domain != NULL)       free(msg->domain);
     if (msg->subject != NULL)      free(msg->subject);
     if (msg->type != NULL)         free(msg->type);
     if (msg->text != NULL)         free(msg->text);
+    if (msg->sender != NULL)       free(msg->sender);
+    if (msg->senderHost != NULL)   free(msg->senderHost);
+    if (msg->receiver != NULL)     free(msg->receiver);
+    if (msg->receiverHost != NULL) free(msg->receiverHost);
     
     initMessage(msg);
   }
@@ -1095,29 +1003,41 @@ int cMsgFreeMessage(void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
-int cMsgGetSysMsgId(void *vmsg) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(-1);
-  return(msg->sysMsgId);
+void *cMsgCreateMessage(void) {
+  cMsgMessage *msg;
+  
+  msg = (cMsgMessage *) malloc(sizeof(cMsgMessage));
+  if (msg == NULL) return NULL;
+  /* initialize the memory */
+  initMessage(msg);
+  
+  return((void *)msg);
 }
 
 
 /*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
 
-
-int cMsgGetGetRequest(void *vmsg) {
+int cMsgGetVersion(void *vmsg) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
   if (msg == NULL) return(-1);
-  return(msg->getRequest);
+  return(msg->version);
 }
 
-
+/*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
+int cMsgSetGetResponse(void *vmsg, int getReponse) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  msg->getResponse = getReponse;
+
+  return(CMSG_OK);
+}
 
 int cMsgGetGetResponse(void *vmsg) {
 
@@ -1127,69 +1047,187 @@ int cMsgGetGetResponse(void *vmsg) {
   return(msg->getResponse);
 }
 
-
+/*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
-
-time_t cMsgGetReceiverTime(void *vmsg) {
+int cMsgGetGetRequest(void *vmsg) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
   if (msg == NULL) return(-1);
-  return(msg->receiverTime);
+  return(msg->getRequest);
 }
 
-
+/*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
-
-int cMsgGetReceiverSubscribeId(void *vmsg) {
+char *cMsgGetDomain(void *vmsg) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
- 
-  if (msg == NULL) return(-1);
-  return(msg->receiverSubscribeId);
+
+  if (msg == NULL) return(NULL);
+  if (msg->domain == NULL) return NULL;
+  return( (char *) (strdup(msg->domain)) );
 }
 
-
+/*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
+int cMsgSetSubject(void *vmsg, char *subject) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->subject != NULL) free(msg->subject);
+  msg->subject = (char *)strdup(subject);
+
+  return(CMSG_OK);
+}
+
+char *cMsgGetSubject(void *vmsg) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(NULL);
+  if (msg->subject == NULL) return NULL;
+  return( (char *) (strdup(msg->subject)) );
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+int cMsgSetType(void *vmsg, char *type) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->type != NULL) free(msg->type);
+  msg->type = (char *)strdup(type);
+
+  return(CMSG_OK);
+}
+
+char *cMsgGetType(void *vmsg) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(NULL);
+  if (msg->type == NULL) return NULL;
+  return( (char *) (strdup(msg->type)) );
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+int cMsgSetText(void *vmsg, char *text) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->text != NULL) free(msg->text);
+  msg->text = (char *)strdup(text);
+
+  return(CMSG_OK);
+}
+
+char *cMsgGetText(void *vmsg) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(NULL);
+  if (msg->text == NULL) return NULL;
+  return( (char *) (strdup(msg->text)) );
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+int cMsgSetPriority(void *vmsg, int priority) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  msg->priority = priority;
+
+  return(CMSG_OK);
+}
+
+int cMsgGetPriority(void *vmsg) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(-1);
+  return(msg->priority);
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+int cMsgSetUserInt(void *vmsg, int userInt) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  msg->userInt = userInt;
+
+  return(CMSG_OK);
+}
+
+int cMsgGetUserInt(void *vmsg) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(-1);
+  return(msg->userInt);
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+int cMsgSetUserTime(void *vmsg, time_t userTime) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  msg->userTime = userTime;
+
+  return(CMSG_OK);
+}
+
+time_t cMsgGetUserTime(void *vmsg) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(-1);
+  return(msg->userTime);
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
 
 char *cMsgGetSender(void *vmsg) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
   if (msg == NULL) return(NULL);
-  return(msg->sender);
+  if (msg->sender == NULL) return NULL;
+  return( (char *) (strdup(msg->sender)) );
 }
 
-
 /*-------------------------------------------------------------------*/
-
-
-int cMsgGetSenderId(void *vmsg) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(-1);
-  return(msg->senderId);
-}
-
-
 /*-------------------------------------------------------------------*/
-
 
 char *cMsgGetSenderHost(void *vmsg) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
   if (msg == NULL) return(NULL);
-  return(msg->senderHost);
+  if (msg->senderHost == NULL) return NULL;
+  return( (char *) (strdup(msg->senderHost)) );
 }
 
-
 /*-------------------------------------------------------------------*/
-
+/*-------------------------------------------------------------------*/
 
 time_t cMsgGetSenderTime(void *vmsg) {
 
@@ -1199,76 +1237,39 @@ time_t cMsgGetSenderTime(void *vmsg) {
   return(msg->senderTime);
 }
 
-
+/*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
+char *cMsgGetReceiver(void *vmsg) {
 
-int cMsgGetSenderMsgId(void *vmsg) {
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(NULL);
+  if (msg->receiver == NULL) return NULL;
+  return( (char *) (strdup(msg->receiver)) );
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+char *cMsgGetReceiverHost(void *vmsg) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(NULL);
+  if (msg->receiverHost == NULL) return NULL;
+  return( (char *) (strdup(msg->receiverHost)) );
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+time_t cMsgGetReceiverTime(void *vmsg) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
   if (msg == NULL) return(-1);
-  return(msg->senderMsgId);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgGetSenderToken(void *vmsg) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(-1);
-  return(msg->senderToken);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-char *cMsgGetDomain(void *vmsg) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(NULL);
-  return(msg->domain);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-char *cMsgGetSubject(void *vmsg) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(NULL);
-  return(msg->subject);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-char *cMsgGetType(void *vmsg) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(NULL);
-  return(msg->type);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-char *cMsgGetText(void *vmsg) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(NULL);
-  return(msg->text);
+  return(msg->receiverTime);
 }
 
 /*-------------------------------------------------------------------*/
