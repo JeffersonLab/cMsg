@@ -30,7 +30,6 @@ import java.nio.channels.SocketChannel;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.io.File;
 
 /**
  * Class to handles all client cMsg requests.
@@ -40,11 +39,11 @@ import java.io.File;
  */
 public class cMsg implements cMsgHandleRequests {
     /** Hash table to store clients. Name is key and cMsgClientInfo is value. */
-    private static HashMap clients = new HashMap(100);
+    private static Map clients = Collections.synchronizedMap(new HashMap(100));
 
     /** Hash table to store specific get in progress. sysMsgId of get msg is key,
      * and client name is value. */
-    private static HashMap specificGets = new HashMap(100);
+    private static Map specificGets = Collections.synchronizedMap(new HashMap(100));
 
     /** Used to create a unique id number associated with a specific message. */
     private static int sysMsgId = 0;
@@ -210,11 +209,10 @@ public class cMsg implements cMsgHandleRequests {
         // If message is sent in response to a get ...
         if (message.isGetResponse()) {
             int id = message.getSysMsgId();
-            synchronized (specificGets) {
-                // Recall the client who originally sent the get request
-                // and remove the item from the hashtable
-                info = (cMsgClientInfo) specificGets.remove(new Integer(id));
-            }
+            // Recall the client who originally sent the get request
+            // and remove the item from the hashtable
+            info = (cMsgClientInfo) specificGets.remove(new Integer(id));
+
             // Add to list of clients getting messages.
             // In this case there will only be 1 on that list.
             if (info != null) {
@@ -359,18 +357,14 @@ public class cMsg implements cMsgHandleRequests {
      */
     public void handleSubscribeRequest(String subject, String type,
                                        int receiverSubscribeId) throws cMsgException {
-        cMsgClientInfo info;
-
-        synchronized (clients) {
-            // Each client (name) has a cMsgClientInfo object associated with it
-            // that contains all relevant information. Retrieve that object
-            // from the "clients" table, add subscription to it.
-            info = (cMsgClientInfo) clients.get(name);
-        }
-
+        // Each client (name) has a cMsgClientInfo object associated with it
+        // that contains all relevant information. Retrieve that object
+        // from the "clients" table, add subscription to it.
+        cMsgClientInfo info = (cMsgClientInfo) clients.get(name);
         if (info == null) {
             throw new cMsgException("handleSubscribeRequest: no client information stored for " + name);
         }
+
         // do not add duplicate subscription
         HashSet subscriptions = info.getSubscriptions();
 
@@ -402,11 +396,7 @@ public class cMsg implements cMsgHandleRequests {
      * @param type message type subscribed to
      */
      public void handleUnsubscribeRequest(String subject, String type) {
-        cMsgClientInfo info;
-        synchronized (clients) {
-            info = (cMsgClientInfo) clients.get(name);
-        }
-
+        cMsgClientInfo info = (cMsgClientInfo) clients.get(name);
         if (info == null) {
             return;
         }
@@ -435,13 +425,10 @@ public class cMsg implements cMsgHandleRequests {
       *                          subject and type already exists
       */
      public void handleGetRequest(cMsgMessage message) throws cMsgException {
-        cMsgClientInfo info;
-        synchronized (clients) {
-            // Each client (name) has a cMsgClientInfo object associated with it
-            // that contains all relevant information. Retrieve that object
-            // from the "clients" table, add get (actually a subscription) to it.
-            info = (cMsgClientInfo) clients.get(name);
-        }
+        // Each client (name) has a cMsgClientInfo object associated with it
+        // that contains all relevant information. Retrieve that object
+        // from the "clients" table, add get (actually a subscription) to it.
+        cMsgClientInfo info = (cMsgClientInfo) clients.get(name);
         if (info == null) {
             throw new cMsgException("handleGetRequest: no client information stored for " + name);
         }
@@ -495,11 +482,7 @@ public class cMsg implements cMsgHandleRequests {
      * @param type message type subscribed to
      */
     public void handleUngetRequest(String subject, String type) {
-        cMsgClientInfo info;
-        synchronized (clients) {
-            info = (cMsgClientInfo) clients.get(name);
-        }
-
+        cMsgClientInfo info = (cMsgClientInfo) clients.get(name);
         if (info == null) {
             return;
         }
@@ -537,12 +520,10 @@ public class cMsg implements cMsgHandleRequests {
      * method).
      */
     public void handleClientShutdown() {
-        synchronized (clients) {
-            if (debug >= cMsgConstants.debugWarn) {
-                System.out.println("dHandler: SHUTDOWN client " + name);
-            }
-            clients.remove(name);
+        if (debug >= cMsgConstants.debugWarn) {
+            System.out.println("dHandler: SHUTDOWN client " + name);
         }
+        clients.remove(name);
     }
 
 
