@@ -105,6 +105,12 @@ public class cMsgDomainServer extends Thread {
     /** Current number of temporary threads. */
     private AtomicInteger tempThreads = new AtomicInteger();
 
+    /**
+     * Keep track of whether the handleShutdown method of the subdomain
+     * handler has already been called.
+     */
+    private volatile boolean calledShutdown;
+
     /** Tell the server to kill this and all spawned threads. */
     private volatile boolean killAllThreads;
 
@@ -237,6 +243,10 @@ public class cMsgDomainServer extends Thread {
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
             while (true) {
+                if (getKillAllThreads()) {
+                    return;
+                }
+
                 // 3 second timeout
                 int n = selector.select(3000);
 
@@ -374,10 +384,13 @@ public class cMsgDomainServer extends Thread {
                 // close channel and unregister from selector
                 channel.close();
                 // tell client handler to shutdown
-                clientHandler.handleClientShutdown();
+                if (!calledShutdown) {
+                    calledShutdown = true;
+                    clientHandler.handleClientShutdown();
+                }
                 // need to shutdown this domain server
                 killAllThreads();
-                break;
+                return;
 
             case cMsgConstants.msgShutdown: // told this domain server to shutdown
                 // send ok back as acknowledgment
@@ -389,10 +402,13 @@ public class cMsgDomainServer extends Thread {
                 // close channel and unregister from selector
                 channel.close();
                 // tell client handler to shutdown
-                clientHandler.handleClientShutdown();
+                if (!calledShutdown) {
+                    calledShutdown = true;
+                    clientHandler.handleClientShutdown();
+                }
                 // need to shutdown this domain server
                 killAllThreads();
-                break;
+                return;
 
             default:
                 if (debug >= cMsgConstants.debugWarn) {
