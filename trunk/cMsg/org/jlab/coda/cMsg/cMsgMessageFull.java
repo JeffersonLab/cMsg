@@ -30,6 +30,29 @@ public class cMsgMessageFull extends cMsgMessage {
     public cMsgMessageFull() {
     }
 
+    /** Constructor using existing cMsgMessage. */
+    public cMsgMessageFull(cMsgMessage m) {
+
+        this.setSysMsgId(m.getSysMsgId());
+        this.setGetResponse(m.isGetResponse());
+        this.setGetRequest(m.isGetRequest());
+        this.setDomain(m.getDomain());
+        this.setVersion(m.getVersion());
+        this.setSubject(m.getSubject());
+        this.setType(m.getType());
+        this.setText(m.getText());
+        this.setPriority(m.getPriority());
+        this.setUserInt(m.getUserInt());
+        this.setUserTime(m.getUserTime());
+        this.setSender(m.getSender());
+        this.setSenderHost(m.getSenderHost());
+        this.setSenderTime(m.getSenderTime());
+        this.setReceiver(m.getReceiver());
+        this.setReceiverHost(m.getReceiverHost());
+        this.setReceiverTime(m.getReceiverTime());
+    }
+
+
     /**
      * Creates a complete copy of this message.
      *
