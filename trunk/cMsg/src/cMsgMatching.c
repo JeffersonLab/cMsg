@@ -140,14 +140,14 @@ int cMsgStringMatches(char *regexp, const char *s) {
     escapedString = cMsgStringEscape(regexp);
 
     /* Now see if there's a match with the "s" arg */
-    err = regcomp(&re, escapedString, REG_EXTENDED);
+    err = cMsgRegcomp(&re, escapedString, REG_EXTENDED);
     if (err != 0) {
         /* printf("Unsuccessful compiling of %s\n", regexp);*/
         free(escapedString);
         return -1;
     }
 
-    err = regexec(&re, s, 0, NULL, 0);
+    err = cMsgRegexec(&re, s, 0, NULL, 0);
     if (err == 0) {
         returnCode = 1;
     }
@@ -160,7 +160,7 @@ int cMsgStringMatches(char *regexp, const char *s) {
     
     /* free up memory */
     free(escapedString);
-    regfree(&re);
+    cMsgRegfree(&re);
     
     return returnCode;
 }
@@ -186,13 +186,13 @@ int cMsgRegexpMatches(char *regexp, const char *s) {
     if ((regexp == NULL)||(s == NULL)) return -1;
 
     /* Now see if there's a match with the "s" arg */
-    err = regcomp(&re, regexp, REG_EXTENDED);
+    err = cMsgRegcomp(&re, regexp, REG_EXTENDED);
     if (err != 0) {
         /* printf("Unsuccessful compiling of %s\n", regexp);*/
         return -1;
     }
 
-    err = regexec(&re, s, 0, NULL, 0);
+    err = cMsgRegexec(&re, s, 0, NULL, 0);
     if (err == 0) {
         returnCode = 1;
     }
@@ -204,7 +204,7 @@ int cMsgRegexpMatches(char *regexp, const char *s) {
     }
     
     /* free up memory */
-    regfree(&re);
+    cMsgRegfree(&re);
     
     return returnCode;
 }
