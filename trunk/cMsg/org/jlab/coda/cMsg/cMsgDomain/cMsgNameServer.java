@@ -92,17 +92,16 @@ public class cMsgNameServer extends Thread {
      *                          (command line or in env var CMSG_HANDLER)
      */
     public cMsgNameServer() throws cMsgException {
-        Jgetenv env = null;
         domainServers = new WeakHashMap(20);
 
         // read env variable for starting (desired) port number
         try {
-            env = new Jgetenv();
-            startingPort = Integer.parseInt(env.echo("CMSG_PORT"));
+            String env = System.getenv("CMSG_PORT");
+            if (env != null) {
+                startingPort = Integer.parseInt(env);
+            }
         }
         catch (NumberFormatException ex) {
-        }
-        catch (JgetenvException ex) {
         }
 
         // port #'s < 1024 are reserved
@@ -179,14 +178,8 @@ public class cMsgNameServer extends Thread {
 
         // If it wasn't given on the command line,
         // check the appropriate environmental variable.
-        try {
-            Jgetenv env = new Jgetenv();
-            if (clientHandlerClass == null) {
-                clientHandlerClass = env.echo("CMSG_HANDLER");
-            }
-        }
-        catch (JgetenvException e) {
-            //throw new cMsgException(e.getMessage());
+        if (clientHandlerClass == null) {
+            clientHandlerClass = System.getenv("CMSG_HANDLER");
         }
 
         // If there is still no handler class and if the
@@ -245,23 +238,27 @@ public class cMsgNameServer extends Thread {
      * must be passed to the name server on the command line as in the following:
      *     java cMsgNameServer -DcMsg=myCmsgClientHandlerClass
      *
-     * @param name unique client name
      * @param info object containing information about the client
      * @throws cMsgException If a domain server could not be started for the client
      */
-    synchronized public cMsgHandleRequests registerClient(String name, cMsgClientInfo info) throws cMsgException {
+    synchronized public cMsgHandleRequests registerClient(cMsgClientInfo info) throws cMsgException {
         cMsgHandleRequests clientHandler = createClientHandler(info.subdomain,
                                                                info.UDLRemainder);
-
-        // Check to see if name is taken already - pass this on to handler object
-        if (clientHandler.isRegistered(name)) {
-            cMsgException e = new cMsgException("client already exists");
-            e.setReturnCode(cMsgConstants.errorNameExists);
-            throw e;
+        // If clientHandler is a subclass of cMsgHandlerRequestAbstract, it has methods
+        // to connect to the client, so do it now. The socket channel is stored in "info".
+        if (clientHandler instanceof cMsgHandleRequestsAbstract) {
+            try {
+                ((cMsgHandleRequestsAbstract)clientHandler).createChannel(info);
+            }
+            catch (IOException e) {
+                cMsgException ex = new cMsgException("socket communication error");
+                ex.setReturnCode(cMsgConstants.errorNetwork);
+                throw ex;
+            }
         }
 
         // pass registration on to handler object
-        clientHandler.registerClient(name, info.clientHost, info.clientPort);
+        clientHandler.registerClient(info);
 
         // Create a domain server thread, and get back its host & port
         cMsgDomainServer server = new cMsgDomainServer(clientHandler, info,
@@ -459,7 +456,7 @@ public class cMsgNameServer extends Thread {
                     System.out.println("name server to register " + name);
                 }
 
-                cMsgHandleRequests handler = registerClient(name, info);
+                cMsgHandleRequests handler = registerClient(info);
 
                 buffer.clear();
 
