@@ -30,18 +30,15 @@
 
 /* system includes */
 #include <stdio.h>
-#include <strings.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <ctype.h>
 #include <pthread.h>
-#include <time.h>
 #include <errno.h>
 
 /* package includes */
 #include "cMsgNetwork.h"
-#include "cMsgPrivate.h"
 #include "cMsg.h"
+#include "cMsgPrivate.h"
 #include "cMsg_CODA.h"
 
 

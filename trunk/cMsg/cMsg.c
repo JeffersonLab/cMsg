@@ -37,16 +37,12 @@
 
 /* system includes */
 #include <stdio.h>
-#include <strings.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <ctype.h>
 #include <pthread.h>
 
 
 /* package includes */
-#include "cMsgPrivate.h"
 #include "cMsg.h"
+#include "cMsgPrivate.h"
 
 /*
  * MAXHOSTNAMELEN is defined to be 256 on Solaris and 64 on Linux.
