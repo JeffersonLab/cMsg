@@ -179,7 +179,7 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      * @throws cMsgException
      */
     public void handleKeepAlive() throws cMsgException {
-        throw new cMsgException("handleKeepAlive is not implemented");
+        return;
     }
 
 
