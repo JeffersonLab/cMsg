@@ -12,27 +12,6 @@ LIB_DIR = ./
 INC_DIR = ./
 BIN_DIR = ./
 
-# java stuff
-
-JAVAC = javac
-JAVAH = javah
-JAVAD = javadoc
-JAR   = jar
-#JAVAC_FLAGS = -classpath .:$(CLASSPATH)
-JAVAC_FLAGS = -classpath .
-
-JAVA_OBJS = \
-	Jgetenv.class \
-	JgetenvException.class \
-	cMsgConstants.class \
-	cMsgClientInfo.class \
-	cMsgException.class \
-	cMsgMessage.class \
-	cMsgDomainServer.class \
-	cMsgDomainServerListeningThread.class \
-	cMsgNameServer.class \
-	cMsgNameServerListeningThread.class
-
 # C stuff
 AC_FLAGS  = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
 CFLAGS    = -O2 -fPIC -I./ $(AC_FLAGS)
