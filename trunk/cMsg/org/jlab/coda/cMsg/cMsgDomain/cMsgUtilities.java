@@ -144,7 +144,7 @@ public class cMsgUtilities {
               reason = "domain type not supported";
               break;
 
-          case cMsgConstants.errorNameExists:
+          case cMsgConstants.errorAlreadyExists:
               reason = "another process in this domain is using this name";
               break;
 
