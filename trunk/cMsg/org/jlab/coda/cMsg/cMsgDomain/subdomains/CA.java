@@ -22,12 +22,19 @@
 
 package org.jlab.coda.cMsg.plugins;
 
+import org.jlab.coda.cMsg.cMsgConstants;
 import org.jlab.coda.cMsg.cMsgMessage;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequests;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgClientInfo;
 import org.jlab.coda.cMsg.cMsgException;
+import org.jlab.coda.cMsg.cMsgDomain.cMsgClientInfo;
+import org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequestsAbstract;
+
+import gov.aps.jca.*;
+import gov.aps.jca.dbr.DOUBLE;
+import gov.aps.jca.dbr.DBR;
 
 import java.util.*;
+import java.nio.ByteBuffer;
+import java.io.IOException;
 
 
 //-----------------------------------------------------------------------------
@@ -47,10 +54,10 @@ import java.util.*;
  * @author Elliott Wolin
  * @version 1.0
  */
-public class CA implements cMsgHandleRequests {
+public class CA extends cMsgHandleRequestsAbstract {
 
 
-    // register params
+    /** registration params. */
     private cMsgClientInfo myClientInfo;
 
 
@@ -58,8 +65,31 @@ public class CA implements cMsgHandleRequests {
     private String myUDLRemainder;
 
 
-    // CA object
-    //    private xxx;
+    /** JCALibrary and context. */
+    static private JCALibrary jca  = null;
+    static private Context context = null;
+    
+
+    // get JCA library and context
+    static {
+	try {
+	    jca     = JCALibrary.getInstance();
+	    context = jca.createContext(JCALibrary.CHANNEL_ACCESS_JAVA);
+	} catch (Exception e) {
+	    e.printStackTrace();
+	    System.err.println(e);
+	}
+    }
+
+
+    /** direct buffer needed for nio socket IO. */
+    private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+
+
+    /** misc params. */
+    static double contextPend = 3.0;
+    static double getPend     = 3.0;
+    static double putPend     = 3.0;
 
 
 
@@ -119,7 +149,7 @@ public class CA implements cMsgHandleRequests {
      * @return true if subscribe implemented in {@link #handleSubscribeRequest}
      */
     public boolean hasSubscribe() {
-        return true;
+        return false;
     };
 
 
@@ -134,7 +164,7 @@ public class CA implements cMsgHandleRequests {
      * @return true if unsubscribe implemented in {@link #handleUnsubscribeRequest}
      */
     public boolean hasUnsubscribe() {
-        return true;
+        return false;
     };
 
 
@@ -165,9 +195,7 @@ public class CA implements cMsgHandleRequests {
      * @throws cMsgException if unable to register
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
-
-	// get ca access object
-
+	myClientInfo = info;
     }
     
 
@@ -182,7 +210,45 @@ public class CA implements cMsgHandleRequests {
      *                          or socket properties cannot be set
      */
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
-	// perform ca put
+
+	// create channel 
+	Channel channel;
+	try {
+	    channel = context.createChannel(msg.getSubject());
+	    context.pendIO(contextPend);
+	} catch  (CAException e) {
+	    cMsgException ce = new cMsgException(e.toString());
+	    ce.setReturnCode(1);
+	    throw ce;
+	} catch  (TimeoutException e) {
+	    cMsgException ce = new cMsgException(e.toString());
+	    ce.setReturnCode(1);
+	    throw ce;
+	}
+
+
+	// put value
+	try {
+	    channel.put(msg.getText());
+	    context.pendIO(putPend);
+	} catch  (CAException e) {
+	    cMsgException ce = new cMsgException(e.toString());
+	    ce.setReturnCode(1);
+	    throw ce;
+	} catch  (TimeoutException e) {
+	    cMsgException ce = new cMsgException(e.toString());
+	    ce.setReturnCode(1);
+	    throw ce;
+	}
+
+	
+	// disconnect channel
+	try {
+	    channel.destroy();
+	} catch  (CAException e) {
+	    e.printStackTrace();
+	    System.err.println(e);
+	}
     }
 
 
@@ -213,7 +279,71 @@ public class CA implements cMsgHandleRequests {
      * @param message message requesting what sort of message to get
      */
     public void handleGetRequest(cMsgMessage message) {
-        // perform ca get
+
+	boolean failed = false;
+
+
+	// create reply message
+	cMsgMessage cmsg = new cMsgMessage();
+	cmsg.setDomain("cMsg");                   // just use domain for now
+	// 	    cmsg.setSysMsgId();
+	// 	    cmsg.setSender("EPICS");
+	// 	    cmsg.setSenderHost();
+	// 	    cmsg.setSenderTime(new Date());
+	// 	    cmsg.setSenderId();
+	// 	    cmsg.setSenderMsgId();
+	// 	    cmsg.setReceiver(myClientInfo.getName());
+	// 	    cmsg.setReceiverHost(myClientInfo.getClientHost());
+	// 	    cmsg.setReceiverTime(new Date());
+	// 	    cmsg.setReceiverSubscribeId();
+	// 	    cmsg.setSubject(message.getSubject());
+	// 	    cmsg.setType(message.getType());
+
+
+	// create channel 
+	Channel channel = null;
+	try {
+	    channel = context.createChannel(message.getSubject());
+	    context.pendIO(contextPend);
+	} catch  (CAException e) {
+	    cmsg.setText(null);
+	} catch  (TimeoutException e) {
+	    cmsg.setText(null);
+	}
+
+
+	// get value
+	DBR dbr;
+	if(channel!=null) {
+	    try {
+		dbr = channel.get();
+		context.pendIO(getPend);
+		cmsg.setText(null);
+	    } catch  (CAException e) {
+		cmsg.setText(null);
+	    } catch  (TimeoutException e) {
+		cmsg.setText(null);
+	    }
+	}
+
+	
+	// return message
+	try {
+	    deliverMessage(myClientInfo.getChannel(),buffer,cmsg,null,cMsgConstants.msgGetResponse);
+	} catch (IOException e) {
+	    e.printStackTrace();
+	    System.err.println(e);
+	}
+
+
+	// disconnect channel
+	try {
+	    if(channel!=null)channel.destroy();
+	} catch  (CAException e) {
+	    e.printStackTrace();
+	    System.err.println(e);
+	}
+
     }
 
 
@@ -227,7 +357,7 @@ public class CA implements cMsgHandleRequests {
      * @param type message type subscribed to
      */
     public void handleUngetRequest(String subject, String type) {
-        // do mothing
+        // do nothing
     }
 
 
@@ -287,7 +417,6 @@ public class CA implements cMsgHandleRequests {
      * @throws cMsgException
      */
     public void handleClientShutdown() throws cMsgException {
-	// delete access objects
     }
 
 
@@ -301,14 +430,15 @@ public class CA implements cMsgHandleRequests {
      * method).
      */
     public void handleServerShutdown() throws cMsgException {
+	try {
+	    context.destroy();
+	} catch (Exception e) {
+	    System.err.println(e);
+	}
     }
 
 
 //-----------------------------------------------------------------------------
-
+//-----------------------------------------------------------------------------
 }
-
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-
 
