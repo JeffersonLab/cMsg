@@ -293,10 +293,9 @@ public class LogFile implements cMsgHandleRequests {
     /**
      * Method to handle unget request sent by domain client (hidden from user).
      *
-     * @param subject message subject subscribed to
-     * @param type message type subscribed to
+     * @param id message id refering to these specific subject and type values
      */
-    public void handleUngetRequest(String subject, String type) {
+    public void handleUngetRequest(int id) {
         // do mothing
     }
 
