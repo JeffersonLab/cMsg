@@ -93,6 +93,7 @@ typedef struct cMsgDomain_CODA_t {
 
 /* struct for passing data from main to network threads */
 typedef struct mainThreadInfo_t {
+  int isRunning; /* flag to indicate thread is running */
   int domainId;  /* domain identifier */
   int listenFd;  /* listening socket file descriptor */
   int blocking;  /* block in accept (CMSG_BLOCKING) or
