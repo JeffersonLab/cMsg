@@ -16,10 +16,9 @@
 
 package org.jlab.coda.cMsg.coda;
 
-import java.io.*;
-import java.net.*;
 import java.lang.*;
 import java.util.*;
+import java.nio.channels.Channel;
 
 /**
  * Class in which to store a domain's client information.
@@ -27,18 +26,33 @@ import java.util.*;
  * @author Carl Timmer
  * @version 1.0
  */
-public class cMsgClientInfo {
+class cMsgClientInfo {
+    /** Client's name. */
+    String clientName;
+    /** Client's port. */
     int    clientPort;
+    /** Client's host. */
     String clientHost;
+    /** Domain server's port. */
     int    domainPort;
+    /** Domain server's host. */
     String domainHost;
-    cMsgDomainServer server;
-    
+
+    /**
+     * Communication channel used by domain server (or clientHandler)
+     * to talk to client (keepAlive).
+     */
+    Channel channel;
+
+    /** Collection of all messages subscriptions. */
+    HashSet subscriptions = new HashSet(20);
+
     cMsgClientInfo() {}
     
-    cMsgClientInfo(int port, String host) {
-      clientPort = port;
-      clientHost = host;
+    cMsgClientInfo(String name, int port, String host) {
+        clientName = name;
+        clientPort = port;
+        clientHost = host;
     }
 }
 
