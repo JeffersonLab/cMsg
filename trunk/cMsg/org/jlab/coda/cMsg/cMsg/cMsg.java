@@ -336,7 +336,7 @@ public class cMsg extends cMsgImpl {
         // stop keep alive thread & close channel
         keepAliveThread.killThread();
 
-        // stop all callback threads as well
+        // stop all callback threads
         Iterator iter = subscriptions.iterator();
         for (; iter.hasNext();) {
             cMsgSubscription sub = (cMsgSubscription) iter.next();
@@ -347,6 +347,16 @@ public class cMsg extends cMsgImpl {
                 cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
                 // Tell the callback thread to wakeup and die
                 cbThread.dieNow();
+            }
+        }
+
+        // wakeup all gets
+        iter = specificGets.values().iterator();
+        for (; iter.hasNext();) {
+            cMsgMessageHolder holder = (cMsgMessageHolder) iter.next();
+            holder.message = null;
+            synchronized (holder) {
+                holder.notify();
             }
         }
 
@@ -873,10 +883,9 @@ System.out.println("unget: in");
         }
 
         // add to callback list if subscription to same subject/type exists
-
-        // for each subscription
         cMsgSubscription sub;
-        for (Iterator iter = subscriptions.iterator(); iter.hasNext(); ) {
+        // for each subscription ...
+        for (Iterator iter = subscriptions.iterator(); iter.hasNext();) {
             sub = (cMsgSubscription) iter.next();
             // if subscription to subject & type exists ...
             if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
@@ -972,26 +981,39 @@ System.out.println("unget: in");
         }
 
         // look for and remove any subscription to subject/type with this callback object
-
-        // for each subscription
         cMsgSubscription sub;
-        for (Iterator iter = subscriptions.iterator(); iter.hasNext(); ) {
-            sub = (cMsgSubscription) iter.next();
-            // if subscription to subject & type exist ...
-            if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
-                // for each callback listed
-                for (Iterator iter2 = sub.getCallbacks().iterator(); iter2.hasNext(); ) {
-                    cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
-                    if (cbThread.callback == cb) {
-                        // remove this callback from the set
-                        iter2.remove();
+
+        // client listening thread may be interating thru subscriptions concurrently
+        // and we may change set structure
+        synchronized (subscriptions) {
+
+            // for each subscription ...
+            for (Iterator iter = subscriptions.iterator(); iter.hasNext();) {
+                sub = (cMsgSubscription) iter.next();
+                // if subscription to subject & type exist ...
+                if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
+
+                    // for each callback listed ...
+                    for (Iterator iter2 = sub.getCallbacks().iterator(); iter2.hasNext();) {
+                        cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
+                        if (cbThread.callback == cb) {
+                            // remove this callback from the set
+                            iter2.remove();
+                        }
                     }
+
+                    // If there are still callbacks left,
+                    // don't unsubscribe for this subject/type
+                    if (sub.numberOfCallbacks() > 0) {
+                        return;
+                    }
+                    // else get rid of the whole subscription
+                    else {
+                        iter.remove();
+                    }
+
+                    break;
                 }
-                // if there are still callbacks left, don't unsubscribe for this subject/type
-                if (sub.numberOfCallbacks() > 0) {
-                    return;
-                }
-                break;
             }
         }
 
