@@ -52,7 +52,7 @@ public class cMsgDomainServer extends Thread {
     private String host;
 
     /** Keep reference to cMsg name server which created this object. */
-    private cMsgSubdomainHandler clientHandler;
+    private cMsgSubdomainInterface clientHandler;
 
     /** Level of debug output for this class. */
     private int debug = cMsgConstants.debugNone;
@@ -134,7 +134,7 @@ public class cMsgDomainServer extends Thread {
      *
      * @return client handler object
      */
-    public cMsgSubdomainHandler getClientHandler() {
+    public cMsgSubdomainInterface getClientHandler() {
         return clientHandler;
     }
 
@@ -147,7 +147,7 @@ public class cMsgDomainServer extends Thread {
      * @param startingPort suggested port on which to starting listening for connections
      * @throws cMsgException If a port to listen on could not be found
      */
-    public cMsgDomainServer(cMsgSubdomainHandler handler, cMsgClientInfo info, int startingPort) throws cMsgException {
+    public cMsgDomainServer(cMsgSubdomainInterface handler, cMsgClientInfo info, int startingPort) throws cMsgException {
         this.clientHandler = handler;
         // Port number to listen on
         port = startingPort;

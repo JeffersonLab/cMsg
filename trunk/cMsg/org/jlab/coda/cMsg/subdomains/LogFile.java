@@ -25,7 +25,7 @@ package org.jlab.coda.cMsg.subdomains;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgSubdomainHandler;
+import org.jlab.coda.cMsg.cMsgSubdomainInterface;
 import org.jlab.coda.cMsg.cMsgClientInfo;
 
 import java.util.*;
@@ -46,7 +46,7 @@ import java.util.regex.*;
  * @author Elliott Wolin
  * @version 1.0
  */
-public class LogFile implements cMsgSubdomainHandler {
+public class LogFile implements cMsgSubdomainInterface {
 
 
     /** Hash table to store all client info.  Canonical name is key. */

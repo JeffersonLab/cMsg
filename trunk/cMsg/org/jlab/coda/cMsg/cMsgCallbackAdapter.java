@@ -23,7 +23,7 @@ package org.jlab.coda.cMsg;
  * Time: 12:29:21 PM
  * To change this template use File | Settings | File Templates.
  */
-public class cMsgCallbackAdapter implements cMsgCallback {
+public class cMsgCallbackAdapter implements cMsgCallbackInterface {
     /**
      * Callback method definition.
      *

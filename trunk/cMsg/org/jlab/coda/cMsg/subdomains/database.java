@@ -25,7 +25,7 @@ package org.jlab.coda.cMsg.subdomains;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgSubdomainHandler;
+import org.jlab.coda.cMsg.cMsgSubdomainInterface;
 import org.jlab.coda.cMsg.cMsgClientInfo;
 
 import java.sql.*;
@@ -46,7 +46,7 @@ import java.util.regex.*;
  * @version 1.0
  *
  */
-public class database implements cMsgSubdomainHandler {
+public class database implements cMsgSubdomainInterface {
 
 
     /** UDL remainder for this subdomain handler. */

@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
  * @author Carl Timmer
  * @version 1.0
  */
-public class cMsg extends cMsgAdapter {
+public class cMsg extends cMsgDomainAdapter {
 
     /** Port number to listen on. */
     private int port;
@@ -1025,7 +1025,7 @@ public class cMsg extends cMsgAdapter {
      * @param userObj any user-supplied object to be given to the callback method as an argument
      * @throws cMsgException if there are communication problems with the server
      */
-    public void subscribe(String subject, String type, cMsgCallback cb, Object userObj)
+    public void subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
 
         // cannot run this simultaneously with connect or disconnect
@@ -1135,7 +1135,7 @@ public class cMsg extends cMsgAdapter {
      *                of subject and type
      * @throws cMsgException if there are communication problems with the server
      */
-    public void unsubscribe(String subject, String type, cMsgCallback cb)
+    public void unsubscribe(String subject, String type, cMsgCallbackInterface cb)
             throws cMsgException {
 
         // cannot run this simultaneously with connect or disconnect

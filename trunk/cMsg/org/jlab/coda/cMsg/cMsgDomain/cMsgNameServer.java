@@ -167,9 +167,9 @@ public class cMsgNameServer extends Thread {
     }
 
 
-    static private cMsgSubdomainHandler createClientHandler(String subdomain, String UDLRemainder) throws cMsgException {
+    static private cMsgSubdomainInterface createClientHandler(String subdomain, String UDLRemainder) throws cMsgException {
         /** Object to handle clients' inputs */
-        cMsgSubdomainHandler clientHandler = null;
+        cMsgSubdomainInterface clientHandler = null;
 
          // First check to see if handler class name was set on the command line.
         String clientHandlerClass = System.getProperty(subdomain);
@@ -214,7 +214,7 @@ public class cMsgNameServer extends Thread {
 
         // Get handler class name and create handler object
         try {
-            clientHandler = (cMsgSubdomainHandler) (Class.forName(clientHandlerClass).newInstance());
+            clientHandler = (cMsgSubdomainInterface) (Class.forName(clientHandlerClass).newInstance());
         }
         catch (InstantiationException e) {
             cMsgException ex = new cMsgException("cannot instantiate "+ clientHandlerClass +
@@ -256,8 +256,8 @@ public class cMsgNameServer extends Thread {
      * @param info object containing information about the client
      * @throws cMsgException If a domain server could not be started for the client
      */
-    synchronized public cMsgSubdomainHandler registerClient(cMsgClientInfo info) throws cMsgException {
-        cMsgSubdomainHandler clientHandler = createClientHandler(info.getSubdomain(),
+    synchronized public cMsgSubdomainInterface registerClient(cMsgClientInfo info) throws cMsgException {
+        cMsgSubdomainInterface clientHandler = createClientHandler(info.getSubdomain(),
                                                                info.getUDLremainder());
         // If clientHandler is a subclass of cMsgHandlerRequestAbstract, it has methods
         // to connect to the client, so do it now. The socket channel is stored in "info".
@@ -515,7 +515,7 @@ public class cMsgNameServer extends Thread {
                     System.out.println("name server try to register " + name);
                 }
 
-                cMsgSubdomainHandler handler = registerClient(info);
+                cMsgSubdomainInterface handler = registerClient(info);
 
                 buffer.clear();
 

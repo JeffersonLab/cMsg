@@ -33,7 +33,7 @@ import java.net.Socket;
  * (such as SmartSockets or JADE agents).
  * <p/>
  * Understand that each client using cMsg will have its own handler object
- * from either an implemenation of the cMsgSubdomainHandler interface or a
+ * from either an implemenation of the cMsgSubdomainInterface interface or a
  * subclass of this class. One client may concurrently use the same
  * cMsgHandleRequest object; thus, implementations must be thread-safe.
  * Furthermore, when the name server shuts dowm, the method handleServerShutdown
@@ -42,7 +42,7 @@ import java.net.Socket;
  * @author Carl Timmer
  * @version 1.0
  */
-public abstract class cMsgSubdomainAbstract implements cMsgSubdomainHandler {
+public abstract class cMsgSubdomainAbstract implements cMsgSubdomainInterface {
     /**
      * Method to give the subdomain handler the appropriate part
      * of the UDL the client used to talk to the domain server.
