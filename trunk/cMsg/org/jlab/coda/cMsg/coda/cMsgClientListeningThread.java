@@ -51,6 +51,12 @@ public class cMsgClientListeningThread extends Thread {
     /** A direct buffer is necessary for nio socket IO. */
     private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
+    /** Allocate int array once (used for reading in data) for efficiency's sake. */
+    private int[] inComing = new int[11];
+
+    /** Allocate byte array once (used for reading in data) for efficiency's sake. */
+    byte[] bytes = new byte[5000];
+
     /** Level of debug output for this class. */
     private int debug;
 
@@ -95,7 +101,6 @@ public class cMsgClientListeningThread extends Thread {
 
             // cMsgCoda object is waiting for this thread to start in connect method
             synchronized(this) {
-                client.listeningThreadStarted = true;
                 notifyAll();
             }
 
@@ -250,7 +255,7 @@ public class cMsgClientListeningThread extends Thread {
 
 
     /**
-     * This method reads an incoming cMsgMessage from a domain server.
+     * This method reads an incoming cMsgMessage from a clientHandler object.
      *
      * @param channel nio socket communication channel
      * @throws IOException if socket read or write error
@@ -268,7 +273,6 @@ public class cMsgClientListeningThread extends Thread {
         buffer.flip();
 
         // read 11 ints
-        int[] inComing = new int[11];
         buffer.asIntBuffer().get(inComing);
 
         // system message id
@@ -304,52 +308,36 @@ public class cMsgClientListeningThread extends Thread {
         // go back to reading-from-buffer mode
         buffer.flip();
 
-        // allocate byte array
-        int lengthBuf = lengthSubject > lengthType ? lengthSubject : lengthType;
-        lengthBuf = lengthBuf > lengthText ? lengthBuf : lengthText;
-        lengthBuf = lengthBuf > lengthSender ? lengthBuf : lengthSender;
-        lengthBuf = lengthBuf > lengthSenderHost ? lengthBuf : lengthSenderHost;
-        byte[] buf = new byte[lengthBuf];
+        // allocate bigger byte array if necessary
+        // (allocate more than needed for speed's sake)
+        if (bytesToRead > bytes.length) {
+            bytes = new byte[bytesToRead];
+        }
 
+        buffer.get(bytes, 0, bytesToRead);
         // read sender
-        buffer.get(buf, 0, lengthSender);
-        msg.setSender(new String(buf, 0, lengthSender, "US-ASCII"));
-        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("  sender = " + msg.getSender());
-        }
+        msg.setSender(new String(bytes, 0, lengthSender, "US-ASCII"));
+
         // read senderHost
-        buffer.get(buf, 0, lengthSenderHost);
-        msg.setSenderHost(new String(buf, 0, lengthSenderHost, "US-ASCII"));
-        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("  senderHost = " + msg.getSenderHost());
-        }
+        msg.setSenderHost(new String(bytes, lengthSender, lengthSenderHost, "US-ASCII"));
+
         // read subject
-        buffer.get(buf, 0, lengthSubject);
-        msg.setSubject(new String(buf, 0, lengthSubject, "US-ASCII"));
-        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("  subject = " + msg.getSubject());
-        }
+        msg.setSubject(new String(bytes, lengthSender+lengthSenderHost, lengthSubject, "US-ASCII"));
 
         // read type
-        buffer.get(buf, 0, lengthType);
-        msg.setType(new String(buf, 0, lengthType, "US-ASCII"));
-        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("  type = " + msg.getType());
-        }
+        msg.setType(new String(bytes, lengthSender+lengthSenderHost+lengthSubject, lengthType, "US-ASCII"));
 
         // read text
-        buffer.get(buf, 0, lengthText);
-        msg.setText(new String(buf, 0, lengthText, "US-ASCII"));
-        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("  text = " + msg.getText());
-        }
+        msg.setText(new String(bytes, bytesToRead-lengthText, lengthText, "US-ASCII"));
 
+        /*
         // send ok back as acknowledgment
         buffer.clear();
         buffer.putInt(cMsgConstants.ok).flip();
         while (buffer.hasRemaining()) {
             channel.write(buffer);
         }
+        */
 
         // fill in message object's members
         msg.setDomain(domainType);
@@ -393,10 +381,20 @@ public class cMsgClientListeningThread extends Thread {
                 // run through all callbacks
                 Iterator iter2 = sub.callbacks.iterator();
                 for (; iter2.hasNext(); ) {
-                    cMsgCallbackInfo info = (cMsgCallbackInfo) iter2.next();
+                    cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
+                    // pass the thread the message
+                    cbThread.setMessage(msg);
+                    // now tell this thread to wakeup -- and automatically run the
+                    // callback, then go back to sleep.
+                    synchronized (cbThread) {
+                        cbThread.notify();
+                    }
+
+                    /*
                     // execute this callback in its own thread
-                    cMsgRunCallbackThread thread = new cMsgRunCallbackThread(info, msg);
+                    cMsgCallbackThread thread = new cMsgCallbackThread(info, msg);
                     thread.start();
+                    */
                 }
 
                 break;
@@ -406,24 +404,4 @@ public class cMsgClientListeningThread extends Thread {
 
     }
 
-}
-
-
-/** This class is used to run a message callback in its own thread. */
-class cMsgRunCallbackThread extends Thread {
-    /** Object contains the callback object and its argument. */
-    private cMsgCallbackInfo info;
-    /** Message to be passed to the callback. */
-    private cMsgMessage msg;
-
-    cMsgRunCallbackThread(cMsgCallbackInfo info, cMsgMessage msg) {
-        this.info = info;
-        this.msg  = msg;
-    }
-
-    /** This method is executed as a thread which runs the callback method */
-    public void run() {
-        //System.out.println("cMsgRunCallbackThread: will run callback");
-        info.callback.callback(msg, info.arg);
-    }
 }
