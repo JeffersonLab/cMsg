@@ -528,11 +528,11 @@ static int codaSend(int domainId, void *vmsg) {
   /* Cannot run this while connecting/disconnecting */
   connectReadLock();
   
-  if (cMsgDomains[domainId].initComplete != 1) {
+  if (domain->initComplete != 1) {
     connectReadUnlock();
     return(CMSG_NOT_INITIALIZED);
   }
-  if (cMsgDomains[domainId].lostConnection == 1) {
+  if (domain->lostConnection == 1) {
     connectReadUnlock();
     return(CMSG_LOST_CONNECTION);
   }
@@ -688,11 +688,11 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
  
   connectReadLock();
 
-  if (cMsgDomains[domainId].initComplete != 1) {
+  if (domain->initComplete != 1) {
     connectReadUnlock();
     return(CMSG_NOT_INITIALIZED);
   }
-  if (cMsgDomains[domainId].lostConnection == 1) {
+  if (domain->lostConnection == 1) {
     connectReadUnlock();
     return(CMSG_LOST_CONNECTION);
   }
@@ -874,11 +874,11 @@ static int codaSubscribeAndGet(int domainId, char *subject, char *type,
            
   connectReadLock();
 
-  if (cMsgDomains[domainId].initComplete != 1) {
+  if (domain->initComplete != 1) {
     connectReadUnlock();
     return(CMSG_NOT_INITIALIZED);
   }
-  if (cMsgDomains[domainId].lostConnection == 1) {
+  if (domain->lostConnection == 1) {
     connectReadUnlock();
     return(CMSG_LOST_CONNECTION);
   }
@@ -1107,11 +1107,11 @@ static int codaSendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
            
   connectReadLock();
 
-  if (cMsgDomains[domainId].initComplete != 1) {
+  if (domain->initComplete != 1) {
     connectReadUnlock();
     return(CMSG_NOT_INITIALIZED);
   }
-  if (cMsgDomains[domainId].lostConnection == 1) {
+  if (domain->lostConnection == 1) {
     connectReadUnlock();
     return(CMSG_LOST_CONNECTION);
   }
@@ -1446,8 +1446,8 @@ static int codaFlush(int domainId) {
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   int fd = domain->sendSocket;
 
-  if (cMsgDomains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (cMsgDomains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
+  if (domain->initComplete != 1)   return(CMSG_NOT_INITIALIZED);
+  if (domain->lostConnection == 1) return(CMSG_LOST_CONNECTION);
 
   /* turn file descriptor into FILE pointer */
   file = fdopen(fd, "w");
@@ -1508,11 +1508,11 @@ static int codaSubscribe(int domainId, char *subject, char *type, cMsgCallback *
   
   connectReadLock();
 
-  if (cMsgDomains[domainId].initComplete != 1) {
+  if (domain->initComplete != 1) {
     connectReadUnlock();
     return(CMSG_NOT_INITIALIZED);
   }
-  if (cMsgDomains[domainId].lostConnection == 1) {
+  if (domain->lostConnection == 1) {
     connectReadUnlock();
     return(CMSG_LOST_CONNECTION);
   }
@@ -1760,11 +1760,11 @@ static int codaUnsubscribe(int domainId, char *subject, char *type, cMsgCallback
  
   connectReadLock();
 
-  if (cMsgDomains[domainId].initComplete != 1) {
+  if (domain->initComplete != 1) {
     connectReadUnlock();
     return(CMSG_NOT_INITIALIZED);
   }
-  if (cMsgDomains[domainId].lostConnection == 1) {
+  if (domain->lostConnection == 1) {
     connectReadUnlock();
     return(CMSG_LOST_CONNECTION);
   }
@@ -1937,7 +1937,7 @@ static int codaDisconnect(int domainId) {
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   int fd = domain->sendSocket;
 
-  if (cMsgDomains[domainId].initComplete != 1) return(CMSG_NOT_INITIALIZED);
+  if (domain->initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
   /* When changing initComplete / connection status, protect it */
   connectWriteLock();
@@ -1960,7 +1960,7 @@ static int codaDisconnect(int domainId) {
  
   socketMutexUnlock(domain);
 
-  cMsgDomains[domainId].lostConnection = 1;
+  domain->lostConnection = 1;
   
   /* close sending and listening sockets */
   close(domain->sendSocket);
@@ -2023,10 +2023,10 @@ static int codaSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, vo
   
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
 
-  if (cMsgDomains[domainId].initComplete != 1) return(CMSG_NOT_INITIALIZED);
+  if (domain->initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
-  cMsgDomains[domainId].shutdownHandler = handler;
-  cMsgDomains[domainId].shutdownUserArg = userArg;
+  domain->shutdownHandler = handler;
+  domain->shutdownUserArg = userArg;
       
   return CMSG_OK;
 }
@@ -2052,7 +2052,7 @@ static int codaSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, vo
  */
 static int codaShutdown(int domainId, char *client, char *server, int flag) {
   
-  int status, cLen, sLen, outGoing[4];
+  int cLen, sLen, outGoing[4];
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   int fd = domain->sendSocket;
 
@@ -2060,7 +2060,7 @@ static int codaShutdown(int domainId, char *client, char *server, int flag) {
     return(CMSG_NOT_IMPLEMENTED);
   } 
   
-  if (cMsgDomains[domainId].initComplete != 1) return(CMSG_NOT_INITIALIZED);
+  if (domain->initComplete != 1) return(CMSG_NOT_INITIALIZED);
       
   connectWriteLock();
     
@@ -2685,7 +2685,7 @@ static void *supplementalThread(void *arg)
  */
 int cMsgRunCallbacks(int domainId, cMsgMessage *msg) {
 
-  int i, j, k, ii, status;
+  int i, j, k, status;
   subscribeCbInfo *subscription;
   getInfo *info;
   cMsgDomain_CODA *domain;
