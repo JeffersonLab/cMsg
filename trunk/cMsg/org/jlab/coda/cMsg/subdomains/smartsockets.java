@@ -95,9 +95,12 @@ public class smartsockets extends cMsgSubdomainAdapter {
                 cmsg.setReceiverHost(myClientInfo.getClientHost());
                 cmsg.setReceiverTime(new Date());
                 cmsg.setReceiverSubscribeId(((Integer)arg).intValue());
+
                 cmsg.setSubject(msg.getDest());
                 cmsg.setType(msg.getType().getName());
                 cmsg.setText(msg.nextStr());
+                cmsg.setUserInt(msg.getUserProp());
+                cmsg.setPriority(msg.getPriority());
 
                 subscribeList.add((Integer)arg);  // add receiver subscribe ID to list
                 deliverMessage(myClientInfo.getChannel(),myBuffer,cmsg,subscribeList,cMsgConstants.msgSubscribeResponse);
@@ -146,51 +149,6 @@ public class smartsockets extends cMsgSubdomainAdapter {
      */
     public boolean hasSend() {
         return true;
-    };
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to tell if the "subscribeAndGet" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSubscribeAndGetRequest}
-     * method.
-     *
-     * @return true if subscribeAndGet implemented in {@link #handleSubscribeAndGetRequest}
-     */
-    public boolean hasSubscribeAndGet() {
-        return false;
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to tell if the "sendAndGet" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendAndGetRequest}
-     * method.
-     *
-     * @return true if sendAndGet implemented in {@link #handleSendAndGetRequest}
-     */
-    public boolean hasSendAndGet() {
-        return false;
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to tell if the "syncSend" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSyncSendRequest}
-     * method.
-     *
-     * @return true if send implemented in {@link #handleSyncSendRequest}
-     */
-    public boolean hasSyncSend() {
-        return false;
     };
 
 
@@ -328,6 +286,8 @@ public class smartsockets extends cMsgSubdomainAdapter {
         try {
             TipcMsg ssMsg = TipcSvc.createMsg(mt);
             ssMsg.setDest(msg.getSubject());
+            ssMsg.setUserProp(msg.getUserInt());
+            ssMsg.setPriority((short)msg.getPriority());
             ssMsg.setSenderTimestamp(msg.getSenderTime().getTime()/1000);
             ssMsg.appendStr(msg.getText());
             mySrv.send(ssMsg);
@@ -339,22 +299,6 @@ public class smartsockets extends cMsgSubdomainAdapter {
             throw ce;
         }
 
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle message sent by domain client in synchronous mode.
-     * It requries an integer response from the subdomain handler.
-     *
-     * @param msg message from sender
-     * @return response from subdomain handler
-     * @throws cMsgException
-     */
-    public int handleSyncSendRequest(cMsgMessageFull msg) throws cMsgException {
-        return(0);  // do nothing
     }
 
 
@@ -480,78 +424,6 @@ public class smartsockets extends cMsgSubdomainAdapter {
 //-----------------------------------------------------------------------------
 
     /**
-     * Method to synchronously get a single message from a receiver by sending out a
-     * message to be responded to.
-     *
-     * @param message message requesting what sort of message to get
-     */
-    public void handleSendAndGetRequest(cMsgMessageFull message) {
-        // do nothing
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to synchronously get a single message from the server for a one-time
-     * subscription of a subject and type.
-     *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id      message id refering to these specific subject and type values
-     */
-    public void handleSubscribeAndGetRequest(String subject, String type, int id) {
-        // no nothing
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle remove sendAndGet request sent by domain client
-     * (hidden from user).
-     *
-     * @param id message id refering to these specific subject and type values
-     */
-    public void handleUnSendAndGetRequest(int id) {
-        // do nothing
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle remove subscribeAndGet request sent by domain client
-     * (hidden from user).
-     *
-     * @param id message id refering to these specific subject and type values
-     */
-    public void handleUnSubscribeAndGetRequest(int id) {
-        // do nothing
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle keepalive sent by domain client checking to see
-     * if the domain server socket is still up. Normally nothing needs to
-     * be done as the domain server simply returns an "OK" to all keepalives.
-     * This method is run after all exchanges between domain server and client.
-     */
-    public void handleKeepAlive() {
-        // do nothing...
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
      * Method to handle a client shutdown.
      *
      * @throws cMsgException
@@ -569,18 +441,5 @@ public class smartsockets extends cMsgSubdomainAdapter {
 
 
 //-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle a complete name server down.
-     * This method is run after all exchanges between domain server and client but
-     * before the server is killed (since that is what is running this
-     * method).
-     */
-    public void handleServerShutdown() throws cMsgException {
-    }
-
+//-----------------------------------------------------------------------------
 }
-
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
