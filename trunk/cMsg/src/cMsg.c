@@ -266,33 +266,9 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
 
     oneTimeInitialized = 1;
   }
-
-  
-  /* find an existing connection to this domain if possible */
-  for (i=0; i<MAX_DOMAINS; i++) {
-    if (domains[i].initComplete == 1   &&
-        domains[i].name        != NULL &&
-        domains[i].udl         != NULL)  {
-        
-      if ( (strcmp(domains[i].name, myName) == 0)  &&
-           (strcmp(domains[i].udl,  myUDL ) == 0) )  {
-        /* got a match */
-        id = i;
-        break;
-      }  
-    }
-  }
   
 
-  /* found the id of a valid connection - return that */
-  if (id > -1) {
-    *domainId = id + DOMAIN_ID_OFFSET;
-    connectMutexUnlock();
-    return(CMSG_OK);
-  }
-  
-
-  /* no existing connection, so find the first available place in the "domains" array */
+  /* find the first available place in the "domains" array */
   for (i=0; i<MAX_DOMAINS; i++) {
     if (domains[i].initComplete > 0) {
       continue;
@@ -378,7 +354,7 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
- * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSend
  */   
@@ -419,7 +395,7 @@ int cMsgSend(int domainId, void *msg) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
- * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSyncSend
  */   
@@ -455,7 +431,7 @@ int cMsgSyncSend(int domainId, void *msg, int *response) {
  * @param domainId id number of the domain connection
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgFlush
  */   
@@ -488,7 +464,7 @@ int cMsgFlush(int domainId) {
  * @param config pointer to callback configuration structure
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
  * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSubscribe
@@ -526,7 +502,7 @@ int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callbac
  * @param callback pointer to callback to be removed
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
  * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgUnSubscribe
@@ -570,7 +546,7 @@ int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callb
  * @param replyMsg message received from the responder
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
  * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSendAndGet
@@ -610,7 +586,7 @@ int cMsgSendAndGet(int domainId, void *sendMsg, struct timespec *timeout, void *
  * @param replyMsg message received
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
  * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSendAndGet
@@ -644,7 +620,7 @@ int cMsgSubscribeAndGet(int domainId, char *subject, char *type,
  * @param domainId id number of the domain connection
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
  */   
 int cMsgReceiveStart(int domainId) {
 
@@ -674,7 +650,7 @@ int cMsgReceiveStart(int domainId) {
  * @param domainId id number of the domain connection
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
  */   
 int cMsgReceiveStop(int domainId) {
 
@@ -702,7 +678,7 @@ int cMsgReceiveStop(int domainId) {
  * @param domainId id number of the domain connection
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
  */   
 int cMsgDisconnect(int domainId) {
   
@@ -725,6 +701,57 @@ int cMsgDisconnect(int domainId) {
 }
 
 
+/*-------------------------------------------------------------------*/
+/*   shutdown handler functions                                      */
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine sets the shutdown handler function.
+ *
+ * @param domainId id number of the domain connection
+ * @param handler shutdown handler function
+ * @param userArg argument to shutdown handler 
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
+ */   
+int cMsgSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, void *userArg) {
+  
+  int id = domainId - DOMAIN_ID_OFFSET;
+  
+  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
+    
+  return(domains[id].functions->setShutdownHandler(domains[id].implId, handler, userArg));
+}
+
+/*-------------------------------------------------------------------*/
+
+/**
+ * Method to shutdown the given clients and/or servers.
+ *
+ * @param domainId id number of the domain connection
+ * @param client client(s) to be shutdown
+ * @param server server(s) to be shutdown
+ * @param flag   flag describing the mode of shutdown: 0 to not include self,
+ *               CMSG_SHUTDOWN_INCLUDE_ME to include self in shutdown.
+ * 
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
+ * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
+ */
+int cMsgShutdown(int domainId, char *client, char *server, int flag) {
+  
+  int id = domainId - DOMAIN_ID_OFFSET;
+
+  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
+  if (flag != 0 && flag!= CMSG_SHUTDOWN_INCLUDE_ME) return(CMSG_BAD_ARGUMENT);
+    
+  return(domains[id].functions->shutdown(domains[id].implId, client, server, flag));
+
+}
+
+/*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
 
@@ -2561,8 +2588,6 @@ int cMsgSubscribeGetMessagesPerThread(cMsgSubscribeConfig *config, int *mpt) {
 }
 
 /*-------------------------------------------------------------------*/
-/*-------------------------------------------------------------------*/
-
 
 #ifdef __cplusplus
 }
