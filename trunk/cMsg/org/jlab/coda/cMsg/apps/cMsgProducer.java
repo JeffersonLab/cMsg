@@ -2,7 +2,7 @@ package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessage;
-import org.jlab.coda.cMsg.coda.cMsgCoda;
+import org.jlab.coda.cMsg.cMsg.cMsgCoda;
 
 /**
  * Created by IntelliJ IDEA.
