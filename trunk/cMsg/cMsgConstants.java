@@ -128,5 +128,7 @@ public class cMsgConstants {
   public static final int    errorOutOfRange         = 15;
   /** Error specifying a limit was exceeded. */
   public static final int    errorLimitExceeded      = 16;
+  /** Error specifying different domain type than expected. */
+  public static final int    errorWrongDomainType    = 17;
 
 }
