@@ -140,9 +140,6 @@ void *cMsgClientListeningThread(void *arg)
   
   int domainId;
   
-  addrlen  = sizeof(cliaddr);
-  domainId = threadArg->domainId;
-    
   /* increase concurrency for this thread for early Solaris */
 #ifdef sun
   int  con;
@@ -150,6 +147,9 @@ void *cMsgClientListeningThread(void *arg)
   thr_setconcurrency(con + 1);
 #endif
 
+  addrlen  = sizeof(cliaddr);
+  domainId = threadArg->domainId;
+    
   /* client thread info needs to be initialized */
   for (i=0; i<CMSG_CLIENTSMAX; i++) {
     clientThreads[i].isUsed = 0;
