@@ -31,6 +31,7 @@ import org.jlab.coda.cMsg.cMsgConstants;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.sql.*;
+import java.util.*;
 import java.util.regex.*;
 import java.util.Date;
 
@@ -50,9 +51,9 @@ import java.util.Date;
  * stores/retrieves cMsgMessageFull messages from SQL database.
  * Gets database parameters from UDL.
  *
- * Checked using mySQL.
+ * Works with mySQL.
  *
- * @author Elliott Wolin
+ * @author Elliiott Wolin
  * @version 1.0
  *
  */
@@ -69,6 +70,10 @@ public class queue extends cMsgSubdomainAbstract {
 
     /** direct buffer needed for nio socket IO. */
     private ByteBuffer myBuffer = ByteBuffer.allocateDirect(2048);
+
+
+    /** linked hash map stores column names and datat types. */
+    LinkedHashMap<String,String> myColumnInfo = new LinkedHashMap<String,String>(15);
 
 
     // database access objects
@@ -212,6 +217,10 @@ public class queue extends cMsgSubdomainAbstract {
         String password = null;
 
 
+        // get column names from message system
+        cMsgMessage.getMsgFieldsAndTypes(myColumnInfo);
+
+
         // extract queue name from UDL remainder
         if(myUDLRemainder.indexOf("?")>0) {
             p = Pattern.compile("^(.+?)(\\?.*)$");
@@ -319,12 +328,20 @@ public class queue extends cMsgSubdomainAbstract {
         // create table if it doesn't exist
         if(!tableExists) {
             if(myDBType.equalsIgnoreCase("mysql")) {
-//                 sql = cMsgMessageFull.createTableString(myTableName,"auto_increment primary key","datetime","text","");
-//             } else {
-//                 sql = cMsgMessageFull.createTableString(myTableName,"","time","clob","");
+                sql="create table " + myTableName + " (id int not null primary key";
+                for(String c : myColumnInfo.keySet()) {
+                    sql+=", " + c + " " + myColumnInfo.get(c);
+                }
+                sql+=")";
+            } else {
+                sql="create table " + myTableName + " (id int not null";
+                for(String c : myColumnInfo.keySet()) {
+                    sql+=", " + c + " " + myColumnInfo.get(c);
+                }
+                sql+=")";
             }
-
             try {
+                System.out.println("create:  " + sql);
                 myStmt.executeUpdate(sql);
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -336,12 +353,23 @@ public class queue extends cMsgSubdomainAbstract {
 
 
         // create prepared statement
+        String sqlbeg,sqlend;
         if(myDBType.equalsIgnoreCase("mysql")) {
-//             sql = cMsgMessageFull.createPreparedStatementString(myTableName,"delayed",false);
-//         } else {
-//             sql = cMsgMessageFull.createPreparedStatementString(myTableName,"",true);
+            sqlbeg = "insert delayed into " + myTableName + " (";
+            sqlend = ") values (";
+        } else {
+            sqlbeg = "insert into " + myTableName + " (id";
+            sqlend = ") values (?,";
         }
+        for(String c : myColumnInfo.keySet()) {
+            sqlbeg+=c+",";
+            sqlend+="?,";
+        }
+
+        sql=sqlbeg.substring(0,sqlbeg.length()-1)+sqlend.substring(0,sqlend.length()-1)+")";
+
         try {
+            System.out.println("prepare:  " + sql);
             myCon.prepareStatement(sql);
         } catch (SQLException e) {
             e.printStackTrace();
@@ -349,6 +377,19 @@ public class queue extends cMsgSubdomainAbstract {
             ce.setReturnCode(1);
             throw ce;
         }
+
+//     /**
+//       * Returns SQL preparted statement string for message.
+//       */
+//     public void fillPreparedStatement(PreparedStatement pStmt, boolean setID) {
+
+// //             msg.setReceiver("cMsg:queue");
+// //             new java.sql.Timestamp(msg.getSenderTime().getTime()));
+// //        pStmt.set(2,this.get());
+
+//     }
+
+
 
     }
 
