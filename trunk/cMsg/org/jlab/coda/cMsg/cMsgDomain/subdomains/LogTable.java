@@ -272,13 +272,6 @@ public class LogTable implements org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequest
     
 
     /**
-     * Method to unregister domain client.
-     */
-    public void unregisterClient() {
-    }
-
-
-    /**
      * Method to handle message sent by client.
      * Inserts message into SQL database table via JDBC.
      *
@@ -391,17 +384,6 @@ public class LogTable implements org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequest
      */
     public void handleKeepAlive() {
         // do nothing...
-    }
-
-
-    /**
-     * Method to handle a disconnect request sent by domain client.
-     * Normally nothing needs to be done as the domain server simply returns an
-     * "OK" and closes the channel. This method is run after all exchanges between
-     * domain server and client.
-     */
-    public void handleDisconnect() {
-	// do nothing...
     }
 
 
