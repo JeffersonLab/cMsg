@@ -52,7 +52,7 @@ public class cMsgDomainServer extends Thread {
     private String host;
 
     /** Keep reference to cMsg name server which created this object. */
-    private cMsgHandleRequests clientHandler;
+    private cMsgSubdomainHandler clientHandler;
 
     /** Level of debug output for this class. */
     private int debug = cMsgConstants.debugNone;
@@ -134,7 +134,7 @@ public class cMsgDomainServer extends Thread {
      *
      * @return client handler object
      */
-    public cMsgHandleRequests getClientHandler() {
+    public cMsgSubdomainHandler getClientHandler() {
         return clientHandler;
     }
 
@@ -147,7 +147,7 @@ public class cMsgDomainServer extends Thread {
      * @param startingPort suggested port on which to starting listening for connections
      * @throws cMsgException If a port to listen on could not be found
      */
-    public cMsgDomainServer(cMsgHandleRequests handler, cMsgClientInfo info, int startingPort) throws cMsgException {
+    public cMsgDomainServer(cMsgSubdomainHandler handler, cMsgClientInfo info, int startingPort) throws cMsgException {
         this.clientHandler = handler;
         // Port number to listen on
         port = startingPort;
@@ -197,13 +197,13 @@ public class cMsgDomainServer extends Thread {
         }
 
         // fill in info members
-        info.domainPort = port;
+        info.setDomainPort(port);
         try {
             host = InetAddress.getLocalHost().getHostName();
         }
         catch (UnknownHostException ex) {
         }
-        info.domainHost = host;
+        info.setDomainHost(host);
 
         // Start thread to monitor client's health.
         // If he dies, kill this thread.
@@ -276,7 +276,7 @@ public class cMsgDomainServer extends Thread {
 
                         if (debug >= cMsgConstants.debugInfo) {
                             System.out.println("cMsgDomainServer: new connection from " +
-                                               info.name + "\n");
+                                               info.getName() + "\n");
                         }
                     }
 
@@ -412,7 +412,7 @@ public class cMsgDomainServer extends Thread {
 
             default:
                 if (debug >= cMsgConstants.debugWarn) {
-                    System.out.println("dServer handleClient: can't understand your message " + info.name);
+                    System.out.println("dServer handleClient: can't understand your message " + info.getName());
                 }
                 break;
         }
@@ -519,8 +519,8 @@ public class cMsgDomainServer extends Thread {
           msg.setReceiver("cMsg domain server");
           msg.setReceiverHost(host);
           msg.setReceiverTime(new Date()); // current time
-          msg.setSender(info.name);
-          msg.setSenderHost(info.clientHost);
+          msg.setSender(info.getName());
+          msg.setSenderHost(info.getClientHost());
 
           return new cMsgHolder(msg);
       }
@@ -598,8 +598,8 @@ public class cMsgDomainServer extends Thread {
           msg.setReceiver("cMsg domain server");
           msg.setReceiverHost(host);
           msg.setReceiverTime(new Date()); // current time
-          msg.setSender(info.name);
-          msg.setSenderHost(info.clientHost);
+          msg.setSender(info.getName());
+          msg.setSenderHost(info.getClientHost());
 
           return new cMsgHolder(msg);
       }
@@ -786,7 +786,7 @@ public class cMsgDomainServer extends Thread {
 
                         default:
                             if (debug >= cMsgConstants.debugWarn) {
-                                System.out.println("dServer handleClient: can't understand your message " + info.name);
+                                System.out.println("dServer handleClient: can't understand your message " + info.getName());
                             }
                             break;
                     }

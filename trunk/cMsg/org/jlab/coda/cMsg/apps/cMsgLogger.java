@@ -25,7 +25,6 @@ import java.lang.*;
 import java.sql.*;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgDomain.cMsg;
 
 /**
  * Class to log cMsg message to a database.

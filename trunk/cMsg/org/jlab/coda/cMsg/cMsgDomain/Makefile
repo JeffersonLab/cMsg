@@ -21,8 +21,8 @@ JAVA_OBJS = \
 	cMsgSubscription.class \
 	cMsgClientListeningThread.class \
 	cMsgMonitorClient.class \
-	cMsgHandleRequests.class \
-	cMsgHandleRequestsAbstract.class \
+	cMsgSubdomainHandler.class \
+	cMsgSubdomainAdapter.class \
 	cMsgNameServer.class \
 	cMsgDomainServer.class \
 	cMsg.class

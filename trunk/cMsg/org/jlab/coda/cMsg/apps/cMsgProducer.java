@@ -3,7 +3,6 @@ package org.jlab.coda.cMsg.apps;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgConnect;
-import org.jlab.coda.cMsg.cMsgDomain.cMsg;
 
 /**
  * Created by IntelliJ IDEA.
