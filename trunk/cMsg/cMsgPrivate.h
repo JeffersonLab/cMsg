@@ -44,7 +44,7 @@ extern int cMsgDebug;
 
 /* holds domain implementation function pointers */
 typedef struct domainFunctions_t {
-  int (*connect)    (char *udl, char *name, char *description, int *domainId); 
+  int (*connect)    (char *udl, char *name, char *description, char *UDLremainder, int *domainId); 
   int (*send)       (int domainId, void *msg);
   int (*syncSend)   (int domainId, void *msg, int *response);
   int (*flush)      (int domainId);
@@ -74,10 +74,11 @@ typedef struct cMsgDomain_t {
   int initComplete; /* init state: 0 = No, 1 = Yes */
   int receiveState; /* receiving callback messages? 0 = No, 1 = Yes */
   
-  char *type;        /* domain type (coda, JMS, SmartSockets, etc.) */
-  char *name;        /* name of user (this program) */
-  char *udl;         /* UDL of cMsg name server */
-  char *description; /* user description */
+  char *type;          /* domain type (coda, JMS, SmartSockets, etc.) */
+  char *name;          /* name of user (this program) */
+  char *udl;           /* UDL of cMsg name server */
+  char *description;   /* user description */
+  char *UDLremainder;  /* UDL with initial "cMsg:domain://" stripped off */
     
   /* pointer to a struct contatining pointers to domain implementation functions */
   domainFunctions *functions;
