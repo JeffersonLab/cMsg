@@ -214,6 +214,9 @@ public class cMsgNameServer extends Thread {
             else if (subdomain.equalsIgnoreCase("smartsockets")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.subdomains.smartsockets";
             }
+            else if (subdomain.equalsIgnoreCase("FileQueue")) {
+                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.FileQueue";
+            }
         }
 
         // all options are exhaused, throw error
