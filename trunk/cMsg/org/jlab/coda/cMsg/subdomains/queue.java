@@ -314,6 +314,7 @@ public class queue extends cMsgSubdomainAdapter {
 
             myPStmt.setInt(i++,       (msg.isGetRequest()?1:0));
             myPStmt.setInt(i++,       (msg.isGetResponse()?1:0));
+            myPStmt.setInt(i++,       (msg.isNullGetResponse()?1:0));
 
             myPStmt.setString(i++,    msg.getCreator());
             myPStmt.setString(i++,    msg.getSender());
@@ -484,7 +485,7 @@ public class queue extends cMsgSubdomainAdapter {
             if(type.equalsIgnoreCase("mysql")) {
                 sql="create table " + myTableName + " (id int not null primary key auto_increment" +
                     "version int, domain varchar(255), sysMsgId int," +
-                    "getRequest int, getResponse int," +
+                    "getRequest int, getResponse int, nullGetResponse int," +
                     "creator varcher(128, sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
                     "userInt int, userTime datetime, priority int," +
                     "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
@@ -496,7 +497,7 @@ public class queue extends cMsgSubdomainAdapter {
                 myStmt.executeUpdate("create sequence " + seq);
                 sql="create table " + myTableName + " (id int not null primary key default nextval('" + seq + "')," +
                     "version int, domain varchar(255), sysMsgId int," +
-                    "getRequest int, getResponse int," +
+                    "getRequest int, getResponse int, nullGetResponse int," +
                     "creator varchar(128), sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
                     "userInt int, userTime datetime, priority int," +
                     "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
@@ -520,14 +521,14 @@ public class queue extends cMsgSubdomainAdapter {
 
         String sql = "insert into " + myTableName + " (" +
             "version,domain,sysMsgId," +
-            "getRequest,getResponse," +
+            "getRequest,getResponse,nullGetResponse," +
             "creator,sender,senderHost,senderTime,senderToken," +
             "userInt,userTime,priority," +
             "receiver,receiverHost,receiverTime,receiverSubscribeId," +
             "subject,type,text" +
             ") values (" +
             "?,?,?," +
-            "?,?," +
+            "?,?,?," +
             "?,?,?,?,?," +
             "?,?,?," +
             "?,?,?,?," +
