@@ -17,14 +17,15 @@
 package org.jlab.coda.cMsg;
 
 /**
- * This class provides a very basic (non-functional/dummy) implementation of the cMsg interface.
- * Its non-getter/setter methods throw a cMsgException saying that the method is not implemented.
- * It is like the swing Adapter classes.
+ * This class provides a very basic (non-functional/dummy) implementation
+ * of the cMsgInterface interface. Its non-getter/setter methods throw a
+ * cMsgException saying that the method is not implemented. It is like the
+ * swing Adapter classes.
  *
  * @author Carl Timmer
  * @version 1.0
  */
-public class cMsgImpl implements cMsg {
+public class cMsgImpl implements cMsgInterface {
 
     /** Boolean indicating whether this client is connected to the domain server or not. */
     protected volatile boolean connected;
@@ -34,7 +35,7 @@ public class cMsgImpl implements cMsg {
 
     /**
      * The Uniform Domain Locator which tells the location of a name server. It is of the
-     * form domain://host:port/remainder
+     * form cMsg:<domain>://<host>:<port>/<subdomain>/remainder
      */
     protected String  UDL;
 
@@ -43,6 +44,9 @@ public class cMsgImpl implements cMsg {
 
     /** Domain being connected to. */
     protected String  domain;
+
+    /** Subdomain whose plugin is being used. */
+    protected String  subdomain;
 
     /** Name of this client. Must be unique in the domain. */
     protected String  name;
@@ -206,6 +210,16 @@ public class cMsgImpl implements cMsg {
      * @return domain name
      */
     public String getDomain() {return(domain);}
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Get the name of the subdomain whose plugin is being used.
+     * @return subdomain name
+     */
+    public String getSubdomain() {return(subdomain);}
 
 
 //-----------------------------------------------------------------------------
