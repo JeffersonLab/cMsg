@@ -1,6 +1,7 @@
 // still to do:
 //   server shutdown
-
+//   C-c in client doesn't kill connection?
+//   cMsgException error codes
 
 
 /*----------------------------------------------------------------------------*
@@ -105,10 +106,10 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
 		deliverMessage(myClientInfo.getChannel(),myBuffer,cmsg,subscribeList,cMsgConstants.msgSubscribeResponse);
 
 	    } catch (TipcException e) {
-		System.out.println(e);
+		System.err.println(e);
 
 	    } catch (IOException e) {
-		System.out.println(e);
+		System.err.println(e);
 	    }
 	}
     }
@@ -122,8 +123,9 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
 		    mySrv.mainLoop(0.5);
  		}
 	    } catch (TipcException e) {
-		System.out.println(e);
+		System.err.println(e);
 	    }
+	    System.out.println("...main loop done");
 	}
     }
 
@@ -258,6 +260,8 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
 	    if(!mySrv.create())throw new cMsgException("?unable to connect to server");
 
 	} catch (TipcException e) {
+	    e.printStackTrace();
+	    System.err.println(e);
 	    cMsgException ce = new cMsgException(e.toString());
 	    ce.setReturnCode(1);
 	    throw ce;
@@ -405,7 +409,7 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
 
 
 	// create and register callback
-	cb=mySrv.addProcessCb(new ProcessCb(),mt,subject,new Integer(receiverSubscribeId));
+	cb=mySrv.addProcessCb(new ProcessCb(),mt,subject,receiverSubscribeId);
 	if(cb==null) {
 	    cMsgException ce = new cMsgException("?unable to create callback");
 	    ce.setReturnCode(1);
@@ -414,7 +418,7 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
 
 
 	// hash callbacks by id
-	callbacks.put(new Integer(receiverSubscribeId),cb);
+	callbacks.put(receiverSubscribeId,cb);
 
 	return;
     }
@@ -433,13 +437,12 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
      */
     public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId) {
 	try {
-	    Integer I = new Integer(receiverSubscribeId);
-	    if(callbacks.containsKey(I)) {
-		mySrv.removeProcessCb((TipcCb)callbacks.get(I));
-		callbacks.remove(I);
+	    if(callbacks.containsKey(receiverSubscribeId)) {
+		mySrv.removeProcessCb((TipcCb)callbacks.get(receiverSubscribeId));
+		callbacks.remove(receiverSubscribeId);
 	    }		
 	} catch (TipcException e) {
-	    System.out.println("?unable to unsubscribe from subject " + subject);
+	    System.err.println("?unable to unsubscribe from subject " + subject);
 	}
 
 
@@ -454,7 +457,7 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
 		try {
 		    mySrv.setSubjectSubscribe(subject,false);
 		} catch (TipcException e) {
-		    System.out.println("?unable to unsubscribe from subject " + subject);
+		    System.err.println("?unable to unsubscribe from subject " + subject);
 		}
 	    }
 	}
@@ -512,9 +515,11 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
      */
     public void handleClientShutdown() throws cMsgException {
 	done=true;
+	System.out.println("...shutdown for client " + myClientInfo.getName());
 	try {
 	    mySrv.destroy(TipcSrv.CONN_NONE);
 	} catch (TipcException e) {
+	    System.err.println(e);
 	}
     }
 
