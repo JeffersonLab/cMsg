@@ -20,7 +20,7 @@
 #ifndef __cMsgDomain_h
 #define __cMsgDomain_h
 
-#include "cMsg.h"
+#include "cMsgPrivate.h"
 
 #ifdef	__cplusplus
 extern "C" {
