@@ -55,10 +55,12 @@ doc:  javadoc doxygen
 
 
 javadoc:
-	javah -package org.jlab.coda.cMsg
-	javah -package org.jlab.coda.cMsg.cMsgDomain
-	javah -package org.jlab.coda.cMsg.cMsgDomain.subdomains
-	javah -package org.jlab.coda.cMsg.apps
+	javadoc -d doc/javadoc org.jlab.coda.cMsg
+##	javah -package org.jlab.coda.cMsg
+##	javah -package org.jlab.coda.cMsg.cMsgDomain
+##	javah -package org.jlab.coda.cMsg.cMsgDomain.subdomains
+##	javah -package org.jlab.coda.cMsg.apps
+
 
 doxygen:
 	doxygen doc/doxygen/Doxyfile
