@@ -88,6 +88,55 @@ public class cMsg implements cMsgHandleRequests {
     }
 
     /**
+     * Method to tell if the "send" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleSendRequest}
+     * method.
+     *
+     * @return true if send implemented in {@link #handleSendRequest}
+     */
+    public boolean hasSend() {return true;};
+
+
+    /**
+     * Method to tell if the "syncSsend" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleSyncSendRequest}
+     * method.
+     *
+     * @return true if send implemented in {@link #handleSyncSendRequest}
+     */
+    public boolean hasSyncSend() {return false;};
+
+
+    /**
+     * Method to tell if the "get" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleGetRequest}
+     * method.
+     *
+     * @return true if get implemented in {@link #handleGetRequest}
+     */
+    public boolean hasGet() {return false;};
+
+
+    /**
+     * Method to tell if the "subscribe" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleSubscribeRequest}
+     * method.
+     *
+     * @return true if subscribe implemented in {@link #handleSubscribeRequest}
+     */
+    public boolean hasSubscribe() {return true;};
+
+
+    /**
+     * Method to tell if the "unsubscribe" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleUnsubscribeRequest}
+     * method.
+     *
+     * @return true if unsubscribe implemented in {@link #handleUnsubscribeRequest}
+     */
+    public boolean hasUnsubscribe() {return true;};
+
+    /**
       * Method to give the subdomain handler the appropriate part
       * of the UDL the client used to talk to the domain server.
       *
@@ -226,6 +275,20 @@ public class cMsg implements cMsgHandleRequests {
                 continue;
             }
         }
+    }
+
+
+    /**
+     * Method to handle message sent by domain client in synchronous mode.
+     * It requires a synchronous integer response from this object but is
+     * not implemented in the cMsg (this) subdomain. It's here only in order
+     * to implement the required interface.
+     *
+     * @param msg message from sender
+     * @return response from this object
+     */
+    public int handleSyncSendRequest(cMsgMessage msg) {
+        return 0;
     }
 
 
