@@ -111,7 +111,7 @@ public class cMsgConsumer {
         coda.start();
 
         System.out.println("Subscribe to subject = " + subject + ", type = " + type);
-        cMsgCallback cb = new myCallback();
+        cMsgCallbackInterface cb = new myCallback();
         coda.subscribe(subject, type, cb, null);
 
 

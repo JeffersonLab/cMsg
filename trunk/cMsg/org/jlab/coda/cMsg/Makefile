@@ -18,13 +18,13 @@ JAVA_OBJS = \
 	cMsgMessageFull.class \
 	cMsgConstants.class \
 	cMsgClientInfo.class \
-	cMsgCallback.class \
+	cMsgCallbackInterface.class \
 	cMsgCallbackAdapter.class \
-	cMsgSubdomainHandler.class\
+	cMsgSubdomainInterface.class\
 	cMsgSubdomainAbstract.class \
 	cMsgConnect.class \
-	cMsgInterface.class \
-	cMsgAdapter.class
+	cMsgDomainInterface.class \
+	cMsgDomainAdapter.class
 
 all: $(JAVA_OBJS)
 

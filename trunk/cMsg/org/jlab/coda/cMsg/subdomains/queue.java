@@ -22,11 +22,7 @@
 
 package org.jlab.coda.cMsg.subdomains;
 
-import org.jlab.coda.cMsg.cMsgMessageFull;
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgSubdomainAbstract;
-import org.jlab.coda.cMsg.cMsgClientInfo;
-import org.jlab.coda.cMsg.cMsgConstants;
+import org.jlab.coda.cMsg.*;
 
 import java.nio.ByteBuffer;
 import java.io.IOException;

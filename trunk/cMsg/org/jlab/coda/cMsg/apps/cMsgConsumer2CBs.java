@@ -157,19 +157,19 @@ public class cMsgConsumer2CBs {
         coda.start();
 
         System.out.println("Subscribe to subject = " + subject1 + ", type = " + type1);
-        cMsgCallback cb1 = new cMsgConsumer2CBs.myCallback1();
+        cMsgCallbackInterface cb1 = new cMsgConsumer2CBs.myCallback1();
         coda.subscribe(subject1, type1, cb1, null);
 
         System.out.println("Subscribe to subject = " + subject2 + ", type = " + type2);
-        cMsgCallback cb2 = new cMsgConsumer2CBs.myCallback2();
+        cMsgCallbackInterface cb2 = new cMsgConsumer2CBs.myCallback2();
         coda.subscribe(subject2, type2, cb2, null);
 
         System.out.println("Subscribe to subject = " + subject3 + ", type = " + type3);
-        cMsgCallback cb3 = new cMsgConsumer2CBs.myCallback3();
+        cMsgCallbackInterface cb3 = new cMsgConsumer2CBs.myCallback3();
         coda.subscribe(subject3, type3, cb3, null);
 
         System.out.println("Subscribe to subject = " + subject4 + ", type = " + type4);
-        cMsgCallback cb4 = new cMsgConsumer2CBs.myCallback4();
+        cMsgCallbackInterface cb4 = new cMsgConsumer2CBs.myCallback4();
         coda.subscribe(subject4, type4, cb4, null);
 
 

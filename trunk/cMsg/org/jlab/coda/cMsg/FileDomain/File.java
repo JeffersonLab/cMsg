@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
  * @author Elliott Wolin
  * @version 1.0
  */
-public class File extends cMsgAdapter {
+public class File extends cMsgDomainAdapter {
 
     private String myFileName;
     private PrintWriter myPrintHandle;

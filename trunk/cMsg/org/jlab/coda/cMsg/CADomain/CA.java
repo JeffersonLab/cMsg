@@ -50,7 +50,7 @@ import java.util.regex.Pattern;
  * @author Elliott Wolin
  * @version 1.0
  */
-public class CA extends cMsgAdapter {
+public class CA extends cMsgDomainAdapter {
 
 
     /** JCALibrary and context. */
@@ -131,10 +131,10 @@ public class CA extends cMsgAdapter {
 
         private String subject;
         private String type;
-        private cMsgCallback cb;
+        private cMsgCallbackInterface cb;
         private Object userObj;
 
-        SubInfo(String s, String t, cMsgCallback c, Object o) {
+        SubInfo(String s, String t, cMsgCallbackInterface c, Object o) {
             subject = s;
             type    = t;
             cb      = c;
@@ -372,7 +372,7 @@ public class CA extends cMsgAdapter {
      * @param userObj any user-supplied object to be given to the callback method as an argument
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public void subscribe(String subject, String type, cMsgCallback cb, Object userObj) throws cMsgException {
+    public void subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj) throws cMsgException {
 
         mySubList.add(new SubInfo(subject,type,cb,userObj));
 
@@ -406,7 +406,7 @@ public class CA extends cMsgAdapter {
      *                of subject and type
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public void unsubscribe(String subject, String type, cMsgCallback cb) throws cMsgException {
+    public void unsubscribe(String subject, String type, cMsgCallbackInterface cb) throws cMsgException {
 
         int cnt=0;
 

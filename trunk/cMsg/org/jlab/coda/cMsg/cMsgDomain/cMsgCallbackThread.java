@@ -17,7 +17,7 @@
 package org.jlab.coda.cMsg.cMsgDomain;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
-import org.jlab.coda.cMsg.cMsgCallback;
+import org.jlab.coda.cMsg.cMsgCallbackInterface;
 import org.jlab.coda.cMsg.cMsgException;
 
 import java.util.List;
@@ -40,7 +40,7 @@ public class cMsgCallbackThread extends Thread {
     private Object arg;
 
     /** Callback to be run. */
-    cMsgCallback callback;
+    cMsgCallbackInterface callback;
 
     /** Setting this to true will kill this thread as soon as possible. */
     private boolean dieNow;
@@ -151,7 +151,7 @@ public class cMsgCallbackThread extends Thread {
      * @param callback callback to be run when message arrives
      * @param arg user-supplied argument for callback
      */
-    cMsgCallbackThread(cMsgCallback callback, Object arg) {
+    cMsgCallbackThread(cMsgCallbackInterface callback, Object arg) {
         this.callback = callback;
         this.arg = arg;
         messageList = Collections.synchronizedList(new LinkedList());
@@ -163,7 +163,7 @@ public class cMsgCallbackThread extends Thread {
      * moment) to the callback method.
      * @param callback callback to be run when message arrives
      */
-    cMsgCallbackThread(cMsgCallback callback) {
+    cMsgCallbackThread(cMsgCallbackInterface callback) {
         this.callback = callback;
         this.arg = this;
         messageList = Collections.synchronizedList(new LinkedList());

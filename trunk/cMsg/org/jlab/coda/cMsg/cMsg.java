@@ -22,7 +22,7 @@ import java.util.regex.Matcher;
 
 /**
  * Class to direct a cMsg client to the proper subdomain based on the UDL given.
- * It implements the cMsgInterface for the most part with the exception of a few
+ * It implements the cMsgDomainInterface for the most part with the exception of a few
  * irrelevant methods.
  */
 public class cMsg {
@@ -35,7 +35,7 @@ public class cMsg {
     /** String containing the domain part of the UDL. */
     private String domain;
 
-    private cMsgInterface connection;
+    private cMsgDomainInterface connection;
 
     /** Constructor. */
     private cMsg() {
@@ -136,11 +136,11 @@ public class cMsg {
      * @return connection object to domain specified in UDL
      * @throws cMsgException if object could not be created
      */
-    private cMsgInterface createDomainConnection()
+    private cMsgDomainInterface createDomainConnection()
             throws cMsgException {
 
         /** Object to handle client */
-        cMsgInterface domainConnection = null;
+        cMsgDomainInterface domainConnection = null;
 
          // First check to see if connection class name was set on the command line.
         String domainConnectionClass = System.getProperty(domain);
@@ -180,7 +180,7 @@ public class cMsg {
 
         // Get connection class name and create object
         try {
-            domainConnection = (cMsgInterface) (Class.forName(domainConnectionClass).newInstance());
+            domainConnection = (cMsgDomainInterface) (Class.forName(domainConnectionClass).newInstance());
         }
         catch (InstantiationException e) {
             cMsgException ex = new cMsgException("cannot instantiate "+ domainConnectionClass +
@@ -303,7 +303,7 @@ public class cMsg {
      * @param userObj any user-supplied object to be given to the callback method as an argument
      * @throws cMsgException
      */
-    public void subscribe(String subject, String type, cMsgCallback cb, Object userObj)
+    public void subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
         connection.subscribe(subject, type, cb, userObj);
     }
@@ -321,7 +321,7 @@ public class cMsg {
      *                of subject and type
      * @throws cMsgException
      */
-    public void unsubscribe(String subject, String type, cMsgCallback cb) throws cMsgException {
+    public void unsubscribe(String subject, String type, cMsgCallbackInterface cb) throws cMsgException {
         connection.unsubscribe(subject, type, cb);
     }
 

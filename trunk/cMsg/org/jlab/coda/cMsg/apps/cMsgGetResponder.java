@@ -97,7 +97,7 @@ public class cMsgGetResponder {
         coda.start();
 
         System.out.println("Subscribe to subject = " + subject + ", type = " + type);
-        cMsgCallback cb = new cMsgGetResponder.myCallback();
+        cMsgCallbackInterface cb = new cMsgGetResponder.myCallback();
         coda.subscribe(subject, type, cb, null);
     }
 }
