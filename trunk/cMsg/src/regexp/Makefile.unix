@@ -41,8 +41,7 @@ clean:	tidy
 	rm -f *.o *.s *.ih re libregex.a libregex.so
         
 # arrangements to build forward-reference header files
-.SUFFIXES:	.ih .h
-.c.ih:
+%.ih : %.c
 	sh ./mkh -p $< >$@
 
 default: solib lib
