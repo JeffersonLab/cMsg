@@ -108,10 +108,11 @@ public class cMsgQueue {
 
 
     // misc
-    private static int recvCount    = 0;
-    private static int getCount     = 0;
-    private static boolean done  = false;
-    private static boolean debug = false;
+    private static int recvCount     = 0;
+    private static int getCount      = 0;
+    private static boolean done      = false;
+    private static boolean broadcast = false;
+    private static boolean debug     = false;
 
 
 
@@ -125,6 +126,10 @@ public class cMsgQueue {
             // do not queue sendAndGet() traffic
             if(msg.isGetRequest()) return;
             if(msg.isGetResponse()) return;
+
+
+            // do not queue if this program is the sender
+            if(msg.getSender().equals(name)) return;
 
 
             recvCount++;
@@ -188,6 +193,7 @@ public class cMsgQueue {
     static class getCB extends cMsgCallbackAdapter {
         /**
          *  Retrieves oldest entry in file or database queue and returns as getResponse.
+         *  If broadcast==true then also broadcasts the message via send.
          */
         public void callback(cMsgMessage msg, Object userObject) {
 
@@ -299,6 +305,7 @@ public class cMsgQueue {
             if(response!=null) {
                 try {
                     cmsg.send(response);
+                    if(broadcast) cmsg.send(response);  // send second copy
                     cmsg.flush();
                 } catch (cMsgException e) {
                 }
@@ -494,7 +501,7 @@ public class cMsgQueue {
 
         String help = "\nUsage:\n\n" +
             "   java cMsgQueue [-name name] [-descr description] [-udl domain] [-subject subject] [-type type]\n" +
-            "                  [-queue queueName] [-getSubject getSubject] [-getType getType]\n" +
+            "                  [-queue queueName] [-getSubject getSubject] [-getType getType] [-broadcast]\n" +
             "                  [-dir dir] [-base base]\n" +
             "                  [-url url] [-driver driver] [-account account] [-pwd password] [-table table]\n";
 
@@ -545,6 +552,10 @@ public class cMsgQueue {
             else if (args[i].equalsIgnoreCase("-getType")) {
                 getType= args[i + 1];
                 i++;
+
+            }
+            else if (args[i].equalsIgnoreCase("-broadcast")) {
+                broadcast = true;
 
             }
             else if (args[i].equalsIgnoreCase("-dir")) {
