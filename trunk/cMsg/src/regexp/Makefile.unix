@@ -7,6 +7,10 @@ TOP_DIR = ../..
 INC_DIR = $(TOP_DIR)/inc
 INSTALL = $(TOP_DIR)/install-sh -c
 
+ifndef OSNAME
+OSNAME := $(shell uname)
+endif
+
 # Linux
 ifeq ($(OSNAME),Linux)
 LIB_DIR  = $(TOP_DIR)/lib/Linux
@@ -25,26 +29,14 @@ endif
 
 REGEX_LIBS = libregex.so libregex.a
 HFILES = regex.h
+
 SHLIB_LD = ld -G
+PROGS = main
 
 # Internal stuff, should not need changing.
 OBJPRODN=regcomp.o regexec.o regerror.o regfree.o
 
-# various forms of cleanup
-purge:
-	rm -f *.o
-
-tidy:
-	rm -f junk* core core.* *.core dtr *.tmp lint
-
-clean:	tidy
-	rm -f *.o *.s *.ih re libregex.a libregex.so
-        
-# arrangements to build forward-reference header files
-%.ih : %.c
-	sh ./mkh -p $< >$@
-
-default: solib lib
+default: solib lib $(PROGS)
 
 lib:	purge $(OBJPRODN)
 	rm -f libregex.a
@@ -53,6 +45,10 @@ lib:	purge $(OBJPRODN)
 solib:	purge $(OBJPRODN)
 	rm -f libregex.so
 	$(SHLIB_LD) $(OBJPRODN) -o libregex.so
+
+# arrangements to build forward-reference header files
+%.ih : %.c
+	sh ./mkh -p $< >$@
 
 # dependencies
 $(OBJPRODN):	utils.h regex.h regex2.h
@@ -75,3 +71,14 @@ install-inc: $(HFILES)
 	   echo "  installing $$i"; \
 	   $(INSTALL) $$i $(INC_DIR)/$$i; \
            done;
+           
+# various forms of cleanup
+purge:
+	rm -f *.o
+
+tidy:
+	rm -f junk* core core.* *.core dtr *.tmp lint
+
+clean:	tidy
+	rm -f *.o *.s *.ih re libregex.a libregex.so
+        
