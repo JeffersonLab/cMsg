@@ -139,11 +139,13 @@ public class CA extends cMsgSubdomainAdapter {
                 cmsg.setType(mySubscribeType);
                 cmsg.setText("" + (((DOUBLE)event.getDBR()).getDoubleValue())[0]);
 
-                try {
-                    deliverMessage(myClientInfo.getChannel(),myBuffer,cmsg,mySubscribeIdList,
-                                   cMsgConstants.msgSubscribeResponse);
-                } catch (IOException e) {
-                    e.printStackTrace();
+                synchronized (mySubscribeIdList) {
+                    try {
+                        deliverMessage(myClientInfo.getChannel(),myBuffer,cmsg,mySubscribeIdList,
+                                       cMsgConstants.msgSubscribeResponse);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 }
 
             } else {
@@ -445,7 +447,9 @@ public class CA extends cMsgSubdomainAdapter {
     public void handleSubscribeRequest(String subject, String type,
                                        int receiverSubscribeId) throws cMsgException {
 
-        mySubscribeIdList.add(receiverSubscribeId);
+        synchronized (mySubscribeIdList) {
+            mySubscribeIdList.add(receiverSubscribeId);
+        }
 
         if(myMonitor==null) {
             mySubscribeType    = "double";
@@ -479,17 +483,20 @@ public class CA extends cMsgSubdomainAdapter {
     public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId)
         throws cMsgException {
 
-        mySubscribeIdList.remove(receiverSubscribeId);
+        synchronized (mySubscribeIdList) {
 
-        if((myMonitor!=null)&&(mySubscribeIdList.isEmpty())) {
-            try {
-                myMonitor.clear();
-                myMonitor=null;
-            } catch (CAException e) {
-                e.printStackTrace();
-                cMsgException ce = new cMsgException(e.toString());
-                ce.setReturnCode(1);
-                throw ce;
+            mySubscribeIdList.remove(receiverSubscribeId);
+
+            if((myMonitor!=null)&&(mySubscribeIdList.isEmpty())) {
+                try {
+                    myMonitor.clear();
+                    myMonitor=null;
+                } catch (CAException e) {
+                    e.printStackTrace();
+                    cMsgException ce = new cMsgException(e.toString());
+                    ce.setReturnCode(1);
+                    throw ce;
+                }
             }
         }
     }
