@@ -39,7 +39,7 @@ import java.io.UnsupportedEncodingException;
  */
 public class cMsgHandleRequestCoda implements cMsgHandleRequests {
     /** Hash table to store clients. Name is key and cMsgClientInfo is value. */
-    static Hashtable clients = new Hashtable(100);
+    static HashMap clients = new HashMap(100);
 
     /** List of subscriptions matching the msg. */
     private ArrayList subList  = new ArrayList(100);
@@ -105,7 +105,9 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
         }
 
         cMsgClientInfo info = new cMsgClientInfo(name, port, host);
-        clients.put(name, info);
+        synchronized (clients) {
+            clients.put(name, info);
+        }
     }
 
     /**
@@ -113,7 +115,9 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
      * @param name name of client
      */
     public void unregisterClient(String name) {
-        clients.remove(name);
+        synchronized (clients) {
+            clients.remove(name);
+        }
     }
 
     /**
@@ -189,13 +193,23 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
                 }
                 catch (IOException e) {
                     if (debug >= cMsgConstants.debugError) {
-                        e.printStackTrace();
+                        //e.printStackTrace();
                     }
-                    throw new cMsgException(e.getMessage());
+                    continue;
+                    //throw new cMsgException(e.getMessage());
                 }
                 info.channel = channel;
             }
-            deliverMessage(info.channel, sub.id, msg);
+
+            try {
+                deliverMessage(info.channel, sub.id, msg);
+            }
+            catch (IOException e) {
+                if (debug >= cMsgConstants.debugError) {
+                    //e.printStackTrace();
+                }
+                continue;
+            }
         }
     }
 
@@ -304,10 +318,10 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
      * @param channel communication channel to client
      * @param id message id refering to message's subject and type
      * @param msg message to be sent
-     * @throws cMsgException if the message cannot be sent over the channel
+     * @throws IOException if the message cannot be sent over the channel
      *                          or client returns an error
      */
-    private void deliverMessage(SocketChannel channel, int id, cMsgMessage msg) throws cMsgException {
+    private void deliverMessage(SocketChannel channel, int id, cMsgMessage msg) throws IOException {
         // get ready to write
         buffer.clear();
 
@@ -368,18 +382,14 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
             e.printStackTrace();
         }
 
-        try {
-            // send buffer over the socket
-            buffer.flip();
-            while (buffer.hasRemaining()) {
-                channel.write(buffer);
-            }
-            // read acknowledgment & keep reading until we have 1 int of data
-            //cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
+        // send buffer over the socket
+        buffer.flip();
+        while (buffer.hasRemaining()) {
+            channel.write(buffer);
         }
-        catch (IOException e) {
-            throw new cMsgException(e.getMessage());
-        }
+
+        // read acknowledgment & keep reading until we have 1 int of data
+        //cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
         /*
         // go back to reading-from-buffer mode
         buffer.flip();
