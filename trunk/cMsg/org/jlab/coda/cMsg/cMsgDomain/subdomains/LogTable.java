@@ -411,7 +411,7 @@ public class LogTable implements org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequest
 	    myStmt.close();
 	    myCon.close();
 	} catch (Exception e) {
-	    throw(new cMsgException("sub-domain handler shutdown error"));
+	    throw(new cMsgException("LogTable sub-domain handler shutdown error"));
 	}
     }
 
