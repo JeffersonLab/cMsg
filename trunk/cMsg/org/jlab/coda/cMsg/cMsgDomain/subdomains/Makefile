@@ -9,11 +9,12 @@ JAVAD = javadoc
 JAR   = jar
 
 INSTALL  = ../../../../../../../install-sh -c
-JAVAC_FLAGS = -classpath ../../../../../../
-#JAVAC_FLAGS = -classpath ../../../../../../:$(CLASSPATH)
+#JAVAC_FLAGS = -classpath ../../../../../../
+JAVAC_FLAGS = -classpath ../../../../../../:$(CLASSPATH)
 
 JAVA_OBJS = \
 	cMsg.class \
+	smartsockets.class \
 	CA.class \
 	database.class \
 	LogFile.class \
