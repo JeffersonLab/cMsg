@@ -163,6 +163,7 @@ public class cMsgNameServer extends Thread {
             server = (cMsgDomainServer)i.next();
             server.getClientHandler().handleServerShutdown();
         }
+        System.out.println("\nFINALIZE NAME SERVER!!!\n");
     }
 
 
@@ -331,7 +332,7 @@ public class cMsgNameServer extends Thread {
                         cMsgUtilities.registerChannel(selector, channel, SelectionKey.OP_READ);
 
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("\ncMsgNameServer: registered client");
+                            System.out.println("\ncMsgNameServer: accepted client connection");
                         }
                     }
 
@@ -339,7 +340,7 @@ public class cMsgNameServer extends Thread {
                     if (key.isValid() && key.isReadable()) {
                         SocketChannel channel = (SocketChannel) key.channel();
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("cMsgNameServer: client request");
+                            System.out.println("cMsgNameServer: client request coming in");
                         }
                         handleClient(channel);
                     }
@@ -484,7 +485,7 @@ public class cMsgNameServer extends Thread {
                                                          subdomainType, UDLRemainder,
                                                          UDL, description);
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("name server to register " + name);
+                    System.out.println("name server try to register " + name);
                 }
 
                 cMsgSubdomainHandler handler = registerClient(info);
