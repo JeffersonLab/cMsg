@@ -13,8 +13,6 @@ import org.jlab.coda.cMsg.cMsgDomain.cMsg;
  */
 public class cMsgProducer {
     String name, subject="SUBJECT", type="TYPE";
-    boolean odd;
-    boolean evenOddMessage = false;
 
     cMsgProducer(String name) {
         this.name = name;
@@ -28,29 +26,13 @@ public class cMsgProducer {
             cMsgProducer producer = null;
             if (args.length > 0) {
                 producer = new cMsgProducer(args[0]);
-                if (args.length > 1) {
-                    if (args[1].equalsIgnoreCase("odd")) {
-                        producer.odd = true;
-                        producer.evenOddMessage = true;
-                        System.out.println("  producing messages with odd numbers as text");
-                    }
-                    else if (args[1].equalsIgnoreCase("even")) {
-                        producer.odd = false;
-                        producer.evenOddMessage = true;
-                        System.out.println("  producing messages with even numbers as text");
-                    }
-                    else {
-                        producer.evenOddMessage = false;
-                        System.out.println("  producing messages with \"JUNK\" as text");
-                    }
-                }
 
-                if (args.length > 2) {
-                    producer.subject = args[2];
+                if (args.length > 1) {
+                    producer.subject = args[1];
                     System.out.println("  producing messages with subject = " + producer.subject);
                 }
-                if (args.length > 3) {
-                    producer.type = args[3];
+                if (args.length > 2) {
+                    producer.type = args[2];
                     System.out.println("  producing messages with type = " + producer.type);
                 }
             }
@@ -102,9 +84,8 @@ public class cMsgProducer {
 
         String UDL = "cMsg:cMsg://aslan:3456/cMsg";
 
-        System.out.print("Try to connect ...");
         cMsg coda = new cMsg(UDL, name, "message producer");
-        System.out.println(" done");
+        coda.connect();
 
         cMsgMessage msg = new cMsgMessage();
         msg.setSubject(subject);
@@ -119,15 +100,6 @@ public class cMsgProducer {
         while (true) {
             t1 = System.currentTimeMillis();
             for (int i = 0; i < count; i++) {
-                if (evenOddMessage) {
-                    if (odd) {
-                        msg.setText("" + (j * 2 + 1));
-                    }
-                    else {
-                        msg.setText("" + (j * 2));
-                    }
-                    if (j++ > 1000000) j = 0;
-                }
                 //try {Thread.sleep(1000);}
                 //catch (InterruptedException e) {}
                 coda.send(msg);
