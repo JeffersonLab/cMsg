@@ -13,7 +13,7 @@ JAVAC_FLAGS = -classpath ../../../../../
 #JAVAC_FLAGS = -classpath ../../../../../:$(CLASSPATH)
 
 JAVA_OBJS = \
-	cMsgMsgHolder.class \
+	cMsgHolder.class \
 	cMsgNetworkConstants.class \
 	cMsgUtilities.class \
 	cMsgCallbackThread.class \
