@@ -114,6 +114,7 @@ public class cMsgMessageFull extends cMsgMessage {
 
         this.setGetRequest(Boolean.getBoolean(e.getAttribute("getRequest")));
         this.setGetResponse(Boolean.getBoolean(e.getAttribute("getResponse")));
+        this.setNullGetResponse(Boolean.getBoolean(e.getAttribute("nullGetResponse")));
 
         this.setCreator(e.getAttribute("creator"));
 
