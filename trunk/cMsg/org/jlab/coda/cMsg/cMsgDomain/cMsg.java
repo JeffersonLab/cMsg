@@ -43,9 +43,6 @@ public class cMsg extends cMsgDomainAdapter {
     /** Port number to listen on. */
     private int port;
 
-    /** This cMsg client's host. */
-    private String host;
-
     /** Subdomain being used. */
     private String subdomain;
 
