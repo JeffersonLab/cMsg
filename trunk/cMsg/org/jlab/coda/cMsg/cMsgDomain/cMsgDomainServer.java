@@ -68,10 +68,19 @@ public class cMsgDomainServer extends Thread {
     private ServerSocketChannel serverChannel;
 
     /**
-     * Thread-safe queue to hold cMsgHolder objects.
-     * These are client request to be passed on the server.
+     * Thread-safe queue to hold cMsgHolder objects. This cue holds
+     * requests from the client (except for subscribe and unsubscribe)
+     * which are grabbed and processed by waiting worker threads.
      */
     LinkedBlockingQueue<cMsgHolder> requestCue;
+
+    /**
+     * Thread-safe queue to hold cMsgHolder objects. This cue holds
+     * subscribe and unsubscribe requests from the client which are
+     * then grabbed and processed by a single worker thread. The subscribe
+     * and unsubscribe requests must be done sequentially.
+     */
+    LinkedBlockingQueue<cMsgHolder> subscribeCue;
 
     /** A direct buffer is necessary for nio socket IO. */
     private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
@@ -85,7 +94,12 @@ public class cMsgDomainServer extends Thread {
     /** Maximum number of temporary threads allowed. */
     private static final int tempThreadsMax = 100;
 
-    /** Number of permanent threads. */
+    /**
+     * Number of permanent threads. This should be at least two (2). One
+     * thread can handle syncSends which can block (but only 1 syncSend at
+     * a time can be run on the client side) and the other to handle
+     * other requests.
+     */
     private static final int permanentThreads = 3;
 
     /** Current number of temporary threads. */
@@ -132,12 +146,15 @@ public class cMsgDomainServer extends Thread {
         // Port number to listen on
         port = startingPort;
         this.info = info;
-        requestCue = new LinkedBlockingQueue<cMsgHolder>(5000);
+        requestCue   = new LinkedBlockingQueue<cMsgHolder>(5000);
+        subscribeCue = new LinkedBlockingQueue<cMsgHolder>(100);
 
-        // start up permanent worker threads
+        // start up permanent worker threads on the regular cue
         for (int i = 0; i < permanentThreads; i++) {
-            new RequestThread(true);
+            new RequestThread(true, false);
         }
+        // start up 1 permanent worker thread on the (un)subscribe cue
+        new RequestThread(true, true);
 
         // At this point, find a port to bind to. If that isn't possible, throw
         // an exception. We want to do this in the constructor, because it's much
@@ -292,6 +309,7 @@ public class cMsgDomainServer extends Thread {
      */
     private void handleClient(SelectionKey key) throws IOException, cMsgException {
         int msgId;
+        boolean isSubscribe = false;
         SocketChannel channel = (SocketChannel) key.channel();
 
         // keep reading until we have an int (4 bytes) of data
@@ -329,6 +347,7 @@ public class cMsgDomainServer extends Thread {
 
             case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
                 holder = readSubscribeInfo(channel);
+                isSubscribe = true;
                 break;
 
             case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
@@ -347,11 +366,11 @@ public class cMsgDomainServer extends Thread {
 
             case cMsgConstants.msgDisconnectRequest: // client disconnecting
                 // send ok back as acknowledgment
-                buffer.clear();
-                buffer.putInt(cMsgConstants.ok).flip();
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
+//                buffer.clear();
+//                buffer.putInt(cMsgConstants.ok).flip();
+//                while (buffer.hasRemaining()) {
+//                    channel.write(buffer);
+//                }
                 // close channel and unregister from selector
                 channel.close();
                 // tell client handler to shutdown
@@ -388,14 +407,19 @@ public class cMsgDomainServer extends Thread {
         // cycle the selector so this key is active again
         key.selector().wakeup();
 
-        // if we got something to put on the cue, do it
+        // if we got something to put on a cue, do it
         if (holder != null) {
             holder.request = msgId;
+            if (isSubscribe) {
+                try {subscribeCue.put(holder);}
+                catch (InterruptedException e) {}
+                return;
+            }
             try {requestCue.put(holder);}
             catch (InterruptedException e) {}
         }
 
-        // if the cue is getting large, add temp threads to handle the load
+        // if the cue is getting too large, add temp threads to handle the load
         if (requestCue.size() > 2000 && tempThreads.get() < tempThreadsMax) {
             new RequestThread();
         }
@@ -651,17 +675,24 @@ public class cMsgDomainServer extends Thread {
         /** Is this thread temporary or permanent? */
         boolean permanent;
 
+        /** Does this thread read from the (un)subscribe cue only? */
+        boolean subscribe;
+
         /** Self-starting constructor. */
         RequestThread() {
-            this.permanent = false;
+            // by default thread is not permanent or reading (un)subscribe requests
             tempThreads.getAndIncrement();
             //System.out.println(temp +" temp");
             this.start();
         }
 
         /** Self-starting constructor. */
-        RequestThread(boolean permanent) {
+        RequestThread(boolean permanent, boolean subscribe) {
             this.permanent = permanent;
+            this.subscribe = subscribe;
+            if (!permanent) {
+                tempThreads.getAndIncrement();
+            }
             this.start();
         }
 
@@ -669,24 +700,32 @@ public class cMsgDomainServer extends Thread {
          * Loop forever waiting for work to do.
          */
         public void run() {
-            // grab a request from the cue
             cMsgHolder holder = null;
             int answer;
 
             while (true) {
 
-// BUG BUG not all threads may die
                 if (killAllThreads) return;
-                // if this is a permanent thread, we can block on a request
-                if (permanent) {
-                    try {holder = requestCue.take();}
-                    catch (InterruptedException e) {}
+
+                try {
+                    // try for up to 1 second to read a request from the cue
+                    if (!subscribe) {
+                        holder = requestCue.poll(1, TimeUnit.SECONDS);
+                    }
+                    else {
+                        holder = subscribeCue.poll(1, TimeUnit.SECONDS);
+                    }
                 }
-                // if this is a temp thread, poll for a while and then disappear
-                else {
-                    try {holder = requestCue.poll(1, TimeUnit.SECONDS);}
-                    catch (InterruptedException e) {}
-                    if (holder == null) {
+                catch (InterruptedException e) {
+                }
+
+                if (holder == null) {
+                    // if this is a permanent thread, keeping trying to read requests
+                    if (permanent) {
+                        continue;
+                    }
+                    // if this is a temp thread, disappear after no requests for a second
+                    else {
                         tempThreads.getAndDecrement();
                         //System.out.println(temp +" temp");
                         return;
