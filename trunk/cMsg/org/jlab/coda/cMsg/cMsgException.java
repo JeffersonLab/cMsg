@@ -15,8 +15,7 @@
 package org.jlab.coda.cMsg;
 
 /**
- * Signals that an error occurred while attempting
- * to execute a cMsg method of some sort.
+ * Signals that an error occurred while attempting to execute a cMsg method.
  *
  * @author Carl Timmer
  */
