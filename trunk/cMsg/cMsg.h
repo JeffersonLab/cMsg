@@ -1,6 +1,23 @@
-/*
- *
- *  cMsg.h
+/*----------------------------------------------------------------------------*
+ *  Copyright (c) 2004        Southeastern Universities Research Association, *
+ *                            Thomas Jefferson National Accelerator Facility  *
+ *                                                                            *
+ *    This software was developed under a United States Government license    *
+ *    described in the NOTICE file included as part of this distribution.     *
+ *                                                                            *
+ *    E.Wolin, 24-Jun-2004, Jefferson Lab                                     *
+ *                                                                            *
+ *    Authors: Elliott Wolin                                                  *
+ *             wolin@jlab.org                    Jefferson Lab, MS-6B         *
+ *             Phone: (757) 269-7365             12000 Jefferson Ave.         *
+ *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *                                                                            *
+ *             Carl Timmer                                                    *
+ *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
+ *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
+ *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *                                                                            *
+ *----------------------------------------------------------------------------*
  *
  *  Defines cMsg (CODA Message) API, message structure, and return codes
  *
@@ -170,8 +187,12 @@
  * See below for a long list of information access functions, all of which should
  * be self-explanatory (e.g. cMsgGetName(), etc.)
  *
+ * Description:
  *
- */
+ *  Defines cMsg (CODA Message) API, message structure, and return codes
+ *
+ *
+ *----------------------------------------------------------------------------*/
 
 
 #ifndef _cMsg_h
@@ -246,19 +267,23 @@ extern "C" {
 
 /* return codes */
 enum {
-  CMSG_OK              	  = 0,
+  CMSG_OK              	= 0,
   CMSG_ERROR,
+  CMSG_TIMEOUT,
   CMSG_NOT_IMPLEMENTED,
   CMSG_BAD_ARGUMENT,
+  CMSG_BAD_FORMAT,
   CMSG_NAME_EXISTS,
   CMSG_NOT_INITIALIZED,
   CMSG_ALREADY_INIT,
   CMSG_LOST_CONNECTION,
-  CMSG_TIMEOUT,
   CMSG_NETWORK_ERROR,
+  CMSG_SOCKET_ERROR,
   CMSG_PEND_ERROR,
   CMSG_ILLEGAL_MSGTYPE,
   CMSG_OUT_OF_MEMORY,
+  CMSG_OUT_OF_RANGE,
+  CMSG_LIMIT_EXCEEDED
 };
 
 
