@@ -65,4 +65,19 @@ public interface cMsgCallback {
      */
     public int getSkipSize();
 
+    /**
+     * Method to get the maximum number of supplemental threads to use for running
+     * the callback if {@link #mustSerializeMessages} returns false.
+     * @return maximum number of supplemental threads to start
+     */
+    public int getMaximumThreads();
+
+    /**
+     * Method to get the maximum number of unprocessed messages per supplemental thread.
+     * This number is a target for dynamically adjusting server.
+     * This is only used when the {@link #mustSerializeMessages} method returns false;
+     * @return maximum number of messages per supplemental thread
+     */
+    public int getMessagesPerThread();
+
 }
