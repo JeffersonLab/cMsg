@@ -107,6 +107,9 @@ public class cMsgDomainServer extends Thread {
     /** Current number of temporary threads. */
     private AtomicInteger tempThreads = new AtomicInteger();
 
+    /** Keep track of whether the shutdown method of this object has already been called. */
+    AtomicBoolean calledShutdown = new AtomicBoolean();
+
     /**
      * Keep track of whether the handleShutdown method of the subdomain
      * handler has already been called.
@@ -117,7 +120,7 @@ public class cMsgDomainServer extends Thread {
     private volatile boolean killMainThread;
 
     /** Kill all spawned threads if true. */
-    private volatile boolean killSpawnedThreads;
+    volatile boolean killSpawnedThreads;
 
     /** Kill spawned threads. */
     public void killSpawnedThreads() {
@@ -222,7 +225,9 @@ public class cMsgDomainServer extends Thread {
 
 
     /** Method to gracefully shutdown this object's threads. */
-    void shutdown() {
+    synchronized void shutdown() {
+        //System.out.println("SHUTDOWN BEING RUN");
+
         // tell subdomain handler to shutdown
         if (calledSubdomainShutdown.compareAndSet(false,true)) {
             try {subdomainHandler.handleClientShutdown();}
@@ -404,13 +409,13 @@ public class cMsgDomainServer extends Thread {
                     }
                     // socket timed out, check to see if we must die
                     catch (InterruptedIOException ex) {
-                        System.out.println("domain server client connection timeout");
+                        //System.out.println("domain server client connection timeout");
                         if (killSpawnedThreads) return;
                         continue;
                     }
                     // interrupt was called while reading
                     catch (ClosedByInterruptException ex) {
-                        System.out.println("domain server client connection read interrupted");
+                        //System.out.println("domain server client connection read interrupted");
                         return;
                     }
 
@@ -466,7 +471,10 @@ public class cMsgDomainServer extends Thread {
 
                         case cMsgConstants.msgDisconnectRequest: // client disconnecting
                             // need to shutdown this domain server
-                            shutdown();
+                            if (calledShutdown.compareAndSet(false,true)) {
+                                //System.out.println("SHUTDOWN TO BE RUN BY msgDisconnectRequest");
+                                shutdown();
+                            }
                             return;
 
                         default:

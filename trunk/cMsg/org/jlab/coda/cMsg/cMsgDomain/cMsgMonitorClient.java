@@ -96,6 +96,12 @@ public class cMsgMonitorClient extends Thread {
             buffer.putInt(1);
 
             try {
+                // check to see if domain server is shutting down and we must die too
+                if (domainServer.killSpawnedThreads) {
+                    //System.out.println("monitor client thd committing suicide");
+                    return;
+                }
+
                 // send buffer over the socket
                 buffer.flip();
                 while (buffer.hasRemaining()) {
@@ -119,7 +125,10 @@ public class cMsgMonitorClient extends Thread {
                                        info.getName() + "\n");
                 }
 
-                domainServer.shutdown();
+                if (domainServer.calledShutdown.compareAndSet(false,true)) {
+                    //System.out.println("SHUTDOWN TO BE RUN BY monitor client thd");
+                    domainServer.shutdown();
+                }
                 return;
             }
 
@@ -135,7 +144,10 @@ public class cMsgMonitorClient extends Thread {
                                        info.getName() + "\n");
                 }
 
-                domainServer.shutdown();
+                if (domainServer.calledShutdown.compareAndSet(false,true)) {
+                    //System.out.println("SHUTDOWN TO BE RUN BY monitor client thd");
+                    domainServer.shutdown();
+                }
                 return;
             }
 
