@@ -96,6 +96,8 @@
 #ifndef _cMsg_h
 #define _cMsg_h
 
+/* required includes */
+#include <time.h>
 
 /* debug levels */
 /** No debugging output. */
@@ -109,20 +111,45 @@
 /** Output everything for debugging. */
 #define CMSG_DEBUG_INFO    4
 
-
-/* sccs id */
-/* char sccsid[] = "%Z% cMsg abstract API definition"; */
-
-
-/* required includes */
-#include <time.h>
-
+/* shutdown flags */
+/** When shutting down clients, include the calling client (me). */
+#define CMSG_SHUTDOWN_INCLUDE_ME 1
 
 /** Message receiving callback. */
 typedef void (cMsgCallback) (void *msg, void *userArg);
 
 /** Subscribe configuration. */
 typedef void *cMsgSubscribeConfig;
+
+/** Shutdown handler function. */
+typedef void (cMsgShutdownHandler) (void *userArg);
+
+/** Return codes. */
+enum {
+  CMSG_OK              = 0, /**< No error. */
+  CMSG_ERROR,               /**< Generic error. */
+  CMSG_TIMEOUT,             /**< Timeout. */
+  CMSG_NOT_IMPLEMENTED,     /**< Feature not implemented. */
+  CMSG_BAD_ARGUMENT,        /**< Function argument(s) have illegal value. */
+  CMSG_BAD_FORMAT,          /**< Function argument(s) in wrong format. */
+  CMSG_BAD_DOMAIN_TYPE,     /**< Domain type not supported. */
+  CMSG_NAME_EXISTS,         /**< Unique name already exists. */
+  CMSG_NOT_INITIALIZED,     /**< Connection not established - call cMsgConnect. */
+  CMSG_ALREADY_INIT,        /**< Connection already established. */
+  CMSG_LOST_CONNECTION,     /**< No network connection to cMsg server. */
+  CMSG_NETWORK_ERROR,       /**< Communication error talking to server. */
+  CMSG_SOCKET_ERROR,        /**< Error setting TCP socket option(s). */
+  CMSG_PEND_ERROR,          /**< Error when waiting for messages to arrive. */
+  CMSG_ILLEGAL_MSGTYPE,     /**< Received illegal message type. */
+  CMSG_OUT_OF_MEMORY,       /**< No more memory available. */
+  CMSG_OUT_OF_RANGE,        /**< Argument out of acceptable range. */
+  CMSG_LIMIT_EXCEEDED,      /**< Trying to create too many of an item. */
+  CMSG_BAD_DOMAIN_ID,       /**< Id does not match any existing domain. */
+  CMSG_BAD_MESSAGE,         /**< Message is not in the correct form. */
+  CMSG_WRONG_DOMAIN_TYPE,   /**< UDL does not match the server type. */
+  CMSG_NO_CLASS_FOUND,      /**< Java class cannot be found to instantiate subdomain handler. */
+  CMSG_DIFFERENT_VERSION    /**< Client and server are different cMsg versions. */
+};
 
 
 /* function prototypes */
@@ -145,6 +172,7 @@ extern "C" {
   int 	cMsgReceiveStart   (int domainId);
   int 	cMsgReceiveStop    (int domainId);
   int 	cMsgDisconnect     (int domainId);
+  int   cMsgShutdown       (int domainId, char *client, char *server, int flag);
   char *cMsgPerror         (int errorCode);
   
   
@@ -232,34 +260,6 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-
-
-/** Return codes. */
-enum {
-  CMSG_OK              = 0, /**< No error. */
-  CMSG_ERROR,               /**< Generic error. */
-  CMSG_TIMEOUT,             /**< Timeout. */
-  CMSG_NOT_IMPLEMENTED,     /**< Feature not implemented. */
-  CMSG_BAD_ARGUMENT,        /**< Function argument(s) have illegal value. */
-  CMSG_BAD_FORMAT,          /**< Function argument(s) in wrong format. */
-  CMSG_BAD_DOMAIN_TYPE,     /**< Domain type not supported. */
-  CMSG_NAME_EXISTS,         /**< Unique name already exists. */
-  CMSG_NOT_INITIALIZED,     /**< Connection not established - call cMsgConnect. */
-  CMSG_ALREADY_INIT,        /**< Connection already established. */
-  CMSG_LOST_CONNECTION,     /**< No network connection to cMsg server. */
-  CMSG_NETWORK_ERROR,       /**< Communication error talking to server. */
-  CMSG_SOCKET_ERROR,        /**< Error setting TCP socket option(s). */
-  CMSG_PEND_ERROR,          /**< Error when waiting for messages to arrive. */
-  CMSG_ILLEGAL_MSGTYPE,     /**< Received illegal message type. */
-  CMSG_OUT_OF_MEMORY,       /**< No more memory available. */
-  CMSG_OUT_OF_RANGE,        /**< Argument out of acceptable range. */
-  CMSG_LIMIT_EXCEEDED,      /**< Trying to create too many of an item. */
-  CMSG_BAD_DOMAIN_ID,       /**< Id does not match any existing domain. */
-  CMSG_BAD_MESSAGE,         /**< Message is not in the correct form. */
-  CMSG_WRONG_DOMAIN_TYPE,   /**< UDL does not match the server type. */
-  CMSG_NO_CLASS_FOUND,      /**< Java class cannot be found to instantiate subdomain handler. */
-  CMSG_DIFFERENT_VERSION    /**< Client and server are different cMsg versions. */
-};
 
 
 #endif /* _cMsg_h */
