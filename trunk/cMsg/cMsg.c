@@ -155,8 +155,7 @@ static int  subscribeMutexUnlock(int id);
 
 static int  parseUDL(const char *UDL, char **domainType, char **host,
                      unsigned short *port, char **remainder);
-static int  getHostAndPortFromNameServer(cMsgDomain domain, unsigned short port,
-                                         const char *myName, int serverfd);
+static int  getHostAndPortFromNameServer(cMsgDomain *domain, int serverfd);
 
 
 
@@ -166,10 +165,9 @@ static int  getHostAndPortFromNameServer(cMsgDomain domain, unsigned short port,
 int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId) {
 
   int i, id=-1, err, serverfd, status;
-  char *portEnvVariable=NULL;
-  unsigned short startingPort, port;
+  char *portEnvVariable=NULL, temp[CMSG_MAXHOSTNAMELEN];
+  unsigned short startingPort;
   mainThreadInfo threadArg;
-  pthread_t pendThread;
   
   /* First, grab mutex for thread safety. This mutex must be held until
    * the initialization is completely finished. Otherwise, if we set
@@ -244,7 +242,8 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
   domains[id].name        = (char *) strdup(myName);
   domains[id].domain      = (char *) strdup(myDomain);
   domains[id].description = (char *) strdup(myDescription);
-  gethostname(domains[id].myHost, sizeof(domains[id].myHost));
+  gethostname(temp, CMSG_MAXHOSTNAMELEN);
+  domains[id].myHost      = (char *) strdup(temp);
   
   /* parse the UDL - Uniform Domain Locator */
   if ( (err = parseUDL(myDomain,
@@ -271,7 +270,7 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
 
   /* pick starting port number */
   if ( (portEnvVariable = getenv("CMSG_PORT")) == NULL ) {
-    startingPort = 2345;
+    startingPort = CMSG_CLIENT_LISTENING_PORT;
     if (debug >= CMSG_DEBUG_WARN) {
       fprintf(stderr, "cMsgConnect: cannot find CMSG_PORT env variable, first try port %hu\n", startingPort);
     }
@@ -279,7 +278,7 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
   else {
     i = atoi(portEnvVariable);
     if (i < 1025 || i > 65535) {
-      port = CMSG_CLIENT_LISTENING_PORT;
+      startingPort = CMSG_CLIENT_LISTENING_PORT;
       if (debug >= CMSG_DEBUG_WARN) {
         fprintf(stderr, "cMsgConnect: CMSG_PORT contains a bad port #, first try port %hu\n", startingPort);
       }
@@ -303,11 +302,16 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
   threadArg.domainId = id;
   threadArg.listenFd = domains[id].listenSocket;
   threadArg.blocking = CMSG_NONBLOCKING;
-  status = pthread_create(&pendThread, NULL, cMsgServerListeningThread, (void *)&threadArg);
+  status = pthread_create(&domains[id].pendThread, NULL,
+                          cMsgServerListeningThread, (void *)&threadArg);
   if (status != 0) {
     err_abort(status, "Creating message listening thread");
   }
      
+  if (debug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "cMsgConnect: created listening thread\n");
+  }
+  
   /*---------------------------------------------------------------*/
   /* connect & talk to cMsg name server to check if name is unique */
   /*---------------------------------------------------------------*/
@@ -317,39 +321,60 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
                              domains[id].serverPort,
                              &serverfd)) != CMSG_OK) {
     /* stop listening & connection threads */
-    pthread_cancel(pendThread);
+    pthread_cancel(domains[id].pendThread);
     domainIdClear(id);
     connectMutexUnlock();
     return(err);
   }
   
+  if (debug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "cMsgConnect: connected to name server\n");
+  }
+  
   /* get host & port to send messages to */
-  err = getHostAndPortFromNameServer(domains[id], port, myName, serverfd);
+  err = getHostAndPortFromNameServer(&domains[id], serverfd);
   if (err != CMSG_OK) {
     close(serverfd);
-    pthread_cancel(pendThread);
+    pthread_cancel(domains[id].pendThread);
     domainIdClear(id);
     connectMutexUnlock();
     return(err);
+  }
+  
+  if (debug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "cMsgConnect: got host and port from name server\n");
   }
   
   /* done talking to server */
   close(serverfd);
+  
+  if (debug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "cMsgConnect: closed name server socket\n");
+    fprintf(stderr, "cMsgConnect: sendHost = %s, sendPort = %hu\n",
+                             domains[id].sendHost,
+                             domains[id].sendPort);
+  }
   
   /* create sending socket and store */
   if ( (err = cMsgTcpConnect(domains[id].sendHost,
                              domains[id].sendPort,
                              &domains[id].sendSocket)) != CMSG_OK) {
     close(serverfd);
-    pthread_cancel(pendThread);
+    pthread_cancel(domains[id].pendThread);
     domainIdClear(id);
     connectMutexUnlock();
     return(err);
   }
 
-  /* init is complete */
-  domains[id].initComplete = 1;
   
+  if (debug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "cMsgConnect: created sending socket\n");
+  }
+  
+  /* init is complete */
+  *domainId = id + DOMAIN_ID_OFFSET;
+  domains[id].initComplete = 1;
+
   /* no more mutex protection is necessary */
   connectMutexUnlock();
   
@@ -360,20 +385,25 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
 /*-------------------------------------------------------------------*/
 
 
-static int getHostAndPortFromNameServer(cMsgDomain domain, unsigned short port,
-                                        const char *myName, int serverfd) {
-  int err, lengthHost, lengthName, outgoing[4], incoming[2];  
+static int getHostAndPortFromNameServer(cMsgDomain *domain, int serverfd) {
+  int err, lengthHost, lengthName, outgoing[4], incoming[2];
+  char temp[CMSG_MAXHOSTNAMELEN];
 
   /* first send message id (in network byte order) to server */
   outgoing[0] = htonl(CMSG_SERVER_CONNECT);
   /* send my listening port (as an int in network byte order) to server */
-  outgoing[1] = htonl((int)port);
+  outgoing[1] = htonl((int)domain->listenPort);
   /* send length (in network byte order) of my host name to server */
-  lengthHost  = strlen(domain.myHost);
+  lengthHost  = strlen(domain->myHost);
   outgoing[2] = htonl(lengthHost);
   /* send length (in network byte order) of my name to server */
-  lengthName  = strlen(myName);
+  lengthName  = strlen(domain->name);
   outgoing[3] = htonl(lengthName);
+  
+  if (debug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "getHostAndPortFromNameServer: write 4 (%d, %d, %d, %d) ints to server\n",
+            CMSG_SERVER_CONNECT, (int) domain->listenPort, lengthHost, lengthName);
+  }
   
   /* first send all the ints */
   if (cMsgTcpWrite(serverfd, (void *) outgoing, sizeof(outgoing)) != sizeof(outgoing)) {
@@ -383,22 +413,36 @@ static int getHostAndPortFromNameServer(cMsgDomain domain, unsigned short port,
     return(CMSG_NETWORK_ERROR);
   }
 
+  if (debug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "getHostAndPortFromNameServer: send host name (%s) to server\n",
+            domain->myHost);
+  }
+  
   /* send my host name to server */
-  if (cMsgTcpWrite(serverfd, (void *) domain.myHost, sizeof(lengthHost)) != sizeof(lengthHost)) {
+  if (cMsgTcpWrite(serverfd, (void *) domain->myHost, lengthHost) != lengthHost) {
     if (debug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
 
+  if (debug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "getHostAndPortFromNameServer: send my name (%s) to server\n",
+            domain->name);
+  }
+  
   /* send my name to server */
-  if (cMsgTcpWrite(serverfd, (void *) myName, sizeof(lengthName)) != sizeof(lengthName)) {
+  if (cMsgTcpWrite(serverfd, (void *) domain->name, lengthName) != lengthName) {
     if (debug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
 
+  if (debug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "getHostAndPortFromNameServer:read error reply from server\n");
+  }
+  
   /* now read server reply */
   if (cMsgTcpRead(serverfd, (void *) &err, sizeof(err)) != sizeof(err)) {
     if (debug >= CMSG_DEBUG_ERROR) {
@@ -408,12 +452,20 @@ static int getHostAndPortFromNameServer(cMsgDomain domain, unsigned short port,
   }
   err = ntohl(err);
   
+  if (debug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "getHostAndPortFromNameServer:read err = %d\n", err);
+  }
+  
   /* if there's an error, quit */
   if (err != CMSG_OK) {
     return(CMSG_NETWORK_ERROR);
   }
   
   /* if everything's OK, we expect to get send host & port */
+  
+  if (debug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "getHostAndPortFromNameServer:read port and length of host from server\n");
+  }
   
   /* read port & length of host name to send to*/
   if (cMsgTcpRead(serverfd, (void *) &incoming, sizeof(incoming)) != sizeof(incoming)) {
@@ -422,15 +474,27 @@ static int getHostAndPortFromNameServer(cMsgDomain domain, unsigned short port,
     }
     return(CMSG_NETWORK_ERROR);
   }
-  domain.sendPort = (unsigned short) ntohl(incoming[0]);
+  domain->sendPort = (unsigned short) ntohl(incoming[0]);
   lengthHost = ntohl(incoming[1]);
 
+  if (debug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "getHostAndPortFromNameServer:port = %hu, host len = %d\n",
+              domain->sendPort, lengthHost);
+    fprintf(stderr, "getHostAndPortFromNameServer:read host from server\n");
+  }
+  
   /* read host name to send to */
-  if (cMsgTcpRead(serverfd, (void *) domain.sendHost, sizeof(lengthHost)) != sizeof(lengthHost)) {
+  if (cMsgTcpRead(serverfd, (void *) temp, lengthHost) != lengthHost) {
     if (debug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "getHostAndPortFromNameServer: read failure\n");
     }
     return(CMSG_NETWORK_ERROR);
+  }
+  /* be sure to null-terminate string */
+  temp[lengthHost] = 0;
+  domain->sendHost = (char *) strdup(temp);
+  if (debug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "getHostAndPortFromNameServer: host = %s\n", domain->sendHost);
   }
   
   return(CMSG_OK);
@@ -536,7 +600,7 @@ int cMsgSend(int domainId, char *subject, char *type, char *text) {
 
 
 int cMsgFlush(int domainId) {
-  
+  FILE *file;
   int id = domainId - DOMAIN_ID_OFFSET;
   int fd = domains[id].sendSocket;
 
@@ -546,7 +610,8 @@ int cMsgFlush(int domainId) {
   /* make send socket communications thread-safe */
   sendMutexLock(id);
   /* flush outgoing buffers */
-  flush(fd);
+  file = fdopen(fd, "w");
+  fflush(file);
   /* done with mutex */
   sendMutexUnlock(id);
   
@@ -942,7 +1007,7 @@ int cMsgDone(int domainId) {
   
   connectMutexUnlock();
 
-  return(CMSG_NOT_IMPLEMENTED);
+  return(CMSG_OK);
 }
 
 
@@ -1525,22 +1590,24 @@ static int parseUDL(const char *UDL, char **domainType, char **host,
   
   /* strtok modifies the string it tokenizes, so make a copy */
   udl = (char *) strdup(UDL);
-  
+/*printf("UDL = %s\n", udl);*/
   /* get tokens separated by ":" or "/" */
   if ( (p = (char *) strtok(udl, ":/")) == NULL) {
     free(udl);
     return (CMSG_BAD_FORMAT);
   }
   *domainType = (char *) strdup(p);
+/*printf("domainType = %s\n", *domainType);*/
   
-  if ( (p = (char *) strtok('/0', ":/")) == NULL) {
+  if ( (p = (char *) strtok(NULL, ":/")) == NULL) {
     free(*domainType);
     free(udl);
     return (CMSG_BAD_FORMAT);
   }
   *host =(char *)  strdup(p);
+/*printf("host = %s\n", *host);*/
   
-  if ( (p = (char *) strtok('/0', ":/")) == NULL) {
+  if ( (p = (char *) strtok(NULL, ":/")) == NULL) {
     free(*host);
     free(*domainType);
     free(udl);
@@ -1548,6 +1615,7 @@ static int parseUDL(const char *UDL, char **domainType, char **host,
   }
   portString = (char *) strdup(p);
   *port = atoi(portString);
+/*printf("port string = %s, port int = %hu\n", portString, *port);*/  
   if (*port < 1024 || *port > 65535) {
     free((void *) portString);
     free((void *) *host);
@@ -1556,8 +1624,9 @@ static int parseUDL(const char *UDL, char **domainType, char **host,
     return (CMSG_OUT_OF_RANGE);
   }
   
-  if ( (p = (char *) strtok('/0', ":/")) != NULL  && remainder != NULL) {
+  if ( (p = (char *) strtok(NULL, ":/")) != NULL  && remainder != NULL) {
     *remainder = (char *) strdup(p);
+/*printf("remainder = %s\n", *remainder);*/  
   }
   
   /* UDL parsed ok */
@@ -1578,12 +1647,12 @@ static int checkString(char *s) {
 
   /* check for printable character */
   for(i=0; i<strlen(s); i++) {
-    if (isgraph(s[i])!=0) return(CMSG_ERROR);
+    if (isprint(s[i]) == 0) return(CMSG_ERROR);
   }
 
   /* check for excluded chars */
   if (strpbrk(s,excludedChars) != 0) return(CMSG_ERROR);
-
+  
   /* string ok */
   return(CMSG_OK);
 }
