@@ -1,5 +1,6 @@
 // still to do:
 //   what if exiting table incompatible with current message format?
+//   does user have select/insert/delete privs?
 
 
 /*----------------------------------------------------------------------------*
