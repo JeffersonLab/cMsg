@@ -130,7 +130,6 @@ public class cMsgMessageFull extends cMsgMessage {
         this.setSenderToken(Integer.parseInt(e.getAttribute("senderToken")));
 
         this.setUserInt(Integer.parseInt(e.getAttribute("userInt")));
-        this.setPriority(Integer.parseInt(e.getAttribute("priority")));
         //this.setUserTime(new Date(e.getAttribute("userTime")));
         try {
             this.setUserTime(new Date(Long.parseLong(e.getAttribute("userTime"))));
@@ -172,7 +171,6 @@ public class cMsgMessageFull extends cMsgMessage {
         this.setSenderToken(m.getSenderToken());
 
         this.setUserInt(m.getUserInt());
-        this.setPriority(m.getPriority());
         this.setUserTime(m.getUserTime());
 
         this.setReceiver(m.getReceiver());
