@@ -132,7 +132,7 @@ void *cMsgServerListeningThread(void *arg)
   }
 
   /* find servers's endian value */
-  if ( (endian = cMsgBteOrder()) == CMSG_ERROR) {
+  if (cMsgByteOrder(&endian) == CMSG_ERROR) {
     if (debug >= CMSG_DEBUG_SEVERE) {
       fprintf(stderr, "cMsgServerListeningThread: strange byteorder\n");
     }
@@ -361,7 +361,7 @@ static void *cMsgClientThread(void *arg)
           }
           
           /* run callbacks for this message */
-          cMsgRunCallback(domainId, msgId, &message);
+          cMsgRunCallbacks(domainId, msgId, message);
       }
       break;
 
