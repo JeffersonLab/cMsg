@@ -197,7 +197,11 @@ public class cMsgUtilities {
               break;
 
           case cMsgConstants.errorWrongDomainType:
-              reason = "when a UDL does not match the server type";
+              reason = "UDL does not match the server type";
+              break;
+
+          case cMsgConstants.errorNoClassFound:
+              reason = "java class cannot be found";
               break;
 
           default:
