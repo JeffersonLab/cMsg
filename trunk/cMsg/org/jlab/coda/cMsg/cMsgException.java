@@ -32,6 +32,17 @@ public class cMsgException extends Exception {
 
     /**
      * Constructs a new exception with the specified message.
+     *
+     * @param msg the error message
+     * @param returnCode
+     */ 
+    public cMsgException(String msg, int returnCode) {
+        super(msg);
+        this.returnCode = returnCode;
+    }
+
+    /**
+     * Constructs a new exception with the specified message.
      * @param msg the error message
      */
     public cMsgException(String msg) {
