@@ -16,6 +16,8 @@
 
 package org.jlab.coda.cMsg.cMsgDomain;
 
+import org.jlab.coda.cMsg.cMsgMessageMatcher;
+
 import java.util.HashSet;
 
 /**
@@ -29,8 +31,14 @@ public class cMsgSubscription {
     /** Subject subscribed to. */
     private String subject;
 
+    /** Subject turned into regular expression that understands * and ?. */
+    private String subjectRegexp;
+
     /** Type subscribed to. */
     private String type;
+
+    /** Type turned into regular expression that understands * and ?. */
+    private String typeRegexp;
 
     /**
      * Id which eliminates the need to parse subject and type
@@ -53,6 +61,8 @@ public class cMsgSubscription {
         this.subject = subject;
         this.type = type;
         this.id = id;
+        subjectRegexp = cMsgMessageMatcher.escape(subject);
+        typeRegexp    = cMsgMessageMatcher.escape(type);
         callbacks = new HashSet<cMsgCallbackThread>(30);
     }
 
@@ -68,6 +78,8 @@ public class cMsgSubscription {
         this.subject = subject;
         this.type = type;
         this.id = id;
+        subjectRegexp = cMsgMessageMatcher.escape(subject);
+        typeRegexp    = cMsgMessageMatcher.escape(type);
         callbacks = new HashSet<cMsgCallbackThread>(30);
         callbacks.add(cbThread);
     }
@@ -82,12 +94,28 @@ public class cMsgSubscription {
     }
 
     /**
+     * Gets subject turned into regular expression that understands * and ?.
+     * @return subject subscribed to in regexp form
+     */
+    public String getSubjectRegexp() {
+        return subjectRegexp;
+    }
+
+    /**
      * Gets type subscribed to.
      * @return type subscribed to
      */
     public String getType() {
         return type;
     }
+
+    /**
+     * Gets type turned into regular expression that understands * and ?.
+     * @return type subscribed to in regexp form
+     */
+     public String getTypeRegexp() {
+         return typeRegexp;
+     }
 
     /**
      * Gets the id which client associates with a particular subject and type pair.
