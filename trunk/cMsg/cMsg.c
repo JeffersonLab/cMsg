@@ -615,17 +615,19 @@ int cMsgSend(int domainId, char *subject, char *type, char *text) {
 
 
 int cMsgFlush(int domainId) {
-  FILE *file;
   int id = domainId - DOMAIN_ID_OFFSET;
   int fd = domains[id].sendSocket;
+  FILE *file;  
 
   if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
   if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
+  
+  /* turn file descriptor into FILE pointer */
+  file = fdopen(fd, "w");
 
   /* make send socket communications thread-safe */
   sendMutexLock(id);
   /* flush outgoing buffers */
-  file = fdopen(fd, "w");
   fflush(file);
   /* done with mutex */
   sendMutexUnlock(id);
