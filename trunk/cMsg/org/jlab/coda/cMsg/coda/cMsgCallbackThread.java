@@ -28,6 +28,8 @@ public class cMsgCallbackThread extends Thread {
     /** Message to be passed to the callback. */
     private cMsgMessage message;
 
+    //private int lastOdd=1,lastEven=0, num;
+
     /** User argument to be passed to the callback. */
     private Object arg;
 
@@ -48,20 +50,41 @@ public class cMsgCallbackThread extends Thread {
     }
 
     /** This method is executed as a thread which runs the callback method */
-    public void run() {
-        while(true) {
-            synchronized(this) {
-                try {
-                    // Wait to run the callback until notified
-                    wait();
-                }
-                catch (InterruptedException e) {
-                    // if interrupted, it's a sign for this thread to die
-                    return;
-                }
+    synchronized public void run() {
+        while (true) {
+            try {
+                // Wait to run the callback until notified by client's listening thread
+                wait();
             }
-            //System.out.println("cMsgCallbackThread: will run callback");
+            catch (InterruptedException e) {
+                e.printStackTrace();
+                System.exit(-1);
+            }
+
+            /*
+            num = Integer.parseInt(message.getText());
+            if (num%2 > 0) {
+                if (num - lastOdd != 2) {
+                    System.out.println("         " + lastOdd + " -> " + message.getText());
+                }
+                lastOdd = num;
+            }
+            else {
+                if (num - lastEven != 2) {
+                    System.out.println(lastEven + " -> " + message.getText());
+                }
+                lastEven = num;
+            }
+            */
+
+            // Run callback method with proper argument
             callback.callback(message, arg);
+
+            // Tell client listening thread (waiting for our notification)
+            // that we're finished and he can go on to the next message
+            synchronized (message) {
+                message.notify();
+            }
         }
     }
 }
