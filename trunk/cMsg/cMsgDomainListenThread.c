@@ -172,7 +172,12 @@ void *cMsgClientListeningThread(void *arg)
   /* spawn threads to deal with each client */
   for ( ; ; ) {
     
-    /* if we want things not to block, then use select */
+    /*
+     * If we want things not to block, then use select.
+     * Note: select can be used to place a timeout on
+     * connect only when the socket is nonblocking.
+     * Socket timeout options do not work with connect.
+     */
     if (blocking == CMSG_NONBLOCKING) {
       /* Linux modifies timeout, so reset each round */
       /* 1 second timed wait on select */
@@ -332,6 +337,10 @@ static void *clientThread(void *arg)
     retry:
     err = cMsgTcpRead(connfd, &msgId, sizeof(msgId));
     if (err != sizeof(msgId)) {
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+        fprintf(stderr, "clientThread %d: error reading command\n", localCount);
+        perror("reading command");
+      }
       /* if there's a timeout, try again */
       if (errno == EWOULDBLOCK || errno == EAGAIN) {
         /* test to see if someone wants to shutdown this thread */
@@ -424,13 +433,29 @@ static void *clientThread(void *arg)
             goto end;
           }
           
-          /* run callbacks for this message */
-          if ( (err = cMsgWakeGets(domainId, message)) != CMSG_OK) {
+          /* wakeup get caller for this message */
+          cMsgWakeGet(domainId, message);
+      }
+      break;
+
+      case CMSG_GET_RESPONSE_IS_NULL:
+      {
+          int senderToken;
+          
+          if (cMsgDebug >= CMSG_DEBUG_INFO) {
+            fprintf(stderr, "clientThread %d: subscribe is null response received\n", localCount);
+          }
+                    
+          /* read senderToken */
+          if (cMsgTcpRead(connfd, (void *) &senderToken, sizeof(senderToken)) != sizeof(senderToken)) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread %d: too many messages cued up\n", localCount);
             }
+            fprintf(stderr, "clientThread %d: error reading socket\n", localCount);
             goto end;
           }
+          
+          /* wakeup get caller for this message */
+          cMsgWakeGetWithNull(domainId, senderToken);
       }
       break;
 
@@ -521,13 +546,8 @@ static void *clientThread(void *arg)
             goto end;
           }
           
-          /* run callbacks for this message */
-          if ( (err = cMsgWakeGets(domainId, message)) != CMSG_OK) {
-            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread %d: too many messages cued up\n", localCount);
-            }
-            goto end;
-          }
+          /* wakeup get caller for this message */
+          cMsgWakeGet(domainId, message);
           
           /* send back ok */
           ok = htonl(CMSG_OK);
