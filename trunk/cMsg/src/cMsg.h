@@ -211,16 +211,16 @@ extern "C" {
   int    cMsgSetUserInt        (void *vmsg, int  userInt);
   int    cMsgGetUserInt        (void *vmsg, int *userInt);
   
-  int    cMsgSetUserTime       (void *vmsg, time_t  userTime);
-  int    cMsgGetUserTime       (void *vmsg, time_t *userTime);
+  int    cMsgSetUserTime       (void *vmsg, struct timespec *userTime);
+  int    cMsgGetUserTime       (void *vmsg, struct timespec *userTime);
   
   int    cMsgGetSender         (void *vmsg, char  **sender);
   int    cMsgGetSenderHost     (void *vmsg, char  **senderHost);
-  int    cMsgGetSenderTime     (void *vmsg, time_t *senderTime);
+  int    cMsgGetSenderTime     (void *vmsg, struct timespec *senderTime);
   
   int    cMsgGetReceiver       (void *vmsg, char  **receiver);
   int    cMsgGetReceiverHost   (void *vmsg, char  **receiverHost);
-  int    cMsgGetReceiverTime   (void *vmsg, time_t *receiverTime);
+  int    cMsgGetReceiverTime   (void *vmsg, struct timespec *receiverTime);
 
 
   /* system and domain info access functions */
