@@ -21,6 +21,8 @@ import java.net.*;
 import java.lang.*;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.Condition;
 import java.nio.channels.Selector;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
@@ -384,6 +386,14 @@ public class cMsgDomainServer extends Thread {
         /** Message type. */
         private String type;
 
+        /**
+         * Lock used with condition variable to wait on signal. Slightly more
+         * efficient than wait & notify.
+         */
+        private ReentrantLock lock = new ReentrantLock();
+        /** Condition variable to wait on signal. */
+        private Condition threadNeeded = lock.newCondition();
+
 
         /**
          * Constructor.
@@ -394,11 +404,27 @@ public class cMsgDomainServer extends Thread {
         }
 
         /** Loop forever waiting for work to do. */
-        public synchronized void run() {
+        public void run() {
 
             //System.out.println(this.getName() + " is ready");
 
             while (true) {
+                lock.lock();
+                try {
+                    while (key == null)  {
+                        threadNeeded.await();
+                    }
+                }
+                catch (InterruptedException e) {
+                    e.printStackTrace();
+                    // clear interrupt status
+                    this.interrupted();
+                }
+                finally {
+                    lock.unlock();
+                }
+
+/*
                 try {
                     // sleep and release object lock
                     this.wait();
@@ -410,6 +436,7 @@ public class cMsgDomainServer extends Thread {
                 }
 
                 if (key == null) {continue;}
+*/
 
                 try {
                     handleClient(key);
@@ -451,11 +478,14 @@ public class cMsgDomainServer extends Thread {
          *
          * @param key selection key containing socket to client
          */
-        synchronized void serviceChannel(SelectionKey key) {
+        void serviceChannel(SelectionKey key) {
             this.key = key;
             key.interestOps(key.interestOps() & (~SelectionKey.OP_READ));
             // awaken the thread
-            this.notify();
+            //this.notify();
+            lock.lock();
+            threadNeeded.signal();
+            lock.unlock();
         }
 
 
