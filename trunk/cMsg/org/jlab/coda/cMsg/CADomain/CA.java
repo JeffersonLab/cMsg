@@ -83,6 +83,7 @@ public class CA extends cMsgDomainAdapter {
 
                 //  get cMsg and fill common fields
                 cMsgMessage cmsg = new cMsgMessage();
+/*
                 cmsg.setDomain(domain);
                 cmsg.setSender(myChannelName);
                 cmsg.setSenderHost(myAddrList);
@@ -90,6 +91,7 @@ public class CA extends cMsgDomainAdapter {
                 cmsg.setReceiver(name);
                 cmsg.setReceiverHost(host);
                 cmsg.setReceiverTime(new Date());
+*/
                 cmsg.setText("" + (((DOUBLE)event.getDBR()).getDoubleValue())[0]);
 
 
@@ -198,14 +200,14 @@ public class CA extends cMsgDomainAdapter {
 
         // parse remainder and set JCA context options
         DefaultConfiguration conf = new DefaultConfiguration("myContext");
-        conf.addAttribute("class", JCALibrary.CHANNEL_ACCESS_JAVA);
-        conf.addAttribute("auto_addr_list","false");
+        conf.setAttribute("class", JCALibrary.CHANNEL_ACCESS_JAVA);
+        conf.setAttribute("auto_addr_list","false");
         if(remainder!=null) {
             p = Pattern.compile("[&\\?]addr_list=(.*?)&", Pattern.CASE_INSENSITIVE);
             m = p.matcher(remainder);
             if(m.find()) {
                 myAddrList=m.group(1);
-                conf.addAttribute("addr_list",myAddrList);
+                conf.setAttribute("addr_list",myAddrList);
             }
         }
 
@@ -267,7 +269,7 @@ public class CA extends cMsgDomainAdapter {
     /**
      * Method to send a message to the domain server for further distribution.
      *
-     * @param message message
+     * @param msg message
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void send(cMsgMessage msg) throws cMsgException {
@@ -323,7 +325,6 @@ public class CA extends cMsgDomainAdapter {
      * then the server grabs the first incoming message of the requested subject and type
      * and sends that to the original sender in response to the get.
      *
-     * @param message message sent to server
      * @param timeout time in milliseconds to wait for a reponse message
      * @return response message
      * @throws cMsgException always throws an exception since this is a dummy implementation
@@ -331,6 +332,7 @@ public class CA extends cMsgDomainAdapter {
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout) throws cMsgException {
 
         cMsgMessage response = new cMsgMessage();
+/*
         response.setDomain(domain);
         response.setSender(myChannelName);
         response.setSenderHost(myAddrList);
@@ -338,6 +340,7 @@ public class CA extends cMsgDomainAdapter {
         response.setReceiver(name);
         response.setReceiverHost(host) ;
         response.setReceiverTime(new Date());
+*/
         response.setSubject(subject);
         response.setType(type);
 
