@@ -27,7 +27,6 @@ import java.nio.channels.SocketChannel;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.util.*;
-import java.net.Socket;
 
 /**
  * This class implements a cMsg client's thread which listens for
@@ -237,12 +236,6 @@ public class cMsgClientListeningThread extends Thread {
                      if (debug >= cMsgConstants.debugInfo) {
                          System.out.println("handleClient: got shutdown from server");
                      }
-                     // send ok back as acknowledgment
-                     buffer.clear();
-                     buffer.putInt(cMsgConstants.ok).flip();
-                     while (buffer.hasRemaining()) {
-                         channel.write(buffer);
-                     }
                      // close channel and unregister from selector
                      channel.close();
                      // need to shutdown this server now
@@ -395,22 +388,14 @@ public class cMsgClientListeningThread extends Thread {
 
         cMsgHolder holder;
 
-
-        cMsgCallbackThread cbThread;
-
         // handle subscriptions
-        Set set = client.subscriptions;
-        Iterator iter, iter2;
+        Set<cMsgSubscription> set = client.subscriptions;
 
-        if (client.subscriptions.size() > 0) {
+        if (set.size() > 0) {
             // set is NOT modified here
             synchronized (set) {
-                iter = set.iterator();
-
                 // for each subscription of this client ...
-                while (iter.hasNext()) {
-                    cMsgSubscription sub = (cMsgSubscription) iter.next();
-
+                for (cMsgSubscription sub : set) {
                     // run through list of receiverSubscribeIds that msg matches
                     for (int i = 0; i < rsIdCount; i++) {
 
@@ -418,13 +403,9 @@ public class cMsgClientListeningThread extends Thread {
                         if (sub.getId() == rsIds[i]) {
 
                             // run through all callbacks
-                            iter2 = sub.getCallbacks().iterator();
-                            while (iter2.hasNext()) {
-                                cbThread = (cMsgCallbackThread) iter2.next();
+                            for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
                                 cbThread.sendMessage(msg);
 //System.out.println("Sending wakeup for SUBSCRIBE");
-                                // Tell one callback thread to wakeup and run the callback.
-                                cbThread.wakeup();
                             }
 
                             // look at next subscription
@@ -440,12 +421,10 @@ public class cMsgClientListeningThread extends Thread {
         // run through list of receiverSubscribeIds that msg matches
         for (int i = 0; i < rsIdCount; i++) {
             // take care of any general gets first
-            holder = (cMsgHolder) (client.generalGets.remove(rsIds[i]));
+            holder = client.generalGets.remove(rsIds[i]);
 
             if (holder != null) {
-// BUG BUG copy message??
-
-                holder.message = msg;
+                holder.message = msg.copy();
 //System.out.println("Sending notify for subscribeAndGet");
                 // Tell the get-calling thread to wakeup and retrieved the held msg
                 synchronized (holder) {
@@ -472,12 +451,12 @@ public class cMsgClientListeningThread extends Thread {
         }
 
         // handle specific get (aimed at a receiver)
-        cMsgHolder holder = (cMsgHolder) client.specificGets.remove(msg.getSenderToken());
+        cMsgHolder holder = client.specificGets.remove(msg.getSenderToken());
 
         if (holder == null) {
             return;
         }
-// BUG BUG copy message??
+        // Do NOT need to copy msg as only 1 receiver gets it
         holder.message = msg;
         // Tell the get-calling thread to wakeup and retrieved the held msg
         synchronized (holder) {

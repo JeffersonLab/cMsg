@@ -20,9 +20,10 @@ import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgCallbackInterface;
 import org.jlab.coda.cMsg.cMsgException;
 
-import java.util.List;
-import java.util.LinkedList;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This class is used to run a message callback in its own thread.
@@ -31,10 +32,10 @@ import java.util.Collections;
  */
 public class cMsgCallbackThread extends Thread {
     /** List of ordered messages to be passed to the callback. */
-    private List<cMsgMessageFull> messageList;
+    private LinkedBlockingQueue<cMsgMessageFull> messageCue;
 
-    //private int lastOdd=1,lastEven=0, num;
-    private int size;
+    /** List of message that need to be dumped. */
+    private ArrayList<cMsgMessageFull> dumpList;
 
     /** User argument to be passed to the callback. */
     private Object arg;
@@ -42,41 +43,19 @@ public class cMsgCallbackThread extends Thread {
     /** Callback to be run. */
     cMsgCallbackInterface callback;
 
-    /** Setting this to true will kill this thread as soon as possible. */
-    private boolean dieNow;
-
-    /** Setting this to true will kill this thread immediate after running the callback. */
-    private boolean dieAfterCallback;
-
     /** Count of how may supplemental threads are currently active. */
-    private int threads;
-
-    /**
-     * Object to synchronize on when changing the value of threads and
-     * in the case of get, telling the getter to wakeup. It does double
-     * duty, but they don't interfere.
-     */
-    Object sync = new Object();
+    private AtomicInteger threads = new AtomicInteger();
 
     /** Place to temporarily store the returned message from a get. */
     cMsgMessageFull message;
 
+    /** Setting this to true will kill this thread as soon as possible. */
+    private volatile boolean dieNow;
 
-    /** If this thread is waiting, it's woken up. */
-    synchronized public void wakeup() {
-        notify();
-    }
 
-    /** Kills this thread as soon as possible. If it's waiting, it's woken up first. */
-    synchronized public void dieNow() {
+    /** Kills this thread as soon as possible. */
+    public void dieNow() {
         dieNow = true;
-        notifyAll();
-    }
-
-    /** Kills this thread after running the callback. If it's currently waiting, it's woken up. */
-    synchronized public void dieAfterCallback() {
-        dieAfterCallback = true;
-        notifyAll();
     }
 
     /**
@@ -93,35 +72,24 @@ public class cMsgCallbackThread extends Thread {
         /** This method is executed as a thread which runs the callback method */
         public void run() {
             cMsgMessageFull message;
-            int empty;
+            int i, empty;
 
             while (true) {
                 empty = 0;
-                // only wait if no messages to run callback on
-                while (messageList.size() < 1) {
-                    // self-destruct if woken 9 times with no messages available
-                    if (++empty%10 == 0) {
-                        synchronized (sync) {
-                            threads--;
-                            //System.out.println("t -= " + threads);
-                        }
+                message = null;
+
+                while (message == null) {
+                    // die immediately if commanded to
+                    if (dieNow || ++empty % 10 == 0) {
+                        i = threads.getAndDecrement();
+                        //System.out.println("t -= " + i);
                         return;
                     }
 
                     try {
-                        // Wait to run the callback until notified by client's listening thread
-                        // that there are messages to run the callback on.
-                        synchronized (cMsgCallbackThread.this) {
-                            cMsgCallbackThread.this.wait(200);
-                        }
+                        message = messageCue.poll(200, TimeUnit.MILLISECONDS);
                     }
                     catch (InterruptedException e) {
-                        e.printStackTrace();
-                        System.exit(-1);
-                    }
-
-                    if (dieNow) {
-                        return;
                     }
                 }
 
@@ -129,19 +97,8 @@ public class cMsgCallbackThread extends Thread {
                     return;
                 }
 
-                // grab a message off the list if possible
-                synchronized (messageList) {
-                    if (messageList.size() > 0) {
-                        message = messageList.remove(0);
-                    }
-                    else {
-                        message = null;
-                    }
-                }
-
-                if (message != null) {
-                    callback.callback(message, arg);
-                }
+                // run callback with copied msg so multiple callbacks don't clobber each other
+                callback.callback(message.copy(), arg);
             }
         }
     }
@@ -153,8 +110,9 @@ public class cMsgCallbackThread extends Thread {
      */
     cMsgCallbackThread(cMsgCallbackInterface callback, Object arg) {
         this.callback = callback;
-        this.arg = arg;
-        messageList = Collections.synchronizedList(new LinkedList());
+        this.arg      = arg;
+        messageCue    = new LinkedBlockingQueue<cMsgMessageFull>(callback.getMaximumCueSize());
+        dumpList      = new ArrayList<cMsgMessageFull>(callback.getSkipSize());
         start();
     }
 
@@ -165,8 +123,9 @@ public class cMsgCallbackThread extends Thread {
      */
     cMsgCallbackThread(cMsgCallbackInterface callback) {
         this.callback = callback;
-        this.arg = this;
-        messageList = Collections.synchronizedList(new LinkedList());
+        this.arg      = this;
+        messageCue    = new LinkedBlockingQueue<cMsgMessageFull>(callback.getMaximumCueSize());
+        dumpList      = new ArrayList<cMsgMessageFull>(callback.getSkipSize());
         start();
     }
 
@@ -177,46 +136,49 @@ public class cMsgCallbackThread extends Thread {
      * @throws cMsgException if there are too many messages to handle
      */
     public void sendMessage(cMsgMessageFull message) throws cMsgException {
-        messageList.add(message);
-        size = messageList.size();
-        if (size % 1000 == 0) {
-            //System.out.println(size+"");
-        }
-        if (size > callback.getMaximumCueSize()) {
-            if (callback.maySkipMessages()) {
-                messageList.subList(0, size - callback.getSkipSize()).clear();
-            }
-            else {
+        // if the cue if full, dump some messages if possible, else throw exception
+        if (!messageCue.offer(message)) {
+            if (!callback.maySkipMessages()) {
                 throw new cMsgException("too many messages for callback to handle");
             }
+
+            messageCue.drainTo(dumpList, callback.getSkipSize());
+            dumpList.clear();
+            messageCue.offer(message);
         }
+
+        //if (messageCue.size() > 0 && messageCue.size() % 1000 == 0) {
+        //    System.out.println("" + messageCue.size());
+        //}
     }
 
 
     /** This method is executed as a thread which runs the callback method */
     public void run() {
-        cMsgMessageFull message, msgCopy;
-        int threadsAdded, need, maxToAdd, wantToAdd;
+        cMsgMessageFull message;
+        int j, threadsAdded, threadsExisting, need, maxToAdd, wantToAdd;
 
         while (true) {
+            threadsExisting = threads.get();
             threadsAdded = 0;
+            message = null;
 
             if (!callback.mustSerializeMessages() &&
-                threads < callback.getMaximumCueSize() &&
-                messageList.size() > callback.getMessagesPerThread()) {
+                threadsExisting < callback.getMaximumCueSize() &&
+                messageCue.size() > callback.getMessagesPerThread()) {
 
                 // find number of threads needed
-                need = messageList.size()/callback.getMessagesPerThread();
+                need = messageCue.size()/callback.getMessagesPerThread();
 
                 // at this point, threads may only decrease, it is only increased below
 
                 // add more threads if necessary
-                if (need > threads) {
+                if (need > threadsExisting) {
                     // maximum # of threads that can be added w/o exceeding limit
-                    maxToAdd  = callback.getMaximumThreads() - threads;
+                    maxToAdd  = callback.getMaximumThreads() - threadsExisting;
 
                     // number of threads we want to add to handle the load
-                    wantToAdd = need - threads;
+                    wantToAdd = need - threadsExisting;
 
                     // number of threads that we will add
                     threadsAdded = maxToAdd > wantToAdd ? wantToAdd : maxToAdd;
@@ -227,62 +189,31 @@ public class cMsgCallbackThread extends Thread {
 
                     // do the following bookkeeping under mutex protection
                     if (threadsAdded > 0) {
-                        synchronized (sync) {
-                            threads += threadsAdded;
-                            //System.out.println("t += " + threads);
-                        }
+                        j = threads.getAndAdd(threadsAdded);
+                        //System.out.println("t += " + j);
                     }
                 }
             }
 
-            // only wait if no messages to run callback on
-            while (messageList.size() < 1) {
-                // die immediately if commanded to, or die now even if told
-                // to run callback first because there are no messages to
-                // pass to the callback
-                if (dieNow || dieAfterCallback) {
+            while (message == null) {
+                // die immediately if commanded to
+                if (dieNow) {
                     return;
                 }
 
                 try {
-                    // Wait to run the callback until notified by client's listening thread
-                    // that there are messages to run the callback on.
-                    synchronized (this) {
-                        wait();
-                    }
+                    message = messageCue.poll(1000, TimeUnit.MILLISECONDS);
                 }
                 catch (InterruptedException e) {
-                    e.printStackTrace();
-// BUG BUG DO WE WANT TO DIE LIKE THIS?
-                    System.exit(-1);
                 }
-
             }
 
             if (dieNow) {
                 return;
             }
 
-            // grab a message off the list if possible
-            // Run callback method with proper argument
-            if (messageList.size() > 0) {
-                message = messageList.remove(0);
-            }
-            else {
-                message = null;
-                continue;
-            }
-
-            // first copy the msg so multiple callbacks don't clobber each other
-            msgCopy = message.copy();
-
-            // run callback method
-            callback.callback(msgCopy, arg);
-
-            // die if commanded to
-            if (dieAfterCallback || dieNow) {
-                return;
-            }
+            // run callback with copied msg so multiple callbacks don't clobber each other
+            callback.callback(message.copy(), arg);
         }
     }
 }
