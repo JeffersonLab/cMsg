@@ -37,19 +37,19 @@ import java.io.IOException;
  */
 public class cMsgMonitorClient extends Thread {
     /** Client information object. */
-    private cMsgClientInfo   info;
+    private cMsgClientInfo info;
 
     /** Domain server object. */
     private cMsgDomainServer domainServer;
 
     /** Communication channel to client from domain server. */
-    private SocketChannel    channel;
+    private SocketChannel channel;
 
     /** A direct buffer is necessary for nio socket IO. */
     private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
     /** Level of debug output for this class. */
-    private int debug = cMsgConstants.debugError;
+    private int debug = cMsgConstants.debugNone;
 
 
     /**
@@ -146,7 +146,7 @@ public class cMsgMonitorClient extends Thread {
                 return;
             }
 
-            try {Thread.sleep(3000);}
+            try {Thread.sleep(1000);}
             catch (InterruptedException e) {}
         }
 
