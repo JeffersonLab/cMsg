@@ -55,6 +55,9 @@ public class cMsgMessage implements Cloneable {
     /** Version number of cMsg. */
     int version;
 
+    /** Creator of the this message. */
+    String creator;
+
 
     // user-settable quantities
 
@@ -113,8 +116,33 @@ public class cMsgMessage implements Cloneable {
     int receiverSubscribeId;
 
 
-    /** The constructor does not allow user to create a message directly. */
+    /** The constructor for a blank message. */
     public cMsgMessage() {}
+
+
+    /** The constructor which copies a given message, EXCEPT for the creator field. */
+    public cMsgMessage(cMsgMessage msg) {
+        sysMsgId            = msg.sysMsgId;
+        domain              = msg.domain;
+        getRequest          = msg.getRequest;
+        getResponse         = msg.getResponse;
+        version             = msg.version;
+        //creator             = msg.creator;
+        subject             = msg.subject;
+        type                = msg.type;
+        text                = msg.text;
+        priority            = msg.priority;
+        userInt             = msg.userInt;
+        userTime            = msg.userTime;
+        sender              = msg.sender;
+        senderHost          = msg.senderHost;
+        senderTime          = msg.senderTime;
+        senderToken         = msg.senderToken;
+        receiver            = msg.receiver;
+        receiverHost        = msg.receiverHost;
+        receiverTime        = msg.receiverTime;
+        receiverSubscribeId = msg.receiverSubscribeId;
+    }
 
 
     /**
@@ -197,6 +225,15 @@ public class cMsgMessage implements Cloneable {
      */
     public int getVersion() {
         return version;
+    }
+
+
+    /**
+     * Gets the creator of this message.
+     * @return creator of this message.
+     */
+    public String getCreator() {
+        return creator;
     }
 
 
