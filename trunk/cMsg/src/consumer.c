@@ -20,42 +20,52 @@
 #include <unistd.h>
 #include <time.h>
 #include <pthread.h>
-#ifdef sun
-#include <thread.h>
-#endif
 
 #include "cMsg.h"
 
-/* recent versions of linux put float.h (and DBL_MAX) in a strange place */
-#define DOUBLE_MAX   1.7976931348623157E+308
-
 int count = 0;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-
 static void callback(void *msg, void *arg);
 
+
 int main(int argc,char **argv) {  
-  char *myName   = "C-consumer";
-  char *myDescription = "trial run";
-  int err, domainId = -1;
+
+  char *myName   = "C Consumer";
+  char *myDescription = "C consumer";
+  char *subject = "SUBJECT";
+  char *type    = "TYPE";
+  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
+  int   err, debug = 1, domainId = -1;
   cMsgSubscribeConfig *config;
   
-  double freq=0., freqAvg=0., freqTotal=0.;
-  long   iterations=1;
-  int    period = 5; /* sec */
+  /* msg rate measuring variables */
+  int             loops=20000;
+  int             period = 5; /* sec */
+  struct timespec t1, t2;
+  double          freq, freqAvg=0., deltaT, totalT=0.;
+  long long       totalC=0;
   
   if (argc > 1) {
     myName = argv[1];
   }
-  printf("My name is %s\n", myName);
   
-  printf("cMsgConnect ...\n");
-  err = cMsgConnect("cMsg:cMsg://aslan:3456/cMsg/vx/", myName, myDescription, &domainId);
-  printf("cMsgConnect: %s\n", cMsgPerror(err));
- 
+  if (debug) {
+    printf("Running the cMsg consumer, \"%s\"\n", myName);
+  }
+    
+  /* connect to cMsg server */
+  err = cMsgConnect(UDL, myName, myDescription, &domainId);
+  if (err != CMSG_OK) {
+      if (debug) {
+          printf("cMsgConnect: %s\n",cMsgPerror(err));
+      }
+      exit(1);
+  }
+  
+  /* start receiving messages */
   cMsgReceiveStart(domainId);
   
-  printf("cMsgSubscribe ...\n");
+  /* set the subscribe configuration */
   config = cMsgSubscribeConfigCreate();
   cMsgSubscribeSetMaxCueSize(config, 10000);
   cMsgSubscribeSetSkipSize(config, 2000);
@@ -64,37 +74,39 @@ int main(int argc,char **argv) {
   cMsgSubscribeSetMaxThreads(config, 290);
   cMsgSubscribeSetMessagesPerThread(config, 150);
   cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
-  err = cMsgSubscribe(domainId, "SUBJECT", "TYPE", callback, NULL, config);
-  printf("cMsgSubscribe: %s\n", cMsgPerror(err));
+  
+  /* subscribe */
+  err = cMsgSubscribe(domainId, subject, type, callback, NULL, config);
+  if (err != CMSG_OK) {
+      if (debug) {
+          printf("cMsgSubscribe: %s\n",cMsgPerror(err));
+      }
+      exit(1);
+  }
 
   while (1) {
       count = 0;
+      
+      /* wait for messages */
       sleep(period);
-
-      freq = (double)count/(double)period;
-      if (DOUBLE_MAX - freqTotal < freq) {
-          freqTotal  = 0.;
-          iterations = 1;
-      }
-      freqTotal += freq;
-      freqAvg = freqTotal/iterations;
-      iterations++;
+      
+      /* calculate rate */
+      totalT += period;
+      totalC += count;
+      freq    = (double)count/period;
+      freqAvg = totalC/totalT;
       printf("count = %d, %9.0f Hz, %9.0f Hz Avg.\n", count, freq, freqAvg);
-      fflush(stdout);
   }
 
   return(0);
 }
 
 static void callback(void *msg, void *arg) {
-  /*char *creator;*/
   
   pthread_mutex_lock(&mutex);
   count++;
   pthread_mutex_unlock(&mutex);
-  /*
-  creator = cMsgGetCreator(msg);
-  free(creator);
-  */
+  
+  /* user MUST free messages passed to the callback */
   cMsgFreeMessage(msg);
 }
