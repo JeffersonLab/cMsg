@@ -64,6 +64,16 @@ public interface cMsgInterface {
     public void send(cMsgMessage message) throws cMsgException;
 
     /**
+     * Method to send a message to the domain server for further distribution
+     * and wait for a response from the subdomain handler that got it.
+     *
+     * @param message message
+     * @return response from subdomain handler
+     * @throws cMsgException
+     */
+    public int syncSend(cMsgMessage message) throws cMsgException;
+
+    /**
      * Method to force cMsg client to send pending communications with domain server.
      * @throws cMsgException
      */
