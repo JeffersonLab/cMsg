@@ -26,7 +26,14 @@ LIB_DIR = ./lib/Linux
 BIN_DIR = ./bin/Linux
 endif
 
-all: $(OSNAME) java doc
+all: mkdirs $(OSNAME) java doc
+
+mkdirs:
+	mkdir ./lib
+	mkdir ./bin
+	mkdir ./inc
+	mkdir $(LIB_DIR)
+	mkdir $(BIN_DIR)
 
 Linux:
 	cd ./src/regexp; make -f Makefile.Linux install;
