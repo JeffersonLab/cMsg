@@ -386,7 +386,7 @@ int cMsgSend(int domainId, void *msg) {
  *
  * @param domainId id number of the domain connection
  * @param msg pointer to a message structure
- * @param response pointer to an integer that gets filled with the server's response
+ * @param response integer pointer that gets filled with the server's response
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
@@ -447,9 +447,9 @@ int cMsgFlush(int domainId) {
 
 /**
  * This routine subscribes to messages of the given subject and type.
- * When a message is received, the given callback is passed the userArg
- * pointer and is executed. A configuration structure is given to determine
- * the behavior of the callback.
+ * When a message is received, the given callback is passed the message
+ * pointer and the userArg pointer and then is executed. A configuration
+ * structure is given to determine the behavior of the callback.
  *
  * @param domainId id number of the domain connection
  * @param subject subject of messages subscribed to
