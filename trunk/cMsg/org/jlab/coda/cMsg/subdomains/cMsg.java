@@ -107,8 +107,8 @@ public class cMsg extends cMsgSubdomainAbstract {
      * Implement a simple wildcard matching scheme where "*" means any or no characters and
      * "?" means 1 or no character.
      *
-     * @param regexp string that is a regular expression (can contain wildcards)
-     * @param s string to be matched
+     * @param regexp subscription string that can contain wildcards (* and ?)
+     * @param s message string to be matched (can be blank which only matches *)
      * @return true if there is a match, false if there is not
      */
     static private boolean matches(String regexp, String s) {
@@ -296,14 +296,10 @@ public class cMsg extends cMsgSubdomainAbstract {
      *                          or socket properties cannot be set
      */
     synchronized public void handleSendRequest(cMsgMessageFull message) throws cMsgException {
-        String client;
-        cMsgSubscription sub;
-        cMsgClientInfo   info;
-        HashSet subscriptions, gets;
-        boolean haveMatch;
 
         if (message == null) return;
 
+        cMsgClientInfo   info;
         infoList.clear();
         rsIdLists.clear();
 
@@ -341,11 +337,11 @@ public class cMsg extends cMsgSubdomainAbstract {
         }
 
         // Scan through all clients.
+        cMsgSubscription sub;
+        HashSet subscriptions, gets;
+        boolean haveMatch;
 
-        Iterator iter = clients.keySet().iterator();
-
-        while (iter.hasNext()) {
-            client = (String) iter.next();
+        for (String client : clients.keySet()) {
             // Don't deliver a message to the sender
             //if (client.equals(name)) {
             //    continue;
