@@ -53,6 +53,7 @@ public class cMsgSubscription {
         this.subject = subject;
         this.type = type;
         this.id = id;
+        callbacks = new HashSet(30);
     }
 
 
@@ -67,6 +68,7 @@ public class cMsgSubscription {
         this.subject = subject;
         this.type = type;
         this.id = id;
+        callbacks = new HashSet(30);
         callbacks.add(info);
     }
 
