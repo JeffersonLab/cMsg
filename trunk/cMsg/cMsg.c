@@ -266,7 +266,7 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
    * 
    * But before that, define a port number from which to start looking.
    * If CMSG_PORT is defined, it's the starting port number.
-   * If CMSG_PORT is NOT defind, start at 2345.
+   * If CMSG_PORT is NOT defind, start at CMSG_CLIENT_LISTENING_PORT (2345).
    */
 
   /* pick starting port number */
@@ -279,7 +279,7 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
   else {
     i = atoi(portEnvVariable);
     if (i < 1025 || i > 65535) {
-      port = 2345;
+      port = CMSG_CLIENT_LISTENING_PORT;
       if (debug >= CMSG_DEBUG_WARN) {
         fprintf(stderr, "cMsgConnect: CMSG_PORT contains a bad port #, first try port %hu\n", startingPort);
       }
@@ -362,32 +362,21 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
 
 static int getHostAndPortFromNameServer(cMsgDomain domain, unsigned short port,
                                         const char *myName, int serverfd) {
-  int msgId, err, length, len;
-  unsigned short portNet;
-  
+  int err, lengthHost, lengthName, outgoing[4], incoming[2];  
 
   /* first send message id (in network byte order) to server */
-  msgId = htonl(CMSG_SERVER_CONNECT);
-  if (cMsgTcpWrite(serverfd, (void *) &msgId, sizeof(msgId)) != sizeof(msgId)) {
-    if (debug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-
-  /* send my listening port (in network byte order) to server */
-  portNet = htons(port);
-  if (cMsgTcpWrite(serverfd, (void *) &portNet, sizeof(portNet)) != sizeof(portNet)) {
-    if (debug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-
+  outgoing[0] = htonl(CMSG_SERVER_CONNECT);
+  /* send my listening port (as an int in network byte order) to server */
+  outgoing[1] = htonl((int)port);
   /* send length (in network byte order) of my host name to server */
-  length = strlen(domain.myHost);
-  len    = htonl(length);
-  if (cMsgTcpWrite(serverfd, (void *) &len, sizeof(len)) != sizeof(len)) {
+  lengthHost  = strlen(domain.myHost);
+  outgoing[2] = htonl(lengthHost);
+  /* send length (in network byte order) of my name to server */
+  lengthName  = strlen(myName);
+  outgoing[3] = htonl(lengthName);
+  
+  /* first send all the ints */
+  if (cMsgTcpWrite(serverfd, (void *) outgoing, sizeof(outgoing)) != sizeof(outgoing)) {
     if (debug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
     }
@@ -395,17 +384,7 @@ static int getHostAndPortFromNameServer(cMsgDomain domain, unsigned short port,
   }
 
   /* send my host name to server */
-  if (cMsgTcpWrite(serverfd, (void *) domain.myHost, sizeof(length)) != sizeof(length)) {
-    if (debug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-
-  /* send length (in network byte order) of my name to server */
-  length = strlen(myName);
-  len    = htonl(length);
-  if (cMsgTcpWrite(serverfd, (void *) &len, sizeof(len)) != sizeof(len)) {
+  if (cMsgTcpWrite(serverfd, (void *) domain.myHost, sizeof(lengthHost)) != sizeof(lengthHost)) {
     if (debug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
     }
@@ -413,7 +392,7 @@ static int getHostAndPortFromNameServer(cMsgDomain domain, unsigned short port,
   }
 
   /* send my name to server */
-  if (cMsgTcpWrite(serverfd, (void *) myName, sizeof(length)) != sizeof(length)) {
+  if (cMsgTcpWrite(serverfd, (void *) myName, sizeof(lengthName)) != sizeof(lengthName)) {
     if (debug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
     }
@@ -436,27 +415,18 @@ static int getHostAndPortFromNameServer(cMsgDomain domain, unsigned short port,
   
   /* if everything's OK, we expect to get send host & port */
   
-  /* first read port */
-  if (cMsgTcpRead(serverfd, (void *) &domain.sendPort,
-                  sizeof(domain.sendPort)) != sizeof(domain.sendPort)) {
+  /* read port & length of host name to send to*/
+  if (cMsgTcpRead(serverfd, (void *) &incoming, sizeof(incoming)) != sizeof(incoming)) {
     if (debug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "getHostAndPortFromNameServer: read failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
-  domain.sendPort = ntohs(domain.sendPort);
-  
-  /* read length of host name to send to */
-  if (cMsgTcpRead(serverfd, (void *) &length, sizeof(length)) != sizeof(length)) {
-    if (debug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getHostAndPortFromNameServer: read failure\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-  length = ntohl(length);
+  domain.sendPort = (unsigned short) ntohl(incoming[0]);
+  lengthHost = ntohl(incoming[1]);
 
   /* read host name to send to */
-  if (cMsgTcpRead(serverfd, (void *) domain.sendHost, sizeof(length)) != sizeof(length)) {
+  if (cMsgTcpRead(serverfd, (void *) domain.sendHost, sizeof(lengthHost)) != sizeof(lengthHost)) {
     if (debug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "getHostAndPortFromNameServer: read failure\n");
     }
