@@ -176,6 +176,18 @@ public class cMsgDomainServer extends Thread {
     }
 
 
+    /**
+     * Method to be run when this server's client is dead or disconnected and
+     * the server threads will be killed. It runs the "shutdown" method of its
+     * cMsgHandleRequest (subdomain handler) object.
+     *
+     * Finalize methods are run after an object has become unreachable and
+     * before the garbage collector is run;
+     */
+    public void finalize() throws cMsgException {
+        clientHandler.handleShutdown(info.name);
+    }
+
 
     /** This method is executed as a thread. */
     public void run() {
@@ -329,7 +341,7 @@ public class cMsgDomainServer extends Thread {
                     }
                     // close channel and unregister from selector
                     channel.close();
-                    clientHandler.handleDisconnect(info.name);
+                    clientHandler.handleShutdown(info.name);
                     break;
 
                 case cMsgConstants.msgShutdown: // told this server to shutdown

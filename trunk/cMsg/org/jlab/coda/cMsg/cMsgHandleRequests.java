@@ -35,6 +35,7 @@ public interface cMsgHandleRequests {
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException;
 
+
     /**
      * Method to register domain client.
      *
@@ -45,13 +46,6 @@ public interface cMsgHandleRequests {
      */
     public void registerClient(String name, String host, int port) throws cMsgException;
 
-    /**
-     * Method to unregister domain client.
-     *
-     * @param name name of client
-     * @throws cMsgException
-     */
-    public void unregisterClient(String name) throws cMsgException;
 
     /**
      * Method to see if domain client is registered.
@@ -62,6 +56,7 @@ public interface cMsgHandleRequests {
      */
     public boolean isRegistered(String name) throws cMsgException;
 
+
     /**
      * Method to handle message sent by domain client.
      *
@@ -71,16 +66,19 @@ public interface cMsgHandleRequests {
      */
     public void handleSendRequest(String name, cMsgMessage msg) throws cMsgException;
 
+
     /**
      * Method to get a single message from the server for a given
      * subject and type.
      *
+     * @param name name of client
      * @param subject subject of message to get
      * @param type type of message to get
      * @return cMsgMessage message obtained by this get
      * @throws cMsgException
      */
-    public cMsgMessage handleGetRequest(String subject, String type) throws cMsgException;
+    public cMsgMessage handleGetRequest(String name, String subject, String type) throws cMsgException;
+
 
     /**
       * Method to handle subscribe request sent by domain client.
@@ -104,6 +102,7 @@ public interface cMsgHandleRequests {
      */
     public void handleUnsubscribeRequest(String name, String subject, String type) throws cMsgException;
 
+
     /**
      * Method to handle keepalive sent by domain client checking to see
      * if the domain server socket is still up.
@@ -113,24 +112,13 @@ public interface cMsgHandleRequests {
      */
     public void handleKeepAlive(String name) throws cMsgException;
 
-    /**
-     * Method to handle a disconnect request sent by domain client.
-     *
-     * @param name name of client
-     * @throws cMsgException
-     */
-    public void handleDisconnect(String name) throws cMsgException;
 
     /**
-     * Method to handle a request sent by domain client to shut the domain server down.
+     * Method to handle a domain server down.
      *
      * @param name name of client
      * @throws cMsgException
      */
     public void handleShutdown(String name) throws cMsgException;
 
-    /**
-     * Method to execute when the domain server shuts down.
-     */
-    public void shutdown();
 }

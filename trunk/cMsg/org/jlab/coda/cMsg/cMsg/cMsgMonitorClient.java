@@ -120,7 +120,7 @@ public class cMsgMonitorClient extends Thread {
                                        info.name + "\n");
                 }
 
-                try {domainServer.getClientHandler().unregisterClient(info.name);}
+                try {domainServer.getClientHandler().handleShutdown(info.name);}
                 catch (cMsgException e1) {}
 
                 domainServer.killAllThreads();
@@ -139,7 +139,7 @@ public class cMsgMonitorClient extends Thread {
                                        info.name + "\n");
                 }
 
-                try {domainServer.getClientHandler().unregisterClient(info.name);}
+                try {domainServer.getClientHandler().handleShutdown(info.name);}
                 catch (cMsgException e1) {}
                 
                 domainServer.killAllThreads();

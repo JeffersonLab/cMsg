@@ -126,15 +126,6 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
         }
     }
 
-    /**
-     * Method to unregister domain client.
-     * @param name name of client
-     */
-    public void unregisterClient(String name) {
-        synchronized (clients) {
-            clients.remove(name);
-        }
-    }
 
     /**
      * Method to handle message sent by domain client. The message's subject and type
@@ -310,42 +301,36 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
     public void handleKeepAlive(String name) {
     }
 
-    /**
-     * Method to handle a disconnect request sent by domain client.
-     * Normally nothing needs to be done as the domain server simply returns an
-     * "OK" and closes the channel. This method is run after all exchanges between
-     * domain server and client.
-     *
-     * @param name name of client
-     */
-    public void handleDisconnect(String name) {}
 
     /**
      * Method to get a single message from the server for a given
      * subject and type.
      *
+     * @param name name of client
      * @param subject subject of message to get
      * @param type type of message to get
      * @return cMsgMessage message obtained by this get
      */
-    public cMsgMessage handleGetRequest(String subject, String type) {
+    public cMsgMessage handleGetRequest(String name, String subject, String type) {
         return null;
     }
 
+
     /**
-     * Method to handle a request sent by domain client to shut the domain server down.
+     * Method to handle a domain server shutdown.
      * This method is run after all exchanges between domain server and client but
      * before the domain server thread is killed (since that is what is running this
      * method).
      *
      * @param name name of client
      */
-    public void handleShutdown(String name) {}
+    public void handleShutdown(String name) {
+        synchronized (clients) {
+            clients.remove(name);
+        }
+    }
 
-    /**
-     * Method to execute when the domain server shuts down.
-     */
-    public void shutdown() {}
+
 
     /**
      * Method to deliver a message to a client that is
