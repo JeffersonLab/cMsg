@@ -22,6 +22,13 @@ package org.jlab.coda.cMsg;
  * interface handles all communication with a particular subdomain
  * (such as SmartSockets or JADE agents).
  *
+ * Implementors of this interface must understand that each
+ * client using cMsg will have its own handler object from a class
+ * implementing this interface. Several clients may concurrently use
+ * objects of the same class. Thus implementations must be thread-safe.
+ * Furthermore, when the name server shuts dowm, the method handleServerShutdown
+ * may be executed more than once for the same reason.
+ *
  * @author Carl Timmer
  * @version 1.0
  */
@@ -60,65 +67,66 @@ public interface cMsgHandleRequests {
     /**
      * Method to handle message sent by domain client.
      *
-     * @param name name of client
      * @param msg message from sender
      * @throws cMsgException
      */
-    public void handleSendRequest(String name, cMsgMessage msg) throws cMsgException;
+    public void handleSendRequest(cMsgMessage msg) throws cMsgException;
 
 
     /**
      * Method to get a single message from the server for a given
      * subject and type.
      *
-     * @param name name of client
      * @param subject subject of message to get
      * @param type type of message to get
      * @return cMsgMessage message obtained by this get
      * @throws cMsgException
      */
-    public cMsgMessage handleGetRequest(String name, String subject, String type) throws cMsgException;
+    public cMsgMessage handleGetRequest(String subject, String type) throws cMsgException;
 
 
     /**
       * Method to handle subscribe request sent by domain client.
       *
-      * @param name name of client
       * @param subject message subject to subscribe to
       * @param type message type to subscribe to
       * @param receiverSubscribeId message id refering to these specific subject and type values
       * @throws cMsgException
       */
-    public void handleSubscribeRequest(String name, String subject, String type,
+    public void handleSubscribeRequest(String subject, String type,
                                        int receiverSubscribeId) throws cMsgException;
 
     /**
      * Method to handle sunsubscribe request sent by domain client.
      *
-     * @param name name of client
      * @param subject message subject subscribed to
      * @param type message type subscribed to
      * @throws cMsgException
      */
-    public void handleUnsubscribeRequest(String name, String subject, String type) throws cMsgException;
+    public void handleUnsubscribeRequest(String subject, String type) throws cMsgException;
 
 
     /**
      * Method to handle keepalive sent by domain client checking to see
      * if the domain server socket is still up.
      *
-     * @param name name of client
      * @throws cMsgException
      */
-    public void handleKeepAlive(String name) throws cMsgException;
+    public void handleKeepAlive() throws cMsgException;
 
 
     /**
-     * Method to handle a domain server down.
+     * Method to handle a client or domain server down.
      *
-     * @param name name of client
      * @throws cMsgException
      */
-    public void handleShutdown(String name) throws cMsgException;
+    public void handleClientShutdown() throws cMsgException;
+
+    /**
+     * Method to handle a complete name server down.
+     *
+     * @throws cMsgException
+     */
+    public void handleServerShutdown() throws cMsgException;
 
 }
