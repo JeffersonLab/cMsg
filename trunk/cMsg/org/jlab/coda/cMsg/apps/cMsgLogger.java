@@ -25,7 +25,7 @@ import java.lang.*;
 import java.sql.*;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsg.cMsgCoda;
+import org.jlab.coda.cMsg.cMsg.cMsg;
 
 /**
  * Class to log cMsg message to a database.
@@ -134,9 +134,9 @@ public class cMsgLogger {
         decode_command_line(args, logger);
 
         // connect to cMsg server
-        cMsgCoda cmsg = null;
+        cMsg cmsg = null;
         try {
-            cmsg = new cMsgCoda(logger.domain, logger.name, logger.description);
+            cmsg = new cMsg(logger.domain, logger.name, logger.description);
         }
         catch (cMsgException e) {
             e.printStackTrace();

@@ -3,7 +3,7 @@ package org.jlab.coda.cMsg.apps;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgCallback;
 import org.jlab.coda.cMsg.cMsgMessage;
-import org.jlab.coda.cMsg.cMsg.cMsgCoda;
+import org.jlab.coda.cMsg.cMsg.cMsg;
 
 /**
  * Created by IntelliJ IDEA.
@@ -119,7 +119,7 @@ public class cMsgConsumer2CBs {
         String UDL = "coda://aslan:3456/junk";
 
         System.out.print("Try to connect ...");
-        cMsgCoda coda = new cMsgCoda(UDL, name, "message consumer");
+        cMsg coda = new cMsg(UDL, name, "message consumer");
         System.out.println(" done");
 
         System.out.println("Enable message receiving");
