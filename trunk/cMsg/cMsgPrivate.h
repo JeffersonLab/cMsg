@@ -50,6 +50,8 @@ typedef struct domainFunctions_t {
   int (*subscribe)  (int domainId, char *subject, char *type, cMsgCallback *callback, void *userArg);
   int (*unsubscribe)(int domainId, char *subject, char *type, cMsgCallback *callback);
   int (*get)        (int domainId, void *sendMsg, time_t timeout, void **replyMsg);
+  int (*start)      (int domainId);
+  int (*stop)       (int domainId);
   int (*disconnect) (int domainId);
 } domainFunctions;
 
@@ -98,13 +100,13 @@ typedef struct cMsg_t {
   char   *sender;
   int     senderId;         /* in case fred dies and resurrects - not necessary! */
   char   *senderHost;
-  time_t  senderTime;
+  time_t  senderTime;       /* time in seconds since Jan 1, 1970 */
   int     senderMsgId;      /* set by client system */
   int     senderToken;      /* set by sender user code */
   
   char   *receiver;
   char   *receiverHost;
-  time_t  receiverTime;
+  time_t  receiverTime;     /* time in seconds since Jan 1, 1970 */
   int     receiverSubscribeId;
   
   char   *domain;
