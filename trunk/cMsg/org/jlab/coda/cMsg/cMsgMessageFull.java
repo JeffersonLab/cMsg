@@ -24,7 +24,7 @@ import org.xml.sax.*;
 
 
 /**
- * Class that contains the full functionality of a message. It extends the class
+ * This class contains the full functionality of a message. It extends the class
  * that users have access to by defining setters and getters that the user has
  * no need of. This class is for use only by packages that are part of the cMsg
  * implementation.

@@ -23,7 +23,7 @@ import java.util.concurrent.locks.Lock;
 import java.nio.channels.SocketChannel;
 
 /**
- * Class in which to store a domain client's information.
+ * This class stores a domain client's information.
  *
  * @author Carl Timmer
  * @version 1.0

@@ -5,11 +5,7 @@ import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsg;
 
 /**
- * Created by IntelliJ IDEA.
- * User: timmer
- * Date: Oct 28, 2004
- * Time: 5:12:27 PM
- * To change this template use File | Settings | File Templates.
+ * An example class which creates a cMsg message producer with 2 threads producing messages.
  */
 public class cMsgDualProducer {
     String name, subject="SUBJECT", type="TYPE";

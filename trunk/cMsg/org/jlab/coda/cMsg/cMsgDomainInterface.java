@@ -212,7 +212,7 @@ public interface cMsgDomainInterface {
     public String getHost();
 
     /**
-     * Get boolean tells whether callbacks are activated or not. The
+     * Method telling whether callbacks are activated or not. The
      * start and stop methods activate and deactivate the callbacks.
      * @return true if callbacks are activated, false if they are not
      */
