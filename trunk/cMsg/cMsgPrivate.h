@@ -39,41 +39,43 @@ extern "C" {
 
 
 /* set the debug level */
-int debug = CMSG_DEBUG_ERROR;
+extern int cMsgDebug;
+
+
+/* holds domain implementation function pointers */
+typedef struct domainFunctions_t {
+  int (*connect)    (char *udl, char *name, char *description, int *domainId); 
+  int (*send)       (int domainId, void *msg);
+  int (*flush)      (int domainId);
+  int (*subscribe)  (int domainId, char *subject, char *type, cMsgCallback *callback, void *userArg);
+  int (*unsubscribe)(int domainId, char *subject, char *type, cMsgCallback *callback);
+  int (*get)        (int domainId, void *sendMsg, time_t timeout, void **replyMsg);
+  int (*disconnect) (int domainId);
+} domainFunctions;
+
+
+/* holds function pointers by domain type */
+typedef struct domainTypeInfo_t {
+  char *type;
+  domainFunctions *functions;
+} domainTypeInfo;
 
 
 /* structure containing all domain info */
 typedef struct cMsgDomain_t {
   /* init state */
   int initComplete; /* 0 = No, 1 = Yes */
+  int id;
 
   /* other state variables */
   int receiveState;
   int lostConnection;
   
-  int sendSocket;            /* file descriptor for TCP socket to send messages on */
-  int listenSocket;          /* file descriptor for socket this program listens on for TCP connections */
-
-  unsigned short sendPort;   /* port to send messages to */
-  unsigned short serverPort; /* port cMsg name server listens on */
-  unsigned short listenPort; /* port this program listens on for this domain's TCP connections */
-  
-  pthread_t pendThread; /* listening thread */
-
-  char *myHost;      /* this hostname */
-  char *sendHost;    /* host to send messages to */
-  char *serverHost;  /* host of cMsg name server */
-  
   char *type;        /* domain type (coda, JMS, SmartSockets, etc.) */
   char *name;        /* name of user (this program) */
   char *udl;         /* UDL of cMsg name server */
   char *description; /* user description */
-  
-  pthread_mutex_t sendMutex;      /* mutex to ensure thread-safety of send socket */
-  pthread_mutex_t subscribeMutex; /* mutex to ensure thread-safety of (un)subscribes */
-  
-  struct subscribeInfo_t subscribeInfo[MAXSUBSCRIBE];
-
+    
   /* pointer to a struct contatining pointers to domain implementation functions */
   domainFunctions *functions;
 
@@ -111,27 +113,6 @@ typedef struct cMsg_t {
 } cMsgMessage;
 
 
-
-/* holds domain implementation function pointers */
-typedef struct domainFunctions_t {
-  int (*connect)(cMsgDomain *domain, char *udl, char *name, char *description);
-  int (*send)(void *msg);
-  int (*flush)(void);
-  int (*subscribe)(char *subject, char *type, cMsgCallback *callback, void *userArg);
-  int (*unsubscribe)(char *subject, char *type, cMsgCallback *callback);
-  int (*get)(void *sendMsg, time_t timeout, void **replyMsg);
-  int (*disconnect)(void);
-} domainFunctions;
-
-
-/* holds function pointers by domain type */
-typedef struct domainTypeInfo_t {
-  char *type;
-  domainFunctions *functions;
-} domainTypeInfo;
-
-
-
 /* system msg id types */
 enum msgId {
   CMSG_SERVER_CONNECT     = 0,
@@ -149,17 +130,6 @@ enum msgId {
 };
 
 
-/* struct for passing data from main to network threads */
-typedef struct mainThreadInfo_t {
-  int listenFd;  /* listening socket file descriptor */
-  int blocking;  /* block in accept (CMSG_BLOCKING) or
-                     not (CMSG_NONBLOCKING)? */
-} mainThreadInfo;
-
-
-
-/* prototypes (move to cMsg.c eventually) */
-void  cMsgDomainClear(cMsgDomain *domain);
 
 
 #ifdef	__cplusplus

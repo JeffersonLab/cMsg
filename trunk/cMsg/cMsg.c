@@ -48,6 +48,15 @@
 #include "cMsgPrivate.h"
 #include "cMsg.h"
 
+/*
+ * MAXHOSTNAMELEN is defined to be 256 on Solaris and 64 on Linux.
+ * Make it to be uniform across all platforms.
+ */
+#define CMSG_MAXHOSTNAMELEN 256
+
+/* set the "global" debug level */
+int cMsgDebug = CMSG_DEBUG_ERROR;
+
 
 /* local variables */
 static int oneTimeInitialized = 0;
@@ -76,12 +85,12 @@ static int   checkString(char *s);
 static void  registerDomainTypeInfo(void);
 static void  domainInit(cMsgDomain *domain);
 static void  domainFree(cMsgDomain *domain);
-static int   parseUDL(const char *UDL, char **domainType, char **host,
-		      unsigned short *port, char **remainder);
+static int   parseUDL(const char *UDL, char **domainType);
 static void  mutexLock(void);
 static void  mutexUnlock(void);
 static void  connectMutexLock(void);
 static void  connectMutexUnlock(void);
+static void  cMsgDomainClear(cMsgDomain *domain);
 
 
 
@@ -90,9 +99,8 @@ static void  connectMutexUnlock(void);
 
 int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
 
-  int i, id=-1, err, serverfd, status;
+  int i, id=-1, err, serverfd, status, realId;
   char *portEnvVariable=NULL, temp[CMSG_MAXHOSTNAMELEN];
-  mainThreadInfo threadArg;
   
 
   /* First, grab mutex for thread safety. This mutex must be held until
@@ -110,8 +118,8 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
   if (!oneTimeInitialized) {
 
     /* clear arrays */
-    for (i=0; i<MAXDOMAINTYPES; i++) dTypes(i).type=NULL;
-    for (i=0; i<MAXDOMAINS; i++) domainInit(domain[i]);
+    for (i=0; i<MAXDOMAINTYPES; i++) dTypeInfo[i].type = NULL;
+    for (i=0; i<MAXDOMAINS; i++) domainInit(&domains[i]);
 
     /* register domain types */
     registerDomainTypeInfo();
@@ -151,7 +159,7 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
     if (domains[i].initComplete > 0) {
       continue;
     }
-    domainInit(domain[i]);
+    domainInit(&domains[i]);
     id = i;
   }
   
@@ -170,7 +178,7 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
   if ( (checkString(myName)        != CMSG_OK)  ||
        (checkString(myUDL)         != CMSG_OK)  ||
        (checkString(myDescription) != CMSG_OK) )  {
-    domainInit(domain[i]);
+    domainInit(&domains[i]);
     connectMutexUnlock();
     return(CMSG_BAD_ARGUMENT);
   }
@@ -180,37 +188,36 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
   domains[id].name        = (char *) strdup(myName);
   domains[id].udl         = (char *) strdup(myUDL);
   domains[id].description = (char *) strdup(myDescription);
-  gethostname(temp, CMSG_MAXHOSTNAMELEN);
-  domains[id].myHost      = (char *) strdup(temp);
   
   /* parse the UDL - Uniform Domain Locator */
-  if ( (err = parseUDL(myUDL,
-                       &domains[id].type,
-                       &domains[id].serverHost,
-                       &domains[id].serverPort,
-                       NULL)) != CMSG_OK ) {
+  if ( (err = parseUDL(myUDL, &domains[id].type)) != CMSG_OK ) {
     /* there's been a parsing error */
-    cMsgDomainClear(domains[id]);
+    cMsgDomainClear(&domains[id]);
     connectMutexUnlock();
     return(err);
   }
   
 
   /* if such a domain type store pointer to functions */
-  domains[id].functions=NULL;
-  for(i=0; i<MAXDOMAINTYPES; i++} {
-    if(dTypes[i].type!=NULL) {
-      if(strcasecmp(dTypes[i].type,domains[id].type)==0) {
-	domains[id].functions=dTypes[i].functions;
+  domains[id].functions = NULL;
+  for (i=0; i<MAXDOMAINTYPES; i++) {
+    if (dTypeInfo[i].type != NULL) {
+      if (strcasecmp(dTypeInfo[i].type, domains[id].type) == 0) {
+	domains[id].functions = dTypeInfo[i].functions;
 	break;
       }
     }
   }
-  if(domains[id].functions==NULL)return(CMSG_BAD_DOMAIN_TYPE);
+  if(domains[id].functions == NULL) return(CMSG_BAD_DOMAIN_TYPE);
   
 
   /* dispatch to connect function registered for this domain type */
-  return(domains[id]->functions->connect(domains[id],myUDL,myName,myDescription));
+  err = domains[id].functions->connect(myUDL, myName, myDescription, &realId);
+  domains[id].id = realId;
+  
+  connectMutexUnlock();
+  
+  return err;
 }
 
 
@@ -227,7 +234,7 @@ int cMsgSend(int domainId, void *msg) {
 
 
   /* dispatch to function registered for this domain type */
-  return(domains[id]->functions->send(domains[id],msg));
+  return(domains[id].functions->send(domains[id].id, msg));
 }
 
 
@@ -243,7 +250,7 @@ int cMsgFlush(int domainId) {
   
 
   /* dispatch to function registered for this domain type */
-  return(domains[id]->functions->flush(domains[id]));
+  return(domains[id].functions->flush(domains[id].id));
 }
 
 
@@ -266,7 +273,7 @@ int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callbac
   
 
   /* dispatch to function registered for this domain type */
-  return(domains[id]->functions->subscribe(domains[id],subject,type,callback,userArg));
+  return(domains[id].functions->subscribe(domains[id].id, subject, type, callback, userArg));
 }
 
 
@@ -291,14 +298,14 @@ int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callb
   
 
   /* dispatch to function registered for this domain type */
-  return(domains[id]->functions->unsubscribe(domains[id],subject,type,callback));
-}
+  return(domains[id].functions->unsubscribe(domains[id].id, subject, type, callback));
+} 
 
 
 /*-------------------------------------------------------------------*/
 
 
-int cMsgGet(int domainId, void *sendMsg, void **replyMsg) {
+int cMsgGet(int domainId, void *sendMsg, time_t timeout, void **replyMsg) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
@@ -306,7 +313,7 @@ int cMsgGet(int domainId, void *sendMsg, void **replyMsg) {
   if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
   if (sendMsg==NULL)return(CMSG_BAD_ARGUMENT);
 
-  return(domains[id]->functions->get(domains[id],sendMsg,replyMsg));
+  return(domains[id].functions->get(domains[id].id, sendMsg, timeout, replyMsg));
 }
 
 
@@ -349,7 +356,7 @@ int cMsgDisconnect(int domainId) {
   
 
   /* dispatch to function registered for this domain type */
-  return(domains[id]->functions->disconnect(domains[id]));
+  return(domains[id].functions->disconnect(domains[id].id));
 }
 
 
@@ -365,97 +372,97 @@ char *cMsgPerror(int error) {
 
   case CMSG_OK:
     sprintf(temp, "CMSG_OK:  action completed successfully\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_OK:  action completed successfully\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_OK:  action completed successfully\n");
     break;
 
   case CMSG_ERROR:
     sprintf(temp, "CMSG_ERROR:  generic error return\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_ERROR:  generic error return\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_ERROR:  generic error return\n");
     break;
 
   case CMSG_TIMEOUT:
     sprintf(temp, "CMSG_TIMEOUT:  no response from cMsg server within timeout period\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_TIMEOUT:  no response from cMsg server within timeout period\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_TIMEOUT:  no response from cMsg server within timeout period\n");
     break;
 
   case CMSG_NOT_IMPLEMENTED:
     sprintf(temp, "CMSG_NOT_IMPLEMENTED:  function not implemented\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_NOT_IMPLEMENTED:  function not implemented\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_NOT_IMPLEMENTED:  function not implemented\n");
     break;
 
   case CMSG_BAD_ARGUMENT:
     sprintf(temp, "CMSG_BAD_ARGUMENT:  one or more arguments bad\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_BAD_ARGUMENT:  one or more arguments bad\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_BAD_ARGUMENT:  one or more arguments bad\n");
     break;
 
   case CMSG_BAD_FORMAT:
     sprintf(temp, "CMSG_BAD_FORMAT:  one or more arguments in the wrong format\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_BAD_FORMAT:  one or more arguments in the wrong format\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_BAD_FORMAT:  one or more arguments in the wrong format\n");
     break;
 
   case CMSG_NAME_EXISTS:
     sprintf(temp, "CMSG_NAME_EXISTS: another process in this domain is using this name\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_NAME_EXISTS: another process in this domain is using this name\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_NAME_EXISTS: another process in this domain is using this name\n");
     break;
 
   case CMSG_NOT_INITIALIZED:
     sprintf(temp, "CMSG_NOT_INITIALIZED:  cMsgConnect needs to be called\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_NOT_INITIALIZED:  cMsgConnect needs to be called\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_NOT_INITIALIZED:  cMsgConnect needs to be called\n");
     break;
 
   case CMSG_ALREADY_INIT:
     sprintf(temp, "CMSG_ALREADY_INIT:  cMsgConnect already called\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_ALREADY_INIT:  cMsgConnect already called\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_ALREADY_INIT:  cMsgConnect already called\n");
     break;
 
   case CMSG_LOST_CONNECTION:
     sprintf(temp, "CMSG_LOST_CONNECTION:  connection to cMsg server lost\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_LOST_CONNECTION:  connection to cMsg server lost\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_LOST_CONNECTION:  connection to cMsg server lost\n");
     break;
 
   case CMSG_NETWORK_ERROR:
     sprintf(temp, "CMSG_NETWORK_ERROR:  error talking to cMsg server\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_NETWORK_ERROR:  error talking to cMsg server\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_NETWORK_ERROR:  error talking to cMsg server\n");
     break;
 
   case CMSG_SOCKET_ERROR:
     sprintf(temp, "CMSG_NETWORK_ERROR:  error setting socket options\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_NETWORK_ERROR:  error setting socket options\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_NETWORK_ERROR:  error setting socket options\n");
     break;
 
   case CMSG_PEND_ERROR:
     sprintf(temp, "CMSG_PEND_ERROR:  error waiting for messages to arrive\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_PEND_ERROR:  error waiting for messages to arrive\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_PEND_ERROR:  error waiting for messages to arrive\n");
     break;
 
   case CMSG_ILLEGAL_MSGTYPE:
     sprintf(temp, "CMSG_ILLEGAL_MSGTYPE:  pend received illegal message type\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_ILLEGAL_MSGTYPE:  pend received illegal message type\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_ILLEGAL_MSGTYPE:  pend received illegal message type\n");
     break;
 
   case CMSG_OUT_OF_MEMORY:
     sprintf(temp, "CMSG_OUT_OF_MEMORY:  ran out of memory\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_OUT_OF_MEMORY:  ran out of memory\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_OUT_OF_MEMORY:  ran out of memory\n");
     break;
 
   case CMSG_OUT_OF_RANGE:
     sprintf(temp, "CMSG_OUT_OF_RANGE:  argument is out of range\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_OUT_OF_RANGE:  argument is out of range\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_OUT_OF_RANGE:  argument is out of range\n");
     break;
 
   case CMSG_LIMIT_EXCEEDED:
     sprintf(temp, "CMSG_LIMIT_EXCEEDED:  trying to create too many of something\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_LIMIT_EXCEEDED:  trying to create too many of something\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_LIMIT_EXCEEDED:  trying to create too many of something\n");
     break;
 
   case CMSG_WRONG_DOMAIN_TYPE:
     sprintf(temp, "CMSG_WRONG_DOMAIN_TYPE: when a UDL does not match the server type\n");
-    if(debug>CMSG_DEBUG_ERROR)printf("CMSG_WRONG_DOMAIN_TYPE: when a UDL does not match the server type\n");
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("CMSG_WRONG_DOMAIN_TYPE: when a UDL does not match the server type\n");
     break;
 
   default:
     sprintf(temp, "?cMsgPerror...no such error: %d\n",error);
-    if(debug>CMSG_DEBUG_ERROR)printf("?cMsgPerror...no such error: %d\n",error);
+    if(cMsgDebug>CMSG_DEBUG_ERROR)printf("?cMsgPerror...no such error: %d\n",error);
     break;
   }
 
@@ -468,7 +475,7 @@ char *cMsgPerror(int error) {
 
 int cMsgSetDebugLevel(int level) {
   
-  debug=level;
+  cMsgDebug = level;
   return(CMSG_OK);
 }
 
@@ -476,7 +483,7 @@ int cMsgSetDebugLevel(int level) {
 /*-------------------------------------------------------------------*/
 
 
-void cMsgDomainClear(cMsgDomain *domain) {
+static void cMsgDomainClear(cMsgDomain *domain) {
   domainFree(domain);
   domainInit(domain);
 }
@@ -492,8 +499,8 @@ void cMsgDomainClear(cMsgDomain *domain) {
 static void registerDomainTypeInfo(void) {
 
   /* coda type */
-  dType[0].type=strdup(codaDomainTypeInfo.type); 
-  dType[0].functions=codaDomainTypeInfo.functions;
+  dTypeInfo[0].type = (char *)strdup(codaDomainTypeInfo.type); 
+  dTypeInfo[0].functions = codaDomainTypeInfo.functions;
 
   return;
 }
@@ -502,71 +509,26 @@ static void registerDomainTypeInfo(void) {
 /*-------------------------------------------------------------------*/
 
 
-static void domainInit(cMsgDomain *domain) {
-  int i, j;
-  
+static void domainInit(cMsgDomain *domain) {  
   domain->initComplete   = 0;
   
   domain->receiveState   = 0;
   domain->lostConnection = 0;
-  
-  domain->sendSocket     = 0;
-  domain->listenSocket   = 0;
-  
-  domain->sendPort       = 0;
-  domain->serverPort     = 0;
-  domain->listenPort     = 0;
-  
-  domain->myHost         = NULL;
-  domain->sendHost       = NULL;
-  domain->serverHost     = NULL;
+      
   domain->name           = NULL;
   domain->udl            = NULL;
   domain->description    = NULL;
-  
-  /* pthread_mutex_init mallocs memory */
-  pthread_mutex_init(domain.sendMutex, NULL);
-  pthread_mutex_init(domain.subscribeMutex, NULL);
-  
-  for (i=0; i<MAXSUBSCRIBE; i++) {
-    domain->subscribeInfo[i].id      = 0;
-    domain->subscribeInfo[i].active  = 0;
-    domain->subscribeInfo[i].type    = NULL;
-    domain->subscribeInfo[i].subject = NULL;
-    
-    for (j=0; j<MAXCALLBACK; j++) {
-      domain->subscribeInfo[i].cbInfo[j].callback = NULL;
-      domain->subscribeInfo[i].cbInfo[j].userArg  = NULL;
-    }
-  }
+  domain->functions      = NULL;  
 }
 
 
 /*-------------------------------------------------------------------*/
 
 
-static void domainFree(cMsgDomain *domain) {
-  int i;
-  
-  if (domain->myHost      != NULL) free(domain->myHost);
-  if (domain->sendHost    != NULL) free(domain->sendHost);
-  if (domain->serverHost  != NULL) free(domain->serverHost);
+static void domainFree(cMsgDomain *domain) {  
   if (domain->name        != NULL) free(domain->name);
   if (domain->udl         != NULL) free(domain->udl);
   if (domain->description != NULL) free(domain->description);
-  
-  /* pthread_mutex_destroy frees memory */
-  pthread_mutex_destroy(domain.sendMutex);
-  pthread_mutex_destroy(domain.subscribeMutex);
-  
-  for (i=0; i<MAXSUBSCRIBE; i++) {
-    if (domain->subscribeInfo[i].type != NULL) {
-      free(domain->subscribeInfo[i].type);
-    }
-    if (domain->subscribeInfo[i].subject != NULL) {
-      free(domain->subscribeInfo[i].subject);
-    }
-  }
 }
 
 
@@ -621,62 +583,29 @@ static void mutexUnlock(void) {
 /*-------------------------------------------------------------------*/
 
 
-static int parseUDL(const char *UDL, char **domainType, char **host,
-                    unsigned short *port, char **remainder) {
+static int parseUDL(const char *UDL, char **domainType) {
 
-/* note:  CODA domain UDL is of the form:   domainType://host:port/remainder */
+/* note:  CODA domain UDL is of the form:   domainType://somethingDomainSpecific */
 
   int i;
   char *p, *portString, *udl;
 
-  if (UDL  == NULL ||
-      host == NULL ||
-      port == NULL ||
-      domainType == NULL) {
+  if (UDL  == NULL) {
     return(CMSG_BAD_ARGUMENT);
   }
   
   /* strtok modifies the string it tokenizes, so make a copy */
   udl = (char *) strdup(UDL);
+  
 /*printf("UDL = %s\n", udl);*/
   /* get tokens separated by ":" or "/" */
   if ( (p = (char *) strtok(udl, ":/")) == NULL) {
     free(udl);
     return (CMSG_BAD_FORMAT);
   }
-  *domainType = (char *) strdup(p);
+  if (domainType != NULL) *domainType = (char *) strdup(p);
 /*printf("domainType = %s\n", *domainType);*/
-  
-  if ( (p = (char *) strtok(NULL, ":/")) == NULL) {
-    free(*domainType);
-    free(udl);
-    return (CMSG_BAD_FORMAT);
-  }
-  *host =(char *)  strdup(p);
-/*printf("host = %s\n", *host);*/
-  
-  if ( (p = (char *) strtok(NULL, ":/")) == NULL) {
-    free(*host);
-    free(*domainType);
-    free(udl);
-    return (CMSG_BAD_FORMAT);
-  }
-  portString = (char *) strdup(p);
-  *port = atoi(portString);
-/*printf("port string = %s, port int = %hu\n", portString, *port);*/  
-  if (*port < 1024 || *port > 65535) {
-    free((void *) portString);
-    free((void *) *host);
-    free((void *) *domainType);
-    free(udl);
-    return (CMSG_OUT_OF_RANGE);
-  }
-  
-  if ( (p = (char *) strtok(NULL, ":/")) != NULL  && remainder != NULL) {
-    *remainder = (char *) strdup(p);
-/*printf("remainder = %s\n", *remainder);*/  
-  }
-  
+    
   /* UDL parsed ok */
   free(udl);
   return(CMSG_OK);
@@ -712,12 +641,12 @@ static int checkString(char *s) {
 
 int cMsgGetUDL(int domainId, char *udl, size_t size) {
 
-  int id = domainId - DOMAIN_ID_OFFSET;
-  int len=strlen(domains[id].udl);
+  int id  = domainId - DOMAIN_ID_OFFSET;
+  int len = strlen(domains[id].udl);
 
-  if()return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= MAXDOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
-  if(size>len) {
+  if (size>len) {
     strcpy(udl,domains[id].udl);
     return(CMSG_OK);
   } else {
@@ -733,12 +662,12 @@ int cMsgGetUDL(int domainId, char *udl, size_t size) {
 
 int cMsgGetName(int domainId, char *name, size_t size) {
 
-  int id = domainId - DOMAIN_ID_OFFSET;
-  int len=strlen(domains[id].name);
+  int id  = domainId - DOMAIN_ID_OFFSET;
+  int len = strlen(domains[id].name);
 
-  if()return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= MAXDOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
-  if(size>len) {
+  if (size>len) {
     strcpy(name,domains[id].name);
     return(CMSG_OK);
   } else {
@@ -753,12 +682,12 @@ int cMsgGetName(int domainId, char *name, size_t size) {
 
 int cMsgGetDescription(int domainId, char *description, size_t size) {
 
-  int id = domainId - DOMAIN_ID_OFFSET;
-  int len=strlen(domains[id].description);
+  int id  = domainId - DOMAIN_ID_OFFSET;
+  int len = strlen(domains[id].description);
 
-  if()return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= MAXDOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
-  if(size>len) {
+  if (size>len) {
     strcpy(description,domains[id].description);
     return(CMSG_OK);
   } else {
@@ -772,32 +701,11 @@ int cMsgGetDescription(int domainId, char *description, size_t size) {
 /*-------------------------------------------------------------------*/
 
 
-int cMsgGetHost(int domainId, char *host, size_t size) {
-
-  int id = domainId - DOMAIN_ID_OFFSET;
-  int len=strlen(domains[id].host);
-
-  if()return(CMSG_BAD_DOMAIN_ID);
-
-  if(size>len) {
-    strcpy(host,domains[id].host);
-    return(CMSG_OK);
-  } else {
-    strncpy(host,domains[id].host,size-1);
-    host[size-1]='\0';
-    return(CMSG_LIMIT_EXCEEDED);
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
 int cMsgGetInitState(int domainId, int *initState) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
-  if()return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= MAXDOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
   *initState=domains[id].initComplete;
   return(CMSG_OK);
@@ -811,7 +719,7 @@ int cMsgGetReceiveState(int domainId, int *receiveState) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
-  if()return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= MAXDOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
   *receiveState=domains[id].receiveState;
   return(CMSG_OK);
@@ -832,13 +740,13 @@ void *cMsgCreateMesssage(void) {
 /*-------------------------------------------------------------------*/
 
 
-int *cMsgSetSubject(void *vmsg, char *subject) {
+int cMsgSetSubject(void *vmsg, char *subject) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
-  if(msg->subject!=NULL)free(msg->subject);
-  msg->subject=strdup(subject);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->subject != NULL) free(msg->subject);
+  msg->subject = (char *)strdup(subject);
 
   return(CMSG_OK);
 }
@@ -849,11 +757,11 @@ int *cMsgSetSubject(void *vmsg, char *subject) {
 
 int cMsgSetType(void *vmsg, char *type) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
-  if(msg->type!=NULL)free(msg->type);
-  msg->type=strdup(type);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->type != NULL) free(msg->type);
+  msg->type = (char *)strdup(type);
 
   return(CMSG_OK);
 }
@@ -864,11 +772,11 @@ int cMsgSetType(void *vmsg, char *type) {
 
 int cMsgSetText(void *vmsg, char *text) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
-  if(msg->text!=NULL)free(msg->text);
-  msg->text=strdup(text);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->text != NULL) free(msg->text);
+  msg->text = (char *)strdup(text);
 
   return(CMSG_OK);
 }
@@ -879,10 +787,10 @@ int cMsgSetText(void *vmsg, char *text) {
 
 int cMsgSetSenderToken(void *vmsg, int senderToken) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
-  msg->senderToken=senderToken;
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  msg->senderToken = senderToken;
 
   return(CMSG_OK);
 }
@@ -893,11 +801,11 @@ int cMsgSetSenderToken(void *vmsg, int senderToken) {
 
 int cMsgSetSender(void *vmsg, char *sender) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
-  if(msg->sender!=NULL)free(msg->sender);
-  msg->sender=strdup(sender);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->sender != NULL) free(msg->sender);
+  msg->sender = (char *)strdup(sender);
 
   return(CMSG_OK);
 }
@@ -908,9 +816,9 @@ int cMsgSetSender(void *vmsg, char *sender) {
 
 int cMsgFreeMessage(void *vmsg) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
 
   free(msg->sender);
   free(msg->senderHost);
@@ -929,11 +837,44 @@ int cMsgFreeMessage(void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
+  void *cMsgCopyMessage(void *vmsg) {
+    cMsgMessage *newMsg, *msg = (cMsgMessage *)vmsg;
+    
+    if ((newMsg = (cMsgMessage *)malloc(sizeof(cMsgMessage))) == NULL) {
+      return NULL;
+    }
+    
+    newMsg->sysMsgId     = msg->sysMsgId;
+
+    newMsg->sender       = (char *) strdup(msg->sender);
+    newMsg->senderId     = msg->senderId;
+    newMsg->senderHost   = (char *) strdup(msg->senderHost);
+    newMsg->senderTime   = msg->senderTime;
+    newMsg->senderMsgId  = msg->senderMsgId;
+    newMsg->senderToken  = msg->senderToken;
+
+    newMsg->receiver     = (char *) strdup(msg->receiver);
+    newMsg->receiverHost = (char *) strdup(msg->receiverHost);
+    newMsg->receiverTime = msg->receiverTime;
+    newMsg->receiverSubscribeId = msg->receiverSubscribeId;
+
+    newMsg->domain  = (char *) strdup(msg->domain);
+    newMsg->subject = (char *) strdup(msg->subject);
+    newMsg->type    = (char *) strdup(msg->type);
+    newMsg->text    = (char *) strdup(msg->text);
+    
+    return (void *)newMsg;
+  }
+
+
+/*-------------------------------------------------------------------*/
+
+
 int cMsgGetSysMsgId(void *vmsg) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL) return(-1);
   return(msg->sysMsgId);
 }
 
@@ -943,9 +884,9 @@ int cMsgGetSysMsgId(void *vmsg) {
 
 time_t cMsgGetReceiverTime(void *vmsg) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL) return(-1);
   return(msg->receiverTime);
 }
 
@@ -955,9 +896,9 @@ time_t cMsgGetReceiverTime(void *vmsg) {
 
 int cMsgGetReceiverSubscribeId(void *vmsg) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
-
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+ 
+  if (msg == NULL) return(-1);
   return(msg->receiverSubscribeId);
 }
 
@@ -965,12 +906,12 @@ int cMsgGetReceiverSubscribeId(void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
-char *cMsgGetSender(void *msg) {
+char *cMsgGetSender(void *vmsg) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
-  return(msg.sender);
+  if (msg == NULL) return(NULL);
+  return(msg->sender);
 }
 
 
@@ -979,9 +920,9 @@ char *cMsgGetSender(void *msg) {
 
 int cMsgGetSenderId(void *vmsg) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL) return(-1);
   return(msg->senderId);
 }
 
@@ -989,12 +930,12 @@ int cMsgGetSenderId(void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
-char *cMsgGetHost(void *vmsg) {
+char *cMsgGetSenderHost(void *vmsg) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
-  return(msg.host);
+  if (msg == NULL) return(NULL);
+  return(msg->senderHost);
 }
 
 
@@ -1003,9 +944,9 @@ char *cMsgGetHost(void *vmsg) {
 
 time_t cMsgGetSenderTime(void *vmsg) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL) return(-1);
   return(msg->senderTime);
 }
 
@@ -1015,9 +956,9 @@ time_t cMsgGetSenderTime(void *vmsg) {
 
 int cMsgGetSenderMsgId(void *vmsg) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL) return(-1);
   return(msg->senderMsgId);
 }
 
@@ -1027,9 +968,9 @@ int cMsgGetSenderMsgId(void *vmsg) {
 
 int cMsgGetSenderToken(void *vmsg) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL) return(-1);
   return(msg->senderToken);
 }
 
@@ -1039,10 +980,10 @@ int cMsgGetSenderToken(void *vmsg) {
 
 char *cMsgGetDomain(void *vmsg) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
-  return(msg.domain);
+  if (msg == NULL) return(NULL);
+  return(msg->domain);
 }
 
 
@@ -1051,22 +992,22 @@ char *cMsgGetDomain(void *vmsg) {
 
 char *cMsgGetSubject(void *vmsg) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
-  return(msg.subject);
+  if (msg == NULL) return(NULL);
+  return(msg->subject);
 }
 
 
 /*-------------------------------------------------------------------*/
 
 
-char *cMsgGettype(void *vmsg) {
+char *cMsgGetType(void *vmsg) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
-  return(msg.type);
+  if (msg == NULL) return(NULL);
+  return(msg->type);
 }
 
 
@@ -1075,10 +1016,10 @@ char *cMsgGettype(void *vmsg) {
 
 char *cMsgGetText(void *vmsg) {
 
-  cMsgMessage msg = (cMsgMessage)vmsg;
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
 
-  if(msg==NULL)return(CMSG_BAD_ARGUMENT);
-  return(msg.text);
+  if (msg == NULL) return(NULL);
+  return(msg->text);
 }
 
 
