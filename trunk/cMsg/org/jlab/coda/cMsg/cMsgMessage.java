@@ -37,101 +37,72 @@ import java.util.*;
 public class cMsgMessage implements Cloneable {
     // general quantities
 
-    /**
-     * Unique message id created by cMsg system.
-     * Used by domain server to track client's "sendAndGet" calls.
-     */
-    private int sysMsgId;
 
     /** Message exists in this domain. */
-    private String domain;
+    String domain;
 
     /** Is this message a sendAndGet request? */
-    private boolean getRequest;
+    boolean getRequest;
 
     /** Is this message a response to a sendAndGet request? */
-    private boolean getResponse;
+    boolean getResponse;
 
     /** Version number of cMsg. */
-    private int version;
+    int version;
 
 
     // user-settable quantities
 
 
     /** Subject of message. */
-    private String subject;
+    String subject;
 
     /** Type of message. */
-    private String type;
+    String type;
 
     /** Text of message. */
-    private String text;
+    String text;
 
     /** Message priority set by user where 0 is both the default and the lowest value. */
-    private int priority;
+    int priority;
 
     /** Integer supplied by user. */
-    private int userInt;
+    int userInt;
 
     /** Time supplied by user in milliseconds from midnight GMT, Jan 1st, 1970. */
-    private long userTime;
+    long userTime;
 
 
     // sender quantities
 
 
     /** Unique name of message sender. */
-    private String sender;
+    String sender;
 
     /** Host sender is running on. */
-    private String senderHost;
+    String senderHost;
 
     /** Time message was sent in milliseconds from midnight GMT, Jan 1st, 1970. */
-    private long senderTime;
-
-   /** Field used by domain server in implementing "sendAndGet". */
-    private int senderToken;
+    long senderTime;
 
 
     // receiver quantities
 
 
     /** Unique name of message receiver. */
-    private String receiver;
+    String receiver;
 
     /** Host receiver is running on. */
-    private String receiverHost;
+    String receiverHost;
 
     /** Time message was received in milliseconds from midnight GMT, Jan 1st, 1970. */
-    private long receiverTime;
+    long receiverTime;
 
     /**
      * Message receiver's id number corresponding to a subject & type pair
      * of a message subscription.
      */
-    private int receiverSubscribeId;
-
-
-
-    /**
-     * Creates a proper response message to this message sent by a client calling
-     * @return message with the response fields properly set.
-     * @throws cMsgException if this message was not sent from a "get" method call
-     */
-    public cMsgMessage response() throws cMsgException {
-        // If this message was not sent from a "get" method call,
-        // a proper response is not possible, since the sysMsgId
-        // and senderToken fields will not have been properly set.
-        if (!getRequest) {
-            throw new cMsgException("this message not sent by client calling get");
-        }
-        cMsgMessage msg = new cMsgMessage();
-        msg.sysMsgId    = sysMsgId;
-        msg.senderToken = senderToken;
-        msg.getResponse = true;
-        return msg;
-    }
+    int receiverSubscribeId;
 
 
     /**
@@ -147,19 +118,6 @@ public class cMsgMessage implements Cloneable {
 
 
     // general quantities
-
-
-    /**
-     * Get system id of message.
-     * @return system id of message.
-     */
-    public int getSysMsgId() {return sysMsgId;}
-    /**
-     * Set system id of message. Used by the system in doing sendAndGet.
-     * The user should not use this method. The cMsg system overwrites any user input.
-     * @param sysMsgId system id of message.
-     */
-    public void setSysMsgId(int sysMsgId) {this.sysMsgId = sysMsgId;}
 
 
     /**
@@ -341,19 +299,6 @@ public class cMsgMessage implements Cloneable {
     public void setSenderTime(Date time) {
         this.senderTime = time.getTime();
     }
-
-
-    /**
-     * Get sender's token. Used to track asynchronous responses to
-     * messages requesting responses from other clients.
-     */
-    public int getSenderToken() {return senderToken;}
-    /**
-     * Set sender's token. Used by the system in doing sendAndGet.
-     * The user should not use this method. The cMsg system overwrites any user input.
-     * @param senderToken sender's token.
-     */
-    public void setSenderToken(int senderToken) {this.senderToken = senderToken;}
 
 
     // receiver
