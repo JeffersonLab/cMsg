@@ -445,7 +445,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription,
     
   /* no more mutex protection is necessary */
   connectWriteUnlock();
-  
+
   return(CMSG_OK);
 }
 
@@ -477,7 +477,8 @@ static int coda_send(int domainId, void *vmsg) {
     connectReadUnlock();
     return(CMSG_LOST_CONNECTION);
   }
-
+  
+  /* these allocate memory which needs to be freed */
   subject = cMsgGetSubject(vmsg);
   type    = cMsgGetType(vmsg);
   text    = cMsgGetText(vmsg);
@@ -518,6 +519,9 @@ static int coda_send(int domainId, void *vmsg) {
   if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
     socketMutexUnlock(domain);
     connectReadUnlock();
+    free(subject);
+    free(type);
+    free(text);  
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "coda_send: write failure\n");
     }
@@ -528,6 +532,9 @@ static int coda_send(int domainId, void *vmsg) {
   if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
     socketMutexUnlock(domain);
     connectReadUnlock();
+    free(subject);
+    free(type);
+    free(text);  
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "coda_send: write failure\n");
     }
@@ -538,6 +545,9 @@ static int coda_send(int domainId, void *vmsg) {
   if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
     socketMutexUnlock(domain);
     connectReadUnlock();
+    free(subject);
+    free(type);
+    free(text);  
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "coda_send: write failure\n");
     }
@@ -548,6 +558,9 @@ static int coda_send(int domainId, void *vmsg) {
   if (cMsgTcpWrite(fd, (void *) text, lenText) != lenText) {
     socketMutexUnlock(domain);
     connectReadUnlock();
+    free(subject);
+    free(type);
+    free(text);  
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "coda_send: write failure\n");
     }
@@ -557,6 +570,10 @@ static int coda_send(int domainId, void *vmsg) {
   /* done protecting communications */
   socketMutexUnlock(domain);
   connectReadUnlock();
+  
+  free(subject);
+  free(type);
+  free(text);  
 
   return(CMSG_OK);
 }
@@ -633,6 +650,9 @@ static int syncSend(int domainId, void *vmsg, int *response) {
     socketMutexUnlock(domain);
     syncSendMutexUnlock(domain);
     connectReadUnlock();
+    free(subject);
+    free(type);
+    free(text);  
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: write failure\n");
     }
@@ -644,6 +664,9 @@ static int syncSend(int domainId, void *vmsg, int *response) {
     socketMutexUnlock(domain);
     syncSendMutexUnlock(domain);
     connectReadUnlock();
+    free(subject);
+    free(type);
+    free(text);  
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: write failure\n");
     }
@@ -655,6 +678,9 @@ static int syncSend(int domainId, void *vmsg, int *response) {
     socketMutexUnlock(domain);
     syncSendMutexUnlock(domain);
     connectReadUnlock();
+    free(subject);
+    free(type);
+    free(text);  
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: write failure\n");
     }
@@ -666,6 +692,9 @@ static int syncSend(int domainId, void *vmsg, int *response) {
     socketMutexUnlock(domain);
     syncSendMutexUnlock(domain);
     connectReadUnlock();
+    free(subject);
+    free(type);
+    free(text);  
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: write failure\n");
     }
@@ -680,6 +709,9 @@ static int syncSend(int domainId, void *vmsg, int *response) {
     socketMutexUnlock(domain);
     syncSendMutexUnlock(domain);
     connectReadUnlock();
+    free(subject);
+    free(type);
+    free(text);  
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "syncSend: read failure\n");
     }
@@ -692,6 +724,10 @@ static int syncSend(int domainId, void *vmsg, int *response) {
   /* return domain server's reply */  
   *response = ntohl(err);  
   
+  free(subject);
+  free(type);
+  free(text);  
+
   return(CMSG_OK);
 }
 
@@ -854,7 +890,7 @@ static int subscribeAndGet(int domainId, char *subject, char *type,
    * Tell server to forget the get.
    */
   if (info->msg == NULL) {
-      printf("get: timed out\n");
+      /*printf("get: timed out\n");*/
       
       /* free up memory */
       free(info->subject);
@@ -962,6 +998,9 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
 
   if (!gotSpot) {
     connectReadUnlock();
+    free(subject);
+    free(type);
+    free(text);  
     return(CMSG_OUT_OF_MEMORY);
   }
   
@@ -999,6 +1038,9 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
     socketMutexUnlock(domain);
     connectReadUnlock();
+    free(subject);
+    free(type);
+    free(text);  
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "get: write failure\n");
     }
@@ -1009,6 +1051,9 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
     socketMutexUnlock(domain);
     connectReadUnlock();
+    free(subject);
+    free(type);
+    free(text);  
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "get: write failure\n");
     }
@@ -1019,6 +1064,9 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
     socketMutexUnlock(domain);
     connectReadUnlock();
+    free(subject);
+    free(type);
+    free(text);  
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "get: write failure\n");
     }
@@ -1029,6 +1077,9 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   if (cMsgTcpWrite(fd, (void *) text, lenText) != lenText) {
     socketMutexUnlock(domain);
     connectReadUnlock();
+    free(subject);
+    free(type);
+    free(text);  
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "get: write failure\n");
     }
@@ -1083,15 +1134,19 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
    * Tell server to forget the get.
    */
   if (info->msg == NULL) {
-      printf("get: timed out\n");
+      /*printf("get: timed out\n");*/
       
+      /* remove the get from server */
+      unget(domainId, uniqueId);
+
       /* free up memory */
       free(info->subject);
       free(info->type);
       info->active = 0;
+      free(subject);
+      free(type);
+      free(text);  
 
-      /* remove the get from server */
-      unget(domainId, uniqueId);
       *replyMsg = NULL;
       return (CMSG_TIMEOUT);
   }
@@ -1113,6 +1168,9 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   free(info->subject);
   free(info->type);
   info->active = 0;
+  free(subject);
+  free(type);
+  free(text);  
 
   /*printf("get: SUCCESS!!!\n");*/
 
