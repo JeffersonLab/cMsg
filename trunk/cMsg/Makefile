@@ -40,8 +40,10 @@ all: $(CMSG_LIBS) $(PROGS)
 java:
 	cd ./org/jlab/coda/cMsg; make;
 	cd ./org/jlab/coda/cMsg/cMsgDomain; make;
-	cd ./org/jlab/coda/cMsg/cMsgDomain/subdomains; make;
+	cd ./org/jlab/coda/cMsg/subdomains; make;
 	cd ./org/jlab/coda/cMsg/apps; make;
+	cd ./org/jlab/coda/cMsg/FileDomain; make;
+	cd ./org/jlab/coda/cMsg/CADomain; make;
 	cd ./;
 
 doc:
@@ -92,8 +94,10 @@ clean:
 jclean: 
 	cd ./org/jlab/coda/cMsg; make clean;
 	cd ./org/jlab/coda/cMsg/cMsgDomain; make clean;
-	cd ./org/jlab/coda/cMsg/cMsgDomain/subdomains; make clean;
+	cd ./org/jlab/coda/cMsg/subdomains; make clean;
 	cd ./org/jlab/coda/cMsg/apps; make clean;
+	cd ./org/jlab/coda/cMsg/FileDomain; make clean;
+	cd ./org/jlab/coda/cMsg/CADomain; make clean;
 
 # SUFFIX RULES
 
