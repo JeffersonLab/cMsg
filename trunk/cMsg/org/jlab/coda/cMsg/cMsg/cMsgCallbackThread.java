@@ -20,7 +20,9 @@ import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgCallback;
 import org.jlab.coda.cMsg.cMsgException;
 
+import java.util.List;
 import java.util.LinkedList;
+import java.util.Collections;
 
 /**
  * This class is used to run a message callback in its own thread.
@@ -29,7 +31,7 @@ import java.util.LinkedList;
  */
 public class cMsgCallbackThread extends Thread {
     /** List of ordered messages to be passed to the callback. */
-    private LinkedList messageList;
+    private List messageList;
 
     //private int lastOdd=1,lastEven=0, num;
     private int size;
@@ -40,19 +42,47 @@ public class cMsgCallbackThread extends Thread {
     /** Callback to be run. */
     cMsgCallback callback;
 
-    /** Setting this to true will kill this thread. */
-    private boolean killThread;
+    /** Setting this to true will kill this thread as soon as possible. */
+    private boolean dieNow;
 
-    private Object sync = new Object();
+    /** Setting this to true will kill this thread immediate after running the callback. */
+    private boolean dieAfterCallback;
 
+    /** Count of how may supplemental threads are currently active. */
     private int threads;
 
-    /** Kills this thread. */
-    public void killThread() {
-        killThread = true;
+    /**
+     * Object to synchronize on when changing the value of threads and
+     * in the case of get, telling the getter to wakeup. It does double
+     * duty, but they don't interfere.
+     */
+    Object sync = new Object();
+
+    /** Place to temporarily store the returned message from a get. */
+    cMsgMessage message;
+
+
+    /** If this thread is waiting, it's woken up. */
+    synchronized public void wakeup() {
+        notify();
     }
 
+    /** Kills this thread as soon as possible. If it's waiting, it's woken up first. */
+    synchronized public void dieNow() {
+        dieNow = true;
+        notify();
+    }
 
+    /** Kills this thread after running the callback. If it's currently waiting, it's woken up. */
+    synchronized public void dieAfterCallback() {
+        dieAfterCallback = true;
+        notify();
+    }
+
+    /**
+     * Class defining threads which can be run in parallel when many incoming
+     * messages all need to run the same callback.
+     */
     class SupplementalThread extends Thread {
 
         SupplementalThread() {
@@ -90,12 +120,12 @@ public class cMsgCallbackThread extends Thread {
                         System.exit(-1);
                     }
 
-                    if (killThread) {
+                    if (dieNow) {
                         return;
                     }
                 }
 
-                if (killThread) {
+                if (dieNow) {
                     return;
                 }
 
@@ -116,31 +146,52 @@ public class cMsgCallbackThread extends Thread {
         }
     }
 
-    /** Set message to be given to the callback. */
+    /**
+     * Constructor used to pass an arbitrary argument to callback method.
+     * @param callback callback to be run when message arrives
+     * @param arg user-supplied argument for callback
+     */
+    cMsgCallbackThread(cMsgCallback callback, Object arg) {
+        this.callback = callback;
+        this.arg = arg;
+        messageList = Collections.synchronizedList(new LinkedList());
+        start();
+    }
+
+    /**
+     * Constructor used to pass "this" object (being constructed at this very
+     * moment) to the callback method.
+     * @param callback callback to be run when message arrives
+     */
+    cMsgCallbackThread(cMsgCallback callback) {
+        this.callback = callback;
+        this.arg = this;
+        messageList = Collections.synchronizedList(new LinkedList());
+        start();
+    }
+
+
+    /**
+     * Set message to be given to the callback.
+     * @param message message to be passed to callback
+     * @throws cMsgException if there are too many messages to handle
+     */
     public void sendMessage(cMsgMessage message) throws cMsgException {
-        synchronized (messageList) {
-            messageList.add(message);
-            size = messageList.size();
-            if (size%1000 == 0) {
-                //System.out.println(size+"");
+        messageList.add(message);
+        size = messageList.size();
+        if (size % 1000 == 0) {
+            //System.out.println(size+"");
+        }
+        if (size > callback.getMaximumCueSize()) {
+            if (callback.maySkipMessages()) {
+                messageList.subList(0, size - callback.getSkipSize()).clear();
             }
-            if (size > callback.getMaximumCueSize()) {
-                if (callback.maySkipMessages()) {
-                    messageList.subList(0, size - callback.getSkipSize()).clear();
-                }
-                else {
-                    throw new cMsgException("too many messages for callback to handle");
-                }
+            else {
+                throw new cMsgException("too many messages for callback to handle");
             }
         }
     }
 
-    cMsgCallbackThread(cMsgCallback callback, Object arg) {
-        this.callback = callback;
-        this.arg = arg;
-        messageList = new LinkedList();
-        start();
-    }
 
     /** This method is executed as a thread which runs the callback method */
     public void run() {
@@ -186,6 +237,13 @@ public class cMsgCallbackThread extends Thread {
 
             // only wait if no messages to run callback on
             while (messageList.size() < 1) {
+                // die immediately if commanded to, or die now even if told
+                // to run callback first because there are no messages to
+                // pass to the callback
+                if (dieNow || dieAfterCallback) {
+                    return;
+                }
+
                 try {
                     // Wait to run the callback until notified by client's listening thread
                     // that there are messages to run the callback on.
@@ -195,51 +253,52 @@ public class cMsgCallbackThread extends Thread {
                 }
                 catch (InterruptedException e) {
                     e.printStackTrace();
+// BUG BUG DO WE WANT TO DIE LIKE THIS?
                     System.exit(-1);
                 }
-                if (killThread) {
-                    return;
-                }
+
             }
 
-            if (killThread) {
+            if (dieNow) {
                 return;
             }
 
             // grab a message off the list if possible
-            synchronized (messageList) {
-                // Run callback method with proper argument
-                if (messageList.size() > 0) {
-                    message = (cMsgMessage) messageList.remove(0);
-                }
-                else {
-                    message = null;
-                }
+            // Run callback method with proper argument
+            if (messageList.size() > 0) {
+                message = (cMsgMessage) messageList.remove(0);
+            }
+            else {
+                message = null;
+                continue;
             }
 
-            if (message != null) {
-                // first copy the msg so multiple callback don't clobber each other
-                msgCopy = message.copy();
+            // first copy the msg so multiple callbacks don't clobber each other
+            msgCopy = message.copy();
 
-                // run callback method
-                callback.callback(msgCopy, arg);
+            // run callback method
+            callback.callback(msgCopy, arg);
 
-                /*
-                num = Integer.parseInt(message.getText());
-                if (num % 2 > 0) {
-                    if (num - lastOdd != 2) {
-                        System.out.println("         " + lastOdd + " -> " + message.getText());
-                    }
-                    lastOdd = num;
-                }
-                else {
-                    if (num - lastEven != 2) {
-                        System.out.println(lastEven + " -> " + message.getText());
-                    }
-                    lastEven = num;
-                }
-                */
+            // die if commanded to
+            if (dieAfterCallback || dieNow) {
+                return;
             }
+
+            /*
+            num = Integer.parseInt(message.getText());
+            if (num % 2 > 0) {
+                if (num - lastOdd != 2) {
+                    System.out.println("         " + lastOdd + " -> " + message.getText());
+                }
+                lastOdd = num;
+            }
+            else {
+                if (num - lastEven != 2) {
+                    System.out.println(lastEven + " -> " + message.getText());
+                }
+                lastEven = num;
+            }
+            */
         }
     }
 }
