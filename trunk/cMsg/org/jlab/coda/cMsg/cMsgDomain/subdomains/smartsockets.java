@@ -386,7 +386,16 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
 	}
 
 
-	// tell SS server about new subscription
+	// create and register callback
+	cb=mySrv.addProcessCb(new ProcessCb(),mt,subject,receiverSubscribeId);
+	if(cb==null) {
+	    cMsgException ce = new cMsgException("?unable to create callback");
+	    ce.setReturnCode(1);
+	    throw ce;
+	}
+
+
+	// subscribe
 	try {
 	    mySrv.setSubjectSubscribe(subject, true);
 	} catch (TipcException e) {
@@ -405,15 +414,6 @@ public class smartsockets extends cMsgHandleRequestsAbstract {
 	    m = new MyInt();
 	    m.count=1;
 	    subjects.put(subject,m);
-	}
-
-
-	// create and register callback
-	cb=mySrv.addProcessCb(new ProcessCb(),mt,subject,receiverSubscribeId);
-	if(cb==null) {
-	    cMsgException ce = new cMsgException("?unable to create callback");
-	    ce.setReturnCode(1);
-	    throw ce;
 	}
 
 
