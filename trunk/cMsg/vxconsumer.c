@@ -88,3 +88,66 @@ pthread_mutex_lock(&mutex);
 pthread_mutex_unlock(&mutex);
   cMsgFreeMessage(msg);
 }
+
+
+int cMsgGetConsumer(void) {
+    char *subject = "responder";
+    char *type    = "TYPE";
+    char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/vx";
+    char *myName  = "VX-consumer";
+    char *myDescription = "trial run";
+    int   i, err, domainId = -1;
+    
+    double freq=0., freqAvg=0., freqTotal=0.;
+    long   iterations=1, count=0;
+    void  *msg, *getMsg;
+    struct timespec t1, t2, timeout;
+    double time;
+
+    printf("Running Message GET Consumer\n");
+
+    printf("cMsgConnect ...\n");
+    err = cMsgConnect(UDL, myName, myDescription, &domainId);
+    printf("cMsgConnect: %s\n", cMsgPerror(err));
+ 
+    cMsgReceiveStart(domainId);
+    
+    msg = cMsgCreateMessage();
+    cMsgSetSubject(msg, subject);
+    cMsgSetType(msg, type);
+    cMsgSetText(msg, "Message 1");
+    
+    timeout.tv_sec  = 5;
+    timeout.tv_nsec = 0;
+  
+    while (1) {
+        count = 0;
+        clock_gettime(CLOCK_REALTIME, &t1);
+
+        /* do a bunch of gets */
+        for (i=0; i < 2000; i++) {
+            cMsgSendAndGet(domainId, msg, &timeout, &getMsg);
+
+            if (getMsg == NULL) {
+                printf("TIMEOUT in sendAndGet\n");
+            }
+            else {
+                count++;
+            }
+        }
+        
+        clock_gettime(CLOCK_REALTIME, &t2);
+        time = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
+        
+        freq = count/time;
+        if ((DOUBLE_MAX - freqTotal) < freq) {
+          freqTotal   = 0.0;
+	  iterations = 1;
+        }
+        freqTotal += freq;
+        freqAvg = freqTotal/(double)iterations;
+        iterations++;
+        printf("%9.1f Hz,  %10.2f Hz Avg.\n", freq, freqAvg);                    
+        t1 = t2;        
+    }
+}
