@@ -332,9 +332,9 @@ public class cMsg extends cMsgAdapter {
                 throw new cMsgException("connect: cannot create channel to name server");
             }
 
-            // get host & port to send messages to
+            // get host & port to send messages & other info from name server
             try {
-                getHostAndPortFromNameServer(channel);
+                talkToNameServer(channel);
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
@@ -501,24 +501,20 @@ public class cMsg extends cMsgAdapter {
                 text = message.getText();
             }
 
-            int outGoing[] = new int[8];
-            // message id to domain server
+            int outGoing[] = new int[12];
             outGoing[0] = cMsgConstants.msgSendRequest;
-            // is get response
-            outGoing[1] = message.isGetResponse() ? 1 : 0;
-            // sender id
-            outGoing[2] = message.getSenderId();
-            // time message sent (right now) in seconds
-            outGoing[3] = (int) ((new Date()).getTime() / 1000L);
-            // sender message id
-            outGoing[4] = message.getSenderMsgId();
+            outGoing[1]  = cMsgConstants.version;
+            outGoing[2]  = message.getPriority();
+            outGoing[3]  = message.getUserInt();
+            outGoing[4]  = message.getSysMsgId();
+            outGoing[5]  = message.getSenderToken();
+            outGoing[6]  = message.isGetResponse() ? 1 : 0;
+            outGoing[7]  = (int) ((new Date()).getTime() / 1000L);
+            outGoing[8]  = (int) (message.getUserTime().getTime() / 1000L);
 
-            // length of "subject" string
-            outGoing[5] = subject.length();
-            // length of "type" string
-            outGoing[6] = type.length();
-            // length of "text" string
-            outGoing[7] = text.length();
+            outGoing[9]  = subject.length();
+            outGoing[10] = type.length();
+            outGoing[11] = text.length();
 
             // lock to prevent parallel sends from using same buffer
             sendBufferLock.lock();
@@ -528,7 +524,7 @@ public class cMsg extends cMsgAdapter {
                 // send ints over together using view buffer
                 sendBuffer.asIntBuffer().put(outGoing);
                 // position original buffer at position of view buffer
-                sendBuffer.position(32);
+                sendBuffer.position(48);
 
                 // write strings
                 try {
@@ -605,31 +601,27 @@ public class cMsg extends cMsgAdapter {
                 text = message.getText();
             }
 
-            int outGoing[] = new int[8];
-            // message id to domain server
-            outGoing[0] = cMsgConstants.msgSyncSendRequest;
-            // is get response
-            outGoing[1] = message.isGetResponse() ? 1 : 0;
-            // sender id
-            outGoing[2] = message.getSenderId();
-            // time message sent (right now) in seconds
-            outGoing[3] = (int) ((new Date()).getTime() / 1000L);
-            // sender message id
-            outGoing[4] = message.getSenderMsgId();
+            int outGoing[] = new int[12];
+            outGoing[0]  = cMsgConstants.msgSyncSendRequest;
+            outGoing[1]  = cMsgConstants.version;
+            outGoing[2]  = message.getPriority();
+            outGoing[3]  = message.getUserInt();
+            outGoing[4]  = message.getSysMsgId();
+            outGoing[5]  = message.getSenderToken();
+            outGoing[6]  = message.isGetResponse() ? 1 : 0;
+            outGoing[7]  = (int) ((new Date()).getTime() / 1000L);
+            outGoing[8]  = (int) (message.getUserTime().getTime() / 1000L);
 
-            // length of "subject" string
-            outGoing[5] = subject.length();
-            // length of "type" string
-            outGoing[6] = type.length();
-            // length of "text" string
-            outGoing[7] = text.length();
+            outGoing[9]  = subject.length();
+            outGoing[10] = type.length();
+            outGoing[11] = text.length();
 
             // get ready to write
             syncSendBuffer.clear();
             // send ints over together using view buffer
             syncSendBuffer.asIntBuffer().put(outGoing);
             // position original buffer at position of view buffer
-            syncSendBuffer.position(32);
+            syncSendBuffer.position(48);
 
             // write strings
             try {
@@ -884,24 +876,18 @@ public class cMsg extends cMsgAdapter {
             // track specific get requests
             specificGets.put(id, holder);
 
-            int outGoing[] = new int[8];
-            // message id to domain server
+            int outGoing[] = new int[10];
             outGoing[0] = cMsgConstants.msgSendAndGetRequest;
-            // sender id
-            outGoing[1] = message.getSenderId();
-            // time message sent (right now)
-            outGoing[2] = (int) ((new Date()).getTime() / 1000L);
-            // sender message id
-            outGoing[3] = message.getSenderMsgId();
-            // send unique id for sender token
+            outGoing[1] = cMsgConstants.version;
+            outGoing[2] = message.getPriority();
+            outGoing[3] = message.getUserInt();
             outGoing[4] = id;
+            outGoing[5] = (int) ((new Date()).getTime() / 1000L);
+            outGoing[6] = (int) (message.getUserTime().getTime() / 1000L);
 
-            // length of "subject" string
-            outGoing[5] = subject.length();
-            // length of "type" string
-            outGoing[6] = type.length();
-            // length of "text" string
-            outGoing[7] = text.length();
+            outGoing[7] = subject.length();
+            outGoing[8] = type.length();
+            outGoing[9] = text.length();
 
             // lock to prevent parallel gets from using same buffer
             getBufferLock.lock();
@@ -911,7 +897,7 @@ public class cMsg extends cMsgAdapter {
                 // send ints over together using view buffer
                 getBuffer.asIntBuffer().put(outGoing);
                 // position original buffer at position of view buffer
-                getBuffer.position(32);
+                getBuffer.position(40);
 
                 // write strings
                 try {
@@ -1265,42 +1251,49 @@ public class cMsg extends cMsgAdapter {
 
     /**
      * This method gets the host and port of the domain server from the name server.
+     * It also gets information about the subdomain handler object.
+     * Note to those who would make changes in the protocol, keep the first three
+     * ints the same. That way the server can reliably check for mismatched versions.
      *
      * @param channel nio socket communication channel
      * @throws IOException if there are communication problems with the name server
      */
-    private void getHostAndPortFromNameServer(SocketChannel channel) throws IOException, cMsgException {
+    private void talkToNameServer(SocketChannel channel) throws IOException, cMsgException {
 
         // A direct buffer is necessary for nio socket IO.
         ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
-        int[] outGoing = new int[9];
+        int[] outGoing = new int[11];
 
         // first send message id to server
         outGoing[0] = cMsgConstants.msgConnectRequest;
+        // major version
+        outGoing[1] = cMsgConstants.version;
+        // minor version
+        outGoing[2] = cMsgConstants.minorVersion;
         // send my listening port (as an int) to server
-        outGoing[1] = port;
+        outGoing[3] = port;
         // send domain type of server I'm expecting to connect to
-        outGoing[2] = domain.length();
+        outGoing[4] = domain.length();
         // send subdomain type of server I'm expecting to use
-        outGoing[3] = subdomain.length();
+        outGoing[5] = subdomain.length();
         // send remainder for use by subdomain plugin
-        outGoing[4] = subRemainder.length();
+        outGoing[6] = subRemainder.length();
         // send length of my host name to server
-        outGoing[5] = host.length();
+        outGoing[7] = host.length();
         // send length of my name to server
-        outGoing[6] = name.length();
+        outGoing[8] = name.length();
         // send length of my UDL to server
-        outGoing[7] = UDL.length();
+        outGoing[9] = UDL.length();
         // send length of my description to server
-        outGoing[8] = description.length();
+        outGoing[10] = description.length();
 
         // get ready to write
         buffer.clear();
         // send ints over together using view buffer
         buffer.asIntBuffer().put(outGoing);
         // position original buffer at position of view buffer
-        buffer.position(36);
+        buffer.position(44);
 
         try {
             // send the type of domain server I'm expecting to connect to
@@ -1343,9 +1336,26 @@ public class cMsg extends cMsgAdapter {
 
         int error = buffer.getInt();
 
-        // if there's an error, quit
+        // if there's an error, read error string then quit
         if (error != cMsgConstants.ok) {
-            throw new cMsgException(cMsgUtilities.printError(error, cMsgConstants.debugNone));
+            // read string length
+            cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
+            buffer.flip();
+            int len = buffer.getInt();
+
+            // read error string
+            cMsgUtilities.readSocketBytes(buffer, channel, len, debug);
+            buffer.flip();
+            byte[] buf = new byte[len];
+            // read string
+            buffer.get(buf, 0, len);
+            String err = new String(buf, 0, len, "US-ASCII");
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  error code = " + error + ", string = " + err);
+            }
+
+            throw new cMsgException(cMsgUtilities.printError(error, cMsgConstants.debugNone) +
+                                    ": " + err);
         }
 
         // Since everything's OK, we expect to get:
@@ -1380,7 +1390,7 @@ public class cMsg extends cMsgAdapter {
         // allocate byte array
         byte[] buf = new byte[hostLength];
 
-        // read subject
+        // read host
         buffer.get(buf, 0, hostLength);
         domainServerHost = new String(buf, 0, hostLength, "US-ASCII");
         if (debug >= cMsgConstants.debugInfo) {
