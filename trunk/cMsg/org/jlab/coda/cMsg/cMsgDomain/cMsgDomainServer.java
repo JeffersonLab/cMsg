@@ -674,6 +674,8 @@ public class cMsgDomainServer extends Thread {
             int answer;
 
             while (true) {
+
+// BUG BUG not all threads may die
                 if (killAllThreads) return;
                 // if this is a permanent thread, we can block on a request
                 if (permanent) {
