@@ -19,7 +19,6 @@
 *                                                                            *
 *----------------------------------------------------------------------------*/
 
-
 package org.jlab.coda.cMsg;
 
 import java.lang.*;
@@ -34,15 +33,15 @@ import java.util.*;
  */
 public class cMsgMessage {
     
-    int      domainId;
     int      sysMsgId;
     int      receiverSubscribeId;
 
     String   sender;
-    int      senderId; /* in case fred dies and resurrects */
+    int      senderId; /* in case fred dies and resurrects - not needed! */
     String   senderHost;
     Date     senderTime;
     int      senderMsgId;
+    int      senderToken;
 
     String   receiver;
     String   receiverHost;
@@ -54,49 +53,49 @@ public class cMsgMessage {
     String   text;
 
     public String getDomain() {return domain;}
-    public void setDomain(String domain) {this.domain = domain;}
-
-    public int getDomainId() {return domainId;}
-    public void setDomainId(int domainId) {this.domainId = domainId;}
+    public void   setDomain(String domain) {this.domain = domain;}
 
     public String getReceiver() {return receiver;}
-    public void setReceiver(String receiver) {this.receiver = receiver;}
+    public void   setReceiver(String receiver) {this.receiver = receiver;}
 
     public String getReceiverHost() {return receiverHost;}
-    public void setReceiverHost(String receiverHost) {this.receiverHost = receiverHost;}
+    public void   setReceiverHost(String receiverHost) {this.receiverHost = receiverHost;}
 
-    public int getReceiverSubscribeId() {return receiverSubscribeId;}
+    public int  getReceiverSubscribeId() {return receiverSubscribeId;}
     public void setReceiverSubscribeId(int receiverSubscribeId) {this.receiverSubscribeId = receiverSubscribeId;}
 
     public Date getReceiverTime() {return receiverTime;}
     public void setReceiverTime(Date receiverTime) {this.receiverTime = receiverTime;}
 
     public String getSender() {return sender;}
-    public void setSender(String sender) {this.sender = sender;}
+    public void   setSender(String sender) {this.sender = sender;}
 
     public String getSenderHost() {return senderHost;}
-    public void setSenderHost(String senderHost) {this.senderHost = senderHost;}
+    public void   setSenderHost(String senderHost) {this.senderHost = senderHost;}
 
-    public int getSenderId() {return senderId;}
+    public int  getSenderId() {return senderId;}
     public void setSenderId(int senderId) {this.senderId = senderId;}
 
-    public int getSenderMsgId() {return senderMsgId;}
+    public int  getSenderMsgId() {return senderMsgId;}
     public void setSenderMsgId(int senderMsgId) {this.senderMsgId = senderMsgId;}
 
     public Date getSenderTime() {return senderTime;}
     public void setSenderTime(Date senderTime) {this.senderTime = senderTime;}
 
-    public String getSubject() {return subject;}
-    public void setSubject(String subject) {this.subject = subject;}
+    public int  getSenderToken() {return senderToken;}
+    public void setSenderToken(int senderToken) {this.senderToken = senderToken;}
 
-    public int getSysMsgId() {return sysMsgId;}
+    public String getSubject() {return subject;}
+    public void   setSubject(String subject) {this.subject = subject;}
+
+    public int  getSysMsgId() {return sysMsgId;}
     public void setSysMsgId(int sysMsgId) {this.sysMsgId = sysMsgId;}
 
     public String getText() {return text;}
-    public void setText(String text) {this.text = text;}
+    public void   setText(String text) {this.text = text;}
 
     public String getType() {return type;}
-    public void setType(String type) {this.type = type;}
+    public void   setType(String type) {this.type = type;}
 
 //-----------------------------------------------------------------------------
 }        //  end class definition
