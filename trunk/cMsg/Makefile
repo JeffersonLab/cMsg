@@ -33,7 +33,7 @@ OBJS =  rwlock.o \
 
 HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h cMsgDomain.h rwlock.h errors.h
 
-PROGS = client client2
+PROGS = producer consumer getConsumer
 
 all: $(CMSG_LIBS) $(PROGS)
 
