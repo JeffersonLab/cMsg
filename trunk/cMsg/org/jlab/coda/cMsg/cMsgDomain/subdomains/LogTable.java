@@ -145,118 +145,123 @@ public class LogTable implements cMsgHandleRequests {
     public void registerClient(cMsgClientInfo info) throws cMsgException {
 
         myName = info.getName();
-	myHost=host;
-	myPort=port;
+        myHost = info.getClientHost();
+        myPort = info.getClientPort();
 
 
-	// db parameters
-	String driver    = null;
-	String URL       = null;
-	String account   = null;
-	String password  = null;
-	String table     = null;
-	
-	
-	// extract db params from UDL
-	int ind= myUDLRemainder.indexOf("?");
-	if(ind!=0) {
-	    cMsgException ce = new cMsgException("illegal UDL");
-	    ce.setReturnCode(1);
-	    throw ce;
-	} else {
-	    String remainder=myUDLRemainder + "&";
+        // db parameters
+        String driver = null;
+        String URL = null;
+        String account = null;
+        String password = null;
+        String table = null;
 
 
-	    //  extract params
-	    Pattern p;
-	    Matcher m;
-	    try {
-		// driver required
-		p = Pattern.compile("[&\\?]driver=(.*?)&",Pattern.CASE_INSENSITIVE);
-		m = p.matcher(remainder);
-		m.find();
-		driver = m.group(1);
-		
-		// URL required
-		p = Pattern.compile("[&\\?]url=(.*?)&",Pattern.CASE_INSENSITIVE);
-		m = p.matcher(remainder);
-		m.find();
-		URL= m.group(1);
-		
-		// account not required
-		p = Pattern.compile("[&\\?]account=(.*?)&",Pattern.CASE_INSENSITIVE);
-		m = p.matcher(remainder);
-		if(m.find()) {
-			account = m.group(1);
-		}
-		
-		// password not required
-		p = Pattern.compile("[&\\?]password=(.*?)&",Pattern.CASE_INSENSITIVE);
-		m = p.matcher(remainder);
-		if(m.find()) {
-			password = m.group(1);
-		}
-
-		// table required
-		p = Pattern.compile("[&\\?]table=(.*?)&",Pattern.CASE_INSENSITIVE);
-		m = p.matcher(remainder);
-		m.find();
-		table = m.group(1);
-
-	    } catch (Exception e) {
-		e.printStackTrace();
-		cMsgException ce = new cMsgException(e.getMessage());
-		ce.setReturnCode(1);
-		throw ce;
-	    }
-	}
+        // extract db params from UDL
+        int ind = myUDLRemainder.indexOf("?");
+        if (ind != 0) {
+            cMsgException ce = new cMsgException("illegal UDL");
+            ce.setReturnCode(1);
+            throw ce;
+        }
+        else {
+            String remainder = myUDLRemainder + "&";
 
 
-	// load driver
-	try {
-	    Class.forName(driver);
-	} catch (Exception e) {
-	    System.out.println(e);
-	    e.printStackTrace();
-	    cMsgException ce = new cMsgException("registerClient: unable to load driver");
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+            //  extract params
+            Pattern p;
+            Matcher m;
+            try {
+                // driver required
+                p = Pattern.compile("[&\\?]driver=(.*?)&", Pattern.CASE_INSENSITIVE);
+                m = p.matcher(remainder);
+                m.find();
+                driver = m.group(1);
+
+                // URL required
+                p = Pattern.compile("[&\\?]url=(.*?)&", Pattern.CASE_INSENSITIVE);
+                m = p.matcher(remainder);
+                m.find();
+                URL = m.group(1);
+
+                // account not required
+                p = Pattern.compile("[&\\?]account=(.*?)&", Pattern.CASE_INSENSITIVE);
+                m = p.matcher(remainder);
+                if (m.find()) {
+                    account = m.group(1);
+                }
+
+                // password not required
+                p = Pattern.compile("[&\\?]password=(.*?)&", Pattern.CASE_INSENSITIVE);
+                m = p.matcher(remainder);
+                if (m.find()) {
+                    password = m.group(1);
+                }
+
+                // table required
+                p = Pattern.compile("[&\\?]table=(.*?)&", Pattern.CASE_INSENSITIVE);
+                m = p.matcher(remainder);
+                m.find();
+                table = m.group(1);
+
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+                cMsgException ce = new cMsgException(e.getMessage());
+                ce.setReturnCode(1);
+                throw ce;
+            }
+        }
 
 
-	// create connection
-	try {
-	    myCon  = DriverManager.getConnection(URL,account,password);
-	} catch (Exception e) {
-	    System.out.println(e);
-	    e.printStackTrace();
-	    cMsgException ce = new cMsgException("registerClient: unable to connect to database");
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+        // load driver
+        try {
+            Class.forName(driver);
+        }
+        catch (Exception e) {
+            System.out.println(e);
+            e.printStackTrace();
+            cMsgException ce = new cMsgException("registerClient: unable to load driver");
+            ce.setReturnCode(1);
+            throw ce;
+        }
 
 
-	// create prepared statement 
-	try {
-	    myStmt = myCon.prepareStatement("insert into " + table + " (" + 
-					    "domain,sysMsgId,getResponse,getRequest,sender,senderHost,senderTime," +
-					    "senderId,senderMsgId,senderToken,receiver,receiverHost,"+
-					    "receiverTime,subject,type,text" +
-					    ") values (" +
-					    "?,?,?,?,?,?,?," +
-					    "?,?,?,?,?," +
-					    "?,?,?,?" +
-					    ")");
-	} catch (Exception e) {
-	    System.out.println(e);
-	    e.printStackTrace();
-	    cMsgException ce = new cMsgException("registerClient: unable to create statement object");
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+        // create connection
+        try {
+            myCon = DriverManager.getConnection(URL, account, password);
+        }
+        catch (Exception e) {
+            System.out.println(e);
+            e.printStackTrace();
+            cMsgException ce = new cMsgException("registerClient: unable to connect to database");
+            ce.setReturnCode(1);
+            throw ce;
+        }
+
+
+        // create prepared statement
+        try {
+            myStmt = myCon.prepareStatement("insert into " + table + " (" +
+                                            "domain,sysMsgId,getResponse,getRequest,sender,senderHost,senderTime," +
+                                            "senderId,senderMsgId,senderToken,receiver,receiverHost," +
+                                            "receiverTime,subject,type,text" +
+                                            ") values (" +
+                                            "?,?,?,?,?,?,?," +
+                                            "?,?,?,?,?," +
+                                            "?,?,?,?" +
+                                            ")");
+        }
+        catch (Exception e) {
+            System.out.println(e);
+            e.printStackTrace();
+            cMsgException ce = new cMsgException("registerClient: unable to create statement object");
+            ce.setReturnCode(1);
+            throw ce;
+        }
 
     }
-    
+
 
     /**
      * Method to handle message sent by client.
@@ -264,39 +269,40 @@ public class LogTable implements cMsgHandleRequests {
      *
      * @param msg message from sender
      * @throws cMsgException if a channel to the client is closed, cannot be created,
-     *                          or socket properties cannot be set
+     *                       or socket properties cannot be set
      */
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
-	try {
-	    msg.setReceiver("cMsg:LogTable");
-	    myStmt.setString	(1,  msg.getDomain());
-	    myStmt.setInt   	(2,  msg.getSysMsgId());
-	    myStmt.setBoolean	(3,  msg.isGetResponse());
-	    myStmt.setBoolean	(4,  msg.isGetRequest());
-	    myStmt.setString	(5,  msg.getSender());
-	    myStmt.setString	(6,  msg.getSenderHost());
-	    myStmt.setTimestamp (7,  new java.sql.Timestamp(msg.getSenderTime().getTime()));
+        try {
+            msg.setReceiver("cMsg:LogTable");
+            myStmt.setString(1, msg.getDomain());
+            myStmt.setInt(2, msg.getSysMsgId());
+            myStmt.setBoolean(3, msg.isGetResponse());
+            myStmt.setBoolean(4, msg.isGetRequest());
+            myStmt.setString(5, msg.getSender());
+            myStmt.setString(6, msg.getSenderHost());
+            myStmt.setTimestamp(7, new java.sql.Timestamp(msg.getSenderTime().getTime()));
 
-	    myStmt.setInt   	(8,  msg.getSenderId());
-	    myStmt.setInt   	(9,  msg.getSenderMsgId());
-	    myStmt.setInt   	(10, msg.getSenderToken());
-	    myStmt.setString	(11, msg.getReceiver());
-	    myStmt.setString	(12, msg.getReceiverHost());
+            myStmt.setInt(8, msg.getSenderId());
+            myStmt.setInt(9, msg.getSenderMsgId());
+            myStmt.setInt(10, msg.getSenderToken());
+            myStmt.setString(11, msg.getReceiver());
+            myStmt.setString(12, msg.getReceiverHost());
 
-	    myStmt.setTimestamp (13, new java.sql.Timestamp(msg.getReceiverTime().getTime()));
-	    myStmt.setString	(14, msg.getSubject());
-	    myStmt.setString	(15, msg.getType());
-	    myStmt.setString	(16, msg.getText());
-	    
-	    myStmt.executeUpdate();
+            myStmt.setTimestamp(13, new java.sql.Timestamp(msg.getReceiverTime().getTime()));
+            myStmt.setString(14, msg.getSubject());
+            myStmt.setString(15, msg.getType());
+            myStmt.setString(16, msg.getText());
 
-	} catch (Exception e) {
-	    System.out.println(e);
-	    e.printStackTrace();
-	    throw new cMsgException("handleSendRequest: unable to insert into database");
-	}
+            myStmt.executeUpdate();
+
+        }
+        catch (Exception e) {
+            System.out.println(e);
+            e.printStackTrace();
+            throw new cMsgException("handleSendRequest: unable to insert into database");
+        }
     }
-    
+
 
     /**
      * Method to handle message sent by domain client in synchronous mode.
@@ -307,8 +313,8 @@ public class LogTable implements cMsgHandleRequests {
      * @throws cMsgException
      */
     public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
-	handleSendRequest(msg);
-	return(0);
+        handleSendRequest(msg);
+        return (0);
     }
 
 
@@ -381,12 +387,13 @@ public class LogTable implements cMsgHandleRequests {
      * @throws cMsgException
      */
     public void handleClientShutdown() throws cMsgException {
-	try {
-	    myStmt.close();
-	    myCon.close();
-	} catch (Exception e) {
-	    throw(new cMsgException("LogTable sub-domain handler shutdown error"));
-	}
+        try {
+            myStmt.close();
+            myCon.close();
+        }
+        catch (Exception e) {
+            throw(new cMsgException("LogTable sub-domain handler shutdown error"));
+        }
     }
 
 

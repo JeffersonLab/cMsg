@@ -144,106 +144,109 @@ public class database implements cMsgHandleRequests {
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
 
+
         myName = info.getName();
+        myHost = info.getClientHost();
+        myPort = info.getClientPort();
 
 
-	myName=name;
-	myHost=host;
-	myPort=port;
+        // db params
+        String driver = null;
+        String URL = null;
+        String account = null;
+        String password = null;
 
 
-	// db params
-	String driver    = null;
-	String URL       = null;
-	String account   = null;
-	String password  = null;
-	
-	
-	// extract db params from UDL
-	int ind= myUDLRemainder.indexOf("?");
-	if(ind!=0) {
-	    cMsgException ce = new cMsgException("illegal UDL");
-	    ce.setReturnCode(1);
-	    throw ce;
-	} else {
-	    String remainder=myUDLRemainder + "&";
+        // extract db params from UDL
+        int ind = myUDLRemainder.indexOf("?");
+        if (ind != 0) {
+            cMsgException ce = new cMsgException("illegal UDL");
+            ce.setReturnCode(1);
+            throw ce;
+        }
+        else {
+            String remainder = myUDLRemainder + "&";
 
 
-	    //  extract params
-	    Pattern p;
-	    Matcher m;
-	    try {
-		// driver required
-		p = Pattern.compile("[&\\?]driver=(.*?)&",Pattern.CASE_INSENSITIVE);
-		m = p.matcher(remainder);
-		m.find();
-		driver = m.group(1);
-		
-		// URL required
-		p = Pattern.compile("[&\\?]url=(.*?)&",Pattern.CASE_INSENSITIVE);
-		m = p.matcher(remainder);
-		m.find();
-		URL= m.group(1);
-		
-		// account not required
-		p = Pattern.compile("[&\\?]account=(.*?)&",Pattern.CASE_INSENSITIVE);
-		m = p.matcher(remainder);
-		if(m.find()) {
-			account = m.group(1);
-		}
-		
-		// password not required
-		p = Pattern.compile("[&\\?]password=(.*?)&",Pattern.CASE_INSENSITIVE);
-		m = p.matcher(remainder);
-		if(m.find()) {
-			password = m.group(1);
-		}
+            //  extract params
+            Pattern p;
+            Matcher m;
+            try {
+                // driver required
+                p = Pattern.compile("[&\\?]driver=(.*?)&", Pattern.CASE_INSENSITIVE);
+                m = p.matcher(remainder);
+                m.find();
+                driver = m.group(1);
 
-	    } catch (Exception e) {
-		e.printStackTrace();
-		cMsgException ce = new cMsgException(e.getMessage());
-		ce.setReturnCode(1);
-		throw ce;
-	    }
-	}
+                // URL required
+                p = Pattern.compile("[&\\?]url=(.*?)&", Pattern.CASE_INSENSITIVE);
+                m = p.matcher(remainder);
+                m.find();
+                URL = m.group(1);
 
+                // account not required
+                p = Pattern.compile("[&\\?]account=(.*?)&", Pattern.CASE_INSENSITIVE);
+                m = p.matcher(remainder);
+                if (m.find()) {
+                    account = m.group(1);
+                }
 
-	// load driver
-	try {
-	    Class.forName(driver);
-	} catch (Exception e) {
-	    System.out.println(e);
-	    e.printStackTrace();
-	    cMsgException ce = new cMsgException("registerClient: unable to load driver");
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+                // password not required
+                p = Pattern.compile("[&\\?]password=(.*?)&", Pattern.CASE_INSENSITIVE);
+                m = p.matcher(remainder);
+                if (m.find()) {
+                    password = m.group(1);
+                }
+
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+                cMsgException ce = new cMsgException(e.getMessage());
+                ce.setReturnCode(1);
+                throw ce;
+            }
+        }
 
 
-	// create connection
-	try {
-	    myCon  = DriverManager.getConnection(URL,account,password);
-	} catch (Exception e) {
-	    System.out.println(e);
-	    e.printStackTrace();
-	    cMsgException ce = new cMsgException("registerClient: unable to connect to database");
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+        // load driver
+        try {
+            Class.forName(driver);
+        }
+        catch (Exception e) {
+            System.out.println(e);
+            e.printStackTrace();
+            cMsgException ce = new cMsgException("registerClient: unable to load driver");
+            ce.setReturnCode(1);
+            throw ce;
+        }
 
 
-	// create statement
-	try {
-	    myStmt  = myCon.createStatement();
-	} catch (Exception e) {
-	    System.out.println(e);
-	    e.printStackTrace();
-	    cMsgException ce = new cMsgException("registerClient: unable to create statement");
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+        // create connection
+        try {
+            myCon = DriverManager.getConnection(URL, account, password);
+        }
+        catch (Exception e) {
+            System.out.println(e);
+            e.printStackTrace();
+            cMsgException ce = new cMsgException("registerClient: unable to connect to database");
+            ce.setReturnCode(1);
+            throw ce;
+        }
+
+
+        // create statement
+        try {
+            myStmt = myCon.createStatement();
+        }
+        catch (Exception e) {
+            System.out.println(e);
+            e.printStackTrace();
+            cMsgException ce = new cMsgException("registerClient: unable to create statement");
+            ce.setReturnCode(1);
+            throw ce;
+        }
     }
-    
+
 
     /**
      * Executes sql insert or update statement from message payload.
@@ -253,31 +256,33 @@ public class database implements cMsgHandleRequests {
      */
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
 
-	String sql = msg.getText();
+        String sql = msg.getText();
 
-	Pattern p1 = Pattern.compile("^\\s*insert\\s+",Pattern.CASE_INSENSITIVE);
-	Pattern p2 = Pattern.compile("^\\s*update\\s+",Pattern.CASE_INSENSITIVE);
-	Pattern p3 = Pattern.compile("^\\s*delete\\s+",Pattern.CASE_INSENSITIVE);
+        Pattern p1 = Pattern.compile("^\\s*insert\\s+", Pattern.CASE_INSENSITIVE);
+        Pattern p2 = Pattern.compile("^\\s*update\\s+", Pattern.CASE_INSENSITIVE);
+        Pattern p3 = Pattern.compile("^\\s*delete\\s+", Pattern.CASE_INSENSITIVE);
 
-	Matcher m1 = p1.matcher(sql);
-	Matcher m2 = p2.matcher(sql);
-	Matcher m3 = p3.matcher(sql);
+        Matcher m1 = p1.matcher(sql);
+        Matcher m2 = p2.matcher(sql);
+        Matcher m3 = p3.matcher(sql);
 
-	if(m1.find()||m2.find()||m3.find()) {
-	    try {
-		myStmt.executeUpdate(sql);
-	    } catch (Exception e) {
-		System.out.println(e);
-		e.printStackTrace();
-		throw new cMsgException("handleSendRequest: unable to execute: " + sql);
-	    }
-	} else {
-	    cMsgException ce = new cMsgException("handleSendRequest: illegal sql: " + msg.getText());
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+        if (m1.find() || m2.find() || m3.find()) {
+            try {
+                myStmt.executeUpdate(sql);
+            }
+            catch (Exception e) {
+                System.out.println(e);
+                e.printStackTrace();
+                throw new cMsgException("handleSendRequest: unable to execute: " + sql);
+            }
+        }
+        else {
+            cMsgException ce = new cMsgException("handleSendRequest: illegal sql: " + msg.getText());
+            ce.setReturnCode(1);
+            throw ce;
+        }
     }
-	
+
 
     /**
      * Method to handle message sent by domain client in synchronous mode.
@@ -288,24 +293,24 @@ public class database implements cMsgHandleRequests {
      * @throws cMsgException
      */
     public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
-	handleSendRequest(msg);
-	return(0);
+        handleSendRequest(msg);
+        return (0);
     }
-    
+
 
     /**
      * Method to handle subscribe request sent by domain client.
      * Not implemented.
      *
-     * @param subject message subject to subscribe to
-     * @param type message type to subscribe to
+     * @param subject             message subject to subscribe to
+     * @param type                message type to subscribe to
      * @param receiverSubscribeId message id refering to these specific subject and type values
      * @throws cMsgException if no client information is available or a subscription for this
-     *                          subject and type already exists
+     *                       subject and type already exists
      */
     public void handleSubscribeRequest(String subject, String type,
                                        int receiverSubscribeId) throws cMsgException {
-	// do nothing...
+        // do nothing...
     }
 
 
@@ -362,12 +367,13 @@ public class database implements cMsgHandleRequests {
      * @throws cMsgException
      */
     public void handleClientShutdown() throws cMsgException {
-	try {
-	    myStmt.close();
-	    myCon.close();
-	} catch (Exception e) {
-	    throw(new cMsgException("database sub-domain handler shutdown error"));
-	}
+        try {
+            myStmt.close();
+            myCon.close();
+        }
+        catch (Exception e) {
+            throw(new cMsgException("database sub-domain handler shutdown error"));
+        }
     }
 
 
