@@ -276,7 +276,7 @@ public class cMsg extends cMsgSubdomainAbstract {
                 }
 
                 try {
-//System.out.println("Handler sending msg for SPECIFIC GET");
+//System.out.println(" handle send msg for send&get to " + info.getName());
                     deliverMessage(info.getChannel(), buffer, message, null,
                                    cMsgConstants.msgGetResponse);
                 }
@@ -321,7 +321,7 @@ public class cMsg extends cMsgSubdomainAbstract {
                             // store sub and info for later use (in non-synchronized code)
                             idList.add(sub.getId());
                             haveMatch = true;
-//System.out.println("Handler sending msg for SUBSCRIBE");
+//System.out.println(" handle send msg for subscribe to " + info.getName());
                         }
                     }
 
@@ -337,7 +337,7 @@ public class cMsg extends cMsgSubdomainAbstract {
                             haveMatch = true;
                             // get subscription is 1-shot deal so now remove it
                             it.remove();
-//System.out.println("Handler sending msg for GENERAL GET");
+//System.out.println(" handle send msg for subscribe&get to " + info.getName());
                         }
                     }
                 }
@@ -560,10 +560,10 @@ public class cMsg extends cMsgSubdomainAbstract {
         if (info == null) {
             return;
         }
- System.out.println("UNGETTING");
+// System.out.println("UNGETTING");
         // first check to see if we're removing a specific get
         if (specificGets.remove(deleteGets.get(id)) != null) {
-            System.out.println("Removed specific Get");
+//System.out.println("Removed specific Get");
             return;
         }
 
@@ -576,7 +576,7 @@ public class cMsg extends cMsgSubdomainAbstract {
             while (it.hasNext()) {
                 sub = (cMsgSubscription) it.next();
                 if (sub.getId() == id) {
-                    System.out.println("Removed general Get");
+System.out.println("Removed general Get");
                     it.remove();
                     return;
                 }
