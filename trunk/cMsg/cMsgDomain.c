@@ -877,7 +877,7 @@ static int subscribeAndGet(int domainId, char *subject, char *type,
     }
     
     if (status == ETIMEDOUT) {
-      info->msgIn = 1;
+      break;
     }
     else if (status != 0) {
       err_abort(status, "Failed callback cond wait");
@@ -895,11 +895,8 @@ static int subscribeAndGet(int domainId, char *subject, char *type,
     err_abort(status, "Failed callback mutex unlock");
   }
 
-  /*
-   * Check the message stored for us. If msg is null, we timed out.
-   * Tell server to forget the get.
-   */
-  if (info->msg == NULL) {
+  /* If we timed out, tell server to forget the get. */
+  if (info->msgIn == 0) {
       /*printf("get: timed out\n");*/
       
       /* free up memory */
@@ -913,7 +910,7 @@ static int subscribeAndGet(int domainId, char *subject, char *type,
       return (CMSG_TIMEOUT);
   }
 
-  /* If msg is not null... */
+  /* If we did not timeout... */
 
   /*
    * Don't need to make a copy of message as only 1 receipient.
@@ -921,10 +918,6 @@ static int subscribeAndGet(int domainId, char *subject, char *type,
    * must free it.
    */
   *replyMsg = info->msg;
-  if (*replyMsg == NULL) {
-    printf("get: out of memory\n");
-    exit(-1);
-  }
   
   /* free up memory */
   free(info->subject);
@@ -1121,7 +1114,8 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
     }
     
     if (status == ETIMEDOUT) {
-      info->msgIn = 1;
+      /*info->msgIn = 1;*/
+      break;
     }
     else if (status != 0) {
       err_abort(status, "Failed callback cond wait");
@@ -1139,11 +1133,8 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
     err_abort(status, "Failed callback mutex unlock");
   }
 
-  /*
-   * Check the message stored for us. If msg is null, we timed out.
-   * Tell server to forget the get.
-   */
-  if (info->msg == NULL) {
+  /* If we timed out, tell server to forget the get. */
+  if (info->msgIn == 0) {
       /*printf("get: timed out\n");*/
       
       /* remove the get from server */
@@ -1161,7 +1152,7 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
       return (CMSG_TIMEOUT);
   }
 
-  /* If msg is not null... */
+  /* If we did not timeout... */
 
   /*
    * Don't need to make a copy of message as only 1 receipient.
@@ -1169,10 +1160,6 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
    * must free it.
    */
   *replyMsg = info->msg;
-  if (*replyMsg == NULL) {
-    printf("get: out of memory\n");
-    exit(-1);
-  }
   
   /* free up memory */
   free(info->subject);
@@ -2370,7 +2357,7 @@ fprintf(stderr, "cMsgRunCallbacks G: domainId = %d, uniqueId = %d, msg id = %d\n
 /*-------------------------------------------------------------------*/
 
 
-int cMsgWakeGets(int domainId, cMsgMessage *msg) {
+int cMsgWakeGet(int domainId, cMsgMessage *msg) {
 
   int i, status;
   getInfo *info;
@@ -2394,6 +2381,43 @@ fprintf(stderr, "cMsgWakeGets: domainId = %d, uniqueId = %d, msg sender token = 
 /*fprintf(stderr, "cMsgWakeGets: match with msg token %d\n", msg->senderToken);*/
       /* pass msg to "get" */
       info->msg = msg;
+      info->msgIn = 1;
+
+      /* wakeup "get" */      
+      status = pthread_cond_signal(&info->cond);
+      if (status != 0) {
+        err_abort(status, "Failed get condition signal");
+      }
+    }
+  }
+  
+  return (CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cMsgWakeGetWithNull(int domainId, int senderToken) {
+
+  int i, status;
+  getInfo *info;
+  cMsgDomain_CODA *domain;
+  
+  domain = &cMsgDomains[domainId];
+  
+  /* find the right get */
+  for (i=0; i<MAX_SPECIFIC_GET; i++) {
+    if (domain->specificGetInfo[i].active != 1) {
+      continue;
+    }
+    
+    info = &domain->specificGetInfo[i];
+    
+    /* if the id's match, wakeup the "get" for this sub/type */
+    if (info->id == senderToken) {
+      /* pass msg to "get" */
+      info->msg = NULL;
       info->msgIn = 1;
 
       /* wakeup "get" */      
@@ -2833,7 +2857,7 @@ static void subscribeInfoInit(subscribeInfo *info, int reInit) {
       
 #ifdef VXWORKS
       /* vxworks only lets us initialize mutexes and cond vars once */
-      if (reInit) return;
+      if (reInit) continue;
 #endif
 
       status = pthread_cond_init (&info->cbInfo[j].cond,  NULL);

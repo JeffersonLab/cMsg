@@ -144,7 +144,8 @@ typedef struct mainThreadInfo_t {
 /* prototypes */
 int cMsgReadMessage(int fd, cMsgMessage *msg);
 int cMsgRunCallbacks(int domainId, cMsgMessage *msg);
-int cMsgWakeGets(int domainId, cMsgMessage *msg);
+int cMsgWakeGet(int domainId, cMsgMessage *msg);
+int cMsgWakeGetWithNull(int domainId, int senderToken);
 
 #ifdef	__cplusplus
 }
