@@ -6,32 +6,97 @@ import java.util.Date;
 import java.util.concurrent.TimeoutException;
 
 /**
- * An example class which creates a cMsg message producer/consumer
- * which both produces messages and waits synchronously for a response message
- * with a sendAndGet call.
+ * This is an example class which creates a cMsg client that sends and
+ * receives messages by calling sendAndGet.
  */
 public class cMsgGetConsumer {
-    String name;
-    long count;
 
-    cMsgGetConsumer(String name) {
-        this.name = name;
+    String  name = "getConsumer";
+    String  description = "java getConsumer";
+    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
+    String  subject = "SUBJECT";
+    String  type = "TYPE";
+    String  text = "TEXT";
+    int     timeout = 1000; // 1 second default timeout
+    boolean debug;
+
+
+    /** Constructor. */
+    cMsgGetConsumer(String[] args) {
+        decodeCommandLine(args);
     }
+
+
+    /**
+     * Method to decode the command line used to start this application.
+     * @param args command line arguments
+     */
+    public void decodeCommandLine(String[] args) {
+
+        // loop over all args
+        for (int i = 0; i < args.length; i++) {
+
+            if (args[i].equalsIgnoreCase("-h")) {
+                usage();
+                System.exit(-1);
+            }
+            else if (args[i].equalsIgnoreCase("-n")) {
+                name = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-d")) {
+                description = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-u")) {
+                UDL= args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-s")) {
+                subject = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-t")) {
+                type= args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-text")) {
+                text = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-to")) {
+                timeout = Integer.parseInt(args[i + 1]);
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-debug")) {
+                debug = true;
+            }
+            else {
+                usage();
+                System.exit(-1);
+            }
+        }
+
+        return;
+    }
+
+
+    /** Method to print out correct program command line usage. */
+    private static void usage() {
+        System.out.println("\nUsage:\n\n" +
+            "   java cMsgGetConsumer [-n name] [-d description] [-u UDL]\n" +
+            "                        [-s subject] [-t type] [-text text]\n" +
+            "                        [-to timeout] [-debug]\n");
+    }
+
 
     /**
      * Run as a stand-alone application.
      */
     public static void main(String[] args) {
         try {
-            cMsgGetConsumer consumer = null;
-            if (args.length > 0) {
-                consumer = new cMsgGetConsumer(args[0]);
-            }
-            else {
-                consumer = new cMsgGetConsumer("consumer");
-                System.out.println("Name of this client is \"consumer\"");
-            }
-            consumer.run();
+            cMsgGetConsumer getConsumer = new cMsgGetConsumer(args);
+            getConsumer.run();
         }
         catch (cMsgException e) {
             e.printStackTrace();
@@ -65,99 +130,67 @@ public class cMsgGetConsumer {
     }
 
 
-    class myCallback extends cMsgCallbackAdapter {
-        /**
-         * Callback method definition.
-         *
-         * @param msg message received from domain server
-         * @param userObject object passed as an argument which was set when the
-         *                   client orginally subscribed to a subject and type of
-         *                   message.
-         */
-        public void callback(cMsgMessage msg, Object userObject) {
-            //try { Thread.sleep(1); }
-            //catch (InterruptedException e) {}
-            System.out.println("*");
-            count++;
-        }
-
-        public boolean maySkipMessages() {
-            return true;
-        }
-
-        public boolean mustSerializeMessages() {
-            return false;
-        }
-
-        public int  getMaximumThreads() {
-            return 200;
-        }
-
-     }
-
-
     /**
      * This method is executed as a thread.
      */
     public void run() throws cMsgException {
-        String subject = "responder", type = "TYPE";
-        //String subject = "SUBJECT", type = "TYPE";
 
-        System.out.println("Running Message GET Consumer\n");
+        if (debug) {
+            System.out.println("Running cMsg getConsumer subscribed to:\n" +
+                               "    subject = " + subject +
+                               "\n    type    = " + type);
+        }
 
-        String UDL = "cMsg:cMsg://aslan:3456/cMsg/vx";
-
-        cMsg coda = new cMsg(UDL, name, "getConsumer");
+        // connect to cMsg server
+        cMsg coda = new cMsg(UDL, name, description);
         coda.connect();
+
+        // enable message reception
         coda.start();
 
-        double freq=0., freqAvg=0., freqTotal=0.;
-        long   iterations=1;
-        long   t1, t2;
+        // create a message to send to a responder
         cMsgMessage msg = null;
         cMsgMessage sendMsg = new cMsgMessage();
         sendMsg.setSubject(subject);
         sendMsg.setType(type);
-        sendMsg.setText("text");
+        sendMsg.setText(text);
+
+        // variables to track incoming message rate
+        double freq=0., freqAvg=0.;
+        long   t1, t2, deltaT, totalT=0, totalC=0, count;
 
         while (true) {
             count = 0;
+
             t1 = (new Date()).getTime();
 
             // do a bunch of gets
-            for (int i=0; i < 1000; i++) {
-
-                try {msg = coda.sendAndGet(sendMsg, 1000);}
+            for (int i=0; i < 2000; i++) {
+                // do the synchronous sendAndGet with timeout
+                try {msg = coda.sendAndGet(sendMsg, timeout);}
                 catch (TimeoutException e) {
-                    System.out.println("TIMEOUT in GET");
+                    System.out.println("Timeout in sendAndGet");
                     continue;
                 }
-
-                /*
-                try {msg = coda.subscribeAndGet(subject, type, 1000);}
-                catch (TimeoutException e) {
-                    System.out.println("TIMEOUT in GET");
-                    continue;
-                }
-                */
                 if (msg == null) {
-                    System.out.println("got null msg");
+                    System.out.println("Got null msg");
                 }
                 count++;
-                //try {Thread.sleep(2000);}
-                //catch (InterruptedException e) { }
             }
 
             t2 = (new Date()).getTime();
-            freq = (double)count/(t2-t1)*1000.;
-            if (Double.MAX_VALUE - freqTotal < freq) {
-                freqTotal  = 0.;
-                iterations = 1;
+
+            deltaT  = t2 - t1; // millisec
+            freq    = (double)count/deltaT*1000;
+            totalT += deltaT;
+            totalC += count;
+            freqAvg = (double)totalC/totalT*1000;
+
+            if (debug) {
+                System.out.println("count = " + count + ", " +
+                                   doubleToString(freq, 0) + " Hz, Avg = " +
+                                   doubleToString(freqAvg, 0) + " Hz");
             }
-            freqTotal += freq;
-            freqAvg = freqTotal/iterations;
-            iterations++;
-            System.out.println("count = " + count + ", " + doubleToString(freq, 0) + " Hz, Avg = " + doubleToString(freqAvg, 0) + " Hz");
 
             if (!coda.isConnected()) {
                 System.out.println("No longer connected to domain server, quitting");
