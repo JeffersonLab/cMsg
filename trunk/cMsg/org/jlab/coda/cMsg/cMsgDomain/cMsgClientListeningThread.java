@@ -352,10 +352,10 @@ public class cMsgClientListeningThread extends Thread {
         msg.setInfo(inComing[3]);
         // time message was sent = 2 ints (hightest byte first)
         // in milliseconds since midnight GMT, Jan 1, 1970
-        long time = ((long)inComing[4] << 32) | inComing[5];
+        long time = ((long)inComing[4] << 32) | ((long)inComing[5] & 0x00000000FFFFFFFFL);
         msg.setSenderTime(new Date(time));
         // user time
-        time = ((long)inComing[6] << 32) | inComing[7];
+        time = ((long)inComing[6] << 32) | ((long)inComing[7] & 0x00000000FFFFFFFFL);
         msg.setUserTime(new Date(time));
         msg.setSysMsgId(inComing[8]);
         msg.setSenderToken(inComing[9]);
@@ -462,13 +462,15 @@ public class cMsgClientListeningThread extends Thread {
                 // for each subscription of this client ...
                 for (cMsgSubscription sub : set) {
 
-                    // if subject & type of incoming message equal those in subscription ...
+                    // if subject & type of incoming message match those in subscription ...
                     if (msg.getSubject().matches(sub.getSubjectRegexp()) &&
-                            msg.getType().matches(sub.getTypeRegexp())) {
+                           msg.getType().matches(sub.getTypeRegexp())) {
 //System.out.println(" handle send msg");
 
                         // run through all callbacks
                         for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
+                            // The callback thread copies the message given
+                            // to it before it runs the callback method on it.
                             cbThread.sendMessage(msg);
 //System.out.println(" sent wakeup for SUBSCRIBE");
                         }
@@ -479,7 +481,7 @@ public class cMsgClientListeningThread extends Thread {
 
         if (client.subscribeAndGets.size() < 1) return;
 
-        // for each subscription of this client ...
+        // for each subscribeAndGet called by this client ...
         cMsgHolder holder;
         for (Iterator i = client.subscribeAndGets.values().iterator(); i.hasNext();) {
             holder = (cMsgHolder)i.next();
