@@ -55,7 +55,7 @@
 #define CMSG_MAXHOSTNAMELEN 256
 
 /* set the "global" debug level */
-int cMsgDebug = CMSG_DEBUG_INFO;
+int cMsgDebug = CMSG_DEBUG_NONE;
 
 
 /* local variables */
