@@ -62,6 +62,8 @@ public class cMsgDomainServer extends Thread {
     /** Allocate int array once (used for reading in data) for efficiency's sake. */
     private int[] inComing = new int[8];
 
+    /** Allocate byte array once (used for reading in data) for efficiency's sake. */
+    byte[] bytes = new byte[5000];
 
     /** Keep reference to cMsg name server which created this object. */
     cMsgHandleRequests clientHandler;
@@ -393,7 +395,7 @@ public class cMsgDomainServer extends Thread {
         buffer.flip();
 
         // read 8 ints
-        buffer.asIntBuffer().get(inComing);
+        buffer.asIntBuffer().get(inComing, 0, 8);
 
         // system message id
         msg.setSysMsgId(inComing[0]);
@@ -426,38 +428,30 @@ public class cMsgDomainServer extends Thread {
         // go back to reading-from-buffer mode
         buffer.flip();
 
-        // allocate byte array
-        int lengthBuf = lengthSubject > lengthType ? lengthSubject : lengthType;
-        lengthBuf = lengthBuf > lengthText ? lengthBuf : lengthText;
-        byte[] buf = new byte[lengthBuf];
+        // allocate bigger byte array if necessary
+        // (allocate more than needed for speed's sake)
+        if (bytesToRead > bytes.length) {
+            bytes = new byte[bytesToRead];
+        }
+
+        // read into array
+        buffer.get(bytes, 0, bytesToRead);
 
         // read subject
-        buffer.get(buf, 0, lengthSubject);
-        msg.setSubject(new String(buf, 0, lengthSubject, "US-ASCII"));
-        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("  subject = " + msg.getSubject());
-        }
+        msg.setSubject(new String(bytes, 0, lengthSubject, "US-ASCII"));
 
         // read type
-        buffer.get(buf, 0, lengthType);
-        msg.setType(new String(buf, 0, lengthType, "US-ASCII"));
-        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("  type = " + msg.getType());
-        }
+        msg.setType(new String(bytes, lengthSubject, lengthType, "US-ASCII"));
 
         // read text
-        buffer.get(buf, 0, lengthText);
-        msg.setText(new String(buf, 0, lengthText, "US-ASCII"));
-        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("  text = " + msg.getText());
-        }
+        msg.setText(new String(bytes, lengthSubject+lengthType, lengthText, "US-ASCII"));
 
         // send ok back as acknowledgment
-        buffer.clear();
-        buffer.putInt(cMsgConstants.ok).flip();
-        while (buffer.hasRemaining()) {
-            channel.write(buffer);
-        }
+       // buffer.clear();
+       // buffer.putInt(cMsgConstants.ok).flip();
+      //  while (buffer.hasRemaining()) {
+       //     channel.write(buffer);
+       // }
 
         // fill in message object's members
         msg.setDomain(domainType);
@@ -485,7 +479,6 @@ public class cMsgDomainServer extends Thread {
         buffer.flip();
 
         // read 3 ints
-        //int[] inComing = new int[3];
         buffer.asIntBuffer().get(inComing, 0, 3);
 
         // id of subject/type combination  (receiverSubscribedId)
@@ -504,30 +497,33 @@ public class cMsgDomainServer extends Thread {
         // go back to reading-from-buffer mode
         buffer.flip();
 
-        // allocate byte array
-        int lengthBuf = lengthSubject > lengthType ? lengthSubject : lengthType;
-        byte[] buf = new byte[lengthBuf];
+        // allocate bigger byte array if necessary
+        // (allocate more than needed for speed's sake)
+        if (bytesToRead > bytes.length) {
+            bytes = new byte[bytesToRead];
+        }
+
+        // read into array
+        buffer.get(bytes, 0, bytesToRead);
 
         // read subject
-        buffer.get(buf, 0, lengthSubject);
-        subject = new String(buf, 0, lengthSubject, "US-ASCII");
+        subject = new String(bytes, 0, lengthSubject, "US-ASCII");
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("  subject = " + subject);
         }
 
         // read type
-        buffer.get(buf, 0, lengthType);
-        type = new String(buf, 0, lengthType, "US-ASCII");
+        type = new String(bytes, lengthSubject, lengthType, "US-ASCII");
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("  type = " + type);
         }
 
         // send ok back as acknowledgment
-        buffer.clear();
-        buffer.putInt(cMsgConstants.ok).flip();
-        while (buffer.hasRemaining()) {
-            channel.write(buffer);
-        }
+       // buffer.clear();
+        //buffer.putInt(cMsgConstants.ok).flip();
+        //while (buffer.hasRemaining()) {
+        //    channel.write(buffer);
+        //}
 
         return;
     }
@@ -547,7 +543,6 @@ public class cMsgDomainServer extends Thread {
         buffer.flip();
 
         // read 2 ints
-        //int[] inComing = new int[2];
         buffer.asIntBuffer().get(inComing, 0, 2);
         // length of subject
         int lengthSubject = inComing[0];
@@ -563,30 +558,33 @@ public class cMsgDomainServer extends Thread {
         // go back to reading-from-buffer mode
         buffer.flip();
 
-        // allocate byte array
-        int lengthBuf = lengthSubject > lengthType ? lengthSubject : lengthType;
-        byte[] buf = new byte[lengthBuf];
+        // allocate bigger byte array if necessary
+        // (allocate more than needed for speed's sake)
+        if (bytesToRead > bytes.length) {
+            bytes = new byte[bytesToRead];
+        }
+
+        // read into array
+        buffer.get(bytes, 0, bytesToRead);
 
         // read subject
-        buffer.get(buf, 0, lengthSubject);
-        subject = new String(buf, 0, lengthSubject, "US-ASCII");
+        subject = new String(bytes, 0, lengthSubject, "US-ASCII");
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("  subject = " + subject);
         }
 
         // read type
-        buffer.get(buf, 0, lengthType);
-        type = new String(buf, 0, lengthType, "US-ASCII");
+        type = new String(bytes, lengthSubject, lengthType, "US-ASCII");
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("  type = " + type);
         }
 
         // send ok back as acknowledgment
-        buffer.clear();
-        buffer.putInt(cMsgConstants.ok).flip();
-        while (buffer.hasRemaining()) {
-            channel.write(buffer);
-        }
+       // buffer.clear();
+        //buffer.putInt(cMsgConstants.ok).flip();
+        //while (buffer.hasRemaining()) {
+       //     channel.write(buffer);
+       // }
 
         return;
     }
