@@ -363,7 +363,7 @@ public class cMsgDomainServer extends Thread {
         private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
         /** Allocate int array once (used for reading in data) for efficiency's sake. */
-        private int[] inComing = new int[12];
+        private int[] inComing = new int[14];
 
         /** Allocate byte array once (used for reading in data) for efficiency's sake. */
         private byte[] bytes = new byte[5000];
@@ -542,14 +542,14 @@ public class cMsgDomainServer extends Thread {
             // create a message
             cMsgMessageFull msg = new cMsgMessageFull();
 
-            // keep reading until we have 12 ints of data
-            cMsgUtilities.readSocketBytes(buffer, channel, 48, debug);
+            // keep reading until we have 14 ints of data
+            cMsgUtilities.readSocketBytes(buffer, channel, 56, debug);
 
             // go back to reading-from-buffer mode
             buffer.flip();
 
-            // read 11 ints
-            buffer.asIntBuffer().get(inComing, 0, 12);
+            // read ints
+            buffer.asIntBuffer().get(inComing, 0, 14);
 
             msg.setVersion(inComing[0]);
             // inComing[1] is for future use
@@ -557,15 +557,19 @@ public class cMsgDomainServer extends Thread {
             msg.setSysMsgId(inComing[3]);
             msg.setSenderToken(inComing[4]);
             msg.setInfo(inComing[5]);
-            // time message sent in seconds since midnight GMT, Jan 1, 1970
-            msg.setSenderTime(new Date(((long) inComing[6]) * 1000));
-            // user time in seconds since midnight GMT, Jan 1, 1970
-            msg.setUserTime(new Date(((long) inComing[7]) * 1000));
 
-            int lengthSubject = inComing[8];
-            int lengthType    = inComing[9];
-            int lengthText    = inComing[10];
-            int lengthCreator = inComing[11];
+            // time message was sent = 2 ints (hightest byte first)
+            // in milliseconds since midnight GMT, Jan 1, 1970
+            long time = ((long)inComing[6] << 32) | inComing[7];
+            msg.setSenderTime(new Date(time));
+            // user time
+            time = ((long)inComing[8] << 32) | inComing[9];
+            msg.setUserTime(new Date(time));
+
+            int lengthSubject = inComing[10];
+            int lengthType    = inComing[11];
+            int lengthText    = inComing[12];
+            int lengthCreator = inComing[13];
 
             // bytes expected
             int bytesToRead = lengthSubject + lengthType + lengthText + lengthCreator;
@@ -623,28 +627,32 @@ public class cMsgDomainServer extends Thread {
             // create a message
             cMsgMessageFull msg = new cMsgMessageFull();
 
-            // keep reading until we have 10 ints of data
-            cMsgUtilities.readSocketBytes(buffer, channel, 40, debug);
+            // keep reading until we have 12 ints of data
+            cMsgUtilities.readSocketBytes(buffer, channel, 48, debug);
 
             // go back to reading-from-buffer mode
             buffer.flip();
 
-            // read 10 ints
-            buffer.asIntBuffer().get(inComing, 0, 10);
+            // read ints
+            buffer.asIntBuffer().get(inComing, 0, 12);
 
             msg.setVersion(inComing[0]);
             // inComing[1] is for future use
             msg.setUserInt(inComing[2]);
             msg.setSenderToken(inComing[3]);
-            // time message sent in seconds since midnight GMT, Jan 1, 1970
-            msg.setSenderTime(new Date(((long) inComing[4]) * 1000));
-            // user time in seconds since midnight GMT, Jan 1, 1970
-            msg.setUserTime(new Date(((long) inComing[5]) * 1000));
 
-            int lengthSubject = inComing[6];
-            int lengthType = inComing[7];
-            int lengthText = inComing[8];
-            int lengthCreator = inComing[9];
+            // time message was sent = 2 ints (hightest byte first)
+            // in milliseconds since midnight GMT, Jan 1, 1970
+            long time = ((long)inComing[4] << 32) | inComing[5];
+            msg.setSenderTime(new Date(time));
+            // user time
+            time = ((long)inComing[6] << 32) | inComing[7];
+            msg.setUserTime(new Date(time));
+
+            int lengthSubject = inComing[8];
+            int lengthType    = inComing[9];
+            int lengthText    = inComing[10];
+            int lengthCreator = inComing[11];
 
             // bytes expected
             int bytesToRead = lengthSubject + lengthType + lengthText + lengthCreator;

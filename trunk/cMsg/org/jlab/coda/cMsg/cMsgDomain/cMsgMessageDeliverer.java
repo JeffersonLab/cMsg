@@ -24,6 +24,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.ByteBuffer;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.Date;
 
 /**
  * This class delivers messages from the subdomain handler object in the cMsg
@@ -156,30 +157,35 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             buffer.putInt(acknowledge ? 1 : 0);
         }
         else {
-            // write 15 ints
-            int outGoing[] = new int[16];
+            // write 18 ints
+            int outGoing[] = new int[18];
             outGoing[0]  = msgType;
             outGoing[1]  = msg.getVersion();
             outGoing[2]  = 0; // reserved for future use
             outGoing[3]  = msg.getUserInt();
             outGoing[4]  = msg.getInfo();
-            outGoing[5]  = (int) (msg.getSenderTime().getTime() / 1000L);
-            outGoing[6]  = (int) (msg.getUserTime().getTime() / 1000L);
-            outGoing[7]  = msg.getSysMsgId();
-            outGoing[8]  = msg.getSenderToken();
-            outGoing[9]  = msg.getSender().length();
-            outGoing[10] = msg.getSenderHost().length();
-            outGoing[11] = msg.getSubject().length();
-            outGoing[12] = msg.getType().length();
-            outGoing[13] = msg.getText().length();
-            outGoing[14] = msg.getCreator().length();
-            outGoing[15] = acknowledge ? 1 : 0;
+
+            // send the time in milliseconds as 2, 32 bit integers
+            outGoing[5]  = (int) (msg.getSenderTime().getTime() >>> 32); // higher 32 bits
+            outGoing[6]  = (int) (msg.getSenderTime().getTime() & 0x00000000FFFFFFFFL); // lower 32 bits
+            outGoing[7]  = (int) (msg.getUserTime().getTime() >>> 32);
+            outGoing[8]  = (int) (msg.getUserTime().getTime() & 0x00000000FFFFFFFFL);
+
+            outGoing[9]  = msg.getSysMsgId();
+            outGoing[10] = msg.getSenderToken();
+            outGoing[11] = msg.getSender().length();
+            outGoing[12] = msg.getSenderHost().length();
+            outGoing[13] = msg.getSubject().length();
+            outGoing[14] = msg.getType().length();
+            outGoing[15] = msg.getText().length();
+            outGoing[16] = msg.getCreator().length();
+            outGoing[17] = acknowledge ? 1 : 0;
 
             // send ints over together using view buffer
             buffer.asIntBuffer().put(outGoing);
 
             // position original buffer at position of view buffer
-            buffer.position(64);
+            buffer.position(72);
 
             // write strings
             try {

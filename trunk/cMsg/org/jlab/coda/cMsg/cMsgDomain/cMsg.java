@@ -516,7 +516,7 @@ public class cMsg extends cMsgDomainAdapter {
             //    throw new cMsgException("message subject or type is blank string");
             //}
 
-            int outGoing[] = new int[13];
+            int outGoing[] = new int[15];
             outGoing[0]  = cMsgConstants.msgSendRequest;
             outGoing[1]  = cMsgConstants.version;
             outGoing[2]  = 0; // reserved for future use
@@ -524,17 +524,22 @@ public class cMsg extends cMsgDomainAdapter {
             outGoing[4]  = message.getSysMsgId();
             outGoing[5]  = message.getSenderToken();
             outGoing[6]  = message.getInfo();
-            outGoing[7]  = (int) ((new Date()).getTime() / 1000L);
-            outGoing[8]  = (int) (message.getUserTime().getTime() / 1000L);
 
-            outGoing[9]  = subject.length();
-            outGoing[10] = type.length();
-            outGoing[11] = text.length();
+            long now = new Date().getTime();
+            // send the time in milliseconds as 2, 32 bit integers
+            outGoing[7]  = (int) (now >>> 32); // higher 32 bits
+            outGoing[8]  = (int) (now & 0x00000000FFFFFFFFL); // lower 32 bits
+            outGoing[9]  = (int) (message.getUserTime().getTime() >>> 32);
+            outGoing[10] = (int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL);
+
+            outGoing[11] = subject.length();
+            outGoing[12] = type.length();
+            outGoing[13] = text.length();
 
             // send creator (this sender's name if msg created here)
             String creator = message.getCreator();
             if (creator == null) creator = name;
-            outGoing[12] = creator.length();
+            outGoing[14] = creator.length();
 
             // lock to prevent parallel sends from using same buffer
             sendBufferLock.lock();
@@ -544,7 +549,7 @@ public class cMsg extends cMsgDomainAdapter {
                 // send ints over together using view buffer
                 sendBuffer.asIntBuffer().put(outGoing);
                 // position original buffer at position of view buffer
-                sendBuffer.position(52);
+                sendBuffer.position(60);
 
                 // write strings
                 try {
@@ -613,7 +618,7 @@ public class cMsg extends cMsgDomainAdapter {
                 throw new cMsgException("message subject, type, or text is null");
             }
 
-            int outGoing[] = new int[13];
+            int outGoing[] = new int[15];
             outGoing[0]  = cMsgConstants.msgSyncSendRequest;
             outGoing[1]  = cMsgConstants.version;
             outGoing[2]  = 0; // reserved for future use
@@ -621,24 +626,29 @@ public class cMsg extends cMsgDomainAdapter {
             outGoing[4]  = message.getSysMsgId();
             outGoing[5]  = message.getSenderToken();
             outGoing[6]  = message.getInfo();
-            outGoing[7]  = (int) ((new Date()).getTime() / 1000L);
-            outGoing[8]  = (int) (message.getUserTime().getTime() / 1000L);
 
-            outGoing[9]  = subject.length();
-            outGoing[10] = type.length();
-            outGoing[11] = text.length();
+            long now = new Date().getTime();
+            // send the time in milliseconds as 2, 32 bit integers
+            outGoing[7]  = (int) (now >>> 32); // higher 32 bits
+            outGoing[8]  = (int) (now & 0x00000000FFFFFFFFL); // lower 32 bits
+            outGoing[9]  = (int) (message.getUserTime().getTime() >>> 32);
+            outGoing[10] = (int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL);
+
+            outGoing[11] = subject.length();
+            outGoing[12] = type.length();
+            outGoing[13] = text.length();
 
             // send creator (this sender's name if msg created here)
             String creator = message.getCreator();
             if (creator == null) creator = name;
-            outGoing[12] = creator.length();
+            outGoing[14] = creator.length();
 
             // get ready to write
             syncSendBuffer.clear();
             // send ints over together using view buffer
             syncSendBuffer.asIntBuffer().put(outGoing);
             // position original buffer at position of view buffer
-            syncSendBuffer.position(52);
+            syncSendBuffer.position(60);
 
             // write strings
             try {
@@ -888,22 +898,27 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
             // track specific get requests
             sendAndGets.put(id, holder);
 
-            int outGoing[] = new int[11];
-            outGoing[0] = cMsgConstants.msgSendAndGetRequest;
-            outGoing[1] = cMsgConstants.version;
+            int outGoing[] = new int[13];
+            outGoing[0]  = cMsgConstants.msgSendAndGetRequest;
+            outGoing[1]  = cMsgConstants.version;
             outGoing[2]  = 0; // reserved for future use
-            outGoing[3] = message.getUserInt();
-            outGoing[4] = id;
-            outGoing[5] = (int) ((new Date()).getTime() / 1000L);
-            outGoing[6] = (int) (message.getUserTime().getTime() / 1000L);
+            outGoing[3]  = message.getUserInt();
+            outGoing[4]  = id;
 
-            outGoing[7] = subject.length();
-            outGoing[8] = type.length();
-            outGoing[9] = text.length();
+            long now = new Date().getTime();
+            // send the time in milliseconds as 2, 32 bit integers
+            outGoing[5]  = (int) (now >>> 32); // higher 32 bits
+            outGoing[6]  = (int) (now & 0x00000000FFFFFFFFL); // lower 32 bits
+            outGoing[7]  = (int) (message.getUserTime().getTime() >>> 32);
+            outGoing[8]  = (int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL);
+
+            outGoing[9]  = subject.length();
+            outGoing[10] = type.length();
+            outGoing[11] = text.length();
 
             String creator = message.getCreator();
             if (creator == null) creator = name;
-            outGoing[10] = creator.length();
+            outGoing[12] = creator.length();
 
             // lock to prevent parallel gets from using same buffer
             getBufferLock.lock();
@@ -913,7 +928,7 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
                 // send ints over together using view buffer
                 getBuffer.asIntBuffer().put(outGoing);
                 // position original buffer at position of view buffer
-                getBuffer.position(44);
+                getBuffer.position(52);
 
                 // write strings
                 try {

@@ -513,11 +513,13 @@ static int codaConnect(char *myUDL, char *myName, char *myDescription,
 static int codaSend(int domainId, void *vmsg) {
   
   int lenSubject, lenType, lenText, lenCreator;
-  int outGoing[13];
+  int highInt, lowInt, outGoing[15];
   cMsgMessage *msg = (cMsgMessage *) vmsg;
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   int fd = domain->sendSocket;
   char *creator;
+  long long llTime;
+  struct timespec now;
     
   if (!domain->hasSend) {
     return(CMSG_NOT_IMPLEMENTED);
@@ -549,20 +551,33 @@ static int codaSend(int domainId, void *vmsg) {
   outGoing[5] = htonl(msg->senderToken);
   /* get info */
   outGoing[6] = htonl(msg->info);
+  
   /* time message sent (right now) */
-  outGoing[7] = htonl((int) time(NULL));
+  clock_gettime(CLOCK_REALTIME, &now);
+  /* convert to milliseconds */
+  llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);
+  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  outGoing[7] = htonl(highInt);
+  outGoing[8] = htonl(lowInt);
+  
   /* user time */
-  outGoing[8] = htonl((int) msg->userTime);
+  llTime  = ((long long)msg->userTime.tv_sec * 1000) +
+            ((long long)msg->userTime.tv_nsec/1000000);
+  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  outGoing[9]  = htonl(highInt);
+  outGoing[10] = htonl(lowInt);
 
   /* length of "subject" string */
   lenSubject   = strlen(msg->subject);
-  outGoing[9]  = htonl(lenSubject);
+  outGoing[11]  = htonl(lenSubject);
   /* length of "type" string */
   lenType      = strlen(msg->type);
-  outGoing[10] = htonl(lenType);
+  outGoing[12] = htonl(lenType);
   /* length of "text" string */
   lenText      = strlen(msg->text);
-  outGoing[11] = htonl(lenText);
+  outGoing[13] = htonl(lenText);
   
   /* send creator (this sender's name if msg created here) */
   creator = msg->creator;
@@ -570,7 +585,7 @@ static int codaSend(int domainId, void *vmsg) {
   
   /* length of "creator" string */
   lenCreator   = strlen(creator);
-  outGoing[12] = htonl(lenCreator);
+  outGoing[14] = htonl(lenCreator);
 
   /* make send socket communications thread-safe */
   socketMutexLock(domain);
@@ -659,11 +674,13 @@ static int codaSend(int domainId, void *vmsg) {
 static int codaSyncSend(int domainId, void *vmsg, int *response) {
   
   int err, lenSubject, lenType, lenText, lenCreator;
-  int outGoing[13];
+  int highInt, lowInt, outGoing[15];
   cMsgMessage *msg = (cMsgMessage *) vmsg;
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   int fd = domain->sendSocket;
   char *creator;
+  long long llTime;
+  struct timespec now;
     
   if (!domain->hasSyncSend) {
     return(CMSG_NOT_IMPLEMENTED);
@@ -694,20 +711,33 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
   outGoing[5] = htonl(msg->senderToken);
   /* get info */
   outGoing[6] = htonl(msg->info);
+
   /* time message sent (right now) */
-  outGoing[7] = htonl((int) time(NULL));
+  clock_gettime(CLOCK_REALTIME, &now);
+  /* convert to milliseconds */
+  llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);
+  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  outGoing[7] = htonl(highInt);
+  outGoing[8] = htonl(lowInt);
+  
   /* user time */
-  outGoing[8] = htonl((int) msg->userTime);
+  llTime  = ((long long)msg->userTime.tv_sec * 1000) +
+            ((long long)msg->userTime.tv_nsec/1000000);
+  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  outGoing[9]  = htonl(highInt);
+  outGoing[10] = htonl(lowInt);
 
   /* length of "subject" string */
   lenSubject   = strlen(msg->subject);
-  outGoing[9]  = htonl(lenSubject);
+  outGoing[11]  = htonl(lenSubject);
   /* length of "type" string */
   lenType      = strlen(msg->type);
-  outGoing[10] = htonl(lenType);
+  outGoing[12] = htonl(lenType);
   /* length of "text" string */
   lenText      = strlen(msg->text);
-  outGoing[11] = htonl(lenText);
+  outGoing[13] = htonl(lenText);
 
   /* send creator (this sender's name if msg created here) */
   creator = msg->creator;
@@ -715,7 +745,7 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
   
   /* length of "creator" string */
   lenCreator   = strlen(creator);
-  outGoing[12] = htonl(lenCreator);
+  outGoing[14] = htonl(lenCreator);
 
   /* make syncSends be synchronous 'cause we need a reply */
   syncSendMutexLock(domain);
@@ -1064,10 +1094,12 @@ static int codaSendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   cMsgMessage *msg = (cMsgMessage *) sendMsg;
   int i, uniqueId, status, lenSubject, lenType, lenText, lenCreator;
   int gotSpot, fd = domain->sendSocket;
-  int outGoing[11];
+  int highInt, lowInt, outGoing[13];
   getInfo *info = NULL;
   struct timespec wait;
   char *creator;
+  long long llTime;
+  struct timespec now;
   
   if (!domain->hasSendAndGet) {
     return(CMSG_NOT_IMPLEMENTED);
@@ -1135,20 +1167,33 @@ static int codaSendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   outGoing[3] = htonl(msg->userInt);
   /* unique id (senderToken) */
   outGoing[4] = htonl(uniqueId);
+
   /* time message sent (right now) */
-  outGoing[5] = htonl((int) time(NULL));
+  clock_gettime(CLOCK_REALTIME, &now);
+  /* convert to milliseconds */
+  llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);
+  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  outGoing[5] = htonl(highInt);
+  outGoing[6] = htonl(lowInt);
+  
   /* user time */
-  outGoing[6] = htonl((int) msg->userTime);
+  llTime  = ((long long)msg->userTime.tv_sec * 1000) +
+            ((long long)msg->userTime.tv_nsec/1000000);
+  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  outGoing[7] = htonl(highInt);
+  outGoing[8] = htonl(lowInt);
 
   /* length of "subject" string */
-  lenSubject  = strlen(msg->subject);
-  outGoing[7] = htonl(lenSubject);
+  lenSubject   = strlen(msg->subject);
+  outGoing[9]  = htonl(lenSubject);
   /* length of "type" string */
-  lenType     = strlen(msg->type);
-  outGoing[8] = htonl(lenType);
+  lenType      = strlen(msg->type);
+  outGoing[10] = htonl(lenType);
   /* length of "text" string */
-  lenText     = strlen(msg->text);
-  outGoing[9] = htonl(lenText);
+  lenText      = strlen(msg->text);
+  outGoing[11] = htonl(lenText);
 
   /* send creator (this sender's name if msg created here) */
   creator = msg->creator;
@@ -1156,7 +1201,7 @@ static int codaSendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   
   /* length of "creator" string */
   lenCreator   = strlen(creator);
-  outGoing[10] = htonl(lenCreator);
+  outGoing[12] = htonl(lenCreator);
 
   /* make send socket communications thread-safe */
   socketMutexLock(domain);
