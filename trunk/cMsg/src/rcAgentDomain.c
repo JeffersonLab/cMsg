@@ -40,16 +40,16 @@ extern "C" {
 #endif
   
   /* Prototypes of the functions which implement the standard cMsg tasks in the cMsg domain. */
-  static int   rcConnect(char *myUDL, char *myName, char *myDescription,
-			 char *UDLremainder,int *domainId);
+  static int   rcConnect(const char *myUDL, const char *myName, const char *myDescription,
+			 const char *UDLremainder,int *domainId);
   static int   rcSend(int domainId, void *msg);
   static int   rcSyncSend(int domainId, void *msg, int *response);
   static int   rcFlush(int domainId);
-  static int   rcSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+  static int   rcSubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
                            void *userArg, cMsgSubscribeConfig *config);
-  static int   rcUnsubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+  static int   rcUnsubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
                              void *userArg);
-  static int   rcSubscribeAndGet(int domainId, char *subject, char *type,
+  static int   rcSubscribeAndGet(int domainId, const char *subject, const char *type,
                                  struct timespec *timeout, void **replyMsg);
   static int   rcSendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
                             void **replyMsg);
@@ -57,7 +57,7 @@ extern "C" {
   static int   rcStop(int domainId);
   static int   rcDisconnect(int domainId);
   static int   rcSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, void *userArg);
-  static int   rcShutdown(int domainId, char *client, char *server, int flag);
+  static int   rcShutdown(int domainId, const char *client, const char *server, int flag);
   static void sMutexUnlock(pthread_mutex_t mx);
   static void sMutexLock(pthread_mutex_t mx);
   void *usrHandlThread(void * arg);  
@@ -100,8 +100,8 @@ extern "C" {
    * @returns INIT_COMPLETED Successfull execution of the initialization process.     
    *   
    ***********************************************************************************/   
-  static int rcConnect(char *myUDL, char *myName, char *myDescription,
-		       char *UDLremainder, int *domainId) {
+  static int rcConnect(const char *myUDL, const char *myName, const char *myDescription,
+		       const char *UDLremainder, int *domainId) {
     
     pthread_t pt;
     int status;                      
@@ -166,12 +166,16 @@ extern "C" {
        RC agent platfrom cMsgServerAgent. N.B. myDescription variable will define 
        the type of the component.*/
     gethostname(lhost,MAX_HOSTNAME_LENGTH);
+    
+/*Vardan: pass in copy of myName & myDescription*/
     if( (status = requestAgent(myName, myDescription, lport, lhost)) != CMSG_OK) return(status);
     
     /* fill the network information structure for this physical client*/
     myNetworkInfo->port = lport;
     myNetworkInfo->host = lhost;
+/*Vardan: store copy of myName*/
     myNetworkInfo->name = myName;
+/*Vardan: store copy of myDescription*/
     myNetworkInfo->type = myDescription;
     
     /* now process incoming connections from the cMsgAgentServer */
@@ -342,7 +346,7 @@ extern "C" {
    *
    * @returnes CMSG_NOT_IMPLEMENTED
    ************************************/
-  static int rcSubscribeAndGet(int domainId, char *subject, char *type,
+  static int rcSubscribeAndGet(int domainId, const char *subject, const char *type,
 			       struct timespec *timeout, void **replyMsg){
     return(CMSG_NOT_IMPLEMENTED);
   }
@@ -398,7 +402,7 @@ extern "C" {
    *
    * @returnes CMSG_NOT_IMPLEMENTED
    ************************************/
-  static int rcShutdown(int domainId, char *client, char *server, int flag){
+  static int rcShutdown(int domainId, const char *client, const char *server, int flag){
     return(CMSG_NOT_IMPLEMENTED);
   }
   
@@ -421,7 +425,7 @@ extern "C" {
    * @returns CMSG_OK if successful
    * @returns CMSG_ALREADY_EXISTS if an identical subscription already exists
    ****************************************************************************/   
-  static int rcSubscribe(int domainId, char *subject, char *type,cMsgCallback *callback,
+  static int rcSubscribe(int domainId, const char *subject, const char *type,cMsgCallback *callback,
 			 void *userArg, cMsgSubscribeConfig *config) {
     
     int i,j;
@@ -471,7 +475,9 @@ extern "C" {
 	    }
 	  }
 	  /* No, it is not registered.Start registration*/
+Vardan: store copy of subject
 	  new_sub->subject = subject; /* add to the sub_t structure */
+Vardan: store copy of type
 	  new_sub->type = type;
 	  
 	  /* Create a new callback_t structure */
@@ -498,7 +504,9 @@ extern "C" {
     }
     /* We went through all allowed number of subscriptions and there no 
      * message queue for this subject and type. Create one.*/	  
+Vardan: store copy of subject
     new_sub->subject = subject; /* add to the sub_t structure */
+Vardan: store copy of type
     new_sub->type = type;
     /* Create a new callback_t structure */
     new_callb->callback = callback;
@@ -511,6 +519,7 @@ extern "C" {
     new_sub->callbackCount += 1;
     
     /* start the message queue*/
+Vardan: may not modify subject or type
     Qname =(char *) strcat(subject,type);
     /* Create the new message queue for this subscription*/
     mymqd = mq_open(Qname,oflags,perms,&obuf);
@@ -691,7 +700,7 @@ extern "C" {
    * @returns CMSG_OK if successful
    *
    **********************************************************************************/   
-  static int rcUnsubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+  static int rcUnsubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
                            void *userArg) {
     int i,j;
     /** single subscription structure*/

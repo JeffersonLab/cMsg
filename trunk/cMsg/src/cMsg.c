@@ -1867,7 +1867,7 @@ int cMsgGetCreator(void *vmsg, char **creator) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgSetSubject(void *vmsg, char *subject) {
+int cMsgSetSubject(void *vmsg, const char *subject) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
@@ -1921,7 +1921,7 @@ int cMsgGetSubject(void *vmsg, char **subject) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgSetType(void *vmsg, char *type) {
+int cMsgSetType(void *vmsg, const char *type) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
@@ -1974,7 +1974,7 @@ int cMsgGetType(void *vmsg, char **type) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgSetText(void *vmsg, char *text) {
+int cMsgSetText(void *vmsg, const char *text) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 

@@ -202,13 +202,13 @@ extern "C" {
   int    cMsgGetDomain         (void *vmsg, char **domain);
   int    cMsgGetCreator        (void *vmsg, char **creator);
   
-  int    cMsgSetSubject        (void *vmsg, char  *subject);
+  int    cMsgSetSubject        (void *vmsg, const char  *subject);
   int    cMsgGetSubject        (void *vmsg, char **subject);
   
-  int    cMsgSetType           (void *vmsg, char  *type);
+  int    cMsgSetType           (void *vmsg, const char  *type);
   int    cMsgGetType           (void *vmsg, char **type);
   
-  int    cMsgSetText           (void *vmsg, char  *text);
+  int    cMsgSetText           (void *vmsg, const char  *text);
   int    cMsgGetText           (void *vmsg, char **text);
   
   int    cMsgSetUserInt        (void *vmsg, int  userInt);
