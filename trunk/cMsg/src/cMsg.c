@@ -113,6 +113,7 @@ static char *excludedChars = "`\'\"";
 
 /** For domain implementations. */
 extern domainTypeInfo codaDomainTypeInfo;
+/*extern domainTypeInfo   rcDomainTypeInfo;*/
 
 
 /* for c++ */
@@ -122,7 +123,7 @@ extern "C" {
 
 
 /* local prototypes */
-static int   checkString(char *s);
+static int   checkString(const char *s);
 static int   checkTextString(char *s);
 static void  registerDomainTypeInfo(void);
 static void  domainInit(cMsgDomain *domain);
@@ -231,7 +232,7 @@ static int strcasecmp(const char *s1, const char *s2) {
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgConnect
  */   
-int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
+int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription, int *domainId) {
 
   int i, id=-1, err, implId;
   
@@ -471,7 +472,7 @@ int cMsgFlush(int domainId) {
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSubscribe
  */   
-int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+int cMsgSubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
                   void *userArg, cMsgSubscribeConfig *config) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
@@ -510,7 +511,7 @@ int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callbac
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgUnSubscribe
  */   
-int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+int cMsgUnSubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
                     void *userArg) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
@@ -596,7 +597,7 @@ int cMsgSendAndGet(int domainId, void *sendMsg, struct timespec *timeout, void *
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSendAndGet
  */   
-int cMsgSubscribeAndGet(int domainId, char *subject, char *type,
+int cMsgSubscribeAndGet(int domainId, const char *subject, const char *type,
                         struct timespec *timeout, void **replyMsg) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
@@ -745,7 +746,7 @@ int cMsgSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, void *use
  * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
  * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
  */
-int cMsgShutdown(int domainId, char *client, char *server, int flag) {
+int cMsgShutdown(int domainId, const char *client, const char *server, int flag) {
   
   int id = domainId - DOMAIN_ID_OFFSET;
 
@@ -954,6 +955,11 @@ static void registerDomainTypeInfo(void) {
   /* cMsg type */
   dTypeInfo[0].type = (char *)strdup(codaDomainTypeInfo.type); 
   dTypeInfo[0].functions = codaDomainTypeInfo.functions;
+  /* runcontrol type */
+  /*
+  dTypeInfo[1].type = (char *)strdup(rcDomainTypeInfo.type); 
+  dTypeInfo[1].functions = rcDomainTypeInfo.functions;
+  */
 
   return;
 }
@@ -1148,7 +1154,7 @@ static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
  * @returns CMSG_OK if string is OK
  * @returns CMSG_ERROR if string contains excluded or unprintable characters
  */   
-static int checkString(char *s) {
+static int checkString(const char *s) {
 
   int i;
 
