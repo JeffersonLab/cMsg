@@ -140,17 +140,6 @@ public class Logfile implements cMsgHandleRequests {
 
 
     /**
-     * Method to unregister domain client.
-     * @param name name of client
-     */
-    public void unregisterClient(String name) {
-        synchronized (clients) {
-            clients.remove(name);
-        }
-    }
-
-
-    /**
      * Method to handle message sent by client.
      *
      * @param name name of client
@@ -161,6 +150,7 @@ public class Logfile implements cMsgHandleRequests {
     public void handleSendRequest(String name, cMsgMessage msg) throws cMsgException {
         ((PrintWriter)myLogFileObject.logFileHandle).println(msg);
     }
+
 
     /**
      * Method to get a single message from the server for a given
@@ -228,6 +218,10 @@ public class Logfile implements cMsgHandleRequests {
      * @param name name of client
      */
     public void handleShutdown(String name) {
+        synchronized (clients) {
+            clients.remove(name);
+        }
+
         // close out all files
         System.out.println("closing log files...");  // debug...
         PrintWriter pw;
@@ -241,13 +235,6 @@ public class Logfile implements cMsgHandleRequests {
                 // ignore errors
             }
         }
-    }
-
-    /**
-     * Method to execute when the domain server shuts down.
-     */
-    public void shutdown(){
-        // do nothing...
     }
 
 }
