@@ -312,9 +312,6 @@ public class cMsgCoda extends cMsgImpl {
 
         if (!connected) return;
 
-        // get ready to write
-        buffer.clear();
-
         int outGoing[] = new int[9];
         // message id to domain server
         outGoing[0] = cMsgConstants.msgSendRequest;
@@ -336,8 +333,12 @@ public class cMsgCoda extends cMsgImpl {
         // length of "text" string
         outGoing[8] = message.getText().length();
 
-        // send ints over together
+        // get ready to write
+        buffer.clear();
+        // send ints over together using view buffer
         buffer.asIntBuffer().put(outGoing);
+        // position original buffer at position of view buffer
+        buffer.position(36);
 
         // write strings
         try {
@@ -430,9 +431,6 @@ public class cMsgCoda extends cMsgImpl {
         sub = new cMsgSubscription(subject, type, uniqueId, new cMsgCallbackInfo(cb, userObj));
         subscriptions.add(sub);
 
-        // get ready to write
-        buffer.clear();
-
         int[] outGoing = new int[4];
         // first send message id to server
         outGoing[0] = cMsgConstants.msgSubscribeRequest;
@@ -443,8 +441,12 @@ public class cMsgCoda extends cMsgImpl {
         // send length of subscription type
         outGoing[3] = type.length();
 
-        // first send all the ints
+        // get ready to write
+        buffer.clear();
+        // send ints over together using view buffer
         buffer.asIntBuffer().put(outGoing);
+        // position original buffer at position of view buffer
+        buffer.position(16);
 
         // write strings
         try {
@@ -524,9 +526,6 @@ public class cMsgCoda extends cMsgImpl {
 
         // notify the domain server
 
-        // get ready to write
-        buffer.clear();
-
         int[] outGoing = new int[3];
         // first send message id to server
         outGoing[0] = cMsgConstants.msgUnsubscribeRequest;
@@ -535,8 +534,12 @@ public class cMsgCoda extends cMsgImpl {
         // send length of type
         outGoing[2] = type.length();
 
-        // first send all the ints
+        // get ready to write
+        buffer.clear();
+        // send ints over together using view buffer
         buffer.asIntBuffer().put(outGoing);
+        // position original buffer at position of view buffer
+        buffer.position(12);
 
         // write strings
         try {
@@ -594,9 +597,12 @@ public class cMsgCoda extends cMsgImpl {
         // send length of my name to server
         outGoing[4] = name.length();
 
-        // first send all the ints
+        // get ready to write
         buffer.clear();
+        // send ints over together using view buffer
         buffer.asIntBuffer().put(outGoing);
+        // position original buffer at position of view buffer
+        buffer.position(20);
 
         try {
             // send the type of domain server I'm expecting to connect to
