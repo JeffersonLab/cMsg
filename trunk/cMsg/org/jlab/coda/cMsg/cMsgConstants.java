@@ -26,9 +26,9 @@ public class cMsgConstants {
     private cMsgConstants() {}
 
     /** Major cMsg version number. */
-    public static final int    version      = 1;
+    public static final int    version      = 0;
     /** Minor cMsg version number. */
-    public static final int    minorVersion = 0;
+    public static final int    minorVersion = 9;
 
     // constants from cMsgPrivate.h
 
@@ -89,6 +89,8 @@ public class cMsgConstants {
     public static final int    errorWrongDomainType    = 20;
     /** Error due to no Java class found for specified subdomain. */
     public static final int    errorNoClassFound       = 21;
+    /** Error due to being different version. */
+    public static final int    errorDifferentVersion   = 22;
 
     // codes sent over the network to identify cMsg messages
 
