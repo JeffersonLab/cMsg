@@ -34,7 +34,7 @@ import org.jlab.coda.cMsg.cMsgConstants;
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgClientInfo;
-import org.jlab.coda.cMsg.cMsgSubdomainAbstract;
+import org.jlab.coda.cMsg.cMsgSubdomainAdapter;
 
 import gov.aps.jca.*;
 import gov.aps.jca.dbr.DOUBLE;
@@ -67,7 +67,7 @@ import java.net.*;
  * @author Elliott Wolin
  * @version 1.0
  */
-public class CA extends cMsgSubdomainAbstract {
+public class CA extends cMsgSubdomainAdapter {
 
 
     /** registration params. */

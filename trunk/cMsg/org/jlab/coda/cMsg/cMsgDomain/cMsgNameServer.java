@@ -337,11 +337,11 @@ public class cMsgNameServer extends Thread {
     synchronized public cMsgSubdomainInterface registerClient(cMsgClientInfo info) throws cMsgException {
         cMsgSubdomainInterface subdomainHandler = createClientHandler(info.getSubdomain(),
                                                                       info.getUDLremainder());
-        // If subdomainHandler is a subclass of cMsgSubdomainAbstract, it has methods
+        // If subdomainHandler is a subclass of cMsgSubdomainAdapter, it has methods
         // to connect to the client, so do it now. The socket channel is stored in "info".
-        if (subdomainHandler instanceof cMsgSubdomainAbstract) {
+        if (subdomainHandler instanceof cMsgSubdomainAdapter) {
             try {
-                ((cMsgSubdomainAbstract)subdomainHandler).createChannel(info);
+                ((cMsgSubdomainAdapter)subdomainHandler).createChannel(info);
             }
             catch (IOException e) {
                 cMsgException ex = new cMsgException("socket communication error");

@@ -50,7 +50,7 @@ import java.util.Date;
  * @author Elliiott Wolin
  * @version 1.0
  */
-public class FileQueue extends cMsgSubdomainAbstract {
+public class FileQueue extends cMsgSubdomainAdapter {
 
 
     /** global list of queue names, for synchronizing access to queues */
