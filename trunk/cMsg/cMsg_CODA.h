@@ -27,7 +27,9 @@ extern "C" {
 #endif
 
 /* built-in limits */
-#define MAXSUBSCRIBE 100
+#define MAX_SUBSCRIBE 100
+#define MAX_GENERAL_GET 10
+#define MAX_SPECIFIC_GET 10
 #define MAXCALLBACK   20
 
 /* for dispatching callbacks in their own threads */
@@ -39,7 +41,7 @@ typedef struct dispatchCbInfo_t {
 
 
 /* for a single subscription's callback */
-struct subscribeCbInfo_t {
+typedef struct subscribeCbInfo_t {
   cMsgCallback   *callback; /* function to be called */
   void           *userArg;  /* user argument given to callback */
   cMsgMessage    *head;     /* head of linked list of messages given to callback */
@@ -52,17 +54,31 @@ struct subscribeCbInfo_t {
   pthread_t       thread;   /* thread running callback */
   pthread_cond_t  cond;     /* condition variable thread is waiting on */
   pthread_mutex_t mutex;    /* mutex thread is waiting on */
-};
+} subscribeCbInfo;
 
-/* for a subscription to a certain subject and type */
-struct subscribeInfo_t {
+/* For both regular subscriptions and 1-shot-subscriptions/general-gets */
+/* of a certain subject and type. */
+typedef struct subscribeInfo_t {
   int  id;       /* unique id # corresponding to a unique subject/type pair */
-  int  active;   /* does this subject/type have valid callbacks? */
+  int  active;   /* does this subject/type have active callbacks? */
   char *type;
   char *subject;
   struct subscribeCbInfo_t cbInfo[MAXCALLBACK];
-};
+} subscribeInfo;
 
+
+/* for a "get" of a certain subject and type */
+typedef struct getInfo_t {
+  int  id;       /* unique id # corresponding to a unique subject/type pair */
+  int  active;   /* does this subject/type have an active callback? */
+  char msgIn;    /* has message arrived? (1-y, 0-n) */
+  char quit;     /* boolean telling "get" to end */
+  char *type;
+  char *subject;
+  cMsgMessage *msg;
+  pthread_cond_t  cond;     /* condition variable get thread is waiting on */
+  pthread_mutex_t mutex;    /* mutex get thread is waiting on */
+} getInfo;
 
 /* structure containing all domain info */
 typedef struct cMsgDomain_CODA_t {  
@@ -102,7 +118,12 @@ typedef struct cMsgDomain_CODA_t {
   pthread_mutex_t sendMutex;      /* mutex to ensure thread-safety of send socket */
   pthread_mutex_t subscribeMutex; /* mutex to ensure thread-safety of (un)subscribes */
   
-  struct subscribeInfo_t subscribeInfo[MAXSUBSCRIBE];
+  /* array of structures - each of which contain a subscription */
+  subscribeInfo subscribeInfo[MAX_SUBSCRIBE]; 
+  /* array of structures - each of which contain a 1-shot subscription or general get */
+  getInfo generalGetInfo[MAX_GENERAL_GET];
+  /* array of structures - each of which contain a specific get */
+  getInfo specificGetInfo[MAX_SPECIFIC_GET];
   
 } cMsgDomain_CODA;
 
@@ -119,7 +140,8 @@ typedef struct mainThreadInfo_t {
 
 /* prototypes */
 int cMsgReadMessage(int fd, cMsgMessage *msg);
-int cMsgRunCallbacks(int domainId, int command, cMsgMessage *msg);
+int cMsgRunCallbacks(int domainId, cMsgMessage *msg);
+int cMsgWakeGets(int domainId, cMsgMessage *msg);
 
 #ifdef	__cplusplus
 }
