@@ -411,6 +411,18 @@ public class cMsg extends cMsgAdapter {
             if (!connected) return;
             connected = false;
 
+            // tell server we're disconnecting
+            sendBuffer.clear();
+            sendBuffer.putInt(cMsgConstants.msgDisconnectRequest);
+            try {
+                sendBuffer.flip();
+                while (sendBuffer.hasRemaining()) {
+                    domainChannel.write(sendBuffer);
+                }
+            }
+            catch (IOException e) {
+            }
+
             // stop listening and client communication thread & close channel
             listeningThread.killThread();
 
