@@ -22,58 +22,113 @@ import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgConstants;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Date;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import java.net.Socket;
 import java.net.InetSocketAddress;
-import java.nio.channels.Channel;
 import java.nio.channels.SocketChannel;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 
 /**
- * Created by IntelliJ IDEA.
- * User: timmer
- * Date: Jul 14, 2004
- * Time: 2:34:00 PM
- * To change this template use File | Settings | File Templates.
+ * Class to handles all client cMsg requests.
+ *
+ * @author Carl Timmer
+ * @version 1.0
  */
 public class cMsgHandleRequestCoda implements cMsgHandleRequests {
     /** A direct buffer is necessary for nio socket IO. */
     ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
+    /** Hash table to store clients. Name is key and cMsgClientInfo is value. */
     HashMap clients = new HashMap(100);
 
     /** Level of debug output for this class. */
     private int debug = cMsgConstants.debugInfo;
 
 
-    /** Method to handle message sent by domain client. */
+    /**
+     * Implement a simple wildcard matching scheme where "*" means any or no characters and
+     * "?" means 1 or no character.
+     *
+     * @param regexp string that is a regular expression (can contain wildcards)
+     * @param s string to be matched
+     * @return true if there is a match, false if there is not
+     */
+    static private boolean matches(String regexp, String s) {
+        // It's a match if regexp (subscription string) is null
+        if (regexp == null) return true;
+
+        // If the message's string is null, something's wrong
+        if (s == null) return false;
+
+        // The first order of business is to take the regexp arg and modify it so that it is
+        // a regular expression that Java can understand. This means takings all occurrences
+        // of "*" and "?" and adding a period in front.
+        String rexp = regexp.replaceAll("\\*", ".*");
+        rexp = rexp.replaceAll("\\?", ".?");
+
+        // Now see if there's a match with the string arg
+        if (s.matches(rexp)) return true;
+        return false;
+    }
+
+    /**
+     * Method to see if domain client is registered.
+     * @param name name of client
+     * @return true if client registered, false otherwise
+     */
+    public boolean isRegistered(String name) {
+        if (clients.containsKey(name)) return true;
+        return false;
+    }
+
+    /**
+     * Method to register domain client.
+     *
+     * @param name name of client
+     * @param host host client is running on
+     * @param port port client is listening on
+     * @throws cMsgException if client already exists
+     */
     public void registerClient(String name, String host, int port) throws cMsgException {
-        System.out.println("registering client");
         // Check to see if name is taken already
         if (clients.containsKey(name)) {
-            throw new cMsgException("client already exists");
+            throw new cMsgException("registerClient: client already exists");
         }
 
         cMsgClientInfo info = new cMsgClientInfo(name, port, host);
         clients.put(name, info);
     }
 
-    /** Method to handle message sent by domain client. */
+    /**
+     * Method to unregister domain client.
+     * @param name name of client
+     */
     public void unregisterClient(String name) {
-        System.out.println("unregistering client");
         clients.remove(name);
     }
 
-    /** Method to handle message sent by domain client. */
+    /**
+     * Method to handle message sent by domain client. The message's subject and type
+     * are matched against all client subscriptions. The message is sent to all clients
+     * with matching subscriptions.  This method is run after all exchanges between
+     * domain server and client.
+     *
+     * @param name name of client
+     * @param msg message from sender
+     * @throws cMsgException if a channel to the client is closed, cannot be created,
+     *                          or socket properties cannot be set
+     */
     public void handleSendRequest(String name, cMsgMessage msg) throws cMsgException {
-        System.out.println("handling send request");
         // Scan through all clients
         Iterator iter = clients.keySet().iterator();
         String client;
         cMsgClientInfo info;
+
         while (iter.hasNext()) {
             client = (String) iter.next();
             // Don't deliver a message to the sender
@@ -89,12 +144,17 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
             while (it.hasNext()) {
                 sub = (cMsgSubscription) it.next();
                 // if subscription matches the msg ...
-                if (sub.subject.equals(msg.getSubject()) && sub.type.equals(msg.getType())) {
+                // if (sub.subject.equals(msg.getSubject()) && sub.type.equals(msg.getType())) {
+                if ( matches(sub.subject, msg.getSubject()) && matches(sub.type, msg.getType()) ) {
+                    if (debug >= cMsgConstants.debugError) {
+                        System.out.println("handleSendRequest: subscription matches message, deliver to " + client);
+                    }
                     // Deliver this msg to this client. If there
                     //  is no socket connection, make one.
                     if (info.channel == null) {
                         try {
-                            channel = SocketChannel.open(new InetSocketAddress(info.clientHost, info.clientPort));
+                            channel = SocketChannel.open(new InetSocketAddress(info.clientHost,
+                                                                               info.clientPort));
                             // set socket options
                             Socket socket = channel.socket();
                             // Set tcpNoDelay so no packets are delayed
@@ -104,37 +164,50 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
                             socket.setSendBufferSize(65535);
                         }
                         catch (IOException e) {
+                            if (debug >= cMsgConstants.debugError) {
+                                e.printStackTrace();
+                            }
                             throw new cMsgException(e.getMessage());
                         }
                         info.channel = channel;
                     }
-                    deliverMessage(channel, msg);
+                    deliverMessage(info.channel, sub.id, msg);
                 }
             }
         }
     }
 
-    /** Method to handle subscribe request sent by domain client. */
+
+    /**
+     * Method to handle subscribe request sent by domain client.
+     * This method is run after all exchanges between domain server and client.
+     *
+     * @param name name of client
+     * @param subject message subject to subscribe to
+     * @param type message type to subscribe to
+     * @param receiverSubscribeId message id refering to these specific subject and type values
+     * @throws cMsgException if no client information is available or a subscription for this
+     *                          subject and type already exists
+     */
     public void handleSubscribeRequest(String name, String subject, String type,
                                        int receiverSubscribeId) throws cMsgException {
-        System.out.println("handling subscribe request");
         // Each client (name) has a cMsgClientInfo object associated with it
         // that contains all relevant information. Retrieve that object
         // from the "clients" table, add subscription to it.
         cMsgClientInfo info = (cMsgClientInfo) clients.get(name);
         if (info == null) {
-            throw new cMsgException("no client information stored for " + name);
+            throw new cMsgException("handleSubscribeRequest: no client information stored for " + name);
         }
 
-        // Do not add duplicate subscription
+        // do not add duplicate subscription
         Iterator it = info.subscriptions.iterator();
         cMsgSubscription sub;
         while (it.hasNext()) {
             sub = (cMsgSubscription) it.next();
             if (receiverSubscribeId == sub.id  ||
                     sub.subject.equals(subject) && sub.type.equals(type)) {
-                throw new cMsgException("subscription already exists for subject = " + subject +
-                                        " and type = " + type);
+                throw new cMsgException("handleSubscribeRequest: subscription already exists for subject = " +
+                                        subject + " and type = " + type);
             }
         }
 
@@ -143,15 +216,18 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
         info.subscriptions.add(sub);
     }
 
-    /** Method to handle unsubscribe request sent by doman client. */
-    public void handleUnsubscribeRequest(String name, String subject, String type) {
-        System.out.println("handling unsubscribe request");
-        // Each client (name) has a cMsgClientInfo object associated with it
-        // that contains all relevant information. Retrieve that object
-        // from the "clients" table, add update the subscription data.
+
+    /**
+     * Method to handle sunsubscribe request sent by domain client.
+     * This method is run after all exchanges between domain server and client.
+     *
+     * @param name name of client
+     * @param subject message subject subscribed to
+     * @param type message type subscribed to
+     */
+     public void handleUnsubscribeRequest(String name, String subject, String type) {
         cMsgClientInfo info = (cMsgClientInfo) clients.get(name);
         if (info == null) {
-            //throw new cMsgException("no client information stored for " + name);
             return;
         }
         Iterator it = info.subscriptions.iterator();
@@ -165,50 +241,99 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
         }
     }
 
-    /** Method to handle keepalive sent by domain client
-     *  checking to see if the socket is still up. */
+
+    /**
+     * Method to handle keepalive sent by domain client checking to see
+     * if the domain server socket is still up. Normally nothing needs to
+     * be done as the domain server simply returns an "OK" to all keepalives.
+     * This method is run after all exchanges between domain server and client.
+     *
+     * @param name name of client
+     */
     public void handleKeepAlive(String name) {
-        System.out.println("handling keep alive");
-    }
-
-    /** Method to handle a disconnect request sent by domain client. */
-    public void handleDisconnect(String name) {
-        System.out.println("handling shutdown");
-    }
-
-    /** Method to handle a shutdown request sent by domain client. */
-    public void handleShutdown(String name) {
-        System.out.println("handling shutdown");
     }
 
     /**
-     * Method to send a message received from one client to another client
-     * subscribed to its subject and type.
+     * Method to handle a disconnect request sent by domain client.
+     * Normally nothing needs to be done as the domain server simply returns an
+     * "OK" and closes the channel. This method is run after all exchanges between
+     * domain server and client.
+     *
+     * @param name name of client
      */
-    private void deliverMessage(SocketChannel channel, cMsgMessage msg) throws cMsgException {
+    public void handleDisconnect(String name) {
+    }
+
+    /**
+     * Method to handle a request sent by domain client to shut the domain server down.
+     * This method is run after all exchanges between domain server and client but
+     * before the domain server thread is killed (since that is what is running this
+     * method).
+     *
+     * @param name name of client
+     */
+    public void handleShutdown(String name) {
+    }
+
+    /**
+     * Method to deliver a message to a client that is
+     * subscribed to the message's subject and type.
+     *
+     * @param channel communication channel to client
+     * @param id message id refering to message's subject and type
+     * @param msg message to be sent
+     * @throws cMsgException if the message cannot be sent over the channel
+     *                          or client returns an error
+     */
+    private void deliverMessage(SocketChannel channel, int id, cMsgMessage msg) throws cMsgException {
         // get ready to write
         buffer.clear();
 
-        // write 9 ints
-        buffer.putInt(msg.getSysMsgId());
-        buffer.putInt(msg.getReceiverSubscribeId());
-        buffer.putInt(msg.getSenderId());
-        buffer.putInt(msg.getSenderMsgId());
-        buffer.putInt(msg.getSender().length());
-        buffer.putInt(msg.getSenderHost().length());
-        buffer.putInt(msg.getSubject().length());
-        buffer.putInt(msg.getType().length());
-        buffer.putInt(msg.getText().length());
+        // write 12 ints
+        int[] outGoing = new int[12];
+        outGoing[0]  = cMsgConstants.msgSubscribeResponse;
+        outGoing[1]  = msg.getSysMsgId();
+        outGoing[2]  = id;
+        outGoing[3]  = msg.getSenderId();
+        // send the current time in seconds since Jan 1, 1970 as senderTime
+        outGoing[4]  = (int) (((new Date()).getTime())/1000L);
+        outGoing[5]  = msg.getSenderMsgId();
+        outGoing[6]  = msg.getSenderToken();
+        outGoing[7]  = msg.getSender().length();
+        outGoing[8]  = msg.getSenderHost().length();
+        outGoing[9]  = msg.getSubject().length();
+        outGoing[10] = msg.getType().length();
+        outGoing[11] = msg.getText().length();
+
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("    DELIVERING MESSAGE");
+            System.out.println("      msg: " + cMsgConstants.msgSubscribeResponse);
+            System.out.println("      SysMsgId: " + msg.getSysMsgId());
+            System.out.println("      ReceiverSubscribeId: " + id);
+            System.out.println("      SenderId: " + msg.getSenderId());
+            System.out.println("      Time: " + ((new Date()).getTime())/1000L);
+            System.out.println("      SenderMsgId: " + msg.getSenderMsgId());
+            System.out.println("      SenderToken: " + msg.getSenderToken());
+            System.out.println("      Sender length: " + msg.getSender().length());
+            System.out.println("      SenderHost length: " + msg.getSenderHost().length());
+            System.out.println("      Subject length: " + msg.getSubject().length());
+            System.out.println("      Type length: " + msg.getType().length());
+            System.out.println("      Text length: " + msg.getText().length());
+        }
+
+        buffer.asIntBuffer().put(outGoing);
 
         // write strings
         try {
-            buffer.put(msg.getSender().getBytes("US_ASCII"));
-            buffer.put(msg.getSenderHost().getBytes("US_ASCII"));
-            buffer.put(msg.getSubject().getBytes("US_ASCII"));
-            buffer.put(msg.getType().getBytes("US_ASCII"));
-            buffer.put(msg.getText().getBytes("US_ASCII"));
+            buffer.put(msg.getSender().getBytes("US-ASCII"));
+            buffer.put(msg.getSenderHost().getBytes("US-ASCII"));
+            buffer.put(msg.getSubject().getBytes("US-ASCII"));
+            buffer.put(msg.getType().getBytes("US-ASCII"));
+            buffer.put(msg.getText().getBytes("US-ASCII"));
         }
-        catch (UnsupportedEncodingException e) {}
+        catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
 
         try {
             // send buffer over the socket
@@ -229,7 +354,7 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
         int error = buffer.getInt();
 
         if (error != cMsgConstants.ok) {
-            throw new cMsgException("error in sending message");
+            throw new cMsgException("deliverMessage: error in sending message");
         }
 
         return;
