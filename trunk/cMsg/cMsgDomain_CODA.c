@@ -6,7 +6,7 @@
  *    This software was developed under a United States Government license    *
  *    described in the NOTICE file included as part of this distribution.     *
  *                                                                            *
- *    E.Wolin, 17-Jun-2004, Jefferson Lab                                     *
+ *    E.Wolin, 15-Jul-2004, Jefferson Lab                                     *
  *                                                                            *
  *    Authors: Elliott Wolin                                                  *
  *             wolin@jlab.org                    Jefferson Lab, MS-6B         *
@@ -22,14 +22,8 @@
  *
  * Description:
  *
- *  Implements cMsg client api using CODA FIPA agent system
+ *  Implements cMsg CODA domain
  *
- * still to do:
- *    integrate with Carl's stuff
- *    make everything thread-safe,
- *    get static assignments correct (dispatchCallback?)
- *    need to lock various parts of code, e.g. cMsgConnect, ...
- *    is atexit handler needed?
  *
  *----------------------------------------------------------------------------*/
 
@@ -52,11 +46,6 @@
 /* built-in limits */
 #define MAXSUBSCRIBE 100
 #define MAXCALLBACK   10
-#define MAXDOMAINS   100
-
-
-/* user's domain id is index into "domains" array, offset by this amount + */
-#define DOMAIN_ID_OFFSET 100
 
 
 /* for dispatching callbacks in their own threads */
@@ -81,51 +70,17 @@ struct subscribeInfo_t {
   struct subscribeCbInfo_t cbInfo[MAXCALLBACK];
 };
 
-/* structure containing all domain info */
-typedef struct cMsgDomain_t {
-  /* init state */
-  int initComplete; /* 0 = No, 1 = Yes */
 
-  /* other state variables */
-  int receiveState;
-  int lostConnection;
-  
-  int sendSocket;            /* file descriptor for TCP socket to send messages on */
-  int listenSocket;          /* file descriptor for socket this program listens on for TCP connections */
-
-  unsigned short sendPort;   /* port to send messages to */
-  unsigned short serverPort; /* port cMsg name server listens on */
-  unsigned short listenPort; /* port this program listens on for this domain's TCP connections */
-  
-  pthread_t pendThread; /* listening thread */
-
-  char *myHost;      /* this hostname */
-  char *sendHost;    /* host to send messages to */
-  char *serverHost;  /* host of cMsg name server */
-  
-  char *type;        /* domain type (coda, JMS, SmartSockets, etc.) */
-  char *name;        /* name of user (this program) */
-  char *domain;      /* UDL of cMsg name server */
-  char *description; /* user description */
-  
-  pthread_mutex_t sendMutex;      /* mutex to ensure thread-safety of send socket */
-  pthread_mutex_t subscribeMutex; /* mutex to ensure thread-safety of (un)subscribes */
-  
-  struct subscribeInfo_t subscribeInfo[MAXSUBSCRIBE];
-} cMsgDomain;
+/* CODA domain type */
+domainTypeInfo codaDomainTypeInfo = {
+  "coda",
+  {connect,send,flush,subscribe,unsubscribe,get,disconnect}
+}
 
 
-/* static variables */
-static int oneTimeInitialized = 0;
-static pthread_mutex_t connectMutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t generalMutex = PTHREAD_MUTEX_INITIALIZER;
-static cMsgDomain domains[MAXDOMAINS];
-static char *excludedChars = "`\'\"";
 /* id which uniquely defines a subject/type pair */
 static int subjectTypeId = 1;
 
-/* set the debug level here */
-static int debug = CMSG_DEBUG_INFO;
 
 /* for c++ */
 #ifdef __cplusplus
@@ -134,127 +89,36 @@ extern "C" {
 
 
 /* local prototypes */
-static int  checkString(char *s);
-static cMsg *copyMsg(cMsg *msgIn);
+static int   getHostAndPortFromNameServer(cMsgDomain *domain, int serverfd);
+static int   connect(cMsgDomain *domain, char *myDomain, char *myName, char *myDescription);
+static int   send(cMsgDomain *domain, char *subject, char *type, char *text);
+static int   flush(cMsgDomain *domain);
+static int   subscribe(cMsgDomain *domain, char *subject, char *type, cMsgCallback *callback, void *userArg);
+static int   unsubscribe(cMsgDomain *domain, char *subject, char *type, cMsgCallback *callback);
+static int   get(cMsgMessage *sendMsg, cMsgMessage **replyMsg);
+static int   disconnect(cMsgDomain *domain);
 static void *dispatchCallback(void *param);
-static void *pend(void *param);
-
-static void domainIdInit(int domainId);
-static void domainIdFree(int domainId);
-static void domainIdClear(int domainId);
-
-static void mutexLock(void);
-static void mutexUnlock(void);
-static void connectMutexLock(void);
-static void connectMutexUnlock(void);
-static int  sendMutexLock(int id);
-static int  sendMutexUnlock(int id);
-static int  subscribeMutexLock(int id);
-static int  subscribeMutexUnlock(int id);
-
-static int  parseUDL(const char *UDL, char **domainType, char **host,
-                     unsigned short *port, char **remainder);
-static int  getHostAndPortFromNameServer(cMsgDomain *domain, int serverfd);
+static void  connectMutexLock(void);
+static void  connectMutexUnlock(void);
+static int   sendMutexLock(cMsgDomain *domain);
+static int   sendMutexUnlock(cMsgDomain *domain);
+static int   subscribeMutexLock(cMsgDomain *domain);
+static int   subscribeMutexUnlock(cMsgDomain *domain);
+static int   readMessage(int fd, cMsg *msg);
+static int   runCallbacks(cMsgDomain *domain, int command, cMsg *msg);
+static void *serverListeningThread(void *arg);
 
 
 
 /*-------------------------------------------------------------------*/
 
 
-int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId) {
+static int connect(cMsgDomain *domain, char *myDomain, char *myName, char *myDescription) {
 
   int i, id=-1, err, serverfd, status;
   char *portEnvVariable=NULL, temp[CMSG_MAXHOSTNAMELEN];
   unsigned short startingPort;
   mainThreadInfo threadArg;
-  
-  /* First, grab mutex for thread safety. This mutex must be held until
-   * the initialization is completely finished. Otherwise, if we set
-   * initComplete = 1 (so that we reserve space in the domains array)
-   * before it's finished and then release the mutex, we may give an
-   * "existing" connection to a user who does a second init
-   * when in fact, an error may still occur in that "existing"
-   * connection. Hope you caught that.
-   */
-  connectMutexLock();
-  
-  /* do one time initialization of "domains" array */
-  if (!oneTimeInitialized) {
-    for (i=0; i<MAXDOMAINS; i++) {
-      domainIdInit(i);
-    }
-    oneTimeInitialized = 1;
-  }
-  
-  /* find an existing connection to this domain if possible */
-  for (i=0; i<MAXDOMAINS; i++) {
-    if (domains[i].initComplete == 1   &&
-        domains[i].name        != NULL &&
-        domains[i].domain      != NULL &&
-        domains[i].description != NULL)  {
-        
-      if ( (strcmp(domains[i].name,        myName       ) == 0)  &&
-           (strcmp(domains[i].domain,      myDomain     ) == 0)  &&
-           (strcmp(domains[i].description, myDescription) == 0) )  {
-        /* got a match */
-        id = i;
-        break;
-      }  
-    }
-  }
-  
-  /* found the id of a valid connection - return that */
-  if (id > -1) {
-    *domainId = id + DOMAIN_ID_OFFSET;
-    connectMutexUnlock();
-    return(CMSG_OK);
-  }
-  
-  /* no existing connection, so find the first available place in the "domains" array */
-  for (i=0; i<MAXDOMAINS; i++) {
-    if (domains[i].initComplete > 0) {
-      continue;
-    }
-    domainIdInit(i);
-    id = i;
-  }
-  
-  /* exceeds number of domain connections allowed */
-  if (id < 0) {
-    connectMutexUnlock();
-    return(CMSG_LIMIT_EXCEEDED);
-  }
-
-  /* reserve this element of the "domains" array */
-  domains[id].initComplete = 1;
-      
-  /* check args */
-  if ( (checkString(myName)        != CMSG_OK)  ||
-       (checkString(myDomain)      != CMSG_OK)  ||
-       (checkString(myDescription) != CMSG_OK) )  {
-    domainIdInit(id);
-    connectMutexUnlock();
-    return(CMSG_BAD_ARGUMENT);
-  }
-    
-  /* store names, can be changed until server connection established */
-  domains[id].name        = (char *) strdup(myName);
-  domains[id].domain      = (char *) strdup(myDomain);
-  domains[id].description = (char *) strdup(myDescription);
-  gethostname(temp, CMSG_MAXHOSTNAMELEN);
-  domains[id].myHost      = (char *) strdup(temp);
-  
-  /* parse the UDL - Uniform Domain Locator */
-  if ( (err = parseUDL(myDomain,
-                       &domains[id].type,
-                       &domains[id].serverHost,
-                       &domains[id].serverPort,
-                       NULL)) != CMSG_OK ) {
-    /* there's been a parsing error */
-    domainIdClear(id);
-    connectMutexUnlock();
-    return(err);
-  }
   
   /*
    * First find a port on which to receive incoming messages.
@@ -290,19 +154,18 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
   /* get listening port and socket for this application */
   if ( (err = cMsgGetListeningSocket(CMSG_NONBLOCKING,
                                      startingPort,
-                                     &domains[id].listenPort,
-                                     &domains[id].listenSocket)) != CMSG_OK) {
-    domainIdClear(id);
+                                     domain.listenPort,
+                                     domain.listenSocket)) != CMSG_OK) {
+    cMsgDomainClear(domain);
     connectMutexUnlock();
     return(err);
   }
 
   /* launch pend thread and start listening on receive socket */
-  threadArg.domainId = id;
-  threadArg.listenFd = domains[id].listenSocket;
+  threadArg.listenFd = domain->listenSocket;
   threadArg.blocking = CMSG_NONBLOCKING;
-  status = pthread_create(&domains[id].pendThread, NULL,
-                          cMsgServerListeningThread, (void *)&threadArg);
+  status = pthread_create(domain.pendThread, NULL,
+                          serverListeningThread, (void *)&threadArg);
   if (status != 0) {
     err_abort(status, "Creating message listening thread");
   }
@@ -316,12 +179,12 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
   /*---------------------------------------------------------------*/
     
   /* first connect to server host & port */
-  if ( (err = cMsgTcpConnect(domains[id].serverHost,
-                             domains[id].serverPort,
+  if ( (err = cMsgTcpConnect(domain->serverHost,
+                             domain->serverPort,
                              &serverfd)) != CMSG_OK) {
     /* stop listening & connection threads */
-    pthread_cancel(domains[id].pendThread);
-    domainIdClear(id);
+    pthread_cancel(domain->pendThread);
+    cMsgDomainClear(domain);
     connectMutexUnlock();
     return(err);
   }
@@ -331,11 +194,11 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
   }
   
   /* get host & port to send messages to */
-  err = getHostAndPortFromNameServer(&domains[id], serverfd);
+  err = getHostAndPortFromNameServer(domain, serverfd);
   if (err != CMSG_OK) {
     close(serverfd);
-    pthread_cancel(domains[id].pendThread);
-    domainIdClear(id);
+    pthread_cancel(domain->pendThread);
+    cMsgDomainClear(domain);
     connectMutexUnlock();
     return(err);
   }
@@ -350,17 +213,17 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
   if (debug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "cMsgConnect: closed name server socket\n");
     fprintf(stderr, "cMsgConnect: sendHost = %s, sendPort = %hu\n",
-                             domains[id].sendHost,
-                             domains[id].sendPort);
+                             domain->sendHost,
+                             domain->sendPort);
   }
   
   /* create sending socket and store */
-  if ( (err = cMsgTcpConnect(domains[id].sendHost,
-                             domains[id].sendPort,
-                             &domains[id].sendSocket)) != CMSG_OK) {
+  if ( (err = cMsgTcpConnect(domain->sendHost,
+                             domain->sendPort,
+                             domain.sendSocket)) != CMSG_OK) {
     close(serverfd);
-    pthread_cancel(domains[id].pendThread);
-    domainIdClear(id);
+    pthread_cancel(domain->pendThread);
+    cMsgDomainClear(domain);
     connectMutexUnlock();
     return(err);
   }
@@ -371,8 +234,7 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
   }
   
   /* init is complete */
-  *domainId = id + DOMAIN_ID_OFFSET;
-  domains[id].initComplete = 1;
+  domain->initComplete = 1;
 
   /* no more mutex protection is necessary */
   connectMutexUnlock();
@@ -384,7 +246,401 @@ int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId
 /*-------------------------------------------------------------------*/
 
 
+static int send(cMsgDomain *domain, char *subject, char *type, char *text) {
+  
+  int fd = domain->sendSocket;
+  int err, lenSubject, lenType, lenText;
+  int outGoing[4];
+  
+
+  /* message id (in network byte order) to domain server */
+  outGoing[0] = htonl(CMSG_SEND_REQUEST);
+  /* length of "subject" string */
+  lenSubject  = strlen(subject);
+  outGoing[1] = htonl(lenSubject);
+  /* length of "type" string */
+  lenType     = strlen(type);
+  outGoing[2] = htonl(lenType);
+  /* length of "text" string */
+  lenText     = strlen(text);
+  outGoing[3] = htonl(lenText);
+
+  /* make send socket communications thread-safe */
+  sendMutexLock(domain);
+
+  /* send ints over together */
+  if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
+    sendMutexUnlock(domain);
+    subscribeMutexUnlock(domain);
+    if (debug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgSend: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+
+  /* send subject */
+  if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
+    sendMutexUnlock(domain);
+    subscribeMutexUnlock(domain);
+    if (debug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgSend: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+
+  /* send type */
+  if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
+    sendMutexUnlock(domain);
+    subscribeMutexUnlock(domain);
+    if (debug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgSend: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+
+  /* send text */
+  if (cMsgTcpWrite(fd, (void *) text, lenText) != lenText) {
+    sendMutexUnlock(domain);
+    subscribeMutexUnlock(domain);
+    if (debug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgSend: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+
+  /* now read reply */
+  if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
+    sendMutexUnlock(domain);
+    subscribeMutexUnlock(domain);
+    if (debug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgSend: read failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+
+  /* done protecting communications */
+  sendMutexUnlock(domain);
+
+  /* return domain server's reply */
+  err = ntohl(err);
+  return(err);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+static int flush(cMsgDomain *domain) {
+
+  int fd = domain->sendSocket;
+  FILE *file;  
+
+
+  /* turn file descriptor into FILE pointer */
+  file = fdopen(fd, "w");
+
+  /* make send socket communications thread-safe */
+  sendMutexLock(domain);
+  /* flush outgoing buffers */
+  fflush(file);
+  /* done with mutex */
+  sendMutexUnlock(domain);
+  
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+static int subscribe(cMsgDomain *domain, char *subject, char *type, cMsgCallback *callback, void *userArg) {
+
+  int i, j, iok, jok, uniqueId;
+
+
+  /* make sure subscribe and unsubscribe are not run at the same time */
+  subscribeMutexLock(domain);
+  
+  /* add to callback list if subscribe to same subject/type exists */
+  iok = 0;
+  for (i=0; i<MAXSUBSCRIBE; i++) {
+    if ((domain->subscribeInfo[i].active == 1) && 
+       (strcmp(domain->subscribeInfo[i].subject, subject) == 0) && 
+       (strcmp(domain->subscribeInfo[i].type, type) == 0) ) {
+      iok = 1;
+
+      jok = 0;
+      for (j=0; j<MAXCALLBACK; j++) {
+	if (domain->subscribeInfo[i].cbInfo[j].callback == NULL) {
+	  domain->subscribeInfo[i].cbInfo[j].callback = callback;
+	  domain->subscribeInfo[i].cbInfo[j].userArg  = userArg;
+	  jok = 1;
+	}
+      }
+      break;
+
+    }
+  }
+  
+  if ((iok == 1) && (jok == 0)) return(CMSG_OUT_OF_MEMORY);
+  if ((iok == 1) && (jok == 1)) return(CMSG_OK);
+
+  /* no match, make new entry and notify server */
+  iok = 0;
+  for (i=0; i<MAXSUBSCRIBE; i++) {
+    if (domain->subscribeInfo[i].active == 0) {
+
+      int err, lenSubject, lenType;
+      int fd = domain->sendSocket;
+      int outGoing[4];
+
+      domain->subscribeInfo[i].active  = 1;
+      domain->subscribeInfo[i].subject = (char *) strdup(subject);
+      domain->subscribeInfo[i].type    = (char *) strdup(type);
+      domain->subscribeInfo[i].cbInfo[j].callback = callback;
+      domain->subscribeInfo[i].cbInfo[j].userArg  = userArg;
+      iok = 1;
+      
+      /*
+       * Pick a unique identifier for the subject/type pair, and
+       * send it to the domain server & remember it for future use
+       * Mutex protect this operation as many cMsgConnect calls may
+       * operate in parallel on this static variable.
+       */
+      mutexLock();
+      uniqueId = subjectTypeId++;
+      mutexUnlock();
+      domain->subscribeInfo[i].id = uniqueId;
+      
+      /* notify domain server */
+
+      /* message id (in network byte order) to domain server */
+      outGoing[0] = htonl(CMSG_SUBSCRIBE_REQUEST);
+      /* unique id to domain server */
+      outGoing[1] = htonl(uniqueId);
+      /* length of "subject" string */
+      lenSubject  = strlen(subject);
+      outGoing[2] = htonl(lenSubject);
+      /* length of "type" string */
+      lenType     = strlen(type);
+      outGoing[3] = htonl(lenType);
+      
+      /* make send socket communications thread-safe */
+      sendMutexLock(domain);
+
+      /* send ints over together */
+      if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
+        sendMutexUnlock(domain);
+        subscribeMutexUnlock(domain);
+        if (debug >= CMSG_DEBUG_ERROR) {
+          fprintf(stderr, "cMsgSubscribe: write failure\n");
+        }
+        return(CMSG_NETWORK_ERROR);
+      }
+
+      /* send subject */
+      if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
+        sendMutexUnlock(domain);
+        subscribeMutexUnlock(domain);
+        if (debug >= CMSG_DEBUG_ERROR) {
+          fprintf(stderr, "cMsgSubscribe: write failure\n");
+        }
+        return(CMSG_NETWORK_ERROR);
+      }
+
+      /* send type */
+      if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
+        sendMutexUnlock(domain);
+        subscribeMutexUnlock(domain);
+        if (debug >= CMSG_DEBUG_ERROR) {
+          fprintf(stderr, "cMsgSubscribe: write failure\n");
+        }
+        return(CMSG_NETWORK_ERROR);
+      }
+      
+      /* now read reply */
+      if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
+        sendMutexUnlock(domain);
+        subscribeMutexUnlock(domain);
+        if (debug >= CMSG_DEBUG_ERROR) {
+          fprintf(stderr, "cMsgSubscribe: read failure\n");
+        }
+        return(CMSG_NETWORK_ERROR);
+      }
+      
+      /* done protecting communications */
+      sendMutexUnlock(domain);
+      /* done protecting subscribe */
+      subscribeMutexUnlock(domain);
+        
+      /* return domain server's reply */
+      err = ntohl(err);
+      return(err);
+    }
+  }
+  
+  /* done protecting subscribe */
+  subscribeMutexUnlock(domain);
+  
+  /* iok == 0 here */
+  return(CMSG_OUT_OF_MEMORY);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+static int unsubscribe(cMsgDomain *domain, char *subject, char *type, cMsgCallback *callback) {
+
+  int i, j, cbCount, cbsRemoved;
+
+
+  /* make sure subscribe and unsubscribe are not run at the same time */
+  subscribeMutexLock(domain);
+  
+  /* search entry list */
+  for (i=0; i<MAXSUBSCRIBE; i++) {
+    if ( (domain->subscribeInfo[i].active == 1) && 
+         (strcmp(domain->subscribeInfo[i].subject, subject) == 0)  && 
+         (strcmp(domain->subscribeInfo[i].type,    type)    == 0) )  {
+
+      /* search callback list */
+      cbCount = cbsRemoved = 0;
+      for (j=0; j<MAXCALLBACK; j++) {
+	if (domain->subscribeInfo[i].cbInfo[j].callback != NULL) {
+	  cbCount++;
+	  if (domain->subscribeInfo[i].cbInfo[j].callback == callback) {
+            domain->subscribeInfo[i].cbInfo[j].callback == NULL;
+            cbsRemoved++;
+          }
+	}
+      }
+
+
+      /* delete entry and notify server if there was at least 1 callback
+       * to begin with and now there are none for this subject/type */
+      if ((cbCount > 0) && (cbCount-cbsRemoved < 1)) {
+
+        int err, lenSubject, lenType;
+        int fd = domain->sendSocket;
+        int outGoing[3];
+
+ 	domain->subscribeInfo[i].active = 0;
+	free(domain->subscribeInfo[i].subject);
+	free(domain->subscribeInfo[i].type);
+
+	/* notify server */
+        
+        /* message id (in network byte order) to domain server */
+        outGoing[0] = htonl(CMSG_UNSUBSCRIBE_REQUEST);
+        /* length of "subject" string */
+        lenSubject  = strlen(subject);
+        outGoing[1] = htonl(lenSubject);
+        /* length of "type" string */
+        lenType     = strlen(type);
+        outGoing[2] = htonl(lenType);
+        
+        /* make send socket communications thread-safe */
+        sendMutexLock(domain);
+
+        /* send ints over together */
+        if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
+          sendMutexUnlock(domain);
+          subscribeMutexUnlock(domain);
+          if (debug >= CMSG_DEBUG_ERROR) {
+            fprintf(stderr, "cMsgSubscribe: write failure\n");
+          }
+          return(CMSG_NETWORK_ERROR);
+        }
+
+        /* send subject */
+        if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
+          sendMutexUnlock(domain);
+          subscribeMutexUnlock(domain);
+          if (debug >= CMSG_DEBUG_ERROR) {
+            fprintf(stderr, "cMsgSubscribe: write failure\n");
+          }
+          return(CMSG_NETWORK_ERROR);
+        }
+
+        /* send type */
+        if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
+          sendMutexUnlock(domain);
+          subscribeMutexUnlock(domain);
+          if (debug >= CMSG_DEBUG_ERROR) {
+            fprintf(stderr, "cMsgSubscribe: write failure\n");
+          }
+          return(CMSG_NETWORK_ERROR);
+        }
+
+        /* now read reply */
+        if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
+          sendMutexUnlock(domain);
+          subscribeMutexUnlock(domain);
+          if (debug >= CMSG_DEBUG_ERROR) {
+            fprintf(stderr, "cMsgSubscribe: read failure\n");
+          }
+          return(CMSG_NETWORK_ERROR);
+        }
+        
+        /* done protecting communications */
+        sendMutexUnlock(domain);
+        /* done protecting unsubscribe */
+        subscribeMutexUnlock(domain);
+        
+        /* return domain server's reply */
+        err = ntohl(err);
+        return(err);
+
+      }
+      break;
+      
+    }
+  }
+
+  /* done protecting unsubscribe */
+  subscribeMutexUnlock(domain);
+  
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+static int disconnect(cMsgDomain *domain) {
+  
+  int status;
+
+
+  /* When changing initComplete / connection status, mutex protect it */
+  connectMutexLock();
+  
+  /* close sending and listening sockets */
+  close(domain->sendSocket);
+  close(domain->listenSocket);
+
+  /* stop listening and client communication threads */
+  status = pthread_cancel(domain->pendThread);
+  if (status != 0) {
+    err_abort(status, "Cancelling message listening & client threads");
+  }
+
+  /* reset vars, free memory */
+  cMsgDomainClear(domain);
+  
+  connectMutexUnlock();
+
+  return(CMSG_OK);
+}
+
+
+
+/*-------------------------------------------------------------------*/
+
+
 static int getHostAndPortFromNameServer(cMsgDomain *domain, int serverfd) {
+
   int err, lengthHost, lengthName, lengthType, outgoing[5], incoming[2];
   char temp[CMSG_MAXHOSTNAMELEN];
 
@@ -519,526 +775,14 @@ static int getHostAndPortFromNameServer(cMsgDomain *domain, int serverfd) {
 /*-------------------------------------------------------------------*/
 
 
-int cMsgSend(int domainId, char *subject, char *type, char *text) {
-  
-  int id = domainId - DOMAIN_ID_OFFSET;
-  int fd = domains[id].sendSocket;
-  int err, lenSubject, lenType, lenText;
-  int outGoing[4];
-  
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
+static int runCallbacks(cMsgDomain *domain, int command, cMsg *msg) {
 
-  /* check args */
-  if ( (checkString(subject) !=0 )  ||
-       (checkString(type)    !=0 )  ||
-       (text == NULL)              )  {
-    return(CMSG_BAD_ARGUMENT);
-  }
-  
-
-  /* message id (in network byte order) to domain server */
-  outGoing[0] = htonl(CMSG_SEND_REQUEST);
-  /* length of "subject" string */
-  lenSubject  = strlen(subject);
-  outGoing[1] = htonl(lenSubject);
-  /* length of "type" string */
-  lenType     = strlen(type);
-  outGoing[2] = htonl(lenType);
-  /* length of "text" string */
-  lenText     = strlen(text);
-  outGoing[3] = htonl(lenText);
-
-  /* make send socket communications thread-safe */
-  sendMutexLock(id);
-
-  /* send ints over together */
-  if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
-    sendMutexUnlock(id);
-    subscribeMutexUnlock(id);
-    if (debug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgSend: write failure\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-
-  /* send subject */
-  if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
-    sendMutexUnlock(id);
-    subscribeMutexUnlock(id);
-    if (debug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgSend: write failure\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-
-  /* send type */
-  if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
-    sendMutexUnlock(id);
-    subscribeMutexUnlock(id);
-    if (debug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgSend: write failure\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-
-  /* send text */
-  if (cMsgTcpWrite(fd, (void *) text, lenText) != lenText) {
-    sendMutexUnlock(id);
-    subscribeMutexUnlock(id);
-    if (debug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgSend: write failure\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-
-  /* now read reply */
-  if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
-    sendMutexUnlock(id);
-    subscribeMutexUnlock(id);
-    if (debug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgSend: read failure\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-
-  /* done protecting communications */
-  sendMutexUnlock(id);
-
-  /* return domain server's reply */
-  err = ntohl(err);
-  return(err);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgFlush(int domainId) {
-  int id = domainId - DOMAIN_ID_OFFSET;
-  int fd = domains[id].sendSocket;
-  FILE *file;  
-
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
-  
-  /* turn file descriptor into FILE pointer */
-  file = fdopen(fd, "w");
-
-  /* make send socket communications thread-safe */
-  sendMutexLock(id);
-  /* flush outgoing buffers */
-  fflush(file);
-  /* done with mutex */
-  sendMutexUnlock(id);
-  
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgGet(int domainId, char *subject, char *type, time_t timeout, cMsg **msg) {
-  
-  int id = domainId - DOMAIN_ID_OFFSET;
-  int fd = domains[id].sendSocket;
-  int err;
-  cMsg *message;
-
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
-
-  /* check args */
-  if ( (checkString(subject) !=0 )  ||
-       (checkString(type)    !=0 )  ||
-       (msg == NULL)               )  {
-    return(CMSG_BAD_ARGUMENT);
-  }
-  
-  /* tell domain server to get 1 message if possible */
-  
-  
-  /* get response from server telling us how many messges there are */
-  
-  /*
-  message = (cMsg *) malloc(sizeof(cMsg));
-  *msg = message;
-  */
-
-
-  return(CMSG_NOT_IMPLEMENTED);
-}
-
- 
-/*-------------------------------------------------------------------*/
-
-
-int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback, void *userArg) {
-
-  int i, j, iok, jok, uniqueId;
-  int id = domainId - DOMAIN_ID_OFFSET;
-
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
-
-  /* check args */
-  if( (checkString(subject) !=0 )  ||
-      (checkString(type)    !=0 )  ||
-      (callback == NULL)          )  {
-    return(CMSG_BAD_ARGUMENT);
-  }
-  
-  /* make sure subscribe and unsubscribe are not run at the same time */
-  subscribeMutexLock(id);
-  
-  /* add to callback list if subscribe to same subject/type exists */
-  iok = 0;
-  for (i=0; i<MAXSUBSCRIBE; i++) {
-    if ((domains[id].subscribeInfo[i].active == 1) && 
-       (strcmp(domains[id].subscribeInfo[i].subject, subject) == 0) && 
-       (strcmp(domains[id].subscribeInfo[i].type, type) == 0) ) {
-      iok = 1;
-
-      jok = 0;
-      for (j=0; j<MAXCALLBACK; j++) {
-	if (domains[id].subscribeInfo[i].cbInfo[j].callback == NULL) {
-	  domains[id].subscribeInfo[i].cbInfo[j].callback = callback;
-	  domains[id].subscribeInfo[i].cbInfo[j].userArg  = userArg;
-	  jok = 1;
-	}
-      }
-      break;
-
-    }
-  }
-  
-  if ((iok == 1) && (jok == 0)) return(CMSG_OUT_OF_MEMORY);
-  if ((iok == 1) && (jok == 1)) return(CMSG_OK);
-
-  /* no match, make new entry and notify server */
-  iok = 0;
-  for (i=0; i<MAXSUBSCRIBE; i++) {
-    if (domains[id].subscribeInfo[i].active == 0) {
-
-      int err, lenSubject, lenType;
-      int fd = domains[id].sendSocket;
-      int outGoing[4];
-
-      domains[id].subscribeInfo[i].active  = 1;
-      domains[id].subscribeInfo[i].subject = (char *) strdup(subject);
-      domains[id].subscribeInfo[i].type    = (char *) strdup(type);
-      domains[id].subscribeInfo[i].cbInfo[j].callback = callback;
-      domains[id].subscribeInfo[i].cbInfo[j].userArg  = userArg;
-      iok = 1;
-      
-      /*
-       * Pick a unique identifier for the subject/type pair, and
-       * send it to the domain server & remember it for future use
-       * Mutex protect this operation as many cMsgConnect calls may
-       * operate in parallel on this static variable.
-       */
-      mutexLock();
-      uniqueId = subjectTypeId++;
-      mutexUnlock();
-      domains[id].subscribeInfo[i].id = uniqueId;
-      
-      /* notify domain server */
-
-      /* message id (in network byte order) to domain server */
-      outGoing[0] = htonl(CMSG_SUBSCRIBE_REQUEST);
-      /* unique id to domain server */
-      outGoing[1] = htonl(uniqueId);
-      /* length of "subject" string */
-      lenSubject  = strlen(subject);
-      outGoing[2] = htonl(lenSubject);
-      /* length of "type" string */
-      lenType     = strlen(type);
-      outGoing[3] = htonl(lenType);
-      
-      /* make send socket communications thread-safe */
-      sendMutexLock(id);
-
-      /* send ints over together */
-      if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
-        sendMutexUnlock(id);
-        subscribeMutexUnlock(id);
-        if (debug >= CMSG_DEBUG_ERROR) {
-          fprintf(stderr, "cMsgSubscribe: write failure\n");
-        }
-        return(CMSG_NETWORK_ERROR);
-      }
-
-      /* send subject */
-      if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
-        sendMutexUnlock(id);
-        subscribeMutexUnlock(id);
-        if (debug >= CMSG_DEBUG_ERROR) {
-          fprintf(stderr, "cMsgSubscribe: write failure\n");
-        }
-        return(CMSG_NETWORK_ERROR);
-      }
-
-      /* send type */
-      if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
-        sendMutexUnlock(id);
-        subscribeMutexUnlock(id);
-        if (debug >= CMSG_DEBUG_ERROR) {
-          fprintf(stderr, "cMsgSubscribe: write failure\n");
-        }
-        return(CMSG_NETWORK_ERROR);
-      }
-      
-      /* now read reply */
-      if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
-        sendMutexUnlock(id);
-        subscribeMutexUnlock(id);
-        if (debug >= CMSG_DEBUG_ERROR) {
-          fprintf(stderr, "cMsgSubscribe: read failure\n");
-        }
-        return(CMSG_NETWORK_ERROR);
-      }
-      
-      /* done protecting communications */
-      sendMutexUnlock(id);
-      /* done protecting subscribe */
-      subscribeMutexUnlock(id);
-        
-      /* return domain server's reply */
-      err = ntohl(err);
-      return(err);
-    }
-  }
-  
-  /* done protecting subscribe */
-  subscribeMutexUnlock(id);
-  
-  /* iok == 0 here */
-  return(CMSG_OUT_OF_MEMORY);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback) {
-
-  int i, j, cbCount, cbsRemoved;
-  int id = domainId - DOMAIN_ID_OFFSET;
-
-
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
-
-
-  /* check args */
-  if( (checkString(subject) != 0)  ||
-      (checkString(type)    != 0) )  {
-    return(CMSG_BAD_ARGUMENT);
-  }
-  
-  /* make sure subscribe and unsubscribe are not run at the same time */
-  subscribeMutexLock(id);
-  
-  /* search entry list */
-  for (i=0; i<MAXSUBSCRIBE; i++) {
-    if ( (domains[id].subscribeInfo[i].active == 1) && 
-         (strcmp(domains[id].subscribeInfo[i].subject, subject) == 0)  && 
-         (strcmp(domains[id].subscribeInfo[i].type,    type)    == 0) )  {
-
-      /* search callback list */
-      cbCount = cbsRemoved = 0;
-      for (j=0; j<MAXCALLBACK; j++) {
-	if (domains[id].subscribeInfo[i].cbInfo[j].callback != NULL) {
-	  cbCount++;
-	  if (domains[id].subscribeInfo[i].cbInfo[j].callback == callback) {
-            domains[id].subscribeInfo[i].cbInfo[j].callback == NULL;
-            cbsRemoved++;
-          }
-	}
-      }
-
-
-      /* delete entry and notify server if there was at least 1 callback
-       * to begin with and now there are none for this subject/type */
-      if ((cbCount > 0) && (cbCount-cbsRemoved < 1)) {
-
-        int err, lenSubject, lenType;
-        int fd = domains[id].sendSocket;
-        int outGoing[3];
-
- 	domains[id].subscribeInfo[i].active = 0;
-	free(domains[id].subscribeInfo[i].subject);
-	free(domains[id].subscribeInfo[i].type);
-
-	/* notify server */
-        
-        /* message id (in network byte order) to domain server */
-        outGoing[0] = htonl(CMSG_UNSUBSCRIBE_REQUEST);
-        /* length of "subject" string */
-        lenSubject  = strlen(subject);
-        outGoing[1] = htonl(lenSubject);
-        /* length of "type" string */
-        lenType     = strlen(type);
-        outGoing[2] = htonl(lenType);
-        
-        /* make send socket communications thread-safe */
-        sendMutexLock(id);
-
-        /* send ints over together */
-        if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
-          sendMutexUnlock(id);
-          subscribeMutexUnlock(id);
-          if (debug >= CMSG_DEBUG_ERROR) {
-            fprintf(stderr, "cMsgSubscribe: write failure\n");
-          }
-          return(CMSG_NETWORK_ERROR);
-        }
-
-        /* send subject */
-        if (cMsgTcpWrite(fd, (void *) subject, lenSubject) != lenSubject) {
-          sendMutexUnlock(id);
-          subscribeMutexUnlock(id);
-          if (debug >= CMSG_DEBUG_ERROR) {
-            fprintf(stderr, "cMsgSubscribe: write failure\n");
-          }
-          return(CMSG_NETWORK_ERROR);
-        }
-
-        /* send type */
-        if (cMsgTcpWrite(fd, (void *) type, lenType) != lenType) {
-          sendMutexUnlock(id);
-          subscribeMutexUnlock(id);
-          if (debug >= CMSG_DEBUG_ERROR) {
-            fprintf(stderr, "cMsgSubscribe: write failure\n");
-          }
-          return(CMSG_NETWORK_ERROR);
-        }
-
-        /* now read reply */
-        if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
-          sendMutexUnlock(id);
-          subscribeMutexUnlock(id);
-          if (debug >= CMSG_DEBUG_ERROR) {
-            fprintf(stderr, "cMsgSubscribe: read failure\n");
-          }
-          return(CMSG_NETWORK_ERROR);
-        }
-        
-        /* done protecting communications */
-        sendMutexUnlock(id);
-        /* done protecting unsubscribe */
-        subscribeMutexUnlock(id);
-        
-        /* return domain server's reply */
-        err = ntohl(err);
-        return(err);
-
-      }
-      break;
-      
-    }
-  }
-
-  /* done protecting unsubscribe */
-  subscribeMutexUnlock(id);
-  
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-/* start & stop not used yet */
-
-int cMsgReceiveStart(int domainId) {
-  int id = domainId - DOMAIN_ID_OFFSET;
-
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
-
-  domains[id].receiveState = 1;
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgReceiveStop(int domainId) {
-  int id = domainId - DOMAIN_ID_OFFSET;
-
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[id].lostConnection == 1) return(CMSG_LOST_CONNECTION);
-
-  domains[id].receiveState = 0;
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgFree(cMsg *msg) {
-
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-
-  free(msg->sender);
-  free(msg->senderHost);
-  free(msg->receiver);
-  free(msg->receiverHost);
-  free(msg->domain);
-  free(msg->subject);
-  free(msg->type);
-  free(msg->text);
-  free(msg);
-
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgDisconnect(int domainId) {
-  
-  int status;
-  int id = domainId - DOMAIN_ID_OFFSET;
-
-  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
-  
-  /* When changing initComplete / connection status, mutex protect it */
-  connectMutexLock();
-  
-  /* close sending and listening sockets */
-  close(domains[id].sendSocket);
-  close(domains[id].listenSocket);
-
-  /* stop listening and client communication threads */
-  status = pthread_cancel(domains[id].pendThread);
-  if (status != 0) {
-    err_abort(status, "Cancelling message listening & client threads");
-  }
-
-  /* reset vars, free memory */
-  domainIdClear(id);
-  
-  connectMutexUnlock();
-
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-/* This is not a user function. It's used only by cMsgClientThread.  */
-
-int cMsgRunCallbacks(int domainId, int command, cMsg *msg) {
-
-  int i, j, status, id = domainId;
+  int i, j, status;
   dispatchCbInfo *dcbi;
   pthread_t newThread;
   
   /* callbacks have been stopped */
-  if (domains[id].receiveState == 0) {
+  if (domain->receiveState == 0) {
     return (CMSG_OK);
   }
 
@@ -1056,24 +800,24 @@ int cMsgRunCallbacks(int domainId, int command, cMsg *msg) {
     /* search entry list */
     for (i=0; i<MAXSUBSCRIBE; i++) {
       /* if the subject/type id's match, run callbacks for this sub/type */
-      if ( (domains[id].subscribeInfo[i].active == 1) &&
-           (domains[id].subscribeInfo[i].id == msg->receiverSubscribeId)) {
+      if ( (domain->subscribeInfo[i].active == 1) &&
+           (domain->subscribeInfo[i].id == msg->receiverSubscribeId)) {
 
         /* search callback list */
         for (j=0; j<MAXCALLBACK; j++) {
 	  /* if there is an existing callback ... */
-          if (domains[id].subscribeInfo[i].cbInfo[j].callback != NULL) {
+          if (domain->subscribeInfo[i].cbInfo[j].callback != NULL) {
             /* allocate memory for thread arg so it doesn't go out-of-scope */
             dcbi = (dispatchCbInfo*) malloc(sizeof(dispatchCbInfo));
             if (dcbi == NULL) {
               if (debug >= CMSG_DEBUG_SEVERE) {
-                fprintf(stderr, "cMsgRunCallbacks: cannot allocate memory\n");
+                fprintf(stderr, "runCallbacks: cannot allocate memory\n");
               }
               exit(1);
             }
             
-	    dcbi->callback = domains[id].subscribeInfo[i].cbInfo[j].callback;
-	    dcbi->userArg  = domains[id].subscribeInfo[i].cbInfo[j].userArg;
+	    dcbi->callback = domain->subscribeInfo[i].cbInfo[j].callback;
+	    dcbi->userArg  = domain->subscribeInfo[i].cbInfo[j].userArg;
             /* the message was malloced in cMsgClientThread,
              * so it must be freed in the dispatch thread
              */
@@ -1100,10 +844,9 @@ int cMsgRunCallbacks(int domainId, int command, cMsg *msg) {
 
 
 /*-------------------------------------------------------------------*/
-/* This routine is used in cMsgGet & cMsgClientThread                */
 
 
-int cMsgReadMessage(int fd, cMsg *msg) {
+static int readMessage(int fd, cMsg *msg) {
   
   int err, lengths[5], inComing[9];
   int memSize = CMSG_MESSAGE_SIZE;
@@ -1320,471 +1063,6 @@ int cMsgReadMessage(int fd, cMsg *msg) {
 /*-------------------------------------------------------------------*/
 
 
-int cMsgPerror(int error) {
-
-  switch(error) {
-
-  case CMSG_OK:
-    fprintf(stderr, "CMSG_OK:  action completed successfully\n");
-    break;
-
-  case CMSG_ERROR:
-    fprintf(stderr, "CMSG_ERROR:  generic error return\n");
-    break;
-
-  case CMSG_TIMEOUT:
-    fprintf(stderr, "CMSG_TIMEOUT:  no response from cMsg server within timeout period\n");
-    break;
-
-  case CMSG_NOT_IMPLEMENTED:
-    fprintf(stderr, "CMSG_NOT_IMPLEMENTED:  function not implemented\n");
-    break;
-
-  case CMSG_BAD_ARGUMENT:
-    fprintf(stderr, "CMSG_BAD_ARGUMENT:  one or more arguments bad\n");
-    break;
-
-  case CMSG_BAD_FORMAT:
-    fprintf(stderr, "CMSG_BAD_FORMAT:  one or more arguments in the wrong format\n");
-    break;
-
-  case CMSG_NAME_EXISTS:
-    fprintf(stderr, "CMSG_NAME_EXISTS: another process in this project is using this name\n");
-    break;
-
-  case CMSG_NOT_INITIALIZED:
-    fprintf(stderr, "CMSG_NOT_INITIALIZED:  cMsgConnect needs to be called\n");
-    break;
-
-  case CMSG_ALREADY_INIT:
-    fprintf(stderr, "CMSG_ALREADY_INIT:  cMsgConnect already called\n");
-    break;
-
-  case CMSG_LOST_CONNECTION:
-    fprintf(stderr, "CMSG_LOST_CONNECTION:  connection to cMsg server lost\n");
-    break;
-
-  case CMSG_NETWORK_ERROR:
-    fprintf(stderr, "CMSG_NETWORK_ERROR:  error talking to cMsg server\n");
-    break;
-
-  case CMSG_SOCKET_ERROR:
-    fprintf(stderr, "CMSG_NETWORK_ERROR:  error setting socket options\n");
-    break;
-
-  case CMSG_PEND_ERROR:
-    fprintf(stderr, "CMSG_PEND_ERROR:  error waiting for messages to arrive\n");
-    break;
-
-  case CMSG_ILLEGAL_MSGTYPE:
-    fprintf(stderr, "CMSG_ILLEGAL_MSGTYPE:  pend received illegal message type\n");
-    break;
-
-  case CMSG_OUT_OF_MEMORY:
-    fprintf(stderr, "CMSG_OUT_OF_MEMORY:  ran out of memory\n");
-    break;
-
-  case CMSG_OUT_OF_RANGE:
-    fprintf(stderr, "CMSG_OUT_OF_RANGE:  argument is out of range\n");
-    break;
-
-  case CMSG_LIMIT_EXCEEDED:
-    fprintf(stderr, "CMSG_LIMIT_EXCEEDED:  trying to create too many of something\n");
-    break;
-
-  case CMSG_WRONG_DOMAIN_TYPE:
-    fprintf(stderr, "CMSG_WRONG_DOMAIN_TYPE: when a UDL does not match the server type\n");
-    break;
-
-  default:
-    fprintf(stderr, "?cMsgPerror...no such error: %d\n",error);
-    break;
-  }
-
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*
- *
- * Internal functions
- *
- *-------------------------------------------------------------------*/
-
-
-/*-------------------------------------------------------------------*/
-/* When calling this, worry about mutex protecting initComplete      */
-
-static void domainIdInit(int domainId) {
-  int i, j;
-  
-  domains[domainId].initComplete   = 0;
-  
-  domains[domainId].receiveState   = 0;
-  domains[domainId].lostConnection = 0;
-  
-  domains[domainId].sendSocket     = 0;
-  domains[domainId].listenSocket   = 0;
-  
-  domains[domainId].sendPort       = 0;
-  domains[domainId].serverPort     = 0;
-  domains[domainId].listenPort     = 0;
-  
-  domains[domainId].myHost         = NULL;
-  domains[domainId].sendHost       = NULL;
-  domains[domainId].serverHost     = NULL;
-  domains[domainId].name           = NULL;
-  domains[domainId].domain         = NULL;
-  domains[domainId].description    = NULL;
-  
-  /* pthread_mutex_init mallocs memory */
-  pthread_mutex_init(&domains[domainId].sendMutex, NULL);
-  pthread_mutex_init(&domains[domainId].subscribeMutex, NULL);
-  
-  for (i=0; i<MAXSUBSCRIBE; i++) {
-    domains[domainId].subscribeInfo[i].id      = 0;
-    domains[domainId].subscribeInfo[i].active  = 0;
-    domains[domainId].subscribeInfo[i].type    = NULL;
-    domains[domainId].subscribeInfo[i].subject = NULL;
-    
-    for (j=0; j<MAXCALLBACK; j++) {
-      domains[domainId].subscribeInfo[i].cbInfo[j].callback = NULL;
-      domains[domainId].subscribeInfo[i].cbInfo[j].userArg  = NULL;
-    }
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-static void domainIdFree(int domainId) {
-  int i;
-  
-  if (domains[domainId].myHost      != NULL) free(domains[domainId].myHost);
-  if (domains[domainId].sendHost    != NULL) free(domains[domainId].sendHost);
-  if (domains[domainId].serverHost  != NULL) free(domains[domainId].serverHost);
-  if (domains[domainId].name        != NULL) free(domains[domainId].name);
-  if (domains[domainId].domain      != NULL) free(domains[domainId].domain);
-  if (domains[domainId].description != NULL) free(domains[domainId].description);
-  
-  /* pthread_mutex_destroy frees memory */
-  pthread_mutex_destroy(&domains[domainId].sendMutex);
-  pthread_mutex_destroy(&domains[domainId].subscribeMutex);
-  
-  for (i=0; i<MAXSUBSCRIBE; i++) {
-    if (domains[domainId].subscribeInfo[i].type != NULL) {
-      free(domains[domainId].subscribeInfo[i].type);
-    }
-    if (domains[domainId].subscribeInfo[i].subject != NULL) {
-      free(domains[domainId].subscribeInfo[i].subject);
-    }
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-static void domainIdClear(int domainId) {
-  domainIdFree(domainId);
-  domainIdInit(domainId);
-}
-
-
-/*-------------------------------------------------------------------*
- * Mutex functions
- *-------------------------------------------------------------------*/
-
-
-static void connectMutexLock(void)
-{  
-  int status = pthread_mutex_lock(&connectMutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex lock");
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-static void connectMutexUnlock(void)
-{  
-  int status = pthread_mutex_unlock(&connectMutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex unlock");
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-static void mutexLock(void)
-{  
-  int status = pthread_mutex_lock(&generalMutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex lock");
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-static void mutexUnlock(void)
-{  
-  int status = pthread_mutex_unlock(&generalMutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex unlock");
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-static int sendMutexLock(int domainId)
-{  
-  int status;
-  
-  if (domains[domainId].initComplete != 1) return(CMSG_NOT_INITIALIZED);
-  
-  status = pthread_mutex_lock(&domains[domainId].sendMutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex lock");
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-static int sendMutexUnlock(int domainId)
-{  
-  int status;
-
-  if (domains[domainId].initComplete != 1) return(CMSG_NOT_INITIALIZED);
-
-  status = pthread_mutex_unlock(&domains[domainId].sendMutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex unlock");
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-static int subscribeMutexLock(int domainId)
-{  
-  int status;
-  
-  if (domains[domainId].initComplete != 1) return(CMSG_NOT_INITIALIZED);
-  
-  status = pthread_mutex_lock(&domains[domainId].subscribeMutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex lock");
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-static int subscribeMutexUnlock(int domainId)
-{  
-  int status;
-
-  if (domains[domainId].initComplete != 1) return(CMSG_NOT_INITIALIZED);
-
-  status = pthread_mutex_unlock(&domains[domainId].subscribeMutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex unlock");
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-/* An UDL is of the form:                                            */
-/*      domainType://host:port/remainder                                */
-/*-------------------------------------------------------------------*/
-
-
-static int parseUDL(const char *UDL, char **domainType, char **host,
-                    unsigned short *port, char **remainder) {
-
-  int i;
-  char *p, *portString, *udl;
-
-  if (UDL  == NULL ||
-      host == NULL ||
-      port == NULL ||
-      domainType == NULL) {
-    return(CMSG_BAD_ARGUMENT);
-  }
-  
-  /* strtok modifies the string it tokenizes, so make a copy */
-  udl = (char *) strdup(UDL);
-/*printf("UDL = %s\n", udl);*/
-  /* get tokens separated by ":" or "/" */
-  if ( (p = (char *) strtok(udl, ":/")) == NULL) {
-    free(udl);
-    return (CMSG_BAD_FORMAT);
-  }
-  *domainType = (char *) strdup(p);
-/*printf("domainType = %s\n", *domainType);*/
-  
-  if ( (p = (char *) strtok(NULL, ":/")) == NULL) {
-    free(*domainType);
-    free(udl);
-    return (CMSG_BAD_FORMAT);
-  }
-  *host =(char *)  strdup(p);
-/*printf("host = %s\n", *host);*/
-  
-  if ( (p = (char *) strtok(NULL, ":/")) == NULL) {
-    free(*host);
-    free(*domainType);
-    free(udl);
-    return (CMSG_BAD_FORMAT);
-  }
-  portString = (char *) strdup(p);
-  *port = atoi(portString);
-/*printf("port string = %s, port int = %hu\n", portString, *port);*/  
-  if (*port < 1024 || *port > 65535) {
-    free((void *) portString);
-    free((void *) *host);
-    free((void *) *domainType);
-    free(udl);
-    return (CMSG_OUT_OF_RANGE);
-  }
-  
-  if ( (p = (char *) strtok(NULL, ":/")) != NULL  && remainder != NULL) {
-    *remainder = (char *) strdup(p);
-/*printf("remainder = %s\n", *remainder);*/  
-  }
-  
-  /* UDL parsed ok */
-  free(udl);
-  return(CMSG_OK);
-}
-
-
-
-/*-------------------------------------------------------------------*/
-
-
-static int checkString(char *s) {
-
-  int i;
-
-  if (s == NULL) return(CMSG_ERROR);
-
-  /* check for printable character */
-  for(i=0; i<strlen(s); i++) {
-    if (isprint(s[i]) == 0) return(CMSG_ERROR);
-  }
-
-  /* check for excluded chars */
-  if (strpbrk(s,excludedChars) != 0) return(CMSG_ERROR);
-  
-  /* string ok */
-  return(CMSG_OK);
-}
-
-
-
-/*-------------------------------------------------------------------*/
-
-
-static cMsg *copyMsg(cMsg *msgIn) {
-
-  cMsg *msgCopy;
-  
-  /* allocate memory for copy of message */
-  msgCopy = (cMsg*) malloc(sizeof(cMsg));
-
-
-  /* fill message fields */
-  msgCopy->domainId            =  msgIn->domainId;
-  msgCopy->sysMsgId            =  msgIn->sysMsgId;
-  msgCopy->receiverSubscribeId =  msgIn->receiverSubscribeId;
-  msgCopy->sender              =  (char *) strdup(msgIn->sender);
-  msgCopy->senderId            =  msgIn->senderId;
-  msgCopy->senderHost          =  (char *) strdup(msgIn->senderHost);
-  msgCopy->senderTime          =  msgIn->senderTime;
-  msgCopy->senderMsgId         =  msgIn->senderMsgId;
-  msgCopy->receiver            =  (char *) strdup(msgIn->receiver);
-  msgCopy->receiverHost        =  (char *) strdup(msgIn->receiverHost);
-  msgCopy->receiverTime        =  time(&msgIn->receiverTime);
-  msgCopy->domain              =  (char *) strdup(msgIn->domain);
-  msgCopy->subject             =  (char *) strdup(msgIn->subject);
-  msgCopy->type                =  (char *) strdup(msgIn->type);
-  msgCopy->text                =  (char *) strdup(msgIn->text);
-  
-  return(msgCopy);
-}
-
-
-
-/*-------------------------------------------------------------------*/
-
-
-static void *pend(void *param) {
-
-
-  dispatchCbInfo *dcbi;
-  pthread_t newThread;
-  int sysMsgId;
-
-
-  /* wait for messages */
-
-
-  /* got one, parse msgSysId and decide what to do */
-  /* if user message then copy and launch callback in new thread */
-  sysMsgId = 5;
-  switch(sysMsgId) {
-
-  case CMSG_SERVER_RESPONSE:
-    break;
-
-  case CMSG_KEEP_ALIVE:
-    break;
-
-  case CMSG_SHUTDOWN:
-    break;
-
-  case CMSG_GET_RESPONSE:
-    break;
-
-  case CMSG_SUBSCRIBE_RESPONSE:
-    for(;;) {
-      if (1) { 
-	dcbi=(dispatchCbInfo*) malloc(sizeof(dispatchCbInfo));
-        /*
-	dcbi->callback=xxx;
-	dcbi->userArg =xxx;
-	dcbi->msg=extractMsg(???);
-        */
-	pthread_create(&newThread, NULL, dispatchCallback, (void*)dcbi);
-      }
-    }
-    break;
-
-  default:
-    cMsgPerror(CMSG_ILLEGAL_MSGTYPE);
-    break;
-  }
-
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
 static void *dispatchCallback(void *param) {
     
   dispatchCbInfo *dcbi;
@@ -1797,88 +1075,106 @@ static void *dispatchCallback(void *param) {
 
   
 /*-------------------------------------------------------------------*/
-/*-------------------------------------------------------------------*/
-/* BUG BUG, accessor functions need to return an error if id bad     */
-/* access functions */
-
-/*-------------------------------------------------------------------*/
-/*-------------------------------------------------------------------*/
 
 
-char* cMsgGetDomain(int domainId) {
-  int id = domainId - DOMAIN_ID_OFFSET;
-  return(domains[id].domain);
+static void mutexLock(void) {
+
+  int status = pthread_mutex_lock(&generalMutex);
+  if (status != 0) {
+    err_abort(status, "Failed mutex lock");
+  }
 }
+
+
+/*-------------------------------------------------------------------*/
+
+
+static void mutexUnlock(void) {
+
+  int status = pthread_mutex_unlock(&generalMutex);
+  if (status != 0) {
+    err_abort(status, "Failed mutex unlock");
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+static void connectMutexLock(void) {
+
+  int status = pthread_mutex_lock(&connectMutex);
+  if (status != 0) {
+    err_abort(status, "Failed mutex lock");
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+static void connectMutexUnlock(void) {
+
+  int status = pthread_mutex_unlock(&connectMutex);
+  if (status != 0) {
+    err_abort(status, "Failed mutex unlock");
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+static int sendMutexLock(cMsgDomain *domain) {
+
+  int status;
   
+  status = pthread_mutex_lock(domain.sendMutex);
+  if (status != 0) {
+    err_abort(status, "Failed mutex lock");
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+static int sendMutexUnlock(cMsgDomain *domain) {
+
+  int status;
+
+  status = pthread_mutex_unlock(domain.sendMutex);
+  if (status != 0) {
+    err_abort(status, "Failed mutex unlock");
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+static int subscribeMutexLock(cMsgDomain *domain) {
+
+  int status;
   
-/*-------------------------------------------------------------------*/
-
-
-char* cMsgGetName(int domainId) {
-  int id = domainId - DOMAIN_ID_OFFSET;
-  return(domains[id].name);
-}
-
-/*-------------------------------------------------------------------*/
-
-
-char* cMsgGetDescription(int domainId) {
-  int id = domainId - DOMAIN_ID_OFFSET;
-  return(domains[id].description);
+  status = pthread_mutex_lock(domain.subscribeMutex);
+  if (status != 0) {
+    err_abort(status, "Failed mutex lock");
+  }
 }
 
 
 /*-------------------------------------------------------------------*/
 
 
-char* cMsgGetHost(int domainId) {
-  int id = domainId - DOMAIN_ID_OFFSET;
-  return(domains[id].myHost);
-}
+static int subscribeMutexUnlock(cMsgDomain *domain) {
 
+  int status;
 
-/*-------------------------------------------------------------------*/
-
-
-int cMsgGetSendSocket(int domainId) {
-  int id = domainId - DOMAIN_ID_OFFSET;
-  return(domains[id].sendSocket);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgGetReceiveSocket(int domainId) {
-  int id = domainId - DOMAIN_ID_OFFSET;
-  return(domains[id].listenSocket);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-pthread_t cMsgGetPendThread(int domainId) {
-  int id = domainId - DOMAIN_ID_OFFSET;
-  return(domains[id].pendThread);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgGetInitState(int domainId) {
-  int id = domainId - DOMAIN_ID_OFFSET;
-  return(domains[id].initComplete);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cMsgGetReceiveState(int domainId) {
-  int id = domainId - DOMAIN_ID_OFFSET;
-  return(domains[id].receiveState);
+  status = pthread_mutex_unlock(domain.subscribeMutex);
+  if (status != 0) {
+    err_abort(status, "Failed mutex unlock");
+  }
 }
 
 
