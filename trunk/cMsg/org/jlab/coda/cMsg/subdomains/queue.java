@@ -98,21 +98,6 @@ public class queue extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "subscribeAndGet" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSubscribeAndGetRequest}
-     * method.
-     *
-     * @return true if subscribeAndGet implemented in {@link #handleSubscribeAndGetRequest}
-     */
-    public boolean hasSubscribeAndGet() {
-        return false;
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
      * Method to tell if the "sendAndGet" cMsg API function is implemented
      * by this interface implementation in the {@link #handleSendAndGetRequest}
      * method.
@@ -136,36 +121,6 @@ public class queue extends cMsgSubdomainAdapter {
      */
     public boolean hasSyncSend() {
         return true;
-    };
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to tell if the "subscribe" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSubscribeRequest}
-     * method.
-     *
-     * @return true if subscribe implemented in {@link #handleSubscribeRequest}
-     */
-    public boolean hasSubscribe() {
-        return false;
-    };
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to tell if the "unsubscribe" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleUnsubscribeRequest}
-     * method.
-     *
-     * @return true if unsubscribe implemented in {@link #handleUnsubscribeRequest}
-     */
-    public boolean hasUnsubscribe() {
-        return false;
     };
 
 
@@ -360,6 +315,7 @@ public class queue extends cMsgSubdomainAdapter {
             myPStmt.setInt(i++,       (msg.isGetRequest()?1:0));
             myPStmt.setInt(i++,       (msg.isGetResponse()?1:0));
 
+            myPStmt.setString(i++,    msg.getCreator());
             myPStmt.setString(i++,    msg.getSender());
             myPStmt.setString(i++,    msg.getSenderHost());
             myPStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getSenderTime().getTime()));
@@ -412,41 +368,6 @@ public class queue extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle subscribe request sent by domain client.
-     * Not implemented.
-     *
-     * @param subject message subject to subscribe to
-     * @param type message type to subscribe to
-     * @param receiverSubscribeId message id refering to these specific subject and type values
-     * @throws cMsgException if no client information is available or a subscription for this
-     *                          subject and type already exists
-     */
-    public void handleSubscribeRequest(String subject, String type,
-                                       int receiverSubscribeId) throws cMsgException {
-        // do nothing...
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle sunsubscribe request sent by domain client.
-     * This method is run after all exchanges between domain server and client.
-     * Not implemented.
-     *
-     * @param subject message subject subscribed to
-     * @param type message type subscribed to
-     * @param receiverSubscribeId message id refering to these specific subject and type values
-     */
-    public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId) throws cMsgException {
-        // do nothing...
-    }
-
-
-//-----------------------------------------------------------------------------
-
-    /**
      * Method to synchronously get a single message from a receiver by sending out a
      * message to be responded to.
      *
@@ -477,6 +398,7 @@ public class queue extends cMsgSubdomainAdapter {
 
                 response.setSysMsgId(rs.getInt("sysMsgId"));
 
+                response.setCreator(rs.getString("creator"));
                 response.setSender(rs.getString("sender"));
                 response.setSenderHost(rs.getString("senderHost"));
                 response.setSenderTime(rs.getTimestamp("senderTime"));
@@ -529,64 +451,6 @@ public class queue extends cMsgSubdomainAdapter {
 
 
     /**
-     * to synchronously get a single message from the server for a one-time
-     * subscription of a subject and type.
-     *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id      message id refering to these specific subject and type values
-     */
-    public void handleSubscribeAndGetRequest(String subject, String type, int id) throws cMsgException {
-        // do nothing
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle remove sendAndGet request sent by domain client
-     * (hidden from user).
-     *
-     * @param id message id refering to these specific subject and type values
-     */
-    public void handleUnSendAndGetRequest(int id) {
-        // do nothing
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle remove subscribeAndGet request sent by domain client
-     * (hidden from user).
-     *
-     * @param id message id refering to these specific subject and type values
-     */
-    public void handleUnSubscribeAndGetRequest(int id) {
-        // do nothing
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle keepalive sent by domain client checking to see
-     * if the domain server socket is still up. Normally nothing needs to
-     * be done as the domain server simply returns an "OK" to all keepalives.
-     * This method is run after all exchanges between domain server and client.
-     */
-    public void handleKeepAlive() throws cMsgException {
-        // do nothing...
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
      * Method to handle a client shutdown.
      *
      * @throws cMsgException
@@ -599,19 +463,6 @@ public class queue extends cMsgSubdomainAdapter {
         } catch (SQLException e) {
             throw(new cMsgException("?queue sub-domain handler shutdown error"));
         }
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to handle a complete name server down.
-     * This method is run after all exchanges between domain server and client but
-     * before the server is killed (since that is what is running this
-     * method).
-     */
-    public void handleServerShutdown() throws cMsgException {
     }
 
 
@@ -634,7 +485,7 @@ public class queue extends cMsgSubdomainAdapter {
                 sql="create table " + myTableName + " (id int not null primary key auto_increment" +
                     "version int, domain varchar(255), sysMsgId int," +
                     "getRequest int, getResponse int," +
-                    "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
+                    "creator varcher(128, sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
                     "userInt int, userTime datetime, priority int," +
                     "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
                     "subject  varchar(255), type varchar(128), text text)";
@@ -646,7 +497,7 @@ public class queue extends cMsgSubdomainAdapter {
                 sql="create table " + myTableName + " (id int not null primary key default nextval('" + seq + "')," +
                     "version int, domain varchar(255), sysMsgId int," +
                     "getRequest int, getResponse int," +
-                    "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
+                    "creator varchar(128), sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
                     "userInt int, userTime datetime, priority int," +
                     "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
                     "subject  varchar(255), type varchar(128), text text)";
@@ -670,14 +521,14 @@ public class queue extends cMsgSubdomainAdapter {
         String sql = "insert into " + myTableName + " (" +
             "version,domain,sysMsgId," +
             "getRequest,getResponse," +
-            "sender,senderHost,senderTime,senderToken," +
+            "creator,sender,senderHost,senderTime,senderToken," +
             "userInt,userTime,priority," +
             "receiver,receiverHost,receiverTime,receiverSubscribeId," +
             "subject,type,text" +
             ") values (" +
             "?,?,?," +
             "?,?," +
-            "?,?,?,?," +
+            "?,?,?,?,?," +
             "?,?,?," +
             "?,?,?,?," +
             "?,?,?" +
