@@ -73,6 +73,8 @@ typedef struct subscribeInfo_t {
   int  active;   /**< Boolean telling if this subject/type has an active callback. */
   char *subject; /**< Subject of subscription. */
   char *type;    /**< Type of subscription. */
+  char *subjectRegexp; /**< Subject of subscription made into regular expression. */
+  char *typeRegexp;    /**< Type of subscription made into regular expression. */
   struct subscribeCbInfo_t cbInfo[MAX_CALLBACK]; /**< Array of callbacks. */
 } subscribeInfo;
 
@@ -119,6 +121,7 @@ typedef struct cMsgDomain_CODA_t {
   char hasSendAndGet;      /**< Does this subdomain implement a sendAndGet function? (1-y, 0-n) */
   char hasSubscribe;       /**< Does this subdomain implement a subscribe function? (1-y, 0-n) */
   char hasUnsubscribe;     /**< Does this subdomain implement a unsubscribe function? (1-y, 0-n) */
+  char hasShutdown;        /**< Does this subdomain implement a shutdowm function? (1-y, 0-n) */
 
   char *myHost;       /**< This hostname. */
   char *sendHost;     /**< Host to send messages to. */
@@ -138,9 +141,15 @@ typedef struct cMsgDomain_CODA_t {
   /** Array of structures - each of which contain a subscription */
   subscribeInfo subscribeInfo[MAX_SUBSCRIBE]; 
   /** Array of structures - each of which contain a subscribeAndGet */
-  getInfo generalGetInfo[MAX_SUBSCRIBE_AND_GET];
+  getInfo subscribeAndGetInfo[MAX_SUBSCRIBE_AND_GET];
   /** Array of structures - each of which contain a sendAndGet */
-  getInfo specificGetInfo[MAX_SEND_AND_GET];
+  getInfo sendAndGetInfo[MAX_SEND_AND_GET];
+  
+  /** Shutdown handler function. */
+  cMsgShutdownHandler *shutdownHandler;
+  
+  /** Shutdown handler user argument. */
+  void *shutdownUserArg;
   
 } cMsgDomain_CODA;
 
@@ -156,12 +165,14 @@ typedef struct mainThreadInfo_t {
 } mainThreadInfo;
 
 /* prototypes */
-int cMsgReadMessage(int fd, cMsgMessage *msg);
-int cMsgRunCallbacks(int domainId, cMsgMessage *msg);
-int cMsgWakeGet(int domainId, cMsgMessage *msg);
-int cMsgWakeGetWithNull(int domainId, int senderToken);
-int sun_setconcurrency(int newLevel);
-int sun_getconcurrency(void);
+int   cMsgRunCallbacks(int domainId, cMsgMessage *msg);
+int   cMsgWakeGet(int domainId, cMsgMessage *msg);
+int   cMsgWakeGetWithNull(int domainId, int senderToken);
+char *cMsgStringEscape(char *s);
+int   cMsgStringMatches(char *regexp, const char *s);
+int   cMsgRegexpMatches(char *regexp, const char *s);
+int   sun_setconcurrency(int newLevel);
+int   sun_getconcurrency(void);
 
 #ifdef	__cplusplus
 }
