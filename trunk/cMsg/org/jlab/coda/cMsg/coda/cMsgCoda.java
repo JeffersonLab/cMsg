@@ -363,20 +363,20 @@ public class cMsgCoda extends cMsgImpl {
                 domainChannel.write(buffer);
             }
             // read acknowledgment & keep reading until we have 1 int of data
-            cMsgUtilities.readSocketBytes(buffer, domainChannel, 4, debug);
+            //cMsgUtilities.readSocketBytes(buffer, domainChannel, 4, debug);
         }
         catch (IOException e) {
             throw new cMsgException(e.getMessage());
         }
 
         // go back to reading-from-buffer mode
-        buffer.flip();
+       // buffer.flip();
 
-        int error = buffer.getInt();
+        //int error = buffer.getInt();
 
-        if (error != cMsgConstants.ok) {
-            throw new cMsgException("send: error in sending message");
-        }
+        //if (error != cMsgConstants.ok) {
+       //     throw new cMsgException("send: error in sending message");
+       // }
     }
 
 
@@ -469,20 +469,20 @@ public class cMsgCoda extends cMsgImpl {
                 domainChannel.write(buffer);
             }
             // read acknowledgment & keep reading until we have 1 int of data
-            cMsgUtilities.readSocketBytes(buffer, domainChannel, 4, debug);
+            //cMsgUtilities.readSocketBytes(buffer, domainChannel, 4, debug);
         }
         catch (IOException e) {
             throw new cMsgException(e.getMessage());
         }
 
         // go back to reading-from-buffer mode
-        buffer.flip();
+        //buffer.flip();
 
-        int error = buffer.getInt();
+        //int error = buffer.getInt();
 
-        if (error != cMsgConstants.ok) {
-            throw new cMsgException("subscribe: error in subscribing");
-        }
+        //if (error != cMsgConstants.ok) {
+        //    throw new cMsgException("subscribe: error in subscribing");
+        //}
     }
 
 
@@ -562,20 +562,20 @@ public class cMsgCoda extends cMsgImpl {
                 domainChannel.write(buffer);
             }
             // read acknowledgment & keep reading until we have 1 int of data
-            cMsgUtilities.readSocketBytes(buffer, domainChannel, 4, debug);
+            //cMsgUtilities.readSocketBytes(buffer, domainChannel, 4, debug);
         }
         catch (IOException e) {
             throw new cMsgException(e.getMessage());
         }
 
         // go back to reading-from-buffer mode
-        buffer.flip();
+        //buffer.flip();
 
-        int error = buffer.getInt();
+        //int error = buffer.getInt();
 
-        if (error != cMsgConstants.ok) {
-            throw new cMsgException("subscribe: error in subscribing");
-        }
+        //if (error != cMsgConstants.ok) {
+        //    throw new cMsgException("subscribe: error in subscribing");
+        //}
     }
 
 
