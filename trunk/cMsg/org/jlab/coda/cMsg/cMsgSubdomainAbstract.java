@@ -347,14 +347,8 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainInterface {
 
         if (nullResponse) {
             buffer.putInt(msgType);
-            // send number of ids to follow
-            buffer.putInt(size);
-            // now send ids
-            if (idList != null) {
-                for (Integer i : idList) {
-                    buffer.putInt(i.intValue());
-                }
-            }
+            // send senderToken (there is no idList in this case)
+            buffer.putInt(msg.getSenderToken());
             // send buffer over the socket
             buffer.flip();
             while (buffer.hasRemaining()) {
