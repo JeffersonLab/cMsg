@@ -45,6 +45,7 @@ struct subscribeCbInfo_t {
   cMsgMessage    *head;     /* head of linked list of messages given to callback */
   cMsgMessage    *tail;     /* tail of linked list of messages given to callback */
   int             messages; /* number of messages in list */
+  subscribeConfig config;   /* subscription configuration info */
   char            quit;     /* boolean telling thread to end */
   pthread_t       thread;   /* thread running callback */
   pthread_cond_t  cond;     /* condition variable thread is waiting on */

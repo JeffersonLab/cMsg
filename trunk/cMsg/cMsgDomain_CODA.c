@@ -47,6 +47,7 @@
 /* built-in limits */
 #define MAXDOMAINS_CODA  10
 #define WAIT_FOR_THREADS 10 /* seconds to wait for thread to start */
+#define CALLBACK_MSQ_CUE_MAX 50000
 
 
 cMsgDomain_CODA cMsgDomains[MAXDOMAINS_CODA];
@@ -72,7 +73,8 @@ extern "C" {
 static int   coda_connect(char *myUDL, char *myName, char *myDescription, int *domainId);
 static int   coda_send(int domainId, void *msg);
 static int   flush(int domainId);
-static int   subscribe(int domainId, char *subject, char *type, cMsgCallback *callback, void *userArg);
+static int   subscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+                       void *userArg, cMsgSubscribeConfig *config);
 static int   unsubscribe(int domainId, char *subject, char *type, cMsgCallback *callback);
 static int   get(int domainId, void *sendMsg, time_t timeout, void **replyMsg);
 static int   start(int domainId);
@@ -96,7 +98,6 @@ void *cMsgClientListeningThread(void *arg);
 /* local prototypes */
 static int   getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
                                           char *subdomain, char *UDLremainder);
-static void *dispatchCallback(void *param);
 static void  mutexLock(void);
 static void  mutexUnlock(void);
 static void  connectMutexLock(void);
@@ -568,10 +569,12 @@ static int flush(int domainId) {
 /*-------------------------------------------------------------------*/
 
 
-static int subscribe(int domainId, char *subject, char *type, cMsgCallback *callback, void *userArg) {
+static int subscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+                     void *userArg, cMsgSubscribeConfig *config) {
 
   int i, j, iok, jok, uniqueId, status;
-  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
+  subscribeConfig *sConfig = (subscribeConfig *) config;
 
   if (cMsgDomains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
   if (cMsgDomains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
@@ -580,6 +583,11 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
     return(CMSG_NOT_IMPLEMENTED);
   } 
   
+  /* use default configuration if none given */
+  if (sConfig == NULL) {
+    sConfig = (subscribeConfig *) cMsgSubscribeConfigCreate();
+  }
+
   /* make sure subscribe and unsubscribe are not run at the same time */
   subscribeMutexLock(domain);
   
@@ -600,6 +608,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
           domain->subscribeInfo[i].cbInfo[0].tail     = NULL;
           domain->subscribeInfo[i].cbInfo[0].quit     = 0;
           domain->subscribeInfo[i].cbInfo[0].messages = 0;
+          domain->subscribeInfo[i].cbInfo[0].config   = *sConfig;
           /* start callback thread now */
           status = pthread_create(&domain->subscribeInfo[i].cbInfo[j].thread,
                                   NULL, callbackThread,
@@ -630,7 +639,7 @@ fprintf(stderr, "subscribe: done with first loop\n");
     int err, lenSubject, lenType;
     int fd = domain->sendSocket;
     int outGoing[4];
-
+    
     domain->subscribeInfo[i].active  = 1;
     domain->subscribeInfo[i].subject = (char *) strdup(subject);
     domain->subscribeInfo[i].type    = (char *) strdup(type);
@@ -640,6 +649,7 @@ fprintf(stderr, "subscribe: done with first loop\n");
     domain->subscribeInfo[i].cbInfo[0].tail     = NULL;
     domain->subscribeInfo[i].cbInfo[0].quit     = 0;
     domain->subscribeInfo[i].cbInfo[0].messages = 0;
+    domain->subscribeInfo[i].cbInfo[0].config   = *sConfig;
     
     /* start callback thread now */
     status = pthread_create(&domain->subscribeInfo[i].cbInfo[0].thread,
@@ -1221,7 +1231,7 @@ static void *callbackThread(void *arg)
 {
     /* subscription information passed in thru arg */
     struct subscribeCbInfo_t *subscription = (struct subscribeCbInfo_t *) arg;
-    int status, thereIsNoMsg=0;
+    int i, status, size;
     cMsgMessage *msg;
 
     /* increase concurrency for this thread for early Solaris */
@@ -1230,7 +1240,7 @@ static void *callbackThread(void *arg)
     con = thr_getconcurrency();
     thr_setconcurrency(con + 1);
   #endif
-      
+        
     while(1) {
       /* lock mutex */
       status = pthread_mutex_lock(&subscription->mutex);
@@ -1251,7 +1261,28 @@ static void *callbackThread(void *arg)
           goto end;
         }
       }
-      
+
+      size  = subscription->messages;
+      printf("  %d\n", size);
+           
+      if (size > subscription->config.maxCueSize) {
+          if (subscription->config.maySkip) {
+      printf("  CUT IT DOWN\n");
+              for (i=0; i < subscription->config.skipSize; i++) {
+                msg = subscription->head;
+                subscription->head = subscription->head->next;
+                cMsgFreeMessage(msg);
+                subscription->messages--;
+                if (subscription->head == NULL) break;
+              }
+          }
+          else {
+              
+              /*throw new cMsgException("too many messages for callback to handle");*/
+          }
+      }
+
+
       /* get first message in linked list */
       msg = subscription->head;
 /*
@@ -1349,17 +1380,17 @@ int cMsgRunCallbacks(int domainId, int command, cMsgMessage *msg) {
 	    /* if there is an existing callback ... */
             if (domain->subscribeInfo[i].cbInfo[j].callback != NULL) {
                            
+              /* copy message so each callback has its own copy */
+              message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
+
               subscription = &domain->subscribeInfo[i].cbInfo[j];
               
               status = pthread_mutex_lock(&subscription->mutex);
               if (status != 0) {
                 err_abort(status, "Failed callback mutex lock");
               }
-
-              /* copy message so each callback has its own copy */
-              message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
-              /*message = msg;*/
               
+              /* check to see if 
               /* add this message to linked list for this callback */       
 
               /* if there are no messages ... */
@@ -1814,12 +1845,17 @@ static void domainInit(cMsgDomain_CODA *domain) {
     domain->subscribeInfo[i].subject = NULL;
     
     for (j=0; j<MAXCALLBACK; j++) {
-      domain->subscribeInfo[i].cbInfo[j].quit     = 0;
       domain->subscribeInfo[i].cbInfo[j].messages = 0;
       domain->subscribeInfo[i].cbInfo[j].callback = NULL;
       domain->subscribeInfo[i].cbInfo[j].userArg  = NULL;
       domain->subscribeInfo[i].cbInfo[j].head     = NULL;
       domain->subscribeInfo[i].cbInfo[j].tail     = NULL;
+      domain->subscribeInfo[i].cbInfo[j].config.init          = 0;
+      domain->subscribeInfo[i].cbInfo[j].config.maySkip       = 0;
+      domain->subscribeInfo[i].cbInfo[j].config.mustSerialize = 1;
+      domain->subscribeInfo[i].cbInfo[j].config.maxCueSize    = 10000;
+      domain->subscribeInfo[i].cbInfo[j].config.skipSize      = 5000;
+      
       pthread_cond_init (&domain->subscribeInfo[i].cbInfo[j].cond,  NULL);
       pthread_mutex_init(&domain->subscribeInfo[i].cbInfo[j].mutex, NULL);
     }
@@ -1863,19 +1899,6 @@ static void domainClear(cMsgDomain_CODA *domain) {
   domainInit(domain);
 }
 
-
-/*-------------------------------------------------------------------*/
-
-
-static void *dispatchCallback(void *param) {
-    
-  dispatchCbInfo *dcbi;
-
-  dcbi = (dispatchCbInfo*)param;
-  dcbi->callback(dcbi->msg, dcbi->userArg);
-  free((void *) dcbi->msg);
-  free((void *) dcbi);
-}
 
   
 /*-------------------------------------------------------------------*/
