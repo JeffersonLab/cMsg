@@ -39,7 +39,7 @@ public class cMsgSubscription {
      */
     int id;
 
-    /** Set of all callback information objects (cMsgCallbackInfo). */
+    /** Set of all callback objects (cMsgCallbackThread). */
     HashSet callbacks;
 
 
@@ -62,32 +62,32 @@ public class cMsgSubscription {
      * @param subject subscription subject
      * @param type subscription type
      * @param id unique id referring to subject and type combination
-     * @param info object containing callback to be added and its argument
+     * @param cbThread object containing callback, its argument, and the thread to run it
      */
-    public cMsgSubscription(String subject, String type, int id, cMsgCallbackInfo info) {
+    public cMsgSubscription(String subject, String type, int id, cMsgCallbackThread cbThread) {
         this.subject = subject;
         this.type = type;
         this.id = id;
         callbacks = new HashSet(30);
-        callbacks.add(info);
+        callbacks.add(cbThread);
     }
 
 
     /**
      * Method to add a callback.
-     * @param cbInfo  object containing callback to be added and its argument
+     * @param cbThread  object containing callback, its argument, and the thread to run it
      */
-    public void addCallback(cMsgCallbackInfo cbInfo) {
-        callbacks.add(cbInfo);
+    public void addCallback(cMsgCallbackThread cbThread) {
+        callbacks.add(cbThread);
     }
 
 
     /**
      * Method to remove a callback.
-     * @param cbInfo  object containing callback to be removed
+     * @param cbThread  object containing callback to be removed
      */
-    public void removeCallback(cMsgCallbackInfo cbInfo) {
-        callbacks.remove(cbInfo);
+    public void removeCallback(cMsgCallbackThread cbThread) {
+        callbacks.remove(cbThread);
     }
 
 
