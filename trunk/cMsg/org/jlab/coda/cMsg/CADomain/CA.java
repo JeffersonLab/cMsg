@@ -82,8 +82,7 @@ public class CA extends cMsgDomainAdapter {
             if(event.getStatus()==CAStatus.NORMAL) {
 
                 //  get cMsg and fill common fields
-                cMsgMessage cmsg = new cMsgMessage();
-/*
+                cMsgMessageFull cmsg = new cMsgMessageFull();
                 cmsg.setDomain(domain);
                 cmsg.setSender(myChannelName);
                 cmsg.setSenderHost(myAddrList);
@@ -91,7 +90,6 @@ public class CA extends cMsgDomainAdapter {
                 cmsg.setReceiver(name);
                 cmsg.setReceiverHost(host);
                 cmsg.setReceiverTime(new Date());
-*/
                 cmsg.setText("" + (((DOUBLE)event.getDBR()).getDoubleValue())[0]);
 
 
@@ -99,7 +97,7 @@ public class CA extends cMsgDomainAdapter {
                 for(SubInfo s : mySubList) {
                     cmsg.setSubject(s.subject);
                     cmsg.setType(s.type);
-                    new Thread(new DispatchCB(s,cmsg)).start();
+                    new Thread(new DispatchCB(s,(cMsgMessage)cmsg)).start();
                 }
 
 
@@ -325,14 +323,14 @@ public class CA extends cMsgDomainAdapter {
      * then the server grabs the first incoming message of the requested subject and type
      * and sends that to the original sender in response to the get.
      *
+     * @param message message sent to server
      * @param timeout time in milliseconds to wait for a reponse message
      * @return response message
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout) throws cMsgException {
 
-        cMsgMessage response = new cMsgMessage();
-/*
+        cMsgMessageFull response = new cMsgMessageFull();
         response.setDomain(domain);
         response.setSender(myChannelName);
         response.setSenderHost(myAddrList);
@@ -340,7 +338,6 @@ public class CA extends cMsgDomainAdapter {
         response.setReceiver(name);
         response.setReceiverHost(host) ;
         response.setReceiverTime(new Date());
-*/
         response.setSubject(subject);
         response.setType(type);
 
@@ -358,7 +355,7 @@ public class CA extends cMsgDomainAdapter {
             e.printStackTrace();
         }
 
-        return(response);
+        return((cMsgMessage)response);
     }
 
 
