@@ -16,12 +16,12 @@ JAVA_OBJS = \
 	Jgetenv.class \
 	JgetenvException.class \
 	cMsgNetworkConstants.class \
+	cMsgUtilities.class \
 	cMsgClientInfo.class \
+	cMsgMonitorClient.class \
 	cMsgHandleRequestCoda.class \
 	cMsgNameServer.class \
-	cMsgNameServerListeningThread.class \
 	cMsgDomainServer.class \
-	cMsgDomainServerListeningThread.class \
 	cMsgCoda.class
 
 all: $(JAVA_OBJS)
