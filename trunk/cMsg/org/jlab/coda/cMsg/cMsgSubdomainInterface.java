@@ -19,6 +19,11 @@ package org.jlab.coda.cMsg;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessageFull;
 
+import java.io.IOException;
+import java.util.List;
+import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
+
 /**
  * This interface is an API for an object that a domain server
  * uses to respond to client demands. An implementation of this
@@ -44,6 +49,16 @@ public interface cMsgSubdomainInterface {
      * @throws org.jlab.coda.cMsg.cMsgException
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException;
+
+
+    /**
+     * Method to give the subdomain handler on object able to deliver messages
+     * to the client.
+     *
+     * @param deliverer object able to deliver messages to the client
+     * @throws org.jlab.coda.cMsg.cMsgException
+     */
+    public void setMessageDeliverer(cMsgDeliverMessageInterface deliverer) throws cMsgException;
 
 
     /**
@@ -142,6 +157,18 @@ public interface cMsgSubdomainInterface {
 
 
     /**
+     * Method to handle shutdown request sent by domain client.
+     *
+     * @param client client(s) to be shutdown
+     * @param server server(s) to be shutdown
+     * @param flag   flag describing the mode of shutdown
+     * @throws cMsgException
+     */
+    public void handleShutdownRequest(String client, String server,
+                                      int flag) throws cMsgException;
+
+
+    /**
      * Method to handle keepalive sent by domain client checking to see
      * if the domain server socket is still up.
      *
@@ -225,4 +252,12 @@ public interface cMsgSubdomainInterface {
     public boolean hasUnsubscribe();
 
 
+    /**
+     * Method to tell if the "shutdown" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleShutdownRequest}
+     * method.
+     *
+     * @return true if shutdown implemented in {@link #handleShutdownRequest}
+     */
+    public boolean hasShutdown();
 }
