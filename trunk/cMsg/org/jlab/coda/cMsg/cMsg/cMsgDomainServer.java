@@ -185,7 +185,7 @@ public class cMsgDomainServer extends Thread {
      * before the garbage collector is run;
      */
     public void finalize() throws cMsgException {
-        clientHandler.handleShutdown(info.name);
+        clientHandler.handleClientShutdown();
     }
 
 
@@ -294,7 +294,7 @@ public class cMsgDomainServer extends Thread {
                         System.out.println("dServer handleClient: got send request from " + info.name);
                     }
                     cMsgMessage msg = readIncomingMessage(channel);
-                    clientHandler.handleSendRequest(info.name, msg);
+                    clientHandler.handleSendRequest(msg);
                     break;
 
                 case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
@@ -303,8 +303,7 @@ public class cMsgDomainServer extends Thread {
                         System.out.println("dServer handleClient: got subscribe request from " + info.name);
                     }
                     readSubscribeInfo(channel);
-                    clientHandler.handleSubscribeRequest(info.name, subject, type,
-                                                         receiverSubscribeId);
+                    clientHandler.handleSubscribeRequest(subject, type, receiverSubscribeId);
                     break;
 
                 case cMsgConstants.msgUnsubscribeRequest: // unsubscribing to a subject & type
@@ -313,7 +312,7 @@ public class cMsgDomainServer extends Thread {
                         System.out.println("dServer handleClient: got unsubscribe request from " + info.name);
                     }
                     readUnsubscribeInfo(channel);
-                    clientHandler.handleUnsubscribeRequest(info.name, subject, type);
+                    clientHandler.handleUnsubscribeRequest(subject, type);
                     break;
 
                 case cMsgConstants.msgKeepAlive: // see if this end is still here
@@ -326,7 +325,7 @@ public class cMsgDomainServer extends Thread {
                     while (buffer.hasRemaining()) {
                         channel.write(buffer);
                     }
-                    clientHandler.handleKeepAlive(info.name);
+                    clientHandler.handleKeepAlive();
                     break;
 
                 case cMsgConstants.msgDisconnectRequest: // client disconnecting
@@ -342,8 +341,8 @@ public class cMsgDomainServer extends Thread {
                     // close channel and unregister from selector
                     channel.close();
                     // tell client handler to shutdown
-                    clientHandler.handleShutdown(info.name);
-                    // need to shutdown this server
+                    clientHandler.handleClientShutdown();
+                    // need to shutdown this domain server
                     killAllThreads();
                     break;
 
@@ -360,8 +359,8 @@ public class cMsgDomainServer extends Thread {
                     // close channel and unregister from selector
                     channel.close();
                     // tell client handler to shutdown
-                    clientHandler.handleShutdown(info.name);
-                    // need to shutdown this server
+                    clientHandler.handleClientShutdown();
+                    // need to shutdown this domain server
                     killAllThreads();
                     break;
 
