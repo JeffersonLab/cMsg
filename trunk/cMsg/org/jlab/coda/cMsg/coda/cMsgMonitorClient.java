@@ -17,6 +17,7 @@
 package org.jlab.coda.cMsg.coda;
 
 import org.jlab.coda.cMsg.cMsgConstants;
+import org.jlab.coda.cMsg.cMsgException;
 
 import java.nio.channels.SocketChannel;
 import java.nio.ByteBuffer;
@@ -25,25 +26,38 @@ import java.net.Socket;
 import java.io.IOException;
 
 /**
- * Created by IntelliJ IDEA.
- * User: timmer
- * Date: Aug 10, 2004
- * Time: 2:34:11 PM
- * To change this template use File | Settings | File Templates.
+ * This class implements an object to monitor the health of a cMsg client.
+ * It does this by periodically sending a keepAlive command to the listening
+ * thread of the client. If there is an error reading the response, the
+ * client is assumed dead. All resources associated with that client are
+ * recovered for reuse.
+ *
+ * @author Carl Timmer
+ * @version 1.0
  */
 public class cMsgMonitorClient extends Thread {
     /** Client information object. */
-    cMsgClientInfo   info;
+    private cMsgClientInfo   info;
+
     /** Domain server object. */
-    cMsgDomainServer domainServer;
+    private cMsgDomainServer domainServer;
+
     /** Communication channel to client from domain server. */
-    SocketChannel    channel;
+    private SocketChannel    channel;
+
     /** A direct buffer is necessary for nio socket IO. */
-    ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+    private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+
     /** Level of debug output for this class. */
     private int debug = cMsgConstants.debugInfo;
 
 
+    /**
+     * Constructor. Creates a socket channel with the client.
+     *
+     * @param info object containing information about the client
+     * @param server domain server which created this monitor
+     */
     public cMsgMonitorClient(cMsgClientInfo info, cMsgDomainServer server) {
         this.info   = info;
         this.domainServer = server;
@@ -68,7 +82,6 @@ public class cMsgMonitorClient extends Thread {
         }
 
         info.channel = channel;
-
     }
 
     /** This method is executed as a thread. */
@@ -87,7 +100,7 @@ public class cMsgMonitorClient extends Thread {
                 // send buffer over the socket
                 buffer.flip();
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("\ncMsgMonitorClient: will send keep alive to " +
+                    System.out.println("cMsgMonitorClient: will send keep alive to " +
                                        info.clientName + "\n");
                 }
                 while (buffer.hasRemaining()) {
@@ -100,11 +113,14 @@ public class cMsgMonitorClient extends Thread {
                 e.printStackTrace();
                 // client has died, time to bail.
                 if (debug >= cMsgConstants.debugError) {
-                    System.out.println("\ncMsgMonitorClient: cannot communicate with client " +
+                    System.out.println("cMsgMonitorClient: CANNOT COMMUNICATE with client " +
                                        info.clientName + "\n");
                 }
-                domainServer.getClientHandler().unregisterClient(info.clientName);
-                domainServer.setKillAllThreads(true);
+
+                try {domainServer.getClientHandler().unregisterClient(info.clientName);}
+                catch (cMsgException e1) {}
+
+                domainServer.killAllThreads();
                 return;
             }
 
@@ -116,11 +132,14 @@ public class cMsgMonitorClient extends Thread {
             if (error != cMsgConstants.ok) {
                 // something wrong with the client, time to bail
                 if (debug >= cMsgConstants.debugError) {
-                    System.out.println("\ncMsgMonitorClient: keep alive returns error from client " +
+                    System.out.println("cMsgMonitorClient: keep alive returns ERROR from client " +
                                        info.clientName + "\n");
                 }
-                domainServer.getClientHandler().unregisterClient(info.clientName);
-                domainServer.setKillAllThreads(true);
+
+                try {domainServer.getClientHandler().unregisterClient(info.clientName);}
+                catch (cMsgException e1) {}
+                
+                domainServer.killAllThreads();
                 return;
             }
 
