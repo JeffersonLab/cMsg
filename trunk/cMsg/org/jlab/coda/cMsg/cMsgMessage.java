@@ -40,17 +40,17 @@ public class cMsgMessage implements Cloneable {
      * Is message a sendAndGet request? -- stored in first bit of info.
      * This is only for internal use.
      */
-    public static final int isGetRequest  = 0x0001;
+    public static final int isGetRequest  = 0x1;
     /**
      * Is message a response to a sendAndGet? -- stored in second bit of info.
      * This is only for internal use.
      */
-    public static final int isGetResponse = 0x0002;
+    public static final int isGetResponse = 0x2;
     /**
      * Is the response message null instead of a message? -- stored in third bit of info.
      * This is only for internal use.
      */
-    public static final int isNullGetResponse = 0x0004;
+    public static final int isNullGetResponse = 0x4;
 
     // general quantities
 
