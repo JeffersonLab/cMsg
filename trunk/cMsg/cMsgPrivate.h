@@ -87,14 +87,6 @@ typedef struct cMsgDomain_t {
 } cMsgDomain;
 
 
-/* see "Programming with POSIX threads' by Butenhof */
-#define err_abort(code,text) do { \
-    fprintf (stderr, "%s at \"%s\":%d: %s\n", \
-        text, __FILE__, __LINE__, strerror (code)); \
-    exit (-1); \
-    } while (0)
-
-
 /* message structure */
 typedef struct cMsg_t {
   int     sysMsgId;         /* set by system */
