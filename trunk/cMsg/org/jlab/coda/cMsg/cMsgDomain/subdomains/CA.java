@@ -189,9 +189,7 @@ public class CA extends cMsgHandleRequestsAbstract {
     /**
      * Method to register domain client.
      *
-     * @param name name of client
-     * @param host host client is running on
-     * @param port port client is listening on
+     * @param info information about client
      * @throws cMsgException if unable to register
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
@@ -353,10 +351,9 @@ public class CA extends cMsgHandleRequestsAbstract {
     /**
      * Method to handle unget request sent by domain client (hidden from user).
      *
-     * @param subject message subject subscribed to
-     * @param type message type subscribed to
+     * @param id message id refering to these specific subject and type values
      */
-    public void handleUngetRequest(String subject, String type) {
+    public void handleUngetRequest(int id) {
         // do nothing
     }
 
