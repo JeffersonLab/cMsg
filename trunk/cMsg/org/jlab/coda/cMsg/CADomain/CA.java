@@ -72,8 +72,6 @@ public class CA extends cMsgAdapter {
     /** misc params. */
     private double myContextPend = 3.0;
     private double myPutPend     = 3.0;
-    private int myMonCount       = 0;
-    private int myGetCount       = 0;
 
 
     /** for monitoring */
@@ -89,7 +87,6 @@ public class CA extends cMsgAdapter {
                 cmsg.setSender(myChannelName);
                 cmsg.setSenderHost(myAddrList);
                 cmsg.setSenderTime(new Date());
-                cmsg.setSenderMsgId(++myMonCount);
                 cmsg.setReceiver(name);
                 cmsg.setReceiverHost(host);
                 cmsg.setReceiverTime(new Date());
@@ -338,7 +335,6 @@ public class CA extends cMsgAdapter {
         response.setSender(myChannelName);
         response.setSenderHost(myAddrList);
         response.setSenderTime(new Date());
-        response.setSenderMsgId(++myGetCount);
         response.setReceiver(name);
         response.setReceiverHost(host) ;
         response.setReceiverTime(new Date());
