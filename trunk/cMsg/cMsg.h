@@ -20,7 +20,7 @@
  *                                                                            *
  * Description:                                                               *
  *                                                                            *
- *  Defines cMsg (CODA Message) API and return codes                          *
+ *  Defines cMsg API and return codes                                         *
  *                                                                            *
  *                                                                            *
  *----------------------------------------------------------------------------*
@@ -29,15 +29,13 @@
  *
  *  Still to do:
  *    add Doxygen comments
- *    some error codes redundant, some missing
- *
  *
  *
  *
  * Introduction
  * ------------
  *
- * cMsg is a simple abstract API to an arbitrary underlying message service.  It is 
+ * cMsg is a simple, abstract API to an arbitrary underlying message service.  It is 
  * powerful enough to support synchronous and asynchronous point-to-point and 
  * publish/subscribe communication, and network-accessible message queues.  Note 
  * that a given underlying implementation may not necessarily implement all these 
@@ -50,33 +48,29 @@
  * The abstraction relies on the important concept of a "domain", specified via a 
  * "Universal Domain Locator" (UDL) of the form:
  * 
- *       domainType://domainName
+ *       cMsg:domainType://domainInfo
  *
  * The domain type refers to an underlying messaging software implementation, 
- * and the domain name is interpreted by the implementation. Generally domains with
+ * and the domain info is interpreted by the implementation. Generally domains with
  * different UDL's are isolated from each other, but this is not necessarily the 
  * case.  For example, users can easily create gateways between different domains,
  * or different domain servers may serve into the same messaging namespace.
  * 
- * The full domain specifier for the CODA domain implementation looks like:
+ * The full domain specifier for the full cMsg domain looks like:
  *
- *      coda://node:port/namespace?param1=val1(&param2=val2)
+ *      cMsg:cMsg://node:port/cMsg/namespace?param1=val1(&param2=val2)
  *
- * where node:port correspond to the node and port of a CODA message server, and 
- * namespace allows for multiple domains on the same server.  If the port is missing 
+ * where node:port correspond to the node and port of a cMsg nameserver, and 
+ * namespace allows for multiple namespaces on the same server.  If the port is missing 
  * a default port is used.  Parameters are optional and not specified at this time.
- * Currently different CODA domains are completely isolated from each other.
- *
- * A process can connect to multiple domains if desired.  Note that the CODA domain
- * is implemented in a "heavyweight" manner, via separate threads, processes, etc.
- * The efficient, lightweight way to distribute messages within the CODA domain is
- * to use subjects (see below).
+ * Currently different cMsg domains are completely isolated from each other. A
+ * process can connect to multiple domains if desired. 
  *
  *
  * Messages
  * --------
  *
- * Messages are sent via cMsgSend() and cMsgGet().  Messages have a type and are 
+ * Messages are sent via cMsgSend() and related functions.  Messages have a type and are 
  * sent to a subject, and both are arbitrary strings.  The payload consists of
  * a single text string.  Users must call cMsgFlush() to initiate delivery of messages 
  * in the outbound send queues, although the implementation may deliver messages 
@@ -87,37 +81,21 @@
  * subject/type combinations (each may be NULL).  The messages are delivered 
  * asynchronously to callbacks (via cMsgSubscribe()).  cMsgFreeMessage() must be 
  * called when the user is done processing the message.  Synchronous or RPC-like 
- * messaging is also possible via cMsgGet().
+ * messaging is also possible via cMsgSendAndGet().
  *
  * cMsgReceiveStart() must be called to start delivery of messages to callbacks.  
  *
- * In the CODA domain perl-like subject wildcard characters are supported, multiple 
+ * In the cMsg domain perl-like subject wildcard characters are supported, multiple 
  * callbacks for the same subject/type are allowed, and each callback executes in 
  * its own thread.
  *
  *
- *
- *
- * Domain Implementations
+
+ * Additional Information
  * ----------------------
  *
- * The CODA group is supplying two default domain implementations, but users can
- * add additional implementations if desired.  This is not particularly difficult,
- * but you should probably talk to the CODA group if you want to do this.  The 
- * default implementations have domainTypes "CODA" and "FILE".
- *
- * The CODA domain supports standard asynchronous publish/subscribe messaging via
- * a separate FIPA agent based server system, but no explicit synchronous messaging
- * (i.e. cMsgGet() is not implemented yet).  Users can effectively implement
- * RPC-like communications via careful use of asynchronous publish/subscribe 
- * messaging and the senderToken (see below).
- *
- * The FILE domain simply logs text to files, and the only functions implemented
- * are cMsgConnect (calls fopen), cMsgSend (calls fwrite), and cMsgDisconnect (calls 
- * fclose).
- *
- * Note that new domain types can be added explicitely at the API level (within cMsg.c),
- * or effectively via a CODA domain proxy server.  Contact the DAQ group for details.
+ * See the cMsg User's Guide and the cMsg Developer's Guide for more information.
+ * See the cMsg Doxygen and Java docs for the full API specification.
  *
  *
  *
@@ -164,12 +142,6 @@
  *
  *
  *
- * int cMsgSetSenderToken(void *msg, int senderToken)
- *
- *   Set the senderToken field of a message object
- *
- *
- *
  * int cMsgSend(int domainId, void *msg)
  *
  *   Queue up a message for delivery.  Must call cMsgFlush() to force delivery,
@@ -196,7 +168,7 @@
  *
  *
  *
- *  int cMsgGet(int domainId, void *sendMsg, time_t timeout, void **replyMsg)
+ *  int cMsgSendAndGet(int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg);
  *
  *   Synchronously send message and get reply.  Fail if no reply message
  *   received within timeout. Independent of receive start/stop state.
