@@ -41,7 +41,12 @@ LIBNAM      = libcmsg
 LIB_STATIC  = $(LIBNAM).a
 LIB_DYNAMIC = $(LIBNAM).so
 
-CMSG_LIBS = $(LIB_STATIC) $(LIB_DYNAMIC)
+LIBNAMXX      = libcmsg++
+LIB_STATICXX  = $(LIBNAMXX).a
+LIB_DYNAMICXX = $(LIBNAMXX).so
+
+CMSG_LIBS   = $(LIB_STATIC) $(LIB_DYNAMIC)
+CMSG_LIBSXX = $(LIB_STATICXX) $(LIB_DYNAMICXX)
 
 OBJS =  rwlock.o \
 	sunConcurrency.o \
@@ -53,13 +58,14 @@ OBJS =  rwlock.o \
 
 HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h cMsgDomain.h rwlock.h errors.h
 
-PROGS = producer consumer getConsumer
+PROGS   = producer consumer getConsumer
+PROGSXX =
 
-all: $(CMSG_LIBS) $(PROGS)
+all: $(CMSG_LIBS) $(CMSG_LIBSXX) $(PROGS) $(PROGSXX)
 
 install: all install-lib install-inc install-bin
 
-install-lib: $(CMSG_LIBS)
+install-lib: $(CMSG_LIBS) $(CMSG_LIBSXX)
 	@echo "Installing CMSG libraries in $(LIB_DIR)"
 	@for i in $(CMSG_LIBS); do \
 	   echo "  installing $$i"; \
@@ -73,7 +79,7 @@ install-inc: $(HFILES)
 	   $(INSTALL) $$i $(INC_DIR)/$$i; \
            done;
 
-install-bin: $(PROGS)
+install-bin: $(PROGS) $(PROGSXX)
 	@echo "Installing executables in $(BIN_DIR)"
 	@for i in $(PROGS); do \
 	   echo "  installing $$i"; \
@@ -86,6 +92,13 @@ $(LIB_STATIC): $(OBJS)
 	$(RANLIB) $@
 
 $(LIB_DYNAMIC): $(OBJS)
+	$(SHLIB_LD) $(OBJS) -o $@
+
+$(LIB_STATICXX): $(OBJS)
+	$(AR) cr $@ $?
+	$(RANLIB) $@
+
+$(LIB_DYNAMICXX): $(OBJS)
 	$(SHLIB_LD) $(OBJS) -o $@
 
 # file dependencies
