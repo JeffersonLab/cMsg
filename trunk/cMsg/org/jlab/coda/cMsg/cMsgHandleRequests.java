@@ -67,33 +67,41 @@ public interface cMsgHandleRequests {
     /**
      * Method to handle message sent by domain client.
      *
-     * @param msg message from sender
+     * @param message message from sender
      * @throws cMsgException
      */
-    public void handleSendRequest(cMsgMessage msg) throws cMsgException;
+    public void handleSendRequest(cMsgMessage message) throws cMsgException;
 
 
     /**
      * Method to handle message sent by domain client in synchronous mode.
      * It requries an integer response from the subdomain handler.
      *
-     * @param msg message from sender
+     * @param message message from sender
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException;
+    public int handleSyncSendRequest(cMsgMessage message) throws cMsgException;
 
 
     /**
-     * Method to get a single message from the server for a given
-     * subject and type.
+     * Method to synchronously get a single message from the server for a given
+     * subject and type -- perhaps from a specified receiver.
      *
-     * @param subject subject of message to get
-     * @param type type of message to get
-     * @return cMsgMessage message obtained by this get
+     * @param message message requesting what sort of message to get
      * @throws cMsgException
      */
-    public cMsgMessage handleGetRequest(String subject, String type) throws cMsgException;
+    public void handleGetRequest(cMsgMessage message) throws cMsgException;
+
+
+    /**
+     * Method to handle unget request sent by domain client (hidden from user).
+     *
+     * @param subject message subject subscribed to
+     * @param type message type subscribed to
+     * @throws cMsgException
+     */
+    public void handleUngetRequest(String subject, String type) throws cMsgException;
 
 
     /**
@@ -108,7 +116,7 @@ public interface cMsgHandleRequests {
                                        int receiverSubscribeId) throws cMsgException;
 
     /**
-     * Method to handle sunsubscribe request sent by domain client.
+     * Method to handle unsubscribe request sent by domain client.
      *
      * @param subject message subject subscribed to
      * @param type message type subscribed to
