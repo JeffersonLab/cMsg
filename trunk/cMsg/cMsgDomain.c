@@ -881,7 +881,7 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   cMsgMessage *msg = (cMsgMessage *) sendMsg;
   int i, uniqueId, status, lenSubject, lenType, lenText;
   int gotSpot, fd = domain->sendSocket;
-  int outGoing[10];
+  int outGoing[8];
   getInfo *info;
   struct timespec wait;
   
@@ -948,28 +948,24 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
 
   /* message id (in network byte order) to domain server */
   outGoing[0] = htonl(CMSG_SEND_AND_GET_REQUEST);
-  /* is get request? */
-  outGoing[1] = htonl(1);
-  /* unique id for receiverSubscribeId */
-  outGoing[2] = htonl(uniqueId);
   /* sender id */
-  outGoing[3] = htonl(msg->senderId);
+  outGoing[1] = htonl(msg->senderId);
   /* time message sent (right now) */
-  outGoing[4] = htonl((int) time(NULL));
+  outGoing[2] = htonl((int) time(NULL));
   /* sender message id */
-  outGoing[5] = htonl(msg->senderMsgId);
+  outGoing[3] = htonl(msg->senderMsgId);
   /* unique id for sender token */
-  outGoing[6] = htonl(uniqueId);
+  outGoing[4] = htonl(uniqueId);
 
   /* length of "subject" string */
   lenSubject  = strlen(subject);
-  outGoing[7] = htonl(lenSubject);
+  outGoing[5] = htonl(lenSubject);
   /* length of "type" string */
   lenType     = strlen(type);
-  outGoing[8] = htonl(lenType);
+  outGoing[6] = htonl(lenType);
   /* length of "text" string */
   lenText     = strlen(text);
-  outGoing[9] = htonl(lenText);
+  outGoing[7] = htonl(lenText);
 
   /* make send socket communications thread-safe */
   socketMutexLock(domain);

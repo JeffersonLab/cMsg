@@ -86,7 +86,7 @@ public class cMsgDomainServer extends Thread {
     private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
     /** Allocate int array once (used for reading in data) for efficiency's sake. */
-    private int[] inComing = new int[10];
+    private int[] inComing = new int[7];
 
     /** Allocate byte array once (used for reading in data) for efficiency's sake. */
     private byte[] bytes = new byte[5000];
@@ -529,7 +529,7 @@ public class cMsgDomainServer extends Thread {
 
 
       /**
-       * This method reads an incoming cMsgMessage from a client doing a "get".
+       * This method reads an incoming cMsgMessage from a client doing a sendAndGet.
        *
        * @param channel nio socket communication channel
        * @return object holding message read from channel
@@ -540,33 +540,29 @@ public class cMsgDomainServer extends Thread {
           // create a message
           cMsgMessage msg = new cMsgMessage();
 
-          // keep reading until we have 9 ints of data
-          cMsgUtilities.readSocketBytes(buffer, channel, 36, debug);
+          // keep reading until we have 7 ints of data
+          cMsgUtilities.readSocketBytes(buffer, channel, 28, debug);
 
           // go back to reading-from-buffer mode
           buffer.flip();
 
-          // read 9 ints
-          buffer.asIntBuffer().get(inComing, 0, 9);
+          // read 7 ints
+          buffer.asIntBuffer().get(inComing, 0, 7);
 
-          // is sender doing specific get or just 1-shot subscribe?
-          msg.setGetRequest(inComing[0] == 1 ? true : false);
-          // sender's unique receiverSubscribeId (for general get)
-          msg.setReceiverSubscribeId(inComing[1]);
           // sender id
-          msg.setSenderId(inComing[2]);
+          msg.setSenderId(inComing[0]);
           // time message sent in seconds since midnight GMT, Jan 1, 1970
-          msg.setSenderTime(new Date(((long) inComing[3]) * 1000));
+          msg.setSenderTime(new Date(((long) inComing[1]) * 1000));
           // sender message id
-          msg.setSenderMsgId(inComing[4]);
-          // sender token (for specific get)
-          msg.setSenderToken(inComing[5]);
+          msg.setSenderMsgId(inComing[2]);
+          // sender token
+          msg.setSenderToken(inComing[3]);
           // length of message subject
-          int lengthSubject = inComing[6];
+          int lengthSubject = inComing[4];
           // length of message type
-          int lengthType = inComing[7];
+          int lengthType = inComing[5];
           // length of message text
-          int lengthText = inComing[8];
+          int lengthText = inComing[6];
 
           // bytes expected
           int bytesToRead = lengthSubject + lengthType + lengthText;
@@ -596,6 +592,7 @@ public class cMsgDomainServer extends Thread {
           msg.setText(new String(bytes, lengthSubject + lengthType, lengthText, "US-ASCII"));
 
           // fill in message object's members
+          msg.setGetRequest(true);
           msg.setDomain(domainType);
           msg.setReceiver("cMsg domain server");
           msg.setReceiverHost(host);
@@ -608,7 +605,7 @@ public class cMsgDomainServer extends Thread {
 
 
       /**
-       * This method reads an incoming subscribe request from a client.
+       * This method reads an incoming (un)subscribe or subscribeAndGet request from a client.
        *
        * @param channel nio socket communication channel
        * @return object holding subject, type, and id read from channel
