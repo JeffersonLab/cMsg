@@ -70,13 +70,13 @@ public class cMsgCallbackThread extends Thread {
     /** Kills this thread as soon as possible. If it's waiting, it's woken up first. */
     synchronized public void dieNow() {
         dieNow = true;
-        notify();
+        notifyAll();
     }
 
     /** Kills this thread after running the callback. If it's currently waiting, it's woken up. */
     synchronized public void dieAfterCallback() {
         dieAfterCallback = true;
-        notify();
+        notifyAll();
     }
 
     /**
@@ -283,22 +283,6 @@ public class cMsgCallbackThread extends Thread {
             if (dieAfterCallback || dieNow) {
                 return;
             }
-
-            /*
-            num = Integer.parseInt(message.getText());
-            if (num % 2 > 0) {
-                if (num - lastOdd != 2) {
-                    System.out.println("         " + lastOdd + " -> " + message.getText());
-                }
-                lastOdd = num;
-            }
-            else {
-                if (num - lastEven != 2) {
-                    System.out.println(lastEven + " -> " + message.getText());
-                }
-                lastEven = num;
-            }
-            */
         }
     }
 }
