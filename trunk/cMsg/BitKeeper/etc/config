@@ -100,3 +100,8 @@ pager:
 # Business Hours when we can contact you if you left a phone number.
 # 
 hours: 0900 - 1600
+#
+#
+#  bk options
+keyword: sccs
+checkout:get
