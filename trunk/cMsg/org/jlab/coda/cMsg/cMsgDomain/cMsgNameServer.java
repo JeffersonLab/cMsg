@@ -185,8 +185,25 @@ public class cMsgNameServer extends Thread {
         // If there is still no handler class and if the
         // cMsg subdomain is desired, look for the
         // org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg class.
-        if ((clientHandlerClass == null) && subdomain.equals("cMsg")) {
-            clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg";
+        if (clientHandlerClass == null) {
+            if (subdomain.equalsIgnoreCase("cMsg")) {
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg";
+            }
+            else if (subdomain.equalsIgnoreCase("CA")) {
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.CA";
+            }
+            else if (subdomain.equalsIgnoreCase("database")) {
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.database";
+            }
+            else if (subdomain.equalsIgnoreCase("LogFile")) {
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.LogFile";
+            }
+            else if (subdomain.equalsIgnoreCase("LogTable")) {
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.LogTable";
+            }
+            else if (subdomain.equalsIgnoreCase("smartsockets")) {
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.smartsockets";
+            }
         }
 
         // all options are exhaused, throw error
@@ -243,7 +260,7 @@ public class cMsgNameServer extends Thread {
      */
     synchronized public cMsgHandleRequests registerClient(cMsgClientInfo info) throws cMsgException {
         cMsgHandleRequests clientHandler = createClientHandler(info.subdomain,
-                                                               info.UDLRemainder);
+                                                               info.UDLremainder);
         // If clientHandler is a subclass of cMsgHandlerRequestAbstract, it has methods
         // to connect to the client, so do it now. The socket channel is stored in "info".
         if (clientHandler instanceof cMsgHandleRequestsAbstract) {
@@ -358,17 +375,14 @@ public class cMsgNameServer extends Thread {
     private void handleClient(SocketChannel channel) {
 
         try {
-            // create a message
-            cMsgMessage msg = new cMsgMessage();
-
             // keep reading until we have 7 ints of data
-            cMsgUtilities.readSocketBytes(buffer, channel, 28, debug);
+            cMsgUtilities.readSocketBytes(buffer, channel, 36, debug);
 
             // go back to reading-from-buffer mode
             buffer.flip();
 
             // read 7 ints
-            int[] inComing = new int[7];
+            int[] inComing = new int[9];
             buffer.asIntBuffer().get(inComing);
 
             // message id
@@ -385,10 +399,15 @@ public class cMsgNameServer extends Thread {
             int lengthHost = inComing[5];
             // length of client's name
             int lengthName = inComing[6];
+            // length of client's UDL
+            int lengthUDL = inComing[7];
+            // length of client's description
+            int lengthDescription = inComing[8];
 
             // bytes expected
             int bytesToRead = lengthDomainType + lengthSubdomainType +
-                              lengthUDLRemainder + lengthHost + lengthName;
+                              lengthUDLRemainder + lengthHost + lengthName +
+                              lengthUDL + lengthDescription;
 
             // read in all remaining bytes
             cMsgUtilities.readSocketBytes(buffer, channel, bytesToRead, debug);
@@ -435,6 +454,20 @@ public class cMsgNameServer extends Thread {
                 System.out.println("  name = " + name);
             }
 
+            // read UDL
+            buffer.get(buf, 0, lengthUDL);
+            String UDL = new String(buf, 0, lengthUDL, "US-ASCII");
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  UDL = " + UDL);
+            }
+
+            // read description
+            buffer.get(buf, 0, lengthDescription);
+            String description = new String(buf, 0, lengthDescription, "US-ASCII");
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  description = " + description);
+            }
+
             // if this is not the domain of server the client is expecting, return an error
             if (!domainType.equalsIgnoreCase(this.domain)) {
                 // send error to client
@@ -451,7 +484,8 @@ public class cMsgNameServer extends Thread {
             // client by this name, it will fail.
             try {
                 cMsgClientInfo info = new cMsgClientInfo(name, clientListeningPort, host,
-                                                         subdomainType, UDLRemainder);
+                                                         subdomainType, UDLRemainder,
+                                                         UDL, description);
                 if (debug >= cMsgConstants.debugInfo) {
                     System.out.println("name server to register " + name);
                 }
