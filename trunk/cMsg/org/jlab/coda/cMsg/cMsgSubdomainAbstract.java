@@ -368,7 +368,7 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainInterface {
         }
         else {
             // write 14 ints
-            int outGoing[] = new int[15];
+            int outGoing[] = new int[16];
             outGoing[0] = msgType;
             outGoing[1] = msg.getVersion();
             outGoing[2] = msg.getPriority();
@@ -383,13 +383,16 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainInterface {
             outGoing[11] = msg.getSubject().length();
             outGoing[12] = msg.getType().length();
             outGoing[13] = msg.getText().length();
-            outGoing[14] = size;  // number of receiverSubscribeIds to be sent
+//            System.out.println("Sending creator = " + msg.getCreator() + ", len = " +
+//                               msg.getCreator().length());
+            outGoing[14] = msg.getCreator().length();
+            outGoing[15] = size;  // number of receiverSubscribeIds to be sent
 
             // send ints over together using view buffer
             buffer.asIntBuffer().put(outGoing);
 
             // position original buffer at position of view buffer
-            buffer.position(60);
+            buffer.position(64);
 
             // now send ids
             if (idList != null) {
@@ -405,6 +408,7 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainInterface {
                 buffer.put(msg.getSubject().getBytes("US-ASCII"));
                 buffer.put(msg.getType().getBytes("US-ASCII"));
                 buffer.put(msg.getText().getBytes("US-ASCII"));
+                buffer.put(msg.getCreator().getBytes("US-ASCII"));
             }
             catch (UnsupportedEncodingException e) {
                 e.printStackTrace();

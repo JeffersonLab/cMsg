@@ -501,8 +501,8 @@ public class cMsg extends cMsgDomainAdapter {
                 text = message.getText();
             }
 
-            int outGoing[] = new int[12];
-            outGoing[0] = cMsgConstants.msgSendRequest;
+            int outGoing[] = new int[13];
+            outGoing[0]  = cMsgConstants.msgSendRequest;
             outGoing[1]  = cMsgConstants.version;
             outGoing[2]  = message.getPriority();
             outGoing[3]  = message.getUserInt();
@@ -516,6 +516,11 @@ public class cMsg extends cMsgDomainAdapter {
             outGoing[10] = type.length();
             outGoing[11] = text.length();
 
+            // send creator (this sender's name if msg created here)
+            String creator = message.getCreator();
+            if (creator == null) creator = name;
+            outGoing[12] = creator.length();
+
             // lock to prevent parallel sends from using same buffer
             sendBufferLock.lock();
             try {
@@ -524,13 +529,14 @@ public class cMsg extends cMsgDomainAdapter {
                 // send ints over together using view buffer
                 sendBuffer.asIntBuffer().put(outGoing);
                 // position original buffer at position of view buffer
-                sendBuffer.position(48);
+                sendBuffer.position(52);
 
                 // write strings
                 try {
                     sendBuffer.put(subject.getBytes("US-ASCII"));
                     sendBuffer.put(type.getBytes("US-ASCII"));
                     sendBuffer.put(text.getBytes("US-ASCII"));
+                    sendBuffer.put(creator.getBytes("US-ASCII"));
                 }
                 catch (UnsupportedEncodingException e) {
                     e.printStackTrace();
@@ -601,7 +607,7 @@ public class cMsg extends cMsgDomainAdapter {
                 text = message.getText();
             }
 
-            int outGoing[] = new int[12];
+            int outGoing[] = new int[13];
             outGoing[0]  = cMsgConstants.msgSyncSendRequest;
             outGoing[1]  = cMsgConstants.version;
             outGoing[2]  = message.getPriority();
@@ -616,18 +622,24 @@ public class cMsg extends cMsgDomainAdapter {
             outGoing[10] = type.length();
             outGoing[11] = text.length();
 
+            // send creator (this sender's name if msg created here)
+            String creator = message.getCreator();
+            if (creator == null) creator = name;
+            outGoing[12] = creator.length();
+
             // get ready to write
             syncSendBuffer.clear();
             // send ints over together using view buffer
             syncSendBuffer.asIntBuffer().put(outGoing);
             // position original buffer at position of view buffer
-            syncSendBuffer.position(48);
+            syncSendBuffer.position(52);
 
             // write strings
             try {
                 syncSendBuffer.put(subject.getBytes("US-ASCII"));
                 syncSendBuffer.put(type.getBytes("US-ASCII"));
                 syncSendBuffer.put(text.getBytes("US-ASCII"));
+                syncSendBuffer.put(creator.getBytes("US-ASCII"));
             }
             catch (UnsupportedEncodingException e) {
                 e.printStackTrace();
@@ -879,7 +891,7 @@ public class cMsg extends cMsgDomainAdapter {
             // track specific get requests
             specificGets.put(id, holder);
 
-            int outGoing[] = new int[10];
+            int outGoing[] = new int[11];
             outGoing[0] = cMsgConstants.msgSendAndGetRequest;
             outGoing[1] = cMsgConstants.version;
             outGoing[2] = message.getPriority();
@@ -892,6 +904,10 @@ public class cMsg extends cMsgDomainAdapter {
             outGoing[8] = type.length();
             outGoing[9] = text.length();
 
+            String creator = message.getCreator();
+            if (creator == null) creator = name;
+            outGoing[10] = creator.length();
+
             // lock to prevent parallel gets from using same buffer
             getBufferLock.lock();
             try {
@@ -900,13 +916,14 @@ public class cMsg extends cMsgDomainAdapter {
                 // send ints over together using view buffer
                 getBuffer.asIntBuffer().put(outGoing);
                 // position original buffer at position of view buffer
-                getBuffer.position(40);
+                getBuffer.position(44);
 
                 // write strings
                 try {
                     getBuffer.put(subject.getBytes("US-ASCII"));
                     getBuffer.put(type.getBytes("US-ASCII"));
                     getBuffer.put(text.getBytes("US-ASCII"));
+                    getBuffer.put(creator.getBytes("US-ASCII"));
                 }
                 catch (UnsupportedEncodingException e) {
                     e.printStackTrace();
@@ -1580,6 +1597,8 @@ class KeepAlive extends Thread {
         this.client  = client;
         this.channel = channel;
         this.debug   = client.debug;
+        // die if no more non-daemon thds running
+        setDaemon(true);
     }
 
     /** This method is executed as a thread. */

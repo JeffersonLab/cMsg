@@ -265,6 +265,13 @@ public class cMsgMessageFull extends cMsgMessage {
     }
 
 
+    /**
+     * Sets the creator of this message.
+     * @param creator creator of this message.
+     */
+    public void setCreator(String creator) {this.creator = creator;}
+
+
     // sender quantities
 
 

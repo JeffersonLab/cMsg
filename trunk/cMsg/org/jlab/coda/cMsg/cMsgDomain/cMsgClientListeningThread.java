@@ -51,7 +51,7 @@ public class cMsgClientListeningThread extends Thread {
     private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
     /** Allocate int array once (used for reading in data) for efficiency's sake. */
-    private int[] inComing = new int[14];
+    private int[] inComing = new int[15];
 
     /** List of all receiverSubscribeIds that match the incoming message. */
     private int[] rsIds = new int[20];
@@ -83,6 +83,8 @@ public class cMsgClientListeningThread extends Thread {
         client = myClient;
         serverChannel = channel;
         debug = client.debug;
+        // die if no more non-daemon thds running
+        setDaemon(true);
     }
 
 
@@ -320,14 +322,14 @@ public class cMsgClientListeningThread extends Thread {
         // create a message
         cMsgMessageFull msg = new cMsgMessageFull();
 
-        // keep reading until we have 14 ints of data
-        cMsgUtilities.readSocketBytes(buffer, channel, 56, debug);
+        // keep reading until we have 15 ints of data
+        cMsgUtilities.readSocketBytes(buffer, channel, 60, debug);
 
         // go back to reading-from-buffer mode
         buffer.flip();
 
-        // read 14 ints
-        buffer.asIntBuffer().get(inComing, 0, 14);
+        // read 15 ints
+        buffer.asIntBuffer().get(inComing, 0, 15);
 
         msg.setVersion(inComing[0]);
         msg.setPriority(inComing[1]);
@@ -344,9 +346,9 @@ public class cMsgClientListeningThread extends Thread {
         int lengthSubject    = inComing[10];
         int lengthType       = inComing[11];
         int lengthText       = inComing[12];
-
+        int lengthCreator    = inComing[13];
         // number of receiverSubscribe ids to come
-        rsIdCount = inComing[13];
+        rsIdCount = inComing[14];
 
         if (rsIdCount > 0) {
             // keep reading until we have "rsIdCount" ints of data
@@ -365,7 +367,8 @@ public class cMsgClientListeningThread extends Thread {
         }
 
         // bytes expected
-        int bytesToRead = lengthSender + lengthSenderHost + lengthSubject + lengthType + lengthText;
+        int bytesToRead = lengthSender + lengthSenderHost + lengthSubject +
+                          lengthType + lengthText + lengthCreator;
 
         // read in all remaining bytes
         cMsgUtilities.readSocketBytes(buffer, channel, bytesToRead, debug);
@@ -393,7 +396,10 @@ public class cMsgClientListeningThread extends Thread {
         msg.setType(new String(bytes, lengthSender+lengthSenderHost+lengthSubject, lengthType, "US-ASCII"));
 
         // read text
-        msg.setText(new String(bytes, bytesToRead-lengthText, lengthText, "US-ASCII"));
+        msg.setText(new String(bytes, bytesToRead-lengthText-lengthCreator, lengthText, "US-ASCII"));
+
+        // read creator
+        msg.setCreator(new String(bytes, bytesToRead-lengthCreator, lengthCreator, "US-ASCII"));
 
         // fill in message object's members
         msg.setDomain(domainType);

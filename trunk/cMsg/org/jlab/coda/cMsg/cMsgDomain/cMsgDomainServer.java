@@ -342,7 +342,7 @@ public class cMsgDomainServer extends Thread {
         }
 
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("\n\nQuitting Domain Server");
+            System.out.println("\nQuitting Domain Server");
         }
 
         return;
@@ -363,7 +363,7 @@ public class cMsgDomainServer extends Thread {
         private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
         /** Allocate int array once (used for reading in data) for efficiency's sake. */
-        private int[] inComing = new int[11];
+        private int[] inComing = new int[12];
 
         /** Allocate byte array once (used for reading in data) for efficiency's sake. */
         private byte[] bytes = new byte[5000];
@@ -380,7 +380,7 @@ public class cMsgDomainServer extends Thread {
             // start up 1 permanent worker thread on the (un)subscribe cue
             requestThreads.add(new RequestThread(true, true));
 
-            // die if main thread dies
+            // die if no more non-daemon thds running
             setDaemon(true);
 
             start();
@@ -519,8 +519,16 @@ public class cMsgDomainServer extends Thread {
                 }
             }
             catch (cMsgException ex) {
+                if (debug >= cMsgConstants.debugError) {
+                    System.out.println("dServer handleClient: command-reading thread's connection to client is dead from cMsg error");
+                    ex.printStackTrace();
+                }
             }
             catch (IOException ex) {
+                if (debug >= cMsgConstants.debugError) {
+                    System.out.println("dServer handleClient: command-reading thread's connection to client is dead from IO error");
+                    ex.printStackTrace();
+                }
             }
         }
 
@@ -537,14 +545,14 @@ public class cMsgDomainServer extends Thread {
             // create a message
             cMsgMessageFull msg = new cMsgMessageFull();
 
-            // keep reading until we have 11 ints of data
-            cMsgUtilities.readSocketBytes(buffer, channel, 44, debug);
+            // keep reading until we have 12 ints of data
+            cMsgUtilities.readSocketBytes(buffer, channel, 48, debug);
 
             // go back to reading-from-buffer mode
             buffer.flip();
 
             // read 11 ints
-            buffer.asIntBuffer().get(inComing, 0, 11);
+            buffer.asIntBuffer().get(inComing, 0, 12);
 
             msg.setVersion(inComing[0]);
             msg.setPriority(inComing[1]);
@@ -558,11 +566,12 @@ public class cMsgDomainServer extends Thread {
             msg.setUserTime(new Date(((long) inComing[7]) * 1000));
 
             int lengthSubject = inComing[8];
-            int lengthType = inComing[9];
-            int lengthText = inComing[10];
+            int lengthType    = inComing[9];
+            int lengthText    = inComing[10];
+            int lengthCreator = inComing[11];
 
             // bytes expected
-            int bytesToRead = lengthSubject + lengthType + lengthText;
+            int bytesToRead = lengthSubject + lengthType + lengthText + lengthCreator;
 
             // read in all remaining bytes
             cMsgUtilities.readSocketBytes(buffer, channel, bytesToRead, debug);
@@ -589,6 +598,10 @@ public class cMsgDomainServer extends Thread {
             // read text
             msg.setText(new String(bytes, lengthSubject + lengthType, lengthText, "US-ASCII"));
 
+            // read creator
+            msg.setCreator(new String(bytes, lengthSubject + lengthType + lengthText,
+                                      lengthCreator, "US-ASCII"));
+
             // fill in message object's members
             msg.setDomain(domainType);
             msg.setReceiver("cMsg domain server");
@@ -614,13 +627,13 @@ public class cMsgDomainServer extends Thread {
             cMsgMessageFull msg = new cMsgMessageFull();
 
             // keep reading until we have 9 ints of data
-            cMsgUtilities.readSocketBytes(buffer, channel, 36, debug);
+            cMsgUtilities.readSocketBytes(buffer, channel, 40, debug);
 
             // go back to reading-from-buffer mode
             buffer.flip();
 
             // read 9 ints
-            buffer.asIntBuffer().get(inComing, 0, 9);
+            buffer.asIntBuffer().get(inComing, 0, 10);
 
             msg.setVersion(inComing[0]);
             msg.setPriority(inComing[1]);
@@ -634,9 +647,10 @@ public class cMsgDomainServer extends Thread {
             int lengthSubject = inComing[6];
             int lengthType = inComing[7];
             int lengthText = inComing[8];
+            int lengthCreator = inComing[9];
 
             // bytes expected
-            int bytesToRead = lengthSubject + lengthType + lengthText;
+            int bytesToRead = lengthSubject + lengthType + lengthText + lengthCreator;
 
             // read in all remaining bytes
             cMsgUtilities.readSocketBytes(buffer, channel, bytesToRead, debug);
@@ -661,6 +675,10 @@ public class cMsgDomainServer extends Thread {
 
             // read text
             msg.setText(new String(bytes, lengthSubject + lengthType, lengthText, "US-ASCII"));
+
+            // read creator
+            msg.setCreator(new String(bytes, lengthSubject + lengthType + lengthText,
+                                      lengthCreator, "US-ASCII"));
 
             // fill in message object's members
             msg.setGetRequest(true);
@@ -868,14 +886,22 @@ public class cMsgDomainServer extends Thread {
 
                         default:
                             if (debug >= cMsgConstants.debugWarn) {
-                                System.out.println("dServer handleClient: can't understand your message " + info.getName());
+                                System.out.println("dServer requestThread: can't understand your message " + info.getName());
                             }
                             break;
                     }
                 }
                 catch (cMsgException e) {
+                    if (debug >= cMsgConstants.debugError) {
+                        System.out.println("dServer requestThread: thread picking commands off cue has died from cMsg error");
+                        e.printStackTrace();
+                    }
                 }
                 catch (IOException e) {
+                    if (debug >= cMsgConstants.debugError) {
+                        System.out.println("dServer requestThread: thread picking commands off cue has died from IO error");
+                        e.printStackTrace();
+                    }
                 }
             }
 
