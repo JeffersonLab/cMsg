@@ -83,7 +83,7 @@ extern "C" {
 
 
 /* in cMsgServer.c */
-void *serverListeningThread(void *arg);
+void *cMsgServerListeningThread(void *arg);
 
 
 /* local prototypes */
@@ -97,13 +97,12 @@ static int   sendMutexLock(cMsgDomain_CODA *domain);
 static int   sendMutexUnlock(cMsgDomain_CODA *domain);
 static int   subscribeMutexLock(cMsgDomain_CODA *domain);
 static int   subscribeMutexUnlock(cMsgDomain_CODA *domain);
-static int   readMessage(int fd, cMsgMessage *msg);
-static int   runCallbacks(cMsgDomain_CODA *domain, int command, cMsgMessage *msg);
 static int   parseUDL(const char *UDL, char **domainType, char **host,
                     unsigned short *port, char **remainder);
 static void  domainInit(cMsgDomain_CODA *domain);
 static void  domainFree(cMsgDomain_CODA *domain);  
 static void  domainClear(cMsgDomain_CODA *domain);
+static void *keepAliveThread(void *arg);
 
 
 
@@ -169,15 +168,9 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   /* reserve this element of the "domains" array */
   domains[id].initComplete = 1;
       
-  /* check args */
-  if ( (checkString(myName)        != CMSG_OK)  ||
-       (checkString(myUDL)         != CMSG_OK)  ||
-       (checkString(myDescription) != CMSG_OK) )  {
-    domainInit(&domains[i]);
-    connectMutexUnlock();
-    return(CMSG_BAD_ARGUMENT);
-  }
-    
+  /* save ref to self */
+  domains[id].id = id;
+          
   /* store our host's name */
   gethostname(temp, CMSG_MAXHOSTNAMELEN);
   domains[id].myHost = (char *) strdup(temp);
@@ -236,7 +229,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   threadArg.listenFd = domains[id].listenSocket;
   threadArg.blocking = CMSG_NONBLOCKING;
   status = pthread_create(&domains[id].pendThread, NULL,
-                          serverListeningThread, (void *)&threadArg);
+                          cMsgServerListeningThread, (void *)&threadArg);
   if (status != 0) {
     err_abort(status, "Creating message listening thread");
   }
@@ -305,8 +298,40 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   }
   
   /* init is complete */
+  *domainId = id + DOMAIN_ID_OFFSET;
   domains[id].initComplete = 1;
 
+  /* create keep alive socket and store */
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "cMsgConnect: created keepalive socket\n");
+  }
+
+  if ( (err = cMsgTcpConnect(domains[id].sendHost,
+                             domains[id].sendPort,
+                             &domains[id].keepAliveSocket)) != CMSG_OK) {
+    close(domains[id].sendSocket);
+    pthread_cancel(domains[id].pendThread);
+    domainClear(&domains[id]);
+    connectMutexUnlock();
+    return(err);
+  }
+  
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "cMsgConnect: keepalive socket fd = %d\n",domains[id].keepAliveSocket );
+  }
+  
+  /* create thread to send periodic keep alives and handle dead server */
+  status = pthread_create(&domains[id].keepAliveThread, NULL,
+                          keepAliveThread, (void *)&domains[id]);
+  if (status != 0) {
+    err_abort(status, "Creating keep alive thread");
+  }
+     
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "cMsgConnect: created keep alive thread\n");
+  }
+  
+  
   /* no more mutex protection is necessary */
   connectMutexUnlock();
   
@@ -326,6 +351,9 @@ static int coda_send(int domainId, void *vmsg) {
   cMsgDomain_CODA *domain = &domains[domainId];
   int fd = domain->sendSocket;
   
+  if (domains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
+  if (domains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
+
   subject = cMsgGetSubject(vmsg);
   type    = cMsgGetType(vmsg);
   text    = cMsgGetText(vmsg);
@@ -420,6 +448,8 @@ static int flush(int domainId) {
   cMsgDomain_CODA *domain = &domains[domainId];
   int fd = domain->sendSocket;
 
+  if (domains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
+  if (domains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
 
   /* turn file descriptor into FILE pointer */
   file = fdopen(fd, "w");
@@ -443,7 +473,10 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
   int i, j, iok, jok, uniqueId;
   cMsgDomain_CODA *domain = &domains[domainId];
 
+  if (domains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
+  if (domains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
 
+  
   /* make sure subscribe and unsubscribe are not run at the same time */
   subscribeMutexLock(domain);
   
@@ -580,8 +613,7 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
 
   int i, j, cbCount, cbsRemoved;
   cMsgDomain_CODA *domain = &domains[domainId];
-
-
+  
   /* make sure subscribe and unsubscribe are not run at the same time */
   subscribeMutexLock(domain);
   
@@ -700,12 +732,15 @@ static int disconnect(int domainId) {
   int status;
   cMsgDomain_CODA *domain = &domains[domainId];
 
+  if (domains[domainId].initComplete != 1) return(CMSG_NOT_INITIALIZED);
+  
   /* When changing initComplete / connection status, mutex protect it */
   connectMutexLock();
   
   /* close sending and listening sockets */
   close(domain->sendSocket);
   close(domain->listenSocket);
+  close(domain->keepAliveSocket);
 
   /* stop listening and client communication threads */
   status = pthread_cancel(domain->pendThread);
@@ -860,10 +895,80 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd) {
 }
 
 
+/*-------------------------------------------------------------------*
+ * keepAliveThread is a thread used to send keep alive packets
+ * to other cMsg-enabled programs. If there is no response or there is
+ * an I/O error. The other end of the socket is presumed dead.
+ *-------------------------------------------------------------------*/
+static void *keepAliveThread(void *arg)
+{
+    cMsgDomain_CODA *domain = (cMsgDomain_CODA *) arg;
+    int domainId = domain->id;
+    int socket   = domain->keepAliveSocket;
+    int request, alive, err;
+
+    /* increase concurrency for this thread for early Solaris */
+  #ifdef sun
+    int  con;
+    con = thr_getconcurrency();
+    thr_setconcurrency(con + 1);
+  #endif
+
+    /* periodically send a keep alive message and read response */
+    if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "keepAliveThread: keep alive thread created, socket = %d\n", socket);
+    }
+  
+    /* request to send */
+    request = htonl(CMSG_KEEP_ALIVE);
+    
+    /* keep checking to see if the server/agent is alive */
+    while(1) {
+       if (cMsgDebug >= CMSG_DEBUG_INFO) {
+         fprintf(stderr, "keepAliveThread: send keep alive request\n");
+       }
+       
+       if (cMsgTcpWrite(socket, &request, sizeof(request)) != sizeof(request)) {
+         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+           fprintf(stderr, "keepAliveThread: error writing request\n");
+         }
+         break;
+       }
+
+       /* read response */
+       if (cMsgDebug >= CMSG_DEBUG_INFO) {
+         fprintf(stderr, "keepAliveThread: read keep alive response\n");
+       }
+       
+       if ((err = cMsgTcpRead(socket, (void *) &alive, sizeof(alive))) != sizeof(alive)) {
+         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+           fprintf(stderr, "keepAliveThread: read failure\n");
+         }
+         break;
+       }
+       
+       /* sleep for 3 seconds and try again */
+       sleep(3);
+    }
+    
+    /* if we've reach here, there's an error, do a disconnect */
+    if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "keepAliveThread: server is probably dead, disconnect\n");
+    }
+    cMsgDisconnect(domainId);
+    
+  #ifdef sun
+    thr_setconcurrency(con);
+  #endif
+    
+    return;
+}
+
+
 /*-------------------------------------------------------------------*/
 
 
-static int runCallbacks(cMsgDomain_CODA *domain, int command, cMsgMessage *msg) {
+int cMsgRunCallbacks(cMsgDomain_CODA *domain, int command, cMsgMessage *msg) {
 
   int i, j, status;
   dispatchCbInfo *dcbi;
@@ -934,7 +1039,7 @@ static int runCallbacks(cMsgDomain_CODA *domain, int command, cMsgMessage *msg) 
 /*-------------------------------------------------------------------*/
 
 
-static int readMessage(int fd, cMsgMessage *msg) {
+int cMsgReadMessage(int fd, cMsgMessage *msg) {
   
   int err, lengths[5], inComing[9];
   int memSize = CMSG_MESSAGE_SIZE;
@@ -1221,25 +1326,27 @@ static int parseUDL(const char *UDL, char **domainType, char **host,
 static void domainInit(cMsgDomain_CODA *domain) {
   int i, j;
  
-  domain->initComplete   = 0;
+  domain->initComplete    = 0;
+  domain->id              = 0;
 
-  domain->receiveState   = 0;
-  domain->lostConnection = 0;
+  domain->receiveState    = 0;
+  domain->lostConnection  = 0;
       
-  domain->sendSocket     = 0;
-  domain->listenSocket   = 0;
+  domain->sendSocket      = 0;
+  domain->listenSocket    = 0;
+  domain->keepAliveSocket = 0;
   
-  domain->sendPort       = 0;
-  domain->serverPort     = 0;
-  domain->listenPort     = 0;
+  domain->sendPort        = 0;
+  domain->serverPort      = 0;
+  domain->listenPort      = 0;
   
-  domain->myHost         = NULL;
-  domain->sendHost       = NULL;
-  domain->serverHost     = NULL;
+  domain->myHost          = NULL;
+  domain->sendHost        = NULL;
+  domain->serverHost      = NULL;
   
-  domain->name           = NULL;
-  domain->udl            = NULL;
-  domain->description    = NULL;
+  domain->name            = NULL;
+  domain->udl             = NULL;
+  domain->description     = NULL;
 
   /* pthread_mutex_init mallocs memory */
   pthread_mutex_init(&domain->sendMutex, NULL);
@@ -1263,12 +1370,27 @@ static void domainInit(cMsgDomain_CODA *domain) {
 
 
 static void domainFree(cMsgDomain_CODA *domain) {  
+  int i;
+  
   if (domain->myHost      != NULL) free(domain->myHost);
   if (domain->sendHost    != NULL) free(domain->sendHost);
   if (domain->serverHost  != NULL) free(domain->serverHost);
   if (domain->name        != NULL) free(domain->name);
   if (domain->udl         != NULL) free(domain->udl);
   if (domain->description != NULL) free(domain->description);
+  
+  /* pthread_mutex_destroy frees memory */
+  pthread_mutex_destroy(&domain->sendMutex);
+  pthread_mutex_destroy(&domain->subscribeMutex);
+  
+  for (i=0; i<MAXSUBSCRIBE; i++) {
+    if (domain->subscribeInfo[i].type != NULL) {
+      free(domain->subscribeInfo[i].type);
+    }
+    if (domain->subscribeInfo[i].subject != NULL) {
+      free(domain->subscribeInfo[i].subject);
+    }
+  }
 }
 
 

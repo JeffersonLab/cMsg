@@ -65,7 +65,8 @@ typedef struct domainTypeInfo_t {
 typedef struct cMsgDomain_t {
   /* init state */
   int initComplete; /* 0 = No, 1 = Yes */
-  int id;
+  int id;           /* index into an array of this domain structure */
+  int implId;       /* index into the array of the domain implementation struct */
 
   /* other state variables */
   int receiveState;
