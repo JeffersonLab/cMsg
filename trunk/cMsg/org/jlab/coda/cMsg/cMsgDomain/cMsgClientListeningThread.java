@@ -218,7 +218,7 @@ public class cMsgClientListeningThread extends Thread {
 
                      break;
 
-                 case cMsgConstants.msgSubscribeResponseAndAck: // receiving a message, send ack
+                 case cMsgConstants.msgSubscribeResponseWithAck: // receiving a message, send ack
                      // read the message here
                      msg = readIncomingMessage(channel);
                      // run callbacks for this message
@@ -233,7 +233,7 @@ public class cMsgClientListeningThread extends Thread {
 
                      break;
 
-                 case cMsgConstants.msgGetResponseAndAck: // receiving message for sendAndGet, send ack
+                 case cMsgConstants.msgGetResponseWithAck: // receiving message for sendAndGet, send ack
                      // read the message here
                      msg = readIncomingMessage(channel);
                      msg.setGetResponse(true);
