@@ -20,6 +20,15 @@ package org.jlab.coda.cMsg;
  * @author Carl Timmer
  */
 public class cMsgException extends Exception {
+    private int returnCode;
+
+    public int getReturnCode() {
+        return returnCode;
+    }
+
+    public void setReturnCode(int returnCode) {
+        this.returnCode = returnCode;
+    }
 
     /**
      * Constructs a new exception with the specified message.
@@ -30,7 +39,7 @@ public class cMsgException extends Exception {
     }
 
     /** Constructs a new exception with no message. */
-     public cMsgException() {
+    public cMsgException() {
     }
 }
 
