@@ -326,7 +326,7 @@ int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callb
 /*-------------------------------------------------------------------*/
 
 
-int cMsgGet(int domainId, void *sendMsg, time_t timeout, void **replyMsg) {
+int cMsgGet(int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
@@ -819,6 +819,7 @@ void *cMsgCreateMessage(void) {
   cMsgMessage *msg;
   
   msg = (cMsgMessage *) malloc(sizeof(cMsgMessage));
+  if (msg == NULL) return NULL;
   /* initialize the memory */
   initMessage(msg);
   
