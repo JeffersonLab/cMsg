@@ -59,6 +59,15 @@ public class cMsgCallbackThread extends Thread {
     }
 
     /**
+     * Gets the user argument.
+     * @return user argument object
+     */
+    public Object getArg() {
+        return arg;
+    }
+
+
+    /**
      * Class defining threads which can be run in parallel when many incoming
      * messages all need to run the same callback.
      */

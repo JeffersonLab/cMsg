@@ -1075,13 +1075,17 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
 
     /**
      * Method to subscribe to receive messages of a subject and type from the domain server.
+     * The combination of arguments must be unique. In other words, only 1 subscription is
+     * allowed for a given set of subject, type, callback, and userObj.
      *
      * @param subject message subject
      * @param type    message type
      * @param cb      callback object whose single method is called upon receiving a message
      *                of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
-     * @throws cMsgException if there are communication problems with the server
+     * @throws cMsgException if the callback, subject, or type is null; the subject or type is
+     *                       blank; an identical subscription already exists; there are
+     *                       communication problems with the server
      */
     public void subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
@@ -1115,6 +1119,19 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
             for (cMsgSubscription sub : subscriptions) {
                 // if subscription to subject & type exists ...
                 if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
+                    // Only add another callback if the callback/userObj
+                    // combination does NOT already exist. In other words,
+                    // a callback/argument pair must be unique for a single
+                    // subscription. Otherwise it is impossible to unsubscribe.
+
+                    // for each callback listed ...
+                    for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
+                        // if callback and user arg already exist, reject the subscription
+                        if ((cbThread.callback == cb) && (cbThread.getArg() == userObj)) {
+                            throw new cMsgException("subscription already exists");
+                        }
+                    }
+
                     // add to existing set of callbacks
                     sub.addCallback(new cMsgCallbackThread(cb, userObj));
                     return;
@@ -1184,16 +1201,17 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
     /**
      * Method to unsubscribe a previous subscription to receive messages of a subject and type
      * from the domain server. Since many subscriptions may be made to the same subject and type
-     * values, but with different callbacks, the callback must be specified so the correct
-     * subscription can be removed.
+     * values, but with different callbacks and user objects, the callback and user object must
+     * be specified so the correct subscription can be removed.
      *
      * @param subject message subject
      * @param type    message type
      * @param cb      callback object whose single method is called upon receiving a message
      *                of subject and type
+     * @param userObj any user-supplied object to be given to the callback method as an argument
      * @throws cMsgException if there are communication problems with the server
      */
-    public void unsubscribe(String subject, String type, cMsgCallbackInterface cb)
+    public void unsubscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
 
         // cannot run this simultaneously with connect or disconnect
@@ -1236,7 +1254,7 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
                         // for each callback listed ...
                         for (Iterator iter2 = sub.getCallbacks().iterator(); iter2.hasNext();) {
                             cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
-                            if (cbThread.callback == cb) {
+                            if ((cbThread.callback == cb) && (cbThread.getArg() == userObj)) {
                                 // kill callback thread(s)
                                 cbThread.dieNow();
                                 // remove this callback from the set
