@@ -351,6 +351,7 @@ public class cMsgMessage implements Cloneable {
             + "     " + "senderHost     = \"" + this.getSenderHost() + "\"\n"
             + "     " + "senderTime     = \"" + this.getSenderTime() + "\"\n"
             + "     " + "userInt        = \"" + this.getUserInt() + "\"\n"
+            + "     " + "userTime       = \"" + this.getUserTime() + "\"\n"
             + "     " + "priority       = \"" + this.getPriority() + "\"\n"
             + "     " + "receiver       = \"" + this.getReceiver() + "\"\n"
             + "     " + "receiverHost   = \"" + this.getReceiverHost() + "\"\n"
@@ -380,6 +381,7 @@ public class cMsgMessage implements Cloneable {
         l.put("senderTime","time");
 
         l.put("userInt","int");
+        l.put("userTime","time");
         l.put("priority","int");
 
         l.put("receiver","varchar(128)");
@@ -408,15 +410,16 @@ public class cMsgMessage implements Cloneable {
         case 5:    return(this.getSenderTime());
 
         case 6:    return(this.getUserInt());
-        case 7:    return(this.getPriority());
+        case 7:    return(this.getUserTime());
+        case 8:    return(this.getPriority());
 
-        case 8:    return(this.getReceiver());
-        case 9:    return(this.getReceiverHost());
-        case 10:   return(this.getReceiverTime());
+        case 9:    return(this.getReceiver());
+        case 10:   return(this.getReceiverHost());
+        case 11:   return(this.getReceiverTime());
 
-        case 11:   return(this.getSubject());
-        case 12:   return(this.getType());
-        case 13:   return(this.getText());
+        case 12:   return(this.getSubject());
+        case 13:   return(this.getType());
+        case 14:   return(this.getText());
 
         default:   return(0);
 
