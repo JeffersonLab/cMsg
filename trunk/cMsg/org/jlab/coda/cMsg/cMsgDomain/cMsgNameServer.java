@@ -495,13 +495,14 @@ public class cMsgNameServer extends Thread {
                 buffer.putInt(cMsgConstants.ok);
 
                 // send back attributes of clientHandler class/object
-                // 1 = has, 0 = don't have: send, get, subscribe, unsubscribe
-                byte[] atts = new byte[5];
-                atts[0] = handler.hasSend()        ? (byte)1 : (byte)0;
-                atts[1] = handler.hasSyncSend()    ? (byte)1 : (byte)0;
-                atts[2] = handler.hasGet()         ? (byte)1 : (byte)0;
-                atts[3] = handler.hasSubscribe()   ? (byte)1 : (byte)0;
-                atts[4] = handler.hasUnsubscribe() ? (byte)1 : (byte)0;
+                // 1 = has, 0 = don't have: send, subscribeAndGet, sendAndGet, subscribe, unsubscribe
+                byte[] atts = new byte[6];
+                atts[0] = handler.hasSend()            ? (byte)1 : (byte)0;
+                atts[1] = handler.hasSyncSend()        ? (byte)1 : (byte)0;
+                atts[2] = handler.hasSubscribeAndGet() ? (byte)1 : (byte)0;
+                atts[3] = handler.hasSendAndGet()      ? (byte)1 : (byte)0;
+                atts[4] = handler.hasSubscribe()       ? (byte)1 : (byte)0;
+                atts[5] = handler.hasUnsubscribe()     ? (byte)1 : (byte)0;
                 buffer.put(atts);
 
                 // send cMsg domain host & port contact info back to client

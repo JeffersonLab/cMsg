@@ -144,13 +144,23 @@ public class cMsg extends cMsgSubdomainAbstract {
 
 
     /**
-     * Method to tell if the "get" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleGetRequest}
+     * Method to tell if the "subscribeAndGet" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleSubscribeAndGetRequest}
      * method.
      *
-     * @return true if get implemented in {@link #handleGetRequest}
+     * @return true if subscribeAndGet implemented in {@link #handleSubscribeAndGetRequest}
      */
-    public boolean hasGet() {return true;};
+    public boolean hasSubscribeAndGet() {return true;}
+
+
+    /**
+     * Method to tell if the "sendAndGet" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleSendAndGetRequest}
+     * method.
+     *
+     * @return true if sendAndGet implemented in {@link #handleSendAndGetRequest}
+     */
+    public boolean hasSendAndGet() {return true;}
 
 
     /**
@@ -477,15 +487,15 @@ public class cMsg extends cMsgSubdomainAbstract {
     }
 
 
+
     /**
-      * Method to synchronously get a single message from the server for a given
-      * subject and type -- perhaps from a specified receiver.
-      *
-      * @param message message requesting what sort of message to get
-      * @throws cMsgException if no client information is available or a subscription for this
-      *                          subject and type already exists
-      */
-     public void handleGetRequest(cMsgMessage message) throws cMsgException {
+     * Method to synchronously get a single message from a receiver by sending out a
+     * message to be responded to.
+     *
+     * @param message message requesting what sort of message to get
+     * @throws cMsgException if no client information is available
+     */
+    public void handleSendAndGetRequest(cMsgMessage message) throws cMsgException {
         // Each client (name) has a cMsgClientInfo object associated with it
         // that contains all relevant information. Retrieve that object
         // from the "clients" table, add get (actually a subscription) to it.
@@ -496,29 +506,46 @@ public class cMsg extends cMsgSubdomainAbstract {
             throw new cMsgException("handleGetRequest: no client information stored for " + name);
         }
 
-        // handle specific gets and "1-shot subscribes" separately
-        if (message.isGetRequest()) {
-            int id = sysMsgId.getAndIncrement();
-            message.setSysMsgId(id);
-            specificGets.put(id, info);
-            deleteGets.put(message.getSenderToken(), id);
+        int id = sysMsgId.getAndIncrement();
+        message.setSysMsgId(id);
+        specificGets.put(id, info);
+        deleteGets.put(message.getSenderToken(), id);
 
-            // Now send this message on its way to any receivers out there.
-            // SenderToken and sysMsgId get sent back by response. The sysMsgId
-            // tells us which client to send to and the senderToken tells the
-            // client which "get" to wakeup.
-            handleSendRequest(message);
+        // Now send this message on its way to any receivers out there.
+        // SenderToken and sysMsgId get sent back by response. The sysMsgId
+        // tells us which client to send to and the senderToken tells the
+        // client which "get" to wakeup.
+        handleSendRequest(message);
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to synchronously get a single message from the server for a one-time
+     * subscription of a subject and type.
+     *
+     * @param subject message subject subscribed to
+     * @param type    message type subscribed to
+     * @param id      message id refering to these specific subject and type values
+     * @throws cMsgException if no client information is available
+     */
+    public void handleSubscribeAndGetRequest(String subject, String type, int id)
+            throws cMsgException {
+        readLock.lock();
+        cMsgClientInfo info = clients.get(name);
+        readLock.unlock();
+        if (info == null) {
+            throw new cMsgException("handleGetRequest: no client information stored for " + name);
         }
-        else {
-            // add new get "subscription" and thereby wait for a matching message to come in
-            cMsgSubscription sub = new cMsgSubscription(message.getSubject(),
-                                                        message.getType(),
-                                                        message.getReceiverSubscribeId());
-            info.getWriteLock().lock();
-            info.getGets().add(sub);
-            info.getWriteLock().unlock();
-        }
-     }
+
+        // add new get "subscription" and thereby wait for a matching message to come in
+        cMsgSubscription sub = new cMsgSubscription(subject, type, id);
+        info.getWriteLock().lock();
+        info.getGets().add(sub);
+        info.getWriteLock().unlock();
+    }
 
 
     /**
