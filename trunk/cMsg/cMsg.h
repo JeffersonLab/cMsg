@@ -276,6 +276,9 @@
 /* message receive callback */
 typedef void (cMsgCallback) (void *msg, void *userArg);
 
+/* pointer type to use for setting subscribe config */
+typedef void *cMsgSubscribeConfig;
+
 
 /* function prototypes */
 #ifdef __cplusplus
@@ -287,7 +290,8 @@ extern "C" {
   int 	cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId);
   int 	cMsgSend(int domainId, void *msg);
   int 	cMsgFlush(int domainId);
-  int 	cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback, void *userArg);
+  int 	cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+                      void *userArg, cMsgSubscribeConfig *config);
   int 	cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback);
   int   cMsgGet(int domainId, void *sendMsg, time_t timeout, void **replyMsg);
   int 	cMsgReceiveStart(int domainId);
@@ -331,7 +335,18 @@ extern "C" {
   int cMsgGetDescription(int domainId, char *description, size_t size);
   int cMsgGetInitState(int domainId, int *initState);
   int cMsgGetReceiveState(int domainId, int *receiveState);
-
+  
+  /* subscribe configuration functions */
+  cMsgSubscribeConfig *cMsgSubscribeConfigCreate(void);
+  int cMsgSubscribeConfigDestroy(cMsgSubscribeConfig *config);
+  int cMsgSubscribeSetMaxCueSize(cMsgSubscribeConfig *config, int size);
+  int cMsgSubscribeGetMaxCueSize(cMsgSubscribeConfig *config, int *size);
+  int cMsgSubscribeSetSkipSize(cMsgSubscribeConfig *config, int size);
+  int cMsgSubscribeGetSkipSize(cMsgSubscribeConfig *config, int *size);
+  int cMsgSubscribeSetMaySkip(cMsgSubscribeConfig *config, int maySkip);
+  int cMsgSubscribeGetMaySkip(cMsgSubscribeConfig *config, int *maySkip);
+  int cMsgSubscribeSetMustSerialize(cMsgSubscribeConfig *config, int serialize);
+  int cMsgSubscribeGetMustSerialize(cMsgSubscribeConfig *config, int *serialize);
 
   /* for debugging */
   int  	cMsgSetDebugLevel(int level);

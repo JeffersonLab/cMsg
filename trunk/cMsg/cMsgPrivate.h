@@ -47,7 +47,8 @@ typedef struct domainFunctions_t {
   int (*connect)    (char *udl, char *name, char *description, int *domainId); 
   int (*send)       (int domainId, void *msg);
   int (*flush)      (int domainId);
-  int (*subscribe)  (int domainId, char *subject, char *type, cMsgCallback *callback, void *userArg);
+  int (*subscribe)  (int domainId, char *subject, char *type, cMsgCallback *callback,
+                     void *userArg, cMsgSubscribeConfig *config);
   int (*unsubscribe)(int domainId, char *subject, char *type, cMsgCallback *callback);
   int (*get)        (int domainId, void *sendMsg, time_t timeout, void **replyMsg);
   int (*start)      (int domainId);
@@ -134,6 +135,17 @@ enum msgId {
   CMSG_SUBSCRIBE_RESPONSE
 };
 
+/* parameters used to subscribe to messages */
+typedef struct subscribeConfig_t {
+  int  init;          /* flag = 1 if structure was initialized */
+  int  maySkip;       /* may skip messages if too many are piling up in cue */
+  int  mustSerialize; /* if == 1, messages must be processed in order
+                         received, else the messages may be processed
+                         by parallel threads */
+  int  maxCueSize;    /* maximum number of messages to cue for callback */
+  int  skipSize;      /* maximum number of messages to skip over (delete) from the 
+                       * cue for a callback when the cue size has reached it limit */
+} subscribeConfig;
 
 
 

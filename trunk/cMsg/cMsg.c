@@ -262,7 +262,8 @@ int cMsgFlush(int domainId) {
 /*-------------------------------------------------------------------*/
 
 
-int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback, void *userArg) {
+int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback,
+                  void *userArg, cMsgSubscribeConfig *config) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
@@ -276,9 +277,9 @@ int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callbac
     return(CMSG_BAD_ARGUMENT);
   }
   
-
   /* dispatch to function registered for this domain type */
-  return(domains[id].functions->subscribe(domains[id].id, subject, type, callback, userArg));
+  return(domains[id].functions->subscribe(domains[id].id, subject, type, callback,
+                                          userArg, config));
 }
 
 
@@ -1144,6 +1145,152 @@ char *cMsgGetText(void *vmsg) {
 
   if (msg == NULL) return(NULL);
   return(msg->text);
+}
+
+/*-------------------------------------------------------------------*/
+/*   subscribe config functions                                      */
+/*-------------------------------------------------------------------*/
+
+
+cMsgSubscribeConfig *cMsgSubscribeConfigCreate(void) {
+  subscribeConfig *sc;
+  
+  sc = (subscribeConfig *) malloc(sizeof(subscribeConfig));
+  if (sc == NULL) {
+    return NULL;
+  }
+  
+  /* default configuration for a subscription */
+  sc->maxCueSize = 10000;  /* maximum number of messages to cue for callback */
+  sc->skipSize   =  5000;  /* number of messages to skip over (delete) from the cue
+                            * for a callback when the cue size has reached it limit */
+  sc->maySkip        = 0;  /* may NOT skip messages if too many are piling up in cue */
+  sc->mustSerialize  = 1;  /* messages must be processed in order */
+  sc->init           = 1;  /* done intializing structure */
+
+  return (cMsgSubscribeConfig*) sc;
+
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cMsgSubscribeConfigDestroy(cMsgSubscribeConfig *config) {
+  if (config != NULL) {
+    free((subscribeConfig *) config);
+  }
+  return CMSG_OK;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+int cMsgSubscribeSetMaxCueSize(cMsgSubscribeConfig *config, int size) {
+  subscribeConfig *sc = (subscribeConfig *) config;
+  
+  if (sc->init != 1) {
+    return CMSG_NOT_INITIALIZED;
+  }
+   
+  if (size < 1)  {
+    return CMSG_BAD_ARGUMENT;
+  }
+  
+  sc->maxCueSize = size;
+  return CMSG_OK;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cMsgSubscribeGetMaxCueSize(cMsgSubscribeConfig *config, int *size) {
+  subscribeConfig *sc = (subscribeConfig *) config;
+    
+  *size = sc->maxCueSize;
+  return CMSG_OK;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+int cMsgSubscribeSetSkipSize(cMsgSubscribeConfig *config, int size) {
+  subscribeConfig *sc = (subscribeConfig *) config;
+  
+  if (sc->init != 1) {
+    return CMSG_NOT_INITIALIZED;
+  }
+   
+  if (size < 0)  {
+    return CMSG_BAD_ARGUMENT;
+  }
+  
+  sc->skipSize = size;
+  return CMSG_OK;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cMsgSubscribeGetSkipSize(cMsgSubscribeConfig *config, int *size) {
+  subscribeConfig *sc = (subscribeConfig *) config;
+    
+  *size = sc->skipSize;
+  return CMSG_OK;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cMsgSubscribeSetMaySkip(cMsgSubscribeConfig *config, int maySkip) {
+  subscribeConfig *sc = (subscribeConfig *) config;
+
+  if (sc->init != 1) {
+    return CMSG_NOT_INITIALIZED;
+  }   
+    
+  sc->maySkip = maySkip;
+  return CMSG_OK;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cMsgSubscribeGetMaySkip(cMsgSubscribeConfig *config, int *maySkip) {
+  subscribeConfig *sc = (subscribeConfig *) config;
+    
+  *maySkip = sc->maySkip;
+  return CMSG_OK;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cMsgSubscribeSetMustSerialize(cMsgSubscribeConfig *config, int serialize) {
+  subscribeConfig *sc = (subscribeConfig *) config;
+
+  if (sc->init != 1) {
+    return CMSG_NOT_INITIALIZED;
+  }   
+    
+  sc->mustSerialize = serialize;
+  return CMSG_OK;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cMsgSubscribeGetMustSerialize(cMsgSubscribeConfig *config, int *serialize) {
+  subscribeConfig *sc = (subscribeConfig *) config;
+    
+  *serialize = sc->mustSerialize;
+  return CMSG_OK;
 }
 
 
