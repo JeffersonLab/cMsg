@@ -53,13 +53,13 @@ public class Logfile implements cMsgHandleRequests {
 
     /** Object to hold log file name and handle */
     class LogFileObject {
-	String logFileName;
-	Object logFileHandle;
+        String logFileName;
+        Object logFileHandle;
 
-	LogFileObject(String name, Object handle) {
-	    logFileName=name;
-	    logFileHandle=handle;
-	}
+        LogFileObject(String name, Object handle) {
+            logFileName = name;
+            logFileHandle = handle;
+        }
 
     }
 
@@ -68,6 +68,18 @@ public class Logfile implements cMsgHandleRequests {
     LogFileObject myLogFileObject = null;
 
 
+
+    /**
+     * Method to give the subdomain handler the appropriate part
+     * of the UDL the client used to talk to the domain server.
+     *
+     * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
+     * @throws cMsgException
+     */
+    public void setUDLRemainder(String UDLRemainder) throws cMsgException {
+        // do nothing...
+    }
+    
 
     /**
      * Method to see if domain client is registered.
@@ -95,34 +107,34 @@ public class Logfile implements cMsgHandleRequests {
         }
 
 
-	// check if this file already open
-	LogFileObject f;
-	for(Iterator i = clients.values().iterator(); i.hasNext();) {
-	    f=(LogFileObject)i.next();
-	    if((f.logFileName).equals(myLogFileName)) {
-		myLogFileObject=f;
-		break;
-	    }
-	}
+        // check if this file already open
+        LogFileObject f;
+        for (Iterator i = clients.values().iterator(); i.hasNext();) {
+            f = (LogFileObject) i.next();
+            if ((f.logFileName).equals(myLogFileName)) {
+                myLogFileObject = f;
+                break;
+            }
+        }
 
-	// file not open...open and create new LogFileObject
-	if(myLogFileObject==null) {
-	    try {
-		myLogFileObject = new LogFileObject(myLogFileName,
-					      new PrintWriter(new BufferedWriter(new FileWriter(myLogFileName))));
-		((PrintWriter)(myLogFileObject.logFileHandle)).println("<cMsgLogFile  name=\"" + myLogFileName + "\""
-								 + "  date=\"" + (new Date()) + "\"\n\n");
-	    } catch (Exception e) {
-		System.out.println(e);
-		e.printStackTrace();
-		System.exit(-1);
-	    }
-	}
+        // file not open...open and create new LogFileObject
+        if (myLogFileObject == null) {
+            try {
+                myLogFileObject = new LogFileObject(myLogFileName,
+                                                    new PrintWriter(new BufferedWriter(new FileWriter(myLogFileName))));
+                ((PrintWriter) (myLogFileObject.logFileHandle)).println("<cMsgLogFile  name=\"" + myLogFileName + "\""
+                                                                        + "  date=\"" + (new Date()) + "\"\n\n");
+            }
+            catch (Exception e) {
+                System.out.println(e);
+                e.printStackTrace();
+                System.exit(-1);
+            }
+        }
 
-
-	// register file name and handle
+        // register file name and handle
         synchronized (clients) {
-            clients.put(name,myLogFileObject);
+            clients.put(name, myLogFileObject);
         }
     }
 
@@ -147,7 +159,20 @@ public class Logfile implements cMsgHandleRequests {
      *                          or socket properties cannot be set
      */
     public void handleSendRequest(String name, cMsgMessage msg) throws cMsgException {
-	((PrintWriter)myLogFileObject.logFileHandle).println(msg);
+        ((PrintWriter)myLogFileObject.logFileHandle).println(msg);
+    }
+
+    /**
+     * Method to get a single message from the server for a given
+     * subject and type.
+     *
+     * @param subject subject of message to get
+     * @param type type of message to get
+     * @return cMsgMessage message obtained by this get
+     */
+    public cMsgMessage handleGetRequest(String subject, String type) {
+        // do nothing...
+        return null;
     }
 
 
@@ -163,7 +188,7 @@ public class Logfile implements cMsgHandleRequests {
      */
     public void handleSubscribeRequest(String name, String subject, String type,
                                        int receiverSubscribeId) throws cMsgException {
-	// do nothing...
+        // do nothing...
     }
 
 
@@ -176,7 +201,7 @@ public class Logfile implements cMsgHandleRequests {
      * @param type message type subscribed to
      */
     public void handleUnsubscribeRequest(String name, String subject, String type) {
-	// do nothing...
+        // do nothing...
     }
 
 
@@ -189,7 +214,7 @@ public class Logfile implements cMsgHandleRequests {
      * @param name name of client
      */
     public void handleKeepAlive(String name) {
-	// do nothing...
+        // do nothing...
     }
 
 
@@ -202,7 +227,7 @@ public class Logfile implements cMsgHandleRequests {
      * @param name name of client
      */
     public void handleDisconnect(String name) {
-	// do nothing...
+        // do nothing...
     }
 
 
@@ -215,18 +240,26 @@ public class Logfile implements cMsgHandleRequests {
      * @param name name of client
      */
     public void handleShutdown(String name) {
-	// close out all files
-	System.out.println("closing log files...");  // debug...
-	PrintWriter pw;
-	for(Iterator i = clients.values().iterator(); i.hasNext();) {
-	    pw=(PrintWriter)(((LogFileObject)i.next()).logFileHandle);
-	    try {
-		pw.println("\n\n<cMsgLogFile>");
-		pw.close();
-	    } catch (Exception e) {
-		// ignore errors
-	    }
-	}
+        // close out all files
+        System.out.println("closing log files...");  // debug...
+        PrintWriter pw;
+        for (Iterator i = clients.values().iterator(); i.hasNext();) {
+            pw = (PrintWriter) (((LogFileObject) i.next()).logFileHandle);
+            try {
+                pw.println("\n\n<cMsgLogFile>");
+                pw.close();
+            }
+            catch (Exception e) {
+                // ignore errors
+            }
+        }
+    }
+
+    /**
+     * Method to execute when the domain server shuts down.
+     */
+    public void shutdown(){
+        // do nothing...
     }
 
 }
