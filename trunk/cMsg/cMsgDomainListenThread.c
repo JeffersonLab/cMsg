@@ -329,6 +329,7 @@ static void *clientThread(void *arg)
       }
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "clientThread %d: error reading command\n", localCount);
+        perror("reading command");
       }
       goto end;
     }
