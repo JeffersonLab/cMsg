@@ -18,12 +18,23 @@ package org.jlab.coda.cMsg;
 
 /**
  * This interface is an API for an object that a domain server
- * uses to respond to client demands.
+ * uses to respond to client demands. An implementation of this
+ * interface handles all communication with a particular subdomain
+ * (such as SmartSockets or JADE agents).
  *
  * @author Carl Timmer
  * @version 1.0
  */
 public interface cMsgHandleRequests {
+    /**
+     * Method to give the subdomain handler the appropriate part
+     * of the UDL the client used to talk to the domain server.
+     *
+     * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
+     * @throws cMsgException
+     */
+    public void setUDLRemainder(String UDLRemainder) throws cMsgException;
+
     /**
      * Method to register domain client.
      *
@@ -59,6 +70,17 @@ public interface cMsgHandleRequests {
      * @throws cMsgException
      */
     public void handleSendRequest(String name, cMsgMessage msg) throws cMsgException;
+
+    /**
+     * Method to get a single message from the server for a given
+     * subject and type.
+     *
+     * @param subject subject of message to get
+     * @param type type of message to get
+     * @return cMsgMessage message obtained by this get
+     * @throws cMsgException
+     */
+    public cMsgMessage handleGetRequest(String subject, String type) throws cMsgException;
 
     /**
       * Method to handle subscribe request sent by domain client.
@@ -106,4 +128,9 @@ public interface cMsgHandleRequests {
      * @throws cMsgException
      */
     public void handleShutdown(String name) throws cMsgException;
+
+    /**
+     * Method to execute when the domain server shuts down.
+     */
+    public void shutdown();
 }
