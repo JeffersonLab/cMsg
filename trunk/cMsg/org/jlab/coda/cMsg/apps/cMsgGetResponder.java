@@ -5,11 +5,9 @@ import org.jlab.coda.cMsg.*;
 import java.util.Date;
 
 /**
- * Created by IntelliJ IDEA.
- * User: timmer
- * Date: Oct 21, 2004
- * Time: 10:50:02 AM
- * To change this template use File | Settings | File Templates.
+ * An example class which creates a cMsg message consumer/producer
+ * which subscribes to a subject/type and then responds to incoming
+ * messages by sending a message for the sender only.
  */
 public class cMsgGetResponder {
     String name;
@@ -56,6 +54,8 @@ public class cMsgGetResponder {
                 cMsgMessage sendMsg = msg.response();
                 sendMsg.setSubject("RESPONDING");
                 sendMsg.setType("TO MESSAGE");
+                //try {Thread.sleep(1000);}
+                //catch (InterruptedException e) { }
                 coda.send(sendMsg);
             }
             catch (cMsgException e) {
@@ -86,7 +86,7 @@ public class cMsgGetResponder {
 
         System.out.println("Running Message GET Responder\n");
 
-        String UDL = "cMsg:cMsg://aslan:3456/cMsg";
+        String UDL = "cMsg:cMsg://aslan:3456/cMsg/vx";
 
         System.out.print("Try to connect ...");
         coda = new cMsg(UDL, name, "getResponder");

@@ -3,11 +3,7 @@ package org.jlab.coda.cMsg.apps;
 import org.jlab.coda.cMsg.*;
 
 /**
- * Created by IntelliJ IDEA.
- * User: timmer
- * Date: Sep 16, 2004
- * Time: 12:48:46 PM
- * To change this template use File | Settings | File Templates.
+ * An example class which creates a cMsg message consumer with multiple callbacks.
  */
 public class cMsgConsumer2CBs {
     String name;
@@ -74,13 +70,13 @@ public class cMsgConsumer2CBs {
           *                   message.
           */
         public void callback(cMsgMessage msg, Object userObject) {
-            try { Thread.sleep(1000); }
-            catch (InterruptedException e) {}
+            //try { Thread.sleep(1); }
+            //catch (InterruptedException e) {}
             count1++;
         }
 
         public boolean mustSerializeMessages() {return true;}
-        public boolean maySkipMessages() {return true;}
+        public boolean maySkipMessages() {return false;}
      }
 
 
@@ -97,8 +93,8 @@ public class cMsgConsumer2CBs {
             count2++;
         }
 
-        public boolean mustSerializeMessages() {return false;}
-        public boolean maySkipMessages() {return true;}
+        public boolean mustSerializeMessages() {return true;}
+        public boolean maySkipMessages() {return false;}
      }
 
 
@@ -115,7 +111,7 @@ public class cMsgConsumer2CBs {
             count3++;
         }
 
-        public boolean mustSerializeMessages() {return false;}
+        public boolean mustSerializeMessages() {return true;}
      }
 
 
@@ -132,7 +128,7 @@ public class cMsgConsumer2CBs {
             count4++;
         }
 
-        public boolean mustSerializeMessages() {return false;}
+        public boolean mustSerializeMessages() {return true;}
      }
 
 
@@ -165,7 +161,6 @@ public class cMsgConsumer2CBs {
         cMsgCallbackInterface cb2 = new cMsgConsumer2CBs.myCallback2();
         coda.subscribe(subject2, type2, cb2, null);
 
-/*
         System.out.println("Subscribe to subject = " + subject3 + ", type = " + type3);
         cMsgCallbackInterface cb3 = new cMsgConsumer2CBs.myCallback3();
         coda.subscribe(subject3, type3, cb3, null);
@@ -173,7 +168,6 @@ public class cMsgConsumer2CBs {
         System.out.println("Subscribe to subject = " + subject4 + ", type = " + type4);
         cMsgCallbackInterface cb4 = new cMsgConsumer2CBs.myCallback4();
         coda.subscribe(subject4, type4, cb4, null);
-*/
 
 
         double freq=0., freqAvg=0., freqTotal=0.;

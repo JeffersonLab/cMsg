@@ -3,11 +3,7 @@ package org.jlab.coda.cMsg.apps;
 import org.jlab.coda.cMsg.*;
 
 /**
- * Created by IntelliJ IDEA.
- * User: timmer
- * Date: Sep 9, 2004
- * Time: 12:48:08 PM
- * To change this template use File | Settings | File Templates.
+ * An example class which creates a cMsg message consumer.
  */
 public class cMsgConsumer {
     String name;
@@ -74,8 +70,6 @@ public class cMsgConsumer {
          *                   message.
          */
         public void callback(cMsgMessage msg, Object userObject) {
-            //try { Thread.sleep(1); }
-            //catch (InterruptedException e) {}
             count++;
         }
 
@@ -102,7 +96,7 @@ public class cMsgConsumer {
 
         System.out.println("Running Message Consumer\n");
 
-        String UDL = "cMsg:cMsg://aslan:3456/cMsg";
+        String UDL = "cMsg:cMsg://aslan:3456/cMsg/vx";
 
         cMsg coda = new cMsg(UDL, name, "message consumer");
         coda.connect();
@@ -114,10 +108,9 @@ public class cMsgConsumer {
         cMsgCallbackInterface cb = new myCallback();
         coda.subscribe(subject, type, cb, null);
 
-
         double freq=0., freqAvg=0., freqTotal=0.;
         long   iterations=1;
-        int    period = 5000; // msec
+        int    period = 5000; // millisec
 
         while (true) {
             count = 0;
@@ -136,8 +129,6 @@ public class cMsgConsumer {
 
             if (!coda.isConnected()) {
                 System.out.println("No longer connected to domain server, quitting");
-                //try { Thread.sleep(20000); }
-                //catch (InterruptedException e) {}
                 System.exit(-1);
             }
         }

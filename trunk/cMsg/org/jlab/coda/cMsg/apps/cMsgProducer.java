@@ -5,11 +5,7 @@ import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsg;
 
 /**
- * Created by IntelliJ IDEA.
- * User: timmer
- * Date: Sep 8, 2004
- * Time: 12:48:16 PM
- * To change this template use File | Settings | File Templates.
+ * An example class which creates a cMsg message producer.
  */
 public class cMsgProducer {
     String name, subject="SUBJECT", type="TYPE";
@@ -82,7 +78,7 @@ public class cMsgProducer {
     public void run() throws cMsgException {
         System.out.println("Running Message Producer\n");
 
-        String UDL = "cMsg:cMsg://aslan:3456/cMsg";
+        String UDL = "cMsg:cMsg://aslan:3456/cMsg/vx";
 
         cMsg coda = new cMsg(UDL, name, "message producer");
         coda.connect();
@@ -94,6 +90,7 @@ public class cMsgProducer {
 
         double freq=0., freqAvg=0., freqTotal=0.;
         long t1, t2, deltaT, count = 20000, iterations=1;
+        int a;
 
         System.out.println("Sending messages ...");
         int j=0;
@@ -103,6 +100,7 @@ public class cMsgProducer {
                 //try {Thread.sleep(1000);}
                 //catch (InterruptedException e) {}
                 coda.send(msg);
+                //a = coda.syncSend(msg);
             }
             t2 = System.currentTimeMillis();
 

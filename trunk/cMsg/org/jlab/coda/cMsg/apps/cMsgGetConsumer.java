@@ -6,11 +6,9 @@ import java.util.Date;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Created by IntelliJ IDEA.
- * User: timmer
- * Date: Oct 18, 2004
- * Time: 12:57:30 PM
- * To change this template use File | Settings | File Templates.
+ * An example class which creates a cMsg message producer/consumer
+ * which both produces messages and waits synchronously for a response message
+ * with a sendAndGet call.
  */
 public class cMsgGetConsumer {
     String name;
@@ -107,7 +105,7 @@ public class cMsgGetConsumer {
 
         System.out.println("Running Message GET Consumer\n");
 
-        String UDL = "cMsg:cMsg://aslan:3456/cMsg";
+        String UDL = "cMsg:cMsg://aslan:3456/cMsg/vx";
 
         cMsg coda = new cMsg(UDL, name, "getConsumer");
         coda.connect();
@@ -126,7 +124,7 @@ public class cMsgGetConsumer {
             t1 = (new Date()).getTime();
 
             // do a bunch of gets
-            for (int i=0; i < 2000; i++) {
+            for (int i=0; i < 1000; i++) {
                 try {msg = coda.sendAndGet(sendMsg, 1000);}
                 catch (TimeoutException e) {}
 
@@ -137,7 +135,7 @@ public class cMsgGetConsumer {
                 else {
                     count++;
                 }
-                //try {Thread.sleep(200);}
+                //try {Thread.sleep(2000);}
                 //catch (InterruptedException e) { }
             }
 
