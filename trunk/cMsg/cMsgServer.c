@@ -18,6 +18,11 @@
  *
  *----------------------------------------------------------------------------*/
 
+#ifdef VXWORKS
+#include <vxWorks.h>
+#include <taskLib.h>
+#endif
+
 #include <stdio.h>
 #include <errno.h>
 #include <pthread.h>

@@ -29,6 +29,11 @@
 
 
 /* system includes */
+#ifdef VXWORKS
+#include <vxWorks.h>
+#include <taskLib.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
