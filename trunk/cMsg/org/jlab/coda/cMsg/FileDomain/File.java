@@ -124,14 +124,19 @@ public class File extends cMsgDomainAdapter {
             myPrintHandle.println(now + ":    " + msg.getText());
         }
         else {
-            msg.setDomain(domain);
-            msg.setSender(name);
-            msg.setSenderHost(host);
-            msg.setSenderTime(now);
-            msg.setReceiver(domain);
-            msg.setReceiverTime(now);
-            msg.setReceiverHost(host);
-            myPrintHandle.println(msg);
+            if((msg.getDomain()==null)||(msg.getDomain().length()<=0)) {
+                cMsgMessageFull msgFull = new cMsgMessageFull(msg);
+                msgFull.setDomain(domain);
+                msgFull.setSender(name);
+                msgFull.setSenderHost(host);
+                msgFull.setSenderTime(now);
+                msgFull.setReceiver(domain);
+                msgFull.setReceiverTime(now);
+                msgFull.setReceiverHost(host);
+                myPrintHandle.println(msgFull);
+            } else {
+                myPrintHandle.println(msg);
+            }
         }
     }
 
