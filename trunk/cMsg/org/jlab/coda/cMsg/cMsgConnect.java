@@ -38,8 +38,7 @@ public class cMsgConnect {
     private cMsgInterface connection;
 
     /** Constructor. */
-    public cMsgConnect() {
-
+    private cMsgConnect() {
     }
 
     /**
@@ -89,14 +88,16 @@ public class cMsgConnect {
 
         // cMsg domain UDL is of the form:
         //       cMsg:<domainType>://<domain dependent remainder>
-        // initial cMsg: in not necessary
+        //
+        // (1) initial cMsg: in not necessary
+        // (2) cMsg and domainType are case independent
 
-        Pattern pattern = Pattern.compile("(cMsg)?:?(\\w+)://(.*)");
+        Pattern pattern = Pattern.compile("(cMsg)?:?(\\w+)://(.*)", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(UDL);
 
         String s0=null, s1=null, s2=null;
 
-        if (matcher.find()) {
+        if (matcher.matches()) {
             // cMsg
             s0 = matcher.group(1);
             // domain
@@ -113,11 +114,6 @@ public class cMsgConnect {
                               "\n  space     = " + s0 +
                               "\n  domain    = " + s1 +
                               "\n  remainder = " + s2);
-        }
-
-        // must be in cMsg space
-        if (s0 != null && !s0.equals("cMsg")) {
-            throw new cMsgException("invalid UDL");
         }
 
         // need domain
@@ -259,25 +255,33 @@ public class cMsgConnect {
     }
 
     /**
-     * This method does two separate things depending on the specifics of message in the
-     * argument. If the message to be sent has its "getRequest" field set to be true using
-     * {@link cMsgMessage#isGetRequest}, then the message is sent as it would be in the
-     * {@link #send} method. The server notes the fact that a response to it is expected,
-     * and sends it to all subscribed to its subject and type. When a marked response is
-     * received from a client, it sends that first response back to the original sender
-     * regardless of its subject or type.
+     * This method is like a one-time subscribe. The server grabs the first incoming
+     * message of the requested subject and type and sends that to the caller.
      *
-     * In a second usage, if the message did NOT set its "getRequest" field to be true,
-     * then the server grabs the first incoming message of the requested subject and type
-     * and sends that to the original sender in response to the get.
+     * @param subject subject of message desired from server
+     * @param type type of message desired from server
+     * @param timeout time in milliseconds to wait for a message
+     * @return response message
+     * @throws cMsgException
+     */
+    public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
+            throws cMsgException {
+        return connection.subscribeAndGet(subject, type, timeout);
+    }
+
+    /**
+     * The message is sent as it would be in the {@link #send} method. The server notes
+     * the fact that a response to it is expected, and sends it to all subscribed to its
+     * subject and type. When a marked response is received from a client, it sends that
+     * first response back to the original sender regardless of its subject or type.
      *
      * @param message message sent to server
      * @param timeout time in milliseconds to wait for a reponse message
      * @return response message
      * @throws cMsgException
      */
-    public cMsgMessage get(cMsgMessage message, int timeout) throws cMsgException {
-        return connection.get(message, timeout);
+    public cMsgMessage sendAndGet(cMsgMessage message, int timeout) throws cMsgException {
+        return connection.sendAndGet(message, timeout);
     }
 
     /**
