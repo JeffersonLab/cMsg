@@ -23,9 +23,9 @@ package org.jlab.coda.cMsg;
  */
 
 public class cMsgConstants {
-  
+
   private cMsgConstants() {}
-  
+
   /** Major cMsg version number. */
   public static final int    version      = 1;
   /** Minor cMsg version number. */
@@ -59,17 +59,17 @@ public class cMsgConstants {
   /** Error specifying a bad format. */
   public static final int    errorBadFormat          =  5;
   /** Error specifying that a name already exists. */
-  public static final int    errorNameExists         =  6;  
+  public static final int    errorNameExists         =  6;
   /** Error specifying not initialized. */
-  public static final int    errorNotInitialized     =  7;  
+  public static final int    errorNotInitialized     =  7;
   /** Error specifying already initialized. */
-  public static final int    errorInitialized        =  8;  
+  public static final int    errorInitialized        =  8;
   /** Error specifying lost network connection. */
-  public static final int    errorLostConnection     =  9;  
+  public static final int    errorLostConnection     =  9;
   /** Error specifying network communication problem. */
-  public static final int    errorNetwork            = 10;  
+  public static final int    errorNetwork            = 10;
   /** Error specifying bad socket specification. */
-  public static final int    errorSocket             = 11; 
+  public static final int    errorSocket             = 11;
   /** Error specifying ?. */
   public static final int    errorPend               = 12;
   /** Error specifying illegal message type. */
@@ -84,30 +84,30 @@ public class cMsgConstants {
   public static final int    errorWrongDomainType    = 17;
 
   // codes sent over the network to identify cMsg messages
-  
-  /** Command to connect to the server. */
-  public static final int    msgServerConnect      =  0;
-  /** Command to respond to the server. */
-  public static final int    msgServerResponse     =  1;
-  /** Command to see if the other end of the socket is still open. */
-  public static final int    msgKeepAlive          =  2;
-  /** Command to tell me your heartbeat. */
-  public static final int    msgHeartbeat          =  3;
-  /** Command to exit your cMsg-related methods and threads. */
+
+  /** Connect to the server. */
+  public static final int    msgConnectRequest     =  0;
+  /** Disconnect from the server. */
+  public static final int    msgDisconnectRequest  =  1;
+  /** Respond to the server. */
+  public static final int    msgServerResponse     =  2;
+  /** See if the other end of the socket is still open. */
+  public static final int    msgKeepAlive          =  3;
+  /** Exit your cMsg-related methods and threads. */
   public static final int    msgShutdown           =  4;
-  /** Command to get a message. */
+  /** Get a message. */
   public static final int    msgGetRequest         =  5;
-  /** Command to respond to a "get message" command. */
+  /** Respond to a "get message" command. */
   public static final int    msgGetResponse        =  6;
-  /** Command to send a message. */
+  /** Send a message. */
   public static final int    msgSendRequest        =  7;
-  /** Command to respond to a "send message" command. */
+  /** Respond to a "send message" command. */
   public static final int    msgSendResponse       =  8;
-  /** Command to subscribe to messages. */
+  /** Subscribe to messages. */
   public static final int    msgSubscribeRequest   =  9;
-  /** Command to unsubscribe to messages. */
+  /** Unsubscribe to messages. */
   public static final int    msgUnsubscribeRequest = 10;
-  /** Command to respond to the subscribe/unsubscribe commands. */
+  /** Respond to the subscribe/unsubscribe commands. */
   public static final int    msgSubscribeResponse  = 11;
 
 }
