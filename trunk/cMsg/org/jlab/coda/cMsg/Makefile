@@ -22,7 +22,6 @@ JAVA_OBJS = \
 	cMsgCallbackAdapter.class \
 	cMsgSubdomainInterface.class\
 	cMsgSubdomainAbstract.class \
-	cMsgConnect.class \
 	cMsgDomainInterface.class \
 	cMsgDomainAdapter.class
 
