@@ -81,7 +81,10 @@ public class cMsgDomainServer extends Thread {
     /** Allocate byte array once (used for reading in data) for efficiency's sake. */
     byte[] bytes = new byte[5000];
 
-    int temp, perm;
+    static final int tempThreadsMax = 100;
+    static final int permanentThreads = 3;
+
+    int tempThreads;
 
     /** Tell the server to kill this and all spawned threads. */
     boolean killAllThreads;
@@ -127,7 +130,7 @@ public class cMsgDomainServer extends Thread {
         requestCue = new LinkedBlockingQueue<cMsgHolder>(5000);
 
         // start up permanent worker threads
-        for (int i = 0; i < 1; i++) {
+        for (int i = 0; i < permanentThreads; i++) {
             new RequestThread(true);
         }
 
@@ -388,7 +391,7 @@ public class cMsgDomainServer extends Thread {
         }
 
         // if the cue is getting large, add temp threads to handle the load
-        if (requestCue.size() > 2000) {
+        if (requestCue.size() > 2000 && tempThreads++ < tempThreadsMax) {
             new RequestThread();
         }
 
