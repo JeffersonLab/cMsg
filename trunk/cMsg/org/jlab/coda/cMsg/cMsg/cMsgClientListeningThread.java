@@ -441,6 +441,7 @@ public class cMsgClientListeningThread extends Thread {
             Set set = client.subscriptions;
             Iterator iter;
 
+            // set is NOT modified here
             synchronized (set) {
                 iter = set.iterator();
 
@@ -490,7 +491,7 @@ public class cMsgClientListeningThread extends Thread {
                             // new gets can be added (when it's too late).
                             iter.remove();
 
-                            // run through all callbacks
+                            // run through all gets
                             Iterator iter2 = sub.getHolders().iterator();
                             for (; iter2.hasNext();) {
                                 holder = (cMsgMessageHolder) iter2.next();
