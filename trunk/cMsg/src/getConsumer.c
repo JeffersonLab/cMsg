@@ -19,91 +19,115 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <time.h>
-#include <pthread.h>
-#ifdef sun
-#include <thread.h>
-#endif
 
 #include "cMsg.h"
 
-#define NUMGETS 1000
-/* recent versions of linux put float.h (and DBL_MAX) in a strange place */
-#define DOUBLE_MAX   1.7976931348623157E+308
-
-
 
 int main(int argc,char **argv) {  
-  /*char *subject = "SUBJECT";*/
-  char *subject = "responder";
+
+  char *myName = "C getConsumer";
+  char *myDescription = "C getConsumer";
+  char *subject = "SUBJECT";
   char *type    = "TYPE";
-  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/vx";
-  char *myName  = "C-getConsumer";
-  char *myDescription = "trial run";
-  int   i, err, domainId = -1;
+  char *text    = "TEXT";
+  char *UDL     = "cMsg:cMsg://alcor:3456/cMsg/test";
+  int   err, debug=1, domainId = -1;
   void *msg, *replyMsg;
   
-  double freq=0., freqAvg=0., countTotal=0., timeTotal=0.;
-  int    count=0;
-  
-  double time;
+  /* msg rate measuring variables */
+  int             count, i, loops=1000;
   struct timespec timeout, t1, t2;
+  double          freq, freqAvg=0., deltaT, totalT=0.;
+  long long       totalC=0;
   
+  /* maximum time to wait for sendAndGet to return */
   timeout.tv_sec  = 3;
   timeout.tv_nsec = 0;
     
   if (argc > 1) {
     myName = argv[1];
   }
-  printf("My name is %s\n", myName);
   
-  printf("cMsgConnect ...\n");
+  if (debug) {
+    printf("Running the cMsg C getConsumer, \"%s\"\n", myName);
+  }
+  
+  /* connect to cMsg server */
   err = cMsgConnect(UDL, myName, myDescription, &domainId);
-  printf("cMsgConnect: %s\n", cMsgPerror(err));
+  if (err != CMSG_OK) {
+      if (debug) {
+          printf("cMsgConnect: %s\n",cMsgPerror(err));
+      }
+      exit(1);
+  }
   
-  cMsgReceiveStart(domainId);
-    
-  printf("cMsgCreateMessage ...\n");
+  /* create message to be sent */
   msg = cMsgCreateMessage();
   cMsgSetSubject(msg, subject);
   cMsgSetType(msg, type);
-  cMsgSetText(msg, "Message 1");
-  
-  while (1) {      
+  cMsgSetText(msg, text);
+    
+  /* start receiving response messages */
+  cMsgReceiveStart(domainId);
+
+  while (1) {
       count = 0;
+      
+      /* read time for rate calculations */
       clock_gettime(CLOCK_REALTIME, &t1);
 
-      /* do a bunch of gets */
-      for (i=0; i < NUMGETS; i++) {
-          /*err = cMsgSubscribeAndGet(domainId, subject, type, &timeout, &replyMsg);*/
+      /* do a bunch of sendAndGets */
+      for (i=0; i < loops; i++) {
+          
+          /* send msg and wait up to timeout for reply */
+          /*printf("SEND A MESSAGE: subject = %s, type = %s\n", subject, type);*/
           err = cMsgSendAndGet(domainId, msg, &timeout, &replyMsg);
+          /*err = cMsgSubscribeAndGet(domainId, subject, type, &timeout, &replyMsg);*/
           if (err == CMSG_TIMEOUT) {
               printf("TIMEOUT in GET\n");
           }
+          
+          else if (err != CMSG_OK) {
+              printf("cMsgSendAndGet: %s\n",cMsgPerror(err));
+              goto end;
+          }
+          
           else {
-              /*
-              printf("GOT A MESSAGE: subject = %s, type = %s\n",
-                      cMsgGetSubject(replyMsg), cMsgGetType(replyMsg));
-              */
+              if (debug-1) {
+                  char *subject, *type;
+                  cMsgGetSubject(replyMsg, &subject);
+                  cMsgGetType(replyMsg, &type);
+                  printf(" GOT A MESSAGE: subject = %s, type = %s\n", subject, type);
+                  /* be sure to free strings */
+                  free(subject);
+                  free(type);
+              }
               cMsgFreeMessage(replyMsg);
               count++;
           }
+          /*sleep(2);*/
       }
 
-
+      /* rate */
       clock_gettime(CLOCK_REALTIME, &t2);
-      time = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
-      freq = (double)count/time;
-      if ( ((DOUBLE_MAX - countTotal) < count)  ||
-           ((DOUBLE_MAX - timeTotal)  < time ) )  {
-        countTotal = 0.;
-        timeTotal  = 0.;
+      deltaT  = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
+      totalT += deltaT;
+      totalC += count;
+      freq    = count/deltaT;
+      freqAvg = (double)totalC/totalT;
+      
+      printf("count = %d, %9.0f Hz, %9.0f Hz Avg.\n", count, freq, freqAvg);
+  } 
+  
+  end:
+  
+  err = cMsgDisconnect(domainId);
+  if (err != CMSG_OK) {
+      if (debug) {
+          printf("%s\n",cMsgPerror(err));
       }
-      countTotal += count;
-      timeTotal  += time;
-      freqAvg = countTotal/timeTotal;
-      printf("count = %d, %9.0f Hz,  %9.0f Hz Avg.\n", count, freq, freqAvg);                    
-      t1 = t2;
   }
-
+    
   return(0);
+  
 }
