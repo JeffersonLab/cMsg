@@ -54,7 +54,7 @@
 #define CMSG_MAXHOSTNAMELEN 256
 
 /* set the "global" debug level */
-int cMsgDebug = CMSG_DEBUG_NONE;
+int cMsgDebug = CMSG_DEBUG_INFO;
 
 
 /* local variables */
@@ -917,6 +917,7 @@ static void initMessage(cMsgMessage *msg) {
     msg->getResponse  = 0;
     
     msg->domain       = NULL;
+    msg->creator      = NULL;
     msg->subject      = NULL;
     msg->type         = NULL;
     msg->text         = NULL;
@@ -953,6 +954,7 @@ int cMsgFreeMessage(void *vmsg) {
   if (msg->receiver != NULL)     free(msg->receiver);
   if (msg->receiverHost != NULL) free(msg->receiverHost);
   if (msg->domain != NULL)       free(msg->domain);
+  if (msg->creator != NULL)      free(msg->creator);
   if (msg->subject != NULL)      free(msg->subject);
   if (msg->type != NULL)         free(msg->type);
   if (msg->text != NULL)         free(msg->text);
@@ -980,6 +982,9 @@ int cMsgFreeMessage(void *vmsg) {
     
     if (msg->domain != NULL) newMsg->domain = (char *) strdup(msg->domain);
     else                     newMsg->domain = NULL;
+        
+    if (msg->creator != NULL) newMsg->creator = (char *) strdup(msg->creator);
+    else                      newMsg->creator = NULL;
         
     if (msg->subject != NULL) newMsg->subject = (char *) strdup(msg->subject);
     else                      newMsg->subject = NULL;
@@ -1025,6 +1030,7 @@ int cMsgFreeMessage(void *vmsg) {
     if (msg == NULL) return;
     
     if (msg->domain != NULL)       free(msg->domain);
+    if (msg->creator != NULL)      free(msg->creator);
     if (msg->subject != NULL)      free(msg->subject);
     if (msg->type != NULL)         free(msg->type);
     if (msg->text != NULL)         free(msg->text);
@@ -1105,6 +1111,18 @@ char *cMsgGetDomain(void *vmsg) {
   if (msg == NULL) return(NULL);
   if (msg->domain == NULL) return NULL;
   return( (char *) (strdup(msg->domain)) );
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+char *cMsgGetCreator(void *vmsg) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(NULL);
+  if (msg->creator == NULL) return NULL;
+  return( (char *) (strdup(msg->creator)) );
 }
 
 /*-------------------------------------------------------------------*/

@@ -472,11 +472,12 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription,
 
 static int coda_send(int domainId, void *vmsg) {
   
-  int lenSubject, lenType, lenText;
-  int outGoing[12];
+  int lenSubject, lenType, lenText, lenCreator;
+  int outGoing[13];
   cMsgMessage *msg = (cMsgMessage *) vmsg;
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   int fd = domain->sendSocket;
+  char *creator;
     
   if (!domain->hasSend) {
     return(CMSG_NOT_IMPLEMENTED);
@@ -522,6 +523,14 @@ static int coda_send(int domainId, void *vmsg) {
   /* length of "text" string */
   lenText      = strlen(msg->text);
   outGoing[11] = htonl(lenText);
+  
+  /* send creator (this sender's name if msg created here) */
+  creator = msg->creator;
+  if (creator == NULL) creator = domain->name;
+  
+  /* length of "creator" string */
+  lenCreator   = strlen(creator);
+  outGoing[12] = htonl(lenCreator);
 
   /* make send socket communications thread-safe */
   socketMutexLock(domain);
@@ -566,6 +575,16 @@ static int coda_send(int domainId, void *vmsg) {
     return(CMSG_NETWORK_ERROR);
   }
   
+  /* send creator */
+  if (cMsgTcpWrite(fd, (void *) creator, lenCreator) != lenCreator) {
+    socketMutexUnlock(domain);
+    connectReadUnlock();
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "coda_send: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+  
   /* done protecting communications */
   socketMutexUnlock(domain);
   connectReadUnlock();
@@ -579,11 +598,12 @@ static int coda_send(int domainId, void *vmsg) {
 
 static int syncSend(int domainId, void *vmsg, int *response) {
   
-  int err, lenSubject, lenType, lenText;
-  int outGoing[12];
+  int err, lenSubject, lenType, lenText, lenCreator;
+  int outGoing[13];
   cMsgMessage *msg = (cMsgMessage *) vmsg;
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   int fd = domain->sendSocket;
+  char *creator;
     
   if (!domain->hasSyncSend) {
     return(CMSG_NOT_IMPLEMENTED);
@@ -629,6 +649,14 @@ static int syncSend(int domainId, void *vmsg, int *response) {
   lenText      = strlen(msg->text);
   outGoing[11] = htonl(lenText);
 
+  /* send creator (this sender's name if msg created here) */
+  creator = msg->creator;
+  if (creator == NULL) creator = domain->name;
+  
+  /* length of "creator" string */
+  lenCreator   = strlen(creator);
+  outGoing[12] = htonl(lenCreator);
+
   /* make syncSends be synchronous 'cause we need a reply */
   syncSendMutexLock(domain);
  
@@ -670,6 +698,17 @@ static int syncSend(int domainId, void *vmsg, int *response) {
 
   /* send text */
   if (cMsgTcpWrite(fd, (void *) msg->text, lenText) != lenText) {
+    socketMutexUnlock(domain);
+    syncSendMutexUnlock(domain);
+    connectReadUnlock();
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "syncSend: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+  
+  /* send creator */
+  if (cMsgTcpWrite(fd, (void *) creator, lenCreator) != lenCreator) {
     socketMutexUnlock(domain);
     syncSendMutexUnlock(domain);
     connectReadUnlock();
@@ -911,11 +950,12 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   
   cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
   cMsgMessage *msg = (cMsgMessage *) sendMsg;
-  int i, uniqueId, status, lenSubject, lenType, lenText;
+  int i, uniqueId, status, lenSubject, lenType, lenText, lenCreator;
   int gotSpot, fd = domain->sendSocket;
-  int outGoing[10];
+  int outGoing[11];
   getInfo *info = NULL;
   struct timespec wait;
+  char *creator;
   
   if (!domain->hasSendAndGet) {
     return(CMSG_NOT_IMPLEMENTED);
@@ -1003,6 +1043,14 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   lenText     = strlen(msg->text);
   outGoing[9] = htonl(lenText);
 
+  /* send creator (this sender's name if msg created here) */
+  creator = msg->creator;
+  if (creator == NULL) creator = domain->name;
+  
+  /* length of "creator" string */
+  lenCreator   = strlen(creator);
+  outGoing[10] = htonl(lenCreator);
+
   /* make send socket communications thread-safe */
   socketMutexLock(domain);
   
@@ -1014,7 +1062,7 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
     free(info->type);
     info->active = 0;
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "get: write failure\n");
+      fprintf(stderr, "sendAndGet: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1027,7 +1075,7 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
     free(info->type);
     info->active = 0;
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "get: write failure\n");
+      fprintf(stderr, "sendAndGet: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1040,7 +1088,7 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
     free(info->type);
     info->active = 0;
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "get: write failure\n");
+      fprintf(stderr, "sendAndGet: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1053,11 +1101,24 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
     free(info->type);
     info->active = 0;
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "get: write failure\n");
+      fprintf(stderr, "sendAndGet: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }  
 
+  /* send creator */
+  if (cMsgTcpWrite(fd, (void *) creator, lenCreator) != lenCreator) {
+    socketMutexUnlock(domain);
+    connectReadUnlock();
+    free(info->subject);
+    free(info->type);
+    info->active = 0;
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "sendAndGet: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+  
   /* done protecting communications */
   socketMutexUnlock(domain);
   connectReadUnlock();
@@ -2444,7 +2505,7 @@ int cMsgWakeGetWithNull(int domainId, int senderToken) {
  */
 int cMsgReadMessage(int fd, cMsgMessage *msg) {
   
-  int i, lengths[5], inComing[14];
+  int i, lengths[6], inComing[15];
   int memSize = CMSG_MESSAGE_SIZE;
   char *string, storage[CMSG_MESSAGE_SIZE + 1];
   
@@ -2474,7 +2535,8 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
   lengths[2]               = ntohl(inComing[10]); /* subject length */
   lengths[3]               = ntohl(inComing[11]); /* type length */
   lengths[4]               = ntohl(inComing[12]); /* text length */
-  rsIdCount                = ntohl(inComing[13]); /* # of receiverSubscribeIds to follow */
+  lengths[5]               = ntohl(inComing[13]); /* text creator */
+  rsIdCount                = ntohl(inComing[14]); /* # of receiverSubscribeIds to follow */
   
   /* make sure there's enough room to read all rsIds */
   if (rsIdSize < rsIdCount) {
@@ -2683,6 +2745,45 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
   /*
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "    text = %s\n", string);
+  }
+  */ 
+      
+  /*------------------*/
+  /* read creator string */
+  /*------------------*/
+  if (lengths[5] > memSize) {
+    if (memSize > CMSG_MESSAGE_SIZE) {
+      free((void *) string);
+    }
+    memSize = lengths[5] + 1;
+    string  = (char *) malloc((size_t) memSize);
+    if (string == NULL) {
+      if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+        fprintf(stderr, "cMsgReadMessage: cannot allocate memory\n");
+      }
+      exit(1);
+    }
+  }
+  if (cMsgTcpRead(fd, string, lengths[5]) != lengths[5]) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgReadMessage: cannot read senderHost\n");
+    }
+    if (memSize > CMSG_MESSAGE_SIZE) {
+      free((void *) string);
+    }
+    free((void *) msg->sender);
+    free((void *) msg->senderHost);
+    free((void *) msg->subject);
+    free((void *) msg->type);
+    free((void *) msg->text);
+    return(CMSG_NETWORK_ERROR);
+  }
+  string[lengths[5]] = 0;
+  msg->creator = (char *) strdup(string);
+  
+  /*
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "    creator = %s\n", string);
   }
   */ 
       

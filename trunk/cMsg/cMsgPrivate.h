@@ -97,6 +97,7 @@ typedef struct cMsg_t {
   int     getRequest;       /* is message a get request? 0=n,else=y */
   int     getResponse;      /* is message a response to a get request? 0=n,else=y */
   char   *domain;           /* message generated in this domain */
+  char   *creator;          /* message originally created by this user/sender */
   
   /* user-settable quantities */
   char   *subject;
