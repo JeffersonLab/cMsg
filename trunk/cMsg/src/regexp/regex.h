@@ -20,7 +20,7 @@ typedef struct {
 
 
 /* === regcomp.c === */
-extern int regcomp(regex_t *, const char *, int);
+extern int cMsgRegcomp(regex_t *, const char *, int);
 #define	REG_BASIC	0000
 #define	REG_EXTENDED	0001
 #define	REG_ICASE	0002
@@ -51,11 +51,11 @@ extern int regcomp(regex_t *, const char *, int);
 #define	REG_INVARG	16
 #define	REG_ATOI	255	/* convert name to number (!) */
 #define	REG_ITOA	0400	/* convert number to name (!) */
-extern size_t regerror(int, const regex_t *, char *, size_t);
+extern size_t cMsgRegerror(int, const regex_t *, char *, size_t);
 
 
 /* === regexec.c === */
-extern int regexec(const regex_t *, const char *, size_t, regmatch_t [], int);
+extern int cMsgRegexec(const regex_t *, const char *, size_t, regmatch_t [], int);
 #define	REG_NOTBOL	00001
 #define	REG_NOTEOL	00002
 #define	REG_STARTEND	00004
@@ -65,7 +65,7 @@ extern int regexec(const regex_t *, const char *, size_t, regmatch_t [], int);
 
 
 /* === regfree.c === */
-extern void regfree(regex_t *);
+extern void cMsgRegfree(regex_t *);
 
 #ifdef __cplusplus
 }

@@ -83,7 +83,7 @@ static int never = 0;		/* for use in asserts; shuts lint up */
  = #define	REG_DUMP	0200
  */
 int				/* 0 success, otherwise REG_something */
-regcomp(preg, pattern, cflags)
+cMsgRegcomp(preg, pattern, cflags)
 regex_t *preg;
 const char *pattern;
 int cflags;
@@ -178,7 +178,7 @@ int cflags;
 
 	/* win or lose, we're done */
 	if (p->error != 0)	/* lose */
-		regfree(preg);
+		cMsgRegfree(preg);
 	return(p->error);
 }
 
