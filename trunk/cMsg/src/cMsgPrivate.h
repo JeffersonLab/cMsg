@@ -27,7 +27,21 @@
 #ifndef __cMsgPrivate_h
 #define __cMsgPrivate_h
 
-#include "cMsg.h"
+
+/* This file may be compiled with the C or C++ compiler.
+ * cMsgCallback is defined as C version (function) or
+ *   C++ version (class) via the following macro.
+ *
+ * EJW, 21-Mar-2005
+ */
+#ifdef cppversion
+#include "cMsgBase.hxx"
+# else
+typedef void (cMsgCallback) (void *msg, void *userArg);
+#endif
+
+#include "cMsgBase.h"
+
 
 #ifdef	__cplusplus
 extern "C" {
