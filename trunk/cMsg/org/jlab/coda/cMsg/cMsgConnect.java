@@ -169,9 +169,6 @@ public class cMsgConnect {
             else if (domain.equalsIgnoreCase("database")) {
                 domainConnectionClass = "org.jlab.coda.cMsg.databaseDomain.database";
             }
-            else if (domain.equalsIgnoreCase("table")) {
-                domainConnectionClass = "org.jlab.coda.cMsg.tableDomain.table";
-            }
         }
 
         // all options are exhaused, throw error
