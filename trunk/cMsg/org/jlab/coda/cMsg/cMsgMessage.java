@@ -36,11 +36,20 @@ import java.util.*;
  */
 public class cMsgMessage implements Cloneable {
 
-    /** Is message a sendAndGet request?, is stored in first bit of info. */
+    /**
+     * Is message a sendAndGet request? -- stored in first bit of info.
+     * This is only for internal use.
+     */
     public static final int isGetRequest  = 0x0001;
-    /** Is message a response to a sendAndGet?, is stored in second bit of info. */
+    /**
+     * Is message a response to a sendAndGet? -- stored in second bit of info.
+     * This is only for internal use.
+     */
     public static final int isGetResponse = 0x0002;
-    /** Is the response message null instead of a message?, is stored in third bit of info. */
+    /**
+     * Is the response message null instead of a message? -- stored in third bit of info.
+     * This is only for internal use.
+     */
     public static final int isNullGetResponse = 0x0004;
 
     // general quantities
@@ -54,17 +63,15 @@ public class cMsgMessage implements Cloneable {
     /** Message exists in this domain. */
     String domain;
 
-    /** Is this message a sendAndGet request? */
-    boolean getRequest;
-
-    /** Is this message a response to a sendAndGet request? */
-    boolean getResponse;
-
     /**
      * Condensed information stored in bits.
-     * Is message a sendAndGet request?, is stored in first bit.
-     * Is message a response to a sendAndGet?, is stored in second bit.
-     * Is the response message null instead of a message?, is stored in third bit.
+     * Is message a sendAndGet request? -- stored in first bit.
+     * Is message a response to a sendAndGet? -- stored in second bit.
+     * Is the response message null instead of a message? -- stored in third bit.
+     *
+     * @see #isGetRequest
+     * @see #isGetResponse
+     * @see #isNullGetResponse
      */
     int info;
 
@@ -140,8 +147,7 @@ public class cMsgMessage implements Cloneable {
     public cMsgMessage(cMsgMessage msg) {
         sysMsgId            = msg.sysMsgId;
         domain              = msg.domain;
-        getRequest          = msg.getRequest;
-        getResponse         = msg.getResponse;
+        info                = msg.info;
         version             = msg.version;
         //creator             = msg.creator;
         subject             = msg.subject;
@@ -188,13 +194,12 @@ public class cMsgMessage implements Cloneable {
         // If this message was not sent from a "sendAndGet" method call,
         // a proper response is not possible, since the sysMsgId
         // and senderToken fields will not have been properly set.
-        if (!getRequest) {
+        if (!isGetRequest()) {
             throw new cMsgException("this message not sent by client calling sendAndGet");
         }
         cMsgMessage msg = new cMsgMessage();
         msg.sysMsgId = sysMsgId;
         msg.senderToken = senderToken;
-        msg.getResponse = true;
         msg.info = isGetResponse;
         return msg;
     }
@@ -212,13 +217,12 @@ public class cMsgMessage implements Cloneable {
         // If this message was not sent from a "get" method call,
         // a proper response is not possible, since the sysMsgId
         // and senderToken fields will not have been properly set.
-        if (!getRequest) {
+        if (!isGetRequest()) {
             throw new cMsgException("this message not sent by client calling sendAndGet");
         }
         cMsgMessage msg = new cMsgMessage();
         msg.sysMsgId = sysMsgId;
         msg.senderToken = senderToken;
-        msg.getResponse = true;
         msg.info = isGetResponse | isNullGetResponse;
         return msg;
     }
@@ -230,7 +234,6 @@ public class cMsgMessage implements Cloneable {
     public void makeResponse(cMsgMessage msg) {
         this.sysMsgId    = msg.getSysMsgId();
         this.senderToken = msg.getSenderToken();
-        this.getResponse = true;
         this.info = isGetResponse;
     }
 
@@ -238,7 +241,6 @@ public class cMsgMessage implements Cloneable {
     public void makeNullResponse(cMsgMessage msg) {
         this.sysMsgId    = msg.getSysMsgId();
         this.senderToken = msg.getSenderToken();
-        this.getResponse = true;
         this.info = isGetResponse | isNullGetResponse;
     }
 
@@ -264,7 +266,7 @@ public class cMsgMessage implements Cloneable {
      * Is this message a response to a "sendAndGet" request?
      * @return true if this message is a response to a "sendAndGet" request.
      */
-    public boolean isGetResponse() {return getResponse;}
+    public boolean isGetResponse() {return ((info & isGetResponse) == isGetResponse ? true : false);}
     /**
      * Is this message a response to a "sendAndGet" request with a null
      * pointer to be delivered instead of this message?
@@ -277,7 +279,6 @@ public class cMsgMessage implements Cloneable {
      * @param getResponse true if this message is a response to a "sendAndGet" message
      */
     public void setGetResponse(boolean getResponse) {
-        this.getResponse = getResponse;
         info = getResponse ? info|isGetResponse : info & ~isGetResponse;
     }
 
@@ -286,7 +287,7 @@ public class cMsgMessage implements Cloneable {
      * Is this message a "sendAndGet" request?
      * @return true if this message is a "sendAndGet" request
      */
-    public boolean isGetRequest() {return getRequest;}
+    public boolean isGetRequest() {return ((info & isGetRequest) == isGetRequest ? true : false);}
 
 
     /**
@@ -469,25 +470,26 @@ public class cMsgMessage implements Cloneable {
     public String toString() {
         return(
                "<cMsgMessage date=\"" + (new Date()) + "\"\n"
-            + "     " + "version             = \"" + this.getVersion() + "\"\n"
-            + "     " + "domain              = \"" + this.getDomain() + "\"\n"
-            + "     " + "sysMsgId            = \"" + this.getSysMsgId() + "\"\n"
-            + "     " + "getRequest          = \"" + this.isGetRequest() + "\"\n"
-            + "     " + "getResponse         = \"" + this.isGetResponse() + "\"\n"
-            + "     " + "creator             = \"" + this.getCreator() + "\"\n"
-            + "     " + "sender              = \"" + this.getSender() + "\"\n"
-            + "     " + "senderHost          = \"" + this.getSenderHost() + "\"\n"
-            + "     " + "senderTime          = \"" + this.getSenderTime() + "\"\n"
-            + "     " + "senderToken         = \"" + this.getSenderToken() + "\"\n"
-            + "     " + "userInt             = \"" + this.getUserInt() + "\"\n"
-            + "     " + "userTime            = \"" + this.getUserTime() + "\"\n"
-            + "     " + "priority            = \"" + this.getPriority() + "\"\n"
-            + "     " + "receiver            = \"" + this.getReceiver() + "\"\n"
-            + "     " + "receiverHost        = \"" + this.getReceiverHost() + "\"\n"
-            + "     " + "receiverTime        = \"" + this.getReceiverTime() + "\"\n"
-            + "     " + "receiverSubscribeId = \"" + this.getReceiverSubscribeId() + "\"\n"
-            + "     " + "subject             = \"" + this.getSubject() + "\"\n"
-            + "     " + "type                = \"" + this.getType() + "\">\n"
+            + "     " + "version              = \"" + this.getVersion() + "\"\n"
+            + "     " + "domain               = \"" + this.getDomain() + "\"\n"
+            + "     " + "sysMsgId             = \"" + this.getSysMsgId() + "\"\n"
+            + "     " + "is get request       = \"" + this.isGetRequest() + "\"\n"
+            + "     " + "is get response      = \"" + this.isGetResponse() + "\"\n"
+            + "     " + "is null get response = \"" + this.isNullGetResponse() + "\"\n"
+            + "     " + "creator              = \"" + this.getCreator() + "\"\n"
+            + "     " + "sender               = \"" + this.getSender() + "\"\n"
+            + "     " + "senderHost           = \"" + this.getSenderHost() + "\"\n"
+            + "     " + "senderTime           = \"" + this.getSenderTime() + "\"\n"
+            + "     " + "senderToken          = \"" + this.getSenderToken() + "\"\n"
+            + "     " + "userInt              = \"" + this.getUserInt() + "\"\n"
+            + "     " + "userTime             = \"" + this.getUserTime() + "\"\n"
+            + "     " + "priority             = \"" + this.getPriority() + "\"\n"
+            + "     " + "receiver             = \"" + this.getReceiver() + "\"\n"
+            + "     " + "receiverHost         = \"" + this.getReceiverHost() + "\"\n"
+            + "     " + "receiverTime         = \"" + this.getReceiverTime() + "\"\n"
+            + "     " + "receiverSubscribeId  = \"" + this.getReceiverSubscribeId() + "\"\n"
+            + "     " + "subject              = \"" + this.getSubject() + "\"\n"
+            + "     " + "type                 = \"" + this.getType() + "\">\n"
             + "<![CDATA[\n" + this.getText() + "\n]]>\n"
             + "</cMsgMessage>\n\n");
     }

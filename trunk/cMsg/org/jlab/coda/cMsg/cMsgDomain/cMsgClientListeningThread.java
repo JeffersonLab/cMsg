@@ -335,7 +335,6 @@ public class cMsgClientListeningThread extends Thread {
         msg.setVersion(inComing[0]);
         msg.setPriority(inComing[1]);
         msg.setUserInt(inComing[2]);
-        msg.setGetRequest((inComing[3] & cMsgMessage.isGetRequest) == 0 ? false : true);
         msg.setInfo(inComing[3]);
         // time sent in seconds since midnight GMT, Jan 1, 1970
         msg.setSenderTime(new Date(((long)inComing[4])*1000));
