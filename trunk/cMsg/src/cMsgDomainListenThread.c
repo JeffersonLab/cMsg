@@ -33,34 +33,37 @@
 #include "cMsgPrivate.h"
 #include "cMsgDomain.h"
 
-
+/**
+ * Array containing a structure of information about each client
+ * connection to the cMsg domain.
+ */
 extern cMsgDomain_CODA cMsgDomains[];
 
-/*-------------------------------------------------------------------*
- * Structure to keep track of each client thread so it can be
+/**
+ * This structure keeps track of each client thread so it can be
  * disposed of later when the user is done with cMsg.
- *-------------------------------------------------------------------*/
+ */
 typedef struct cMsgClientThreadInfo_t {
-  int       isUsed;     /* is this item being used - is threadId valid - (1) or not (0) ? */
-  pthread_t threadId;   /* pthread id of client thread */
+  int       isUsed;     /**< Is this item being used / is threadId valid? (1-y, 0-n) */
+  pthread_t threadId;   /**< Pthread id of client thread. */
 } cMsgClientThreadInfo;
 
 
-/*-------------------------------------------------------------------*
- * Structure to pass relevant info to each thread serving
+/**
+ * This structure passes relevant info to each thread serving
  * a cMsg connection.
- *-------------------------------------------------------------------*/
+ */
 typedef struct cMsgThreadInfo_t {
-  int connfd;   /* socket connection's fd */
-  int domainId; /* index into the "cMsgDomains" array */
-  cMsgClientThreadInfo *clientInfo; /* pointer to client thread info of this thread */
+  int connfd;   /**< Socket connection's file descriptor. */
+  int domainId; /**< Index into the cMsgDomains array. */
+  cMsgClientThreadInfo *clientInfo; /**< Pointer to client thread info of this thread. */
 } cMsgThreadInfo;
 
 
 /* set debug level here */
 /* static int cMsgDebug = CMSG_DEBUG_INFO; */
 
-/* max number of clients to track */
+/** Maximum number of clients to track. */
 #define CMSG_CLIENTSMAX 1000
 
 
