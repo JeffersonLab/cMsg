@@ -15,12 +15,13 @@
  *----------------------------------------------------------------------------*/
 
 
-// package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.coda;
 
 import java.io.*;
 import java.net.*;
 import java.lang.*;
 import java.util.*;
+import org.jlab.coda.cMsg.*;
 
 /**
  * This class implements a cMsg name server for a particular cMsg domain.
@@ -57,7 +58,7 @@ public class cMsgDomainServer {
   
   
   /**
-   * Constructor which reads environmental variables and starts threads.
+   * Constructor which starts threads.
    *
    * @param info object containing information about the client for which this
    *                    domain server was started
@@ -76,10 +77,14 @@ public class cMsgDomainServer {
   public static void main(String[] args) {
     cMsgClientInfo info = new cMsgClientInfo();
     try {
-      cMsgDomainServer server = new cMsgDomainServer(info, cMsgConstants.domainServerStartingPort);
+      cMsgDomainServer server = new cMsgDomainServer(info, cMsgNetworkConstants.domainServerStartingPort);
     }
     catch (cMsgException ex) {
     }
+  }
+  
+  public void messageDispatcher(cMsgMessage message) {
+  
   }
   
   
