@@ -108,9 +108,8 @@ public class cMsgConsumer {
 
         String UDL = "cMsg:cMsg://aslan:3456/cMsg";
 
-        System.out.print("Try to connect ...");
         cMsg coda = new cMsg(UDL, name, "message consumer");
-        System.out.println(" done");
+        coda.connect();
 
         System.out.println("Enable message receiving");
         coda.start();
@@ -122,13 +121,14 @@ public class cMsgConsumer {
 
         double freq=0., freqAvg=0., freqTotal=0.;
         long   iterations=1;
+        int    period = 5000; // msec
 
         while (true) {
             count = 0;
-            try { Thread.sleep(10000); }
+            try { Thread.sleep(period); }
             catch (InterruptedException e) {}
 
-            freq = (double)count/10.;
+            freq = (double)count/(period/1000.);
             if (Double.MAX_VALUE - freqTotal < freq) {
                 freqTotal  = 0.;
                 iterations = 1;
