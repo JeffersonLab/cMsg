@@ -199,6 +199,8 @@ public class cMsgNameServer extends Thread {
         // Create a domain server thread, and get back its host & port
         cMsgDomainServer server = new cMsgDomainServer(clientHandler, info,
                                                        cMsgNetworkConstants.domainServerStartingPort);
+        // kill this thread too if name server thread quits
+        server.setDaemon(true);
         server.start();
     }
 
