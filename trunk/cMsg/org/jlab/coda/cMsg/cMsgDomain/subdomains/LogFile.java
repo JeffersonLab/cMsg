@@ -55,10 +55,10 @@ public class LogFile implements cMsgHandleRequests {
 
     /** Inner class to hold log file information. */
     private static class LogFileObject {
-        Object printHandle;
+	PrintWriter printHandle;
 	AtomicInteger count;
 
-        LogFileObject(Object handle) {
+        LogFileObject(PrintWriter handle) {
             printHandle = handle;
             count       = new AtomicInteger(1);
         }
@@ -74,7 +74,7 @@ public class LogFile implements cMsgHandleRequests {
 
 
     /** print handle for this client. */
-    private Object myPrintHandle = null;
+    private PrintWriter myPrintHandle = null;
 
 
     /** UDL remainder for this client. */
@@ -186,7 +186,6 @@ public class LogFile implements cMsgHandleRequests {
 
         String remainder = null;  // not used yet...could hold file open flags..
         LogFileObject l;
-        PrintWriter pw;
 
 
         //  extract file name from UDL remainder
@@ -235,10 +234,9 @@ public class LogFile implements cMsgHandleRequests {
             }
             else {
                 try {
-                    pw = new PrintWriter(new BufferedWriter(new FileWriter(myFileName, true)));
-                    myPrintHandle = (Object) pw;
+                    myPrintHandle = new PrintWriter(new BufferedWriter(new FileWriter(myFileName, true)));
                     openFiles.put(myCanonicalName, new LogFileObject(myPrintHandle));
-                    pw.println("<cMsgLogFile  name=\"" + myFileName + "\"" + "  date=\"" + (new Date()) + "\">\n\n");
+                    myPrintHandle.println("<cMsgLogFile  name=\"" + myFileName + "\"" + "  date=\"" + (new Date()) + "\">\n\n");
                 }
                 catch (Exception e) {
                     System.out.println(e);
@@ -265,7 +263,7 @@ public class LogFile implements cMsgHandleRequests {
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
         msg.setReceiver("cMsg:LogFile");
         try {
-            ((PrintWriter) myPrintHandle).println(msg);
+            myPrintHandle.println(msg);
         }
         catch (Exception e) {
             System.out.println(e);
@@ -382,9 +380,9 @@ public class LogFile implements cMsgHandleRequests {
         synchronized (openFiles) {
             LogFileObject l = (LogFileObject) openFiles.get(myCanonicalName);
             if (l.count.decrementAndGet() <= 0) {
-                ((PrintWriter) myPrintHandle).println("</cMsgLogFile>\n");
-                ((PrintWriter) myPrintHandle).println("\n\n\n<!--===========================================================================================-->\n\n\n");
-                ((PrintWriter) myPrintHandle).close();
+                myPrintHandle.println("</cMsgLogFile>\n");
+                myPrintHandle.println("\n\n\n<!--===========================================================================================-->\n\n\n");
+                myPrintHandle.close();
                 openFiles.remove(myCanonicalName);
             }
         }
