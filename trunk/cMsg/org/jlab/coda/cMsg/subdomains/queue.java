@@ -1,5 +1,5 @@
 // still to do:
-//   server shutdown
+//   what if exiting table incompatible with current message format?
 
 
 
@@ -22,14 +22,17 @@
 
 package org.jlab.coda.cMsg.subdomains;
 
-
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgSubdomainHandler;
+import org.jlab.coda.cMsg.cMsgSubdomainAbstract;
 import org.jlab.coda.cMsg.cMsgClientInfo;
+import org.jlab.coda.cMsg.cMsgConstants;
 
+import java.nio.ByteBuffer;
+import java.io.IOException;
 import java.sql.*;
 import java.util.regex.*;
+import java.util.Date;
 
 
 
@@ -38,25 +41,43 @@ import java.util.regex.*;
 
 
 /**
- * cMsg subdomain handler for LogTable subdomain.
+ * cMsg subdomain handler for queue subdomain.
  *
- * Logs cMsgMessage messages to SQL database.
+ * UDL:  cMsg:cMsg://host:port/queue/myQueueName?driver=myDriver&url=myURL&account=muAccount&password=myPassword
+ *
+ * e.g. cMsg:cMsg://ollie/queue/myQueue?driver=com.mysql.jdbc.Driver&url=jdbc:mysql://myHost/myDatabase
+ *
+ * stores/retrieves cMsgMessage messages from SQL database.
  * Gets database parameters from UDL.
+ *
+ * Checked using mySQL.
  *
  * @author Elliott Wolin
  * @version 1.0
  *
  */
-public class LogTable implements cMsgSubdomainHandler {
+public class queue extends cMsgSubdomainAbstract {
+
+
+    /** registration params. */
+    private cMsgClientInfo myClientInfo;
 
 
     /** UDL remainder for this subdomain handler. */
     private String myUDLRemainder;
 
 
+    /** direct buffer needed for nio socket IO. */
+    private ByteBuffer myBuffer = ByteBuffer.allocateDirect(2048);
+
+
     // database access objects
-    Connection myCon         = null;
-    PreparedStatement myStmt = null;
+    String myQueueName        = null;
+    String myTableName        = null;
+    String myDBType           = null;
+    Connection myCon          = null;
+    Statement myStmt          = null;
+    PreparedStatement myPStmt = null;
 
 
 //-----------------------------------------------------------------------------
@@ -100,7 +121,7 @@ public class LogTable implements cMsgSubdomainHandler {
      * @return true if sendAndGet implemented in {@link #handleSendAndGetRequest}
      */
     public boolean hasSendAndGet() {
-        return false;
+        return true;
     }
 
 
@@ -162,7 +183,7 @@ public class LogTable implements cMsgSubdomainHandler {
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
         myUDLRemainder=UDLRemainder;
     }
-    
+
 
 //-----------------------------------------------------------------------------
 
@@ -178,70 +199,87 @@ public class LogTable implements cMsgSubdomainHandler {
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
 
+        Pattern p;
+        Matcher m;
+        String remainder = null;
+        String sql;
+
+
         // db parameters
         String driver = null;
         String URL = null;
         String account = null;
         String password = null;
-        String table = null;
 
 
-        // extract db params from UDL
-        int ind = myUDLRemainder.indexOf("?");
-        if (ind != 0) {
-            cMsgException ce = new cMsgException("illegal UDL");
+        // extract queue name from UDL remainder
+        if(myUDLRemainder.indexOf("?")>0) {
+            p = Pattern.compile("^(.+?)(\\?.*)$");
+            m = p.matcher(myUDLRemainder);
+            if(m.find()) {
+                myQueueName = m.group(1);
+                remainder   = m.group(2);
+            } else {
+                cMsgException ce = new cMsgException("?illegal UDL");
+                ce.setReturnCode(1);
+                throw ce;
+            }
+        } else {
+            cMsgException ce = new cMsgException("?illegal UDL...no remainder");
             ce.setReturnCode(1);
             throw ce;
         }
-        else {
-            String remainder = myUDLRemainder + "&";
 
 
-            //  extract params
-            Pattern p;
-            Matcher m;
+        //  extract db params from remainder...driver and url required
+        remainder = remainder + "&";
 
-	    // driver required
-	    p = Pattern.compile("[&\\?]driver=(.*?)&", Pattern.CASE_INSENSITIVE);
-	    m = p.matcher(remainder);
-	    m.find();
-	    driver = m.group(1);
 
-	    // URL required
-	    p = Pattern.compile("[&\\?]url=(.*?)&", Pattern.CASE_INSENSITIVE);
-	    m = p.matcher(remainder);
-	    m.find();
-	    URL = m.group(1);
-
-	    // account not required
-	    p = Pattern.compile("[&\\?]account=(.*?)&", Pattern.CASE_INSENSITIVE);
-	    m = p.matcher(remainder);
-	    if (m.find()) {
-		account = m.group(1);
-	    }
-
-	    // password not required
-	    p = Pattern.compile("[&\\?]password=(.*?)&", Pattern.CASE_INSENSITIVE);
-	    m = p.matcher(remainder);
-	    if (m.find()) {
-		password = m.group(1);
-	    }
-
-	    // table required
-	    p = Pattern.compile("[&\\?]table=(.*?)&", Pattern.CASE_INSENSITIVE);
-	    m = p.matcher(remainder);
-	    m.find();
-	    table = m.group(1);
+        // driver
+        p = Pattern.compile("[&\\?]driver=(.*?)&", Pattern.CASE_INSENSITIVE);
+        m = p.matcher(remainder);
+        try {
+            m.find();
+            driver = m.group(1);
+        } catch (IllegalStateException e) {
+            cMsgException ce = new cMsgException("?illegal UDL...no driver");
+            ce.setReturnCode(1);
+            throw ce;
         }
+
+
+        // URL
+        p = Pattern.compile("[&\\?]url=(.*?)&", Pattern.CASE_INSENSITIVE);
+        m = p.matcher(remainder);
+        try {
+            m.find();
+            URL = m.group(1);
+        } catch (IllegalStateException e) {
+            cMsgException ce = new cMsgException("?illegal UDL...no URL");
+            ce.setReturnCode(1);
+            throw ce;
+        }
+
+
+        // account not required
+        p = Pattern.compile("[&\\?]account=(.*?)&", Pattern.CASE_INSENSITIVE);
+        m = p.matcher(remainder);
+        if (m.find()) account = m.group(1);
+
+
+        // password not required
+        p = Pattern.compile("[&\\?]password=(.*?)&", Pattern.CASE_INSENSITIVE);
+        m = p.matcher(remainder);
+        if (m.find()) password = m.group(1);
+
 
 
         // load driver
         try {
             Class.forName(driver);
         } catch (ClassNotFoundException e) {
-            System.out.println(e);
             e.printStackTrace();
-            cMsgException ce = new cMsgException("registerClient: unable to load driver");
+            cMsgException ce = new cMsgException("?registerClient: unable to load driver");
             ce.setReturnCode(1);
             throw ce;
         }
@@ -251,29 +289,63 @@ public class LogTable implements cMsgSubdomainHandler {
         try {
             myCon = DriverManager.getConnection(URL, account, password);
         } catch (SQLException e) {
-            System.out.println(e);
             e.printStackTrace();
-            cMsgException ce = new cMsgException("registerClient: unable to connect to database");
+            cMsgException ce = new cMsgException("?registerClient: unable to connect to database");
             ce.setReturnCode(1);
             throw ce;
         }
 
 
-        // create prepared statement
+        // create statement object, get db type, and check if table exists
+        boolean tableExists = false;
+        myTableName="cMsgQueue_" + myQueueName;
         try {
-            myStmt = myCon.prepareStatement("insert into " + table + " (" +
-                                            "domain,sysMsgId,getResponse,getRequest,sender,senderHost,senderTime," +
-                                            "senderId,senderMsgId,senderToken,receiver,receiverHost," +
-                                            "receiverTime,subject,type,text" +
-                                            ") values (" +
-                                            "?,?,?,?,?,?,?," +
-                                            "?,?,?,?,?," +
-                                            "?,?,?,?" +
-                                            ")");
+            myStmt=myCon.createStatement();
+
+            DatabaseMetaData dbmeta = myCon.getMetaData();
+            myDBType=dbmeta.getDatabaseProductName();
+
+            ResultSet dbrs = dbmeta.getTables(null,null,myTableName,new String [] {"TABLE"});
+            if(dbrs.next()) tableExists = dbrs.getString(3).equalsIgnoreCase(myTableName);
+
         } catch (SQLException e) {
-            System.out.println(e);
             e.printStackTrace();
-            cMsgException ce = new cMsgException("registerClient: unable to create statement object");
+            cMsgException ce = new cMsgException("?registerClient: unable to get db metadata");
+            ce.setReturnCode(1);
+            throw ce;
+        }
+
+
+        // create table if it doesn't exist
+        if(!tableExists) {
+            if(myDBType.equalsIgnoreCase("mysql")) {
+                sql = cMsgMessage.createTableString(myTableName,"auto_increment primary key","datetime","text","");
+            } else {
+                sql = cMsgMessage.createTableString(myTableName,"","time","clob","");
+            }
+
+            try {
+                myStmt.executeUpdate(sql);
+            } catch (SQLException e) {
+                e.printStackTrace();
+                cMsgException ce = new cMsgException("?registerClient: unable to create table " + myTableName);
+                ce.setReturnCode(1);
+                throw ce;
+            }
+        }
+
+
+        // create prepared statement
+        if(myDBType.equalsIgnoreCase("mysql")) {
+            sql = cMsgMessage.createPreparedStatementString(myTableName,"delayed");
+        } else {
+            sql = cMsgMessage.createPreparedStatementString(myTableName,null);
+        }
+        try {
+            myCon.prepareStatement(sql);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException("?registerClient: unable to create prepared statement for " + myTableName);
             ce.setReturnCode(1);
             throw ce;
         }
@@ -293,34 +365,14 @@ public class LogTable implements cMsgSubdomainHandler {
      *                       or socket properties cannot be set
      */
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
-        try {
-            msg.setReceiver("cMsg:LogTable");
-            myStmt.setString(1, msg.getDomain());
-            myStmt.setInt(2, msg.getSysMsgId());
-            myStmt.setBoolean(3, msg.isGetResponse());
-            myStmt.setBoolean(4, msg.isGetRequest());
-            myStmt.setString(5, msg.getSender());
-            myStmt.setString(6, msg.getSenderHost());
-            myStmt.setTimestamp(7, new java.sql.Timestamp(msg.getSenderTime().getTime()));
 
-            myStmt.setInt(8, msg.getSenderId());
-            myStmt.setInt(9, msg.getSenderMsgId());
-            myStmt.setInt(10, msg.getSenderToken());
-            myStmt.setString(11, msg.getReceiver());
-            myStmt.setString(12, msg.getReceiverHost());
-
-            myStmt.setTimestamp(13, new java.sql.Timestamp(msg.getReceiverTime().getTime()));
-            myStmt.setString(14, msg.getSubject());
-            myStmt.setString(15, msg.getType());
-            myStmt.setString(16, msg.getText());
-
-            myStmt.executeUpdate();
-
-        } catch (SQLException e) {
-            System.out.println(e);
-            e.printStackTrace();
-            throw new cMsgException("handleSendRequest: unable to insert into database");
-        }
+//         try {
+//             msg.fillPreparedStatement(myPStmt);
+//             //            myPStmt.executeUpdate();
+//         } catch (SQLException e) {
+//             e.printStackTrace();
+//             throw new cMsgException("?handleSendRequest: unable to insert into queue");
+//         }
     }
 
 
@@ -336,8 +388,12 @@ public class LogTable implements cMsgSubdomainHandler {
      * @throws cMsgException
      */
     public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
-        handleSendRequest(msg);
-        return (0);
+        try {
+            handleSendRequest(msg);
+            return(0);
+        } catch (cMsgException e) {
+            return(1);
+        }
     }
 
 
@@ -356,7 +412,7 @@ public class LogTable implements cMsgSubdomainHandler {
      */
     public void handleSubscribeRequest(String subject, String type,
                                        int receiverSubscribeId) throws cMsgException {
-	// do nothing...
+        // do nothing...
     }
 
 
@@ -372,7 +428,7 @@ public class LogTable implements cMsgSubdomainHandler {
      * @param type message type subscribed to
      * @param receiverSubscribeId message id refering to these specific subject and type values
      */
-    public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId) {
+    public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId) throws cMsgException {
         // do nothing...
     }
 
@@ -383,10 +439,40 @@ public class LogTable implements cMsgSubdomainHandler {
      * Method to synchronously get a single message from a receiver by sending out a
      * message to be responded to.
      *
+     * Currently just returns message at head of queue.
+     *
      * @param message message requesting what sort of message to get
      */
-    public void handleSendAndGetRequest(cMsgMessage message) {
-        // do nothing
+    public void handleSendAndGetRequest(cMsgMessage message) throws cMsgException {
+
+        // create msg
+        cMsgMessage response = message.response();
+
+
+        // retrieve oldest entry and fill message, send nulls if queue empty
+        String sql = "select * from " + myTableName + " order by senderTime limit 1";
+        try {
+            ResultSet rs = myStmt.executeQuery(sql);
+            rs.next();
+            response.fillFromResultSet(rs);
+
+        } catch (SQLException e) {
+            cMsgException ce = new cMsgException("?unable to select from table " + myTableName);
+            ce.setReturnCode(1);
+            throw ce;
+        }
+
+
+        // send message
+        try {
+            deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponse);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        }
     }
 
 
@@ -394,14 +480,14 @@ public class LogTable implements cMsgSubdomainHandler {
 
 
     /**
-     * Method to synchronously get a single message from the server for a one-time
+     * to synchronously get a single message from the server for a one-time
      * subscription of a subject and type.
      *
      * @param subject message subject subscribed to
      * @param type    message type subscribed to
      * @param id      message id refering to these specific subject and type values
      */
-    public void handleSubscribeAndGetRequest(String subject, String type, int id) {
+    public void handleSubscribeAndGetRequest(String subject, String type, int id) throws cMsgException {
         // no nothing
     }
 
@@ -414,7 +500,7 @@ public class LogTable implements cMsgSubdomainHandler {
      *
      * @param id message id refering to these specific subject and type values
      */
-    public void handleUngetRequest(int id) {
+    public void handleUngetRequest(int id) throws cMsgException {
         // do mothing
     }
 
@@ -428,7 +514,7 @@ public class LogTable implements cMsgSubdomainHandler {
      * be done as the domain server simply returns an "OK" to all keepalives.
      * This method is run after all exchanges between domain server and client.
      */
-    public void handleKeepAlive() {
+    public void handleKeepAlive() throws cMsgException {
         // do nothing...
     }
 
@@ -444,9 +530,10 @@ public class LogTable implements cMsgSubdomainHandler {
     public void handleClientShutdown() throws cMsgException {
         try {
             myStmt.close();
+            myPStmt.close();
             myCon.close();
         } catch (SQLException e) {
-            throw(new cMsgException("LogTable sub-domain handler shutdown error"));
+            throw(new cMsgException("?queue sub-domain handler shutdown error"));
         }
     }
 
