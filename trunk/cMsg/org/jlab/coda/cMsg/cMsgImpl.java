@@ -69,18 +69,6 @@ public class cMsgImpl implements cMsg {
 
 //-----------------------------------------------------------------------------
 
-    /**
-     * Constructor.
-     *
-     * @throws cMsgException always throws an exception since this is a dummy implementation
-     */
-    public cMsgImpl() throws cMsgException {
-        throw new cMsgException("cMsg is not implemented yet");
-    }
-
-
-//-----------------------------------------------------------------------------
-
 
     /**
      * Method to connect to the domain server.
