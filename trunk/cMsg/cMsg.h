@@ -1,4 +1,5 @@
 /*----------------------------------------------------------------------------*
+ *
  *  Copyright (c) 2004        Southeastern Universities Research Association, *
  *                            Thomas Jefferson National Accelerator Facility  *
  *                                                                            *
@@ -19,15 +20,11 @@
  *                                                                            *
  *----------------------------------------------------------------------------*
  *
- *  Defines cMsg (CODA Message) API, message structure, and return codes
- *
- *  E.Wolin, C.Timmer, V.Gurjyan, 24-Jun-2004, DAQ Group, Jefferson Lab
  *
  *
  *  Still to do:
  *    should cMsgPerror print or just return string?
  *    should strings be case sensitive?
- *
  *
  *
  *
