@@ -2,7 +2,6 @@
 //   what if exiting table incompatible with current message format?
 
 
-
 /*----------------------------------------------------------------------------*
  *  Copyright (c) 2004        Southeastern Universities Research Association, *
  *                            Thomas Jefferson National Accelerator Facility  *
@@ -24,6 +23,7 @@ package org.jlab.coda.cMsg.subdomains;
 
 import org.jlab.coda.cMsg.*;
 
+import java.net.*;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.sql.*;
@@ -76,6 +76,7 @@ public class queue extends cMsgSubdomainAbstract {
     String myQueueName        = null;
     String myTableName        = null;
     String myDBType           = null;
+    String myHost             = null;
     Connection myCon          = null;
     Statement myStmt          = null;
     PreparedStatement myPStmt = null;
@@ -213,6 +214,19 @@ public class queue extends cMsgSubdomainAbstract {
         String password = null;
 
 
+        // set host
+        try {
+            myHost = InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            System.err.println(e);
+            myHost = "unknown";
+        }
+
+
+        // set myClientInfo
+        myClientInfo=info;
+
+
         // get column names from message system
         cMsgMessage.getMsgFieldsAndTypes(myColumnInfo);
 
@@ -323,10 +337,20 @@ public class queue extends cMsgSubdomainAbstract {
 
         // create table if it doesn't exist
         if(!tableExists) {
+            System.out.println("Creating new table for queue " + myQueueName);
             if(myDBType.equalsIgnoreCase("mysql")) {
-                sql="create table " + myTableName + " (id int not null primary key";
+                String t;
+                sql="create table " + myTableName + " (id int not null primary key auto_increment";
                 for(String c : myColumnInfo.keySet()) {
-                    sql+=", " + c + " " + myColumnInfo.get(c);
+                    sql+=", " + c + " ";
+                    t=myColumnInfo.get(c);
+                    if(t.equalsIgnoreCase("time")) {
+                        sql+="datetime";
+                    } else if(t.equalsIgnoreCase("boolean")) {
+                        sql+="int";
+                    } else {
+                        sql+=t;
+                    }
                 }
                 sql+=")";
             } else {
@@ -398,13 +422,14 @@ public class queue extends cMsgSubdomainAbstract {
                     myPStmt.setInt(i,((Integer)msg.getField(i)).intValue());
                 } else if(type.equalsIgnoreCase("time")) {
                     myPStmt.setTimestamp(i,new java.sql.Timestamp(((java.util.Date)msg.getField(i)).getTime()));
+                } else if(type.equalsIgnoreCase("boolean")) {
+                    myPStmt.setInt(i,((Boolean)msg.getField(i))?1:0);
                 } else {
                     myPStmt.setString(i,(String)msg.getField(i));
                 }
             }
             //        if(!myDBType.equalsIgnoreCase("mysql"))myPStmt.set(++i,???);
 
-            System.out.println("new executeUpdate for " + (String)msg.getField(13));
             myPStmt.executeUpdate();
 
         } catch (SQLException e) {
@@ -487,14 +512,55 @@ public class queue extends cMsgSubdomainAbstract {
         cMsgMessageFull response = message.response();
 
 
-        // retrieve oldest entry and fill message, send nulls if queue empty
-        String sql = "select * from " + myTableName + " limit 1";
+        // retrieve oldest entry and delete
         try {
-            ResultSet rs = myStmt.executeQuery(sql);
-            rs.next();
+
+            // lock table
+            myStmt.execute("lock tables " + myTableName + " write");
+
+
+            // get oldest row
+            ResultSet rs = myStmt.executeQuery("select * from " + myTableName + " order by id limit 1");
+            if(rs.next()) {
+                int id=rs.getInt("id");
+
+                response.setSysMsgId(rs.getInt("sysMsgId"));
+
+                response.setSender(rs.getString("sender"));
+                response.setSenderHost(rs.getString("senderHost"));
+                response.setSenderTime(rs.getTimestamp("senderTime"));
+
+                response.setUserInt(rs.getInt("userInt"));
+                response.setUserTime(rs.getTimestamp("userTime"));
+                response.setPriority(rs.getInt("priority"));
+
+                response.setSubject(rs.getString("subject"));
+                response.setType(rs.getString("type"));
+                response.setText(rs.getString("text"));
+
+                // delete row
+                myStmt.execute("delete from " + myTableName + " where id=" + id);
+
+            } else {
+                response.setSysMsgId(0);
+                response.setSender("");
+                response.setSenderHost("");
+                response.setSenderTime(new Date());
+                response.setUserInt(0);
+                response.setUserTime(new Date(0));
+                response.setPriority(0);
+                response.setSubject("");
+                response.setType("");
+                response.setText("");
+            }
+
+            // unlock table
+            myStmt.execute("unlock tables");
+
 
         } catch (SQLException e) {
-            cMsgException ce = new cMsgException("?unable to select from table " + myTableName);
+            e.printStackTrace();
+            cMsgException ce = new cMsgException(e.toString());
             ce.setReturnCode(1);
             throw ce;
         }
@@ -525,7 +591,7 @@ public class queue extends cMsgSubdomainAbstract {
      * @param id      message id refering to these specific subject and type values
      */
     public void handleSubscribeAndGetRequest(String subject, String type, int id) throws cMsgException {
-        // no nothing
+        // do nothing
     }
 
 
