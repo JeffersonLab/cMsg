@@ -23,7 +23,7 @@ LIB_STATIC  = $(LIBNAM).a
 LIB_DYNAMIC = $(LIBNAM).so
 
 CMSG_LIBS = $(LIB_STATIC) $(LIB_DYNAMIC)
-LIBS    = -lieee -lm -lpthread -lm -lnsl -lresolv -ldl
+LIBS    = -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
 
 OBJS =  cMsgNetwork.o \
 	cMsg.o \
