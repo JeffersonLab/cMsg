@@ -13,6 +13,7 @@ JAVAC_FLAGS = -classpath ../../../../../
 #JAVAC_FLAGS = -classpath ../../../../../:$(CLASSPATH)
 
 JAVA_OBJS = \
+	database.class \
 	LogFile.class \
 	LogTable.class
 
