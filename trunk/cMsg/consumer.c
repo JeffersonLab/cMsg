@@ -38,7 +38,6 @@ int main(int argc,char **argv) {
   char *myName   = "C-consumer";
   char *myDescription = "trial run";
   int err, domainId = -1;
-  void *msg;
   cMsgSubscribeConfig *config;
   
   double freq=0., freqAvg=0., freqTotal=0.;
@@ -87,7 +86,6 @@ int main(int argc,char **argv) {
 }
 
 static void callback(void *msg, void *arg) {
-  struct timespec sometime;
 pthread_mutex_lock(&mutex);
   count++;
 pthread_mutex_unlock(&mutex);
