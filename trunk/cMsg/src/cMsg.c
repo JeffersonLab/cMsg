@@ -1181,7 +1181,6 @@ static int checkTextString(char *s) {
 int cMsgGetUDL(int domainId, char **udl) {
 
   int id  = domainId - DOMAIN_ID_OFFSET;
-  int len = strlen(domains[id].udl);
 
   if (id < 0 || id >= MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
@@ -1211,7 +1210,6 @@ int cMsgGetUDL(int domainId, char **udl) {
 int cMsgGetName(int domainId, char **name) {
 
   int id  = domainId - DOMAIN_ID_OFFSET;
-  int len = strlen(domains[id].name);
 
   if (id < 0 || id >= MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
@@ -1241,7 +1239,6 @@ int cMsgGetName(int domainId, char **name) {
 int cMsgGetDescription(int domainId, char **description) {
 
   int id  = domainId - DOMAIN_ID_OFFSET;
-  int len = strlen(domains[id].description);
 
   if (id < 0 || id >= MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
