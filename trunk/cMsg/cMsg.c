@@ -540,17 +540,17 @@ char *cMsgPerror(int error) {
     break;
 
   case CMSG_WRONG_DOMAIN_TYPE:
-    sprintf(temp, "CMSG_WRONG_DOMAIN_TYPE: when a UDL does not match the server type\n");
-    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_WRONG_DOMAIN_TYPE: when a UDL does not match the server type\n");
+    sprintf(temp, "CMSG_WRONG_DOMAIN_TYPE: UDL does not match the server type\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_WRONG_DOMAIN_TYPE: UDL does not match the server type\n");
     break;
   case CMSG_NO_CLASS_FOUND:
-    sprintf(temp, "CMSG_NO_CLASS_FOUND: when a class cannot be found to instantiate a subdomain client handler\n");
-    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_NO_CLASS_FOUND: when a class cannot be found to instantiate a subdomain client handler\n");
+    sprintf(temp, "CMSG_NO_CLASS_FOUND: class cannot be found to instantiate a subdomain client handler\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_NO_CLASS_FOUND: class cannot be found to instantiate a subdomain client handler\n");
     break;
 
   case CMSG_DIFFERENT_VERSION:
-    sprintf(temp, "CMSG_DIFFERENT_VERSION: when client and server are different versions\n");
-    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_DIFFERENT_VERSION: when a client and server are different versions\n");
+    sprintf(temp, "CMSG_DIFFERENT_VERSION: client and server are different versions\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_DIFFERENT_VERSION: client and server are different versions\n");
     break;
 
   default:
