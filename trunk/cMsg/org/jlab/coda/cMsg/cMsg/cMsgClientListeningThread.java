@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Set;
 import java.net.Socket;
 
 /**
@@ -54,7 +55,7 @@ public class cMsgClientListeningThread extends Thread {
     private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
     /** Allocate int array once (used for reading in data) for efficiency's sake. */
-    private int[] inComing = new int[11];
+    private int[] inComing = new int[13];
     //private int lastOdd=1,lastEven=0;
 
     /** Allocate byte array once (used for reading in data) for efficiency's sake. */
@@ -277,38 +278,42 @@ public class cMsgClientListeningThread extends Thread {
         // create a message
         cMsgMessage msg = new cMsgMessage();
 
-        // keep reading until we have 11 ints of data
-        cMsgUtilities.readSocketBytes(buffer, channel, 44, debug);
+        // keep reading until we have 13 ints of data
+        cMsgUtilities.readSocketBytes(buffer, channel, 52, debug);
 
         // go back to reading-from-buffer mode
         buffer.flip();
 
-        // read 11 ints
+        // read 13 ints
         buffer.asIntBuffer().get(inComing);
 
         // system message id
         msg.setSysMsgId(inComing[0]);
+        // is get request
+        msg.setGetRequest(inComing[1] == 0 ? false : true);
+        // is get response
+        msg.setGetResponse(inComing[2] == 0 ? false : true);
         // receiverSubscribe id
-        msg.setReceiverSubscribeId(inComing[1]);
+        msg.setReceiverSubscribeId(inComing[3]);
         // sender id
-        msg.setSenderId(inComing[2]);
+        msg.setSenderId(inComing[4]);
         // time message sent in seconds since midnight GMT, Jan 1, 1970
-        msg.setSenderTime(new Date(((long)inComing[3])*1000));
+        msg.setSenderTime(new Date(((long)inComing[5])*1000));
         // sender message id
-        msg.setSenderMsgId(inComing[4]);
+        msg.setSenderMsgId(inComing[6]);
         // sender token
-        msg.setSenderToken(inComing[5]);
+        msg.setSenderToken(inComing[7]);
 
         // length of message sender
-        int lengthSender = inComing[6];
+        int lengthSender = inComing[8];
         // length of message senderHost
-        int lengthSenderHost = inComing[7];
+        int lengthSenderHost = inComing[9];
         // length of message subject
-        int lengthSubject = inComing[8];
+        int lengthSubject = inComing[10];
         // length of message type
-        int lengthType = inComing[9];
+        int lengthType = inComing[11];
         // length of message text
-        int lengthText = inComing[10];
+        int lengthText = inComing[12];
 
         // bytes expected
         int bytesToRead = lengthSender + lengthSenderHost + lengthSubject + lengthType + lengthText;
@@ -340,6 +345,26 @@ public class cMsgClientListeningThread extends Thread {
 
         // read text
         msg.setText(new String(bytes, bytesToRead-lengthText, lengthText, "US-ASCII"));
+
+        /*
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("    DELIVERING MESSAGE");
+            System.out.println("      SysMsgId: " +            msg.getSysMsgId());
+            System.out.println("      isGetRequest: " +        msg.isGetRequest());
+            System.out.println("      isGetResponse: " +       msg.isGetResponse());
+            System.out.println("      ReceiverSubscribeId: " + msg.getReceiverSubscribeId());
+            System.out.println("      SenderId: " +            msg.getSenderId());
+            System.out.println("      Time: " +                msg.getSenderTime());
+            System.out.println("      SenderMsgId: " +         msg.getSenderMsgId());
+            System.out.println("      SenderToken: " +         msg.getSenderToken());
+
+            System.out.println("      Sender: " +       msg.getSender());
+            System.out.println("      SenderHost: " +   msg.getSenderHost());
+            System.out.println("      Subject: " +      msg.getSubject());
+            System.out.println("      Type: " +         msg.getType());
+            System.out.println("      Text: " +         msg.getText());
+        }
+        */
         /*
         int num = Integer.parseInt(msg.getText());
         if (num%2 > 0) {
@@ -392,29 +417,98 @@ public class cMsgClientListeningThread extends Thread {
             return;
         }
 
-        HashSet subSet = client.subscriptions;
-        Iterator iter = subSet.iterator();
+        cMsgCallbackThread cbThread;
+        cMsgMessageHolder  holder;
 
-        for (; iter.hasNext(); ) {
-            cMsgSubscription sub = (cMsgSubscription) iter.next();
+        // handle specific get (aimed at a receiver)
+        if (msg.isGetResponse()) {
+            holder = (cMsgMessageHolder) client.specificGets.remove(
+                                                    new Integer(msg.getSenderToken()));
+            if (holder == null) {
+                return;
+            }
+            holder.message = msg;
+//System.out.println("Sending notify for SPECIFIC GET");
+            // Tell the get-calling thread to wakeup and retrieved the held msg
+            synchronized (holder) {
+                holder.notify();
+            }
+            return;
+        }
+        // handle subscription types
+        else {
+            // handle subscriptions
+            Set set = client.subscriptions;
+            Iterator iter;
 
-            // if the subject/type id's match, run callbacks for this sub/type
-            if (sub.id == msg.getReceiverSubscribeId()) {
-                // run through all callbacks
-                Iterator iter2 = sub.callbacks.iterator();
-                for (; iter2.hasNext();) {
-                    cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
-                    // Tell the callback thread to wakeup and run the callback.
-                    cbThread.sendMessage(msg);
-                    synchronized (cbThread) {
-                        cbThread.notify();
+            synchronized (set) {
+                iter = set.iterator();
+
+                for (; iter.hasNext();) {
+                    cMsgSubscription sub = (cMsgSubscription) iter.next();
+
+                    // if the subject/type id's match, run callbacks for this sub/type
+                    if (sub.getId() == msg.getReceiverSubscribeId()) {
+                        // run through all callbacks
+                        Iterator iter2 = sub.getCallbacks().iterator();
+                        for (; iter2.hasNext();) {
+                            cbThread = (cMsgCallbackThread) iter2.next();
+                            cbThread.sendMessage(msg);
+//System.out.println("Sending wakeup for SUBSCRIBE");
+                            // Tell one callback thread to wakeup and run the callback.
+                            cbThread.wakeup();
+                        }
+
+                        break;
                     }
                 }
+            }
 
-                break;
+            // handle general gets (really just a 1-shot subscribe)
+            set = client.generalGets;
+
+            // Before msg is distributed to get-calls for a get "subscription",
+            // that subscription must be removed from the "generalGets"
+            // hashmap, so no new gets on that subject and type can be added.
+            // Otherwise, new gets will be waiting forever (after msg already distributed).
+            // This must sync on client object since the client's get method is too.
+            //
+            // Actually, only the "iter.remove" statement must be so protected,
+            // however, we may not grab the set mutex before the client mutex
+            // or deadlock may result. That is because in the "get" method of
+            // the client, the client mutex is grabbed before the set mutex.
+            synchronized (client) {
+                synchronized (set) {
+                    iter = set.iterator();
+
+                    for (; iter.hasNext();) {
+                        cMsgSubscription sub = (cMsgSubscription) iter.next();
+
+                        // if the subject/type id's match, run callbacks for this sub/type
+                        if (sub.getId() == msg.getReceiverSubscribeId()) {
+                            // Remove subscription from the "generalGets" set so no
+                            // new gets can be added (when it's too late).
+                            iter.remove();
+
+                            // run through all callbacks
+                            Iterator iter2 = sub.getHolders().iterator();
+                            for (; iter2.hasNext();) {
+                                holder = (cMsgMessageHolder) iter2.next();
+                                holder.message = msg;
+//System.out.println("Sending notify for GENERAL GET");
+                                // Tell the get-calling thread to wakeup and retrieve msg
+                                synchronized (holder) {
+                                    holder.notify();
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
+
 
 }
 

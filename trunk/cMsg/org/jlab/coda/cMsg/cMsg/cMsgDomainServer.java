@@ -60,7 +60,7 @@ public class cMsgDomainServer extends Thread {
     private String type;
 
     /** Allocate int array once (used for reading in data) for efficiency's sake. */
-    private int[] inComing = new int[8];
+    private int[] inComing = new int[10];
 
     /** Allocate byte array once (used for reading in data) for efficiency's sake. */
     byte[] bytes = new byte[5000];
@@ -291,21 +291,40 @@ public class cMsgDomainServer extends Thread {
 
                 case cMsgConstants.msgSendRequest: // receiving a message
                     // read the message here
-                    if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("dServer handleClient: got send request from " + info.name);
-                    }
-                    msg = readIncomingMessage(channel);
+                    //if (debug >= cMsgConstants.debugInfo) {
+                    //    System.out.println("dServer handleClient: got SEND request from " + info.name);
+                    //}
+                    msg = readSendInfo(channel);
                     clientHandler.handleSendRequest(msg);
                     break;
 
                 case cMsgConstants.msgSyncSendRequest: // receiving a message
                     // read the message here
                     if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("dServer handleClient: got send request from " + info.name);
+                        System.out.println("dServer handleClient: got syncSend request from " + info.name);
                     }
-                    msg = readIncomingMessage(channel);
+                    msg = readSendInfo(channel);
                     answer = clientHandler.handleSyncSendRequest(msg);
                     syncSendReply(channel, answer);
+                    break;
+
+                case cMsgConstants.msgGetRequest: // getting a message of subject & type
+                    // read the message here
+                    //if (debug >= cMsgConstants.debugInfo) {
+                    //    System.out.println("dServer handleClient: got GET request from " + info.name);
+                    //}
+                    // get subject, type, and receiverSubscribeId
+                    msg = readGetInfo(channel);
+                    clientHandler.handleGetRequest(msg);
+                    break;
+
+                case cMsgConstants.msgUngetRequest: // ungetting from a subject & type
+                    // read the subject and type here
+                    if (debug >= cMsgConstants.debugInfo) {
+                        System.out.println("dServer handleClient: got unget request from " + info.name);
+                    }
+                    readUnsubscribeInfo(channel);
+                    clientHandler.handleUngetRequest(subject, type);
                     break;
 
                 case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
@@ -313,11 +332,12 @@ public class cMsgDomainServer extends Thread {
                     if (debug >= cMsgConstants.debugInfo) {
                         System.out.println("dServer handleClient: got subscribe request from " + info.name);
                     }
+                    // get subject, type, and receiverSubscribeId
                     readSubscribeInfo(channel);
                     clientHandler.handleSubscribeRequest(subject, type, receiverSubscribeId);
                     break;
 
-                case cMsgConstants.msgUnsubscribeRequest: // unsubscribing to a subject & type
+                case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
                     // read the subject and type here
                     if (debug >= cMsgConstants.debugInfo) {
                         System.out.println("dServer handleClient: got unsubscribe request from " + info.name);
@@ -327,9 +347,9 @@ public class cMsgDomainServer extends Thread {
                     break;
 
                 case cMsgConstants.msgKeepAlive: // see if this end is still here
-                    if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("dServer handleClient: got keep alive from " + info.name);
-                    }
+                    //if (debug >= cMsgConstants.debugInfo) {
+                    //    System.out.println("dServer handleClient: got keep alive from " + info.name);
+                    //}
                     // send ok back as acknowledgment
                     buffer.clear();
                     buffer.putInt(cMsgConstants.ok).flip();
@@ -385,11 +405,8 @@ public class cMsgDomainServer extends Thread {
             return;
         }
         catch (IOException e) {
-            //e.printStackTrace();
             if (debug >= cMsgConstants.debugError) {
                 System.out.println("dServer handleClient: I/O ERROR in cMsg client " + info.name + ": " + e.getMessage());
-                System.out.println("dServer handleClient: I/O ERROR in cMsg client " + info.name +
-                        " with msgId = " + msgId);
             }
             try {channel.close();}
             catch (IOException e1) {
@@ -417,41 +434,40 @@ public class cMsgDomainServer extends Thread {
      * @throws IOException If socket read or write error
      * @return message read from channel
      */
-    private cMsgMessage readIncomingMessage(SocketChannel channel) throws IOException {
+    private cMsgMessage readSendInfo(SocketChannel channel) throws IOException {
 
         // create a message
         cMsgMessage msg = new cMsgMessage();
 
-        // keep reading until we have 8 ints of data
-        cMsgUtilities.readSocketBytes(buffer, channel, 32, debug);
+        // keep reading until we have 10 ints of data
+        cMsgUtilities.readSocketBytes(buffer, channel, 40, debug);
 
         // go back to reading-from-buffer mode
         buffer.flip();
 
-        // read 8 ints
-        buffer.asIntBuffer().get(inComing, 0, 8);
+        // read 10 ints
+        buffer.asIntBuffer().get(inComing, 0, 10);
 
         // system message id
         msg.setSysMsgId(inComing[0]);
+        // is sender doing get request?
+        msg.setGetRequest(inComing[1] == 0 ? false : true);
+        // is sender doing get response?
+        msg.setGetResponse(inComing[2] == 0 ? false : true);
         // sender id
-        msg.setSenderId(inComing[1]);
+        msg.setSenderId(inComing[3]);
         // time message sent in seconds since midnight GMT, Jan 1, 1970
-        msg.setSenderTime(new Date(((long)inComing[2])*1000));
+        msg.setSenderTime(new Date(((long)inComing[4])*1000));
         // sender message id
-        msg.setSenderMsgId(inComing[3]);
+        msg.setSenderMsgId(inComing[5]);
         // sender token
-        msg.setSenderToken(inComing[4]);
+        msg.setSenderToken(inComing[6]);
         // length of message subject
-        int lengthSubject = inComing[5];
+        int lengthSubject = inComing[7];
         // length of message type
-        int lengthType = inComing[6];
+        int lengthType = inComing[8];
         // length of message text
-        int lengthText = inComing[7];
-
-//        if (debug >= cMsgConstants.debugInfo) {
-//            System.out.println("readIncomingMessages:" + " lenSubject = " + lengthSubject +
-//                               ", lenType = " + lengthType + ", lenText = " + lengthText);
-//        }
+        int lengthText = inComing[9];
 
         // bytes expected
         int bytesToRead = lengthSubject + lengthType + lengthText;
@@ -480,12 +496,84 @@ public class cMsgDomainServer extends Thread {
         // read text
         msg.setText(new String(bytes, lengthSubject+lengthType, lengthText, "US-ASCII"));
 
-        // send ok back as acknowledgment
-       // buffer.clear();
-       // buffer.putInt(cMsgConstants.ok).flip();
-      //  while (buffer.hasRemaining()) {
-       //     channel.write(buffer);
-       // }
+        // fill in message object's members
+        msg.setDomain(domainType);
+        msg.setReceiver("cMsg domain server");
+        msg.setReceiverHost(host);
+        msg.setReceiverTime(new Date()); // current time
+        msg.setSender(info.name);
+        msg.setSenderHost(info.clientHost);
+
+        return msg;
+    }
+
+
+    /**
+     * This method reads an incoming cMsgMessage from a client doing a "get".
+     *
+     * @param channel nio socket communication channel
+     * @throws IOException If socket read or write error
+     * @return message read from channel
+     */
+    private cMsgMessage readGetInfo(SocketChannel channel) throws IOException {
+
+        // create a message
+        cMsgMessage msg = new cMsgMessage();
+
+        // keep reading until we have 9 ints of data
+        cMsgUtilities.readSocketBytes(buffer, channel, 36, debug);
+
+        // go back to reading-from-buffer mode
+        buffer.flip();
+
+        // read 9 ints
+        buffer.asIntBuffer().get(inComing, 0, 9);
+
+        // is sender doing specific get or just 1-shot subscribe?
+        msg.setGetRequest(inComing[0] == 1 ? true : false);
+        // sender's unique receiverSubscribeId (for general get)
+        msg.setReceiverSubscribeId(inComing[1]);
+        // sender id
+        msg.setSenderId(inComing[2]);
+        // time message sent in seconds since midnight GMT, Jan 1, 1970
+        msg.setSenderTime(new Date(((long)inComing[3])*1000));
+        // sender message id
+        msg.setSenderMsgId(inComing[4]);
+        // sender token (for specific get)
+        msg.setSenderToken(inComing[5]);
+        // length of message subject
+        int lengthSubject = inComing[6];
+        // length of message type
+        int lengthType = inComing[7];
+        // length of message text
+        int lengthText = inComing[8];
+
+        // bytes expected
+        int bytesToRead = lengthSubject + lengthType + lengthText;
+
+        // read in all remaining bytes
+        cMsgUtilities.readSocketBytes(buffer, channel, bytesToRead, debug);
+
+        // go back to reading-from-buffer mode
+        buffer.flip();
+
+        // allocate bigger byte array if necessary
+        // (allocate more than needed for speed's sake)
+        if (bytesToRead > bytes.length) {
+            bytes = new byte[bytesToRead];
+        }
+
+        // read into array
+        buffer.get(bytes, 0, bytesToRead);
+
+        // read subject
+        msg.setSubject(new String(bytes, 0, lengthSubject, "US-ASCII"));
+
+        // read type
+        msg.setType(new String(bytes, lengthSubject, lengthType, "US-ASCII"));
+
+        // read text
+        msg.setText(new String(bytes, lengthSubject+lengthType, lengthText, "US-ASCII"));
 
         // fill in message object's members
         msg.setDomain(domainType);
@@ -571,13 +659,6 @@ public class cMsgDomainServer extends Thread {
             System.out.println("  type = " + type);
         }
 
-        // send ok back as acknowledgment
-       // buffer.clear();
-        //buffer.putInt(cMsgConstants.ok).flip();
-        //while (buffer.hasRemaining()) {
-        //    channel.write(buffer);
-        //}
-
         return;
     }
 
@@ -631,13 +712,6 @@ public class cMsgDomainServer extends Thread {
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("  type = " + type);
         }
-
-        // send ok back as acknowledgment
-       // buffer.clear();
-        //buffer.putInt(cMsgConstants.ok).flip();
-        //while (buffer.hasRemaining()) {
-       //     channel.write(buffer);
-       // }
 
         return;
     }

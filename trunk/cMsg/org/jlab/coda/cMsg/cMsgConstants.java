@@ -118,5 +118,7 @@ public class cMsgConstants {
     public static final int    msgSubscribeResponse  = 11;
     /** Send a message. */
     public static final int    msgSyncSendRequest    = 12;
+    /** Remove "get" request. */
+    public static final int    msgUngetRequest       = 13;
 
 }
