@@ -287,6 +287,7 @@ extern "C" {
   int    cMsgGetGetResponse(void *vmsg);
   int    cMsgGetGetRequest(void *vmsg);
   char  *cMsgGetDomain(void *vmsg);
+  char  *cMsgGetCreator(void *vmsg);
   int    cMsgSetSubject(void *vmsg, char *subject);
   char  *cMsgGetSubject(void *vmsg);
   int    cMsgSetType(void *vmsg, char *type);
