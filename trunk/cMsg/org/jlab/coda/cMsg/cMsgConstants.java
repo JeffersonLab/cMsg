@@ -92,45 +92,47 @@ public class cMsgConstants {
     /** Error due to being different version. */
     public static final int    errorDifferentVersion   = 22;
 
-    // codes sent over the network to identify cMsg messages
+    // Codes sent by the client over the network to
+    // specify a particular request.
 
     /** Connect to the server. */
     public static final int    msgConnectRequest           =  0;
     /** Disconnect from the server. */
     public static final int    msgDisconnectRequest        =  1;
-    /** Respond to the server. */
-    public static final int    msgServerResponse           =  2;
-    /** See if the other end of the socket is still open. */
-    public static final int    msgKeepAlive                =  3;
-    /** Exit your cMsg-related methods and threads. */
-    public static final int    msgShutdown                 =  4;
-    /** Get a message with 1-shot subscribe. */
-    public static final int    msgSubscribeAndGetRequest   =  5;
-    /** Get a message from a responder of sent message. */
-    public static final int    msgSendAndGetRequest        =  6;
-    /** Respond to a "get message" command. */
-    public static final int    msgGetResponse              =  7;
+    /** See if the process on the other end of the socket is still alive. */
+    public static final int    msgKeepAlive                =  2;
+    /** Shutdown various clients and servers. */
+    public static final int    msgShutdown                 =  3;
     /** Send a message. */
-    public static final int    msgSendRequest              =  8;
-    /** Respond to a "sendAndGet" command. */
-    public static final int    msgSendResponse             =  9;
+    public static final int    msgSendRequest              =  4;
+    /** Send a message with synchronous response. */
+    public static final int    msgSyncSendRequest          =  5;
     /** Subscribe to messages. */
-    public static final int    msgSubscribeRequest         = 10;
+    public static final int    msgSubscribeRequest         =  6;
     /** Unsubscribe to messages. */
-    public static final int    msgUnsubscribeRequest       = 11;
-    /** Respond with message to the subscribe command. */
-    public static final int    msgSubscribeResponse        = 12;
-    /** Send a message. */
-    public static final int    msgSyncSendRequest          = 13;
+    public static final int    msgUnsubscribeRequest       =  7;
+    /** Get a message with 1-shot subscribe. */
+    public static final int    msgSubscribeAndGetRequest   =  8;
     /** Remove "subscribeAndGet" request. */
-    public static final int    msgUnSubscribeAndGetRequest = 14;
+    public static final int    msgUnSubscribeAndGetRequest =  9;
+    /** Get a message from a responder of a sent message. */
+    public static final int    msgSendAndGetRequest        = 10;
     /** Remove "sendAndGet" request. */
-    public static final int    msgUnSendAndGetRequest      = 15;
-    /** Respond to a "sendAndGet" command and wait for client acknowledgment. */
-    public static final int    msgGetResponseWithAck       = 16;
-    /** Respond with message to the subscribe command and wait for client acknowledgment. */
-    public static final int    msgSubscribeResponseWithAck = 17;
+    public static final int    msgUnSendAndGetRequest      = 11;
+
+    // Codes sent by the server to a client over the
+    // network to specify a particular response.
+
+    /** Respond to a "sendAndGet" request. */
+    public static final int    msgGetResponse              =  20;
     /** Respond to a "sendAndGet" command is null. */
-    public static final int    msgGetResponseIsNull        = 18;
+    public static final int    msgGetResponseIsNull        =  21;
+    /** Respond with message to the subscribe command. */
+    public static final int    msgSubscribeResponse        =  22;
+
+    // Flags for client's shutdown method.
+
+    /** Do NOT exclude the client calling shutdown from being shutdown. */
+    public static final int    includeMe = 1;
 
 }
