@@ -107,7 +107,7 @@ public class cMsgLogger {
                 if(!verbose) {
                     System.out.println(String.format("%-6d  %12s  %12s  %14s %10s  %10s    %s",
                                                      count,
-                                                     msg.getSender(),
+                                                     msg.getCreator(),
                                                      msg.getSenderHost(),
                                                      new java.sql.Timestamp(msg.getSenderTime().getTime()),
                                                      msg.getSubject(),
@@ -125,7 +125,7 @@ public class cMsgLogger {
                 if(!verbose) {
                     pWriter.println(String.format("%-6d  %12s  %12s  %14s %10s  %10s    %s",
                                                   count,
-                                                  msg.getSender(),
+                                                  msg.getCreator(),
                                                   msg.getSenderHost(),
                                                   new java.sql.Timestamp(msg.getSenderTime().getTime()),
                                                   msg.getSubject(),
@@ -150,6 +150,7 @@ public class cMsgLogger {
                     pStmt.setInt(i++,       (msg.isGetRequest()?1:0));
                     pStmt.setInt(i++,       (msg.isGetResponse()?1:0));
 
+                    pStmt.setString(i++,    msg.getCreator());
                     pStmt.setString(i++,    msg.getSender());
                     pStmt.setString(i++,    msg.getSenderHost());
                     pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getSenderTime().getTime()));
@@ -261,7 +262,7 @@ public class cMsgLogger {
                 if((!dbrs.next())||(!dbrs.getString(3).equalsIgnoreCase(table))) {
                     String sql="create table " + table + " (" +
                         "version int, domain varchar(255), sysMsgId int," +
-                        "getRequest int, getResponse int," +
+                        "getRequest int, getResponse int, creator varchar(128)," +
                         "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
                         "userInt int, userTime datetime, priority int," +
                         "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
@@ -277,7 +278,7 @@ public class cMsgLogger {
             try {
                 String sql = "insert into " + table + " (" +
                     "version,domain,sysMsgId," +
-                    "getRequest,getResponse," +
+                    "getRequest,getResponse,creator" +
                     "sender,senderHost,senderTime,senderToken," +
                     "userInt,userTime,priority," +
                     "receiver,receiverHost,receiverTime,receiverSubscribeId," +
