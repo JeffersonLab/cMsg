@@ -18,6 +18,7 @@ JAVA_OBJS = \
 	CA.class \
 	database.class \
 	LogFile.class \
+	tcpserver.class \
 	FileQueue.class \
 	queue.class
 
