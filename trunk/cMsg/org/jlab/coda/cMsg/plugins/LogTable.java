@@ -1,6 +1,6 @@
 // still to do:
-//   close db connection
-//   return code values?
+//   return code values
+//   server shutdown
 
 
 
@@ -223,16 +223,7 @@ public class LogTable implements cMsgHandleRequests {
 	}
 
 
-	System.out.println("driver: " + driver);
-	System.out.println("url: " + URL);
-	System.out.println("account: " + account);
-	System.out.println("password: " + password);
-	System.out.println("table: " + table);
-
-
-
-
-	// create database connection for each client connection
+	// load driver
 	try {
 	    Class.forName(driver);
 	} catch (Exception e) {
@@ -244,6 +235,7 @@ public class LogTable implements cMsgHandleRequests {
 	}
 
 
+	// create connection
 	try {
 	    myCon  = DriverManager.getConnection(URL,account,password);
 	} catch (Exception e) {
@@ -255,6 +247,7 @@ public class LogTable implements cMsgHandleRequests {
 	}
 
 
+	// create statement 
 	try {
 	    myStmt = myCon.prepareStatement("insert into " + table + " (" + 
 					    "domain,sysMsgId,sender,senderHost,senderTime," +
@@ -399,8 +392,18 @@ public class LogTable implements cMsgHandleRequests {
     }
 
 
+    /**
+     * Method to handle a client shutdown.
+     *
+     * @throws cMsgException
+     */
     public void handleClientShutdown() throws cMsgException {
-	// do nothing...
+	try {
+	    myStmt.close();
+	    myCon.close();
+	} catch (Exception e) {
+	    throw(new cMsgException("sub-domain handler shutdown error"));
+	}
     }
 
 
