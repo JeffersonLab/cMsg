@@ -8,16 +8,15 @@
 
 # Operating system we are using
 OSNAME := $(shell uname)
-FILENAME = Makefile.unix
+MAKEFILE = Makefile.unix
 
 ifeq ($(OSNAME),SunOS)
 LIB_DIR = ./lib/SunOS
 BIN_DIR = ./bin/SunOS
 
 ifeq ($(ARCH),VXWORKSPPC)
-OSNAME = vxworks
 LIB_DIR = ./lib/vxworks
-FILENAME = Makefile.vxworks
+MAKEFILE = Makefile.vxworks
 endif
 
 endif
@@ -41,8 +40,8 @@ mkdirs:
 	-mkdir $(BIN_DIR)
 
 cCode:
-	cd ./src/regexp;  $(MAKE) -f $(FILENAME) install;
-	cd ./src;  $(MAKE) -f $(FILENAME) install;
+	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) install;
+	cd ./src;  $(MAKE) -f $(MAKEFILE) install;
 
 jar:
 	jar cf cMsg.jar `find org/ -type f | grep -v SCCS`
@@ -66,7 +65,8 @@ doxygen:
 
 clean: 
 	rm -f core *~ *.o *.so *.a *.class
-	cd ./src;  $(MAKE) -f $(FILENAME) clean;
+	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) clean;
+	cd ./src;  $(MAKE) -f $(MAKEFILE) clean;
 jclean: 
 	cd ./org/jlab/coda/cMsg;  $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/cMsgDomain;  $(MAKE) clean;
