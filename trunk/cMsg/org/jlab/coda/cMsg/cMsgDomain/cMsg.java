@@ -694,17 +694,34 @@ public class cMsg extends cMsgAdapter {
 
 
     /**
-     * This method does two separate things depending on the specifics of message in the
-     * argument. If the message to be sent has its "getRequest" field set to be true using
-     * {@link cMsgMessage#isGetRequest()}, then the message is sent as it would be in the
-     * {@link #send} method. The server notes the fact that a response to it is expected,
-     * and sends it to everyone subscribed to its subject and type. When a marked response is
-     * received from a client, it sends that first response back to the original sender
-     * regardless of its subject or type.
+     * This method is like a one-time subscribe. The server grabs the first incoming
+     * message of the requested subject and type and sends that to the caller.
      *
-     * In a second usage, if the message did NOT set its "getRequest" field to be true,
-     * then the server grabs the first incoming message of the requested subject and type
-     * and sends that to the original sender in response to the get.
+     * NOTE: Disconnecting when one thread is in the waiting part of a get may cause that
+     * thread to block forever. It is best to always use a timeout with "get" so the thread
+     * is assured of eventually resuming execution.
+     *
+     * @param subject subject of message desired from server
+     * @param type type of message desired from server
+     * @param timeout time in milliseconds to wait for a message
+     * @return response message
+     * @throws cMsgException
+     */
+    public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
+            throws cMsgException {
+
+        cMsgMessage msg = new cMsgMessage();
+        msg.setSubject(subject);
+        msg.setType(type);
+        
+        return get(msg, timeout);
+    }
+
+    /**
+     * The message is sent as it would be in the {@link #send} method. The server notes
+     * the fact that a response to it is expected, and sends it to all subscribed to its
+     * subject and type. When a marked response is received from a client, it sends that
+     * first response back to the original sender regardless of its subject or type.
      *
      * NOTE: Disconnecting when one thread is in the waiting part of a get may cause that
      * thread to block forever. It is best to always use a timeout with "get" so the thread
@@ -713,9 +730,22 @@ public class cMsg extends cMsgAdapter {
      * @param message message sent to server
      * @param timeout time in milliseconds to wait for a reponse message
      * @return response message
+     * @throws cMsgException
+     */
+    public cMsgMessage sendAndGet(cMsgMessage message, int timeout) throws cMsgException {
+        message.setGetRequest(true);
+        return get(message, timeout);
+    }
+
+    /**
+     * Implements the 2 flavors of get.
+     *
+     * @param message message sent to server
+     * @param timeout time in milliseconds to wait for a reponse message
+     * @return response message
      * @throws cMsgException if there are communication problems with the server
      */
-    public cMsgMessage get(cMsgMessage message, int timeout) throws cMsgException {
+    private cMsgMessage get(cMsgMessage message, int timeout) throws cMsgException {
 
         int id;
         cMsgHolder holder = null;
