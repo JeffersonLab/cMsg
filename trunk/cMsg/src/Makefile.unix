@@ -8,6 +8,10 @@ TOP_DIR = ..
 INC_DIR = $(TOP_DIR)/inc
 INSTALL = $(TOP_DIR)/install-sh -c
 
+ifndef OSNAME
+OSNAME := $(shell uname)
+endif
+
 # Linux
 ifeq ($(OSNAME),Linux)
 CC  = gcc
@@ -15,7 +19,7 @@ CXX = g++
 LIB_DIR  = $(TOP_DIR)/lib/Linux
 BIN_DIR  = $(TOP_DIR)/bin/Linux
 AC_FLAGS =
-CFLAGS   = -O2 -fPIC -I./ $(AC_FLAGS)
+CFLAGS   = -O2 -fPIC -I. -I$(INC_DIR) $(AC_FLAGS)
 LIBS     = -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
 endif
 
@@ -26,7 +30,7 @@ CXX = CC
 LIB_DIR  = $(TOP_DIR)/lib/SunOS
 BIN_DIR  = $(TOP_DIR)/bin/SunOS
 AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
-CFLAGS   = -mt -xO5 -KPIC -I. $(AC_FLAGS)
+CFLAGS   = -mt -xO5 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
 LIBS     = -lm -lposix4 -lsocket -lnsl -lresolv -ldl
 endif
 
@@ -41,6 +45,7 @@ CMSG_LIBS = $(LIB_STATIC) $(LIB_DYNAMIC)
 
 OBJS =  rwlock.o \
 	sunConcurrency.o \
+	cMsgMatching.o \
 	cMsgNetwork.o \
 	cMsg.o \
 	cMsgDomainListenThread.o \
@@ -75,9 +80,6 @@ install-bin: $(PROGS)
 	   $(INSTALL) $$i $(BIN_DIR)/$$i; \
            done;
 
-$(PROGS) : % : %.c  ./cMsg.h
-	$(CC) -o $@ $(CFLAGS) $< -L./ -lcmsg $(LIBS)
-
 # libraries
 $(LIB_STATIC): $(OBJS)
 	$(AR) cr $@ $?
@@ -95,8 +97,8 @@ clean:
 # SUFFIX RULES
 
 .c:
-	$(CC) -o $* $(CFLAGS) $< -L./ -lcmsg $(LIBS)
+	$(CC) -o $* $(CFLAGS) $< -L./ -L$(LIB_DIR) -lcmsg -lregex $(LIBS)
 .cc:
-	$(CXX) -o $* $(CFLAGS) $< -L./ -lcmsg $(LIBS)
+	$(CXX) -o $* $(CFLAGS) $< -L./ -L$(LIB_DIR) -lcmsg -lregex $(LIBS)
 .c.o:
 	$(CC) -c $(CFLAGS) $<
