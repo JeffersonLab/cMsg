@@ -3,6 +3,7 @@ package org.jlab.coda.cMsg.apps;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgCallback;
+import org.jlab.coda.cMsg.cMsgCallbackImpl;
 import org.jlab.coda.cMsg.cMsg.cMsg;
 
 /**
@@ -67,28 +68,32 @@ public class cMsgConsumer {
     }
 
 
-    class myCallback implements cMsgCallback {
-         /**
-          * Callback method definition.
-          *
-          * @param msg message received from domain server
-          * @param userObject object passed as an argument which was set when the
-          *                   client orginally subscribed to a subject and type of
-          *                   message.
-          */
-         public void callback(cMsgMessage msg, Object userObject) {
-             //try { Thread.sleep(1); }
-             //catch (InterruptedException e) {}
-             count++;
-         }
+    class myCallback extends cMsgCallbackImpl {
+        /**
+         * Callback method definition.
+         *
+         * @param msg message received from domain server
+         * @param userObject object passed as an argument which was set when the
+         *                   client orginally subscribed to a subject and type of
+         *                   message.
+         */
+        public void callback(cMsgMessage msg, Object userObject) {
+            try { Thread.sleep(1); }
+            catch (InterruptedException e) {}
+            count++;
+        }
 
-        public boolean maySkipMessages() {return false;}
+        public boolean maySkipMessages() {
+            return true;
+        }
 
-        public boolean mustSerializeMessages() {return true;}
+        public boolean mustSerializeMessages() {
+            return false;
+        }
 
-        public int getMaximumCueSize() {return 60000;}
-
-        public int getSkipSize() {return 10000;}
+        public int  getMaximumThreads() {
+            return 200;
+        }
 
      }
 

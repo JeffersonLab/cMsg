@@ -89,7 +89,7 @@ public class cMsgLogger {
 //-----------------------------------------------------------------------------
 
     /** Class that implements the callback interface. */
-    class cb implements cMsgCallback {
+    class cb extends cMsgCallbackImpl {
         /**
          * Callback method.
          * @param msg cMsg message
@@ -117,13 +117,8 @@ public class cMsgLogger {
                 System.exit(-1);
             }
         }
-        public boolean maySkipMessages() {return false;}
 
-        public boolean mustSerializeMessages() {return false;}
-        
-        public int getMaximumCueSize() {return 60000;}
-
-        public int getSkipSize() {return 10000;}
+        public boolean mustSerializeMessages() {return false;}       
     }
 
 

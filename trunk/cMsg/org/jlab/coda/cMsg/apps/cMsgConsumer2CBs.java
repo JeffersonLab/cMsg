@@ -3,6 +3,7 @@ package org.jlab.coda.cMsg.apps;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgCallback;
 import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgCallbackImpl;
 import org.jlab.coda.cMsg.cMsg.cMsg;
 
 /**
@@ -67,7 +68,7 @@ public class cMsgConsumer2CBs {
     }
 
 
-    class myCallback1 implements cMsgCallback {
+    class myCallback1 extends cMsgCallbackImpl {
          /**
           * Callback method definition.
           *
@@ -76,40 +77,32 @@ public class cMsgConsumer2CBs {
           *                   client orginally subscribed to a subject and type of
           *                   message.
           */
-         public void callback(cMsgMessage msg, Object userObject) {
-             //try { Thread.sleep(1000); }
-             //catch (InterruptedException e) {}
-             count1++;
-         }
-        public boolean maySkipMessages() {return false;}
+        public void callback(cMsgMessage msg, Object userObject) {
+            //try { Thread.sleep(1000); }
+            //catch (InterruptedException e) {}
+            count1++;
+        }
 
-        public boolean mustSerializeMessages() {return false;}
-
-        public int getMaximumCueSize() {return 60000;}
-
-        public int getSkipSize() {return 10000;}
+        public boolean mustSerializeMessages() {
+            return false;
+        }
      }
 
 
-    class myCallback2 implements cMsgCallback {
-         /**
-          * Callback method definition.
-          *
-          * @param msg message received from domain server
-          * @param userObject object passed as an argument which was set when the
-          *                   client orginally subscribed to a subject and type of
-          *                   message.
-          */
-         public void callback(cMsgMessage msg, Object userObject) {
-             count2++;
-         }
-        public boolean maySkipMessages() {return false;}
+    class myCallback2 extends cMsgCallbackImpl {
+        /**
+         * Callback method definition.
+         *
+         * @param msg message received from domain server
+         * @param userObject object passed as an argument which was set when the
+         *                   client orginally subscribed to a subject and type of
+         *                   message.
+         */
+        public void callback(cMsgMessage msg, Object userObject) {
+            count2++;
+        }
 
         public boolean mustSerializeMessages() {return false;}
-
-        public int getMaximumCueSize() {return 60000;}
-
-        public int getSkipSize() {return 10000;}
      }
 
 
