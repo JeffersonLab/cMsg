@@ -230,7 +230,7 @@ public class cMsgNameServer extends Thread {
     }
 
 
-    static private cMsgSubdomainInterface createClientHandler(String subdomain, String UDLRemainder)
+    static private cMsgSubdomainInterface createClientHandler(String subdomain)
             throws cMsgException {
 
         /** Object to handle clients' inputs */
@@ -315,9 +315,6 @@ public class cMsgNameServer extends Thread {
             throw ex;
         }
 
-        // The first thing we do is pass the UDL remainder to the handler
-        clientHandler.setUDLRemainder(UDLRemainder);
-
         return clientHandler;
     }
 
@@ -338,27 +335,33 @@ public class cMsgNameServer extends Thread {
      * @throws cMsgException If a domain server could not be started for the client
      */
     synchronized public cMsgSubdomainInterface registerClient(cMsgClientInfo info) throws cMsgException {
-        cMsgSubdomainInterface subdomainHandler = createClientHandler(info.getSubdomain(),
-                                                                      info.getUDLremainder());
-        // If subdomainHandler is a subclass of cMsgSubdomainAdapter, it has methods
-        // to connect to the client, so do it now. The socket channel is stored in "info".
-        if (subdomainHandler instanceof cMsgSubdomainAdapter) {
-            try {
-                ((cMsgSubdomainAdapter)subdomainHandler).createChannel(info);
-            }
-            catch (IOException e) {
-                cMsgException ex = new cMsgException("socket communication error");
-                ex.setReturnCode(cMsgConstants.errorNetwork);
-                throw ex;
-            }
+        cMsgSubdomainInterface subdomainHandler = createClientHandler(info.getSubdomain());
+
+        // The first thing we do is pass the UDL remainder to the handler
+        subdomainHandler.setUDLRemainder(info.getUDLremainder());
+
+        // The next thing to do is create an object enabling the handler
+        // to communicate with the client in this cMsg domain.
+        cMsgMessageDeliverer deliverer = new cMsgMessageDeliverer();
+
+        // This object has methods to connect to the client, so do it now.
+        // The socket channel is stored in "info".
+        try {
+            deliverer.createChannel(info);
         }
+        catch (IOException e) {
+            cMsgException ex = new cMsgException("socket communication error");
+            ex.setReturnCode(cMsgConstants.errorNetwork);
+            throw ex;
+        }
+        subdomainHandler.setMessageDeliverer(deliverer);
 
         // pass registration on to handler object
         subdomainHandler.registerClient(info);
 
         // Create a domain server thread, and get back its host & port
         cMsgDomainServer server = new cMsgDomainServer(subdomainHandler, info,
-                                                         cMsgNetworkConstants.domainServerStartingPort);
+                                                       cMsgNetworkConstants.domainServerStartingPort);
         // kill this thread too if name server thread quits
         server.setDaemon(true);
         server.start();
@@ -605,13 +608,14 @@ public class cMsgNameServer extends Thread {
 
                 // send back attributes of clientHandler class/object
                 // 1 = has, 0 = don't have: send, subscribeAndGet, sendAndGet, subscribe, unsubscribe
-                byte[] atts = new byte[6];
+                byte[] atts = new byte[7];
                 atts[0] = handler.hasSend()            ? (byte)1 : (byte)0;
                 atts[1] = handler.hasSyncSend()        ? (byte)1 : (byte)0;
                 atts[2] = handler.hasSubscribeAndGet() ? (byte)1 : (byte)0;
                 atts[3] = handler.hasSendAndGet()      ? (byte)1 : (byte)0;
                 atts[4] = handler.hasSubscribe()       ? (byte)1 : (byte)0;
                 atts[5] = handler.hasUnsubscribe()     ? (byte)1 : (byte)0;
+                atts[6] = handler.hasShutdown()        ? (byte)1 : (byte)0;
                 buffer.put(atts);
 
                 // send cMsg domain host & port contact info back to client
