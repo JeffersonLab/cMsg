@@ -362,7 +362,7 @@ static void *clientThread(void *arg)
           /* read the message */
           if ( (err = cMsgReadMessage(connfd, message)) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "  clientThread %d: error reading message\n", localCount);
+              fprintf(stderr, "clientThread %d: error reading message\n", localCount);
             }
             free((void *) message->domain);
             free((void *) message->receiver);
@@ -371,7 +371,12 @@ static void *clientThread(void *arg)
           }
           
           /* run callbacks for this message */
-          cMsgRunCallbacks(domainId, msgId, message);
+          if ( (err = cMsgRunCallbacks(domainId, msgId, message)) != CMSG_OK) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+              fprintf(stderr, "clientThread %d: too many messages cued up\n", localCount);
+            }
+            goto end;
+          }
       }
       break;
 
