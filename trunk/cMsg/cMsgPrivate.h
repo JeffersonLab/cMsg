@@ -27,8 +27,9 @@ extern "C" {
 #endif
 
 
-/* version numbers */
+/** Major version number. */
 #define CMSG_VERSION_MAJOR 0
+/** Minor version number. */
 #define CMSG_VERSION_MINOR 9
 
 
@@ -37,8 +38,14 @@ extern "C" {
 #define MAXDOMAINS       100
 #define DOMAIN_ID_OFFSET 100
 
+/** Is message a sendAndGet request? -- is stored in first bit. */
+#define CMSG_IS_GET_REQUEST       0x0001
+/** Is message a response to a sendAndGet? -- is stored in second bit. */
+#define CMSG_IS_GET_RESPONSE      0x0002
+/** Is the response message null instead of a message? -- is stored in third bit. */
+#define CMSG_IS_NULL_GET_RESPONSE 0x0004
 
-/* set the debug level */
+/** Debug level. */
 extern int cMsgDebug;
 
 
@@ -94,8 +101,10 @@ typedef struct cMsg_t {
   /* general quantities */
   int     version;          /* major version of cMsg */
   int     sysMsgId;         /* set by system */
-  int     getRequest;       /* is message a get request? 0=n,else=y */
-  int     getResponse;      /* is message a response to a get request? 0=n,else=y */
+  int     info;             /* stores get information in bit form (true = 1): */
+                            /* is message a sendAndGet request? bit 1 */
+                            /* is message a response to a sendAndGet request? bit 2 */
+                            /* is response message NULL instead of a message? bit 3 */
   char   *domain;           /* message generated in this domain */
   char   *creator;          /* message originally created by this user/sender */
   
