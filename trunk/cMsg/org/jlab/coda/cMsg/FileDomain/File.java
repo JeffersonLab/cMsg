@@ -118,7 +118,7 @@ public class File extends cMsgDomainAdapter {
      * @param msg message to send
      * @throws cMsgException (not thrown)
      */
-    public void send(cMsgMessageFull msg) throws cMsgException {
+    public void send(cMsgMessage msg) throws cMsgException {
         Date now = new Date();
         if (textOnly) {
             myPrintHandle.println(now + ":    " + msg.getText());
@@ -146,7 +146,7 @@ public class File extends cMsgDomainAdapter {
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    public int syncSend(cMsgMessageFull message) throws cMsgException {
+    public int syncSend(cMsgMessage message) throws cMsgException {
         send(message);
         return (0);
     }
@@ -175,7 +175,7 @@ public class File extends cMsgDomainAdapter {
      */
     private void parseUDL() throws cMsgException {
 
-	domain="file";
+        domain="file";
 
 
         if (UDLremainder == null) {
@@ -187,11 +187,11 @@ public class File extends cMsgDomainAdapter {
         String remainder = null;
         int ind = UDLremainder.indexOf('?');
         if (ind > 0) {
-	    myFileName = UDLremainder.substring(0,ind);
+            myFileName = UDLremainder.substring(0,ind);
             remainder  = UDLremainder.substring(ind+1);
         } else {
-	    myFileName = UDLremainder;
-	}
+            myFileName = UDLremainder;
+        }
 
 
         // parse remainder
