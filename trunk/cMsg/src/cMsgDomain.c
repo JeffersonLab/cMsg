@@ -30,9 +30,6 @@
 /**
  * @file
  * This file contains the cMsg domain implementation of the cMsg user API.
- *
- * <b>Introduction</b>
- *
  * This a messaging system programmed by the Data Acquisition Group at Jefferson
  * Lab. The cMsg domain has a dual function. It acts as a framework so that the
  * cMsg client can connect to a variety of subdomains (messaging systems). However,
@@ -125,7 +122,7 @@ domainTypeInfo codaDomainTypeInfo = {
 };
 
 
-/* in cMsgServer.c */
+/** Function in cMsgServer.c which implements the network listening thread of a client. */
 void *cMsgClientListeningThread(void *arg);
 
 
@@ -899,7 +896,7 @@ static int subscribeAndGet(int domainId, char *subject, char *type,
   /* make new entry and notify server */
   gotSpot = 0;
 
-  for (i=0; i<MAX_GENERAL_GET; i++) {
+  for (i=0; i<MAX_SUBSCRIBE_AND_GET; i++) {
     if (domain->generalGetInfo[i].active != 0) {
       continue;
     }
@@ -1130,7 +1127,7 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   /* make new entry and notify server */
   gotSpot = 0;
 
-  for (i=0; i<MAX_SPECIFIC_GET; i++) {
+  for (i=0; i<MAX_SEND_AND_GET; i++) {
     if (domain->specificGetInfo[i].active != 0) {
       continue;
     }
@@ -1519,7 +1516,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
       iok = 1;
 
       jok = 0;
-      for (j=0; j<MAXCALLBACK; j++) {
+      for (j=0; j<MAX_CALLBACK; j++) {
 	if (domain->subscribeInfo[i].cbInfo[j].callback == NULL) {
 	  domain->subscribeInfo[i].cbInfo[j].callback = callback;
 	  domain->subscribeInfo[i].cbInfo[j].userArg  = userArg;
@@ -1732,7 +1729,7 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
          (strcmp(domain->subscribeInfo[i].type,    type)    == 0) )  {
             
       /* search callback list */
-      for (j=0; j<MAXCALLBACK; j++) {
+      for (j=0; j<MAX_CALLBACK; j++) {
 	if (domain->subscribeInfo[i].cbInfo[j].callback != NULL) {
 	  cbCount++;
           if (domain->subscribeInfo[i].cbInfo[j].callback == callback) {
@@ -2528,7 +2525,7 @@ domain->subscribeInfo[i].id, rsIds[ii]);
 fprintf(stderr, "cMsgRunCallbacks: match with msg id %d\n", rsIds[ii]);
 */
         /* search callback list */
-        for (j=0; j<MAXCALLBACK; j++) {
+        for (j=0; j<MAX_CALLBACK; j++) {
 	  /* if there is an existing callback ... */
           if (domain->subscribeInfo[i].cbInfo[j].callback != NULL) {
 /*
@@ -2614,7 +2611,7 @@ fprintf(stderr, "cMsgRunCallbacks: there is a callback\n");
     } /* for each subscription */
   
     /* find any matching general gets */
-    for (j=0; j<MAX_GENERAL_GET; j++) {
+    for (j=0; j<MAX_SUBSCRIBE_AND_GET; j++) {
       if (domain->generalGetInfo[j].active != 1) {
         continue;
       }
@@ -2666,7 +2663,7 @@ int cMsgWakeGet(int domainId, cMsgMessage *msg) {
   domain = &cMsgDomains[domainId];
   
   /* find the right get */
-  for (i=0; i<MAX_SPECIFIC_GET; i++) {
+  for (i=0; i<MAX_SEND_AND_GET; i++) {
     if (domain->specificGetInfo[i].active != 1) {
       continue;
     }
@@ -2711,7 +2708,7 @@ int cMsgWakeGetWithNull(int domainId, int senderToken) {
   domain = &cMsgDomains[domainId];
   
   /* find the right get */
-  for (i=0; i<MAX_SPECIFIC_GET; i++) {
+  for (i=0; i<MAX_SEND_AND_GET; i++) {
     if (domain->specificGetInfo[i].active != 1) {
       continue;
     }
@@ -3197,7 +3194,7 @@ static void subscribeInfoInit(subscribeInfo *info, int reInit) {
     info->type    = NULL;
     info->subject = NULL;
     
-    for (j=0; j<MAXCALLBACK; j++) {
+    for (j=0; j<MAX_CALLBACK; j++) {
       info->cbInfo[j].threads  = 0;
       info->cbInfo[j].messages = 0;
       info->cbInfo[j].quit     = 0;
@@ -3273,11 +3270,11 @@ static void domainInit(cMsgDomain_CODA *domain, int reInit) {
     subscribeInfoInit(&domain->subscribeInfo[i], reInit);
   }
   
-  for (i=0; i<MAX_GENERAL_GET; i++) {
+  for (i=0; i<MAX_SUBSCRIBE_AND_GET; i++) {
     getInfoInit(&domain->generalGetInfo[i], reInit);
   }
   
-  for (i=0; i<MAX_SPECIFIC_GET; i++) {
+  for (i=0; i<MAX_SEND_AND_GET; i++) {
     getInfoInit(&domain->specificGetInfo[i], reInit);
   }
 
@@ -3315,7 +3312,7 @@ static void subscribeInfoFree(subscribeInfo *info) {
     /* cannot destroy mutexes and cond vars in vxworks */
     int j, status;
 
-    for (j=0; j<MAXCALLBACK; j++) {
+    for (j=0; j<MAX_CALLBACK; j++) {
       status = pthread_cond_destroy (&info->cbInfo[j].cond);
       if (status != 0) {
         err_abort(status, "subscribeInfoFree:destroying cond var");
@@ -3418,11 +3415,11 @@ static void domainFree(cMsgDomain_CODA *domain) {
     subscribeInfoFree(&domain->subscribeInfo[i]);
   }
   
-  for (i=0; i<MAX_GENERAL_GET; i++) {
+  for (i=0; i<MAX_SUBSCRIBE_AND_GET; i++) {
     getInfoFree(&domain->generalGetInfo[i]);
   }
   
-  for (i=0; i<MAX_SPECIFIC_GET; i++) {
+  for (i=0; i<MAX_SEND_AND_GET; i++) {
     getInfoFree(&domain->specificGetInfo[i]);
   }
 }
