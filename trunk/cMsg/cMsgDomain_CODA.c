@@ -1263,11 +1263,11 @@ static void *callbackThread(void *arg)
       }
 
       size  = subscription->messages;
-      printf("  %d\n", size);
+      /* printf("  %d\n", size); */
            
       if (size > subscription->config.maxCueSize) {
           if (subscription->config.maySkip) {
-      printf("  CUT IT DOWN\n");
+      /* printf("  CUT IT DOWN\n");*/
               for (i=0; i < subscription->config.skipSize; i++) {
                 msg = subscription->head;
                 subscription->head = subscription->head->next;
