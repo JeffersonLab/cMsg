@@ -187,6 +187,8 @@ extern "C" {
   void  *cMsgCreateNewMessage  (void *vmsg);
   void  *cMsgCopyMessage       (void *msg);
   void   cMsgInitMessage       (void *msg);
+  void  *cMsgCreateResponseMessage(void *vmsg);
+  void  *cMsgCreateNullResponseMessage(void *vmsg);
   
   int    cMsgGetVersion        (void *vmsg, int *version);
   int    cMsgGetGetRequest     (void *vmsg, int *getRequest);
@@ -208,9 +210,6 @@ extern "C" {
   
   int    cMsgSetText           (void *vmsg, char  *text);
   int    cMsgGetText           (void *vmsg, char **text);
-  
-  int    cMsgSetPriority       (void *vmsg, int  priority);
-  int    cMsgGetPriority       (void *vmsg, int *priority);
   
   int    cMsgSetUserInt        (void *vmsg, int  userInt);
   int    cMsgGetUserInt        (void *vmsg, int *userInt);

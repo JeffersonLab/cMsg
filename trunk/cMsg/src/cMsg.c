@@ -1359,7 +1359,7 @@ static void initMessage(cMsgMessage *msg) {
     msg->type         = NULL;
     msg->text         = NULL;
     
-    msg->priority         = 0;
+    msg->reserved         = 0;
     msg->userInt          = 0;
     msg->userTime.tv_sec  = 0;
     msg->userTime.tv_nsec = 0;
@@ -1457,7 +1457,7 @@ int cMsgFreeMessage(void *vmsg) {
     if (msg->text != NULL) newMsg->text = (char *) strdup(msg->text);
     else                   newMsg->text = NULL;
 
-    newMsg->priority    = msg->priority;
+    newMsg->reserved    = msg->reserved;
     newMsg->userInt     = msg->userInt;
     newMsg->userTime    = msg->userTime;
 
@@ -1560,6 +1560,79 @@ void *cMsgCreateNewMessage(void *vmsg) {
         free(newMsg->creator);
         newMsg->creator = NULL;
     }
+    
+    return (void *)newMsg;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine creates a new, initialized message with some fields
+ * copied from the given message in order to make it a proper response
+ * to a sendAndGet() request. Memory is allocated with this
+ * function and can be freed by cMsgFreeMessage().
+ *
+ * @param vmsg pointer to message to which response fields are set
+ *
+ * @returns a pointer to the new message
+ * @returns NULL if no memory available, message argument is NULL, or
+ *               message argument is not from calling sendAndGet()
+ */   
+void *cMsgCreateResponseMessage(void *vmsg) {
+    cMsgMessage *newMsg;
+    cMsgMessage *msg = (cMsgMessage *)vmsg;
+    
+    if (vmsg == NULL) return NULL;
+    
+    /* if message is not a get request ... */
+    if (!(msg->info & CMSG_IS_GET_REQUEST)) return NULL;
+    
+    if ((newMsg = (cMsgMessage *)cMsgCreateMessage()) == NULL) {
+      return NULL;
+    }
+    
+    newMsg->senderToken = msg->senderToken;
+    newMsg->sysMsgId    = msg->sysMsgId;
+    newMsg->info        = CMSG_IS_GET_RESPONSE;
+    
+    return (void *)newMsg;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine creates a new, initialized message with some fields
+ * copied from the given message in order to make it a proper "NULL"
+ * (or no message) response to a sendAndGet() request.
+ * Memory is allocated with this function and can be freed by
+ * cMsgFreeMessage().
+ *
+ * @param vmsg pointer to message to which response fields are set
+ *
+ * @returns a pointer to the new message
+ * @returns NULL if no memory available, message argument is NULL, or
+ *               message argument is not from calling sendAndGet()
+ */   
+void *cMsgCreateNullResponseMessage(void *vmsg) {
+    cMsgMessage *newMsg;
+    cMsgMessage *msg = (cMsgMessage *)vmsg;
+    
+    if (vmsg == NULL) return NULL;  
+    
+    /* if message is not a get request ... */
+    if (!(msg->info & CMSG_IS_GET_REQUEST)) return NULL;
+    
+    if ((newMsg = (cMsgMessage *)cMsgCreateMessage()) == NULL) {
+      return NULL;
+    }
+    
+    newMsg->senderToken = msg->senderToken;
+    newMsg->sysMsgId    = msg->sysMsgId;
+    newMsg->info        = CMSG_IS_GET_RESPONSE | CMSG_IS_NULL_GET_RESPONSE;
     
     return (void *)newMsg;
 }
@@ -1936,45 +2009,6 @@ int cMsgGetText(void *vmsg, char **text) {
   return(CMSG_OK);
 }
 
-/*-------------------------------------------------------------------*/
-/*-------------------------------------------------------------------*/
-
-/**
- * This routine sets the priority of a message.
- *
- * @param vmsg pointer to message
- * @param priority message priority
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
- */   
-int cMsgSetPriority(void *vmsg, int priority) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  msg->priority = priority;
-
-  return(CMSG_OK);
-}
-
-/**
- * This routine gets the priority of a message.
- *
- * @param vmsg pointer to message
- * @param priority integer pointer to be filled in with message priority
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
- */   
-int cMsgGetPriority(void *vmsg, int *priority) {
-
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
-
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  *priority = msg->priority;
-  return (CMSG_OK);
-}
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
