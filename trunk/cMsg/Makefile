@@ -14,7 +14,8 @@ BIN_DIR = ./
 
 # C stuff
 AC_FLAGS  = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
-CFLAGS    = -O2 -fPIC -I./ $(AC_FLAGS)
+#CFLAGS    = -O2 -fPIC -I./ $(AC_FLAGS)
+CFLAGS    = -fPIC -I./ $(AC_FLAGS)
 CXXFLAGS  = $(CFLAGS)
 SHLIB_LD  = ld -G
 
@@ -44,9 +45,9 @@ java:
 	cd ./;
 
 doc:
-	$(JAVAD) -package org.jlab.coda.cMsg
-	$(JAVAD) -package org.jlab.coda.cMsg.coda
-	$(JAVAD) -package org.jlab.coda.cMsg.apps
+	javah -package org.jlab.coda.cMsg
+	javah -package org.jlab.coda.cMsg.cMsg
+	javah -package org.jlab.coda.cMsg.apps
 
 install: install-lib install-inc install-bin
 
