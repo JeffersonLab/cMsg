@@ -82,8 +82,6 @@ public class cMsgMonitorClient extends Thread {
                                    info.getName() + "\n");
             }
         }
-
-        info.setChannel(channel);
     }
 
     /** This method is executed as a thread. */
