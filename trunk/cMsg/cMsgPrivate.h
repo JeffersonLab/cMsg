@@ -26,6 +26,10 @@
 extern "C" {
 #endif
 
+/* version numbers */
+#define CMSG_VERSION_MAJOR 1
+#define CMSG_VERSION_MINOR 0
+
 /* debug levels */
 #define CMSG_DEBUG_NONE   0
 #define CMSG_DEBUG_SEVERE 1
