@@ -13,6 +13,7 @@ endif
 
 # Linux
 ifeq ($(OSNAME),Linux)
+CC = gcc
 LIB_DIR  = $(TOP_DIR)/lib/Linux
 BIN_DIR  = $(TOP_DIR)/bin/Linux
 AC_FLAGS =
@@ -21,13 +22,14 @@ endif
 
 # Solaris
 ifeq ($(OSNAME),SunOS)
+CC = cc
 LIB_DIR  = $(TOP_DIR)/lib/SunOS
 BIN_DIR  = $(TOP_DIR)/bin/SunOS
 AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
 CFLAGS   = -mt -xO5 -KPIC -I. -DPOSIX_MISTAKE $(AC_FLAGS)
 endif
 
-REGEX_LIBS = libregex.so libregex.a
+REGEX_LIBS = libcMsgRegex.so libcMsgRegex.a
 HFILES = regex.h
 
 SHLIB_LD = ld -G
@@ -39,12 +41,12 @@ OBJPRODN=regcomp.o regexec.o regerror.o regfree.o
 default: solib lib $(PROGS)
 
 lib:	purge $(OBJPRODN)
-	rm -f libregex.a
-	ar crv libregex.a $(OBJPRODN)
+	rm -f libcMsgRegex.a
+	ar crv libcMsgRegex.a $(OBJPRODN)
         
 solib:	purge $(OBJPRODN)
-	rm -f libregex.so
-	$(SHLIB_LD) $(OBJPRODN) -o libregex.so
+	rm -f libcMsgRegex.so
+	$(SHLIB_LD) $(OBJPRODN) -o libcMsgRegex.so
 
 # arrangements to build forward-reference header files
 %.ih : %.c
@@ -80,5 +82,5 @@ tidy:
 	rm -f junk* core core.* *.core dtr *.tmp lint
 
 clean:	tidy
-	rm -f *.o *.s *.ih re libregex.a libregex.so
+	rm -f *.o *.s *.ih re libcMsgRegex.a libcMsgRegex.so
         
