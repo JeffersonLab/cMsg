@@ -56,6 +56,17 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
     /** Host the client is running on. */
     protected String  host;
 
+    /** Handler for client shutdown command sent by server. */
+    protected cMsgShutdownHandlerInterface shutdownHandler;
+
+//-----------------------------------------------------------------------------
+
+
+    /** Constructor which gives a default shutdown handler to this client. */
+    public cMsgDomainAdapter() {
+        setShutdownHandler(new cMsgShutdownHandlerDefault());
+    }
+
 
 //-----------------------------------------------------------------------------
 
@@ -239,6 +250,48 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      */
     public void stop() {
         receiving = false;
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to shutdown the given clients and/or servers.
+     *
+     * @param client client(s) to be shutdown
+     * @param server server(s) to be shutdown
+     * @param flag   flag describing the mode of shutdown
+     * @throws cMsgException
+     */
+    public void shutdown(String client, String server, int flag) throws cMsgException {
+        throw new cMsgException("shutdown is not implemented");
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to set the shutdown handler of the client.
+     *
+     * @param handler shutdown handler
+     */
+    public void setShutdownHandler(cMsgShutdownHandlerInterface handler) {
+        shutdownHandler = handler;
+    };
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to get the shutdown handler of the client.
+     *
+     * @return shutdown handler object
+     */
+    public cMsgShutdownHandlerInterface getShutdownHandler() {
+        return shutdownHandler;
     }
 
 
