@@ -26,6 +26,8 @@ package org.jlab.coda.cMsg.cMsgDomain.subdomains;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequests;
+import org.jlab.coda.cMsg.cMsgDomain.cMsgClientInfo;
+
 import java.util.*;
 import java.util.concurrent.atomic.*;
 import java.io.*;
@@ -154,28 +156,15 @@ public class LogFile implements cMsgHandleRequests {
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
         myUDLRemainder=UDLRemainder;
     }
-    
-
-    /**
-     * Method to see if domain client is registered.
-     *
-     * @param name name of client
-     * @return true if client registered, false otherwise
-     */
-    public boolean isRegistered(String name) {
-	return false;  // no limit on how many registrations per client
-    }
 
 
     /**
      * Method to register domain client.
      *
-     * @param name name of client
-     * @param host host client is running on
-     * @param port port client is listening on
+     * @param info information about client
      * @throws cMsgException if unable to register
      */
-    public void registerClient(String name, String host, int port) throws cMsgException {
+    public void registerClient(cMsgClientInfo info) throws cMsgException {
 
 	String remainder = null;  // not used yet...could hold file open flags..
 	LogFileObject l;
@@ -322,8 +311,9 @@ public class LogFile implements cMsgHandleRequests {
      *
      * @param subject message subject subscribed to
      * @param type message type subscribed to
+     * @param receiverSubscribeId message id refering to these specific subject and type values
      */
-    public void handleUnsubscribeRequest(String subject, String type) {
+    public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId) {
         // do nothing...
     }
 
