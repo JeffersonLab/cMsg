@@ -39,9 +39,6 @@ public class cMsgNameServer extends Thread {
     /** Type of domain this is. */
     private String domainType = "CODA";
 
-    /** Object to handle clients' inputs */
-    private cMsgHandleRequests clientHandler;
-
     /** Port number to listen on. */
     private int port;
   
@@ -72,10 +69,6 @@ public class cMsgNameServer extends Thread {
     /** Gets type of domain this object serves. */
     public String getDomainType() {return domainType;}
 
-    /** Gets object which handles client requests. */
-    public cMsgHandleRequests getClientHandler() {
-        return clientHandler;
-    }
 
     /**
      * Constructor which reads environmental variables and opens listening socket.
@@ -85,8 +78,6 @@ public class cMsgNameServer extends Thread {
      *                          (command line or in env var CMSG_HANDLER)
      */
     public cMsgNameServer() throws cMsgException {
-        // First check to see if handler class name was set on the command line.
-        String clientHandlerClass = System.getProperty("handler");
         Jgetenv env = null;
 
         // read env variable for starting (desired) port number
@@ -99,32 +90,9 @@ public class cMsgNameServer extends Thread {
         catch (JgetenvException ex) {
         }
 
-        try {
-            if (clientHandlerClass == null) {
-                clientHandlerClass = env.echo("CMSG_HANDLER");
-            }
-        }
-        catch (JgetenvException e) {
-            throw new cMsgException(e.getMessage());
-        }
-
         // port #'s < 1024 are reserved
         if (startingPort < 1024) {
             startingPort = cMsgNetworkConstants.nameServerStartingPort;
-        }
-
-        // Get handler class name and create handler object
-        try {
-            clientHandler = (cMsgHandleRequests) (Class.forName(clientHandlerClass).newInstance());
-        }
-        catch (InstantiationException e) {
-            e.printStackTrace();
-        }
-        catch (IllegalAccessException e) {
-            e.printStackTrace();
-        }
-        catch (ClassNotFoundException e) {
-            e.printStackTrace();
         }
 
         // At this point, find a port to bind to. If that isn't possible, throw
@@ -174,6 +142,41 @@ public class cMsgNameServer extends Thread {
     }
 
 
+    private cMsgHandleRequests createClientHandler() throws cMsgException {
+        /** Object to handle clients' inputs */
+        cMsgHandleRequests clientHandler = null;
+
+         // First check to see if handler class name was set on the command line.
+        String clientHandlerClass = System.getProperty("handler");
+        Jgetenv env = null;
+        try {
+            if (clientHandlerClass == null) {
+                clientHandlerClass = env.echo("CMSG_HANDLER");
+            }
+        }
+        catch (JgetenvException e) {
+            throw new cMsgException(e.getMessage());
+        }
+
+
+        // Get handler class name and create handler object
+        try {
+            clientHandler = (cMsgHandleRequests) (Class.forName(clientHandlerClass).newInstance());
+        }
+        catch (InstantiationException e) {
+            e.printStackTrace();
+        }
+        catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+        catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        return clientHandler;
+    }
+
+
     /**
      * Method to register a client with this name server. This method passes on the registration
      * function to the client handler object.
@@ -183,6 +186,8 @@ public class cMsgNameServer extends Thread {
      * @throws cMsgException If a domain server could not be started for the client
      */
     synchronized public void registerClient(String name, cMsgClientInfo info) throws cMsgException {
+        cMsgHandleRequests clientHandler = createClientHandler();
+        
         // Check to see if name is taken already - pass this on to handler object
         if (clientHandler.isRegistered(name)) {
             throw new cMsgException("client already exists");
