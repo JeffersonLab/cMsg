@@ -58,8 +58,7 @@ typedef struct cMsgThreadInfo_t {
 
 
 /* prototypes */
-static void *cMsgClientThread(void *arg);
-static void  cMsgCommandLoop(cMsgThreadInfo *info);
+static void *clientThread(void *arg);
 static void  cleanUpHandler(void *arg);
 
 /* set debug level here */
@@ -252,14 +251,14 @@ void *cMsgServerListeningThread(void *arg)
     /* if there's room to store thread info ... */
     if (index > -1) {
       clientThreads[index].isUsed = 1;
-      status = pthread_create(&clientThreads[index].threadId, &attr, cMsgClientThread, (void *) pinfo);
+      status = pthread_create(&clientThreads[index].threadId, &attr, clientThread, (void *) pinfo);
       if (status != 0) {
         err_abort(status, "Create client thread");
       }
     }
     /* else if no room, create thread anyway */
     else {
-      status = pthread_create(&threadId, &attr, cMsgClientThread, (void *) pinfo);
+      status = pthread_create(&threadId, &attr, clientThread, (void *) pinfo);
       if (status != 0) {
         err_abort(status, "Create client thread");
       }
@@ -276,7 +275,7 @@ void *cMsgServerListeningThread(void *arg)
 /*-------------------------------------------------------------------*/
 
 
-static void *cMsgClientThread(void *arg)
+static void *clientThread(void *arg)
 {
   int  msgId, domainId, err, connfd, endian, length=0;
   int  outgoing[2], incoming[2];
@@ -312,7 +311,7 @@ static void *cMsgClientThread(void *arg)
   err = setsockopt(connfd, SOL_SOCKET, SO_RCVTIMEO, (const void *) &timeout, sizeof(timeout));
   if (err < 0) {
     if (debug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgCommandLoop: setsockopt error\n");
+      fprintf(stderr, "clientThread: setsockopt error\n");
     }
     return;
   }
@@ -328,7 +327,7 @@ static void *cMsgClientThread(void *arg)
         goto retry;
       }
       if (debug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cMsgCommandLoop: error reading command\n");
+        fprintf(stderr, "clientThread: error reading command\n");
       }
       goto end;
     }
@@ -350,9 +349,9 @@ static void *cMsgClientThread(void *arg)
           message->receiverHost = (char *) strdup(cMsgGetHost(domainId));
           
           /* read the message */
-          if ( (err = readMessage(connfd, message)) != CMSG_OK) {
+          if ( (err = cMsgReadMessage(connfd, message)) != CMSG_OK) {
             if (debug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "cMsgClientThread: error reading message\n");
+              fprintf(stderr, "clientThread: error reading message\n");
             }
             free((void *) message->domain);
             free((void *) message->receiver);
@@ -368,7 +367,7 @@ static void *cMsgClientThread(void *arg)
       case  CMSG_SHUTDOWN:
       {
         if (debug >= CMSG_DEBUG_INFO) {
-          fprintf(stderr, "cMsgClientThread: told to shutdown\n");
+          fprintf(stderr, "clientThread: told to shutdown\n");
         }
         goto end;
       }
@@ -384,7 +383,7 @@ static void *cMsgClientThread(void *arg)
       clientInfo->isUsed = 0;
     }
 
-    fprintf(stderr, "cMsgCommandLoop: remote client connection broken\n");
+    fprintf(stderr, "clientThread: remote client connection broken\n");
 
     /* we are done with the socket */
     close(connfd);
