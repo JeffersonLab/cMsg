@@ -213,7 +213,7 @@ public class cMsgClientListeningThread extends Thread {
                      msg = readIncomingMessage(channel);
 
                      // run callbacks for this message
-                     wakeSpecificGets(msg);
+                     wakeGets(msg);
 
                      break;
 
@@ -431,100 +431,6 @@ public class cMsgClientListeningThread extends Thread {
     /**
      * This method runs all appropriate callbacks - each in their own thread.
      * Different callbacks are run depending on the subject and type of the
-     * incoming message. It also wakes up all active general-get methods that
-     * match the message.
-     *
-     * @param msg incoming message
-     */
-    private void runCallbacksOrig(cMsgMessage msg) throws cMsgException {
-
-        // if callbacks have been stopped, return
-        if (!client.isReceiving()) {
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("runCallbacks: all callbacks have been stopped");
-            }
-            return;
-        }
-
-        cMsgCallbackThread cbThread;
-        cMsgMessageHolder  holder;
-
-        // handle subscriptions
-        Set set = client.subscriptions;
-        Iterator iter;
-
-        // set is NOT modified here
-        synchronized (set) {
-            iter = set.iterator();
-
-            for (; iter.hasNext();) {
-                cMsgSubscription sub = (cMsgSubscription) iter.next();
-
-                // if the subject/type id's match, run callbacks for this sub/type
-                if (sub.getId() == msg.getReceiverSubscribeId()) {
-                    // run through all callbacks
-                    Iterator iter2 = sub.getCallbacks().iterator();
-                    for (; iter2.hasNext();) {
-                        cbThread = (cMsgCallbackThread) iter2.next();
-                        cbThread.sendMessage(msg);
-//System.out.println("Sending wakeup for SUBSCRIBE");
-                        // Tell one callback thread to wakeup and run the callback.
-                        cbThread.wakeup();
-                    }
-
-                    break;
-                }
-            }
-        }
-
-        // handle general gets (really just a 1-shot subscribe)
-        set = client.generalGets;
-
-        // Before msg is distributed to get-calls for a get "subscription",
-        // that subscription must be removed from the "generalGets"
-        // hashmap, so no new gets on that subject and type can be added.
-        // Otherwise, new gets will be waiting forever (after msg already distributed).
-        // This must sync on client object since the client's get method is too.
-        //
-        // Actually, only the "iter.remove" statement must be so protected,
-        // however, we may not grab the set mutex before the client mutex
-        // or deadlock may result. That is because in the "get" method of
-        // the client, the client mutex is grabbed before the set mutex.
-        synchronized (client) {
-            synchronized (set) {
-                iter = set.iterator();
-
-                for (; iter.hasNext();) {
-                    cMsgSubscription sub = (cMsgSubscription) iter.next();
-
-                    // if the subject/type id's match, run callbacks for this sub/type
-                    if (sub.getId() == msg.getReceiverSubscribeId()) {
-                        // Remove subscription from the "generalGets" set so no
-                        // new gets can be added (when it's too late).
-                        iter.remove();
-
-                        // run through all gets
-                        Iterator iter2 = sub.getHolders().iterator();
-                        for (; iter2.hasNext();) {
-                            holder = (cMsgMessageHolder) iter2.next();
-                            holder.message = msg;
-//System.out.println("Sending notify for GENERAL GET");
-                            // Tell the get-calling thread to wakeup and retrieve msg
-                            synchronized (holder) {
-                                holder.notify();
-                            }
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-
-    /**
-     * This method runs all appropriate callbacks - each in their own thread.
-     * Different callbacks are run depending on the subject and type of the
      * incoming message. It also wakes up all active general-get methods.
      *
      * @param msg incoming message
@@ -539,85 +445,65 @@ public class cMsgClientListeningThread extends Thread {
             return;
         }
 
+        cMsgMessageHolder holder;
+
+
         cMsgCallbackThread cbThread;
-        cMsgMessageHolder  holder;
 
         // handle subscriptions
         Set set = client.subscriptions;
         Iterator iter, iter2;
 
-        // set is NOT modified here
-        synchronized (set) {
-            iter = set.iterator();
-
-            // for each subscription of this client ...
-            while (iter.hasNext()) {
-                cMsgSubscription sub = (cMsgSubscription) iter.next();
-
-                // run through list of receiverSubscribeIds that msg matches
-                for (int i = 0; i < rsIdCount; i++) {
-
-                    // if the subject/type id's match, run callbacks for this sub/type
-                    if (sub.getId() == rsIds[i]) {
-
-                        // run through all callbacks
-                        iter2 = sub.getCallbacks().iterator();
-                        while (iter2.hasNext()) {
-                            cbThread = (cMsgCallbackThread) iter2.next();
-                            cbThread.sendMessage(msg);
-//System.out.println("Sending wakeup for SUBSCRIBE");
-                            // Tell one callback thread to wakeup and run the callback.
-                            cbThread.wakeup();
-                        }
-
-                        // look at next subscription
-                        break;
-                    }
-                }
-            }
-        }
-
-        // handle general gets (really just a 1-shot subscribe)
-        set = client.generalGets;
-
-        // Before msg is distributed to get-calls for a get "subscription",
-        // that subscription must be removed from the "generalGets"
-        // hashmap, so no new gets on that subject and type can be added.
-        // Otherwise, new gets will be waiting forever (after msg already distributed).
-        // This must sync on client object since the client's get method is too.
-        // All accesses of the "generalGets" set is done when synchronized on client.
-        synchronized (client) {
+        if (client.subscriptions.size() > 0) {
+            // set is NOT modified here
+            synchronized (set) {
                 iter = set.iterator();
 
-                // for each general get of this client ...
+                // for each subscription of this client ...
                 while (iter.hasNext()) {
                     cMsgSubscription sub = (cMsgSubscription) iter.next();
 
                     // run through list of receiverSubscribeIds that msg matches
                     for (int i = 0; i < rsIdCount; i++) {
 
-                        // if the subject/type id's match, finish gets for this sub/type
+                        // if the subject/type id's match, run callbacks for this sub/type
                         if (sub.getId() == rsIds[i]) {
 
-                            // Remove subscription from the "generalGets" set so no
-                            // new gets can be added (when it's too late).
-                            iter.remove();
-
-                            // run through all gets for subject/type
-                            iter2 = sub.getHolders().iterator();
+                            // run through all callbacks
+                            iter2 = sub.getCallbacks().iterator();
                             while (iter2.hasNext()) {
-                                holder = (cMsgMessageHolder) iter2.next();
-                                holder.message = msg;
-//System.out.println("Sending notify for GENERAL GET");
-                                // Tell the get-calling thread to wakeup and retrieve msg
-                                synchronized (holder) {
-                                    holder.notify();
-                                }
+                                cbThread = (cMsgCallbackThread) iter2.next();
+                                cbThread.sendMessage(msg);
+//System.out.println("Sending wakeup for SUBSCRIBE");
+                                // Tell one callback thread to wakeup and run the callback.
+                                cbThread.wakeup();
                             }
+
+                            // look at next subscription
                             break;
                         }
                     }
                 }
+            }
+        }
+
+        if (client.generalGets.size() < 1) return;
+
+        // run through list of receiverSubscribeIds that msg matches
+        for (int i = 0; i < rsIdCount; i++) {
+            // take care of any general gets first
+            holder = (cMsgMessageHolder) (client.generalGets.remove(rsIds[i]));
+
+            if (holder != null) {
+// BUG BUG copy message??
+
+                holder.message = msg;
+//System.out.println("Sending notify for SPECIFIC GET");
+                // Tell the get-calling thread to wakeup and retrieved the held msg
+                synchronized (holder) {
+                    holder.notify();
+                }
+            }
         }
     }
 
@@ -627,7 +513,7 @@ public class cMsgClientListeningThread extends Thread {
      *
      * @param msg incoming message
      */
-    private void wakeSpecificGets(cMsgMessage msg) {
+    private void wakeGets(cMsgMessage msg) {
 
         // if gets have been stopped, return
         if (!client.isReceiving()) {
@@ -637,21 +523,18 @@ public class cMsgClientListeningThread extends Thread {
             return;
         }
 
-        cMsgMessageHolder  holder;
-
         // handle specific get (aimed at a receiver)
-        if (msg.isGetResponse()) {
-            holder = (cMsgMessageHolder) client.specificGets.remove(
-                                                    new Integer(msg.getSenderToken()));
-            if (holder == null) {
-                return;
-            }
-            holder.message = msg;
+        cMsgMessageHolder holder = (cMsgMessageHolder) client.specificGets.remove(msg.getSenderToken());
+
+        if (holder == null) {
+            return;
+        }
+// BUG BUG copy message??
+        holder.message = msg;
 //System.out.println("Sending notify for SPECIFIC GET");
-            // Tell the get-calling thread to wakeup and retrieved the held msg
-            synchronized (holder) {
-                holder.notify();
-            }
+        // Tell the get-calling thread to wakeup and retrieved the held msg
+        synchronized (holder) {
+            holder.notify();
         }
 
         return;
