@@ -49,7 +49,7 @@ public class cMsgMonitorClient extends Thread {
     private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
     /** Level of debug output for this class. */
-    private int debug = cMsgConstants.debugInfo;
+    private int debug = cMsgConstants.debugError;
 
 
     /**
@@ -102,8 +102,16 @@ public class cMsgMonitorClient extends Thread {
                 while (buffer.hasRemaining()) {
                     channel.write(buffer);
                 }
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("cMsgMonitorClient: wrote keepAlive & 1 to client " +
+                                       info.clientName + "\n");
+                }
                 // read acknowledgment & keep reading until we have 1 int of data
                 cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("cMsgMonitorClient: read keepAlive client (" +
+                                       info.clientName + ") response\n");
+                }
             }
             catch (IOException e) {
                 // client has died, time to bail.
