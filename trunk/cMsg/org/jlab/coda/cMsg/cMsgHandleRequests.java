@@ -74,6 +74,17 @@ public interface cMsgHandleRequests {
 
 
     /**
+     * Method to handle message sent by domain client in synchronous mode.
+     * It requries an integer response from the subdomain handler.
+     *
+     * @param msg message from sender
+     * @return response from subdomain handler
+     * @throws cMsgException
+     */
+    public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException;
+
+
+    /**
      * Method to get a single message from the server for a given
      * subject and type.
      *
@@ -128,5 +139,46 @@ public interface cMsgHandleRequests {
      * @throws cMsgException
      */
     public void handleServerShutdown() throws cMsgException;
+
+
+    /**
+     * Method to tell if the "send" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleSendRequest}
+     * method.
+     *
+     * @return true if send implemented in {@link #handleSendRequest}
+     */
+    public boolean hasSend();
+
+
+    /**
+     * Method to tell if the "get" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleGetRequest}
+     * method.
+     *
+     * @return true if get implemented in {@link #handleGetRequest}
+     */
+    public boolean hasGet();
+
+
+    /**
+     * Method to tell if the "subscribe" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleSubscribeRequest}
+     * method.
+     *
+     * @return true if subscribe implemented in {@link #handleSubscribeRequest}
+     */
+    public boolean hasSubscribe();
+
+
+    /**
+     * Method to tell if the "unsubscribe" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleUnsubscribeRequest}
+     * method.
+     *
+     * @return true if unsubscribe implemented in {@link #handleUnsubscribeRequest}
+     */
+    public boolean hasUnsubscribe();
+
 
 }
