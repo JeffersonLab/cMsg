@@ -36,6 +36,7 @@
 #include <ctype.h>
 #include <pthread.h>
 #include <time.h>
+#include <errno.h>
 
 /* package includes */
 #include "cMsgNetwork.h"
@@ -113,6 +114,7 @@ static void  domainFree(cMsgDomain_CODA *domain);
 static void  domainClear(cMsgDomain_CODA *domain);
 static void *keepAliveThread(void *arg);
 static void *callbackThread(void *arg);
+static void *supplementalThread(void *arg);
 
 
 
@@ -614,7 +616,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
                                   NULL, callbackThread,
                                   (void *) &domain->subscribeInfo[i].cbInfo[j]);
           if (status != 0) {
-            err_abort(status, "Creating keep alive thread");
+            err_abort(status, "Creating callback thread");
           }
         
 	  jok = 1;
@@ -655,6 +657,10 @@ fprintf(stderr, "subscribe: done with first loop\n");
     status = pthread_create(&domain->subscribeInfo[i].cbInfo[0].thread,
                             NULL, callbackThread,
                             (void *) &domain->subscribeInfo[i].cbInfo[0]);
+    if (status != 0) {
+      err_abort(status, "Creating callback thread");
+    }
+    
     iok = 1;
 
     /*
@@ -1231,8 +1237,10 @@ static void *callbackThread(void *arg)
 {
     /* subscription information passed in thru arg */
     struct subscribeCbInfo_t *subscription = (struct subscribeCbInfo_t *) arg;
-    int i, status, size;
+    int i, status, need, threadsAdded, maxToAdd, wantToAdd;
+    int numMsgs, numThreads;
     cMsgMessage *msg;
+    pthread_t thd;
 
     /* increase concurrency for this thread for early Solaris */
   #ifdef sun
@@ -1241,11 +1249,60 @@ static void *callbackThread(void *arg)
     thr_setconcurrency(con + 1);
   #endif
         
+    threadsAdded = 0;
+
     while(1) {
+      /*
+       * Take a current snapshot of the number of threads and messages.
+       * The number of threads may decrease since threads die if there
+       * are no messages to grab, but this is the only place that the
+       * number of threads will be increased.
+       */
+      numMsgs = subscription->messages;
+      numThreads = subscription->threads;
+      threadsAdded = 0;
+      
+      /* Check to see if we need more threads to handle the load */      
+      if ((!subscription->config.mustSerialize) &&
+          (numThreads < subscription->config.maxThreads) &&
+          (numMsgs > subscription->config.msgsPerThread)) {
+
+        /* find number of threads needed (1 per 50 messages) */
+        need = subscription->messages/subscription->config.msgsPerThread;
+
+        /* add more threads if necessary */
+        if (need > numThreads) {
+          
+          /* maximum # of threads that can be added w/o exceeding config limit */
+          maxToAdd  = subscription->config.maxThreads - numThreads;
+          /* number of threads we want to add to handle the load */
+          wantToAdd = need - numThreads;
+          /* number of threads that we will add */
+          threadsAdded = maxToAdd > wantToAdd ? wantToAdd : maxToAdd;
+                    
+          for (i=0; i < threadsAdded; i++) {
+            status = pthread_create(&thd, NULL, supplementalThread, arg);
+            if (status != 0) {
+              err_abort(status, "Creating supplemental callback thread");
+            }
+          }
+
+        }
+      }
+      
       /* lock mutex */
       status = pthread_mutex_lock(&subscription->mutex);
       if (status != 0) {
         err_abort(status, "Failed callback mutex lock");
+      }
+      
+      /* do the following bookkeeping under mutex protection */
+      subscription->threads += threadsAdded;
+
+      if (threadsAdded) {
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+          fprintf(stderr, "thds = %d\n", subscription->threads);
+        }
       }
       
       /* wait while there are no messages */
@@ -1262,53 +1319,134 @@ static void *callbackThread(void *arg)
         }
       }
 
-      size  = subscription->messages;
-      /* printf("  %d\n", size); */
-           
-      if (size > subscription->config.maxCueSize) {
-          if (subscription->config.maySkip) {
-      /* printf("  CUT IT DOWN\n");*/
-              for (i=0; i < subscription->config.skipSize; i++) {
-                msg = subscription->head;
-                subscription->head = subscription->head->next;
-                cMsgFreeMessage(msg);
-                subscription->messages--;
-                if (subscription->head == NULL) break;
-              }
-          }
-          else {
-              
-              /*throw new cMsgException("too many messages for callback to handle");*/
-          }
-      }
-
-
+      /*printf("     %d\n",subscription->messages);*/
+      
       /* get first message in linked list */
       msg = subscription->head;
-/*
-printf("callbackThd: head = %p, tail = %p, head->next = %p\n",
-        subscription->head, subscription->tail, subscription->head->next);
-*/       
+
       /* if there are no more messages ... */
       if (msg->next == NULL) {
         subscription->head = NULL;
         subscription->tail = NULL;
-        subscription->messages--;
-/*
-printf("callbackThd: LAST MSG, # = %d, msg = %p, head = %p\n",
-        subscription->messages, msg, subscription->head);
-*/
       }
       /* else make the next message the head */
       else {
         subscription->head = msg->next;
-        subscription->messages--;
-/*
-printf("callbackThd: # = %d, msg = %p, head = %p\n",
-        subscription->messages, msg, subscription->head);
-*/
+     }
+     subscription->messages--;
+     
+      /* unlock mutex */
+      status = pthread_mutex_unlock(&subscription->mutex);
+      if (status != 0) {
+        err_abort(status, "Failed callback mutex unlock");
       }
-      /*subscription->messages--;*/
+      
+      /* run callback */
+      subscription->callback(msg, subscription->userArg);
+      
+      /* quit if commanded to */
+      if (subscription->quit) {
+        goto end;
+      }
+    }
+    
+  end:
+          
+  #ifdef sun
+    thr_setconcurrency(con);
+  #endif
+    
+    return;
+}
+
+
+
+/*-------------------------------------------------------------------*
+ * supplementalThread is a thread used to run a callback in parallel
+ * with the callbackThread. As many supplemental threads are created
+ * as needed to keep the cue size manageable.
+ *-------------------------------------------------------------------*/
+static void *supplementalThread(void *arg)
+{
+    /* subscription information passed in thru arg */
+    struct subscribeCbInfo_t *subscription = (struct subscribeCbInfo_t *) arg;
+    int status, empty;
+    cMsgMessage *msg;
+    struct timespec wait;
+    
+    /* increase concurrency for this thread for early Solaris */
+  #ifdef sun
+    int  con;
+    con = thr_getconcurrency();
+    thr_setconcurrency(con + 1);
+  #endif
+        
+    /* wait .2 sec before waking thread up and checking for messages */
+    wait.tv_sec  = 0;
+    wait.tv_nsec = 200000000;
+
+    while(1) {
+      
+      empty = 0;
+      
+      /* lock mutex before messing with linked list */
+      status = pthread_mutex_lock(&subscription->mutex);
+      if (status != 0) {
+        err_abort(status, "Failed callback mutex lock");
+      }
+      
+      /* wait while there are no messages */
+      while (subscription->head == NULL) {
+        /* wait until signaled */
+        status = pthread_cond_timedwait(&subscription->cond, &subscription->mutex, &wait);
+        
+        /* if the wait timed out ... */
+        if (status == ETIMEDOUT) {
+          /* if we wake up 10 times with no messages (2 sec), quit this thread */
+          if (++empty%10 == 0) {
+            subscription->threads--;
+            if (cMsgDebug >= CMSG_DEBUG_INFO) {
+              fprintf(stderr, "thds = %d\n", subscription->threads);
+            }
+            
+            /* unlock mutex & kill this thread */
+            status = pthread_mutex_unlock(&subscription->mutex);
+            if (status != 0) {
+              err_abort(status, "Failed callback mutex unlock");
+            }
+            
+  #ifdef sun
+            thr_setconcurrency(con);
+  #endif
+            return;
+          }
+
+        }
+        else if (status != 0) {
+          err_abort(status, "Failed callback cond wait");
+        }
+        
+        /* quit if commanded to */
+        if (subscription->quit) {
+          goto end;
+        }
+      }
+
+      /*printf("  S  %d\n",subscription->messages );*/
+                  
+      /* get first message in linked list */
+      msg = subscription->head;      
+
+      /* if there are no more messages ... */
+      if (msg->next == NULL) {
+        subscription->head = NULL;
+        subscription->tail = NULL;
+      }
+      /* else make the next message the head */
+      else {
+        subscription->head = msg->next;
+      }
+      subscription->messages--;
      
       /* unlock mutex */
       status = pthread_mutex_unlock(&subscription->mutex);
@@ -1340,12 +1478,12 @@ printf("callbackThd: # = %d, msg = %p, head = %p\n",
 
 int cMsgRunCallbacks(int domainId, int command, cMsgMessage *msg) {
 
-  int i, j, status;
+  int i, j, k, status;
   dispatchCbInfo *dcbi;
   struct subscribeCbInfo_t *subscription;
   pthread_t newThread;
   cMsgDomain_CODA *domain;
-  cMsgMessage *message;
+  cMsgMessage *message, *oldHead;
   
   domain = &cMsgDomains[domainId];
   
@@ -1382,28 +1520,56 @@ int cMsgRunCallbacks(int domainId, int command, cMsgMessage *msg) {
                            
               /* copy message so each callback has its own copy */
               message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
-
+              
+              /* convenience variable */
               subscription = &domain->subscribeInfo[i].cbInfo[j];
               
+              /* lock mutex before messing with linked list */
               status = pthread_mutex_lock(&subscription->mutex);
               if (status != 0) {
                 err_abort(status, "Failed callback mutex lock");
               }
               
-              /* check to see if 
+              /* check to see if there are too many messages in the cue */
+              if (subscription->messages > subscription->config.maxCueSize) {
+                  /* if we may skip messages, dump oldest */
+                  if (subscription->config.maySkip) {
+                      for (k=0; k < subscription->config.skipSize; k++) {
+                        oldHead = subscription->head;
+                        subscription->head = subscription->head->next;
+                        cMsgFreeMessage(oldHead);
+                        subscription->messages--;
+                        if (subscription->head == NULL) break;
+                      }
+                  }
+                  else {
+                    /* unlock mutex */
+                    status = pthread_mutex_unlock(&subscription->mutex);
+                    if (status != 0) {
+                      err_abort(status, "Failed callback mutex unlock");
+                    }
+                    cMsgFreeMessage((void *)message);
+                    cMsgFreeMessage((void *)msg);
+                    return CMSG_LIMIT_EXCEEDED;
+                  }
+              }
+              
+              if (cMsgDebug >= CMSG_DEBUG_INFO) {
+                if (subscription->messages%1000 == 0)
+                  fprintf(stderr, "           msgs = %d\n", subscription->messages);
+              }
+              
               /* add this message to linked list for this callback */       
 
               /* if there are no messages ... */
               if (subscription->head == NULL) {
                 subscription->head = message;
                 subscription->tail = message;
-/*fprintf(stderr, "cMsgRunCallbacks: add msg to HEAD (%p)\n", message);*/
               }
               /* else put message after the tail */
               else {
                 subscription->tail->next = message;
                 subscription->tail = message;
-/*fprintf(stderr, "cMsgRunCallbacks: add msg to TAIL (%p)\n", message);*/
               }
               
               subscription->messages++;
@@ -1420,11 +1586,6 @@ int cMsgRunCallbacks(int domainId, int command, cMsgMessage *msg) {
               if (status != 0) {
                 err_abort(status, "Failed callback condition signal");
               }
-
-              if (cMsgDebug >= CMSG_DEBUG_INFO) {
-                fprintf(stderr, "cMsgRunCallbacks, #MSGS = %d\n", subscription->messages);
-              }
-               
 	    }
           }
         }
@@ -1845,6 +2006,7 @@ static void domainInit(cMsgDomain_CODA *domain) {
     domain->subscribeInfo[i].subject = NULL;
     
     for (j=0; j<MAXCALLBACK; j++) {
+      domain->subscribeInfo[i].cbInfo[j].threads  = 0;
       domain->subscribeInfo[i].cbInfo[j].messages = 0;
       domain->subscribeInfo[i].cbInfo[j].callback = NULL;
       domain->subscribeInfo[i].cbInfo[j].userArg  = NULL;
@@ -1854,7 +2016,9 @@ static void domainInit(cMsgDomain_CODA *domain) {
       domain->subscribeInfo[i].cbInfo[j].config.maySkip       = 0;
       domain->subscribeInfo[i].cbInfo[j].config.mustSerialize = 1;
       domain->subscribeInfo[i].cbInfo[j].config.maxCueSize    = 10000;
-      domain->subscribeInfo[i].cbInfo[j].config.skipSize      = 5000;
+      domain->subscribeInfo[i].cbInfo[j].config.skipSize      = 2000;
+      domain->subscribeInfo[i].cbInfo[j].config.maxThreads    = 100;
+      domain->subscribeInfo[i].cbInfo[j].config.msgsPerThread = 150;
       
       pthread_cond_init (&domain->subscribeInfo[i].cbInfo[j].cond,  NULL);
       pthread_mutex_init(&domain->subscribeInfo[i].cbInfo[j].mutex, NULL);
@@ -1867,7 +2031,7 @@ static void domainInit(cMsgDomain_CODA *domain) {
 
 
 static void domainFree(cMsgDomain_CODA *domain) {  
-  int i;
+  int i, j;
   
   if (domain->myHost      != NULL) free(domain->myHost);
   if (domain->sendHost    != NULL) free(domain->sendHost);
@@ -1887,6 +2051,11 @@ static void domainFree(cMsgDomain_CODA *domain) {
     if (domain->subscribeInfo[i].subject != NULL) {
       free(domain->subscribeInfo[i].subject);
     }
+    
+    for (j=0; j<MAXCALLBACK; j++) {
+      pthread_cond_destroy (&domain->subscribeInfo[i].cbInfo[j].cond);
+      pthread_mutex_destroy(&domain->subscribeInfo[i].cbInfo[j].mutex);
+    }    
   }
 }
 
