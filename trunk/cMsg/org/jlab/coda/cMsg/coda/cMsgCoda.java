@@ -77,8 +77,6 @@ public class cMsgCoda extends cMsgImpl {
     /** Thread for sending keep alive commands to domain server to check its health. */
     private KeepAlive keepAliveThread;
 
-    boolean listeningThreadStarted;
-
     /**
      * Set of all subscriptions (cMsgSubscription objects) to unique subject/type pairs.
      * Each subscription has a set of callbacks associated with it.
@@ -89,7 +87,7 @@ public class cMsgCoda extends cMsgImpl {
     private int uniqueId;
 
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugInfo;
+    int debug = cMsgConstants.debugError;
 
 
 //-----------------------------------------------------------------------------
@@ -198,10 +196,9 @@ public class cMsgCoda extends cMsgImpl {
          * the listening thread.
          */
         synchronized (listeningThread) {
-            if (!listeningThreadStarted) {
+            if (!listeningThread.isAlive()) {
                 try {
                     listeningThread.wait();
-                    listeningThreadStarted = false;
                 }
                 catch (InterruptedException e) {
                     e.printStackTrace();
@@ -223,9 +220,9 @@ public class cMsgCoda extends cMsgImpl {
         }
         catch (IOException e) {
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("connect: cannot create channel to name server ");
                 e.printStackTrace();
             }
+            throw new cMsgException("connect: cannot create channel to name server");
         }
 
         // get host & port to send messages to
@@ -234,9 +231,9 @@ public class cMsgCoda extends cMsgImpl {
         }
         catch (IOException e) {
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("connect: cannot talk to name server");
                 e.printStackTrace();
             }
+            throw new cMsgException("connect: cannot talk to name server");
         }
 
         // done talking to server
@@ -245,7 +242,7 @@ public class cMsgCoda extends cMsgImpl {
         }
         catch (IOException e) {
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("connect: cannot close channel to name server");
+                System.out.println("connect: cannot close channel to name server, continue on");
                 e.printStackTrace();
             }
         }
@@ -260,9 +257,9 @@ public class cMsgCoda extends cMsgImpl {
         }
         catch (IOException e) {
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("connect: cannot create channel to domain server");
                 e.printStackTrace();
             }
+            throw new cMsgException("connect: cannot create channel to domain server");
         }
 
         // create keepAlive socket
@@ -275,9 +272,9 @@ public class cMsgCoda extends cMsgImpl {
         }
         catch (IOException e) {
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("connect: cannot create keepAlive channel to domain server");
                 e.printStackTrace();
             }
+            throw new cMsgException("connect: cannot create keepAlive channel to domain server");
         }
 
         // create thread to send periodic keep alives and handle dead server
@@ -419,10 +416,10 @@ public class cMsgCoda extends cMsgImpl {
         cMsgSubscription sub;
         for (Iterator iter = subscriptions.iterator(); iter.hasNext(); ) {
             sub = (cMsgSubscription) iter.next();
-            // if subscription to subject & type exist ...
+            // if subscription to subject & type exists ...
             if (sub.subject.equals(subject) && sub.type.equals(type)) {
                 // add to existing set of callbacks
-                sub.addCallback(new cMsgCallbackInfo(cb, userObj));
+                sub.addCallback(new cMsgCallbackThread(cb, userObj));
                 return;
             }
         }
@@ -437,7 +434,7 @@ public class cMsgCoda extends cMsgImpl {
         uniqueId++;
 
         // add a new subscription & callback
-        sub = new cMsgSubscription(subject, type, uniqueId, new cMsgCallbackInfo(cb, userObj));
+        sub = new cMsgSubscription(subject, type, uniqueId, new cMsgCallbackThread(cb, userObj));
         subscriptions.add(sub);
 
         int[] outGoing = new int[4];
@@ -519,8 +516,8 @@ public class cMsgCoda extends cMsgImpl {
             if (sub.subject.equals(subject) && sub.type.equals(type)) {
                 // for each callback listed
                 for (Iterator iter2 = sub.callbacks.iterator(); iter2.hasNext(); ) {
-                    cMsgCallbackInfo info = (cMsgCallbackInfo) iter2.next();
-                    if (info.callback == cb) {
+                    cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
+                    if (cbThread.callback == cb) {
                         // remove this callback from the set
                         iter2.remove();
                     }
@@ -590,7 +587,7 @@ public class cMsgCoda extends cMsgImpl {
      * @param channel nio socket communication channel
      * @throws IOException if there are communication problems with the name server
      */
-    private void getHostAndPortFromNameServer(SocketChannel channel) throws IOException {
+    private void getHostAndPortFromNameServer(SocketChannel channel) throws IOException, cMsgException {
 
         String type = "CODA";
         int[] outGoing = new int[5];
@@ -644,11 +641,7 @@ public class cMsgCoda extends cMsgImpl {
 
         // if there's an error, quit
         if (error != cMsgConstants.ok) {
-            if (debug >= cMsgConstants.debugError) {
-                System.out.println("cMsgMonitorClient: " +
-                                   cMsgUtilities.printError(error, cMsgConstants.debugNone));
-            }
-            return;
+            throw new cMsgException(cMsgUtilities.printError(error, cMsgConstants.debugNone));
         }
 
         // Since everything's OK, we expect to get domain server host & port.
