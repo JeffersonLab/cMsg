@@ -337,7 +337,6 @@ public class queue extends cMsgSubdomainAbstract {
                 sql+=")";
             }
             try {
-                System.out.println("create:  " + sql);
                 myStmt.executeUpdate(sql);
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -354,8 +353,8 @@ public class queue extends cMsgSubdomainAbstract {
             sqlbeg = "insert delayed into " + myTableName + " (";
             sqlend = ") values (";
         } else {
-            sqlbeg = "insert into " + myTableName + " (id";
-            sqlend = ") values (?,";
+            sqlbeg = "insert into " + myTableName + " (";
+            sqlend = ",id) values (?,";
         }
         for(String c : myColumnInfo.keySet()) {
             sqlbeg+=c+",";
@@ -365,27 +364,13 @@ public class queue extends cMsgSubdomainAbstract {
         sql=sqlbeg.substring(0,sqlbeg.length()-1)+sqlend.substring(0,sqlend.length()-1)+")";
 
         try {
-            System.out.println("prepare:  " + sql);
-            myCon.prepareStatement(sql);
+            myPStmt = myCon.prepareStatement(sql);
         } catch (SQLException e) {
             e.printStackTrace();
             cMsgException ce = new cMsgException("?registerClient: unable to create prepared statement for " + myTableName);
             ce.setReturnCode(1);
             throw ce;
         }
-
-//     /**
-//       * Returns SQL preparted statement string for message.
-//       */
-//     public void fillPreparedStatement(PreparedStatement pStmt, boolean setID) {
-
-// //             msg.setReceiver("cMsg:queue");
-// //             new java.sql.Timestamp(msg.getSenderTime().getTime()));
-// //        pStmt.set(2,this.get());
-
-//     }
-
-
 
     }
 
@@ -403,13 +388,29 @@ public class queue extends cMsgSubdomainAbstract {
      */
     public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
 
-//         try {
-//             msg.fillPreparedStatement(myPStmt,???);
-//             myPStmt.executeUpdate();
-//         } catch (SQLException e) {
-//             e.printStackTrace();
-//             throw new cMsgException("?handleSendRequest: unable to insert into queue");
-//         }
+        try {
+            int i = 0;
+            String type;
+            for(String c : myColumnInfo.keySet()) {
+                i++;
+                type=myColumnInfo.get(c);
+                if(type.equalsIgnoreCase("int")) {
+                    myPStmt.setInt(i,((Integer)msg.getField(i)).intValue());
+                } else if(type.equalsIgnoreCase("time")) {
+                    myPStmt.setTimestamp(i,new java.sql.Timestamp(((java.util.Date)msg.getField(i)).getTime()));
+                } else {
+                    myPStmt.setString(i,(String)msg.getField(i));
+                }
+            }
+            //        if(!myDBType.equalsIgnoreCase("mysql"))myPStmt.set(++i,???);
+
+            System.out.println("new executeUpdate for " + (String)msg.getField(13));
+            myPStmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw new cMsgException("?handleSendRequest: unable to insert into queue");
+        }
     }
 
 
@@ -487,11 +488,10 @@ public class queue extends cMsgSubdomainAbstract {
 
 
         // retrieve oldest entry and fill message, send nulls if queue empty
-        String sql = "select * from " + myTableName + " order by senderTime limit 1";
+        String sql = "select * from " + myTableName + " limit 1";
         try {
             ResultSet rs = myStmt.executeQuery(sql);
             rs.next();
-//             response.fillFromResultSet(rs);
 
         } catch (SQLException e) {
             cMsgException ce = new cMsgException("?unable to select from table " + myTableName);
@@ -567,7 +567,7 @@ public class queue extends cMsgSubdomainAbstract {
     public void handleClientShutdown() throws cMsgException {
         try {
             myStmt.close();
-            myPStmt.close();
+            //            myPStmt.close();
             myCon.close();
         } catch (SQLException e) {
             throw(new cMsgException("?queue sub-domain handler shutdown error"));
