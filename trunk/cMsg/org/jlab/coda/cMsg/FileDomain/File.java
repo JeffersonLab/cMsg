@@ -23,9 +23,9 @@ import org.jlab.coda.cMsg.*;
 
 import java.io.*;
 import java.util.*;
+import java.net.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.net.*;
 
 
 //-----------------------------------------------------------------------------
@@ -64,50 +64,6 @@ public class File extends cMsgAdapter {
         catch (UnknownHostException e) {
             System.err.println(e);
             this.host = "unknown";
-        }
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to parse the domain-specific portion of the Universal Domain Locator
-     * (UDL) into its various components.
-     *
-     * @throws cMsgException if UDL is null, or no host given in UDL
-     */
-    private void parseUDL() throws cMsgException {
-
-        Pattern p;
-        Matcher m;
-        String remainder = null;
-
-        if (UDLremainder == null) {
-            throw new cMsgException("invalid UDL");
-        }
-
-        // parse file name
-        p = Pattern.compile("^\\s*(.+)$", Pattern.CASE_INSENSITIVE);
-        int ind = UDLremainder.indexOf('?');
-        if (ind <= 0) {
-            domain = UDLremainder;
-        }
-        else {
-            domain = UDLremainder.substring(0, ind);
-            remainder = UDLremainder.substring(ind + 1);
-        }
-        m = p.matcher(domain);
-        m.find();
-        myFileName = m.group(1);
-
-
-        // parse remainder
-        if (remainder != null) {
-            p = Pattern.compile("textOnly=(\\w+)", Pattern.CASE_INSENSITIVE);
-            m = p.matcher(remainder);
-            m.find();
-            textOnly = m.group(1).equals("true");
         }
     }
 
@@ -205,6 +161,46 @@ public class File extends cMsgAdapter {
     public void flush() {
         myPrintHandle.flush();
         return;
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to parse the domain-specific portion of the Universal Domain Locator
+     * (UDL) into its various components.
+     *
+     * @throws cMsgException if UDL is null, or no host given in UDL
+     */
+    private void parseUDL() throws cMsgException {
+
+	domain="file";
+
+
+        if (UDLremainder == null) {
+            throw new cMsgException("invalid UDL");
+        }
+
+
+        // get file name
+        String remainder = null;
+        int ind = UDLremainder.indexOf('?');
+        if (ind > 0) {
+	    myFileName = UDLremainder.substring(0,ind);
+            remainder  = UDLremainder.substring(ind+1);
+        } else {
+	    myFileName = UDLremainder;
+	}
+
+
+        // parse remainder
+        if (remainder != null) {
+            Pattern p = Pattern.compile("textOnly=(\\w+)", Pattern.CASE_INSENSITIVE);
+            Matcher m = p.matcher(remainder);
+            m.find();
+            textOnly = m.group(1).equals("true");
+        }
     }
 
 
