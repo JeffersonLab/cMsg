@@ -27,6 +27,7 @@ JAVA_OBJS = \
 	cMsgConstants.class \
 	cMsgClientInfo.class \
 	cMsgException.class \
+	cMsgMessage.class \
 	cMsgDomainServer.class \
 	cMsgDomainServerListeningThread.class \
 	cMsgNameServer.class \
@@ -52,12 +53,19 @@ OBJS =  cMsgNetwork.o \
 
 HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h
 
-PROGS =
+PROGS = client
 
 all: $(CMSG_LIBS) $(PROGS) $(JAVA_OBJS)
 
+java:
+	cd ./org/jlab/coda/cMsg; make;
+	cd ./org/jlab/coda/cMsg/coda; make;
+	cd ./;
+
+
 doc:
 	$(JAVAD) -package org.jlab.coda.cMsg
+	$(JAVAD) -package org.jlab.coda.cMsg.coda
 
 install: install-lib install-inc install-bin
 
@@ -98,6 +106,8 @@ $(OBJS) : $(HFILES)
 
 clean: 
 	rm -f core *~ *.o *.so *.a *.class $(PROGS)
+	cd ./org/jlab/coda/cMsg; make clean;
+	cd ./org/jlab/coda/cMsg/coda; make clean;
 
 # SUFFIX RULES
 
