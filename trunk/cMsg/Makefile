@@ -90,8 +90,9 @@ clean:
 	rm -f core *~ *.o *.so *.a *.class $(PROGS)
 jclean: 
 	cd ./org/jlab/coda/cMsg; make clean;
-	cd ./org/jlab/coda/cMsg/coda; make clean;
+	cd ./org/jlab/coda/cMsg/cMsg; make clean;
 	cd ./org/jlab/coda/cMsg/apps; make clean;
+	cd ./org/jlab/coda/cMsg/plugins; make clean;
 
 # SUFFIX RULES
 
