@@ -459,8 +459,8 @@ public class cMsgClientListeningThread extends Thread {
                 for (cMsgSubscription sub : set) {
 
                     // if subject & type of incoming message equal those in subscription ...
-                    if (cMsgMessageMatcher.matches(sub.getSubject(), msg.getSubject()) &&
-                        cMsgMessageMatcher.matches(sub.getType(), msg.getType())) {
+                    if (msg.getSubject().matches(sub.getSubjectRegexp()) &&
+                            msg.getType().matches(sub.getTypeRegexp())) {
 //System.out.println(" handle send msg");
 
                         // run through all callbacks
