@@ -884,28 +884,24 @@ public class cMsg extends cMsgAdapter {
             // track specific get requests
             specificGets.put(id, holder);
 
-            int outGoing[] = new int[10];
+            int outGoing[] = new int[8];
             // message id to domain server
             outGoing[0] = cMsgConstants.msgSendAndGetRequest;
-            // getRequest flag
-            outGoing[1] = 1;
-            // send unique id for receiverSubscribeId
-            outGoing[2] = id;
             // sender id
-            outGoing[3] = message.getSenderId();
+            outGoing[1] = message.getSenderId();
             // time message sent (right now)
-            outGoing[4] = (int) ((new Date()).getTime() / 1000L);
+            outGoing[2] = (int) ((new Date()).getTime() / 1000L);
             // sender message id
-            outGoing[5] = message.getSenderMsgId();
+            outGoing[3] = message.getSenderMsgId();
             // send unique id for sender token
-            outGoing[6] = id;
+            outGoing[4] = id;
 
             // length of "subject" string
-            outGoing[7] = subject.length();
+            outGoing[5] = subject.length();
             // length of "type" string
-            outGoing[8] = type.length();
+            outGoing[6] = type.length();
             // length of "text" string
-            outGoing[9] = text.length();
+            outGoing[7] = text.length();
 
             // lock to prevent parallel gets from using same buffer
             getBufferLock.lock();
@@ -915,7 +911,7 @@ public class cMsg extends cMsgAdapter {
                 // send ints over together using view buffer
                 getBuffer.asIntBuffer().put(outGoing);
                 // position original buffer at position of view buffer
-                getBuffer.position(40);
+                getBuffer.position(32);
 
                 // write strings
                 try {
