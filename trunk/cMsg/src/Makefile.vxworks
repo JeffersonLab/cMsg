@@ -2,32 +2,23 @@
 # cMsg will not compile properly under Linux cross compiler
 #
 
-# Check Operating system we are using
-ifndef OSNAME
-  OSNAME := $(subst -,_,$(shell uname))
-endif
-
-ifndef ARCH
-  ARCH = VXWORKSPPC
-endif
-
-ifeq ($(OSNAME),SunOS)
-LIBDIR = $(CODA)/$(ARCH)/lib
-CFLAGS = -O $(DEFS) 
+TOP_DIR = ..
+INC_DIR = $(TOP_DIR)/inc
+LIB_DIR = $(TOP_DIR)/lib/vxworks
+BIN_DIR = $(TOP_DIR)/bin/vxworks
+INSTALL = $(TOP_DIR)/install-sh -c
 
 ifeq ($(ARCH),VXWORKSPPC)
-
 # vxWorks 5.5
 INCDIR=/site/vxworks/5.5/ppc/target/h
 CC = ccppc
 LD = ldppc -r
 DEFS = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
 INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I$(INCDIR)
-
+CFLAGS = -O $(DEFS) 
 endif
 
-
-endif
+CMSG_LIB = cMsgLib
 
 OBJS =  rwlock.o \
 	cMsgNetwork.o \
@@ -45,24 +36,40 @@ HFILES = cMsgNetwork.h \
 	rwlock.h \
 	errors.h
 
-all: echoarch $(OBJS) $(PROGS) cMsgLib
+all: echoarch $(OBJS) $(PROGS) $(CMSG_LIB)
 
-cMsgLib: $(OBJS)
+$(CMSG_LIB): $(OBJS)
 	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
 
-clean:
-	rm -f core *~ *.o cMsgLib
-#	rm -f core *~ *.o *.so *.a *.class $(PROGS)
-
 echoarch:
-	@echo "Make for $(ARCH)"
+	@echo
+	@echo "Make for $(ARCH) on $(OSNAME)"
+	@echo
         
 # file dependencies
 $(OBJS) : $(HFILES)
 
-.c.o:
+%.o : %.c
 	$(CC) -c $(CFLAGS) $(INCS) -o $@ $<
 	@echo
 	@echo "Made " $*
 	@echo
 
+install: echoarch install-lib install-inc
+
+install-lib: $(CMSG_LIB)
+	@echo "Installing regular expression libraries in $(LIB_DIR)"
+	@for i in $(CMSG_LIB); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
+           done;
+
+install-inc: $(HFILES)
+	@echo "Installing includes in $(INC_DIR)"
+	@for i in $(HFILES); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(INC_DIR)/$$i; \
+           done;
+
+clean:
+	rm -f core *~ *.o cMsgLib
