@@ -27,10 +27,11 @@
 #include <errno.h>
 #include <pthread.h>
 
+#include "errors.h"
 #include "cMsgNetwork.h"
 #include "cMsg.h"
 #include "cMsgPrivate.h"
-#include "cMsg_CODA.h"
+#include "cMsgDomain.h"
 
 
 extern cMsgDomain_CODA cMsgDomains[];
