@@ -18,6 +18,7 @@ package org.jlab.coda.cMsg.coda;
 
 import org.jlab.coda.cMsg.cMsgConstants;
 import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgException;
 
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.Selector;
@@ -28,6 +29,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Date;
 import java.util.HashSet;
+import java.net.Socket;
 
 /**
  * This class implements a cMsg client's thread which listens for
@@ -84,6 +86,7 @@ public class cMsgClientListeningThread extends Thread {
     }
 
 
+
     /** This method is executed as a thread. */
     public void run() {
         if (debug >= cMsgConstants.debugInfo) {
@@ -118,6 +121,12 @@ public class cMsgClientListeningThread extends Thread {
                         return;
                     }
                     continue;
+                }
+
+                if (killThread) {
+                    serverChannel.close();
+                    selector.close();
+                    return;
                 }
 
                 // get an iterator of selected keys (ready sockets)
@@ -251,6 +260,13 @@ public class cMsgClientListeningThread extends Thread {
                  e1.printStackTrace();
              }
          }
+         catch (cMsgException e) {
+             // We're here if too many messages are sent to a callback.
+             // Disconnect the client (kill listening (this) thread and keepAlive thread).
+             System.out.println(e.getMessage());
+             client.disconnect();
+             return;
+         }
      }
 
 
@@ -372,7 +388,7 @@ public class cMsgClientListeningThread extends Thread {
      *
      * @param msg incoming message
      */
-    private void runCallbacks(cMsgMessage msg) {
+    private void runCallbacks(cMsgMessage msg) throws cMsgException {
 
         // if callbacks have been stopped, return
         if (!client.isReceiving()) {
@@ -396,30 +412,19 @@ public class cMsgClientListeningThread extends Thread {
 
                 // run through all callbacks
                 Iterator iter2 = sub.callbacks.iterator();
-                for (; iter2.hasNext(); ) {
+                for (; iter2.hasNext();) {
                     cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
-                    // First, grab mutex on msg so cbThread cannot tell us he got the
-                    // message until we are already waiting for his answer in "msg.wait()"
-                    synchronized (msg) {
-                        // Now tell the callback thread to wakeup and automatically run the
-                        // callback. When we are waiting, then he can tell us that he got the
-                        // message. Then he'll go back to sleep.
-                        synchronized (cbThread) {
-                            cbThread.setMessage(msg);
-                            cbThread.notify();
-                        }
-                        try { msg.wait(); }
-                        catch (InterruptedException e) {}
-                        // The callback thread got the message and ran the callback,
-                        // time to move on.
+                    // Tell the callback thread to wakeup and run the callback.
+                    cbThread.sendMessage(msg);
+                    synchronized (cbThread) {
+                        cbThread.notify();
                     }
                 }
 
                 break;
             }
         }
-
-
     }
 
 }
+
