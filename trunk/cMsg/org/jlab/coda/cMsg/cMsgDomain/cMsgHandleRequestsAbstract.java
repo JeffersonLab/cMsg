@@ -311,6 +311,9 @@ public abstract class cMsgHandleRequestsAbstract implements cMsgHandleRequests {
             System.out.println("      Type length: " + outGoing[11]);
             System.out.println("      Text length: " + outGoing[12]);
             System.out.println("      ReceiverSubscribeIds: (" + outGoing[13] + ")");
+            for (int i = 0; i < size; i++) {
+                System.out.println("        " + ((Integer) idList.get(i)).intValue());
+            }
 
             System.out.println("      Sender: " + msg.getSender());
             System.out.println("      SenderHost: " + msg.getSenderHost());
