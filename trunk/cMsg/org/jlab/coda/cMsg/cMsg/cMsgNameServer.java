@@ -54,6 +54,17 @@ public class cMsgNameServer extends Thread {
     /** A direct buffer is necessary for nio socket IO. */
     private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
+    /**
+     * Keep all domain server objects in a weak hashmap (if the
+     * only reference to the server object is in this hashmap,
+     * it is still garbage collected). Thus, the only domain servers
+     * left in the hashmap will be those still active. This map
+     * will then be used to call the active domain servers'
+     * handleServerShutdown methods when this name server is being
+     * shutdown.
+     */
+    private WeakHashMap domainServers;
+
     /** Level of debug output for this class. */
     private int debug = cMsgConstants.debugInfo;
   
@@ -82,6 +93,7 @@ public class cMsgNameServer extends Thread {
      */
     public cMsgNameServer() throws cMsgException {
         Jgetenv env = null;
+        domainServers = new WeakHashMap(20);
 
         // read env variable for starting (desired) port number
         try {
@@ -127,8 +139,6 @@ public class cMsgNameServer extends Thread {
                 }
             }
         }
-
-
     }
   
   
@@ -145,7 +155,22 @@ public class cMsgNameServer extends Thread {
     }
 
 
-    private cMsgHandleRequests createClientHandler(String subdomain, String UDLRemainder) throws cMsgException {
+    /**
+     * Method to be run when this server is unreachable and all its threads are killed.
+     *
+     * Finalize methods are run after an object has become unreachable and
+     * before the garbage collector is run;
+     */
+    public void finalize() throws cMsgException {
+        cMsgDomainServer server;
+        for (Iterator i = domainServers.keySet().iterator(); i.hasNext(); ) {
+            server = (cMsgDomainServer)i.next();
+            server.getClientHandler().handleServerShutdown();
+        }
+    }
+
+
+    static private cMsgHandleRequests createClientHandler(String subdomain, String UDLRemainder) throws cMsgException {
         /** Object to handle clients' inputs */
         cMsgHandleRequests clientHandler = null;
 
@@ -244,6 +269,7 @@ public class cMsgNameServer extends Thread {
         // kill this thread too if name server thread quits
         server.setDaemon(true);
         server.start();
+        domainServers.put(server, null);
     }
 
 
