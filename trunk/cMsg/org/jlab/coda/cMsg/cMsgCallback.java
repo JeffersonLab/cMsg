@@ -38,4 +38,17 @@ public interface cMsgCallback {
      */
     public void callback(cMsgMessage msg, Object userObject);
 
+    /**
+     * Method telling whether messages may be skipped or not.
+     * @return true if messages can be skipped without error, false otherwise
+     */
+    public boolean maySkipMessages();
+
+    /**
+     * Method telling whether messages must serialized -- processed in the order
+     * received.
+     * @return true if messages must be processed in the order received, false otherwise
+     */
+    public boolean mustSerializeMessages();
+
 }
