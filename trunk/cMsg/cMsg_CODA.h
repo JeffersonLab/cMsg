@@ -28,7 +28,7 @@ extern "C" {
 
 /* built-in limits */
 #define MAXSUBSCRIBE 100
-#define MAXCALLBACK   10
+#define MAXCALLBACK   20
 
 /* for dispatching callbacks in their own threads */
 typedef struct dispatchCbInfo_t {
@@ -40,8 +40,11 @@ typedef struct dispatchCbInfo_t {
 
 /* for subscribe lists */
 struct subscribeCbInfo_t {
-  cMsgCallback *callback;
-  void *userArg;
+  cMsgCallback   *callback; /* function to be called */
+  void           *userArg;  /* argument given to function */
+  pthread_t       thread;   /* thread running callback */
+  pthread_cond_t  cond;     /* condition variable thread is waiting on */
+  pthread_mutex_t mutex;    /* mutex thread is waiting on */
 };
 
 
