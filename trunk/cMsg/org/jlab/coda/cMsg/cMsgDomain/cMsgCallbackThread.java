@@ -16,7 +16,7 @@
 
 package org.jlab.coda.cMsg.cMsgDomain;
 
-import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgCallback;
 import org.jlab.coda.cMsg.cMsgException;
 
@@ -31,7 +31,7 @@ import java.util.Collections;
  */
 public class cMsgCallbackThread extends Thread {
     /** List of ordered messages to be passed to the callback. */
-    private List messageList;
+    private List<cMsgMessageFull> messageList;
 
     //private int lastOdd=1,lastEven=0, num;
     private int size;
@@ -59,7 +59,7 @@ public class cMsgCallbackThread extends Thread {
     Object sync = new Object();
 
     /** Place to temporarily store the returned message from a get. */
-    cMsgMessage message;
+    cMsgMessageFull message;
 
 
     /** If this thread is waiting, it's woken up. */
@@ -92,7 +92,7 @@ public class cMsgCallbackThread extends Thread {
 
         /** This method is executed as a thread which runs the callback method */
         public void run() {
-            cMsgMessage message;
+            cMsgMessageFull message;
             int empty;
 
             while (true) {
@@ -132,7 +132,7 @@ public class cMsgCallbackThread extends Thread {
                 // grab a message off the list if possible
                 synchronized (messageList) {
                     if (messageList.size() > 0) {
-                        message = (cMsgMessage) messageList.remove(0);
+                        message = messageList.remove(0);
                     }
                     else {
                         message = null;
@@ -176,7 +176,7 @@ public class cMsgCallbackThread extends Thread {
      * @param message message to be passed to callback
      * @throws cMsgException if there are too many messages to handle
      */
-    public void sendMessage(cMsgMessage message) throws cMsgException {
+    public void sendMessage(cMsgMessageFull message) throws cMsgException {
         messageList.add(message);
         size = messageList.size();
         if (size % 1000 == 0) {
@@ -195,7 +195,7 @@ public class cMsgCallbackThread extends Thread {
 
     /** This method is executed as a thread which runs the callback method */
     public void run() {
-        cMsgMessage message, msgCopy;
+        cMsgMessageFull message, msgCopy;
         int threadsAdded, need, maxToAdd, wantToAdd;
 
         while (true) {
@@ -266,7 +266,7 @@ public class cMsgCallbackThread extends Thread {
             // grab a message off the list if possible
             // Run callback method with proper argument
             if (messageList.size() > 0) {
-                message = (cMsgMessage) messageList.remove(0);
+                message = messageList.remove(0);
             }
             else {
                 message = null;

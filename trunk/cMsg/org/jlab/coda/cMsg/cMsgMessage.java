@@ -37,6 +37,11 @@ import java.util.*;
 public class cMsgMessage implements Cloneable {
     // general quantities
 
+    /**
+     * Unique message id created by cMsg system.
+     * Used by domain server to track client's "sendAndGet" calls.
+     */
+    int sysMsgId;
 
     /** Message exists in this domain. */
     String domain;
@@ -85,6 +90,9 @@ public class cMsgMessage implements Cloneable {
     /** Time message was sent in milliseconds from midnight GMT, Jan 1st, 1970. */
     long senderTime;
 
+    /** Field used by domain server in implementing "sendAndGet". */
+    int senderToken;
+
 
     // receiver quantities
 
@@ -105,14 +113,43 @@ public class cMsgMessage implements Cloneable {
     int receiverSubscribeId;
 
 
+    /** The constructor does not allow user to create a message directly. */
+    public cMsgMessage() {}
+
+
     /**
      * Creates a complete copy of this message.
+     *
      * @return copy of this message.
      */
     public cMsgMessage copy() {
         cMsgMessage msg = null;
-        try {msg = (cMsgMessage) this.clone();}
-        catch (CloneNotSupportedException e) {}
+        try {
+            msg = (cMsgMessage) this.clone();
+        }
+        catch (CloneNotSupportedException e) {
+        }
+        return msg;
+    }
+
+
+    /**
+     * Creates a proper response message to this message sent by a client calling
+     *
+     * @return message with the response fields properly set.
+     * @throws cMsgException if this message was not sent from a "get" method call
+     */
+    public cMsgMessage response() throws cMsgException {
+        // If this message was not sent from a "get" method call,
+        // a proper response is not possible, since the sysMsgId
+        // and senderToken fields will not have been properly set.
+        if (!getRequest) {
+            throw new cMsgException("this message not sent by client calling get");
+        }
+        cMsgMessage msg = new cMsgMessage();
+        msg.sysMsgId = sysMsgId;
+        msg.senderToken = senderToken;
+        msg.getResponse = true;
         return msg;
     }
 
@@ -121,16 +158,17 @@ public class cMsgMessage implements Cloneable {
 
 
     /**
+     * Get system id of message. Irrelevant to the user, used only by the system.
+     * @return system id of message.
+     */
+    public int getSysMsgId() {return sysMsgId;}
+
+
+    /**
      * Get domain this message exists in.
      * @return domain message exists in.
      */
     public String getDomain() {return domain;}
-    /**
-     * Set domain this message exists in.
-     * The user should not use this method. The cMsg system overwrites any user input.
-     * @param domain domain this message exists in.
-     */
-    public void setDomain(String domain) {this.domain = domain;}
 
 
     /**
@@ -150,12 +188,6 @@ public class cMsgMessage implements Cloneable {
      * @return true if this message is a "sendAndGet" request
      */
     public boolean isGetRequest() {return getRequest;}
-    /**
-     * Specify whether this message is a "sendAndGet" request.
-     * The user should not use this method. The cMsg system overwrites any user input.
-     * @param getRequest true if this message is a "sendAndGet" request
-     */
-    public void setGetRequest(boolean getRequest) {this.getRequest = getRequest;}
 
 
     /**
@@ -165,16 +197,6 @@ public class cMsgMessage implements Cloneable {
      */
     public int getVersion() {
         return version;
-    }
-    /**
-     * Sets the version number of this message. The version number must be the same as the
-     * version number of the cMsg package - given by {@link cMsgConstants#version}.
-     * The user should not use this method. The cMsg system overwrites any user input.
-     * @param version version number of message
-     */
-    public void setVersion(int version) {
-        if (version < 0) version = 0;
-        this.version = version;
     }
 
 
@@ -264,12 +286,6 @@ public class cMsgMessage implements Cloneable {
      * @return message sender.
      */
     public String getSender() {return sender;}
-    /**
-     * Set message sender.
-     * The user should not use this method. The cMsg system overwrites any user input.
-     * @param sender message sender.
-     */
-    public void setSender(String sender) {this.sender = sender;}
 
 
     /**
@@ -277,12 +293,6 @@ public class cMsgMessage implements Cloneable {
      * @return message sender's host computer.
      */
     public String getSenderHost() {return senderHost;}
-    /**
-     * Set message sender's host computer. Set automatically by cMsg system.
-     * The user should not use this method. The cMsg system overwrites any user input.
-     * @param senderHost message sender's host computer.
-     */
-    public void setSenderHost(String senderHost) {this.senderHost = senderHost;}
 
 
     /**
@@ -290,15 +300,14 @@ public class cMsgMessage implements Cloneable {
      * @return time message sent.
      */
     public Date getSenderTime() {return new Date(senderTime);}
+
+
     /**
-     * Set time message was sent. Set automatically by cMsg system.
-     * The user should not use this method. The cMsg system overwrites any user input.
-     *
-     * @param time time message sent.
+     * Get sender's token. Used to track asynchronous responses to
+     * messages requesting responses from other clients. Irrelevant to the user,
+     * used only by the system.
      */
-    public void setSenderTime(Date time) {
-        this.senderTime = time.getTime();
-    }
+     public int getSenderToken() {return senderToken;}
 
 
     // receiver
@@ -309,12 +318,6 @@ public class cMsgMessage implements Cloneable {
      * @return message receiver.
      */
     public String getReceiver() {return receiver;}
-    /**
-     * Set message receiver.  Set automatically by cMsg system.
-     * The user should not use this method. The cMsg system overwrites any user input.
-     * @param receiver message receiver.
-     */
-    public void setReceiver(String receiver) {this.receiver = receiver;}
 
 
     /**
@@ -322,38 +325,15 @@ public class cMsgMessage implements Cloneable {
      * @return message receiver's host computer.
      */
     public String getReceiverHost() {return receiverHost;}
-    /**
-     * Set message receiver's host computer. Set automatically by cMsg system.
-     * The user should not use this method. The cMsg system overwrites any user input.
-     * @param receiverHost message receiver's host computer.
-     */
-    public void setReceiverHost(String receiverHost) {this.receiverHost = receiverHost;}
 
 
     /**
      * Get time message was received.
      * @return time message received.
      */
-    public Date   getReceiverTime() {return new Date(receiverTime);}
-    /**
-      * Set time message was receivered. Set automatically by cMsg system.
-     * The user should not use this method. The cMsg system overwrites any user input.
-      * @param time time message received.
-      */
-    public void setReceiverTime(Date time) {this.receiverTime = time.getTime();}
+    public Date getReceiverTime() {return new Date(receiverTime);}
 
 
-    /**
-     * Get receiver's id number corresponding to a subject & type pair of a message subscription.
-     * @return receiver's subscription id number.
-     */
-    public int getReceiverSubscribeId() {return receiverSubscribeId;}
-    /**
-     * Set receiver's subscription id number.
-     * The user should not use this method. The cMsg system overwrites any user input.
-     * @param receiverSubscribeId  receiver's subscription id number.
-     */
-    public void setReceiverSubscribeId(int receiverSubscribeId) {this.receiverSubscribeId = receiverSubscribeId;}
 
 
 

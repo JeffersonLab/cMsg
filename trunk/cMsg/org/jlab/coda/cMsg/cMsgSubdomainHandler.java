@@ -17,7 +17,7 @@
 package org.jlab.coda.cMsg;
 
 import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgMessageFull;
 
 /**
  * This interface is an API for an object that a domain server
@@ -61,7 +61,7 @@ public interface cMsgSubdomainHandler {
      * @param message message from sender
      * @throws cMsgException
      */
-    public void handleSendRequest(cMsgMessage message) throws cMsgException;
+    public void handleSendRequest(cMsgMessageFull message) throws cMsgException;
 
 
     /**
@@ -72,7 +72,7 @@ public interface cMsgSubdomainHandler {
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    public int handleSyncSendRequest(cMsgMessage message) throws cMsgException;
+    public int handleSyncSendRequest(cMsgMessageFull message) throws cMsgException;
 
 
     /**
@@ -95,7 +95,7 @@ public interface cMsgSubdomainHandler {
      * @param message message requesting what sort of message to get
      * @throws cMsgException
      */
-    public void handleSendAndGetRequest(cMsgMessage message) throws cMsgException;
+    public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException;
 
 
     /**

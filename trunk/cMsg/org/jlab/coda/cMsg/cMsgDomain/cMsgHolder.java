@@ -16,7 +16,7 @@
 
 package org.jlab.coda.cMsg.cMsgDomain;
 
-import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgMessageFull;
 import java.nio.channels.SocketChannel;
 
 /**
@@ -29,7 +29,7 @@ import java.nio.channels.SocketChannel;
  */
 class cMsgHolder {
     /** Location to store message object. */
-    cMsgMessage message;
+    cMsgMessageFull message;
 
     /** Store subject. */
     String subject;
@@ -49,10 +49,10 @@ class cMsgHolder {
     public cMsgHolder() {
     }
 
-    public cMsgHolder(cMsgMessage message) {
+    public cMsgHolder(cMsgMessageFull message) {
         this.message = message;
     }
-    public cMsgHolder(cMsgMessage message, int request) {
+    public cMsgHolder(cMsgMessageFull message, int request) {
         this.message = message;
         this.request = request;
     }

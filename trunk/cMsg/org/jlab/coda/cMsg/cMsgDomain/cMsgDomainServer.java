@@ -453,7 +453,7 @@ public class cMsgDomainServer extends Thread {
 
 
       /**
-       * This method reads an incoming cMsgMessage from a client.
+       * This method reads an incoming cMsgMessageFull from a client.
        *
        * @param channel nio socket communication channel
        * @return object holding message read from channel
@@ -462,7 +462,7 @@ public class cMsgDomainServer extends Thread {
       private cMsgHolder readSendInfo(SocketChannel channel) throws IOException {
 
           // create a message
-          cMsgMessage msg = new cMsgMessage();
+          cMsgMessageFull msg = new cMsgMessageFull();
 
           // keep reading until we have 11 ints of data
           cMsgUtilities.readSocketBytes(buffer, channel, 44, debug);
@@ -529,7 +529,7 @@ public class cMsgDomainServer extends Thread {
 
 
       /**
-       * This method reads an incoming cMsgMessage from a client doing a sendAndGet.
+       * This method reads an incoming cMsgMessageFull from a client doing a sendAndGet.
        *
        * @param channel nio socket communication channel
        * @return object holding message read from channel
@@ -538,7 +538,7 @@ public class cMsgDomainServer extends Thread {
       private cMsgHolder readGetInfo(SocketChannel channel) throws IOException {
 
           // create a message
-          cMsgMessage msg = new cMsgMessage();
+          cMsgMessageFull msg = new cMsgMessageFull();
 
           // keep reading until we have 9 ints of data
           cMsgUtilities.readSocketBytes(buffer, channel, 36, debug);

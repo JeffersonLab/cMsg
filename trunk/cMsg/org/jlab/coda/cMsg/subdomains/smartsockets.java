@@ -23,7 +23,7 @@
 package org.jlab.coda.cMsg.subdomains;
 
 import org.jlab.coda.cMsg.cMsgConstants;
-import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgClientInfo;
 import org.jlab.coda.cMsg.cMsgSubdomainAbstract;
@@ -84,7 +84,7 @@ public class smartsockets extends cMsgSubdomainAbstract {
             ArrayList subscribeList = new ArrayList(1);
             try {
                 msg.setCurrent(0);
-                cMsgMessage cmsg = new cMsgMessage();
+                cMsgMessageFull cmsg = new cMsgMessageFull();
 
                 cmsg.setDomain("cMsg");                   // just use domain for now
                 cmsg.setSysMsgId(msg.getSeqNum());
@@ -296,7 +296,7 @@ public class smartsockets extends cMsgSubdomainAbstract {
      * @param msg message from sender.
      * @throws cMsgException
      */
-    public void handleSendRequest(cMsgMessage msg) throws cMsgException {
+    public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
 
         String type = msg.getType();
         TipcMt mt   = null;
@@ -353,7 +353,7 @@ public class smartsockets extends cMsgSubdomainAbstract {
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
+    public int handleSyncSendRequest(cMsgMessageFull msg) throws cMsgException {
         return(0);  // do nothing
     }
 
@@ -485,7 +485,7 @@ public class smartsockets extends cMsgSubdomainAbstract {
      *
      * @param message message requesting what sort of message to get
      */
-    public void handleSendAndGetRequest(cMsgMessage message) {
+    public void handleSendAndGetRequest(cMsgMessageFull message) {
         // do nothing
     }
 

@@ -118,7 +118,7 @@ public class File extends cMsgAdapter {
      * @param msg message to send
      * @throws cMsgException (not thrown)
      */
-    public void send(cMsgMessage msg) throws cMsgException {
+    public void send(cMsgMessageFull msg) throws cMsgException {
         Date now = new Date();
         if (textOnly) {
             myPrintHandle.println(now + ":    " + msg.getText());
@@ -146,7 +146,7 @@ public class File extends cMsgAdapter {
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    public int syncSend(cMsgMessage message) throws cMsgException {
+    public int syncSend(cMsgMessageFull message) throws cMsgException {
         send(message);
         return (0);
     }

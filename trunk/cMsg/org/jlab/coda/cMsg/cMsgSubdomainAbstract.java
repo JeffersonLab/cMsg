@@ -69,7 +69,7 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainHandler {
      * @param message message from sender
      * @throws cMsgException
      */
-    public abstract void handleSendRequest(cMsgMessage message) throws cMsgException;
+    public abstract void handleSendRequest(cMsgMessageFull message) throws cMsgException;
 
 
     /**
@@ -80,7 +80,7 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainHandler {
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    public abstract int handleSyncSendRequest(cMsgMessage message) throws cMsgException;
+    public abstract int handleSyncSendRequest(cMsgMessageFull message) throws cMsgException;
 
 
     /**
@@ -103,7 +103,7 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainHandler {
      * @param message message requesting what sort of message to get
      * @throws cMsgException
      */
-    public abstract void handleSendAndGetRequest(cMsgMessage message) throws cMsgException;
+    public abstract void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException;
 
 
     /**
@@ -275,7 +275,7 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainHandler {
      *                             or client returns an error
      */
     public static void deliverMessage(SocketChannel channel, ByteBuffer buffer,
-                                  cMsgMessage msg, List<Integer> idList, int msgType) throws IOException {
+                                  cMsgMessageFull msg, List<Integer> idList, int msgType) throws IOException {
         int size = 0;
         if (idList != null) {
             size = idList.size();

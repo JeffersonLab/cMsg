@@ -23,7 +23,7 @@
 package org.jlab.coda.cMsg.subdomains;
 
 
-import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgSubdomainHandler;
 import org.jlab.coda.cMsg.cMsgClientInfo;
@@ -275,7 +275,7 @@ public class database implements cMsgSubdomainHandler {
      * @param msg message from sender.
      * @throws cMsgException
      */
-    public void handleSendRequest(cMsgMessage msg) throws cMsgException {
+    public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
 
         String sql = msg.getText();
 
@@ -316,7 +316,7 @@ public class database implements cMsgSubdomainHandler {
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
+    public int handleSyncSendRequest(cMsgMessageFull msg) throws cMsgException {
         handleSendRequest(msg);
         return (0);
     }
@@ -367,7 +367,7 @@ public class database implements cMsgSubdomainHandler {
      *
      * @param message message requesting what sort of message to get
      */
-    public void handleSendAndGetRequest(cMsgMessage message) {
+    public void handleSendAndGetRequest(cMsgMessageFull message) {
         // do nothing
     }
 
