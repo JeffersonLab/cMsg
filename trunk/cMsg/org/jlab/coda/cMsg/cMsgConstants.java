@@ -59,8 +59,8 @@ public class cMsgConstants {
     public static final int    errorBadFormat          =  5;
     /** Specifying a domain type that does not exist or is not supported. */
     public static final int    errorBadDomainType      =  6;
-    /** Specifying that a name already exists. */
-    public static final int    errorNameExists         =  7;
+    /** Specifying that a unique item already exists. */
+    public static final int    errorAlreadyExists      =  7;
     /** Error since not initialized. */
     public static final int    errorNotInitialized     =  8;
     /** Error since already initialized. */
