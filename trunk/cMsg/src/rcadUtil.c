@@ -292,7 +292,9 @@ int connect2Platform(int sending2Port, char *sending2Host){
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  ********************************************************************/
-int fillMsgStructure(msg *Msg, int priority, int uint, int senderTime, int id, int port, char *senderhost, char *sender, char *subject, char *type, char *data){
+int fillMsgStructure(msg *Msg, int priority, int uint, int senderTime, int id, int port,
+                     char *senderhost, char *sender, char *subject,
+                     char *type, char *data){
   
   if (Msg == NULL) return(CMSG_BAD_ARGUMENT);
   Msg->version = 1;
