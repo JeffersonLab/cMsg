@@ -17,6 +17,11 @@
  *
  *----------------------------------------------------------------------------*/
  
+/**
+ * @file
+ * This is the header file for the cMsg domain implementation of cMsg.
+ */
+ 
 #ifndef __cMsgDomain_h
 #define __cMsgDomain_h
 
@@ -26,119 +31,128 @@
 extern "C" {
 #endif
 
-/* built-in limits */
+/** Maximum number of subscriptions per client connection. */
 #define MAX_SUBSCRIBE 100
-#define MAX_GENERAL_GET 10
-#define MAX_SPECIFIC_GET 10
-#define MAXCALLBACK   20
+/** Maximum number of simultaneous subscribeAndGets per client connection. */
+#define MAX_SUBSCRIBE_AND_GET 20
+/** Maximum number of simultaneous sendAndGets per client connection. */
+#define MAX_SEND_AND_GET 20
+/** Maximum number of callbacks per subscription. */
+#define MAX_CALLBACK 20
 
-/* for dispatching callbacks in their own threads */
+/** This structure is used when dispatching callbacks in their own threads. */
 typedef struct dispatchCbInfo_t {
-  cMsgCallback *callback;
-  void *userArg;
-  cMsgMessage *msg;
+  cMsgCallback *callback; /**< Callback function to be called. */
+  void *userArg;          /**< User argument to be passed to the callback. */
+  cMsgMessage *msg;       /**< Message to be passed to the callback. */
 } dispatchCbInfo;
 
 
-/* for a single subscription's callback */
+/** This structure represents a single subscription's callback. */
 typedef struct subscribeCbInfo_t {
-  cMsgCallback   *callback; /* function to be called */
-  void           *userArg;  /* user argument given to callback */
-  cMsgMessage    *head;     /* head of linked list of messages given to callback */
-  cMsgMessage    *tail;     /* tail of linked list of messages given to callback */
-  int             messages; /* number of messages in list */
-  int             threads;  /* number of supplemental threads to run callback if
-                             * config allows parallelizing (mustSerialize = 0) */
-  subscribeConfig config;   /* subscription configuration info */
-  char            quit;     /* boolean telling thread to end */
-  pthread_t       thread;   /* thread running callback */
-  pthread_cond_t  cond;     /* condition variable thread is waiting on */
-  pthread_mutex_t mutex;    /* mutex thread is waiting on */
+  cMsgCallback   *callback; /**< Callback function to be called. */
+  void           *userArg;  /**< User argument to be passed to the callback. */
+  cMsgMessage    *head;     /**< Head of linked list of messages given to callback. */
+  cMsgMessage    *tail;     /**< Tail of linked list of messages given to callback. */
+  int             messages; /**< Number of messages in list. */
+  int             threads;  /**< Number of supplemental threads to run callback if
+                             *   config allows parallelizing (mustSerialize = 0). */
+  subscribeConfig config;   /**< Subscription configuration info. */
+  char            quit;     /**< Boolean telling thread to end. */
+  pthread_t       thread;   /**< Thread running callback. */
+  pthread_cond_t  cond;     /**< Condition variable callback thread is waiting on. */
+  pthread_mutex_t mutex;    /**< Mutex callback thread is waiting on. */
 } subscribeCbInfo;
 
-/* For both regular subscriptions and 1-shot-subscriptions/general-gets */
-/* of a certain subject and type. */
+/**
+ * Structure used representing both regular subscriptions and subscribeAndGets
+ * of a certain subject and type.
+ */
 typedef struct subscribeInfo_t {
-  int  id;       /* unique id # corresponding to a unique subject/type pair */
-  int  active;   /* does this subject/type have active callbacks? */
-  char *type;
-  char *subject;
-  struct subscribeCbInfo_t cbInfo[MAXCALLBACK];
+  int  id;       /**< Unique id # corresponding to a unique subject/type pair. */
+  int  active;   /**< Boolean telling if this subject/type has an active callback. */
+  char *subject; /**< Subject of subscription. */
+  char *type;    /**< Type of subscription. */
+  struct subscribeCbInfo_t cbInfo[MAX_CALLBACK]; /**< Array of callbacks. */
 } subscribeInfo;
 
 
-/* for a "get" of a certain subject and type */
+/** This structure represents a sendAndGet of a certain subject and type. */
 typedef struct getInfo_t {
-  int  id;       /* unique id # corresponding to a unique subject/type pair */
-  int  active;   /* does this subject/type have an active callback? */
-  char msgIn;    /* has message arrived? (1-y, 0-n) */
-  char quit;     /* boolean telling "get" to end */
-  char *type;
-  char *subject;
-  cMsgMessage *msg;
-  pthread_cond_t  cond;     /* condition variable get thread is waiting on */
-  pthread_mutex_t mutex;    /* mutex get thread is waiting on */
+  int  id;       /**< Unique id # corresponding to a unique subject/type pair. */
+  int  active;   /**< Boolean telling if this subject/type has an active callback. */
+  char msgIn;    /**< Boolean telling if a message has arrived. (1-y, 0-n) */
+  char quit;     /**< Boolean commanding sendAndGet to end. */
+  char *subject; /**< Subject of sendAndGet. */
+  char *type;    /**< Type of sendAndGet. */
+  cMsgMessage *msg;      /**< Message to be passed to the caller. */
+  pthread_cond_t  cond;  /**< Condition variable sendAndGet thread is waiting on. */
+  pthread_mutex_t mutex; /**< Mutex sendAndGet thread is waiting on. */
 } getInfo;
 
-/* structure containing all domain info */
+/**
+ * This structure contains all information concerning a single client
+ * connection to this domain.
+ */
 typedef struct cMsgDomain_CODA_t {  
   
-  int id;
+  int id;                     /**< Unique id of connection. */ 
   
-  /* state variables */
-  volatile int initComplete;  /* 0 = No, 1 = Yes */
-  volatile int receiveState;
-  volatile int lostConnection;
+  volatile int initComplete;   /**< Boolean telling if imitialization of this structure
+                                    is complete and it is being used. 0 = No, 1 = Yes */
+  volatile int receiveState;   /**< Boolean telling if messages are being delivered to
+                                    callbacks (1) or if they are being igmored (0). */
+  volatile int lostConnection; /**< Boolean telling if connection to cMsg server is lost. */
   
-  int sendSocket;      /* file descriptor for TCP socket to send messages on */
-  int listenSocket;    /* file descriptor for socket this program listens on for TCP connections */
-  int keepAliveSocket; /* file descriptor for socket to tell if server is still alive or not */
+  int sendSocket;      /**< File descriptor for TCP socket to send messages on. */
+  int listenSocket;    /**< File descriptor for socket this program listens on for TCP connections. */
+  int keepAliveSocket; /**< File descriptor for socket to tell if server is still alive or not. */
 
-  unsigned short sendPort;   /* port to send messages to */
-  unsigned short serverPort; /* port cMsg name server listens on */
-  unsigned short listenPort; /* port this program listens on for this domain's TCP connections */
+  unsigned short sendPort;   /**< Port to send messages to. */
+  unsigned short serverPort; /**< Port cMsg name server listens on. */
+  unsigned short listenPort; /**< Port this program listens on for this domain's TCP connections. */
   
   /* subdomain handler attributes */
-  char hasSend;            /* subdomain implements meaningful send function */
-  char hasSyncSend;        /* subdomain implements meaningful syncSend function */
-  char hasSubscribeAndGet; /* subdomain implements meaningful subscribeAndGet function */
-  char hasSendAndGet;      /* subdomain implements meaningful sendAndGet function */
-  char hasSubscribe;       /* subdomain implements meaningful subscribe function */
-  char hasUnsubscribe;     /* subdomain implements meaningful unsubscribe function */
+  char hasSend;            /**< Does this subdomain implement a send function? (1-y, 0-n) */
+  char hasSyncSend;        /**< Does this subdomain implement a syncSend function? (1-y, 0-n) */
+  char hasSubscribeAndGet; /**< Does this subdomain implement a subscribeAndGet function? (1-y, 0-n) */
+  char hasSendAndGet;      /**< Does this subdomain implement a sendAndGet function? (1-y, 0-n) */
+  char hasSubscribe;       /**< Does this subdomain implement a subscribe function? (1-y, 0-n) */
+  char hasUnsubscribe;     /**< Does this subdomain implement a unsubscribe function? (1-y, 0-n) */
 
-  char *myHost;       /* this hostname */
-  char *sendHost;     /* host to send messages to */
-  char *serverHost;   /* host cMsg name server lives on */
+  char *myHost;       /**< This hostname. */
+  char *sendHost;     /**< Host to send messages to. */
+  char *serverHost;   /**< Host cMsg name server lives on. */
 
-  char *name;         /* name of user (this program) */
-  char *udl;          /* UDL of cMsg name server */
-  char *description;  /* user description */
+  char *name;         /**< Name of this user. */
+  char *udl;          /**< UDL of cMsg name server. */
+  char *description;  /**< User description. */
   
-  pthread_t pendThread;      /* listening thread */
-  pthread_t keepAliveThread; /* thread sending keep alives to server */
+  pthread_t pendThread;      /**< Listening thread. */
+  pthread_t keepAliveThread; /**< Thread sending keep alives to server. */
   
-  pthread_mutex_t socketMutex;    /* mutex to ensure thread-safety of socket use */
-  pthread_mutex_t syncSendMutex;  /* mutex to ensure thread-safety of syncSends */
-  pthread_mutex_t subscribeMutex; /* mutex to ensure thread-safety of (un)subscribes */
+  pthread_mutex_t socketMutex;    /**< Mutex to ensure thread-safety of socket use. */
+  pthread_mutex_t syncSendMutex;  /**< Mutex to ensure thread-safety of syncSends. */
+  pthread_mutex_t subscribeMutex; /**< Mutex to ensure thread-safety of (un)subscribes. */
   
-  /* array of structures - each of which contain a subscription */
+  /** Array of structures - each of which contain a subscription */
   subscribeInfo subscribeInfo[MAX_SUBSCRIBE]; 
-  /* array of structures - each of which contain a 1-shot subscription or general get */
-  getInfo generalGetInfo[MAX_GENERAL_GET];
-  /* array of structures - each of which contain a specific get */
-  getInfo specificGetInfo[MAX_SPECIFIC_GET];
+  /** Array of structures - each of which contain a subscribeAndGet */
+  getInfo generalGetInfo[MAX_SUBSCRIBE_AND_GET];
+  /** Array of structures - each of which contain a sendAndGet */
+  getInfo specificGetInfo[MAX_SEND_AND_GET];
   
 } cMsgDomain_CODA;
 
 
 
-/* struct for passing data from main to network threads */
+/** This structure is used for passing data from main to network threads. */
 typedef struct mainThreadInfo_t {
-  int isRunning; /* flag to indicate thread is running */
-  int domainId;  /* domain identifier */
-  int listenFd;  /* listening socket file descriptor */
-  int blocking;  /* block in accept (CMSG_BLOCKING) or
-                     not (CMSG_NONBLOCKING)? */
+  int isRunning; /**< Boolean to indicate thread is running. (1-y, 0-n) */
+  int domainId;  /**< Domain identifier. */
+  int listenFd;  /**< Listening socket file descriptor. */
+  int blocking;  /**< Block in accept (CMSG_BLOCKING) or
+                      not (CMSG_NONBLOCKING)? */
 } mainThreadInfo;
 
 /* prototypes */

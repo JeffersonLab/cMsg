@@ -20,6 +20,14 @@
  *
  *----------------------------------------------------------------------------*/
 
+/**
+ * @file
+ * This file contains wrappers around Solaris' thr_setconcurrency and
+ * thr_getconcurrency functions. This is done because its requisite
+ * header file drags in other functions whose names collide with the
+ * code in rwlock.h, rwlock.c if not so isolated.
+ */  
+
 #ifdef sun
 #ifndef VXWORKS
 
@@ -27,7 +35,17 @@
 
 #endif
 #endif
-
+  /**
+   * This function encapsulates the Solaris routine to set the desired concurrency
+   * level (number of simultaneous threads) of the operating system.
+   * This is done because its requisite header file (thread.h) drags in other
+   * functions whose names collide with the code in rwlock.h, rwlock.c.
+   * This function does nothing on Linux and vxWorks.
+   *
+   * @param newLevel desired concurrency
+   * @returns 0 if successful, EAGAIN if system resources would be exceeded,
+   *          EINVAL if newLevel is negative
+   */
   int sun_setconcurrency(int newLevel) {
 #ifdef sun
 #ifndef VXWORKS
@@ -40,6 +58,15 @@
 #endif
   }
   
+  /**
+   * This function encapsulates the Solaris rountine to get the desired concurrency
+   * level (number of simultaneous threads) of the operating system.
+   * This is done because its requisite header file (thread.h) drags in other
+   * functions whose names collide with the code in rwlock.h, rwlock.c.
+   * This function does nothing on Linux and vxWorks.
+   *
+   * @returns current desired concurrency
+   */
   int sun_getconcurrency() {
 #ifdef sun
 #ifndef VXWORKS
