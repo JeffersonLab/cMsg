@@ -1,3 +1,6 @@
+//  general purpose cMsg logger
+
+
 /*----------------------------------------------------------------------------*
 *  Copyright (c) 2004        Southeastern Universities Research Association, *
 *                            Thomas Jefferson National Accelerator Facility  *
@@ -5,7 +8,7 @@
 *    This software was developed under a United States Government license    *
 *    described in the NOTICE file included as part of this distribution.     *
 *                                                                            *
-*    E.Wolin, 25-Jun-2004, Jefferson Lab                                     *
+*    E.Wolin, 6-Jan-2005, Jefferson Lab                                      *
 *                                                                            *
 *    Authors: Elliott Wolin                                                  *
 *             wolin@jlab.org                    Jefferson Lab, MS-6B         *
@@ -19,198 +22,201 @@
 *                                                                            *
 *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg.apps;
 
-import java.lang.*;
-import java.sql.*;
+package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
 
+import java.lang.*;
+import java.io.*;
+import java.sql.*;
+
+
+
+//-----------------------------------------------------------------------------
+
+
 /**
- * Class to log cMsg message to a database.
+ * Logs cMsg messages to screen, file, and/or database.
+ * subject/type specified on command line.
+ *
  * @version 1.0
  */
 public class cMsgLogger {
 
-    // for cMsg
-    /** UDL or Universal Domain Locator of cMsg name server. */
-    private String domain = "cMsg:cMsg://aslan:3456/cMsg";
 
-    /** Name of this cMsg client. */
-    private String name = "cMsgLogger";
+    /** Universal Domain Locator. */
+    private static String UDL = "cMsg:cMsg://ollie/cMsg";
 
-    /** Description of this cMsg client. */
-    private String description = "CODA cMsg Message Logger";
 
-    /** Subject of messages being subscribed to. */
-    private String subject = "cmsglog";
+    /** Name of this client, generally must be unique. */
+    private static String name = "cMsgLogger";
 
-    /** Callback method to be run upon receipt of a message. */
-    private cb jdbcCallback = new cb();
 
-    // for jdbc
-    /** Java JDBC database driver. */
-    private String driver = "com.mysql.jdbc.Driver";
+    /** Description of this client. */
+    private static String description = "Generic cMsg Logger";
 
-    /** URL of database server. */
-    private String url = "jdbc:mysql://dubhe:3306/";
 
-    /** Name of particular database or "catalog" in JDBC terms. */
-    private String database = "coda";
+    /** Subject and type of messages being logged. */
+    private static String subject = "*";
+    private static String type    = "*";
 
-    /** Database account name. */
-    private String account = "wolin";
 
-    /** Database account password. */
-    private String password = "";
+    /** toScreen true to log to screen. */
+    private static boolean toScreen = false;
 
-    /** JDBC database connection object. */
-    private Connection con = null;
 
-    /** Database prepared statement. */
-    private PreparedStatement s = null;
+    /** filename not null to log to file. */
+    private static String filename = null;
+
+
+    /** url not null to log to database. */
+    private static String url              = null;
+    private static String table            = "cMsgLog";
+    private static String driver           = "com.mysql.jdbc.Driver";
+    private static String account          = "";
+    private static String password         = "";
+    private static Connection con          = null;
+    private static PreparedStatement pStmt = null;
+
 
     // misc
-    /** Boolean indicating whether this application is done or not. */
-    private boolean done = false;
+    private static boolean done  = false;
+    private static boolean debug = false;
 
-    /** Boolean indicating whether debug output is turned on or not. */
-    private boolean debug = false;
-    
-    
-//-----------------------------------------------------------------------------
 
-    //public cMsgLogger() {
-
-    // }
-    
-    
-//-----------------------------------------------------------------------------
-
-    /** Class that implements the callback interface. */
-    class cb extends cMsgCallbackAdapter {
+    /** Class to implement the callback interface. */
+    static class cb extends cMsgCallbackAdapter {
         /**
-         * Callback method.
+         * Called when message arrives, logs to screen, file, and/or database.
+         *
          * @param msg cMsg message
          * @param userObject object given by user to callback as argument.
          */
         public void callback(cMsgMessage msg, Object userObject) {
 
-            try {
-                if (debug) {
-                    s.setString(1, msg.getSender());
-                    s.setString(2, msg.getSenderHost());
-                    s.setString(3, msg.getSenderTime().toString());
-                    s.setString(4, msg.getDomain());
-                    s.setString(5, msg.getSubject().substring(subject.length() + 1));
-                    s.setString(6, msg.getType());
-                    s.setString(7, msg.getText());
-                    s.execute();
-                }
-                else {
-                    System.out.println("Sending:\n\n" + msg);
-                }
+            if(toScreen) {
             }
-            catch (SQLException e) {
-                System.err.println("?sql error in callback\n" + e);
-                System.exit(-1);
+
+            if(filename!=null) {
+            }
+
+            if(url!=null) {
+                try {
+                    pStmt.setString(1, msg.getSender());
+                    pStmt.setString(2, msg.getSenderHost());
+                    pStmt.setString(3, msg.getSenderTime().toString());
+                    pStmt.setString(4, msg.getDomain());
+                    pStmt.setString(5, msg.getSubject().substring(subject.length() + 1));
+                    pStmt.setString(6, msg.getType());
+                    pStmt.setString(7, msg.getText());
+                    pStmt.execute();
+                } catch (SQLException e) {
+                    System.err.println("?sql error in callback\n" + e);
+                    System.exit(-1);
+                }
             }
         }
 
-        public boolean mustSerializeMessages() {return false;}       
     }
 
 
 //-----------------------------------------------------------------------------
 
-    /** Main application. */
+
     static public void main(String[] args) {
 
-        cMsgLogger logger = new cMsgLogger();
 
         // decode command line
-        decode_command_line(args, logger);
+        decode_command_line(args);
 
-        // connect to cMsg server
+
+        // connect to cMsg system
         cMsg cmsg = null;
         try {
-            cmsg = new cMsg(logger.domain, logger.name, logger.description);
-        }
-        catch (cMsgException e) {
+            cmsg = new cMsg(UDL, name, description);
+            cmsg.connect();
+        } catch (cMsgException e) {
             e.printStackTrace();
             System.exit(-1);
         }
+
 
         // subscribe and provide callback
         try {
-            cmsg.subscribe(logger.subject + "/*", null, logger.jdbcCallback, null);
-        }
-        catch (cMsgException e) {
+            cmsg.subscribe(subject, type, new cb(), null);
+        } catch (cMsgException e) {
             e.printStackTrace();
             System.exit(-1);
         }
 
-        // load jdbc driver
-        try {
-            Class.forName(logger.driver);
-        }
-        catch (Exception e) {
-            System.err.println("?unable to load driver: " + logger.driver + "\n" + e);
-            System.exit(-1);
+
+        // enable screen logging if nothing else enabled
+        if((filename==null)&&(url==null)) toScreen=true;
+
+
+        // init file logging
+        if(filename!=null) {
         }
 
-        // connect to database
-        try {
-            logger.con = DriverManager.getConnection(logger.url + logger.database,
-                                                     logger.account, logger.password);
-        }
-        catch (Exception e) {
-            System.err.println("?unable to connect to database: " + logger.url + logger.database + "\n" + e);
-            System.exit(-1);
+
+        // init database logging
+        if(url!=null) {
+
+            // load jdbc driver
+            try {
+                Class.forName(driver);
+            } catch (Exception e) {
+                System.err.println("?unable to load driver: " + driver + "\n" + e);
+                System.exit(-1);
+            }
+
+            // connect to database
+            try {
+                con = DriverManager.getConnection(url, account, password);
+            } catch (SQLException e) {
+                System.err.println("?unable to connect to database url: " + url + "\n" + e);
+                System.exit(-1);
+            }
+
+            // get prepared statement object
+            try {
+                String sql = "insert into " + table + " (" + "???";
+                pStmt = con.prepareStatement(sql);
+            } catch (SQLException e) {
+                System.err.println("?unable to prepare statement\n" + e);
+                System.exit(-1);
+            }
         }
 
-        // get prepared statement object
-        try {
-            String sql = "insert into " + logger.subject + " (" +
-                    "sender,host,time,domain,topic,type,text" +
-                    ") values (" +
-                    "?,?,?,?,?, ?,?" +
-                    ")";
-            logger.s = logger.con.prepareStatement(sql);
-        }
-        catch (SQLException e) {
-            System.err.println("?unable to prepare statement\n" + e);
-            System.exit(-1);
-        }
 
         // enable receipt of messages and delivery to callback
         cmsg.start();
 
-        // wait for messages
-        while (!logger.done) {
+
+        // wait for messages (forever at the moment...)
+        while (!done) {
             try {
                 Thread.sleep(1);
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
             }
         }
 
+
         // done
         try {
-            logger.con.close();
-        }
-        catch (SQLException e) {
+            con.close();
+        } catch (SQLException e) {
         }
 
         try {
             cmsg.disconnect();
-        }
-        catch (cMsgException e) {
+        } catch (cMsgException e) {
         }
 
         System.exit(0);
 
-    }  // main
+    }
 
 
 //-----------------------------------------------------------------------------
@@ -218,14 +224,14 @@ public class cMsgLogger {
     /**
      * Method to decode the command line used to start this application.
      * @param args command line arguments
-     * @param logger logging object - object of this class
      */
-    static public void decode_command_line(String[] args, cMsgLogger logger) {
+    static public void decode_command_line(String[] args) {
 
         String help = "\nUsage:\n\n" +
-                "   java cMsgLogger [-domain domain] [-name name] [-subject subject]\n" +
-                "                   [-driver driver] [-url url] [-db database]\n" +
-                "                   [-account account] [-pwd password] [-debug]\n\n";
+            "   java cMsgLogger [-name name] [-udl domain] [-subject subject] [-type type]\n" +
+            "                   [-screen] [-file filename]\n" +
+            "                   [-url url] [-table table] [-driver driver] [-account account] [-pwd password]\n" +
+            "                   [-debug]\n\n";
 
 
         // loop over all args
@@ -236,49 +242,63 @@ public class cMsgLogger {
                 System.exit(-1);
 
             }
-            else if (args[i].equalsIgnoreCase("-domain")) {
-                logger.domain = args[i + 1];
+            else if (args[i].equalsIgnoreCase("-udl")) {
+                UDL= args[i + 1];
                 i++;
 
             }
             else if (args[i].equalsIgnoreCase("-subject")) {
-                logger.subject = args[i + 1];
+                subject = args[i + 1];
                 i++;
 
             }
-            else if (args[i].equalsIgnoreCase("-driver")) {
-                logger.driver = args[i + 1];
+            else if (args[i].equalsIgnoreCase("-type")) {
+                type= args[i + 1];
+                i++;
+
+            }
+            else if (args[i].equalsIgnoreCase("-screen")) {
+                toScreen=true;
+
+            }
+            else if (args[i].equalsIgnoreCase("-filename")) {
+                filename= args[i + 1];
                 i++;
 
             }
             else if (args[i].equalsIgnoreCase("-url")) {
-                logger.url = args[i + 1];
+                url = args[i + 1];
                 i++;
 
             }
-            else if (args[i].equalsIgnoreCase("-db")) {
-                logger.database = args[i + 1];
+            else if (args[i].equalsIgnoreCase("-table")) {
+               table = args[i + 1];
+                i++;
+
+            }
+            else if (args[i].equalsIgnoreCase("-driver")) {
+                driver = args[i + 1];
                 i++;
 
             }
             else if (args[i].equalsIgnoreCase("-account")) {
-                logger.account = args[i + 1];
+                account = args[i + 1];
                 i++;
 
             }
             else if (args[i].equalsIgnoreCase("-pwd")) {
-                logger.password = args[i + 1];
+                password = args[i + 1];
                 i++;
 
             }
             else if (args[i].equalsIgnoreCase("-debug")) {
-                logger.debug = true;
+                debug = true;
             }
         }
 
         return;
     }
-  
+
 
 //-----------------------------------------------------------------------------
 
