@@ -222,7 +222,11 @@ public class cMsgDomainServer extends Thread {
      * before the garbage collector is run;
      */
     public void finalize() throws cMsgException {
-        clientHandler.handleClientShutdown();
+        if (!calledShutdown) {
+            calledShutdown = true;
+            clientHandler.handleClientShutdown();
+        }
+        //System.out.println("\nFINALIZE !!!\n");
     }
 
 
