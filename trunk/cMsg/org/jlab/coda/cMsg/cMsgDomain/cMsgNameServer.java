@@ -277,6 +277,9 @@ public class cMsgNameServer extends Thread {
             else if (subdomain.equalsIgnoreCase("smartsockets")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.subdomains.smartsockets";
             }
+            else if (subdomain.equalsIgnoreCase("tcpserver")) {
+                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.tcpserver";
+            }
             else if (subdomain.equalsIgnoreCase("FileQueue")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.subdomains.FileQueue";
             }
