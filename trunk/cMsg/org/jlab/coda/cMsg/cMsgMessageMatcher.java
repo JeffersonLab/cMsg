@@ -22,8 +22,21 @@ package org.jlab.coda.cMsg;
  */
 public class cMsgMessageMatcher {
     /**
-     * Implement a simple wildcard matching scheme where "*" means any or no characters and
-     * "?" means exactly 1 character.
+     * Characters which need to be escaped to avoid special interpretation in
+     * regular expressions.
+     */
+    static final private String escapeChars = "\\(){}[]+.|^$";
+
+    /** Array of regular expressions to look for in a given string. */
+    static final private String[] lookFor = {"\\\\", "\\(", "\\)", "\\{", "\\}", "\\[",
+                                             "\\]", "\\+" ,"\\.", "\\|", "\\^", "\\$"};
+    /** Array of strings to replace the found regular expressions in a given string. */
+    static final private String[] replaceWith = {"\\\\\\\\", "\\\\(", "\\\\)", "\\\\{", "\\\\}", "\\\\[",
+                                                 "\\\\]",  "\\\\+" ,"\\\\.", "\\\\|", "\\\\^", "\\\\\\$"};
+
+    /**
+     * This method implements a simple wildcard matching scheme where "*" means
+     * any or no characters and "?" means exactly 1 character.
      *
      * @param regexp subscription string that can contain wildcards (* and ?)
      * @param s message string to be matched (can be blank which only matches *)
@@ -37,13 +50,36 @@ public class cMsgMessageMatcher {
         if (s == null) return false;
 
         // The first order of business is to take the regexp arg and modify it so that it is
-        // a regular expression that Java can understand. This means takings all occurrences
-        // of "*" and "?" and adding a period in front.
-        String rexp = regexp.replaceAll("\\*", ".*");
-        rexp = rexp.replaceAll("\\?", ".{1}");
+        // a regular expression that Java can understand. This means subbing all occurrences
+        // of "*" and "?" with ".*" and ".{1}". And it means escaping other regular
+        // expression special characters.
+        regexp = escape(regexp);
 
         // Now see if there's a match with the string arg
-        if (s.matches(rexp)) return true;
+        if (s.matches(regexp)) return true;
         return false;
     }
+
+    /**
+     * This method takes a string and escapes most special, regular expression characters.
+     * The return string can allows only * and ? to be passed through in a way meaningful
+     * to regular expressions (as .* and .{1} respectively).
+     *
+     * @param s string to be escaped
+     * @return escaped string
+     */
+    static final public String escape(String s) {
+        if (s == null) return null;
+
+        for (int i=0; i < escapeChars.length(); i++) {
+            s = s.replaceAll(lookFor[i], replaceWith[i]);
+        }
+
+        // translate from * and ? to Java regular expression language
+        s = s.replaceAll("\\*", ".*");
+        s = s.replaceAll("\\?", ".{1}");
+
+        return s;
+    }
+
 }
