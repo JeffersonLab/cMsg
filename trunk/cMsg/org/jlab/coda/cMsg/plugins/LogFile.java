@@ -255,16 +255,24 @@ public class LogFile implements cMsgHandleRequests {
 
 
     /**
-     * Method to get a single message from the server for a given
-     * subject and type.
+     * Method to synchronously get a single message from the server for a given
+     * subject and type -- perhaps from a specified receiver.
      *
-     * @param subject subject of message to get
-     * @param type type of message to get
-     * @return cMsgMessage message obtained by this get
+     * @param message message requesting what sort of message to get
      */
-    public cMsgMessage handleGetRequest(String subject, String type) {
+    public void handleGetRequest(cMsgMessage message) {
         // do nothing...
-        return null;
+    }
+
+
+    /**
+     * Method to handle unget request sent by domain client (hidden from user).
+     *
+     * @param subject message subject subscribed to
+     * @param type message type subscribed to
+     */
+    public void handleUngetRequest(String subject, String type) {
+        // do mothing
     }
 
 
