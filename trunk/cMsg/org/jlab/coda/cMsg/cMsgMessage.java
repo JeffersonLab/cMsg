@@ -19,10 +19,13 @@
 *                                                                            *
 *----------------------------------------------------------------------------*/
 
+
 package org.jlab.coda.cMsg;
+
 
 import java.lang.*;
 import java.util.*;
+
 
 /**
  * This class implements a message in the cMsg messaging system.
@@ -32,49 +35,58 @@ import java.util.*;
  * @version 1.0
  */
 public class cMsgMessage {
+
     /** Unique message id created by cMsg system. */
     int      sysMsgId;
+
     /**
      * Message receiver's id number corresponding to a subject & type pair
      * of a message subscription.
      */
     int      receiverSubscribeId;
 
-
     /** Unique name of message sender. */
     String   sender;
+
     /**
      * Unique id of message sender. This distinguishes between two identically
      * named senders - one of whom dies and is replaced by the other.
      */
     int      senderId;
+
     /** Host sender is running on. */
     String   senderHost;
+
     /** Time message was sent. */
     Date     senderTime;
+
     /** Unique message id created by sender. */
     int      senderMsgId;
+
     /**
      * Sender given integer used to track asynchronous responses to
      * messages requesting responses from other clients.
      */
     int      senderToken;
 
-
     /** Unique name of message receiver. */
     String   receiver;
+
     /** Host receiver is running on. */
     String   receiverHost;
+
     /** Time message was received. */
     Date     receiverTime;
 
-
     /** Message exists in this domain. */
     String   domain;
+
     /** Subject of message. */
     String   subject;
+
     /** Type of message. */
     String   type;
+
     /** Text of message. */
     String   text;
 
@@ -87,6 +99,7 @@ public class cMsgMessage {
      */
     public void   setDomain(String domain) {this.domain = domain;}
 
+
     /** Get subject of message. */
     public String getSubject() {return subject;}
     /**
@@ -94,6 +107,7 @@ public class cMsgMessage {
      * @param subject subject of message.
      */
     public void   setSubject(String subject) {this.subject = subject;}
+
 
     /** Get text of message. */
     public String getText() {return text;}
@@ -103,6 +117,7 @@ public class cMsgMessage {
      */
     public void   setText(String text) {this.text = text;}
 
+
     /** Get type of message. */
     public String getType() {return type;}
     /**
@@ -110,6 +125,7 @@ public class cMsgMessage {
      * @param type type of message.
      */
     public void   setType(String type) {this.type = type;}
+
 
     /** Get system id of message. */
     public int    getSysMsgId() {return sysMsgId;}
@@ -119,7 +135,9 @@ public class cMsgMessage {
      */
     public void   setSysMsgId(int sysMsgId) {this.sysMsgId = sysMsgId;}
 
+
     // receiver
+
 
     /** Get message receiver. */
     public String getReceiver() {return receiver;}
@@ -129,6 +147,7 @@ public class cMsgMessage {
      */
     public void   setReceiver(String receiver) {this.receiver = receiver;}
 
+
     /** Get message receiver's host computer. */
     public String getReceiverHost() {return receiverHost;}
     /**
@@ -136,6 +155,7 @@ public class cMsgMessage {
      * @param receiverHost message receiver's host computer.
      */
     public void   setReceiverHost(String receiverHost) {this.receiverHost = receiverHost;}
+
 
     /** Get receiver's id number corresponding to a subject & type pair of a message subscription. */
     public int    getReceiverSubscribeId() {return receiverSubscribeId;}
@@ -153,7 +173,9 @@ public class cMsgMessage {
       */
     public void   setReceiverTime(Date receiverTime) {this.receiverTime = receiverTime;}
 
+
     // sender
+
 
     /** Get message sender. */
     public String getSender() {return sender;}
@@ -163,6 +185,7 @@ public class cMsgMessage {
      */
     public void   setSender(String sender) {this.sender = sender;}
 
+
     /** Get message sender's host computer. */
     public String getSenderHost() {return senderHost;}
     /**
@@ -170,6 +193,7 @@ public class cMsgMessage {
       * @param senderHost message sender's host computer.
       */
     public void   setSenderHost(String senderHost) {this.senderHost = senderHost;}
+
 
     /**
       * Get unique id of message sender. This id distinguishes between two identically
@@ -182,6 +206,7 @@ public class cMsgMessage {
       */
     public void   setSenderId(int senderId) {this.senderId = senderId;}
 
+
     /** Get sender message's id. */
     public int    getSenderMsgId() {return senderMsgId;}
     /**
@@ -190,6 +215,7 @@ public class cMsgMessage {
       */
     public void   setSenderMsgId(int senderMsgId) {this.senderMsgId = senderMsgId;}
 
+
     /** Get time message was sent. */
     public Date   getSenderTime() {return senderTime;}
     /**
@@ -197,6 +223,7 @@ public class cMsgMessage {
       * @param senderTime time message sent.
       */
     public void   setSenderTime(Date senderTime) {this.senderTime = senderTime;}
+
 
     /**
      * Get sender's token. Used to track asynchronous responses to
@@ -208,5 +235,29 @@ public class cMsgMessage {
       * @param senderToken sender's token.
       */
     public void   setSenderToken(int senderToken) {this.senderToken = senderToken;}
+
+
+    /**
+      * Returns XML representation of message as a string
+      */
+    public String toString() {
+	return(
+	       "<cMsgMessage date=\"" + (new Date()) + "\"\n"
+	       + "     " + "domain         = \"" + this.getDomain() + "\"\n"
+	       + "     " + "sysMsgId       = \"" + this.getSysMsgId() + "\"\n"
+	       + "     " + "sender         = \"" + this.getSender() + "\"\n"
+	       + "     " + "senderHost     = \"" + this.getSenderHost() + "\"\n"
+	       + "     " + "senderTime     = \"" + this.getSenderTime() + "\"\n"
+	       + "     " + "senderId       = \"" + this.getSenderId() + "\"\n"
+	       + "     " + "senderMsgId    = \"" + this.getSenderMsgId() + "\"\n"
+	       + "     " + "senderToken    = \"" + this.getSenderToken() + "\"\n"
+	       + "     " + "receiver       = \"" + this.getReceiver() + "\"\n"
+	       + "     " + "receiverHost   = \"" + this.getReceiverHost() + "\"\n"
+	       + "     " + "receiverTime   = \"" + this.getReceiverTime() + "\"\n"
+	       + "     " + "subject        = \"" + this.getSubject() + "\"\n"
+	       + "     " + "type           = \"" + this.getType() + "\">\n"
+	       + "<![CDATA[\n" + this.getText() + "\n]]>\n"
+	       + "</cMsgMessage>\n\n");
+    }
 
 }
