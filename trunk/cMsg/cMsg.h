@@ -29,7 +29,6 @@
  *
  *
  *  Still to do:
- *    complete list of message access functions
  *    add Doxygen comments
  *    some error codes redundant, some missing
  *
@@ -39,59 +38,63 @@
  * Introduction
  * ------------
  *
- * cMsg is a simple abstract API to an underlying message service.  It is powerful
- * enough to support asynchronous point-to-point and publish/subscribe 
- * communication, and network-accessible message queues.  Note that a given underlying 
- * implementation may not necessarily implement all these features.  
+ * cMsg is a simple abstract API to an arbitrary underlying message service.  It is 
+ * powerful enough to support synchronous and asynchronous point-to-point and 
+ * publish/subscribe communication, and network-accessible message queues.  Note 
+ * that a given underlying implementation may not necessarily implement all these 
+ * features.  
  *
  *
  * Domains
  * -------
  *
- * The abstraction relies on the important concept of a "domain", which is
- * basically an isolated namespace.  Messages sent to a domain are not
- * visible outside of that domain.  How the domain concept is implemented is up
- * to the underlying implementation.  A complete cMsg "UDL" (Universal Domain 
- * Locator) looks like:
- *
+ * The abstraction relies on the important concept of a "domain", specified via a 
+ * "Universal Domain Locator" (UDL) of the form:
+ * 
  *       domainType://domainName
  *
- * where the form of the domainName is not specified and is interpreted by the 
- * underlying implementation.  The full domain specifier for the default CODA
- * implementation looks like:
+ * The domain type refers to an underlying messaging software implementation, 
+ * and the domain name is interpreted by the implementation. Generally domains with
+ * different UDL's are isolated from each other, but this is not necessarily the 
+ * case.  For example, users can easily create gateways between different domains,
+ * or different domain servers may serve into the same messaging namespace.
+ * 
+ * The full domain specifier for the CODA domain implementation looks like:
  *
  *      coda://node:port/namespace?param1=val1(&param2=val2)
  *
  * where node:port correspond to the node and port of a CODA message server, and 
  * namespace allows for multiple domains on the same server.  If the port is missing 
- * a default port is used.  Parameters are optional.
+ * a default port is used.  Parameters are optional and not specified at this time.
+ * Currently different CODA domains are completely isolated from each other.
  *
- * A process can connect to many domains if desired.  Note that in the default CODA 
- * domain is implemented in a "heavyweight" manner, via separate threads,
- * processes, etc.  The efficient, lightweight way to distribute messages within
- * an application is to use subjects (see below).
+ * A process can connect to multiple domains if desired.  Note that the CODA domain
+ * is implemented in a "heavyweight" manner, via separate threads, processes, etc.
+ * The efficient, lightweight way to distribute messages within the CODA domain is
+ * to use subjects (see below).
  *
  *
  * Messages
  * --------
  *
- * All messages within a domain are sent via cMsgSend().  Messages are sent to a
- * subject and have a type, and both are arbitrary strings.  The payload consists of
+ * Messages are sent via cMsgSend() and cMsgGet().  Messages have a type and are 
+ * sent to a subject, and both are arbitrary strings.  The payload consists of
  * a single text string.  Users must call cMsgFlush() to initiate delivery of messages 
  * in the outbound send queues, although the implementation may deliver messages 
- * before cMsgFlush() is called.  Some message meta-data may be set by the user (see
- * below), although most of it is set by the system.
+ * before cMsgFlush() is called.  Additional message meta-data may be set by the user
+ * (see below), although much of it is set by the system.
  *
  * Message consumers ask the system to deliver messages to them that match various 
  * subject/type combinations (each may be NULL).  The messages are delivered 
  * asynchronously to callbacks (via cMsgSubscribe()).  cMsgFreeMessage() must be 
- * called when the user is done processing the message.
+ * called when the user is done processing the message.  Synchronous or RPC-like 
+ * messaging is also possible via cMsgGet().
  *
  * cMsgReceiveStart() must be called to start delivery of messages to callbacks.  
  *
- * In the default CODA implementation perl-like subject wildcard characters are
- * supported, multiple callbacks for the same subject/type are allowed, and each 
- * callback executes in its own thread.
+ * In the CODA domain perl-like subject wildcard characters are supported, multiple 
+ * callbacks for the same subject/type are allowed, and each callback executes in 
+ * its own thread.
  *
  *
  *
@@ -105,14 +108,17 @@
  * default implementations have domainTypes "CODA" and "FILE".
  *
  * The CODA domain supports standard asynchronous publish/subscribe messaging via
- * a separate FIPA agent based server system.
+ * a separate FIPA agent based server system, but no explicit synchronous messaging
+ * (i.e. cMsgGet() is not implemented yet).  Users can effectively implement
+ * RPC-like communications via careful use of asynchronous publish/subscribe 
+ * messaging and the senderToken (see below).
  *
  * The FILE domain simply logs text to files, and the only functions implemented
  * are cMsgConnect (calls fopen), cMsgSend (calls fwrite), and cMsgDisconnect (calls 
  * fclose).
  *
  * Note that new domain types can be added explicitely at the API level (within cMsg.c),
- * or effectively via a CODA domain proxy server. Contact the DAQ group for details.
+ * or effectively via a CODA domain proxy server.  Contact the DAQ group for details.
  *
  *
  *
@@ -135,7 +141,21 @@
  * cMsgMessage *cMsgCreateMessage(void)
  *
  *   Create an empty message object (some meta-data is set by default).  Returns NULL
- *   on failure.
+ *   on failure.  Must call cMsgFree() after cMsgSend() to avoid memory leaks.  Note
+ *   that a message can be modified and sent multiple times before cMsgFree() is 
+ *   called.
+ *
+ *
+ *
+ * int cMsgSetSubject(cMsgMessage *msg, char *subject)
+ *
+ *   Set the subject field of a message object
+ *
+ *
+ *
+ * int cMsgSetType(cMsgMessage *msg, char *type)
+ *
+ *   Set the type field of a message object
  *
  *
  *
@@ -151,10 +171,10 @@
  *
  *
  *
- * int cMsgSend(int domainId, char *subject, char *type, cMsgMessage *msg)
+ * int cMsgSend(int domainId, cMsgMessage *msg)
  *
- *   Queue up a message for delivery to subject/type.  Must call cMsgFlush() to force 
- *   delivery, although the system may deliver the message before the flush call.
+ *   Queue up a message for delivery.  Must call cMsgFlush() to force delivery,
+ *   although the system may deliver messages before the flush call.
  *
  *
  *
@@ -173,7 +193,14 @@
  *
  * int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback)
  *
- *    Unsubscribe subject/type/callback combination.
+ *    Unsubscribe from subject/type/callback combination.
+ *
+ *
+ *
+ *  int cMsgGet(int domainId, cMsgMessage *sendMsg, time_t timeout, cMsgMessage *replyMsg)
+ *
+ *   Synchronously send message and get reply.  Fail if no reply message
+ *   received within timeout. Independent of receive start/stop state.
  *
  *
  *
@@ -206,12 +233,6 @@
  *    Return information about a cMsg error return code, NULL if illegal errorCode.
  *
  *
- *
- * Note...cMsgGet() will probably not be implemented as it is redundant...ejw, 9-jul-2004
- *  int cMsgGet(int domainId, char *subject, char *type, time_t timeout, cMsgMessage **msg)
- *
- *   Synchronously get one message from subject/type, fail if no message within timeout.
- *   Independent of receive start/stop state.
  *
  *
  *
@@ -250,27 +271,29 @@ extern "C" {
 
   /* basic functions */
   int 	cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId);
-  int 	cMsgSend(int domainId, char *subject, char *type, cMsgMessage *msg);
+  int 	cMsgSend(int domainId, cMsgMessage *msg);
   int 	cMsgFlush(int domainId);
   int 	cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback, void *userArg);
   int 	cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback);
+  int   cMsgGet(int domainId, cMsgMessage *sendMsg, time_t timeout, cMsgMessage *replyMsg);
   int 	cMsgReceiveStart(int domainId);
   int 	cMsgReceiveStop(int domainId);
   int 	cMsgDisconnect(int domainId);
   char *cMsgPerror(int errorCode);
   
-  /* not needed, ejw 15-jul-2004
-  int   cMsgGet(int domainId, char *subject, char *type, time_t timeout, cMsgMessage **msg);
-  */
 
 
   /* message access functions */
   cMsgMessage *cMsgCreateMessage(void);
+  int          cMsgSetSubject(cMsgMessage *msg, char *subject);
+  int          cMsgSetType(cMsgMessage *msg, char *type);
   int          cMsgSetText(cMsgMessage *msg, char *text);
   int          cMsgSetSenderToken(cMsgMessage *msg, int senderToken);
   int          cMsgFreeMessage(cMsgMessage *msg);
 
   int          cMsgGetSysMsgId(cMsgMessage *msg);
+
+  time_t       cMsgGetReceiverTime(cMsgMessage *msg);
   int          cMsgGetReceiverSubscribeId(cMsgMessage *msg);
 
   char*        cMsgGetSender(cMsgMessage *msg);
@@ -280,7 +303,6 @@ extern "C" {
   int          cMsgGetSenderMsgId(cMsgMessage *msg);
   int          cMsgGetSenderToken(cMsgMessage *msg);
 
-  time_t       cMsgGetReceiverTime(cMsgMessage *msg);
   char*        cMsgGetDomain(cMsgMessage *msg);
   char*        cMsgGetSubject(cMsgMessage *msg);
   char*        cMsgGetType(cMsgMessage *msg);
@@ -288,7 +310,7 @@ extern "C" {
 
 
   /* system and domain info access functions */
-  int  	cMsgGetDomain(int domainId, char *domain, size_t size);
+  int  	cMsgGetUDL(int domainId, char *udl, size_t size);
   int  	cMsgGetName(int domainId, char *name, size_t size);
   int  	cMsgGetDescription(int domainId, char *description, size_t size);
   int  	cMsgGetHost(int domainId, char *host, size_t size);
