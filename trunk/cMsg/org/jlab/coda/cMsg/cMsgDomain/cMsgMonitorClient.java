@@ -124,6 +124,7 @@ public class cMsgMonitorClient extends Thread {
                 catch (cMsgException e1) {}
 
                 domainServer.killAllThreads();
+                domainServer.requestCue.clear();
                 return;
             }
 
@@ -143,6 +144,7 @@ public class cMsgMonitorClient extends Thread {
                 catch (cMsgException e1) {}
                 
                 domainServer.killAllThreads();
+                domainServer.requestCue.clear();
                 return;
             }
 
