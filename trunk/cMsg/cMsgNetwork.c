@@ -67,22 +67,6 @@ extern "C" {
 /*-------------------------------------------------------------------*/
 
 
-int cMsgSetSocketTimeout(int connfd, struct timeval *timeout) {
-  int err;
-  err = setsockopt(connfd, SOL_SOCKET, SO_RCVTIMEO, (void *) timeout, sizeof(struct timeval));
-  if (err < 0) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgSetSocketTimeout: setsockopt error\n");
-    }
-    return(CMSG_SOCKET_ERROR);
-  }
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
 int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
 {
   int                 listenfd, err, val;

@@ -253,7 +253,7 @@ void *cMsgClientListeningThread(void *arg)
       free(pinfo);
       continue;
     }
-
+    
     /* create thread to deal with client */
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "cMsgClientListeningThread: accepting client connection\n");
@@ -276,6 +276,8 @@ void *cMsgClientListeningThread(void *arg)
     }
   }
   
+  /* BUG BUG: if thread is canceled, memory leak of threadArg */
+  
   /* don't forget to free mem allocated for the argument passed to this routine */
   free(threadArg);
   
@@ -293,7 +295,6 @@ void *cMsgClientListeningThread(void *arg)
 static void *clientThread(void *arg)
 {
   int  msgId, err, connfd, domainId, localCount=0;
-  struct timeval timeout;
   cMsgThreadInfo *info;
   cMsgClientThreadInfo *clientInfo;
 #ifdef sun
@@ -312,28 +313,21 @@ static void *clientThread(void *arg)
   thr_setconcurrency(con + 1);
 #endif
 
- /*--------------------------------------*/
+  localCount = counter++;
+
+  /*--------------------------------------*/
   /* wait for and process client requests */
   /*--------------------------------------*/
-  
-  /* set socket timeout (5 sec) for reading commands */
-  timeout.tv_sec  = 5;
-  timeout.tv_usec = 0;
-  
-  err = cMsgSetSocketTimeout(connfd, &timeout);
-  if (err != CMSG_OK) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "clientThread %d: setsockopt error\n", localCount);
-    }
-    goto end;
-  }
-  
-  localCount = counter++;
- 
-  /* the command loop */
+   
+  /* Command loop */
   while (1) {
 
-    /* first, read the incoming message id */
+    /*
+     * First, read the incoming message id. This read is also a pthread
+     * cancellation point, meaning, if the main thread is cancelled, its
+     * cleanup handler will cancel this one as soon as this thread hits
+     * the "read" function call.
+     */
     retry:
     err = cMsgTcpRead(connfd, &msgId, sizeof(msgId));
     if (err != sizeof(msgId)) {

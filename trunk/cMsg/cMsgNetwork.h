@@ -84,7 +84,6 @@ extern "C" {
 #define CMSG_ENDIAN_NOTLOCAL 3	/* opposite endian as local host */
 
 /* cMsg prototypes */
-extern int   cMsgSetSocketTimeout(int connfd, struct timeval *timeout);
 extern int   cMsgTcpListen(int blocking, unsigned short port, int *listenFd);
 extern int   cMsgGetListeningSocket(int blocking, unsigned short startingPort,
                                     unsigned short *finalPort, int *fd);
