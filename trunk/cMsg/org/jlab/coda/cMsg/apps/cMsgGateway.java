@@ -169,12 +169,17 @@ public class cMsgGateway {
 
         // wait forever
         try {
-            while (!done) {
+            while (!done&&cmsg1.isConnected()&&cmsg2.isConnected()) {
                 Thread.sleep(1);
             }
         } catch (Exception e) {
             System.err.println(e);
         }
+
+
+        // disable message receipt
+        cmsg1.stop();
+        cmsg2.stop();
 
 
         // done

@@ -303,14 +303,18 @@ public class cMsgLogger {
         cmsg.start();
 
 
-        // wait for messages (forever at the moment...)
+        // wait for messages
         try {
-            while (!done) {
+            while (!done&&(cmsg.isConnected())) {
                 Thread.sleep(1);
             }
         } catch (Exception e) {
             System.err.println(e);
         }
+
+
+        // disable message delivery to callbacks
+        cmsg.stop();
 
 
         // done
