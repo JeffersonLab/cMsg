@@ -324,7 +324,6 @@ public class Queue extends cMsgSubdomainAdapter {
 
             myPStmt.setInt(i++,       msg.getUserInt());
             myPStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getUserTime().getTime()));
-            myPStmt.setInt(i++,       msg.getPriority());
 
             myPStmt.setString(i++,    msg.getReceiver());
             myPStmt.setString(i++,    msg.getReceiverHost());
@@ -406,7 +405,6 @@ public class Queue extends cMsgSubdomainAdapter {
 
                 response.setUserInt(rs.getInt("userInt"));
                 response.setUserTime(rs.getTimestamp("userTime"));
-                response.setPriority(rs.getInt("priority"));
 
                 response.setSubject(rs.getString("subject"));
                 response.setType(rs.getString("type"));
@@ -487,7 +485,7 @@ public class Queue extends cMsgSubdomainAdapter {
                     "version int, domain varchar(255), sysMsgId int," +
                     "getRequest int, getResponse int, nullGetResponse int," +
                     "creator varcher(128, sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
-                    "userInt int, userTime datetime, priority int," +
+                    "userInt int, userTime datetime," +
                     "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
                     "subject  varchar(255), type varchar(128), text text)";
                 myStmt.executeUpdate(sql);
@@ -499,7 +497,7 @@ public class Queue extends cMsgSubdomainAdapter {
                     "version int, domain varchar(255), sysMsgId int," +
                     "getRequest int, getResponse int, nullGetResponse int," +
                     "creator varchar(128), sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
-                    "userInt int, userTime datetime, priority int," +
+                    "userInt int, userTime datetime," +
                     "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
                     "subject  varchar(255), type varchar(128), text text)";
                 myStmt.executeUpdate(sql);
@@ -523,14 +521,14 @@ public class Queue extends cMsgSubdomainAdapter {
             "version,domain,sysMsgId," +
             "getRequest,getResponse,nullGetResponse," +
             "creator,sender,senderHost,senderTime,senderToken," +
-            "userInt,userTime,priority," +
+            "userInt,userTime," +
             "receiver,receiverHost,receiverTime,receiverSubscribeId," +
             "subject,type,text" +
             ") values (" +
             "?,?,?," +
             "?,?,?," +
             "?,?,?,?,?," +
-            "?,?,?," +
+            "?,?," +
             "?,?,?,?," +
             "?,?,?" +
             ")";
