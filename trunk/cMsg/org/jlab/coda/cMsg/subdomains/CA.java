@@ -30,11 +30,7 @@
 
 package org.jlab.coda.cMsg.subdomains;
 
-import org.jlab.coda.cMsg.cMsgConstants;
-import org.jlab.coda.cMsg.cMsgMessageFull;
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgClientInfo;
-import org.jlab.coda.cMsg.cMsgSubdomainAdapter;
+import org.jlab.coda.cMsg.*;
 
 import gov.aps.jca.*;
 import gov.aps.jca.dbr.DOUBLE;
@@ -78,13 +74,13 @@ public class CA extends cMsgSubdomainAdapter {
     private String myUDLRemainder;
 
 
+    /** Object used to deliver messages to the client. */
+    private cMsgDeliverMessageInterface myDeliverer;
+
+
     /** JCALibrary and context. */
     private JCALibrary myJCA  = null;
     private Context myContext = null;
-
-
-    /** direct buffer needed for nio socket IO. */
-    private ByteBuffer myBuffer = ByteBuffer.allocateDirect(2048);
 
 
     /** channel info. */
@@ -248,6 +244,22 @@ public class CA extends cMsgSubdomainAdapter {
 
 //-----------------------------------------------------------------------------
 
+    /**
+     * Method to give the subdomain handler on object able to deliver messages
+     * to the client.
+     *
+     * @param deliverer object able to deliver messages to the client
+     * @throws cMsgException
+     */
+    public void setMessageDeliverer(cMsgDeliverMessageInterface deliverer) throws cMsgException {
+        if (deliverer == null) {
+            throw new cMsgException("CA subdomain must be able to deliver messages, set the deliverer.");
+        }
+        myDeliverer = deliverer;
+    }
+
+
+//-----------------------------------------------------------------------------
 
     /**
      * Method to register domain client.
@@ -416,10 +428,7 @@ public class CA extends cMsgSubdomainAdapter {
 
         // return response
         try {
-            ArrayList<Integer> l = new ArrayList<Integer>(1);
-            l.add(id);
-            deliverMessage(myClientInfo.getChannel(),myBuffer,response,
-                           l,cMsgConstants.msgSubscribeResponse);
+            myDeliverer.deliverMessage(response, myClientInfo, cMsgConstants.msgSubscribeResponse);
         } catch (IOException e) {
             e.printStackTrace();
             cMsgException ce = new cMsgException(e.toString());
