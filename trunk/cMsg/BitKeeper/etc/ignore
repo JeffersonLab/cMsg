@@ -1,2 +1,17 @@
 BitKeeper/*/*
 PENDING/*
+lib/*
+bin/*
+inc/*
+doc/javadoc/*
+doc/doxygen/html/*
+doc/doxygen/latex/*
+org/jlab/coda/cMsg/*.class
+org/jlab/coda/cMsg/*/*.class
+src/*.o
+src/*.so
+src/*.a
+src/regexp/*.o
+src/regexp/*.so
+src/regexp/*.a
+src/regexp/*.ih
