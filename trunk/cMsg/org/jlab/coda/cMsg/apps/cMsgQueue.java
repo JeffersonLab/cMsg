@@ -1,8 +1,4 @@
-//  general purpose cMsg queue
-
-//  lots to do...
-//   distinguish between subscribe for queue and for sendAndGet()
-
+//  general purpose cMsg user info queue
 
 
 /*----------------------------------------------------------------------------*
@@ -31,6 +27,7 @@ package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
 
+
 import java.lang.*;
 import java.io.*;
 import java.sql.*;
@@ -42,7 +39,13 @@ import java.net.*;
 
 
 /**
- * Queues messages to file or database.
+ * Queues messages to file or MySQL database.
+ * Only stores user-settable information.
+ * I.e. subject,type,text,userTime,userInt,priority.
+ *
+ * To use with a database:
+ *   java cMsgQueue -udl cMsg:cMsg://ollie/cMsg -queue myQueue
+ *                  -url jdbc:mysql://xdaq/test -driver com.mysql.jdbc.Driver -account davidl
  *
  * @version 1.0
  */
@@ -66,29 +69,30 @@ public class cMsgQueue {
     private static String description = null;
 
 
-    /** Subject and type of messages being queued. */
+    /** queue name, and subject and type of messages being queued. */
     private static String queueName;
     private static String subject = "*";
     private static String type    = "*";
 
 
-    /** Subject and type for sendAndGet messages. */
+    /** Subject and type to use for receiving sendAndGet() messages. */
     private static String getSubject = null;
     private static String getType    = "*";
 
 
-    /** filename not null use file queue. */
+    /** filename not null to use file queue. */
     private static String filename     = null;
 
 
     /** url not null to use database queue. */
-    private static String url              = null;
-    private static String table            = "cMsgQueue";
-    private static String driver           = "com.mysql.jdbc.Driver";
-    private static String account          = "";
-    private static String password         = "";
-    private static Connection con          = null;
-    private static PreparedStatement pStmt = null;
+    private static String url                  = null;
+    private static String table                = null;
+    private static String driver               = "com.mysql.jdbc.Driver";
+    private static String account              = "";
+    private static String password             = "";
+    private static Connection con              = null;
+    private static Statement stmt              = null;
+    private static PreparedStatement pStmt     = null;
 
 
     // misc
@@ -98,10 +102,11 @@ public class cMsgQueue {
     private static boolean debug = false;
 
 
+
     /** Class to implement subscribe callback. */
     static class subscribeCB extends cMsgCallbackAdapter {
         /**
-         *  Queues to file or database.
+         *  Queues message to file or database.
          */
         public void callback(cMsgMessage msg, Object userObject) {
 
@@ -116,34 +121,15 @@ public class cMsgQueue {
             if(url!=null) {
                 try {
                     int i = 1;
-                    pStmt.setInt(i++,       msg.getVersion());
-                    pStmt.setString(i++,    msg.getDomain());
-                    pStmt.setInt(i++,       msg.getSysMsgId());
-
-                    pStmt.setInt(i++,       (msg.isGetRequest()?1:0));
-                    pStmt.setInt(i++,       (msg.isGetResponse()?1:0));
-
-                    pStmt.setString(i++,    msg.getSender());
-                    pStmt.setString(i++,    msg.getSenderHost());
-                    pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getSenderTime().getTime()));
-                    pStmt.setInt(i++,       msg.getSenderToken());
-
-                    pStmt.setInt(i++,       msg.getUserInt());
-                    pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getUserTime().getTime()));
-                    pStmt.setInt(i++,       msg.getPriority());
-
-                    pStmt.setString(i++,    msg.getReceiver());
-                    pStmt.setString(i++,    msg.getReceiverHost());
-                    pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getReceiverTime().getTime()));
-                    pStmt.setInt(i++,       msg.getReceiverSubscribeId());
-
                     pStmt.setString(i++,    msg.getSubject());
                     pStmt.setString(i++,    msg.getType());
                     pStmt.setString(i++,    msg.getText());
-
-                    pStmt.execute();
+                    pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getUserTime().getTime()));
+                    pStmt.setInt(i++,       msg.getUserInt());
+                    pStmt.setInt(i++,       msg.getPriority());
+                    pStmt.executeUpdate();
                 } catch (SQLException e) {
-                    System.err.println("?\n" + e);
+                    e.printStackTrace();
                     System.exit(-1);
                 }
             }
@@ -151,10 +137,11 @@ public class cMsgQueue {
     }
 
 
+
     /** Class to implement sendAndGet() callback. */
     static class getCB extends cMsgCallbackAdapter {
         /**
-         *  retrieve from file or database queue
+         *  Retrieves oldest entry in file or database queue and returns as getResponse.
          */
         public void callback(cMsgMessage msg, Object userObject) {
 
@@ -163,37 +150,57 @@ public class cMsgQueue {
 
 
             getCount++;
-
-
-            // get response message
-            cMsgMessage response = null;
-            try {
-                response = msg.response();
-            } catch (cMsgException e) {
-            }
+            cMsgMessage response = new cMsgMessage();
 
 
             // retrieve from file
             if(filename!=null) {
-            }
+            }   // file
 
 
             // retrieve from database
             if(url!=null) {
+
                 try {
-                    pStmt.execute("");
+                    // lock table
+                    stmt.execute("lock tables " + table + " write");
+
+                    // get oldest row, then delete
+                    ResultSet rs = stmt.executeQuery("select * from " + table + " order by id limit 1");
+                    if(rs.next()) {
+                        response.makeResponse(msg);
+
+                        int id = rs.getInt("id");
+
+                        response.setSubject(rs.getString("subject"));
+                        response.setType(rs.getString("type"));
+                        response.setText(rs.getString("text"));
+                        response.setUserTime(rs.getTimestamp("userTime"));
+                        response.setUserInt(rs.getInt("userInt"));
+                        response.setPriority(rs.getInt("priority"));
+
+                        stmt.execute("delete from " + table + " where id=" + id);
+                    } else {
+                        response.makeNullResponse(msg);
+                    }
+
+                    // unlock table
+                    stmt.execute("unlock tables");
+
                 } catch (SQLException e) {
-                    System.err.println("?sql error in callback\n" + e);
-                    System.exit(-1);
+                    e.printStackTrace();
                 }
-            }
+
+            }   // database
 
 
-            // send off response
-            try {
-                cmsg.send(response);
-                cmsg.flush();
-            } catch (cMsgException e) {
+            // send file or database response
+            if(response!=null) {
+                try {
+                    cmsg.send(response);
+                    cmsg.flush();
+                } catch (cMsgException e) {
+                }
             }
 
         }
@@ -251,26 +258,6 @@ public class cMsgQueue {
         }
 
 
-        // connect to cMsg system
-        try {
-            cmsg = new cMsg(UDL, name, description);
-            cmsg.connect();
-        } catch (cMsgException e) {
-            e.printStackTrace();
-            System.exit(-1);
-        }
-
-
-        // subscribe and provide callback
-        try {
-            cmsg.subscribe(subject,    type,    new subscribeCB(), null);
-            cmsg.subscribe(getSubject, getType, new getCB(), null);
-        } catch (cMsgException e) {
-            e.printStackTrace();
-            System.exit(-1);
-        }
-
-
         // init queue files
         if(filename!=null) {
         }
@@ -300,18 +287,15 @@ public class cMsgQueue {
                 System.exit(-1);
             }
 
-            // check if table exists, create if needed
+            // check if table exists, create if needed (MySQL only, postgres is different)
             try {
                 DatabaseMetaData dbmeta = con.getMetaData();
                 ResultSet dbrs = dbmeta.getTables(null,null,table,new String [] {"TABLE"});
                 if((!dbrs.next())||(!dbrs.getString(3).equalsIgnoreCase(table))) {
-                    String sql="create table " + table + " (" +
-                        "version int, domain varchar(255), sysMsgId int," +
-                        "getRequest int, getResponse int," +
-                        "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
-                        "userInt int, userTime datetime, priority int," +
-                        "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
-                        "subject  varchar(255), type varchar(128), text text)";
+                    String sql = "create table " + table +
+                        "(id int not null primary key auto_increment, " +
+                        "subject varchar(255), type varchar(128), text text," +
+                        "userTime datetime, userInt int, priority int)";
                     con.createStatement().executeUpdate(sql);
                 }
             } catch (SQLException e) {
@@ -319,17 +303,15 @@ public class cMsgQueue {
                 System.exit(-1);
             }
 
-            // get prepared statement object
+            // get various statement objects
             try {
+                stmt = con.createStatement();
+
                 String sql = "insert into " + table + " (" +
-                    "version,domain,sysMsgId," +
-                    "getRequest,getResponse," +
-                    "sender,senderHost,senderTime,senderToken," +
-                    "userInt,userTime,priority," +
-                    "receiver,receiverHost,receiverTime,receiverSubscribeId," +
                     "subject,type,text" +
+                    "userTime,userInt,priority," +
                     ") values (" +
-                    "?,?,?," + "?,?," + "?,?,?,?," + "?,?,?," + "?,?,?,?," + "?,?,?" + ")";
+                    "?,?,?," + "?,?,?" + ")";
                 pStmt = con.prepareStatement(sql);
             } catch (SQLException e) {
                 System.err.println("?unable to prepare statement\n" + e);
@@ -338,7 +320,27 @@ public class cMsgQueue {
         }
 
 
-        // enable receipt of messages and delivery to callback
+        // connect to cMsg system
+        try {
+            cmsg = new cMsg(UDL, name, description);
+            cmsg.connect();
+        } catch (cMsgException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+
+
+        // subscribe and provide callback
+        try {
+            cmsg.subscribe(subject,    type,    new subscribeCB(), null);
+            cmsg.subscribe(getSubject, getType, new getCB(),       null);
+        } catch (cMsgException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+
+
+        // enable receipt of messages and delivery to callbacks
         cmsg.start();
 
 
@@ -375,9 +377,9 @@ public class cMsgQueue {
 
         String help = "\nUsage:\n\n" +
             "   java cMsgQueue [-name name] [-descr description] [-udl domain] [-subject subject] [-type type]\n" +
-            "                  [-queue queueName] [-getSubject getSubject] [-getType getType]" +
+            "                  [-queue queueName] [-getSubject getSubject] [-getType getType]\n" +
             "                  [-file filename]\n" +
-            "                  [-url url] [-table table] [-driver driver] [-account account] [-pwd password]\n";
+            "                  [-url url] [-driver driver] [-account account] [-pwd password] [-table table]\n";
 
 
         // loop over all args
@@ -440,7 +442,7 @@ public class cMsgQueue {
             }
             else if (args[i].equalsIgnoreCase("-table")) {
                table = args[i + 1];
-                i++;
+               i++;
 
             }
             else if (args[i].equalsIgnoreCase("-driver")) {
