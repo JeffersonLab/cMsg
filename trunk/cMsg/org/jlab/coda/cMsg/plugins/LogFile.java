@@ -1,7 +1,7 @@
 // still to do:
-//    need file open parameters: name, new/append, etc.
-//    need to feed back "not implemented" to caller
-//    handleGetRequest for replaying file...what about simultaneous reading/writing?
+//   need file open parameters: new/append, etc.
+//   does object go away if already registered?
+//   return code values?
 
 
 
@@ -30,6 +30,7 @@ import org.jlab.coda.cMsg.cMsgHandleRequests;
 import org.jlab.coda.cMsg.cMsgException;
 import java.util.*;
 import java.io.*;
+import java.util.regex.*;
 
 
 
@@ -67,11 +68,12 @@ public class LogFile implements cMsgHandleRequests {
 
 
     /** Name of client using this subdomain handler. */
-    private String name;
+    private String myName;
 
 
     /** UDL remainder for this subdomain handler. */
     private String myUDLRemainder;
+
 
     /**
      * Method to tell if the "send" cMsg API function is implemented
@@ -93,7 +95,7 @@ public class LogFile implements cMsgHandleRequests {
      * @return true if send implemented in {@link #handleSyncSendRequest}
      */
     public boolean hasSyncSend() {
-        return false;
+        return true;
     };
 
 
@@ -151,8 +153,10 @@ public class LogFile implements cMsgHandleRequests {
      * @return true if client registered, false otherwise
      */
     public boolean isRegistered(String name) {
-        if (clients.containsKey(name)) return true;
-        return false;
+	synchronized (clients) {
+	    if (clients.containsKey(name)) return true;
+	    return false;
+	}
     }
 
 
@@ -166,14 +170,26 @@ public class LogFile implements cMsgHandleRequests {
      */
     public void registerClient(String name, String host, int port) throws cMsgException {
 
-        if (clients.containsKey(name)) {
-            throw new cMsgException("registerClient: client already exists");
-        }
-        this.name = name;
+        myName = name;
+	String fname;
 
 
-	// debug...will extract file name from myUDLRemainder
-	String fname = "LogFile.log";
+	//  extract file name from UDL remainder
+	try {
+	    if(myUDLRemainder.indexOf("?")>0) {
+		Pattern p = Pattern.compile("^(.+)(\\?)(.*)$");
+		Matcher m = p.matcher(myUDLRemainder);
+		m.find();
+		fname = m.group(1);
+	    } else {
+		fname=myUDLRemainder;
+	    }
+	} catch (Exception e) {
+	    e.printStackTrace();
+	    cMsgException ce = new cMsgException(e.getMessage());
+	    ce.setReturnCode(1);
+	    throw ce;
+	}
 
 
 	// check if this file already open
@@ -198,12 +214,14 @@ public class LogFile implements cMsgHandleRequests {
 		} catch (Exception e) {
 		    System.out.println(e);
 		    e.printStackTrace();
-		    throw new cMsgException("registerClient: unable to open file");
+		    cMsgException ce = new cMsgException("registerClient: unable to open file");
+		    ce.setReturnCode(1);
+		    throw ce;
 		}
 	    }
 	    
 	    // register file name and object
-	    clients.put(name,myLogFileObject);
+	    clients.put(myName,myLogFileObject);
 	}
     }
     
@@ -230,6 +248,8 @@ public class LogFile implements cMsgHandleRequests {
      * @throws cMsgException
      */
     public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
+	msg.setReceiver("cMsg:LogFile");
+        ((PrintWriter)myLogFileObject.logFileHandle).println(msg);
         return 0;
     }
 
@@ -294,7 +314,7 @@ public class LogFile implements cMsgHandleRequests {
      */
     public void handleClientShutdown() throws cMsgException {
         synchronized (clients) {
-            clients.remove(name);
+            clients.remove(myName);
         }
     }
 
