@@ -49,7 +49,7 @@ int main(int argc,char **argv) {
   printf("My name is %s\n", myName);
   
   printf("cMsgConnect ...\n");
-  err = cMsgConnect("cMsg:cMsg://aslan:3456/cMsg/l45!@#$%/88//", myName, myDescription, &domainId);
+  err = cMsgConnect("cMsg:cMsg://aslan:3456/cMsg/vx/", myName, myDescription, &domainId);
   printf("cMsgConnect: %s\n", cMsgPerror(err));
  
   cMsgReceiveStart(domainId);
@@ -68,7 +68,7 @@ int main(int argc,char **argv) {
 
   while (1) {
       count = 0;
-      sleep(10);
+      sleep(5);
 
       freq = (double)count/10.;
       if (DOUBLE_MAX - freqTotal < freq) {
