@@ -25,6 +25,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.*;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,7 +37,7 @@ import java.util.regex.Pattern;
  * @author Carl Timmer
  * @version 1.0
  */
-public class cMsg extends cMsgImpl {
+public class cMsg extends cMsgAdapter {
 
     /** Port number to listen on. */
     private int port;
@@ -50,6 +53,9 @@ public class cMsg extends cMsgImpl {
 
     /** A direct buffer is necessary for nio socket IO. */
     private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+
+    /** This lock is for controlling access to the socket {@link #buffer}. */
+    private final ReentrantLock bufferLock = new ReentrantLock();
 
     /** Name server's host. */
     private String nameServerHost;
@@ -100,6 +106,29 @@ public class cMsg extends cMsgImpl {
      * Key is senderToken object, value is {@link cMsgMessageHolder} object.
      */
     Map specificGets;
+
+    /**
+     * This lock is for controlling access to the methods of this class.
+     * It is inherently more flexible than synchronizing code. The {@link #connect}
+     * and {@link #disconnect} methods of this object cannot be called simultaneously
+     * with each other or any other method. However, the {@link #send} method is
+     * thread-safe and may be called simultaneously from multiple threads. The
+     * {@link #syncSend} method is thread-safe with other methods but not itself
+     * (since it requires a response from the server) and requires an additional lock.
+     * The {@link #get}, {@link #subscribe}, and {@link #unsubscribe} methods are also
+     * thread-safe but require some locking for bookkeeping purposes by means of other
+     * locks.
+     */
+    private final ReentrantReadWriteLock methodLock = new ReentrantReadWriteLock();
+
+    /** Lock for calling {@link #connect} or {@link #disconnect}. */
+    private Lock connectLock = methodLock.writeLock();
+
+    /** Lock for calling methods other than {@link #connect} or {@link #disconnect}. */
+    private Lock notConnectLock = methodLock.readLock();
+
+    /** Lock to ensure {@link #syncSend} calls are sequential. */
+    private Lock syncSendLock = new ReentrantLock();
 
     /** Used to create unique id numbers associated with a specific message subject/type pair. */
     private int uniqueId;
@@ -169,152 +198,156 @@ public class cMsg extends cMsgImpl {
      *
      * @throws cMsgException if there are communication problems with the server
      */
-    synchronized public void connect() throws cMsgException {
-
-        if (connected) return;
-
-        Jgetenv env = null;
-
-        // read env variable for starting port number
+    public void connect() throws cMsgException {
+        // cannot run this simultaneously with any other public method
+        connectLock.lock();
         try {
-            env = new Jgetenv();
-            startingPort = Integer.parseInt(env.echo("CMSG_CLIENT_PORT"));
-        }
-        catch (NumberFormatException ex) {
-        }
-        catch (JgetenvException ex) {
-        }
+            if (connected) return;
 
-        // port #'s < 1024 are reserved
-        if (startingPort < 1024) {
-            startingPort = cMsgNetworkConstants.clientServerStartingPort;
-        }
-
-        // At this point, find a port to bind to. If that isn't possible, throw
-        // an exception.
-        try {
-            serverChannel = ServerSocketChannel.open();
-        }
-        catch (IOException ex) {
-            ex.printStackTrace();
-            throw new cMsgException("connect: cannot open a listening socket");
-        }
-
-        port = startingPort;
-        ServerSocket listeningSocket = serverChannel.socket();
-
-        while (true) {
+            // read env variable for starting port number
             try {
-                listeningSocket.bind(new InetSocketAddress(port));
-                break;
+                String env = System.getenv("CMSG_CLIENT_PORT");
+                if (env != null) {
+                    startingPort = Integer.parseInt(env);
+                }
+            }
+            catch (NumberFormatException ex) {
+            }
+
+            // port #'s < 1024 are reserved
+            if (startingPort < 1024) {
+                startingPort = cMsgNetworkConstants.clientServerStartingPort;
+            }
+
+            // At this point, find a port to bind to. If that isn't possible, throw
+            // an exception.
+            try {
+                serverChannel = ServerSocketChannel.open();
             }
             catch (IOException ex) {
-                // try another port by adding one
-                if (port < 65536) {
-                    port++;
+                ex.printStackTrace();
+                throw new cMsgException("connect: cannot open a listening socket");
+            }
+
+            port = startingPort;
+            ServerSocket listeningSocket = serverChannel.socket();
+
+            while (true) {
+                try {
+                    listeningSocket.bind(new InetSocketAddress(port));
+                    break;
                 }
-                else {
-                    ex.printStackTrace();
-                    throw new cMsgException("connect: cannot find port to listen on");
+                catch (IOException ex) {
+                    // try another port by adding one
+                    if (port < 65536) {
+                        port++;
+                    }
+                    else {
+                        ex.printStackTrace();
+                        throw new cMsgException("connect: cannot find port to listen on");
+                    }
                 }
             }
-        }
 
-        // launch pend thread and start listening on receive socket
-        listeningThread = new cMsgClientListeningThread(this, serverChannel);
-        listeningThread.start();
+            // launch pend thread and start listening on receive socket
+            listeningThread = new cMsgClientListeningThread(this, serverChannel);
+            listeningThread.start();
 
-        // Wait for indication thread is actually running before
-        // continuing on. This thread must be running before we talk to
-        // the name server since the server tries to communicate with
-        // the listening thread.
-        synchronized (listeningThread) {
-            if (!listeningThread.isAlive()) {
-                try {
-                    listeningThread.wait();
+            // Wait for indication thread is actually running before
+            // continuing on. This thread must be running before we talk to
+            // the name server since the server tries to communicate with
+            // the listening thread.
+            synchronized (listeningThread) {
+                if (!listeningThread.isAlive()) {
+                    try {
+                        listeningThread.wait();
+                    }
+                    catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
-                catch (InterruptedException e) {
+            }
+
+            // connect & talk to cMsg name server to check if name is unique
+            SocketChannel channel = null;
+            try {
+                channel = SocketChannel.open(new InetSocketAddress(nameServerHost, nameServerPort));
+                // set socket options
+                Socket socket = channel.socket();
+                // Set tcpNoDelay so no packets are delayed
+                socket.setTcpNoDelay(true);
+                // set buffer sizes
+                socket.setReceiveBufferSize(65535);
+                socket.setSendBufferSize(65535);
+            }
+            catch (IOException e) {
+                if (debug >= cMsgConstants.debugError) {
+                    e.printStackTrace();
+                }
+                throw new cMsgException("connect: cannot create channel to name server");
+            }
+
+            // get host & port to send messages to
+            try {
+                getHostAndPortFromNameServer(channel);
+            }
+            catch (IOException e) {
+                if (debug >= cMsgConstants.debugError) {
+                    e.printStackTrace();
+                }
+                throw new cMsgException("connect: cannot talk to name server");
+            }
+
+            // done talking to server
+            try {
+                channel.close();
+            }
+            catch (IOException e) {
+                if (debug >= cMsgConstants.debugError) {
+                    System.out.println("connect: cannot close channel to name server, continue on");
                     e.printStackTrace();
                 }
             }
-        }
 
-        // connect & talk to cMsg name server to check if name is unique
-        SocketChannel channel = null;
-        try {
-            channel = SocketChannel.open(new InetSocketAddress(nameServerHost, nameServerPort));
-            // set socket options
-            Socket socket = channel.socket();
-            // Set tcpNoDelay so no packets are delayed
-            socket.setTcpNoDelay(true);
-            // set buffer sizes
-            socket.setReceiveBufferSize(65535);
-            socket.setSendBufferSize(65535);
-        }
-        catch (IOException e) {
-            if (debug >= cMsgConstants.debugError) {
-                e.printStackTrace();
+            // create sending (to domain) channel
+            try {
+                domainChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
+                Socket socket = channel.socket();
+                socket.setTcpNoDelay(true);
+                socket.setReceiveBufferSize(65535);
+                socket.setSendBufferSize(65535);
             }
-            throw new cMsgException("connect: cannot create channel to name server");
-        }
-
-        // get host & port to send messages to
-        try {
-            getHostAndPortFromNameServer(channel);
-        }
-        catch (IOException e) {
-            if (debug >= cMsgConstants.debugError) {
-                e.printStackTrace();
+            catch (IOException e) {
+                if (debug >= cMsgConstants.debugError) {
+                    e.printStackTrace();
+                }
+                throw new cMsgException("connect: cannot create channel to domain server");
             }
-            throw new cMsgException("connect: cannot talk to name server");
-        }
 
-        // done talking to server
-        try {
-            channel.close();
-        }
-        catch (IOException e) {
-            if (debug >= cMsgConstants.debugError) {
-                System.out.println("connect: cannot close channel to name server, continue on");
-                e.printStackTrace();
+            // create keepAlive socket
+            try {
+                keepAliveChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
+                Socket socket = channel.socket();
+                socket.setTcpNoDelay(true);
+                socket.setReceiveBufferSize(65535);
+                socket.setSendBufferSize(65535);
             }
-        }
-
-        // create sending (to domain) channel
-        try {
-            domainChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-            Socket socket = channel.socket();
-            socket.setTcpNoDelay(true);
-            socket.setReceiveBufferSize(65535);
-            socket.setSendBufferSize(65535);
-        }
-        catch (IOException e) {
-            if (debug >= cMsgConstants.debugError) {
-                e.printStackTrace();
+            catch (IOException e) {
+                if (debug >= cMsgConstants.debugError) {
+                    e.printStackTrace();
+                }
+                throw new cMsgException("connect: cannot create keepAlive channel to domain server");
             }
-            throw new cMsgException("connect: cannot create channel to domain server");
-        }
 
-        // create keepAlive socket
-        try {
-            keepAliveChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-            Socket socket = channel.socket();
-            socket.setTcpNoDelay(true);
-            socket.setReceiveBufferSize(65535);
-            socket.setSendBufferSize(65535);
-        }
-        catch (IOException e) {
-            if (debug >= cMsgConstants.debugError) {
-                e.printStackTrace();
-            }
-            throw new cMsgException("connect: cannot create keepAlive channel to domain server");
-        }
+            // create thread to send periodic keep alives and handle dead server
+            keepAliveThread = new KeepAlive(this, keepAliveChannel);
+            keepAliveThread.start();
 
-        // create thread to send periodic keep alives and handle dead server
-        keepAliveThread = new KeepAlive(this, keepAliveChannel);
-        keepAliveThread.start();
-
-        connected = true;
+            connected = true;
+        }
+        finally {
+            connectLock.unlock();
+        }
     }
 
 
@@ -325,41 +358,47 @@ public class cMsg extends cMsgImpl {
      * Method to close the connection to the domain server. This method results in this object
      * becoming functionally useless.
      */
-    synchronized public void disconnect() {
+    public void disconnect() {
+        // cannot run this simultaneously with any other public method
+        connectLock.lock();
+        try {
+            if (!connected) return;
+            connected = false;
 
-        if (!connected) return;
-        connected = false;
+            // stop listening and client communication thread & close channel
+            listeningThread.killThread();
 
-        // stop listening and client communication thread & close channel
-        listeningThread.killThread();
+            // stop keep alive thread & close channel
+            keepAliveThread.killThread();
 
-        // stop keep alive thread & close channel
-        keepAliveThread.killThread();
+            // stop all callback threads
+            Iterator iter = subscriptions.iterator();
+            for (; iter.hasNext();) {
+                cMsgSubscription sub = (cMsgSubscription) iter.next();
 
-        // stop all callback threads
-        Iterator iter = subscriptions.iterator();
-        for (; iter.hasNext();) {
-            cMsgSubscription sub = (cMsgSubscription) iter.next();
-
-            // run through all callbacks
-            Iterator iter2 = sub.getCallbacks().iterator();
-            for (; iter2.hasNext();) {
-                cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
-                // Tell the callback thread to wakeup and die
-                cbThread.dieNow();
+                // run through all callbacks
+                Iterator iter2 = sub.getCallbacks().iterator();
+                for (; iter2.hasNext();) {
+                    cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
+                    // Tell the callback thread to wakeup and die
+                    cbThread.dieNow();
+                }
             }
-        }
 
-        // wakeup all gets
-        iter = specificGets.values().iterator();
-        for (; iter.hasNext();) {
-            cMsgMessageHolder holder = (cMsgMessageHolder) iter.next();
-            holder.message = null;
-            synchronized (holder) {
-                holder.notify();
+            // wakeup all gets
+            iter = specificGets.values().iterator();
+            for (; iter.hasNext();) {
+                cMsgMessageHolder holder = (cMsgMessageHolder) iter.next();
+                holder.message = null;
+                synchronized (holder) {
+                    holder.notify();
+                }
             }
-        }
 
+        }
+        finally {
+            connectLock.unlock();
+        }
     }
 
 
@@ -372,85 +411,98 @@ public class cMsg extends cMsgImpl {
      * @param message message to send
      * @throws cMsgException if there are communication problems with the server
      */
-    synchronized public void send(cMsgMessage message) throws cMsgException {
-
-        if (!connected) {
-            throw new cMsgException("not connected to server");
-        }
-
-        if (!hasSend) {
-            throw new cMsgException("send is not implemented by this subdomain");
-        }
-
-        String subject = message.getSubject();
-        String type    = message.getType();
-        String text    = message.getText();
-
-        // check args first
-        if (subject == null || type == null)  {
-            throw new cMsgException("message subject or type is null");
-        }
-        else if (subject.length() < 1 || type.length() < 1) {
-            throw new cMsgException("message subject or type is blank string");
-        }
-
-        // watch out for null text
-        if (text == null) {
-            message.setText("");
-            text = message.getText();
-        }
-
-        int outGoing[] = new int[11];
-        // message id to domain server
-        outGoing[0] = cMsgConstants.msgSendRequest;
-        // system message
-        outGoing[1] = message.getSysMsgId();
-        // is get request
-        outGoing[2] = message.isGetRequest() ? 1 : 0;
-        // is get response
-        outGoing[3] = message.isGetResponse() ? 1 : 0;
-        // sender id
-        outGoing[4] = message.getSenderId();
-        // time message sent (right now) in seconds
-        outGoing[5] = (int) ((new Date()).getTime()/1000L);
-        // sender message id
-        outGoing[6] = message.getSenderMsgId();
-        // sender token
-        outGoing[7] = message.getSenderToken();
-
-        // length of "subject" string
-        outGoing[8]  = subject.length();
-        // length of "type" string
-        outGoing[9]  = type.length();
-        // length of "text" string
-        outGoing[10] = text.length();
-
-        // get ready to write
-        buffer.clear();
-        // send ints over together using view buffer
-        buffer.asIntBuffer().put(outGoing);
-        // position original buffer at position of view buffer
-        buffer.position(44);
-
-        // write strings
+    public void send(cMsgMessage message) throws cMsgException {
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
         try {
-            buffer.put(subject.getBytes("US-ASCII"));
-            buffer.put(type.getBytes("US-ASCII"));
-            buffer.put(text.getBytes("US-ASCII"));
-        }
-        catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
+            if (!connected) {
+                throw new cMsgException("not connected to server");
+            }
 
-        try {
-            // send buffer over the socket
-            buffer.flip();
-            while (buffer.hasRemaining()) {
-                domainChannel.write(buffer);
+            if (!hasSend) {
+                throw new cMsgException("send is not implemented by this subdomain");
+            }
+
+            String subject = message.getSubject();
+            String type = message.getType();
+            String text = message.getText();
+
+            // check args first
+            if (subject == null || type == null) {
+                throw new cMsgException("message subject or type is null");
+            }
+            else if (subject.length() < 1 || type.length() < 1) {
+                throw new cMsgException("message subject or type is blank string");
+            }
+
+            // watch out for null text
+            if (text == null) {
+                message.setText("");
+                text = message.getText();
+            }
+
+            int outGoing[] = new int[11];
+            // message id to domain server
+            outGoing[0] = cMsgConstants.msgSendRequest;
+            // system message
+            outGoing[1] = message.getSysMsgId();
+            // is get request
+            outGoing[2] = message.isGetRequest() ? 1 : 0;
+            // is get response
+            outGoing[3] = message.isGetResponse() ? 1 : 0;
+            // sender id
+            outGoing[4] = message.getSenderId();
+            // time message sent (right now) in seconds
+            outGoing[5] = (int) ((new Date()).getTime() / 1000L);
+            // sender message id
+            outGoing[6] = message.getSenderMsgId();
+            // sender token
+            outGoing[7] = message.getSenderToken();
+
+            // length of "subject" string
+            outGoing[8] = subject.length();
+            // length of "type" string
+            outGoing[9] = type.length();
+            // length of "text" string
+            outGoing[10] = text.length();
+
+            // single thread access to buffer object
+            bufferLock.lock();
+            try {
+                // get ready to write
+                buffer.clear();
+                // send ints over together using view buffer
+                buffer.asIntBuffer().put(outGoing);
+                // position original buffer at position of view buffer
+                buffer.position(44);
+
+                // write strings
+                try {
+                    buffer.put(subject.getBytes("US-ASCII"));
+                    buffer.put(type.getBytes("US-ASCII"));
+                    buffer.put(text.getBytes("US-ASCII"));
+                }
+                catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
+
+                try {
+                    // send buffer over the socket
+                    buffer.flip();
+                    while (buffer.hasRemaining()) {
+                        domainChannel.write(buffer);
+                    }
+                }
+                catch (IOException e) {
+                    throw new cMsgException(e.getMessage());
+                }
+            }
+            finally {
+                bufferLock.unlock();
             }
         }
-        catch (IOException e) {
-            throw new cMsgException(e.getMessage());
+        finally {
+            notConnectLock.unlock();
         }
     }
 
@@ -466,95 +518,105 @@ public class cMsg extends cMsgImpl {
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    synchronized public int syncSend(cMsgMessage message) throws cMsgException {
-
-        if (!connected) {
-            throw new cMsgException("not connected to server");
-        }
-
-        if (!hasSyncSend) {
-            throw new cMsgException("send is not implemented by this subdomain");
-        }
-
-        String subject = message.getSubject();
-        String type    = message.getType();
-        String text    = message.getText();
-
-        // check args first
-        if (subject == null || type == null)  {
-            throw new cMsgException("message subject or type is null");
-        }
-        else if (subject.length() < 1 || type.length() < 1) {
-            throw new cMsgException("message subject or type is blank string");
-        }
-
-        // watch out for null text
-        if (text == null) {
-            message.setText("");
-            text = message.getText();
-        }
-
-        int outGoing[] = new int[11];
-        // message id to domain server
-        outGoing[0] = cMsgConstants.msgSyncSendRequest;
-        // system message
-        outGoing[1] = message.getSysMsgId();
-        // is get request
-        outGoing[2] = message.isGetRequest() ? 1 : 0;
-        // is get response
-        outGoing[3] = message.isGetResponse() ? 1 : 0;
-        // sender id
-        outGoing[4] = message.getSenderId();
-        // time message sent (right now) in seconds
-        outGoing[5] = (int) ((new Date()).getTime()/1000L);
-        // sender message id
-        outGoing[6] = message.getSenderMsgId();
-        // sender token
-        outGoing[7] = message.getSenderToken();
-
-        // length of "subject" string
-        outGoing[8]  = subject.length();
-        // length of "type" string
-        outGoing[9]  = type.length();
-        // length of "text" string
-        outGoing[10] = text.length();
-
-        // get ready to write
-        buffer.clear();
-        // send ints over together using view buffer
-        buffer.asIntBuffer().put(outGoing);
-        // position original buffer at position of view buffer
-        buffer.position(44);
-
-        // write strings
+    public int syncSend(cMsgMessage message) throws cMsgException {
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
+        // cannot run this simultaneously with itself
+        syncSendLock.lock();
         try {
-            buffer.put(subject.getBytes("US-ASCII"));
-            buffer.put(type.getBytes("US-ASCII"));
-            buffer.put(text.getBytes("US-ASCII"));
-        }
-        catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
 
-        try {
-            // send buffer over the socket
-            buffer.flip();
-            while (buffer.hasRemaining()) {
-                domainChannel.write(buffer);
+            if (!connected) {
+                throw new cMsgException("not connected to server");
             }
-            // read acknowledgment - 1 int of data
-            cMsgUtilities.readSocketBytes(buffer, domainChannel, 4, debug);
+
+            if (!hasSyncSend) {
+                throw new cMsgException("send is not implemented by this subdomain");
+            }
+
+            String subject = message.getSubject();
+            String type = message.getType();
+            String text = message.getText();
+
+            // check args first
+            if (subject == null || type == null) {
+                throw new cMsgException("message subject or type is null");
+            }
+            else if (subject.length() < 1 || type.length() < 1) {
+                throw new cMsgException("message subject or type is blank string");
+            }
+
+            // watch out for null text
+            if (text == null) {
+                message.setText("");
+                text = message.getText();
+            }
+
+            int outGoing[] = new int[11];
+            // message id to domain server
+            outGoing[0] = cMsgConstants.msgSyncSendRequest;
+            // system message
+            outGoing[1] = message.getSysMsgId();
+            // is get request
+            outGoing[2] = message.isGetRequest() ? 1 : 0;
+            // is get response
+            outGoing[3] = message.isGetResponse() ? 1 : 0;
+            // sender id
+            outGoing[4] = message.getSenderId();
+            // time message sent (right now) in seconds
+            outGoing[5] = (int) ((new Date()).getTime() / 1000L);
+            // sender message id
+            outGoing[6] = message.getSenderMsgId();
+            // sender token
+            outGoing[7] = message.getSenderToken();
+
+            // length of "subject" string
+            outGoing[8] = subject.length();
+            // length of "type" string
+            outGoing[9] = type.length();
+            // length of "text" string
+            outGoing[10] = text.length();
+
+            // get ready to write
+            buffer.clear();
+            // send ints over together using view buffer
+            buffer.asIntBuffer().put(outGoing);
+            // position original buffer at position of view buffer
+            buffer.position(44);
+
+            // write strings
+            try {
+                buffer.put(subject.getBytes("US-ASCII"));
+                buffer.put(type.getBytes("US-ASCII"));
+                buffer.put(text.getBytes("US-ASCII"));
+            }
+            catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            }
+
+            try {
+                // send buffer over the socket
+                buffer.flip();
+                while (buffer.hasRemaining()) {
+                    domainChannel.write(buffer);
+                }
+                // read acknowledgment - 1 int of data
+                cMsgUtilities.readSocketBytes(buffer, domainChannel, 4, debug);
+            }
+            catch (IOException e) {
+                throw new cMsgException(e.getMessage());
+            }
+
+            // go back to reading-from-buffer mode
+            buffer.flip();
+
+            int response = buffer.getInt();
+            return response;
+
         }
-        catch (IOException e) {
-            throw new cMsgException(e.getMessage());
+        finally {
+            syncSendLock.unlock();
+            notConnectLock.unlock();
         }
-
-        // go back to reading-from-buffer mode
-        buffer.flip();
-
-        int response = buffer.getInt();
-        return response;
-
     }
 
 
@@ -565,7 +627,7 @@ public class cMsg extends cMsgImpl {
      * Method to force cMsg client to send pending communications with domain server.
      * In the cMsg domain implementation, this method does nothing.
      */
-    synchronized public void flush() {
+    public void flush() {
         return;
     }
 
@@ -814,20 +876,22 @@ System.out.println("unget: in");
 
         // notify the domain server
 
-        int[] outGoing = new int[3];
+        int[] outGoing = new int[4];
         // first send message id to server
         outGoing[0] = cMsgConstants.msgUngetRequest;
+        // dummy
+        outGoing[1] = 0;
         // send length of subject
-        outGoing[1] = sub.getSubject().length();
+        outGoing[2] = sub.getSubject().length();
         // send length of type
-        outGoing[2] = sub.getType().length();
+        outGoing[3] = sub.getType().length();
 
         // get ready to write
         buffer.clear();
         // send ints over together using view buffer
         buffer.asIntBuffer().put(outGoing);
         // position original buffer at position of view buffer
-        buffer.position(12);
+        buffer.position(16);
 
         // write strings
         try {
@@ -982,6 +1046,7 @@ System.out.println("unget: in");
 
         // look for and remove any subscription to subject/type with this callback object
         cMsgSubscription sub;
+        int id = 0;
 
         // client listening thread may be interating thru subscriptions concurrently
         // and we may change set structure
@@ -1009,6 +1074,7 @@ System.out.println("unget: in");
                     }
                     // else get rid of the whole subscription
                     else {
+                        id = sub.getId();
                         iter.remove();
                     }
 
@@ -1019,20 +1085,22 @@ System.out.println("unget: in");
 
         // notify the domain server
 
-        int[] outGoing = new int[3];
+        int[] outGoing = new int[4];
         // first send message id to server
         outGoing[0] = cMsgConstants.msgUnsubscribeRequest;
+        // first send message id to server
+        outGoing[1] = id;
         // send length of subject
-        outGoing[1] = subject.length();
+        outGoing[2] = subject.length();
         // send length of type
-        outGoing[2] = type.length();
+        outGoing[3] = type.length();
 
         // get ready to write
         buffer.clear();
         // send ints over together using view buffer
         buffer.asIntBuffer().put(outGoing);
         // position original buffer at position of view buffer
-        buffer.position(12);
+        buffer.position(16);
 
         // write strings
         try {
