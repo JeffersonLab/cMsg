@@ -16,10 +16,11 @@ JAVA_OBJS = \
 	cMsgException.class \
 	cMsgMessage.class \
 	cMsgConstants.class \
+	cMsgHandleRequests.class \
 	cMsgCallback.class \
 	cMsgLogger.class \
 	cMsg.class \
-	cMsgAdapter.class
+	cMsgImpl.class
 
 all: $(JAVA_OBJS)
 
