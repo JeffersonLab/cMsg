@@ -1,7 +1,5 @@
 #
 #
-CC  = gcc
-CXX = g++
 LD  = ld
 AR  = ar
 RANLIB  = ranlib
