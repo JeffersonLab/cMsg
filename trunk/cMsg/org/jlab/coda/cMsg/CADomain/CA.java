@@ -329,7 +329,8 @@ public class CA extends cMsgDomainAdapter {
      * then the server grabs the first incoming message of the requested subject and type
      * and sends that to the original sender in response to the get.
      *
-     * @param message message sent to server
+     * @param subject subject of message desired from server
+     * @param type type of message desired from server
      * @param timeout time in milliseconds to wait for a reponse message
      * @return response message
      * @throws cMsgException always throws an exception since this is a dummy implementation
