@@ -304,7 +304,7 @@ static void *clientThread(void *arg)
   /*--------------------------------------*/
   
   /* set socket timeout (10 sec) for reading commands */
-  timeout.tv_sec  = 10;
+  timeout.tv_sec  = 6;
   timeout.tv_usec = 0;
   
   err = setsockopt(connfd, SOL_SOCKET, SO_RCVTIMEO, (const void *) &timeout, sizeof(timeout));
@@ -322,9 +322,10 @@ static void *clientThread(void *arg)
 
     /* first, read the incoming message id */
     retry:
-    if ((err = cMsgTcpRead(connfd, &msgId, sizeof(msgId))) != sizeof(msgId)) {
+    err = cMsgTcpRead(connfd, &msgId, sizeof(msgId));
+    if (err != sizeof(msgId)) {
       /* if there's a timeout, try again */
-      if (err == EWOULDBLOCK) {
+      if (errno == EWOULDBLOCK) {
         goto retry;
       }
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
