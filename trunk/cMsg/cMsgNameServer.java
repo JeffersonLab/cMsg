@@ -79,6 +79,12 @@ public class cMsgNameServer {
   }
   
   
+  /** Run as a stand-alone application. */
+  public static void main(String[] args) {
+    cMsgNameServer server = new cMsgNameServer();
+  }
+  
+
   /**
    * Method to register a client with this name server.
    *
