@@ -48,9 +48,6 @@ public class cMsg extends cMsgHandleRequestsAbstract {
     /** Used to create a unique id number associated with a specific message. */
     private static int sysMsgId = 0;
 
-    /** List of subscriptions & gets matching the msg. */
-    private ArrayList subGetList  = new ArrayList(100);
-
     /** List of client info objects corresponding to entries in "subGetList" subscriptions. */
     private ArrayList infoList = new ArrayList(100);
 
@@ -221,18 +218,21 @@ public class cMsg extends cMsgHandleRequestsAbstract {
      * with matching subscriptions.  This method is run after all exchanges between
      * domain server and client.
      *
+     * This method is synchronized because the use of rsIdLists and infoList is not
+     * thread-safe otherwise. Multiple threads in the domain server can be calling
+     * this object's methods simultaneously.
+     *
      * @param message message from sender
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                          or socket properties cannot be set
      */
-    public void handleSendRequest(cMsgMessage message) throws cMsgException {
+    synchronized public void handleSendRequest(cMsgMessage message) throws cMsgException {
         String client;
         cMsgSubscription sub;
         cMsgClientInfo   info;
         HashSet subscriptions, gets;
         boolean haveMatch;
 
-        subGetList.clear();
         infoList.clear();
         rsIdLists.clear();
 
