@@ -49,7 +49,7 @@ public class cMsgClientListeningThread extends Thread {
     private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
     /** Allocate int array once (used for reading in data) for efficiency's sake. */
-    private int[] inComing = new int[15];
+    private int[] inComing = new int[17];
 
     /** List of all receiverSubscribeIds that match the incoming message. */
     private int[] rsIds = new int[20];
@@ -337,32 +337,36 @@ public class cMsgClientListeningThread extends Thread {
         // create a message
         cMsgMessageFull msg = new cMsgMessageFull();
 
-        // keep reading until we have 15 ints of data
-        cMsgUtilities.readSocketBytes(buffer, channel, 60, debug);
+        // keep reading until we have 17 ints of data
+        cMsgUtilities.readSocketBytes(buffer, channel, 68, debug);
 
         // go back to reading-from-buffer mode
         buffer.flip();
 
-        // read 15 ints
-        buffer.asIntBuffer().get(inComing, 0, 15);
+        // read ints
+        buffer.asIntBuffer().get(inComing, 0, 17);
 
         msg.setVersion(inComing[0]);
         // inComing[1] is for future use
         msg.setUserInt(inComing[2]);
         msg.setInfo(inComing[3]);
-        // time sent in seconds since midnight GMT, Jan 1, 1970
-        msg.setSenderTime(new Date(((long)inComing[4])*1000));
-        msg.setUserTime(new Date(((long)inComing[5])*1000));
-        msg.setSysMsgId(inComing[6]);
-        msg.setSenderToken(inComing[7]);
+        // time message was sent = 2 ints (hightest byte first)
+        // in milliseconds since midnight GMT, Jan 1, 1970
+        long time = ((long)inComing[4] << 32) | inComing[5];
+        msg.setSenderTime(new Date(time));
+        // user time
+        time = ((long)inComing[6] << 32) | inComing[7];
+        msg.setUserTime(new Date(time));
+        msg.setSysMsgId(inComing[8]);
+        msg.setSenderToken(inComing[9]);
         // String lengths
-        int lengthSender     = inComing[8];
-        int lengthSenderHost = inComing[9];
-        int lengthSubject    = inComing[10];
-        int lengthType       = inComing[11];
-        int lengthText       = inComing[12];
-        int lengthCreator    = inComing[13];
-        acknowledge          = inComing[14] == 1 ? true : false;
+        int lengthSender     = inComing[10];
+        int lengthSenderHost = inComing[11];
+        int lengthSubject    = inComing[12];
+        int lengthType       = inComing[13];
+        int lengthText       = inComing[14];
+        int lengthCreator    = inComing[15];
+        acknowledge          = inComing[16] == 1 ? true : false;
 
         // bytes expected
         int bytesToRead = lengthSender + lengthSenderHost + lengthSubject +

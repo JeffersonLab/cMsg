@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <pthread.h>
+#include <time.h>
 
 #include "errors.h"
 #include "cMsgNetwork.h"
@@ -374,7 +375,7 @@ static void *clientThread(void *arg)
           /* fill in known message fields */
           message->next         = NULL;
           message->domain       = (char *) strdup("cMsg");
-          message->receiverTime = time(NULL);
+          clock_gettime(CLOCK_REALTIME, &message->receiverTime);
           message->receiver     = (char *) strdup(cMsgDomains[domainId].name);
           message->receiverHost = (char *) strdup(cMsgDomains[domainId].myHost);
           
@@ -428,7 +429,7 @@ static void *clientThread(void *arg)
           /* fill in known message fields */
           message->next         = NULL;
           message->domain       = (char *) strdup("cMsg");
-          message->receiverTime = time(NULL);
+          clock_gettime(CLOCK_REALTIME, &message->receiverTime);
           message->receiver     = (char *) strdup(cMsgDomains[domainId].name);
           message->receiverHost = (char *) strdup(cMsgDomains[domainId].myHost);
           
@@ -584,9 +585,10 @@ static void *clientThread(void *arg)
 /** This routine reads a message sent from the server to the client. */
 static int cMsgReadMessage(int fd, cMsgMessage *msg) {
   
-  int i, lengths[6], inComing[15];
+  int i, lengths[6], inComing[17];
   int memSize = CMSG_MESSAGE_SIZE;
   char *string, storage[CMSG_MESSAGE_SIZE + 1];
+  long long llTime;
   
   /* Start out with an array of size CMSG_MESSAGE_SIZE + 1
    * for storing strings, If that's too small, allocate more. */
@@ -601,21 +603,32 @@ static int cMsgReadMessage(int fd, cMsgMessage *msg) {
   }
 
   /* swap to local endian */
-  msg->version             = ntohl(inComing[0]);  /* major version of cMsg */
+  msg->version  = ntohl(inComing[0]);  /* major version of cMsg */
   /* inComing[1]; is for future use */
-  msg->userInt             = ntohl(inComing[2]);  /* user int */
-  msg->info                = ntohl(inComing[3]);  /* get info */
-  msg->senderTime = (time_t) ntohl(inComing[4]);  /* time in sec since Jan 1, 1970 */
-  msg->userTime   = (time_t) ntohl(inComing[5]);  /* user's time in sec since Jan 1, 1970 */
-  msg->sysMsgId            = ntohl(inComing[6]);  /* system msg id */
-  msg->senderToken         = ntohl(inComing[7]);  /* sender token */
-  lengths[0]               = ntohl(inComing[8]);  /* sender length */
-  lengths[1]               = ntohl(inComing[9]);  /* senderHost length */
-  lengths[2]               = ntohl(inComing[10]); /* subject length */
-  lengths[3]               = ntohl(inComing[11]); /* type length */
-  lengths[4]               = ntohl(inComing[12]); /* text length */
-  lengths[5]               = ntohl(inComing[13]); /* text creator */
-  acknowledge              = ntohl(inComing[14]); /* acknowledge receipt of message? (1-y,0-n) */
+  msg->userInt  = ntohl(inComing[2]);  /* user int */
+  msg->info     = ntohl(inComing[3]);  /* get info */
+  /*
+   * Time arrives as the high 32 bits followed by the low 32 bits
+   * of a 64 bit integer in units of milliseconds.
+   */
+  llTime = (((long long) (ntohl(inComing[4]))) << 32) | ntohl(inComing[5]);
+  /* turn long long into struct timespec */
+  msg->senderTime.tv_sec  =  llTime/1000;
+  msg->senderTime.tv_nsec = (llTime%1000)*1000000;
+  
+  llTime = (((long long) (ntohl(inComing[6]))) << 32) | ntohl(inComing[7]);
+  msg->userTime.tv_sec  =  llTime/1000;
+  msg->userTime.tv_nsec = (llTime%1000)*1000000;
+  
+  msg->sysMsgId    = ntohl(inComing[8]);  /* system msg id */
+  msg->senderToken = ntohl(inComing[9]);  /* sender token */
+  lengths[0]       = ntohl(inComing[10]); /* sender length */
+  lengths[1]       = ntohl(inComing[11]); /* senderHost length */
+  lengths[2]       = ntohl(inComing[12]); /* subject length */
+  lengths[3]       = ntohl(inComing[13]); /* type length */
+  lengths[4]       = ntohl(inComing[14]); /* text length */
+  lengths[5]       = ntohl(inComing[15]); /* text creator */
+  acknowledge      = ntohl(inComing[16]); /* acknowledge receipt of message? (1-y,0-n) */
       
   /*--------------------*/
   /* read sender string */
