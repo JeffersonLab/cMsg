@@ -1,17 +1,17 @@
 /*
  *  cMsg.h
  *
- *  Defines cMsg API, data structures, and return codes
+ *  Defines cMsg (CODA Message) API, message structure, and return codes
  *
- *  E.Wolin, 14-Jun-2004, Jefferson Lab
+ *  E.Wolin, 24-Jun-2004, Jefferson Lab
  *
  *
- *  Notes:
- *    user must always free the message
+ *  Notes: (need to be in implementation file, not here!)
+ *    can have multiple domain/name connections
+ *    user must always free messages
  *    can have many callbacks for the same subject and type
  *    each callback executes in its own thread
  *    flush may happen before cMsgFlush call
- *
  */
 
 #ifndef _cMsg_h
@@ -26,8 +26,9 @@ char sccsid[] = "%Z% Implementation of cMsg publish/subscribe API using FIPA age
 #include <time.h>
 
 
-/* cMsg message structure */
+/* message structure */
 typedef struct cMsg {
+  int domainId;
   int sysMsgId;
   char *sender;
   int senderId;
@@ -37,44 +38,44 @@ typedef struct cMsg {
   char *receiver;
   char *receiverHost;
   time_t receiverTime;
-  char *project;
+  char *domain;
   char *subject;
   char *type;
   char *text;
 };
 
 
-/* cMsg message callback */
+/* message receive callback */
 typedef void cMsgCallback(cMsg *msg, void *userArg);
 
 
-/* cMsg function prototypes */
+/* function prototypes */
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-  int cMsgInit(char *myProject, char *myName, char *myDescription);
-  int cMsgSend(char *subject, char *type, char *text);
-  int cMsgFlush(void);
-  int cMsgGet(char *subject, char *type, time_t timeout, cMsg **msg);
-  int cMsgSubscribe(char *subject, char *type, cMsgCallback *callback, void *userArg);
-  int cMsgUnSubscribe(char *subject, char *type, cMsgCallback *callback);
-  int cMsgReceiveStart(void);
-  int cMsgReceiveStop(void);
+  int cMsgInit(char *myDomain, char *myName, char *myDescription, int *domainId);
+  int cMsgSend(int domainId, char *subject, char *type, char *text);
+  int cMsgFlush(int domainId);
+  int cMsgGet(int domainId, char *subject, char *type, time_t timeout, cMsg **msg);
+  int cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback, void *userArg);
+  int cMsgUnSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback);
+  int cMsgReceiveStart(int domainId);
+  int cMsgReceiveStop(int domainId);
   int cMsgFree(cMsg *msg);
-  int cMsgDone(void);
+  int cMsgDone(int domainId);
   int cMsgPerror(int error);
   
 
-  char*     cMsgGetProject();
-  char*     cMsgGetName();
-  char*     cMsgGetDescription();
-  char*     cMsgGetHost();
-  int 	    cMsgGetSendSocket();
-  int 	    cMsgGetReceiveSocket();
-  pthread_t cMsgGetPendThread();
-  int 	    cMsgGetInitState();
-  int 	    cMsgGetReceiveState();
+  char*     cMsgGetDomain(int domainId);
+  char*     cMsgGetName(int domainId);
+  char*     cMsgGetDescription(int domainId);
+  char*     cMsgGetHost(int domainId);
+  int 	    cMsgGetSendSocket(int domainId);
+  int 	    cMsgGetReceiveSocket(int domainId);
+  pthread_t cMsgGetPendThread(int domainId);
+  int 	    cMsgGetInitState(int domainId);
+  int 	    cMsgGetReceiveState(int domainId);
 
 
 #ifdef __cplusplus
@@ -82,7 +83,7 @@ extern "C" {
 #endif
 
 
-/* cMsg return codes */
+/* return codes */
 enum {
   CMSG_OK              	  = 0,
   CMSG_ERROR,
