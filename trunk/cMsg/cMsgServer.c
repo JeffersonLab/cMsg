@@ -74,7 +74,7 @@ static cMsgDomain_CODA *domain;
 
 /*-------------------------------------------------------------------*
  * The listening thread needs a pthread cancellation cleanup handler.
- * It will be called when the cMsgServerListeningThread is canceled.
+ * It will be called when the cMsgClientListeningThread is canceled.
  * It's task is to remove all the client threads.
  *-------------------------------------------------------------------*/
 static void cleanUpHandler(void *arg) {
@@ -82,7 +82,7 @@ static void cleanUpHandler(void *arg) {
   cMsgClientThreadInfo *clientThreads = (cMsgClientThreadInfo *) arg;
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cMsgServerListeningThread: in cleanup handler\n");
+    fprintf(stderr, "cMsgClientListeningThread: in cleanup handler\n");
   }
 
   /* for each element in the array ... */
@@ -99,7 +99,7 @@ static void cleanUpHandler(void *arg) {
 
 
 /*-------------------------------------------------------------------*
- * cMsgServerListeningThread is a server listening thread used
+ * cMsgClientListeningThread is a listening thread used by a cMsg client
  * to make connections to other cMsg-enabled programs.
  *
  * In order to be able to kill this thread and its children threads
@@ -107,7 +107,7 @@ static void cleanUpHandler(void *arg) {
  * This thread may use a non-blocking socket and waits on a "select"
  * statement instead of the blocking "accept" statement.
  *-------------------------------------------------------------------*/
-void *cMsgServerListeningThread(void *arg)
+void *cMsgClientListeningThread(void *arg)
 {
   mainThreadInfo *threadarg = (mainThreadInfo *) arg;
   int             listenFd  = threadarg->listenFd;
@@ -145,7 +145,7 @@ void *cMsgServerListeningThread(void *arg)
   /* find servers's endian value */
   if (cMsgByteOrder(&endian) == CMSG_ERROR) {
     if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-      fprintf(stderr, "cMsgServerListeningThread: strange byteorder\n");
+      fprintf(stderr, "cMsgClientListeningThread: strange byteorder\n");
     }
     exit(1);
   }
@@ -176,7 +176,7 @@ void *cMsgServerListeningThread(void *arg)
   pthread_cleanup_push(cleanUpHandler, (void *) clientThreads);
   
   /* Tell spawning thread that we're up and running */
-fprintf(stderr, "cMsgServerListeningThread: tell folks we're running\n");
+fprintf(stderr, "cMsgClientListeningThread: tell folks we're running\n");
   threadarg->isRunning = 1;
   
   /* spawn threads to deal with each client */
@@ -211,7 +211,7 @@ fprintf(stderr, "cMsgServerListeningThread: tell folks we're running\n");
       /* if there's an error, quit */
       else if (err < 0) {
         if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-          fprintf(stderr, "cMsgServerListeningThread: select call error: %s\n", strerror(errno));
+          fprintf(stderr, "cMsgClientListeningThread: select call error: %s\n", strerror(errno));
         }
         break;
       }
@@ -228,7 +228,7 @@ fprintf(stderr, "cMsgServerListeningThread: tell folks we're running\n");
     pinfo = (cMsgThreadInfo *) malloc(sizeof(cMsgThreadInfo));
     if (pinfo == NULL) {
       if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-        fprintf(stderr, "cMsgServerListeningThread: cannot allocate memory\n");
+        fprintf(stderr, "cMsgClientListeningThread: cannot allocate memory\n");
       }
       exit(1);
     }
@@ -254,7 +254,7 @@ fprintf(stderr, "cMsgServerListeningThread: tell folks we're running\n");
      */
     if (err < 0) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cMsgServerListeningThread: error accepting client connection\n");
+        fprintf(stderr, "cMsgClientListeningThread: error accepting client connection\n");
       }
       free(pinfo);
       continue;
@@ -354,6 +354,10 @@ static void *clientThread(void *arg)
           cMsgMessage *message;
           message = (cMsgMessage *) malloc(sizeof(cMsgMessage));
           
+          if (cMsgDebug >= CMSG_DEBUG_INFO) {
+            fprintf(stderr, "clientThread: subscribe response received\n");
+          }
+          
           /* fill in known message fields */
           message->domain       = (char *) strdup(domain->udl);
           message->receiverTime = time(NULL);
@@ -363,7 +367,7 @@ static void *clientThread(void *arg)
           /* read the message */
           if ( (err = cMsgReadMessage(connfd, message)) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread: error reading message\n");
+              fprintf(stderr, "  clientThread: error reading message\n");
             }
             free((void *) message->domain);
             free((void *) message->receiver);
@@ -372,6 +376,9 @@ static void *clientThread(void *arg)
           }
           
           /* run callbacks for this message */
+          if (cMsgDebug >= CMSG_DEBUG_INFO) {
+              fprintf(stderr, "  clientThread: will run callbacks, msgId = \n", msgId);
+          }
           cMsgRunCallbacks(domain, msgId, message);
       }
       break;
