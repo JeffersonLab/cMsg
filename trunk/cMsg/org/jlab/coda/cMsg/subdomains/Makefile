@@ -8,9 +8,9 @@ JAVAH = javah
 JAVAD = javadoc
 JAR   = jar
 
-INSTALL  = ../../../../../../../install-sh -c
-#JAVAC_FLAGS = -classpath ../../../../../../
-JAVAC_FLAGS = -classpath ../../../../../../:$(CLASSPATH)
+INSTALL  = ../../../../../../install-sh -c
+#JAVAC_FLAGS = -classpath ../../../../../
+JAVAC_FLAGS = -classpath ../../../../../:$(CLASSPATH)
 
 JAVA_OBJS = \
 	cMsg.class \
