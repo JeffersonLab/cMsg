@@ -86,7 +86,6 @@ public class cMsgMonitorClient extends Thread {
 
     /** This method is executed as a thread. */
     public void run() {
-        System.out.println("Running Client Monitor");
 
         while (true) {
             // get ready to write
