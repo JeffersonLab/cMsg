@@ -18,6 +18,7 @@ package org.jlab.coda.cMsg.cMsgDomain;
 
 import org.jlab.coda.cMsg.cMsgConstants;
 import org.jlab.coda.cMsg.cMsgException;
+import org.jlab.coda.cMsg.cMsgClientInfo;
 
 import java.nio.channels.SocketChannel;
 import java.nio.ByteBuffer;
@@ -63,7 +64,8 @@ public class cMsgMonitorClient extends Thread {
         this.domainServer = server;
 
         try {
-            channel = SocketChannel.open(new InetSocketAddress(info.clientHost, info.clientPort));
+            channel = SocketChannel.open(new InetSocketAddress(info.getClientHost(),
+                                                               info.getClientPort()));
             // set socket options
             Socket socket = channel.socket();
             // Set tcpNoDelay so no packets are delayed
@@ -77,11 +79,11 @@ public class cMsgMonitorClient extends Thread {
             // client has died, time to bail.
             if (debug >= cMsgConstants.debugError) {
                 System.out.println("\ncMsgMonitorClient: cannot create socket to client " +
-                                   info.name + "\n");
+                                   info.getName() + "\n");
             }
         }
 
-        info.channel = channel;
+        info.setChannel(channel);
     }
 
     /** This method is executed as a thread. */
@@ -104,20 +106,20 @@ public class cMsgMonitorClient extends Thread {
                 }
                 if (debug >= cMsgConstants.debugInfo) {
                     System.out.println("cMsgMonitorClient: wrote keepAlive & 1 to client " +
-                                       info.name + "\n");
+                                       info.getName() + "\n");
                 }
                 // read acknowledgment & keep reading until we have 1 int of data
                 cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
                 if (debug >= cMsgConstants.debugInfo) {
                     System.out.println("cMsgMonitorClient: read keepAlive client (" +
-                                       info.name + ") response\n");
+                                       info.getName() + ") response\n");
                 }
             }
             catch (IOException e) {
                 // client has died, time to bail.
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("cMsgMonitorClient: CANNOT COMMUNICATE with client " +
-                                       info.name + "\n");
+                                       info.getName() + "\n");
                 }
 
                 domainServer.killAllThreads();
@@ -143,7 +145,7 @@ public class cMsgMonitorClient extends Thread {
                 // something wrong with the client, time to bail
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("cMsgMonitorClient: keep alive returns ERROR from client " +
-                                       info.name + "\n");
+                                       info.getName() + "\n");
                 }
 
                 domainServer.killAllThreads();

@@ -166,9 +166,9 @@ public class cMsgNameServer extends Thread {
     }
 
 
-    static private cMsgHandleRequests createClientHandler(String subdomain, String UDLRemainder) throws cMsgException {
+    static private cMsgSubdomainHandler createClientHandler(String subdomain, String UDLRemainder) throws cMsgException {
         /** Object to handle clients' inputs */
-        cMsgHandleRequests clientHandler = null;
+        cMsgSubdomainHandler clientHandler = null;
 
          // First check to see if handler class name was set on the command line.
         String clientHandlerClass = System.getProperty(subdomain);
@@ -184,22 +184,22 @@ public class cMsgNameServer extends Thread {
         // org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg class.
         if (clientHandlerClass == null) {
             if (subdomain.equalsIgnoreCase("cMsg")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg";
+                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.cMsg";
             }
             else if (subdomain.equalsIgnoreCase("CA")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.CA";
+                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.CA";
             }
             else if (subdomain.equalsIgnoreCase("database")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.database";
+                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.database";
             }
             else if (subdomain.equalsIgnoreCase("LogFile")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.LogFile";
+                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.LogFile";
             }
             else if (subdomain.equalsIgnoreCase("LogTable")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.LogTable";
+                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.LogTable";
             }
             else if (subdomain.equalsIgnoreCase("smartsockets")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.smartsockets";
+                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.smartsockets";
             }
         }
 
@@ -213,7 +213,7 @@ public class cMsgNameServer extends Thread {
 
         // Get handler class name and create handler object
         try {
-            clientHandler = (cMsgHandleRequests) (Class.forName(clientHandlerClass).newInstance());
+            clientHandler = (cMsgSubdomainHandler) (Class.forName(clientHandlerClass).newInstance());
         }
         catch (InstantiationException e) {
             cMsgException ex = new cMsgException("cannot instantiate "+ clientHandlerClass +
@@ -255,14 +255,14 @@ public class cMsgNameServer extends Thread {
      * @param info object containing information about the client
      * @throws cMsgException If a domain server could not be started for the client
      */
-    synchronized public cMsgHandleRequests registerClient(cMsgClientInfo info) throws cMsgException {
-        cMsgHandleRequests clientHandler = createClientHandler(info.subdomain,
-                                                               info.UDLremainder);
+    synchronized public cMsgSubdomainHandler registerClient(cMsgClientInfo info) throws cMsgException {
+        cMsgSubdomainHandler clientHandler = createClientHandler(info.getSubdomain(),
+                                                               info.getUDLremainder());
         // If clientHandler is a subclass of cMsgHandlerRequestAbstract, it has methods
         // to connect to the client, so do it now. The socket channel is stored in "info".
-        if (clientHandler instanceof cMsgHandleRequestsAbstract) {
+        if (clientHandler instanceof cMsgSubdomainAbstract) {
             try {
-                ((cMsgHandleRequestsAbstract)clientHandler).createChannel(info);
+                ((cMsgSubdomainAbstract)clientHandler).createChannel(info);
             }
             catch (IOException e) {
                 cMsgException ex = new cMsgException("socket communication error");
@@ -487,7 +487,7 @@ public class cMsgNameServer extends Thread {
                     System.out.println("name server to register " + name);
                 }
 
-                cMsgHandleRequests handler = registerClient(info);
+                cMsgSubdomainHandler handler = registerClient(info);
 
                 buffer.clear();
 
@@ -505,9 +505,9 @@ public class cMsgNameServer extends Thread {
                 buffer.put(atts);
 
                 // send cMsg domain host & port contact info back to client
-                buffer.putInt(info.domainPort);
-                buffer.putInt(info.domainHost.length());
-                buffer.put(info.domainHost.getBytes("US-ASCII")).flip();
+                buffer.putInt(info.getDomainPort());
+                buffer.putInt(info.getDomainHost().length());
+                buffer.put(info.getDomainHost().getBytes("US-ASCII")).flip();
 
                 while (buffer.hasRemaining()) {
                     channel.write(buffer);
