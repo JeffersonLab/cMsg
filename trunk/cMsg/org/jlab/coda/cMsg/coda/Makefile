@@ -17,7 +17,10 @@ JAVA_OBJS = \
 	JgetenvException.class \
 	cMsgNetworkConstants.class \
 	cMsgUtilities.class \
+	cMsgCallbackInfo.class \
 	cMsgClientInfo.class \
+	cMsgSubscription.class \
+	cMsgClientListeningThread.class \
 	cMsgMonitorClient.class \
 	cMsgHandleRequestCoda.class \
 	cMsgNameServer.class \
