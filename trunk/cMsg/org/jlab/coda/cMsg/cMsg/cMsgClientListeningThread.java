@@ -45,7 +45,7 @@ public class cMsgClientListeningThread extends Thread {
     private String domainType = "CODA";
 
     /** cMsg client that created this object. */
-    private cMsgCoda client;
+    private cMsg client;
 
     /** Server channel (contains socket). */
     private ServerSocketChannel serverChannel;
@@ -78,7 +78,7 @@ public class cMsgClientListeningThread extends Thread {
      * @param myClient cMsg client that created this object
      * @param channel suggested port on which to starting listening for connections
      */
-    public cMsgClientListeningThread(cMsgCoda myClient, ServerSocketChannel channel) {
+    public cMsgClientListeningThread(cMsg myClient, ServerSocketChannel channel) {
 
         client = myClient;
         serverChannel = channel;
@@ -103,7 +103,7 @@ public class cMsgClientListeningThread extends Thread {
             // register the channel with the selector for accepts
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
-            // cMsgCoda object is waiting for this thread to start in connect method
+            // cMsg object is waiting for this thread to start in connect method
             synchronized(this) {
                 notifyAll();
             }
