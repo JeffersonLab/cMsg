@@ -25,78 +25,188 @@ import java.lang.*;
 import java.util.*;
 
 /**
- * This class implements a cMsg name server for a particular cMsg domain.
+ * This class implements a message in the cMsg messaging system.
  *
  * @author Elliott Wolin
  * @author Carl Timmer
  * @version 1.0
  */
 public class cMsgMessage {
-    
+    /** Unique message id created by cMsg system. */
     int      sysMsgId;
+    /**
+     * Message receiver's id number corresponding to a subject & type pair
+     * of a message subscription.
+     */
     int      receiverSubscribeId;
 
+
+    /** Unique name of message sender. */
     String   sender;
-    int      senderId; /* in case fred dies and resurrects - not needed! */
+    /**
+     * Unique id of message sender. This distinguishes between two identically
+     * named senders - one of whom dies and is replaced by the other.
+     */
+    int      senderId;
+    /** Host sender is running on. */
     String   senderHost;
+    /** Time message was sent. */
     Date     senderTime;
+    /** Unique message id created by sender. */
     int      senderMsgId;
+    /**
+     * Sender given integer used to track asynchronous responses to
+     * messages requesting responses from other clients.
+     */
     int      senderToken;
 
+
+    /** Unique name of message receiver. */
     String   receiver;
+    /** Host receiver is running on. */
     String   receiverHost;
+    /** Time message was received. */
     Date     receiverTime;
 
+
+    /** Message exists in this domain. */
     String   domain;
+    /** Subject of message. */
     String   subject;
+    /** Type of message. */
     String   type;
+    /** Text of message. */
     String   text;
 
+
+    /** Get domain this message exists in. */
     public String getDomain() {return domain;}
+    /**
+     * Set domain this message exists in.
+     * @param domain domain this message exists in.
+     */
     public void   setDomain(String domain) {this.domain = domain;}
 
-    public String getReceiver() {return receiver;}
-    public void   setReceiver(String receiver) {this.receiver = receiver;}
-
-    public String getReceiverHost() {return receiverHost;}
-    public void   setReceiverHost(String receiverHost) {this.receiverHost = receiverHost;}
-
-    public int  getReceiverSubscribeId() {return receiverSubscribeId;}
-    public void setReceiverSubscribeId(int receiverSubscribeId) {this.receiverSubscribeId = receiverSubscribeId;}
-
-    public Date getReceiverTime() {return receiverTime;}
-    public void setReceiverTime(Date receiverTime) {this.receiverTime = receiverTime;}
-
-    public String getSender() {return sender;}
-    public void   setSender(String sender) {this.sender = sender;}
-
-    public String getSenderHost() {return senderHost;}
-    public void   setSenderHost(String senderHost) {this.senderHost = senderHost;}
-
-    public int  getSenderId() {return senderId;}
-    public void setSenderId(int senderId) {this.senderId = senderId;}
-
-    public int  getSenderMsgId() {return senderMsgId;}
-    public void setSenderMsgId(int senderMsgId) {this.senderMsgId = senderMsgId;}
-
-    public Date getSenderTime() {return senderTime;}
-    public void setSenderTime(Date senderTime) {this.senderTime = senderTime;}
-
-    public int  getSenderToken() {return senderToken;}
-    public void setSenderToken(int senderToken) {this.senderToken = senderToken;}
-
+    /** Get subject of message. */
     public String getSubject() {return subject;}
+    /**
+     * Set subject of message.
+     * @param subject subject of message.
+     */
     public void   setSubject(String subject) {this.subject = subject;}
 
-    public int  getSysMsgId() {return sysMsgId;}
-    public void setSysMsgId(int sysMsgId) {this.sysMsgId = sysMsgId;}
-
+    /** Get text of message. */
     public String getText() {return text;}
+    /**
+     * Set text of message.
+     * @param text ext of message.
+     */
     public void   setText(String text) {this.text = text;}
 
+    /** Get type of message. */
     public String getType() {return type;}
+    /**
+     * Set type of message.
+     * @param type type of message.
+     */
     public void   setType(String type) {this.type = type;}
 
-//-----------------------------------------------------------------------------
-}        //  end class definition
-//-----------------------------------------------------------------------------
+    /** Get system id of message. */
+    public int    getSysMsgId() {return sysMsgId;}
+    /**
+     * Set system id of message. Set automatically by cMsg system.
+     * @param sysMsgId system id of message.
+     */
+    public void   setSysMsgId(int sysMsgId) {this.sysMsgId = sysMsgId;}
+
+    // receiver
+
+    /** Get message receiver. */
+    public String getReceiver() {return receiver;}
+    /**
+     * Set message receiver.  Set automatically by cMsg system.
+     * @param receiver message receiver.
+     */
+    public void   setReceiver(String receiver) {this.receiver = receiver;}
+
+    /** Get message receiver's host computer. */
+    public String getReceiverHost() {return receiverHost;}
+    /**
+     * Set message receiver's host computer. Set automatically by cMsg system.
+     * @param receiverHost message receiver's host computer.
+     */
+    public void   setReceiverHost(String receiverHost) {this.receiverHost = receiverHost;}
+
+    /** Get receiver's id number corresponding to a subject & type pair of a message subscription. */
+    public int    getReceiverSubscribeId() {return receiverSubscribeId;}
+    /**
+     * Set receiver's subscription id number.
+     * @param receiverSubscribeId  receiver's subscription id number.
+     */
+    public void   setReceiverSubscribeId(int receiverSubscribeId) {this.receiverSubscribeId = receiverSubscribeId;}
+
+    /** Get time message was received. */
+    public Date   getReceiverTime() {return receiverTime;}
+    /**
+      * Set time message was receivered. Set automatically by cMsg system.
+      * @param receiverTime time message received.
+      */
+    public void   setReceiverTime(Date receiverTime) {this.receiverTime = receiverTime;}
+
+    // sender
+
+    /** Get message sender. */
+    public String getSender() {return sender;}
+    /**
+     * Set message sender.
+     * @param sender message sender.
+     */
+    public void   setSender(String sender) {this.sender = sender;}
+
+    /** Get message sender's host computer. */
+    public String getSenderHost() {return senderHost;}
+    /**
+      * Set message sender's host computer. Set automatically by cMsg system.
+      * @param senderHost message sender's host computer.
+      */
+    public void   setSenderHost(String senderHost) {this.senderHost = senderHost;}
+
+    /**
+      * Get unique id of message sender. This id distinguishes between two identically
+      * named senders - one of whom dies and is replaced by the other.
+      */
+    public int    getSenderId() {return senderId;}
+    /**
+      * Set message sender's id.
+      * @param senderId message sender's id.
+      */
+    public void   setSenderId(int senderId) {this.senderId = senderId;}
+
+    /** Get sender message's id. */
+    public int    getSenderMsgId() {return senderMsgId;}
+    /**
+      * Set sender message's id.
+      * @param senderMsgId sender message's id.
+      */
+    public void   setSenderMsgId(int senderMsgId) {this.senderMsgId = senderMsgId;}
+
+    /** Get time message was sent. */
+    public Date   getSenderTime() {return senderTime;}
+    /**
+      * Set time message was sent. Set automatically by cMsg system.
+      * @param senderTime time message sent.
+      */
+    public void   setSenderTime(Date senderTime) {this.senderTime = senderTime;}
+
+    /**
+     * Get sender's token. Used to track asynchronous responses to
+     * messages requesting responses from other clients.
+     */
+    public int    getSenderToken() {return senderToken;}
+    /**
+      * Set sender's token.
+      * @param senderToken sender's token.
+      */
+    public void   setSenderToken(int senderToken) {this.senderToken = senderToken;}
+
+}
