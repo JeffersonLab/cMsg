@@ -118,10 +118,10 @@
 #include <time.h>
 
 
-/* message receive callback */
+/** Message receiving callback. */
 typedef void (cMsgCallback) (void *msg, void *userArg);
 
-/* pointer type to use for setting subscribe config */
+/** Subscribe configuration. */
 typedef void *cMsgSubscribeConfig;
 
 

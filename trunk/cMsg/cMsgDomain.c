@@ -27,6 +27,18 @@
  *
  *----------------------------------------------------------------------------*/
 
+/**
+ * @file
+ * This file contains the cMsg domain implementation of the cMsg user API.
+ *
+ * <b>Introduction</b>
+ *
+ * This a messaging system programmed by the Data Acquisition Group at Jefferson
+ * Lab. The cMsg domain has a dual function. It acts as a framework so that the
+ * cMsg client can connect to a variety of subdomains (messaging systems). However,
+ * it also acts as a messaging system itself in the cMsg <b>subdomain</b>.
+ */  
+ 
 
 /* system includes */
 #ifdef VXWORKS
@@ -53,27 +65,31 @@
 
 
 /* built-in limits */
+/** Maximum number of domains for each client to connect to at once. */
 #define MAXDOMAINS_CODA  10
-#define WAIT_FOR_THREADS 10 /* seconds to wait for thread to start */
-#define CALLBACK_MSQ_CUE_MAX 50000
+/** Number of seconds to wait for cMsgClientListeningThread threads to start. */
+#define WAIT_FOR_THREADS 10
 
-
+/** Store information about each cMsg domain connected to. */
 cMsgDomain_CODA cMsgDomains[MAXDOMAINS_CODA];
 
 /* local variables */
+/** Is the one-time initialization done? */
 static int oneTimeInitialized = 0;
-static int *rsIds = NULL; /* allocate an integer array to read in receiverSubscribeIds */
-static int rsIdSize = 0;  /* size of rsIds array */
-static int rsIdCount = 0; /* number of rsId's received */
-
+/** An integer array to contain receiverSubscribeId's. */
+static int *rsIds = NULL;
+/** Size of the #rsIds array. */
+static int rsIdSize = 0;
+/** Number of rsId's received. */
+static int rsIdCount = 0;
+/** Pthread mutex to protect the local generation of unique numbers. */
 static pthread_mutex_t generalMutex = PTHREAD_MUTEX_INITIALIZER;
-/*
- * Lock to prevent connect or disconnect from being
- * simultaneously with any other function.
+/**
+ * Read/write lock to prevent connect or disconnect from being
+ * run simultaneously with any other function.
  */
 static rwlock_t connectLock = RWL_INITIALIZER; 
-
-/* id which uniquely defines a subject/type pair */
+/** Id number which uniquely defines a subject/type pair. */
 static int subjectTypeId = 1;
 
 /* for c++ */
@@ -96,6 +112,7 @@ static int   start(int domainId);
 static int   stop(int domainId);
 static int   disconnect(int domainId);
 
+/** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
 static domainFunctions functions = {coda_connect, coda_send, syncSend, flush,
                                     subscribe, unsubscribe,
                                     subscribeAndGet, sendAndGet,
@@ -151,6 +168,7 @@ static int   unSubscribeAndGet(int domainId, int id);
 static int   getAbsoluteTime(struct timespec *deltaTime, struct timespec *absTime);
 
 #ifdef VXWORKS
+/** Implementation of strdup() to cover vxWorks operating system. */
 static char *strdup(const char *s1) {
     char *s;    
     if (s1 == NULL) return NULL;    
@@ -162,6 +180,43 @@ static char *strdup(const char *s1) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine is called once to connect to a cMsg domain. It is called
+ * by the user through cMsgConnect() given the appropriate UDL.
+ * The argument "myUDL" is the Universal Domain Locator used to uniquely
+ * identify the cMsg server to connect to. It has the form:<p>
+ *       <b>cMsg:cMsg://host:port/subdomainType/remainder</b><p>
+ * where the first "cMsg:" is optional. The subdomain is optional with
+ * the default being cMsg.
+ * The argument "myName" is the client's name and may be required to be
+ * unique depending on the subdomainType.
+ * The argument "myDescription" is an arbitrary string used to describe the
+ * client.
+ * If successful, this routine fills the argument "domainId", which identifies
+ * the connection uniquely and is required as an argument by many other routines.
+ * 
+ * @param myUDL the Universal Domain Locator used to uniquely identify the cMsg
+ *        server to connect to
+ * @param myName name of this client
+ * @param myDescription description of this client
+ * @param UDLremainder partially parsed (initial cMsg:domainType:// stripped off)
+ *                     UDL which gets passed down from the API level (cMsgConnect())
+ * @param domainId pointer to integer which gets filled with a unique id referring
+ *        to this connection.
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the cMsg domain specific part of the UDL is NULL,
+ *                            or the host name of the server to connect to is bad,
+ * @returns CMSG_BAD_FORMAT if the UDL is malformed
+ * @returns CMSG_OUT_OF_RANGE if the port specified in the UDL is out-of-range
+ * @returns CMSG_LIMIT_EXCEEDED if the maximum number of domain connections has
+ *          been exceeded
+ * @returns CMSG_SOCKET_ERROR if the listening thread finds all the ports it tries
+ *                            to listen on are busy, or socket options could not be
+ *                            set
+ * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
+ *                             or a communication error with either server occurs.
+ */   
 static int coda_connect(char *myUDL, char *myName, char *myDescription,
                         char *UDLremainder, int *domainId) {
 
@@ -470,6 +525,21 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription,
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine sends a msg to the specified cMsg domain server.  It is called
+ * by the user through cMsgSend() given the appropriate UDL. It is completely
+ * asynchronous and never blocks. In this domain cMsgFlush() does nothing and
+ * does not need to be called for the message to be sent immediately.
+ *
+ * @param domainId id number of the domain connection
+ * @param vmsg pointer to a message structure
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement sending
+ *                               messages
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_NOT_INITIALIZED if the network connection to the server is closed
+ */   
 static int coda_send(int domainId, void *vmsg) {
   
   int lenSubject, lenType, lenText, lenCreator;

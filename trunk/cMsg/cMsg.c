@@ -57,9 +57,9 @@
 #include "cMsg.h"
 #include "cMsgPrivate.h"
 
-/*
- * MAXHOSTNAMELEN is defined to be 256 on Solaris and 64 on Linux.
- * Make it to be uniform across all platforms.
+/**
+ * Because MAXHOSTNAMELEN is defined to be 256 on Solaris and 64 on Linux,
+ * use CMSG_MAXHOSTNAMELEN as a substitute that is uniform across all platforms.
  */
 #define CMSG_MAXHOSTNAMELEN 256
 
@@ -68,9 +68,13 @@ int cMsgDebug = CMSG_DEBUG_ERROR;
 
 
 /* local variables */
+/** Is the one-time initialization done? */
 static int oneTimeInitialized = 0;
+/** Pthread mutex serializing calls to cMsgConnect() and cMsgDisconnect(). */
 static pthread_mutex_t connectMutex = PTHREAD_MUTEX_INITIALIZER;
+/** Store references to different domains and their cMsg implementations. */
 static domainTypeInfo dTypeInfo[MAXDOMAINS];
+/** Store information about each domain connected to. */
 static cMsgDomain domains[MAXDOMAINS];
 
 
@@ -78,7 +82,7 @@ static cMsgDomain domains[MAXDOMAINS];
 static char *excludedChars = "`\'\"";
 
 
-/* for domain implementations */
+/** For domain implementations. */
 extern domainTypeInfo codaDomainTypeInfo;
 
 
@@ -296,7 +300,7 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
     return(err);
   }
 
-  /* if such a domain type store pointer to functions */
+  /* if such a domain type exists, store pointer to functions */
   domains[id].functions = NULL;
   for (i=0; i<MAXDOMAINTYPES; i++) {
     if (dTypeInfo[i].type != NULL) {
