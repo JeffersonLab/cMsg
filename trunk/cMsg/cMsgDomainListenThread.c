@@ -76,6 +76,16 @@ extern "C" {
 static void *clientThread(void *arg);
 static void  cleanUpHandler(void *arg);
 
+#ifdef VXWORKS
+static char *strdup(const char *s1) {
+    char *s;    
+    if (s1 == NULL) return NULL;    
+    if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;    
+    return strcpy(s, s1);
+}
+#endif
+
+
 /*-------------------------------------------------------------------*
  * The listening thread needs a pthread cancellation cleanup handler.
  * It will be called when the cMsgClientListeningThread is canceled.
@@ -116,7 +126,7 @@ void *cMsgClientListeningThread(void *arg)
   mainThreadInfo *threadArg = (mainThreadInfo *) arg;
   int             listenFd  = threadArg->listenFd;
   int             blocking  = threadArg->blocking;
-  int             i, err, endian, iov_max, index, status;
+  int             i, err, index, status;
   fd_set          readSet;
   struct timeval  timeout;
   struct sockaddr_in cliaddr;
@@ -268,6 +278,7 @@ void *cMsgClientListeningThread(void *arg)
   pthread_cleanup_pop(1);
   
   pthread_exit(NULL);
+  return NULL;
 }
 
 
@@ -276,10 +287,7 @@ void *cMsgClientListeningThread(void *arg)
 
 static void *clientThread(void *arg)
 {
-  int  msgId, err, connfd, domainId, length=0;
-  int  outgoing[2], incoming[2], localCount;
-  char host[CMSG_MAXHOSTNAMELEN+1];
-  unsigned short port;
+  int  msgId, err, connfd, domainId, localCount=0;
   struct timeval timeout;
   cMsgThreadInfo *info;
   cMsgClientThreadInfo *clientInfo;
@@ -307,12 +315,12 @@ static void *clientThread(void *arg)
   timeout.tv_sec  = 6;
   timeout.tv_usec = 0;
   
-  err = setsockopt(connfd, SOL_SOCKET, SO_RCVTIMEO, (const void *) &timeout, sizeof(timeout));
-  if (err < 0) {
+  err = cMsgSetSocketTimeout(connfd, &timeout);
+  if (err != CMSG_OK) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "clientThread %d: setsockopt error\n", localCount);
     }
-    return;
+    goto end;
   }
   
   localCount = counter++;
@@ -424,6 +432,112 @@ static void *clientThread(void *arg)
       }
       break;
 
+      case CMSG_SUBSCRIBE_RESPONSE_WITH_ACK:
+      {
+          int ok;
+          cMsgMessage *message;
+          message = (cMsgMessage *) cMsgCreateMessage();
+          if (message == NULL) {
+            if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+              fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
+            }
+            exit(1);
+          }
+
+          if (cMsgDebug >= CMSG_DEBUG_INFO) {
+            fprintf(stderr, "clientThread %d: subscribe response received\n", localCount);
+          }
+          
+          /* fill in known message fields */
+          message->next         = NULL;
+          message->domain       = (char *) strdup("cMsg");
+          message->receiverTime = time(NULL);
+          message->receiver     = (char *) strdup(cMsgDomains[domainId].name);
+          message->receiverHost = (char *) strdup(cMsgDomains[domainId].myHost);
+          
+          /* read the message */
+          if ( (err = cMsgReadMessage(connfd, message)) != CMSG_OK) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+              fprintf(stderr, "clientThread %d: error reading message\n", localCount);
+            }
+            free((void *) message->domain);
+            free((void *) message->receiver);
+            free((void *) message->receiverHost);
+            goto end;
+          }
+          
+          /* run callbacks for this message */
+          if ( (err = cMsgRunCallbacks(domainId, message)) != CMSG_OK) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+              fprintf(stderr, "clientThread %d: too many messages cued up\n", localCount);
+            }
+            goto end;
+          }
+          
+          /* send back ok */
+          ok = htonl(CMSG_OK);
+          if (cMsgTcpWrite(connfd, (void *) &ok, sizeof(ok)) != sizeof(ok)) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+              fprintf(stderr, "clientThread %d: write failure\n", localCount);
+            }
+            goto end;
+          }        
+      }
+      break;
+
+      case CMSG_GET_RESPONSE_WITH_ACK:
+      {
+          int ok;
+          cMsgMessage *message;
+          message = (cMsgMessage *) cMsgCreateMessage();
+          if (message == NULL) {
+            if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+              fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
+            }
+            exit(1);
+          }
+
+          if (cMsgDebug >= CMSG_DEBUG_INFO) {
+            fprintf(stderr, "clientThread %d: subscribe response received\n", localCount);
+          }
+          
+          /* fill in known message fields */
+          message->next         = NULL;
+          message->domain       = (char *) strdup("cMsg");
+          message->receiverTime = time(NULL);
+          message->receiver     = (char *) strdup(cMsgDomains[domainId].name);
+          message->receiverHost = (char *) strdup(cMsgDomains[domainId].myHost);
+          
+          /* read the message */
+          if ( (err = cMsgReadMessage(connfd, message)) != CMSG_OK) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+              fprintf(stderr, "clientThread %d: error reading message\n", localCount);
+            }
+            free((void *) message->domain);
+            free((void *) message->receiver);
+            free((void *) message->receiverHost);
+            goto end;
+          }
+          
+          /* run callbacks for this message */
+          if ( (err = cMsgWakeGets(domainId, message)) != CMSG_OK) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+              fprintf(stderr, "clientThread %d: too many messages cued up\n", localCount);
+            }
+            goto end;
+          }
+          
+          /* send back ok */
+          ok = htonl(CMSG_OK);
+          if (cMsgTcpWrite(connfd, (void *) &ok, sizeof(ok)) != sizeof(ok)) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+              fprintf(stderr, "clientThread %d: write failure\n", localCount);
+            }
+            goto end;
+          }        
+      }
+      break;
+
       case  CMSG_KEEP_ALIVE:
       {
         int alive;
@@ -489,6 +603,7 @@ static void *clientThread(void *arg)
   
     /* quit thread */
     pthread_exit(NULL);
+    return NULL;
 }
 
 #ifdef __cplusplus
