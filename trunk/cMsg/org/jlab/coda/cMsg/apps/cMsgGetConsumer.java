@@ -105,18 +105,15 @@ public class cMsgGetConsumer {
      * This method is executed as a thread.
      */
     public void run() throws cMsgException {
-        //String subject = "responder", type = "TYPE";
-        String subject = "SUBJECT", type = "TYPE";
+        String subject = "responder", type = "TYPE";
+        //String subject = "SUBJECT", type = "TYPE";
 
         System.out.println("Running Message GET Consumer\n");
 
         String UDL = "cMsg:cMsg://aslan:3456/cMsg";
 
-        System.out.print("Try to connect ...");
         cMsg coda = new cMsg(UDL, name, "getConsumer");
-        System.out.println(" done");
-
-        System.out.println("Enable message receiving");
+        coda.connect();
         coda.start();
 
         double freq=0., freqAvg=0., freqTotal=0.;
@@ -126,8 +123,7 @@ public class cMsgGetConsumer {
         cMsgMessage sendMsg = new cMsgMessage();
         sendMsg.setSubject(subject);
         sendMsg.setType(type);
-        //sendMsg.setGetRequest(true);
-
+        sendMsg.setGetRequest(true);
 
         while (true) {
             count = 0;

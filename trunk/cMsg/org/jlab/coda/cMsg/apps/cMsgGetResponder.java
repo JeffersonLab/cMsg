@@ -95,6 +95,7 @@ public class cMsgGetResponder {
 
         System.out.print("Try to connect ...");
         coda = new cMsg(UDL, name, "getResponder");
+        coda.connect();
         System.out.println(" done");
 
         System.out.println("Enable message receiving");
