@@ -85,6 +85,9 @@ public class cMsgConsumer2CBs {
 
         public boolean mustSerializeMessages() {return false;}
 
+        public int getMaximumCueSize() {return 60000;}
+
+        public int getSkipSize() {return 10000;}
      }
 
 
@@ -104,6 +107,9 @@ public class cMsgConsumer2CBs {
 
         public boolean mustSerializeMessages() {return false;}
 
+        public int getMaximumCueSize() {return 60000;}
+
+        public int getSkipSize() {return 10000;}
      }
 
 

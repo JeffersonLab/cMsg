@@ -120,6 +120,10 @@ public class cMsgLogger {
         public boolean maySkipMessages() {return false;}
 
         public boolean mustSerializeMessages() {return false;}
+        
+        public int getMaximumCueSize() {return 60000;}
+
+        public int getSkipSize() {return 10000;}
     }
 
 

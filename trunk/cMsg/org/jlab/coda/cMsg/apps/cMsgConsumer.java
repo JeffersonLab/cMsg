@@ -86,6 +86,10 @@ public class cMsgConsumer {
 
         public boolean mustSerializeMessages() {return true;}
 
+        public int getMaximumCueSize() {return 60000;}
+
+        public int getSkipSize() {return 10000;}
+
      }
 
 
