@@ -30,8 +30,8 @@
 
 #include "errors.h"
 #include "cMsgNetwork.h"
-#include "cMsg.h"
 #include "cMsgPrivate.h"
+#include "cMsgBase.h"
 #include "cMsgDomain.h"
 
 /**

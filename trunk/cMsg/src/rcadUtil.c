@@ -54,8 +54,8 @@
 #include <sys/filio.h>
 #endif
 
-#include "cMsg.h"
 #include "cMsgPrivate.h"
+#include "cMsgBase.h"
 #include "rcAgentDomain.h"
 
 

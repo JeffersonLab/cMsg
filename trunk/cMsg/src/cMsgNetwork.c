@@ -54,7 +54,7 @@
 
 #include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
-#include "cMsg.h"
+#include "cMsgBase.h"
 
 /* set the debug level here */
 /* static int cMsgDebug = CMSG_DEBUG_INFO; */
