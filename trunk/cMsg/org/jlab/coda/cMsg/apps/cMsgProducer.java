@@ -2,7 +2,7 @@ package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessage;
-import org.jlab.coda.cMsg.cMsg.cMsg;
+import org.jlab.coda.cMsg.cMsgDomain.cMsg;
 
 /**
  * Created by IntelliJ IDEA.
@@ -128,6 +128,8 @@ public class cMsgProducer {
                     }
                     if (j++ > 1000000) j = 0;
                 }
+                //try {Thread.sleep(1000);}
+                //catch (InterruptedException e) {}
                 coda.send(msg);
             }
             t2 = System.currentTimeMillis();

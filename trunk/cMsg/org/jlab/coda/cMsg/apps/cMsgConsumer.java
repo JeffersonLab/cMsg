@@ -4,7 +4,7 @@ import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgCallback;
 import org.jlab.coda.cMsg.cMsgCallbackImpl;
-import org.jlab.coda.cMsg.cMsg.cMsg;
+import org.jlab.coda.cMsg.cMsgDomain.cMsg;
 
 /**
  * Created by IntelliJ IDEA.
@@ -78,17 +78,17 @@ public class cMsgConsumer {
          *                   message.
          */
         public void callback(cMsgMessage msg, Object userObject) {
-            try { Thread.sleep(1); }
-            catch (InterruptedException e) {}
+            //try { Thread.sleep(1); }
+            //catch (InterruptedException e) {}
             count++;
         }
 
         public boolean maySkipMessages() {
-            return true;
+            return false;
         }
 
         public boolean mustSerializeMessages() {
-            return false;
+            return true;
         }
 
         public int  getMaximumThreads() {
@@ -140,8 +140,8 @@ public class cMsgConsumer {
 
             if (!coda.isConnected()) {
                 System.out.println("No longer connected to domain server, quitting");
-                try { Thread.sleep(20000); }
-                catch (InterruptedException e) {}
+                //try { Thread.sleep(20000); }
+                //catch (InterruptedException e) {}
                 System.exit(-1);
             }
         }
