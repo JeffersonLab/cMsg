@@ -287,6 +287,8 @@ public class cMsg extends cMsgSubdomainAbstract {
         HashSet subscriptions, gets;
         boolean haveMatch;
 
+        if (message == null) return;
+
         infoList.clear();
         rsIdLists.clear();
 
