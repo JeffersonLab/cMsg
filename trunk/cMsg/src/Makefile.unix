@@ -62,7 +62,7 @@ OBJS =  rwlock.o \
 HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h cMsgDomain.h rwlock.h errors.h
 #HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h cMsgDomain.h rwlock.h errors.h rcAgentDomain.h
 
-PROGS   = producer consumer getConsumer getResponder cMsgTest
+PROGS   = producer consumer getConsumer getResponder shutdowner
 PROGSXX =
 
 all: $(CMSG_LIBS) $(CMSG_LIBSXX) $(PROGS) $(PROGSXX)
