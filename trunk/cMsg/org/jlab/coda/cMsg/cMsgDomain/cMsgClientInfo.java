@@ -18,6 +18,8 @@ package org.jlab.coda.cMsg.cMsgDomain;
 
 import java.lang.*;
 import java.util.*;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.Lock;
 import java.nio.channels.SocketChannel;
 
 /**
@@ -55,10 +57,18 @@ public class cMsgClientInfo {
     HashSet gets = new HashSet(20);
 
     /**
-     * List of all receiverSubscribeIds that match a message
-     * being sent to this client from the server.
+     * This lock is for controlling access to the {@link #subscriptions} and
+     * {@link #gets} hashsets. It is inherently more flexible than synchronizing
+     * code, as most accesses of the hashsets are only reads. Using a readwrite
+     * lock will prevent the mutual exclusion guaranteed by using synchronization.
      */
-    ArrayList ids = new ArrayList(20);
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+
+    /** Read lock for {@link #subscriptions} and {@link #gets} hashmaps. */
+    private Lock readLock = lock.readLock();
+
+    /** Write lock for {@link #subscriptions} and {@link #gets} hashmaps. */
+    private Lock writeLock = lock.writeLock();
 
 
     /** No arg constructor. */
@@ -106,15 +116,6 @@ public class cMsgClientInfo {
      */
     public HashSet getGets() {
         return gets;
-    }
-
-    /**
-     * Gets ArrayList collection of all receiverSubscribeIds that
-     * match a message being sent to this client from the server.
-     * @return ArrayList of all message-matching receiverSubscribeIds
-     */
-    public ArrayList getIds() {
-        return ids;
     }
 
     /**
@@ -189,5 +190,22 @@ public class cMsgClientInfo {
     public String getUDLRemainder() {
         return UDLRemainder;
     }
+
+    /**
+     * Lock for reading {@link #subscriptions} and {@link #gets} hashmaps.
+     * @return reading lock object
+     */
+    public Lock getReadLock() {
+        return readLock;
+    }
+
+    /**
+     * Lock for writing to {@link #subscriptions} and {@link #gets} hashmaps.
+     * @return writing lock object
+     */
+    public Lock getWriteLock() {
+        return writeLock;
+    }
+
 }
 
