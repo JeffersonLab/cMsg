@@ -50,55 +50,65 @@ public class File extends cMsgAdapter {
 
     /**
      * Constructor for File domain.
-     *
+     * <p/>
      * Default is to print entire message to file.
      * set textOnly=true in UDL to only print timestamp and message text.
      *
-     * @param UDL Uniform Domain Locator holds file name
-     * @param name does not need to be unique
-     * @param description description of this client
      * @throws cMsgException if domain in not implemented or there are problems
      */
-    public File(String UDL, String name, String description) throws cMsgException {
+    public File() throws cMsgException {
 
-	Pattern p;
-	Matcher m;
-	String remainder = null;
-
-	// save params
-        this.UDL         = UDL;
-        this.name        = name;
-        this.description = description;
-
-	try {
-	    this.host = InetAddress.getLocalHost().getHostName();
-	} catch (UnknownHostException e) {
-	    System.err.println(e);
-	    this.host="unknown";
-	}
+        try {
+            this.host = InetAddress.getLocalHost().getHostName();
+        }
+        catch (UnknownHostException e) {
+            System.err.println(e);
+            this.host = "unknown";
+        }
+    }
 
 
-	// parse file name
-	p = Pattern.compile("^\\s*(cMsg:)?File://(.+)$",Pattern.CASE_INSENSITIVE);
-	int ind = UDL.indexOf('?');
-	if(ind<=0) {
-	    domain = UDL;
-	} else {
-	    domain    = UDL.substring(0,ind);
-	    remainder = UDL.substring(ind+1);
-	}
-	m = p.matcher(domain);
-	m.find();
-	myFileName = m.group(2);
-	
+//-----------------------------------------------------------------------------
 
-	// parse remainder
-	if(remainder!=null) {
-	    p = Pattern.compile("textOnly=(\\w+)",Pattern.CASE_INSENSITIVE);
-	    m = p.matcher(remainder);
-	    m.find();
-	    textOnly = m.group(1).equals("true");
-	}
+
+    /**
+     * Method to parse the domain-specific portion of the Universal Domain Locator
+     * (UDL) into its various components.
+     *
+     * @throws cMsgException if UDL is null, or no host given in UDL
+     */
+    private void parseUDL() throws cMsgException {
+
+        Pattern p;
+        Matcher m;
+        String remainder = null;
+
+        if (UDLremainder == null) {
+            throw new cMsgException("invalid UDL");
+        }
+
+        // parse file name
+        p = Pattern.compile("^\\s*(.+)$", Pattern.CASE_INSENSITIVE);
+        int ind = UDLremainder.indexOf('?');
+        if (ind <= 0) {
+            domain = UDLremainder;
+        }
+        else {
+            domain = UDLremainder.substring(0, ind);
+            remainder = UDLremainder.substring(ind + 1);
+        }
+        m = p.matcher(domain);
+        m.find();
+        myFileName = m.group(1);
+
+
+        // parse remainder
+        if (remainder != null) {
+            p = Pattern.compile("textOnly=(\\w+)", Pattern.CASE_INSENSITIVE);
+            m = p.matcher(remainder);
+            m.find();
+            textOnly = m.group(1).equals("true");
+        }
     }
 
 
@@ -112,16 +122,19 @@ public class File extends cMsgAdapter {
      */
     public void connect() throws cMsgException {
 
-	try{
-	    myPrintHandle = new PrintWriter(new BufferedWriter(new FileWriter(myFileName, true)));
-	    myPrintHandle.println("<cMsgFile  name=\"" + myFileName + "\"" + "  date=\"" + (new Date()) + "\">\n\n");
-	} catch (IOException e) {
-	    System.out.println(e);
-	    e.printStackTrace();
-	    cMsgException ce = new cMsgException("connect: unable to open file");
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
+        parseUDL();
+
+        try {
+            myPrintHandle = new PrintWriter(new BufferedWriter(new FileWriter(myFileName, true)));
+            myPrintHandle.println("<cMsgFile  name=\"" + myFileName + "\"" + "  date=\"" + (new Date()) + "\">\n\n");
+        }
+        catch (IOException e) {
+            System.out.println(e);
+            e.printStackTrace();
+            cMsgException ce = new cMsgException("connect: unable to open file");
+            ce.setReturnCode(1);
+            throw ce;
+        }
     }
 
 
@@ -133,10 +146,10 @@ public class File extends cMsgAdapter {
      *
      */
     public void disconnect() {
-	
-	myPrintHandle.println("\n\n</cMsgFile>\n");
-	myPrintHandle.println("\n\n<!--===========================================================================================-->\n\n\n");
-	myPrintHandle.close();
+
+        myPrintHandle.println("\n\n</cMsgFile>\n");
+        myPrintHandle.println("\n\n<!--===========================================================================================-->\n\n\n");
+        myPrintHandle.close();
     }
 
 
@@ -146,23 +159,24 @@ public class File extends cMsgAdapter {
     /**
      * Writes to file.
      *
-     * @param message message to send
+     * @param msg message to send
      * @throws cMsgException (not thrown)
      */
     public void send(cMsgMessage msg) throws cMsgException {
-	Date now = new Date();
-	if(textOnly) {
-	    myPrintHandle.println(now + ":    " + msg.getText());
-	} else {
-	    msg.setDomain(domain);
-	    msg.setSender(name);
-	    msg.setSenderHost(host);
-	    msg.setSenderTime(now);
-	    msg.setReceiver(domain);
-	    msg.setReceiverTime(now);
-	    msg.setReceiverHost(host);
-	    myPrintHandle.println(msg);
-	}
+        Date now = new Date();
+        if (textOnly) {
+            myPrintHandle.println(now + ":    " + msg.getText());
+        }
+        else {
+            msg.setDomain(domain);
+            msg.setSender(name);
+            msg.setSenderHost(host);
+            msg.setSenderTime(now);
+            msg.setReceiver(domain);
+            msg.setReceiverTime(now);
+            msg.setReceiverHost(host);
+            myPrintHandle.println(msg);
+        }
     }
 
 
@@ -177,8 +191,8 @@ public class File extends cMsgAdapter {
      * @throws cMsgException
      */
     public int syncSend(cMsgMessage message) throws cMsgException {
-	send(message);
-	return(0);
+        send(message);
+        return (0);
     }
 
 
@@ -189,7 +203,7 @@ public class File extends cMsgAdapter {
      * Flushes output.
      */
     public void flush() {
-	myPrintHandle.flush();
+        myPrintHandle.flush();
         return;
     }
 

@@ -133,9 +133,9 @@ public class cMsgLogger {
         decode_command_line(args, logger);
 
         // connect to cMsg server
-        cMsg cmsg = null;
+        cMsgConnect cmsg = null;
         try {
-            cmsg = new cMsg(logger.domain, logger.name, logger.description);
+            cmsg = new cMsgConnect(logger.domain, logger.name, logger.description);
         }
         catch (cMsgException e) {
             e.printStackTrace();
@@ -202,7 +202,13 @@ public class cMsgLogger {
         }
         catch (SQLException e) {
         }
-        cmsg.disconnect();
+
+        try {
+            cmsg.disconnect();
+        }
+        catch (cMsgException e) {
+        }
+
         System.exit(0);
 
     }  // main

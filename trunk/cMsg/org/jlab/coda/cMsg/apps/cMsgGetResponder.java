@@ -1,9 +1,6 @@
 package org.jlab.coda.cMsg.apps;
 
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgCallbackAdapter;
-import org.jlab.coda.cMsg.cMsgMessage;
-import org.jlab.coda.cMsg.cMsgCallback;
+import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgDomain.cMsg;
 
 import java.util.Date;
@@ -18,7 +15,7 @@ import java.util.Date;
 public class cMsgGetResponder {
     String name;
     long count;
-    cMsg coda;
+    cMsgConnect coda;
 
     cMsgGetResponder(String name) {
         this.name = name;
@@ -94,7 +91,7 @@ public class cMsgGetResponder {
         String UDL = "cMsg:cMsg://aslan:3456/cMsg";
 
         System.out.print("Try to connect ...");
-        coda = new cMsg(UDL, name, "getResponder");
+        coda = new cMsgConnect(UDL, name, "getResponder");
         coda.connect();
         System.out.println(" done");
 
