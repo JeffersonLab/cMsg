@@ -152,6 +152,16 @@ public interface cMsgHandleRequests {
 
 
     /**
+     * Method to tell if the "syncSend" cMsg API function is implemented
+     * by this interface implementation in the {@link #handleSyncSendRequest}
+     * method.
+     *
+     * @return true if send implemented in {@link #handleSyncSendRequest}
+     */
+    public boolean hasSyncSend();
+
+
+    /**
      * Method to tell if the "get" cMsg API function is implemented
      * by this interface implementation in the {@link #handleGetRequest}
      * method.

@@ -533,7 +533,7 @@ public class cMsg extends cMsgImpl {
             throw new cMsgException("not connected to server");
         }
 
-        if (!hasSend) {
+        if (!hasSubscribe) {
             throw new cMsgException("subscribe is not implemented by this subdomain");
         }
 
@@ -635,7 +635,7 @@ public class cMsg extends cMsgImpl {
             throw new cMsgException("not connected to server");
         }
 
-        if (!hasSend) {
+        if (!hasUnsubscribe) {
             throw new cMsgException("unsubscribe is not implemented by this subdomain");
         }
 
@@ -792,10 +792,11 @@ public class cMsg extends cMsgImpl {
         //   2) domain server host & port
 
         // Read attributes
-        cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
+        cMsgUtilities.readSocketBytes(buffer, channel, 5, debug);
         buffer.flip();
 
         hasSend        = (buffer.get() == (byte)1) ? true : false;
+        hasSyncSend    = (buffer.get() == (byte)1) ? true : false;
         hasGet         = (buffer.get() == (byte)1) ? true : false;
         hasSubscribe   = (buffer.get() == (byte)1) ? true : false;
         hasUnsubscribe = (buffer.get() == (byte)1) ? true : false;
