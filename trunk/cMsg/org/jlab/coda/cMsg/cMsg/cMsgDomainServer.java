@@ -479,7 +479,7 @@ public class cMsgDomainServer extends Thread {
 
         // fill in message object's members
         msg.setDomain(domainType);
-        msg.setReceiver("CODA domain server");
+        msg.setReceiver("cMsg domain server");
         msg.setReceiverHost(host);
         msg.setReceiverTime(new Date()); // current time
         msg.setSender(info.name);
