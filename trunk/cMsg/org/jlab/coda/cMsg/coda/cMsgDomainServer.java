@@ -217,9 +217,6 @@ public class cMsgDomainServer extends Thread {
                     // is there data to read on this channel?
                     if (key.isValid() && key.isReadable()) {
                         SocketChannel channel = (SocketChannel) key.channel();
-                        if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("cMsgDomainServer: request from " + info.clientName);
-                        }
                         handleClient(channel);
                     }
 
@@ -230,7 +227,7 @@ public class cMsgDomainServer extends Thread {
         }
         catch (IOException ex) {
             if (debug >= cMsgConstants.debugError) {
-                ex.printStackTrace();
+                //ex.printStackTrace();
             }
         }
 
@@ -268,7 +265,7 @@ public class cMsgDomainServer extends Thread {
                 case cMsgConstants.msgSendRequest: // receiving a message
                     // read the message here
                     if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("handleClient: got send request from " + info.clientName);
+                        System.out.println("dServer handleClient: got send request from " + info.clientName);
                     }
                     cMsgMessage msg = readIncomingMessage(channel);
                     clientHandler.handleSendRequest(info.clientName, msg);
@@ -277,7 +274,7 @@ public class cMsgDomainServer extends Thread {
                 case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
                     // read the subject and type here
                     if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("handleClient: got subscribe request from " + info.clientName);
+                        System.out.println("dServer handleClient: got subscribe request from " + info.clientName);
                     }
                     readSubscribeInfo(channel);
                     clientHandler.handleSubscribeRequest(info.clientName, subject, type,
@@ -287,7 +284,7 @@ public class cMsgDomainServer extends Thread {
                 case cMsgConstants.msgUnsubscribeRequest: // unsubscribing to a subject & type
                     // read the subject and type here
                     if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("handleClient: got unsubscribe request from " + info.clientName);
+                        System.out.println("dServer handleClient: got unsubscribe request from " + info.clientName);
                     }
                     readUnsubscribeInfo(channel);
                     clientHandler.handleUnsubscribeRequest(info.clientName, subject, type);
@@ -295,7 +292,7 @@ public class cMsgDomainServer extends Thread {
 
                 case cMsgConstants.msgKeepAlive: // see if this end is still here
                     if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("handleClient: got keep alive from " + info.clientName);
+                        System.out.println("dServer handleClient: got keep alive from " + info.clientName);
                     }
                     // send ok back as acknowledgment
                     buffer.clear();
@@ -308,7 +305,7 @@ public class cMsgDomainServer extends Thread {
 
                 case cMsgConstants.msgDisconnectRequest: // client disconnecting
                     if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("handleClient: got disconnect from " + info.clientName);
+                        System.out.println("dServer handleClient: got disconnect from " + info.clientName);
                     }
                     // send ok back as acknowledgment
                     buffer.clear();
@@ -340,7 +337,7 @@ public class cMsgDomainServer extends Thread {
 
                 default:
                     if (debug >= cMsgConstants.debugWarn) {
-                        System.out.println("handleClient: can't understand your message " + info.clientName);
+                        System.out.println("dServer handleClient: can't understand your message " + info.clientName);
                     }
                     break;
             }
@@ -350,7 +347,7 @@ public class cMsgDomainServer extends Thread {
         catch (IOException e) {
             //e.printStackTrace();
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("handleClient: I/O ERROR in cMsg client");
+                System.out.println("dServer handleClient: I/O ERROR in cMsg client");
             }
             try {channel.close();}
             catch (IOException e1) {
@@ -358,9 +355,9 @@ public class cMsgDomainServer extends Thread {
             }
         }
         catch (cMsgException e) {
-            //e.printStackTrace();
+            e.printStackTrace();
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("handleClient: cMsg ERROR in cMsg client");
+                System.out.println("dServer handleClient: cMsg ERROR in cMsg client");
             }
             try {channel.close();}
             catch (IOException e1) {

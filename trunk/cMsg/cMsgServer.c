@@ -68,7 +68,8 @@ static void  cleanUpHandler(void *arg);
 #define CMSG_CLIENTSMAX 1000
 
 
-static int domainId ;
+static int counter = 1;
+static int domainId;
 static cMsgDomain_CODA *domain;
 
 
@@ -261,6 +262,9 @@ fprintf(stderr, "cMsgClientListeningThread: tell folks we're running\n");
     }
 
     /* create thread to deal with client */
+    if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "cMsgClientListeningThread: accepting client connection\n");
+    }
     
     /* if there's room to store thread info ... */
     if (index > -1) {
@@ -292,7 +296,7 @@ fprintf(stderr, "cMsgClientListeningThread: tell folks we're running\n");
 static void *clientThread(void *arg)
 {
   int  msgId, err, connfd, endian, length=0;
-  int  outgoing[2], incoming[2];
+  int  outgoing[2], incoming[2], localCount;
   char host[CMSG_MAXHOSTNAMELEN+1];
   unsigned short port;
   struct timeval timeout;
@@ -328,6 +332,8 @@ static void *clientThread(void *arg)
     }
     return;
   }
+  
+  localCount = counter++;
 
   /* the command loop */
   while (1) {
@@ -346,7 +352,6 @@ static void *clientThread(void *arg)
     }
     msgId = ntohl(msgId);
 
-
     switch (msgId) {
 
       case CMSG_SUBSCRIBE_RESPONSE:
@@ -355,7 +360,7 @@ static void *clientThread(void *arg)
           message = (cMsgMessage *) malloc(sizeof(cMsgMessage));
           
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "clientThread: subscribe response received\n");
+            fprintf(stderr, "clientThread %d: subscribe response received\n", localCount);
           }
           
           /* fill in known message fields */
@@ -377,7 +382,7 @@ static void *clientThread(void *arg)
           
           /* run callbacks for this message */
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
-              fprintf(stderr, "  clientThread: will run callbacks, msgId = \n", msgId);
+              fprintf(stderr, "  clientThread %d: will run callbacks, msgId = \n",localCount, msgId);
           }
           cMsgRunCallbacks(domain, msgId, message);
       }
@@ -388,7 +393,7 @@ static void *clientThread(void *arg)
         int alive;
         
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          fprintf(stderr, "clientThread: keep alive received\n");
+          fprintf(stderr, "clientThread %d: keep alive received\n", localCount);
         }
         
         /* read an int */
@@ -406,12 +411,7 @@ static void *clientThread(void *arg)
             fprintf(stderr, "clientThread: write failure\n");
           }
           goto end;
-        }
-
-        if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          fprintf(stderr, "clientThread: sent keep alive ok to server\n");
-        }
-        
+        }        
       }
       break;
 
@@ -423,6 +423,12 @@ static void *clientThread(void *arg)
         goto end;
       }
       break;
+      
+      default:
+         if (cMsgDebug >= CMSG_DEBUG_INFO) {
+          fprintf(stderr, "clientThread %d: given nonsense message (%d)\n", localCount, msgId);
+        }
+     
     }
 
   } /* while(1) - command loop */
