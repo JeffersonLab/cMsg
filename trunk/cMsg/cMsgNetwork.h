@@ -70,19 +70,12 @@ extern "C" {
  */
 #define CMSG_MAXHOSTNAMELEN 256
 
-#define CMSG_SERVER_PORT 2345
+#define CMSG_CLIENT_LISTENING_PORT 2345
 #define CMSG_MESSAGE_SIZE 1500
 
 /* socket and/or thread blocking options */
 #define CMSG_BLOCKING    0
 #define CMSG_NONBLOCKING 1
-
-/* debug levels */
-#define CMSG_DEBUG_NONE   0
-#define CMSG_DEBUG_SEVERE 1
-#define CMSG_DEBUG_ERROR  2
-#define CMSG_DEBUG_WARN   3
-#define CMSG_DEBUG_INFO   4
 
 /* endian values */
 #define CMSG_ENDIAN_BIG      0	/* big endian */
