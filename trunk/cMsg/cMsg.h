@@ -130,7 +130,7 @@
  *
  *
  *
- * int cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId)
+ * int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId)
  *
  *   Called once to connect to a domain.  myName must be unique within the domain.  
  *   myDesctiption is an arbitrary string.  If successful, fills domainId, required
@@ -270,7 +270,7 @@ extern "C" {
 
 
   /* basic functions */
-  int 	cMsgConnect(char *myDomain, char *myName, char *myDescription, int *domainId);
+  int 	cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId);
   int 	cMsgSend(int domainId, cMsgMessage *msg);
   int 	cMsgFlush(int domainId);
   int 	cMsgSubscribe(int domainId, char *subject, char *type, cMsgCallback *callback, void *userArg);
