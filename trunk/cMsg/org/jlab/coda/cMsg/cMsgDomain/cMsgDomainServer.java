@@ -22,6 +22,7 @@ import java.lang.*;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.nio.channels.Selector;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
@@ -51,7 +52,7 @@ public class cMsgDomainServer extends Thread {
     private String host;
 
     /** Keep reference to cMsg name server which created this object. */
-    cMsgHandleRequests clientHandler;
+    private cMsgHandleRequests clientHandler;
 
     /** Level of debug output for this class. */
     private int debug = cMsgConstants.debugNone;
@@ -61,10 +62,10 @@ public class cMsgDomainServer extends Thread {
      * Certain members of info can only be filled in by this thread,
      * such as the listening port & host.
      */
-    cMsgClientInfo info;
+    private cMsgClientInfo info;
 
     /** Server channel (contains socket). */
-    ServerSocketChannel serverChannel;
+    private ServerSocketChannel serverChannel;
 
     /**
      * Thread-safe queue to hold cMsgHolder objects.
@@ -79,15 +80,19 @@ public class cMsgDomainServer extends Thread {
     private int[] inComing = new int[10];
 
     /** Allocate byte array once (used for reading in data) for efficiency's sake. */
-    byte[] bytes = new byte[5000];
+    private byte[] bytes = new byte[5000];
 
-    static final int tempThreadsMax = 100;
-    static final int permanentThreads = 3;
+    /** Maximum number of temporary threads allowed. */
+    private static final int tempThreadsMax = 100;
 
-    int tempThreads;
+    /** Number of permanent threads. */
+    private static final int permanentThreads = 3;
+
+    /** Current number of temporary threads. */
+    private AtomicInteger tempThreads = new AtomicInteger();
 
     /** Tell the server to kill this and all spawned threads. */
-    boolean killAllThreads;
+    private volatile boolean killAllThreads;
 
     /** Kill this and all spawned threads. */
     public void killAllThreads() {
@@ -391,7 +396,7 @@ public class cMsgDomainServer extends Thread {
         }
 
         // if the cue is getting large, add temp threads to handle the load
-        if (requestCue.size() > 2000 && tempThreads++ < tempThreadsMax) {
+        if (requestCue.size() > 2000 && tempThreads.get() < tempThreadsMax) {
             new RequestThread();
         }
 
@@ -649,7 +654,7 @@ public class cMsgDomainServer extends Thread {
         /** Self-starting constructor. */
         RequestThread() {
             this.permanent = false;
-            //temp++;
+            tempThreads.getAndIncrement();
             //System.out.println(temp +" temp");
             this.start();
         }
@@ -657,8 +662,6 @@ public class cMsgDomainServer extends Thread {
         /** Self-starting constructor. */
         RequestThread(boolean permanent) {
             this.permanent = permanent;
-            //perm++;
-            //System.out.println(perm + " perm");
             this.start();
         }
 
@@ -671,6 +674,7 @@ public class cMsgDomainServer extends Thread {
             int answer;
 
             while (true) {
+                if (killAllThreads) return;
                 // if this is a permanent thread, we can block on a request
                 if (permanent) {
                     try {holder = requestCue.take();}
@@ -681,8 +685,8 @@ public class cMsgDomainServer extends Thread {
                     try {holder = requestCue.poll(1, TimeUnit.SECONDS);}
                     catch (InterruptedException e) {}
                     if (holder == null) {
-                        //temp--;
-                        //System.out.println(temp +" temp Q");
+                        tempThreads.getAndDecrement();
+                        //System.out.println(temp +" temp");
                         return;
                     }
                 }
