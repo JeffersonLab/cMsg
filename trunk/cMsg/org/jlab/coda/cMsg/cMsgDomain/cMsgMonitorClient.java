@@ -126,7 +126,7 @@ public class cMsgMonitorClient extends Thread {
                 try {
                     if (!domainServer.calledShutdown) {
                         domainServer.calledShutdown = true;
-                        domainServer.getClientHandler().handleClientShutdown();
+                        domainServer.getSubdomainHandler().handleClientShutdown();
                     }
                 }
                 catch (cMsgException e1) {}
@@ -152,7 +152,7 @@ public class cMsgMonitorClient extends Thread {
                 try {
                     if (!domainServer.calledShutdown) {
                         domainServer.calledShutdown = true;
-                        domainServer.getClientHandler().handleClientShutdown();
+                        domainServer.getSubdomainHandler().handleClientShutdown();
                     }
                 }
                 catch (cMsgException e1) {}

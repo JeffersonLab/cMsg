@@ -161,7 +161,7 @@ public class cMsgNameServer extends Thread {
         cMsgDomainServer server;
         for (Iterator i = domainServers.keySet().iterator(); i.hasNext(); ) {
             server = (cMsgDomainServer)i.next();
-            server.getClientHandler().handleServerShutdown();
+            server.getSubdomainHandler().handleServerShutdown();
         }
         System.out.println("\nFINALIZE NAME SERVER!!!\n");
     }
@@ -268,13 +268,13 @@ public class cMsgNameServer extends Thread {
      * @throws cMsgException If a domain server could not be started for the client
      */
     synchronized public cMsgSubdomainInterface registerClient(cMsgClientInfo info) throws cMsgException {
-        cMsgSubdomainInterface clientHandler = createClientHandler(info.getSubdomain(),
-                                                               info.getUDLremainder());
-        // If clientHandler is a subclass of cMsgHandlerRequestAbstract, it has methods
+        cMsgSubdomainInterface subdomainHandler = createClientHandler(info.getSubdomain(),
+                                                                      info.getUDLremainder());
+        // If subdomainHandler is a subclass of cMsgSubdomainAbstract, it has methods
         // to connect to the client, so do it now. The socket channel is stored in "info".
-        if (clientHandler instanceof cMsgSubdomainAbstract) {
+        if (subdomainHandler instanceof cMsgSubdomainAbstract) {
             try {
-                ((cMsgSubdomainAbstract)clientHandler).createChannel(info);
+                ((cMsgSubdomainAbstract)subdomainHandler).createChannel(info);
             }
             catch (IOException e) {
                 cMsgException ex = new cMsgException("socket communication error");
@@ -284,17 +284,17 @@ public class cMsgNameServer extends Thread {
         }
 
         // pass registration on to handler object
-        clientHandler.registerClient(info);
+        subdomainHandler.registerClient(info);
 
         // Create a domain server thread, and get back its host & port
-        cMsgDomainServer server = new cMsgDomainServer(clientHandler, info,
-                                                       cMsgNetworkConstants.domainServerStartingPort);
+        cMsgDomainServer server = new cMsgDomainServer(subdomainHandler, info,
+                                                         cMsgNetworkConstants.domainServerStartingPort);
         // kill this thread too if name server thread quits
         server.setDaemon(true);
         server.start();
         domainServers.put(server, null);
 
-        return clientHandler;
+        return subdomainHandler;
     }
 
 
