@@ -124,9 +124,9 @@ public class cMsgCallbackThread extends Thread {
             if (size%1000 == 0) {
                 //System.out.println(size+"");
             }
-            if (size > 60000) {
+            if (size > callback.getMaximumCueSize()) {
                 if (callback.maySkipMessages()) {
-                    messageList.subList(0, size-10000).clear();
+                    messageList.subList(0, size - callback.getSkipSize()).clear();
                 }
                 else {
                     throw new cMsgException("too many messages for callback to handle");
@@ -144,7 +144,7 @@ public class cMsgCallbackThread extends Thread {
 
     /** This method is executed as a thread which runs the callback method */
     public void run() {
-        cMsgMessage message;
+        cMsgMessage message, msgCopy;
         SupplementalThread thd;
         int threadsAdded;
 
@@ -204,7 +204,12 @@ public class cMsgCallbackThread extends Thread {
             }
 
             if (message != null) {
-                callback.callback(message, arg);
+                // first copy the msg so multiple callback don't clobber each other
+                msgCopy = message.copy();
+
+                // run callback method
+                callback.callback(msgCopy, arg);
+
                 /*
                 num = Integer.parseInt(message.getText());
                 if (num % 2 > 0) {
