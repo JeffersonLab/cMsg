@@ -32,18 +32,20 @@ OBJS =  cMsgNetwork.o \
 
 HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h cMsg_CODA.h
 
-PROGS = client
+PROGS = client client2
 
 all: $(CMSG_LIBS) $(PROGS)
 
 java:
 	cd ./org/jlab/coda/cMsg; make;
 	cd ./org/jlab/coda/cMsg/coda; make;
+	cd ./org/jlab/coda/cMsg/apps; make;
 	cd ./;
 
 doc:
 	$(JAVAD) -package org.jlab.coda.cMsg
 	$(JAVAD) -package org.jlab.coda.cMsg.coda
+	$(JAVAD) -package org.jlab.coda.cMsg.apps
 
 install: install-lib install-inc install-bin
 
@@ -87,6 +89,7 @@ clean:
 jclean: 
 	cd ./org/jlab/coda/cMsg; make clean;
 	cd ./org/jlab/coda/cMsg/coda; make clean;
+	cd ./org/jlab/coda/cMsg/apps; make clean;
 
 # SUFFIX RULES
 
