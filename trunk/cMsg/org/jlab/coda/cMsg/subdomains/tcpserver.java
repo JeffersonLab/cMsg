@@ -28,6 +28,9 @@ import org.jlab.coda.cMsg.cMsgSubdomainAdapter;
 
 import java.io.*;
 import java.nio.ByteBuffer;
+import java.net.*;
+import java.net.Socket;
+
 
 
 //-----------------------------------------------------------------------------
@@ -46,17 +49,24 @@ public class tcpserver extends cMsgSubdomainAdapter{
     /** registration params. */
     private cMsgClientInfo myClientInfo;
 
+
     /** direct buffer needed for nio socket IO. */
     private ByteBuffer myBuffer = ByteBuffer.allocateDirect(2048);
+
 
     /** UDL remainder. */
     private String myUDLRemainder;
 
-    /** default tcpserver port. */
-    private int defaultTcpServerPort = 12345;
 
-    // tcpserver connection handle
-    private int tcpServerHandle = 0;
+    // for tcpserver connection
+    private String mySrvHost            = null;
+    private int mySrvPort               = 5001;   // default port
+    private static final int srvFlag    = 1;      // special flag
+
+
+    // misc
+    private String myName               = "tcpserver";
+    private String myHost               = null;
 
 
 //-----------------------------------------------------------------------------
@@ -102,38 +112,35 @@ public class tcpserver extends cMsgSubdomainAdapter{
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
 
-        String srv     = null;
-        String srvHost = null;
-        int srvPort    = 0;
-
 
         // save client info
         myClientInfo = info;
 
 
         // extract tcpserver host and port from UDL remainder
+        String s;
         int ind = myUDLRemainder.indexOf("?");
         if(ind>0) {
-            srv=myUDLRemainder.substring(0,ind);
+            s=myUDLRemainder.substring(0,ind);
         } else {
-            srv=myUDLRemainder;
+            s=myUDLRemainder;
         }
 
-        ind=srv.indexOf(":");
+        ind=s.indexOf(":");
         if(ind>0) {
-            srvHost=srv.substring(0,ind);
-            srvPort=Integer.parseInt(srv.substring(ind));
+            mySrvHost=s.substring(0,ind);
+            mySrvPort=Integer.parseInt(s.substring(ind));
         } else {
-            srvHost=srv;
-            srvPort=defaultTcpServerPort;
+            mySrvHost=s;
         }
 
 
-        // establish connection to server
-        if(true) {
-            cMsgException ce = new cMsgException("");
-            ce.setReturnCode(1);
-            throw ce;
+        // set host
+        try {
+            myHost = InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            System.err.println(e);
+            myHost = "unknown";
         }
 
     }
@@ -144,25 +151,84 @@ public class tcpserver extends cMsgSubdomainAdapter{
 
     /**
      * Sends text string to server to execute, returns result.
+     * Uses stateless transaction.
      */
-    public void handleSendAndGetRequest(cMsgMessageFull msg) {
+    public void handleSendAndGetRequest(cMsgMessageFull msg) throws cMsgException {
 
-        boolean null_response = false;
+        Socket socket            = null;
+        DataOutputStream request = null;
+        BufferedReader response  = null;
 
-        // extract command string from text field and send to tcpserver
-        msg.getText();
+
+        // establish connection to server
+        try {
+            socket = new Socket(mySrvHost,mySrvPort);
+            socket.setTcpNoDelay(true);
+
+            request = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+            response = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+        } catch (IOException e) {
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        }
+
+
+        // send request to server
+        try {
+            request.writeInt(srvFlag);
+            request.writeInt(msg.getText().length());
+            request.write(msg.getText().getBytes("ASCII"));
+            request.writeByte('\0');
+            request.flush();
+            socket.shutdownOutput();
+        } catch (IOException e) {
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        }
+
+
+        // get response
+        String s;
+        StringBuffer sb = new StringBuffer();
+        try {
+            while(((s=response.readLine())!=null) && (s.indexOf("value =")<0)) {
+                sb.append(s+"\n");
+            }
+        } catch (IOException e) {
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        } finally {
+            try {
+                request.close();
+                response.close();
+                socket.close();
+            } catch (Exception e) {
+            }
+        }
+
 
         // return result
         try {
-            cMsgMessageFull response = msg.response();
-            response.setText("");
-            if(null_response) {
-                deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponseIsNull);
+            cMsgMessageFull responseMsg = msg.response();
+            responseMsg.setCreator(myName);
+            responseMsg.setSubject(msg.getSubject());
+            responseMsg.setType(msg.getType());
+            responseMsg.setText(sb.toString());
+            responseMsg.setSender(myName);
+            responseMsg.setSenderHost(myHost);
+            if(msg.getText().length()<=0) {
+                deliverMessage(myClientInfo.getChannel(),myBuffer,responseMsg,null,cMsgConstants.msgGetResponseIsNull);
             } else {
-                deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponse);
+                deliverMessage(myClientInfo.getChannel(),myBuffer,responseMsg,null,cMsgConstants.msgGetResponse);
             }
-        } catch (cMsgException ce) {
         } catch (IOException e) {
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
         }
     }
 
@@ -171,13 +237,15 @@ public class tcpserver extends cMsgSubdomainAdapter{
 
 
     /**
-     * Method to handle a client shutdown.
-     *
-     * @throws cMsgException
+     * Method to handle keepalive sent by domain client checking to see
+     * if the domain server socket is still up. Normally nothing needs to
+     * be done as the domain server simply returns an "OK" to all keepalives.
+     * This method is run after all exchanges between domain server and client.
      */
-    public void handleClientShutdown() throws cMsgException {
-
+    public void handleKeepAlive() {
+        // do nothing...
     }
+
 
 
 //-----------------------------------------------------------------------------
