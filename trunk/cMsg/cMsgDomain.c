@@ -507,8 +507,8 @@ static int coda_send(int domainId, void *vmsg) {
   outGoing[4] = htonl(msg->sysMsgId);
   /* sender token */
   outGoing[5] = htonl(msg->senderToken);
-  /* is get response? */
-  outGoing[6] = htonl(msg->getResponse);
+  /* get info */
+  outGoing[6] = htonl(msg->info);
   /* time message sent (right now) */
   outGoing[7] = htonl((int) time(NULL));
   /* user time */
@@ -632,8 +632,8 @@ static int syncSend(int domainId, void *vmsg, int *response) {
   outGoing[4] = htonl(msg->sysMsgId);
   /* sender token */
   outGoing[5] = htonl(msg->senderToken);
-  /* is get response? */
-  outGoing[6] = htonl(msg->getResponse);
+  /* get info */
+  outGoing[6] = htonl(msg->info);
   /* time message sent (right now) */
   outGoing[7] = htonl((int) time(NULL));
   /* user time */
@@ -971,12 +971,7 @@ static int sendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
     connectReadUnlock();
     return(CMSG_LOST_CONNECTION);
   }
-
-  /* watch out for null text */
-  if (msg->text == NULL) {
-      msg->text = (char *)strdup("");
-  }
-  
+ 
   /*
    * Pick a unique identifier for the subject/type pair, and
    * send it to the domain server & remember it for future use
@@ -2525,7 +2520,7 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
   msg->version             = ntohl(inComing[0]);  /* major version of cMsg */
   msg->priority            = ntohl(inComing[1]);  /* priority */
   msg->userInt             = ntohl(inComing[2]);  /* user int */
-  msg->getRequest          = ntohl(inComing[3]);  /* is this a get request? */
+  msg->info                = ntohl(inComing[3]);  /* get info */
   msg->senderTime = (time_t) ntohl(inComing[4]);  /* time in sec since Jan 1, 1970 */
   msg->userTime   = (time_t) ntohl(inComing[5]);  /* user's time in sec since Jan 1, 1970 */
   msg->sysMsgId            = ntohl(inComing[6]);  /* system msg id */
