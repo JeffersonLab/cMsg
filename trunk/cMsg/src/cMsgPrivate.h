@@ -78,7 +78,8 @@ typedef struct domainFunctions_t {
                           void *userArg, cMsgSubscribeConfig *config);
   
   /** This functin unsubscribes to messages of the given subject, type and callback. */
-  int (*unsubscribe)     (int domainId, char *subject, char *type, cMsgCallback *callback);
+  int (*unsubscribe)     (int domainId, char *subject, char *type, cMsgCallback *callback,
+                          void *userArg);
   
   /**
    * This function gets one message from a one-time subscription to the given
