@@ -46,8 +46,8 @@ LIB_DYNAMIC = $(LIBNAM).so
 CMSG_LIBS = $(LIB_STATIC) $(LIB_DYNAMIC)
 LIBS    = -lieee -lm -lpthread -lm -lnsl -lresolv -ldl
 
-OBJS =  cMsg.o \
-	cMsgNetwork.o \
+OBJS =  cMsgNetwork.o \
+	cMsg.o \
 	cMsgServer.o \
 	cMsgDomain_CODA.o
 
@@ -55,7 +55,7 @@ HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h cMsg_CODA.h
 
 PROGS = client
 
-all: $(CMSG_LIBS) $(PROGS) $(JAVA_OBJS)
+all: $(CMSG_LIBS) $(PROGS)
 
 java:
 	cd ./org/jlab/coda/cMsg; make;
@@ -105,6 +105,7 @@ $(OBJS) : $(HFILES)
 
 clean: 
 	rm -f core *~ *.o *.so *.a *.class $(PROGS)
+jclean: 
 	cd ./org/jlab/coda/cMsg; make clean;
 	cd ./org/jlab/coda/cMsg/coda; make clean;
 
