@@ -47,11 +47,11 @@ extern "C" {
 #define DOMAIN_ID_OFFSET 100
 
 /** Is message a sendAndGet request? -- is stored in first bit. */
-#define CMSG_IS_GET_REQUEST       0x0001
+#define CMSG_IS_GET_REQUEST       0x1
 /** Is message a response to a sendAndGet? -- is stored in second bit. */
-#define CMSG_IS_GET_RESPONSE      0x0002
+#define CMSG_IS_GET_RESPONSE      0x2
 /** Is the response message null instead of a message? -- is stored in third bit. */
-#define CMSG_IS_NULL_GET_RESPONSE 0x0004
+#define CMSG_IS_NULL_GET_RESPONSE 0x4
 
 
 /** Debug level. */
@@ -145,17 +145,17 @@ typedef struct cMsg_t {
   int     version;     /**< Major version of cMsg. */
   int     sysMsgId;    /**< Unique id set by system to track sendAndGet's. */
   int     info;        /**< Stores "get" information in bit form (true = 1).
-                        * - is message a sendAndGet request? bit 1
-                        * - is message a response to a sendAndGet request? bit 2
-                        * - is response message NULL instead of a message? bit 3 */
+                        * - is message a sendAndGet request? 1st bit
+                        * - is message a response to a sendAndGet request? 2nd bit
+                        * - is response message NULL instead of a message? 3rd bit */
   char   *domain;      /**< Domain message is generated in. */
   char   *creator;     /**< Message was originally created by this user/sender. */
+  int     reserved;    /**< Reserved for future use. */
   
   /* user-settable quantities */
   char   *subject;             /**< Subject of message. */
   char   *type;                /**< Type of message. */
   char   *text;                /**< Text of message. */
-  int     priority;            /**< Priority of message. */
   int     userInt;             /**< User-defined integer. */
   struct timespec userTime;    /**< User-defined time. */
 

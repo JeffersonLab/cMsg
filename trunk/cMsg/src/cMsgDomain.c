@@ -541,8 +541,8 @@ static int codaSend(int domainId, void *vmsg) {
   outGoing[0] = htonl(CMSG_SEND_REQUEST);
   /* version */
   outGoing[1] = htonl(CMSG_VERSION_MAJOR);
-  /* priority */
-  outGoing[2] = htonl(msg->priority);
+  /* reserved for future use */
+  outGoing[2] = 0;
   /* user int */
   outGoing[3] = htonl(msg->userInt);
   /* system msg id */
@@ -701,8 +701,8 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
   outGoing[0] = htonl(CMSG_SYNC_SEND_REQUEST);
   /* version */
   outGoing[1] = htonl(CMSG_VERSION_MAJOR);
-  /* priority */
-  outGoing[2] = htonl(msg->priority);
+  /* reserved */
+  outGoing[2] = 0;
   /* user int */
   outGoing[3] = htonl(msg->userInt);
   /* system msg id */
@@ -1161,8 +1161,8 @@ static int codaSendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
   outGoing[0] = htonl(CMSG_SEND_AND_GET_REQUEST);
   /* version */
   outGoing[1] = htonl(CMSG_VERSION_MAJOR);
-  /* priority */
-  outGoing[2] = htonl(msg->priority);
+  /* reserved */
+  outGoing[2] = 0;
   /* user int */
   outGoing[3] = htonl(msg->userInt);
   /* unique id (senderToken) */
@@ -2774,6 +2774,7 @@ fprintf(stderr, "cMsgRunCallbacks: there is a callback\n");
           }
 
           subscription->messages++;
+/*printf("cMsgRunCallbacks: cb cue size = %d\n", subscription->messages);*/
           message->next = NULL;
 
           /* wakeup callback thread */
@@ -2794,16 +2795,23 @@ fprintf(stderr, "cMsgRunCallbacks: there is a callback\n");
 
   /* for each subscribeAndGet ... */
   for (j=0; j<MAX_SUBSCRIBE_AND_GET; j++) {
-    if (domain->subscribeAndGetInfo[j].active != 1) {
+    
+    info = &domain->subscribeAndGetInfo[j];
+
+    if (info->active != 1) {
       continue;
     }
 
-    info = &domain->subscribeAndGetInfo[j];
-
     /* if the subject & type's match, wakeup the "subscribeAndGet */      
-    if ( (cMsgStringMatches(domain->subscribeInfo[i].subject, msg->subject) == 1) &&
-         (cMsgStringMatches(domain->subscribeInfo[i].type, msg->type) == 1)) {
-
+    if ( (cMsgStringMatches(info->subject, msg->subject) == 1) &&
+         (cMsgStringMatches(info->type, msg->type) == 1)) {
+/*
+printf("cMsgRunCallbacks: MATCHES:\n");
+printf("                  SUBJECT = msg (%s), subscription (%s)\n",
+                        msg->subject, info->subject);
+printf("                  TYPE    = msg (%s), subscription (%s)\n",
+                        msg->type, info->type);
+*/
       /* pass msg to "get" */
       /* copy message so each callback has its own copy */
       message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
@@ -2816,6 +2824,7 @@ fprintf(stderr, "cMsgRunCallbacks: there is a callback\n");
       if (status != 0) {
         err_abort(status, "Failed get condition signal");
       }
+      
     }
   }           
   
@@ -2841,7 +2850,7 @@ int cMsgWakeGet(int domainId, cMsgMessage *msg) {
   
   domain = &cMsgDomains[domainId];
   
-  /* message receiption has been stopped */
+  /* message reception has been stopped */
   if (domain->receiveState == 0) {
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "cMsgWakeGet: message receiption has been stopped\n");
@@ -2852,11 +2861,13 @@ int cMsgWakeGet(int domainId, cMsgMessage *msg) {
  
   /* find the right get */
   for (i=0; i<MAX_SEND_AND_GET; i++) {
-    if (domain->sendAndGetInfo[i].active != 1) {
+    
+    info = &domain->sendAndGetInfo[i];
+
+    if (info->active != 1) {
       continue;
     }
     
-    info = &domain->sendAndGetInfo[i];
 /*
 fprintf(stderr, "cMsgWakeGets: domainId = %d, uniqueId = %d, msg sender token = %d\n",
         domainId, info->id, msg->senderToken);
@@ -2868,10 +2879,22 @@ fprintf(stderr, "cMsgWakeGets: domainId = %d, uniqueId = %d, msg sender token = 
       info->msg = msg;
       info->msgIn = 1;
 
+      /* lock mutex before messing with linked list */
+      status = pthread_mutex_lock(&info->mutex);
+      if (status != 0) {
+        err_abort(status, "Failed callback mutex lock");
+      }
+
       /* wakeup "get" */      
       status = pthread_cond_signal(&info->cond);
       if (status != 0) {
         err_abort(status, "Failed get condition signal");
+      }
+      
+      /* unlock mutex */
+      status = pthread_mutex_unlock(&info->mutex);
+      if (status != 0) {
+        err_abort(status, "Failed callback mutex unlock");
       }
     }
   }
@@ -2905,11 +2928,12 @@ int cMsgWakeGetWithNull(int domainId, int senderToken) {
  
   /* find the right get */
   for (i=0; i<MAX_SEND_AND_GET; i++) {
-    if (domain->sendAndGetInfo[i].active != 1) {
-      continue;
-    }
-    
+
     info = &domain->sendAndGetInfo[i];
+
+    if (info->active != 1) {
+      continue;
+    }    
     
     /* if the id's match, wakeup the "get" for this sub/type */
     if (info->id == senderToken) {
@@ -3354,11 +3378,11 @@ static void domainClear(cMsgDomain_CODA *domain) {
 /** This routine locks the pthread mutex used when creating unique id numbers. */
 static void mutexLock(void) {
 
-  int status = pthread_mutex_lock(&generalMutex);
+/*   int status = pthread_mutex_lock(&generalMutex);
   if (status != 0) {
     err_abort(status, "Failed mutex lock");
   }
-}
+ */}
 
 
 /*-------------------------------------------------------------------*/
@@ -3367,11 +3391,11 @@ static void mutexLock(void) {
 /** This routine unlocks the pthread mutex used when creating unique id numbers. */
 static void mutexUnlock(void) {
 
-  int status = pthread_mutex_unlock(&generalMutex);
+/*   int status = pthread_mutex_unlock(&generalMutex);
   if (status != 0) {
     err_abort(status, "Failed mutex unlock");
   }
-}
+ */}
 
 
 /*-------------------------------------------------------------------*/
@@ -3385,11 +3409,11 @@ static void mutexUnlock(void) {
  */
 static void connectReadLock(void) {
 
-  int status = rwl_readlock(&connectLock);
+/*   int status = rwl_readlock(&connectLock);
   if (status != 0) {
     err_abort(status, "Failed read lock");
   }
-}
+ */}
 
 
 /*-------------------------------------------------------------------*/
@@ -3403,11 +3427,11 @@ static void connectReadLock(void) {
  */
 static void connectReadUnlock(void) {
 
-  int status = rwl_readunlock(&connectLock);
+/*   int status = rwl_readunlock(&connectLock);
   if (status != 0) {
     err_abort(status, "Failed read unlock");
   }
-}
+ */}
 
 
 /*-------------------------------------------------------------------*/
@@ -3421,11 +3445,11 @@ static void connectReadUnlock(void) {
  */
 static void connectWriteLock(void) {
 
-  int status = rwl_writelock(&connectLock);
+/*   int status = rwl_writelock(&connectLock);
   if (status != 0) {
     err_abort(status, "Failed read lock");
   }
-}
+ */}
 
 
 /*-------------------------------------------------------------------*/
@@ -3439,11 +3463,11 @@ static void connectWriteLock(void) {
  */
 static void connectWriteUnlock(void) {
 
-  int status = rwl_writeunlock(&connectLock);
+/*   int status = rwl_writeunlock(&connectLock);
   if (status != 0) {
     err_abort(status, "Failed read unlock");
   }
-}
+ */}
 
 
 /*-------------------------------------------------------------------*/
@@ -3455,13 +3479,11 @@ static void connectWriteUnlock(void) {
  */
 static void socketMutexLock(cMsgDomain_CODA *domain) {
 
-  int status;
-  
-  status = pthread_mutex_lock(&domain->socketMutex);
+/*   int status = pthread_mutex_lock(&domain->socketMutex);
   if (status != 0) {
     err_abort(status, "Failed socket mutex lock");
   }
-}
+ */}
 
 
 /*-------------------------------------------------------------------*/
@@ -3473,13 +3495,11 @@ static void socketMutexLock(cMsgDomain_CODA *domain) {
  */
 static void socketMutexUnlock(cMsgDomain_CODA *domain) {
 
-  int status;
-
-  status = pthread_mutex_unlock(&domain->socketMutex);
+/*   int status = pthread_mutex_unlock(&domain->socketMutex);
   if (status != 0) {
     err_abort(status, "Failed socket mutex unlock");
   }
-}
+ */}
 
 
 /*-------------------------------------------------------------------*/
@@ -3488,9 +3508,7 @@ static void socketMutexUnlock(cMsgDomain_CODA *domain) {
 /** This routine locks the pthread mutex used to serialize codaSyncSend calls. */
 static void syncSendMutexLock(cMsgDomain_CODA *domain) {
 
-  int status;
-  
-  status = pthread_mutex_lock(&domain->syncSendMutex);
+  int status = pthread_mutex_lock(&domain->syncSendMutex);
   if (status != 0) {
     err_abort(status, "Failed syncSend mutex lock");
   }
@@ -3503,9 +3521,7 @@ static void syncSendMutexLock(cMsgDomain_CODA *domain) {
 /** This routine unlocks the pthread mutex used to serialize codaSyncSend calls. */
 static void syncSendMutexUnlock(cMsgDomain_CODA *domain) {
 
-  int status;
-
-  status = pthread_mutex_unlock(&domain->syncSendMutex);
+  int status = pthread_mutex_unlock(&domain->syncSendMutex);
   if (status != 0) {
     err_abort(status, "Failed syncSend mutex unlock");
   }
@@ -3521,9 +3537,7 @@ static void syncSendMutexUnlock(cMsgDomain_CODA *domain) {
  */
 static void subscribeMutexLock(cMsgDomain_CODA *domain) {
 
-  int status;
-  
-  status = pthread_mutex_lock(&domain->subscribeMutex);
+  int status = pthread_mutex_lock(&domain->subscribeMutex);
   if (status != 0) {
     err_abort(status, "Failed subscribe mutex lock");
   }
@@ -3539,9 +3553,7 @@ static void subscribeMutexLock(cMsgDomain_CODA *domain) {
  */
 static void subscribeMutexUnlock(cMsgDomain_CODA *domain) {
 
-  int status;
-
-  status = pthread_mutex_unlock(&domain->subscribeMutex);
+  int status = pthread_mutex_unlock(&domain->subscribeMutex);
   if (status != 0) {
     err_abort(status, "Failed subscribe mutex unlock");
   }
