@@ -40,20 +40,20 @@
  * a UDL (Uniform Domain Locator) to specify a particular server (domain) to use.
  * Thus the API acts essentially as a multiplexor, diverting messages to the
  * desired domain.
- * <p></H2>
+ * </H2><p>
  * <H2>
  * At another level, cMsg is an implementation of a domain. Not only can cMsg
  * pass off messages to Channel Access, SmartSockets, or a number of other
  * domains, it can handle messages itself. It was designed to be extremely
  * flexible and so adding another domain is relatively easy.
- * <p></H2>
+ * </H2><p>
  * <H2>
  * At the moment, cMsg is in beta testing -- version 0.9.
  * There is a User's Guide, API documentation in the form of web pages generated
  * by javadoc and doxygen, and a Developer's Guide. Try it and let us know what
  * you think about it. If you find any bugs, we have a bug-report web page at
  * http://xdaq.jlab.org/CODA/portal/html/ .
- * <p></H2>
+ * </H2><p>
  */
   
  
@@ -1173,7 +1173,7 @@ static int checkTextString(char *s) {
  * the dereferenced char ** argument. This memory must be freed eventually.
  *
  * @param domainId id number of the domain connection
- * @param domain pointer to pointer which gets filled with the UDL
+ * @param udl pointer to pointer which gets filled with the UDL
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_DOMAIN_ID if an out-of-range domain id is used
@@ -1202,7 +1202,7 @@ int cMsgGetUDL(int domainId, char **udl) {
  * the dereferenced char ** argument. This memory must be freed eventually.
  *
  * @param domainId id number of the domain connection
- * @param domain pointer to pointer which gets filled with the name
+ * @param name pointer to pointer which gets filled with the name
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_DOMAIN_ID if an out-of-range domain id is used
@@ -1231,7 +1231,7 @@ int cMsgGetName(int domainId, char **name) {
  * the dereferenced char ** argument. This memory must be freed eventually.
  *
  * @param domainId id number of the domain connection
- * @param domain pointer to pointer which gets filled with the description
+ * @param description pointer to pointer which gets filled with the description
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_DOMAIN_ID if an out-of-range domain id is used
@@ -1353,7 +1353,7 @@ static void initMessage(cMsgMessage *msg) {
  * The cMsg client must call this routine on any messages created to avoid
  * memory leaks.
  *
- * @param msg pointer to message structure being freed
+ * @param vmsg pointer to message structure being freed
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if msg is NULL
@@ -1387,7 +1387,7 @@ int cMsgFreeMessage(void *vmsg) {
  * This routine copies a message. Memory is allocated with this
  * function and can be freed by cMsgFreeMessage().
  *
- * @param msg pointer to message structure being copied
+ * @param vmsg pointer to message structure being copied
  *
  * @returns a pointer to the message copy
  * @returns NULL if argument is NULL or no memory available
@@ -1456,7 +1456,7 @@ int cMsgFreeMessage(void *vmsg) {
  * sets all strings to NULL, and sets all numeric values to their default
  * state.
  *
- * @param msg pointer to message structure being initialized
+ * @param vmsg pointer to message structure being initialized
  */   
   void cMsgInitMessage(void *vmsg) {
     cMsgMessage *msg = (cMsgMessage *)vmsg;
@@ -1507,7 +1507,7 @@ void *cMsgCreateMessage(void) {
  * field taken from the given message. Memory is allocated with this
  * function and can be freed by cMsgFreeMessage().
  *
- * @param msg pointer to message from which creator field is taken
+ * @param vmsg pointer to message from which creator field is taken
  *
  * @returns a pointer to the new message
  * @returns NULL if no memory available or message argument is NULL
@@ -1536,7 +1536,7 @@ void *cMsgCreateNewMessage(void *vmsg) {
 /**
  * This routine gets the cMsg major version number of a message.
  *
- * @param msg pointer to message
+ * @param vmsg pointer to message
  * @param version integer pointer to be filled in with cMsg major version
  *
  * @returns CMSG_OK if successful
@@ -1560,7 +1560,7 @@ int cMsgGetVersion(void *vmsg, int *version) {
  * by a sendAndGet call, if it has a value of 1. Any other value indicates
  * it is not a response to a sendAndGet.
  *
- * @param msg pointer to message
+ * @param vmsg pointer to message
  * @param getResponse set to 1 if message is a response to a sendAndGet,
  *                    anything else otherwise
  *
@@ -1584,7 +1584,7 @@ int cMsgSetGetResponse(void *vmsg, int getResponse) {
  * by a sendAndGet call, if it has a value of 1. A value of 0 indicates
  * it is not a response to a sendAndGet.
  *
- * @param msg pointer to message
+ * @param vmsg pointer to message
  * @param getResponse integer pointer to be filled in 1 if message
  *                    is a response to a sendAndGet and 0 otherwise
  *
@@ -1610,9 +1610,9 @@ int cMsgGetGetResponse(void *vmsg, int *getResponse) {
  * it will be received as a NULL pointer - not a message. Any other value
  * indicates it is not a null get response to a sendAndGet.
  *
- * @param msg pointer to message
- * @param getResponse set to 1 if message is a null get response to a sendAndGet,
- *                    anything else otherwise
+ * @param vmsg pointer to message
+ * @param nullGetResponse set to 1 if message is a null get response to a
+ *                        sendAndGet, anything else otherwise
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message argument is NULL
@@ -1635,7 +1635,7 @@ int cMsgSetNullGetResponse(void *vmsg, int nullGetResponse) {
  * it will be received as a NULL pointer - not a message. Any other value
  * indicates it is not a null get response to a sendAndGet.
  *
- * @param msg pointer to message
+ * @param vmsg pointer to message
  * @param nullGetResponse integer pointer to be filled in with 1 if message
  *                        is a NULL response to a sendAndGet and 0 otherwise
  *
@@ -1660,9 +1660,9 @@ int cMsgGetNullGetResponse(void *vmsg, int *nullGetResponse) {
  * if it has a value of 1. A value of 0 indicates it was not sent by
  * a sendAndGet.
  *
- * @param msg pointer to message
- * @param nullGetResponse integer pointer to be filled in with 1 if message
- *                        sent by a sendAndGet and 0 otherwise
+ * @param vmsg pointer to message
+ * @param getRequest integer pointer to be filled in with 1 if message
+ *                   sent by a sendAndGet and 0 otherwise
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -1688,7 +1688,7 @@ int cMsgGetGetRequest(void *vmsg, int *getRequest) {
  * If succesful, this routine will have memory allocated and assigned to
  * the dereferenced char ** argument. This memory must be freed eventually.
  *
- * @param msg pointer to message
+ * @param vmsg pointer to message
  * @param domain pointer to pointer which gets filled with a message's 
  *               cMsg domain
  *
@@ -1720,8 +1720,8 @@ int cMsgGetDomain(void *vmsg, char **domain) {
  * If succesful, this routine will have memory allocated and assigned to
  * the dereferenced char ** argument. This memory must be freed eventually.
  *
- * @param msg pointer to message
- * @param domain pointer to pointer which gets filled with a message's 
+ * @param vmsg pointer to message
+ * @param creator pointer to pointer which gets filled with a message's 
  *               creator
  *
  * @returns CMSG_OK if successful
@@ -1747,7 +1747,7 @@ int cMsgGetCreator(void *vmsg, char **creator) {
 /**
  * This routine sets the subject of a message.
  *
- * @param msg pointer to message
+ * @param vmsg pointer to message
  * @param subject message subject
  *
  * @returns CMSG_OK if successful
@@ -1774,9 +1774,9 @@ int cMsgSetSubject(void *vmsg, char *subject) {
  * If succesful, this routine will have memory allocated and assigned to
  * the dereferenced char ** argument. This memory must be freed eventually.
  *
- * @param msg pointer to message
- * @param domain pointer to pointer which gets filled with a message's 
- *               subject
+ * @param vmsg pointer to message
+ * @param subject pointer to pointer which gets filled with a message's 
+ *                subject
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -1801,7 +1801,7 @@ int cMsgGetSubject(void *vmsg, char **subject) {
 /**
  * This routine sets the type of a message.
  *
- * @param msg pointer to message
+ * @param vmsg pointer to message
  * @param type message type
  *
  * @returns CMSG_OK if successful
@@ -1828,9 +1828,8 @@ int cMsgSetType(void *vmsg, char *type) {
  * If succesful, this routine will have memory allocated and assigned to
  * the dereferenced char ** argument. This memory must be freed eventually.
  *
- * @param msg pointer to message
- * @param domain pointer to pointer which gets filled with a message's 
- *               type
+ * @param vmsg pointer to message
+ * @param type pointer to pointer which gets filled with a message's type
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -1855,7 +1854,7 @@ int cMsgGetType(void *vmsg, char **type) {
 /**
  * This routine sets the text of a message.
  *
- * @param msg pointer to message
+ * @param vmsg pointer to message
  * @param text message text
  *
  * @returns CMSG_OK if successful
@@ -1882,9 +1881,8 @@ int cMsgSetText(void *vmsg, char *text) {
  * If succesful, this routine will have memory allocated and assigned to
  * the dereferenced char ** argument. This memory must be freed eventually.
  *
- * @param msg pointer to message
- * @param domain pointer to pointer which gets filled with a message's 
- *               text
+ * @param vmsg pointer to message
+ * @param text pointer to pointer which gets filled with a message's text
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -1909,7 +1907,7 @@ int cMsgGetText(void *vmsg, char **text) {
 /**
  * This routine sets the priority of a message.
  *
- * @param msg pointer to message
+ * @param vmsg pointer to message
  * @param priority message priority
  *
  * @returns CMSG_OK if successful
@@ -1928,7 +1926,7 @@ int cMsgSetPriority(void *vmsg, int priority) {
 /**
  * This routine gets the priority of a message.
  *
- * @param msg pointer to message
+ * @param vmsg pointer to message
  * @param priority integer pointer to be filled in with message priority
  *
  * @returns CMSG_OK if successful
@@ -1949,7 +1947,7 @@ int cMsgGetPriority(void *vmsg, int *priority) {
 /**
  * This routine sets a message's user-defined integer.
  *
- * @param msg pointer to message
+ * @param vmsg pointer to message
  * @param userInt message's user-defined integer
  *
  * @returns CMSG_OK if successful
@@ -1968,7 +1966,7 @@ int cMsgSetUserInt(void *vmsg, int userInt) {
 /**
  * This routine gets a message's user-defined integer.
  *
- * @param msg pointer to message
+ * @param vmsg pointer to message
  * @param userInt integer pointer to be filled with message's user-defined integer
  *
  * @returns CMSG_OK if successful
@@ -1990,7 +1988,7 @@ int cMsgGetUserInt(void *vmsg, int *userInt) {
  * This routine sets a message's user-defined time (in seconds since
  * midnight GMT, Jan 1st, 1970).
  *
- * @param msg pointer to message
+ * @param vmsg pointer to message
  * @param userTime message's user-defined time
  *
  * @returns CMSG_OK if successful
@@ -2010,8 +2008,8 @@ int cMsgSetUserTime(void *vmsg, time_t userTime) {
  * This routine gets a message's user-defined time (in seconds since
  * midnight GMT, Jan 1st, 1970).
  *
- * @param msg pointer to message
- * @param userInt time_t pointer to be filled with message's user-defined time
+ * @param vmsg pointer to message
+ * @param userTime time_t pointer to be filled with message's user-defined time
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -2033,8 +2031,8 @@ int cMsgGetUserTime(void *vmsg, time_t *userTime) {
  * If succesful, this routine will have memory allocated and assigned to
  * the dereferenced char ** argument. This memory must be freed eventually.
  *
- * @param msg pointer to message
- * @param domain pointer to pointer which gets filled with a message's 
+ * @param vmsg pointer to message
+ * @param sender pointer to pointer which gets filled with a message's 
  *               sender
  *
  * @returns CMSG_OK if successful
@@ -2062,9 +2060,9 @@ int cMsgGetSender(void *vmsg, char **sender) {
  * If succesful, this routine will have memory allocated and assigned to
  * the dereferenced char ** argument. This memory must be freed eventually.
  *
- * @param msg pointer to message
- * @param domain pointer to pointer which gets filled with the host of
- *               the sender of a message
+ * @param vmsg pointer to message
+ * @param senderHost pointer to pointer which gets filled with the host of
+ *                   the sender of a message
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -2090,8 +2088,8 @@ int cMsgGetSenderHost(void *vmsg, char **senderHost) {
  * This routine gets the time a message was last sent (in seconds since
  * midnight GMT, Jan 1st, 1970).
  *
- * @param msg pointer to message
- * @param userInt time_t pointer to be filled with time message was last sent
+ * @param vmsg pointer to message
+ * @param senderTime time_t pointer to be filled with time message was last sent
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -2113,9 +2111,9 @@ int cMsgGetSenderTime(void *vmsg, time_t *senderTime) {
  * If succesful, this routine will have memory allocated and assigned to
  * the dereferenced char ** argument. This memory must be freed eventually.
  *
- * @param msg pointer to message
- * @param domain pointer to pointer which gets filled with a message's 
- *               receiver
+ * @param vmsg pointer to message
+ * @param receiver pointer to pointer which gets filled with a message's 
+ *                 receiver
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -2143,9 +2141,9 @@ int cMsgGetReceiver(void *vmsg, char **receiver) {
  * If succesful, this routine will have memory allocated and assigned to
  * the dereferenced char ** argument. This memory must be freed eventually.
  *
- * @param msg pointer to message
- * @param domain pointer to pointer which gets filled with the host of
- *               the receiver of a message
+ * @param vmsg pointer to message
+ * @param receiverHost pointer to pointer which gets filled with the host of
+ *                     the receiver of a message
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -2171,8 +2169,8 @@ int cMsgGetReceiverHost(void *vmsg, char **receiverHost) {
  * This routine gets the time a message was received (in seconds since
  * midnight GMT, Jan 1st, 1970).
  *
- * @param msg pointer to message
- * @param userInt time_t pointer to be filled with time message was received
+ * @param vmsg pointer to message
+ * @param receiverTime time_t pointer to be filled with time message was received
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -2446,8 +2444,8 @@ int cMsgSubscribeSetMustSerialize(cMsgSubscribeConfig *config, int serialize) {
  * than one thread) if more than 1 message is waiting in the cue.
  *
  * @param config pointer to configuration
- * @param maySkip integer pointer to be filled with 0 if callback may be
- *                parallelized, or anything else if callback must be serialized
+ * @param serialize integer pointer to be filled with 0 if callback may be
+ *                  parallelized, or anything else if callback must be serialized
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if configuration is NULL
