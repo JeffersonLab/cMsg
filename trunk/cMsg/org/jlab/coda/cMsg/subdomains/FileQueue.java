@@ -65,8 +65,8 @@ public class FileQueue extends cMsgSubdomainAdapter {
     private String myUDLRemainder;
 
 
-    /** nio buffers. */
-    private ByteBuffer myBuffer  = ByteBuffer.allocateDirect(2048);
+    /** Object used to deliver messages to the client. */
+    private cMsgDeliverMessageInterface myDeliverer;
 
 
     /** for synchronizing access to queue */
@@ -141,6 +141,24 @@ public class FileQueue extends cMsgSubdomainAdapter {
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
         myUDLRemainder=UDLRemainder;
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to give the subdomain handler on object able to deliver messages
+     * to the client.
+     *
+     * @param deliverer object able to deliver messages to the client
+     * @throws cMsgException
+     */
+    public void setMessageDeliverer(cMsgDeliverMessageInterface deliverer) throws cMsgException {
+        if (deliverer == null) {
+            throw new cMsgException("FileQueue subdomain must be able to deliver messages, set the deliverer.");
+        }
+        myDeliverer = deliverer;
     }
 
 
@@ -417,9 +435,9 @@ public class FileQueue extends cMsgSubdomainAdapter {
         // send response to client
         try {
             if(null_response) {
-                deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponseIsNull);
+                myDeliverer.deliverMessage(response, myClientInfo, cMsgConstants.msgGetResponseIsNull);
             } else {
-                deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponse);
+                myDeliverer.deliverMessage(response, myClientInfo, cMsgConstants.msgGetResponse);
             }
         } catch (IOException e) {
             e.printStackTrace();

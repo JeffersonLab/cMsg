@@ -22,11 +22,7 @@
 
 package org.jlab.coda.cMsg.subdomains;
 
-import org.jlab.coda.cMsg.cMsgConstants;
-import org.jlab.coda.cMsg.cMsgMessageFull;
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgClientInfo;
-import org.jlab.coda.cMsg.cMsgSubdomainAdapter;
+import org.jlab.coda.cMsg.*;
 
 import java.util.*;
 import java.util.regex.*;
@@ -71,6 +67,10 @@ public class SmartSockets extends cMsgSubdomainAdapter {
     private String myUDLRemainder = null;
 
 
+    /** Object used to deliver messages to the client. */
+    private cMsgDeliverMessageInterface myDeliverer;
+
+
     /** for smartsockets. */
     private TipcSrv mySrv     = null;
     private String myProject;
@@ -83,7 +83,6 @@ public class SmartSockets extends cMsgSubdomainAdapter {
     /** smartsockets callback delivers message to client. */
     private class ProcessCb implements TipcProcessCb {
         public void process(TipcMsg msg, Object arg) {
-            ArrayList subscribeList = new ArrayList(1);
             try {
                 msg.setCurrent(0);
                 cMsgMessageFull cmsg = new cMsgMessageFull();
@@ -103,10 +102,12 @@ public class SmartSockets extends cMsgSubdomainAdapter {
                 cmsg.setText(msg.nextStr());
                 cmsg.setUserInt(msg.getUserProp());
 
-                subscribeList.add((Integer)arg);  // add receiver subscribe ID to list
-                deliverMessage(myClientInfo.getChannel(),myBuffer,cmsg,subscribeList,cMsgConstants.msgSubscribeResponse);
+                myDeliverer.deliverMessage(cmsg, myClientInfo, cMsgConstants.msgSubscribeResponse);
 
             } catch (TipcException e) {
+                System.err.println(e);
+
+            } catch (cMsgException e) {
                 System.err.println(e);
 
             } catch (IOException e) {
@@ -195,6 +196,24 @@ public class SmartSockets extends cMsgSubdomainAdapter {
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
         myUDLRemainder=UDLRemainder;
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to give the subdomain handler on object able to deliver messages
+     * to the client.
+     *
+     * @param deliverer object able to deliver messages to the client
+     * @throws cMsgException
+     */
+    public void setMessageDeliverer(cMsgDeliverMessageInterface deliverer) throws cMsgException {
+        if (deliverer == null) {
+            throw new cMsgException("SmartSockets subdomain must be able to deliver messages, set the deliverer.");
+        }
+        myDeliverer = deliverer;
     }
 
 
