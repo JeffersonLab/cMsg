@@ -20,12 +20,13 @@ import org.jlab.coda.cMsg.cMsgMessageFull;
 import java.nio.channels.SocketChannel;
 
 /**
- * Class used to help in implementing a client's "get" method. An object of this
- * class stores a msg from the server to the "get" caller and is used to
+ * This class is used to help in implementing a client's "get" method. An object
+ * of this class stores a msg from the server to the "get" caller and is used to
  * synchronize/wait/notify on. It also indicates whether the call timed out or not.
  *
- * Also used to implement Domain server by storing an incoming message along with
- * subject, type, id, and request for later action by a thread from the thread pool.
+ * This class is also used to implement Domain server by storing an incoming message
+ * along with subject, type, id, and request (or client, server, flag for a shutdown)
+ * for later action by a thread from the thread pool.
  */
 class cMsgHolder {
     /** Location to store message object. */
@@ -39,6 +40,15 @@ class cMsgHolder {
 
     /** Store type. */
     String type;
+
+    /** Store client(s) to shutdown. */
+    String client;
+
+    /** Store server(s) to shutdown. */
+    String server;
+
+    /** Store id. */
+    int flag;
 
     /** Store id. */
     int id;
@@ -55,15 +65,24 @@ class cMsgHolder {
     public cMsgHolder(cMsgMessageFull message) {
         this.message = message;
     }
+
+    /** Constructor for holding message information. */
     public cMsgHolder(cMsgMessageFull message, int request) {
         this.message = message;
         this.request = request;
     }
 
-    public cMsgHolder(String subject, String type, int id, int request) {
-        this.request = request;
+    /** Constructor for client's subscribeAndGet. */
+    public cMsgHolder(String subject, String type) {
         this.subject = subject;
         this.type = type;
-        this.id = id;
     }
+
+    /** Constructor for holding shutdown information from client. */
+    public cMsgHolder(String client, String server, int flag) {
+        this.client = client;
+        this.server = server;
+        this.flag = flag;
+    }
+
 }
