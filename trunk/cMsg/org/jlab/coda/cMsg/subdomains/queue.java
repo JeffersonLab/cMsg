@@ -202,7 +202,7 @@ public class queue extends cMsgSubdomainAbstract {
         Pattern p;
         Matcher m;
         String remainder = null;
-        String sql;
+        String sql       = null;
 
 
         // db parameters
@@ -319,9 +319,9 @@ public class queue extends cMsgSubdomainAbstract {
         // create table if it doesn't exist
         if(!tableExists) {
             if(myDBType.equalsIgnoreCase("mysql")) {
-                sql = cMsgMessage.createTableString(myTableName,"auto_increment primary key","datetime","text","");
-            } else {
-                sql = cMsgMessage.createTableString(myTableName,"","time","clob","");
+//                 sql = cMsgMessage.createTableString(myTableName,"auto_increment primary key","datetime","text","");
+//             } else {
+//                 sql = cMsgMessage.createTableString(myTableName,"","time","clob","");
             }
 
             try {
@@ -337,9 +337,9 @@ public class queue extends cMsgSubdomainAbstract {
 
         // create prepared statement
         if(myDBType.equalsIgnoreCase("mysql")) {
-            sql = cMsgMessage.createPreparedStatementString(myTableName,"delayed",false);
-        } else {
-            sql = cMsgMessage.createPreparedStatementString(myTableName,"",true);
+//             sql = cMsgMessage.createPreparedStatementString(myTableName,"delayed",false);
+//         } else {
+//             sql = cMsgMessage.createPreparedStatementString(myTableName,"",true);
         }
         try {
             myCon.prepareStatement(sql);
@@ -454,7 +454,7 @@ public class queue extends cMsgSubdomainAbstract {
         try {
             ResultSet rs = myStmt.executeQuery(sql);
             rs.next();
-            response.fillFromResultSet(rs);
+//             response.fillFromResultSet(rs);
 
         } catch (SQLException e) {
             cMsgException ce = new cMsgException("?unable to select from table " + myTableName);
