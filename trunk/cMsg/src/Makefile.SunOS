@@ -1,0 +1,88 @@
+#
+#
+CC  = cc
+CXX = CC
+LD  = ld
+AR  = ar
+RANLIB  = ranlib
+
+TOP_DIR = ..
+LIB_DIR = $(TOP_DIR)/lib/SunOS
+BIN_DIR = $(TOP_DIR)/bin/SunOS
+INC_DIR = $(TOP_DIR)/inc
+INSTALL = $(TOP_DIR)/install-sh -c
+
+# C stuff
+AC_FLAGS  = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
+CFLAGS    = -mt -xO5 -KPIC -I. $(AC_FLAGS)
+CXXFLAGS  = $(CFLAGS)
+SHLIB_LD  = ld -G
+
+LIBNAM      = libcmsg
+LIB_STATIC  = $(LIBNAM).a
+LIB_DYNAMIC = $(LIBNAM).so
+
+CMSG_LIBS = $(LIB_STATIC) $(LIB_DYNAMIC)
+LIBS    = -lm -lposix4 -lsocket -lnsl -lresolv -ldl
+
+OBJS =  rwlock.o \
+	sunConcurrency.o \
+	cMsgNetwork.o \
+	cMsg.o \
+	cMsgDomainListenThread.o \
+	cMsgDomain.o
+
+HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h cMsgDomain.h rwlock.h errors.h
+
+PROGS = producer consumer getConsumer
+
+all: $(CMSG_LIBS) $(PROGS)
+
+install: all install-lib install-inc install-bin
+
+install-lib: $(CMSG_LIBS)
+	@echo "Installing CMSG libraries in $(LIB_DIR)"
+	@for i in $(CMSG_LIBS); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
+           done;
+
+install-inc: $(HFILES)
+	@echo "Installing includes in $(INC_DIR)"
+	@for i in $(HFILES); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(INC_DIR)/$$i; \
+           done;
+
+install-bin: $(PROGS)
+	@echo "Installing executables in $(BIN_DIR)"
+	@for i in $(PROGS); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(BIN_DIR)/$$i; \
+           done;
+
+$(PROGS) : % : %.c  ./cMsg.h
+	$(CC) -o $@ $(CFLAGS) $< -L./ -lcmsg $(LIBS)
+
+# libraries
+$(LIB_STATIC): $(OBJS)
+	$(AR) cr $@ $?
+	$(RANLIB) $@
+
+$(LIB_DYNAMIC): $(OBJS)
+	$(SHLIB_LD) $(OBJS) -o $@
+
+# file dependencies
+$(OBJS) : $(HFILES)
+
+clean: 
+	rm -f core *~ *.o *.so *.a *.class $(PROGS)
+
+# SUFFIX RULES
+
+.c:
+	$(CC) -o $* $(CFLAGS) $< -L./ -lcmsg $(LIBS)
+.cc:
+	$(CXX) -o $* $(CFLAGS) $< -L./ -lcmsg $(LIBS)
+.c.o:
+	$(CC) -c $(CFLAGS) $<

@@ -1,0 +1,68 @@
+
+# cMsg will not compile properly under Linux cross compiler
+#
+
+# Check Operating system we are using
+ifndef OSNAME
+  OSNAME := $(subst -,_,$(shell uname))
+endif
+
+ifndef ARCH
+  ARCH = VXWORKSPPC
+endif
+
+ifeq ($(OSNAME),SunOS)
+LIBDIR = $(CODA)/$(ARCH)/lib
+CFLAGS = -O $(DEFS) 
+
+ifeq ($(ARCH),VXWORKSPPC)
+
+# vxWorks 5.5
+INCDIR=/site/vxworks/5.5/ppc/target/h
+CC = ccppc
+LD = ldppc -r
+DEFS = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
+INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I$(INCDIR)
+
+endif
+
+
+endif
+
+OBJS =  rwlock.o \
+	cMsgNetwork.o \
+	cMsg.o \
+	cMsgDomainListenThread.o \
+	cMsgDomain.o
+
+PROGS = vxproducer.o \
+	vxconsumer.o
+
+HFILES = cMsgNetwork.h \
+	cMsgPrivate.h \
+	cMsg.h \
+	cMsgDomain.h \
+	rwlock.h \
+	errors.h
+
+all: echoarch $(OBJS) $(PROGS) cMsgLib
+
+cMsgLib: $(OBJS)
+	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
+
+clean:
+	rm -f core *~ *.o cMsgLib
+#	rm -f core *~ *.o *.so *.a *.class $(PROGS)
+
+echoarch:
+	@echo "Make for $(ARCH)"
+        
+# file dependencies
+$(OBJS) : $(HFILES)
+
+.c.o:
+	$(CC) -c $(CFLAGS) $(INCS) -o $@ $<
+	@echo
+	@echo "Made " $*
+	@echo
+
