@@ -65,7 +65,7 @@ public class Jgetenv {
         if (m.containsKey(env))
             return (String) m.get(env);
         else {
-            throw (new JgetenvException(notFound));
+            throw (new JgetenvException(env + " Environmental variable is not defined"));
         }
     }
 
