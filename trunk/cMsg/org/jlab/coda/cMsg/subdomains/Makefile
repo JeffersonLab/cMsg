@@ -14,13 +14,13 @@ JAVAC_FLAGS = -classpath ../../../../../:$(CLASSPATH)
 
 JAVA_OBJS = \
 	cMsg.class \
-	smartsockets.class \
+	SmartSockets.class \
 	CA.class \
-	database.class \
+	Database.class \
 	LogFile.class \
-	tcpserver.class \
+	TcpServer.class \
 	FileQueue.class \
-	queue.class
+	Queue.class
 
 all: $(JAVA_OBJS)
 
