@@ -40,6 +40,7 @@ java:
 	cd ./org/jlab/coda/cMsg; make;
 	cd ./org/jlab/coda/cMsg/coda; make;
 	cd ./org/jlab/coda/cMsg/apps; make;
+	cd ./org/jlab/coda/cMsg/plugins; make;
 	cd ./;
 
 doc:
