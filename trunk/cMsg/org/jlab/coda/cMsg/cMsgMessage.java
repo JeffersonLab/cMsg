@@ -231,6 +231,15 @@ public class cMsgMessage implements Cloneable {
         this.sysMsgId    = msg.getSysMsgId();
         this.senderToken = msg.getSenderToken();
         this.getResponse = true;
+        msg.info = isGetResponse;
+    }
+
+
+    public void makeNullResponse(cMsgMessage msg) {
+        this.sysMsgId    = msg.getSysMsgId();
+        this.senderToken = msg.getSenderToken();
+        this.getResponse = true;
+        msg.info = isGetResponse | isNullGetResponse;
     }
 
 
