@@ -31,7 +31,7 @@ import java.lang.*;
  * @author Carl Timmer
  * @version 1.0
  */
-public interface cMsg {
+public interface cMsgInterface {
 
     /**
      * Method to connect to a particular domain server.
