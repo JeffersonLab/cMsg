@@ -87,7 +87,7 @@ typedef struct domainFunctions_t {
   int (*subscribeAndGet) (int domainId, char *subject, char *type,
                           struct timespec *timeout, void **replyMsg);
   /**
-   * This routine gets one message from another cMsg client by sending out
+   * This function gets one message from another cMsg client by sending out
    * an initial message to that responder.
    */
   int (*sendAndGet)      (int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg);
@@ -98,8 +98,15 @@ typedef struct domainFunctions_t {
   /** This function disables the receiving of messages and delivery to callbacks. */
   int (*stop)            (int domainId);
   
-  /** This routine disconnects the client from its cMsg server. */
+  /** This function disconnects the client from its cMsg server. */
   int (*disconnect)      (int domainId);
+  
+  /** This function shuts down the given clients and/or servers. */
+  int (*shutdown)        (int domainId, char *client, char *server, int flag);
+  
+  /** This function sets the shutdown handler. */
+  int (*setShutdownHandler) (int domainId, cMsgShutdownHandler *handler, void *userArg);
+  
 } domainFunctions;
 
 
@@ -127,7 +134,7 @@ typedef struct cMsgDomain_t {
     
   /** Pointer to a structure contatining pointers to domain implementation functions. */
   domainFunctions *functions;
-
+  
 } cMsgDomain;
 
 
@@ -166,26 +173,30 @@ typedef struct cMsg_t {
 } cMsgMessage;
 
 
-/** Commands/Information sent between client and server. */
-enum msgId {
+/** Commands/Requests sent from client to server. */
+enum requestMsgId {
   CMSG_SERVER_CONNECT     = 0,       /**< Connect client to name server. */
   CMSG_SERVER_DISCONNECT,            /**< Disconnect client from name server. */
   CMSG_KEEP_ALIVE,                   /**< Tell me if you are alive. */
-  CMSG_SHUTDOWN,                     /**< Shutdown the server/client (not properly implemented yet). */
-  CMSG_SUBSCRIBE_AND_GET_REQUEST,    /**< SubscribeAndGet request. */
-  CMSG_SEND_AND_GET_REQUEST,         /**< SendAndGet request. */
-  CMSG_GET_RESPONSE,                 /**< SendAndGet response. */
+  CMSG_SHUTDOWN,                     /**< Shutdown the server/client. */
   CMSG_SEND_REQUEST,                 /**< Send request. */
+  CMSG_SYNC_SEND_REQUEST,            /**< SyncSend request. */
   CMSG_SUBSCRIBE_REQUEST,            /**< Subscribe request. */
   CMSG_UNSUBSCRIBE_REQUEST,          /**< Unsubscribe request. */
-  CMSG_SUBSCRIBE_RESPONSE,           /**< Subscribe response. */
-  CMSG_SYNC_SEND_REQUEST,            /**< SyncSend request. */
-  CMSG_UN_SUBSCRIBE_AND_GET_REQUEST, /**< UnSubscribeAndGet request. */
-  CMSG_UN_SEND_AND_GET_REQUEST,      /**< UnSendAndGet request. */
-  CMSG_GET_RESPONSE_WITH_ACK,        /**< Get response with acknowledgment. */
-  CMSG_SUBSCRIBE_RESPONSE_WITH_ACK,  /**< Subscribe response with acknowledgment. */
-  CMSG_GET_RESPONSE_IS_NULL          /**< Get response is NULL. */
+  CMSG_SUBSCRIBE_AND_GET_REQUEST,    /**< SubscribeAndGet request. */
+  CMSG_UNSUBSCRIBE_AND_GET_REQUEST,  /**< UnSubscribeAndGet request. */
+  CMSG_SEND_AND_GET_REQUEST,         /**< SendAndGet request. */
+  CMSG_UN_SEND_AND_GET_REQUEST       /**< UnSendAndGet request. */
 };
+
+
+/** Responses sent to client from server. */
+enum responseMsgId {
+  CMSG_GET_RESPONSE         = 20,    /**< SendAndGet response. */
+  CMSG_GET_RESPONSE_IS_NULL,         /**< Get response is NULL. */
+  CMSG_SUBSCRIBE_RESPONSE            /**< Subscribe response. */
+};
+
 
 /** This structure contains parameters used to control subscription callback behavior. */
 typedef struct subscribeConfig_t {
