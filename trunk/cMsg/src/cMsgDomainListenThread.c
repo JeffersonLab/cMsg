@@ -68,6 +68,7 @@ typedef struct cMsgThreadInfo_t {
 
 
 static int counter = 1;
+static int acknowledge = 0;
 
 
 /* for c++ */
@@ -78,6 +79,7 @@ extern "C" {
 /* prototypes */
 static void *clientThread(void *arg);
 static void  cleanUpHandler(void *arg);
+static int   cMsgReadMessage(int fd, cMsgMessage *msg);
 
 #ifdef VXWORKS
 static char *strdup(const char *s1) {
@@ -298,7 +300,7 @@ void *cMsgClientListeningThread(void *arg)
 
 static void *clientThread(void *arg)
 {
-  int  msgId, err, connfd, domainId, localCount=0;
+  int  ok, msgId, err, connfd, domainId, localCount=0;
   cMsgThreadInfo *info;
   cMsgClientThreadInfo *clientInfo;
   int  con;
@@ -387,6 +389,17 @@ static void *clientThread(void *arg)
             goto end;
           }
           
+          /* send back ok */
+          if (acknowledge) {
+            ok = htonl(CMSG_OK);
+            if (cMsgTcpWrite(connfd, (void *) &ok, sizeof(ok)) != sizeof(ok)) {
+              if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+                fprintf(stderr, "clientThread %d: write failure\n", localCount);
+              }
+              goto end;
+            }
+          }       
+
           /* run callbacks for this message */
           if ( (err = cMsgRunCallbacks(domainId, message)) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -430,6 +443,17 @@ static void *clientThread(void *arg)
             goto end;
           }
           
+          /* send back ok */
+          if (acknowledge) {
+            ok = htonl(CMSG_OK);
+            if (cMsgTcpWrite(connfd, (void *) &ok, sizeof(ok)) != sizeof(ok)) {
+              if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+                fprintf(stderr, "clientThread %d: write failure\n", localCount);
+              }
+              goto end;
+            }
+          }       
+
           /* wakeup get caller for this message */
           cMsgWakeGet(domainId, message);
       }
@@ -451,109 +475,19 @@ static void *clientThread(void *arg)
             goto end;
           }
           
+          /* send back ok */
+          if (acknowledge) {
+            ok = htonl(CMSG_OK);
+            if (cMsgTcpWrite(connfd, (void *) &ok, sizeof(ok)) != sizeof(ok)) {
+              if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+                fprintf(stderr, "clientThread %d: write failure\n", localCount);
+              }
+              goto end;
+            }
+          }       
+
           /* wakeup get caller for this message */
           cMsgWakeGetWithNull(domainId, senderToken);
-      }
-      break;
-
-      case CMSG_SUBSCRIBE_RESPONSE_WITH_ACK:
-      {
-          int ok;
-          cMsgMessage *message;
-          message = (cMsgMessage *) cMsgCreateMessage();
-          if (message == NULL) {
-            if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-              fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
-            }
-            exit(1);
-          }
-
-          if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "clientThread %d: subscribe response received\n", localCount);
-          }
-          
-          /* fill in known message fields */
-          message->next         = NULL;
-          message->domain       = (char *) strdup("cMsg");
-          message->receiverTime = time(NULL);
-          message->receiver     = (char *) strdup(cMsgDomains[domainId].name);
-          message->receiverHost = (char *) strdup(cMsgDomains[domainId].myHost);
-          
-          /* read the message */
-          if ( (err = cMsgReadMessage(connfd, message)) != CMSG_OK) {
-            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread %d: error reading message\n", localCount);
-            }
-            free((void *) message->domain);
-            free((void *) message->receiver);
-            free((void *) message->receiverHost);
-            goto end;
-          }
-          
-          /* run callbacks for this message */
-          if ( (err = cMsgRunCallbacks(domainId, message)) != CMSG_OK) {
-            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread %d: too many messages cued up\n", localCount);
-            }
-            goto end;
-          }
-          
-          /* send back ok */
-          ok = htonl(CMSG_OK);
-          if (cMsgTcpWrite(connfd, (void *) &ok, sizeof(ok)) != sizeof(ok)) {
-            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread %d: write failure\n", localCount);
-            }
-            goto end;
-          }        
-      }
-      break;
-
-      case CMSG_GET_RESPONSE_WITH_ACK:
-      {
-          int ok;
-          cMsgMessage *message;
-          message = (cMsgMessage *) cMsgCreateMessage();
-          if (message == NULL) {
-            if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-              fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
-            }
-            exit(1);
-          }
-
-          if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "clientThread %d: subscribe response received\n", localCount);
-          }
-          
-          /* fill in known message fields */
-          message->next         = NULL;
-          message->domain       = (char *) strdup("cMsg");
-          message->receiverTime = time(NULL);
-          message->receiver     = (char *) strdup(cMsgDomains[domainId].name);
-          message->receiverHost = (char *) strdup(cMsgDomains[domainId].myHost);
-          
-          /* read the message */
-          if ( (err = cMsgReadMessage(connfd, message)) != CMSG_OK) {
-            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread %d: error reading message\n", localCount);
-            }
-            free((void *) message->domain);
-            free((void *) message->receiver);
-            free((void *) message->receiverHost);
-            goto end;
-          }
-          
-          /* wakeup get caller for this message */
-          cMsgWakeGet(domainId, message);
-          
-          /* send back ok */
-          ok = htonl(CMSG_OK);
-          if (cMsgTcpWrite(connfd, (void *) &ok, sizeof(ok)) != sizeof(ok)) {
-            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread %d: write failure\n", localCount);
-            }
-            goto end;
-          }        
       }
       break;
 
@@ -586,6 +520,9 @@ static void *clientThread(void *arg)
 
       case  CMSG_SHUTDOWN:
       {
+        
+        cMsgDomains[domainId].shutdownHandler(cMsgDomains[domainId].shutdownUserArg);
+        
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "clientThread %d: told to shutdown\n", localCount);
         }
@@ -595,7 +532,7 @@ static void *clientThread(void *arg)
       
       default:
          if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          fprintf(stderr, "clientThread %d: given nonsense message (%d)\n", localCount, msgId);
+          fprintf(stderr, "clientThread %d: given unknown message (%d)\n", localCount, msgId);
         }
      
     }
@@ -622,6 +559,281 @@ static void *clientThread(void *arg)
     pthread_exit(NULL);
     return NULL;
 }
+
+
+
+/*-------------------------------------------------------------------*/
+
+/*
+ * This routine is called by a single thread spawned from the client's
+ * listening thread. Since it's called serially, it can safely use
+ * arrays declared at the top of the file.
+ */
+/** This routine reads a message sent from the server to the client. */
+static int cMsgReadMessage(int fd, cMsgMessage *msg) {
+  
+  int i, lengths[6], inComing[15];
+  int memSize = CMSG_MESSAGE_SIZE;
+  char *string, storage[CMSG_MESSAGE_SIZE + 1];
+  
+  /* Start out with an array of size CMSG_MESSAGE_SIZE + 1
+   * for storing strings, If that's too small, allocate more. */
+  string = storage;
+  
+  /* read ints first */
+  if (cMsgTcpRead(fd, (void *) inComing, sizeof(inComing)) != sizeof(inComing)) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgReadMessage: cannot read ints\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+
+  /* swap to local endian */
+  msg->version             = ntohl(inComing[0]);  /* major version of cMsg */
+  /* inComing[1]; is for future use */
+  msg->userInt             = ntohl(inComing[2]);  /* user int */
+  msg->info                = ntohl(inComing[3]);  /* get info */
+  msg->senderTime = (time_t) ntohl(inComing[4]);  /* time in sec since Jan 1, 1970 */
+  msg->userTime   = (time_t) ntohl(inComing[5]);  /* user's time in sec since Jan 1, 1970 */
+  msg->sysMsgId            = ntohl(inComing[6]);  /* system msg id */
+  msg->senderToken         = ntohl(inComing[7]);  /* sender token */
+  lengths[0]               = ntohl(inComing[8]);  /* sender length */
+  lengths[1]               = ntohl(inComing[9]);  /* senderHost length */
+  lengths[2]               = ntohl(inComing[10]); /* subject length */
+  lengths[3]               = ntohl(inComing[11]); /* type length */
+  lengths[4]               = ntohl(inComing[12]); /* text length */
+  lengths[5]               = ntohl(inComing[13]); /* text creator */
+  acknowledge              = ntohl(inComing[14]); /* acknowledge receipt of message? (1-y,0-n) */
+      
+  /*--------------------*/
+  /* read sender string */
+  /*--------------------*/
+  if (lengths[0] > memSize) {
+    /* free any previously allocated memory */
+    if (memSize > CMSG_MESSAGE_SIZE) {
+      free((void *) string);
+    }
+    /* allocate more memory to accomodate larger string */
+    memSize = lengths[0] + 1;
+    string  = (char *) malloc((size_t) memSize);
+    if (string == NULL) {
+      if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+        fprintf(stderr, "cMsgReadMessage: cannot allocate memory\n");
+      }
+      exit(1);
+    }
+  }
+  if (cMsgTcpRead(fd, string, lengths[0]) != lengths[0]) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgReadMessage: cannot read sender\n");
+    }
+    if (memSize > CMSG_MESSAGE_SIZE) {
+      free((void *) string);
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+  /* add null terminator to C string */
+  string[lengths[0]] = 0;
+  /* copy to cMsg structure */
+  msg->sender = (char *) strdup(string);
+  
+  /*
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "    sender = %s\n", string);
+  }  
+  */
+    
+  /*------------------------*/
+  /* read senderHost string */
+  /*------------------------*/
+  if (lengths[1] > memSize) {
+    if (memSize > CMSG_MESSAGE_SIZE) {
+      free((void *) string);
+    }
+    memSize = lengths[1] + 1;
+    string  = (char *) malloc((size_t) memSize);
+    if (string == NULL) {
+      if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+        fprintf(stderr, "cMsgReadMessage: cannot allocate memory\n");
+      }
+      exit(1);
+    }
+  }
+  if (cMsgTcpRead(fd, string, lengths[1]) != lengths[1]) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgReadMessage: cannot read senderHost\n");
+    }
+    if (memSize > CMSG_MESSAGE_SIZE) {
+      free((void *) string);
+    }
+    free((void *) msg->sender);
+    return(CMSG_NETWORK_ERROR);
+  }
+  string[lengths[1]] = 0;
+  msg->senderHost = (char *) strdup(string);
+    
+  /*
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "    sender host = %s\n", string);
+  }  
+  */
+  
+  /*---------------------*/
+  /* read subject string */
+  /*---------------------*/
+  if (lengths[2] > memSize) {
+    if (memSize > CMSG_MESSAGE_SIZE) {
+      free((void *) string);
+    }
+    memSize = lengths[2] + 1;
+    string  = (char *) malloc((size_t) memSize);
+    if (string == NULL) {
+      if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+        fprintf(stderr, "cMsgReadMessage: cannot allocate memory\n");
+      }
+      exit(1);
+    }
+  }
+  if (cMsgTcpRead(fd, string, lengths[2]) != lengths[2]) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgReadMessage: cannot read senderHost\n");
+    }
+    if (memSize > CMSG_MESSAGE_SIZE) {
+      free((void *) string);
+    }
+    free((void *) msg->sender);
+    free((void *) msg->senderHost);
+    return(CMSG_NETWORK_ERROR);
+  }
+  string[lengths[2]] = 0;
+  msg->subject = (char *) strdup(string);
+  
+  /*
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "    subject = %s\n", string);
+  }  
+  */ 
+  
+  /*------------------*/
+  /* read type string */
+  /*------------------*/
+  if (lengths[3] > memSize) {
+    if (memSize > CMSG_MESSAGE_SIZE) {
+      free((void *) string);
+    }
+    memSize = lengths[3] + 1;
+    string  = (char *) malloc((size_t) memSize);
+    if (string == NULL) {
+      if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+        fprintf(stderr, "cMsgReadMessage: cannot allocate memory\n");
+      }
+      exit(1);
+    }
+  }
+  if (cMsgTcpRead(fd, string, lengths[3]) != lengths[3]) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgReadMessage: cannot read senderHost\n");
+    }
+    if (memSize > CMSG_MESSAGE_SIZE) {
+      free((void *) string);
+    }
+    free((void *) msg->sender);
+    free((void *) msg->senderHost);
+    free((void *) msg->subject);
+    return(CMSG_NETWORK_ERROR);
+  }
+  string[lengths[3]] = 0;
+  msg->type = (char *) strdup(string);
+  
+  /*
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "    type = %s\n", string);
+  }  
+  */ 
+  
+  /*------------------*/
+  /* read text string */
+  /*------------------*/
+  if (lengths[4] > memSize) {
+    if (memSize > CMSG_MESSAGE_SIZE) {
+      free((void *) string);
+    }
+    memSize = lengths[4] + 1;
+    string  = (char *) malloc((size_t) memSize);
+    if (string == NULL) {
+      if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+        fprintf(stderr, "cMsgReadMessage: cannot allocate memory\n");
+      }
+      exit(1);
+    }
+  }
+  if (cMsgTcpRead(fd, string, lengths[4]) != lengths[4]) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgReadMessage: cannot read senderHost\n");
+    }
+    if (memSize > CMSG_MESSAGE_SIZE) {
+      free((void *) string);
+    }
+    free((void *) msg->sender);
+    free((void *) msg->senderHost);
+    free((void *) msg->subject);
+    free((void *) msg->type);
+    return(CMSG_NETWORK_ERROR);
+  }
+  string[lengths[4]] = 0;
+  msg->text = (char *) strdup(string);
+  
+  /*
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "    text = %s\n", string);
+  }
+  */ 
+      
+  /*------------------*/
+  /* read creator string */
+  /*------------------*/
+  if (lengths[5] > memSize) {
+    if (memSize > CMSG_MESSAGE_SIZE) {
+      free((void *) string);
+    }
+    memSize = lengths[5] + 1;
+    string  = (char *) malloc((size_t) memSize);
+    if (string == NULL) {
+      if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+        fprintf(stderr, "cMsgReadMessage: cannot allocate memory\n");
+      }
+      exit(1);
+    }
+  }
+  if (cMsgTcpRead(fd, string, lengths[5]) != lengths[5]) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgReadMessage: cannot read senderHost\n");
+    }
+    if (memSize > CMSG_MESSAGE_SIZE) {
+      free((void *) string);
+    }
+    free((void *) msg->sender);
+    free((void *) msg->senderHost);
+    free((void *) msg->subject);
+    free((void *) msg->type);
+    free((void *) msg->text);
+    return(CMSG_NETWORK_ERROR);
+  }
+  string[lengths[5]] = 0;
+  msg->creator = (char *) strdup(string);
+  
+  /*
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "    creator = %s\n", string);
+  }
+  */ 
+      
+  return(CMSG_OK);
+}
+
+
+
+
 
 #ifdef __cplusplus
 }
