@@ -208,13 +208,43 @@ public class cMsgClientListeningThread extends Thread {
 
                      break;
 
-                 case cMsgConstants.msgGetResponse: // receiving a message for specific get
+                 case cMsgConstants.msgGetResponse: // receiving a message for sendAndGet
                      // read the message here
                      msg = readIncomingMessage(channel);
                      msg.setGetResponse(true);
 
                      // run callbacks for this message
                      wakeGets(msg);
+
+                     break;
+
+                 case cMsgConstants.msgSubscribeResponseAndAck: // receiving a message, send ack
+                     // read the message here
+                     msg = readIncomingMessage(channel);
+                     // run callbacks for this message
+                     runCallbacks(msg);
+                     // send ok back as acknowledgment
+                     buffer.clear();
+                     buffer.putInt(cMsgConstants.ok).flip();
+                     while (buffer.hasRemaining()) {
+                         channel.write(buffer);
+                     }
+
+
+                     break;
+
+                 case cMsgConstants.msgGetResponseAndAck: // receiving message for sendAndGet, send ack
+                     // read the message here
+                     msg = readIncomingMessage(channel);
+                     msg.setGetResponse(true);
+                     // run callbacks for this message
+                     wakeGets(msg);
+                     // send ok back as acknowledgment
+                     buffer.clear();
+                     buffer.putInt(cMsgConstants.ok).flip();
+                     while (buffer.hasRemaining()) {
+                         channel.write(buffer);
+                     }
 
                      break;
 
