@@ -224,6 +224,16 @@ public class cMsgMessage implements Cloneable {
     }
 
 
+    /**
+     * Converts existing message to response of supplied message.
+     */
+    public void makeResponse(cMsgMessage msg) {
+        this.sysMsgId    = msg.getSysMsgId();
+        this.senderToken = msg.getSenderToken();
+        this.getResponse = true;
+    }
+
+
     // general quantities
 
 
