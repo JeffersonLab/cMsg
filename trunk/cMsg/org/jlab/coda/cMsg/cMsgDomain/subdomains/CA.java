@@ -73,7 +73,7 @@ public class CA extends cMsgHandleRequestsAbstract {
 	try {
 	    jca     = JCALibrary.getInstance();
 	    context = jca.createContext(JCALibrary.CHANNEL_ACCESS_JAVA);
-	} catch (Exception e) {
+	} catch (CAException e) {
 	    e.printStackTrace();
 	    System.err.println(e);
 	}
@@ -276,9 +276,6 @@ public class CA extends cMsgHandleRequestsAbstract {
      */
     public void handleGetRequest(cMsgMessage message) {
 
-	boolean failed = false;
-
-
 	// create reply message
 	cMsgMessage cmsg = new cMsgMessage();
 	cmsg.setDomain("cMsg");                   // just use domain for now
@@ -296,30 +293,23 @@ public class CA extends cMsgHandleRequestsAbstract {
 	// 	    cmsg.setType(message.getType());
 
 
-	// create channel 
+	// create channel and get value
 	Channel channel = null;
+	DBR dbr;
 	try {
 	    channel = context.createChannel(message.getSubject());
 	    context.pendIO(contextPend);
+	    dbr = channel.get();
+	    context.pendIO(getPend);
+	    cmsg.setText(null);
 	} catch  (CAException e) {
 	    cmsg.setText(null);
+	    e.printStackTrace();
+	    System.err.println(e);
 	} catch  (TimeoutException e) {
 	    cmsg.setText(null);
-	}
-
-
-	// get value
-	DBR dbr;
-	if(channel!=null) {
-	    try {
-		dbr = channel.get();
-		context.pendIO(getPend);
-		cmsg.setText(null);
-	    } catch  (CAException e) {
-		cmsg.setText(null);
-	    } catch  (TimeoutException e) {
-		cmsg.setText(null);
-	    }
+	    e.printStackTrace();
+	    System.err.println(e);
 	}
 
 	
@@ -427,7 +417,7 @@ public class CA extends cMsgHandleRequestsAbstract {
     public void handleServerShutdown() throws cMsgException {
 	try {
 	    context.destroy();
-	} catch (Exception e) {
+	} catch (CAException e) {
 	    System.err.println(e);
 	}
     }
