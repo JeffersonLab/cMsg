@@ -196,7 +196,9 @@ int np_readString(int sd, char *ptr, int size);
 
 int connect2Platform(int sending2port, char *sending2Host);
 
-int fillMsgStructure(msg *Msg, int priority, int uint, int senderTime, int id, int port, char *senderhost, char *sender, char *subject, char *type, char *data);
+int fillMsgStructure(msg *Msg, int priority, int uint, int senderTime, int id, int port,
+                     char *senderhost, char *sender, char *subject,
+                     char *type, char *data);
 int transmit2Agent( int sk, msg *Msg);
 int state_init(state_t *myState);
 int subscriptions_init(subscriptions_t *subs);
