@@ -53,6 +53,7 @@ public class cMsgClientListeningThread extends Thread {
 
     /** Allocate int array once (used for reading in data) for efficiency's sake. */
     private int[] inComing = new int[11];
+    //private int lastOdd=1,lastEven=0;
 
     /** Allocate byte array once (used for reading in data) for efficiency's sake. */
     byte[] bytes = new byte[5000];
@@ -329,6 +330,21 @@ public class cMsgClientListeningThread extends Thread {
 
         // read text
         msg.setText(new String(bytes, bytesToRead-lengthText, lengthText, "US-ASCII"));
+        /*
+        int num = Integer.parseInt(msg.getText());
+        if (num%2 > 0) {
+            if (num - lastOdd != 2) {
+                System.out.println("         " + lastOdd + " -> " + msg.getText());
+            }
+            lastOdd = num;
+        }
+        else {
+            if (num - lastEven != 2) {
+                System.out.println(lastEven + " -> " + msg.getText());
+            }
+            lastEven = num;
+        }
+        */
 
         /*
         // send ok back as acknowledgment
@@ -382,19 +398,21 @@ public class cMsgClientListeningThread extends Thread {
                 Iterator iter2 = sub.callbacks.iterator();
                 for (; iter2.hasNext(); ) {
                     cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
-                    // pass the thread the message
-                    cbThread.setMessage(msg);
-                    // now tell this thread to wakeup -- and automatically run the
-                    // callback, then go back to sleep.
-                    synchronized (cbThread) {
-                        cbThread.notify();
+                    // First, grab mutex on msg so cbThread cannot tell us he got the
+                    // message until we are already waiting for his answer in "msg.wait()"
+                    synchronized (msg) {
+                        // Now tell the callback thread to wakeup and automatically run the
+                        // callback. When we are waiting, then he can tell us that he got the
+                        // message. Then he'll go back to sleep.
+                        synchronized (cbThread) {
+                            cbThread.setMessage(msg);
+                            cbThread.notify();
+                        }
+                        try { msg.wait(); }
+                        catch (InterruptedException e) {}
+                        // The callback thread got the message and ran the callback,
+                        // time to move on.
                     }
-
-                    /*
-                    // execute this callback in its own thread
-                    cMsgCallbackThread thread = new cMsgCallbackThread(info, msg);
-                    thread.start();
-                    */
                 }
 
                 break;
