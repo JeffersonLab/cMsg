@@ -255,10 +255,19 @@ public class cMsgMessageFull extends cMsgMessage {
     /**
      * Converts existing message to response of supplied message.
      */
-    public void makeResponse(cMsgMessage msg) {
+    public void makeResponse(cMsgMessageFull msg) {
         this.sysMsgId    = msg.getSysMsgId();
         this.senderToken = msg.getSenderToken();
         this.getResponse = true;
+        msg.info = isGetResponse;
+    }
+
+
+    public void makeNullResponse(cMsgMessageFull msg) {
+        this.sysMsgId    = msg.getSysMsgId();
+        this.senderToken = msg.getSenderToken();
+        this.getResponse = true;
+        msg.info = isGetResponse | isNullGetResponse;
     }
 
 
