@@ -1,45 +1,47 @@
-# Generated automatically by Carl Timmer.
+#
+# cMsg top level Makefile
 #
 #
-CC  = $(PURE) gcc
-CXX = g++
-LD  = ld
-AR  = ar
-RANLIB = ranlib
-INSTALL  = ./install-sh -c
+# Warning!!
+# cMsg will not compile properly for vxWorks under Linux cross compiler
+#
 
-LIB_DIR = ./
-INC_DIR = ./
-BIN_DIR = ./
+# Operating system we are using
+OSNAME := $(shell uname)
 
-# C stuff
-AC_FLAGS  = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
-CFLAGS    = -O2 -fPIC -I./ $(AC_FLAGS)
-CXXFLAGS  = $(CFLAGS)
-SHLIB_LD  = ld -G
+ifeq ($(OSNAME),SunOS)
+LIB_DIR = ./lib/SunOS
+BIN_DIR = ./bin/SunOS
 
-LIBNAM      = libcmsg
-LIB_STATIC  = $(LIBNAM).a
-LIB_DYNAMIC = $(LIBNAM).so
+ifeq ($(ARCH),VXWORKSPPC)
+OSNAME = vxworks
+LIB_DIR = ./lib/vxworks
+endif
 
-CMSG_LIBS = $(LIB_STATIC) $(LIB_DYNAMIC)
-LIBS    = -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
+endif
 
-OBJS =  rwlock.o \
-	cMsgNetwork.o \
-	cMsg.o \
-	cMsgDomainListenThread.o \
-	cMsgDomain.o
 
-HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h cMsgDomain.h rwlock.h errors.h
+ifeq ($(OSNAME),Linux)
+LIB_DIR = ./lib/Linux
+BIN_DIR = ./bin/Linux
+endif
 
-PROGS = producer consumer getConsumer
+all: $(OSNAME) java doc
 
-all: $(CMSG_LIBS) $(PROGS)
+Linux:
+	cd ./src/regexp; make -f Makefile.Linux install;
+	cd ./src; make -f Makefile.Linux install;
+
+SunOS:
+	cd ./src/regexp; make -f Makefile.SunOS install;
+	cd ./src; make -f Makefile.SunOS install;
+
+vxworks:
+	cd ./src; make -f Makefile.vxworks;
+	cd ./src/regexp; make -f Makefile.vxworks;
 
 jar:
 	jar cf cMsg.jar `find org/ -type f | grep -v SCCS`
-
 
 java:
 	cd ./org/jlab/coda/cMsg; make;
@@ -50,57 +52,18 @@ java:
 	cd ./org/jlab/coda/cMsg/CADomain; make;
 	cd ./;
 
-
 doc:  javadoc doxygen
-
 
 javadoc:
 	javadoc -package -d doc/javadoc org.jlab.coda.cMsg
 
-
 doxygen:
-	doxygen doc/doxygen/Doxyfile
-
-
-install: install-lib install-inc install-bin
-
-install-lib: $(CMSG_LIBS)
-	@echo "Installing CMSG libraries in $(LIB_DIR)"
-	@for i in $(CMSG_LIBS); do \
-	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
-           done;
-
-install-inc: $(HFILES)
-	@echo "Installing includes in $(INC_DIR)"
-	@for i in $(HFILES); do \
-	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(INC_DIR)/$$i; \
-           done;
-
-install-bin: $(PROGS)
-	@echo "Installing executables in $(BIN_DIR)"
-	@for i in $(PROGS); do \
-	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(BIN_DIR)/$$i; \
-           done;
-
-$(PROGS) : % : %.c  ./cMsg.h
-	$(CC) -o $@ $(CFLAGS) $< -L./ -lcmsg $(LIBS)
-
-# libraries
-$(LIB_STATIC): $(OBJS)
-	$(AR) cr $@ $?
-	$(RANLIB) $@
-
-$(LIB_DYNAMIC): $(OBJS)
-	$(SHLIB_LD) $(OBJS) -o $@
-
-# file dependencies
-$(OBJS) : $(HFILES)
+	doxygen doc/doxygen/doxygenConfig
+#	doxygen doc/doxygen/Doxyfile
 
 clean: 
-	rm -f core *~ *.o *.so *.a *.class $(PROGS)
+	rm -f core *~ *.o *.so *.a *.class
+	cd ./src; make clean;
 jclean: 
 	cd ./org/jlab/coda/cMsg; make clean;
 	cd ./org/jlab/coda/cMsg/cMsgDomain; make clean;
@@ -115,9 +78,3 @@ jclean:
 
 .java.class:
 	$(JAVAC) $< $(JAVAC_FLAGS)
-.c:
-	$(CC) -o $* $(CFLAGS) $< -L./ -lcmsg $(LIBS)
-.cc:
-	$(CXX) -o $* $(CFLAGS) $< -L./ -lcmsg $(LIBS)
-.c.o:
-	$(CC) -c $(CFLAGS) $<
