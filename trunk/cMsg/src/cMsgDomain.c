@@ -3238,8 +3238,8 @@ static void domainInit(cMsgDomain_CODA *domain, int reInit) {
  * subscribe information.
  */
 static void subscribeInfoFree(subInfo *info) {  
-#ifndef VXWORKS    
-    /* cannot destroy mutexes and cond vars in vxworks */
+#ifdef sun    
+    /* cannot destroy mutexes and cond vars in vxworks & apparently Linux */
     int j, status;
 
     for (j=0; j<MAX_CALLBACK; j++) {
@@ -3279,8 +3279,8 @@ static void subscribeInfoFree(subInfo *info) {
  * subscribeAndGet/sendAndGet information.
  */
 static void getInfoFree(getInfo *info) {  
-#ifndef VXWORKS    
-    /* cannot destroy mutexes and cond vars in vxworks */
+#ifdef sun    
+    /* cannot destroy mutexes and cond vars in vxworks & Linux(?) */
     int status;
     
     status = pthread_cond_destroy (&info->cond);
@@ -3318,7 +3318,7 @@ static void getInfoFree(getInfo *info) {
  */
 static void domainFree(cMsgDomain_CODA *domain) {  
   int i;
-#ifndef VXWORKS
+#ifdef sun
   int status;
 #endif
   
@@ -3329,8 +3329,8 @@ static void domainFree(cMsgDomain_CODA *domain) {
   if (domain->udl         != NULL) free(domain->udl);
   if (domain->description != NULL) free(domain->description);
   
-#ifndef VXWORKS
-  /* cannot destroy mutexes in vxworks */
+#ifdef sun
+  /* cannot destroy mutexes in vxworks & Linux(?) */
   status = pthread_mutex_destroy(&domain->socketMutex);
   if (status != 0) {
     err_abort(status, "domainFree:destroying socket mutex");
