@@ -1887,6 +1887,9 @@ static void *keepAliveThread(void *arg)
     thr_setconcurrency(con + 1);
   #endif
 
+    /* release system resources when thread finishes */
+    pthread_detach(pthread_self());
+
     /* periodically send a keep alive message and read response */
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "keepAliveThread: keep alive thread created, socket = %d\n", socket);
@@ -1957,6 +1960,9 @@ static void *callbackThread(void *arg)
     thr_setconcurrency(con + 1);
   #endif
         
+    /* release system resources when thread finishes */
+    pthread_detach(pthread_self());
+
     threadsAdded = 0;
 
     while(1) {
@@ -2088,6 +2094,9 @@ static void *supplementalThread(void *arg)
     con = thr_getconcurrency();
     thr_setconcurrency(con + 1);
   #endif
+
+    /* release system resources when thread finishes */
+    pthread_detach(pthread_self());
 
     /* wait .2 sec before waking thread up and checking for messages */
     timeout.tv_sec  = 0;

@@ -147,6 +147,9 @@ void *cMsgClientListeningThread(void *arg)
   thr_setconcurrency(con + 1);
 #endif
 
+  /* release system resources when thread finishes */
+  pthread_detach(pthread_self());
+
   addrlen  = sizeof(cliaddr);
   domainId = threadArg->domainId;
     
@@ -312,6 +315,9 @@ static void *clientThread(void *arg)
   con = thr_getconcurrency();
   thr_setconcurrency(con + 1);
 #endif
+
+  /* release system resources when thread finishes */
+  pthread_detach(pthread_self());
 
   localCount = counter++;
 
