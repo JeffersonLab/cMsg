@@ -18,17 +18,15 @@ package org.jlab.coda.cMsg.cMsg;
 
 import org.jlab.coda.cMsg.*;
 
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
-import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.*;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.regex.Pattern;
+import java.nio.ByteBuffer;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.util.*;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * This class implements a cMsg client in the cMsg domain.
@@ -78,12 +76,30 @@ public class cMsg extends cMsgImpl {
     private KeepAlive keepAliveThread;
 
     /**
-     * Set of all subscriptions (cMsgSubscription objects) to unique subject/type pairs.
-     * Each subscription has a set of callbacks associated with it.
+     * Collection of all of this client's message subscriptions which are
+     * {@link cMsgSubscription} objects.
      */
+    Set subscriptions;
 
-    // bug bug, does this need protection??
-    HashSet subscriptions;
+    /**
+     * Collection of all of this client's {@link #get} calls, NOT directed to a specific
+     * reciever, currently in execution. If the message sent in a get call has its
+     * {@link cMsgMessage#isGetRequest} method set to true, then the message is destined
+     * for a specific receiver and is NOT included in this collection.
+     * This set contains {@link cMsgSubscription} objects since general gets are very
+     * similar to subscriptions and can be thought of as a one-shot subscription.
+     */
+    Set generalGets;
+
+    /**
+     * Collection of all of this client's {@link #get} calls, directed to a specific
+     * reciever, currently in execution. If the message sent in a get call has its
+     * {@link cMsgMessage#isGetRequest} method set to true, then the message is destined
+     * for a specific receiver and is included in the collection.
+     *
+     * Key is senderToken object, value is {@link cMsgMessageHolder} object.
+     */
+    Map specificGets;
 
     /** Used to create unique id numbers associated with a specific message subject/type pair. */
     private int uniqueId;
@@ -122,7 +138,9 @@ public class cMsg extends cMsgImpl {
         this.UDL = UDL;
         this.name = name;
         this.description = description;
-        subscriptions = new HashSet(20);
+        subscriptions = Collections.synchronizedSet(new HashSet(20));
+        generalGets   = Collections.synchronizedSet(new HashSet(20));
+        specificGets  = Collections.synchronizedMap(new HashMap(20));
 
         // store our host's name
         try {
@@ -206,12 +224,10 @@ public class cMsg extends cMsgImpl {
         listeningThread = new cMsgClientListeningThread(this, serverChannel);
         listeningThread.start();
 
-        /*
-         * Wait for indication thread is actually running before
-         * continuing on. This thread must be running before we talk to
-         * the name server since the server tries to communicate with
-         * the listening thread.
-         */
+        // Wait for indication thread is actually running before
+        // continuing on. This thread must be running before we talk to
+        // the name server since the server tries to communicate with
+        // the listening thread.
         synchronized (listeningThread) {
             if (!listeningThread.isAlive()) {
                 try {
@@ -326,14 +342,11 @@ public class cMsg extends cMsgImpl {
             cMsgSubscription sub = (cMsgSubscription) iter.next();
 
             // run through all callbacks
-            Iterator iter2 = sub.callbacks.iterator();
+            Iterator iter2 = sub.getCallbacks().iterator();
             for (; iter2.hasNext();) {
                 cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
                 // Tell the callback thread to wakeup and die
-                cbThread.killThread();
-                synchronized (cbThread) {
-                    cbThread.notify();
-                }
+                cbThread.dieNow();
             }
         }
 
@@ -359,39 +372,61 @@ public class cMsg extends cMsgImpl {
             throw new cMsgException("send is not implemented by this subdomain");
         }
 
-        int outGoing[] = new int[9];
+        String subject = message.getSubject();
+        String type    = message.getType();
+        String text    = message.getText();
+
+        // check args first
+        if (subject == null || type == null)  {
+            throw new cMsgException("message subject or type is null");
+        }
+        else if (subject.length() < 1 || type.length() < 1) {
+            throw new cMsgException("message subject or type is blank string");
+        }
+
+        // watch out for null text
+        if (text == null) {
+            message.setText("");
+            text = message.getText();
+        }
+
+        int outGoing[] = new int[11];
         // message id to domain server
         outGoing[0] = cMsgConstants.msgSendRequest;
         // system message
         outGoing[1] = message.getSysMsgId();
+        // is get request
+        outGoing[2] = message.isGetRequest() ? 1 : 0;
+        // is get response
+        outGoing[3] = message.isGetResponse() ? 1 : 0;
         // sender id
-        outGoing[2] = message.getSenderId();
-        // time message sent (right now)
-        outGoing[3] = (int) ((new Date()).getTime());
+        outGoing[4] = message.getSenderId();
+        // time message sent (right now) in seconds
+        outGoing[5] = (int) ((new Date()).getTime()/1000L);
         // sender message id
-        outGoing[4] = message.getSenderMsgId();
+        outGoing[6] = message.getSenderMsgId();
         // sender token
-        outGoing[5] = message.getSenderToken();
+        outGoing[7] = message.getSenderToken();
 
         // length of "subject" string
-        outGoing[6] = message.getSubject().length();
+        outGoing[8]  = subject.length();
         // length of "type" string
-        outGoing[7] = message.getType().length();
+        outGoing[9]  = type.length();
         // length of "text" string
-        outGoing[8] = message.getText().length();
+        outGoing[10] = text.length();
 
         // get ready to write
         buffer.clear();
         // send ints over together using view buffer
         buffer.asIntBuffer().put(outGoing);
         // position original buffer at position of view buffer
-        buffer.position(36);
+        buffer.position(44);
 
         // write strings
         try {
-            buffer.put(message.getSubject().getBytes("US-ASCII"));
-            buffer.put(message.getType().getBytes("US-ASCII"));
-            buffer.put(message.getText().getBytes("US-ASCII"));
+            buffer.put(subject.getBytes("US-ASCII"));
+            buffer.put(type.getBytes("US-ASCII"));
+            buffer.put(text.getBytes("US-ASCII"));
         }
         catch (UnsupportedEncodingException e) {
             e.printStackTrace();
@@ -403,26 +438,14 @@ public class cMsg extends cMsgImpl {
             while (buffer.hasRemaining()) {
                 domainChannel.write(buffer);
             }
-            // read acknowledgment & keep reading until we have 1 int of data
-            //cMsgUtilities.readSocketBytes(buffer, domainChannel, 4, debug);
         }
         catch (IOException e) {
             throw new cMsgException(e.getMessage());
         }
-
-        // go back to reading-from-buffer mode
-       // buffer.flip();
-
-        //int error = buffer.getInt();
-
-        //if (error != cMsgConstants.ok) {
-       //     throw new cMsgException("send: error in sending message");
-       // }
     }
 
 
 //-----------------------------------------------------------------------------
-
 
 
     /**
@@ -443,39 +466,61 @@ public class cMsg extends cMsgImpl {
             throw new cMsgException("send is not implemented by this subdomain");
         }
 
-        int outGoing[] = new int[9];
+        String subject = message.getSubject();
+        String type    = message.getType();
+        String text    = message.getText();
+
+        // check args first
+        if (subject == null || type == null)  {
+            throw new cMsgException("message subject or type is null");
+        }
+        else if (subject.length() < 1 || type.length() < 1) {
+            throw new cMsgException("message subject or type is blank string");
+        }
+
+        // watch out for null text
+        if (text == null) {
+            message.setText("");
+            text = message.getText();
+        }
+
+        int outGoing[] = new int[11];
         // message id to domain server
         outGoing[0] = cMsgConstants.msgSyncSendRequest;
         // system message
         outGoing[1] = message.getSysMsgId();
+        // is get request
+        outGoing[2] = message.isGetRequest() ? 1 : 0;
+        // is get response
+        outGoing[3] = message.isGetResponse() ? 1 : 0;
         // sender id
-        outGoing[2] = message.getSenderId();
-        // time message sent (right now)
-        outGoing[3] = (int) ((new Date()).getTime());
+        outGoing[4] = message.getSenderId();
+        // time message sent (right now) in seconds
+        outGoing[5] = (int) ((new Date()).getTime()/1000L);
         // sender message id
-        outGoing[4] = message.getSenderMsgId();
+        outGoing[6] = message.getSenderMsgId();
         // sender token
-        outGoing[5] = message.getSenderToken();
+        outGoing[7] = message.getSenderToken();
 
         // length of "subject" string
-        outGoing[6] = message.getSubject().length();
+        outGoing[8]  = subject.length();
         // length of "type" string
-        outGoing[7] = message.getType().length();
+        outGoing[9]  = type.length();
         // length of "text" string
-        outGoing[8] = message.getText().length();
+        outGoing[10] = text.length();
 
         // get ready to write
         buffer.clear();
         // send ints over together using view buffer
         buffer.asIntBuffer().put(outGoing);
         // position original buffer at position of view buffer
-        buffer.position(36);
+        buffer.position(44);
 
         // write strings
         try {
-            buffer.put(message.getSubject().getBytes("US-ASCII"));
-            buffer.put(message.getType().getBytes("US-ASCII"));
-            buffer.put(message.getText().getBytes("US-ASCII"));
+            buffer.put(subject.getBytes("US-ASCII"));
+            buffer.put(type.getBytes("US-ASCII"));
+            buffer.put(text.getBytes("US-ASCII"));
         }
         catch (UnsupportedEncodingException e) {
             e.printStackTrace();
@@ -504,12 +549,294 @@ public class cMsg extends cMsgImpl {
 
 
 //-----------------------------------------------------------------------------
+
+
     /**
      * Method to force cMsg client to send pending communications with domain server.
      * In the cMsg domain implementation, this method does nothing.
      */
     synchronized public void flush() {
         return;
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * This method does two separate things depending on the specifics of message in the
+     * argument. If the message to be sent has its "getRequest" field set to be true using
+     * {@link cMsgMessage#isGetRequest()}, then the message is sent as it would be in the
+     * {@link #send} method. The server notes the fact that a response to it is expected,
+     * and sends it to everyone subscribed to its subject and type. When a marked response is
+     * received from a client, it sends that first response back to the original sender
+     * regardless of its subject or type.
+     *
+     * In a second usage, if the message did NOT set its "getRequest" field to be true,
+     * then the server grabs the first incoming message of the requested subject and type
+     * and sends that to the original sender in response to the get.
+     *
+     * @param message message sent to server
+     * @param timeout time in milliseconds to wait for a reponse message
+     * @return response message
+     * @throws cMsgException if there are communication problems with the server
+     */
+    public cMsgMessage get(cMsgMessage message, int timeout) throws cMsgException {
+        if (!connected) {
+            throw new cMsgException("not connected to server");
+        }
+
+        if (!hasGet) {
+            throw new cMsgException("get is not implemented by this subdomain");
+        }
+
+        String subject = message.getSubject();
+        String type    = message.getType();
+        String text    = message.getText();
+
+        // check args first
+        if (subject == null || type == null)  {
+            throw new cMsgException("message subject or type is null");
+        }
+        else if (subject.length() < 1 || type.length() < 1) {
+            throw new cMsgException("message subject or type is blank string");
+        }
+
+        // watch out for null text
+        if (text == null) {
+            message.setText("");
+            text = message.getText();
+        }
+
+        boolean getExists = false;
+        cMsgSubscription sub = null;
+        cMsgMessageHolder holder = null;
+        Integer specificGetId = null;
+
+        synchronized (this) {
+            // Allow several gets to be grouped under one subscription,
+            // so that one message from the server can be sent for all.
+            //
+            // This is only possible if the get is NOT expecting a return
+            // message from a specific receiver (getRequest field is not
+            // true in message), and is thus just a 1-shot subscribe.
+
+            if (!message.isGetRequest()) {
+                // for each get ...
+                for (Iterator iter = generalGets.iterator(); iter.hasNext();) {
+                    sub = (cMsgSubscription) iter.next();
+                    // if get for subject & type exists ...
+                    if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
+                        // add to existing set of callbacks
+                        holder = new cMsgMessageHolder();
+                        sub.addHolder(holder);
+//System.out.println("get: add callback to existing get & return");
+                        getExists = true;
+                        break;
+                    }
+                }
+            }
+            if (!getExists) {
+                // If we're here, the subscription to that subject & type does not exist yet.
+                // Or, we're doing a get and expecting a response from specific receiver.
+                // We need send msg to domain server who will see we get a response.
+                //
+                // First generate a unique id for the receiveSubscribeId and senderToken field.
+                //
+                // For the 1-shot subscribe:
+                // The receiverSubscribeId is sent back by the domain server in the future when
+                // messages of this subject and type are sent to this cMsg client. This helps
+                // eliminate the need to parse subject and type each time a message arrives.
+                //
+                // For a specific get:
+                // If we're expecting a specific response, then the senderToken is sent back
+                // in the response message, allowing us to run the correct callback.
+
+                uniqueId++;
+
+                // for get, create cMsgMessageHolder object (not callback thread object)
+                holder = new cMsgMessageHolder();
+
+                // track specific get requests
+                if (message.isGetRequest()) {
+                    specificGetId = new Integer(uniqueId);
+                    specificGets.put(specificGetId, holder);
+                }
+                // track general gets
+                else {
+                    sub = new cMsgSubscription(subject, type, uniqueId, holder);
+                    generalGets.add(sub);
+                }
+
+                int outGoing[] = new int[10];
+                // message id to domain server
+                outGoing[0] = cMsgConstants.msgGetRequest;
+                // getRequest flag
+                outGoing[1] = message.isGetRequest() ? 1 : 0;
+                // send unique id for receiverSubscribeId
+                outGoing[2] = uniqueId;
+                // sender id
+                outGoing[3] = message.getSenderId();
+                // time message sent (right now)
+                outGoing[4] = (int) ((new Date()).getTime()/1000L);
+                // sender message id
+                outGoing[5] = message.getSenderMsgId();
+                // send unique id for sender token
+                outGoing[6] = uniqueId;
+
+                // length of "subject" string
+                outGoing[7] = subject.length();
+                // length of "type" string
+                outGoing[8] = type.length();
+                // length of "text" string
+                outGoing[9] = text.length();
+
+                // get ready to write
+                buffer.clear();
+                // send ints over together using view buffer
+                buffer.asIntBuffer().put(outGoing);
+                // position original buffer at position of view buffer
+                buffer.position(40);
+
+                // write strings
+                try {
+                    buffer.put(subject.getBytes("US-ASCII"));
+                    buffer.put(type.getBytes("US-ASCII"));
+                    buffer.put(text.getBytes("US-ASCII"));
+                }
+                catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
+
+                try {
+                    // send buffer over the socket
+                    buffer.flip();
+                    while (buffer.hasRemaining()) {
+                        domainChannel.write(buffer);
+                    }
+                }
+                catch (IOException e) {
+                    throw new cMsgException(e.getMessage());
+                }
+            }
+        }  // end synchronized
+
+        // WAIT for the msg-receiving thread to wake us up
+        try {
+            synchronized (holder) {
+                if (timeout > 0) {
+                    holder.wait(timeout);
+                }
+                else {
+                    holder.wait();
+                }
+            }
+        }
+        catch (InterruptedException e) {
+        }
+
+
+        // Check the message stored for us in holder.
+        // If msg is null, we timed out.
+        // Tell server to forget the get if necessary.
+        if (holder.message == null) {
+            System.out.println("get: timed out");
+            synchronized (this) {
+                // remove the specific get from books
+                if (message.isGetRequest()) {
+                    specificGets.remove(specificGetId);
+                }
+                // if general get, deal with 1-shot "subscription" ...
+                else {
+                    // remove holder from client's get "subscription"
+                    sub.removeHolder(holder);
+
+                    // if there are no gets calls active, remove entire subscription
+                    if (sub.numberOfGets() < 1) {
+                        // remove subscription
+                        generalGets.remove(sub);
+                        // tell server to delete get request
+                        unget(sub);
+                    }
+                }
+            }
+            return null;
+        }
+
+        // If msg is not null, server has removed subscription from his records.
+        // Client listening thread has also removed subscription from client's
+        // records (generalGets HashSet).
+
+        // Make a copy of message and return it.
+        cMsgMessage msg = holder.message.copy();
+//System.out.println("get: SUCCESS!!!");
+
+        return msg;
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to unget a previous get to receive a message of a subject and type
+     * from the domain server. Since many simultaneous gets may be made from different
+     * threads to the same subject and type* values, but with different callbacks,
+     * the callback must be specified so the correct get can be removed.
+     * This method is only called when a get timeouts out and the server must be
+     * told to forget about the get.
+     *
+     * @param sub subscription to delete
+     * @throws cMsgException if there are communication problems with the server
+     */
+    synchronized private void unget(cMsgSubscription sub)
+            throws cMsgException {
+
+System.out.println("unget: in");
+        if (!connected) {
+            throw new cMsgException("not connected to server");
+        }
+
+        // if there are still callbacks left, don't unget for this sub (subject/type)
+        if (sub.numberOfCallbacks() > 0) {
+            return;
+        }
+
+        // notify the domain server
+
+        int[] outGoing = new int[3];
+        // first send message id to server
+        outGoing[0] = cMsgConstants.msgUngetRequest;
+        // send length of subject
+        outGoing[1] = sub.getSubject().length();
+        // send length of type
+        outGoing[2] = sub.getType().length();
+
+        // get ready to write
+        buffer.clear();
+        // send ints over together using view buffer
+        buffer.asIntBuffer().put(outGoing);
+        // position original buffer at position of view buffer
+        buffer.position(12);
+
+        // write strings
+        try {
+            buffer.put(sub.getSubject().getBytes("US-ASCII"));
+            buffer.put(sub.getType().getBytes("US-ASCII"));
+        }
+        catch (UnsupportedEncodingException e) {
+        }
+
+        try {
+            // send buffer over the socket
+            buffer.flip();
+            while (buffer.hasRemaining()) {
+                domainChannel.write(buffer);
+            }
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
+        }
     }
 
 
@@ -537,6 +864,14 @@ public class cMsg extends cMsgImpl {
             throw new cMsgException("subscribe is not implemented by this subdomain");
         }
 
+        // check args first
+        if (subject == null || type == null || cb == null) {
+            throw new cMsgException("subject, type or callback argument is null");
+        }
+        else if (subject.length() < 1 || type.length() < 1) {
+            throw new cMsgException("subject or type is blank string");
+        }
+
         // add to callback list if subscription to same subject/type exists
 
         // for each subscription
@@ -544,7 +879,7 @@ public class cMsg extends cMsgImpl {
         for (Iterator iter = subscriptions.iterator(); iter.hasNext(); ) {
             sub = (cMsgSubscription) iter.next();
             // if subscription to subject & type exists ...
-            if (sub.subject.equals(subject) && sub.type.equals(type)) {
+            if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
                 // add to existing set of callbacks
                 sub.addCallback(new cMsgCallbackThread(cb, userObj));
                 return;
@@ -595,21 +930,10 @@ public class cMsg extends cMsgImpl {
             while (buffer.hasRemaining()) {
                 domainChannel.write(buffer);
             }
-            // read acknowledgment & keep reading until we have 1 int of data
-            //cMsgUtilities.readSocketBytes(buffer, domainChannel, 4, debug);
         }
         catch (IOException e) {
             throw new cMsgException(e.getMessage());
         }
-
-        // go back to reading-from-buffer mode
-        //buffer.flip();
-
-        //int error = buffer.getInt();
-
-        //if (error != cMsgConstants.ok) {
-        //    throw new cMsgException("subscribe: error in subscribing");
-        //}
     }
 
 
@@ -639,6 +963,13 @@ public class cMsg extends cMsgImpl {
             throw new cMsgException("unsubscribe is not implemented by this subdomain");
         }
 
+        // check args first
+        if (subject == null || type == null || cb == null) {
+            throw new cMsgException("subject, type or callback argument is null");
+        }
+        else if (subject.length() < 1 || type.length() < 1) {
+            throw new cMsgException("subject or type is blank string");
+        }
 
         // look for and remove any subscription to subject/type with this callback object
 
@@ -647,9 +978,9 @@ public class cMsg extends cMsgImpl {
         for (Iterator iter = subscriptions.iterator(); iter.hasNext(); ) {
             sub = (cMsgSubscription) iter.next();
             // if subscription to subject & type exist ...
-            if (sub.subject.equals(subject) && sub.type.equals(type)) {
+            if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
                 // for each callback listed
-                for (Iterator iter2 = sub.callbacks.iterator(); iter2.hasNext(); ) {
+                for (Iterator iter2 = sub.getCallbacks().iterator(); iter2.hasNext(); ) {
                     cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
                     if (cbThread.callback == cb) {
                         // remove this callback from the set
@@ -695,21 +1026,10 @@ public class cMsg extends cMsgImpl {
             while (buffer.hasRemaining()) {
                 domainChannel.write(buffer);
             }
-            // read acknowledgment & keep reading until we have 1 int of data
-            //cMsgUtilities.readSocketBytes(buffer, domainChannel, 4, debug);
         }
         catch (IOException e) {
             throw new cMsgException(e.getMessage());
         }
-
-        // go back to reading-from-buffer mode
-        //buffer.flip();
-
-        //int error = buffer.getInt();
-
-        //if (error != cMsgConstants.ok) {
-        //    throw new cMsgException("subscribe: error in subscribing");
-        //}
     }
 
 
