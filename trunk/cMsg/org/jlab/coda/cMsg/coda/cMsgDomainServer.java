@@ -167,6 +167,7 @@ public class cMsgDomainServer extends Thread {
         // Start thread to monitor client's health.
         // If he dies, kill this thread.
         cMsgMonitorClient monitor =  new cMsgMonitorClient(info, this);
+        monitor.setDaemon(true);
         monitor.start();
     }
 
@@ -255,6 +256,7 @@ public class cMsgDomainServer extends Thread {
      * @param channel nio socket communication channel
      */
     private void handleClient(SocketChannel channel) {
+        int msgId = 0;
 
         try {
             // keep reading until we have an int (4 bytes) of data
@@ -266,7 +268,7 @@ public class cMsgDomainServer extends Thread {
             buffer.flip();
 
             // read client's request
-            int msgId = buffer.getInt();
+            msgId = buffer.getInt();
 
             switch (msgId) {
 
@@ -355,7 +357,9 @@ public class cMsgDomainServer extends Thread {
         catch (IOException e) {
             //e.printStackTrace();
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("dServer handleClient: I/O ERROR in cMsg client");
+                System.out.println("dServer handleClient: I/O ERROR in cMsg client " + info.clientName + ": " + e.getMessage());
+                System.out.println("dServer handleClient: I/O ERROR in cMsg client " + info.clientName +
+                        " with msgId = " + msgId);
             }
             try {channel.close();}
             catch (IOException e1) {
@@ -365,7 +369,7 @@ public class cMsgDomainServer extends Thread {
         catch (cMsgException e) {
             e.printStackTrace();
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("dServer handleClient: cMsg ERROR in cMsg client");
+                System.out.println("dServer handleClient: cMsg ERROR in cMsg client " + info.clientName);
             }
             try {channel.close();}
             catch (IOException e1) {
