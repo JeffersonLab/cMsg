@@ -34,6 +34,7 @@
 #include <taskLib.h>
 #include <hostLib.h>
 #include <timers.h>
+#include <sysLib.h>
 #endif
 
 #include <stdio.h>
@@ -134,11 +135,11 @@ static void *callbackThread(void *arg);
 static void *supplementalThread(void *arg);
 
 /* initialization and freeing */
-static void  domainInit(cMsgDomain_CODA *domain);
+static void  domainInit(cMsgDomain_CODA *domain, int reInit);
 static void  domainFree(cMsgDomain_CODA *domain);  
 static void  domainClear(cMsgDomain_CODA *domain);
-static void  getInfoInit(getInfo *info);
-static void  subscribeInfoInit(subscribeInfo *info);
+static void  getInfoInit(getInfo *info, int reInit);
+static void  subscribeInfoInit(subscribeInfo *info, int reInit);
 static void  getInfoFree(getInfo *info);
 static void  subscribeInfoFree(subscribeInfo *info);
 
@@ -183,8 +184,11 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription,
 
   /* do one time initialization */
   if (!oneTimeInitialized) {
+    /*memset((void *) cMsgDomains, 0, MAXDOMAINS_CODA*sizeof(cMsgDomain_CODA));*/
     /* clear domain arrays */
-    for (i=0; i<MAXDOMAINS_CODA; i++) domainInit(&cMsgDomains[i]);
+    for (i=0; i<MAXDOMAINS_CODA; i++) {
+      domainInit(&cMsgDomains[i], 0);
+    }
     
     /* allocate array to read in receiverSubscribeIds */
     rsIds = (int *) calloc(100, sizeof(int));
@@ -302,7 +306,11 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription,
   }
 
   /* get listening port and socket for this application */
+#ifdef VXWORKS
+  if ( (err = cMsgGetListeningSocket(CMSG_BLOCKING,
+#else
   if ( (err = cMsgGetListeningSocket(CMSG_NONBLOCKING,
+#endif
                                      startingPort,
                                      &cMsgDomains[id].listenPort,
                                      &cMsgDomains[id].listenSocket)) != CMSG_OK) {
@@ -330,9 +338,11 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription,
    * the listening thread.
    */
    
+#ifdef VXWORKS
+  hz = sysClkRateGet();
+#else
   /* get system clock rate - probably 100 Hz */
   hz = 100;
-#ifndef VXWORKS
   hz = sysconf(_SC_CLK_TCK);
 #endif
   /* wait up to WAIT_FOR_THREADS seconds for a thread to start */
@@ -1889,7 +1899,7 @@ static void *keepAliveThread(void *arg)
     int request, alive, err;
 
     /* increase concurrency for this thread for early Solaris */
-  #ifdef sun
+  #if defined sun && !defined VXWORKS
     int  con;
     con = thr_getconcurrency();
     thr_setconcurrency(con + 1);
@@ -1928,8 +1938,8 @@ static void *keepAliveThread(void *arg)
          break;
        }
        
-       /* sleep for 3 seconds and try again */
-       sleep(3);
+       /* sleep for 1 second and try again */
+       sleep(1);
     }
     
     /* if we've reach here, there's an error, do a disconnect */
@@ -1938,7 +1948,7 @@ static void *keepAliveThread(void *arg)
     }
     cMsgDisconnect(domainId);
     
-  #ifdef sun
+  #if defined sun && !defined VXWORKS
     thr_setconcurrency(con);
   #endif
     
@@ -1959,7 +1969,7 @@ static void *callbackThread(void *arg)
     pthread_t thd;
 
     /* increase concurrency for this thread for early Solaris */
-  #ifdef sun
+  #if defined sun && !defined VXWORKS
     int  con;
     con = thr_getconcurrency();
     thr_setconcurrency(con + 1);
@@ -1983,7 +1993,7 @@ static void *callbackThread(void *arg)
           (numThreads < subscription->config.maxThreads) &&
           (numMsgs > subscription->config.msgsPerThread)) {
 
-        /* find number of threads needed (1 per 50 messages) */
+        /* find number of threads needed */
         need = subscription->messages/subscription->config.msgsPerThread;
 
         /* add more threads if necessary */
@@ -2068,7 +2078,7 @@ static void *callbackThread(void *arg)
     
   end:
           
-  #ifdef sun
+  #if defined sun && !defined VXWORKS
     thr_setconcurrency(con);
   #endif
     
@@ -2230,14 +2240,16 @@ fprintf(stderr, "cMsgRunCallbacks: cli id = %d, msg id = %d\n",
 domain->subscribeInfo[i].id, rsIds[ii]);
 */
       if (domain->subscribeInfo[i].id == rsIds[ii]) {
-
-/*fprintf(stderr, "cMsgRunCallbacks: match with msg id %d\n", rsIds[ii]);*/
+/*
+fprintf(stderr, "cMsgRunCallbacks: match with msg id %d\n", rsIds[ii]);
+*/
         /* search callback list */
         for (j=0; j<MAXCALLBACK; j++) {
 	  /* if there is an existing callback ... */
           if (domain->subscribeInfo[i].cbInfo[j].callback != NULL) {
-/*fprintf(stderr, "cMsgRunCallbacks: there is a callback\n");*/
-
+/*
+fprintf(stderr, "cMsgRunCallbacks: there is a callback\n");
+*/
             /* copy message so each callback has its own copy */
             message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
 
@@ -2295,16 +2307,16 @@ domain->subscribeInfo[i].id, rsIds[ii]);
             subscription->messages++;
             message->next = NULL;
 
+            /* wakeup callback thread */
+            status = pthread_cond_broadcast(&subscription->cond);
+            if (status != 0) {
+              err_abort(status, "Failed callback condition signal");
+            }
+
             /* unlock mutex */
             status = pthread_mutex_unlock(&subscription->mutex);
             if (status != 0) {
               err_abort(status, "Failed callback mutex unlock");
-            }
-
-            /* wakeup callback thread */
-            status = pthread_cond_signal(&subscription->cond);
-            if (status != 0) {
-              err_abort(status, "Failed callback condition signal");
             }
 	  }
         } /* search callback list */
@@ -2765,7 +2777,9 @@ static int parseUDL(const char *UDLremainder, char **host, unsigned short *port,
 /*-------------------------------------------------------------------*/
 
 
-static void getInfoInit(getInfo *info) {
+static void getInfoInit(getInfo *info, int reInit) {
+    int status;
+    
     info->id      = 0;
     info->active  = 0;
     info->msgIn   = 0;
@@ -2773,17 +2787,28 @@ static void getInfoInit(getInfo *info) {
     info->type    = NULL;
     info->subject = NULL;    
     info->msg     = NULL;
-    /* pthread_mutex_init mallocs memory */
-    pthread_cond_init(&info->cond, NULL);
-    pthread_mutex_init(&info->mutex, NULL);
+    
+#ifdef VXWORKS
+    /* vxworks only lets us initialize mutexes and cond vars once */
+    if (reInit) return;
+#endif
+
+    status = pthread_cond_init(&info->cond, NULL);
+    if (status != 0) {
+      err_abort(status, "getInfoInit:initializing condition var");
+    }
+    status = pthread_mutex_init(&info->mutex, NULL);
+    if (status != 0) {
+      err_abort(status, "getInfoInit:initializing mutex");
+    }
 }
 
 
 /*-------------------------------------------------------------------*/
 
 
-static void subscribeInfoInit(subscribeInfo *info) {
-    int j;
+static void subscribeInfoInit(subscribeInfo *info, int reInit) {
+    int j, status;
     
     info->id      = 0;
     info->active  = 0;
@@ -2793,6 +2818,7 @@ static void subscribeInfoInit(subscribeInfo *info) {
     for (j=0; j<MAXCALLBACK; j++) {
       info->cbInfo[j].threads  = 0;
       info->cbInfo[j].messages = 0;
+      info->cbInfo[j].quit     = 0;
       info->cbInfo[j].callback = NULL;
       info->cbInfo[j].userArg  = NULL;
       info->cbInfo[j].head     = NULL;
@@ -2805,9 +2831,20 @@ static void subscribeInfoInit(subscribeInfo *info) {
       info->cbInfo[j].config.maxThreads    = 100;
       info->cbInfo[j].config.msgsPerThread = 150;
       
-      /* pthread_mutex_init mallocs memory */
-      pthread_cond_init (&info->cbInfo[j].cond,  NULL);
-      pthread_mutex_init(&info->cbInfo[j].mutex, NULL);
+#ifdef VXWORKS
+      /* vxworks only lets us initialize mutexes and cond vars once */
+      if (reInit) return;
+#endif
+
+      status = pthread_cond_init (&info->cbInfo[j].cond,  NULL);
+      if (status != 0) {
+        err_abort(status, "subscribeInfoInit:initializing condition var");
+      }
+      
+      status = pthread_mutex_init(&info->cbInfo[j].mutex, NULL);
+      if (status != 0) {
+        err_abort(status, "subscribeInfoInit:initializing mutex");
+      }
     }
 }
 
@@ -2815,8 +2852,8 @@ static void subscribeInfoInit(subscribeInfo *info) {
 /*-------------------------------------------------------------------*/
 
 
-static void domainInit(cMsgDomain_CODA *domain) {
-  int i;
+static void domainInit(cMsgDomain_CODA *domain, int reInit) {
+  int i, status;
  
   domain->id                 = 0;
 
@@ -2847,22 +2884,38 @@ static void domainInit(cMsgDomain_CODA *domain) {
   domain->udl                = NULL;
   domain->description        = NULL;
 
-  /* pthread_mutex_init mallocs memory */
-  pthread_mutex_init(&domain->socketMutex, NULL);
-  pthread_mutex_init(&domain->syncSendMutex, NULL);
-  pthread_mutex_init(&domain->subscribeMutex, NULL);
-  
   for (i=0; i<MAX_SUBSCRIBE; i++) {
-    subscribeInfoInit(&domain->subscribeInfo[i]);
+    subscribeInfoInit(&domain->subscribeInfo[i], reInit);
   }
   
   for (i=0; i<MAX_GENERAL_GET; i++) {
-    getInfoInit(&domain->generalGetInfo[i]);
+    getInfoInit(&domain->generalGetInfo[i], reInit);
   }
   
   for (i=0; i<MAX_SPECIFIC_GET; i++) {
-    getInfoInit(&domain->specificGetInfo[i]);
+    getInfoInit(&domain->specificGetInfo[i], reInit);
   }
+
+#ifdef VXWORKS
+  /* vxworks only lets us initialize mutexes and cond vars once */
+  if (reInit) return;
+#endif
+
+  status = pthread_mutex_init(&domain->socketMutex, NULL);
+  if (status != 0) {
+    err_abort(status, "domainInit:initializing socket mutex");
+  }
+  
+  status = pthread_mutex_init(&domain->syncSendMutex, NULL);
+  if (status != 0) {
+    err_abort(status, "domainInit:initializing sync send mutex");
+  }
+  
+  status = pthread_mutex_init(&domain->subscribeMutex, NULL);
+  if (status != 0) {
+    err_abort(status, "domainInit:initializing subscribe mutex");
+  }
+  
 }
 
 
@@ -2870,7 +2923,23 @@ static void domainInit(cMsgDomain_CODA *domain) {
 
 
 static void subscribeInfoFree(subscribeInfo *info) {  
-    int j;
+#ifndef VXWORKS    
+    /* cannot destroy mutexes and cond vars in vxworks */
+    int j, status;
+
+    for (j=0; j<MAXCALLBACK; j++) {
+      status = pthread_cond_destroy (&info->cbInfo[j].cond);
+      if (status != 0) {
+        err_abort(status, "subscribeInfoFree:destroying cond var");
+      }
+  
+      status = pthread_mutex_destroy(&info->cbInfo[j].mutex);
+      if (status != 0) {
+        err_abort(status, "subscribeInfoFree:destroying mutex");
+      }
+  
+    }
+#endif   
     
     if (info->type != NULL) {
       free(info->type);
@@ -2878,11 +2947,6 @@ static void subscribeInfoFree(subscribeInfo *info) {
     if (info->subject != NULL) {
       free(info->subject);
     }
-    
-    for (j=0; j<MAXCALLBACK; j++) {
-      pthread_cond_destroy (&info->cbInfo[j].cond);
-      pthread_mutex_destroy(&info->cbInfo[j].mutex);
-    }    
 }
 
 
@@ -2890,19 +2954,33 @@ static void subscribeInfoFree(subscribeInfo *info) {
 
 
 static void getInfoFree(getInfo *info) {  
+#ifndef VXWORKS    
+    /* cannot destroy mutexes and cond vars in vxworks */
+    int status;
+    
+    status = pthread_cond_destroy (&info->cond);
+    if (status != 0) {
+      err_abort(status, "getInfoFree:destroying cond var");
+    }
+    
+    status = pthread_mutex_destroy(&info->mutex);
+    if (status != 0) {
+      err_abort(status, "getInfoFree:destroying cond var");
+    }
+#endif
+    
     if (info->type != NULL) {
       free(info->type);
     }
+    
     if (info->subject != NULL) {
       free(info->subject);
     }
-    /*
+    
     if (info->msg != NULL) {
       cMsgFreeMessage(info->msg);
     }
-    */
-    pthread_cond_destroy (&info->cond);
-    pthread_mutex_destroy(&info->mutex);
+
 }
 
 
@@ -2911,6 +2989,9 @@ static void getInfoFree(getInfo *info) {
 
 static void domainFree(cMsgDomain_CODA *domain) {  
   int i;
+#ifndef VXWORKS
+  int status;
+#endif
   
   if (domain->myHost      != NULL) free(domain->myHost);
   if (domain->sendHost    != NULL) free(domain->sendHost);
@@ -2919,11 +3000,24 @@ static void domainFree(cMsgDomain_CODA *domain) {
   if (domain->udl         != NULL) free(domain->udl);
   if (domain->description != NULL) free(domain->description);
   
-  /* pthread_mutex_destroy frees memory */
-  pthread_mutex_destroy(&domain->socketMutex);
-  pthread_mutex_destroy(&domain->syncSendMutex);
-  pthread_mutex_destroy(&domain->subscribeMutex);
+#ifndef VXWORKS
+  /* cannot destroy mutexes in vxworks */
+  status = pthread_mutex_destroy(&domain->socketMutex);
+  if (status != 0) {
+    err_abort(status, "domainFree:destroying socket mutex");
+  }
   
+  status = pthread_mutex_destroy(&domain->syncSendMutex);
+  if (status != 0) {
+    err_abort(status, "domainFree:destroying sync send mutex");
+  }
+  
+  status = pthread_mutex_destroy(&domain->subscribeMutex);
+  if (status != 0) {
+    err_abort(status, "domainFree:destroying subscribe mutex");
+  }
+#endif
+    
   for (i=0; i<MAX_SUBSCRIBE; i++) {
     subscribeInfoFree(&domain->subscribeInfo[i]);
   }
@@ -2943,7 +3037,7 @@ static void domainFree(cMsgDomain_CODA *domain) {
 
 static void domainClear(cMsgDomain_CODA *domain) {
   domainFree(domain);
-  domainInit(domain);
+  domainInit(domain, 1);
 }
 
  
