@@ -47,6 +47,10 @@ import java.util.regex.Pattern;
 /**
  * This class implements a client in the cMsg Channel Access (CA) domain.
  *
+ * UDL:  cMsg:CA://channelName?addr_list=list.
+ *
+ * where addr_list specifies the UDP broadcast address list.
+ *
  * @author Elliott Wolin
  * @version 1.0
  */
