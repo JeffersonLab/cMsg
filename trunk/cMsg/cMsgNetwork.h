@@ -94,7 +94,7 @@ extern int   cMsgTcpRead(int fd, void *vptr, int n);
 extern int   cMsgTcpWrite(int fd, const void *vptr, int n);
 extern int   cMsgTcpWritev(int fd, struct iovec iov[], int nbufs, int iov_max);
 
-extern int   cMsgByteOrder(void);
+extern int   cMsgByteOrder(int *endian);
 extern const char *cMsgHstrerror(int err);
 
 #ifdef	__cplusplus
