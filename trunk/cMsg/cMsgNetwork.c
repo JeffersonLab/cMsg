@@ -446,14 +446,15 @@ int cMsgTcpRead(int fd, void *vptr, int n)
   while (nleft > 0) {
     if ( (nread = read(fd, ptr, nleft)) < 0) {
       /*
-      if (errno == EINTR)       fprintf(stderr, "call interrupted\n");
-      else if (errno == EAGAIN) fprintf(stderr, "non-blocking return\n");
-      else if (errno == EIO)    fprintf(stderr, "I/O error\n");
-      else if (errno == EISDIR) fprintf(stderr, "fd refers to directory\n");
-      else if (errno == EBADF)  fprintf(stderr, "fd not valid or not open for reading\n");
-      else if (errno == EINVAL) fprintf(stderr, "fd not suitable for reading\n");
-      else if (errno == EFAULT) fprintf(stderr, "buffer is outside address space\n");
-      else  printf("other error\n");
+      if (errno == EINTR)            fprintf(stderr, "call interrupted\n");
+      else if (errno == EAGAIN)      fprintf(stderr, "non-blocking return, or socket timeout\n");
+      else if (errno == EWOULDBLOCK) fprintf(stderr, "nonblocking return\n");
+      else if (errno == EIO)         fprintf(stderr, "I/O error\n");
+      else if (errno == EISDIR)      fprintf(stderr, "fd refers to directory\n");
+      else if (errno == EBADF)       fprintf(stderr, "fd not valid or not open for reading\n");
+      else if (errno == EINVAL)      fprintf(stderr, "fd not suitable for reading\n");
+      else if (errno == EFAULT)      fprintf(stderr, "buffer is outside address space\n");
+      else {perror("cMsgTcpRead");}
       */
       if (errno == EINTR) {
         nread = 0;		/* and call read() again */
