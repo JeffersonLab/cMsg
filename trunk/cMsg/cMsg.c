@@ -91,6 +91,7 @@ static void  mutexUnlock(void);
 static void  connectMutexLock(void);
 static void  connectMutexUnlock(void);
 static void  cMsgDomainClear(cMsgDomain *domain);
+static void initMessage(cMsgMessage *msg);
 
 
 
@@ -161,6 +162,7 @@ int cMsgConnect(char *myUDL, char *myName, char *myDescription, int *domainId) {
     }
     domainInit(&domains[i]);
     id = i;
+    break;
   }
   
 
@@ -760,10 +762,42 @@ int cMsgGetReceiveState(int domainId, int *receiveState) {
 /*-------------------------------------------------------------------*/
 
 
+static void initMessage(cMsgMessage *msg) {
+    
+    if (msg == NULL) return;
+    
+    msg->sysMsgId     = 0;
+
+    msg->sender       = NULL;
+    msg->senderId     = 0;
+    msg->senderHost   = NULL;
+    msg->senderTime   = 0;
+    msg->senderMsgId  = 0;
+    msg->senderToken  = 0;
+
+    msg->receiver     = NULL;
+    msg->receiverHost = NULL;
+    msg->receiverTime = 0;
+    msg->receiverSubscribeId = 0;
+
+    msg->domain  = NULL;
+    msg->subject = NULL;
+    msg->type    = NULL;
+    msg->text    = NULL;
+    
+    return;
+  }
+
+
+/*-------------------------------------------------------------------*/
+
+
 void *cMsgCreateMessage(void) {
   cMsgMessage *msg;
   
   msg = (cMsgMessage *) malloc(sizeof(cMsgMessage));
+  /* initialize the memory */
+  initMessage(msg);
   
   return((void *)msg);
 }
