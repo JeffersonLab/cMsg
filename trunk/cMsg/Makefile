@@ -12,8 +12,30 @@ LIB_DIR = ./
 INC_DIR = ./
 BIN_DIR = ./
 
+# java stuff
+
+JAVAC = javac
+JAVAH = javah
+JAVAD = javadoc
+JAR   = jar
+#JAVAC_FLAGS = -classpath .:$(CLASSPATH)
+JAVAC_FLAGS = -classpath .
+
+JAVA_OBJS = \
+	Jgetenv.class \
+	JgetenvException.class \
+	cMsgConstants.class \
+	cMsgClientInfo.class \
+	cMsgException.class \
+	cMsgDomainServer.class \
+	cMsgDomainServerListeningThread.class \
+	cMsgNameServer.class \
+	cMsgNameServerListeningThread.class
+
+# C stuff
 AC_FLAGS  = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
-CFLAGS    = -O2 -fPIC -I./ $(AC_FLAGS)
+#CFLAGS    = -O2 -fPIC -I./ $(AC_FLAGS)
+CFLAGS    = -g -fPIC -I./ $(AC_FLAGS)
 CXXFLAGS  = $(CFLAGS)
 SHLIB_LD  = ld -G
 
@@ -32,7 +54,10 @@ HFILES = cMsgNetwork.h cMsgPrivate.h cMsg.h
 
 PROGS =
 
-all: $(CMSG_LIBS) $(PROGS)
+all: $(CMSG_LIBS) $(PROGS) $(JAVA_OBJS)
+
+doc:
+	$(JAVAD) -package org.jlab.coda.cMsg
 
 install: install-lib install-inc install-bin
 
@@ -72,11 +97,17 @@ $(LIB_REMOTE): $(REMOTE_OBJS)
 $(OBJS) : $(HFILES)
 
 clean: 
-	rm -f core *~ *.o *.so *.a $(PROGS)
+	rm -f core *~ *.o *.so *.a *.class $(PROGS)
 
+# SUFFIX RULES
+
+.SUFFIXES: .java .class
+
+.java.class:
+	$(JAVAC) $< $(JAVAC_FLAGS)
 .c:
-	$(CC) -o $* $(CFLAGS) $< -L./ $(LIBS)
+	$(CC) -o $* $(CFLAGS) $< -L./ -lcmsg $(LIBS)
 .cc:
-	$(CXX) -o $* $(CFLAGS) $< -L./ $(LIBS)
+	$(CXX) -o $* $(CFLAGS) $< -L./ -lcmsg $(LIBS)
 .c.o:
 	$(CC) -c $(CFLAGS) $<
