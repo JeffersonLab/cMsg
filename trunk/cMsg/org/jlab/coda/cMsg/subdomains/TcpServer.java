@@ -20,11 +20,7 @@
 
 package org.jlab.coda.cMsg.subdomains;
 
-import org.jlab.coda.cMsg.cMsgConstants;
-import org.jlab.coda.cMsg.cMsgMessageFull;
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgClientInfo;
-import org.jlab.coda.cMsg.cMsgSubdomainAdapter;
+import org.jlab.coda.cMsg.*;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -52,12 +48,12 @@ public class TcpServer extends cMsgSubdomainAdapter{
     private cMsgClientInfo myClientInfo;
 
 
-    /** direct buffer needed for nio socket IO. */
-    private ByteBuffer myBuffer = ByteBuffer.allocateDirect(2048);
-
-
     /** UDL remainder. */
     private String myUDLRemainder;
+
+
+    /** Object used to deliver messages to the client. */
+    private cMsgDeliverMessageInterface myDeliverer;
 
 
     // for tcpserver connection
@@ -98,6 +94,24 @@ public class TcpServer extends cMsgSubdomainAdapter{
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
         myUDLRemainder=UDLRemainder;
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to give the subdomain handler on object able to deliver messages
+     * to the client.
+     *
+     * @param deliverer object able to deliver messages to the client
+     * @throws cMsgException
+     */
+    public void setMessageDeliverer(cMsgDeliverMessageInterface deliverer) throws cMsgException {
+        if (deliverer == null) {
+            throw new cMsgException("TcpServer subdomain must be able to deliver messages, set the deliverer.");
+        }
+        myDeliverer = deliverer;
     }
 
 
@@ -223,9 +237,9 @@ public class TcpServer extends cMsgSubdomainAdapter{
             responseMsg.setSender(myName);
             responseMsg.setSenderHost(myHost);
             if(msg.getText().length()<=0) {
-                deliverMessage(myClientInfo.getChannel(),myBuffer,responseMsg,null,cMsgConstants.msgGetResponseIsNull);
+                myDeliverer.deliverMessage(responseMsg, myClientInfo, cMsgConstants.msgGetResponseIsNull);
             } else {
-                deliverMessage(myClientInfo.getChannel(),myBuffer,responseMsg,null,cMsgConstants.msgGetResponse);
+                myDeliverer.deliverMessage(responseMsg, myClientInfo, cMsgConstants.msgGetResponse);
             }
         } catch (IOException e) {
             cMsgException ce = new cMsgException(e.toString());
