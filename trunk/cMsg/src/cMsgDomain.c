@@ -154,9 +154,9 @@ static void  domainInit(cMsgDomain_CODA *domain, int reInit);
 static void  domainFree(cMsgDomain_CODA *domain);  
 static void  domainClear(cMsgDomain_CODA *domain);
 static void  getInfoInit(getInfo *info, int reInit);
-static void  subscribeInfoInit(subscribeInfo *info, int reInit);
+static void  subscribeInfoInit(subInfo *info, int reInit);
 static void  getInfoFree(getInfo *info);
-static void  subscribeInfoFree(subscribeInfo *info);
+static void  subscribeInfoFree(subInfo *info);
 
 /* misc */
 static int   talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
@@ -3086,7 +3086,7 @@ static void getInfoInit(getInfo *info, int reInit) {
 
 
 /** This routine initializes the structure used to handle a subscribe. */
-static void subscribeInfoInit(subscribeInfo *info, int reInit) {
+static void subscribeInfoInit(subInfo *info, int reInit) {
     int j, status;
     
     info->id      = 0;
@@ -3213,7 +3213,7 @@ static void domainInit(cMsgDomain_CODA *domain, int reInit) {
  * This routine frees allocated memory in a structure used to hold
  * subscribe information.
  */
-static void subscribeInfoFree(subscribeInfo *info) {  
+static void subscribeInfoFree(subInfo *info) {  
 #ifndef VXWORKS    
     /* cannot destroy mutexes and cond vars in vxworks */
     int j, status;
