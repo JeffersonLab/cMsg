@@ -99,34 +99,33 @@ public abstract class cMsgHandleRequestsAbstract implements cMsgHandleRequests {
     /**
      * Method to handle unget request sent by domain client (hidden from user).
      *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
+     * @param id message id refering to these specific subject and type values
      * @throws cMsgException
      */
-    public abstract void handleUngetRequest(String subject, String type) throws cMsgException;
+    public abstract void handleUngetRequest(int id) throws cMsgException;
 
 
     /**
      * Method to handle subscribe request sent by domain client.
      *
-     * @param subject             message subject to subscribe to
-     * @param type                message type to subscribe to
-     * @param receiverSubscribeId message id refering to these specific subject and type values
+     * @param subject  message subject to subscribe to
+     * @param type     message type to subscribe to
+     * @param id       message id refering to these specific subject and type values
      * @throws cMsgException
      */
     public abstract void handleSubscribeRequest(String subject, String type,
-                                                int receiverSubscribeId) throws cMsgException;
+                                                int id) throws cMsgException;
 
     /**
      * Method to handle unsubscribe request sent by domain client.
      *
-     * @param subject             message subject subscribed to
-     * @param type                message type subscribed to
-     * @param receiverSubscribeId message id refering to these specific subject and type values
+     * @param subject  message subject to subscribe to
+     * @param type     message type to subscribe to
+     * @param id       message id refering to these specific subject and type values
      * @throws cMsgException
      */
     public abstract void handleUnsubscribeRequest(String subject, String type,
-                                                  int receiverSubscribeId) throws cMsgException;
+                                                  int id) throws cMsgException;
 
 
     /**
