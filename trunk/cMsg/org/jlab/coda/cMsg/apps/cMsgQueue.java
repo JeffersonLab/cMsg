@@ -44,7 +44,7 @@ import java.net.*;
  * I.e. subject,type,text,userTime,userInt,priority.
  *
  * To use with a database:
- *   java cMsgQueue -udl cMsg:cMsg://ollie/cMsg -queue myQueue
+ *   java cMsgQueue -udl cMsg:cMsg://ollie/cMsg
  *                  -url jdbc:mysql://xdaq/test -driver com.mysql.jdbc.Driver -account davidl
  *
  * @version 1.0
@@ -70,9 +70,9 @@ public class cMsgQueue {
 
 
     /** queue name, and subject and type of messages being queued. */
-    private static String queueName;
-    private static String subject = "*";
-    private static String type    = "*";
+    private static String queueName    = "default";
+    private static String subject      = "*";
+    private static String type         = "*";
 
 
     /** Subject and type to use for receiving sendAndGet() messages. */
@@ -110,6 +110,11 @@ public class cMsgQueue {
          */
         public void callback(cMsgMessage msg, Object userObject) {
 
+            // do not queue sendAndGet() traffic
+            if(msg.isGetRequest()) return;
+            if(msg.isGetResponse()) return;
+
+
             recvCount++;
 
             // queue to file
@@ -145,7 +150,8 @@ public class cMsgQueue {
          */
         public void callback(cMsgMessage msg, Object userObject) {
 
-            // is this a get request?
+
+            // only handle sendAndGet() requests
             if(!msg.isGetRequest()) return;
 
 
@@ -160,7 +166,6 @@ public class cMsgQueue {
 
             // retrieve from database
             if(url!=null) {
-
                 try {
                     // lock table
                     stmt.execute("lock tables " + table + " write");
@@ -226,10 +231,6 @@ public class cMsgQueue {
             System.err.println("?cMsgQueue...can only queue to file OR database");
             System.exit(-1);
         }
-        if(queueName==null) {
-            System.err.println("?cMsgQueue...must specify queue name");
-            System.exit(-1);
-        }
 
 
         // get host
@@ -248,11 +249,15 @@ public class cMsgQueue {
 
         // generate description if not set
         if(description==null) {
-            description = "Generic cMsg queue on " + host + " for queue " + queueName;
+            if(url!=null) {
+                description = "cMsgQueue (database): " + queueName;
+            } else {
+                description = "cMsgQueue (file): " + queueName;
+            }
         }
 
 
-        // set getSubject to name if not set
+        // generate getSubject if not set
         if(getSubject==null) {
             getSubject = name;
         }
@@ -308,8 +313,8 @@ public class cMsgQueue {
                 stmt = con.createStatement();
 
                 String sql = "insert into " + table + " (" +
-                    "subject,type,text" +
-                    "userTime,userInt,priority," +
+                    "subject,type,text," +
+                    "userTime,userInt,priority" +
                     ") values (" +
                     "?,?,?," + "?,?,?" + ")";
                 pStmt = con.prepareStatement(sql);
@@ -330,7 +335,7 @@ public class cMsgQueue {
         }
 
 
-        // subscribe and provide callback
+        // subscribe and provide callbacks
         try {
             cmsg.subscribe(subject,    type,    new subscribeCB(), null);
             cmsg.subscribe(getSubject, getType, new getCB(),       null);
