@@ -2690,134 +2690,134 @@ int cMsgRunCallbacks(int domainId, cMsgMessage *msg) {
     return (CMSG_OK);
   }
  
-    /* for each client subscription ... */
-    for (i=0; i<MAX_SUBSCRIBE; i++) {
-      
-      /* if subscription not active, forget about it */
-      if (domain->subscribeInfo[i].active != 1) {
-        continue;
-      }
+  /* for each client subscription ... */
+  for (i=0; i<MAX_SUBSCRIBE; i++) {
 
-      /* if the subject & type's match, run callbacks */      
-      if ( (cMsgRegexpMatches(domain->subscribeInfo[i].subjectRegexp, msg->subject) == 1) &&
-           (cMsgRegexpMatches(domain->subscribeInfo[i].typeRegexp, msg->type) == 1)) {
+    /* if subscription not active, forget about it */
+    if (domain->subscribeInfo[i].active != 1) {
+      continue;
+    }
+
+    /* if the subject & type's match, run callbacks */      
+    if ( (cMsgRegexpMatches(domain->subscribeInfo[i].subjectRegexp, msg->subject) == 1) &&
+         (cMsgRegexpMatches(domain->subscribeInfo[i].typeRegexp, msg->type) == 1)) {
 /*
 printf("cMsgRunCallbacks: MATCHES:\n");
 printf("                  SUBJECT = msg (%s), subscription (%s)\n",
-                          msg->subject, domain->subscribeInfo[i].subject);
+                        msg->subject, domain->subscribeInfo[i].subject);
 printf("                  TYPE    = msg (%s), subscription (%s)\n",
-                          msg->type, domain->subscribeInfo[i].type);
+                        msg->type, domain->subscribeInfo[i].type);
 */
-        /* search callback list */
-        for (j=0; j<MAX_CALLBACK; j++) {
-	  /* if there is an existing callback ... */
-          if (domain->subscribeInfo[i].cbInfo[j].callback != NULL) {
+      /* search callback list */
+      for (j=0; j<MAX_CALLBACK; j++) {
+	/* if there is an existing callback ... */
+        if (domain->subscribeInfo[i].cbInfo[j].callback != NULL) {
 /*
 fprintf(stderr, "cMsgRunCallbacks: there is a callback\n");
 */
-            /* copy message so each callback has its own copy */
-            message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
+          /* copy message so each callback has its own copy */
+          message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
 
-            /* convenience variable */
-            subscription = &domain->subscribeInfo[i].cbInfo[j];
+          /* convenience variable */
+          subscription = &domain->subscribeInfo[i].cbInfo[j];
 
-            /* lock mutex before messing with linked list */
-            status = pthread_mutex_lock(&subscription->mutex);
-            if (status != 0) {
-              err_abort(status, "Failed callback mutex lock");
-            }
+          /* lock mutex before messing with linked list */
+          status = pthread_mutex_lock(&subscription->mutex);
+          if (status != 0) {
+            err_abort(status, "Failed callback mutex lock");
+          }
 
-            /* check to see if there are too many messages in the cue */
-            if (subscription->messages > subscription->config.maxCueSize) {
-                /* if we may skip messages, dump oldest */
-                if (subscription->config.maySkip) {
-                    for (k=0; k < subscription->config.skipSize; k++) {
-                      oldHead = subscription->head;
-                      subscription->head = subscription->head->next;
-                      cMsgFreeMessage(oldHead);
-                      subscription->messages--;
-                      if (subscription->head == NULL) break;
-                    }
-                }
-                else {
-                  /* unlock mutex */
-                  status = pthread_mutex_unlock(&subscription->mutex);
-                  if (status != 0) {
-                    err_abort(status, "Failed callback mutex unlock");
+          /* check to see if there are too many messages in the cue */
+          if (subscription->messages > subscription->config.maxCueSize) {
+              /* if we may skip messages, dump oldest */
+              if (subscription->config.maySkip) {
+                  for (k=0; k < subscription->config.skipSize; k++) {
+                    oldHead = subscription->head;
+                    subscription->head = subscription->head->next;
+                    cMsgFreeMessage(oldHead);
+                    subscription->messages--;
+                    if (subscription->head == NULL) break;
                   }
-                  cMsgFreeMessage((void *)message);
-                  cMsgFreeMessage((void *)msg);
-                  return CMSG_LIMIT_EXCEEDED;
+              }
+              else {
+                /* unlock mutex */
+                status = pthread_mutex_unlock(&subscription->mutex);
+                if (status != 0) {
+                  err_abort(status, "Failed callback mutex unlock");
                 }
-            }
+                cMsgFreeMessage((void *)message);
+                cMsgFreeMessage((void *)msg);
+                return CMSG_LIMIT_EXCEEDED;
+              }
+          }
 
-            if (cMsgDebug >= CMSG_DEBUG_INFO) {
-              if (subscription->messages%1000 == 0)
-                fprintf(stderr, "           msgs = %d\n", subscription->messages);
-            }
+          if (cMsgDebug >= CMSG_DEBUG_INFO) {
+            if (subscription->messages%1000 == 0)
+              fprintf(stderr, "           msgs = %d\n", subscription->messages);
+          }
 
-            /*
-             * Add this message to linked list for this callback.
-             * It will now be the responsibility of message consumer
-             * to free the msg allocated here.
-             */       
+          /*
+           * Add this message to linked list for this callback.
+           * It will now be the responsibility of message consumer
+           * to free the msg allocated here.
+           */       
 
-            /* if there are no messages ... */
-            if (subscription->head == NULL) {
-              subscription->head = message;
-              subscription->tail = message;
-            }
-            /* else put message after the tail */
-            else {
-              subscription->tail->next = message;
-              subscription->tail = message;
-            }
+          /* if there are no messages ... */
+          if (subscription->head == NULL) {
+            subscription->head = message;
+            subscription->tail = message;
+          }
+          /* else put message after the tail */
+          else {
+            subscription->tail->next = message;
+            subscription->tail = message;
+          }
 
-            subscription->messages++;
-            message->next = NULL;
+          subscription->messages++;
+          message->next = NULL;
 
-            /* wakeup callback thread */
-            status = pthread_cond_broadcast(&subscription->cond);
-            if (status != 0) {
-              err_abort(status, "Failed callback condition signal");
-            }
+          /* wakeup callback thread */
+          status = pthread_cond_broadcast(&subscription->cond);
+          if (status != 0) {
+            err_abort(status, "Failed callback condition signal");
+          }
 
-            /* unlock mutex */
-            status = pthread_mutex_unlock(&subscription->mutex);
-            if (status != 0) {
-              err_abort(status, "Failed callback mutex unlock");
-            }
-	  }
-        } /* search callback list */
-      } /* if subscribe sub/type matches msg sub/type */
-    } /* for each subscription */
-  
-    /* for each subscribeAndGet ... */
-    for (j=0; j<MAX_SUBSCRIBE_AND_GET; j++) {
-      if (domain->subscribeAndGetInfo[j].active != 1) {
-        continue;
+          /* unlock mutex */
+          status = pthread_mutex_unlock(&subscription->mutex);
+          if (status != 0) {
+            err_abort(status, "Failed callback mutex unlock");
+          }
+	}
+      } /* search callback list */
+    } /* if subscribe sub/type matches msg sub/type */
+  } /* for each subscription */
+
+  /* for each subscribeAndGet ... */
+  for (j=0; j<MAX_SUBSCRIBE_AND_GET; j++) {
+    if (domain->subscribeAndGetInfo[j].active != 1) {
+      continue;
+    }
+
+    info = &domain->subscribeAndGetInfo[j];
+
+    /* if the subject & type's match, wakeup the "subscribeAndGet */      
+    if ( (cMsgStringMatches(domain->subscribeInfo[i].subject, msg->subject) == 1) &&
+         (cMsgStringMatches(domain->subscribeInfo[i].type, msg->type) == 1)) {
+
+      /* pass msg to "get" */
+      /* copy message so each callback has its own copy */
+      message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
+
+      info->msg = message;
+      info->msgIn = 1;
+
+      /* wakeup "get" */      
+      status = pthread_cond_signal(&info->cond);
+      if (status != 0) {
+        err_abort(status, "Failed get condition signal");
       }
-
-      info = &domain->subscribeAndGetInfo[j];
-
-      /* if the subject & type's match, wakeup the "subscribeAndGet */      
-      if ( (cMsgStringMatches(domain->subscribeInfo[i].subject, msg->subject) == 1) &&
-           (cMsgStringMatches(domain->subscribeInfo[i].type, msg->type) == 1)) {
-
-        /* pass msg to "get" */
-        /* copy message so each callback has its own copy */
-        message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
-
-        info->msg = message;
-        info->msgIn = 1;
-
-        /* wakeup "get" */      
-        status = pthread_cond_signal(&info->cond);
-        if (status != 0) {
-          err_abort(status, "Failed get condition signal");
-        }
-      }
-    }           
+    }
+  }           
   
   /* Need to free up msg allocated by client's listening thread */
   cMsgFreeMessage((void *)msg);
@@ -2841,6 +2841,15 @@ int cMsgWakeGet(int domainId, cMsgMessage *msg) {
   
   domain = &cMsgDomains[domainId];
   
+  /* message receiption has been stopped */
+  if (domain->receiveState == 0) {
+    if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "cMsgWakeGet: message receiption has been stopped\n");
+    }
+    cMsgFreeMessage((void *)msg);
+    return (CMSG_OK);
+  }
+ 
   /* find the right get */
   for (i=0; i<MAX_SEND_AND_GET; i++) {
     if (domain->sendAndGetInfo[i].active != 1) {
@@ -2886,6 +2895,14 @@ int cMsgWakeGetWithNull(int domainId, int senderToken) {
   
   domain = &cMsgDomains[domainId];
   
+  /* message receiption has been stopped */
+  if (domain->receiveState == 0) {
+    if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "cMsgWakeGetWithNull: message receiption has been stopped\n");
+    }
+    return (CMSG_OK);
+  }
+ 
   /* find the right get */
   for (i=0; i<MAX_SEND_AND_GET; i++) {
     if (domain->sendAndGetInfo[i].active != 1) {
