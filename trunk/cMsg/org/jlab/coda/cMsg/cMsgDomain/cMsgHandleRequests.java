@@ -49,22 +49,10 @@ public interface cMsgHandleRequests {
     /**
      * Method to register domain client.
      *
-     * @param name name of client
-     * @param host host client is running on
-     * @param port port client is listening on
+     * @param info information about client
      * @throws cMsgException
      */
-    public void registerClient(String name, String host, int port) throws cMsgException;
-
-
-    /**
-     * Method to see if domain client is registered.
-     *
-     * @param name name of client
-     * @return true if client registered, false otherwise
-     * @throws cMsgException
-     */
-    public boolean isRegistered(String name) throws cMsgException;
+    public void registerClient(cMsgClientInfo info) throws cMsgException;
 
 
     /**
@@ -123,9 +111,11 @@ public interface cMsgHandleRequests {
      *
      * @param subject message subject subscribed to
      * @param type message type subscribed to
+     * @param receiverSubscribeId message id refering to these specific subject and type values
      * @throws cMsgException
      */
-    public void handleUnsubscribeRequest(String subject, String type) throws cMsgException;
+    public void handleUnsubscribeRequest(String subject, String type,
+                                         int receiverSubscribeId) throws cMsgException;
 
 
     /**
