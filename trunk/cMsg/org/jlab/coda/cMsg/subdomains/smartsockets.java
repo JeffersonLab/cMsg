@@ -1,6 +1,5 @@
 // still to do:
 //   server shutdown
-//   C-c in client doesn't kill connection?
 //   cMsgException error codes
 
 
@@ -549,6 +548,7 @@ public class smartsockets extends cMsgSubdomainAbstract {
         done=true;
         System.out.println("...shutdown for client " + myClientInfo.getName());
         try {
+            mySrv.setOption("ss.server_auto_connect", "false");
             mySrv.destroy(TipcSrv.CONN_NONE);
         } catch (TipcException e) {
             System.err.println(e);
