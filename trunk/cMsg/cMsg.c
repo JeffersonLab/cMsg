@@ -1162,11 +1162,15 @@ cMsgSubscribeConfig *cMsgSubscribeConfigCreate(void) {
   
   /* default configuration for a subscription */
   sc->maxCueSize = 10000;  /* maximum number of messages to cue for callback */
-  sc->skipSize   =  5000;  /* number of messages to skip over (delete) from the cue
+  sc->skipSize   =  2000;  /* number of messages to skip over (delete) from the cue
                             * for a callback when the cue size has reached it limit */
   sc->maySkip        = 0;  /* may NOT skip messages if too many are piling up in cue */
   sc->mustSerialize  = 1;  /* messages must be processed in order */
   sc->init           = 1;  /* done intializing structure */
+  sc->maxThreads   = 100;  /* max number of supplemental threads to run callback
+                            * if mustSerialize = 0 */
+  sc->msgsPerThread = 150; /* enough supplemental threads are started so that there are
+                            * at most this many unprocessed messages for each thread */
 
   return (cMsgSubscribeConfig*) sc;
 
@@ -1205,11 +1209,9 @@ int cMsgSubscribeSetMaxCueSize(cMsgSubscribeConfig *config, int size) {
 /*-------------------------------------------------------------------*/
 
 
-int cMsgSubscribeGetMaxCueSize(cMsgSubscribeConfig *config, int *size) {
-  subscribeConfig *sc = (subscribeConfig *) config;
-    
-  *size = sc->maxCueSize;
-  return CMSG_OK;
+int cMsgSubscribeGetMaxCueSize(cMsgSubscribeConfig *config) {
+  subscribeConfig *sc = (subscribeConfig *) config;   
+  return sc->maxCueSize;
 }
 
 
@@ -1234,11 +1236,9 @@ int cMsgSubscribeSetSkipSize(cMsgSubscribeConfig *config, int size) {
 /*-------------------------------------------------------------------*/
 
 
-int cMsgSubscribeGetSkipSize(cMsgSubscribeConfig *config, int *size) {
-  subscribeConfig *sc = (subscribeConfig *) config;
-    
-  *size = sc->skipSize;
-  return CMSG_OK;
+int cMsgSubscribeGetSkipSize(cMsgSubscribeConfig *config) {
+  subscribeConfig *sc = (subscribeConfig *) config;    
+  return sc->skipSize;
 }
 
 
@@ -1260,11 +1260,9 @@ int cMsgSubscribeSetMaySkip(cMsgSubscribeConfig *config, int maySkip) {
 /*-------------------------------------------------------------------*/
 
 
-int cMsgSubscribeGetMaySkip(cMsgSubscribeConfig *config, int *maySkip) {
-  subscribeConfig *sc = (subscribeConfig *) config;
-    
-  *maySkip = sc->maySkip;
-  return CMSG_OK;
+int cMsgSubscribeGetMaySkip(cMsgSubscribeConfig *config) {
+  subscribeConfig *sc = (subscribeConfig *) config;    
+  return sc->maySkip;
 }
 
 
@@ -1286,11 +1284,63 @@ int cMsgSubscribeSetMustSerialize(cMsgSubscribeConfig *config, int serialize) {
 /*-------------------------------------------------------------------*/
 
 
-int cMsgSubscribeGetMustSerialize(cMsgSubscribeConfig *config, int *serialize) {
+int cMsgSubscribeGetMustSerialize(cMsgSubscribeConfig *config) {
   subscribeConfig *sc = (subscribeConfig *) config;
-    
-  *serialize = sc->mustSerialize;
+  return sc->mustSerialize;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+int cMsgSubscribeSetMaxThreads(cMsgSubscribeConfig *config, int threads) {
+  subscribeConfig *sc = (subscribeConfig *) config;
+  
+  if (sc->init != 1) {
+    return CMSG_NOT_INITIALIZED;
+  }
+   
+  if (threads < 0)  {
+    return CMSG_BAD_ARGUMENT;
+  }
+  
+  sc->maxThreads = threads;
   return CMSG_OK;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cMsgSubscribeGetMaxThreads(cMsgSubscribeConfig *config) {
+  subscribeConfig *sc = (subscribeConfig *) config;    
+  return sc->maxThreads;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+int cMsgSubscribeSetMessagesPerThread(cMsgSubscribeConfig *config, int mpt) {
+  subscribeConfig *sc = (subscribeConfig *) config;
+  
+  if (sc->init != 1) {
+    return CMSG_NOT_INITIALIZED;
+  }
+   
+  if (mpt < 1)  {
+    return CMSG_BAD_ARGUMENT;
+  }
+  
+  sc->msgsPerThread = mpt;
+  return CMSG_OK;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cMsgSubscribeGetMessagesPerThread(cMsgSubscribeConfig *config) {
+  subscribeConfig *sc = (subscribeConfig *) config;    
+  return sc->msgsPerThread;
 }
 
 

@@ -340,13 +340,17 @@ extern "C" {
   cMsgSubscribeConfig *cMsgSubscribeConfigCreate(void);
   int cMsgSubscribeConfigDestroy(cMsgSubscribeConfig *config);
   int cMsgSubscribeSetMaxCueSize(cMsgSubscribeConfig *config, int size);
-  int cMsgSubscribeGetMaxCueSize(cMsgSubscribeConfig *config, int *size);
+  int cMsgSubscribeGetMaxCueSize(cMsgSubscribeConfig *config);
   int cMsgSubscribeSetSkipSize(cMsgSubscribeConfig *config, int size);
-  int cMsgSubscribeGetSkipSize(cMsgSubscribeConfig *config, int *size);
+  int cMsgSubscribeGetSkipSize(cMsgSubscribeConfig *config);
   int cMsgSubscribeSetMaySkip(cMsgSubscribeConfig *config, int maySkip);
-  int cMsgSubscribeGetMaySkip(cMsgSubscribeConfig *config, int *maySkip);
+  int cMsgSubscribeGetMaySkip(cMsgSubscribeConfig *config);
   int cMsgSubscribeSetMustSerialize(cMsgSubscribeConfig *config, int serialize);
-  int cMsgSubscribeGetMustSerialize(cMsgSubscribeConfig *config, int *serialize);
+  int cMsgSubscribeGetMustSerialize(cMsgSubscribeConfig *config);
+  int cMsgSubscribeSetMaxThreads(cMsgSubscribeConfig *config, int threads);
+  int cMsgSubscribeGetMaxThreads(cMsgSubscribeConfig *config);
+  int cMsgSubscribeSetMessagesPerThread(cMsgSubscribeConfig *config, int mpt);
+  int cMsgSubscribeGetMessagesPerThread(cMsgSubscribeConfig *config);
 
   /* for debugging */
   int  	cMsgSetDebugLevel(int level);

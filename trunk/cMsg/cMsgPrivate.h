@@ -145,6 +145,10 @@ typedef struct subscribeConfig_t {
   int  maxCueSize;    /* maximum number of messages to cue for callback */
   int  skipSize;      /* maximum number of messages to skip over (delete) from the 
                        * cue for a callback when the cue size has reached it limit */
+  int  maxThreads;    /* maximum number of supplemental threads to use for running
+                       * the callback if mustSerialize is 0 (off) */
+  int  msgsPerThread; /* enough supplemental threads are started so that there are
+                       * at most this many unprocessed messages for each thread */
 } subscribeConfig;
 
 
