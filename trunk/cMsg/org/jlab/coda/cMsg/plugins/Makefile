@@ -13,7 +13,8 @@ JAVAC_FLAGS = -classpath ../../../../../
 #JAVAC_FLAGS = -classpath ../../../../../:$(CLASSPATH)
 
 JAVA_OBJS = \
-	Logfile.class
+	LogFile.class \
+	LogTable.class
 
 all: $(JAVA_OBJS)
 
