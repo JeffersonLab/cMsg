@@ -283,7 +283,8 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to deliver a message to a client.
+     * Method to deliver a message to a client and receive acknowledgment that the
+     * message was received.
      *
      * @param channel communication channel to client
      * @param buffer  byte buffer needed for channel communication
@@ -291,17 +292,17 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainInterface {
      * @param idList  list of receiverSubscribeIds matching the message's subject and type
      * @param msgType type of communication with the client
      * @return true if message acknowledged by receiver, otherwise false
-     * @throws cMsgException if the msgType arg is not cMsgConstants.msgGetResponseAndAck
-     *                       or cMsgConstants.msgSubscribeResponseAndAck
+     * @throws cMsgException if the msgType arg is not cMsgConstants.msgGetResponseWithAck
+     *                       or cMsgConstants.msgSubscribeResponseWithAck
      * @throws java.io.IOException if the message cannot be sent over the channel
      *                             or client returns an error
      */
     public static boolean deliverMessageAndAcknowledge(SocketChannel channel, ByteBuffer buffer,
                                                     cMsgMessageFull msg, List<Integer> idList,
                                                     int msgType)  throws cMsgException, IOException {
-        if (msgType != cMsgConstants.msgGetResponseAndAck &&
-            msgType != cMsgConstants.msgSubscribeResponseAndAck) {
-            throw new cMsgException("Wrong message type, must be msgGetResponseAndAck or msgSubscribeResponseAndAck");
+        if (msgType != cMsgConstants.msgGetResponseWithAck &&
+            msgType != cMsgConstants.msgSubscribeResponseWithAck) {
+            throw new cMsgException("Wrong message type, must be msgGetResponseWithAck or msgSubscribeResponseWithAck");
         }
         return deliverMessageReal(channel, buffer, msg, idList, msgType);
     }
@@ -326,8 +327,8 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainInterface {
         // expect 2 particular types of messages to receive an acknowledgment from client
         boolean acknowlege = false;
 
-        if (msgType == cMsgConstants.msgGetResponseAndAck ||
-            msgType == cMsgConstants.msgSubscribeResponseAndAck) {
+        if (msgType == cMsgConstants.msgGetResponseWithAck ||
+            msgType == cMsgConstants.msgSubscribeResponseWithAck) {
             acknowlege = true;
         }
 
