@@ -1,9 +1,6 @@
 package org.jlab.coda.cMsg.apps;
 
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgCallback;
-import org.jlab.coda.cMsg.cMsgMessage;
-import org.jlab.coda.cMsg.cMsgCallbackAdapter;
+import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgDomain.cMsg;
 
 /**
@@ -154,7 +151,7 @@ public class cMsgConsumer2CBs {
         String UDL = "cMsg:cMsg://aslan:3456/cMsg";
 
         System.out.print("Try to connect ...");
-        cMsg coda = new cMsg(UDL, name, "message consumer");
+        cMsgConnect coda = new cMsgConnect(UDL, name, "message consumer");
         System.out.println(" done");
 
         System.out.println("Enable message receiving");

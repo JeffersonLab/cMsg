@@ -128,17 +128,13 @@ public interface cMsgInterface {
 
     /**
      * Method to start or activate the subscription callbacks.
-     *
-     * @throws cMsgException
      */
-    public void start() throws cMsgException;
+    public void start();
 
     /**
      * Method to stop or deactivate the subscription callbacks.
-     *
-     * @throws cMsgException
      */
-    public void stop() throws cMsgException;
+    public void stop();
 
     /**
      * Get the name of the domain connected to.
@@ -153,10 +149,50 @@ public interface cMsgInterface {
     public String getName();
 
     /**
+     * Set the name of the client.
+     * @param name name of client
+     */
+    public void setName(String name);
+
+    /**
      * Get the client's description.
      * @return client's description
      */
     public String getDescription();
+
+    /**
+     * Set the description of the client.
+     * @param description description of client
+     */
+    public void setDescription(String description);
+
+    /**
+     * Get the client's UDL.
+     * @return client's DUL
+     */
+    public String getUDL();
+
+    /**
+     * Set the UDL of the client.
+     *
+     * @param UDL UDL of client UDL
+     */
+    public void setUDL(String UDL);
+
+    /**
+     * Get the client's UDL remainder.
+     * @return client's DUL remainder
+     */
+    public String getUDLRemainder();
+
+    /**
+     * Set the UDL remainder of the client. The cMsgConnect class parses the
+     * UDL and strips off the beginning domain information. The remainder is
+     * passed on to the domain implementations (implementors of this interface).
+     *
+     * @param UDLRemainder UDL remainder of client UDL
+     */
+    public void setUDLRemainder(String UDLRemainder);
 
     /**
      * Get the host the client is running on.

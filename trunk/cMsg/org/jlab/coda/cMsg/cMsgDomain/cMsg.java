@@ -46,6 +46,12 @@ public class cMsg extends cMsgAdapter {
     /** This cMsg client's host. */
     private String host;
 
+    /** Subdomain being used. */
+    private String subdomain;
+
+    /** String containing the subdomain remainder part of the UDL. */
+    private String subRemainder;
+
     /** Port number from which to start looking for a suitable listening port. */
     private int startingPort;
 
@@ -115,7 +121,7 @@ public class cMsg extends cMsgAdapter {
      * General gets are very similar to subscriptions and can be thought of as a
      * one-shot subscription.
      *
-     * Key is senderToken object, value is {@link cMsgMessageHolder} object.
+     * Key is senderToken object, value is {@link cMsgHolder} object.
      */
     Map generalGets;
 
@@ -125,7 +131,7 @@ public class cMsg extends cMsgAdapter {
      * {@link cMsgMessage#isGetRequest} method set to true, then the message is destined
      * for a specific receiver and is included in the collection.
      *
-     * Key is senderToken object, value is {@link cMsgMessageHolder} object.
+     * Key is senderToken object, value is {@link cMsgHolder} object.
      */
     Map specificGets;
 
@@ -185,19 +191,28 @@ public class cMsg extends cMsgAdapter {
 
 //-----------------------------------------------------------------------------
 
+
+    /**
+     * Get the name of the subdomain whose plugin is being used.
+     * @return subdomain name
+     */
+    public String getSubdomain() {return(subdomain);}
+
+
+//-----------------------------------------------------------------------------
+
     /**
      * Constructor which automatically tries to connect to the name server specified.
      *
-     * @param UDL Uniform Domain Locator which specifies the server to connect to
-     * @param name name of this client which must be unique in this domain
-     * @param description description of this client
      * @throws cMsgException if domain in not implemented or there are problems communicating
      *                       with the name/domain server.
      */
-    public cMsg(String UDL, String name, String description) throws cMsgException {
-        this.UDL = UDL;
-        this.name = name;
-        this.description = description;
+    public cMsg() throws cMsgException {
+        //this.UDL = UDL;
+        //this.name = name;
+        //this.description = description;
+        domain = "cMsg";
+
         subscriptions = Collections.synchronizedSet(new HashSet(20));
         generalGets   = Collections.synchronizedMap(new HashMap(20));
         specificGets  = Collections.synchronizedMap(new HashMap(20));
@@ -210,15 +225,6 @@ public class cMsg extends cMsgAdapter {
         catch (UnknownHostException e) {
             throw new cMsgException("cMsg: cannot find host name");
         }
-
-        // parse the UDL - Uniform Domain Locator
-        parseUDL(UDL);
-
-        if (!domain.equalsIgnoreCase("cMsg")) {
-            throw new cMsgException("cMsg: cMsg " + domain + " domain is not implemented yet");
-        }
-
-        //connect();
     }
 
 
@@ -228,9 +234,14 @@ public class cMsg extends cMsgAdapter {
     /**
      * Method to connect to the domain server.
      *
-     * @throws cMsgException if there are communication problems with the server
+     * @throws cMsgException if there are problems parsing the UDL or
+     *                       communication problems with the server
      */
     public void connect() throws cMsgException {
+
+        // parse the domain-specific portion of the UDL (Uniform Domain Locator)
+        parseUDL();
+
         // cannot run this simultaneously with any other public method
         connectLock.lock();
         try {
@@ -423,7 +434,7 @@ public class cMsg extends cMsgAdapter {
             // wakeup all gets
             iter = specificGets.values().iterator();
             for (; iter.hasNext();) {
-                cMsgMessageHolder holder = (cMsgMessageHolder) iter.next();
+                cMsgHolder holder = (cMsgHolder) iter.next();
                 holder.message = null;
                 synchronized (holder) {
                     holder.notify();
@@ -719,7 +730,7 @@ public class cMsg extends cMsgAdapter {
                 text = message.getText();
             }
 
-            cMsgMessageHolder holder = null;
+            cMsgHolder holder = null;
             int id;
 
             // We need send msg to domain server who will see we get a response.
@@ -736,8 +747,8 @@ public class cMsg extends cMsgAdapter {
 
             id = uniqueId.getAndIncrement();
 
-            // for get, create cMsgMessageHolder object (not callback thread object)
-            holder = new cMsgMessageHolder();
+            // for get, create cMsgHolder object (not callback thread object)
+            holder = new cMsgHolder();
 
             // track specific get requests
             if (message.isGetRequest()) {
@@ -1159,8 +1170,8 @@ public class cMsg extends cMsgAdapter {
         outGoing[2] = domain.length();
         // send subdomain type of server I'm expecting to use
         outGoing[3] = subdomain.length();
-        // send UDL remainder for use by subdomain plugin
-        outGoing[4] = UDLremainder.length();
+        // send remainder for use by subdomain plugin
+        outGoing[4] = subRemainder.length();
         // send length of my host name to server
         outGoing[5] = host.length();
         // send length of my name to server
@@ -1181,7 +1192,7 @@ public class cMsg extends cMsgAdapter {
             buffer.put(subdomain.getBytes("US-ASCII"));
 
             // send UDL remainder for use by subdomain plugin
-            buffer.put(UDLremainder.getBytes("US-ASCII"));
+            buffer.put(subRemainder.getBytes("US-ASCII"));
 
             // send my host name to server
             buffer.put(host.getBytes("US-ASCII"));
@@ -1255,45 +1266,45 @@ public class cMsg extends cMsgAdapter {
 
 
     /**
-     * Method to parse the Universal Domain Locator into its various components.
+     * Method to parse the domain-specific portion of the Universal Domain Locator
+     * (UDL) into its various components.
      *
-     * @param UDL Universal Domain Locator of the form domainType://host:port/remainder
-     * @throws cMsgException if UDL is null, or no domainType or host given in UDL
+     * @throws cMsgException if UDL is null, or no host given in UDL
      */
-    private void parseUDL(String UDL) throws cMsgException {
+    private void parseUDL() throws cMsgException {
 
-        if (UDL == null) {
+        if (UDLremainder == null) {
             throw new cMsgException("invalid UDL");
         }
 
         // cMsg domain UDL is of the form:
-        //       cMsg:<domainType>://<host>:<port>/<subdomainType>/<remainder>
-        // 1) initial cMsg: in not necessary
-        // 2) port is not necessary
-        // 3) host can be "localhost"
-        // 4) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
+        //       cMsg:<domainType>://<host>:<port>/<subdomainType>/<subdomain remainder>
+        //
+        // We could parse the whole UDL, but we've also been passed the UDL with
+        // the "cMsg:<domainType>://" stripped off, in UDLremainder. So just parse
+        // that.
+        //
+        // Remember that for this domain:
+        // 1) port is not necessary
+        // 2) host can be "localhost"
+        // 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
         //    if subdomainType is not cMsg, it is required
-        // 5) remainder is past on to the subdomain plug-in
+        // 4) remainder is past on to the subdomain plug-in
 
+        Pattern pattern = Pattern.compile("(\\w+):?(\\d+)?/?(\\w+)?/?(.*)");
+        Matcher matcher = pattern.matcher(UDLremainder);
 
-        Pattern pattern = Pattern.compile("(cMsg)?:?(\\w+)://(\\w+):?(\\d+)?/?(\\w+)?/?(.*)");
-        Matcher matcher = pattern.matcher(UDL);
-
-        String s0=null, s1=null, s2=null, s3=null, s4=null, s5=null;
+        String s2=null, s3=null, s4=null, s5=null;
 
         if (matcher.find()) {
-            // cMsg
-            s0 = matcher.group(1);
-            // domain
-            s1 = matcher.group(2);
             // host
-            s2 = matcher.group(3);
+            s2 = matcher.group(1);
             // port
-            s3 = matcher.group(4);
+            s3 = matcher.group(2);
             // subdomain
-            s4 = matcher.group(5);
+            s4 = matcher.group(3);
             // remainder
-            s5 = matcher.group(6);
+            s5 = matcher.group(4);
         }
         else {
             throw new cMsgException("invalid UDL");
@@ -1301,36 +1312,23 @@ public class cMsg extends cMsgAdapter {
 
         if (debug >= cMsgConstants.debugInfo) {
            System.out.println("\nparseUDL: " +
-                              "\n  space     = " + s0 +
-                              "\n  domain    = " + s1 +
                               "\n  host      = " + s2 +
                               "\n  port      = " + s3 +
                               "\n  subdomain = " + s4 +
                               "\n  remainder = " + s5);
         }
 
-        // must be in cMsg space
-        if (s0 != null && !s0.equals("cMsg")) {
+        // need at least host
+        if (s2 == null) {
             throw new cMsgException("invalid UDL");
         }
 
-        // need at least domain and host
-        if (s1 == null || s2 == null) {
-            throw new cMsgException("invalid UDL");
-        }
-
-        // if subdomain not specified
+        // if subdomain not specified, use cMsg subdomain
         if (s4 == null) {
-            // if we're in cMsg domain & subdomain not specified, cMsg is subdomain
-            if (s1.equals("cMsg")) {
-                s4 = "cMsg";
-            }
-            else {
-                throw new cMsgException("invalid UDL");
-            }
+            s4 = "cMsg";
         }
 
-        domain = s1;
+        // domain is set in constructor to "cMsg"
         nameServerHost = s2;
         subdomain = s4;
 
@@ -1361,7 +1359,7 @@ public class cMsg extends cMsgAdapter {
         }
 
         // any remaining UDL is put here
-        UDLremainder = s5;
+        subRemainder = s5;
         if (s5 == null) {
             s5 = "";
         }

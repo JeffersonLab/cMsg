@@ -2,6 +2,7 @@ package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgConnect;
 import org.jlab.coda.cMsg.cMsgDomain.cMsg;
 
 /**
@@ -13,7 +14,7 @@ import org.jlab.coda.cMsg.cMsgDomain.cMsg;
  */
 public class cMsgDualProducer {
     String name, subject="SUBJECT", type="TYPE";
-    cMsg coda;
+    cMsgConnect coda;
 
 
     cMsgDualProducer(String name) {
@@ -120,7 +121,7 @@ public class cMsgDualProducer {
         String UDL = "cMsg:cMsg://aslan:3456/cMsg";
 
         System.out.print("Try to connect ...");
-        coda = new cMsg(UDL, name, "message producer");
+        coda = new cMsgConnect(UDL, name, "message producer");
         System.out.println(" done");
 
         SendThread sender1 = new SendThread("1");

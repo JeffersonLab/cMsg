@@ -35,7 +35,7 @@ public class cMsgAdapter implements cMsgInterface {
 
     /**
      * The Uniform Domain Locator which tells the location of a name server. It is of the
-     * form cMsg:<domain>://<host>:<port>/<subdomain>/remainder
+     * form cMsg:<domainType>://<domain dependent remainder>
      */
     protected String  UDL;
 
@@ -44,9 +44,6 @@ public class cMsgAdapter implements cMsgInterface {
 
     /** Domain being connected to. */
     protected String  domain;
-
-    /** Subdomain whose plugin is being used. */
-    protected String  subdomain;
 
     /** Name of this client. Must be unique in the domain. */
     protected String  name;
@@ -240,16 +237,6 @@ public class cMsgAdapter implements cMsgInterface {
 
 
     /**
-     * Get the name of the subdomain whose plugin is being used.
-     * @return subdomain name
-     */
-    public String getSubdomain() {return(subdomain);}
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
      * Get the name of the client.
      * @return client's name
      */
@@ -260,10 +247,74 @@ public class cMsgAdapter implements cMsgInterface {
 
 
     /**
+     * Set the name of the client.
+     * @param name name of client
+     */
+    public void setName(String name) {this.name = name;}
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
      * Get the client's description.
      * @return client's description
      */
     public String getDescription() {return(description);}
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Set the description of the client.
+     * @param description description of client
+     */
+    public void setDescription(String description) {this.description = description;}
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Get the client's UDL remainder.
+     * @return client's DUL remainder
+     */
+    public String getUDLRemainder() {return(UDLremainder);}
+
+
+//-----------------------------------------------------------------------------
+
+
+   /**
+     * Set the UDL remainder of the client. The cMsgConnect class parses the
+     * UDL and strips off the beginning domain information. The remainder is
+     * passed on to the domain implementations (implementors of this interface).
+     *
+     * @param UDLremainder UDL remainder of client UDL
+     */
+    public void setUDLRemainder(String UDLremainder) {this.UDLremainder = UDLremainder;}
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Get the client's UDL.
+     * @return client's DUL
+     */
+    public String getUDL() {return(UDL);}
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Set the UDL of the client.
+     *
+     * @param UDL UDL of client UDL
+     */
+    public void setUDL(String UDL) {this.UDL = UDL;}
 
 
 //-----------------------------------------------------------------------------

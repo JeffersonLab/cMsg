@@ -1,9 +1,6 @@
 package org.jlab.coda.cMsg.apps;
 
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgCallbackAdapter;
-import org.jlab.coda.cMsg.cMsgMessage;
-import org.jlab.coda.cMsg.cMsgCallback;
+import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgDomain.cMsg;
 
 import java.util.Date;
@@ -112,7 +109,7 @@ public class cMsgGetConsumer {
 
         String UDL = "cMsg:cMsg://aslan:3456/cMsg";
 
-        cMsg coda = new cMsg(UDL, name, "getConsumer");
+        cMsgConnect coda = new cMsgConnect(UDL, name, "getConsumer");
         coda.connect();
         coda.start();
 
