@@ -77,6 +77,8 @@ public class cMsgCoda extends cMsgImpl {
     /** Thread for sending keep alive commands to domain server to check its health. */
     private KeepAlive keepAliveThread;
 
+    boolean listeningThreadStarted;
+
     /**
      * Set of all subscriptions (cMsgSubscription objects) to unique subject/type pairs.
      * Each subscription has a set of callbacks associated with it.
@@ -122,7 +124,6 @@ public class cMsgCoda extends cMsgImpl {
             throw new cMsgException("cMsgCoda: cMsg " + domain + " domain is not implemented yet");
         }
 
-        connected = true;
         connect();
     }
 
@@ -186,7 +187,6 @@ public class cMsgCoda extends cMsgImpl {
             }
         }
 
-
         // launch pend thread and start listening on receive socket
         listeningThread = new cMsgClientListeningThread(this, serverChannel);
         listeningThread.start();
@@ -197,11 +197,16 @@ public class cMsgCoda extends cMsgImpl {
          * the name server since the server tries to communicate with
          * the listening thread.
          */
-        try {
-            listeningThread.wait();
-        }
-        catch (InterruptedException e) {
-            e.printStackTrace();
+        synchronized (listeningThread) {
+            if (!listeningThreadStarted) {
+                try {
+                    listeningThread.wait();
+                    listeningThreadStarted = false;
+                }
+                catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
         }
 
         // connect & talk to cMsg name server to check if name is unique
@@ -239,6 +244,10 @@ public class cMsgCoda extends cMsgImpl {
             channel.close();
         }
         catch (IOException e) {
+            if (debug >= cMsgConstants.debugError) {
+                System.out.println("connect: cannot close channel to name server");
+                e.printStackTrace();
+            }
         }
 
         // create sending (to domain) channel
@@ -666,7 +675,8 @@ public class cMsgCoda extends cMsgImpl {
         buffer.get(buf, 0, hostLength);
         domainServerHost = new String(buf, 0, hostLength, "US-ASCII");
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("  host = " + domainServerHost);
+            System.out.println("  domain server host = " + domainServerHost +
+                               ", port = " + domainServerPort);
         }
     }
 
@@ -703,6 +713,11 @@ public class cMsgCoda extends cMsgImpl {
         }
         else {
             throw new cMsgException("invalid UDL");
+        }
+
+        if (debug >= cMsgConstants.debugInfo) {
+           System.out.println("parseUDL: domain = " + s1 + ", host = " + s2 +
+                              ", port = " + s3 + ", rest = " + s4);
         }
 
         // need at least domain and host
