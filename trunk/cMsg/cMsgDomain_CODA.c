@@ -49,6 +49,26 @@
 #define WAIT_FOR_THREADS 10 /* seconds to wait for thread to start */
 
 
+cMsgDomain_CODA cMsgDomains[MAXDOMAINS_CODA];
+
+/* local variables */
+static int oneTimeInitialized = 0;
+static pthread_mutex_t connectMutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t generalMutex = PTHREAD_MUTEX_INITIALIZER;
+
+/* id which uniquely defines a subject/type pair */
+static int subjectTypeId = 1;
+
+
+/* temp */
+static int counter = 0;
+
+
+/* for c++ */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static int   coda_connect(char *myUDL, char *myName, char *myDescription, int *domainId);
 static int   coda_send(int domainId, void *msg);
 static int   flush(int domainId);
@@ -62,28 +82,11 @@ static int   disconnect(int domainId);
 static domainFunctions functions = {coda_connect, coda_send, flush, subscribe,
                                     unsubscribe, get, start, stop, disconnect};
 
-/* CODA domain type */
+/* cMsg domain type */
 domainTypeInfo codaDomainTypeInfo = {
-  "coda",
+  "cMsg",
   &functions
 };
-
-/* local variables */
-static int oneTimeInitialized = 0;
-static pthread_mutex_t connectMutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t generalMutex = PTHREAD_MUTEX_INITIALIZER;
-static cMsgDomain_CODA domains[MAXDOMAINS_CODA];
-
-
-
-/* id which uniquely defines a subject/type pair */
-static int subjectTypeId = 1;
-
-
-/* for c++ */
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 
 /* in cMsgServer.c */
@@ -91,7 +94,8 @@ void *cMsgClientListeningThread(void *arg);
 
 
 /* local prototypes */
-static int   getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd);
+static int   getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
+                                          char *subdomain, char *UDLremainder);
 static void *dispatchCallback(void *param);
 static void  mutexLock(void);
 static void  mutexUnlock(void);
@@ -102,11 +106,12 @@ static int   sendMutexUnlock(cMsgDomain_CODA *domain);
 static int   subscribeMutexLock(cMsgDomain_CODA *domain);
 static int   subscribeMutexUnlock(cMsgDomain_CODA *domain);
 static int   parseUDL(const char *UDL, char **domainType, char **host,
-                    unsigned short *port, char **remainder);
+                      unsigned short *port, char **subdomainType, char **UDLremainder);
 static void  domainInit(cMsgDomain_CODA *domain);
 static void  domainFree(cMsgDomain_CODA *domain);  
 static void  domainClear(cMsgDomain_CODA *domain);
 static void *keepAliveThread(void *arg);
+static void *callbackThread(void *arg);
 
 
 
@@ -117,14 +122,15 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
 
   int i, id=-1, err, serverfd, status, hz, num_try, try_max;
   char *portEnvVariable=NULL, temp[CMSG_MAXHOSTNAMELEN];
+  char *subdomain=NULL, *UDLremainder=NULL;
   unsigned short startingPort;
-  mainThreadInfo threadArg;
+  mainThreadInfo *threadArg;
   struct timespec waitForThread;
   
     
   /* First, grab mutex for thread safety. This mutex must be held until
    * the initialization is completely finished. Otherwise, if we set
-   * initComplete = 1 (so that we reserve space in the domains array)
+   * initComplete = 1 (so that we reserve space in the cMsgDomains array)
    * before it's finished and then release the mutex, we may give an
    * "existing" connection to a user who does a second init
    * when in fact, an error may still occur in that "existing"
@@ -136,7 +142,7 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   /* do one time initialization */
   if (!oneTimeInitialized) {
     /* clear arrays */
-    for (i=0; i<MAXDOMAINS_CODA; i++) domainInit(&domains[i]);
+    for (i=0; i<MAXDOMAINS_CODA; i++) domainInit(&cMsgDomains[i]);
     oneTimeInitialized = 1;
   }
 
@@ -147,14 +153,14 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
    * description.
    */
   for (i=0; i<MAXDOMAINS_CODA; i++) {
-    if (domains[i].initComplete == 1   &&
-        domains[i].name        != NULL &&
-        domains[i].udl         != NULL &&
-        domains[i].description != NULL)  {
+    if (cMsgDomains[i].initComplete == 1   &&
+        cMsgDomains[i].name        != NULL &&
+        cMsgDomains[i].udl         != NULL &&
+        cMsgDomains[i].description != NULL)  {
         
-      if ( (strcmp(domains[i].name,        myName       ) == 0)  &&
-           (strcmp(domains[i].udl,         myUDL        ) == 0)  &&
-           (strcmp(domains[i].description, myDescription) == 0) )  {
+      if ( (strcmp(cMsgDomains[i].name,        myName       ) == 0)  &&
+           (strcmp(cMsgDomains[i].udl,         myUDL        ) == 0)  &&
+           (strcmp(cMsgDomains[i].description, myDescription) == 0) )  {
         /* got a match */
         id = i;
         break;
@@ -171,12 +177,12 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   }
   
 
-  /* no existing connection, so find the first available place in the "domains" array */
+  /* no existing connection, so find the first available place in the "cMsgDomains" array */
   for (i=0; i<MAXDOMAINS_CODA; i++) {
-    if (domains[i].initComplete > 0) {
+    if (cMsgDomains[i].initComplete > 0) {
       continue;
     }
-    domainInit(&domains[i]);
+    domainInit(&cMsgDomains[i]);
     id = i;
     break;
   }
@@ -189,24 +195,24 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   }
 
 
-  /* reserve this element of the "domains" array */
-  domains[id].initComplete = 1;
+  /* reserve this element of the "cMsgDomains" array */
+  cMsgDomains[id].initComplete = 1;
       
   /* save ref to self */
-  domains[id].id = id;
+  cMsgDomains[id].id = id;
           
   /* store our host's name */
   gethostname(temp, CMSG_MAXHOSTNAMELEN);
-  domains[id].myHost = (char *) strdup(temp);
+  cMsgDomains[id].myHost = (char *) strdup(temp);
 
   /* store names, can be changed until server connection established */
-  domains[id].name        = (char *) strdup(myName);
-  domains[id].udl         = (char *) strdup(myUDL);
-  domains[id].description = (char *) strdup(myDescription);
+  cMsgDomains[id].name        = (char *) strdup(myName);
+  cMsgDomains[id].udl         = (char *) strdup(myUDL);
+  cMsgDomains[id].description = (char *) strdup(myDescription);
   
   /* parse the UDL - Uniform Domain Locator */
-  if ( (err = parseUDL(myUDL, NULL, &domains[id].serverHost,
-                       &domains[id].serverPort, NULL)) != CMSG_OK ) {
+  if ( (err = parseUDL(myUDL, NULL, &cMsgDomains[id].serverHost,
+                       &cMsgDomains[id].serverPort, &subdomain, &UDLremainder)) != CMSG_OK ) {
     /* there's been a parsing error */
     connectMutexUnlock();
     return(err);
@@ -246,20 +252,21 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   /* get listening port and socket for this application */
   if ( (err = cMsgGetListeningSocket(CMSG_NONBLOCKING,
                                      startingPort,
-                                     &domains[id].listenPort,
-                                     &domains[id].listenSocket)) != CMSG_OK) {
-    domainClear(&domains[id]);
+                                     &cMsgDomains[id].listenPort,
+                                     &cMsgDomains[id].listenSocket)) != CMSG_OK) {
+    domainClear(&cMsgDomains[id]);
     connectMutexUnlock();
     return(err);
   }
 
   /* launch pend thread and start listening on receive socket */
-  threadArg.isRunning = 0;
-  threadArg.domain    = &domains[id];
-  threadArg.listenFd  = domains[id].listenSocket;
-  threadArg.blocking  = CMSG_NONBLOCKING;
-  status = pthread_create(&domains[id].pendThread, NULL,
-                          cMsgClientListeningThread, (void *)&threadArg);
+  threadArg = (mainThreadInfo *) malloc(sizeof(mainThreadInfo));
+  threadArg->isRunning = 0;
+  threadArg->domainId  = id;
+  threadArg->listenFd  = cMsgDomains[id].listenSocket;
+  threadArg->blocking  = CMSG_NONBLOCKING;
+  status = pthread_create(&cMsgDomains[id].pendThread, NULL,
+                          cMsgClientListeningThread, (void *) threadArg);
   if (status != 0) {
     err_abort(status, "Creating message listening thread");
   }
@@ -279,11 +286,9 @@ static int coda_connect(char *myUDL, char *myName, char *myDescription, int *dom
   num_try = 0;
   waitForThread.tv_sec  = 0;
   waitForThread.tv_nsec = 1000000000/hz;
-fprintf(stderr, "coda_connect, launched listening thread, wait for flag\n");
   
-  while((threadArg.isRunning != 1) && (num_try++ < try_max)) {
+  while((threadArg->isRunning != 1) && (num_try++ < try_max)) {
     nanosleep(&waitForThread, NULL);
-fprintf(stderr, ".");
   }
   if (num_try > try_max) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -301,12 +306,12 @@ fprintf(stderr, ".");
   /*---------------------------------------------------------------*/
     
   /* first connect to server host & port */
-  if ( (err = cMsgTcpConnect(domains[id].serverHost,
-                             domains[id].serverPort,
+  if ( (err = cMsgTcpConnect(cMsgDomains[id].serverHost,
+                             cMsgDomains[id].serverPort,
                              &serverfd)) != CMSG_OK) {
     /* stop listening & connection threads */
-    pthread_cancel(domains[id].pendThread);
-    domainClear(&domains[id]);
+    pthread_cancel(cMsgDomains[id].pendThread);
+    domainClear(&cMsgDomains[id]);
     connectMutexUnlock();
     return(err);
   }
@@ -316,11 +321,11 @@ fprintf(stderr, ".");
   }
   
   /* get host & port to send messages to */
-  err = getHostAndPortFromNameServer(&domains[id], serverfd);
+  err = getHostAndPortFromNameServer(&cMsgDomains[id], serverfd, subdomain, UDLremainder);
   if (err != CMSG_OK) {
     close(serverfd);
-    pthread_cancel(domains[id].pendThread);
-    domainClear(&domains[id]);
+    pthread_cancel(cMsgDomains[id].pendThread);
+    domainClear(&cMsgDomains[id]);
     connectMutexUnlock();
     return(err);
   }
@@ -335,46 +340,46 @@ fprintf(stderr, ".");
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "coda_connect: closed name server socket\n");
     fprintf(stderr, "coda_connect: sendHost = %s, sendPort = %hu\n",
-                             domains[id].sendHost,
-                             domains[id].sendPort);
+                             cMsgDomains[id].sendHost,
+                             cMsgDomains[id].sendPort);
   }
   
   /* create sending socket and store */
-  if ( (err = cMsgTcpConnect(domains[id].sendHost,
-                             domains[id].sendPort,
-                             &domains[id].sendSocket)) != CMSG_OK) {
+  if ( (err = cMsgTcpConnect(cMsgDomains[id].sendHost,
+                             cMsgDomains[id].sendPort,
+                             &cMsgDomains[id].sendSocket)) != CMSG_OK) {
     close(serverfd);
-    pthread_cancel(domains[id].pendThread);
-    domainClear(&domains[id]);
+    pthread_cancel(cMsgDomains[id].pendThread);
+    domainClear(&cMsgDomains[id]);
     connectMutexUnlock();
     return(err);
   }
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "coda_connect: created sending socket fd = %d\n", domains[id].sendSocket);
+    fprintf(stderr, "coda_connect: created sending socket fd = %d\n", cMsgDomains[id].sendSocket);
   }
   
   /* init is complete */
   *domainId = id + DOMAIN_ID_OFFSET;
-  domains[id].initComplete = 1;
+  cMsgDomains[id].initComplete = 1;
 
-  if ( (err = cMsgTcpConnect(domains[id].sendHost,
-                             domains[id].sendPort,
-                             &domains[id].keepAliveSocket)) != CMSG_OK) {
-    close(domains[id].sendSocket);
-    pthread_cancel(domains[id].pendThread);
-    domainClear(&domains[id]);
+  if ( (err = cMsgTcpConnect(cMsgDomains[id].sendHost,
+                             cMsgDomains[id].sendPort,
+                             &cMsgDomains[id].keepAliveSocket)) != CMSG_OK) {
+    close(cMsgDomains[id].sendSocket);
+    pthread_cancel(cMsgDomains[id].pendThread);
+    domainClear(&cMsgDomains[id]);
     connectMutexUnlock();
     return(err);
   }
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "coda_connect: created keepalive socket fd = %d\n",domains[id].keepAliveSocket );
+    fprintf(stderr, "coda_connect: created keepalive socket fd = %d\n",cMsgDomains[id].keepAliveSocket );
   }
   
   /* create thread to send periodic keep alives and handle dead server */
-  status = pthread_create(&domains[id].keepAliveThread, NULL,
-                          keepAliveThread, (void *)&domains[id]);
+  status = pthread_create(&cMsgDomains[id].keepAliveThread, NULL,
+                          keepAliveThread, (void *)&cMsgDomains[id]);
   if (status != 0) {
     err_abort(status, "Creating keep alive thread");
   }
@@ -400,11 +405,15 @@ static int coda_send(int domainId, void *vmsg) {
   int outGoing[9];
   char *subject, *type, *text;
   cMsgMessage *msg = (cMsgMessage *) vmsg;
-  cMsgDomain_CODA *domain = &domains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   int fd = domain->sendSocket;
     
-  if (domains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
+  if (!domain->hasSend) {
+    return(CMSG_NOT_IMPLEMENTED);
+  }
+ 
+  if (cMsgDomains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
+  if (cMsgDomains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
 
   subject = cMsgGetSubject(vmsg);
   type    = cMsgGetType(vmsg);
@@ -536,11 +545,11 @@ static int get(int domainId, void *sendMsg, time_t timeout, void **replyMsg) {
 static int flush(int domainId) {
 
   FILE *file;  
-  cMsgDomain_CODA *domain = &domains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   int fd = domain->sendSocket;
 
-  if (domains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
+  if (cMsgDomains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
+  if (cMsgDomains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
 
   /* turn file descriptor into FILE pointer */
   file = fdopen(fd, "w");
@@ -561,17 +570,20 @@ static int flush(int domainId) {
 
 static int subscribe(int domainId, char *subject, char *type, cMsgCallback *callback, void *userArg) {
 
-  int i, j, iok, jok, uniqueId;
-  cMsgDomain_CODA *domain = &domains[domainId];
+  int i, j, iok, jok, uniqueId, status;
+  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
 
-  if (domains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  if (domains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
+  if (cMsgDomains[domainId].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
+  if (cMsgDomains[domainId].lostConnection == 1) return(CMSG_LOST_CONNECTION);
 
+  if (!domain->hasSubscribe) {
+    return(CMSG_NOT_IMPLEMENTED);
+  } 
   
   /* make sure subscribe and unsubscribe are not run at the same time */
   subscribeMutexLock(domain);
   
-  /* add to callback list if subscribe to same subject/type exists */
+  /* add to callback list if subscription to same subject/type exists */
   iok = 0;
   for (i=0; i<MAXSUBSCRIBE; i++) {
     if ((domain->subscribeInfo[i].active == 1) && 
@@ -584,6 +596,18 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
 	if (domain->subscribeInfo[i].cbInfo[j].callback == NULL) {
 	  domain->subscribeInfo[i].cbInfo[j].callback = callback;
 	  domain->subscribeInfo[i].cbInfo[j].userArg  = userArg;
+          domain->subscribeInfo[i].cbInfo[0].head     = NULL;
+          domain->subscribeInfo[i].cbInfo[0].tail     = NULL;
+          domain->subscribeInfo[i].cbInfo[0].quit     = 0;
+          domain->subscribeInfo[i].cbInfo[0].messages = 0;
+          /* start callback thread now */
+          status = pthread_create(&domain->subscribeInfo[i].cbInfo[j].thread,
+                                  NULL, callbackThread,
+                                  (void *) &domain->subscribeInfo[i].cbInfo[j]);
+          if (status != 0) {
+            err_abort(status, "Creating keep alive thread");
+          }
+        
 	  jok = 1;
 	}
       }
@@ -591,6 +615,7 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
 
     }
   }
+fprintf(stderr, "subscribe: done with first loop\n");
   
   if ((iok == 1) && (jok == 0)) return(CMSG_OUT_OF_MEMORY);
   if ((iok == 1) && (jok == 1)) return(CMSG_OK);
@@ -611,6 +636,15 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
     domain->subscribeInfo[i].type    = (char *) strdup(type);
     domain->subscribeInfo[i].cbInfo[0].callback = callback;
     domain->subscribeInfo[i].cbInfo[0].userArg  = userArg;
+    domain->subscribeInfo[i].cbInfo[0].head     = NULL;
+    domain->subscribeInfo[i].cbInfo[0].tail     = NULL;
+    domain->subscribeInfo[i].cbInfo[0].quit     = 0;
+    domain->subscribeInfo[i].cbInfo[0].messages = 0;
+    
+    /* start callback thread now */
+    status = pthread_create(&domain->subscribeInfo[i].cbInfo[0].thread,
+                            NULL, callbackThread,
+                            (void *) &domain->subscribeInfo[i].cbInfo[0]);
     iok = 1;
 
     /*
@@ -711,7 +745,6 @@ static int subscribe(int domainId, char *subject, char *type, cMsgCallback *call
       fprintf(stderr, "subscribe: read reply (%d)\n", err);
     }
     */
-
     return(CMSG_OK);
   }
   
@@ -731,8 +764,12 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
   int i, j;
   int cbCount = 0;     /* total number of callbacks for the subject/type pair of interest */
   int cbsRemoved = 0;  /* total number of callbacks removed for that subject/type pair */
-  cMsgDomain_CODA *domain = &domains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   
+  if (!domain->hasUnsubscribe) {
+    return(CMSG_NOT_IMPLEMENTED);
+  }
+ 
   /* make sure subscribe and unsubscribe are not run at the same time */
   subscribeMutexLock(domain);
   
@@ -875,7 +912,7 @@ static int unsubscribe(int domainId, char *subject, char *type, cMsgCallback *ca
 
 static int start(int domainId) {
   
-  domains[domainId].receiveState = 1;
+  cMsgDomains[domainId].receiveState = 1;
   return(CMSG_OK);
 }
 
@@ -886,7 +923,7 @@ static int start(int domainId) {
 
 static int stop(int domainId) {
   
-  domains[domainId].receiveState = 0;
+  cMsgDomains[domainId].receiveState = 0;
   return(CMSG_OK);
 }
 
@@ -898,9 +935,9 @@ static int stop(int domainId) {
 static int disconnect(int domainId) {
   
   int status;
-  cMsgDomain_CODA *domain = &domains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
 
-  if (domains[domainId].initComplete != 1) return(CMSG_NOT_INITIALIZED);
+  if (cMsgDomains[domainId].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
   /* When changing initComplete / connection status, mutex protect it */
   connectMutexLock();
@@ -935,29 +972,38 @@ static int disconnect(int domainId) {
 /*-------------------------------------------------------------------*/
 
 
-static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd) {
+static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd,
+                                        char *subdomain, char *UDLremainder) {
 
-  int err, lengthHost, lengthName, lengthType, outgoing[5], incoming[2];
-  char temp[CMSG_MAXHOSTNAMELEN];
-  char *type = "coda";
+  int err, lengthDomain, lengthSubdomain, lengthRemainder, lengthHost, lengthName;
+  int outgoing[7], incoming[2];
+  char temp[CMSG_MAXHOSTNAMELEN], atts[5];
+  char *domainType = "cMsg";
 
   /* first send message id (in network byte order) to server */
   outgoing[0] = htonl(CMSG_SERVER_CONNECT);
   /* send my listening port (as an int) to server */
   outgoing[1] = htonl((int)domain->listenPort);
   /* send length of the type of domain server I'm expecting to connect to.*/
-  lengthType  = strlen(type);
-  outgoing[2] = htonl(lengthType);
+  lengthDomain = strlen(domainType);
+  outgoing[2]  = htonl(lengthDomain);
+  /* send length of the type of subdomain handler I'm expecting to use.*/
+  lengthSubdomain = strlen(subdomain);
+  outgoing[3] = htonl(lengthSubdomain);
+  /* send length of the UDL remainder.*/
+  lengthRemainder = strlen(UDLremainder);
+  outgoing[4] = htonl(lengthRemainder);
   /* send length of my host name to server */
   lengthHost  = strlen(domain->myHost);
-  outgoing[3] = htonl(lengthHost);
+  outgoing[5] = htonl(lengthHost);
   /* send length of my name to server */
   lengthName  = strlen(domain->name);
-  outgoing[4] = htonl(lengthName);
+  outgoing[6] = htonl(lengthName);
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "getHostAndPortFromNameServer: write 4 (%d, %d, %d, %d) ints to server\n",
-            CMSG_SERVER_CONNECT, (int) domain->listenPort, lengthHost, lengthName);
+    fprintf(stderr, "getHostAndPortFromNameServer: write 7 (%d, %d, %d, %d, %d, %d, %d) ints to server\n",
+            CMSG_SERVER_CONNECT, (int) domain->listenPort,
+            lengthDomain, lengthSubdomain, lengthRemainder, lengthHost, lengthName);
   }
   
   /* first send all the ints */
@@ -967,25 +1013,36 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd) {
     }
     return(CMSG_NETWORK_ERROR);
   }
-
+  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "getHostAndPortFromNameServer: send my domain type (%s) to server\n",
-            type);
+    fprintf(stderr, "getHostAndPortFromNameServer: write 5 strings to server\n",
+            domain->name);
   }
   
   /* send the type of domain server I'm expecting to connect to */
-  if (cMsgTcpWrite(serverfd, (void *) type, lengthType) != lengthType) {
+  if (cMsgTcpWrite(serverfd, (void *) domainType, lengthDomain) != lengthDomain) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+  
+  /* send the type of subdomain handler I'm expecting to use */
+  if (cMsgTcpWrite(serverfd, (void *) subdomain, lengthSubdomain) != lengthSubdomain) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
 
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "getHostAndPortFromNameServer: send my host name (%s) to server\n",
-            domain->myHost);
+  /* send the UDL remainder */
+  if (cMsgTcpWrite(serverfd, (void *) UDLremainder, lengthRemainder) != lengthRemainder) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "getHostAndPortFromNameServer: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
   }
-  
+
   /* send my host name to server */
   if (cMsgTcpWrite(serverfd, (void *) domain->myHost, lengthHost) != lengthHost) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -994,11 +1051,6 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd) {
     return(CMSG_NETWORK_ERROR);
   }
 
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "getHostAndPortFromNameServer: send my name (%s) to server\n",
-            domain->name);
-  }
-  
   /* send my name to server */
   if (cMsgTcpWrite(serverfd, (void *) domain->name, lengthName) != lengthName) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -1029,7 +1081,30 @@ static int getHostAndPortFromNameServer(cMsgDomain_CODA *domain, int serverfd) {
     return(err);
   }
   
-  /* if everything's OK, we expect to get host & port */
+  /*
+   * if everything's OK, we expect to get:
+   *   1) attributes of subdomain handler
+   *   2) host & port
+   */
+  
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "getHostAndPortFromNameServer: read subdomain handler attributes\n");
+  }
+  
+  /* read 5 chars */
+  if (cMsgTcpRead(serverfd, (void *) atts, sizeof(atts)) != sizeof(atts)) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "getHostAndPortFromNameServer: read failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+  
+  /* store attributes of the subdomain handler being used */
+  if (atts[0] == 1) domain->hasSend        = 1;
+  if (atts[1] == 1) domain->hasSyncSend    = 1;
+  if (atts[2] == 1) domain->hasGet         = 1;
+  if (atts[3] == 1) domain->hasSubscribe   = 1;
+  if (atts[4] == 1) domain->hasUnsubscribe = 1;
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "getHostAndPortFromNameServer: read port and length of host from server\n");
@@ -1139,24 +1214,119 @@ static void *keepAliveThread(void *arg)
 }
 
 
+/*-------------------------------------------------------------------*
+ * callbackThread is a thread used to run a single callback in.
+ *-------------------------------------------------------------------*/
+static void *callbackThread(void *arg)
+{
+    /* subscription information passed in thru arg */
+    struct subscribeCbInfo_t *subscription = (struct subscribeCbInfo_t *) arg;
+    int status, thereIsNoMsg=0;
+    cMsgMessage *msg;
+
+    /* increase concurrency for this thread for early Solaris */
+  #ifdef sun
+    int  con;
+    con = thr_getconcurrency();
+    thr_setconcurrency(con + 1);
+  #endif
+      
+    while(1) {
+      /* lock mutex */
+      status = pthread_mutex_lock(&subscription->mutex);
+      if (status != 0) {
+        err_abort(status, "Failed callback mutex lock");
+      }
+      
+      /* wait while there are no messages */
+      while (subscription->head == NULL) {
+        /* wait until signaled */
+        status = pthread_cond_wait(&subscription->cond, &subscription->mutex);
+        if (status != 0) {
+          err_abort(status, "Failed callback cond wait");
+        }
+        
+        /* quit if commanded to */
+        if (subscription->quit) {
+          goto end;
+        }
+      }
+      
+      /* get first message in linked list */
+      msg = subscription->head;
+/*
+printf("callbackThd: head = %p, tail = %p, head->next = %p\n",
+        subscription->head, subscription->tail, subscription->head->next);
+*/       
+      /* if there are no more messages ... */
+      if (msg->next == NULL) {
+        subscription->head = NULL;
+        subscription->tail = NULL;
+        subscription->messages--;
+/*
+printf("callbackThd: LAST MSG, # = %d, msg = %p, head = %p\n",
+        subscription->messages, msg, subscription->head);
+*/
+      }
+      /* else make the next message the head */
+      else {
+        subscription->head = msg->next;
+        subscription->messages--;
+/*
+printf("callbackThd: # = %d, msg = %p, head = %p\n",
+        subscription->messages, msg, subscription->head);
+*/
+      }
+      /*subscription->messages--;*/
+     
+      /* unlock mutex */
+      status = pthread_mutex_unlock(&subscription->mutex);
+      if (status != 0) {
+        err_abort(status, "Failed callback mutex unlock");
+      }
+      
+      /* run callback */
+      subscription->callback(msg, subscription->userArg);
+      
+      /* quit if commanded to */
+      if (subscription->quit) {
+        goto end;
+      }
+    }
+    
+  end:
+          
+  #ifdef sun
+    thr_setconcurrency(con);
+  #endif
+    
+    return;
+}
+
+
 /*-------------------------------------------------------------------*/
 
 
-int cMsgRunCallbacks(cMsgDomain_CODA *domain, int command, cMsgMessage *msg) {
+int cMsgRunCallbacks(int domainId, int command, cMsgMessage *msg) {
 
   int i, j, status;
   dispatchCbInfo *dcbi;
+  struct subscribeCbInfo_t *subscription;
   pthread_t newThread;
+  cMsgDomain_CODA *domain;
+  cMsgMessage *message;
+  
+  domain = &cMsgDomains[domainId];
   
   /* callbacks have been stopped */
   if (domain->receiveState == 0) {
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "cMsgRunCallbacks: all callbacks have been stopped\n");
     }
-
+    free(msg);
     return (CMSG_OK);
   }
-
+ 
   switch(command) {
 
     case CMSG_SERVER_RESPONSE:
@@ -1168,49 +1338,62 @@ int cMsgRunCallbacks(cMsgDomain_CODA *domain, int command, cMsgMessage *msg) {
     /* if message for user, launch callback in new thread */
     case CMSG_SUBSCRIBE_RESPONSE:      
 
-      if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "cMsgRunCallbacks: subscribe response received\n");
-      }
-
       /* search entry list */
       for (i=0; i<MAXSUBSCRIBE; i++) {
         /* if the subject/type id's match, run callbacks for this sub/type */
         if ( (domain->subscribeInfo[i].active == 1) &&
              (domain->subscribeInfo[i].id == msg->receiverSubscribeId)) {
 
-          if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "  found subscribe into to match receiveSubscriberId = %d\n", msg->receiverSubscribeId);
-          }
-
           /* search callback list */
           for (j=0; j<MAXCALLBACK; j++) {
 	    /* if there is an existing callback ... */
             if (domain->subscribeInfo[i].cbInfo[j].callback != NULL) {
-              if (cMsgDebug >= CMSG_DEBUG_INFO) {
-                fprintf(stderr, "  there is a callback\n");
-              }
-
-              /* allocate memory for thread arg so it doesn't go out-of-scope */
-              dcbi = (dispatchCbInfo*) malloc(sizeof(dispatchCbInfo));
-              if (dcbi == NULL) {
-                if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-                  fprintf(stderr, "runCallbacks: cannot allocate memory\n");
-                }
-                exit(1);
-              }
-
-	      dcbi->callback = domain->subscribeInfo[i].cbInfo[j].callback;
-	      dcbi->userArg  = domain->subscribeInfo[i].cbInfo[j].userArg;
-              /* the message was malloced in cMsgClientThread,
-               * so it must be freed in the dispatch thread
-               */
-	      dcbi->msg = cMsgCopyMessage(msg);
-
-              /* run dispatch thread */
-	      status = pthread_create(&newThread, NULL, dispatchCallback, (void *)dcbi);
+                           
+              subscription = &domain->subscribeInfo[i].cbInfo[j];
+              
+              status = pthread_mutex_lock(&subscription->mutex);
               if (status != 0) {
-                err_abort(status, "Create dispatch callback thread");
+                err_abort(status, "Failed callback mutex lock");
               }
+
+              /* copy message so each callback has its own copy */
+              message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
+              /*message = msg;*/
+              
+              /* add this message to linked list for this callback */       
+
+              /* if there are no messages ... */
+              if (subscription->head == NULL) {
+                subscription->head = message;
+                subscription->tail = message;
+/*fprintf(stderr, "cMsgRunCallbacks: add msg to HEAD (%p)\n", message);*/
+              }
+              /* else put message after the tail */
+              else {
+                subscription->tail->next = message;
+                subscription->tail = message;
+/*fprintf(stderr, "cMsgRunCallbacks: add msg to TAIL (%p)\n", message);*/
+              }
+              
+              subscription->messages++;
+              message->next = NULL;
+              
+              /* unlock mutex */
+              status = pthread_mutex_unlock(&subscription->mutex);
+              if (status != 0) {
+                err_abort(status, "Failed callback mutex unlock");
+              }
+              
+              /* wakeup callback thread */
+              status = pthread_cond_signal(&subscription->cond);
+              if (status != 0) {
+                err_abort(status, "Failed callback condition signal");
+              }
+
+              if (cMsgDebug >= CMSG_DEBUG_INFO) {
+                fprintf(stderr, "cMsgRunCallbacks, #MSGS = %d\n", subscription->messages);
+              }
+               
 	    }
           }
         }
@@ -1221,6 +1404,8 @@ int cMsgRunCallbacks(cMsgDomain_CODA *domain, int command, cMsgMessage *msg) {
     default:
       break;
   }
+  
+  cMsgFreeMessage((void *)msg);
   
   return (CMSG_OK);
 }
@@ -1242,7 +1427,7 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
   /* read ints first */
   if (cMsgTcpRead(fd, (void *) inComing, sizeof(inComing)) != sizeof(inComing)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "readMessage: cannot read ints\n");
+      fprintf(stderr, "cMsgReadMessage: cannot read ints\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1260,6 +1445,7 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
   lengths[3]               = ntohl(inComing[9]);  /* type length */
   lengths[4]               = ntohl(inComing[10]); /* text length */
   
+  /*
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "  readMessage: read ints\n");
       fprintf(stderr, "    sysMsgId = %d\n", msg->sysMsgId);
@@ -1274,7 +1460,8 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
       fprintf(stderr, "    type len = %d\n",lengths[3] );
       fprintf(stderr, "    text len = %d\n",lengths[4] );
   }
-  
+ */
+ 
   /*--------------------*/
   /* read sender string */
   /*--------------------*/
@@ -1288,14 +1475,14 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
     string  = (char *) malloc((size_t) memSize);
     if (string == NULL) {
       if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-        fprintf(stderr, "readMessage: cannot allocate memory\n");
+        fprintf(stderr, "cMsgReadMessage: cannot allocate memory\n");
       }
       exit(1);
     }
   }
   if (cMsgTcpRead(fd, string, lengths[0]) != lengths[0]) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "readMessage: cannot read sender\n");
+      fprintf(stderr, "cMsgReadMessage: cannot read sender\n");
     }
     if (memSize > CMSG_MESSAGE_SIZE) {
       free((void *) string);
@@ -1307,9 +1494,11 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
   /* copy to cMsg structure */
   msg->sender = (char *) strdup(string);
   
+  /*
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "    sender = %s\n", string);
   }  
+  */
     
   /*------------------------*/
   /* read senderHost string */
@@ -1322,14 +1511,14 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
     string  = (char *) malloc((size_t) memSize);
     if (string == NULL) {
       if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-        fprintf(stderr, "readMessage: cannot allocate memory\n");
+        fprintf(stderr, "cMsgReadMessage: cannot allocate memory\n");
       }
       exit(1);
     }
   }
   if (cMsgTcpRead(fd, string, lengths[1]) != lengths[1]) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "readMessage: cannot read senderHost\n");
+      fprintf(stderr, "cMsgReadMessage: cannot read senderHost\n");
     }
     if (memSize > CMSG_MESSAGE_SIZE) {
       free((void *) string);
@@ -1340,10 +1529,11 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
   string[lengths[1]] = 0;
   msg->senderHost = (char *) strdup(string);
     
-  
+  /*
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "    sender host = %s\n", string);
   }  
+  */
   
   /*---------------------*/
   /* read subject string */
@@ -1356,14 +1546,14 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
     string  = (char *) malloc((size_t) memSize);
     if (string == NULL) {
       if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-        fprintf(stderr, "readMessage: cannot allocate memory\n");
+        fprintf(stderr, "cMsgReadMessage: cannot allocate memory\n");
       }
       exit(1);
     }
   }
   if (cMsgTcpRead(fd, string, lengths[2]) != lengths[2]) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "readMessage: cannot read senderHost\n");
+      fprintf(stderr, "cMsgReadMessage: cannot read senderHost\n");
     }
     if (memSize > CMSG_MESSAGE_SIZE) {
       free((void *) string);
@@ -1375,10 +1565,11 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
   string[lengths[2]] = 0;
   msg->subject = (char *) strdup(string);
   
+  /*
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "    subject = %s\n", string);
   }  
-    
+  */ 
   
   /*------------------*/
   /* read type string */
@@ -1391,14 +1582,14 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
     string  = (char *) malloc((size_t) memSize);
     if (string == NULL) {
       if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-        fprintf(stderr, "readMessage: cannot allocate memory\n");
+        fprintf(stderr, "cMsgReadMessage: cannot allocate memory\n");
       }
       exit(1);
     }
   }
   if (cMsgTcpRead(fd, string, lengths[3]) != lengths[3]) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "readMessage: cannot read senderHost\n");
+      fprintf(stderr, "cMsgReadMessage: cannot read senderHost\n");
     }
     if (memSize > CMSG_MESSAGE_SIZE) {
       free((void *) string);
@@ -1411,10 +1602,11 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
   string[lengths[3]] = 0;
   msg->type = (char *) strdup(string);
   
+  /*
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "    type = %s\n", string);
   }  
-    
+  */ 
   
   /*------------------*/
   /* read text string */
@@ -1427,14 +1619,14 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
     string  = (char *) malloc((size_t) memSize);
     if (string == NULL) {
       if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-        fprintf(stderr, "readMessage: cannot allocate memory\n");
+        fprintf(stderr, "cMsgReadMessage: cannot allocate memory\n");
       }
       exit(1);
     }
   }
   if (cMsgTcpRead(fd, string, lengths[4]) != lengths[4]) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "readMessage: cannot read senderHost\n");
+      fprintf(stderr, "cMsgReadMessage: cannot read senderHost\n");
     }
     if (memSize > CMSG_MESSAGE_SIZE) {
       free((void *) string);
@@ -1448,38 +1640,12 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
   string[lengths[4]] = 0;
   msg->text = (char *) strdup(string);
   
+  /*
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "    text = %s\n", string);
-  }  
+  }
+  */ 
       
-
-  /* reply value */
-  /*
-  err = htonl(CMSG_OK);
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "    send ok back to server\n");
-  }
-    
-  if (cMsgTcpWrite(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgClientThread: cannot send message reply\n");
-    }
-    if (memSize > CMSG_MESSAGE_SIZE) {
-      free((void *) string);
-    }
-    free((void *) msg->sender);
-    free((void *) msg->senderHost);
-    free((void *) msg->subject);
-    free((void *) msg->type);
-    return(CMSG_NETWORK_ERROR);
-  }
-  */
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cMsgClientThread: msg arrived: %s\n", string);
-  }
- 
   return(CMSG_OK);
 }
 
@@ -1491,62 +1657,114 @@ int cMsgReadMessage(int fd, cMsgMessage *msg) {
 
 
 static int parseUDL(const char *UDL, char **domainType, char **host,
-                    unsigned short *port, char **remainder) {
+                    unsigned short *port, char **subdomainType, char **UDLremainder) {
 
-/* note:  CODA domain UDL is of the form:   domainType://host:port/remainder */
+  /* note: cMsg UDL is of the form:
+           cMsg:<domainType>://<host>:<port>/<subdomainType>/<remainder>
+     where the first "cMsg:" is optional. If it is the cMsg domainType,
+     then the subdomain is optional with the default being cMsg.
+  */
 
-  int i;
-  char *p, *portString, *udl;
+  int i, Port;
+  char *p, *portString, *udl, *pudl, *pdomainType;
 
   if (UDL  == NULL) {
     return(CMSG_BAD_ARGUMENT);
   }
   
   /* strtok modifies the string it tokenizes, so make a copy */
-  udl = (char *) strdup(UDL);
+  pudl = udl = (char *) strdup(UDL);
   
 /*printf("UDL = %s\n", udl);*/
+
+  /*
+   * Check to see if optional "cMsg:" in front.
+   * Start by looking for any occurance.
+   */  
+  p = strstr(udl, "cMsg:");
+  
+  /* if there a "cMsg:" in front ... */
+  if (p == udl) {
+    /* if there is still the domain before "://", strip off first "cMsg:" */
+    pudl = udl+5;
+    p = strstr(pudl, "//");
+    if (p == pudl) {
+      pudl = udl;
+    }
+  }
+    
   /* get tokens separated by ":" or "/" */
-  if ( (p = (char *) strtok(udl, ":/")) == NULL) {
+  
+  /* find domain */
+  if ( (p = (char *) strtok(pudl, ":/")) == NULL) {
     free(udl);
     return (CMSG_BAD_FORMAT);
   }
   if (domainType != NULL) *domainType = (char *) strdup(p);
-/*printf("domainType = %s\n", *domainType);*/
+  pdomainType = (char *) strdup(p);
+/*printf("domainType = %s\n", p);*/  
   
+  /* find host */
   if ( (p = (char *) strtok(NULL, ":/")) == NULL) {
-   if (domainType != NULL)  free(*domainType);
+    if (domainType != NULL)  free(*domainType);
+    free (pdomainType);
     free(udl);
     return (CMSG_BAD_FORMAT);
   }
-  if (host != NULL) *host =(char *)  strdup(p);
-/*printf("host = %s\n", *host);*/
+  if (host != NULL) *host =(char *) strdup(p);
+/*printf("host = %s\n", p);*/
   
-  if ( (p = (char *) strtok(NULL, ":/")) == NULL) {
-    if (host != NULL) free(*host);
+  
+  /* find port */
+  if ( (p = (char *) strtok(NULL, "/")) == NULL) {
+    if (host != NULL)       free(*host);
     if (domainType != NULL) free(*domainType);
+    free (pdomainType);
     free(udl);
     return (CMSG_BAD_FORMAT);
   }
+  portString = (char *) strdup(p);
+  Port = atoi(portString);
   if (port != NULL) {
-    portString = (char *) strdup(p);
-    *port = atoi(portString);
+    *port = Port;
   }
-/*printf("port string = %s, port int = %hu\n", portString, *port);*/  
-  if (*port < 1024 || *port > 65535) {
+/*printf("port string = %s, port int = %hu\n", portString, Port);*/   
+  if (Port < 1024 || Port > 65535) {
     if (port != NULL) free((void *) portString);
     if (host != NULL) free((void *) *host);
     if (domainType != NULL) free((void *) *domainType);
+    free (pdomainType);
     free(udl);
     return (CMSG_OUT_OF_RANGE);
   }
   
-  if ( (p = (char *) strtok(NULL, ":/")) != NULL  && remainder != NULL) {
-    *remainder = (char *) strdup(p);
-/*printf("remainder = %s\n", *remainder);*/  
+  /* find subdomain */
+  if ( (p = (char *) strtok(NULL, "/")) != NULL) {
+    if (subdomainType != NULL) {
+      *subdomainType = (char *) strdup(p);
+    }
+  }
+  else {
+    if ((strcmp(pdomainType, "cMsg") == 0) && (subdomainType != NULL)) {
+        *subdomainType = (char *) strdup("cMsg");
+    }
+/*printf("subdomainType = cMsg\n");*/
+    free(udl);
+    return(CMSG_OK);
+  }
+  
+/*printf("subdomainType = %s\n", p);*/
+
+  /* find UDL remainder */
+  if ( (p = (char *) strtok(NULL, "")) != NULL) {
+    if (UDLremainder != NULL) {
+      *UDLremainder = (char *) strdup(p);
+    }
+/*printf("remainder = %s\n", p);*/
   }
   
   /* UDL parsed ok */
+  free (pdomainType);
   free(udl);
   return(CMSG_OK);
 }
@@ -1571,6 +1789,12 @@ static void domainInit(cMsgDomain_CODA *domain) {
   domain->serverPort      = 0;
   domain->listenPort      = 0;
   
+  domain->hasSend         = 0;
+  domain->hasSyncSend     = 0;
+  domain->hasGet          = 0;
+  domain->hasSubscribe    = 0;
+  domain->hasUnsubscribe  = 0;
+
   domain->myHost          = NULL;
   domain->sendHost        = NULL;
   domain->serverHost      = NULL;
@@ -1590,8 +1814,12 @@ static void domainInit(cMsgDomain_CODA *domain) {
     domain->subscribeInfo[i].subject = NULL;
     
     for (j=0; j<MAXCALLBACK; j++) {
+      domain->subscribeInfo[i].cbInfo[j].quit     = 0;
+      domain->subscribeInfo[i].cbInfo[j].messages = 0;
       domain->subscribeInfo[i].cbInfo[j].callback = NULL;
       domain->subscribeInfo[i].cbInfo[j].userArg  = NULL;
+      domain->subscribeInfo[i].cbInfo[j].head     = NULL;
+      domain->subscribeInfo[i].cbInfo[j].tail     = NULL;
       pthread_cond_init (&domain->subscribeInfo[i].cbInfo[j].cond,  NULL);
       pthread_mutex_init(&domain->subscribeInfo[i].cbInfo[j].mutex, NULL);
     }
