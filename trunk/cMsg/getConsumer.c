@@ -26,26 +26,29 @@
 
 #include "cMsg.h"
 
-#define NUMEVENTS 10000
+#define NUMGETS 1000
 /* recent versions of linux put float.h (and DBL_MAX) in a strange place */
 #define DOUBLE_MAX   1.7976931348623157E+308
 
-int count = 0;
 
 
 int main(int argc,char **argv) {  
-  char *myName   = "C-getConsumer";
+  /*char *subject = "SUBJECT";*/
+  char *subject = "responder";
+  char *type    = "TYPE";
+  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/vx";
+  char *myName  = "C-getConsumer";
   char *myDescription = "trial run";
   int   i, err, domainId = -1;
   void *msg, *replyMsg;
   
-  double freq=0., freqAvg=0., freqTotal=0.;
-  long   iterations=1;
+  double freq=0., freqAvg=0., countTotal=0., timeTotal=0.;
+  int    count=0;
   
   double time;
   struct timespec timeout, t1, t2;
   
-  timeout.tv_sec  = 1;
+  timeout.tv_sec  = 3;
   timeout.tv_nsec = 0;
     
   if (argc > 1) {
@@ -54,26 +57,26 @@ int main(int argc,char **argv) {
   printf("My name is %s\n", myName);
   
   printf("cMsgConnect ...\n");
-  err = cMsgConnect("cMsg:cMsg://aslan:3456/cMsg/l45!@#$%/88//", myName, myDescription, &domainId);
+  err = cMsgConnect(UDL, myName, myDescription, &domainId);
   printf("cMsgConnect: %s\n", cMsgPerror(err));
   
   cMsgReceiveStart(domainId);
     
   printf("cMsgCreateMessage ...\n");
   msg = cMsgCreateMessage();
-  cMsgSetSubject(msg, "responder");
-  /*cMsgSetSubject(msg, "SUBJECT");*/
-  cMsgSetType(msg, "TYPE");
-  cMsgSetText(msg, "TEXT");
+  cMsgSetSubject(msg, subject);
+  cMsgSetType(msg, type);
+  cMsgSetText(msg, "Message 1");
   
-  while (1) {
+  while (1) {      
+      count = 0;
       clock_gettime(CLOCK_REALTIME, &t1);
 
       /* do a bunch of gets */
-      for (i=0; i < NUMEVENTS; i++) {
-          /*cMsgSubscribeAndGet(domainId, "SUBJECT", "TYPE", &timeout, &replyMsg);*/
-          cMsgSendAndGet(domainId, msg, &timeout, &replyMsg);
-          if (replyMsg == NULL) {
+      for (i=0; i < NUMGETS; i++) {
+          /*err = cMsgSubscribeAndGet(domainId, subject, type, &timeout, &replyMsg);*/
+          err = cMsgSendAndGet(domainId, msg, &timeout, &replyMsg);
+          if (err == CMSG_TIMEOUT) {
               printf("TIMEOUT in GET\n");
           }
           else {
@@ -87,21 +90,19 @@ int main(int argc,char **argv) {
       }
 
 
-      if (count >= NUMEVENTS) {
-        clock_gettime(CLOCK_REALTIME, &t2);
-        time = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
-        freq = (double)count/time;
-        if (DOUBLE_MAX - freqTotal < freq) {
-            freqTotal  = 0.;
-            iterations = 1;
-        }
-        freqTotal += freq;
-        freqAvg = freqTotal/iterations;
-        iterations++;
-        printf("count = %d, %9.0f Hz, %9.0f Hz Avg.\n", count, freq, freqAvg);
-        count = 0;
-        t1 = t2;
+      clock_gettime(CLOCK_REALTIME, &t2);
+      time = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
+      freq = (double)count/time;
+      if ( ((DOUBLE_MAX - countTotal) < count)  ||
+           ((DOUBLE_MAX - timeTotal)  < time ) )  {
+        countTotal = 0.;
+        timeTotal  = 0.;
       }
+      countTotal += count;
+      timeTotal  += time;
+      freqAvg = countTotal/timeTotal;
+      printf("count = %d, %9.0f Hz,  %9.0f Hz Avg.\n", count, freq, freqAvg);                    
+      t1 = t2;
   }
 
   return(0);
