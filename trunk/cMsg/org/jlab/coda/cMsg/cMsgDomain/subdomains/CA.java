@@ -1,5 +1,12 @@
 // still to do:
-//   server shutdown
+//   multiple CA types (type can be string,double,etc; what about subject,text?)
+//   what should be in request message?
+
+
+// for JCA/CAJ to work must have in classpath:
+//    concurrent-1.3.1.jar
+//    jca-2.1.5.jar
+//    caj-1.0.1.jar
 
 
 
@@ -29,10 +36,20 @@ import org.jlab.coda.cMsg.cMsgDomain.cMsgClientInfo;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgHandleRequestsAbstract;
 
 import gov.aps.jca.*;
+import gov.aps.jca.dbr.DOUBLE;
 import gov.aps.jca.dbr.DBR;
+import gov.aps.jca.configuration.DefaultConfiguration;
+import gov.aps.jca.Monitor;
+import gov.aps.jca.event.MonitorListener;
+import gov.aps.jca.event.MonitorEvent;
+import gov.aps.jca.CAStatus;
 
+import java.util.*;
+import java.util.Date;
 import java.nio.ByteBuffer;
 import java.io.IOException;
+import java.util.regex.*;
+import java.net.*;
 
 
 //-----------------------------------------------------------------------------
@@ -43,9 +60,6 @@ import java.io.IOException;
  * cMsg subdomain handler for channel access (CA) subdomain.
  *
  * Executes send/get as CA put/get command.
- *
- * cMsgSend mapped to CA put.
- * cMsgGet mapped to CA get.
  *
  * Uses JCA+CAJ.
  *
@@ -64,31 +78,82 @@ public class CA extends cMsgHandleRequestsAbstract {
 
 
     /** JCALibrary and context. */
-    static private JCALibrary jca  = null;
-    static private Context context = null;
-    
-
-    // get JCA library and context
-    static {
-	try {
-	    jca     = JCALibrary.getInstance();
-	    context = jca.createContext(JCALibrary.CHANNEL_ACCESS_JAVA);
-	} catch (CAException e) {
-	    e.printStackTrace();
-	    System.err.println(e);
-	}
-    }
+    private JCALibrary myJCA  = null;
+    private Context myContext = null;
 
 
     /** direct buffer needed for nio socket IO. */
-    private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+    private ByteBuffer myBuffer = ByteBuffer.allocateDirect(2048);
+
+
+    /** channel info. */
+    private String myChannelName = null;
+    private Channel myChannel    = null;
+
+
+    /** for monitoring */
+    private Monitor myMonitor    = null;
+    private String mySubscribeType;
+    private String mySubscribeSubject;
+    private ArrayList mySubscribeIdList = new ArrayList(10);
 
 
     /** misc params. */
-    static double contextPend = 3.0;
-    static double getPend     = 3.0;
-    static double putPend     = 3.0;
+    private double myContextPend = 3.0;
+    private double myGetPend     = 3.0;
+    private double myPutPend     = 3.0;
+    private int myGetCount       = 0;
+    private int mySubCount       = 0;
+    private int mySenderId       = 0;
 
+
+    /** static variables. */
+    private static int senderCount = 0;
+    private static String host     = null;
+    static {
+        try {
+            host = InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            System.err.println(e);
+            host = "unknown";
+        }
+    }
+
+
+    /** for monitoring */
+    private class MonitorListenerImpl implements MonitorListener {
+
+        public void monitorChanged(MonitorEvent event) {
+
+            if(event.getStatus()==CAStatus.NORMAL) {
+
+                cMsgMessage cmsg = new cMsgMessage();
+                cmsg.setDomain("cMsg");
+                cmsg.setSender("CA");
+                cmsg.setSenderId(mySenderId);
+                cmsg.setSenderHost(host);
+                cmsg.setSenderTime(new Date());
+                cmsg.setSenderMsgId(++mySubCount);
+                cmsg.setReceiver(myClientInfo.getName());
+                cmsg.setReceiverHost(myClientInfo.getClientHost());
+                cmsg.setReceiverTime(new Date());
+                cmsg.setSubject(mySubscribeSubject);
+                cmsg.setType(mySubscribeType);
+                cmsg.setText("" + (((DOUBLE)event.getDBR()).getDoubleValue())[0]);
+
+                try {
+                    deliverMessage(myClientInfo.getChannel(),myBuffer,cmsg,mySubscribeIdList,
+                                   cMsgConstants.msgSubscribeResponse);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+            } else {
+                System.err.println("Monitor error: " + event.getStatus());
+            }
+        }
+
+    }
 
 
 //-----------------------------------------------------------------------------
@@ -147,7 +212,7 @@ public class CA extends cMsgHandleRequestsAbstract {
      * @return true if subscribe implemented in {@link #handleSubscribeRequest}
      */
     public boolean hasSubscribe() {
-        return false;
+        return true;
     };
 
 
@@ -162,7 +227,7 @@ public class CA extends cMsgHandleRequestsAbstract {
      * @return true if unsubscribe implemented in {@link #handleUnsubscribeRequest}
      */
     public boolean hasUnsubscribe() {
-        return false;
+        return true;
     };
 
 
@@ -179,7 +244,7 @@ public class CA extends cMsgHandleRequestsAbstract {
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
         myUDLRemainder=UDLRemainder;
     }
-    
+
 
 //-----------------------------------------------------------------------------
 
@@ -187,13 +252,77 @@ public class CA extends cMsgHandleRequestsAbstract {
     /**
      * Method to register domain client.
      *
+     * Creates JCA, context, and channel objects.
+     *
      * @param info information about client
      * @throws cMsgException if unable to register
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
-	myClientInfo = info;
+
+        String remainder = null;
+        Pattern p;
+        Matcher m;
+
+
+        myClientInfo = info;
+        mySenderId   = ++senderCount;
+
+
+        // extract channel from UDL remainder
+        int ind = myUDLRemainder.indexOf("?");
+        if(ind>0) {
+            p = Pattern.compile("^(.+?)(\\?)(.*)$");
+            m = p.matcher(myUDLRemainder);
+            m.find();
+            myChannelName = myUDLRemainder.substring(0,ind);
+            remainder     = myUDLRemainder.substring(ind)+ "&";
+        } else {
+            myChannelName = myUDLRemainder;
+        }
+
+
+        // get JCA library
+        myJCA = JCALibrary.getInstance();
+
+
+        // parse remainder and set JCA context options
+        DefaultConfiguration conf = new DefaultConfiguration("myContext");
+        conf.addAttribute("class", JCALibrary.CHANNEL_ACCESS_JAVA);
+        conf.addAttribute("auto_addr_list","false");
+        if(remainder!=null) {
+            p = Pattern.compile("[&\\?]addr_list=(.*?)&", Pattern.CASE_INSENSITIVE);
+            m = p.matcher(remainder);
+            if(m.find())conf.addAttribute("addr_list",m.group(1));
+        }
+
+
+        // create context
+        try {
+            myContext = myJCA.createContext(conf);
+        } catch (CAException e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        }
+
+
+        // create channel object
+        try {
+            myChannel = myContext.createChannel(myChannelName);
+            myContext.pendIO(myContextPend);
+        } catch  (CAException e) {
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        } catch  (TimeoutException e) {
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        }
+
     }
-    
+
 
 //-----------------------------------------------------------------------------
 
@@ -207,44 +336,19 @@ public class CA extends cMsgHandleRequestsAbstract {
      */
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
 
-	// create channel 
-	Channel channel;
-	try {
-	    channel = context.createChannel(msg.getSubject());
-	    context.pendIO(contextPend);
-	} catch  (CAException e) {
-	    cMsgException ce = new cMsgException(e.toString());
-	    ce.setReturnCode(1);
-	    throw ce;
-	} catch  (TimeoutException e) {
-	    cMsgException ce = new cMsgException(e.toString());
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
-
-
-	// put value
-	try {
-	    channel.put(msg.getText());
-	    context.pendIO(putPend);
-	} catch  (CAException e) {
-	    cMsgException ce = new cMsgException(e.toString());
-	    ce.setReturnCode(1);
-	    throw ce;
-	} catch  (TimeoutException e) {
-	    cMsgException ce = new cMsgException(e.toString());
-	    ce.setReturnCode(1);
-	    throw ce;
-	}
-
-	
-	// disconnect channel
-	try {
-	    channel.destroy();
-	} catch  (CAException e) {
-	    e.printStackTrace();
-	    System.err.println(e);
-	}
+        // put value from text field as double
+        try {
+            myChannel.put(Double.parseDouble(msg.getText()));
+            myContext.pendIO(myPutPend);
+        } catch  (CAException e) {
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        } catch  (TimeoutException e) {
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        }
     }
 
 
@@ -260,7 +364,7 @@ public class CA extends cMsgHandleRequestsAbstract {
      * @throws cMsgException
      */
     public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
-	handleSendRequest(msg);
+        handleSendRequest(msg);
         return 0;
     }
 
@@ -274,61 +378,47 @@ public class CA extends cMsgHandleRequestsAbstract {
      *
      * @param message message requesting what sort of message to get
      */
-    public void handleGetRequest(cMsgMessage message) {
-
-	// create reply message
-	cMsgMessage cmsg = new cMsgMessage();
-	cmsg.setDomain("cMsg");                   // just use domain for now
-	// 	    cmsg.setSysMsgId();
-	// 	    cmsg.setSender("EPICS");
-	// 	    cmsg.setSenderHost();
-	// 	    cmsg.setSenderTime(new Date());
-	// 	    cmsg.setSenderId();
-	// 	    cmsg.setSenderMsgId();
-	// 	    cmsg.setReceiver(myClientInfo.getName());
-	// 	    cmsg.setReceiverHost(myClientInfo.getClientHost());
-	// 	    cmsg.setReceiverTime(new Date());
-	// 	    cmsg.setReceiverSubscribeId();
-	// 	    cmsg.setSubject(message.getSubject());
-	// 	    cmsg.setType(message.getType());
+    public void handleGetRequest(cMsgMessage message) throws cMsgException {
 
 
-	// create channel and get value
-	Channel channel = null;
-	DBR dbr;
-	try {
-	    channel = context.createChannel(message.getSubject());
-	    context.pendIO(contextPend);
-	    dbr = channel.get();
-	    context.pendIO(getPend);
-	    cmsg.setText(null);
-	} catch  (CAException e) {
-	    cmsg.setText(null);
-	    e.printStackTrace();
-	    System.err.println(e);
-	} catch  (TimeoutException e) {
-	    cmsg.setText(null);
-	    e.printStackTrace();
-	    System.err.println(e);
-	}
-
-	
-	// return message
-	try {
-	    deliverMessage(myClientInfo.getChannel(),buffer,cmsg,null,cMsgConstants.msgGetResponse);
-	} catch (IOException e) {
-	    e.printStackTrace();
-	    System.err.println(e);
-	}
+        // create response message
+        cMsgMessage response = message.response();
+        response.setDomain("cMsg");
+        response.setSender("CA");
+        response.setSenderId(mySenderId);
+        response.setSenderHost(host);
+        response.setSenderTime(new Date());
+        response.setSenderMsgId(++myGetCount);
+        response.setReceiver(myClientInfo.getName());
+        response.setReceiverHost(myClientInfo.getClientHost());
+        response.setReceiverTime(new Date());
+        response.setSubject(message.getSubject());
+        response.setType(message.getType());
 
 
-	// disconnect channel
-	try {
-	    if(channel!=null)channel.destroy();
-	} catch  (CAException e) {
-	    e.printStackTrace();
-	    System.err.println(e);
-	}
+        // get value as double, and return as string representation of double
+        try {
+            DBR dbr = myChannel.get();
+            myContext.pendIO(myGetPend);
+            response.setText("" + (((DOUBLE)dbr).getDoubleValue())[0]);
+        } catch  (CAException e) {
+            response.setText(null);
+            e.printStackTrace();
+        } catch  (TimeoutException e) {
+            response.setText(null);
+            e.printStackTrace();
+        }
+
+
+        // return response
+        try {
+            deliverMessage(myClientInfo.getChannel(),myBuffer,response,null,cMsgConstants.msgGetResponse);
+        } catch (IOException e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        }
 
     }
 
@@ -352,6 +442,8 @@ public class CA extends cMsgHandleRequestsAbstract {
     /**
      * Method to handle subscribe request sent by domain client.
      *
+     * Performs CA monitorOn.
+     *
      * @param subject message subject to subscribe to
      * @param type message type to subscribe to
      * @param receiverSubscribeId message id refering to these specific subject and type values
@@ -360,7 +452,23 @@ public class CA extends cMsgHandleRequestsAbstract {
      */
     public void handleSubscribeRequest(String subject, String type,
                                        int receiverSubscribeId) throws cMsgException {
-        // monitor on
+
+        mySubscribeIdList.add(receiverSubscribeId);
+
+        if(myMonitor==null) {
+            mySubscribeType    = type;
+            mySubscribeSubject = subject;
+            try {
+                myMonitor = myChannel.addMonitor(Monitor.VALUE, new MonitorListenerImpl());
+                myContext.flushIO();
+
+            } catch (CAException e) {
+                e.printStackTrace();
+                cMsgException ce = new cMsgException(e.toString());
+                ce.setReturnCode(1);
+                throw ce;
+            }
+        }
     }
 
 
@@ -371,11 +479,27 @@ public class CA extends cMsgHandleRequestsAbstract {
      * Method to handle sunsubscribe request sent by domain client.
      * This method is run after all exchanges between domain server and client.
      *
+     * Performs CA monitorOff.
+     *
      * @param subject message subject subscribed to
      * @param type message type subscribed to
      */
-    public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId) {
-        // monitor off
+    public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId)
+        throws cMsgException {
+
+        mySubscribeIdList.remove(receiverSubscribeId);
+
+        if((myMonitor!=null)&&(mySubscribeIdList.isEmpty())) {
+            try {
+                myMonitor.clear();
+                myMonitor=null;
+            } catch (CAException e) {
+                e.printStackTrace();
+                cMsgException ce = new cMsgException(e.toString());
+                ce.setReturnCode(1);
+                throw ce;
+            }
+        }
     }
 
 
@@ -402,6 +526,30 @@ public class CA extends cMsgHandleRequestsAbstract {
      * @throws cMsgException
      */
     public void handleClientShutdown() throws cMsgException {
+
+
+        // disconnect channel
+        try {
+            myChannel.destroy();
+        } catch (CAException e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        }
+
+
+        // flush and destroy context
+        try {
+            myContext.flushIO();
+            myContext.destroy();
+        } catch (CAException e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException(e.toString());
+            ce.setReturnCode(1);
+            throw ce;
+        }
+
     }
 
 
@@ -415,11 +563,6 @@ public class CA extends cMsgHandleRequestsAbstract {
      * method).
      */
     public void handleServerShutdown() throws cMsgException {
-	try {
-	    context.destroy();
-	} catch (CAException e) {
-	    System.err.println(e);
-	}
     }
 
 
