@@ -12,7 +12,9 @@ import org.jlab.coda.cMsg.coda.cMsgCoda;
  * To change this template use File | Settings | File Templates.
  */
 public class cMsgProducer {
-    String name;
+    String name, subject="SUBJECT", type="TYPE";
+    boolean odd;
+    boolean evenOddMessage = false;
 
     cMsgProducer(String name) {
         this.name = name;
@@ -26,6 +28,30 @@ public class cMsgProducer {
             cMsgProducer producer = null;
             if (args.length > 0) {
                 producer = new cMsgProducer(args[0]);
+                if (args.length > 1) {
+                    if (args[1].equalsIgnoreCase("odd")) {
+                        producer.odd = true;
+                        producer.evenOddMessage = true;
+                        System.out.println("  producing messages with odd numbers as text");
+                    }
+                    else if (args[1].equalsIgnoreCase("even")) {
+                        producer.odd = false;
+                        producer.evenOddMessage = true;
+                        System.out.println("  producing messages with even numbers as text");
+                    }
+                    else {
+                        System.out.println("  producing messages with \"JUNK\" as text");
+                    }
+                }
+
+                if (args.length > 2) {
+                    producer.subject = args[2];
+                    System.out.println("  producing messages with subject = " + producer.subject);
+                }
+                if (args.length > 3) {
+                    producer.type = args[3];
+                    System.out.println("  producing messages with type = " + producer.type);
+                }
             }
             else {
                 producer = new cMsgProducer("producer");
@@ -77,17 +103,27 @@ public class cMsgProducer {
         System.out.println(" done");
 
         cMsgMessage msg = new cMsgMessage();
-        msg.setSubject("SUBJECT");
-        msg.setType("TYPE");
-        msg.setText("Message 1");
+        msg.setSubject(subject);
+        msg.setType(type);
+        msg.setText("Junk");
 
         double freq=0., freqAvg=0., freqTotal=0.;
         long t1, t2, deltaT, count = 20000, iterations=1;
 
         System.out.println("Sending messages ...");
+        int j=0;
         while (true) {
             t1 = System.currentTimeMillis();
-            for (int i=0; i < count; i++) {
+            for (int i = 0; i < count; i++) {
+                if (evenOddMessage) {
+                    if (odd) {
+                        msg.setText("" + (j * 2 + 1));
+                    }
+                    else {
+                        msg.setText("" + (j * 2));
+                    }
+                    if (j++ > 1000000) j = 0;
+                }
                 coda.send(msg);
             }
             t2 = System.currentTimeMillis();
