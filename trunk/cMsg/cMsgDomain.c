@@ -1353,14 +1353,33 @@ static int stop(int domainId) {
 
 static int disconnect(int domainId) {
   
-  int status;
+  int status, out;
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  int fd = domain->sendSocket;
 
   if (cMsgDomains[domainId].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
   /* When changing initComplete / connection status, protect it */
   connectWriteLock();
   
+  /* message id (in network byte order) to domain server */
+  out = htonl(CMSG_SERVER_DISCONNECT);
+
+  /* make send socket communications thread-safe */
+  socketMutexLock(domain);
+  
+  /* send ints over together */
+  if (cMsgTcpWrite(fd, (void *) &out, sizeof(out)) != sizeof(out)) {
+    socketMutexUnlock(domain);
+    connectWriteUnlock();
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "disconnect: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+ 
+  socketMutexUnlock(domain);
+
   cMsgDomains[domainId].lostConnection = 1;
   
   /* close sending and listening sockets */
