@@ -81,6 +81,8 @@ public class cMsgCoda extends cMsgImpl {
      * Set of all subscriptions (cMsgSubscription objects) to unique subject/type pairs.
      * Each subscription has a set of callbacks associated with it.
      */
+
+    // bug bug, does this need protection??
     HashSet subscriptions;
 
     /** Used to create unique id numbers associated with a specific message subject/type pair. */
@@ -302,6 +304,24 @@ public class cMsgCoda extends cMsgImpl {
 
         // stop keep alive thread & close channel
         keepAliveThread.killThread();
+
+        // stop all callback threads as well
+        Iterator iter = subscriptions.iterator();
+        for (; iter.hasNext();) {
+            cMsgSubscription sub = (cMsgSubscription) iter.next();
+
+            // run through all callbacks
+            Iterator iter2 = sub.callbacks.iterator();
+            for (; iter2.hasNext();) {
+                cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
+                // Tell the callback thread to wakeup and die
+                cbThread.killThread();
+                synchronized (cbThread) {
+                    cbThread.notify();
+                }
+            }
+        }
+
     }
 
 
