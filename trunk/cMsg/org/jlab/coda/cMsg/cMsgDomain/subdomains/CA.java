@@ -1,6 +1,7 @@
 // still to do:
 //   multiple CA types (type can be string,double,etc; what about subject,text?)
-//   what should be in request message?
+//   what should be in request and response message?
+//   addr_list includes space-separated list of addresses?
 
 
 // for JCA/CAJ to work must have in classpath:
@@ -456,8 +457,8 @@ public class CA extends cMsgHandleRequestsAbstract {
         mySubscribeIdList.add(receiverSubscribeId);
 
         if(myMonitor==null) {
-            mySubscribeType    = type;
-            mySubscribeSubject = subject;
+            mySubscribeType    = "double";
+            mySubscribeSubject = myChannelName;
             try {
                 myMonitor = myChannel.addMonitor(Monitor.VALUE, new MonitorListenerImpl());
                 myContext.flushIO();
