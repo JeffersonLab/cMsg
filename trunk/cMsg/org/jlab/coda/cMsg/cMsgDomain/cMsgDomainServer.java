@@ -62,7 +62,7 @@ public class cMsgDomainServer extends Thread {
     private String host;
 
     /** Level of debug output. */
-    private int debug = cMsgConstants.debugError;
+    private int debug = cMsgConstants.debugInfo;
 
     /**
      * Object containing information about the domain client.
@@ -447,7 +447,11 @@ public class cMsgDomainServer extends Thread {
                             holder = readGetInfo(channel);
                             break;
 
-                        case cMsgConstants.msgUngetRequest: // ungetting from a subject & type
+                        case cMsgConstants.msgUnSendAndGetRequest: // ungetting sendAndGet request
+                            holder = readUngetInfo(channel);
+                            break;
+
+                        case cMsgConstants.msgUnSubscribeAndGetRequest: // ungetting subscribeAndGet request
                             holder = readUngetInfo(channel);
                             break;
 
@@ -846,8 +850,12 @@ public class cMsgDomainServer extends Thread {
                             subdomainHandler.handleSendAndGetRequest(holder.message);
                             break;
 
-                        case cMsgConstants.msgUngetRequest: // ungetting from a subject & type
-                            subdomainHandler.handleUngetRequest(holder.id);
+                        case cMsgConstants.msgUnSendAndGetRequest: // ungetting sendAndGet
+                            subdomainHandler.handleUnSendAndGetRequest(holder.id);
+                            break;
+
+                        case cMsgConstants.msgUnSubscribeAndGetRequest: // ungetting subscribeAndGet
+                            subdomainHandler.handleUnSubscribeAndGetRequest(holder.id);
                             break;
 
                         case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type

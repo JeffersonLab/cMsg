@@ -801,7 +801,7 @@ public class cMsg extends cMsgDomainAdapter {
             System.out.println("subscribeAndGet: timed out");
             // remove the get from server
             generalGets.remove(id);
-            unget(id);
+            unSubscribeAndGet(id);
             throw new TimeoutException();
         }
 
@@ -952,7 +952,7 @@ public class cMsg extends cMsgDomainAdapter {
             System.out.println("sendAndGet: timed out");
             // remove the get from server
             specificGets.remove(id);
-            unget(id);
+            unSendAndGet(id);
             throw new TimeoutException();
         }
 
@@ -970,18 +970,16 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * Method to unget a previous get to receive a message of a subject and type
-     * from the domain server.
-     * This method is only called when a get timeouts out and the server must be
-     * told to forget about the get.
+     * Method to remove a previous sendAndGet to receive a message of a subject and type
+     * from the domain server. This method is only called when a sendAndGet times out
+     * and the server must be told to forget about the get.
      *
      * @param id unique id of get request to delete
      * @throws cMsgException if there are communication problems with the server
      */
-    private void unget(int id)
+    private void unSendAndGet(int id)
             throws cMsgException {
 
-        System.out.println("unget: in");
         if (!connected) {
             throw new cMsgException("not connected to server");
         }
@@ -992,7 +990,52 @@ public class cMsg extends cMsgDomainAdapter {
             // get ready to write
             getBuffer.clear();
             // send ints over
-            getBuffer.putInt(cMsgConstants.msgUngetRequest);
+            getBuffer.putInt(cMsgConstants.msgUnSendAndGetRequest);
+            getBuffer.putInt(id);
+
+            try {
+                // send buffer over the socket
+                getBuffer.flip();
+                while (getBuffer.hasRemaining()) {
+                    domainChannel.write(getBuffer);
+                }
+            }
+            catch (IOException e) {
+                throw new cMsgException(e.getMessage());
+            }
+        }
+        finally {
+            getBufferLock.unlock();
+        }
+
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to remove a previous subscribeAndGet to receive a message of a subject
+     * and type from the domain server. This method is only called when a subscribeAndGet
+     * times out and the server must be told to forget about the get.
+     *
+     * @param id unique id of get request to delete
+     * @throws cMsgException if there are communication problems with the server
+     */
+    private void unSubscribeAndGet(int id)
+            throws cMsgException {
+
+        if (!connected) {
+            throw new cMsgException("not connected to server");
+        }
+
+        // lock to prevent parallel (un)gets from using same buffer
+        getBufferLock.lock();
+        try {
+            // get ready to write
+            getBuffer.clear();
+            // send ints over
+            getBuffer.putInt(cMsgConstants.msgUnSubscribeAndGetRequest);
             getBuffer.putInt(id);
 
             try {

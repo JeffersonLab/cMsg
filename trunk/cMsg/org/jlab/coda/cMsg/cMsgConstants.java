@@ -122,13 +122,15 @@ public class cMsgConstants {
     public static final int    msgSubscribeResponse        = 12;
     /** Send a message. */
     public static final int    msgSyncSendRequest          = 13;
-    /** Remove "get" request. */
-    public static final int    msgUngetRequest             = 14;
+    /** Remove "subscribeAndGet" request. */
+    public static final int    msgUnSubscribeAndGetRequest = 14;
+    /** Remove "sendAndGet" request. */
+    public static final int    msgUnSendAndGetRequest      = 15;
     /** Respond to a "sendAndGet" command and wait for client acknowledgment. */
-    public static final int    msgGetResponseWithAck       = 15;
+    public static final int    msgGetResponseWithAck       = 16;
     /** Respond with message to the subscribe command and wait for client acknowledgment. */
-    public static final int    msgSubscribeResponseWithAck = 16;
+    public static final int    msgSubscribeResponseWithAck = 17;
     /** Respond to a "sendAndGet" command is null. */
-    public static final int    msgGetResponseIsNull        = 17;
+    public static final int    msgGetResponseIsNull        = 18;
 
 }
