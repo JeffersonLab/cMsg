@@ -73,6 +73,41 @@ public class LogFile implements cMsgHandleRequests {
     /** UDL remainder for this subdomain handler. */
     private String myUDLRemainder;
 
+      * method.
+      *
+      * @return true if send implemented in {@link #handleSendRequest}
+      */
+     public boolean hasSend() {return true;};
+
+
+     /**
+      * Method to tell if the "get" cMsg API function is implemented
+      * by this interface implementation in the {@link #handleGetRequest}
+      * method.
+      *
+      * @return true if get implemented in {@link #handleGetRequest}
+      */
+     public boolean hasGet() {return false;};
+
+
+     /**
+      * Method to tell if the "subscribe" cMsg API function is implemented
+      * by this interface implementation in the {@link #handleSubscribeRequest}
+      * method.
+      *
+      * @return true if subscribe implemented in {@link #handleSubscribeRequest}
+      */
+     public boolean hasSubscribe() {return false;};
+
+
+     /**
+      * Method to tell if the "unsubscribe" cMsg API function is implemented
+      * by this interface implementation in the {@link #handleUnsubscribeRequest}
+      * method.
+      *
+      * @return true if unsubscribe implemented in {@link #handleUnsubscribeRequest}
+      */
+     public boolean hasUnsubscribe() {return false;};
 
 
     /**
