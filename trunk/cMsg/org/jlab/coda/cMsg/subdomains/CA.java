@@ -31,7 +31,7 @@
 package org.jlab.coda.cMsg.subdomains;
 
 import org.jlab.coda.cMsg.cMsgConstants;
-import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgClientInfo;
 import org.jlab.coda.cMsg.cMsgSubdomainAbstract;
@@ -126,7 +126,7 @@ public class CA extends cMsgSubdomainAbstract {
 
             if(event.getStatus()==CAStatus.NORMAL) {
 
-                cMsgMessage cmsg = new cMsgMessage();
+                cMsgMessageFull cmsg = new cMsgMessageFull();
                 cmsg.setDomain("cMsg");
                 cmsg.setSender("CA");
                 cmsg.setUserInt(mySenderId);
@@ -346,7 +346,7 @@ public class CA extends cMsgSubdomainAbstract {
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                          or socket properties cannot be set
      */
-    public void handleSendRequest(cMsgMessage msg) throws cMsgException {
+    public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
 
         // put value from text field as double
         try {
@@ -375,7 +375,7 @@ public class CA extends cMsgSubdomainAbstract {
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
+    public int handleSyncSendRequest(cMsgMessageFull msg) throws cMsgException {
         handleSendRequest(msg);
         return 0;
     }
@@ -390,7 +390,7 @@ public class CA extends cMsgSubdomainAbstract {
      *
      * @param message message requesting what sort of message to get
      */
-    public void handleSendAndGetRequest(cMsgMessage message) {
+    public void handleSendAndGetRequest(cMsgMessageFull message) {
         // do nothing
     }
 
@@ -412,7 +412,7 @@ public class CA extends cMsgSubdomainAbstract {
 
 
         // create response message
-        cMsgMessage response = new cMsgMessage();
+        cMsgMessageFull response = new cMsgMessageFull();
         //response = message.response();
         response.setDomain("cMsg");
         response.setSender("CA");

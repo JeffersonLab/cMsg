@@ -18,7 +18,7 @@ package org.jlab.coda.cMsg.subdomains;
 
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgConstants;
-import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgClientInfo;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
 import org.jlab.coda.cMsg.cMsgSubdomainAbstract;
@@ -245,7 +245,7 @@ public class cMsg extends cMsgSubdomainAbstract {
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                          or socket properties cannot be set
      */
-    synchronized public void handleSendRequest(cMsgMessage message) throws cMsgException {
+    synchronized public void handleSendRequest(cMsgMessageFull message) throws cMsgException {
         String client;
         cMsgSubscription sub;
         cMsgClientInfo   info;
@@ -398,7 +398,7 @@ public class cMsg extends cMsgSubdomainAbstract {
      * @param message message from sender
      * @return response from this object
      */
-    public int handleSyncSendRequest(cMsgMessage message) {
+    public int handleSyncSendRequest(cMsgMessageFull message) {
         return 0;
     }
 
@@ -495,7 +495,7 @@ public class cMsg extends cMsgSubdomainAbstract {
      * @param message message requesting what sort of message to get
      * @throws cMsgException if no client information is available
      */
-    public void handleSendAndGetRequest(cMsgMessage message) throws cMsgException {
+    public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException {
         // Each client (name) has a cMsgClientInfo object associated with it
         // that contains all relevant information. Retrieve that object
         // from the "clients" table, add get (actually a subscription) to it.

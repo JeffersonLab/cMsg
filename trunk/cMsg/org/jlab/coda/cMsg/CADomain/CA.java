@@ -82,7 +82,7 @@ public class CA extends cMsgAdapter {
             if(event.getStatus()==CAStatus.NORMAL) {
 
                 //  get cMsg and fill common fields
-                cMsgMessage cmsg = new cMsgMessage();
+                cMsgMessageFull cmsg = new cMsgMessageFull();
                 cmsg.setDomain(domain);
                 cmsg.setSender(myChannelName);
                 cmsg.setSenderHost(myAddrList);
@@ -112,9 +112,9 @@ public class CA extends cMsgAdapter {
     private class DispatchCB extends Thread {
 
         private SubInfo s;
-        private cMsgMessage c;
+        private cMsgMessageFull c;
 
-        DispatchCB(SubInfo s, cMsgMessage c) {
+        DispatchCB(SubInfo s, cMsgMessageFull c) {
             this.s=s;
             this.c=c;
         }
@@ -270,7 +270,7 @@ public class CA extends cMsgAdapter {
      * @param message message
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public void send(cMsgMessage msg) throws cMsgException {
+    public void send(cMsgMessageFull msg) throws cMsgException {
 
         try {
             myChannel.put(Double.parseDouble(msg.getText()));
@@ -313,7 +313,7 @@ public class CA extends cMsgAdapter {
     /**
      * This method does two separate things depending on the specifics of message in the
      * argument. If the message to be sent has its "getRequest" field set to be true using
-     * {@link cMsgMessage#isGetRequest()}, then the message is sent as it would be in the
+     * {@link cMsgMessageFull#isGetRequest()}, then the message is sent as it would be in the
      * {@link #send} method. The server notes the fact that a response to it is expected,
      * and sends it to all subscribed to its subject and type. When a marked response is
      * received from a client, it sends that first response back to the original sender
@@ -328,9 +328,9 @@ public class CA extends cMsgAdapter {
      * @return response message
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public cMsgMessage subscribeAndGet(String subject, String type, int timeout) throws cMsgException {
+    public cMsgMessageFull subscribeAndGet(String subject, String type, int timeout) throws cMsgException {
 
-        cMsgMessage response = new cMsgMessage();
+        cMsgMessageFull response = new cMsgMessageFull();
         response.setDomain(domain);
         response.setSender(myChannelName);
         response.setSenderHost(myAddrList);

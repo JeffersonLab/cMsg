@@ -17,7 +17,7 @@
 package org.jlab.coda.cMsg.cMsgDomain;
 
 import org.jlab.coda.cMsg.cMsgConstants;
-import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgException;
 
 import java.nio.channels.ServerSocketChannel;
@@ -196,7 +196,7 @@ public class cMsgClientListeningThread extends Thread {
              // read client's request
              int msgId = buffer.getInt();
 
-             cMsgMessage msg;
+             cMsgMessageFull msg;
 
              switch (msgId) {
 
@@ -279,16 +279,16 @@ public class cMsgClientListeningThread extends Thread {
 
 
     /**
-     * This method reads an incoming cMsgMessage from a clientHandler object.
+     * This method reads an incoming cMsgMessageFull from a clientHandler object.
      *
      * @param channel nio socket communication channel
      * @throws IOException if socket read or write error
      * @return message read from channel
      */
-    private cMsgMessage readIncomingMessage(SocketChannel channel) throws IOException {
+    private cMsgMessageFull readIncomingMessage(SocketChannel channel) throws IOException {
 
         // create a message
-        cMsgMessage msg = new cMsgMessage();
+        cMsgMessageFull msg = new cMsgMessageFull();
 
         // keep reading until we have 14 ints of data
         cMsgUtilities.readSocketBytes(buffer, channel, 56, debug);
@@ -382,7 +382,7 @@ public class cMsgClientListeningThread extends Thread {
      *
      * @param msg incoming message
      */
-    private void runCallbacks(cMsgMessage msg) throws cMsgException {
+    private void runCallbacks(cMsgMessageFull msg) throws cMsgException {
 
         // if callbacks have been stopped, return
         if (!client.isReceiving()) {
@@ -460,7 +460,7 @@ public class cMsgClientListeningThread extends Thread {
      *
      * @param msg incoming message
      */
-    private void wakeGets(cMsgMessage msg) {
+    private void wakeGets(cMsgMessageFull msg) {
 
         // if gets have been stopped, return
         if (!client.isReceiving()) {

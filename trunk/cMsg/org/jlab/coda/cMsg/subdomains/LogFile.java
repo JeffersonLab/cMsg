@@ -23,7 +23,7 @@
 package org.jlab.coda.cMsg.subdomains;
 
 
-import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgSubdomainHandler;
 import org.jlab.coda.cMsg.cMsgClientInfo;
@@ -265,7 +265,7 @@ public class LogFile implements cMsgSubdomainHandler {
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                       or socket properties cannot be set
      */
-    public void handleSendRequest(cMsgMessage msg) throws cMsgException {
+    public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
         msg.setReceiver("cMsg:LogFile");
 	myPrintHandle.println(msg);
     }
@@ -282,7 +282,7 @@ public class LogFile implements cMsgSubdomainHandler {
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
+    public int handleSyncSendRequest(cMsgMessageFull msg) throws cMsgException {
         handleSendRequest(msg);
         return 0;
     }
@@ -297,7 +297,7 @@ public class LogFile implements cMsgSubdomainHandler {
      *
      * @param message message requesting what sort of message to get
      */
-    public void handleSendAndGetRequest(cMsgMessage message) {
+    public void handleSendAndGetRequest(cMsgMessageFull message) {
         // do nothing
     }
 

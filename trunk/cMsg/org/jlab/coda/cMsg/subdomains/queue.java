@@ -22,7 +22,7 @@
 
 package org.jlab.coda.cMsg.subdomains;
 
-import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgSubdomainAbstract;
 import org.jlab.coda.cMsg.cMsgClientInfo;
@@ -47,7 +47,7 @@ import java.util.Date;
  *
  * e.g. cMsg:cMsg://ollie/queue/myQueue?driver=com.mysql.jdbc.Driver&url=jdbc:mysql://myHost/myDatabase
  *
- * stores/retrieves cMsgMessage messages from SQL database.
+ * stores/retrieves cMsgMessageFull messages from SQL database.
  * Gets database parameters from UDL.
  *
  * Checked using mySQL.
@@ -319,9 +319,9 @@ public class queue extends cMsgSubdomainAbstract {
         // create table if it doesn't exist
         if(!tableExists) {
             if(myDBType.equalsIgnoreCase("mysql")) {
-//                 sql = cMsgMessage.createTableString(myTableName,"auto_increment primary key","datetime","text","");
+//                 sql = cMsgMessageFull.createTableString(myTableName,"auto_increment primary key","datetime","text","");
 //             } else {
-//                 sql = cMsgMessage.createTableString(myTableName,"","time","clob","");
+//                 sql = cMsgMessageFull.createTableString(myTableName,"","time","clob","");
             }
 
             try {
@@ -337,9 +337,9 @@ public class queue extends cMsgSubdomainAbstract {
 
         // create prepared statement
         if(myDBType.equalsIgnoreCase("mysql")) {
-//             sql = cMsgMessage.createPreparedStatementString(myTableName,"delayed",false);
+//             sql = cMsgMessageFull.createPreparedStatementString(myTableName,"delayed",false);
 //         } else {
-//             sql = cMsgMessage.createPreparedStatementString(myTableName,"",true);
+//             sql = cMsgMessageFull.createPreparedStatementString(myTableName,"",true);
         }
         try {
             myCon.prepareStatement(sql);
@@ -364,7 +364,7 @@ public class queue extends cMsgSubdomainAbstract {
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                       or socket properties cannot be set
      */
-    public void handleSendRequest(cMsgMessage msg) throws cMsgException {
+    public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
 
 //         try {
 //             msg.fillPreparedStatement(myPStmt,???);
@@ -387,7 +387,7 @@ public class queue extends cMsgSubdomainAbstract {
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    public int handleSyncSendRequest(cMsgMessage msg) throws cMsgException {
+    public int handleSyncSendRequest(cMsgMessageFull msg) throws cMsgException {
         try {
             handleSendRequest(msg);
             return(0);
@@ -443,10 +443,10 @@ public class queue extends cMsgSubdomainAbstract {
      *
      * @param message message requesting what sort of message to get
      */
-    public void handleSendAndGetRequest(cMsgMessage message) throws cMsgException {
+    public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException {
 
         // create msg
-        cMsgMessage response = message.response();
+        cMsgMessageFull response = message.response();
 
 
         // retrieve oldest entry and fill message, send nulls if queue empty
