@@ -80,8 +80,9 @@ public class cMsgQueue {
     private static String getType    = "*";
 
 
-    /** filename not null to use file queue. */
-    private static String filename     = null;
+    /** dir not null to use file queue. */
+    private static String dir        = null;
+    private static String fileBase   = null;
 
 
     /** url not null to use database queue. */
@@ -117,8 +118,8 @@ public class cMsgQueue {
 
             recvCount++;
 
-            // queue to file
-            if(filename!=null) {
+            // queue to files
+            if(dir!=null) {
             }
 
 
@@ -126,6 +127,7 @@ public class cMsgQueue {
             if(url!=null) {
                 try {
                     int i = 1;
+                    pStmt.setString(i++,    msg.getCreator());
                     pStmt.setString(i++,    msg.getSubject());
                     pStmt.setString(i++,    msg.getType());
                     pStmt.setString(i++,    msg.getText());
@@ -156,12 +158,12 @@ public class cMsgQueue {
 
 
             getCount++;
-            cMsgMessage response = new cMsgMessage();
+            cMsgMessageFull response = new cMsgMessageFull();
 
 
-            // retrieve from file
-            if(filename!=null) {
-            }   // file
+            // retrieve from files
+            if(dir!=null) {
+            }
 
 
             // retrieve from database
@@ -177,6 +179,7 @@ public class cMsgQueue {
 
                         int id = rs.getInt("id");
 
+                        response.setCreator(rs.getString("creator"));
                         response.setSubject(rs.getString("subject"));
                         response.setType(rs.getString("type"));
                         response.setText(rs.getString("text"));
@@ -199,7 +202,7 @@ public class cMsgQueue {
             }   // database
 
 
-            // send file or database response
+            // send response
             if(response!=null) {
                 try {
                     cmsg.send(response);
@@ -223,12 +226,12 @@ public class cMsgQueue {
 
 
         // check command args
-        if((filename==null)&&(url==null)) {
-            System.err.println("?cMsgQueue...must specify file OR database");
+        if((dir==null)&&(url==null)) {
+            System.err.println("?cMsgQueue...must specify either dir OR url");
             System.exit(-1);
         }
-        if((filename!=null)&&(url!=null)) {
-            System.err.println("?cMsgQueue...can only queue to file OR database");
+        if((dir!=null)&&(url!=null)) {
+            System.err.println("?cMsgQueue...cannot specify both dir AND url");
             System.exit(-1);
         }
 
@@ -264,7 +267,7 @@ public class cMsgQueue {
 
 
         // init queue files
-        if(filename!=null) {
+        if(dir!=null) {
         }
 
 
@@ -299,7 +302,7 @@ public class cMsgQueue {
                 if((!dbrs.next())||(!dbrs.getString(3).equalsIgnoreCase(table))) {
                     String sql = "create table " + table +
                         "(id int not null primary key auto_increment, " +
-                        "subject varchar(255), type varchar(128), text text," +
+                        "creator varchar(128),subject varchar(255), type varchar(128), text text," +
                         "userTime datetime, userInt int, priority int)";
                     con.createStatement().executeUpdate(sql);
                 }
@@ -313,7 +316,7 @@ public class cMsgQueue {
                 stmt = con.createStatement();
 
                 String sql = "insert into " + table + " (" +
-                    "subject,type,text," +
+                    "creator,subject,type,text," +
                     "userTime,userInt,priority" +
                     ") values (" +
                     "?,?,?," + "?,?,?" + ")";
@@ -383,7 +386,7 @@ public class cMsgQueue {
         String help = "\nUsage:\n\n" +
             "   java cMsgQueue [-name name] [-descr description] [-udl domain] [-subject subject] [-type type]\n" +
             "                  [-queue queueName] [-getSubject getSubject] [-getType getType]\n" +
-            "                  [-file filename]\n" +
+            "                  [-dir dir] [-file fileBase]\n" +
             "                  [-url url] [-driver driver] [-account account] [-pwd password] [-table table]\n";
 
 
@@ -435,8 +438,13 @@ public class cMsgQueue {
                 i++;
 
             }
+            else if (args[i].equalsIgnoreCase("-dir")) {
+                dir = args[i + 1];
+                i++;
+
+            }
             else if (args[i].equalsIgnoreCase("-file")) {
-                filename= args[i + 1];
+                fileBase = args[i + 1];
                 i++;
 
             }
