@@ -29,7 +29,10 @@ import java.nio.ByteBuffer;
 import org.jlab.coda.cMsg.*;
 
 /**
- * This class implements a cMsg domain server in the CODA cMsg domain.
+ * This class implements a cMsg domain server in the CODA cMsg domain. If this class is
+ * ever rewritten in a way that allows multiple threads to concurrently access the
+ * clientHandler object, the clientHandler object must be rewritten to synchronize the
+ * subscribe and unsubscribe methods.
  *
  * @author Carl Timmer
  * @version 1.0
@@ -56,12 +59,15 @@ public class cMsgDomainServer extends Thread {
     /** Message type. */
     private String type;
 
+    /** Allocate int array once (used for reading in data) for efficiency's sake. */
+    private int[] inComing = new int[8];
+
 
     /** Keep reference to cMsg name server which created this object. */
     cMsgHandleRequests clientHandler;
 
     /** Level of debug output for this class. */
-    private int debug = cMsgConstants.debugInfo;
+    private int debug = cMsgConstants.debugNone;
 
     /**
      * Object containing information about the domain client.
@@ -387,7 +393,6 @@ public class cMsgDomainServer extends Thread {
         buffer.flip();
 
         // read 8 ints
-        int[] inComing = new int[8];
         buffer.asIntBuffer().get(inComing);
 
         // system message id
@@ -480,8 +485,8 @@ public class cMsgDomainServer extends Thread {
         buffer.flip();
 
         // read 3 ints
-        int[] inComing = new int[3];
-        buffer.asIntBuffer().get(inComing);
+        //int[] inComing = new int[3];
+        buffer.asIntBuffer().get(inComing, 0, 3);
 
         // id of subject/type combination  (receiverSubscribedId)
         receiverSubscribeId = inComing[0];
@@ -542,8 +547,8 @@ public class cMsgDomainServer extends Thread {
         buffer.flip();
 
         // read 2 ints
-        int[] inComing = new int[2];
-        buffer.asIntBuffer().get(inComing);
+        //int[] inComing = new int[2];
+        buffer.asIntBuffer().get(inComing, 0, 2);
         // length of subject
         int lengthSubject = inComing[0];
         // length of type
