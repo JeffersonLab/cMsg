@@ -131,7 +131,7 @@ public class cMsgMessageFull extends cMsgMessage {
         this.setSubject(e.getAttribute("subject"));
         this.setType(e.getAttribute("type"));
 
-        this.setText(((e.getElementsByTagName("cMsgMessage")).item(0)).getNodeValue());
+        this.setText((e.getFirstChild().getNodeValue()).trim());
     }
 
 
