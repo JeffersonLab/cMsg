@@ -243,7 +243,7 @@ public class cMsgNameServer extends Thread {
                         cMsgUtilities.registerChannel(selector, channel, SelectionKey.OP_READ);
 
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("\ncMsgDomainServer: registered client\n");
+                            System.out.println("\ncMsgNameServer: registered client");
                         }
                     }
 
@@ -251,7 +251,7 @@ public class cMsgNameServer extends Thread {
                     if (key.isValid() && key.isReadable()) {
                         SocketChannel channel = (SocketChannel) key.channel();
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("\n\ncMsgDomainServer: client request");
+                            System.out.println("cMsgNameServer: client request");
                         }
                         handleClient(channel);
                     }
@@ -263,7 +263,7 @@ public class cMsgNameServer extends Thread {
         }
         catch (IOException ex) {
             if (debug >= cMsgConstants.debugError) {
-                ex.printStackTrace();
+                //ex.printStackTrace();
             }
         }
 
@@ -364,15 +364,12 @@ public class cMsgNameServer extends Thread {
                 cMsgClientInfo info = new cMsgClientInfo(name, clientListeningPort, host);
                 registerClient(name, info);
 
-                // send ok back as acknowledgment
                 buffer.clear();
-                buffer.putInt(cMsgConstants.ok).flip();
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
+
+                // send ok back as acknowledgment
+                buffer.putInt(cMsgConstants.ok);
 
                 // send cMsg domain host & port contact info back to client
-                buffer.clear();
                 buffer.putInt(info.domainPort);
                 buffer.putInt(info.domainHost.length());
                 buffer.put(info.domainHost.getBytes("US-ASCII")).flip();
