@@ -1359,19 +1359,22 @@ static void initMessage(cMsgMessage *msg) {
     msg->type         = NULL;
     msg->text         = NULL;
     
-    msg->priority     = 0;
-    msg->userInt      = 0;
-    msg->userTime     = 0;
+    msg->priority         = 0;
+    msg->userInt          = 0;
+    msg->userTime.tv_sec  = 0;
+    msg->userTime.tv_nsec = 0;
 
-    msg->sender       = NULL;
-    msg->senderHost   = NULL;
-    msg->senderTime   = 0;
-    msg->senderToken  = 0;
+    msg->sender             = NULL;
+    msg->senderHost         = NULL;
+    msg->senderTime.tv_sec  = 0;
+    msg->senderTime.tv_nsec = 0;
+    msg->senderToken        = 0;
 
-    msg->receiver     = NULL;
-    msg->receiverHost = NULL;
-    msg->receiverTime = 0;
-    msg->receiverSubscribeId = 0;
+    msg->receiver             = NULL;
+    msg->receiverHost         = NULL;
+    msg->receiverTime.tv_sec  = 0;
+    msg->receiverTime.tv_nsec = 0;
+    msg->receiverSubscribeId  = 0;
 
     return;
   }
@@ -2026,12 +2029,12 @@ int cMsgGetUserInt(void *vmsg, int *userInt) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgSetUserTime(void *vmsg, time_t userTime) {
+int cMsgSetUserTime(void *vmsg, struct timespec *userTime) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  msg->userTime = userTime;
+  msg->userTime = *userTime;
 
   return(CMSG_OK);
 }
@@ -2046,7 +2049,7 @@ int cMsgSetUserTime(void *vmsg, time_t userTime) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetUserTime(void *vmsg, time_t *userTime) {
+int cMsgGetUserTime(void *vmsg, struct timespec *userTime) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
@@ -2121,12 +2124,12 @@ int cMsgGetSenderHost(void *vmsg, char **senderHost) {
  * midnight GMT, Jan 1st, 1970).
  *
  * @param vmsg pointer to message
- * @param senderTime time_t pointer to be filled with time message was last sent
+ * @param senderTime pointer to be filled with time message was last sent
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetSenderTime(void *vmsg, time_t *senderTime) {
+int cMsgGetSenderTime(void *vmsg, struct timespec *senderTime) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
@@ -2202,12 +2205,12 @@ int cMsgGetReceiverHost(void *vmsg, char **receiverHost) {
  * midnight GMT, Jan 1st, 1970).
  *
  * @param vmsg pointer to message
- * @param receiverTime time_t pointer to be filled with time message was received
+ * @param receiverTime pointer to be filled with time message was received
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetReceiverTime(void *vmsg, time_t *receiverTime) {
+int cMsgGetReceiverTime(void *vmsg, struct timespec *receiverTime) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
