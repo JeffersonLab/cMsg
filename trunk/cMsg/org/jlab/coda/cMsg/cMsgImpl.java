@@ -114,6 +114,21 @@ public class cMsgImpl implements cMsgInterface {
 
 //-----------------------------------------------------------------------------
 
+    /**
+     * Method to send a message to the domain server for further distribution
+     * and wait for a response from the subdomain handler that got it.
+     *
+     * @param message message
+     * @return response from subdomain handler
+     * @throws cMsgException
+     */
+    public int syncSend(cMsgMessage message) throws cMsgException {
+        throw new cMsgException("syncSend is not implemented yet");
+    }
+
+
+//-----------------------------------------------------------------------------
+
 
     /**
      * Method to force cMsg client to send pending communications with domain server.
