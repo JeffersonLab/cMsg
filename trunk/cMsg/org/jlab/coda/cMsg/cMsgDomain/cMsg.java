@@ -29,6 +29,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -106,9 +107,9 @@ public class cMsg extends cMsgDomainAdapter {
 
     /**
      * Collection of all of this client's message subscriptions which are
-     * {@link cMsgSubscription} objects.
+     * {@link cMsgSubscription} objects. This set is synchronized.
      */
-    Set subscriptions;
+    Set<cMsgSubscription> subscriptions;
 
     /**
      * Collection of all of this client's {@link #subscribeAndGet} calls, NOT directed to
@@ -118,7 +119,7 @@ public class cMsg extends cMsgDomainAdapter {
      *
      * Key is senderToken object, value is {@link cMsgHolder} object.
      */
-    Map generalGets;
+    ConcurrentHashMap<Integer,cMsgHolder> generalGets;
 
     /**
      * Collection of all of this client's {@link #sendAndGet} calls, directed to a specific
@@ -126,7 +127,7 @@ public class cMsg extends cMsgDomainAdapter {
      *
      * Key is senderToken object, value is {@link cMsgHolder} object.
      */
-    Map specificGets;
+    ConcurrentHashMap<Integer,cMsgHolder> specificGets;
 
     /**
      * This lock is for controlling access to the methods of this class.
@@ -207,14 +208,11 @@ public class cMsg extends cMsgDomainAdapter {
      *                       with the name/domain server.
      */
     public cMsg() throws cMsgException {
-        //this.UDL = UDL;
-        //this.name = name;
-        //this.description = description;
         domain = "cMsg";
 
-        subscriptions = Collections.synchronizedSet(new HashSet(20));
-        generalGets   = Collections.synchronizedMap(new HashMap(20));
-        specificGets  = Collections.synchronizedMap(new HashMap(20));
+        subscriptions = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
+        generalGets   = new ConcurrentHashMap<Integer,cMsgHolder>(20);
+        specificGets  = new ConcurrentHashMap<Integer,cMsgHolder>(20);
         uniqueId      = new AtomicInteger();
 
         // store our host's name
@@ -438,21 +436,16 @@ public class cMsg extends cMsgDomainAdapter {
             listeningThread.killThread();
 
             // stop all callback threads
-            Iterator iter = subscriptions.iterator();
-            for (; iter.hasNext();) {
-                cMsgSubscription sub = (cMsgSubscription) iter.next();
-
+            for (cMsgSubscription sub : subscriptions) {
                 // run through all callbacks
-                Iterator iter2 = sub.getCallbacks().iterator();
-                for (; iter2.hasNext();) {
-                    cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
+                for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
                     // Tell the callback thread(s) to wakeup and die
                     cbThread.dieNow();
                 }
             }
 
             // wakeup all gets
-            iter = specificGets.values().iterator();
+            Iterator iter = specificGets.values().iterator();
             for (; iter.hasNext();) {
                 cMsgHolder holder = (cMsgHolder) iter.next();
                 holder.message = null;
@@ -1058,10 +1051,9 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             // add to callback list if subscription to same subject/type exists
-            cMsgSubscription sub;
+
             // for each subscription ...
-            for (Iterator iter = subscriptions.iterator(); iter.hasNext();) {
-                sub = (cMsgSubscription) iter.next();
+            for (cMsgSubscription sub : subscriptions) {
                 // if subscription to subject & type exists ...
                 if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
                     // add to existing set of callbacks
@@ -1080,7 +1072,8 @@ public class cMsg extends cMsgDomainAdapter {
             int id = uniqueId.getAndIncrement();
 
             // add a new subscription & callback
-            sub = new cMsgSubscription(subject, type, id, new cMsgCallbackThread(cb, userObj));
+            cMsgSubscription sub = new cMsgSubscription(subject, type, id,
+                                                        new cMsgCallbackThread(cb, userObj));
             subscriptions.add(sub);
 
             int[] outGoing = new int[4];
