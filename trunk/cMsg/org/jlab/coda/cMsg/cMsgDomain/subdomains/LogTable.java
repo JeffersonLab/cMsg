@@ -185,54 +185,45 @@ public class LogTable implements cMsgHandleRequests {
             //  extract params
             Pattern p;
             Matcher m;
-            try {
-                // driver required
-                p = Pattern.compile("[&\\?]driver=(.*?)&", Pattern.CASE_INSENSITIVE);
-                m = p.matcher(remainder);
-                m.find();
-                driver = m.group(1);
 
-                // URL required
-                p = Pattern.compile("[&\\?]url=(.*?)&", Pattern.CASE_INSENSITIVE);
-                m = p.matcher(remainder);
-                m.find();
-                URL = m.group(1);
+	    // driver required
+	    p = Pattern.compile("[&\\?]driver=(.*?)&", Pattern.CASE_INSENSITIVE);
+	    m = p.matcher(remainder);
+	    m.find();
+	    driver = m.group(1);
 
-                // account not required
-                p = Pattern.compile("[&\\?]account=(.*?)&", Pattern.CASE_INSENSITIVE);
-                m = p.matcher(remainder);
-                if (m.find()) {
-                    account = m.group(1);
-                }
+	    // URL required
+	    p = Pattern.compile("[&\\?]url=(.*?)&", Pattern.CASE_INSENSITIVE);
+	    m = p.matcher(remainder);
+	    m.find();
+	    URL = m.group(1);
 
-                // password not required
-                p = Pattern.compile("[&\\?]password=(.*?)&", Pattern.CASE_INSENSITIVE);
-                m = p.matcher(remainder);
-                if (m.find()) {
-                    password = m.group(1);
-                }
+	    // account not required
+	    p = Pattern.compile("[&\\?]account=(.*?)&", Pattern.CASE_INSENSITIVE);
+	    m = p.matcher(remainder);
+	    if (m.find()) {
+		account = m.group(1);
+	    }
 
-                // table required
-                p = Pattern.compile("[&\\?]table=(.*?)&", Pattern.CASE_INSENSITIVE);
-                m = p.matcher(remainder);
-                m.find();
-                table = m.group(1);
+	    // password not required
+	    p = Pattern.compile("[&\\?]password=(.*?)&", Pattern.CASE_INSENSITIVE);
+	    m = p.matcher(remainder);
+	    if (m.find()) {
+		password = m.group(1);
+	    }
 
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-                cMsgException ce = new cMsgException(e.getMessage());
-                ce.setReturnCode(1);
-                throw ce;
-            }
+	    // table required
+	    p = Pattern.compile("[&\\?]table=(.*?)&", Pattern.CASE_INSENSITIVE);
+	    m = p.matcher(remainder);
+	    m.find();
+	    table = m.group(1);
         }
 
 
         // load driver
         try {
             Class.forName(driver);
-        }
-        catch (Exception e) {
+        } catch (ClassNotFoundException e) {
             System.out.println(e);
             e.printStackTrace();
             cMsgException ce = new cMsgException("registerClient: unable to load driver");
@@ -244,8 +235,7 @@ public class LogTable implements cMsgHandleRequests {
         // create connection
         try {
             myCon = DriverManager.getConnection(URL, account, password);
-        }
-        catch (Exception e) {
+        } catch (SQLException e) {
             System.out.println(e);
             e.printStackTrace();
             cMsgException ce = new cMsgException("registerClient: unable to connect to database");
@@ -265,8 +255,7 @@ public class LogTable implements cMsgHandleRequests {
                                             "?,?,?,?,?," +
                                             "?,?,?,?" +
                                             ")");
-        }
-        catch (Exception e) {
+        } catch (SQLException e) {
             System.out.println(e);
             e.printStackTrace();
             cMsgException ce = new cMsgException("registerClient: unable to create statement object");
@@ -312,8 +301,7 @@ public class LogTable implements cMsgHandleRequests {
 
             myStmt.executeUpdate();
 
-        }
-        catch (Exception e) {
+        } catch (SQLException e) {
             System.out.println(e);
             e.printStackTrace();
             throw new cMsgException("handleSendRequest: unable to insert into database");
@@ -428,8 +416,7 @@ public class LogTable implements cMsgHandleRequests {
         try {
             myStmt.close();
             myCon.close();
-        }
-        catch (Exception e) {
+        } catch (SQLException e) {
             throw(new cMsgException("LogTable sub-domain handler shutdown error"));
         }
     }
