@@ -60,7 +60,7 @@ public class cMsgNameServerListeningThread extends Thread {
   
   /** This method is executed as a thread. */
   public void run() {
-    System.out.println("Running Server");
+    System.out.println("Running Name Server");
     ServerSocket listeningSocket;
     
     // find a port to listen on
