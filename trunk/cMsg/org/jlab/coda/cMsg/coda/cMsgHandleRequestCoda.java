@@ -21,9 +21,7 @@ import org.jlab.coda.cMsg.cMsgHandleRequests;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgConstants;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Date;
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.net.Socket;
@@ -40,14 +38,20 @@ import java.io.UnsupportedEncodingException;
  * @version 1.0
  */
 public class cMsgHandleRequestCoda implements cMsgHandleRequests {
+    /** Hash table to store clients. Name is key and cMsgClientInfo is value. */
+    static Hashtable clients = new Hashtable(100);
+
+    /** List of subscriptions matching the msg. */
+    private ArrayList subList  = new ArrayList(100);
+
+    /** List of client info objects corresponding to entries in "subList" subscriptions. */
+    private ArrayList infoList = new ArrayList(100);
+
     /** A direct buffer is necessary for nio socket IO. */
     ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
-    /** Hash table to store clients. Name is key and cMsgClientInfo is value. */
-    HashMap clients = new HashMap(100);
-
     /** Level of debug output for this class. */
-    private int debug = cMsgConstants.debugInfo;
+    private int debug = cMsgConstants.debugError;
 
 
     /**
@@ -124,59 +128,74 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
      *                          or socket properties cannot be set
      */
     public void handleSendRequest(String name, cMsgMessage msg) throws cMsgException {
-        // Scan through all clients
-        Iterator iter = clients.keySet().iterator();
         String client;
-        cMsgClientInfo info;
+        cMsgSubscription sub;
+        cMsgClientInfo   info;
 
-        while (iter.hasNext()) {
-            client = (String) iter.next();
-            // Don't deliver a message to the sender
-            if (client.equals(name)) {
-                continue;
-            }
-            info = (cMsgClientInfo) clients.get(client);
+        subList.clear();
+        infoList.clear();
 
-            // Look at all subscriptions
-            Iterator it = info.subscriptions.iterator();
-            cMsgSubscription sub;
-            SocketChannel channel = null;
-            while (it.hasNext()) {
-                sub = (cMsgSubscription) it.next();
-                // if subscription matches the msg ...
-                // if (sub.subject.equals(msg.getSubject()) && sub.type.equals(msg.getType())) {
-                if ( matches(sub.subject, msg.getSubject()) && matches(sub.type, msg.getType()) ) {
-                    if (debug >= cMsgConstants.debugError) {
-                        System.out.println("handleSendRequest: subscription matches message, deliver to " + client);
+        // Scan through all clients.
+        // Cannot have clients hashtable changing during this exercise
+        synchronized (clients) {
+            Iterator iter = clients.keySet().iterator();
+
+            while (iter.hasNext()) {
+                client = (String) iter.next();
+                // Don't deliver a message to the sender
+                if (client.equals(name)) {
+                    continue;
+                }
+                info = (cMsgClientInfo) clients.get(client);
+
+                // Look at all subscriptions
+                Iterator it = info.subscriptions.iterator();
+                while (it.hasNext()) {
+                    sub = (cMsgSubscription) it.next();
+                    // if subscription matches the msg ...
+                    // if (sub.subject.equals(msg.getSubject()) && sub.type.equals(msg.getType())) {
+                    if (matches(sub.subject, msg.getSubject()) && matches(sub.type, msg.getType())) {
+                        // store sub and info for later use (in non-synchronized code)
+                        subList.add(sub);
+                        infoList.add(info);
                     }
-                    // Deliver this msg to this client. If there
-                    //  is no socket connection, make one.
-                    if (info.channel == null) {
-                        if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("handleSendRequest: make a socket connection to " + client);
-                        }
-                        try {
-                            channel = SocketChannel.open(new InetSocketAddress(info.clientHost,
-                                                                               info.clientPort));
-                            // set socket options
-                            Socket socket = channel.socket();
-                            // Set tcpNoDelay so no packets are delayed
-                            socket.setTcpNoDelay(true);
-                            // set buffer sizes
-                            socket.setReceiveBufferSize(65535);
-                            socket.setSendBufferSize(65535);
-                        }
-                        catch (IOException e) {
-                            if (debug >= cMsgConstants.debugError) {
-                                e.printStackTrace();
-                            }
-                            throw new cMsgException(e.getMessage());
-                        }
-                        info.channel = channel;
-                    }
-                    deliverMessage(info.channel, sub.id, msg);
                 }
             }
+        }
+
+        // Once we have the subscription, msg, and client info, no more need for sychronization
+        SocketChannel channel = null;
+
+        for (int i = 0; i < subList.size(); i++) {
+
+            info = (cMsgClientInfo)  infoList.get(i);
+            sub  = (cMsgSubscription) subList.get(i);
+
+            // Deliver this msg to this client. If there is no socket connection, make one.
+            if (info.channel == null) {
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("handleSendRequest: make a socket connection to " + info.clientName);
+                }
+                try {
+                    channel = SocketChannel.open(new InetSocketAddress(info.clientHost,
+                                                                       info.clientPort));
+                    // set socket options
+                    Socket socket = channel.socket();
+                    // Set tcpNoDelay so no packets are delayed
+                    socket.setTcpNoDelay(true);
+                    // set buffer sizes
+                    socket.setReceiveBufferSize(65535);
+                    socket.setSendBufferSize(65535);
+                }
+                catch (IOException e) {
+                    if (debug >= cMsgConstants.debugError) {
+                        e.printStackTrace();
+                    }
+                    throw new cMsgException(e.getMessage());
+                }
+                info.channel = channel;
+            }
+            deliverMessage(info.channel, sub.id, msg);
         }
     }
 
@@ -322,6 +341,12 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
             System.out.println("      Subject length: " +      outGoing[9]);
             System.out.println("      Type length: " +         outGoing[10]);
             System.out.println("      Text length: " +         outGoing[11]);
+
+            System.out.println("      Sender: " +       msg.getSender());
+            System.out.println("      SenderHost: " +   msg.getSenderHost());
+            System.out.println("      Subject: " +      msg.getSubject());
+            System.out.println("      Type: " +         msg.getType());
+            System.out.println("      Text: " +         msg.getText());
         }
 
         // send ints over together using view buffer
@@ -350,12 +375,12 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
                 channel.write(buffer);
             }
             // read acknowledgment & keep reading until we have 1 int of data
-            cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
+            //cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
         }
         catch (IOException e) {
             throw new cMsgException(e.getMessage());
         }
-
+        /*
         // go back to reading-from-buffer mode
         buffer.flip();
 
@@ -364,7 +389,7 @@ public class cMsgHandleRequestCoda implements cMsgHandleRequests {
         if (error != cMsgConstants.ok) {
             throw new cMsgException("deliverMessage: error in sending message");
         }
-
+        */
         return;
     }
 
