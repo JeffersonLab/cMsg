@@ -13,8 +13,6 @@ JAVAC_FLAGS = -classpath ../../../../../
 #JAVAC_FLAGS = -classpath ../../../../../:$(CLASSPATH)
 
 JAVA_OBJS = \
-	Jgetenv.class \
-	JgetenvException.class \
 	cMsgNetworkConstants.class \
 	cMsgUtilities.class \
 	cMsgCallbackThread.class \
@@ -23,6 +21,7 @@ JAVA_OBJS = \
 	cMsgClientListeningThread.class \
 	cMsgMonitorClient.class \
 	cMsgHandleRequests.class \
+	cMsgHandleRequestsAbstract.class \
 	cMsgNameServer.class \
 	cMsgDomainServer.class \
 	cMsg.class
