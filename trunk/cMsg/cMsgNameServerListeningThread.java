@@ -111,7 +111,7 @@ public class cMsgNameServerListeningThread extends Thread {
         sock.setReceiveBufferSize(65535);
         sock.setSendBufferSize(65535);
 	// create thread to deal with client
-	ClientThread connection = new ClientThread(server, sock, debug);
+	cMsgNameServerClientThread connection = new cMsgNameServerClientThread(server, sock, debug);
 	connection.start();
       }
     }
@@ -132,7 +132,7 @@ public class cMsgNameServerListeningThread extends Thread {
  * @author Carl Timmer
  * @version 1.0
  */
-class ClientThread extends Thread {
+class cMsgNameServerClientThread extends Thread {
 
   /** Name server object. */
   private cMsgNameServer server;
@@ -154,13 +154,13 @@ class ClientThread extends Thread {
   private DataOutputStream out;
 
   /**
-   * Create a new ClientThread object.
+   * Create a new cMsgNameServerClientThread object.
    *
    * @param server name server object.
    * @param sock Tcp socket.
    * @param debug level of debug output for this object
    */
-  ClientThread(cMsgNameServer server, Socket sock, int debug) {
+  cMsgNameServerClientThread(cMsgNameServer server, Socket sock, int debug) {
     this.server = server;
     this.sock   = sock;
     this.debug  = debug;
@@ -187,7 +187,10 @@ class ClientThread extends Thread {
       
       // read length of client's name
       int lengthName = in.readInt();
-      
+if (debug >= cMsgConstants.debugInfo) {
+  System.out.println("msgId = " + msgId + ", port = " + clientListeningPort +
+                      ", lenHost = " + lengthHost + ", lenName = " + lengthName);
+}      
       // allocate buffer
       int lengthBuf = lengthHost > lengthName ? lengthHost : lengthName;
       byte[] buf = new byte[lengthBuf];
@@ -196,13 +199,22 @@ class ClientThread extends Thread {
       in.readFully(buf, 0, lengthHost);
       String host = new String(buf, 0, lengthHost, "ASCII");
 
+if (debug >= cMsgConstants.debugInfo) {
+  System.out.println("host = " + host);
+}      
       // read client's name
       in.readFully(buf, 0, lengthName);
       String name = new String(buf, 0, lengthName, "ASCII");
 
+if (debug >= cMsgConstants.debugInfo) {
+  System.out.println("name = " + name);
+}      
       // Try to register this client. If the cMsg system already has a
       // client by this name, it will fail.
       try {
+if (debug >= cMsgConstants.debugInfo) {
+  System.out.println("register client");
+}      
         cMsgClientInfo info = new cMsgClientInfo(clientListeningPort, host);
         server.registerClient(name, info);
       
