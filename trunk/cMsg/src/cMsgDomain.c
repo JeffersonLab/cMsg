@@ -52,13 +52,15 @@
 #include <pthread.h>
 #include <errno.h>
 
+
 /* package includes */
 #include "cMsgNetwork.h"
-#include "cMsg.h"
 #include "cMsgPrivate.h"
+#include "cMsgBase.h"
 #include "cMsgDomain.h"
 #include "errors.h"
 #include "rwlock.h"
+
 
 
 /* built-in limits */
@@ -2522,8 +2524,7 @@ static void *callbackThread(void *arg)
       
       /* run callback */
 #ifdef	__cplusplus
-      cMsgMessageBase c(msg);
-      subscription->callback->callback(c, subscription->userArg);
+      subscription->callback->callback(*(new cMsgMessageBase(msg)), subscription->userArg); 
 #else
       subscription->callback(msg, subscription->userArg);
 #endif
@@ -2646,7 +2647,7 @@ static void *supplementalThread(void *arg)
 
       /* run callback */
 #ifdef	__cplusplus
-      subscription->callback->callback(*(new cMsgMessageBase(msg)), subscription->userArg);
+      subscription->callback->callback(*(new cMsgMessageBase(msg)), subscription->userArg); 
 #else
       subscription->callback(msg, subscription->userArg);
 #endif
