@@ -51,8 +51,11 @@ public class File extends cMsgDomainAdapter {
     /**
      * Constructor for File domain.
      * <p/>
+     *
+     *  UDL:  cMsg:cMsg://fileName?textOnly=value.
+     *
      * Default is to print entire message to file.
-     * set textOnly=true in UDL to only print timestamp and message text.
+     * If textOnly=true then only print timestamp and message text to file.
      *
      * @throws cMsgException if domain in not implemented or there are problems
      */
