@@ -26,9 +26,11 @@
 extern "C" {
 #endif
 
+
 /* version numbers */
 #define CMSG_VERSION_MAJOR 1
 #define CMSG_VERSION_MINOR 0
+
 
 /* debug levels */
 #define CMSG_DEBUG_NONE   0
@@ -37,12 +39,38 @@ extern "C" {
 #define CMSG_DEBUG_WARN   3
 #define CMSG_DEBUG_INFO   4
 
+
 /* see "Programming with POSIX threads' by Butenhof */
 #define err_abort(code,text) do { \
     fprintf (stderr, "%s at \"%s\":%d: %s\n", \
         text, __FILE__, __LINE__, strerror (code)); \
     exit (-1); \
     } while (0)
+
+
+/* message structure */
+typedef struct cMsg_t {
+  int     domainId;
+  int     sysMsgId;         /* set by system */
+  int     receiverSubscribeId;
+  
+  char   *sender;
+  int     senderId;         /* in case fred dies and resurrects */
+  char   *senderHost;
+  time_t  senderTime;
+  int     senderMsgId;      /* set by client system */
+  int     senderToken;      /* set by user */
+  
+  char   *receiver;
+  char   *receiverHost;
+  time_t  receiverTime;
+  
+  char   *domain;
+  char   *subject;
+  char   *type;
+  char   *text;
+} cMsgMessage;
+
 
 
 /* system msg id types */
