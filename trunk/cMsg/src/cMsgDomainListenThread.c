@@ -520,13 +520,25 @@ static void *clientThread(void *arg)
 
       case  CMSG_SHUTDOWN:
       {
-        
-        cMsgDomains[domainId].shutdownHandler(cMsgDomains[domainId].shutdownUserArg);
+        /* send back ok */
+        if (acknowledge) {
+          ok = htonl(CMSG_OK);
+          if (cMsgTcpWrite(connfd, (void *) &ok, sizeof(ok)) != sizeof(ok)) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+              fprintf(stderr, "clientThread %d: write failure\n", localCount);
+            }
+            goto end;
+          }
+        }       
+
+
+        if (cMsgDomains[domainId].shutdownHandler != NULL) {
+          cMsgDomains[domainId].shutdownHandler(cMsgDomains[domainId].shutdownUserArg);
+        }
         
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "clientThread %d: told to shutdown\n", localCount);
         }
-        goto end;
       }
       break;
       
