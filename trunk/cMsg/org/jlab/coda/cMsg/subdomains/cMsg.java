@@ -24,8 +24,8 @@ import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
 import org.jlab.coda.cMsg.cMsgSubdomainAbstract;
 
 import java.util.*;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ConcurrentHashMap;
 import java.nio.ByteBuffer;
@@ -38,6 +38,9 @@ import java.io.IOException;
  * @version 1.0
  */
 public class cMsg extends cMsgSubdomainAbstract {
+    /** Used to create a unique id number associated with a specific message. */
+    private static AtomicInteger sysMsgId = new AtomicInteger();
+
     /** HashMap to store clients. Name is key and cMsgClientInfo is value. */
     private static ConcurrentHashMap<String,cMsgClientInfo> clients =
             new ConcurrentHashMap<String,cMsgClientInfo>(100);
@@ -56,9 +59,6 @@ public class cMsg extends cMsgSubdomainAbstract {
      */
     private Map<Integer,Integer> deleteGets =
             new ConcurrentHashMap<Integer,Integer>(100);
-
-    /** Used to create a unique id number associated with a specific message. */
-    private static AtomicInteger sysMsgId = new AtomicInteger();
 
     /** List of client info objects corresponding to entries in "subGetList" subscriptions. */
     private ArrayList infoList = new ArrayList(100);
@@ -80,22 +80,11 @@ public class cMsg extends cMsgSubdomainAbstract {
     /** Remainder of UDL client used to connect to domain server. */
     private String UDLRemainder;
 
+    /** Namespace this client sends messages to. */
+    private String namespace;
+
     /** Name of client using this subdomain handler. */
     private String name;
-
-    /**
-     * This lock is for controlling access to the {@link #clients} hashmap.
-     * It is inherently more flexible than synchronizing code, as most accesses
-     * of the hashmap are only reads. Using a readwrite lock will prevent the
-     * mutual exclusion guaranteed by using synchronization.
-     */
-    private static final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-
-    /** Read lock for {@link #clients} hashmap acquired from {@link #lock}. */
-    private static Lock readLock = lock.readLock();
-
-    /** Write lock for {@link #clients} hashmap acquired from {@link #lock}. */
-    private static Lock writeLock = lock.writeLock();
 
 
 
@@ -186,14 +175,60 @@ public class cMsg extends cMsgSubdomainAbstract {
     public boolean hasUnsubscribe() {return true;};
 
     /**
-      * Method to give the subdomain handler the appropriate part
-      * of the UDL the client used to talk to the domain server.
-      *
-      * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
-      * @throws cMsgException
-      */
+     * Method to give the subdomain handler the appropriate part
+     * of the UDL the client used to talk to the domain server.
+     * In the cMsg subdomain of the cMsg domain, each client sends messages to a namespace.
+     * If no namespace is specified, the namespace is "/defaultNamespace".
+     * The namespace is specified in the client supplied UDL as follows:
+     *     cMsg:cMsg://<host>:<port>/cMsg/<namespace>
+     * A single beginning forward slash is enforced in a namespace.
+     * A question mark will terminate but will not be included in the namespace.
+     * All trailing forward slashes will be removed.
+     *
+     * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
+     * @throws cMsgException
+     */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
-        this.UDLRemainder = UDLRemainder;    
+        this.UDLRemainder = UDLRemainder;
+
+        // if no namespace specified, set to default
+        if (UDLRemainder == null || UDLRemainder.length() < 1) {
+            namespace = "/defaultNamespace";
+            if (debug >= cMsgConstants.debugInfo) {
+               System.out.println("setUDLRemainder:  namespace = " + namespace);
+            }
+            return;
+        }
+
+        // parse UDLRemainder to find the namespace this client is in
+        Pattern pattern = Pattern.compile("([\\w/]+)[?]*.*");
+        Matcher matcher = pattern.matcher(UDLRemainder);
+
+        String s = null;
+
+        if (matcher.lookingAt()) {
+            s = matcher.group(1);
+        }
+        else {
+            throw new cMsgException("invalid namespace");
+        }
+
+        if (s == null) {
+            throw new cMsgException("invalid namespace");
+        }
+
+        // strip off all except one beginning slash and all ending slashes
+        while (s.startsWith("/")) {
+            s = s.substring(1);
+        }
+        while (s.endsWith("/")) {
+            s = s.substring(0, s.length()-1);
+        }
+        namespace = "/" + s;
+
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("setUDLRemainder:  namespace = " + namespace);
+        }
     }
 
     /**
@@ -215,22 +250,19 @@ public class cMsg extends cMsgSubdomainAbstract {
     public void registerClient(cMsgClientInfo info) throws cMsgException {
         String clientName = info.getName();
 
-        writeLock.lock();
-        try {
-            // Check to see if name is taken already
-            if (clients.containsKey(clientName)) {
-                cMsgException e = new cMsgException("client already exists");
-                e.setReturnCode(cMsgConstants.errorNameExists);
-                throw e;
-            }
-
-            clients.put(clientName, info);
-        }
-        finally {
-            writeLock.unlock();
+        cMsgClientInfo ci = clients.putIfAbsent(clientName, info);
+        // Check to see if name was taken already.
+        // If ci is not null, this key already existed.
+        if (ci != null) {
+            cMsgException e = new cMsgException("client already exists");
+            e.setReturnCode(cMsgConstants.errorNameExists);
+            throw e;
         }
 
         this.name = clientName;
+
+        // this client is registered in this namespace
+        info.setNamespace(namespace);
     }
 
 
@@ -315,7 +347,8 @@ public class cMsg extends cMsgSubdomainAbstract {
                 while (it.hasNext()) {
                     sub = (cMsgSubscription) it.next();
                     // if subscription matches the msg ...
-                    if (matches(sub.getSubject(), message.getSubject()) &&
+                    if (namespace.equalsIgnoreCase(info.getNamespace()) &&
+                            matches(sub.getSubject(), message.getSubject()) &&
                             matches(sub.getType(), message.getType())) {
                         // store sub and info for later use (in non-synchronized code)
                         idList.add(sub.getId());
@@ -329,7 +362,8 @@ public class cMsg extends cMsgSubdomainAbstract {
                 while (it.hasNext()) {
                     sub = (cMsgSubscription) it.next();
                     // if get matches the msg ...
-                    if (matches(sub.getSubject(), message.getSubject()) &&
+                    if (namespace.equalsIgnoreCase(info.getNamespace()) &&
+                            matches(sub.getSubject(), message.getSubject()) &&
                             matches(sub.getType(), message.getType())) {
                         // store get and info for later use (in non-synchronized code)
                         idList.add(sub.getId());
