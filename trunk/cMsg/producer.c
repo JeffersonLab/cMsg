@@ -14,6 +14,9 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
  
+#ifdef VXWORKS
+#include <vxWorks.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -32,15 +35,14 @@
 
 
 int main(int argc,char **argv) {  
-  char *myName = "C-producer";
+  char *myName = "VX-producer";
   char *myDescription = "produce messages as fast as possible";
-  int err, response, domainId = -1;
+  int err, domainId = -1;
   void *msg;
   
   /* freq measuring variables */
   int             iterations=1, count=1, i;
   double          freq=0.0, freq_tot=0.0, freq_avg=0.0;
-  struct timespec timeout;
   struct timespec t1, t2;
   double          time;
   
@@ -51,7 +53,7 @@ int main(int argc,char **argv) {
   printf("My name is %s\n", myName);
   
   printf("cMsgConnect ...\n");
-  err = cMsgConnect("cMsg:cMsg://aslan:3456/", myName, myDescription, &domainId);
+  err = cMsgConnect("cMsg:cMsg://aslan:3456/cMsg/vx", myName, myDescription, &domainId);
   if (err != CMSG_OK) {
     printf("cMsgConnect: %s\n",cMsgPerror(err));
     fflush(stdout);

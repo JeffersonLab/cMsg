@@ -31,16 +31,13 @@
 #define DOUBLE_MAX   1.7976931348623157E+308
 
 int count = 0;
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static void callback(void *msg, void *arg);
 
 int main(int argc,char **argv) {  
   char *myName   = "C-getConsumer";
   char *myDescription = "trial run";
   int   i, err, domainId = -1;
   void *msg, *replyMsg;
-  cMsgSubscribeConfig *config;
   
   double freq=0., freqAvg=0., freqTotal=0.;
   long   iterations=1;
@@ -108,12 +105,4 @@ int main(int argc,char **argv) {
   }
 
   return(0);
-}
-
-static void callback(void *msg, void *arg) {
-  struct timespec sometime;
-pthread_mutex_lock(&mutex);
-  count++;
-pthread_mutex_unlock(&mutex);
-  cMsgFreeMessage(msg);
 }
