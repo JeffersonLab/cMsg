@@ -429,6 +429,7 @@ public class cMsg extends cMsgDomainAdapter {
             catch (IOException e) {
             }
 
+            // give threads a chance to shutdown
             try { Thread.sleep(100); }
             catch (InterruptedException e) {}
 
