@@ -50,22 +50,22 @@ int main(int argc,char **argv) {
   if (argc > 1) {
     myName = argv[1];
   }
-  printf("My name is %s\n", myName);
+  /* printf("My name is %s\n", myName);*/
   
-  printf("cMsgConnect ...\n");
+  /* printf("cMsgConnect ...\n"); */
   err = cMsgConnect("cMsg:cMsg://aslan:3456/cMsg/vx", myName, myDescription, &domainId);
   if (err != CMSG_OK) {
-    printf("cMsgConnect: %s\n",cMsgPerror(err));
+    /* printf("cMsgConnect: %s\n",cMsgPerror(err)); */
     fflush(stdout);
     exit(1);
   }
-  printf("\n");
+  /* printf("\n"); */
   
   msg = cMsgCreateMessage();
   cMsgSetSubject(msg, "SUBJECT");
   cMsgSetType(msg, "TYPE");
   cMsgSetText(msg, "Message 1");
-  printf("\n");
+  /* printf("\n"); */
   
   while (1) {
       /* read time for future statistics calculations */
@@ -91,16 +91,19 @@ int main(int argc,char **argv) {
       freq_tot += freq;
       freq_avg = freq_tot/(double)iterations;
       iterations++;
-      printf("%s: %9.1f Hz,  %10.2f Hz Avg.\n", argv[0], freq, freq_avg);
+      
+      printf("%s: %9.0f Hz,  %9.0f Hz Avg.\n", argv[0], freq, freq_avg);
   } 
   
   end:
   
-  printf("cMsgDisconnect ...\n\n\n");
+  /* printf("cMsgDisconnect ...\n\n\n"); */
   err = cMsgDisconnect(domainId);
   if (err != CMSG_OK) {
+    /*
     printf("%s\n",cMsgPerror(err));
     fflush(stdout);
+    */
   }
     
   return(0);
