@@ -337,9 +337,9 @@ public class queue extends cMsgSubdomainAbstract {
 
         // create prepared statement
         if(myDBType.equalsIgnoreCase("mysql")) {
-            sql = cMsgMessage.createPreparedStatementString(myTableName,"delayed");
+            sql = cMsgMessage.createPreparedStatementString(myTableName,"delayed",false);
         } else {
-            sql = cMsgMessage.createPreparedStatementString(myTableName,null);
+            sql = cMsgMessage.createPreparedStatementString(myTableName,"",true);
         }
         try {
             myCon.prepareStatement(sql);
@@ -367,8 +367,8 @@ public class queue extends cMsgSubdomainAbstract {
     public void handleSendRequest(cMsgMessage msg) throws cMsgException {
 
 //         try {
-//             msg.fillPreparedStatement(myPStmt);
-//             //            myPStmt.executeUpdate();
+//             msg.fillPreparedStatement(myPStmt,???);
+//             myPStmt.executeUpdate();
 //         } catch (SQLException e) {
 //             e.printStackTrace();
 //             throw new cMsgException("?handleSendRequest: unable to insert into queue");
