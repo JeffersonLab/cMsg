@@ -43,7 +43,7 @@ public class cMsgSubscription {
      * When this class is used with subscriptions, this set contains all
      * of the callback objects {@link cMsgCallbackThread}. When this class
      * is used with general gets, this set contains message storage objects
-     * {@link cMsgMessageHolder}
+     * {@link cMsgHolder}
      */
     private HashSet callbacks;
 
@@ -85,7 +85,7 @@ public class cMsgSubscription {
      * @param id unique id referring to subject and type combination
      * @param holder object for holding message and synchronizing on
      */
-    public cMsgSubscription(String subject, String type, int id, cMsgMessageHolder holder) {
+    public cMsgSubscription(String subject, String type, int id, cMsgHolder holder) {
         this.subject = subject;
         this.type = type;
         this.id = id;
@@ -169,7 +169,7 @@ public class cMsgSubscription {
      * Method to add a helping object for running a "get" method.
      * @param holder  object for holding message and synchronizing on
      */
-    public void addHolder(cMsgMessageHolder holder) {
+    public void addHolder(cMsgHolder holder) {
         callbacks.add(holder);
     }
 
@@ -178,7 +178,7 @@ public class cMsgSubscription {
      * Method to remove a helping object for running a "get" method.
      * @param holder  object to be removed
      */
-    public void removeHolder(cMsgMessageHolder holder) {
+    public void removeHolder(cMsgHolder holder) {
         callbacks.remove(holder);
     }
 

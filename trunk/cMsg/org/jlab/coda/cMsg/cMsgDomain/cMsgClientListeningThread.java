@@ -445,7 +445,7 @@ public class cMsgClientListeningThread extends Thread {
             return;
         }
 
-        cMsgMessageHolder holder;
+        cMsgHolder holder;
 
 
         cMsgCallbackThread cbThread;
@@ -492,7 +492,7 @@ public class cMsgClientListeningThread extends Thread {
         // run through list of receiverSubscribeIds that msg matches
         for (int i = 0; i < rsIdCount; i++) {
             // take care of any general gets first
-            holder = (cMsgMessageHolder) (client.generalGets.remove(rsIds[i]));
+            holder = (cMsgHolder) (client.generalGets.remove(rsIds[i]));
 
             if (holder != null) {
 // BUG BUG copy message??
@@ -524,7 +524,7 @@ public class cMsgClientListeningThread extends Thread {
         }
 
         // handle specific get (aimed at a receiver)
-        cMsgMessageHolder holder = (cMsgMessageHolder) client.specificGets.remove(msg.getSenderToken());
+        cMsgHolder holder = (cMsgHolder) client.specificGets.remove(msg.getSenderToken());
 
         if (holder == null) {
             return;
