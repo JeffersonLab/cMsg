@@ -94,7 +94,10 @@ public class cMsgClientListeningThread extends Thread {
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
             // cMsgCoda object is waiting for this thread to start in connect method
-            notifyAll();
+            synchronized(this) {
+                client.listeningThreadStarted = true;
+                notifyAll();
+            }
 
             while (true) {
                 // 3 second timeout
@@ -197,6 +200,8 @@ public class cMsgClientListeningThread extends Thread {
                      if (debug >= cMsgConstants.debugInfo) {
                          System.out.println("handleClient: got keep alive from server");
                      }
+                     // read int
+                     cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
                      // send ok back as acknowledgment
                      buffer.clear();
                      buffer.putInt(cMsgConstants.ok).flip();
@@ -223,7 +228,7 @@ public class cMsgClientListeningThread extends Thread {
 
                  default:
                      if (debug >= cMsgConstants.debugWarn) {
-                         System.out.println("handleClient: can't understand server message");
+                         System.out.println("handleClient: can't understand server message = " + msgId);
                      }
                      break;
              }
@@ -310,13 +315,13 @@ public class cMsgClientListeningThread extends Thread {
         buffer.get(buf, 0, lengthSender);
         msg.setSender(new String(buf, 0, lengthSender, "US-ASCII"));
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("  subject = " + msg.getSender());
+            System.out.println("  sender = " + msg.getSender());
         }
         // read senderHost
         buffer.get(buf, 0, lengthSenderHost);
         msg.setSenderHost(new String(buf, 0, lengthSenderHost, "US-ASCII"));
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("  subject = " + msg.getSenderHost());
+            System.out.println("  senderHost = " + msg.getSenderHost());
         }
         // read subject
         buffer.get(buf, 0, lengthSubject);
