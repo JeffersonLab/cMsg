@@ -37,6 +37,14 @@ PROGS = producer consumer getConsumer
 
 all: $(CMSG_LIBS) $(PROGS)
 
+jar:
+	jar cf cMsg.jar `find -name "*.class"`
+
+
+jarall:
+	jar cf cMsg.jar org/jlab/coda/cMsg
+
+
 java:
 	cd ./org/jlab/coda/cMsg; make;
 	cd ./org/jlab/coda/cMsg/cMsgDomain; make;
