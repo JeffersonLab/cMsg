@@ -33,23 +33,30 @@ public class cMsgMessageFull extends cMsgMessage {
     /** Constructor using existing cMsgMessage. */
     public cMsgMessageFull(cMsgMessage m) {
 
-        this.setSysMsgId(m.getSysMsgId());
-        this.setGetResponse(m.isGetResponse());
-        this.setGetRequest(m.isGetRequest());
-        this.setDomain(m.getDomain());
         this.setVersion(m.getVersion());
-        this.setSubject(m.getSubject());
-        this.setType(m.getType());
-        this.setText(m.getText());
-        this.setPriority(m.getPriority());
-        this.setUserInt(m.getUserInt());
-        this.setUserTime(m.getUserTime());
+        this.setDomain(m.getDomain());
+        this.setSysMsgId(m.getSysMsgId());
+
+        this.setGetRequest(m.isGetRequest());
+        this.setGetResponse(m.isGetResponse());
+
         this.setSender(m.getSender());
         this.setSenderHost(m.getSenderHost());
         this.setSenderTime(m.getSenderTime());
+        this.setSenderToken(m.getSenderToken());
+
+        this.setUserInt(m.getUserInt());
+        this.setPriority(m.getPriority());
+        this.setUserTime(m.getUserTime());
+
         this.setReceiver(m.getReceiver());
         this.setReceiverHost(m.getReceiverHost());
         this.setReceiverTime(m.getReceiverTime());
+        this.setReceiverSubscribeId(m.getReceiverSubscribeId());
+
+        this.setSubject(m.getSubject());
+        this.setType(m.getType());
+        this.setText(m.getText());
     }
 
 

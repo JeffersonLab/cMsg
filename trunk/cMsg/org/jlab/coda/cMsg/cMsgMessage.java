@@ -334,6 +334,13 @@ public class cMsgMessage implements Cloneable {
     public Date getReceiverTime() {return new Date(receiverTime);}
 
 
+    /**
+     * Get receiver subscribe id.
+     * @return receiver subscribe id.
+     */
+    public int getReceiverSubscribeId() {return receiverSubscribeId;}
+
+
 
 
 
@@ -343,21 +350,24 @@ public class cMsgMessage implements Cloneable {
     public String toString() {
         return(
                "<cMsgMessage date=\"" + (new Date()) + "\"\n"
-            + "     " + "domain         = \"" + this.getDomain() + "\"\n"
-            + "     " + "version        = \"" + this.getVersion() + "\"\n"
-            + "     " + "getResponse    = \"" + this.isGetResponse() + "\"\n"
-            + "     " + "getRequest     = \"" + this.isGetRequest() + "\"\n"
-            + "     " + "sender         = \"" + this.getSender() + "\"\n"
-            + "     " + "senderHost     = \"" + this.getSenderHost() + "\"\n"
-            + "     " + "senderTime     = \"" + this.getSenderTime() + "\"\n"
-            + "     " + "userInt        = \"" + this.getUserInt() + "\"\n"
-            + "     " + "userTime       = \"" + this.getUserTime() + "\"\n"
-            + "     " + "priority       = \"" + this.getPriority() + "\"\n"
-            + "     " + "receiver       = \"" + this.getReceiver() + "\"\n"
-            + "     " + "receiverHost   = \"" + this.getReceiverHost() + "\"\n"
-            + "     " + "receiverTime   = \"" + this.getReceiverTime() + "\"\n"
-            + "     " + "subject        = \"" + this.getSubject() + "\"\n"
-            + "     " + "type           = \"" + this.getType() + "\">\n"
+            + "     " + "version             = \"" + this.getVersion() + "\"\n"
+            + "     " + "domain              = \"" + this.getDomain() + "\"\n"
+            + "     " + "sysMsgId            = \"" + this.getSysMsgId() + "\"\n"
+            + "     " + "getRequest          = \"" + this.isGetRequest() + "\"\n"
+            + "     " + "getResponse         = \"" + this.isGetResponse() + "\"\n"
+            + "     " + "sender              = \"" + this.getSender() + "\"\n"
+            + "     " + "senderHost          = \"" + this.getSenderHost() + "\"\n"
+            + "     " + "senderTime          = \"" + this.getSenderTime() + "\"\n"
+            + "     " + "senderToken         = \"" + this.getSenderToken() + "\"\n"
+            + "     " + "userInt             = \"" + this.getUserInt() + "\"\n"
+            + "     " + "userTime            = \"" + this.getUserTime() + "\"\n"
+            + "     " + "priority            = \"" + this.getPriority() + "\"\n"
+            + "     " + "receiver            = \"" + this.getReceiver() + "\"\n"
+            + "     " + "receiverHost        = \"" + this.getReceiverHost() + "\"\n"
+            + "     " + "receiverTime        = \"" + this.getReceiverTime() + "\"\n"
+            + "     " + "receiverSubscribeId = \"" + this.getReceiverSubscribeId() + "\"\n"
+            + "     " + "subject             = \"" + this.getSubject() + "\"\n"
+            + "     " + "type                = \"" + this.getType() + "\">\n"
             + "<![CDATA[\n" + this.getText() + "\n]]>\n"
             + "</cMsgMessage>\n\n");
     }
@@ -373,12 +383,17 @@ public class cMsgMessage implements Cloneable {
 
         l.clear();
 
-        l.put("domain","varchar(255)");
         l.put("version","int");
+        l.put("domain","varchar(255)");
+        l.put("sysMsgId","int");
+
+        l.put("getRequest","boolean");
+        l.put("getResponse","boolean");
 
         l.put("sender","varchar(128)");
         l.put("senderHost","varchar(128)");
         l.put("senderTime","time");
+        l.put("senderToken","int");
 
         l.put("userInt","int");
         l.put("userTime","time");
@@ -387,6 +402,7 @@ public class cMsgMessage implements Cloneable {
         l.put("receiver","varchar(128)");
         l.put("receiverHost","varchar(128)");
         l.put("receiverTime","time");
+        l.put("receiverSubscribeId","int");
 
         l.put("subject","varchar(255)");
         l.put("type","varchar(128)");
@@ -402,24 +418,30 @@ public class cMsgMessage implements Cloneable {
 
         switch(index) {
 
-        case 1:    return(this.getDomain());
-        case 2:    return(this.getVersion());
+        case 1:    return(this.getVersion());
+        case 2:    return(this.getDomain());
+        case 3:    return(this.getSysMsgId());
 
-        case 3:    return(this.getSender());
-        case 4:    return(this.getSenderHost());
-        case 5:    return(this.getSenderTime());
+        case 4:    return(this.isGetRequest());
+        case 5:    return(this.isGetResponse());
 
-        case 6:    return(this.getUserInt());
-        case 7:    return(this.getUserTime());
-        case 8:    return(this.getPriority());
+        case 6:    return(this.getSender());
+        case 7:    return(this.getSenderHost());
+        case 8:    return(this.getSenderTime());
+        case 9:    return(this.getSenderToken());
 
-        case 9:    return(this.getReceiver());
-        case 10:   return(this.getReceiverHost());
-        case 11:   return(this.getReceiverTime());
+        case 10:   return(this.getUserInt());
+        case 11:   return(this.getUserTime());
+        case 12:   return(this.getPriority());
 
-        case 12:   return(this.getSubject());
-        case 13:   return(this.getType());
-        case 14:   return(this.getText());
+        case 13:   return(this.getReceiver());
+        case 14:   return(this.getReceiverHost());
+        case 15:   return(this.getReceiverTime());
+        case 16:   return(this.getReceiverSubscribeId());
+
+        case 17:   return(this.getSubject());
+        case 18:   return(this.getType());
+        case 19:   return(this.getText());
 
         default:   return(0);
 
