@@ -51,7 +51,7 @@ typedef struct domainFunctions_t {
   int (*subscribe)  (int domainId, char *subject, char *type, cMsgCallback *callback,
                      void *userArg, cMsgSubscribeConfig *config);
   int (*unsubscribe)(int domainId, char *subject, char *type, cMsgCallback *callback);
-  int (*get)        (int domainId, void *sendMsg, time_t timeout, void **replyMsg);
+  int (*get)        (int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg);
   int (*start)      (int domainId);
   int (*stop)       (int domainId);
   int (*disconnect) (int domainId);
