@@ -3,6 +3,7 @@ package org.jlab.coda.cMsg.apps;
 import org.jlab.coda.cMsg.*;
 
 import java.util.Date;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Created by IntelliJ IDEA.
@@ -126,7 +127,9 @@ public class cMsgGetConsumer {
 
             // do a bunch of gets
             for (int i=0; i < 2000; i++) {
-                msg = coda.sendAndGet(sendMsg, 1000);
+                try {msg = coda.sendAndGet(sendMsg, 1000);}
+                catch (TimeoutException e) {}
+
                 //msg = coda.subscribeAndGet(subject, type, 1000);
                 if (msg == null) {
                     System.out.println("TIMEOUT in GET");

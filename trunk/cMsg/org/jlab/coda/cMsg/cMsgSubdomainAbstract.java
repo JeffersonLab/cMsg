@@ -326,10 +326,15 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainInterface {
 
         // expect 2 particular types of messages to receive an acknowledgment from client
         boolean acknowlege = false;
-
         if (msgType == cMsgConstants.msgGetResponseWithAck ||
             msgType == cMsgConstants.msgSubscribeResponseWithAck) {
             acknowlege = true;
+        }
+
+        // if a get has a null response ...
+        boolean nullResponse = false;
+        if (msgType == cMsgConstants.msgGetResponseIsNull) {
+            nullResponse = true;
         }
 
         int size = 0;
@@ -340,64 +345,82 @@ public abstract class cMsgSubdomainAbstract implements cMsgSubdomainInterface {
         // get ready to write
         buffer.clear();
 
-        // write 14 ints
-        int outGoing[] = new int[15];
-        outGoing[0]  = msgType;
-        outGoing[1]  = msg.getVersion();
-        outGoing[2]  = msg.getPriority();
-        outGoing[3]  = msg.getUserInt();
-        outGoing[4]  = msg.isGetRequest() ? 1 : 0;
-        outGoing[5]  = (int) (msg.getSenderTime().getTime() / 1000L);
-        outGoing[6]  = (int) (msg.getUserTime().getTime() / 1000L);
-        outGoing[7]  = msg.getSysMsgId();
-        outGoing[8]  = msg.getSenderToken();
-        outGoing[9]  = msg.getSender().length();
-        outGoing[10] = msg.getSenderHost().length();
-        outGoing[11] = msg.getSubject().length();
-        outGoing[12] = msg.getType().length();
-        outGoing[13] = msg.getText().length();
-        outGoing[14] = size;  // number of receiverSubscribeIds to be sent
-
-        // send ints over together using view buffer
-        buffer.asIntBuffer().put(outGoing);
-
-        // position original buffer at position of view buffer
-        buffer.position(60);
-
-        // now send ids
-        if (idList != null) {
-            for (Integer i : idList) {
-                buffer.putInt(i.intValue());
+        if (nullResponse) {
+            buffer.putInt(msgType);
+            // send number of ids to follow
+            buffer.putInt(size);
+            // now send ids
+            if (idList != null) {
+                for (Integer i : idList) {
+                    buffer.putInt(i.intValue());
+                }
+            }
+            // send buffer over the socket
+            buffer.flip();
+            while (buffer.hasRemaining()) {
+                channel.write(buffer);
             }
         }
+        else {
+            // write 14 ints
+            int outGoing[] = new int[15];
+            outGoing[0] = msgType;
+            outGoing[1] = msg.getVersion();
+            outGoing[2] = msg.getPriority();
+            outGoing[3] = msg.getUserInt();
+            outGoing[4] = msg.isGetRequest() ? 1 : 0;
+            outGoing[5] = (int) (msg.getSenderTime().getTime() / 1000L);
+            outGoing[6] = (int) (msg.getUserTime().getTime() / 1000L);
+            outGoing[7] = msg.getSysMsgId();
+            outGoing[8] = msg.getSenderToken();
+            outGoing[9] = msg.getSender().length();
+            outGoing[10] = msg.getSenderHost().length();
+            outGoing[11] = msg.getSubject().length();
+            outGoing[12] = msg.getType().length();
+            outGoing[13] = msg.getText().length();
+            outGoing[14] = size;  // number of receiverSubscribeIds to be sent
 
-        // write strings
-        try {
-            buffer.put(msg.getSender().getBytes("US-ASCII"));
-            buffer.put(msg.getSenderHost().getBytes("US-ASCII"));
-            buffer.put(msg.getSubject().getBytes("US-ASCII"));
-            buffer.put(msg.getType().getBytes("US-ASCII"));
-            buffer.put(msg.getText().getBytes("US-ASCII"));
+            // send ints over together using view buffer
+            buffer.asIntBuffer().put(outGoing);
+
+            // position original buffer at position of view buffer
+            buffer.position(60);
+
+            // now send ids
+            if (idList != null) {
+                for (Integer i : idList) {
+                    buffer.putInt(i.intValue());
+                }
+            }
+
+            // write strings
+            try {
+                buffer.put(msg.getSender().getBytes("US-ASCII"));
+                buffer.put(msg.getSenderHost().getBytes("US-ASCII"));
+                buffer.put(msg.getSubject().getBytes("US-ASCII"));
+                buffer.put(msg.getType().getBytes("US-ASCII"));
+                buffer.put(msg.getText().getBytes("US-ASCII"));
+            }
+            catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            }
+
+            // send buffer over the socket
+            buffer.flip();
+            while (buffer.hasRemaining()) {
+                channel.write(buffer);
+            }
+
+            if (!acknowlege) {
+                return true;
+            }
+
+            // read acknowledgment - 1 int of data
+            cMsgUtilities.readSocketBytes(buffer, channel, 4, cMsgConstants.debugNone);
+            buffer.flip();
+
+            if (buffer.getInt() != cMsgConstants.ok) return false;
         }
-        catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
-
-        // send buffer over the socket
-        buffer.flip();
-        while (buffer.hasRemaining()) {
-            channel.write(buffer);
-        }
-
-        if (!acknowlege) {
-            return true;
-        }
-
-        // read acknowledgment - 1 int of data
-        cMsgUtilities.readSocketBytes(buffer, channel, 4, cMsgConstants.debugNone);
-        buffer.flip();
-
-        if (buffer.getInt() != cMsgConstants.ok) return false;
         return true;
     }
 

@@ -22,14 +22,17 @@ import java.nio.channels.SocketChannel;
 /**
  * Class used to help in implementing a client's "get" method. An object of this
  * class stores a msg from the server to the "get" caller and is used to
- * synchronize/wait/notify on.
+ * synchronize/wait/notify on. It also indicates whether the call timed out or not.
  *
  * Also used to implement Domain server by storing an incoming message along with
- * subject, type, and id for later action by a thread from the thread pool.
+ * subject, type, id, and request for later action by a thread from the thread pool.
  */
 class cMsgHolder {
     /** Location to store message object. */
     cMsgMessageFull message;
+
+    /** Has the "get" call timed out? */
+    boolean timedOut = true;
 
     /** Store subject. */
     String subject;

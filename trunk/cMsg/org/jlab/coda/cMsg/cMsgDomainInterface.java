@@ -22,10 +22,11 @@
 package org.jlab.coda.cMsg;
 
 import java.lang.*;
+import java.util.concurrent.TimeoutException;
 
 
 /**
- * This interface is the cMsg client API for all domains.
+ * This interface is the cMsg client API for cMsg domain.
  *
  * @author Elliott Wolin
  * @author Carl Timmer
@@ -88,21 +89,26 @@ public interface cMsgDomainInterface {
      * @param timeout time in milliseconds to wait for a message
      * @return response message
      * @throws cMsgException
+     * @throws TimeoutException if timeout occurs
      */
-    public cMsgMessage subscribeAndGet(String subject, String type, int timeout) throws cMsgException;
+    public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
+            throws cMsgException, TimeoutException;
 
     /**
      * The message is sent as it would be in the {@link #send} method. The server notes
      * the fact that a response to it is expected, and sends it to all subscribed to its
      * subject and type. When a marked response is received from a client, it sends that
      * first response back to the original sender regardless of its subject or type.
+     * The response may be null.
      *
      * @param message message sent to server
      * @param timeout time in milliseconds to wait for a reponse message
      * @return response message
      * @throws cMsgException
+     * @throws TimeoutException if timeout occurs
      */
-    public cMsgMessage sendAndGet(cMsgMessage message, int timeout) throws cMsgException;
+    public cMsgMessage sendAndGet(cMsgMessage message, int timeout)
+            throws cMsgException, TimeoutException;
 
     /**
      * Method to subscribe to receive messages of a subject and type from the domain server.

@@ -128,5 +128,7 @@ public class cMsgConstants {
     public static final int    msgGetResponseWithAck       = 15;
     /** Respond with message to the subscribe command and wait for client acknowledgment. */
     public static final int    msgSubscribeResponseWithAck = 16;
+    /** Respond to a "sendAndGet" command is null. */
+    public static final int    msgGetResponseIsNull        = 17;
 
 }

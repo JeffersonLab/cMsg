@@ -218,6 +218,15 @@ public class cMsgClientListeningThread extends Thread {
 
                      break;
 
+                 case cMsgConstants.msgGetResponseIsNull: // receiving null for sendAndGet
+                     // read the ids to be notified
+                     readIds(channel);
+
+                     // run callbacks for this message
+                     wakeGets(null);
+
+                     break;
+
                  case cMsgConstants.msgSubscribeResponseWithAck: // receiving a message, send ack
                      // read the message here
                      msg = readIncomingMessage(channel);
@@ -400,6 +409,43 @@ public class cMsgClientListeningThread extends Thread {
 
 
     /**
+     * This method reads incoming receiver-subscribe ids from a clientHandler object.
+     *
+     * @param channel nio socket communication channel
+     * @throws IOException if socket read or write error
+     */
+    private void readIds(SocketChannel channel) throws IOException {
+
+        // keep reading until we have 1 int of data
+        cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
+
+        // go back to reading-from-buffer mode
+        buffer.flip();
+
+        // number of receiverSubscribe ids to come
+        rsIdCount = buffer.getInt();
+
+        if (rsIdCount > 0) {
+            // keep reading until we have "rsIdCount" ints of data
+            cMsgUtilities.readSocketBytes(buffer, channel, rsIdCount*4, debug);
+
+            // go back to reading-from-buffer mode
+            buffer.flip();
+
+            // make sure we have enough space in the int array
+            if (rsIdCount > rsIds.length) {
+                rsIds = new int[rsIdCount];
+            }
+
+            // read ints into array for future use
+            buffer.asIntBuffer().get(rsIds, 0, rsIdCount);
+        }
+
+        return;
+    }
+
+
+    /**
      * This method runs all appropriate callbacks - each in their own thread.
      * Different callbacks are run depending on the subject and type of the
      * incoming message. It also wakes up all active general-get methods.
@@ -454,7 +500,8 @@ public class cMsgClientListeningThread extends Thread {
             holder = client.generalGets.remove(rsIds[i]);
 
             if (holder != null) {
-                holder.message = msg.copy();
+                holder.timedOut = false;
+                holder.message  = msg.copy();
 //System.out.println("Sending notify for subscribeAndGet");
                 // Tell the get-calling thread to wakeup and retrieved the held msg
                 synchronized (holder) {
@@ -486,6 +533,7 @@ public class cMsgClientListeningThread extends Thread {
         if (holder == null) {
             return;
         }
+        holder.timedOut = false;
         // Do NOT need to copy msg as only 1 receiver gets it
         holder.message = msg;
         // Tell the get-calling thread to wakeup and retrieved the held msg
