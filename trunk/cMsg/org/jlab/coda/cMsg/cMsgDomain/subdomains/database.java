@@ -32,6 +32,9 @@ import java.sql.*;
 import java.util.regex.*;
 
 
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
 
 /**
  * cMsg subdomain handler for database subdomain.
@@ -46,19 +49,16 @@ import java.util.regex.*;
 public class database implements cMsgHandleRequests {
 
 
-    // register params
-    private String myName;
-    private String myHost;
-    private int myPort;
-
-
     /** UDL remainder for this subdomain handler. */
     private String myUDLRemainder;
 
 
-    // database access objects
+    /** database access objects. */
     Connection myCon         = null;
     Statement myStmt         = null;
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -73,6 +73,9 @@ public class database implements cMsgHandleRequests {
     };
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to tell if the "get" cMsg API function is implemented
      * by this interface implementation in the {@link #handleGetRequest}
@@ -83,6 +86,9 @@ public class database implements cMsgHandleRequests {
     public boolean hasGet() {
         return false;
     };
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -97,6 +103,9 @@ public class database implements cMsgHandleRequests {
     };
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to tell if the "subscribe" cMsg API function is implemented
      * by this interface implementation in the {@link #handleSubscribeRequest}
@@ -107,6 +116,9 @@ public class database implements cMsgHandleRequests {
     public boolean hasSubscribe() {
         return false;
     };
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -121,6 +133,9 @@ public class database implements cMsgHandleRequests {
     };
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to give the subdomain handler the appropriate part
      * of the UDL the client used to talk to the domain server.
@@ -133,6 +148,9 @@ public class database implements cMsgHandleRequests {
     }
     
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to register domain client.
      * Creates separate database connection for each client connection.
@@ -143,12 +161,6 @@ public class database implements cMsgHandleRequests {
      * @throws cMsgException upon error
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
-
-
-        myName = info.getName();
-        myHost = info.getClientHost();
-        myPort = info.getClientPort();
-
 
         // db params
         String driver = null;
@@ -248,6 +260,9 @@ public class database implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Executes sql insert or update statement from message payload.
      *
@@ -284,6 +299,9 @@ public class database implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to handle message sent by domain client in synchronous mode.
      * It requries an integer response from the subdomain handler.
@@ -296,6 +314,9 @@ public class database implements cMsgHandleRequests {
         handleSendRequest(msg);
         return (0);
     }
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -314,6 +335,9 @@ public class database implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to handle sunsubscribe request sent by domain client.
      * This method is run after all exchanges between domain server and client.
@@ -328,6 +352,9 @@ public class database implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to synchronously get a single message from the server for a given
      * subject and type -- perhaps from a specified receiver.
@@ -337,6 +364,9 @@ public class database implements cMsgHandleRequests {
     public void handleGetRequest(cMsgMessage message) {
         // do nothing...
     }
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -350,6 +380,9 @@ public class database implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to handle keepalive sent by domain client checking to see
      * if the domain server socket is still up. Normally nothing needs to
@@ -359,6 +392,9 @@ public class database implements cMsgHandleRequests {
     public void handleKeepAlive() {
         // do nothing...
     }
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -377,6 +413,9 @@ public class database implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to handle a complete name server down.
      * This method is run after all exchanges between domain server and client but
@@ -386,4 +425,9 @@ public class database implements cMsgHandleRequests {
     public void handleServerShutdown() throws cMsgException {
     }
 
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 }
+
+

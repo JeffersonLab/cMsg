@@ -34,6 +34,9 @@ import java.io.*;
 import java.util.regex.*;
 
 
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
 
 /**
  * cMsg subdomain handler for LogFile subdomain.
@@ -62,12 +65,6 @@ public class LogFile implements cMsgHandleRequests {
     }
 
 
-    /** Name of client using this subdomain handler. */
-    private String myName;
-    private String myHost;
-    private int myPort;
-
-
     /** File name for this client. */
     private String myFileName;
 
@@ -86,6 +83,9 @@ public class LogFile implements cMsgHandleRequests {
 
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to tell if the "send" cMsg API function is implemented
      * by this interface implementation in the {@link #handleSendRequest}
@@ -96,6 +96,9 @@ public class LogFile implements cMsgHandleRequests {
     public boolean hasSend() {
         return true;
     };
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -110,6 +113,9 @@ public class LogFile implements cMsgHandleRequests {
     };
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to tell if the "get" cMsg API function is implemented
      * by this interface implementation in the {@link #handleGetRequest}
@@ -120,6 +126,9 @@ public class LogFile implements cMsgHandleRequests {
     public boolean hasGet() {
         return false;
     };
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -134,6 +143,9 @@ public class LogFile implements cMsgHandleRequests {
     };
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to tell if the "unsubscribe" cMsg API function is implemented
      * by this interface implementation in the {@link #handleUnsubscribeRequest}
@@ -144,6 +156,9 @@ public class LogFile implements cMsgHandleRequests {
     public boolean hasUnsubscribe() {
         return false;
     };
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -158,6 +173,9 @@ public class LogFile implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to register domain client.
      *
@@ -165,11 +183,6 @@ public class LogFile implements cMsgHandleRequests {
      * @throws cMsgException if unable to register
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
-
-        myName = info.getName();
-        myHost = info.getClientHost();
-        myPort = info.getClientPort();
-
 
         String remainder = null;  // not used yet...could hold file open flags..
         LogFileObject l;
@@ -239,6 +252,9 @@ public class LogFile implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to handle message sent by client.
      *
@@ -261,6 +277,9 @@ public class LogFile implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to handle message sent by domain client in synchronous mode.
      * It requries an integer response from the subdomain handler.
@@ -275,6 +294,9 @@ public class LogFile implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to synchronously get a single message from the server for a given
      * subject and type -- perhaps from a specified receiver.
@@ -286,6 +308,9 @@ public class LogFile implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to handle unget request sent by domain client (hidden from user).
      *
@@ -295,6 +320,9 @@ public class LogFile implements cMsgHandleRequests {
     public void handleUngetRequest(String subject, String type) {
         // do mothing
     }
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -312,6 +340,9 @@ public class LogFile implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to handle sunsubscribe request sent by domain client.
      * This method is run after all exchanges between domain server and client.
@@ -325,6 +356,9 @@ public class LogFile implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to handle keepalive sent by domain client checking to see
      * if the domain server socket is still up. Normally nothing needs to
@@ -334,6 +368,9 @@ public class LogFile implements cMsgHandleRequests {
     public void handleKeepAlive() {
         // do nothing...
     }
+
+
+//-----------------------------------------------------------------------------
 
 
     /**
@@ -354,6 +391,9 @@ public class LogFile implements cMsgHandleRequests {
     }
 
 
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to handle a complete name server shutdown.
      * This method is run after all exchanges between domain server and client but
@@ -365,3 +405,7 @@ public class LogFile implements cMsgHandleRequests {
     }
 
 }
+
+
+//-----------------------------------------------------------------------------
+
