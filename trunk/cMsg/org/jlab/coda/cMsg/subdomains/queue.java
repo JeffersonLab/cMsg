@@ -40,14 +40,14 @@ import java.util.Date;
 /**
  * cMsg subdomain handler for queue subdomain.
  *
- * UDL:  cMsg:cMsg://host:port/queue/myQueueName?driver=myDriver&url=myURL&account=muAccount&password=myPassword
+ * UDL:  cMsg:cMsg://host:port/queue/myQueueName?driver=myDriver&url=myURL&account=myAccount&password=myPassword
  *
- * e.g. cMsg:cMsg://ollie/queue/myQueue?driver=com.mysql.jdbc.Driver&url=jdbc:mysql://myHost/myDatabase
+ * e.g. cMsg:cMsg://ollie/queue/ejw?driver=com.mysql.jdbc.Driver&url=jdbc:mysql://xdaq/test&user=davidl
  *
  * stores/retrieves cMsgMessageFull messages from SQL database.
  * Gets database parameters from UDL.
  *
- * Works with mySQL.
+ * Supported database so far:  mySQL
  *
  * @author Elliiott Wolin
  * @version 1.0
