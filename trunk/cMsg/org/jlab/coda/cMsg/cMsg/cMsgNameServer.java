@@ -249,7 +249,7 @@ public class cMsgNameServer extends Thread {
      * @param info object containing information about the client
      * @throws cMsgException If a domain server could not be started for the client
      */
-    synchronized public void registerClient(String name, cMsgClientInfo info) throws cMsgException {
+    synchronized public cMsgHandleRequests registerClient(String name, cMsgClientInfo info) throws cMsgException {
         cMsgHandleRequests clientHandler = createClientHandler(info.subdomain,
                                                                info.UDLRemainder);
 
@@ -270,6 +270,8 @@ public class cMsgNameServer extends Thread {
         server.setDaemon(true);
         server.start();
         domainServers.put(server, null);
+
+        return clientHandler;
     }
 
 
@@ -457,17 +459,27 @@ public class cMsgNameServer extends Thread {
                     System.out.println("name server to register " + name);
                 }
 
-                registerClient(name, info);
+                cMsgHandleRequests handler = registerClient(name, info);
 
                 buffer.clear();
 
                 // send ok back as acknowledgment
                 buffer.putInt(cMsgConstants.ok);
 
+                // send back attributes of clientHandler class/object
+                // 1 = has, 0 = don't have: send, get, subscribe, unsubscribe
+                byte[] atts = new byte[4];
+                atts[0] = handler.hasSend()        ? (byte)1 : (byte)0;
+                atts[1] = handler.hasGet()         ? (byte)1 : (byte)0;
+                atts[2] = handler.hasSubscribe()   ? (byte)1 : (byte)0;
+                atts[3] = handler.hasUnsubscribe() ? (byte)1 : (byte)0;
+                buffer.put(atts);
+
                 // send cMsg domain host & port contact info back to client
                 buffer.putInt(info.domainPort);
                 buffer.putInt(info.domainHost.length());
                 buffer.put(info.domainHost.getBytes("US-ASCII")).flip();
+
                 while (buffer.hasRemaining()) {
                     channel.write(buffer);
                 }
