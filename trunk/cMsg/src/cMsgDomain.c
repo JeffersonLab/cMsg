@@ -51,6 +51,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <errno.h>
+#include <time.h>
 
 
 /* package includes */
@@ -1346,7 +1347,7 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
   free(info->subject);
   free(info->type);
   info->active = 0;
-
+  
   /*printf("get: SUCCESS!!!\n");*/
 
   return(CMSG_OK);
@@ -2421,12 +2422,16 @@ static void *callbackThread(void *arg)
     int numMsgs, numThreads;
     cMsgMessage *msg;
     pthread_t thd;
-
+    /*time_t now, t;*/ /* for printing msg cue size periodically */
+    
     /* increase concurrency for this thread for early Solaris */
     int  con;
     con = sun_getconcurrency();
     sun_setconcurrency(con + 1);
-        
+    
+    /* for printing msg cue size periodically */
+    /* now = time(NULL); */
+
     /* release system resources when thread finishes */
     pthread_detach(pthread_self());
 
@@ -2499,9 +2504,7 @@ static void *callbackThread(void *arg)
           goto end;
         }
       }
-
-      /*printf("     %d\n",subscription->messages);*/
-      
+            
       /* get first message in linked list */
       msg = subscription->head;
 
@@ -2513,8 +2516,8 @@ static void *callbackThread(void *arg)
       /* else make the next message the head */
       else {
         subscription->head = msg->next;
-     }
-     subscription->messages--;
+      }
+      subscription->messages--;
      
       /* unlock mutex */
       status = pthread_mutex_unlock(&subscription->mutex);
@@ -2522,6 +2525,15 @@ static void *callbackThread(void *arg)
         err_abort(status, "Failed callback mutex unlock");
       }
       
+      /* print out number of messages in cue */
+      /*
+      t = time(NULL);
+      if (now + 5 <= t) {
+        printf("     %d\n",subscription->messages);
+        now = t;
+      }
+      */
+
       /* run callback */
 #ifdef	__cplusplus
       subscription->callback->callback(cMsgMessageBase(msg), subscription->userArg); 
@@ -3379,11 +3391,11 @@ static void domainClear(cMsgDomain_CODA *domain) {
 /** This routine locks the pthread mutex used when creating unique id numbers. */
 static void mutexLock(void) {
 
-/*   int status = pthread_mutex_lock(&generalMutex);
+  int status = pthread_mutex_lock(&generalMutex);
   if (status != 0) {
     err_abort(status, "Failed mutex lock");
   }
- */}
+}
 
 
 /*-------------------------------------------------------------------*/
@@ -3392,11 +3404,11 @@ static void mutexLock(void) {
 /** This routine unlocks the pthread mutex used when creating unique id numbers. */
 static void mutexUnlock(void) {
 
-/*   int status = pthread_mutex_unlock(&generalMutex);
+  int status = pthread_mutex_unlock(&generalMutex);
   if (status != 0) {
     err_abort(status, "Failed mutex unlock");
   }
- */}
+}
 
 
 /*-------------------------------------------------------------------*/
@@ -3410,11 +3422,11 @@ static void mutexUnlock(void) {
  */
 static void connectReadLock(void) {
 
-/*   int status = rwl_readlock(&connectLock);
+  int status = rwl_readlock(&connectLock);
   if (status != 0) {
     err_abort(status, "Failed read lock");
   }
- */}
+}
 
 
 /*-------------------------------------------------------------------*/
@@ -3428,11 +3440,11 @@ static void connectReadLock(void) {
  */
 static void connectReadUnlock(void) {
 
-/*   int status = rwl_readunlock(&connectLock);
+  int status = rwl_readunlock(&connectLock);
   if (status != 0) {
     err_abort(status, "Failed read unlock");
   }
- */}
+}
 
 
 /*-------------------------------------------------------------------*/
@@ -3446,11 +3458,11 @@ static void connectReadUnlock(void) {
  */
 static void connectWriteLock(void) {
 
-/*   int status = rwl_writelock(&connectLock);
+  int status = rwl_writelock(&connectLock);
   if (status != 0) {
     err_abort(status, "Failed read lock");
   }
- */}
+}
 
 
 /*-------------------------------------------------------------------*/
@@ -3464,11 +3476,11 @@ static void connectWriteLock(void) {
  */
 static void connectWriteUnlock(void) {
 
-/*   int status = rwl_writeunlock(&connectLock);
+  int status = rwl_writeunlock(&connectLock);
   if (status != 0) {
     err_abort(status, "Failed read unlock");
   }
- */}
+}
 
 
 /*-------------------------------------------------------------------*/
@@ -3480,11 +3492,11 @@ static void connectWriteUnlock(void) {
  */
 static void socketMutexLock(cMsgDomain_CODA *domain) {
 
-/*   int status = pthread_mutex_lock(&domain->socketMutex);
+  int status = pthread_mutex_lock(&domain->socketMutex);
   if (status != 0) {
     err_abort(status, "Failed socket mutex lock");
   }
- */}
+}
 
 
 /*-------------------------------------------------------------------*/
@@ -3496,11 +3508,11 @@ static void socketMutexLock(cMsgDomain_CODA *domain) {
  */
 static void socketMutexUnlock(cMsgDomain_CODA *domain) {
 
-/*   int status = pthread_mutex_unlock(&domain->socketMutex);
+  int status = pthread_mutex_unlock(&domain->socketMutex);
   if (status != 0) {
     err_abort(status, "Failed socket mutex unlock");
   }
- */}
+}
 
 
 /*-------------------------------------------------------------------*/
