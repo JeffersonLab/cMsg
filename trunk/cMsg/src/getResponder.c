@@ -25,44 +25,40 @@
 #include "cMsg.h"
 
 int count = 0, domainId=-1;
-void mycallback(void *msg, void *arg);
-
-/************************************/
-/*           Globals.               */
-/************************************/
-double secondsPerLoop = 5.e-7;
-
-/******************************************************************/
-void timeDelay(int usec) {
-  int i, loops;
-  double u;
-  
-  loops = usec*1.e-6/secondsPerLoop;
-  /* printf("timeDelay: %d loops for %d usec\n",loops, usec); */
+ 
+void mycallback(void *msg, void *arg) {
+    struct timespec wait;
+    /* Create a response to the incoming message */
+    void *sendMsg = cMsgCreateResponseMessage(msg);
     
-  for (i=0; i < loops; i++) {
-    u = sqrt(pow((double)i, 2.));
-  }
-  return;
-}
-
-
-/******************************************************************/
-void calibrateDelay() {
-  int i, loops = 5000000;
-  double u, time;
-  struct timespec t1, t2;
-  
-  clock_gettime(CLOCK_REALTIME, &t1);
-  for (i=0; i < loops; i++) {
-    u = sqrt(pow((double)i, 2.));
-  }
-  clock_gettime(CLOCK_REALTIME, &t2);
-  time = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
-  secondsPerLoop = time/loops;
-  printf("calibrateDelay: %e seconds/loop, time of measurement = %4.2f sec\n",
-		secondsPerLoop, time);
-  return;
+    /*
+     * If we've run out of memory, msg is NULL, or
+     * msg was not sent from a sendAndGet() call,
+     * sendMsg will be NULL.
+     */
+    if (sendMsg == NULL) {
+        cMsgFreeMessage(msg);
+        return;
+    }
+    
+    cMsgSetSubject(sendMsg, "RESPONDING");
+    cMsgSetType(sendMsg,"TO MESSAGE");
+    cMsgSetText(sendMsg,"responder's text");
+    
+    cMsgSend(domainId, sendMsg);
+    cMsgFlush(domainId);
+    
+    /*
+     * By default, subscriptions run callbacks serially. 
+     * If that is not the case, global data (like "count")
+     * must be mutex protected.
+     */
+    count++;
+    
+    /* user MUST free messages passed to the callback */
+    cMsgFreeMessage(msg);
+    /* user MUST free messages created in this callback */
+    cMsgFreeMessage(sendMsg);
 }
 
 
@@ -75,21 +71,21 @@ int main(int argc,char **argv) {
   char *type    = "TYPE";
   char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
   int   err, debug = 1, loops=0;
-  
+  cMsgSubscribeConfig *config;
+
   /* msg rate measuring variables */
   int             period = 5; /* sec */
   double          freq, freqAvg=0., totalT=0.;
   long long       totalC=0;
-  
+
   if (argc > 1) {
     myName = argv[1];
   }
   
   if (debug) {
     printf("Running the cMsg C getResponsder, \"%s\"\n", myName);
+    cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
   }
-  
-  /*calibrateDelay();*/
   
   /* connect to cMsg server */
   err = cMsgConnect(UDL, myName, myDescription, &domainId);
@@ -106,8 +102,18 @@ int main(int argc,char **argv) {
   /* set debug level */
   cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
     
+  /* set the subscribe configuration */
+  config = cMsgSubscribeConfigCreate();
+  cMsgSubscribeSetMaxCueSize(config, 10000);
+  cMsgSubscribeSetSkipSize(config, 2000);
+  cMsgSubscribeSetMaySkip(config, 0);
+  cMsgSubscribeSetMustSerialize(config, 1);
+  cMsgSubscribeSetMaxThreads(config, 10);
+  cMsgSubscribeSetMessagesPerThread(config, 150);
+  cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
+
   /* subscribe with default configuration */
-  err = cMsgSubscribe(domainId, subject, type, mycallback, NULL, NULL);
+  err = cMsgSubscribe(domainId, subject, type, mycallback, NULL, config);
   if (err != CMSG_OK) {
       if (debug) {
           printf("cMsgSubscribe: %s\n",cMsgPerror(err));
@@ -131,48 +137,4 @@ int main(int argc,char **argv) {
   }
 
   return(0);
-}
-
-
- 
-void mycallback(void *msg, void *arg) {
-    struct timespec wait;
-    /* Create a response to the incoming message */
-    void *sendMsg = cMsgCreateResponseMessage(msg);
-    /*
-     * If we've run out of memory, msg is NULL, or
-     * msg was not sent from a sendAndGet() call,
-     * sendMsg will be NULL.
-     */
-    if (sendMsg == NULL) {
-        /* user MUST free messages passed to the callback */
-        cMsgFreeMessage(msg);
-        return;
-    }
-    
-    cMsgSetSubject(sendMsg, "RESPONDING");
-    cMsgSetType(sendMsg,"TO MESSAGE");
-    cMsgSetText(sendMsg,"responder's text");
-    
-    /*timeDelay(10);*/
-    /*
-    wait.tv_sec  = 0;
-    wait.tv_nsec = 1000000;
-    nanosleep(&wait, NULL);
-    */
-/*printf("SEND A MESSAGE: subject = RESPONDNG, type = TO MESSAGE\n");*/
-    cMsgSend(domainId, sendMsg);
-    cMsgFlush(domainId);
-    
-    /*
-     * By default, subscriptions run callbacks serially. 
-     * If that is not the case, global data (like "count")
-     * must be mutex protected.
-     */
-    count++;
-    
-    /* user MUST free messages passed to the callback */
-    cMsgFreeMessage(msg);
-    /* user MUST free messages created in this callback */
-    cMsgFreeMessage(sendMsg);
 }
