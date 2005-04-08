@@ -394,6 +394,11 @@ public class cMsgDomainServer extends Thread {
         public void run() {
             int msgId;
             boolean useSubscribeCue;
+            /*
+            // for printing out request cue size periodically
+            Date now, t;
+            now = new Date();
+            */
 
             try {
                 while (true) {
@@ -508,6 +513,15 @@ public class cMsgDomainServer extends Thread {
                             catch (InterruptedException e) {}
                         }
                     }
+
+                    /*
+                    // print out request cue size periodically
+                    t = new Date();
+                    if (now.getTime() + 2000 <= t.getTime()) {
+                        System.out.println("request cue for " + info.getName() + "= " + requestCue.size());
+                        now = t;
+                    }
+                    */
 
                     // if the cue is getting too large, add temp threads to handle the load
                     if (requestCue.size() > 2000 && tempThreads.get() < tempThreadsMax) {
