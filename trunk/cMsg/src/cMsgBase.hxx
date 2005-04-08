@@ -1,12 +1,5 @@
-// to do
-//   cMsgMessageBase
-//   test callback class
-//   add remaining functions
-//   Carl:  const void*, const timespec*
-
-
 /** 
- * Class definitions for cMsg C++ wrapper class.
+ * Class definitions for cMsg C++ wrapper classes.
  */
 
 
@@ -31,13 +24,18 @@
 #define _cMsgBase_hxx
 
 
+using namespace std;
+#include <string>
+
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
 
 class cMsgException {
 
-  /** Most cMsg functions throw pointer to cMsgException, 
+  /**
+   * Most cMsg functions throw a cMsgException, 
    *   which contains return code and error description string.
    *
    * @version 1.0
@@ -45,20 +43,20 @@ class cMsgException {
 
 
 private:
-  char *myDescr;
+  string myDescr;
   int myReturnCode;
 
 
 public:
-
   cMsgException(void);
-  cMsgException(const char *c);
-  cMsgException(const char *c, int i);
+  cMsgException(const string &c);
+  cMsgException(const string &c, int i);
+  cMsgException(const cMsgException &e);
   ~cMsgException(void);
 
   virtual void setReturnCode(int i);
   virtual int getReturnCode(void);
-  virtual const char *toString(void);
+  virtual string toString(void);
 };
 
 
@@ -69,7 +67,13 @@ public:
 class cMsgMessageBase {
   
   /**
-   * Wrapper for cMsg message class.
+   * Wrapper for cMsg message class.  
+   *
+   * Due to a name clash between the C and C++ API's, cMsgMessageBase 
+   *  is typedef'd to cMsgMessage in cMsg.hxx, so it is only 
+   *  available in user code.
+   *
+   * Internally cMsgMessageBase is always used.
    *
    * @version 1.0
    */
@@ -84,20 +88,43 @@ private:
   
   
 public:
-  
-  cMsgMessageBase(void);
-  cMsgMessageBase(void *msgPointer);
-  ~cMsgMessageBase(void);
+  cMsgMessageBase(void) throw(cMsgException);
+  cMsgMessageBase(const cMsgMessageBase &m) throw(cMsgException);
+  cMsgMessageBase(void *msgPointer) throw(cMsgException);
+  ~cMsgMessageBase(void) throw(cMsgException);
 
-  virtual const char *getSubject(void);
-  virtual void setSubject(const char *subject);
-  virtual const char *getType(void);
-  virtual void setType(const char *type);
-  virtual const char *getText(void);
-  virtual void setText(const char *text);
-  virtual int getUserInt(void);
-  virtual void setUserInt(int i);
-  virtual int getVersion(void);
+  virtual string getSubject(void) throw(cMsgException);
+  virtual void setSubject(const string &subject) throw(cMsgException);
+  virtual string getType(void) throw(cMsgException);
+  virtual void setType(const string &type) throw(cMsgException);
+  virtual string getText(void) throw(cMsgException);
+  virtual void setText(const string &text) throw(cMsgException);
+  virtual int getUserInt(void) throw(cMsgException);
+  virtual void setUserInt(int i) throw(cMsgException);
+  virtual timespec getUserTime(void) throw(cMsgException);
+  virtual void setUserTime(const timespec &userTime) throw(cMsgException);
+  virtual int getVersion(void) throw(cMsgException);
+  virtual string getDomain(void) throw(cMsgException);
+  virtual string getCreator(void) throw(cMsgException);
+  virtual string getReceiver(void) throw(cMsgException);
+  virtual string getReceiverHost(void) throw(cMsgException);
+  virtual string getSender(void) throw(cMsgException);
+  virtual string getSenderHost(void) throw(cMsgException);
+  virtual timespec getReceiverTime(void) throw(cMsgException);
+  virtual timespec getSenderTime(void) throw(cMsgException);
+  virtual bool isGetRequest(void) throw(cMsgException);
+  virtual bool isGetResponse(void) throw(cMsgException);
+  virtual bool isNullGetResponse(void) throw(cMsgException);
+  virtual void makeNullResponse(cMsgMessageBase &msg) throw(cMsgException);
+  virtual void makeNullResponse(cMsgMessageBase *msg) throw(cMsgException);
+  virtual void makeResponse(cMsgMessageBase &msg) throw(cMsgException);
+  virtual void makeResponse(cMsgMessageBase *msg) throw(cMsgException);
+  virtual void setGetResponse(bool b) throw(cMsgException);
+  virtual void setNullGetResponse(bool b) throw(cMsgException);
+  virtual string toString(void) throw(cMsgException);
+  virtual cMsgMessageBase copy(void) throw(cMsgException);
+  virtual cMsgMessageBase nullResponse(void) throw(cMsgException);
+  virtual cMsgMessageBase response(void) throw(cMsgException);
 };
 
 
@@ -108,13 +135,47 @@ public:
 class cMsgCallback {
 
   /**
-   * Pure virtual base for needed for c interface.
+   * Pure virtual base class for needed for c interface.
    *
    * @version 1.0
    */
 
 public:
-  virtual void callback(cMsgMessageBase &msg, const void *userObject) = 0;
+  virtual void callback(cMsgMessageBase msg, void *userObject) = 0;
+};
+
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+
+class cMsgShutdownHandlerInterface {
+
+  /**
+   * Pure virtual class defines shutdown handler method.
+   *
+   * @version 1.0
+   */
+
+public:
+  virtual void handleShutdown(void) = 0;
+};
+
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+
+class cMsgShutdownHandlerDefault:public cMsgShutdownHandlerInterface {
+
+  /**
+   * Concrete class supplies default shutdown handler.
+   *
+   * @version 1.0
+   */
+
+public:
+  virtual void handleShutdown(void);
 };
 
 
@@ -147,13 +208,16 @@ public:
 class cMsgCallbackAdapter:public cMsgCallbackInterface {
 
   /**
-   * Concrete class implements cMsgCallbackInterface default methods.
+   * Concrete class implements default cMsgCallbackInterface methods and 
+   *  sets default parameters.
+   *
+   * Users can override as desired.
    *
    * @version 1.0
    */
 
 public:
-  virtual void callback(cMsgMessageBase &msg, const void *userObject);
+  virtual void callback(cMsgMessageBase msg, void *userObject);
   virtual bool maySkipMessages(void);
   virtual bool mustSerializeMessages(void);
   virtual int getMaxCueSize(void);
@@ -170,34 +234,55 @@ public:
 class cMsg {
 
   /**
-   * Wrapper for main cMsg class.
-   * Uses special cMsg C++ functions to accomodate instance pointers in
-   *   subscribe() and unsubscribe() methods.
+   * Main cMsg wrapper class.
+   *
+   * The C++ API is as similar to the Java API as possible, but they are 
+   *   different due to differnces in the two languages.
    *
    * @version 1.0
    */
 
 private:
   int myDomainId;
+  string myUDL;
+  string myName;
+  string myDescr;
+  bool connected;
+  bool receiving;
 
 
 public:
-
-  cMsg(const char *UDL, const char *name, const char *descr);
+  cMsg(const string &UDL, const string &name, const string &descr);
   ~cMsg(void);
 
-  virtual void send(cMsgMessageBase &msg);
-  virtual int  syncSend(cMsgMessageBase &msg);
-  virtual void flush(void);
-  virtual void subscribe(const char *subject, const char *type, cMsgCallbackAdapter *cba, const void *userArg);
-  virtual void subscribe(const char *subject, const char *type, cMsgCallbackAdapter &cba, const void *userArg);
-  virtual void unsubscribe(const char *subject, const char *type, cMsgCallbackAdapter *cba, const void *userArg);
-  virtual void unsubscribe(const char *subject, const char *type, cMsgCallbackAdapter &cba, const void *userArg);
-  virtual void sendAndGet(cMsgMessageBase &sendMsg, const struct timespec *timeout, cMsgMessageBase **replyMsg);
-  virtual void subscribeAndGet(const char *subject, const char *type, const struct timespec *timeout, cMsgMessageBase **replyMsg);
-  virtual void start(void);
-  virtual void stop(void);
-  virtual void disconnect(void);
+  virtual void connect() throw(cMsgException);
+  virtual void disconnect(void) throw(cMsgException);
+  virtual void send(cMsgMessageBase &msg) throw(cMsgException);
+  virtual void send(cMsgMessageBase *msg) throw(cMsgException);
+  virtual int  syncSend(cMsgMessageBase &msg) throw(cMsgException);
+  virtual int  syncSend(cMsgMessageBase *msg) throw(cMsgException);
+  virtual void subscribe(const string &subject, const string &type, cMsgCallbackAdapter *cba, void *userArg)
+    throw(cMsgException);
+  virtual void subscribe(const string &subject, const string &type, cMsgCallbackAdapter &cba, void *userArg)
+    throw(cMsgException);
+  virtual void unsubscribe(const string &subject, const string &type, cMsgCallbackAdapter *cba, void *userArg)
+    throw(cMsgException);
+  virtual void unsubscribe(const string &subject, const string &type, cMsgCallbackAdapter &cba, void *userArg)
+    throw(cMsgException);
+  virtual cMsgMessageBase sendAndGet(cMsgMessageBase &sendMsg, const timespec &timeout) throw(cMsgException);
+  virtual cMsgMessageBase sendAndGet(cMsgMessageBase *sendMsg, const timespec &timeout) throw(cMsgException);
+  virtual cMsgMessageBase subscribeAndGet(const string &subject, const string &type, const timespec &timeout)
+    throw(cMsgException);
+  virtual void flush(void) throw(cMsgException);
+  virtual void start(void) throw(cMsgException);
+  virtual void stop(void) throw(cMsgException);
+  virtual string getUDL(void);
+  virtual string getName(void);
+  virtual string getDescription(void);
+  virtual bool isConnected(void);
+  virtual bool isReceiving(void);
+  virtual void setShutdownHandler(cMsgShutdownHandlerInterface *handler, void* userArg) throw(cMsgException);
+  virtual void shutdown(string &client, string &server, int flag) throw(cMsgException);
 };
 
 
