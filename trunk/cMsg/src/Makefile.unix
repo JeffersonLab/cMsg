@@ -68,14 +68,16 @@ OBJS =  rwlock.o \
 #	rcadUtil.o \
 #	rcAgentDomain.o
 
-SRCXX =	cMsgNetwork.c \
+SRCXX =	rwlock.c \
+	cMsgNetwork.c \
 	cMsg.c \
 	cMsgDomainListenThread.c \
 	cMsgDomain.c \
 	cMsgWrapper.cc
 
 
-OBJSXX = cMsgNetwork.o \
+OBJSXX = rwlock.o \
+         cMsgNetwork.o \
 	 cMsg.o \
 	 cMsgDomainListenThread.o \
 	 cMsgDomain.o \
@@ -97,6 +99,10 @@ install: all install-lib install-inc install-bin
 install-lib: $(CMSG_LIBS) $(CMSG_LIBSXX)
 	@echo "Installing CMSG libraries in $(LIB_DIR)"
 	@for i in $(CMSG_LIBS); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
+           done;
+	@for i in $(CMSG_LIBSXX); do \
 	   echo "  installing $$i"; \
 	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
            done;
@@ -127,8 +133,12 @@ $(LIB_STATICXX): $(SRCXX)
 	$(RM) $(OBJSXX)
 	$(CXX) -c $(CFLAGSXX) $(SRCXX)
 	$(RM) $(LIB_STATICXX)
-	$(AR) cr $@ $?
+	$(AR) cr $@ $(OBJSXX)
+	$(RANLIB) $@
+	$(RM) $(LIB_DYNAMICXX)
+	$(SHLIB_LD) $(OBJSXX) -o $@
 	$(RM) $(OBJSXX)
+
 
 $(LIB_DYNAMICXX): $(SRCXX)
 	$(RM) $(OBJSXX)
@@ -136,11 +146,11 @@ $(LIB_DYNAMICXX): $(SRCXX)
 	$(RM) $(LIB_DYNAMICXX)
 	$(SHLIB_LD) $(OBJSXX) -o $@
 	$(RM) $(OBJSXX)
-        
+
 
 # file dependencies
 $(OBJS)   : $(HFILES) $(SRC)
-$(OBJSXX) : $(HFILESXX)  $(SRCXX)
+$(OBJSXX) : $(HFILESXX) $(SRCXX)
 
 clean: 
 	rm -f core *~ *.o *.so *.a *.class $(PROGS) $(PROGSXX)
