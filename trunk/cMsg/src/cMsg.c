@@ -558,7 +558,7 @@ int cMsgUnSubscribe(int domainId, const char *subject, const char *type, cMsgCal
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSendAndGet
  */   
-int cMsgSendAndGet(int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg) {
+int cMsgSendAndGet(int domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
   cMsgMessage *msg;
@@ -599,7 +599,7 @@ int cMsgSendAndGet(int domainId, void *sendMsg, struct timespec *timeout, void *
  *          of cMsgSendAndGet
  */   
 int cMsgSubscribeAndGet(int domainId, const char *subject, const char *type,
-                        struct timespec *timeout, void **replyMsg) {
+                        const struct timespec *timeout, void **replyMsg) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
@@ -1546,7 +1546,7 @@ void *cMsgCreateMessage(void) {
 
 /**
  * This routine creates a new, initialized message with the creator
- * field taken from the given message. Memory is allocated with this
+ * field set to null. Memory is allocated with this
  * function and can be freed by cMsgFreeMessage().
  *
  * @param vmsg pointer to message from which creator field is taken
@@ -2070,7 +2070,7 @@ int cMsgGetUserInt(void *vmsg, int *userInt) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgSetUserTime(void *vmsg, struct timespec *userTime) {
+int cMsgSetUserTime(void *vmsg, const struct timespec *userTime) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
