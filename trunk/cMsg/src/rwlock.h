@@ -36,6 +36,12 @@ typedef struct rwlock_tag {
     {PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, \
     PTHREAD_COND_INITIALIZER, RWLOCK_VALID, 0, 0, 0, 0}
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /*
  * Define read-write lock functions
  */
@@ -47,3 +53,8 @@ extern int rwl_readunlock (rwlock_t *rwlock);
 extern int rwl_writelock (rwlock_t *rwlock);
 extern int rwl_writetrylock (rwlock_t *rwlock);
 extern int rwl_writeunlock (rwlock_t *rwlock);
+
+
+#ifdef __cplusplus
+}
+#endif
