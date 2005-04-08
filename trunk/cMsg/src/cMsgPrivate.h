@@ -100,12 +100,12 @@ typedef struct domainFunctions_t {
    * subject and type.
    */
   int (*subscribeAndGet) (int domainId, const char *subject, const char *type,
-                          struct timespec *timeout, void **replyMsg);
+                          const struct timespec *timeout, void **replyMsg);
   /**
    * This function gets one message from another cMsg client by sending out
    * an initial message to that responder.
    */
-  int (*sendAndGet)      (int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg);
+  int (*sendAndGet)      (int domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
   
   /** This function enables the receiving of messages and delivery to callbacks. */
   int (*start)           (int domainId);

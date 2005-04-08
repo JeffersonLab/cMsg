@@ -97,9 +97,9 @@ extern "C" {
                             void *userArg, cMsgSubscribeConfig *config);
   int 	cMsgUnSubscribe    (int domainId, const char *subject, const char *type, cMsgCallback *callback,
                             void *userArg);
-  int   cMsgSendAndGet     (int domainId, void *sendMsg, struct timespec *timeout, void **replyMsg);
+  int   cMsgSendAndGet     (int domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
   int   cMsgSubscribeAndGet(int domainId, const char *subject, const char *type,
-                            struct timespec *timeout, void **replyMsg);
+                            const struct timespec *timeout, void **replyMsg);
   int 	cMsgReceiveStart   (int domainId);
   int 	cMsgReceiveStop    (int domainId);
   int 	cMsgDisconnect     (int domainId);
@@ -140,7 +140,7 @@ extern "C" {
   int    cMsgSetUserInt        (void *vmsg, int  userInt);
   int    cMsgGetUserInt        (void *vmsg, int *userInt);
   
-  int    cMsgSetUserTime       (void *vmsg, struct timespec *userTime);
+  int    cMsgSetUserTime       (void *vmsg, const struct timespec *userTime);
   int    cMsgGetUserTime       (void *vmsg, struct timespec *userTime);
   
   int    cMsgGetSender         (void *vmsg, char  **sender);
