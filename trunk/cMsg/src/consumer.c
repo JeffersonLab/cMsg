@@ -23,11 +23,51 @@
 
 #include "cMsg.h"
 
-int count = 0;
+int count = 0, domainId = -1;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-static void callback(void *msg, void *arg);
+
+static void callback(void *msg, void *arg) {
+  
+  pthread_mutex_lock(&mutex);
+  count++;
+  pthread_mutex_unlock(&mutex);
+  
+  /* user MUST free messages passed to the callback */
+  cMsgFreeMessage(msg);
+}
+
+/******************************************************************/
+static void callback2(void *msg, void *arg) {
+    
+    /* Create a response to the incoming message */
+    void *sendMsg = cMsgCreateMessage();
+    if (sendMsg == NULL) {
+        /* user MUST free messages passed to the callback */
+        cMsgFreeMessage(msg);
+        return;
+    }
+    
+    cMsgSetSubject(sendMsg, "RESPONDING");
+    cMsgSetType(sendMsg,"TO MESSAGE");
+    cMsgSetText(sendMsg,"responder's text");
+    cMsgSend(domainId, sendMsg);
+    cMsgFlush(domainId);
+    
+    /*
+     * By default, subscriptions run callbacks serially. 
+     * If that is not the case, global data (like "count")
+     * must be mutex protected.
+     */
+    count++;
+    
+    /* user MUST free messages passed to the callback */
+    cMsgFreeMessage(msg);
+    /* user MUST free messages created in this callback */
+    cMsgFreeMessage(sendMsg);
+}
 
 
+/******************************************************************/
 int main(int argc,char **argv) {  
 
   char *myName   = "C Consumer";
@@ -35,14 +75,12 @@ int main(int argc,char **argv) {
   char *subject = "SUBJECT";
   char *type    = "TYPE";
   char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
-  int   err, debug = 1, domainId = -1;
+  int   err, debug = 1;
   cMsgSubscribeConfig *config;
   
   /* msg rate measuring variables */
-  int             loops=20000;
   int             period = 5; /* sec */
-  struct timespec t1, t2;
-  double          freq, freqAvg=0., deltaT, totalT=0.;
+  double          freq, freqAvg=0., totalT=0.;
   long long       totalC=0;
   
   if (argc > 1) {
@@ -99,14 +137,4 @@ int main(int argc,char **argv) {
   }
 
   return(0);
-}
-
-static void callback(void *msg, void *arg) {
-  
-  pthread_mutex_lock(&mutex);
-  count++;
-  pthread_mutex_unlock(&mutex);
-  
-  /* user MUST free messages passed to the callback */
-  cMsgFreeMessage(msg);
 }
