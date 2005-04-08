@@ -30,7 +30,7 @@ int main(int argc,char **argv) {
   char *subject = "SUBJECT";
   char *type    = "TYPE";
   char *text    = "TEXT";
-  char *UDL     = "cMsg:cMsg://alcor:3456/cMsg/test";
+  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
   int   err, debug=1, domainId = -1;
   void *msg, *replyMsg;
   
@@ -50,8 +50,9 @@ int main(int argc,char **argv) {
   
   if (debug) {
     printf("Running the cMsg C getConsumer, \"%s\"\n", myName);
+    cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
   }
-  
+
   /* connect to cMsg server */
   err = cMsgConnect(UDL, myName, myDescription, &domainId);
   if (err != CMSG_OK) {
@@ -80,7 +81,6 @@ int main(int argc,char **argv) {
       for (i=0; i < loops; i++) {
           
           /* send msg and wait up to timeout for reply */
-          /*printf("SEND A MESSAGE: subject = %s, type = %s\n", subject, type);*/
           err = cMsgSendAndGet(domainId, msg, &timeout, &replyMsg);
           /*err = cMsgSubscribeAndGet(domainId, subject, type, &timeout, &replyMsg);*/
           if (err == CMSG_TIMEOUT) {
@@ -105,7 +105,6 @@ int main(int argc,char **argv) {
               cMsgFreeMessage(replyMsg);
               count++;
           }
-          /*sleep(2);*/
       }
 
       /* rate */
