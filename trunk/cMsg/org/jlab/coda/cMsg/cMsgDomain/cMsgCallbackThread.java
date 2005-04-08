@@ -145,7 +145,7 @@ public class cMsgCallbackThread extends Thread {
      * @throws cMsgException if there are too many messages to handle
      */
     public void sendMessage(cMsgMessageFull message) throws cMsgException {
-        // if the cue if full, dump some messages if possible, else throw exception
+        // if the cue is full, dump some messages if possible, else throw Exception
         if (!messageCue.offer(message)) {
             if (!callback.maySkipMessages()) {
                 throw new cMsgException("too many messages for callback to handle");
