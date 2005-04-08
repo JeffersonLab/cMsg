@@ -412,6 +412,10 @@ public class cMsgNameServer extends Thread {
                         ServerSocketChannel server = (ServerSocketChannel) key.channel();
                         // accept the connection from the client
                         SocketChannel channel = server.accept();
+                        // set socket options
+                        Socket socket = channel.socket();
+                        // Set tcpNoDelay so no packets are delayed
+                        socket.setTcpNoDelay(true);
                         // let us know (in the next select call) if this socket is ready to read
                         cMsgUtilities.registerChannel(selector, channel, SelectionKey.OP_READ);
 
