@@ -32,7 +32,6 @@ import gov.aps.jca.event.MonitorListener;
 import gov.aps.jca.event.MonitorEvent;
 import gov.aps.jca.CAStatus;
 
-import java.io.*;
 import java.util.*;
 import java.net.*;
 import java.util.regex.Matcher;
