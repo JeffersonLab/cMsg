@@ -51,6 +51,7 @@ int main(int argc,char **argv) {
   
   if (debug) {
     printf("Running the cMsg producer, \"%s\"\n", myName);
+    cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
   }
   
   /* connect to cMsg server */
