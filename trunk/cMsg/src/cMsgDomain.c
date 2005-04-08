@@ -101,8 +101,8 @@ static int   codaSubscribe(int domainId, const char *subject, const char *type, 
 static int   codaUnsubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
                              void *userArg);
 static int   codaSubscribeAndGet(int domainId, const char *subject, const char *type,
-                                 struct timespec *timeout, void **replyMsg);
-static int   codaSendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
+                                 const struct timespec *timeout, void **replyMsg);
+static int   codaSendAndGet(int domainId, void *sendMsg, const struct timespec *timeout,
                             void **replyMsg);
 static int   codaStart(int domainId);
 static int   codaStop(int domainId);
@@ -167,7 +167,7 @@ static int   parseUDL(const char *UDLremainder, char **host, unsigned short *por
                       char **subdomainType, char **UDLsubRemainder);
 static int   unSendAndGet(int domainId, int id);
 static int   unSubscribeAndGet(int domainId, int id);
-static int   getAbsoluteTime(struct timespec *deltaTime, struct timespec *absTime);
+static int   getAbsoluteTime(const struct timespec *deltaTime, struct timespec *absTime);
 static void  defaultShutdownHandler(void *userArg);
 
 #ifdef VXWORKS
@@ -861,7 +861,7 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
  *                               by a call to cMsgDisconnect()
  */   
 static int codaSubscribeAndGet(int domainId, const char *subject, const char *type,
-                           struct timespec *timeout, void **replyMsg) {
+                           const struct timespec *timeout, void **replyMsg) {
                              
   cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
   int i, uniqueId, status, lenSubject, lenType;
@@ -1089,7 +1089,7 @@ static int codaSubscribeAndGet(int domainId, const char *subject, const char *ty
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSendAndGet(int domainId, void *sendMsg, struct timespec *timeout,
+static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *timeout,
                       void **replyMsg) {
   
   cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
@@ -2524,7 +2524,7 @@ static void *callbackThread(void *arg)
       
       /* run callback */
 #ifdef	__cplusplus
-      subscription->callback->callback(*(new cMsgMessageBase(msg)), subscription->userArg); 
+      subscription->callback->callback(cMsgMessageBase(msg), subscription->userArg); 
 #else
       subscription->callback(msg, subscription->userArg);
 #endif
@@ -2647,7 +2647,7 @@ static void *supplementalThread(void *arg)
 
       /* run callback */
 #ifdef	__cplusplus
-      subscription->callback->callback(*(new cMsgMessageBase(msg)), subscription->userArg); 
+      subscription->callback->callback(cMsgMessageBase(msg), subscription->userArg);
 #else
       subscription->callback(msg, subscription->userArg);
 #endif
@@ -2960,7 +2960,7 @@ int cMsgWakeGetWithNull(int domainId, int senderToken) {
 /*-------------------------------------------------------------------*/
 
 /** This routine translates a delta time into an absolute time for pthread_cond_wait. */
-static int getAbsoluteTime(struct timespec *deltaTime, struct timespec *absTime) {
+static int getAbsoluteTime(const struct timespec *deltaTime, struct timespec *absTime) {
     struct timespec now;
     long   nsecTotal;
     
