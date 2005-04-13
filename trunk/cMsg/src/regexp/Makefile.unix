@@ -17,7 +17,7 @@ CC = gcc
 LIB_DIR  = $(TOP_DIR)/lib/Linux
 BIN_DIR  = $(TOP_DIR)/bin/Linux
 AC_FLAGS =
-CFLAGS   = -O2 -fPIC -I./ -DPOSIX_MISTAKE $(AC_FLAGS)
+CFLAGS   = -O3 -fPIC -I./ -DPOSIX_MISTAKE $(AC_FLAGS)
 endif
 
 # Solaris
