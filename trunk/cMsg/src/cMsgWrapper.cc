@@ -1,5 +1,6 @@
 // to do
 //   shutdown handler
+//   const?
 //   documentation
 //   harmonize C and Java api's 
 //   does use of return-by-value (copy constructors) slow things down too much?
@@ -108,7 +109,7 @@ void cMsgException::setReturnCode(int i) {
 //-----------------------------------------------------------------------------
 
 
-int cMsgException::getReturnCode(void) {
+int cMsgException::getReturnCode(void) const {
   return(myReturnCode);
 }
 
@@ -117,7 +118,7 @@ int cMsgException::getReturnCode(void) {
 
 
 
-string cMsgException::toString(void) {
+string cMsgException::toString(void) const {
   return(myDescr);
 }
 
@@ -177,7 +178,7 @@ cMsgMessageBase::~cMsgMessageBase(void) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getSubject(void) throw(cMsgException) {
+string cMsgMessageBase::getSubject(void) const throw(cMsgException) {
 
   char *s;
 
@@ -209,7 +210,7 @@ void cMsgMessageBase::setSubject(const string &subject) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getType(void) throw(cMsgException) {
+string cMsgMessageBase::getType(void) const throw(cMsgException) {
 
   char *s;
 
@@ -241,7 +242,7 @@ void cMsgMessageBase::setType(const string &type) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getText(void) throw(cMsgException) {
+string cMsgMessageBase::getText(void) const throw(cMsgException) {
 
   char *s;
 
@@ -273,7 +274,7 @@ void cMsgMessageBase::setText(const string &text) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-int cMsgMessageBase::getUserInt(void) throw(cMsgException) {
+int cMsgMessageBase::getUserInt(void) const throw(cMsgException) {
 
   int i;
 
@@ -300,7 +301,7 @@ void cMsgMessageBase::setUserInt(int i) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-timespec cMsgMessageBase::getUserTime(void) throw(cMsgException) {
+timespec cMsgMessageBase::getUserTime(void) const throw(cMsgException) {
 
   timespec t;
 
@@ -327,7 +328,7 @@ void cMsgMessageBase::setUserTime(const timespec &userTime) throw(cMsgException)
 //-----------------------------------------------------------------------------
 
 
-int cMsgMessageBase::getVersion(void) throw(cMsgException) {
+int cMsgMessageBase::getVersion(void) const throw(cMsgException) {
 
   int version;
 
@@ -342,7 +343,7 @@ int cMsgMessageBase::getVersion(void) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase cMsgMessageBase::copy(void) throw(cMsgException) {
+cMsgMessageBase cMsgMessageBase::copy(void) const throw(cMsgException) {
 
   void *newPointer = cMsgCopyMessage(myMsgPointer);
   return(cMsgMessageBase(newPointer));
@@ -352,7 +353,7 @@ cMsgMessageBase cMsgMessageBase::copy(void) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getCreator() throw(cMsgException) {
+string cMsgMessageBase::getCreator() const throw(cMsgException) {
 
   char *s;
 
@@ -372,7 +373,7 @@ string cMsgMessageBase::getCreator() throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getDomain() throw(cMsgException) {
+string cMsgMessageBase::getDomain() const throw(cMsgException) {
 
   char *s;
 
@@ -392,7 +393,7 @@ string cMsgMessageBase::getDomain() throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getReceiver() throw(cMsgException) {
+string cMsgMessageBase::getReceiver() const throw(cMsgException) {
 
   char *s;
 
@@ -412,7 +413,7 @@ string cMsgMessageBase::getReceiver() throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getReceiverHost() throw(cMsgException) {
+string cMsgMessageBase::getReceiverHost() const throw(cMsgException) {
 
   char *s;
 
@@ -432,7 +433,7 @@ string cMsgMessageBase::getReceiverHost() throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getSender() throw(cMsgException) {
+string cMsgMessageBase::getSender() const throw(cMsgException) {
 
   char *s;
 
@@ -452,7 +453,7 @@ string cMsgMessageBase::getSender() throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getSenderHost() throw(cMsgException) {
+string cMsgMessageBase::getSenderHost() const throw(cMsgException) {
 
   char *s;
 
@@ -472,7 +473,7 @@ string cMsgMessageBase::getSenderHost() throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-timespec cMsgMessageBase::getReceiverTime(void) throw(cMsgException) {
+timespec cMsgMessageBase::getReceiverTime(void) const throw(cMsgException) {
 
   timespec t;
 
@@ -487,7 +488,7 @@ timespec cMsgMessageBase::getReceiverTime(void) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-timespec cMsgMessageBase::getSenderTime(void) throw(cMsgException) {
+timespec cMsgMessageBase::getSenderTime(void) const throw(cMsgException) {
 
   timespec t;
 
@@ -502,7 +503,7 @@ timespec cMsgMessageBase::getSenderTime(void) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-bool cMsgMessageBase::isGetRequest() throw(cMsgException) {
+bool cMsgMessageBase::isGetRequest() const throw(cMsgException) {
   
   int b;
 
@@ -517,7 +518,7 @@ bool cMsgMessageBase::isGetRequest() throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-bool cMsgMessageBase::isGetResponse() throw(cMsgException) {
+bool cMsgMessageBase::isGetResponse() const throw(cMsgException) {
   
   int b;
 
@@ -532,7 +533,7 @@ bool cMsgMessageBase::isGetResponse() throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-bool cMsgMessageBase::isNullGetResponse() throw(cMsgException) {
+bool cMsgMessageBase::isNullGetResponse() const throw(cMsgException) {
   
   int b;
 
@@ -603,7 +604,7 @@ void cMsgMessageBase::makeResponse(cMsgMessageBase *msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase cMsgMessageBase::nullResponse(void) throw(cMsgException) {
+cMsgMessageBase cMsgMessageBase::nullResponse(void) const throw(cMsgException) {
 
   void *newMsgPointer;
   if((newMsgPointer=cMsgCreateNullResponseMessage(myMsgPointer))==NULL) {
@@ -617,7 +618,7 @@ cMsgMessageBase cMsgMessageBase::nullResponse(void) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase cMsgMessageBase::response(void) throw(cMsgException) {
+cMsgMessageBase cMsgMessageBase::response(void) const throw(cMsgException) {
 
   void *newMsgPointer;
   if((newMsgPointer=cMsgCreateResponseMessage(myMsgPointer))==NULL) {
@@ -655,7 +656,7 @@ void cMsgMessageBase::setNullGetResponse(bool b) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::toString(void) throw(cMsgException) {
+string cMsgMessageBase::toString(void) const throw(cMsgException) {
 
   time_t now = time(NULL);
   string t(ctime(&now));
@@ -992,7 +993,7 @@ void cMsg::stop(void) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsg::getDescription(void) {
+string cMsg::getDescription(void) const {
   return(myDescr);
 }
 
@@ -1000,7 +1001,7 @@ string cMsg::getDescription(void) {
 //-----------------------------------------------------------------------------
 
 
-string cMsg::getName(void) {
+string cMsg::getName(void) const {
   return(myName);
 }
 
@@ -1008,7 +1009,7 @@ string cMsg::getName(void) {
 //-----------------------------------------------------------------------------
 
 
-string cMsg::getUDL(void) {
+string cMsg::getUDL(void) const{
   return(myUDL);
 }
 
@@ -1016,7 +1017,7 @@ string cMsg::getUDL(void) {
 //-----------------------------------------------------------------------------
 
 
-bool cMsg::isConnected(void) {
+bool cMsg::isConnected(void) const {
   return(connected);
 }
 
@@ -1024,7 +1025,7 @@ bool cMsg::isConnected(void) {
 //-----------------------------------------------------------------------------
 
 
-bool cMsg::isReceiving(void) {
+bool cMsg::isReceiving(void) const {
   return(receiving);
 }
 
