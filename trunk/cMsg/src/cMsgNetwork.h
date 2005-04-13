@@ -33,6 +33,7 @@
 #include <sys/types.h>	 /* basic system data types */
 #include <sys/socket.h>	 /* basic socket definitions */
 #include <netinet/in.h>	 /* sockaddr_in{} and other Internet defns */
+#include <netinet/ip.h>	 /* IPTOS_LOWDELAY defn */
 #include <netinet/tcp.h> /* TCP_NODELAY def */
 #include <net/if.h>	 /* find broacast addr */
 #include <netdb.h>	 /* herrno */
@@ -62,7 +63,8 @@ extern "C" {
 /* cMsg definitions */
 #define	SA                  struct sockaddr
 #define LISTENQ             10
-#define CMSG_SOCKBUFSIZE    49640  /* multiple of 1460 - ethernet MSS */
+/*#define CMSG_SOCKBUFSIZE    49640*/  /* multiple of 1460 - ethernet MSS */
+#define CMSG_SOCKBUFSIZE    65535
 #define CMSG_IOV_MAX        16     /* minimum for POSIX systems */
 /*
  * MAXHOSTNAMELEN is defined to be 256 on Solaris and 64 on Linux.
@@ -71,7 +73,6 @@ extern "C" {
 #define CMSG_MAXHOSTNAMELEN 256
 
 #define CMSG_CLIENT_LISTENING_PORT 2345
-#define CMSG_MESSAGE_SIZE 1500
 
 /* socket and/or thread blocking options */
 #define CMSG_BLOCKING    0

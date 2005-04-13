@@ -75,7 +75,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   struct sockaddr_in  servaddr;
 
   if (listenFd == NULL) {
-     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: null \"listenFd\" argument\n");
+     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: null \"listenFd\" argument\n");
      return(CMSG_BAD_ARGUMENT);
   }
   
@@ -214,6 +214,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
 {
   int                 sockfd, err;
   const int           on=1, size=CMSG_SOCKBUFSIZE /* bytes */;
+  const int           tos = IPTOS_LOWDELAY /*IPTOS_THROUGHPUT;*/;
   struct sockaddr_in  servaddr;
 #ifndef VXWORKS
   struct in_addr      **pptr;
@@ -232,6 +233,14 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
 	
   /* don't wait for messages to cue up, send any message immediately */
   err = setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (void *) &on, sizeof(on));
+  if (err < 0) {
+    close(sockfd);
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
+    return(CMSG_SOCKET_ERROR);
+  }
+  
+  /* set the type of service */
+  err = setsockopt(sockfd, IPPROTO_IP, IP_TOS, (void *) &tos, sizeof(tos));
   if (err < 0) {
     close(sockfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
@@ -373,13 +382,14 @@ int cMsgTcpWritev(int fd, struct iovec iov[], int nbufs, int iov_max)
    retry:
     if ( (cc = writev(fd, iovp, n_write)) == -1) {
       if (errno == EWOULDBLOCK) {
+fprintf(stderr,"cMsgTcpWritev gives EWOULDBLOCK\n");
         goto retry;
       }
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr,"tcp_writev(%d,,%d) = writev(%d,,%d) = %d\n",
+        fprintf(stderr,"cMsgTcpWritev(%d,,%d) = writev(%d,,%d) = %d\n",
 		fd,nbufs,fd,n_write,cc);
       }
-      perror("tcp_writev");
+      perror("cMsgTcpWritev");
       return(-1);
     }
   }
