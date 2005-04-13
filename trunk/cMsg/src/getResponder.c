@@ -21,6 +21,9 @@
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <pthread.h>
 
 #include "cMsg.h"
 
@@ -77,6 +80,21 @@ int main(int argc,char **argv) {
   int             period = 5; /* sec */
   double          freq, freqAvg=0., totalT=0.;
   long long       totalC=0;
+
+/*
+#if defined (_POSIX_THREAD_PRIORITY_SCHEDULING)
+    pthread_attr_t thread_attr;
+        
+    printf("Hey this operating system support POSIX priority scheduling\n");
+    err = pthread_attr_init(&thread_attr);
+    if (err != 0) printf("Cannot init thread attribute\n");
+    err = pthread_attr_setschedpolicy(&thread_attr, SCHED_FIFO);
+    if (err != 0) printf("Cannot set to round-robin scheduling\n");
+    setpriority(PRIO_PROCESS, getpid(), 0);
+    
+    printf("pid = %d\n", getpid());
+#endif
+*/
 
   if (argc > 1) {
     myName = argv[1];
