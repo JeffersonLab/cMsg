@@ -34,47 +34,82 @@ import java.net.Socket;
 public class cMsgUtilities {
 
     /**
-     * This methods reads a minimum of number of bytes from the channel into the buffer.
-     *
-     * @param buffer   a byte buffer which channel data is read into
-     * @param channel  nio socket communication channel
-     * @param bytes    minimum number of bytes to read from channel
-     * @param debug    level of debug output
-     * @return number of bytes read
-     * @throws IOException If channel is closed or cannot be read from
-     */
-    static public int readSocketBytes(ByteBuffer buffer, SocketChannel channel, int bytes, int debug)
-            throws IOException {
+      * This methods reads a minimum of number of bytes from the channel into the buffer.
+      *
+      * @param buffer   a byte buffer which channel data is read into
+      * @param channel  nio socket communication channel
+      * @param bytes    minimum number of bytes to read from channel
+      * @param debug    level of debug output
+      * @return number of bytes read
+      * @throws IOException If channel is closed or cannot be read from
+      */
+     static public int readSocketBytesPlain(ByteBuffer buffer, SocketChannel channel, int bytes, int debug)
+             throws IOException {
 
-        int n, tries = 0, count = 0, maxTries=50;
+         int n, count = 0;
 
-        buffer.clear();
-        buffer.limit(bytes);
+         buffer.clear();
+         buffer.limit(bytes);
 
-        // Keep reading until we have exactly "bytes" number of bytes,
-        // or have tried "tries" number of times to read.
+         // Keep reading until we have exactly "bytes" number of bytes,
 
-        while (count < bytes) {
-            if ((n = channel.read(buffer)) < 0) {
-                throw new IOException("readSocketBytes: client's socket is dead");
-            }
-            count += n;
-            if (count >= bytes) break;
-
-            if (tries > maxTries) {
-                throw new IOException("readSocketBytes: too many tries to read " + n + " bytes");
-            }
-            tries++;
-            if (debug >= cMsgConstants.debugInfo && tries==maxTries) {
-                System.out.println("readSocketBytes: called read " + tries + " times, read " + n + " bytes");
-            }
-            try {Thread.sleep(10);} catch (InterruptedException e) {}
-        }
-        return count;
-    }
+         while (count < bytes) {
+             if ((n = channel.read(buffer)) < 0) {
+                 throw new IOException("readSocketBytes: client's socket is dead");
+             }
+             count += n;
+         }
+         return count;
+     }
 
 
     /**
+      * This methods reads a minimum of number of bytes from the channel into the buffer.
+      *
+      * @param buffer   a byte buffer which channel data is read into
+      * @param channel  nio socket communication channel
+      * @param bytes    minimum number of bytes to read from channel
+      * @param debug    level of debug output
+      * @return number of bytes read
+      * @throws IOException If channel is closed or cannot be read from
+      */
+     static public int readSocketBytes(ByteBuffer buffer, SocketChannel channel, int bytes, int debug)
+             throws IOException {
+
+         int n, tries = 0, count = 0, maxTries=500;
+
+         buffer.clear();
+         buffer.limit(bytes);
+
+         // Keep reading until we have exactly "bytes" number of bytes,
+         // or have tried "tries" number of times to read.
+
+         while (count < bytes) {
+             if ((n = channel.read(buffer)) < 0) {
+                 throw new IOException("readSocketBytes: client's socket is dead");
+             }
+             count += n;
+             if (count >= bytes) {
+                 break;
+             }
+
+             if (tries > maxTries) {
+                 throw new IOException("readSocketBytes: too many tries to read " + n + " bytes");
+             }
+             tries++;
+             if (debug >= cMsgConstants.debugInfo && tries==maxTries) {
+                 System.out.println("readSocketBytes: called read " + tries + " times, read " + n + " bytes");
+             }
+             try {
+                 Thread.sleep(1);
+             }
+             catch (InterruptedException e) {}
+         }
+         return count;
+     }
+
+
+     /**
      * Registers an nio channel with a selector and sets socket parameters.
      *
      * @param selector object which handles channel readiness states
