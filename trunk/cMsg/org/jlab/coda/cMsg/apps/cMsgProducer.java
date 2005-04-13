@@ -4,6 +4,9 @@ import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsg;
 
+import java.util.Arrays;
+import java.io.UnsupportedEncodingException;
+
 /**
  * An example class which creates a cMsg message producer.
  */
@@ -13,7 +16,11 @@ public class cMsgProducer {
     String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
     String  subject = "SUBJECT";
     String  type = "TYPE";
+
     String  text = "TEXT";
+    char[]  textChars;
+    int     textSize;
+
     int     delay;
     boolean debug;
     long    count;
@@ -62,6 +69,14 @@ public class cMsgProducer {
                 text = args[i + 1];
                 i++;
             }
+            else if (args[i].equalsIgnoreCase("-textsize")) {
+                textSize  = Integer.parseInt(args[i + 1]);
+                textChars = new char[textSize];
+                Arrays.fill(textChars, 'A');
+                text = new String(textChars);
+                System.out.println("text len = " + text.length());
+                i++;
+            }
             else if (args[i].equalsIgnoreCase("-delay")) {
                 delay = Integer.parseInt(args[i + 1]);
                 i++;
@@ -84,6 +99,7 @@ public class cMsgProducer {
         System.out.println("\nUsage:\n\n" +
             "   java cMsgProducer [-n name] [-d description] [-u UDL]\n" +
             "                     [-s subject] [-t type] [-text text]\n" +
+            "                     [-textsize size in bytes]\n" +
             "                     [-delay millisec] [-debug]\n");
     }
 
@@ -150,7 +166,7 @@ public class cMsgProducer {
 
         // variables to track message rate
         double freq=0., freqAvg=0.;
-        long t1, t2, deltaT, totalT=0, totalC=0, count=10000;
+        long t1, t2, deltaT, totalT=0, totalC=0, count=30000;
 
         // delay between messages
         if (delay != 0) count = count/(20 + delay);
@@ -158,13 +174,13 @@ public class cMsgProducer {
         while (true) {
             t1 = System.currentTimeMillis();
             for (int i = 0; i < count; i++) {
+                coda.send(msg);
+                coda.flush();
                 // delay between messages sent
                 if (delay != 0) {
                     try {Thread.sleep(delay);}
                     catch (InterruptedException e) {}
                 }
-                coda.send(msg);
-                coda.flush();
             }
             t2 = System.currentTimeMillis();
 
@@ -174,8 +190,10 @@ public class cMsgProducer {
             totalC += count;
             freqAvg = (double)totalC/totalT*1000;
 
-            System.out.println(doubleToString(freq, 1) + " Hz, Avg = " +
-                               doubleToString(freqAvg, 1) + " Hz");
+            if (debug) {
+                System.out.println(doubleToString(freq, 1) + " Hz, Avg = " +
+                                   doubleToString(freqAvg, 1) + " Hz");
+            }
 
         }
     }

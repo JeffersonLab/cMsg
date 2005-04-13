@@ -3,6 +3,7 @@ package org.jlab.coda.cMsg.apps;
 import org.jlab.coda.cMsg.*;
 
 import java.util.Date;
+import java.util.Arrays;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -16,7 +17,11 @@ public class cMsgGetConsumer {
     String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
     String  subject = "SUBJECT";
     String  type = "TYPE";
+
     String  text = "TEXT";
+    char[]  textChars;
+    int     textSize;
+
     int     timeout = 1000; // 1 second default timeout
     boolean debug;
 
@@ -64,6 +69,14 @@ public class cMsgGetConsumer {
                 text = args[i + 1];
                 i++;
             }
+            else if (args[i].equalsIgnoreCase("-textsize")) {
+                textSize  = Integer.parseInt(args[i + 1]);
+                textChars = new char[textSize];
+                Arrays.fill(textChars, 'A');
+                text = new String(textChars);
+                System.out.println("text len = " + text.length());
+                i++;
+            }
             else if (args[i].equalsIgnoreCase("-to")) {
                 timeout = Integer.parseInt(args[i + 1]);
                 i++;
@@ -86,6 +99,7 @@ public class cMsgGetConsumer {
         System.out.println("\nUsage:\n\n" +
             "   java cMsgGetConsumer [-n name] [-d description] [-u UDL]\n" +
             "                        [-s subject] [-t type] [-text text]\n" +
+            "                        [-textsize size in bytes]\n" +
             "                        [-to timeout] [-debug]\n");
     }
 
@@ -165,7 +179,7 @@ public class cMsgGetConsumer {
             t1 = (new Date()).getTime();
 
             // do a bunch of gets
-            for (int i=0; i < 2000; i++) {
+            for (int i=0; i < 4000; i++) {
                 // do the synchronous sendAndGet with timeout
                 try {msg = coda.sendAndGet(sendMsg, timeout);}
                 catch (TimeoutException e) {

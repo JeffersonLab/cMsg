@@ -35,19 +35,34 @@ int main(int argc,char **argv) {
   char *type    = "TYPE";
   char *text    = "TEXT";
   char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
-  int   err, debug=1, domainId = -1;
+  int   err, debug=1, domainId = -1, textSize;
   void *msg;
   
   /* msg rate measuring variables */
-  int             count, i, delay=0, loops=20000;
+  int             count, i, delay=0, loops=60000;
   struct timespec t1, t2;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
   
-  
+  /*
   if (argc > 1) {
     myName = argv[1];
   }
+  */
+  if (argc > 1) {
+    char *p;
+    textSize = atoi(argv[1]);
+    text = p = (char *) malloc((size_t) (textSize + 1));
+    if (p == NULL) exit(1);
+    printf("using text size %d\n", textSize);
+    for (i=0; i < textSize; i++) {
+      *p = 'A';
+      p++;
+    }
+    *p = '\0'; /* string's ending null */
+  }
+  
+  /*printf("Text = %s\n", text);*/
   
   if (debug) {
     printf("Running the cMsg producer, \"%s\"\n", myName);
