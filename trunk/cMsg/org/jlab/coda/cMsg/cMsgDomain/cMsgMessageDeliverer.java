@@ -24,7 +24,6 @@ import java.nio.channels.SocketChannel;
 import java.nio.ByteBuffer;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.util.Date;
 
 /**
  * This class delivers messages from the subdomain handler object in the cMsg
@@ -44,7 +43,7 @@ import java.util.Date;
 public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
 
     /** A direct buffer is necessary for nio socket IO. */
-    private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+    private ByteBuffer buffer = ByteBuffer.allocateDirect(4096);
 
     /** Constructor. */
     public cMsgMessageDeliverer() {}
@@ -147,45 +146,62 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
         buffer.clear();
 
         if (msgType == cMsgConstants.msgShutdown) {
+            // size
+            buffer.putInt(4);
+            // msg type
             buffer.putInt(msgType);
+            // want an acknowledgment?
+            buffer.putInt(acknowledge ? 1 : 0);
         }
         else if (nullResponse) {
+            // size
+            buffer.putInt(12);
+            // msg type
             buffer.putInt(msgType);
-            // send senderToken
+            // senderToken
             buffer.putInt(msg.getSenderToken());
             // want an acknowledgment?
             buffer.putInt(acknowledge ? 1 : 0);
         }
         else {
             // write 18 ints
-            int outGoing[] = new int[18];
-            outGoing[0]  = msgType;
-            outGoing[1]  = msg.getVersion();
-            outGoing[2]  = 0; // reserved for future use
-            outGoing[3]  = msg.getUserInt();
-            outGoing[4]  = msg.getInfo();
+            int outGoing[] = new int[19];
+            outGoing[1]  = msgType;
+            outGoing[2]  = msg.getVersion();
+            outGoing[3]  = 0; // reserved for future use
+            outGoing[4]  = msg.getUserInt();
+            outGoing[5]  = msg.getInfo();
 
             // send the time in milliseconds as 2, 32 bit integers
-            outGoing[5]  = (int) (msg.getSenderTime().getTime() >>> 32); // higher 32 bits
-            outGoing[6]  = (int) (msg.getSenderTime().getTime() & 0x00000000FFFFFFFFL); // lower 32 bits
-            outGoing[7]  = (int) (msg.getUserTime().getTime() >>> 32);
-            outGoing[8]  = (int) (msg.getUserTime().getTime() & 0x00000000FFFFFFFFL);
+            outGoing[6]  = (int) (msg.getSenderTime().getTime() >>> 32); // higher 32 bits
+            outGoing[7]  = (int) (msg.getSenderTime().getTime() & 0x00000000FFFFFFFFL); // lower 32 bits
+            outGoing[8]  = (int) (msg.getUserTime().getTime() >>> 32);
+            outGoing[9]  = (int) (msg.getUserTime().getTime() & 0x00000000FFFFFFFFL);
 
-            outGoing[9]  = msg.getSysMsgId();
-            outGoing[10] = msg.getSenderToken();
-            outGoing[11] = msg.getSender().length();
-            outGoing[12] = msg.getSenderHost().length();
-            outGoing[13] = msg.getSubject().length();
-            outGoing[14] = msg.getType().length();
-            outGoing[15] = msg.getText().length();
-            outGoing[16] = msg.getCreator().length();
-            outGoing[17] = acknowledge ? 1 : 0;
+            outGoing[10] = msg.getSysMsgId();
+            outGoing[11] = msg.getSenderToken();
+            outGoing[12] = msg.getSender().length();
+            outGoing[13] = msg.getSenderHost().length();
+            outGoing[14] = msg.getSubject().length();
+            outGoing[15] = msg.getType().length();
+            outGoing[16] = msg.getText().length();
+            outGoing[17] = msg.getCreator().length();
+            outGoing[18] = acknowledge ? 1 : 0;
+
+            // make sure there's enough space in the buffer
+            outGoing[0]  = outGoing[12] + outGoing[13] + outGoing[14] +
+                           outGoing[15] + outGoing[16] + outGoing[17] +
+                           4*(outGoing.length - 1);
+
+            if (outGoing[0] + 4 > buffer.capacity()) {
+                buffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
+            }
 
             // send ints over together using view buffer
             buffer.asIntBuffer().put(outGoing);
 
             // position original buffer at position of view buffer
-            buffer.position(72);
+            buffer.position(76);
 
             // write strings
             try {

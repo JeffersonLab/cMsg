@@ -46,7 +46,7 @@ public class cMsgClientListeningThread extends Thread {
     private ServerSocketChannel serverChannel;
 
     /** A direct buffer is necessary for nio socket IO. */
-    private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+    private ByteBuffer buffer = ByteBuffer.allocateDirect(4096);
 
     /** Allocate int array once (used for reading in data) for efficiency's sake. */
     private int[] inComing = new int[17];
@@ -59,7 +59,7 @@ public class cMsgClientListeningThread extends Thread {
     private boolean acknowledge;
 
     /** Allocate byte array once (used for reading in data) for efficiency's sake. */
-    byte[] bytes = new byte[5000];
+    byte[] bytes = new byte[4096];
 
     /** Level of debug output for this class. */
     private int debug;
@@ -184,11 +184,32 @@ public class cMsgClientListeningThread extends Thread {
      * @param channel nio socket communication channel
      */
      private void handleClient(SocketChannel channel) {
+         int size;
 
          try {
-             // keep reading until we have an int (4 bytes) of data
-             if (cMsgUtilities.readSocketBytes(buffer, channel, 4, debug) < 0) {
-//BUG BUG not the best way to handle an error
+             // keep reading until we have an int (4 bytes)
+             // which will give us the size of the subsequent msg
+             if (cMsgUtilities.readSocketBytes(buffer, channel, 4, debug) < 4) {
+                 // got less than 1 int, something's wrong, kill connection
+                 return;
+             }
+
+             // make buffer readable
+             buffer.flip();
+             size = buffer.getInt();
+//System.out.println(id + " size = " + size);
+
+             // allocate bigger byte array & buffer if necessary
+             // (allocate more than needed for speed's sake)
+             if (size > buffer.capacity()) {
+                 System.out.println("Increasing buffer size to " + (size + 1000));
+                 buffer = ByteBuffer.allocateDirect(size + 1000);
+                 bytes  = new byte[size + 1000];
+             }
+
+             // read in the rest of the msg
+             if (cMsgUtilities.readSocketBytes(buffer, channel, size, debug) < size) {
+                 // got less than advertised, something's wrong, kill connection
                  return;
              }
 
@@ -204,7 +225,7 @@ public class cMsgClientListeningThread extends Thread {
 
                  case cMsgConstants.msgSubscribeResponse: // receiving a message
                      // read the message here
-                     msg = readIncomingMessage(channel);
+                     msg = readIncomingMessage();
 
                      // if server wants an acknowledgment, send one back
                      if (acknowledge) {
@@ -223,7 +244,7 @@ public class cMsgClientListeningThread extends Thread {
 
                  case cMsgConstants.msgGetResponse: // receiving a message for sendAndGet
                      // read the message here
-                     msg = readIncomingMessage(channel);
+                     msg = readIncomingMessage();
                      msg.setGetResponse(true);
 
                      // if server wants an acknowledgment, send one back
@@ -243,7 +264,7 @@ public class cMsgClientListeningThread extends Thread {
 
                  case cMsgConstants.msgGetResponseIsNull: // receiving null for sendAndGet
                      // read the id to be notified
-                     int token = readSenderToken(channel);
+                     int token = readSenderToken();
 
                      // if server wants an acknowledgment, send one back
                      if (acknowledge) {
@@ -264,8 +285,6 @@ public class cMsgClientListeningThread extends Thread {
                      if (debug >= cMsgConstants.debugInfo) {
                          System.out.println("handleClient: got keep alive from server");
                      }
-                     // read int
-                     cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
                      // send ok back as acknowledgment
                      buffer.clear();
                      buffer.putInt(cMsgConstants.ok).flip();
@@ -281,6 +300,7 @@ public class cMsgClientListeningThread extends Thread {
 
                      // If server wants an acknowledgment, send one back.
                      // Do this BEFORE running shutdown.
+                     acknowledge = buffer.getInt() == 1 ? true : false;
                      if (acknowledge) {
                          // send ok back as acknowledgment
                          buffer.clear();
@@ -328,20 +348,13 @@ public class cMsgClientListeningThread extends Thread {
     /**
      * This method reads an incoming cMsgMessageFull from a clientHandler object.
      *
-     * @param channel nio socket communication channel
      * @throws IOException if socket read or write error
      * @return message read from channel
      */
-    private cMsgMessageFull readIncomingMessage(SocketChannel channel) throws IOException {
+    private cMsgMessageFull readIncomingMessage() throws IOException {
 
         // create a message
         cMsgMessageFull msg = new cMsgMessageFull();
-
-        // keep reading until we have 17 ints of data
-        cMsgUtilities.readSocketBytes(buffer, channel, 68, debug);
-
-        // go back to reading-from-buffer mode
-        buffer.flip();
 
         // read ints
         buffer.asIntBuffer().get(inComing, 0, 17);
@@ -372,36 +385,32 @@ public class cMsgClientListeningThread extends Thread {
         int bytesToRead = lengthSender + lengthSenderHost + lengthSubject +
                           lengthType + lengthText + lengthCreator;
 
-        // read in all remaining bytes
-        cMsgUtilities.readSocketBytes(buffer, channel, bytesToRead, debug);
-
-        // go back to reading-from-buffer mode
-        buffer.flip();
-
-        // allocate bigger byte array if necessary
-        // (allocate more than needed for speed's sake)
-        if (bytesToRead > bytes.length) {
-            bytes = new byte[bytesToRead];
-        }
-
+        buffer.position(72);
         buffer.get(bytes, 0, bytesToRead);
+
         // read sender
         msg.setSender(new String(bytes, 0, lengthSender, "US-ASCII"));
+        //System.out.println("sender = " + msg.getSender());
 
         // read senderHost
         msg.setSenderHost(new String(bytes, lengthSender, lengthSenderHost, "US-ASCII"));
+        //System.out.println("senderHost = " + msg.getSenderHost());
 
         // read subject
         msg.setSubject(new String(bytes, lengthSender+lengthSenderHost, lengthSubject, "US-ASCII"));
+        //System.out.println("subject = " + msg.getSubject());
 
         // read type
         msg.setType(new String(bytes, lengthSender+lengthSenderHost+lengthSubject, lengthType, "US-ASCII"));
+        //System.out.println("type = " + msg.getType());
 
         // read text
         msg.setText(new String(bytes, bytesToRead-lengthText-lengthCreator, lengthText, "US-ASCII"));
+        //System.out.println("text = " + msg.getText());
 
         // read creator
         msg.setCreator(new String(bytes, bytesToRead-lengthCreator, lengthCreator, "US-ASCII"));
+        //System.out.println("creator = " + msg.getCreator());
 
         // fill in message object's members
         msg.setDomain(domainType);
@@ -416,16 +425,10 @@ public class cMsgClientListeningThread extends Thread {
     /**
      * This method reads incoming receiver-subscribe ids from a clientHandler object.
      *
-     * @param channel nio socket communication channel
      * @return senderToken
      * @throws IOException
      */
-    private int readSenderToken(SocketChannel channel) throws IOException {
-        // keep reading until we have 2 ints of data
-        cMsgUtilities.readSocketBytes(buffer, channel, 8, debug);
-
-        // go back to reading-from-buffer mode
-        buffer.flip();
+    private int readSenderToken() throws IOException {
 
         int token   = buffer.getInt();
         acknowledge = buffer.getInt() == 1 ? true : false;

@@ -116,8 +116,8 @@ public class cMsgMonitorClient extends Thread {
             buffer.clear();
 
             // write 2 ints
+            buffer.putInt(4); // # bytes to follow
             buffer.putInt(cMsgConstants.msgKeepAlive);
-            buffer.putInt(1);
 
             try {
                 // check to see if domain server is shutting down and we must die too

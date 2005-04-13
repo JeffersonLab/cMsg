@@ -61,26 +61,26 @@ public class cMsg extends cMsgDomainAdapter {
      * A direct buffer is necessary for nio socket IO. This buffer is used in
      * the {@link #send}.
      */
-    private ByteBuffer sendBuffer = ByteBuffer.allocateDirect(2048);
+    private ByteBuffer sendBuffer = ByteBuffer.allocateDirect(4096);
 
     /**
      * A direct buffer is necessary for nio socket IO. This buffer is used in
      * the {@link #syncSend}.
      */
-    private ByteBuffer syncSendBuffer = ByteBuffer.allocateDirect(2048);
+    private ByteBuffer syncSendBuffer = ByteBuffer.allocateDirect(4096);
 
     /**
      * A direct buffer is necessary for nio socket IO. This buffer is used in
      * {@link #subscribeAndGet} and {@link #sendAndGet}.
      */
-    private ByteBuffer getBuffer = ByteBuffer.allocateDirect(2048);
+    private ByteBuffer getBuffer = ByteBuffer.allocateDirect(4096);
 
     /**
      * A direct buffer is necessary for nio socket IO. This buffer is used in
      * the mutually exclusive {@link #subscribe} and {@link #unsubscribe} methods.
      * There is no way for these methods to use this buffer simulaneously.
      */
-    private ByteBuffer subBuffer = ByteBuffer.allocateDirect(2048);
+    private ByteBuffer subBuffer = ByteBuffer.allocateDirect(4096);
 
     /** Name server's host. */
     private String nameServerHost;
@@ -439,6 +439,7 @@ public class cMsg extends cMsgDomainAdapter {
 
             // tell server we're disconnecting
             sendBuffer.clear();
+            sendBuffer.putInt(4);
             sendBuffer.putInt(cMsgConstants.msgDisconnectRequest);
             try {
                 sendBuffer.flip();
@@ -517,8 +518,7 @@ public class cMsg extends cMsgDomainAdapter {
             //}
 
             int outGoing[] = new int[15];
-            outGoing[0]  = cMsgConstants.msgSendRequest;
-            outGoing[1]  = cMsgConstants.version;
+            outGoing[1]  = cMsgConstants.msgSendRequest;
             outGoing[2]  = 0; // reserved for future use
             outGoing[3]  = message.getUserInt();
             outGoing[4]  = message.getSysMsgId();
@@ -541,9 +541,18 @@ public class cMsg extends cMsgDomainAdapter {
             if (creator == null) creator = name;
             outGoing[14] = creator.length();
 
+            // total length of msg (not including this int) is 1st item
+            outGoing[0] = 4*(outGoing.length - 1) + outGoing[11] +
+                          outGoing[12] + outGoing[13] + outGoing[14];
+
             // lock to prevent parallel sends from using same buffer
             sendBufferLock.lock();
             try {
+                // make sure there's enough room in the buffer
+                if (outGoing[0] + 4 > sendBuffer.capacity()) {
+                    sendBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
+                }
+
                 // get ready to write
                 sendBuffer.clear();
                 // send ints over together using view buffer
@@ -619,8 +628,7 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             int outGoing[] = new int[15];
-            outGoing[0]  = cMsgConstants.msgSyncSendRequest;
-            outGoing[1]  = cMsgConstants.version;
+            outGoing[1]  = cMsgConstants.msgSyncSendRequest;
             outGoing[2]  = 0; // reserved for future use
             outGoing[3]  = message.getUserInt();
             outGoing[4]  = message.getSysMsgId();
@@ -642,6 +650,15 @@ public class cMsg extends cMsgDomainAdapter {
             String creator = message.getCreator();
             if (creator == null) creator = name;
             outGoing[14] = creator.length();
+
+            // total length of msg (not including this int) is 1st item
+            outGoing[0] = 4*(outGoing.length - 1) + outGoing[11] +
+                          outGoing[12] + outGoing[13] + outGoing[14];
+
+            // make sure there's enough room in the buffer
+            if (outGoing[0] + 4 > syncSendBuffer.capacity()) {
+                syncSendBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
+            }
 
             // get ready to write
             syncSendBuffer.clear();
@@ -758,25 +775,32 @@ public class cMsg extends cMsgDomainAdapter {
             // keep track of get calls
             subscribeAndGets.put(id, holder);
 
-            int[] outGoing = new int[4];
-            // first send message id to server
-            outGoing[0] = cMsgConstants.msgSubscribeAndGetRequest;
+            int[] outGoing = new int[5];
+            // send message id to server
+            outGoing[1] = cMsgConstants.msgSubscribeAndGetRequest;
             // send unique id of this subscription
-            outGoing[1] = id;
+            outGoing[2] = id;
             // send length of subscription subject
-            outGoing[2] = subject.length();
+            outGoing[3] = subject.length();
             // send length of subscription type
-            outGoing[3] = type.length();
+            outGoing[4] = type.length();
+            // total length of msg (not including this int) is 1st item
+            outGoing[0] = 4*(outGoing.length - 1) + outGoing[3] + outGoing[4];
 
             // lock to prevent parallel gets from using same buffer
             getBufferLock.lock();
             try {
+                // make sure there's enough room in the buffer
+                if (outGoing[0] + 4 > getBuffer.capacity()) {
+                    getBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
+                }
+
                 // get ready to write
                 getBuffer.clear();
                 // send ints over together using view buffer
                 getBuffer.asIntBuffer().put(outGoing);
                 // position original buffer at position of view buffer
-                getBuffer.position(16);
+                getBuffer.position(20);
 
                 // write strings
                 try {
@@ -899,8 +923,7 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
             sendAndGets.put(id, holder);
 
             int outGoing[] = new int[13];
-            outGoing[0]  = cMsgConstants.msgSendAndGetRequest;
-            outGoing[1]  = cMsgConstants.version;
+            outGoing[1]  = cMsgConstants.msgSendAndGetRequest;
             outGoing[2]  = 0; // reserved for future use
             outGoing[3]  = message.getUserInt();
             outGoing[4]  = id;
@@ -920,9 +943,18 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
             if (creator == null) creator = name;
             outGoing[12] = creator.length();
 
+            // total length of msg (not including this int) is 1st item
+            outGoing[0] = 4*(outGoing.length - 1) + outGoing[9] +
+                          outGoing[10] + outGoing[11] + outGoing[12];
+
             // lock to prevent parallel gets from using same buffer
             getBufferLock.lock();
             try {
+                // make sure there's enough room in the buffer
+                if (outGoing[0] + 4 > getBuffer.capacity()) {
+                    getBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
+                }
+
                 // get ready to write
                 getBuffer.clear();
                 // send ints over together using view buffer
@@ -1019,6 +1051,7 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
             // get ready to write
             getBuffer.clear();
             // send ints over
+            getBuffer.putInt(8); // 2 ints coming
             getBuffer.putInt(cMsgConstants.msgUnSendAndGetRequest);
             getBuffer.putInt(id);
 
@@ -1064,6 +1097,7 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
             // get ready to write
             getBuffer.clear();
             // send ints over
+            getBuffer.putInt(8); // 2 ints coming
             getBuffer.putInt(cMsgConstants.msgUnSubscribeAndGetRequest);
             getBuffer.putInt(id);
 
@@ -1167,22 +1201,29 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
                                                         new cMsgCallbackThread(cb, userObj));
             subscriptions.add(sub);
 
-            int[] outGoing = new int[4];
+            int[] outGoing = new int[5];
             // first send message id to server
-            outGoing[0] = cMsgConstants.msgSubscribeRequest;
+            outGoing[1] = cMsgConstants.msgSubscribeRequest;
             // send unique id of this subscription
-            outGoing[1] = id;
+            outGoing[2] = id;
             // send length of subscription subject
-            outGoing[2] = subject.length();
+            outGoing[3] = subject.length();
             // send length of subscription type
-            outGoing[3] = type.length();
+            outGoing[4] = type.length();
+            // total length of msg (not including this int) is 1st item
+            outGoing[0] = 4*(outGoing.length - 1) + outGoing[3] + outGoing[4];
+
+            // make sure there's enough room in the buffer
+            if (outGoing[0] + 4 > subBuffer.capacity()) {
+                subBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
+            }
 
             // get ready to write
             subBuffer.clear();
             // send ints over together using view buffer
             subBuffer.asIntBuffer().put(outGoing);
             // position original buffer at position of view buffer
-            subBuffer.position(16);
+            subBuffer.position(20);
 
             // write strings
             try {
@@ -1295,22 +1336,29 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
 
             // notify the domain server
 
-            int[] outGoing = new int[4];
+            int[] outGoing = new int[5];
             // first send message id to server
-            outGoing[0] = cMsgConstants.msgUnsubscribeRequest;
+            outGoing[1] = cMsgConstants.msgUnsubscribeRequest;
             // first send message id to server
-            outGoing[1] = id;
+            outGoing[2] = id;
             // send length of subject
-            outGoing[2] = subject.length();
+            outGoing[3] = subject.length();
             // send length of type
-            outGoing[3] = type.length();
+            outGoing[4] = type.length();
+            // total length of msg (not including this int) is 1st item
+            outGoing[0] = 4*(outGoing.length - 1) + outGoing[3] + outGoing[4];
+
+            // make sure there's enough room in the buffer
+            if (outGoing[0] + 4 > subBuffer.capacity()) {
+                subBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
+            }
 
             // get ready to write
             subBuffer.clear();
             // send ints over together using view buffer
             subBuffer.asIntBuffer().put(outGoing);
             // position original buffer at position of view buffer
-            subBuffer.position(16);
+            subBuffer.position(20);
 
             // write strings
             try {
@@ -1369,18 +1417,26 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
                 server = new String("");
             }
 
-            int outGoing[] = new int[4];
-            outGoing[0] = cMsgConstants.msgShutdown;
-            outGoing[1] = flag;
-            outGoing[2] = client.length();
-            outGoing[3] = server.length();
+            int outGoing[] = new int[5];
+            outGoing[1] = cMsgConstants.msgShutdown;
+            outGoing[2] = flag;
+            outGoing[3] = client.length();
+            outGoing[4] = server.length();
+
+            // total length of msg (not including this int) is 1st item
+            outGoing[0] = 4*(outGoing.length - 1) + outGoing[3] + outGoing[4];
+
+            // make sure there's enough room in the buffer
+            if (outGoing[0] + 4 > sendBuffer.capacity()) {
+                sendBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
+            }
 
             // get ready to write
             sendBuffer.clear();
             // send ints over together using view buffer
             sendBuffer.asIntBuffer().put(outGoing);
             // position original buffer at position of view buffer
-            sendBuffer.position(16);
+            sendBuffer.position(20);
 
             // write strings
             try {
@@ -1450,6 +1506,19 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
         // send length of my description to server
         outGoing[10] = description.length();
 
+        // make sure there's enough room in the buffer
+        int len = domain.length() +
+                  subdomain.length() +
+                  subRemainder.length() +
+                  host.length() +
+                  name.length() +
+                  UDL.length() +
+                  description.length() + 44;
+
+        if (len > buffer.capacity()) {
+            buffer = ByteBuffer.allocateDirect(len);
+        }
+
         // get ready to write
         buffer.clear();
         // send ints over together using view buffer
@@ -1503,9 +1572,12 @@ System.out.println("subscribeAndGet: SUCCESS!!!");
             // read string length
             cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
             buffer.flip();
-            int len = buffer.getInt();
+            len = buffer.getInt();
 
             // read error string
+            if (len > buffer.capacity()) {
+                buffer = ByteBuffer.allocateDirect(len);
+            }
             cMsgUtilities.readSocketBytes(buffer, channel, len, debug);
             buffer.flip();
             byte[] buf = new byte[len];
@@ -1719,6 +1791,7 @@ class KeepAlive extends Thread {
 
                 // send keep alive command
                 buffer.clear();
+                buffer.putInt(4);
                 buffer.putInt(cMsgConstants.msgKeepAlive).flip();
                 while (buffer.hasRemaining()) {
                     channel.write(buffer);
