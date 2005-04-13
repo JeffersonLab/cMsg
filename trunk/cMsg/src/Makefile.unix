@@ -19,7 +19,7 @@ CXX = g++
 LIB_DIR  = $(TOP_DIR)/lib/Linux
 BIN_DIR  = $(TOP_DIR)/bin/Linux
 AC_FLAGS =
-CFLAGS   = -O2 -fPIC -I. -I$(INC_DIR) $(AC_FLAGS)
+CFLAGS   = -O3 -fPIC -I. -I$(INC_DIR) $(AC_FLAGS)
 LIBS     = -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
 endif
 
