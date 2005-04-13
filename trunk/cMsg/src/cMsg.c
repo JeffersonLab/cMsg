@@ -125,7 +125,6 @@ extern "C" {
 
 /* local prototypes */
 static int   checkString(const char *s);
-static int   checkTextString(char *s);
 static void  registerDomainTypeInfo(void);
 static void  domainInit(cMsgDomain *domain);
 static void  domainFree(cMsgDomain *domain);
@@ -369,8 +368,7 @@ int cMsgSend(int domainId, void *msg) {
   /* check args */
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if ( (checkString(cmsg->subject)  !=0 ) ||
-       (checkString(cmsg->type)     !=0 ) ||
-       (checkTextString(cmsg->text) !=0 )   ) {
+       (checkString(cmsg->type)     !=0 )   ) {
     return(CMSG_BAD_ARGUMENT);
   }
 
@@ -410,8 +408,7 @@ int cMsgSyncSend(int domainId, void *msg, int *response) {
   /* check args */
   if (msg == NULL || response == NULL) return(CMSG_BAD_ARGUMENT);
   if ( (checkString(cmsg->subject)  !=0 ) ||
-       (checkString(cmsg->type)     !=0 ) ||
-       (checkTextString(cmsg->text) !=0 )   ) {
+       (checkString(cmsg->type)     !=0 )   ) {
     return(CMSG_BAD_ARGUMENT);
   }
   
@@ -570,8 +567,7 @@ int cMsgSendAndGet(int domainId, void *sendMsg, const struct timespec *timeout, 
   
   /* check msg fields */
   if ( (checkString(msg->subject)  !=0 ) ||
-       (checkString(msg->type)     !=0 ) ||
-       (checkTextString(msg->text) !=0 )   ) {
+       (checkString(msg->type)     !=0 )   ) {
     return(CMSG_BAD_ARGUMENT);
   }
 
@@ -1173,33 +1169,6 @@ static int checkString(const char *s) {
   return(CMSG_OK);
 }
 
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine checks a string given as message text.
- * It returns an error if it's NULL or contains an unprintable character
- *
- * @param s string to check
- *
- * @returns CMSG_OK if string is OK
- * @returns CMSG_ERROR if string is NULL or contains unprintable characters
- */   
-static int checkTextString(char *s) {
-
-  int i;
-
-  if (s == NULL) return(CMSG_ERROR);
-
-  /* check for printable character */
-  for (i=0; i<strlen(s); i++) {
-    if (isprint((int)s[i]) == 0) return(CMSG_ERROR);
-  }
-  
-  /* string ok */
-  return(CMSG_OK);
-}
 
 
 /*-------------------------------------------------------------------*/
