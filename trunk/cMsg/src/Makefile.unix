@@ -85,7 +85,7 @@ OBJSXX = rwlock.o \
 
 
 HFILES   = cMsgNetwork.h cMsgPrivate.h cMsgBase.h cMsgDomain.h rwlock.h errors.h
-HFILESXX = $(HFILES) cMsgBase.hxx
+HFILESXX = $(HFILES) cMsgBase.hxx cMsg.hxx
 #HFILES   = cMsgNetwork.h cMsgPrivate.h cMsg.h cMsgDomain.h rwlock.h errors.h rcAgentDomain.h
 
 PROGS   = producer consumer getConsumer getResponder shutdowner
@@ -113,10 +113,18 @@ install-inc: $(HFILES) $(HFILESXX)
 	   echo "  installing $$i"; \
 	   $(INSTALL) $$i $(INC_DIR)/$$i; \
            done;
+	@for i in $(HFILESXX); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(INC_DIR)/$$i; \
+           done;
 
 install-bin: $(PROGS) $(PROGSXX)
 	@echo "Installing executables in $(BIN_DIR)"
 	@for i in $(PROGS); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(BIN_DIR)/$$i; \
+           done;
+	@for i in $(PROGSXX); do \
 	   echo "  installing $$i"; \
 	   $(INSTALL) $$i $(BIN_DIR)/$$i; \
            done;
