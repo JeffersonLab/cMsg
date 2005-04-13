@@ -26,6 +26,8 @@
 int count = 0, domainId = -1;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
+
+/******************************************************************/
 static void callback(void *msg, void *arg) {
   
   pthread_mutex_lock(&mutex);
@@ -35,6 +37,7 @@ static void callback(void *msg, void *arg) {
   /* user MUST free messages passed to the callback */
   cMsgFreeMessage(msg);
 }
+
 
 /******************************************************************/
 static void callback2(void *msg, void *arg) {
