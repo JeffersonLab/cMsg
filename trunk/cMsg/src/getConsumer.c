@@ -19,6 +19,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <pthread.h>
 
 #include "cMsg.h"
 
@@ -31,22 +34,54 @@ int main(int argc,char **argv) {
   char *type    = "TYPE";
   char *text    = "TEXT";
   char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
-  int   err, debug=1, domainId = -1;
+  int   err, debug=1, domainId = -1, textSize;
   void *msg, *replyMsg;
   
   /* msg rate measuring variables */
-  int             count, i, loops=1000;
+  int             count, i, loops=5000;
   struct timespec timeout, t1, t2;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
-  
+
+/* 
+#if defined (_POSIX_THREAD_PRIORITY_SCHEDULING)    
+    pthread_attr_t thread_attr;
+        
+    printf("Hey this operating system support POSIX priority scheduling\n");
+    err = pthread_attr_init(&thread_attr);
+    if (err != 0) printf("Cannot init thread attribute\n");
+    err = pthread_attr_setschedpolicy(&thread_attr, SCHED_FIFO);
+    if (err != 0) printf("Cannot set to round-robin scheduling\n");
+    setpriority(PRIO_PROCESS, getpid(), 0);
+    
+    printf("pid = %d\n", getpid());
+#endif
+*/
+
   /* maximum time to wait for sendAndGet to return */
   timeout.tv_sec  = 3;
-  timeout.tv_nsec = 0;
-    
+  timeout.tv_nsec = 0;    
+  
+  
+  /*
   if (argc > 1) {
     myName = argv[1];
   }
+  */
+  if (argc > 1) {
+    char *p;
+    textSize = atoi(argv[1]);
+    text = p = (char *) malloc((size_t) (textSize + 1));
+    if (p == NULL) exit(1);
+    printf("using text size %d\n", textSize);
+    for (i=0; i < textSize; i++) {
+      *p = 'A';
+      p++;
+    }
+    *p = '\0'; /* string's ending null */
+  }
+  
+  /*printf("Text = %s\n", text);*/
   
   if (debug) {
     printf("Running the cMsg C getConsumer, \"%s\"\n", myName);
