@@ -33,7 +33,6 @@ static void callback(void *msg, void *arg) {
   pthread_mutex_lock(&mutex);
   count++;
   pthread_mutex_unlock(&mutex);
-  
   /* user MUST free messages passed to the callback */
   cMsgFreeMessage(msg);
 }
@@ -124,7 +123,7 @@ int main(int argc,char **argv) {
       }
       exit(1);
   }
-
+    
   while (1) {
       count = 0;
       

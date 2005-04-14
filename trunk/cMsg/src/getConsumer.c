@@ -116,8 +116,8 @@ int main(int argc,char **argv) {
       for (i=0; i < loops; i++) {
           
           /* send msg and wait up to timeout for reply */
-          err = cMsgSendAndGet(domainId, msg, &timeout, &replyMsg);
           /*err = cMsgSubscribeAndGet(domainId, subject, type, &timeout, &replyMsg);*/
+          err = cMsgSendAndGet(domainId, msg, &timeout, &replyMsg);
           if (err == CMSG_TIMEOUT) {
               printf("TIMEOUT in GET\n");
           }
