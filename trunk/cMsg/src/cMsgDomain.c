@@ -1462,10 +1462,10 @@ static int codaSubscribe(int domainId, const char *subject, const char *type, cM
           }
           
 	  jok = 1;
+          break;
 	}
       }
       break;
-
     }
   }
   
@@ -1650,15 +1650,14 @@ static int codaUnsubscribe(int domainId, const char *subject, const char *type, 
     if ( (domain->subscribeInfo[i].active == 1) && 
          (strcmp(domain->subscribeInfo[i].subject, subject) == 0)  && 
          (strcmp(domain->subscribeInfo[i].type,    type)    == 0) )  {
-            
       /* search callback list */
       for (j=0; j<MAX_CALLBACK; j++) {
 	if (domain->subscribeInfo[i].cbInfo[j].callback != NULL) {
 	  cbCount++;
 	  if ( (domain->subscribeInfo[i].cbInfo[j].callback == callback) &&
                (domain->subscribeInfo[i].cbInfo[j].userArg  ==  userArg))  {
-
-            domain->subscribeInfo[i].cbInfo[j].callback == NULL;
+            
+            domain->subscribeInfo[i].cbInfo[j].callback = NULL;
             cbsRemoved++;
           }
 	}
@@ -2566,9 +2565,7 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
       for (j=0; j<MAX_CALLBACK; j++) {
 	/* if there is an existing callback ... */
         if (domain->subscribeInfo[i].cbInfo[j].callback != NULL) {
-/*
-fprintf(stderr, "cMsgRunCallbacks: there is a callback\n");
-*/
+
           /* copy message so each callback has its own copy */
           message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
 
