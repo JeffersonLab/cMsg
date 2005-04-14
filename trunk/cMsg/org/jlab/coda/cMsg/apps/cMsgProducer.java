@@ -174,6 +174,7 @@ public class cMsgProducer {
         while (true) {
             t1 = System.currentTimeMillis();
             for (int i = 0; i < count; i++) {
+                //coda.syncSend(msg);
                 coda.send(msg);
                 coda.flush();
                 // delay between messages sent
