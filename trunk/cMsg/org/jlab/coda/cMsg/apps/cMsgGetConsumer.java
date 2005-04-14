@@ -181,6 +181,7 @@ public class cMsgGetConsumer {
             // do a bunch of gets
             for (int i=0; i < 4000; i++) {
                 // do the synchronous sendAndGet with timeout
+                //try {msg = coda.subscribeAndGet(subject, type, timeout);}
                 try {msg = coda.sendAndGet(sendMsg, timeout);}
                 catch (TimeoutException e) {
                     System.out.println("Timeout in sendAndGet");
