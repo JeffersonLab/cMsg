@@ -20,7 +20,12 @@
 
 #include "cMsg.h"
 
-static void shutdownHandler(void *arg);
+/* shutdown handler function */
+static void shutdownHandler(void *arg) {
+  printf("RAN SHUTDOWN HANDLER!!\n");
+  exit(-1);
+}
+
 
 
 int main(int argc,char **argv) {  
@@ -66,11 +71,5 @@ int main(int argc,char **argv) {
   printf("Oops, shutdown handler didn't kill me!\n");
   
   return(0);
-}
-
-/* shutdown handler function */
-static void shutdownHandler(void *arg) {
-  printf("RAN SHUTDOWN HANDLER!!\n");
-  exit(-1);
 }
 
