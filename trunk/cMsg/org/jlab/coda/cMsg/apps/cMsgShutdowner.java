@@ -85,6 +85,13 @@ public class cMsgShutdowner {
         }
     }
 
+    class myShutdownHandler implements cMsgShutdownHandlerInterface {
+        public void handleShutdown() {
+            System.out.println("RUNNING SHUTDOWN HANDLER");
+            System.exit(-1);
+        }
+    }
+
 
     /**
      * Run as a stand-alone application.
@@ -102,11 +109,14 @@ public class cMsgShutdowner {
             System.out.println("Shutting down " + client);
         }
 
-        // shutdown specified client
-        coda.shutdown(client, null, 0);
+        // add shutdown handler
+        coda.setShutdownHandler(new myShutdownHandler());
 
-        // if we want to possibly shutdown ourselves, then call ...
-        // coda.shutdown(client, null, cMsgConstants.includeMe);
+        // if we want to shutdown ourselves, then call ...
+        coda.shutdown(name, null, cMsgConstants.includeMe);
+
+        // shutdown specified client
+        //coda.shutdown(client, null, 0);
 
         try {Thread.sleep(5000);}
         catch (InterruptedException e) {}
