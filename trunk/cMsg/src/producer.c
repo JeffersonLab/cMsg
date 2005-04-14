@@ -35,7 +35,7 @@ int main(int argc,char **argv) {
   char *type    = "TYPE";
   char *text    = "TEXT";
   char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
-  int   err, debug=1, domainId = -1, textSize;
+  int   err, debug=1, domainId = -1, textSize, response;
   void *msg;
   
   /* msg rate measuring variables */
@@ -96,6 +96,7 @@ int main(int argc,char **argv) {
 
       for (i=0; i < loops; i++) {
           /* send msg */
+          /*if (cMsgSyncSend(domainId, msg, &response) != CMSG_OK) {*/
           if (cMsgSend(domainId, msg) != CMSG_OK) {
             printf("cMsgSend: %s\n",cMsgPerror(err));
             fflush(stdout);
