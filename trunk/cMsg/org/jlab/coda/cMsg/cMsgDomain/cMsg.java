@@ -861,7 +861,7 @@ public class cMsg extends cMsgDomainAdapter {
         // Client listening thread has also removed subscription from client's
         // records (subscribeAndGets HashSet).
 
-System.out.println("subscribeAndGet: SUCCESS!!!");
+//System.out.println("subscribeAndGet: SUCCESS!!!");
 
         return holder.message;
     }
