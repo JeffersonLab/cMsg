@@ -147,7 +147,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
 
         if (msgType == cMsgConstants.msgShutdown) {
             // size
-            buffer.putInt(4);
+            buffer.putInt(8);
             // msg type
             buffer.putInt(msgType);
             // want an acknowledgment?
