@@ -42,7 +42,7 @@ public class cMsgMessageMatcher {
      * @param s message string to be matched (can be blank which only matches *)
      * @return true if there is a match, false if there is not
      */
-    static final public boolean matches(String regexp, String s) {
+    static final public boolean matches(String regexp, String s, boolean escapeRegexp) {
         // It's a match if regexp (subscription string) is null
         if (regexp == null) return true;
 
@@ -53,7 +53,10 @@ public class cMsgMessageMatcher {
         // a regular expression that Java can understand. This means subbing all occurrences
         // of "*" and "?" with ".*" and ".{1}". And it means escaping other regular
         // expression special characters.
-        regexp = escape(regexp);
+        // Sometimes regexp is already escaped, so no need to redo it.
+        if (escapeRegexp) {
+            regexp = escape(regexp);
+        }
 
         // Now see if there's a match with the string arg
         if (s.matches(regexp)) return true;
