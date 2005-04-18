@@ -103,6 +103,15 @@ public class cMsgMessage implements Cloneable {
     /** Time supplied by user in milliseconds from midnight GMT, Jan 1st, 1970. */
     long userTime;
 
+    /** Byte array of message. */
+    byte[] bytes;
+
+    /** Offset into byte array of first element. */
+    int offset;
+
+    /** Length of byte array elements to use. */
+    int length;
+
 
     // sender quantities
 
@@ -153,6 +162,7 @@ public class cMsgMessage implements Cloneable {
         subject             = msg.subject;
         type                = msg.type;
         text                = msg.text;
+        bytes               = (byte[]) msg.bytes.clone();
         reserved            = msg.reserved;
         userInt             = msg.userInt;
         userTime            = msg.userTime;
@@ -176,6 +186,7 @@ public class cMsgMessage implements Cloneable {
         cMsgMessage msg = null;
         try {
             msg = (cMsgMessage) this.clone();
+            msg.bytes = (byte[]) this.bytes.clone();
         }
         catch (CloneNotSupportedException e) {
         }
@@ -245,7 +256,9 @@ public class cMsgMessage implements Cloneable {
     }
 
 
+    ///////////////////////
     // general quantities
+    ///////////////////////
 
 
     /**
@@ -331,7 +344,9 @@ public class cMsgMessage implements Cloneable {
     }
 
 
+    /////////////////////////////
     // user-settable quantities
+    /////////////////////////////
 
 
     /**
@@ -365,7 +380,7 @@ public class cMsgMessage implements Cloneable {
     public String getText() {return text;}
     /**
      * Set text of message.
-     * @param text ext of message.
+     * @param text text of message.
      */
     public void setText(String text) {this.text = text;}
 
@@ -393,8 +408,160 @@ public class cMsgMessage implements Cloneable {
      */
     public void setUserTime(Date time) {this.userTime = time.getTime();}
 
+    // byte array stuff
 
+    /**
+     * Get byte array of message.
+     * @return byte array of message.
+     */
+    public byte[] getByteArray() {return bytes;}
+    /**
+     * Set byte array of message.
+     * @param b byte array of message.
+     */
+    public void setByteArray(byte[] b) {
+        if (b == null) {
+            bytes  = null;
+            offset = 0;
+            length = 0;
+            return;
+        }
+        bytes  = (byte[]) b.clone();
+        offset = 0;
+        length = b.length;
+    }
+    /**
+     * Set byte array of message.
+     * @param b byte array of message.
+     * @param offset index into byte array to bytes of interest.
+     * @param length number of bytes of interest.
+     */
+    public void setByteArray(byte[] b, int offset, int length) throws cMsgException {
+        if ((length < 0) || (length > b.length)) {
+            throw new cMsgException("length is out of array bounds");
+        }
+        if ((offset < 0) || (offset > b.length-1)) {
+            throw new cMsgException("offset is out of array bounds");
+        }
+        if ((offset + length) > b.length) {
+            throw new cMsgException("offset + length is out of array bounds");
+        }
+
+        if (b == null) {
+            bytes = null;
+            this.offset = 0;
+            this.length = 0;
+            return;
+        }
+
+        if (offset == 0 && length == b.length) {
+            setByteArray(b);
+            return;
+        }
+
+        this.offset = 0;
+        this.length = length;
+        bytes  = new byte[length];
+
+        for (int i=0; i<length; i++) {
+            bytes[i] = b[offset+i];
+        }
+    }
+
+    /**
+     * Set byte array of message to the given argument without
+     * copying the byte array itself - only the reference is copied.
+     * @param b byte array of message.
+     */
+    public void setByteArrayNoCopy(byte[] b) {
+        if (b == null) {
+            bytes  = null;
+            offset = 0;
+            length = 0;
+            return;
+        }
+        bytes  = b;
+        offset = 0;
+        length = b.length;
+    }
+    /**
+     * Set byte array of message to the given argument without
+     * copying the byte array itself - only the reference is copied.
+     * @param b byte array of message.
+     */
+    public void setByteArrayNoCopy(byte[] b, int offset, int length) throws cMsgException {
+        if ((length < 0) || (length > b.length)) {
+            throw new cMsgException("length is out of array bounds");
+        }
+        if ((offset < 0) || (offset > b.length-1)) {
+            throw new cMsgException("offset is out of array bounds");
+        }
+        if ((offset + length) > b.length) {
+            throw new cMsgException("offset + length is out of array bounds");
+        }
+
+        if (b == null) {
+            bytes = null;
+            this.offset = 0;
+            this.length = 0;
+            return;
+        }
+
+        bytes = b;
+        this.offset = offset;
+        this.length = length;
+    }
+
+
+    /**
+     * Get byte array length of data of interest. This may be smaller
+     * than the total length of the array if the user is only interested
+     * in a portion of the array.
+     * @return length of byte array's data of interest.
+     */
+    public int getByteArrayLength() {return length;}
+    /**
+     * Set byte array length of data of interest. This may be smaller
+     * than the total length of the array if the user is only interested
+     * in a portion of the array.
+     * @param length of byte array's data of interest.
+     */
+    public void setByteArrayLength(int length) throws cMsgException {
+        if ((length < 0) || (length > bytes.length)) {
+            throw new cMsgException("length is out of array bounds");
+        }
+        if ((offset + length) > bytes.length) {
+            throw new cMsgException("offset + length is out of array bounds");
+        }
+        this.length = length;
+    }
+
+
+    /**
+     * Get byte array index to data of interest. This may be non-zero
+     * if the user is only interested in a portion of the array.
+     * @return index to byte array's data of interest.
+     */
+    public int getByteArrayOffset() {return offset;}
+    /**
+     * Set byte array index to data of interest. This may be non-zero
+     * if the user is only interested in a portion of the array.
+     * @param offset index to byte array's data of interest.
+     */
+    public void setByteArrayOffset(int offset) throws cMsgException {
+        if ((offset < 0) || (offset > bytes.length-1)) {
+            throw new cMsgException("offset is out of array bounds");
+        }
+        if ((offset + length) > bytes.length) {
+            throw new cMsgException("offset + length is out of array bounds");
+        }
+        this.offset = offset;
+    }
+
+
+    /////////////
     // sender
+    /////////////
 
 
     /**
@@ -426,7 +593,9 @@ public class cMsgMessage implements Cloneable {
      public int getSenderToken() {return senderToken;}
 
 
+    /////////////
     // receiver
+    /////////////
 
 
     /**

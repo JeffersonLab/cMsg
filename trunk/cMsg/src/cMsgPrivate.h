@@ -172,6 +172,10 @@ typedef struct cMsg_t {
   char   *text;                /**< Text of message. */
   int     userInt;             /**< User-defined integer. */
   struct timespec userTime;    /**< User-defined time. */
+  char   *byteArray;           /**< Array of bytes. */
+  int     byteArrayLength;     /**< Length (in bytes) of byte array data of interest. */
+  int     byteArrayOffset;     /**< Index into byte array to data of interest. */
+  
 
   /* sender quantities */
   char   *sender;              /**< Last sender of message. */
