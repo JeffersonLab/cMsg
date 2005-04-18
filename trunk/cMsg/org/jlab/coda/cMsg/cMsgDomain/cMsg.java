@@ -508,16 +508,16 @@ public class cMsg extends cMsgDomainAdapter {
             String type = message.getType();
             String text = message.getText();
 
-            // check args first
-            if (subject == null || type == null || text == null) {
-                throw new cMsgException("message subject, type, or text is null");
+            // check message fields first
+            if (subject == null || type == null) {
+                throw new cMsgException("message subject and/or type is null");
             }
 
-            //if (subject.length() < 1 || type.length() < 1) {
-            //    throw new cMsgException("message subject or type is blank string");
-            //}
+            if (text == null) {
+                text = "";
+            }
 
-            int outGoing[] = new int[15];
+            int outGoing[] = new int[16];
             outGoing[1]  = cMsgConstants.msgSendRequest;
             outGoing[2]  = 0; // reserved for future use
             outGoing[3]  = message.getUserInt();
@@ -534,16 +534,21 @@ public class cMsg extends cMsgDomainAdapter {
 
             outGoing[11] = subject.length();
             outGoing[12] = type.length();
-            outGoing[13] = text.length();
 
             // send creator (this sender's name if msg created here)
             String creator = message.getCreator();
             if (creator == null) creator = name;
-            outGoing[14] = creator.length();
+            outGoing[13] = creator.length();
+
+            outGoing[14] = text.length();
+
+            int binaryLength = message.getByteArrayLength();
+            outGoing[15] = binaryLength;
 
             // total length of msg (not including this int) is 1st item
             outGoing[0] = 4*(outGoing.length - 1) + outGoing[11] +
-                          outGoing[12] + outGoing[13] + outGoing[14];
+                          outGoing[12] + outGoing[13] +
+                          outGoing[14] + outGoing[15];
 
             // lock to prevent parallel sends from using same buffer
             sendBufferLock.lock();
@@ -552,20 +557,24 @@ public class cMsg extends cMsgDomainAdapter {
                 if (outGoing[0] + 4 > sendBuffer.capacity()) {
                     sendBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
                 }
-
                 // get ready to write
                 sendBuffer.clear();
                 // send ints over together using view buffer
                 sendBuffer.asIntBuffer().put(outGoing);
                 // position original buffer at position of view buffer
-                sendBuffer.position(60);
+                sendBuffer.position(64);
 
-                // write strings
+               // write strings
                 try {
                     sendBuffer.put(subject.getBytes("US-ASCII"));
                     sendBuffer.put(type.getBytes("US-ASCII"));
-                    sendBuffer.put(text.getBytes("US-ASCII"));
                     sendBuffer.put(creator.getBytes("US-ASCII"));
+                    sendBuffer.put(text.getBytes("US-ASCII"));
+                    if (binaryLength > 0) {
+                        sendBuffer.put(message.getByteArray(),
+                                       message.getByteArrayOffset(),
+                                       binaryLength);
+                    }
                 }
                 catch (UnsupportedEncodingException e) {
                     e.printStackTrace();
@@ -623,11 +632,15 @@ public class cMsg extends cMsgDomainAdapter {
             String text = message.getText();
 
             // check args first
-            if (subject == null || type == null || text == null) {
-                throw new cMsgException("message subject, type, or text is null");
+            if (subject == null || type == null) {
+                throw new cMsgException("message subject and/or type is null");
             }
 
-            int outGoing[] = new int[15];
+            if (text == null) {
+                text = "";
+            }
+
+            int outGoing[] = new int[16];
             outGoing[1]  = cMsgConstants.msgSyncSendRequest;
             outGoing[2]  = 0; // reserved for future use
             outGoing[3]  = message.getUserInt();
@@ -644,16 +657,21 @@ public class cMsg extends cMsgDomainAdapter {
 
             outGoing[11] = subject.length();
             outGoing[12] = type.length();
-            outGoing[13] = text.length();
 
             // send creator (this sender's name if msg created here)
             String creator = message.getCreator();
             if (creator == null) creator = name;
-            outGoing[14] = creator.length();
+            outGoing[13] = creator.length();
+
+            outGoing[14] = text.length();
+
+            int binaryLength = message.getByteArrayLength();
+            outGoing[15] = binaryLength;
 
             // total length of msg (not including this int) is 1st item
             outGoing[0] = 4*(outGoing.length - 1) + outGoing[11] +
-                          outGoing[12] + outGoing[13] + outGoing[14];
+                          outGoing[12] + outGoing[13] +
+                          outGoing[14] + outGoing[15];
 
             // make sure there's enough room in the buffer
             if (outGoing[0] + 4 > syncSendBuffer.capacity()) {
@@ -665,14 +683,19 @@ public class cMsg extends cMsgDomainAdapter {
             // send ints over together using view buffer
             syncSendBuffer.asIntBuffer().put(outGoing);
             // position original buffer at position of view buffer
-            syncSendBuffer.position(60);
+            syncSendBuffer.position(64);
 
             // write strings
             try {
                 syncSendBuffer.put(subject.getBytes("US-ASCII"));
                 syncSendBuffer.put(type.getBytes("US-ASCII"));
-                syncSendBuffer.put(text.getBytes("US-ASCII"));
                 syncSendBuffer.put(creator.getBytes("US-ASCII"));
+                syncSendBuffer.put(text.getBytes("US-ASCII"));
+                if (binaryLength > 0) {
+                    syncSendBuffer.put(message.getByteArray(),
+                                   message.getByteArrayOffset(),
+                                   binaryLength);
+                }
             }
             catch (UnsupportedEncodingException e) {
                 e.printStackTrace();
@@ -904,8 +927,12 @@ public class cMsg extends cMsgDomainAdapter {
             String text = message.getText();
 
             // check args first
-            if (subject == null || type == null || text == null) {
-                throw new cMsgException("message subject, type, or text is null");
+            if (subject == null || type == null) {
+                throw new cMsgException("message subject and/or type is null");
+            }
+
+            if (text == null) {
+                text = "";
             }
 
             // We need send msg to domain server who will see we get a response.
@@ -922,7 +949,7 @@ public class cMsg extends cMsgDomainAdapter {
             // track specific get requests
             sendAndGets.put(id, holder);
 
-            int outGoing[] = new int[13];
+            int outGoing[] = new int[14];
             outGoing[1]  = cMsgConstants.msgSendAndGetRequest;
             outGoing[2]  = 0; // reserved for future use
             outGoing[3]  = message.getUserInt();
@@ -937,15 +964,20 @@ public class cMsg extends cMsgDomainAdapter {
 
             outGoing[9]  = subject.length();
             outGoing[10] = type.length();
-            outGoing[11] = text.length();
 
             String creator = message.getCreator();
             if (creator == null) creator = name;
-            outGoing[12] = creator.length();
+            outGoing[11] = creator.length();
+
+            outGoing[12] = text.length();
+
+            int binaryLength = message.getByteArrayLength();
+            outGoing[13] = binaryLength;
 
             // total length of msg (not including this int) is 1st item
             outGoing[0] = 4*(outGoing.length - 1) + outGoing[9] +
-                          outGoing[10] + outGoing[11] + outGoing[12];
+                          outGoing[10] + outGoing[11] +
+                          outGoing[12] + outGoing[13];
 
             // lock to prevent parallel gets from using same buffer
             getBufferLock.lock();
@@ -960,7 +992,7 @@ public class cMsg extends cMsgDomainAdapter {
                 // send ints over together using view buffer
                 getBuffer.asIntBuffer().put(outGoing);
                 // position original buffer at position of view buffer
-                getBuffer.position(52);
+                getBuffer.position(56);
 
                 // write strings
                 try {
@@ -968,6 +1000,11 @@ public class cMsg extends cMsgDomainAdapter {
                     getBuffer.put(type.getBytes("US-ASCII"));
                     getBuffer.put(text.getBytes("US-ASCII"));
                     getBuffer.put(creator.getBytes("US-ASCII"));
+                    if (binaryLength > 0) {
+                        getBuffer.put(message.getByteArray(),
+                                      message.getByteArrayOffset(),
+                                      binaryLength);
+                    }
                 }
                 catch (UnsupportedEncodingException e) {
                     e.printStackTrace();

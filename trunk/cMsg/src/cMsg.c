@@ -1334,7 +1334,10 @@ static void initMessage(cMsgMessage *msg) {
     msg->subject      = NULL;
     msg->type         = NULL;
     msg->text         = NULL;
+    msg->byteArray    = NULL;
     
+    msg->byteArrayOffset  = 0;
+    msg->byteArrayLength  = 0;
     msg->reserved         = 0;
     msg->userInt          = 0;
     msg->userTime.tv_sec  = 0;
@@ -1384,6 +1387,7 @@ int cMsgFreeMessage(void *vmsg) {
   if (msg->subject != NULL)      free(msg->subject);
   if (msg->type != NULL)         free(msg->type);
   if (msg->text != NULL)         free(msg->text);
+  if (msg->byteArray != NULL)    free(msg->byteArray);
   
   free(msg);
 
@@ -1396,7 +1400,12 @@ int cMsgFreeMessage(void *vmsg) {
 
 /**
  * This routine copies a message. Memory is allocated with this
- * function and can be freed by cMsgFreeMessage().
+ * function and can be freed by cMsgFreeMessage(). Note that the
+ * copy of the byte array will only have byteArrayLength number of
+ * bytes. Since in C the original size of the array in unknown,
+ * a whole copy cannot be guaranteed unless the orginial message
+ * has its offset at zero and its length to be the total length
+ * of its array.
  *
  * @param vmsg pointer to message structure being copied
  *
@@ -1433,9 +1442,21 @@ int cMsgFreeMessage(void *vmsg) {
     if (msg->text != NULL) newMsg->text = (char *) strdup(msg->text);
     else                   newMsg->text = NULL;
 
-    newMsg->reserved    = msg->reserved;
-    newMsg->userInt     = msg->userInt;
-    newMsg->userTime    = msg->userTime;
+    if (msg->byteArray != NULL) {
+      newMsg->byteArray = (char *) malloc(msg->byteArrayLength);
+      if (newMsg->byteArray == NULL) return NULL;
+      memcpy(newMsg->byteArray, &((msg->byteArray)[msg->byteArrayOffset]),
+             (size_t) msg->byteArrayLength);
+    }
+    else {
+      newMsg->byteArray = NULL;
+    }
+
+    newMsg->byteArrayOffset = msg->byteArrayOffset;
+    newMsg->byteArrayLength = msg->byteArrayLength;
+    newMsg->reserved        = msg->reserved;
+    newMsg->userInt         = msg->userInt;
+    newMsg->userTime        = msg->userTime;
 
     if (msg->sender != NULL) newMsg->sender = (char *) strdup(msg->sender);
     else                     newMsg->sender = NULL;
@@ -1479,6 +1500,7 @@ int cMsgFreeMessage(void *vmsg) {
     if (msg->subject != NULL)      free(msg->subject);
     if (msg->type != NULL)         free(msg->type);
     if (msg->text != NULL)         free(msg->text);
+    if (msg->byteArray != NULL)    free(msg->byteArray);
     if (msg->sender != NULL)       free(msg->sender);
     if (msg->senderHost != NULL)   free(msg->senderHost);
     if (msg->receiver != NULL)     free(msg->receiver);
@@ -2065,6 +2087,190 @@ int cMsgGetUserTime(void *vmsg, struct timespec *userTime) {
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   *userTime = msg->userTime;
+  return (CMSG_OK);
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine sets the length of a message's byte array.
+ *
+ * @param vmsg pointer to message
+ * @param length byte array's length
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL or length is negative
+ */   
+int cMsgSetByteArrayLength(void *vmsg, int length) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (length < 0)  return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  msg->byteArrayLength = length;
+
+  return(CMSG_OK);
+}
+
+/**
+ * This routine gets the length of a message's byte array.
+ *
+ * @param vmsg pointer to message
+ * @param length int pointer to be filled with byte array length
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetByteArrayLength(void *vmsg, int *length) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  *length = msg->byteArrayLength;
+  return (CMSG_OK);
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine sets the offset of a message's byte array.
+ *
+ * @param vmsg pointer to message
+ * @param offset byte array's offset
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgSetByteArrayOffset(void *vmsg, int offset) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  msg->byteArrayOffset = offset;
+
+  return(CMSG_OK);
+}
+
+/**
+ * This routine gets the offset of a message's byte array.
+ *
+ * @param vmsg pointer to message
+ * @param offset int pointer to be filled with byte array offset
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetByteArrayOffset(void *vmsg, int *offset) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  *offset = msg->byteArrayOffset;
+  return (CMSG_OK);
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine sets a message's byte array by setting the pointer
+ * and NOT copying the data.
+ *
+ * @param vmsg pointer to message
+ * @param array byte array
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgSetByteArray(void *vmsg, char *array) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  msg->byteArray = array;
+
+  return(CMSG_OK);
+}
+
+
+/**
+ * This routine sets a message's byte array by setting the pointer
+ * and NOT copying the data. It also sets the offset index into and
+ * length of the array.
+ *
+ * @param vmsg pointer to message
+ * @param array byte array
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL or length is negative
+ */   
+int cMsgSetByteArrayAndLimits(void *vmsg, char *array, int offset, int length) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (length < 0)  return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  msg->byteArray       = array;
+  msg->byteArrayOffset = offset;
+  msg->byteArrayLength = length;
+
+  return(CMSG_OK);
+}
+
+
+/**
+ * This routine sets a message's byte array by copying the data
+ * into a newly allocated array using the given offset and length
+ * values. No existing byte array memory is freed. The offset is
+ * reset to zero while length is set to the given value.
+ *
+ * @param vmsg pointer to message
+ * @param array byte array
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL or length is negative
+ */   
+int cMsgCopyByteArray(void *vmsg, char *array, int offset, int length) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (length < 0)  return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  msg->byteArray = (char *) malloc(msg->byteArrayLength);
+  if (msg->byteArray == NULL) {
+    return (CMSG_OUT_OF_MEMORY);
+  }
+
+  memcpy(msg->byteArray, &(array[offset]), (size_t) length);
+  msg->byteArrayOffset = 0;
+  msg->byteArrayLength = length;
+
+  return(CMSG_OK);
+}
+
+
+/**
+ * This routine gets a message's byte array.
+ *
+ * @param vmsg pointer to message
+ * @param array pointer to be filled with byte array
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetByteArray(void *vmsg, char **array) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  *array = msg->byteArray;
   return (CMSG_OK);
 }
 
