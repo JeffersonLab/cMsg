@@ -108,48 +108,60 @@ extern "C" {
   
   
   /* message access functions */
-  int    cMsgFreeMessage       (void *msg);
-  void  *cMsgCreateMessage     (void);
-  void  *cMsgCreateNewMessage  (void *vmsg);
-  void  *cMsgCopyMessage       (void *msg);
-  void   cMsgInitMessage       (void *msg);
+  int    cMsgFreeMessage          (void *msg);
+  void  *cMsgCreateMessage        (void);
+  void  *cMsgCreateNewMessage     (void *vmsg);
+  void  *cMsgCopyMessage          (void *msg);
+  void   cMsgInitMessage          (void *msg);
   void  *cMsgCreateResponseMessage(void *vmsg);
   void  *cMsgCreateNullResponseMessage(void *vmsg);
   
-  int    cMsgGetVersion        (void *vmsg, int *version);
-  int    cMsgGetGetRequest     (void *vmsg, int *getRequest);
+  int    cMsgGetVersion           (void *vmsg, int *version);
+  int    cMsgGetGetRequest        (void *vmsg, int *getRequest);
   
-  int    cMsgSetGetResponse    (void *vmsg, int  getReponse);
-  int    cMsgGetGetResponse    (void *vmsg, int *getReponse);
+  int    cMsgSetGetResponse       (void *vmsg, int  getReponse);
+  int    cMsgGetGetResponse       (void *vmsg, int *getReponse);
   
-  int    cMsgSetNullGetResponse(void *vmsg, int  nullGetResponse);
-  int    cMsgGetNullGetResponse(void *vmsg, int *nullGetResponse);
+  int    cMsgSetNullGetResponse   (void *vmsg, int  nullGetResponse);
+  int    cMsgGetNullGetResponse   (void *vmsg, int *nullGetResponse);
     
-  int    cMsgGetDomain         (void *vmsg, char **domain);
-  int    cMsgGetCreator        (void *vmsg, char **creator);
+  int    cMsgGetDomain            (void *vmsg, char **domain);
+  int    cMsgGetCreator           (void *vmsg, char **creator);
   
-  int    cMsgSetSubject        (void *vmsg, const char  *subject);
-  int    cMsgGetSubject        (void *vmsg, char **subject);
+  int    cMsgSetSubject           (void *vmsg, const char  *subject);
+  int    cMsgGetSubject           (void *vmsg, char **subject);
   
-  int    cMsgSetType           (void *vmsg, const char  *type);
-  int    cMsgGetType           (void *vmsg, char **type);
+  int    cMsgSetType              (void *vmsg, const char  *type);
+  int    cMsgGetType              (void *vmsg, char **type);
   
-  int    cMsgSetText           (void *vmsg, const char  *text);
-  int    cMsgGetText           (void *vmsg, char **text);
+  int    cMsgSetText              (void *vmsg, const char  *text);
+  int    cMsgGetText              (void *vmsg, char **text);
   
-  int    cMsgSetUserInt        (void *vmsg, int  userInt);
-  int    cMsgGetUserInt        (void *vmsg, int *userInt);
+  int    cMsgSetUserInt           (void *vmsg, int  userInt);
+  int    cMsgGetUserInt           (void *vmsg, int *userInt);
   
-  int    cMsgSetUserTime       (void *vmsg, const struct timespec *userTime);
-  int    cMsgGetUserTime       (void *vmsg, struct timespec *userTime);
+  int    cMsgSetUserTime          (void *vmsg, const struct timespec *userTime);
+  int    cMsgGetUserTime          (void *vmsg, struct timespec *userTime);
   
-  int    cMsgGetSender         (void *vmsg, char  **sender);
-  int    cMsgGetSenderHost     (void *vmsg, char  **senderHost);
-  int    cMsgGetSenderTime     (void *vmsg, struct timespec *senderTime);
+  int    cMsgGetSender            (void *vmsg, char  **sender);
+  int    cMsgGetSenderHost        (void *vmsg, char  **senderHost);
+  int    cMsgGetSenderTime        (void *vmsg, struct timespec *senderTime);
   
-  int    cMsgGetReceiver       (void *vmsg, char  **receiver);
-  int    cMsgGetReceiverHost   (void *vmsg, char  **receiverHost);
-  int    cMsgGetReceiverTime   (void *vmsg, struct timespec *receiverTime);
+  int    cMsgGetReceiver          (void *vmsg, char  **receiver);
+  int    cMsgGetReceiverHost      (void *vmsg, char  **receiverHost);
+  int    cMsgGetReceiverTime      (void *vmsg, struct timespec *receiverTime);
+  
+  int    cMsgSetByteArrayLength   (void *vmsg, int  length);
+  int    cMsgGetByteArrayLength   (void *vmsg, int *length);
+  
+  int    cMsgSetByteArrayOffset   (void *vmsg, int  offset);
+  int    cMsgGetByteArrayOffset   (void *vmsg, int *offset);
+  
+  int    cMsgSetByteArray         (void *vmsg, char  *array);
+  int    cMsgGetByteArray         (void *vmsg, char **array);
+  
+  int    cMsgSetByteArrayAndLimits(void *vmsg, char *array, int offset, int length);
+  int    cMsgCopyByteArray        (void *vmsg, char *array, int offset, int length);
 
 
   /* system and domain info access functions */

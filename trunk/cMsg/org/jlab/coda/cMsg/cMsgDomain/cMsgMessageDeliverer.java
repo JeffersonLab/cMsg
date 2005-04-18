@@ -131,6 +131,10 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
                                        int msgType, boolean acknowledge)
             throws IOException {
 
+        int binaryLength = 0;
+        ByteBuffer binary;
+        ByteBuffer[] bufs = new ByteBuffer[2];
+
         SocketChannel channel = info.getChannel();
         if (channel == null) {
             createChannel(info);
@@ -164,8 +168,8 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             buffer.putInt(acknowledge ? 1 : 0);
         }
         else {
-            // write 18 ints
-            int outGoing[] = new int[19];
+            // write 20 ints
+            int outGoing[] = new int[20];
             outGoing[1]  = msgType;
             outGoing[2]  = msg.getVersion();
             outGoing[3]  = 0; // reserved for future use
@@ -184,14 +188,16 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             outGoing[13] = msg.getSenderHost().length();
             outGoing[14] = msg.getSubject().length();
             outGoing[15] = msg.getType().length();
-            outGoing[16] = msg.getText().length();
-            outGoing[17] = msg.getCreator().length();
-            outGoing[18] = acknowledge ? 1 : 0;
+            outGoing[16] = msg.getCreator().length();
+            outGoing[17] = msg.getText().length();
+            binaryLength = msg.getByteArrayLength();
+            outGoing[18] = binaryLength;
+            outGoing[19] = acknowledge ? 1 : 0;
 
             // make sure there's enough space in the buffer
             outGoing[0]  = outGoing[12] + outGoing[13] + outGoing[14] +
                            outGoing[15] + outGoing[16] + outGoing[17] +
-                           4*(outGoing.length - 1);
+                           outGoing[18] + 4*(outGoing.length - 1);
 
             if (outGoing[0] + 4 > buffer.capacity()) {
                 buffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
@@ -201,7 +207,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             buffer.asIntBuffer().put(outGoing);
 
             // position original buffer at position of view buffer
-            buffer.position(76);
+            buffer.position(80);
 
             // write strings
             try {
@@ -209,8 +215,13 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
                 buffer.put(msg.getSenderHost().getBytes("US-ASCII"));
                 buffer.put(msg.getSubject().getBytes("US-ASCII"));
                 buffer.put(msg.getType().getBytes("US-ASCII"));
-                buffer.put(msg.getText().getBytes("US-ASCII"));
                 buffer.put(msg.getCreator().getBytes("US-ASCII"));
+                buffer.put(msg.getText().getBytes("US-ASCII"));
+                if (binaryLength > 0) {
+                    buffer.put(msg.getByteArray(),
+                               msg.getByteArrayOffset(),
+                               binaryLength);
+                }
             }
             catch (UnsupportedEncodingException e) {
                 e.printStackTrace();
@@ -236,6 +247,5 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
         if (buffer.getInt() != cMsgConstants.ok) return false;
         return true;
     }
-
 
 }
