@@ -33,56 +33,50 @@ int main(int argc,char **argv) {
   char *subject = "SUBJECT";
   char *type    = "TYPE";
   char *text    = "TEXT";
+  char *bytes   = NULL;
   char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
-  int   err, debug=1, domainId = -1, textSize;
+  int   err, debug=1, domainId = -1, msgSize=0;
   void *msg, *replyMsg;
   
   /* msg rate measuring variables */
-  int             count, i, loops=5000;
+  int             count, i, delay=0, loops=5000;
   struct timespec timeout, t1, t2;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
-
-/* 
-#if defined (_POSIX_THREAD_PRIORITY_SCHEDULING)    
-    pthread_attr_t thread_attr;
-        
-    printf("Hey this operating system support POSIX priority scheduling\n");
-    err = pthread_attr_init(&thread_attr);
-    if (err != 0) printf("Cannot init thread attribute\n");
-    err = pthread_attr_setschedpolicy(&thread_attr, SCHED_FIFO);
-    if (err != 0) printf("Cannot set to round-robin scheduling\n");
-    setpriority(PRIO_PROCESS, getpid(), 0);
-    
-    printf("pid = %d\n", getpid());
-#endif
-*/
 
   /* maximum time to wait for sendAndGet to return */
   timeout.tv_sec  = 3;
   timeout.tv_nsec = 0;    
   
-  
-  /*
-  if (argc > 1) {
-    myName = argv[1];
-  }
-  */
+    /*
   if (argc > 1) {
     char *p;
-    textSize = atoi(argv[1]);
-    text = p = (char *) malloc((size_t) (textSize + 1));
+    msgSize = atoi(argv[1]);
+    text = p = (char *) malloc((size_t) (msgSize + 1));
     if (p == NULL) exit(1);
-    printf("using text size %d\n", textSize);
-    for (i=0; i < textSize; i++) {
+    printf("using text size %d\n", msgSize);
+    for (i=0; i < msgSize; i++) {
       *p = 'A';
       p++;
     }
-    *p = '\0'; /* string's ending null */
+    *p = '\0';
   }
+  */
   
   /*printf("Text = %s\n", text);*/
   
+  if (argc > 1) {
+    char *p;
+    msgSize = atoi(argv[1]);
+    bytes = p = (char *) malloc((size_t) msgSize);
+    if (p == NULL) exit(1);
+    printf("using msg size %d\n", msgSize);
+    for (i=0; i < msgSize; i++) {
+      *p = i%255;
+      p++;
+    }
+  }
+
   if (debug) {
     printf("Running the cMsg C getConsumer, \"%s\"\n", myName);
     cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
@@ -101,7 +95,8 @@ int main(int argc,char **argv) {
   msg = cMsgCreateMessage();
   cMsgSetSubject(msg, subject);
   cMsgSetType(msg, type);
-  cMsgSetText(msg, text);
+  /*cMsgSetText(msg, text);*/
+  cMsgSetByteArrayAndLimits(msg, bytes, 0, msgSize);
     
   /* start receiving response messages */
   cMsgReceiveStart(domainId);
@@ -140,6 +135,10 @@ int main(int argc,char **argv) {
               cMsgFreeMessage(replyMsg);
               count++;
           }
+          
+          if (delay != 0) {
+              sleep(delay);
+          }          
       }
 
       /* rate */

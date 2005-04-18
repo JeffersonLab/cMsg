@@ -34,8 +34,9 @@ int main(int argc,char **argv) {
   char *subject = "SUBJECT";
   char *type    = "TYPE";
   char *text    = "TEXT";
+  char *bytes   = NULL;
   char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
-  int   err, debug=1, domainId = -1, textSize, response;
+  int   err, debug=1, domainId=-1, msgSize=0, response;
   void *msg;
   
   /* msg rate measuring variables */
@@ -46,24 +47,32 @@ int main(int argc,char **argv) {
   
   /*
   if (argc > 1) {
-    myName = argv[1];
-  }
-  */
-  if (argc > 1) {
     char *p;
-    textSize = atoi(argv[1]);
-    text = p = (char *) malloc((size_t) (textSize + 1));
+    msgSize = atoi(argv[1]);
+    text = p = (char *) malloc((size_t) (msgSize + 1));
     if (p == NULL) exit(1);
-    printf("using text size %d\n", textSize);
-    for (i=0; i < textSize; i++) {
+    printf("using text size %d\n", msgSize);
+    for (i=0; i < msgSize; i++) {
       *p = 'A';
       p++;
     }
-    *p = '\0'; /* string's ending null */
+    *p = '\0';
   }
+  printf("Text = %s\n", text);
+  */
   
-  /*printf("Text = %s\n", text);*/
-  
+  if (argc > 1) {
+    char *p;
+    msgSize = atoi(argv[1]);
+    bytes = p = (char *) malloc((size_t) msgSize);
+    if (p == NULL) exit(1);
+    printf("using msg size %d\n", msgSize);
+    for (i=0; i < msgSize; i++) {
+      *p = i%255;
+      p++;
+    }
+  }
+   
   if (debug) {
     printf("Running the cMsg producer, \"%s\"\n", myName);
     cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
@@ -82,7 +91,8 @@ int main(int argc,char **argv) {
   msg = cMsgCreateMessage();
   cMsgSetSubject(msg, subject);
   cMsgSetType(msg, type);
-  cMsgSetText(msg, text);
+  /*cMsgSetText(msg, text);*/
+  cMsgSetByteArrayAndLimits(msg, bytes, 0, msgSize);
   
   if (delay != 0) {
       loops = loops/(2000*delay);      
