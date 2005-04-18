@@ -358,8 +358,11 @@ public class cMsg extends cMsgSubdomainAdapter {
                 while (it.hasNext()) {
                     sub = (cMsgSubscription) it.next();
                     // if subscription matches the msg ...
-                    if (message.getSubject().matches(sub.getSubjectRegexp()) &&
-                            message.getType().matches(sub.getTypeRegexp())) {
+                    if (cMsgMessageMatcher.matches(sub.getSubjectRegexp(),
+                                                   message.getSubject(), false) &&
+                        cMsgMessageMatcher.matches(sub.getTypeRegexp(),
+                                                   message.getType(), false)) {
+
                         haveMatch = true;
                         // we know we must send at least 1 message, so we're done
 //System.out.println(" handle send msg for subscribe to " + info.getName());
@@ -372,8 +375,11 @@ public class cMsg extends cMsgSubdomainAdapter {
                 while (it.hasNext()) {
                     sub = (cMsgSubscription) it.next();
                     // if get matches the msg ...
-                    if (message.getSubject().matches(sub.getSubjectRegexp()) &&
-                            message.getType().matches(sub.getTypeRegexp())) {
+                    if (cMsgMessageMatcher.matches(sub.getSubjectRegexp(),
+                                                   message.getSubject(), false) &&
+                        cMsgMessageMatcher.matches(sub.getTypeRegexp(),
+                                                   message.getType(), false)) {
+
                         haveMatch = true;
                         // get subscription is 1-shot deal so now remove it
                         it.remove();
@@ -661,7 +667,7 @@ System.out.println("dHandler: try to kill client " + client);
             }
 
             info = clients.get(clientName);
-            if (cMsgMessageMatcher.matches(client, clientName)) {
+            if (cMsgMessageMatcher.matches(client, clientName, true)) {
                 try {
                     System.out.println("  dHandler: deliver shutdown message to client " + clientName);
                     deliverer.deliverMessage(null, info, cMsgConstants.msgShutdown);
