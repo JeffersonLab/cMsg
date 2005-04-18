@@ -162,7 +162,13 @@ public class cMsgProducer {
         cMsgMessage msg = new cMsgMessage();
         msg.setSubject(subject);
         msg.setType(type);
-        msg.setText(text);
+        //msg.setText(text);
+
+        byte[] bin = new byte[100];
+        for (int i=0; i< bin.length; i++) {
+            bin[i] = (byte)(i%255);
+        }
+        msg.setByteArrayNoCopy(bin);
 
         // variables to track message rate
         double freq=0., freqAvg=0.;

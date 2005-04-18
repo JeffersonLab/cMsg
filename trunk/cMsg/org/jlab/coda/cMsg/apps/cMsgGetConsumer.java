@@ -167,7 +167,13 @@ public class cMsgGetConsumer {
         cMsgMessage sendMsg = new cMsgMessage();
         sendMsg.setSubject(subject);
         sendMsg.setType(type);
-        sendMsg.setText(text);
+        //sendmsg.setText(text);
+
+        byte[] bin = new byte[10000];
+        for (int i=0; i< bin.length; i++) {
+            bin[i] = 1;
+        }
+        sendMsg.setByteArrayNoCopy(bin);
 
         // variables to track incoming message rate
         double freq=0., freqAvg=0.;
