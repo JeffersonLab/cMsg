@@ -403,6 +403,7 @@ public class cMsgDomainServer extends Thread {
             setPriority(Thread.MIN_PRIORITY);
 
             try {
+                here:
                 while (true) {
                     try {
                         if (killSpawnedThreads) return;
@@ -462,6 +463,7 @@ public class cMsgDomainServer extends Thread {
 
                         case cMsgConstants.msgSendRequest: // receiving a message
                             holder = readSendInfo();
+                            //continue here;
                             break;
 
                         case cMsgConstants.msgSyncSendRequest: // receiving a message
@@ -570,79 +572,97 @@ public class cMsgDomainServer extends Thread {
 
 
         /**
-          * This method reads an incoming cMsgMessageFull from a client.
-          *
-          * @return object holding message read from channel
-          * @throws java.io.IOException If socket read or write error
-          */
-         private cMsgHolder readSendInfo() throws IOException {
+         * This method reads an incoming cMsgMessageFull from a client.
+         *
+         * @return object holding message read from channel
+         * @throws java.io.IOException If socket read or write error
+         */
+        private cMsgHolder readSendInfo() throws IOException {
 
-             // create a message
-             cMsgMessageFull msg = new cMsgMessageFull();
+            // create a message
+            cMsgMessageFull msg = new cMsgMessageFull();
 
-             // read ints
-             buffer.asIntBuffer().get(inComing, 0, 13);
+            // read ints
+            buffer.asIntBuffer().get(inComing, 0, 14);
 
-             // inComing[0] is for future use
-             msg.setUserInt(inComing[1]);
-             msg.setSysMsgId(inComing[2]);
-             msg.setSenderToken(inComing[3]);
-             msg.setInfo(inComing[4]);
+            // inComing[0] is for future use
+            msg.setUserInt(inComing[1]);
+            msg.setSysMsgId(inComing[2]);
+            msg.setSenderToken(inComing[3]);
+            msg.setInfo(inComing[4]);
 
-             // time message was sent = 2 ints (hightest byte first)
-             // in milliseconds since midnight GMT, Jan 1, 1970
-             long time = ((long)inComing[5] << 32) | ((long)inComing[6] & 0x00000000FFFFFFFFL);
-             msg.setSenderTime(new Date(time));
-             // user time
-             time = ((long)inComing[7] << 32) | ((long)inComing[8] & 0x00000000FFFFFFFFL);
-             msg.setUserTime(new Date(time));
+            // time message was sent = 2 ints (hightest byte first)
+            // in milliseconds since midnight GMT, Jan 1, 1970
+            long time = ((long) inComing[5] << 32) | ((long) inComing[6] & 0x00000000FFFFFFFFL);
+            msg.setSenderTime(new Date(time));
+            // user time
+            time = ((long) inComing[7] << 32) | ((long) inComing[8] & 0x00000000FFFFFFFFL);
+            msg.setUserTime(new Date(time));
 
-             int lengthSubject = inComing[9];
-             int lengthType    = inComing[10];
-             int lengthText    = inComing[11];
-             int lengthCreator = inComing[12];
+            int lengthSubject = inComing[9];
+            int lengthType    = inComing[10];
+            int lengthCreator = inComing[11];
+            int lengthText    = inComing[12];
+            int lengthBinary  = inComing[13];
 
-             /*
-             for (int i=0; i < 13; i++) {
-                 System.out.println("inComing[" + (i+1) +"] = " + inComing[i] );
-             }
-             */
+            /*
+            for (int i=0; i < 13; i++) {
+                System.out.println("inComing[" + (i+1) +"] = " + inComing[i] );
+            }
+            */
 
-             // string bytes expected
-             int bytesToRead = lengthSubject + lengthType + lengthText + lengthCreator;
+            // string bytes expected
+            int bytesToRead = lengthSubject + lengthType + lengthCreator +
+                              lengthText + lengthBinary;
+            int offset = 0;
 
-             // read into array
-             buffer.position(14*4);
-             buffer.get(bytes, 0, bytesToRead);
+            // read into array
+            buffer.position(15 * 4);
+            buffer.get(bytes, 0, bytesToRead);
 
-             // read subject
-             msg.setSubject(new String(bytes, 0, lengthSubject, "US-ASCII"));
-             //System.out.println("sub = " + msg.getSubject());
+            // read subject
+            msg.setSubject(new String(bytes, offset, lengthSubject, "US-ASCII"));
+            offset += lengthSubject;
+            //System.out.println("sub = " + msg.getSubject());
 
-             // read type
-             msg.setType(new String(bytes, lengthSubject, lengthType, "US-ASCII"));
-             //System.out.println("type = " + msg.getType());
+            // read type
+            msg.setType(new String(bytes, offset, lengthType, "US-ASCII"));
+            //System.out.println("type = " + msg.getType());
+            offset += lengthType;
 
-             // read text
-             msg.setText(new String(bytes, lengthSubject + lengthType, lengthText, "US-ASCII"));
-             //System.out.println("text = " + msg.getText());
+            // read creator
+            msg.setCreator(new String(bytes, offset, lengthCreator, "US-ASCII"));
+            //System.out.println("creator = " + msg.getCreator());
+            offset += lengthCreator;
 
-             // read creator
-             msg.setCreator(new String(bytes, lengthSubject + lengthType + lengthText,
-                                       lengthCreator, "US-ASCII"));
-             //System.out.println("creator = " + msg.getCreator());
+            // read text
+            msg.setText(new String(bytes, offset, lengthText, "US-ASCII"));
+            //System.out.println("text = " + msg.getText());
+            offset += lengthText;
 
-             // fill in message object's members
-             msg.setVersion(cMsgConstants.version);
-             msg.setDomain(domainType);
-             msg.setReceiver("cMsg domain server");
-             msg.setReceiverHost(info.getDomainHost());
-             msg.setReceiverTime(new Date()); // current time
-             msg.setSender(info.getName());
-             msg.setSenderHost(info.getClientHost());
+            if (lengthBinary > 0) {
+                //System.out.println("Got bin array:\n");
+                try {msg.setByteArray(bytes, offset, lengthBinary);}
+                catch (cMsgException e) {}
+                /*
+                for (int i=0; i<lengthBinary; i++) {
+                    System.out.print(bytes[offset+i] + " ");
+                }
+                System.out.println("\n");
+                */
+            }
 
-             return new cMsgHolder(msg);
-         }
+            // fill in message object's members
+            msg.setVersion(cMsgConstants.version);
+            msg.setDomain(domainType);
+            msg.setReceiver("cMsg domain server");
+            msg.setReceiverHost(info.getDomainHost());
+            msg.setReceiverTime(new Date()); // current time
+            msg.setSender(info.getName());
+            msg.setSenderHost(info.getClientHost());
+
+            return new cMsgHolder(msg);
+        }
 
 
         /**
@@ -657,7 +677,7 @@ public class cMsgDomainServer extends Thread {
             cMsgMessageFull msg = new cMsgMessageFull();
 
             // read ints
-            buffer.asIntBuffer().get(inComing, 0, 11);
+            buffer.asIntBuffer().get(inComing, 0, 12);
 
             // inComing[0] is for future use
             msg.setUserInt(inComing[1]);
@@ -673,28 +693,50 @@ public class cMsgDomainServer extends Thread {
 
             int lengthSubject = inComing[7];
             int lengthType    = inComing[8];
-            int lengthText    = inComing[9];
-            int lengthCreator = inComing[10];
+            int lengthCreator = inComing[9];
+            int lengthText    = inComing[10];
+            int lengthBinary  = inComing[11];
 
-            // bytes expected
-            int bytesToRead = lengthSubject + lengthType + lengthText + lengthCreator;
+            // string bytes expected
+            int bytesToRead = lengthSubject + lengthType + lengthCreator +
+                              lengthText + lengthBinary;
+            int offset = 0;
 
             // read into array
-            buffer.position(12*4);
+            buffer.position(13*4);
             buffer.get(bytes, 0, bytesToRead);
 
             // read subject
-            msg.setSubject(new String(bytes, 0, lengthSubject, "US-ASCII"));
+            msg.setSubject(new String(bytes, offset, lengthSubject, "US-ASCII"));
+            offset += lengthSubject;
+            //System.out.println("sub = " + msg.getSubject());
 
             // read type
-            msg.setType(new String(bytes, lengthSubject, lengthType, "US-ASCII"));
-
-            // read text
-            msg.setText(new String(bytes, lengthSubject + lengthType, lengthText, "US-ASCII"));
+            msg.setType(new String(bytes, offset, lengthType, "US-ASCII"));
+            //System.out.println("type = " + msg.getType());
+            offset += lengthType;
 
             // read creator
-            msg.setCreator(new String(bytes, lengthSubject + lengthType + lengthText,
-                                      lengthCreator, "US-ASCII"));
+            msg.setCreator(new String(bytes, offset, lengthCreator, "US-ASCII"));
+            //System.out.println("creator = " + msg.getCreator());
+            offset += lengthCreator;
+
+            // read text
+            msg.setText(new String(bytes, offset, lengthText, "US-ASCII"));
+            //System.out.println("text = " + msg.getText());
+            offset += lengthText;
+
+            if (lengthBinary > 0) {
+                //System.out.println("Got bin array:\n");
+                try {msg.setByteArray(bytes, offset, lengthBinary);}
+                catch (cMsgException e) {}
+                /*
+                for (int i=0; i<lengthBinary; i++) {
+                    System.out.print(bytes[offset+i] + " ");
+                }
+                System.out.println("\n");
+                */
+            }
 
             // fill in message object's members
             msg.setVersion(cMsgConstants.version);

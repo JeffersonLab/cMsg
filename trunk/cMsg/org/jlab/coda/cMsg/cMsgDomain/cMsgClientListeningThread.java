@@ -49,7 +49,7 @@ public class cMsgClientListeningThread extends Thread {
     private ByteBuffer buffer = ByteBuffer.allocateDirect(4096);
 
     /** Allocate int array once (used for reading in data) for efficiency's sake. */
-    private int[] inComing = new int[17];
+    private int[] inComing = new int[18];
 
     /** List of all receiverSubscribeIds that match the incoming message. */
     private int[] rsIds = new int[20];
@@ -357,7 +357,7 @@ public class cMsgClientListeningThread extends Thread {
         cMsgMessageFull msg = new cMsgMessageFull();
 
         // read ints
-        buffer.asIntBuffer().get(inComing, 0, 17);
+        buffer.asIntBuffer().get(inComing, 0, 18);
 
         msg.setVersion(inComing[0]);
         // inComing[1] is for future use
@@ -377,40 +377,68 @@ public class cMsgClientListeningThread extends Thread {
         int lengthSenderHost = inComing[11];
         int lengthSubject    = inComing[12];
         int lengthType       = inComing[13];
-        int lengthText       = inComing[14];
-        int lengthCreator    = inComing[15];
-        acknowledge          = inComing[16] == 1 ? true : false;
+        int lengthCreator    = inComing[14];
+        int lengthText       = inComing[15];
+        int lengthBinary     = inComing[16];
+        acknowledge          = inComing[17] == 1 ? true : false;
 
         // bytes expected
         int bytesToRead = lengthSender + lengthSenderHost + lengthSubject +
-                          lengthType + lengthText + lengthCreator;
+                          lengthType + lengthCreator + lengthText + lengthBinary;
 
-        buffer.position(72);
+        buffer.position(76);
         buffer.get(bytes, 0, bytesToRead);
 
+        int offset = 0;
+
         // read sender
-        msg.setSender(new String(bytes, 0, lengthSender, "US-ASCII"));
+        msg.setSender(new String(bytes, offset, lengthSender, "US-ASCII"));
         //System.out.println("sender = " + msg.getSender());
+        offset += lengthSender;
 
         // read senderHost
-        msg.setSenderHost(new String(bytes, lengthSender, lengthSenderHost, "US-ASCII"));
+        msg.setSenderHost(new String(bytes, offset, lengthSenderHost, "US-ASCII"));
         //System.out.println("senderHost = " + msg.getSenderHost());
+        offset += lengthSenderHost;
 
         // read subject
-        msg.setSubject(new String(bytes, lengthSender+lengthSenderHost, lengthSubject, "US-ASCII"));
+        msg.setSubject(new String(bytes, offset, lengthSubject, "US-ASCII"));
         //System.out.println("subject = " + msg.getSubject());
+        offset += lengthSubject;
 
         // read type
-        msg.setType(new String(bytes, lengthSender+lengthSenderHost+lengthSubject, lengthType, "US-ASCII"));
+        msg.setType(new String(bytes, offset, lengthType, "US-ASCII"));
         //System.out.println("type = " + msg.getType());
-
-        // read text
-        msg.setText(new String(bytes, bytesToRead-lengthText-lengthCreator, lengthText, "US-ASCII"));
-        //System.out.println("text = " + msg.getText());
+        offset += lengthType;
 
         // read creator
-        msg.setCreator(new String(bytes, bytesToRead-lengthCreator, lengthCreator, "US-ASCII"));
+        msg.setCreator(new String(bytes, offset, lengthCreator, "US-ASCII"));
         //System.out.println("creator = " + msg.getCreator());
+        offset += lengthCreator;
+
+        // read text
+        if (lengthText > 0) {
+            msg.setText(new String(bytes, offset, lengthText, "US-ASCII"));
+            //System.out.println("text = " + msg.getText());
+            offset += lengthText;
+        }
+
+        // read binary array
+        if (lengthBinary > 0) {
+            //System.out.println("Got bin array:\n");
+            try {
+                msg.setByteArray(bytes, offset, lengthBinary);
+                msg.setByteArrayLength(lengthBinary);
+                msg.setByteArrayOffset(0);
+            }
+            catch (cMsgException ex) {}
+            /*
+            for (int i=0; i<lengthBinary; i++) {
+                System.out.print(bytes[offset+i] + " ");
+            }
+            System.out.println("\n");
+            */
+        }
 
         // fill in message object's members
         msg.setDomain(domainType);
@@ -488,8 +516,8 @@ public class cMsgClientListeningThread extends Thread {
         cMsgHolder holder;
         for (Iterator i = client.subscribeAndGets.values().iterator(); i.hasNext();) {
             holder = (cMsgHolder)i.next();
-            if (cMsgMessageMatcher.matches(holder.subject, msg.getSubject()) &&
-                cMsgMessageMatcher.matches(holder.type, msg.getType())) {
+            if (cMsgMessageMatcher.matches(holder.subject, msg.getSubject(), true) &&
+                cMsgMessageMatcher.matches(holder.type, msg.getType(), true)) {
 //System.out.println(" handle subscribeAndGet msg");
 
                 holder.timedOut = false;

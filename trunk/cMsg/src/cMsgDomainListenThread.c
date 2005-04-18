@@ -72,7 +72,6 @@ typedef struct cMsgThreadInfo_t {
 
 static int counter = 1;
 static int acknowledge = 0;
-static int lengths[6];
 
 
 /* for c++ */
@@ -658,7 +657,7 @@ static void *clientThread(void *arg)
 static int cMsgReadMessage(char *buffer, cMsgMessage *msg) {
 
   long long llTime;
-  int totalLength, *pint;
+  int totalLength, *pint, lengths[7];
   char *pchar, *tmp;
     
   pint = (int *) buffer;
@@ -690,8 +689,9 @@ static int cMsgReadMessage(char *buffer, cMsgMessage *msg) {
   lengths[1]       = ntohl(*pint++); /* senderHost length */
   lengths[2]       = ntohl(*pint++); /* subject length */
   lengths[3]       = ntohl(*pint++); /* type length */
-  lengths[4]       = ntohl(*pint++); /* text length */
-  lengths[5]       = ntohl(*pint++); /* text creator */
+  lengths[4]       = ntohl(*pint++); /* creator length */
+  lengths[5]       = ntohl(*pint++); /* text length */
+  lengths[6]       = ntohl(*pint++); /* binary length */
   acknowledge      = ntohl(*pint++); /* acknowledge receipt of message? (1-y,0-n) */
   
   pchar = (char *) pint;
@@ -755,9 +755,9 @@ static int cMsgReadMessage(char *buffer, cMsgMessage *msg) {
   pchar += lengths[3];    
   /*printf("type = %s\n", tmp);*/
   
-  /*------------------*/
-  /* read text string */
-  /*------------------*/
+  /*---------------------*/
+  /* read creator string */
+  /*---------------------*/
   if ( (tmp = (char *) malloc((size_t) (lengths[4]+1))) == NULL) {
     free((void *) msg->sender);
     free((void *) msg->senderHost);
@@ -767,26 +767,55 @@ static int cMsgReadMessage(char *buffer, cMsgMessage *msg) {
   }
   memcpy(tmp, pchar, lengths[4]);
   tmp[lengths[4]] = 0;
-  msg->text = tmp;
-  pchar += lengths[4];    
-  /*printf("text = %s\n", tmp);*/
-  
-  /*---------------------*/
-  /* read creator string */
-  /*---------------------*/
-  if ( (tmp = (char *) malloc((size_t) (lengths[5]+1))) == NULL) {
-    free((void *) msg->sender);
-    free((void *) msg->senderHost);
-    free((void *) msg->subject);
-    free((void *) msg->type);
-    free((void *) msg->text);
-    return(CMSG_OUT_OF_MEMORY);    
-  }
-  memcpy(tmp, pchar, lengths[5]);
-  tmp[lengths[5]] = 0;
   msg->creator = tmp;
+  pchar += lengths[4];    
   /*printf("creator = %s\n", tmp);*/
     
+  /*------------------*/
+  /* read text string */
+  /*------------------*/
+  if (lengths[5] > 0) {
+    if ( (tmp = (char *) malloc((size_t) (lengths[5]+1))) == NULL) {
+      free((void *) msg->sender);
+      free((void *) msg->senderHost);
+      free((void *) msg->subject);
+      free((void *) msg->type);
+      free((void *) msg->creator);
+      return(CMSG_OUT_OF_MEMORY);    
+    }
+    memcpy(tmp, pchar, lengths[5]);
+    tmp[lengths[5]] = 0;
+    msg->text = tmp;
+    pchar += lengths[5];    
+    /*printf("text = %s\n", tmp);*/
+  }
+  
+  /*-----------------------------*/
+  /* read binary into byte array */
+  /*-----------------------------*/
+  if (lengths[6] > 0) {
+    int i=0;
+    if ( (tmp = (char *) malloc((size_t) (lengths[6]))) == NULL) {
+      free((void *) msg->sender);
+      free((void *) msg->senderHost);
+      free((void *) msg->subject);
+      free((void *) msg->type);
+      free((void *) msg->creator);
+      free((void *) msg->text);
+      return(CMSG_OUT_OF_MEMORY);    
+    }
+    memcpy(tmp, pchar, lengths[6]);
+    msg->byteArray       = tmp;
+    msg->byteArrayOffset = 0;
+    msg->byteArrayLength = lengths[6];
+            
+    for (;i<lengths[6]; i++) {
+        printf("%d ", (int)msg->byteArray[i]);
+    }
+    printf("\n");
+            
+  }
+  
       
   return(CMSG_OK);
 }
