@@ -68,7 +68,8 @@ $(CMSG_LIB): $(OBJS)
 	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
 	${RM} $(OBJS)
 
-$(CMSG_LIBSXX): $(OBJSXX)
+$(CMSG_LIBSXX): $(SRCXX)
+	$(CXX) -c $(CFLAGSXX) $(INCS) $(SRCXX)
 	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
 	${RM} $(OBJSXX)
 
