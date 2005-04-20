@@ -101,8 +101,8 @@ public:
   virtual void setText(const string &text) throw(cMsgException);
   virtual int getUserInt(void) const throw(cMsgException);
   virtual void setUserInt(int i) throw(cMsgException);
-  virtual timespec getUserTime(void) const throw(cMsgException);
-  virtual void setUserTime(const timespec &userTime) throw(cMsgException);
+  virtual struct timespec getUserTime(void) const throw(cMsgException);
+  virtual void setUserTime(const struct timespec &userTime) throw(cMsgException);
   virtual int getVersion(void) const throw(cMsgException);
   virtual string getDomain(void) const throw(cMsgException);
   virtual string getCreator(void) const throw(cMsgException);
@@ -110,8 +110,8 @@ public:
   virtual string getReceiverHost(void) const throw(cMsgException);
   virtual string getSender(void) const throw(cMsgException);
   virtual string getSenderHost(void) const throw(cMsgException);
-  virtual timespec getReceiverTime(void) const throw(cMsgException);
-  virtual timespec getSenderTime(void) const throw(cMsgException);
+  virtual struct timespec getReceiverTime(void) const throw(cMsgException);
+  virtual struct timespec getSenderTime(void) const throw(cMsgException);
   virtual bool isGetRequest(void) const throw(cMsgException);
   virtual bool isGetResponse(void) const throw(cMsgException);
   virtual bool isNullGetResponse(void) const throw(cMsgException);
@@ -269,9 +269,9 @@ public:
     throw(cMsgException);
   virtual void unsubscribe(const string &subject, const string &type, cMsgCallbackAdapter &cba, void *userArg)
     throw(cMsgException);
-  virtual cMsgMessageBase sendAndGet(cMsgMessageBase &sendMsg, const timespec &timeout) throw(cMsgException);
-  virtual cMsgMessageBase sendAndGet(cMsgMessageBase *sendMsg, const timespec &timeout) throw(cMsgException);
-  virtual cMsgMessageBase subscribeAndGet(const string &subject, const string &type, const timespec &timeout)
+  virtual cMsgMessageBase sendAndGet(cMsgMessageBase &sendMsg, const struct timespec &timeout) throw(cMsgException);
+  virtual cMsgMessageBase sendAndGet(cMsgMessageBase *sendMsg, const struct timespec &timeout) throw(cMsgException);
+  virtual cMsgMessageBase subscribeAndGet(const string &subject, const string &type, const struct timespec &timeout)
     throw(cMsgException);
   virtual void flush(void) throw(cMsgException);
   virtual void start(void) throw(cMsgException);
