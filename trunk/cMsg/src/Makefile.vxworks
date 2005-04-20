@@ -12,34 +12,65 @@ ifeq ($(ARCH),VXWORKSPPC)
 # vxWorks 5.5
 INCDIR=/site/vxworks/5.5/ppc/target/h
 CC = ccppc
+CXX = g++ppc
 LD = ldppc -r
 DEFS = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
 INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I$(INCDIR)
 CFLAGS = -O $(DEFS) 
 endif
 
+CFLAGSXX = $(CFLAGS) -Dcppversion
+
+CMSG_LIBSXX = cMsgLibxx
 CMSG_LIB = cMsgLib
 
+PROGS = vxproducer.o \
+	vxconsumer.o
+
+SRC =   rwlock.c \
+	sunConcurrency.c \
+	cMsgMatching.c \
+	cMsgNetwork.c \
+	cMsg.c \
+	cMsgDomainListenThread.c \
+	cMsgDomain.c
+
 OBJS =  rwlock.o \
+	sunConcurrency.o \
+	cMsgMatching.o \
 	cMsgNetwork.o \
 	cMsg.o \
 	cMsgDomainListenThread.o \
 	cMsgDomain.o
 
-PROGS = vxproducer.o \
-	vxconsumer.o
+SRCXX =	rwlock.c \
+	cMsgNetwork.c \
+	cMsg.c \
+	cMsgDomainListenThread.c \
+	cMsgDomain.c \
+	cMsgWrapper.cc
 
-HFILES = cMsgNetwork.h \
-	cMsgPrivate.h \
-	cMsg.h \
-	cMsgDomain.h \
-	rwlock.h \
-	errors.h
+OBJSXX = rwlock.o \
+         cMsgNetwork.o \
+	 cMsg.o \
+	 cMsgDomainListenThread.o \
+	 cMsgDomain.o \
+	 cMsgWrapper.o
 
-all: echoarch $(OBJS) $(PROGS) $(CMSG_LIB)
+
+HFILES   = cMsgNetwork.h cMsgPrivate.h cMsgBase.h cMsgDomain.h rwlock.h errors.h
+HFILESXX = $(HFILES) cMsgBase.hxx cMsg.hxx
+
+#all: echoarch $(OBJS) $(PROGS) $(CMSG_LIB)
+all: echoarch $(OBJS) $(CMSG_LIBSXX)
 
 $(CMSG_LIB): $(OBJS)
 	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
+	${RM} $(OBJS)
+
+$(CMSG_LIBSXX): $(OBJSXX)
+	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
+	${RM} $(OBJSXX)
 
 echoarch:
 	@echo
@@ -55,11 +86,24 @@ $(OBJS) : $(HFILES)
 	@echo "Made " $*
 	@echo
 
+%.o : %.cc
+	@echo
+	@echo "Making " $*
+	@echo
+	$(CXX) -c $(CFLAGSXX) $(INCS) -o $@ $<
+	@echo
+	@echo "Made " $*
+	@echo
+
 install: echoarch install-lib install-inc
 
-install-lib: $(CMSG_LIB)
+install-lib: $(CMSG_LIB) $(CMSG_LIBSXX)
 	@echo "Installing regular expression libraries in $(LIB_DIR)"
 	@for i in $(CMSG_LIB); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
+           done;
+	@for i in $(CMSG_LIBSXX); do \
 	   echo "  installing $$i"; \
 	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
            done;
