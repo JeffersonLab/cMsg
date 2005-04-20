@@ -1,6 +1,5 @@
 // to do
 //   shutdown handler
-//   const?
 //   documentation
 //   harmonize C and Java api's 
 //   does use of return-by-value (copy constructors) slow things down too much?
