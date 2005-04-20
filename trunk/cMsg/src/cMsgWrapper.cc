@@ -27,6 +27,8 @@
 #include <cMsgBase.hxx>
 #include <cMsgBase.h>
 #include <cMsgPrivate.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 
@@ -48,7 +50,7 @@ static string btos(bool b) {
 }
 
 
-static string ttos(const timespec& t) {
+static string ttos(const struct timespec& t) {
   string s(ctime(&t.tv_sec));
   return(s.substr(0,s.length()-1));
 }
@@ -301,9 +303,9 @@ void cMsgMessageBase::setUserInt(int i) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-timespec cMsgMessageBase::getUserTime(void) const throw(cMsgException) {
+struct timespec cMsgMessageBase::getUserTime(void) const throw(cMsgException) {
 
-  timespec t;
+  struct timespec t;
 
   int stat;
   if((stat=cMsgGetUserTime(myMsgPointer,&t))!=CMSG_OK) {
@@ -316,7 +318,7 @@ timespec cMsgMessageBase::getUserTime(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::setUserTime(const timespec &userTime) throw(cMsgException) {
+void cMsgMessageBase::setUserTime(const struct timespec &userTime) throw(cMsgException) {
 
   int stat;
   if((stat=cMsgSetUserTime(myMsgPointer, &userTime))!=CMSG_OK) {
@@ -473,9 +475,9 @@ string cMsgMessageBase::getSenderHost() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-timespec cMsgMessageBase::getReceiverTime(void) const throw(cMsgException) {
+struct timespec cMsgMessageBase::getReceiverTime(void) const throw(cMsgException) {
 
-  timespec t;
+  struct timespec t;
 
   int stat;
   if((stat=cMsgGetReceiverTime(myMsgPointer,&t))!=CMSG_OK) {
@@ -488,9 +490,9 @@ timespec cMsgMessageBase::getReceiverTime(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-timespec cMsgMessageBase::getSenderTime(void) const throw(cMsgException) {
+struct timespec cMsgMessageBase::getSenderTime(void) const throw(cMsgException) {
 
-  timespec t;
+  struct timespec t;
 
   int stat;
   if((stat=cMsgGetSenderTime(myMsgPointer,&t))!=CMSG_OK) {
@@ -907,7 +909,7 @@ void cMsg::unsubscribe(const string &subject, const string &type, cMsgCallbackAd
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase cMsg::sendAndGet(cMsgMessageBase &sendMsg, const timespec &timeout) throw(cMsgException) {
+cMsgMessageBase cMsg::sendAndGet(cMsgMessageBase &sendMsg, const struct timespec &timeout) throw(cMsgException) {
     
   void *replyPtr;
 
@@ -923,7 +925,7 @@ cMsgMessageBase cMsg::sendAndGet(cMsgMessageBase &sendMsg, const timespec &timeo
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase cMsg::sendAndGet(cMsgMessageBase *sendMsg, const timespec &timeout) throw(cMsgException) {
+cMsgMessageBase cMsg::sendAndGet(cMsgMessageBase *sendMsg, const struct timespec &timeout) throw(cMsgException) {
 
   void *replyPtr;
 
@@ -938,7 +940,7 @@ cMsgMessageBase cMsg::sendAndGet(cMsgMessageBase *sendMsg, const timespec &timeo
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase cMsg::subscribeAndGet(const string &subject, const string &type, const timespec &timeout) throw(cMsgException) {
+cMsgMessageBase cMsg::subscribeAndGet(const string &subject, const string &type, const struct timespec &timeout) throw(cMsgException) {
 
   void *replyPtr;
 
