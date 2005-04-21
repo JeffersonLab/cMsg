@@ -52,7 +52,7 @@ public:
   cMsgException(const string &c);
   cMsgException(const string &c, int i);
   cMsgException(const cMsgException &e);
-  ~cMsgException(void);
+  virtual ~cMsgException(void);
 
   virtual void setReturnCode(int i);
   virtual int getReturnCode(void) const;
@@ -91,7 +91,7 @@ public:
   cMsgMessageBase(void) throw(cMsgException);
   cMsgMessageBase(const cMsgMessageBase &m) throw(cMsgException);
   cMsgMessageBase(void *msgPointer) throw(cMsgException);
-  ~cMsgMessageBase(void) throw(cMsgException);
+  virtual ~cMsgMessageBase(void) throw(cMsgException);
 
   virtual string getSubject(void) const throw(cMsgException);
   virtual void setSubject(const string &subject) throw(cMsgException);
@@ -253,7 +253,7 @@ private:
 
 public:
   cMsg(const string &UDL, const string &name, const string &descr);
-  ~cMsg(void);
+  virtual ~cMsg(void);
 
   virtual void connect() throw(cMsgException);
   virtual void disconnect(void) throw(cMsgException);

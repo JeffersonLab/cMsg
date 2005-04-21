@@ -596,19 +596,19 @@ static int codaSendOrig(int domainId, void *vmsg) {
   len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType + lenText + lenCreator;
   outGoing[0] = htonl(len);
   
-  iov[0].iov_base = (void *) outGoing;
+  iov[0].iov_base = (char*) outGoing;
   iov[0].iov_len  = sizeof(outGoing);
   
-  iov[1].iov_base = (void *) msg->subject;
+  iov[1].iov_base = (char*) msg->subject;
   iov[1].iov_len  = lenSubject;
   
-  iov[2].iov_base = (void *) msg->type;
+  iov[2].iov_base = (char*) msg->type;
   iov[2].iov_len  = lenType;
   
-  iov[3].iov_base = (void *) msg->text;
+  iov[3].iov_base = (char*) msg->text;
   iov[3].iov_len  = lenText;
   
-  iov[4].iov_base = (void *) creator;
+  iov[4].iov_base = (char*) creator;
   iov[4].iov_len  = lenCreator;
 
   /* make send socket communications thread-safe */
@@ -746,22 +746,22 @@ static int codaSend(int domainId, void *vmsg) {
         lenCreator + lenText + lenByteArray;
   outGoing[0] = htonl(len);
   
-  iov[0].iov_base = (void *) outGoing;
+  iov[0].iov_base = (char*) outGoing;
   iov[0].iov_len  = sizeof(outGoing);
   
-  iov[1].iov_base = (void *) msg->subject;
+  iov[1].iov_base = (char*) msg->subject;
   iov[1].iov_len  = lenSubject;
   
-  iov[2].iov_base = (void *) msg->type;
+  iov[2].iov_base = (char*) msg->type;
   iov[2].iov_len  = lenType;
   
-  iov[3].iov_base = (void *) creator;
+  iov[3].iov_base = (char*) creator;
   iov[3].iov_len  = lenCreator;
 
-  iov[4].iov_base = (void *) msg->text;
+  iov[4].iov_base = (char*) msg->text;
   iov[4].iov_len  = lenText;
   
-  iov[5].iov_base = (void *) &((msg->byteArray)[msg->byteArrayOffset]);
+  iov[5].iov_base = (char*) &((msg->byteArray)[msg->byteArrayOffset]);
   iov[5].iov_len  = lenByteArray;
   
   /* make send socket communications thread-safe */
@@ -900,22 +900,22 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
   /* make syncSends be synchronous 'cause we need a reply */
   syncSendMutexLock(domain);
   
-  iov[0].iov_base = (void *) outGoing;
+  iov[0].iov_base = (char*) outGoing;
   iov[0].iov_len  = sizeof(outGoing);
   
-  iov[1].iov_base = (void *) msg->subject;
+  iov[1].iov_base = (char*) msg->subject;
   iov[1].iov_len  = lenSubject;
   
-  iov[2].iov_base = (void *) msg->type;
+  iov[2].iov_base = (char*) msg->type;
   iov[2].iov_len  = lenType;
 
-  iov[3].iov_base = (void *) creator;
+  iov[3].iov_base = (char*) creator;
   iov[3].iov_len  = lenCreator;
 
-  iov[4].iov_base = (void *) msg->text;
+  iov[4].iov_base = (char*) msg->text;
   iov[4].iov_len  = lenText;
   
-  iov[5].iov_base = (void *) &((msg->byteArray)[msg->byteArrayOffset]);
+  iov[5].iov_base = (char*) &((msg->byteArray)[msg->byteArrayOffset]);
   iov[5].iov_len  = lenByteArray;
 
   /* make send socket communications thread-safe */
@@ -1063,13 +1063,13 @@ static int codaSubscribeAndGet(int domainId, const char *subject, const char *ty
   len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType;
   outGoing[0] = htonl(len);
   
-  iov[0].iov_base = (void *) outGoing;
+  iov[0].iov_base = (char*) outGoing;
   iov[0].iov_len  = sizeof(outGoing);
   
-  iov[1].iov_base = (void *) subject;
+  iov[1].iov_base = (char*) subject;
   iov[1].iov_len  = lenSubject;
   
-  iov[2].iov_base = (void *) type;
+  iov[2].iov_base = (char*) type;
   iov[2].iov_len  = lenType;
   
   /* make send socket communications thread-safe */
@@ -1328,22 +1328,22 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
         lenCreator + lenText + lenByteArray;
   outGoing[0] = htonl(len);
   
-  iov[0].iov_base = (void *) outGoing;
+  iov[0].iov_base = (char*) outGoing;
   iov[0].iov_len  = sizeof(outGoing);
   
-  iov[1].iov_base = (void *) msg->subject;
+  iov[1].iov_base = (char*) msg->subject;
   iov[1].iov_len  = lenSubject;
   
-  iov[2].iov_base = (void *) msg->type;
+  iov[2].iov_base = (char*) msg->type;
   iov[2].iov_len  = lenType;
   
-  iov[3].iov_base = (void *) creator;
+  iov[3].iov_base = (char*) creator;
   iov[3].iov_len  = lenCreator;
 
-  iov[4].iov_base = (void *) msg->text;
+  iov[4].iov_base = (char*) msg->text;
   iov[4].iov_len  = lenText;
   
-  iov[5].iov_base = (void *) &((msg->byteArray)[msg->byteArrayOffset]);
+  iov[5].iov_base = (char*) &((msg->byteArray)[msg->byteArrayOffset]);
   iov[5].iov_len  = lenByteArray;
   
 
@@ -1730,13 +1730,13 @@ static int codaSubscribe(int domainId, const char *subject, const char *type, cM
     len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType;
     outGoing[0] = htonl(len);
     
-    iov[0].iov_base = (void *) outGoing;
+    iov[0].iov_base = (char*) outGoing;
     iov[0].iov_len  = sizeof(outGoing);
 
-    iov[1].iov_base = (void *) subject;
+    iov[1].iov_base = (char*) subject;
     iov[1].iov_len  = lenSubject;
 
-    iov[2].iov_base = (void *) type;
+    iov[2].iov_base = (char*) type;
     iov[2].iov_len  = lenType;
   
     /* make send socket communications thread-safe */
@@ -1885,13 +1885,13 @@ static int codaUnsubscribe(int domainId, const char *subject, const char *type, 
     len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType;
     outGoing[0] = htonl(len);
   
-    iov[0].iov_base = (void *) outGoing;
+    iov[0].iov_base = (char*) outGoing;
     iov[0].iov_len  = sizeof(outGoing);
 
-    iov[1].iov_base = (void *) subject;
+    iov[1].iov_base = (char*) subject;
     iov[1].iov_len  = lenSubject;
 
-    iov[2].iov_base = (void *) type;
+    iov[2].iov_base = (char*) type;
     iov[2].iov_len  = lenType;
   
     /* make send socket communications thread-safe */
@@ -1995,7 +1995,7 @@ static int codaDisconnect(int domainId) {
   socketMutexLock(domain);
   
   /* send int */
-  if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
+  if (cMsgTcpWrite(fd, (char*) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
     socketMutexUnlock(domain);
     connectWriteUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -2137,13 +2137,13 @@ static int codaShutdown(int domainId, const char *client, const char *server, in
   len = sizeof(outGoing) - sizeof(int) + cLen + sLen;
   outGoing[0] = htonl(len);
   
-  iov[0].iov_base = (void *) outGoing;
+  iov[0].iov_base = (char*) outGoing;
   iov[0].iov_len  = sizeof(outGoing);
 
-  iov[1].iov_base = (void *) client;
+  iov[1].iov_base = (char*) client;
   iov[1].iov_len  = cLen;
 
-  iov[2].iov_base = (void *) server;
+  iov[2].iov_base = (char*) server;
   iov[2].iov_len  = sLen;
   
   /* make send socket communications thread-safe */
@@ -2216,28 +2216,28 @@ static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
   lengthDescription  = strlen(domain->description);
   outGoing[10] = htonl(lengthDescription);
     
-  iov[0].iov_base = (void *) outGoing;
+  iov[0].iov_base = (char*) outGoing;
   iov[0].iov_len  = sizeof(outGoing);
   
-  iov[1].iov_base = (void *) domainType;
+  iov[1].iov_base = (char*) domainType;
   iov[1].iov_len  = lengthDomain;
   
-  iov[2].iov_base = (void *) subdomain;
+  iov[2].iov_base = (char*) subdomain;
   iov[2].iov_len  = lengthSubdomain;
   
-  iov[3].iov_base = (void *) UDLremainder;
+  iov[3].iov_base = (char*) UDLremainder;
   iov[3].iov_len  = lengthRemainder;
   
-  iov[4].iov_base = (void *) domain->myHost;
+  iov[4].iov_base = (char*) domain->myHost;
   iov[4].iov_len  = lengthHost;
   
-  iov[5].iov_base = (void *) domain->name;
+  iov[5].iov_base = (char*) domain->name;
   iov[5].iov_len  = lengthName;
   
-  iov[6].iov_base = (void *) domain->udl;
+  iov[6].iov_base = (char*) domain->udl;
   iov[6].iov_len  = lengthUDL;
   
-  iov[7].iov_base = (void *) domain->description;
+  iov[7].iov_base = (char*) domain->description;
   iov[7].iov_len  = lengthDescription;
   
   if (cMsgTcpWritev(serverfd, iov, 8, 16) == -1) {
@@ -2262,7 +2262,7 @@ static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
     char *string;
 
     /* read length of error string */
-    if (cMsgTcpRead(serverfd, (void *) &len, sizeof(len)) != sizeof(len)) {
+    if (cMsgTcpRead(serverfd, (char*) &len, sizeof(len)) != sizeof(len)) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "talkToNameServer: read failure\n");
       }
@@ -2279,7 +2279,7 @@ static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
       exit(1);
     }
       
-    if (cMsgTcpRead(serverfd, (void *) string, len) != len) {
+    if (cMsgTcpRead(serverfd, (char*) string, len) != len) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "talkToNameServer: cannot read error string\n");
       }
@@ -2308,7 +2308,7 @@ static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
   }
   
   /* read whether subdomain has various functions implemented */
-  if (cMsgTcpRead(serverfd, (void *) atts, sizeof(atts)) != sizeof(atts)) {
+  if (cMsgTcpRead(serverfd, (char*) atts, sizeof(atts)) != sizeof(atts)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "talkToNameServer: read failure\n");
     }
@@ -2329,7 +2329,7 @@ static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
   }
   
   /* read port & length of host name to send to*/
-  if (cMsgTcpRead(serverfd, (void *) inComing, sizeof(inComing)) != sizeof(inComing)) {
+  if (cMsgTcpRead(serverfd, (char*) inComing, sizeof(inComing)) != sizeof(inComing)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "talkToNameServer: read failure\n");
     }
@@ -2345,7 +2345,7 @@ static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
   }
   
   /* read host name to send to */
-  if (cMsgTcpRead(serverfd, (void *) temp, lengthHost) != lengthHost) {
+  if (cMsgTcpRead(serverfd, (char*) temp, lengthHost) != lengthHost) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "talkToNameServer: read failure\n");
     }
@@ -2413,7 +2413,7 @@ static void *keepAliveThread(void *arg)
          fprintf(stderr, "keepAliveThread: read keep alive response\n");
        }
        
-       if ((err = cMsgTcpRead(socket, (void *) &alive, sizeof(alive))) != sizeof(alive)) {
+       if ((err = cMsgTcpRead(socket, (char*) &alive, sizeof(alive))) != sizeof(alive)) {
          if (cMsgDebug >= CMSG_DEBUG_ERROR) {
            fprintf(stderr, "keepAliveThread: read failure\n");
          }

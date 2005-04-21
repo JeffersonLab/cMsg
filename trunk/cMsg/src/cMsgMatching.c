@@ -35,7 +35,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "regex.h"
+#include <regex.h>
 
 /**
  * Characters which need to be escaped or replaced to avoid special interpretation
@@ -46,6 +46,17 @@ static char *escapeChars = "\\(){}[]+.|^$*?";
 /** Array of strings to replace the special characters with. */
 static char *replaceWith[] = {"\\\\", "\\(", "\\)", "\\{", "\\}", "\\[","\\]",
                               "\\+" ,"\\.", "\\|", "\\^", "\\$", ".*", ".{1}"};
+
+#ifdef VXWORKS
+/** Implementation of strdup for vxWorks. */
+static char *strdup(const char *s1) {
+    char *s;    
+    if (s1 == NULL) return NULL;    
+    if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;    
+    return strcpy(s, s1);
+}
+#endif
+
 
 /**
  * This routine takes a string and escapes most special, regular expression characters.

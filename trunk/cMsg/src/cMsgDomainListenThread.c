@@ -21,6 +21,7 @@
 #ifdef VXWORKS
 #include <vxWorks.h>
 #include <taskLib.h>
+#include <sockLib.h>
 #endif
 
 #include <stdio.h>
@@ -266,7 +267,7 @@ void *cMsgClientListeningThread(void *arg)
     }
     
     /* don't wait for messages to cue up, send any message immediately */
-    err = setsockopt(pinfo->connfd, IPPROTO_TCP, TCP_NODELAY, (void *) &on, sizeof(on));
+    err = setsockopt(pinfo->connfd, IPPROTO_TCP, TCP_NODELAY, (char*) &on, sizeof(on));
     if (err < 0) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
           fprintf(stderr, "cMsgClientListeningThread: error setting socket to TCP_NODELAY\n");
@@ -277,7 +278,7 @@ void *cMsgClientListeningThread(void *arg)
     }
     
     /* set the type of service */
-    err = setsockopt(pinfo->connfd, IPPROTO_IP, IP_TOS, (void *) &tos, sizeof(tos));
+    err = setsockopt(pinfo->connfd, IPPROTO_IP, IP_TOS, (char*) &tos, sizeof(tos));
     if (err < 0) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
           fprintf(stderr, "cMsgClientListeningThread: error setting IP type of service to LOW DELAY\n");
