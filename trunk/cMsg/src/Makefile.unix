@@ -69,6 +69,8 @@ OBJS =  rwlock.o \
 #	rcAgentDomain.o
 
 SRCXX =	rwlock.c \
+	sunConcurrency.c \
+	cMsgMatching.c \
 	cMsgNetwork.c \
 	cMsg.c \
 	cMsgDomainListenThread.c \
@@ -77,6 +79,8 @@ SRCXX =	rwlock.c \
 
 
 OBJSXX = rwlock.o \
+	 sunConcurrency.o \
+	 cMsgMatching.o \
          cMsgNetwork.o \
 	 cMsg.o \
 	 cMsgDomainListenThread.o \
