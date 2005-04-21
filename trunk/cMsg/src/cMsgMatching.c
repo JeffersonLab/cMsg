@@ -58,6 +58,11 @@ static char *strdup(const char *s1) {
 #endif
 
 
+#ifdef	__cplusplus
+extern "C" {
+#endif
+
+
 /**
  * This routine takes a string and escapes most special, regular expression characters.
  * The return string allows only * and ? to be passed through in a way meaningful
@@ -219,4 +224,8 @@ int cMsgRegexpMatches(char *regexp, const char *s) {
     
     return returnCode;
 }
+
+#ifdef	__cplusplus
+}
+#endif
 
