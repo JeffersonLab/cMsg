@@ -68,7 +68,7 @@ static char *strdup(const char *s1) {
  * @return escaped string
  */
 char *cMsgStringEscape(const char *s) {
-    int i, len, subIndex=0;
+    int i, len;
     char *c, *sub, catString[2];
 
     if (s == NULL) return NULL;

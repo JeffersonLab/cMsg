@@ -1158,7 +1158,7 @@ static int checkString(const char *s) {
   if (s == NULL) return(CMSG_ERROR);
 
   /* check for printable character */
-  for (i=0; i<strlen(s); i++) {
+  for (i=0; i<(int)strlen(s); i++) {
     if (isprint((int)s[i]) == 0) return(CMSG_ERROR);
   }
 

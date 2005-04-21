@@ -658,7 +658,7 @@ static void *clientThread(void *arg)
 static int cMsgReadMessage(char *buffer, cMsgMessage *msg) {
 
   long long llTime;
-  int totalLength, *pint, lengths[7];
+  int *pint, lengths[7];
   char *pchar, *tmp;
     
   pint = (int *) buffer;

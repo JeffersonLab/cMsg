@@ -270,7 +270,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
 #ifdef VXWORKS
 
   servaddr.sin_addr.s_addr = hostGetByName((char *) ip_address);
-  if (servaddr.sin_addr.s_addr == ERROR) {
+  if ((int)servaddr.sin_addr.s_addr == ERROR) {
     close(sockfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: unknown server address for host %s\n",ip_address);
     return(CMSG_NETWORK_ERROR);
