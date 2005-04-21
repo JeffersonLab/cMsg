@@ -85,13 +85,13 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
     return(CMSG_SOCKET_ERROR);
   }
 
-  bzero((void *)&servaddr, sizeof(servaddr));
+  bzero((char*)&servaddr, sizeof(servaddr));
   servaddr.sin_family      = AF_INET;
   servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
   servaddr.sin_port        = htons(port);
   
   /* don't wait for messages to cue up, send any message immediately */
-  err = setsockopt(listenfd, IPPROTO_TCP, TCP_NODELAY, (void *) &on, sizeof(on));
+  err = setsockopt(listenfd, IPPROTO_TCP, TCP_NODELAY, (char*) &on, sizeof(on));
   if (err < 0) {
     close(listenfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
@@ -99,7 +99,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   }
   
   /* set send buffer size */
-  err = setsockopt(listenfd, SOL_SOCKET, SO_SNDBUF, (void *) &size, sizeof(size));
+  err = setsockopt(listenfd, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
   if (err < 0) {
     close(listenfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
@@ -107,7 +107,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   }
   
   /* set receive buffer size */
-  err = setsockopt(listenfd, SOL_SOCKET, SO_RCVBUF, (void *) &size, sizeof(size));
+  err = setsockopt(listenfd, SOL_SOCKET, SO_RCVBUF, (char*) &size, sizeof(size));
   if (err < 0) {
     close(listenfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
@@ -115,7 +115,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   }
   
   /* reuse this port after program quits */
-  err = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (void *) &on, sizeof(on));
+  err = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (char*) &on, sizeof(on));
   if (err < 0) {
     close(listenfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
@@ -123,7 +123,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   }
   
   /* send periodic (every 2 hrs.) signal to see if socket's other end is alive */
-  err = setsockopt(listenfd, SOL_SOCKET, SO_KEEPALIVE, (void *) &on, sizeof(on));
+  err = setsockopt(listenfd, SOL_SOCKET, SO_KEEPALIVE, (char*) &on, sizeof(on));
   if (err < 0) {
     close(listenfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
@@ -232,7 +232,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   }
 	
   /* don't wait for messages to cue up, send any message immediately */
-  err = setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (void *) &on, sizeof(on));
+  err = setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char*) &on, sizeof(on));
   if (err < 0) {
     close(sockfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
@@ -240,7 +240,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   }
   
   /* set the type of service */
-  err = setsockopt(sockfd, IPPROTO_IP, IP_TOS, (void *) &tos, sizeof(tos));
+  err = setsockopt(sockfd, IPPROTO_IP, IP_TOS, (char*) &tos, sizeof(tos));
   if (err < 0) {
     close(sockfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
@@ -248,7 +248,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   }
   
   /* set send buffer size */
-  err = setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (void *) &size, sizeof(size));
+  err = setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
   if (err < 0) {
     close(sockfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
@@ -256,14 +256,14 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   }
   
   /* set receive buffer size */
-  err = setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, (void *) &size, sizeof(size));
+  err = setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, (char*) &size, sizeof(size));
   if (err < 0) {
     close(sockfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
     return(CMSG_SOCKET_ERROR);
   }
 	
-  bzero((void *)&servaddr, sizeof(servaddr));
+  bzero((char*)&servaddr, sizeof(servaddr));
   servaddr.sin_family = AF_INET;
   servaddr.sin_port   = htons(port);
 
@@ -410,7 +410,7 @@ int cMsgTcpWrite(int fd, const void *vptr, int n)
   nleft = n;
   
   while (nleft > 0) {
-    if ( (nwritten = write(fd, (void *)ptr, nleft)) <= 0) {
+    if ( (nwritten = write(fd, (char*)ptr, nleft)) <= 0) {
       if (errno == EINTR) {
         nwritten = 0;		/* and call write() again */
       }

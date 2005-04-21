@@ -15,14 +15,14 @@ CC = ccppc
 CXX = g++ppc
 LD = ldppc -r
 DEFS = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
-INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I$(INCDIR)
+INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I./regexp -I$(INCDIR)
 CFLAGS = -O $(DEFS) 
 endif
 
 CFLAGSXX = $(CFLAGS) -Dcppversion
 
-CMSG_LIBSXX = cMsgLibxx
-CMSG_LIB = cMsgLib
+CMSG_LIBSXX = cMsgLibxx.o
+CMSG_LIB = cMsgLib.o
 
 PROGS = vxproducer.o \
 	vxconsumer.o
@@ -44,6 +44,8 @@ OBJS =  rwlock.o \
 	cMsgDomain.o
 
 SRCXX =	rwlock.c \
+	sunConcurrency.c \
+	cMsgMatching.c \
 	cMsgNetwork.c \
 	cMsg.c \
 	cMsgDomainListenThread.c \
@@ -51,6 +53,8 @@ SRCXX =	rwlock.c \
 	cMsgWrapper.cc
 
 OBJSXX = rwlock.o \
+	 sunConcurrency.o \
+	 cMsgMatching.o \
          cMsgNetwork.o \
 	 cMsg.o \
 	 cMsgDomainListenThread.o \
@@ -70,7 +74,7 @@ $(CMSG_LIB): $(OBJS)
 
 $(CMSG_LIBSXX): $(SRCXX)
 	$(CXX) -c $(CFLAGSXX) $(INCS) $(SRCXX)
-	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
+	${LD} -o $@ $(OBJSXX) $(VXWORKS_LIBS)
 	${RM} $(OBJSXX)
 
 echoarch:
