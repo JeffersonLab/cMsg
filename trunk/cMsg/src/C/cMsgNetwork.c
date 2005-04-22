@@ -241,7 +241,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   
   /* set the type of service */
   /*
-  err = setsockopt(sockfd, IPPROTO_IP, IP_TOS, (void *) &tos, sizeof(tos));
+  err = setsockopt(sockfd, IPPROTO_IP, IP_TOS, (char *) &tos, sizeof(tos));
   if (err < 0) {
     close(sockfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
