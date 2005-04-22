@@ -1,0 +1,106 @@
+#
+#
+LD  = ld
+AR  = ar
+RANLIB  = ranlib
+
+TOP_DIR = ../..
+INC_DIR = $(TOP_DIR)/inc
+INSTALL = $(TOP_DIR)/install-sh -c
+
+ifndef OSNAME
+OSNAME := $(shell uname)
+endif
+
+# Linux
+ifeq ($(OSNAME),Linux)
+CC  = gcc
+LIB_DIR  = $(TOP_DIR)/lib/Linux
+BIN_DIR  = $(TOP_DIR)/bin/Linux
+AC_FLAGS =
+CFLAGS   = -O3 -fPIC -I. -I$(INC_DIR) $(AC_FLAGS)
+LIBS     = -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
+endif
+
+# Solaris
+ifeq ($(OSNAME),SunOS)
+CC  = cc
+LIB_DIR  = $(TOP_DIR)/lib/SunOS
+BIN_DIR  = $(TOP_DIR)/bin/SunOS
+AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
+CFLAGS   = -mt -xO5 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
+LIBS     = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
+endif
+
+SHLIB_LD    = ld -G
+LIBNAM      = libcmsg
+LIB_STATIC  = $(LIBNAM).a
+LIB_DYNAMIC = $(LIBNAM).so
+CMSG_LIBS   = $(LIB_STATIC) $(LIB_DYNAMIC)
+
+SRC =   rwlock.c \
+	sunConcurrency.c \
+	cMsgMatching.c \
+	cMsgNetwork.c \
+	cMsg.c \
+	cMsgDomainListenThread.c \
+	cMsgDomain.c
+
+OBJS =  rwlock.o \
+	sunConcurrency.o \
+	cMsgMatching.o \
+	cMsgNetwork.o \
+	cMsg.o \
+	cMsgDomainListenThread.o \
+	cMsgDomain.o
+
+HFILES = cMsgNetwork.h cMsgPrivate.h cMsgBase.h cMsgDomain.h rwlock.h errors.h
+
+PROGS  = producer consumer getConsumer getResponder shutdowner
+
+
+all: $(CMSG_LIBS)  $(PROGS)
+
+install: all install-lib install-inc install-bin
+
+install-lib: $(CMSG_LIBS)
+	@echo "Installing CMSG C libraries in $(LIB_DIR)"
+	@for i in $(CMSG_LIBS); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
+	 done;
+
+install-inc: $(HFILES)
+	@echo "Installing C includes in $(INC_DIR)"
+	@for i in $(HFILES); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(INC_DIR)/$$i; \
+	 done;
+
+install-bin: $(PROGS)
+	@echo "Installing C executables in $(BIN_DIR)"
+	@for i in $(PROGS); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(BIN_DIR)/$$i; \
+	 done;
+
+# libraries
+$(LIB_STATIC): $(OBJS)
+	$(AR) cr $@ $?
+	$(RANLIB) $@
+
+$(LIB_DYNAMIC): $(OBJS)
+	$(SHLIB_LD) $(OBJS) -o $@
+
+# file dependencies
+$(OBJS)   : $(HFILES) $(SRC)
+
+clean: 
+	rm -f core *~ *.o *.so *.a *.class $(PROGS)
+
+
+# SUFFIX RULES
+.c:
+	$(CC) -o $* $(CFLAGS) $< -L./ -L$(LIB_DIR) -lcmsg -lcMsgRegex $(LIBS)
+.c.o:
+	$(CC) -c $(CFLAGS) $<
