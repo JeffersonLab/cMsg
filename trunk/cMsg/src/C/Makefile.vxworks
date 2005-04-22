@@ -2,7 +2,7 @@
 # cMsg will not compile properly under Linux cross compiler
 #
 
-TOP_DIR = ..
+TOP_DIR = ../..
 INC_DIR = $(TOP_DIR)/inc
 LIB_DIR = $(TOP_DIR)/lib/vxworks
 BIN_DIR = $(TOP_DIR)/bin/vxworks
@@ -12,16 +12,12 @@ ifeq ($(ARCH),VXWORKSPPC)
 # vxWorks 5.5
 INCDIR=/site/vxworks/5.5/ppc/target/h
 CC = ccppc
-CXX = g++ppc
 LD = ldppc -r
 DEFS = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
 INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I./regexp -I$(INCDIR)
 CFLAGS = -O $(DEFS) 
 endif
 
-CFLAGSXX = $(CFLAGS) -Dcppversion
-
-CMSG_LIBSXX = cMsgLibxx.o
 CMSG_LIB = cMsgLib.o
 
 PROGS = vxproducer.o \
@@ -43,39 +39,13 @@ OBJS =  rwlock.o \
 	cMsgDomainListenThread.o \
 	cMsgDomain.o
 
-SRCXX =	rwlock.c \
-	sunConcurrency.c \
-	cMsgMatching.c \
-	cMsgNetwork.c \
-	cMsg.c \
-	cMsgDomainListenThread.c \
-	cMsgDomain.c \
-	cMsgWrapper.cc
+HFILES = cMsgNetwork.h cMsgPrivate.h cMsgBase.h cMsgDomain.h rwlock.h errors.h
 
-OBJSXX = rwlock.o \
-	 sunConcurrency.o \
-	 cMsgMatching.o \
-         cMsgNetwork.o \
-	 cMsg.o \
-	 cMsgDomainListenThread.o \
-	 cMsgDomain.o \
-	 cMsgWrapper.o
-
-
-HFILES   = cMsgNetwork.h cMsgPrivate.h cMsgBase.h cMsgDomain.h rwlock.h errors.h
-HFILESXX = $(HFILES) cMsgBase.hxx cMsg.hxx
-
-#all: echoarch $(OBJS) $(PROGS) $(CMSG_LIB)
-all: echoarch $(OBJS) $(CMSG_LIBSXX)
+all: echoarch $(OBJS) $(CMSG_LIB) $(PROGS)
 
 $(CMSG_LIB): $(OBJS)
 	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
 	${RM} $(OBJS)
-
-$(CMSG_LIBSXX): $(SRCXX)
-	$(CXX) -c $(CFLAGSXX) $(INCS) $(SRCXX)
-	${LD} -o $@ $(OBJSXX) $(VXWORKS_LIBS)
-	${RM} $(OBJSXX)
 
 echoarch:
 	@echo
@@ -91,34 +61,29 @@ $(OBJS) : $(HFILES)
 	@echo "Made " $*
 	@echo
 
-%.o : %.cc
-	@echo
-	@echo "Making " $*
-	@echo
-	$(CXX) -c $(CFLAGSXX) $(INCS) -o $@ $<
-	@echo
-	@echo "Made " $*
-	@echo
-
-install: echoarch install-lib install-inc
+install: echoarch install-lib install-inc install-bin
 
 install-lib: $(CMSG_LIB) $(CMSG_LIBSXX)
 	@echo "Installing regular expression libraries in $(LIB_DIR)"
 	@for i in $(CMSG_LIB); do \
 	   echo "  installing $$i"; \
 	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
-           done;
-	@for i in $(CMSG_LIBSXX); do \
-	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
-           done;
+	done;
 
 install-inc: $(HFILES)
 	@echo "Installing includes in $(INC_DIR)"
 	@for i in $(HFILES); do \
 	   echo "  installing $$i"; \
 	   $(INSTALL) $$i $(INC_DIR)/$$i; \
-           done;
+	done;
+
+install-bin: $(PROGS)
+	@echo "Installing C++ executables in $(BIN_DIR)"
+	@for i in $(PROGS); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(BIN_DIR)/$$i; \
+	done;
+
 
 clean:
-	rm -f core *~ *.o cMsgLib
+	rm -f core *~ *.o $(CMSG_LIB)
