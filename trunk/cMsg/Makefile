@@ -41,7 +41,8 @@ mkdirs:
 
 cCode:
 	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) install;
-	cd ./src;  $(MAKE) -f $(MAKEFILE) install;
+	cd ./src/C;  $(MAKE) -f $(MAKEFILE) install;
+	cd ./src/CC; $(MAKE) -f $(MAKEFILE) install;
 
 tarfile:
 	-$(RM) cMsg.tar.gz
@@ -76,7 +77,8 @@ clean: cClean jClean tarClean jarClean
 cClean: 
 	rm -f core *~ *.o *.so *.a *.class
 	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) clean;
-	cd ./src;  $(MAKE) -f $(MAKEFILE) clean;
+	cd ./src/C;  $(MAKE) -f $(MAKEFILE) clean;
+	cd ./src/CC; $(MAKE) -f $(MAKEFILE) clean;
 
 jClean: 
 	cd ./org/jlab/coda/cMsg;             $(MAKE) clean;
