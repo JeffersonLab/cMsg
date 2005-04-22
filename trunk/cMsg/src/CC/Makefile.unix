@@ -1,0 +1,122 @@
+#
+#
+LD  = ld
+AR  = ar
+RANLIB  = ranlib
+
+C_DIR   = ../C
+TOP_DIR = ../..
+INC_DIR = $(TOP_DIR)/inc
+INSTALL = $(TOP_DIR)/install-sh -c
+
+ifndef OSNAME
+OSNAME := $(shell uname)
+endif
+
+# Linux
+ifeq ($(OSNAME),Linux)
+CXX = g++
+LIB_DIR  = $(TOP_DIR)/lib/Linux
+BIN_DIR  = $(TOP_DIR)/bin/Linux
+AC_FLAGS =
+CFLAGS   = -O3 -fPIC -I. -I$(INC_DIR) $(AC_FLAGS)
+LIBS     = -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
+endif
+
+# Solaris
+ifeq ($(OSNAME),SunOS)
+CXX = CC
+LIB_DIR  = $(TOP_DIR)/lib/SunOS
+BIN_DIR  = $(TOP_DIR)/bin/SunOS
+AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
+CFLAGS   = -mt -xO5 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
+LIBS     = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
+endif
+
+CFLAGSXX  = $(CFLAGS) -Dcppversion
+SHLIB_LD  = ld -G
+
+LIBNAMXX      = libcmsgxx
+LIB_STATICXX  = $(LIBNAMXX).a
+LIB_DYNAMICXX = $(LIBNAMXX).so
+
+CMSG_LIBSXX = $(LIB_STATICXX) $(LIB_DYNAMICXX)
+
+SRCXX =	$(C_DIR)/rwlock.c \
+	$(C_DIR)/sunConcurrency.c \
+	$(C_DIR)/cMsgMatching.c \
+	$(C_DIR)/cMsgNetwork.c \
+	$(C_DIR)/cMsg.c \
+	$(C_DIR)/cMsgDomainListenThread.c \
+	$(C_DIR)/cMsgDomain.c \
+	cMsgWrapper.cc
+
+
+OBJSXX = rwlock.o \
+	 sunConcurrency.o \
+	 cMsgMatching.o \
+         cMsgNetwork.o \
+	 cMsg.o \
+	 cMsgDomainListenThread.o \
+	 cMsgDomain.o \
+	 cMsgWrapper.o
+
+
+HFILES   = cMsgNetwork.h cMsgPrivate.h cMsgBase.h cMsgDomain.h rwlock.h errors.h
+HFILESXX = cMsgBase.hxx cMsg.hxx
+
+#PROGS   = producer consumer getConsumer getResponder shutdowner
+PROGSXX =
+
+
+all: $(CMSG_LIBSXX) $(PROGSXX)
+
+install: all install-lib install-inc install-bin
+
+install-lib: $(CMSG_LIBSXX)
+	@echo "Installing CMSG C++ libraries in $(LIB_DIR)"
+	@for i in $(CMSG_LIBSXX); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
+	done;
+
+install-inc: $(HFILESXX)
+	@echo "Installing C++ includes in $(INC_DIR)"
+	@for i in $(HFILESXX); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(INC_DIR)/$$i; \
+	done;
+
+install-bin: $(PROGSXX)
+	@echo "Installing C++ executables in $(BIN_DIR)"
+	@for i in $(PROGSXX); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(BIN_DIR)/$$i; \
+	done;
+
+# libraries
+$(LIB_STATICXX): $(SRCXX)
+	$(CXX) -c $(CFLAGSXX) $(SRCXX)
+	$(AR) cr $@ $(OBJSXX)
+	$(RANLIB) $@
+
+$(LIB_DYNAMICXX): $(OBJSXX)
+	$(SHLIB_LD) $(OBJSXX) -o $@
+
+
+# file dependencies
+#$(OBJSXX) : $(HFILESXX) $(SRCXX)
+
+clean: 
+	rm -f core *~ *.o *.so *.a *.class $(PROGSXX)
+
+
+# SUFFIX RULES
+.c:
+	$(CXX) -o $* $(CFLAGSXX) $< -L./ -L$(LIB_DIR) -lcmsgxx -lcMsgRegex $(LIBS)
+.cc:
+	$(CXX) -o $* $(CFLAGSXX) $< -L./ -L$(LIB_DIR) -lcmsgxx -lcMsgRegex $(LIBS)
+.c.o:
+	$(CXX) -c $(CFLAGSXX) $<
+.cc.o:
+	$(CXX) -c $(CFLAGSXX) $<
