@@ -2,7 +2,8 @@
 # cMsg will not compile properly under Linux cross compiler
 #
 
-TOP_DIR = ..
+C_DIR   = ../C
+TOP_DIR = ../..
 INC_DIR = $(TOP_DIR)/inc
 LIB_DIR = $(TOP_DIR)/lib/vxworks
 BIN_DIR = $(TOP_DIR)/bin/vxworks
@@ -11,7 +12,6 @@ INSTALL = $(TOP_DIR)/install-sh -c
 ifeq ($(ARCH),VXWORKSPPC)
 # vxWorks 5.5
 INCDIR=/site/vxworks/5.5/ppc/target/h
-CC = ccppc
 CXX = g++ppc
 LD = ldppc -r
 DEFS = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
@@ -22,35 +22,22 @@ endif
 CFLAGSXX = $(CFLAGS) -Dcppversion
 
 CMSG_LIBSXX = cMsgLibxx
-CMSG_LIB = cMsgLib
 
-PROGS = vxproducer.o \
-	vxconsumer.o
+PROGSXX = vxproducer.o \
+	  vxconsumer.o
 
-SRC =   rwlock.c \
-	sunConcurrency.c \
-	cMsgMatching.c \
-	cMsgNetwork.c \
-	cMsg.c \
-	cMsgDomainListenThread.c \
-	cMsgDomain.c
-
-OBJS =  rwlock.o \
-	sunConcurrency.o \
-	cMsgMatching.o \
-	cMsgNetwork.o \
-	cMsg.o \
-	cMsgDomainListenThread.o \
-	cMsgDomain.o
-
-SRCXX =	rwlock.c \
-	cMsgNetwork.c \
-	cMsg.c \
-	cMsgDomainListenThread.c \
-	cMsgDomain.c \
+SRCXX =	$(C_DIR)/rwlock.c \
+	$(C_DIR)/sunConcurrency.c \
+	$(C_DIR)/cMsgMatching.c \
+	$(C_DIR)/cMsgNetwork.c \
+	$(C_DIR)/cMsg.c \
+	$(C_DIR)/cMsgDomainListenThread.c \
+	$(C_DIR)/cMsgDomain.c \
 	cMsgWrapper.cc
 
 OBJSXX = rwlock.o \
+	 sunConcurrency.o \
+	 cMsgMatching.o \
          cMsgNetwork.o \
 	 cMsg.o \
 	 cMsgDomainListenThread.o \
@@ -58,20 +45,21 @@ OBJSXX = rwlock.o \
 	 cMsgWrapper.o
 
 
-HFILES   = cMsgNetwork.h cMsgPrivate.h cMsgBase.h cMsgDomain.h rwlock.h errors.h
-HFILESXX = $(HFILES) cMsgBase.hxx cMsg.hxx
+HFILES = $(C_DIR)/cMsgNetwork.h \
+	 $(C_DIR)/cMsgPrivate.h \
+	 $(C_DIR)/cMsgBase.h \
+	 $(C_DIR)/cMsgDomain.h \
+	 $(C_DIR)/rwlock.h \
+	 $(C_DIR)/errors.h
 
-#all: echoarch $(OBJS) $(PROGS) $(CMSG_LIB)
-all: echoarch $(OBJS) $(CMSG_LIBSXX)
+HFILESXX = cMsgBase.hxx \
+	   cMsg.hxx
 
-$(CMSG_LIB): $(OBJS)
-	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
-	${RM} $(OBJS)
+all: echoarch $(OBJS) $(CMSG_LIBSXX) $(PROGSXX)
 
 $(CMSG_LIBSXX): $(SRCXX)
 	$(CXX) -c $(CFLAGSXX) $(INCS) $(SRCXX)
 	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
-	${RM} $(OBJSXX)
 
 echoarch:
 	@echo
@@ -79,42 +67,37 @@ echoarch:
 	@echo
         
 # file dependencies
-$(OBJS) : $(HFILES)
-
-%.o : %.c
-	$(CC) -c $(CFLAGS) $(INCS) -o $@ $<
-	@echo
-	@echo "Made " $*
-	@echo
+$(OBJS) : $(HFILESXX) $(SRCXX)
 
 %.o : %.cc
-	@echo
-	@echo "Making " $*
-	@echo
 	$(CXX) -c $(CFLAGSXX) $(INCS) -o $@ $<
 	@echo
 	@echo "Made " $*
 	@echo
 
-install: echoarch install-lib install-inc
+install: echoarch install-lib install-inc install-bin
 
 install-lib: $(CMSG_LIB) $(CMSG_LIBSXX)
-	@echo "Installing regular expression libraries in $(LIB_DIR)"
-	@for i in $(CMSG_LIB); do \
-	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
-           done;
+	@echo "Installing vxWorks C++ libraries in $(LIB_DIR)"
 	@for i in $(CMSG_LIBSXX); do \
 	   echo "  installing $$i"; \
 	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
-           done;
+	 done;
 
-install-inc: $(HFILES)
+install-inc: $(HFILESXX)
 	@echo "Installing includes in $(INC_DIR)"
-	@for i in $(HFILES); do \
+	@for i in $(HFILESXX); do \
 	   echo "  installing $$i"; \
 	   $(INSTALL) $$i $(INC_DIR)/$$i; \
-           done;
+	 done;
+
+install-bin: $(PROGSXX)
+	@echo "Installing C++ executables in $(BIN_DIR)"
+	@for i in $(PROGSXX); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(BIN_DIR)/$$i; \
+	done;
+
 
 clean:
-	rm -f core *~ *.o cMsgLib
+	rm -f core *~ *.o $(CMSG_LIBSXX)

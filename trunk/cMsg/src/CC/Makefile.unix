@@ -62,10 +62,16 @@ OBJSXX = rwlock.o \
 	 cMsgWrapper.o
 
 
-HFILES   = cMsgNetwork.h cMsgPrivate.h cMsgBase.h cMsgDomain.h rwlock.h errors.h
-HFILESXX = cMsgBase.hxx cMsg.hxx
+HFILES = $(C_DIR)/cMsgNetwork.h \
+	 $(C_DIR)/cMsgPrivate.h \
+	 $(C_DIR)/cMsgBase.h \
+	 $(C_DIR)/cMsgDomain.h \
+	 $(C_DIR)/rwlock.h \
+	 $(C_DIR)/errors.h
 
-#PROGS   = producer consumer getConsumer getResponder shutdowner
+HFILESXX = cMsgBase.hxx \
+	   cMsg.hxx
+
 PROGSXX =
 
 
@@ -105,7 +111,7 @@ $(LIB_DYNAMICXX): $(OBJSXX)
 
 
 # file dependencies
-#$(OBJSXX) : $(HFILESXX) $(SRCXX)
+$(OBJSXX) : $(HFILES) $(HFILESXX) $(SRCXX)
 
 clean: 
 	rm -f core *~ *.o *.so *.a *.class $(PROGSXX)
