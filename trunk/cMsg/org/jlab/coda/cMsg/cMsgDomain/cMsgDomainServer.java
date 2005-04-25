@@ -394,13 +394,14 @@ public class cMsgDomainServer extends Thread {
         public void run() {
             int size, msgId;
             boolean useSubscribeCue;
-            /*
+
             // for printing out request cue size periodically
+            /*
             Date now, t;
             now = new Date();
             */
 
-            setPriority(Thread.MIN_PRIORITY);
+            //setPriority(Thread.MIN_PRIORITY);
 
             try {
                 here:
@@ -541,14 +542,20 @@ public class cMsgDomainServer extends Thread {
                         }
                     }
 
-                    /*
+
                     // print out request cue size periodically
+                    /*
                     t = new Date();
-                    if (now.getTime() + 2000 <= t.getTime()) {
-                        System.out.println("request cue for " + info.getName() + "= " + requestCue.size());
+                    if (now.getTime() + 5000 <= t.getTime()) {
+                        System.out.println(info.getName() + ":");
+                        System.out.println("requests = " + requestCue.size());
+                        System.out.println("subscribes = " + subscribeCue.size());
+                        System.out.println("req thds = " + requestThreads.size());
+                        System.out.println("handler thds = " + handlerThreads.size());
                         now = t;
                     }
                     */
+
 
                     // if the cue is getting too large, add temp threads to handle the load
                     if (requestCue.size() > 2000 && tempThreads.get() < tempThreadsMax) {
@@ -677,25 +684,26 @@ public class cMsgDomainServer extends Thread {
             cMsgMessageFull msg = new cMsgMessageFull();
 
             // read ints
-            buffer.asIntBuffer().get(inComing, 0, 12);
+            buffer.asIntBuffer().get(inComing, 0, 13);
 
             // inComing[0] is for future use
             msg.setUserInt(inComing[1]);
             msg.setSenderToken(inComing[2]);
+            msg.setInfo(inComing[3]);
 
             // time message was sent = 2 ints (hightest byte first)
             // in milliseconds since midnight GMT, Jan 1, 1970
-            long time = ((long)inComing[3] << 32) | ((long)inComing[4] & 0x00000000FFFFFFFFL);
+            long time = ((long)inComing[4] << 32) | ((long)inComing[5] & 0x00000000FFFFFFFFL);
             msg.setSenderTime(new Date(time));
             // user time
-            time = ((long)inComing[5] << 32) | ((long)inComing[6] & 0x00000000FFFFFFFFL);
+            time = ((long)inComing[6] << 32) | ((long)inComing[7] & 0x00000000FFFFFFFFL);
             msg.setUserTime(new Date(time));
 
-            int lengthSubject = inComing[7];
-            int lengthType    = inComing[8];
-            int lengthCreator = inComing[9];
-            int lengthText    = inComing[10];
-            int lengthBinary  = inComing[11];
+            int lengthSubject = inComing[8];
+            int lengthType    = inComing[9];
+            int lengthCreator = inComing[10];
+            int lengthText    = inComing[11];
+            int lengthBinary  = inComing[12];
 
             // string bytes expected
             int bytesToRead = lengthSubject + lengthType + lengthCreator +
@@ -703,7 +711,7 @@ public class cMsgDomainServer extends Thread {
             int offset = 0;
 
             // read into array
-            buffer.position(13*4);
+            buffer.position(14*4);
             buffer.get(bytes, 0, bytesToRead);
 
             // read subject
@@ -740,7 +748,6 @@ public class cMsgDomainServer extends Thread {
 
             // fill in message object's members
             msg.setVersion(cMsgConstants.version);
-            msg.setInfo(cMsgMessage.isGetRequest);
             msg.setGetRequest(true);
             msg.setDomain(domainType);
             msg.setReceiver("cMsg domain server");
@@ -879,7 +886,7 @@ public class cMsgDomainServer extends Thread {
             cMsgHolder holder = null;
             int answer;
 
-            setPriority(Thread.MIN_PRIORITY);
+            //setPriority(Thread.MIN_PRIORITY);
 
             while (true) {
 

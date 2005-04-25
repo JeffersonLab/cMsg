@@ -474,7 +474,7 @@ int cMsgTcpRead(int fd, void *vptr, int n)
 /*-------------------------------------------------------------------*/
 
 
-int cMsgByteOrder(int *endian)
+int cMsgLocalByteOrder(int *endian)
 {
   union {
     short  s;

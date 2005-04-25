@@ -60,12 +60,14 @@ extern "C" {
 /** The user's domain id is an index into the #domains array, offset by this amount. */
 #define DOMAIN_ID_OFFSET 100
 
-/** Is message a sendAndGet request? -- is stored in first bit. */
+/** Is message a sendAndGet request? -- is stored in 1st bit. */
 #define CMSG_IS_GET_REQUEST       0x1
-/** Is message a response to a sendAndGet? -- is stored in second bit. */
+/** Is message a response to a sendAndGet? -- is stored in 2nd bit. */
 #define CMSG_IS_GET_RESPONSE      0x2
-/** Is the response message null instead of a message? -- is stored in third bit. */
+/** Is the response message null instead of a message? -- is stored in 3rd bit. */
 #define CMSG_IS_NULL_GET_RESPONSE 0x4
+/** Is the byte array in big endian form? -- is stored in 4th bit. */
+#define CMSG_IS_BIG_ENDIAN 0x8
 
 
 /** Debug level. */
@@ -158,10 +160,12 @@ typedef struct cMsg_t {
   /* general quantities */
   int     version;     /**< Major version of cMsg. */
   int     sysMsgId;    /**< Unique id set by system to track sendAndGet's. */
-  int     info;        /**< Stores "get" information in bit form (true = 1).
+  int     info;        /**< Stores information in bit form (true = 1).
                         * - is message a sendAndGet request? 1st bit
                         * - is message a response to a sendAndGet request? 2nd bit
-                        * - is response message NULL instead of a message? 3rd bit */
+                        * - is response message NULL instead of a message? 3rd bit
+                        * - is byte array data big endian? 4th bit
+                        */
   char   *domain;      /**< Domain message is generated in. */
   char   *creator;     /**< Message was originally created by this user/sender. */
   int     reserved;    /**< Reserved for future use. */

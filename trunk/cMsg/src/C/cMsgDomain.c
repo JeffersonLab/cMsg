@@ -561,7 +561,7 @@ static int codaSend(int domainId, void *vmsg) {
   outGoing[4] = htonl(msg->sysMsgId);
   /* sender token */
   outGoing[5] = htonl(msg->senderToken);
-  /* get info */
+  /* bit info */
   outGoing[6] = htonl(msg->info);
   
   /* time message sent (right now) */
@@ -712,7 +712,7 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
   outGoing[4] = htonl(msg->sysMsgId);
   /* sender token */
   outGoing[5] = htonl(msg->senderToken);
-  /* get info */
+  /* bit info */
   outGoing[6] = htonl(msg->info);
 
   /* time message sent (right now) */
@@ -1066,7 +1066,7 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
   int i, uniqueId, status;
   int len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int gotSpot, fd = domain->sendSocket;
-  int highInt, lowInt, outGoing[14];
+  int highInt, lowInt, outGoing[15];
   getInfo *info = NULL;
   struct timespec wait;
   char *creator;
@@ -1145,6 +1145,8 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
   outGoing[3] = htonl(msg->userInt);
   /* unique id (senderToken) */
   outGoing[4] = htonl(uniqueId);
+  /* bit info */
+  outGoing[5] = htonl(msg->info | CMSG_IS_GET_REQUEST);
 
   /* time message sent (right now) */
   clock_gettime(CLOCK_REALTIME, &now);
@@ -1152,37 +1154,37 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
   llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);
   highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
   lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
-  outGoing[5] = htonl(highInt);
-  outGoing[6] = htonl(lowInt);
+  outGoing[6] = htonl(highInt);
+  outGoing[7] = htonl(lowInt);
   
   /* user time */
   llTime  = ((long long)msg->userTime.tv_sec * 1000) +
             ((long long)msg->userTime.tv_nsec/1000000);
   highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
   lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
-  outGoing[7] = htonl(highInt);
-  outGoing[8] = htonl(lowInt);
+  outGoing[8] = htonl(highInt);
+  outGoing[9] = htonl(lowInt);
 
   /* length of "subject" string */
   lenSubject   = strlen(msg->subject);
-  outGoing[9]  = htonl(lenSubject);
+  outGoing[10]  = htonl(lenSubject);
   /* length of "type" string */
   lenType      = strlen(msg->type);
-  outGoing[10] = htonl(lenType);
+  outGoing[11] = htonl(lenType);
   
   /* send creator (this sender's name if msg created here) */
   creator = msg->creator;
   if (creator == NULL) creator = domain->name;
   /* length of "creator" string */
   lenCreator   = strlen(creator);
-  outGoing[11] = htonl(lenCreator);
+  outGoing[12] = htonl(lenCreator);
   
   /* length of "text" string */
-  outGoing[12] = htonl(lenText);
+  outGoing[13] = htonl(lenText);
   
   /* length of byte array */
   lenByteArray = msg->byteArrayLength;
-  outGoing[13] = htonl(lenByteArray);
+  outGoing[14] = htonl(lenByteArray);
     
   /* total length of message (minus first int) is first item sent */
   len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType +
