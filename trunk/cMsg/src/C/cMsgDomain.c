@@ -516,145 +516,6 @@ static int codaConnect(const char *myUDL, const char *myName, const char *myDesc
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSendOrig(int domainId, void *vmsg) {
-  
-  int len, lenSubject, lenType, lenText, lenCreator;
-  int highInt, lowInt, outGoing[15];
-  cMsgMessage *msg = (cMsgMessage *) vmsg;
-  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
-  int fd = domain->sendSocket;
-  char *creator;
-  long long llTime;
-  struct timespec now;
-  struct iovec iov[5];
-    
-  if (!domain->hasSend) {
-    return(CMSG_NOT_IMPLEMENTED);
-  }
-  
-  /* Cannot run this while connecting/disconnecting */
-  connectReadLock();
-  
-  if (domain->initComplete != 1) {
-    connectReadUnlock();
-    return(CMSG_NOT_INITIALIZED);
-  }
-  if (domain->lostConnection == 1) {
-    connectReadUnlock();
-    return(CMSG_LOST_CONNECTION);
-  }
-  
-  /* message id (in network byte order) to domain server */
-  outGoing[1] = htonl(CMSG_SEND_REQUEST);
-  /* reserved for future use */
-  outGoing[2] = 0;
-  /* user int */
-  outGoing[3] = htonl(msg->userInt);
-  /* system msg id */
-  outGoing[4] = htonl(msg->sysMsgId);
-  /* sender token */
-  outGoing[5] = htonl(msg->senderToken);
-  /* get info */
-  outGoing[6] = htonl(msg->info);
-  
-  /* time message sent (right now) */
-  clock_gettime(CLOCK_REALTIME, &now);
-  /* convert to milliseconds */
-  llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);
-  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
-  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
-  outGoing[7] = htonl(highInt);
-  outGoing[8] = htonl(lowInt);
-  
-  /* user time */
-  llTime  = ((long long)msg->userTime.tv_sec * 1000) +
-            ((long long)msg->userTime.tv_nsec/1000000);
-  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
-  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
-  outGoing[9]  = htonl(highInt);
-  outGoing[10] = htonl(lowInt);
-
-  /* length of "subject" string */
-  lenSubject   = strlen(msg->subject);
-  outGoing[11]  = htonl(lenSubject);
-  /* length of "type" string */
-  lenType      = strlen(msg->type);
-  outGoing[12] = htonl(lenType);
-  /* length of "text" string */
-  lenText      = strlen(msg->text);
-  outGoing[13] = htonl(lenText);
-  
-  /* send creator (this sender's name if msg created here) */
-  creator = msg->creator;
-  if (creator == NULL) creator = domain->name;
-  
-  /* length of "creator" string */
-  lenCreator   = strlen(creator);
-  outGoing[14] = htonl(lenCreator);
-  
-  /* total length of message (minus first int) is first item sent */
-  len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType + lenText + lenCreator;
-  outGoing[0] = htonl(len);
-  
-  iov[0].iov_base = (char*) outGoing;
-  iov[0].iov_len  = sizeof(outGoing);
-  
-  iov[1].iov_base = (char*) msg->subject;
-  iov[1].iov_len  = lenSubject;
-  
-  iov[2].iov_base = (char*) msg->type;
-  iov[2].iov_len  = lenType;
-  
-  iov[3].iov_base = (char*) msg->text;
-  iov[3].iov_len  = lenText;
-  
-  iov[4].iov_base = (char*) creator;
-  iov[4].iov_len  = lenCreator;
-
-  /* make send socket communications thread-safe */
-  socketMutexLock(domain);
-  
-  if (cMsgTcpWritev(fd, iov, 5, 16) == -1) {
-    socketMutexUnlock(domain);
-    connectReadUnlock();
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "codaSend: write failure\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-
-  /* done protecting communications */
-  socketMutexUnlock(domain);
-  connectReadUnlock();
-
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine sends a msg to the specified cMsg domain server.  It is called
- * by the user through cMsgSend() given the appropriate UDL. It is completely
- * asynchronous and never blocks. In this domain cMsgFlush() does nothing and
- * does not need to be called for the message to be sent immediately.<p>
- * This version of this routine uses writev to write all data in one write call.
- * Another version was tried with many writes (one for ints and one for each
- * string), but the performance died sharply
- *
- * @param domainId id number of the domain connection
- * @param vmsg pointer to a message structure
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement sending
- *                               messages
- * @returns CMSG_NETWORK_ERROR if error in communicating with the server
- * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
- *                               since cMsgConnect() was never called
- * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
- *                               by a call to cMsgDisconnect()
- */   
 static int codaSend(int domainId, void *vmsg) {
   
   int len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
@@ -1803,11 +1664,12 @@ static int codaSubscribe(int domainId, const char *subject, const char *type, cM
 static int codaUnsubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
                            void *userArg) {
 
-  int i, j;
+  int i, j, status;
   int cbCount = 0;     /* total number of callbacks for the subject/type pair of interest */
   int cbsRemoved = 0;  /* total number of callbacks removed for that subject/type pair */
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   struct iovec iov[3];
+  subscribeCbInfo *subscription;
   
   if (!domain->hasUnsubscribe) {
     return(CMSG_NOT_IMPLEMENTED);
@@ -1835,12 +1697,35 @@ static int codaUnsubscribe(int domainId, const char *subject, const char *type, 
          (strcmp(domain->subscribeInfo[i].type,    type)    == 0) )  {
       /* search callback list */
       for (j=0; j<MAX_CALLBACK; j++) {
-	if (domain->subscribeInfo[i].cbInfo[j].callback != NULL) {
+        /* convenience variable */
+        subscription = &domain->subscribeInfo[i].cbInfo[j];
+    
+	if (subscription->callback != NULL) {
 	  cbCount++;
-	  if ( (domain->subscribeInfo[i].cbInfo[j].callback == callback) &&
-               (domain->subscribeInfo[i].cbInfo[j].userArg  ==  userArg))  {
-            
-            domain->subscribeInfo[i].cbInfo[j].callback = NULL;
+	  if ( (subscription->callback == callback) &&
+               (subscription->userArg  ==  userArg))  {
+            /* kill the callback thread */
+            subscription->quit = 1;
+
+            /* lock mutex */
+            status = pthread_mutex_lock(&subscription->mutex);
+            if (status != 0) {
+              err_abort(status, "Failed callback mutex unlock");
+            }
+
+            /* wakeup callback thread */
+            status = pthread_cond_broadcast(&subscription->cond);
+            if (status != 0) {
+              err_abort(status, "Failed callback condition signal");
+            }
+
+            /* unlock mutex */
+            status = pthread_mutex_unlock(&subscription->mutex);
+            if (status != 0) {
+              err_abort(status, "Failed callback mutex unlock");
+            }
+
+            subscription->callback = NULL;
             cbsRemoved++;
           }
 	}
