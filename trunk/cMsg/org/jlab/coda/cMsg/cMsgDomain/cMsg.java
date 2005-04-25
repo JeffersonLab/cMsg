@@ -949,35 +949,36 @@ public class cMsg extends cMsgDomainAdapter {
             // track specific get requests
             sendAndGets.put(id, holder);
 
-            int outGoing[] = new int[14];
+            int outGoing[] = new int[15];
             outGoing[1]  = cMsgConstants.msgSendAndGetRequest;
             outGoing[2]  = 0; // reserved for future use
             outGoing[3]  = message.getUserInt();
             outGoing[4]  = id;
+            outGoing[5]  = message.getInfo() | cMsgMessage.isGetRequest;
 
             long now = new Date().getTime();
             // send the time in milliseconds as 2, 32 bit integers
-            outGoing[5]  = (int) (now >>> 32); // higher 32 bits
-            outGoing[6]  = (int) (now & 0x00000000FFFFFFFFL); // lower 32 bits
-            outGoing[7]  = (int) (message.getUserTime().getTime() >>> 32);
-            outGoing[8]  = (int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL);
+            outGoing[6]  = (int) (now >>> 32); // higher 32 bits
+            outGoing[7]  = (int) (now & 0x00000000FFFFFFFFL); // lower 32 bits
+            outGoing[8]  = (int) (message.getUserTime().getTime() >>> 32);
+            outGoing[9]  = (int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL);
 
-            outGoing[9]  = subject.length();
-            outGoing[10] = type.length();
+            outGoing[10] = subject.length();
+            outGoing[11] = type.length();
 
             String creator = message.getCreator();
             if (creator == null) creator = name;
-            outGoing[11] = creator.length();
+            outGoing[12] = creator.length();
 
-            outGoing[12] = text.length();
+            outGoing[13] = text.length();
 
             int binaryLength = message.getByteArrayLength();
-            outGoing[13] = binaryLength;
+            outGoing[14] = binaryLength;
 
             // total length of msg (not including this int) is 1st item
-            outGoing[0] = 4*(outGoing.length - 1) + outGoing[9] +
-                          outGoing[10] + outGoing[11] +
-                          outGoing[12] + outGoing[13];
+            outGoing[0] = 4*(outGoing.length - 1) + outGoing[10] +
+                          outGoing[11] + outGoing[12] +
+                          outGoing[13] + outGoing[14];
 
             // lock to prevent parallel gets from using same buffer
             getBufferLock.lock();
@@ -992,7 +993,7 @@ public class cMsg extends cMsgDomainAdapter {
                 // send ints over together using view buffer
                 getBuffer.asIntBuffer().put(outGoing);
                 // position original buffer at position of view buffer
-                getBuffer.position(56);
+                getBuffer.position(60);
 
                 // write strings
                 try {

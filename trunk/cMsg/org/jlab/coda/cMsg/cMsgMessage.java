@@ -37,20 +37,38 @@ import java.util.*;
 public class cMsgMessage implements Cloneable {
 
     /**
-     * Is message a sendAndGet request? -- stored in first bit of info.
+     * Is message a sendAndGet request? -- stored in 1st bit of info.
      * This is only for internal use.
      */
     public static final int isGetRequest  = 0x1;
     /**
-     * Is message a response to a sendAndGet? -- stored in second bit of info.
+     * Is message a response to a sendAndGet? -- stored in 2nd bit of info.
      * This is only for internal use.
      */
     public static final int isGetResponse = 0x2;
     /**
-     * Is the response message null instead of a message? -- stored in third bit of info.
+     * Is the response message null instead of a message? -- stored in 3rd bit of info.
      * This is only for internal use.
      */
     public static final int isNullGetResponse = 0x4;
+    /**
+     * Is the byte array data in big endian form? -- stored in 4th bit of info.
+     * This is only for internal use.
+     */
+    public static final int isBigEndian = 0x8;
+
+
+    // Possibilities of byte array data endianness
+
+    /** Data is big endian. */
+    public static final int bigEndian      = 0;
+    /** Data is little endian. */
+    public static final int littleEndian   = 1;
+    /** Data has same endian as the JVM. */
+    public static final int localEndian    = 2;
+    /** Data has opposite endian as the JVM. */
+    public static final int notLocalEndian = 3;
+
 
     // general quantities
 
@@ -65,13 +83,15 @@ public class cMsgMessage implements Cloneable {
 
     /**
      * Condensed information stored in bits.
-     * Is message a sendAndGet request? -- stored in first bit.
-     * Is message a response to a sendAndGet? -- stored in second bit.
-     * Is the response message null instead of a message? -- stored in third bit.
+     * Is message a sendAndGet request? -- stored in 1st bit.
+     * Is message a response to a sendAndGet? -- stored in 2nd bit.
+     * Is the response message null instead of a message? -- stored in 3rd bit.
+     * Is the byte array data in big endian form? -- stored in 4th bit.
      *
      * @see #isGetRequest
      * @see #isGetResponse
      * @see #isNullGetResponse
+     * @see #isBigEndian
      */
     int info;
 
@@ -556,6 +576,34 @@ public class cMsgMessage implements Cloneable {
             throw new cMsgException("offset + length is out of array bounds");
         }
         this.offset = offset;
+    }
+
+
+    /**
+     * Get endianness of the byte array data.
+     * @return endianness of byte array's data.
+     */
+    public int getByteArrayEndian() {
+        if ((this.info & isBigEndian) > 1) {
+            return bigEndian;
+        }
+        return littleEndian;
+    }
+    /**
+     * Set endianness of the byte array data.
+     * @param endian endianness of the byte array data.
+     */
+    public void setByteArrayEndian(int endian) throws cMsgException {
+        if ((endian != bigEndian)   || (endian != littleEndian) ||
+            (endian != localEndian) || (endian != notLocalEndian)) {
+            throw new cMsgException("improper endian value");
+        }
+        if (endian == bigEndian || endian == localEndian) {
+            this.info |= isBigEndian;
+        }
+        else {
+            this.info &= ~isBigEndian;
+        }
     }
 
 

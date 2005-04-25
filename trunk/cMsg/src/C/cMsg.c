@@ -84,6 +84,7 @@
 
 /* package includes */
 #include "errors.h"
+#include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
 #include "cMsgBase.h"
 
@@ -2170,6 +2171,64 @@ int cMsgGetByteArrayOffset(void *vmsg, int *offset) {
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   *offset = msg->byteArrayOffset;
+  return (CMSG_OK);
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine sets the endianness of the byte array data.
+ * @param vmsg pointer to message
+ * @param endian byte array's endianness
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL, or endian is not equal to either
+ *                            CMSG_ENDIAN_BIG, CMSG_ENDIAN_LITTLE,
+ *                            CMSG_ENDIAN_LOCAL, or CMSG_ENDIAN_NOTLOCAL
+ */   
+int cMsgSetByteArrayEndian(void *vmsg, int endian) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+    
+  if ((endian != CMSG_ENDIAN_BIG)   || (endian != CMSG_ENDIAN_LITTLE) ||
+      (endian != CMSG_ENDIAN_LOCAL) || (endian != CMSG_ENDIAN_NOTLOCAL)) {
+      return(CMSG_BAD_ARGUMENT);
+  }
+  if (endian == CMSG_ENDIAN_BIG || endian == CMSG_ENDIAN_LOCAL) {
+      msg->info |= CMSG_IS_BIG_ENDIAN;
+  }
+  else {
+      msg->info &= ~CMSG_IS_BIG_ENDIAN;
+  }
+
+  return(CMSG_OK);
+}
+
+/**
+ * This routine gets the endianness of the byte array data.
+ *
+ * @param vmsg pointer to message
+ * @param endian int pointer to be filled with byte array data endianness
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetByteArrayEndian(void *vmsg, int *endian) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  if ((msg->info & CMSG_IS_BIG_ENDIAN) > 1) {
+      *endian = CMSG_ENDIAN_BIG;
+  }
+  else {
+      *endian = CMSG_ENDIAN_LITTLE;
+  }
+
   return (CMSG_OK);
 }
 
