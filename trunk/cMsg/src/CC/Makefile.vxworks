@@ -17,6 +17,7 @@ LD = ldppc -r
 DEFS = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
 INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I$(INCDIR) -I$(INC_DIR)
 CFLAGS = -O $(DEFS) 
+C_OBJS = $(C_DIR)/regex/regcomp.o $(C_DIR)/regex/regerror.o $(C_DIR)/regex/regexec.o $(C_DIR)/regex/regfree.o
 endif
 
 CFLAGSXX = $(CFLAGS) -Dcppversion
@@ -59,7 +60,7 @@ all: echoarch $(OBJS) $(CMSG_LIBSXX) $(PROGSXX)
 
 $(CMSG_LIBSXX): $(SRCXX)
 	$(CXX) -c $(CFLAGSXX) $(INCS) $(SRCXX)
-	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
+	${LD} -o $@ $(OBJS) $(C_OBJS)
 
 echoarch:
 	@echo
