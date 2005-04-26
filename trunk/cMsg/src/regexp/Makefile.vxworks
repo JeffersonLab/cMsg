@@ -19,7 +19,7 @@ INCS   = -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -I.
 CFLAGS = -O $(DEFS) -DPOSIX_MISTAKE 
 endif
 
-REGEX_LIB = libRegex
+REGEX_LIB = libRegex.o
 HFILES = regex.h
 
 # Internal stuff, should not need changing.
