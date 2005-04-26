@@ -113,6 +113,9 @@ static void cleanUpHandler(void *arg) {
     /* if there's a client thread running ... */
     if (clientThreads[i].isUsed == 1) {
       /* cancel thread */
+      if (cMsgDebug >= CMSG_DEBUG_INFO) {
+        fprintf(stderr, "cMsgClientListeningThread: cancelling a thread\n");
+      }
       if ( (status = pthread_cancel(clientThreads[i].threadId)) != 0) {
         err_abort(status, "Cancelling client thread");
       }
