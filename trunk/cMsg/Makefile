@@ -16,6 +16,7 @@ BIN_DIR = ./bin/SunOS
 
 ifeq ($(ARCH),VXWORKSPPC)
 LIB_DIR = ./lib/vxworks
+BIN_DIR = ./bin/vxworks
 MAKEFILE = Makefile.vxworks
 endif
 
