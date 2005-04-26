@@ -800,7 +800,6 @@ static int cMsgReadMessage(char *buffer, cMsgMessage *msg) {
   /* read binary into byte array */
   /*-----------------------------*/
   if (lengths[6] > 0) {
-    int i=0;
     if ( (tmp = (char *) malloc((size_t) (lengths[6]))) == NULL) {
       free((void *) msg->sender);
       free((void *) msg->senderHost);
