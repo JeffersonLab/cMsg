@@ -15,17 +15,15 @@ INCDIR=/site/vxworks/5.5/ppc/target/h
 CXX = g++ppc
 LD = ldppc -r
 DEFS = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
-INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I$(INCDIR) -I$(INC_DIR)
+INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I$(INC_DIR) -I$(INCDIR)
 CFLAGS = -O $(DEFS) 
-C_OBJS = $(C_DIR)/regex/regcomp.o $(C_DIR)/regex/regerror.o $(C_DIR)/regex/regexec.o $(C_DIR)/regex/regfree.o
 endif
 
 CFLAGSXX = $(CFLAGS) -Dcppversion
 
-CMSG_LIBSXX = cMsgLibxx
+CMSG_LIBSXX = cMsgLibxx.o
 
-PROGSXX = vxproducer.o \
-	  vxconsumer.o
+PROGSXX =
 
 SRCXX =	$(C_DIR)/rwlock.c \
 	$(C_DIR)/sunConcurrency.c \
@@ -60,7 +58,7 @@ all: echoarch $(OBJS) $(CMSG_LIBSXX) $(PROGSXX)
 
 $(CMSG_LIBSXX): $(SRCXX)
 	$(CXX) -c $(CFLAGSXX) $(INCS) $(SRCXX)
-	${LD} -o $@ $(OBJS) $(C_OBJS)
+	${LD} -o $@ $(OBJSXX)
 
 echoarch:
 	@echo
@@ -68,7 +66,7 @@ echoarch:
 	@echo
         
 # file dependencies
-$(OBJS) : $(HFILESXX) $(SRCXX)
+$(OBJSXX) : $(HFILESXX) $(SRCXX)
 
 %.o : %.cc
 	$(CXX) -c $(CFLAGSXX) $(INCS) -o $@ $<
