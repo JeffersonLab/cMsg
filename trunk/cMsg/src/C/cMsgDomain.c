@@ -1709,22 +1709,10 @@ static int codaUnsubscribe(int domainId, const char *subject, const char *type, 
             /* kill the callback thread */
             subscription->quit = 1;
 
-            /* lock mutex */
-            status = pthread_mutex_lock(&subscription->mutex);
-            if (status != 0) {
-              err_abort(status, "Failed callback mutex unlock");
-            }
-
             /* wakeup callback thread */
             status = pthread_cond_broadcast(&subscription->cond);
             if (status != 0) {
               err_abort(status, "Failed callback condition signal");
-            }
-
-            /* unlock mutex */
-            status = pthread_mutex_unlock(&subscription->mutex);
-            if (status != 0) {
-              err_abort(status, "Failed callback mutex unlock");
             }
 
             subscription->callback = NULL;
@@ -1864,9 +1852,11 @@ static int codaStop(int domainId) {
  */   
 static int codaDisconnect(int domainId) {
   
-  int status, outGoing[2];
+  int i, j, status, outGoing[2];
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   int fd = domain->sendSocket;
+  subscribeCbInfo *subscription;
+  getInfo *info;
 
   if (domain->initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
@@ -1910,6 +1900,44 @@ static int codaDisconnect(int domainId) {
   status = pthread_cancel(domain->keepAliveThread);
   if (status != 0) {
     err_abort(status, "Cancelling keep alive thread");
+  }
+
+  /* terminate all callback threads */
+  for (i=0; i<MAX_SUBSCRIBE; i++) {
+    /* if there is a subscription ... */
+    if (domain->subscribeInfo[i].active == 1)  {
+      /* search callback list */
+      for (j=0; j<MAX_CALLBACK; j++) {
+        /* convenience variable */
+        subscription = &domain->subscribeInfo[i].cbInfo[j];
+    
+	if (subscription->callback != NULL) {
+          /* kill the callback thread */
+          subscription->quit = 1;
+
+          /* wakeup callback thread */
+          status = pthread_cond_broadcast(&subscription->cond);
+          if (status != 0) {
+            err_abort(status, "Failed callback condition signal");
+          }
+	}
+      }
+    }
+  }
+
+  /* wakeup all gets */
+  for (i=0; i<MAX_SEND_AND_GET; i++) {
+    
+    info = &domain->sendAndGetInfo[i];
+    if (info->active != 1) {
+      continue;
+    }
+    
+    /* wakeup "get" */      
+    status = pthread_cond_signal(&info->cond);
+    if (status != 0) {
+      err_abort(status, "Failed get condition signal");
+    }    
   }
 
   /* reset vars, free memory */
@@ -2411,6 +2439,12 @@ static void *callbackThread(void *arg)
         
         /* quit if commanded to */
         if (subscription->quit) {
+          /* unlock mutex */
+          status = pthread_mutex_unlock(&subscription->mutex);
+          if (status != 0) {
+            err_abort(status, "Failed callback mutex unlock");
+          }
+          /*printf("TOLD TO QUIT MAIN CALLBACK THREAD\n");*/
           goto end;
         }
       }
@@ -2453,6 +2487,7 @@ static void *callbackThread(void *arg)
       
       /* quit if commanded to */
       if (subscription->quit) {
+        /*printf("TOLD TO QUIT MAIN CALLBACK THREAD\n");*/
         goto end;
       }
     }
@@ -2461,6 +2496,7 @@ static void *callbackThread(void *arg)
           
     sun_setconcurrency(con);
     
+    pthread_exit(NULL);
     return NULL;
 }
 
@@ -2530,6 +2566,7 @@ static void *supplementalThread(void *arg)
             
             sun_setconcurrency(con);
 
+            pthread_exit(NULL);
             return NULL;
           }
 
@@ -2540,6 +2577,12 @@ static void *supplementalThread(void *arg)
         
         /* quit if commanded to */
         if (subscription->quit) {
+          /* unlock mutex */
+          status = pthread_mutex_unlock(&subscription->mutex);
+          if (status != 0) {
+            err_abort(status, "Failed callback mutex unlock");
+          }
+          /*printf("TOLD TO QUIT SUPPLEMENTAL CALLBACK THREAD\n");*/
           goto end;
         }
       }
@@ -2576,6 +2619,7 @@ static void *supplementalThread(void *arg)
       
       /* quit if commanded to */
       if (subscription->quit) {
+        /*printf("TOLD TO QUIT SUPPLEMENTAL CALLBACK THREAD\n");*/
         goto end;
       }
     }
@@ -2584,6 +2628,7 @@ static void *supplementalThread(void *arg)
           
     sun_setconcurrency(con);
     
+    pthread_exit(NULL);
     return NULL;
 }
 
