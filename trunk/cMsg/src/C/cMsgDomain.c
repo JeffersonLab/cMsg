@@ -1863,6 +1863,25 @@ static int codaDisconnect(int domainId) {
   /* When changing initComplete / connection status, protect it */
   connectWriteLock();
   
+  /*
+   * If the domain server thread terminates first, our keep alive thread will
+   * detect it and call this function. To prevent this, first kill our
+   * keep alive thread, close the socket, then tell the server we're going away.
+   */
+   
+  /* stop keep alive thread */
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "codaDisconnect:cancel keep alive thread\n");
+  }
+  
+  status = pthread_cancel(domain->keepAliveThread);
+  if (status != 0) {
+    err_abort(status, "Cancelling keep alive thread");
+  }
+  close(domain->keepAliveSocket);
+
+  /* Tell server we're disconnecting */
+  
   /* size of msg */
   outGoing[0] = htonl(4);
   /* message id (in network byte order) to domain server */
@@ -1885,23 +1904,21 @@ static int codaDisconnect(int domainId) {
 
   domain->lostConnection = 1;
   
-  /* close sending and listening sockets */
+  /* close sending socket */
   close(domain->sendSocket);
-  close(domain->listenSocket);
-  close(domain->keepAliveSocket);
 
   /* stop listening and client communication threads */
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "codaDisconnect:cancel listening & client threads\n");
+  }
+  
   status = pthread_cancel(domain->pendThread);
   if (status != 0) {
     err_abort(status, "Cancelling message listening & client threads");
   }
+  /* close listening socket */
+  close(domain->listenSocket);
   
-  /* stop keep alive thread */
-  status = pthread_cancel(domain->keepAliveThread);
-  if (status != 0) {
-    err_abort(status, "Cancelling keep alive thread");
-  }
-
   /* terminate all callback threads */
   for (i=0; i<MAX_SUBSCRIBE; i++) {
     /* if there is a subscription ... */
@@ -1911,10 +1928,14 @@ static int codaDisconnect(int domainId) {
         /* convenience variable */
         subscription = &domain->subscribeInfo[i].cbInfo[j];
     
-	if (subscription->callback != NULL) {
+	if (subscription->callback != NULL) {          
           /* kill the callback thread */
           subscription->quit = 1;
-
+          
+          if (cMsgDebug >= CMSG_DEBUG_INFO) {
+            fprintf(stderr, "codaDisconnect:wake up callback thread\n");
+          }
+  
           /* wakeup callback thread */
           status = pthread_cond_broadcast(&subscription->cond);
           if (status != 0) {
@@ -1934,12 +1955,19 @@ static int codaDisconnect(int domainId) {
     }
     
     /* wakeup "get" */      
+    if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "codaDisconnect:wake up a sendAndGet\n");
+    }
+  
     status = pthread_cond_signal(&info->cond);
     if (status != 0) {
       err_abort(status, "Failed get condition signal");
     }    
   }
-
+  
+  /* give the above threads a chance to quit before we reset everytbing */
+  sleep(2);
+  
   /* reset vars, free memory */
   domainClear(domain);
   
@@ -2432,10 +2460,12 @@ static void *callbackThread(void *arg)
       /* wait while there are no messages */
       while (subscription->head == NULL) {
         /* wait until signaled */
+/*fprintf(stderr, "CALLBACK THREAD GOING INTO COND WAIT\n");*/
         status = pthread_cond_wait(&subscription->cond, &subscription->mutex);
         if (status != 0) {
           err_abort(status, "Failed callback cond wait");
         }
+/*fprintf(stderr, "CALLBACK THREAD woke up and quit = %d\n", subscription->quit);*/
         
         /* quit if commanded to */
         if (subscription->quit) {
@@ -2444,7 +2474,7 @@ static void *callbackThread(void *arg)
           if (status != 0) {
             err_abort(status, "Failed callback mutex unlock");
           }
-          /*printf("TOLD TO QUIT MAIN CALLBACK THREAD\n");*/
+/*printf("TOLD TO QUIT MAIN CALLBACK THREAD\n");*/
           goto end;
         }
       }
@@ -2487,7 +2517,7 @@ static void *callbackThread(void *arg)
       
       /* quit if commanded to */
       if (subscription->quit) {
-        /*printf("TOLD TO QUIT MAIN CALLBACK THREAD\n");*/
+/*printf("TOLD TO QUIT MAIN CALLBACK THREAD\n");*/
         goto end;
       }
     }
@@ -2496,6 +2526,8 @@ static void *callbackThread(void *arg)
           
     sun_setconcurrency(con);
     
+fprintf(stderr, "QUITTING MAIN CALLBACK THREAD\n");
+fflush(stderr);
     pthread_exit(NULL);
     return NULL;
 }
@@ -2566,6 +2598,7 @@ static void *supplementalThread(void *arg)
             
             sun_setconcurrency(con);
 
+/*printf("SUPPLEMENTAL CALLBACK THREAD TIMED OUT 10X - QUITTING\n");*/
             pthread_exit(NULL);
             return NULL;
           }
@@ -2582,7 +2615,7 @@ static void *supplementalThread(void *arg)
           if (status != 0) {
             err_abort(status, "Failed callback mutex unlock");
           }
-          /*printf("TOLD TO QUIT SUPPLEMENTAL CALLBACK THREAD\n");*/
+/*printf("TOLD TO QUIT SUPPLEMENTAL CALLBACK THREAD\n");*/
           goto end;
         }
       }
@@ -2619,7 +2652,7 @@ static void *supplementalThread(void *arg)
       
       /* quit if commanded to */
       if (subscription->quit) {
-        /*printf("TOLD TO QUIT SUPPLEMENTAL CALLBACK THREAD\n");*/
+/*printf("TOLD TO QUIT SUPPLEMENTAL CALLBACK THREAD\n");*/
         goto end;
       }
     }
@@ -2628,6 +2661,7 @@ static void *supplementalThread(void *arg)
           
     sun_setconcurrency(con);
     
+/*fprintf(stderr, "QUITTING SUPPLEMENTAL CALLBACK THREAD\n");*/
     pthread_exit(NULL);
     return NULL;
 }
