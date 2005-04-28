@@ -72,7 +72,7 @@ HFILES = $(C_DIR)/cMsgNetwork.h \
 HFILESXX = cMsgBase.hxx \
 	   cMsg.hxx
 
-PROGSXX =
+PROGSXX = cMsgCommand cMsgReceive
 
 
 all: $(CMSG_LIBSXX) $(PROGSXX)
