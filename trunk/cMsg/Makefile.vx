@@ -22,7 +22,7 @@ INCDIR=/site/vxworks/5.5/ppc/target/h
 CC = ccppc
 LD = ldppc -r
 DEFS = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
-INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I$(INCDIR)
+INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I./inc -I$(INCDIR)
 
 endif
 
