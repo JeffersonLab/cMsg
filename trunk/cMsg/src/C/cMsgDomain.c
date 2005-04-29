@@ -902,7 +902,9 @@ static int codaSubscribeAndGet(int domainId, const char *subject, const char *ty
     connectReadUnlock();
     free(info->subject);
     free(info->type);
-    info->active = 0;
+    info->subject = NULL;
+    info->type    = NULL;
+    info->active  = 0;
     return(CMSG_OUT_OF_MEMORY);
   }
   
@@ -941,7 +943,9 @@ static int codaSubscribeAndGet(int domainId, const char *subject, const char *ty
     connectReadUnlock();
     free(info->subject);
     free(info->type);
-    info->active = 0;
+    info->subject = NULL;
+    info->type    = NULL;
+    info->active  = 0;
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "get: write failure\n");
     }
@@ -998,7 +1002,10 @@ static int codaSubscribeAndGet(int domainId, const char *subject, const char *ty
       /* free up memory */
       free(info->subject);
       free(info->type);
-      info->active = 0;
+      info->subject = NULL;
+      info->type    = NULL;
+      info->msg     = NULL;
+      info->active  = 0;
 
       /* remove the get from server */
       unSubscribeAndGet(domainId, uniqueId);
@@ -1018,7 +1025,10 @@ static int codaSubscribeAndGet(int domainId, const char *subject, const char *ty
   /* free up memory */
   free(info->subject);
   free(info->type);
-  info->active = 0;
+  info->subject = NULL;
+  info->type    = NULL;
+  info->msg     = NULL;
+  info->active  = 0;
 
   /*printf("get: SUCCESS!!!\n");*/
 
@@ -1131,7 +1141,9 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
     /* free up memory */
     free(info->subject);
     free(info->type);
-    info->active = 0;
+    info->subject = NULL;
+    info->type    = NULL;
+    info->active  = 0;
     return(CMSG_OUT_OF_MEMORY);
   }
   
@@ -1218,7 +1230,9 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
     connectReadUnlock();
     free(info->subject);
     free(info->type);
-    info->active = 0;
+    info->subject = NULL;
+    info->type    = NULL;
+    info->active  = 0;
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "codaSendAndGet: write failure\n");
     }
@@ -1250,7 +1264,6 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
     }
     
     if (status == ETIMEDOUT) {
-      /*info->msgIn = 1;*/
       break;
     }
     else if (status != 0) {
@@ -1279,7 +1292,10 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
       /* free up memory */
       free(info->subject);
       free(info->type);
-      info->active = 0;
+      info->subject = NULL;
+      info->type    = NULL;
+      info->msg     = NULL;
+      info->active  = 0;
 
       *replyMsg = NULL;
       return (CMSG_TIMEOUT);
@@ -1297,7 +1313,10 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
   /* free up memory */
   free(info->subject);
   free(info->type);
-  info->active = 0;
+  info->subject = NULL;
+  info->type    = NULL;
+  info->msg     = NULL;
+  info->active  = 0;
   
   /*printf("get: SUCCESS!!!\n");*/
 
@@ -1465,16 +1484,23 @@ static int codaSubscribe(int domainId, const char *subject, const char *type, cM
   /* add to callback list if subscription to same subject/type exists */
   iok = jok = 0;
   for (i=0; i<MAX_SUBSCRIBE; i++) {
-    if ((domain->subscribeInfo[i].active == 1) && 
-       (strcmp(domain->subscribeInfo[i].subject, subject) == 0) && 
-       (strcmp(domain->subscribeInfo[i].type, type) == 0) ) {
-      iok = 1;
+    if (domain->subscribeInfo[i].active == 0) {
+      continue;
+    }
+    
+    if ((strcmp(domain->subscribeInfo[i].subject, subject) == 0) && 
+        (strcmp(domain->subscribeInfo[i].type, type) == 0) ) {
 
+      iok = 1;
       jok = 0;
       
       /* scan through callbacks looking for duplicates */ 
       for (j=0; j<MAX_CALLBACK; j++) {
-	if ( (domain->subscribeInfo[i].cbInfo[j].callback == callback) &&
+	if (domain->subscribeInfo[i].cbInfo[j].active == 0) {
+          continue;
+        }
+        
+        if ( (domain->subscribeInfo[i].cbInfo[j].callback == callback) &&
              (domain->subscribeInfo[i].cbInfo[j].userArg  ==  userArg))  {
         
           subscribeMutexUnlock(domain);
@@ -1485,14 +1511,16 @@ static int codaSubscribe(int domainId, const char *subject, const char *type, cM
       
       /* scan through callbacks looking for empty space */ 
       for (j=0; j<MAX_CALLBACK; j++) {
-	if (domain->subscribeInfo[i].cbInfo[j].callback == NULL) {
+	if (domain->subscribeInfo[i].cbInfo[j].active == 0) {
+
+          domain->subscribeInfo[i].cbInfo[j].active   = 1;
 	  domain->subscribeInfo[i].cbInfo[j].callback = callback;
 	  domain->subscribeInfo[i].cbInfo[j].userArg  = userArg;
-          domain->subscribeInfo[i].cbInfo[0].head     = NULL;
-          domain->subscribeInfo[i].cbInfo[0].tail     = NULL;
-          domain->subscribeInfo[i].cbInfo[0].quit     = 0;
-          domain->subscribeInfo[i].cbInfo[0].messages = 0;
-          domain->subscribeInfo[i].cbInfo[0].config   = *sConfig;
+          domain->subscribeInfo[i].cbInfo[j].head     = NULL;
+          domain->subscribeInfo[i].cbInfo[j].tail     = NULL;
+          domain->subscribeInfo[i].cbInfo[j].quit     = 0;
+          domain->subscribeInfo[i].cbInfo[j].messages = 0;
+          domain->subscribeInfo[i].cbInfo[j].config   = *sConfig;
           
           /* start callback thread now */
           status = pthread_create(&domain->subscribeInfo[i].cbInfo[j].thread,
@@ -1506,7 +1534,7 @@ static int codaSubscribe(int domainId, const char *subject, const char *type, cM
           if (config == NULL) {
             cMsgSubscribeConfigDestroy((cMsgSubscribeConfig *) sConfig);
           }
-          
+                    
 	  jok = 1;
           break;
 	}
@@ -1542,6 +1570,7 @@ static int codaSubscribe(int domainId, const char *subject, const char *type, cM
     domain->subscribeInfo[i].type    = (char *) strdup(type);
     domain->subscribeInfo[i].subjectRegexp = cMsgStringEscape(subject);
     domain->subscribeInfo[i].typeRegexp    = cMsgStringEscape(type);
+    domain->subscribeInfo[i].cbInfo[0].active   = 1;
     domain->subscribeInfo[i].cbInfo[0].callback = callback;
     domain->subscribeInfo[i].cbInfo[0].userArg  = userArg;
     domain->subscribeInfo[i].cbInfo[0].head     = NULL;
@@ -1613,6 +1642,10 @@ static int codaSubscribe(int domainId, const char *subject, const char *type, cM
       free(domain->subscribeInfo[i].type);
       free(domain->subscribeInfo[i].subjectRegexp);
       free(domain->subscribeInfo[i].typeRegexp);
+      domain->subscribeInfo[i].subject       = NULL;
+      domain->subscribeInfo[i].type          = NULL;
+      domain->subscribeInfo[i].subjectRegexp = NULL;
+      domain->subscribeInfo[i].typeRegexp    = NULL;
       domain->subscribeInfo[i].active = 0;
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "codaSubscribe: write failure\n");
@@ -1693,20 +1726,31 @@ static int codaUnsubscribe(int domainId, const char *subject, const char *type, 
   
   /* search entry list */
   for (i=0; i<MAX_SUBSCRIBE; i++) {
+    
+    if (domain->subscribeInfo[i].active == 0) {
+      continue;
+    }
+
     /* if there is a match with subject & type ... */
-    if ( (domain->subscribeInfo[i].active == 1) && 
-         (strcmp(domain->subscribeInfo[i].subject, subject) == 0)  && 
+    if ( (strcmp(domain->subscribeInfo[i].subject, subject) == 0)  && 
          (strcmp(domain->subscribeInfo[i].type,    type)    == 0) )  {
+      
       /* search callback list */
       for (j=0; j<MAX_CALLBACK; j++) {
+        
         /* convenience variable */
         subscription = &domain->subscribeInfo[i].cbInfo[j];
-    
-	if (subscription->callback != NULL) {
-	  cbCount++;
+        
+        /* if the subscription is active ... */
+	if (subscription->active == 1) {
+	  
+          cbCount++;
+          
+          /* if the callback and argument are identical ... */
 	  if ( (subscription->callback == callback) &&
                (subscription->userArg  ==  userArg))  {
-            /* kill the callback thread */
+            
+            /* tell callback thread to end */
             subscription->quit = 1;
 
             /* wakeup callback thread */
@@ -1714,9 +1758,15 @@ static int codaUnsubscribe(int domainId, const char *subject, const char *type, 
             if (status != 0) {
               err_abort(status, "Failed callback condition signal");
             }
-
-            subscription->callback = NULL;
+            
+            /* mark this subscription (array location) as inactive/available */
+            subscription->active = 0;
+            
+            /* removed 1 callback */
             cbsRemoved++;
+            
+            /* found the only matching callback/arg combination */
+            break;
           }
 	}
       }
@@ -1738,7 +1788,12 @@ static int codaUnsubscribe(int domainId, const char *subject, const char *type, 
     free(domain->subscribeInfo[i].type);
     free(domain->subscribeInfo[i].subjectRegexp);
     free(domain->subscribeInfo[i].typeRegexp);
-
+    /* set these equal to NULL so they aren't freed again later */
+    domain->subscribeInfo[i].subject       = NULL;
+    domain->subscribeInfo[i].type          = NULL;
+    domain->subscribeInfo[i].subjectRegexp = NULL;
+    domain->subscribeInfo[i].typeRegexp    = NULL;
+    
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "codaUnsubscribe: send 4 ints\n");
     }
@@ -1928,8 +1983,9 @@ static int codaDisconnect(int domainId) {
         /* convenience variable */
         subscription = &domain->subscribeInfo[i].cbInfo[j];
     
-	if (subscription->callback != NULL) {          
-          /* kill the callback thread */
+	if (subscription->active == 1) {          
+          
+          /* tell callback thread to end */
           subscription->quit = 1;
           
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
@@ -1966,9 +2022,9 @@ static int codaDisconnect(int domainId) {
   }
   
   /* give the above threads a chance to quit before we reset everytbing */
-  sleep(2);
+  sleep(1);
   
-  /* reset vars, free memory */
+  /* free memory (non-NULL items), reset variables*/
   domainClear(domain);
   
   connectWriteUnlock();
@@ -2879,22 +2935,10 @@ fprintf(stderr, "cMsgWakeGets: domainId = %d, uniqueId = %d, msg sender token = 
       info->msg = msg;
       info->msgIn = 1;
 
-      /* lock mutex before messing with linked list */
-      status = pthread_mutex_lock(&info->mutex);
-      if (status != 0) {
-        err_abort(status, "Failed callback mutex lock");
-      }
-
       /* wakeup "get" */      
       status = pthread_cond_signal(&info->cond);
       if (status != 0) {
         err_abort(status, "Failed get condition signal");
-      }
-      
-      /* unlock mutex */
-      status = pthread_mutex_unlock(&info->mutex);
-      if (status != 0) {
-        err_abort(status, "Failed callback mutex unlock");
       }
     }
   }
@@ -3121,6 +3165,7 @@ static void subscribeInfoInit(subInfo *info, int reInit) {
     info->subjectRegexp = NULL;
     
     for (j=0; j<MAX_CALLBACK; j++) {
+      info->cbInfo[j].active   = 0;
       info->cbInfo[j].threads  = 0;
       info->cbInfo[j].messages = 0;
       info->cbInfo[j].quit     = 0;
