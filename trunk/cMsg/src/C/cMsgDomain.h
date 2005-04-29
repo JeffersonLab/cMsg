@@ -50,6 +50,7 @@ typedef struct dispatchCbInfo_t {
 
 /** This structure represents a single subscription's callback. */
 typedef struct subscribeCbInfo_t {
+  int             active;   /**< Boolean telling if this callback is active. */
   cMsgCallback   *callback; /**< Callback function (or C++ callback class instance) to be called. */
   void           *userArg;  /**< User argument to be passed to the callback. */
   cMsgMessage    *head;     /**< Head of linked list of messages given to callback. */
@@ -65,8 +66,7 @@ typedef struct subscribeCbInfo_t {
 } subscribeCbInfo;
 
 /**
- * Structure used representing both regular subscriptions and subscribeAndGets
- * of a certain subject and type.
+ * This structure represents a subscription of a certain subject and type.
  */
 typedef struct subscribeInfo_t {
   int  id;       /**< Unique id # corresponding to a unique subject/type pair. */
@@ -79,7 +79,10 @@ typedef struct subscribeInfo_t {
 } subInfo;
 
 
-/** This structure represents a sendAndGet of a certain subject and type. */
+/**
+ * This structure represents a sendAndGet or subscribeAndGet
+ * of a certain subject and type.
+ */
 typedef struct getInfo_t {
   int  id;       /**< Unique id # corresponding to a unique subject/type pair. */
   int  active;   /**< Boolean telling if this subject/type has an active callback. */
