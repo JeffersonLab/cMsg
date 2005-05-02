@@ -8,9 +8,9 @@ JAVAH = javah
 JAVAD = javadoc
 JAR   = jar
 
-INSTALL  = ../../../../../../install-sh -c
-JAVAC_FLAGS = -classpath ../../../../../
-#JAVAC_FLAGS = -classpath ../../../../../:$(CLASSPATH)
+TOPDIR = ../../../../..
+INSTALL = $(TOPDIR)/install-sh -c
+JAVAC_FLAGS = -classpath $(TOPDIR)
 
 JAVA_OBJS = \
 	cMsgQueue.class \
@@ -23,18 +23,6 @@ JAVA_OBJS = \
 	cMsgShutdowner.class
 
 all: $(JAVA_OBJS)
-
-install: install-jar
-
-install-jar: $(JAVA_OBJS)
-	@echo "Jarring .class files"
-	$(JAR) cf cMsg.jar *.class
-	@if [ ! -d $(JAR_INSTALL) ]; then \
-	  echo "Making directory $(JAR_INSTALL)"; \
-	  mkdir $(JAR_INSTALL); \
-	fi;
-	@echo "Installing cMsg.jar in $(JAR_INSTALL)"
-	@$(INSTALL) cMsg.jar $(JAR_INSTALL)/cMsg.jar
 
 clean: 
 	rm -f core *~ *.class
