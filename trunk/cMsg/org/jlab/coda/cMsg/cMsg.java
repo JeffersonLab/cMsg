@@ -180,7 +180,9 @@ public class cMsg {
         // If there is still no handler class, look for the
         // standard, provided classes.
         if (domainConnectionClass == null) {
-            if (domain.equalsIgnoreCase("cMsg")) {
+            // cMsg and runcontrol domains use the same client code
+            if (domain.equalsIgnoreCase("cMsg") ||
+                domain.equalsIgnoreCase("rc")  )  {
                 domainConnectionClass = "org.jlab.coda.cMsg.cMsgDomain.client.cMsg";
             }
             else if (domain.equalsIgnoreCase("file")) {
