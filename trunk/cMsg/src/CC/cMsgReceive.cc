@@ -27,6 +27,10 @@ static string subject;
 static string type;
 
 
+// misc
+bool silent;
+
+
 // prototypes
 void decodeCommandLine(int argc, char **argv);
 
@@ -39,13 +43,15 @@ void decodeCommandLine(int argc, char **argv);
 class myCallbackObject:public cMsgCallbackAdapter {
 
   void callback(cMsgMessage msg, void* userObject) {
-    cout << "subject is:   " << msg.getSubject() << endl;
-    cout << "type is:      " << msg.getType() << endl;
-    cout << "userInt is:   " << msg.getUserInt() << endl;
-    cout << "text is:      " << msg.getText() << endl;
-    cout << endl;
+     if(!silent) {
+         cout << "subject is:            " << msg.getSubject() << endl;
+         cout << "type is:               " << msg.getType() << endl;
+         cout << "userInt is:            " << msg.getUserInt() << endl;
+         cout << "text is:               " << msg.getText() << endl;
+         cout << "byte array length is:  " << msg.getByteArrayLength() << endl;
+         cout << endl;
+     }
   }
-
 };
 
 
@@ -59,8 +65,9 @@ main(int argc, char **argv) {
   udl           = "cMsg://ollie:3456/cMsg/vmeTest";       // universal domain locator
   name          = "cMsgReceive";                          // unique name
   description   = "cMsgReceiveutility ";                  // description is arbitrary
-  subject       = "mySubject";
-  type          = "myType";
+  subject       = "*";
+  type          = "*";
+  silent        = false;
 
 
   // decode command line parameters
@@ -92,7 +99,7 @@ void decodeCommandLine(int argc, char **argv) {
   
 
   const char *help = 
-    "\nusage:\n\n   cMsgCommand [-u udl] [-n name] [-d description] [-s subject] [-type type]\n\n";
+    "\nusage:\n\n   cMsgReceive [-udl udl] [-n name] [-d description] [-s subject] [-t type] [-silent]\n\n";
   
   
 
@@ -103,11 +110,15 @@ void decodeCommandLine(int argc, char **argv) {
       cout << help << endl;
       exit(EXIT_SUCCESS);
 
-    } else if (strncasecmp(argv[i],"-type",5)==0) {
+    } else if (strncasecmp(argv[i],"-silent",7)==0) {
+      silent=true;
+      i=i+1;
+
+    } else if (strncasecmp(argv[i],"-t",2)==0) {
       type=argv[i+1];
       i=i+2;
 
-    } else if (strncasecmp(argv[i],"-u",2)==0) {
+    } else if (strncasecmp(argv[i],"-udl",4)==0) {
       udl=argv[i+1];
       i=i+2;
 
