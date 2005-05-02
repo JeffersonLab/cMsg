@@ -28,36 +28,36 @@ import java.nio.channels.SocketChannel;
  * along with subject, type, id, and request (or client, server, flag for a shutdown)
  * for later action by a thread from the thread pool.
  */
-class cMsgHolder {
+public class cMsgHolder {
     /** Location to store message object. */
-    cMsgMessageFull message;
+    public cMsgMessageFull message;
 
     /** Has the "get" call timed out? */
-    boolean timedOut = true;
+    public boolean timedOut = true;
 
     /** Store subject. */
-    String subject;
+    public String subject;
 
     /** Store type. */
-    String type;
+    public String type;
 
     /** Store client(s) to shutdown. */
-    String client;
+    public String client;
 
     /** Store server(s) to shutdown. */
-    String server;
+    public String server;
 
     /** Store id. */
-    int flag;
+    public int flag;
 
     /** Store id. */
-    int id;
+    public int id;
 
     /** Store request. */
-    int request;
+    public int request;
 
     /** Store communication channel. */
-    SocketChannel channel;
+    public SocketChannel channel;
 
     public cMsgHolder() {
     }
