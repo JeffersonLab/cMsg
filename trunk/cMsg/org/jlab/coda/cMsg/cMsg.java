@@ -181,7 +181,7 @@ public class cMsg {
         // standard, provided classes.
         if (domainConnectionClass == null) {
             if (domain.equalsIgnoreCase("cMsg")) {
-                domainConnectionClass = "org.jlab.coda.cMsg.cMsgDomain.cMsg";
+                domainConnectionClass = "org.jlab.coda.cMsg.cMsgDomain.client.cMsg";
             }
             else if (domain.equalsIgnoreCase("file")) {
                 domainConnectionClass = "org.jlab.coda.cMsg.FileDomain.File";
