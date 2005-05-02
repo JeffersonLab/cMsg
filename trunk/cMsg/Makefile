@@ -56,6 +56,8 @@ jarfile:
 java:
 	cd ./org/jlab/coda/cMsg; $(MAKE);
 	cd ./org/jlab/coda/cMsg/cMsgDomain;  $(MAKE);
+	cd ./org/jlab/coda/cMsg/cMsgDomain/client;  $(MAKE);
+	cd ./org/jlab/coda/cMsg/cMsgDomain/server;  $(MAKE);
 	cd ./org/jlab/coda/cMsg/subdomains;  $(MAKE);
 	cd ./org/jlab/coda/cMsg/apps;  $(MAKE);
 	cd ./org/jlab/coda/cMsg/FileDomain;  $(MAKE);
@@ -84,6 +86,8 @@ cClean:
 jClean: 
 	cd ./org/jlab/coda/cMsg;             $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/cMsgDomain;  $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg/cMsgDomain/client;  $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg/cMsgDomain/server;  $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/subdomains;  $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/apps;        $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/FileDomain;  $(MAKE) clean;
