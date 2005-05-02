@@ -275,6 +275,112 @@ void cMsgMessageBase::setText(const string &text) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+void cMsgMessageBase::setByteArrayLength(int length) throw(cMsgException) {
+
+  int stat;
+  if((stat=cMsgSetByteArrayLength(myMsgPointer,length)!=CMSG_OK)) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+int cMsgMessageBase::getByteArrayLength(void) const throw(cMsgException) {
+
+  int i;
+
+  int stat;
+  if((stat=cMsgGetByteArrayLength(myMsgPointer,&i))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+  return(i);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+void cMsgMessageBase::setByteArrayOffset(int offset) throw(cMsgException) {
+
+  int stat;
+  if((stat=cMsgSetByteArrayOffset(myMsgPointer,offset)!=CMSG_OK)) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+int cMsgMessageBase::getByteArrayOffset(void) const throw(cMsgException) {
+
+  int i;
+
+  int stat;
+  if((stat=cMsgGetByteArrayOffset(myMsgPointer,&i))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+  return(i);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+void cMsgMessageBase::setByteArray(char *array) throw(cMsgException) {
+
+  int stat;
+  if((stat=cMsgSetByteArray(myMsgPointer,array)!=CMSG_OK)) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+char* cMsgMessageBase::getByteArray(void) const throw(cMsgException) {
+
+  char *p;
+
+  int stat;
+  if((stat=cMsgGetByteArray(myMsgPointer,&p)!=CMSG_OK)) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+  return(p);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+
+void cMsgMessageBase::setByteArrayAndLimits(char *array, int offset, int length) throw(cMsgException) {
+
+  int stat;
+  if((stat=cMsgSetByteArrayAndLimits(myMsgPointer,array,offset,length)!=CMSG_OK)) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+void cMsgMessageBase::copyByteArray(char* array, int offset, int length) throw(cMsgException) {
+
+  int stat;
+  if((stat=cMsgCopyByteArray(myMsgPointer,array,offset,length)!=CMSG_OK)) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+}
+
+
+//-----------------------------------------------------------------------------
+
+
 int cMsgMessageBase::getUserInt(void) const throw(cMsgException) {
 
   int i;

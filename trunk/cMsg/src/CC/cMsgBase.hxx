@@ -99,6 +99,14 @@ public:
   virtual void setType(const string &type) throw(cMsgException);
   virtual string getText(void) const throw(cMsgException);
   virtual void setText(const string &text) throw(cMsgException);
+  virtual void setByteArrayLength(int length) throw(cMsgException);
+  virtual int getByteArrayLength(void) const throw(cMsgException);
+  virtual void setByteArrayOffset(int offset) throw(cMsgException);
+  virtual int getByteArrayOffset(void) const throw(cMsgException);
+  virtual void setByteArray(char *array) throw(cMsgException);
+  virtual char* getByteArray(void) const throw(cMsgException);
+  virtual void setByteArrayAndLimits(char *array, int offset, int length) throw(cMsgException);
+  virtual void copyByteArray(char* array, int offset, int length) throw(cMsgException);
   virtual int getUserInt(void) const throw(cMsgException);
   virtual void setUserInt(int i) throw(cMsgException);
   virtual struct timespec getUserTime(void) const throw(cMsgException);
