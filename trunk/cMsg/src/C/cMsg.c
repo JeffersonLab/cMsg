@@ -115,7 +115,6 @@ static char *excludedChars = "`\'\"";
 
 /** For domain implementations. */
 extern domainTypeInfo codaDomainTypeInfo;
-/*extern domainTypeInfo   rcDomainTypeInfo;*/
 
 
 /* for c++ */
@@ -953,11 +952,9 @@ static void registerDomainTypeInfo(void) {
   /* cMsg type */
   dTypeInfo[0].type = (char *)strdup(codaDomainTypeInfo.type); 
   dTypeInfo[0].functions = codaDomainTypeInfo.functions;
-  /* runcontrol type */
-  /*
-  dTypeInfo[1].type = (char *)strdup(rcDomainTypeInfo.type); 
-  dTypeInfo[1].functions = rcDomainTypeInfo.functions;
-  */
+  /* for clients, runcontrol domain is same as cMsg domain */
+  dTypeInfo[1].type = (char *)strdup("rc"); 
+  dTypeInfo[1].functions = codaDomainTypeInfo.functions;
 
   return;
 }
