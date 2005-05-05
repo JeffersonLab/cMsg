@@ -1385,7 +1385,10 @@ int cMsgFreeMessage(void *vmsg) {
   if (msg->subject != NULL)      free(msg->subject);
   if (msg->type != NULL)         free(msg->type);
   if (msg->text != NULL)         free(msg->text);
-  if (msg->byteArray != NULL)    free(msg->byteArray);
+  /* only free byte array if it was copied into the msg */
+  if ((msg->byteArray != NULL) && ((msg->bits & CMSG_BYTE_ARRAY_IS_COPIED) > 0)) {
+    free(msg->byteArray);
+  }
   
   free(msg);
 
@@ -1439,12 +1442,19 @@ int cMsgFreeMessage(void *vmsg) {
         
     if (msg->text != NULL) newMsg->text = (char *) strdup(msg->text);
     else                   newMsg->text = NULL;
-
+    
     if (msg->byteArray != NULL) {
-      newMsg->byteArray = (char *) malloc(msg->byteArrayLength);
-      if (newMsg->byteArray == NULL) return NULL;
-      memcpy(newMsg->byteArray, &((msg->byteArray)[msg->byteArrayOffset]),
-             (size_t) msg->byteArrayLength);
+      /* if byte array was copied into msg, copy it again */
+      if ((msg->bits & CMSG_BYTE_ARRAY_IS_COPIED) > 0) {
+        newMsg->byteArray = (char *) malloc(msg->byteArrayLength);
+        if (newMsg->byteArray == NULL) return NULL;
+        memcpy(newMsg->byteArray, &((msg->byteArray)[msg->byteArrayOffset]),
+               (size_t) msg->byteArrayLength);
+      }
+      /* else copy pointer only */
+      else {
+        newMsg->byteArray = msg->byteArray;
+      }
     }
     else {
       newMsg->byteArray = NULL;
@@ -2247,7 +2257,7 @@ int cMsgSetByteArray(void *vmsg, char *array) {
   cMsgMessage *msg = (cMsgMessage *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  
+  msg->bits &= ~CMSG_BYTE_ARRAY_IS_COPIED; /* byte array is NOT copied */
   msg->byteArray = array;
 
   return(CMSG_OK);
@@ -2272,6 +2282,7 @@ int cMsgSetByteArrayAndLimits(void *vmsg, char *array, int offset, int length) {
   if (length < 0)  return(CMSG_BAD_ARGUMENT);
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   
+  msg->bits &= ~CMSG_BYTE_ARRAY_IS_COPIED; /* byte array is NOT copied */
   msg->byteArray       = array;
   msg->byteArrayOffset = offset;
   msg->byteArrayLength = length;
@@ -2305,6 +2316,7 @@ int cMsgCopyByteArray(void *vmsg, char *array, int offset, int length) {
   }
 
   memcpy(msg->byteArray, &(array[offset]), (size_t) length);
+  msg->bits |= CMSG_BYTE_ARRAY_IS_COPIED; /* byte array IS copied */
   msg->byteArrayOffset = 0;
   msg->byteArrayLength = length;
 

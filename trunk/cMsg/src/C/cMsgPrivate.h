@@ -69,6 +69,8 @@ extern "C" {
 /** Is the byte array in big endian form? -- is stored in 4th bit. */
 #define CMSG_IS_BIG_ENDIAN 0x8
 
+/** Is byte array copied in? -- is stored in 1st bit. */
+#define CMSG_BYTE_ARRAY_IS_COPIED 0x1
 
 /** Debug level. */
 extern int cMsgDebug;
@@ -169,6 +171,9 @@ typedef struct cMsg_t {
   char   *domain;      /**< Domain message is generated in. */
   char   *creator;     /**< Message was originally created by this user/sender. */
   int     reserved;    /**< Reserved for future use. */
+  int     bits;        /**< Stores info in bit form about internal state (true = 1).
+                        * - is byte array copied in? 1st bit
+                        */
   
   /* user-settable quantities */
   char   *subject;             /**< Subject of message. */
