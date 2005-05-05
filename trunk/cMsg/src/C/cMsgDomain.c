@@ -52,6 +52,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include <time.h>
+#include <string.h>
 
 
 /* package includes */
@@ -85,6 +86,13 @@ static pthread_mutex_t generalMutex = PTHREAD_MUTEX_INITIALIZER;
 static rwlock_t connectLock = RWL_INITIALIZER; 
 /** Id number which uniquely defines a subject/type pair. */
 static int subjectTypeId = 1;
+
+
+/** Buffer for sending messages. */
+static char *msgBuffer;
+/** Size of buffer in bytes for sending messages. */
+static int msgBufferSize = 15000;
+
 
 /* for c++ */
 #ifdef __cplusplus
@@ -213,6 +221,7 @@ static char *strdup(const char *s1) {
  *                            or the host name of the server to connect to is bad,
  * @returns CMSG_BAD_FORMAT if the UDL is malformed
  * @returns CMSG_OUT_OF_RANGE if the port specified in the UDL is out-of-range
+ * @returns CMSG_OUT_OF_MEMOERY if the allocating memory for message buffer failed
  * @returns CMSG_LIMIT_EXCEEDED if the maximum number of domain connections has
  *          been exceeded
  * @returns CMSG_SOCKET_ERROR if the listening thread finds all the ports it tries
@@ -269,6 +278,13 @@ static int codaConnect(const char *myUDL, const char *myName, const char *myDesc
   if (id < 0) {
     connectWriteUnlock();
     return(CMSG_LIMIT_EXCEEDED);
+  }
+
+  /* allocate memory for message-sending buffer */
+  msgBuffer = (char *) malloc(msgBufferSize);
+  if (msgBuffer == NULL) {
+    connectWriteUnlock();
+    return(CMSG_OUT_OF_MEMORY);
   }
 
   /* reserve this element of the "cMsgDomains" array */
@@ -484,9 +500,171 @@ static int codaConnect(const char *myUDL, const char *myName, const char *myDesc
   codaSetShutdownHandler(id, defaultShutdownHandler, NULL);
     
   cMsgDomains[id].lostConnection = 0;
-    
+      
   /* no more mutex protection is necessary */
   connectWriteUnlock();
+
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine sends a msg to the specified cMsg domain server.  It is called
+ * by the user through cMsgSend() given the appropriate UDL. It is completely
+ * asynchronous and never blocks. In this domain cMsgFlush() does nothing and
+ * does not need to be called for the message to be sent immediately.<p>
+ * This version of this routine uses writev to write all data in one write call.
+ * Another version was tried with many writes (one for ints and one for each
+ * string), but the performance died sharply
+ *
+ * @param domainId id number of the domain connection
+ * @param vmsg pointer to a message structure
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_OUT_OF_MEMOERY if the allocating memory for message buffer failed
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement sending
+ *                               messages
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
+ *                               since cMsgConnect() was never called
+ * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
+ *                               by a call to cMsgDisconnect()
+ */   
+static int codaSend(int domainId, void *vmsg) {
+  
+  int len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
+  int highInt, lowInt, outGoing[16];
+  cMsgMessage *msg = (cMsgMessage *) vmsg;
+  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  int fd = domain->sendSocket;
+  char *creator;
+  long long llTime;
+  struct timespec now;
+    
+  if (!domain->hasSend) {
+    return(CMSG_NOT_IMPLEMENTED);
+  }
+  
+  /* Cannot run this while connecting/disconnecting */
+  connectReadLock();
+  
+  if (domain->initComplete != 1) {
+    connectReadUnlock();
+    return(CMSG_NOT_INITIALIZED);
+  }
+  if (domain->lostConnection == 1) {
+    connectReadUnlock();
+    return(CMSG_LOST_CONNECTION);
+  }
+  
+  if (msg->text == NULL) {
+    lenText = 0;
+  }
+  else {
+    lenText = strlen(msg->text);
+  }
+  
+  /* message id (in network byte order) to domain server */
+  outGoing[1] = htonl(CMSG_SEND_REQUEST);
+  /* reserved for future use */
+  outGoing[2] = 0;
+  /* user int */
+  outGoing[3] = htonl(msg->userInt);
+  /* system msg id */
+  outGoing[4] = htonl(msg->sysMsgId);
+  /* sender token */
+  outGoing[5] = htonl(msg->senderToken);
+  /* bit info */
+  outGoing[6] = htonl(msg->info);
+  
+  /* time message sent (right now) */
+  clock_gettime(CLOCK_REALTIME, &now);
+  /* convert to milliseconds */
+  llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);
+  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  outGoing[7] = htonl(highInt);
+  outGoing[8] = htonl(lowInt);
+  
+  /* user time */
+  llTime  = ((long long)msg->userTime.tv_sec * 1000) +
+            ((long long)msg->userTime.tv_nsec/1000000);
+  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  outGoing[9]  = htonl(highInt);
+  outGoing[10] = htonl(lowInt);
+
+  /* length of "subject" string */
+  lenSubject   = strlen(msg->subject);
+  outGoing[11] = htonl(lenSubject);
+  /* length of "type" string */
+  lenType      = strlen(msg->type);
+  outGoing[12] = htonl(lenType);
+
+  /* send creator (this sender's name if msg created here) */
+  creator = msg->creator;
+  if (creator == NULL) creator = domain->name;
+  /* length of "creator" string */
+  lenCreator   = strlen(creator);
+  outGoing[13] = htonl(lenCreator);
+  
+  /* length of "text" string */
+  outGoing[14] = htonl(lenText);
+  
+  /* length of byte array */
+  lenByteArray = msg->byteArrayLength;
+  outGoing[15] = htonl(lenByteArray);
+    
+  /* total length of message (minus first int) is first item sent */
+  len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType +
+        lenCreator + lenText + lenByteArray;
+  outGoing[0] = htonl(len);
+  
+  /* make send socket communications thread-safe */
+  socketMutexLock(domain);
+
+  /* allocate more memory for message-sending buffer if necessary */
+  if (msgBufferSize < (int)(len+sizeof(int))) {
+    free(msgBuffer);
+    msgBufferSize = len + 1004; /* give us 1kB extra */
+    msgBuffer = (char *) malloc(msgBufferSize);
+    if (msgBuffer == NULL) {
+      socketMutexUnlock(domain);
+      connectReadUnlock();
+      return(CMSG_OUT_OF_MEMORY);
+    }
+  }
+  
+  /* copy data into a single static buffer */
+  memcpy(msgBuffer, (void *)outGoing, sizeof(outGoing));
+  len = sizeof(outGoing);
+  memcpy(msgBuffer+len, (void *)msg->subject, lenSubject);
+  len += lenSubject;
+  memcpy(msgBuffer+len, (void *)msg->type, lenType);
+  len += lenType;
+  memcpy(msgBuffer+len, (void *)creator, lenCreator);
+  len += lenCreator;
+  memcpy(msgBuffer+len, (void *)msg->text, lenText);
+  len += lenText;
+  memcpy(msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
+  len += lenByteArray;   
+  
+  /* send data over socket */
+  if (cMsgTcpWrite(fd, (void *) msgBuffer, len) != len) {
+    socketMutexUnlock(domain);
+    connectReadUnlock();
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "codaSend: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+
+  /* done protecting communications */
+  socketMutexUnlock(domain);
+  connectReadUnlock();
 
   return(CMSG_OK);
 }
@@ -516,7 +694,7 @@ static int codaConnect(const char *myUDL, const char *myName, const char *myDesc
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSend(int domainId, void *vmsg) {
+static int codaSendOrig(int domainId, void *vmsg) {
   
   int len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
@@ -662,6 +840,7 @@ static int codaSend(int domainId, void *vmsg) {
  * @returns CMSG_OK if successful
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement the
  *                               synchronous sending of messages
+ * @returns CMSG_OUT_OF_MEMOERY if the allocating memory for message buffer failed
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
@@ -678,7 +857,6 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
   char *creator;
   long long llTime;
   struct timespec now;
-  struct iovec iov[6];
     
   if (!domain->hasSyncSend) {
     return(CMSG_NOT_IMPLEMENTED);
@@ -761,28 +939,41 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
   /* make syncSends be synchronous 'cause we need a reply */
   syncSendMutexLock(domain);
   
-  iov[0].iov_base = (char*) outGoing;
-  iov[0].iov_len  = sizeof(outGoing);
-  
-  iov[1].iov_base = (char*) msg->subject;
-  iov[1].iov_len  = lenSubject;
-  
-  iov[2].iov_base = (char*) msg->type;
-  iov[2].iov_len  = lenType;
-
-  iov[3].iov_base = (char*) creator;
-  iov[3].iov_len  = lenCreator;
-
-  iov[4].iov_base = (char*) msg->text;
-  iov[4].iov_len  = lenText;
-  
-  iov[5].iov_base = (char*) &((msg->byteArray)[msg->byteArrayOffset]);
-  iov[5].iov_len  = lenByteArray;
-
   /* make send socket communications thread-safe */
   socketMutexLock(domain);
+
+  /* allocate more memory for message-sending buffer if necessary */
+  if (msgBufferSize < (int)(len+sizeof(int))) {
+    free(msgBuffer);
+    msgBufferSize = len + 1004; /* give us 1kB extra */
+    msgBuffer = (char *) malloc(msgBufferSize);
+    if (msgBuffer == NULL) {
+      socketMutexUnlock(domain);
+      syncSendMutexUnlock(domain);
+      connectReadUnlock();
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+        fprintf(stderr, "codaSyncSend: out of memory\n");
+      }
+      return(CMSG_OUT_OF_MEMORY);
+    }
+  }
   
-  if (cMsgTcpWritev(fd, iov, 6, 16) == -1) {
+  /* copy data into a single static buffer */
+  memcpy(msgBuffer, (void *)outGoing, sizeof(outGoing));
+  len = sizeof(outGoing);
+  memcpy(msgBuffer+len, (void *)msg->subject, lenSubject);
+  len += lenSubject;
+  memcpy(msgBuffer+len, (void *)msg->type, lenType);
+  len += lenType;
+  memcpy(msgBuffer+len, (void *)creator, lenCreator);
+  len += lenCreator;
+  memcpy(msgBuffer+len, (void *)msg->text, lenText);
+  len += lenText;
+  memcpy(msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
+  len += lenByteArray;   
+    
+  /* send data over socket */
+  if (cMsgTcpWrite(fd, (void *) msgBuffer, len) != len) {
     socketMutexUnlock(domain);
     syncSendMutexUnlock(domain);
     connectReadUnlock();
@@ -1036,6 +1227,400 @@ static int codaSubscribeAndGet(int domainId, const char *subject, const char *ty
 }
 
 
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine sends a msg to the specified domain server and receives a response.
+ * It is a synchronous routine and as a result blocks until it receives a status
+ * integer from the cMsg server. It is called by the user through cMsgSyncSend()
+ * given the appropriate UDL. In this domain cMsgFlush() does nothing and
+ * does not need to be called for the message to be sent immediately.
+ *
+ * @param domainId id number of the domain connection
+ * @param vmsg pointer to a message structure
+ * @param response integer pointer that gets filled with the server's response
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement the
+ *                               synchronous sending of messages
+ * @returns CMSG_OUT_OF_MEMOERY if the allocating memory for message buffer failed
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
+ *                               since cMsgConnect() was never called
+ * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
+ *                               by a call to cMsgDisconnect()
+ */   
+static int codaSyncSendOrig(int domainId, void *vmsg, int *response) {
+  
+  int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
+  int highInt, lowInt, outGoing[16];
+  cMsgMessage *msg = (cMsgMessage *) vmsg;
+  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  int fd = domain->sendSocket;
+  char *creator;
+  long long llTime;
+  struct timespec now;
+  struct iovec iov[6];
+    
+  if (!domain->hasSyncSend) {
+    return(CMSG_NOT_IMPLEMENTED);
+  }
+ 
+  connectReadLock();
+
+  if (domain->initComplete != 1) {
+    connectReadUnlock();
+    return(CMSG_NOT_INITIALIZED);
+  }
+  if (domain->lostConnection == 1) {
+    connectReadUnlock();
+    return(CMSG_LOST_CONNECTION);
+  }
+
+  if (msg->text == NULL) {
+    lenText = 0;
+  }
+  else {
+    lenText = strlen(msg->text);
+  }
+  
+  /* message id (in network byte order) to domain server */
+  outGoing[1] = htonl(CMSG_SYNC_SEND_REQUEST);
+  /* reserved */
+  outGoing[2] = 0;
+  /* user int */
+  outGoing[3] = htonl(msg->userInt);
+  /* system msg id */
+  outGoing[4] = htonl(msg->sysMsgId);
+  /* sender token */
+  outGoing[5] = htonl(msg->senderToken);
+  /* bit info */
+  outGoing[6] = htonl(msg->info);
+
+  /* time message sent (right now) */
+  clock_gettime(CLOCK_REALTIME, &now);
+  /* convert to milliseconds */
+  llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);
+  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  outGoing[7] = htonl(highInt);
+  outGoing[8] = htonl(lowInt);
+  
+  /* user time */
+  llTime  = ((long long)msg->userTime.tv_sec * 1000) +
+            ((long long)msg->userTime.tv_nsec/1000000);
+  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  outGoing[9]  = htonl(highInt);
+  outGoing[10] = htonl(lowInt);
+
+  /* length of "subject" string */
+  lenSubject   = strlen(msg->subject);
+  outGoing[11]  = htonl(lenSubject);
+  /* length of "type" string */
+  lenType      = strlen(msg->type);
+  outGoing[12] = htonl(lenType);
+
+  /* send creator (this sender's name if msg created here) */
+  creator = msg->creator;
+  if (creator == NULL) creator = domain->name;
+  /* length of "creator" string */
+  lenCreator   = strlen(creator);
+  outGoing[13] = htonl(lenCreator);
+  
+  /* length of "text" string */
+  outGoing[14] = htonl(lenText);
+  
+  /* length of byte array */
+  lenByteArray = msg->byteArrayLength;
+  outGoing[15] = htonl(lenByteArray);
+    
+  /* total length of message (minus first int) is first item sent */
+  len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType +
+        lenCreator + lenText + lenByteArray;
+  outGoing[0] = htonl(len);
+  
+  /* make syncSends be synchronous 'cause we need a reply */
+  syncSendMutexLock(domain);
+  
+  iov[0].iov_base = (char*) outGoing;
+  iov[0].iov_len  = sizeof(outGoing);
+  
+  iov[1].iov_base = (char*) msg->subject;
+  iov[1].iov_len  = lenSubject;
+  
+  iov[2].iov_base = (char*) msg->type;
+  iov[2].iov_len  = lenType;
+
+  iov[3].iov_base = (char*) creator;
+  iov[3].iov_len  = lenCreator;
+
+  iov[4].iov_base = (char*) msg->text;
+  iov[4].iov_len  = lenText;
+  
+  iov[5].iov_base = (char*) &((msg->byteArray)[msg->byteArrayOffset]);
+  iov[5].iov_len  = lenByteArray;
+
+  /* make send socket communications thread-safe */
+  socketMutexLock(domain);
+  
+  if (cMsgTcpWritev(fd, iov, 6, 16) == -1) {
+    socketMutexUnlock(domain);
+    syncSendMutexUnlock(domain);
+    connectReadUnlock();
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "codaSyncSend: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+  
+  /* done protecting outgoing communications */
+  socketMutexUnlock(domain);
+  
+  /* now read reply */
+  if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
+    socketMutexUnlock(domain);
+    syncSendMutexUnlock(domain);
+    connectReadUnlock();
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "codaSyncSend: read failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+  
+  syncSendMutexUnlock(domain);
+  connectReadUnlock();
+
+  /* return domain server's reply */  
+  *response = ntohl(err);  
+  
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine gets one message from a one-shot subscription to the given
+ * subject and type. It is called by the user through cMsgSubscribeAndGet()
+ * given the appropriate UDL. In this domain cMsgFlush() does nothing and
+ * does not need to be called for the subscription to be started immediately.
+ *
+ * @param domainId id number of the domain connection
+ * @param subject subject of message subscribed to
+ * @param type type of message subscribed to
+ * @param timeout amount of time to wait for the message; if NULL, wait forever
+ * @param replyMsg message received
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_TIMEOUT if routine received no message in the specified time
+ * @returns CMSG_OUT_OF_MEMORY if all available subscription memory has been used
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement
+ *                               subscribeAndGet
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
+ *                               since cMsgConnect() was never called
+ * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
+ *                               by a call to cMsgDisconnect()
+ */   
+static int codaSubscribeAndGetOrig(int domainId, const char *subject, const char *type,
+                           const struct timespec *timeout, void **replyMsg) {
+                             
+  cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
+  int i, uniqueId, status, len, lenSubject, lenType;
+  int gotSpot, fd = domain->sendSocket;
+  int outGoing[5];
+  getInfo *info = NULL;
+  struct timespec wait;
+  struct iovec iov[3];
+  
+  if (!domain->hasSubscribeAndGet) {
+    return(CMSG_NOT_IMPLEMENTED);
+  }   
+           
+  connectReadLock();
+
+  if (domain->initComplete != 1) {
+    connectReadUnlock();
+    return(CMSG_NOT_INITIALIZED);
+  }
+  if (domain->lostConnection == 1) {
+    connectReadUnlock();
+    return(CMSG_LOST_CONNECTION);
+  }
+  
+  /*
+   * Pick a unique identifier for the subject/type pair, and
+   * send it to the domain server & remember it for future use
+   * Mutex protect this operation as many codaConnect calls may
+   * operate in parallel on this static variable.
+   */
+  mutexLock();
+  uniqueId = subjectTypeId++;
+  mutexUnlock();
+
+  /* make new entry and notify server */
+  gotSpot = 0;
+
+  for (i=0; i<MAX_SUBSCRIBE_AND_GET; i++) {
+    if (domain->subscribeAndGetInfo[i].active != 0) {
+      continue;
+    }
+
+    info = &domain->subscribeAndGetInfo[i];
+    info->id      = uniqueId;
+    info->active  = 1;
+    info->msgIn   = 0;
+    info->quit    = 0;
+    info->msg     = NULL;
+    info->subject = (char *) strdup(subject);
+    info->type    = (char *) strdup(type);
+    gotSpot = 1;
+    break;
+  } 
+
+  if (!gotSpot) {
+    connectReadUnlock();
+    free(info->subject);
+    free(info->type);
+    info->subject = NULL;
+    info->type    = NULL;
+    info->active  = 0;
+    return(CMSG_OUT_OF_MEMORY);
+  }
+  
+  /* notify domain server */
+
+  /* message id (in network byte order) to domain server */
+  outGoing[1] = htonl(CMSG_SUBSCRIBE_AND_GET_REQUEST);
+  /* unique id for receiverSubscribeId */
+  outGoing[2] = htonl(uniqueId);
+  
+  /* length of "subject" string */
+  lenSubject  = strlen(subject);
+  outGoing[3] = htonl(lenSubject);
+  /* length of "type" string */
+  lenType     = strlen(type);
+  outGoing[4] = htonl(lenType);
+
+  /* total length of message (minus first int) is first item sent */
+  len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType;
+  outGoing[0] = htonl(len);
+  
+  iov[0].iov_base = (char*) outGoing;
+  iov[0].iov_len  = sizeof(outGoing);
+  
+  iov[1].iov_base = (char*) subject;
+  iov[1].iov_len  = lenSubject;
+  
+  iov[2].iov_base = (char*) type;
+  iov[2].iov_len  = lenType;
+  
+  /* make send socket communications thread-safe */
+  socketMutexLock(domain);
+  
+  if (cMsgTcpWritev(fd, iov, 3, 16) == -1) {
+    socketMutexUnlock(domain);
+    connectReadUnlock();
+    free(info->subject);
+    free(info->type);
+    info->subject = NULL;
+    info->type    = NULL;
+    info->active  = 0;
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "get: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+  
+  /* done protecting communications */
+  socketMutexUnlock(domain);
+  connectReadUnlock();
+  
+  /* Now ..., wait for asynchronous response */
+  
+  /* lock mutex */
+  status = pthread_mutex_lock(&info->mutex);
+  if (status != 0) {
+    err_abort(status, "Failed callback mutex lock");
+  }
+
+  /* wait while there is no message */
+  while (info->msgIn == 0) {
+    /* wait until signaled */
+    if (timeout == NULL) {
+      status = pthread_cond_wait(&info->cond, &info->mutex);
+    }
+    /* wait until signaled or timeout */
+    else {
+      getAbsoluteTime(timeout, &wait);
+      status = pthread_cond_timedwait(&info->cond, &info->mutex, &wait);
+    }
+    
+    if (status == ETIMEDOUT) {
+      break;
+    }
+    else if (status != 0) {
+      err_abort(status, "Failed callback cond wait");
+    }
+
+    /* quit if commanded to */
+    if (info->quit) {
+      break;
+    }
+  }
+
+  /* unlock mutex */
+  status = pthread_mutex_unlock(&info->mutex);
+  if (status != 0) {
+    err_abort(status, "Failed callback mutex unlock");
+  }
+
+  /* If we timed out, tell server to forget the get. */
+  if (info->msgIn == 0) {
+      /*printf("get: timed out\n");*/
+      
+      /* free up memory */
+      free(info->subject);
+      free(info->type);
+      info->subject = NULL;
+      info->type    = NULL;
+      info->msg     = NULL;
+      info->active  = 0;
+
+      /* remove the get from server */
+      unSubscribeAndGet(domainId, uniqueId);
+      *replyMsg = NULL;
+      return (CMSG_TIMEOUT);
+  }
+
+  /* If we did not timeout... */
+
+  /*
+   * Don't need to make a copy of message as only 1 receipient.
+   * Message was allocated in client's listening thread and user
+   * must free it.
+   */
+  *replyMsg = info->msg;
+  
+  /* free up memory */
+  free(info->subject);
+  free(info->type);
+  info->subject = NULL;
+  info->type    = NULL;
+  info->msg     = NULL;
+  info->active  = 0;
+
+  /*printf("get: SUCCESS!!!\n");*/
+
+  return(CMSG_OK);
+}
+
+
 /*-------------------------------------------------------------------*/
 
 
@@ -1060,6 +1645,7 @@ static int codaSubscribeAndGet(int domainId, const char *subject, const char *ty
  * @returns CMSG_OK if successful
  * @returns CMSG_TIMEOUT if routine received no message in the specified time
  * @returns CMSG_OUT_OF_MEMORY if all available sendAndGet memory has been used
+ *                             or allocating memory for message buffer failed
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement
  *                               sendAndGet
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server
@@ -1068,7 +1654,7 @@ static int codaSubscribeAndGet(int domainId, const char *subject, const char *ty
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *timeout,
+static int codaSendAndGetOrig(int domainId, void *sendMsg, const struct timespec *timeout,
                       void **replyMsg) {
   
   cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
@@ -1324,6 +1910,314 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
 }
 
 
+
+
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine gets one message from another cMsg client by sending out
+ * an initial message to that responder. It is a synchronous routine that
+ * fails when no reply is received with the given timeout. This function
+ * can be thought of as a peer-to-peer exchange of messages.
+ * One message is sent to all listeners. The first responder
+ * to the initial message will have its single response message sent back
+ * to the original sender. This routine is called by the user through
+ * cMsgSendAndGet() given the appropriate UDL. In this domain cMsgFlush()
+ * does nothing and does not need to be called for the mesage to be
+ * sent immediately.
+ *
+ * @param domainId id number of the domain connection
+ * @param sendMsg messages to send to all listeners
+ * @param timeout amount of time to wait for the response message; if NULL,
+ *                wait forever
+ * @param replyMsg message received from the responder
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_TIMEOUT if routine received no message in the specified time
+ * @returns CMSG_OUT_OF_MEMORY if all available sendAndGet memory has been used
+ *                             or allocating memory for message buffer failed
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement
+ *                               sendAndGet
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
+ *                               since cMsgConnect() was never called
+ * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
+ *                               by a call to cMsgDisconnect()
+ */   
+static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *timeout,
+                      void **replyMsg) {
+  
+  cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
+  cMsgMessage *msg = (cMsgMessage *) sendMsg;
+  int i, uniqueId, status;
+  int len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
+  int gotSpot, fd = domain->sendSocket;
+  int highInt, lowInt, outGoing[15];
+  getInfo *info = NULL;
+  struct timespec wait;
+  char *creator;
+  long long llTime;
+  struct timespec now;
+  
+  if (!domain->hasSendAndGet) {
+    return(CMSG_NOT_IMPLEMENTED);
+  }   
+           
+  connectReadLock();
+
+  if (domain->initComplete != 1) {
+    connectReadUnlock();
+    return(CMSG_NOT_INITIALIZED);
+  }
+  if (domain->lostConnection == 1) {
+    connectReadUnlock();
+    return(CMSG_LOST_CONNECTION);
+  }
+ 
+  if (msg->text == NULL) {
+    lenText = 0;
+  }
+  else {
+    lenText = strlen(msg->text);
+  }
+  
+  /*
+   * Pick a unique identifier for the subject/type pair, and
+   * send it to the domain server & remember it for future use
+   * Mutex protect this operation as many codaConnect calls may
+   * operate in parallel on this static variable.
+   */
+  mutexLock();
+  uniqueId = subjectTypeId++;
+  mutexUnlock();
+
+  /* make new entry and notify server */
+  gotSpot = 0;
+
+  for (i=0; i<MAX_SEND_AND_GET; i++) {
+    if (domain->sendAndGetInfo[i].active != 0) {
+      continue;
+    }
+
+    info = &domain->sendAndGetInfo[i];
+    info->id      = uniqueId;
+    info->active  = 1;
+    info->msgIn   = 0;
+    info->quit    = 0;
+    info->msg     = NULL;
+    info->subject = (char *) strdup(msg->subject);
+    info->type    = (char *) strdup(msg->type);
+    gotSpot = 1;
+    break;
+  }
+
+  if (!gotSpot) {
+    connectReadUnlock();
+    /* free up memory */
+    free(info->subject);
+    free(info->type);
+    info->subject = NULL;
+    info->type    = NULL;
+    info->active  = 0;
+    return(CMSG_OUT_OF_MEMORY);
+  }
+  
+  /* notify domain server */
+
+  /* message id (in network byte order) to domain server */
+  outGoing[1] = htonl(CMSG_SEND_AND_GET_REQUEST);
+  /* reserved */
+  outGoing[2] = 0;
+  /* user int */
+  outGoing[3] = htonl(msg->userInt);
+  /* unique id (senderToken) */
+  outGoing[4] = htonl(uniqueId);
+  /* bit info */
+  outGoing[5] = htonl(msg->info | CMSG_IS_GET_REQUEST);
+
+  /* time message sent (right now) */
+  clock_gettime(CLOCK_REALTIME, &now);
+  /* convert to milliseconds */
+  llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);
+  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  outGoing[6] = htonl(highInt);
+  outGoing[7] = htonl(lowInt);
+  
+  /* user time */
+  llTime  = ((long long)msg->userTime.tv_sec * 1000) +
+            ((long long)msg->userTime.tv_nsec/1000000);
+  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  outGoing[8] = htonl(highInt);
+  outGoing[9] = htonl(lowInt);
+
+  /* length of "subject" string */
+  lenSubject   = strlen(msg->subject);
+  outGoing[10]  = htonl(lenSubject);
+  /* length of "type" string */
+  lenType      = strlen(msg->type);
+  outGoing[11] = htonl(lenType);
+  
+  /* send creator (this sender's name if msg created here) */
+  creator = msg->creator;
+  if (creator == NULL) creator = domain->name;
+  /* length of "creator" string */
+  lenCreator   = strlen(creator);
+  outGoing[12] = htonl(lenCreator);
+  
+  /* length of "text" string */
+  outGoing[13] = htonl(lenText);
+  
+  /* length of byte array */
+  lenByteArray = msg->byteArrayLength;
+  outGoing[14] = htonl(lenByteArray);
+    
+  /* total length of message (minus first int) is first item sent */
+  len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType +
+        lenCreator + lenText + lenByteArray;
+  outGoing[0] = htonl(len);  
+
+  /* make send socket communications thread-safe */
+  socketMutexLock(domain);
+  
+  /* allocate more memory for message-sending buffer if necessary */
+  if (msgBufferSize < (int)(len+sizeof(int))) {
+    free(msgBuffer);
+    msgBufferSize = len + 1004; /* give us 1kB extra */
+    msgBuffer = (char *) malloc(msgBufferSize);
+    if (msgBuffer == NULL) {
+      socketMutexUnlock(domain);
+      connectReadUnlock();
+      free(info->subject);
+      free(info->type);
+      info->subject = NULL;
+      info->type    = NULL;
+      info->active  = 0;
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+        fprintf(stderr, "codaSendAndGet: out of memory\n");
+      }
+      return(CMSG_OUT_OF_MEMORY);
+    }
+  }
+  
+  /* copy data into a single static buffer */
+  memcpy(msgBuffer, (void *)outGoing, sizeof(outGoing));
+  len = sizeof(outGoing);
+  memcpy(msgBuffer+len, (void *)msg->subject, lenSubject);
+  len += lenSubject;
+  memcpy(msgBuffer+len, (void *)msg->type, lenType);
+  len += lenType;
+  memcpy(msgBuffer+len, (void *)creator, lenCreator);
+  len += lenCreator;
+  memcpy(msgBuffer+len, (void *)msg->text, lenText);
+  len += lenText;
+  memcpy(msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
+  len += lenByteArray;   
+    
+  /* send data over socket */
+  if (cMsgTcpWrite(fd, (void *) msgBuffer, len) != len) {
+    socketMutexUnlock(domain);
+    connectReadUnlock();
+    free(info->subject);
+    free(info->type);
+    info->subject = NULL;
+    info->type    = NULL;
+    info->active  = 0;
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "codaSendAndGet: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+     
+  /* done protecting communications */
+  socketMutexUnlock(domain);
+  connectReadUnlock();
+  
+  /* Now ..., wait for asynchronous response */
+  
+  /* lock mutex */
+  status = pthread_mutex_lock(&info->mutex);
+  if (status != 0) {
+    err_abort(status, "Failed callback mutex lock");
+  }
+
+  /* wait while there is no message */
+  while (info->msgIn == 0) {
+    /* wait until signaled */
+    if (timeout == NULL) {
+      status = pthread_cond_wait(&info->cond, &info->mutex);
+    }
+    /* wait until signaled or timeout */
+    else {
+      getAbsoluteTime(timeout, &wait);
+      status = pthread_cond_timedwait(&info->cond, &info->mutex, &wait);
+    }
+    
+    if (status == ETIMEDOUT) {
+      break;
+    }
+    else if (status != 0) {
+      err_abort(status, "Failed callback cond wait");
+    }
+
+    /* quit if commanded to */
+    if (info->quit) {
+      break;
+    }
+  }
+
+  /* unlock mutex */
+  status = pthread_mutex_unlock(&info->mutex);
+  if (status != 0) {
+    err_abort(status, "Failed callback mutex unlock");
+  }
+
+  /* If we timed out, tell server to forget the get. */
+  if (info->msgIn == 0) {
+      /*printf("get: timed out\n");*/
+      
+      /* remove the get from server */
+      unSendAndGet(domainId, uniqueId);
+
+      /* free up memory */
+      free(info->subject);
+      free(info->type);
+      info->subject = NULL;
+      info->type    = NULL;
+      info->msg     = NULL;
+      info->active  = 0;
+
+      *replyMsg = NULL;
+      return (CMSG_TIMEOUT);
+  }
+
+  /* If we did not timeout... */
+
+  /*
+   * Don't need to make a copy of message as only 1 receipient.
+   * Message was allocated in client's listening thread and user
+   * must free it.
+   */
+  *replyMsg = info->msg;
+  
+  /* free up memory */
+  free(info->subject);
+  free(info->type);
+  info->subject = NULL;
+  info->type    = NULL;
+  info->msg     = NULL;
+  info->active  = 0;
+  
+  /*printf("get: SUCCESS!!!\n");*/
+
+  return(CMSG_OK);
+}
+
+
 /*-------------------------------------------------------------------*/
 
 
@@ -1351,7 +2245,7 @@ static int unSendAndGet(int domainId, int id) {
   if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
     socketMutexUnlock(domain);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "codaSend: write failure\n");
+      fprintf(stderr, "unSendAndGet: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1389,7 +2283,7 @@ static int unSubscribeAndGet(int domainId, int id) {
   if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
     socketMutexUnlock(domain);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "codaSend: write failure\n");
+      fprintf(stderr, "unSubscribeAndGet: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1947,12 +2841,14 @@ static int codaDisconnect(int domainId) {
   
   /* send int */
   if (cMsgTcpWrite(fd, (char*) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
+    /*
     socketMutexUnlock(domain);
     connectWriteUnlock();
+    */
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "codaDisconnect: write failure\n");
+      fprintf(stderr, "codaDisconnect: write failure, but continue\n");
     }
-    return(CMSG_NETWORK_ERROR);
+    /*return(CMSG_NETWORK_ERROR);*/
   }
  
   socketMutexUnlock(domain);
