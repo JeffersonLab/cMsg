@@ -16,6 +16,7 @@
  
 #ifdef VXWORKS
 #include <vxWorks.h>
+#include <string.h>
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,75 +27,142 @@
 
 #include "cMsg.h"
 
-#define NUMLOOPS 10000
-#define DOUBLE_MAX   1.7976931348623157E+308
-
 
 int cMsgProducer(void) {
-  char *myName = "VX-producer";
-  char *myDescription = "produce messages as fast as possible";
-  int err, domainId = -1;
+  
+  char *myName = "VX-Producer";
+  char *myDescription = "VX - producer";
+  char *subject = "SUBJECT";
+  char *type    = "TYPE";
+  char *text    = "TEXT";
+  char *bytes   = NULL;
+  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
+  int   err, debug=1, domainId=-1, msgSize=0, response;
   void *msg;
   
-  /* freq measuring variables */
-  int             iterations=1, count=1, i;
-  double          freq=0.0, freq_tot=0.0, freq_avg=0.0;
+  /* msg rate measuring variables */
+  int             dostring=1, count, i, delay=0, loops=2000;
   struct timespec t1, t2;
-  double          time;
+  double          freq, freqAvg=0., deltaT, totalT=0.;
+  long long       totalC=0;
   
   
-  printf("My name is %s\n", myName);
+  char *argv1 = "-b";
+  char *argv2 = "10000";
+  int   argc = 3;
   
-  printf("cMsgConnect ...\n");
-  err = cMsgConnect("cMsg:cMsg://aslan:3456/cMsg/vx", myName, myDescription, &domainId);
-  if (err != CMSG_OK) {
-    /* printf("cMsgConnect: %s\n",cMsgPerror(err)); */
-    fflush(stdout);
-    exit(1);
+  if (argc > 1) {
+     if (strcmp("-s", argv1) == 0) {
+       dostring = 1;
+     }
+     else if (strcmp("-b", argv1) == 0) {
+       dostring = 0;
+     }
+     else {
+       printf("specify -s or -b flag for string or bytearray data\n");
+       exit(1);
+     }
   }
-  /* printf("\n"); */
   
+  if (argc > 2) {
+    if (dostring) {
+      char *p;
+      msgSize = atoi(argv2);
+      text = p = (char *) malloc((size_t) (msgSize + 1));
+      if (p == NULL) exit(1);
+      printf("using text msg size %d\n", msgSize);
+      for (i=0; i < msgSize; i++) {
+        *p = 'A';
+        p++;
+      }
+      *p = '\0';
+    }
+    else {
+      char *p;
+      msgSize = atoi(argv2);
+      bytes = p = (char *) malloc((size_t) msgSize);
+      if (p == NULL) exit(1);
+      printf("using array msg size %d\n", msgSize);
+      for (i=0; i < msgSize; i++) {
+        *p = i%255;
+        p++;
+      }
+    }
+  }
+  else {
+      printf("using no text or byte array\n");
+      dostring = 1;
+  }
+  
+    
+  if (debug) {
+    printf("Running the cMsg producer, \"%s\"\n", myName);
+    cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
+  }
+  
+  /* connect to cMsg server */
+  err = cMsgConnect(UDL, myName, myDescription, &domainId);
+  if (err != CMSG_OK) {
+      if (debug) {
+          printf("cMsgConnect: %s\n",cMsgPerror(err));
+      }
+      exit(1);
+  }
+  
+  /* create message to be sent */
   msg = cMsgCreateMessage();
-  cMsgSetSubject(msg, "SUBJECT");
-  cMsgSetType(msg, "TYPE");
-  cMsgSetText(msg, "Message 1");
-  /* printf("\n"); */
+  cMsgSetSubject(msg, subject);
+  cMsgSetType(msg, type);
   
+  if (dostring) {
+    printf("setting text\n");
+    cMsgSetText(msg, text);
+  }
+  else {
+    printf("setting byte array\n");
+    cMsgSetByteArrayAndLimits(msg, bytes, 0, msgSize);
+  }
+    
   while (1) {
-      /* read time for future statistics calculations */
+      count = 0;
+      
+      /* read time for rate calculations */
       clock_gettime(CLOCK_REALTIME, &t1);
 
-      for (i=0; i < NUMLOOPS; i++) {
-          err = cMsgSend(domainId, msg);
-          if (err != CMSG_OK) {
+      for (i=0; i < loops; i++) {
+          /* send msg */
+          /*if (cMsgSyncSend(domainId, msg, &response) != CMSG_OK) {*/
+          if (cMsgSend(domainId, msg) != CMSG_OK) {
             printf("cMsgSend: %s\n",cMsgPerror(err));
             fflush(stdout);
             goto end;
           }
+          cMsgFlush(domainId);
+          count++;
+          
+          if (delay != 0) {
+              sleep(delay);
+          }          
       }
 
-      /* statistics */
+      /* rate */
       clock_gettime(CLOCK_REALTIME, &t2);
-      time = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
-      freq = (count*NUMLOOPS)/time;
-      if ((DOUBLE_MAX - freq_tot) < freq) {
-        freq_tot   = 0.0;
-	iterations = 1;
-      }
-      freq_tot += freq;
-      freq_avg = freq_tot/(double)iterations;
-      iterations++;
+      deltaT  = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
+      totalT += deltaT;
+      totalC += count;
+      freq    = count/deltaT;
+      freqAvg = (double)totalC/totalT;
       
-      printf("%s: %9.0f Hz,  %9.0f Hz Avg.\n", myName, freq, freq_avg);
+      printf("count = %d, %9.0f Hz, %9.0f Hz Avg.\n", count, freq, freqAvg);
   } 
   
   end:
   
-  printf("cMsgDisconnect ...\n\n\n");
   err = cMsgDisconnect(domainId);
   if (err != CMSG_OK) {
-    printf("%s\n",cMsgPerror(err));
-    fflush(stdout);
+      if (debug) {
+          printf("%s\n",cMsgPerror(err));
+      }
   }
     
   return(0);
