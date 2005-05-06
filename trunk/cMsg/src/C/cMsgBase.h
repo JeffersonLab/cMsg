@@ -31,6 +31,18 @@
 /* required includes */
 #include <time.h>
 
+/* endian values */
+/** Is big endian. */
+#define CMSG_ENDIAN_BIG      0
+/** Is little endian. */
+#define CMSG_ENDIAN_LITTLE   1
+/** Is same endian as local host. */
+#define CMSG_ENDIAN_LOCAL    2
+/** Is opposite endian as local host. */
+#define CMSG_ENDIAN_NOTLOCAL 3
+/** Switch recorded value of data's endian. */
+#define CMSG_ENDIAN_SWITCH   4
+
 /* debug levels */
 /** No debugging output. */
 #define CMSG_DEBUG_NONE    0
@@ -156,6 +168,9 @@ extern "C" {
   
   int    cMsgSetByteArrayOffset   (void *vmsg, int  offset);
   int    cMsgGetByteArrayOffset   (void *vmsg, int *offset);
+  
+  int    cMsgSetByteArrayEndian   (void *vmsg, int endian);
+  int    cMsgGetByteArrayEndian   (void *vmsg, int *endian);
   
   int    cMsgSetByteArray         (void *vmsg, char  *array);
   int    cMsgGetByteArray         (void *vmsg, char **array);

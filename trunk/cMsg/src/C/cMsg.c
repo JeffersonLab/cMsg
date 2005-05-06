@@ -1320,12 +1320,23 @@ int cMsgGetReceiveState(int domainId, int *receiveState) {
  * @param msg pointer to message structure being initialized
  */   
 static void initMessage(cMsgMessage *msg) {
-    
+    int endian;
     if (msg == NULL) return;
     
     msg->version      = 0;
     msg->sysMsgId     = 0;
+    msg->bits         = 0;
     msg->info         = 0;
+    
+    /* default is local endian */
+    if (cMsgLocalByteOrder(&endian) == CMSG_OK) {
+        if (endian == CMSG_ENDIAN_BIG) {
+            msg->info |= CMSG_IS_BIG_ENDIAN;
+        }
+        else {
+            msg->info &= ~CMSG_IS_BIG_ENDIAN;
+        }
+    }
     
     msg->domain       = NULL;
     msg->creator      = NULL;
@@ -2190,6 +2201,7 @@ int cMsgGetByteArrayOffset(void *vmsg, int *offset) {
  * @param endian byte array's endianness
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if local endianness is unknown
  * @returns CMSG_BAD_ARGUMENT if message is NULL, or endian is not equal to either
  *                            CMSG_ENDIAN_BIG, CMSG_ENDIAN_LITTLE,
  *                            CMSG_ENDIAN_LOCAL, or CMSG_ENDIAN_NOTLOCAL
@@ -2197,17 +2209,57 @@ int cMsgGetByteArrayOffset(void *vmsg, int *offset) {
 int cMsgSetByteArrayEndian(void *vmsg, int endian) {
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
+  int ndian;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
     
-  if ((endian != CMSG_ENDIAN_BIG)   || (endian != CMSG_ENDIAN_LITTLE) ||
-      (endian != CMSG_ENDIAN_LOCAL) || (endian != CMSG_ENDIAN_NOTLOCAL)) {
+  if ((endian != CMSG_ENDIAN_BIG)   || (endian != CMSG_ENDIAN_LITTLE)   ||
+      (endian != CMSG_ENDIAN_LOCAL) || (endian != CMSG_ENDIAN_NOTLOCAL) ||
+      (endian != CMSG_ENDIAN_SWITCH)) {
       return(CMSG_BAD_ARGUMENT);
   }
-  if (endian == CMSG_ENDIAN_BIG || endian == CMSG_ENDIAN_LOCAL) {
+  
+  /* set to local endian value */
+  if (endian == CMSG_ENDIAN_LOCAL) {
+      if (cMsgLocalByteOrder(&ndian) != CMSG_OK) {
+          return CMSG_ERROR;
+      }
+      if (ndian == CMSG_ENDIAN_BIG) {
+          msg->info |= CMSG_IS_BIG_ENDIAN;
+      }
+      else {
+          msg->info &= ~CMSG_IS_BIG_ENDIAN;
+      }
+  }
+  /* set to opposite of local endian value */
+  else if (endian == CMSG_ENDIAN_NOTLOCAL) {
+      if (cMsgLocalByteOrder(&ndian) != CMSG_OK) {
+          return CMSG_ERROR;
+      }
+      if (ndian == CMSG_ENDIAN_BIG) {
+          msg->info &= ~CMSG_IS_BIG_ENDIAN;
+      }
+      else {
+          msg->info |= CMSG_IS_BIG_ENDIAN;
+      }
+  }
+  /* switch endian value from big to little or vice versa */
+  else if (endian == CMSG_ENDIAN_SWITCH) {
+      /* if big switch to little */
+      if ((msg->info & CMSG_IS_BIG_ENDIAN) > 1) {
+          msg->info &= ~CMSG_IS_BIG_ENDIAN;
+      }
+      /* else switch to big */
+      else {
+          msg->info |= CMSG_IS_BIG_ENDIAN;
+      }
+  }
+  /* set to big endian */
+  else if (endian == CMSG_ENDIAN_BIG) {
       msg->info |= CMSG_IS_BIG_ENDIAN;
   }
-  else {
+  /* set to little endian */
+  else if (endian == CMSG_ENDIAN_LITTLE) {
       msg->info &= ~CMSG_IS_BIG_ENDIAN;
   }
 

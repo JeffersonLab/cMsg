@@ -89,12 +89,6 @@ extern "C" {
 #define CMSG_BLOCKING    0
 #define CMSG_NONBLOCKING 1
 
-/* endian values */
-#define CMSG_ENDIAN_BIG      0	/* big endian */
-#define CMSG_ENDIAN_LITTLE   1	/* little endian */
-#define CMSG_ENDIAN_LOCAL    2	/* same endian as local host */
-#define CMSG_ENDIAN_NOTLOCAL 3	/* opposite endian as local host */
-
 /* cMsg prototypes */
 extern int   cMsgTcpListen(int blocking, unsigned short port, int *listenFd);
 extern int   cMsgGetListeningSocket(int blocking, unsigned short startingPort,
