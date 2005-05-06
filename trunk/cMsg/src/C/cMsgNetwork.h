@@ -63,8 +63,19 @@ extern "C" {
 /* cMsg definitions */
 #define	SA                  struct sockaddr
 #define LISTENQ             10
+
+/* set send and receive TCP buffer sizes */
+#ifdef VXWORKS
+/*
+ * The 6100 board likes 36K buffers if there is no tcpNoDelay,
+ * but it likes 22K if the socket is set for no delay.
+ */
+#define CMSG_SOCKBUFSIZE    22000
+#else
 /*#define CMSG_SOCKBUFSIZE    49640*/  /* multiple of 1460 - ethernet MSS */
 #define CMSG_SOCKBUFSIZE    65535
+#endif
+
 #define CMSG_IOV_MAX        16     /* minimum for POSIX systems */
 /*
  * MAXHOSTNAMELEN is defined to be 256 on Solaris and 64 on Linux.
