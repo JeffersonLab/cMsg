@@ -636,7 +636,7 @@ static void *clientThread(void *arg)
       clientInfo->isUsed = 0;
     }
 
-    fprintf(stderr, "clientThread %d: remote client connection broken\n", localCount);
+    fprintf(stderr, "clientThread %d: error, client's receiving connection to server broken\n", localCount);
 
     /* we are done with the socket */
     close(connfd);
@@ -806,13 +806,16 @@ static int cMsgReadMessage(char *buffer, cMsgMessage *msg) {
       free((void *) msg->subject);
       free((void *) msg->type);
       free((void *) msg->creator);
-      free((void *) msg->text);
+      if (lengths[5] > 0) {
+        free((void *) msg->text);
+      }
       return(CMSG_OUT_OF_MEMORY);    
     }
     memcpy(tmp, pchar, lengths[6]);
     msg->byteArray       = tmp;
     msg->byteArrayOffset = 0;
     msg->byteArrayLength = lengths[6];
+    msg->bits |= CMSG_BYTE_ARRAY_IS_COPIED; /* byte array is COPIED */
     /*        
     for (;i<lengths[6]; i++) {
         printf("%d ", (int)msg->byteArray[i]);

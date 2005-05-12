@@ -3664,83 +3664,90 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
 */
       /* search callback list */
       for (j=0; j<MAX_CALLBACK; j++) {
-	/* if there is an existing callback ... */
-        if (domain->subscribeInfo[i].cbInfo[j].callback != NULL) {
+	/* if there is no existing callback look at next item ... */
+        if (domain->subscribeInfo[i].cbInfo[j].callback == NULL) {
+          continue;
+        }
 
-          /* copy message so each callback has its own copy */
-          message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
-
-          /* convenience variable */
-          subscription = &domain->subscribeInfo[i].cbInfo[j];
-
-          /* lock mutex before messing with linked list */
-          status = pthread_mutex_lock(&subscription->mutex);
-          if (status != 0) {
-            err_abort(status, "Failed callback mutex lock");
-          }
-
-          /* check to see if there are too many messages in the cue */
-          if (subscription->messages > subscription->config.maxCueSize) {
-              /* if we may skip messages, dump oldest */
-              if (subscription->config.maySkip) {
-                  for (k=0; k < subscription->config.skipSize; k++) {
-                    oldHead = subscription->head;
-                    subscription->head = subscription->head->next;
-                    cMsgFreeMessage(oldHead);
-                    subscription->messages--;
-                    if (subscription->head == NULL) break;
-                  }
-              }
-              else {
-                /* unlock mutex */
-                status = pthread_mutex_unlock(&subscription->mutex);
-                if (status != 0) {
-                  err_abort(status, "Failed callback mutex unlock");
-                }
-                cMsgFreeMessage((void *)message);
-                cMsgFreeMessage((void *)msg);
-                return CMSG_LIMIT_EXCEEDED;
-              }
-          }
-
+        /* copy message so each callback has its own copy */
+        message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
+        if (message == NULL) {
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            if (subscription->messages%1000 == 0)
-              fprintf(stderr, "           msgs = %d\n", subscription->messages);
+            fprintf(stderr, "cMsgRunCallbacks: out of memory\n");
           }
+          return(CMSG_OUT_OF_MEMORY);
+        }
 
-          /*
-           * Add this message to linked list for this callback.
-           * It will now be the responsibility of message consumer
-           * to free the msg allocated here.
-           */       
+        /* convenience variable */
+        subscription = &domain->subscribeInfo[i].cbInfo[j];
 
-          /* if there are no messages ... */
-          if (subscription->head == NULL) {
-            subscription->head = message;
-            subscription->tail = message;
-          }
-          /* else put message after the tail */
-          else {
-            subscription->tail->next = message;
-            subscription->tail = message;
-          }
+        /* lock mutex before messing with linked list */
+        status = pthread_mutex_lock(&subscription->mutex);
+        if (status != 0) {
+          err_abort(status, "Failed callback mutex lock");
+        }
 
-          subscription->messages++;
+        /* check to see if there are too many messages in the cue */
+        if (subscription->messages > subscription->config.maxCueSize) {
+            /* if we may skip messages, dump oldest */
+            if (subscription->config.maySkip) {
+                for (k=0; k < subscription->config.skipSize; k++) {
+                  oldHead = subscription->head;
+                  subscription->head = subscription->head->next;
+                  cMsgFreeMessage(oldHead);
+                  subscription->messages--;
+                  if (subscription->head == NULL) break;
+                }
+            }
+            else {
+              /* unlock mutex */
+              status = pthread_mutex_unlock(&subscription->mutex);
+              if (status != 0) {
+                err_abort(status, "Failed callback mutex unlock");
+              }
+              cMsgFreeMessage((void *)message);
+              cMsgFreeMessage((void *)msg);
+              return CMSG_LIMIT_EXCEEDED;
+            }
+        }
+
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+          if (subscription->messages%1000 == 0)
+            fprintf(stderr, "           msgs = %d\n", subscription->messages);
+        }
+
+        /*
+         * Add this message to linked list for this callback.
+         * It will now be the responsibility of message consumer
+         * to free the msg allocated here.
+         */       
+
+        /* if there are no messages ... */
+        if (subscription->head == NULL) {
+          subscription->head = message;
+          subscription->tail = message;
+        }
+        /* else put message after the tail */
+        else {
+          subscription->tail->next = message;
+          subscription->tail = message;
+        }
+
+        subscription->messages++;
 /*printf("cMsgRunCallbacks: cb cue size = %d\n", subscription->messages);*/
-          message->next = NULL;
+        message->next = NULL;
 
-          /* wakeup callback thread */
-          status = pthread_cond_broadcast(&subscription->cond);
-          if (status != 0) {
-            err_abort(status, "Failed callback condition signal");
-          }
+        /* wakeup callback thread */
+        status = pthread_cond_broadcast(&subscription->cond);
+        if (status != 0) {
+          err_abort(status, "Failed callback condition signal");
+        }
 
-          /* unlock mutex */
-          status = pthread_mutex_unlock(&subscription->mutex);
-          if (status != 0) {
-            err_abort(status, "Failed callback mutex unlock");
-          }
-	}
+        /* unlock mutex */
+        status = pthread_mutex_unlock(&subscription->mutex);
+        if (status != 0) {
+          err_abort(status, "Failed callback mutex unlock");
+        }
       } /* search callback list */
     } /* if subscribe sub/type matches msg sub/type */
   } /* for each subscription */
@@ -3767,6 +3774,12 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
       /* pass msg to "get" */
       /* copy message so each callback has its own copy */
       message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
+      if (message == NULL) {
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+          fprintf(stderr, "cMsgRunCallbacks: out of memory\n");
+        }
+        return(CMSG_OUT_OF_MEMORY);
+      }
 
       info->msg = message;
       info->msgIn = 1;
