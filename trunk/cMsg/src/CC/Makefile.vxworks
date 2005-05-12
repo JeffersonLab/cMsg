@@ -16,7 +16,7 @@ CXX = g++ppc
 LD = ldppc -r
 DEFS = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
 INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I$(INC_DIR) -I$(INCDIR)
-CFLAGS = -O $(DEFS) 
+CFLAGS = -O3 $(DEFS) 
 endif
 
 CFLAGSXX = $(CFLAGS) -Dcppversion
