@@ -21,6 +21,7 @@ import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.Lock;
 import java.nio.channels.SocketChannel;
+import java.io.*;
 
 /**
  * This class stores a domain client's information.
@@ -55,6 +56,10 @@ public class cMsgClientInfo {
      * to talk to client.
      */
     private SocketChannel channel;
+    /** Buffered data input stream associated with channel socket. */
+    private DataInputStream  in;
+    /** Buffered data output stream associated with channel socket. */
+    private DataOutputStream out;
 
     /** Collection of all subscriptions. */
     private HashSet subscriptions = new HashSet(20);
@@ -263,11 +268,35 @@ public class cMsgClientInfo {
     }
 
     /**
-     * Sets communication channel used by server to talk to client.
-     * @param channel communication channel used by server to talk to client
+     * Gets data input stream used by server to receive responses from client.
+     * @return data input stream from client
      */
-    public void setChannel(SocketChannel channel) {
+    public DataInputStream getInputStream() {
+        return in;
+    }
+
+    /**
+     * Gets data output stream used by server to send messages to client.
+     * @return data output stream to client
+     */
+    public DataOutputStream getOutputStream() {
+        return out;
+    }
+
+    /**
+     * Sets communication channel used by server to talk to client and create a
+     * buffered input stream and a buffered output stream associated with the
+     * channel's socket.
+     *
+     * @param channel channel communication channel used by server to talk to client
+     * @throws IOException if socket is not connected and so input and output streams
+     *         cannot be constructed
+     */
+    public void setChannel(SocketChannel channel) throws IOException {
         this.channel = channel;
+        // create buffered communication streams for efficiency
+        in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 2048));
+        out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 65535));
     }
 
     //-----------------------------------------------------------------------------------
