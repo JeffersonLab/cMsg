@@ -58,18 +58,6 @@ public class cMsgMessage implements Cloneable {
     public static final int isBigEndian = 0x8;
 
 
-    // Possibilities of byte array data endianness
-
-    /** Data is big endian. */
-    public static final int bigEndian      = 0;
-    /** Data is little endian. */
-    public static final int littleEndian   = 1;
-    /** Data has same endian as the JVM. */
-    public static final int localEndian    = 2;
-    /** Data has opposite endian as the JVM. */
-    public static final int notLocalEndian = 3;
-
-
     // general quantities
 
     /**
@@ -585,28 +573,39 @@ public class cMsgMessage implements Cloneable {
      */
     public int getByteArrayEndian() {
         if ((this.info & isBigEndian) > 1) {
-            return bigEndian;
+            return cMsgConstants.endianBig;
         }
-        return littleEndian;
+        return cMsgConstants.endianLittle;
     }
     /**
      * Set endianness of the byte array data.
      * @param endian endianness of the byte array data.
      */
     public void setByteArrayEndian(int endian) throws cMsgException {
-        if ((endian != bigEndian)   || (endian != littleEndian) ||
-            (endian != localEndian) || (endian != notLocalEndian)) {
+        if ((endian != cMsgConstants.endianBig)      ||
+            (endian != cMsgConstants.endianLittle)   ||
+            (endian != cMsgConstants.endianLocal)    ||
+            (endian != cMsgConstants.endianNotLocal) ||
+            (endian != cMsgConstants.endianSwitch)) {
             throw new cMsgException("improper endian value");
         }
-        if (endian == bigEndian || endian == localEndian) {
+        if (endian == cMsgConstants.endianBig || endian == cMsgConstants.endianLocal) {
             this.info |= isBigEndian;
+        }
+        else if (endian == cMsgConstants.endianSwitch) {
+            if ((this.info & isBigEndian) > 1) {
+                 this.info &= ~isBigEndian;
+            }
+            else {
+                this.info |= isBigEndian;
+            }
         }
         else {
             this.info &= ~isBigEndian;
         }
     }
 
-
+    
     /////////////
     // sender
     /////////////
