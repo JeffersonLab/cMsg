@@ -43,7 +43,21 @@ public class cMsgConstants {
     /** Print out all error, warning, and informational messages. */
     public static final int    debugInfo           = 4;
 
-    // C language cMsg error codes from cMsg.h
+    // endianness constants in cMsgBase.h
+
+    /** Data is big endian. */
+    public static final int    endianBig           = 0;
+    /** Data is little endian. */
+    public static final int    endianLittle        = 1;
+    /** Data's endian is the same as the local host's. */
+    public static final int    endianLocal         = 2;
+    /** Data's endian is opposite of the local host's. */
+    public static final int    endianNotLocal      = 3;
+    /** Switch recorded value of data's endianness. */
+    public static final int    endianSwitch        = 4;
+
+
+    // C language cMsg error codes from cMsgBase.h
 
     /** No error. */
     public static final int    ok                      =  0;

@@ -39,13 +39,4 @@ public class cMsgNetworkConstants {
     /** Maximum size of a message in bytes */
     public static final int    maxMessageSize      = 1500;
    
-    /** Data is big endian. */
-    public static final int    endianBig           = 0;
-    /** Data is little endian. */
-    public static final int    endianLittle        = 1;
-    /** Data's endian is the same as the local host's. */
-    public static final int    endianLocal         = 2;
-    /** Data's endian is opposite of the local host's. */
-    public static final int    endianNotLocal      = 3;
-
 }
