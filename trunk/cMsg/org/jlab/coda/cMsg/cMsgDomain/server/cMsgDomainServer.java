@@ -153,7 +153,7 @@ public class cMsgDomainServer extends Thread {
         port = startingPort;
         this.info = info;
 
-        requestCue   = new LinkedBlockingQueue<cMsgHolder>(5000);
+        requestCue   = new LinkedBlockingQueue<cMsgHolder>(100);
         subscribeCue = new LinkedBlockingQueue<cMsgHolder>(100);
 
         requestThreads = new ConcurrentLinkedQueue<RequestThread>();
@@ -360,6 +360,451 @@ public class cMsgDomainServer extends Thread {
         /** Socket communication channel. */
         private SocketChannel channel;
 
+        /** Allocate byte array once (used for reading in data) for efficiency's sake. */
+        private byte[] bytes = new byte[20000];
+        private int id;
+
+        private DataInputStream  in;
+        private DataOutputStream out;
+
+
+
+        /** Constructor. */
+        ClientHandler(SocketChannel channel, int id) {
+            this.channel = channel;
+            this.id = id;
+            // start up permanent worker threads on the regular cue
+            for (int i = 0; i < permanentThreads; i++) {
+                requestThreads.add(new RequestThread(true, false));
+            }
+            // start up 1 permanent worker thread on the (un)subscribe cue
+            requestThreads.add(new RequestThread(true, true));
+
+            // die if no more non-daemon thds running
+            setDaemon(true);
+            
+            start();
+        }
+
+
+        /**
+         * This method handles all communication between a cMsg user who has
+         * connected to a domain and this server for that domain.
+         */
+        public void run() {
+            int size, msgId;
+            boolean useSubscribeCue;
+
+            // for printing out request cue size periodically
+            /*
+            Date now, t;
+            now = new Date();
+            */
+
+            //setPriority(Thread.MIN_PRIORITY);
+
+            try {
+
+                // buffered communication streams for efficiency
+                in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 65536));
+                out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 2048));
+
+                here:
+
+                while (true) {
+                    if (killSpawnedThreads) return;
+
+                    // read first int
+                    size = in.readInt();
+//System.out.println(id + " size = " + size);
+
+                    // read client's request
+                    msgId = in.readInt();
+
+                    cMsgHolder holder = null;
+                    useSubscribeCue = false;
+
+                    switch (msgId) {
+
+                        case cMsgConstants.msgSendRequest: // receiving a message
+                            holder = readSendInfo();
+                            //continue here;
+                            break;
+
+                        case cMsgConstants.msgSyncSendRequest: // receiving a message
+                            holder = readSendInfo();
+                            holder.channel = channel;
+                            break;
+
+                        case cMsgConstants.msgSubscribeAndGetRequest: // 1-shot subscription of subject & type
+                            holder = readSubscribeInfo();
+                            break;
+
+                        case cMsgConstants.msgSendAndGetRequest: // getting a message
+                            holder = readGetInfo();
+                            break;
+
+                        case cMsgConstants.msgUnSendAndGetRequest: // ungetting sendAndGet request
+                            holder = readUngetInfo();
+                            break;
+
+                        case cMsgConstants.msgUnSubscribeAndGetRequest: // ungetting subscribeAndGet request
+                            holder = readUngetInfo();
+                            break;
+
+                        case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
+                            holder = readSubscribeInfo();
+                            useSubscribeCue = true;
+                            break;
+
+                        case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
+                            holder = readSubscribeInfo();
+                            useSubscribeCue = true;
+                            break;
+
+                        case cMsgConstants.msgKeepAlive: // see if this end is still here
+                            // send ok back as acknowledgment
+                            out.writeInt(cMsgConstants.ok);
+                            subdomainHandler.handleKeepAlive();
+                            break;
+
+                        case cMsgConstants.msgDisconnectRequest: // client disconnecting
+                            // need to shutdown this domain server
+                            if (calledShutdown.compareAndSet(false,true)) {
+                                //System.out.println("SHUTDOWN TO BE RUN BY msgDisconnectRequest");
+                                shutdown();
+                            }
+                            return;
+
+                        case cMsgConstants.msgShutdown: // tell clients/servers to shutdown
+                            holder = readShutdownInfo();
+                            useSubscribeCue = true;
+                            break;
+
+                        default:
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("dServer handleClient: can't understand your message " + info.getName());
+                            }
+                            break;
+                    }
+
+
+                    // if we got something to put on a cue, do it
+                    if (holder != null) {
+                        holder.request = msgId;
+                        if (useSubscribeCue) {
+                            try {subscribeCue.put(holder);}
+                            catch (InterruptedException e) {}
+                        }
+                        else {
+                            try {requestCue.put(holder);}
+                            catch (InterruptedException e) {}
+                        }
+                    }
+
+
+                    // print out request cue size periodically
+                    /*
+                    t = new Date();
+                    if (now.getTime() + 5000 <= t.getTime()) {
+                        System.out.println(info.getName() + ":");
+                        System.out.println("requests = " + requestCue.size());
+                        System.out.println("subscribes = " + subscribeCue.size());
+                        System.out.println("req thds = " + requestThreads.size());
+                        System.out.println("handler thds = " + handlerThreads.size());
+                        now = t;
+                    }
+                    */
+
+
+                    // if the cue is getting too large, add temp threads to handle the load
+                    if (requestCue.size() > 2000 && tempThreads.get() < tempThreadsMax) {
+                        new RequestThread();
+                    }
+                }
+            }
+            catch (cMsgException ex) {
+                if (debug >= cMsgConstants.debugError) {
+                    System.out.println("dServer handleClient: command-reading thread's connection to client is dead from cMsg error");
+                    ex.printStackTrace();
+                }
+            }
+            catch (IOException ex) {
+                if (debug >= cMsgConstants.debugError) {
+                    System.out.println("dServer handleClient: command-reading thread's connection to client is dead from IO error");
+                    ex.printStackTrace();
+                }
+            }
+        }
+
+
+        /**
+         * This method reads an incoming cMsgMessageFull from a client.
+         *
+         * @return object holding message read from channel
+         * @throws java.io.IOException If socket read or write error
+         */
+        private cMsgHolder readSendInfo() throws IOException {
+
+            // create a message
+            cMsgMessageFull msg = new cMsgMessageFull();
+
+            // inComing[0] is for future use
+            in.skipBytes(4);
+
+            msg.setUserInt(in.readInt());
+            msg.setSysMsgId(in.readInt());
+            msg.setSenderToken(in.readInt());
+            msg.setInfo(in.readInt());
+
+            // time message was sent = 2 ints (hightest byte first)
+            // in milliseconds since midnight GMT, Jan 1, 1970
+            long time = ((long) in.readInt() << 32) | ((long) in.readInt() & 0x00000000FFFFFFFFL);
+            msg.setSenderTime(new Date(time));
+            // user time
+            time = ((long) in.readInt() << 32) | ((long) in.readInt() & 0x00000000FFFFFFFFL);
+            msg.setUserTime(new Date(time));
+
+            int lengthSubject = in.readInt();
+            int lengthType    = in.readInt();
+            int lengthCreator = in.readInt();
+            int lengthText    = in.readInt();
+            int lengthBinary  = in.readInt();
+
+            // string bytes expected
+            int stringBytesToRead = lengthSubject + lengthType +
+                                    lengthCreator + lengthText;
+            int offset = 0;
+
+            // read all string bytes
+            if (stringBytesToRead > bytes.length) {
+              bytes = new byte[stringBytesToRead];
+            }
+            in.readFully(bytes, 0, stringBytesToRead);
+
+            // read subject
+            msg.setSubject(new String(bytes, offset, lengthSubject, "US-ASCII"));
+            offset += lengthSubject;
+            //System.out.println("sub = " + msg.getSubject());
+
+            // read type
+            msg.setType(new String(bytes, offset, lengthType, "US-ASCII"));
+            //System.out.println("type = " + msg.getType());
+            offset += lengthType;
+
+            // read creator
+            msg.setCreator(new String(bytes, offset, lengthCreator, "US-ASCII"));
+            //System.out.println("creator = " + msg.getCreator());
+            offset += lengthCreator;
+
+            // read text
+            msg.setText(new String(bytes, offset, lengthText, "US-ASCII"));
+            //System.out.println("text = " + msg.getText());
+            offset += lengthText;
+
+            if (lengthBinary > 0) {
+                byte[] b = new byte[lengthBinary];
+
+                // read all binary bytes
+                in.readFully(b, 0, lengthBinary);
+
+                try {msg.setByteArrayNoCopy(b, 0, lengthBinary);}
+                catch (cMsgException e) {}
+            }
+
+            // fill in message object's members
+            msg.setVersion(cMsgConstants.version);
+            msg.setDomain(domainType);
+            msg.setReceiver("cMsg domain server");
+            msg.setReceiverHost(info.getDomainHost());
+            msg.setReceiverTime(new Date()); // current time
+            msg.setSender(info.getName());
+            msg.setSenderHost(info.getClientHost());
+
+            return new cMsgHolder(msg);
+        }
+
+
+        /**
+         * This method reads an incoming cMsgMessageFull from a client doing a sendAndGet.
+         *
+         * @return object holding message read from channel
+         * @throws java.io.IOException If socket read or write error
+         */
+        private cMsgHolder readGetInfo() throws IOException {
+
+            // create a message
+            cMsgMessageFull msg = new cMsgMessageFull();
+
+            // inComing[0] is for future use
+            in.skipBytes(4);
+
+            msg.setUserInt(in.readInt());
+            msg.setSenderToken(in.readInt());
+            msg.setInfo(in.readInt());
+
+            // time message was sent = 2 ints (hightest byte first)
+            // in milliseconds since midnight GMT, Jan 1, 1970
+            long time = ((long)in.readInt() << 32) | ((long)in.readInt() & 0x00000000FFFFFFFFL);
+            msg.setSenderTime(new Date(time));
+            // user time
+            time = ((long)in.readInt() << 32) | ((long)in.readInt() & 0x00000000FFFFFFFFL);
+            msg.setUserTime(new Date(time));
+
+            int lengthSubject = in.readInt();
+            int lengthType    = in.readInt();
+            int lengthCreator = in.readInt();
+            int lengthText    = in.readInt();
+            int lengthBinary  = in.readInt();
+
+            // string bytes expected
+            int stringBytesToRead = lengthSubject + lengthType +
+                                    lengthCreator + lengthText;
+            int offset = 0;
+
+            // read all string bytes
+            if (stringBytesToRead > bytes.length) {
+              bytes = new byte[stringBytesToRead];
+            }
+            in.readFully(bytes, 0, stringBytesToRead);
+
+            // read subject
+            msg.setSubject(new String(bytes, offset, lengthSubject, "US-ASCII"));
+            offset += lengthSubject;
+            //System.out.println("sub = " + msg.getSubject());
+
+            // read type
+            msg.setType(new String(bytes, offset, lengthType, "US-ASCII"));
+            //System.out.println("type = " + msg.getType());
+            offset += lengthType;
+
+            // read creator
+            msg.setCreator(new String(bytes, offset, lengthCreator, "US-ASCII"));
+            //System.out.println("creator = " + msg.getCreator());
+            offset += lengthCreator;
+
+            // read text
+            msg.setText(new String(bytes, offset, lengthText, "US-ASCII"));
+            //System.out.println("text = " + msg.getText());
+            offset += lengthText;
+
+            if (lengthBinary > 0) {
+                byte[] b = new byte[lengthBinary];
+
+                // read all binary bytes
+                in.readFully(b, 0, lengthBinary);
+
+                try {msg.setByteArrayNoCopy(b, 0, lengthBinary);}
+                catch (cMsgException e) {}
+            }
+
+            // fill in message object's members
+            msg.setVersion(cMsgConstants.version);
+            msg.setGetRequest(true);
+            msg.setDomain(domainType);
+            msg.setReceiver("cMsg domain server");
+            msg.setReceiverHost(info.getDomainHost());
+            msg.setReceiverTime(new Date()); // current time
+            msg.setSender(info.getName());
+            msg.setSenderHost(info.getClientHost());
+
+            return new cMsgHolder(msg);
+        }
+
+
+        /**
+         * This method reads an incoming (un)subscribe or subscribeAndGet request from a client.
+         *
+         * @return object holding subject, type, and id read from channel
+         * @throws java.io.IOException If socket read or write error
+         */
+        private cMsgHolder readSubscribeInfo() throws IOException {
+            cMsgHolder holder = new cMsgHolder();
+
+            // id of subject/type combination  (receiverSubscribedId)
+            holder.id = in.readInt();
+            // length of subject
+            int lengthSubject = in.readInt();
+            // length of type
+            int lengthType = in.readInt();
+            // bytes expected
+            int bytesToRead = lengthSubject + lengthType;
+
+            // read all string bytes
+            if (bytesToRead > bytes.length) {
+              bytes = new byte[bytesToRead];
+            }
+            in.readFully(bytes, 0, bytesToRead);
+
+            // read subject
+            holder.subject = new String(bytes, 0, lengthSubject, "US-ASCII");
+
+            // read type
+            holder.type = new String(bytes, lengthSubject, lengthType, "US-ASCII");
+
+            return holder;
+        }
+
+
+        /**
+         * This method reads incoming information from a client doing a shutdown.
+         *
+         * @return object holding message read from channel
+         * @throws java.io.IOException If socket read or write error
+         */
+        private cMsgHolder readShutdownInfo() throws IOException {
+
+            int flag         = in.readInt();
+            int lengthClient = in.readInt();
+            int lengthServer = in.readInt();
+
+            // bytes expected
+            int bytesToRead = lengthClient + lengthServer;
+
+            // read all string bytes
+            if (bytesToRead > bytes.length) {
+              bytes = new byte[bytesToRead];
+            }
+            in.readFully(bytes, 0, bytesToRead);
+
+            // read client
+            String client = new String(bytes, 0, lengthClient, "US-ASCII");
+
+            // read client
+            String server = new String(bytes, lengthClient, lengthServer, "US-ASCII");
+
+            return new cMsgHolder(client, server, flag);
+        }
+
+
+        /**
+         * This method reads an incoming unget request from a client.
+         *
+         * @return object holding id read from channel
+         * @throws java.io.IOException If socket read or write error
+         */
+        private cMsgHolder readUngetInfo() throws IOException {
+
+            // id of subject/type combination  (senderToken actually)
+            cMsgHolder holder = new cMsgHolder();
+            holder.id = in.readInt();
+
+            return holder;
+        }
+    }
+
+
+
+    /**
+     * Class to handle a socket connection to the client of which
+     * there may be many. The current implementation has only 2.
+     * One connections handles the client's keepAlive requests of
+     * the server. The other handles everything else.
+     */
+    private class ClientHandlerOrig extends Thread {
+        /** Socket communication channel. */
+        private SocketChannel channel;
+
         /** A direct buffer is necessary for nio socket IO. */
         private ByteBuffer buffer = ByteBuffer.allocateDirect(50000);
 
@@ -372,7 +817,7 @@ public class cMsgDomainServer extends Thread {
 
 
         /** Constructor. */
-        ClientHandler(SocketChannel channel, int id) {
+        ClientHandlerOrig(SocketChannel channel, int id) {
             this.channel = channel;
             this.id = id;
             // start up permanent worker threads on the regular cue
@@ -845,6 +1290,9 @@ public class cMsgDomainServer extends Thread {
             return holder;
         }
     }
+
+
+
 
 
     /**
