@@ -33,46 +33,66 @@ int main(int argc,char **argv) {
   char *myDescription = "C producer";
   char *subject = "SUBJECT";
   char *type    = "TYPE";
-  char *text    = "TEXT";
+  char *text    = NULL;
   char *bytes   = NULL;
   char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
-  int   err, debug=1, domainId=-1, msgSize=0, response;
+  int   err, debug=1, domainId=-1, msgSize=0;
   void *msg;
   
   /* msg rate measuring variables */
-  int             count, i, delay=0, loops=60000;
-  struct timespec t1, t2;
+  int             dostring=0, count, i, delay=0, loops=100;
+  struct timespec t1, t2, sleeep;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
   
-  /*
-  if (argc > 1) {
-    char *p;
-    msgSize = atoi(argv[1]);
-    text = p = (char *) malloc((size_t) (msgSize + 1));
-    if (p == NULL) exit(1);
-    printf("using text size %d\n", msgSize);
-    for (i=0; i < msgSize; i++) {
-      *p = 'A';
-      p++;
-    }
-    *p = '\0';
-  }
-  printf("Text = %s\n", text);
-  */
+  sleeep.tv_sec  = 0;
+  sleeep.tv_nsec = 10000000; /* 10 millisec */
+  
   
   if (argc > 1) {
-    char *p;
-    msgSize = atoi(argv[1]);
-    bytes = p = (char *) malloc((size_t) msgSize);
-    if (p == NULL) exit(1);
-    printf("using msg size %d\n", msgSize);
-    for (i=0; i < msgSize; i++) {
-      *p = i%255;
-      p++;
+     if (strcmp("-s", argv[1]) == 0) {
+       dostring = 1;
+     }
+     else if (strcmp("-b", argv[1]) == 0) {
+       dostring = 0;
+     }
+     else {
+       printf("specify -s or -b flag for string or bytearray data\n");
+       exit(1);
+     }
+  }
+  
+  if (argc > 2) {
+    if (dostring) {
+      char *p;
+      msgSize = atoi(argv[2]);
+      text = p = (char *) malloc((size_t) (msgSize + 1));
+      if (p == NULL) exit(1);
+      printf("using text msg size %d\n", msgSize);
+      for (i=0; i < msgSize; i++) {
+        *p = 'A';
+        p++;
+      }
+      *p = '\0';
+      /*printf("Text = %s\n", text);*/
+    }
+    else {
+      char *p;
+      msgSize = atoi(argv[2]);
+      bytes = p = (char *) malloc((size_t) msgSize);
+      if (p == NULL) exit(1);
+      printf("using array msg size %d\n", msgSize);
+      for (i=0; i < msgSize; i++) {
+        *p = i%255;
+        p++;
+      }
     }
   }
-   
+  else {
+      printf("using no text or byte array\n");
+      dostring = 1;
+  }
+  
   if (debug) {
     printf("Running the cMsg producer, \"%s\"\n", myName);
     cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
@@ -91,12 +111,21 @@ int main(int argc,char **argv) {
   msg = cMsgCreateMessage();
   cMsgSetSubject(msg, subject);
   cMsgSetType(msg, type);
-  /*cMsgSetText(msg, text);*/
-  cMsgSetByteArrayAndLimits(msg, bytes, 0, msgSize);
   
+  if (dostring) {
+    printf("setting text\n");
+    cMsgSetText(msg, text);
+  }
+  else {
+    printf("setting byte array\n");
+    cMsgSetByteArrayAndLimits(msg, bytes, 0, msgSize);
+  }
+  
+  /*
   if (delay != 0) {
       loops = loops/(2000*delay);      
   }
+  */
   
   while (1) {
       count = 0;
@@ -116,7 +145,7 @@ int main(int argc,char **argv) {
           count++;
           
           if (delay != 0) {
-              sleep(delay);
+              nanosleep(&sleeep, NULL);
           }          
       }
 
