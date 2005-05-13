@@ -277,7 +277,7 @@ public class cMsg extends cMsgSubdomainAdapter {
      * is sent to that client. The client is responsible for finding all the matching gets
      * and subscribes and distributing the message among them as necessary.
      *
-     * This method is synchronized because the use of rsIdLists and infoList is not
+     * This method is synchronized because the use of infoList is not
      * thread-safe otherwise. Multiple threads in the domain server can be calling
      * this object's methods simultaneously.
      *
@@ -305,10 +305,10 @@ public class cMsg extends cMsgSubdomainAdapter {
                 try {
 //System.out.println(" handle send msg for send&get to " + info.getName());
                     if (message.isNullGetResponse()) {
-                        deliverer.deliverMessage(message, info, cMsgConstants.msgGetResponseIsNull);
+                        info.getDeliverer().deliverMessage(message, cMsgConstants.msgGetResponseIsNull);
                     }
                     else {
-                        deliverer.deliverMessage(message, info, cMsgConstants.msgGetResponse);
+                        info.getDeliverer().deliverMessage(message, cMsgConstants.msgGetResponse);
                     }
                 }
                 catch (IOException e) {
@@ -406,7 +406,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 
             // Deliver this msg to this client.
             try {
-                deliverer.deliverMessage(message, info, cMsgConstants.msgSubscribeResponse);
+                info.getDeliverer().deliverMessage(message, cMsgConstants.msgSubscribeResponse);
             }
             catch (IOException e) {
                 continue;
@@ -670,7 +670,7 @@ System.out.println("dHandler: try to kill client " + client);
             if (cMsgMessageMatcher.matches(client, clientName, true)) {
                 try {
                     System.out.println("  dHandler: deliver shutdown message to client " + clientName);
-                    deliverer.deliverMessage(null, info, cMsgConstants.msgShutdown);
+                    info.getDeliverer().deliverMessage(null, cMsgConstants.msgShutdown);
                 }
                 catch (IOException e) {
                     if (debug >= cMsgConstants.debugError) {

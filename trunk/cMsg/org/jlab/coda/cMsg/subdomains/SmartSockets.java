@@ -102,7 +102,7 @@ public class SmartSockets extends cMsgSubdomainAdapter {
                 cmsg.setText(msg.nextStr());
                 cmsg.setUserInt(msg.getUserProp());
 
-                myDeliverer.deliverMessage(cmsg, myClientInfo, cMsgConstants.msgSubscribeResponse);
+                myDeliverer.deliverMessage(cmsg, cMsgConstants.msgSubscribeResponse);
 
             } catch (TipcException e) {
                 System.err.println(e);

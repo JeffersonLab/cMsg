@@ -26,8 +26,8 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 
 /**
- * This class delivers messages from the subdomain handler object in the cMsg
- * domain to its client.<p>
+ * This class delivers messages from the subdomain handler objects in the cMsg
+ * domain to a particular client.<p>
  * Various types of messages may be sent. These are defined to be: <p>
  * <ul>
  * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgGetResponse} for a message sent in
@@ -43,37 +43,99 @@ import java.net.Socket;
 public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
 
     /** A direct buffer is necessary for nio socket IO. */
-    private ByteBuffer buffer = ByteBuffer.allocateDirect(4096);
+    private ByteBuffer buffer = ByteBuffer.allocateDirect(65536);
 
-    /** Constructor. */
-    public cMsgMessageDeliverer() {}
+    /** Communication channel used by subdomainHandler to talk to client. */
+    private SocketChannel channel;
+    /** Buffered data input stream associated with channel socket. */
+    private DataInputStream  in;
+    /** Buffered data output stream associated with channel socket. */
+    private DataOutputStream out;
+
+
+    //-----------------------------------------------------------------------------------
+
+    /**
+     * Create a message delivering object for use with one specific client.
+     * @param info information object about client to talk to
+     * @throws IOException if cannot establish communication with client
+     */
+    public cMsgMessageDeliverer(cMsgClientInfo info) throws IOException {
+        createClientConnection(info);
+    }
+
+    //-----------------------------------------------------------------------------------
+
+    /**
+     * Gets communication channel used by server to talk to client.
+     * @return communication channel
+     */
+    public SocketChannel getChannel() {
+        return channel;
+    }
+
+    /**
+      * Sets communication channel used by server to talk to client and create a
+      * buffered input stream and a buffered output stream associated with the
+      * channel's socket.
+      *
+      * @param channel channel communication channel used by server to talk to client
+     * @throws IOException if socket is not connected and so input and output streams
+     *         cannot be constructed
+      */
+     public void setChannel(SocketChannel channel) throws IOException {
+         this.channel = channel;
+         // create buffered communication streams for efficiency
+         in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 2048));
+         out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 65536));
+     }
+
+    //-----------------------------------------------------------------------------------
+
+    /**
+     * Gets data input stream used by server to receive responses from client.
+     * @return data input stream from client
+     */
+    public DataInputStream getInputStream() {
+        return in;
+    }
+
+    /**
+     * Gets data output stream used by server to send messages to client.
+     * @return data output stream to client
+     */
+    public DataOutputStream getOutputStream() {
+        return out;
+    }
+
+    //-----------------------------------------------------------------------------------
 
     /**
      * Method to deliver a message from a domain server's subdomain handler to a client.
      *
-     * @param msg     message to sent to client
-     * @param clientInfo  information about client
+     * @param msg message to sent to client
      * @param msgType type of communication with the client
-     * @throws java.io.IOException
+     * @throws IOException
+     * @throws cMsgException if connection to client has not been established
      */
-    public void deliverMessage(cMsgMessageFull msg, cMsgClientInfo clientInfo, int msgType)
-            throws IOException {
-        deliverMessageReal(msg, clientInfo, msgType, false);
+    synchronized public void deliverMessage(cMsgMessageFull msg, int msgType)
+            throws IOException, cMsgException {
+        deliverMessageReal(msg, msgType, false);
     }
 
     /**
      * Method to deliver a message from a domain server's subdomain handler to a client
      * and receive acknowledgment that the message was received.
      *
-     * @param msg     message to sent to client
-     * @param clientInfo  information about client
+     * @param msg message to sent to client
      * @param msgType type of communication with the client
      * @return true if message acknowledged by receiver or acknowledgment undesired, otherwise false
-     * @throws java.io.IOException
+     * @throws IOException
+     * @throws cMsgException if connection to client has not been established
      */
-    public boolean deliverMessageAndAcknowledge(cMsgMessageFull msg, cMsgClientInfo clientInfo, int msgType)
-            throws IOException {
-        return deliverMessageReal(msg, clientInfo, msgType, true);
+    synchronized public boolean deliverMessageAndAcknowledge(cMsgMessageFull msg, int msgType)
+            throws IOException, cMsgException {
+        return deliverMessageReal(msg, msgType, true);
     }
 
     /**
@@ -81,9 +143,9 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
       * @param info client information object
       * @throws IOException if socket cannot be created
       */
-    public void createChannel(cMsgClientInfo info) throws IOException {
-        SocketChannel channel = SocketChannel.open(new InetSocketAddress(info.getClientHost(),
-                                                                         info.getClientPort()));
+    public void createClientConnection(cMsgClientInfo info) throws IOException {
+        channel = SocketChannel.open(new InetSocketAddress(info.getClientHost(),
+                                                           info.getClientPort()));
         // set socket options
         Socket socket = channel.socket();
         // Set tcpNoDelay so no packets are delayed
@@ -92,29 +154,9 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
         socket.setReceiveBufferSize(65535);
         socket.setSendBufferSize(65535);
 
-        // store connection in info object
-        info.setChannel(channel);
-    }
-
-
-    /**
-     * Creates a socket communication channel to a client.
-     *
-     * @param host host client resides on
-     * @param port port client listens on
-     * @return SocketChannel object for communicating with client
-     * @throws IOException if socket cannot be created
-     */
-    public SocketChannel createChannel(String host, int port) throws IOException {
-        SocketChannel channel = SocketChannel.open(new InetSocketAddress(host, port));
-        // set socket options
-        Socket socket = channel.socket();
-        // Set tcpNoDelay so no packets are delayed
-        socket.setTcpNoDelay(true);
-        // set buffer sizes
-        socket.setReceiveBufferSize(65535);
-        socket.setSendBufferSize(65535);
-        return channel;
+        // create buffered communication streams for efficiency
+        in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 2048));
+        out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 65536));
     }
 
 
@@ -122,23 +164,18 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
      * Method to deliver a message to a client.
      *
      * @param msg     message to be sent
-     * @param info information about the client
      * @param msgType type of communication with the client
      * @param acknowledge if acknowledgement of message is desired, set to true
      * @return true if message acknowledged by receiver or acknowledgment undesired, otherwise false
-     * @throws java.io.IOException if the message cannot be sent over the channel
-     *                             or client returns an error
+     * @throws cMsgException if connection to client has not been established
+     * @throws IOException if the message cannot be sent over the channel
+     *                     or client returns an error
      */
-    private boolean deliverMessageReal(cMsgMessageFull msg, cMsgClientInfo info,
-                                       int msgType, boolean acknowledge) throws IOException {
-
-        DataInputStream in = info.getInputStream();
-        DataOutputStream out = info.getOutputStream();
+    private boolean deliverMessageReal(cMsgMessageFull msg, int msgType, boolean acknowledge)
+            throws IOException, cMsgException {
 
         if (in == null || out == null) {
-            createChannel(info);
-            in  = info.getInputStream();
-            out = info.getOutputStream();
+            throw new cMsgException("Call createClientConnection first to create connection to client");
         }
 
         // if a get has a null response ...
@@ -177,7 +214,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             int binLength = msg.getByteArrayLength();
             // size of everything sent (except "size" itself which is first integer)
             int size = len1 + len2 + len3 + len4 + len5 + len6 +
-                       binLength + 4*(19);
+                       binLength + 4*19;
 
             out.writeInt(size);
             out.writeInt(msgType);
@@ -238,21 +275,21 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
      * Method to deliver a message to a client.
      *
      * @param msg     message to be sent
-     * @param info information about the client
      * @param msgType type of communication with the client
      * @param acknowledge if acknowledgement of message is desired, set to true
      * @return true if message acknowledged by receiver or acknowledgment undesired, otherwise false
-     * @throws java.io.IOException if the message cannot be sent over the channel
-     *                             or client returns an error
+     * @throws cMsgException if connection to client has not been established
+     * @throws IOException if the message cannot be sent over the channel
+     *                     or client returns an error
      */
-    private boolean deliverMessageRealNIO(cMsgMessageFull msg, cMsgClientInfo info,
-                                       int msgType, boolean acknowledge) throws IOException {
+    private boolean deliverMessageRealNIO(cMsgMessageFull msg, int msgType,
+                                          boolean acknowledge)
+            throws IOException, cMsgException {
 
         int binaryLength = 0;
 
-        SocketChannel channel = info.getChannel();
         if (channel == null) {
-            createChannel(info);
+            throw new cMsgException("Call createClientConnection first to create connection to client");
         }
 
         // if a get has a null response ...
