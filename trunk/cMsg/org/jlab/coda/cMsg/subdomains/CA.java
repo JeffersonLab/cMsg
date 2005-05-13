@@ -137,7 +137,7 @@ public class CA extends cMsgSubdomainAdapter {
 
                 synchronized (mySubscribeIdList) {
                     try {
-                        myDeliverer.deliverMessage(cmsg,myClientInfo, cMsgConstants.msgSubscribeResponse);
+                        myDeliverer.deliverMessage(cmsg, cMsgConstants.msgSubscribeResponse);
                     } catch (cMsgException e) {
                         e.printStackTrace();
                     } catch (IOException e) {
@@ -429,7 +429,7 @@ public class CA extends cMsgSubdomainAdapter {
 
         // return response
         try {
-            myDeliverer.deliverMessage(response, myClientInfo, cMsgConstants.msgSubscribeResponse);
+            myDeliverer.deliverMessage(response, cMsgConstants.msgSubscribeResponse);
         } catch (IOException e) {
             e.printStackTrace();
             cMsgException ce = new cMsgException(e.toString());

@@ -333,13 +333,10 @@ public class cMsgNameServer extends Thread {
         subdomainHandler.setUDLRemainder(info.getUDLremainder());
 
         // The next thing to do is create an object enabling the handler
-        // to communicate with the client in this cMsg domain.
-        cMsgMessageDeliverer deliverer = new cMsgMessageDeliverer();
-
-        // This object has methods to connect to the client, so do it now.
-        // The socket channel is stored in "info".
+        // to communicate with only this client in this cMsg domain.
+        cMsgMessageDeliverer deliverer;
         try {
-            deliverer.createChannel(info);
+            deliverer = new cMsgMessageDeliverer(info);
         }
         catch (IOException e) {
             cMsgException ex = new cMsgException("socket communication error");
@@ -347,6 +344,11 @@ public class cMsgNameServer extends Thread {
             throw ex;
         }
         subdomainHandler.setMessageDeliverer(deliverer);
+
+        // Also store deliverer object in client info object.
+        // Do this because communication to client is a little
+        // different in cMsg subdomain.
+        info.setDeliverer(deliverer);
 
         // pass registration on to handler object
         subdomainHandler.registerClient(info);

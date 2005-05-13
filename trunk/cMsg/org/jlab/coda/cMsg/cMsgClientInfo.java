@@ -51,15 +51,8 @@ public class cMsgClientInfo {
     /** Domain server's port. */
     private int    domainPort;
 
-    /**
-     * Communication channel used by domain server (or subdomainHandler)
-     * to talk to client.
-     */
-    private SocketChannel channel;
-    /** Buffered data input stream associated with channel socket. */
-    private DataInputStream  in;
-    /** Buffered data output stream associated with channel socket. */
-    private DataOutputStream out;
+    /** Object for delivering messges to this client. */
+    cMsgDeliverMessageInterface deliverer;
 
     /** Collection of all subscriptions. */
     private HashSet subscriptions = new HashSet(20);
@@ -260,43 +253,19 @@ public class cMsgClientInfo {
     //-----------------------------------------------------------------------------------
 
     /**
-     * Gets communication channel used by server to talk to client.
-     * @return communication channel
+     * Gets the object used to deliver messages to this client.
+     * @return object used to deliver messages to this client
      */
-    public SocketChannel getChannel() {
-        return channel;
+    public cMsgDeliverMessageInterface getDeliverer() {
+        return deliverer;
     }
 
     /**
-     * Gets data input stream used by server to receive responses from client.
-     * @return data input stream from client
+     * Sets the object used to deliver messages to this client.
+     * @param deliverer object used to deliver messages to this client
      */
-    public DataInputStream getInputStream() {
-        return in;
-    }
-
-    /**
-     * Gets data output stream used by server to send messages to client.
-     * @return data output stream to client
-     */
-    public DataOutputStream getOutputStream() {
-        return out;
-    }
-
-    /**
-     * Sets communication channel used by server to talk to client and create a
-     * buffered input stream and a buffered output stream associated with the
-     * channel's socket.
-     *
-     * @param channel channel communication channel used by server to talk to client
-     * @throws IOException if socket is not connected and so input and output streams
-     *         cannot be constructed
-     */
-    public void setChannel(SocketChannel channel) throws IOException {
-        this.channel = channel;
-        // create buffered communication streams for efficiency
-        in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 2048));
-        out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 65535));
+    public void setDeliverer(cMsgDeliverMessageInterface deliverer) {
+        this.deliverer = deliverer;
     }
 
     //-----------------------------------------------------------------------------------

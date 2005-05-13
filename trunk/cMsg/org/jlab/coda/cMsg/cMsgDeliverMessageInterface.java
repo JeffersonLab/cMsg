@@ -24,6 +24,10 @@ import java.io.IOException;
 /**
  * Classes that implement this interface provide a means for a subdomain handler
  * object to talk to its client - providing the client with responses to its requests.
+ * It is assumed that a single object of this type talks to one specific client. Thus
+ * the deliverMessage and deliverMessageAndAcknowledge methods do not have an argument
+ * specifying the client. The implementing class should store and use this information
+ * aside from the use of this interface.<p>
  * Various types of messages may be sent. These are already defined and are: <p>
  * <ul>
  * <li>{@link cMsgConstants#msgGetResponse} for a message sent in response to a {@link cMsg#sendAndGet}<p>
@@ -37,12 +41,11 @@ public interface cMsgDeliverMessageInterface {
      * Method to deliver a message from a domain server's subdomain handler to a client.
      *
      * @param msg     message to sent to client
-     * @param client  information about client
      * @param msgType type of communication with the client
      * @throws cMsgException
      * @throws java.io.IOException
      */
-    public void deliverMessage(cMsgMessageFull msg, cMsgClientInfo client, int msgType)
+    public void deliverMessage(cMsgMessageFull msg, int msgType)
             throws cMsgException, IOException;
 
     /**
@@ -50,13 +53,12 @@ public interface cMsgDeliverMessageInterface {
      * and receive acknowledgment that the message was received.
      *
      * @param msg     message to sent to client
-     * @param client  information about client
      * @param msgType type of communication with the client
      * @return true if message acknowledged by receiver, otherwise false
      * @throws cMsgException
      * @throws java.io.IOException
      */
-    public boolean deliverMessageAndAcknowledge(cMsgMessageFull msg, cMsgClientInfo client, int msgType)
+    public boolean deliverMessageAndAcknowledge(cMsgMessageFull msg, int msgType)
             throws cMsgException, IOException;
 
 }

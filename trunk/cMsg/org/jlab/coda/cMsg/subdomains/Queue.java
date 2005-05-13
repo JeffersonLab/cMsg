@@ -450,9 +450,9 @@ public class Queue extends cMsgSubdomainAdapter {
         // send message
         try {
             if(null_response) {
-                myDeliverer.deliverMessage(response, myClientInfo, cMsgConstants.msgGetResponseIsNull);
+                myDeliverer.deliverMessage(response, cMsgConstants.msgGetResponseIsNull);
             } else {
-                myDeliverer.deliverMessage(response, myClientInfo, cMsgConstants.msgGetResponse);
+                myDeliverer.deliverMessage(response, cMsgConstants.msgGetResponse);
             }
 
         } catch (IOException e) {
