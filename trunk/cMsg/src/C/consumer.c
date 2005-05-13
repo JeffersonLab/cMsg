@@ -92,7 +92,7 @@ int main(int argc,char **argv) {
   if (debug) {
     printf("Running the cMsg consumer, \"%s\"\n", myName);
   }
-    
+
   /* connect to cMsg server */
   err = cMsgConnect(UDL, myName, myDescription, &domainId);
   if (err != CMSG_OK) {
@@ -107,7 +107,7 @@ int main(int argc,char **argv) {
   
   /* set the subscribe configuration */
   config = cMsgSubscribeConfigCreate();
-  cMsgSubscribeSetMaxCueSize(config, 10000);
+  cMsgSubscribeSetMaxCueSize(config, 100);
   cMsgSubscribeSetSkipSize(config, 2000);
   cMsgSubscribeSetMaySkip(config, 0);
   cMsgSubscribeSetMustSerialize(config, 1);
@@ -122,7 +122,7 @@ int main(int argc,char **argv) {
           printf("cMsgSubscribe: %s\n",cMsgPerror(err));
       }
       exit(1);
-  }
+  } 
     
   while (1) {
       count = 0;
