@@ -88,9 +88,7 @@ public class cMsgMonitorClient extends Thread {
             Socket socket = channel.socket();
             // Set tcpNoDelay so no packets are delayed
             socket.setTcpNoDelay(true);
-            // set buffer sizes
-            socket.setReceiveBufferSize(65535);
-            socket.setSendBufferSize(65535);
+            // no need to set buffer sizes
 
             // register the channel with the selector for reads
             channel.register(selector, SelectionKey.OP_READ);
@@ -120,7 +118,6 @@ public class cMsgMonitorClient extends Thread {
             try {
                 // check to see if domain server is shutting down and we must die too
                 if (domainServer.killSpawnedThreads) {
-                    //System.out.println("monitor client thd committing suicide");
                     return;
                 }
 
@@ -190,31 +187,6 @@ public class cMsgMonitorClient extends Thread {
 
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("cMsgMonitorClient: CANNOT COMMUNICATE with client " +
-                                       info.getName() + "\n");
-                }
-
-                if (domainServer.calledShutdown.compareAndSet(false,true)) {
-                    //System.out.println("SHUTDOWN TO BE RUN BY monitor client thd");
-                    domainServer.shutdown();
-                }
-                return;
-            }
-
-            // go back to reading-from-buffer mode
-            buffer.flip();
-
-            int error = buffer.getInt();
-
-            if (error != cMsgConstants.ok) {
-                // something wrong with the client, time to bail
-                try {
-                    selector.close();
-                    channel.close();
-                }
-                catch (IOException ex) {}
-
-                if (debug >= cMsgConstants.debugError) {
-                    System.out.println("cMsgMonitorClient: keep alive returns ERROR from client " +
                                        info.getName() + "\n");
                 }
 
