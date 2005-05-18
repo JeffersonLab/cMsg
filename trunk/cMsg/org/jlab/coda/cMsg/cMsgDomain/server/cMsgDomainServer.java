@@ -465,6 +465,7 @@ public class cMsgDomainServer extends Thread {
                         case cMsgConstants.msgKeepAlive: // see if this end is still here
                             // send ok back as acknowledgment
                             out.writeInt(cMsgConstants.ok);
+                            out.flush();
                             subdomainHandler.handleKeepAlive();
                             break;
 
@@ -549,7 +550,7 @@ public class cMsgDomainServer extends Thread {
             // create a message
             cMsgMessageFull msg = new cMsgMessageFull();
 
-            // inComing[0] is for future use
+            // first incoming integer is for future use
             in.skipBytes(4);
 
             msg.setUserInt(in.readInt());
