@@ -19,10 +19,8 @@ package org.jlab.coda.cMsg.cMsgDomain.client;
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgDomain.*;
 
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.net.*;
-import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.*;
@@ -58,31 +56,6 @@ public class cMsg extends cMsgDomainAdapter {
     /** Server channel (contains socket). */
     private ServerSocketChannel serverChannel;
 
-    /**
-     * A direct buffer is necessary for nio socket IO. This buffer is used in
-     * the {@link #send}.
-     */
-    private ByteBuffer sendBuffer = ByteBuffer.allocateDirect(4096);
-
-    /**
-     * A direct buffer is necessary for nio socket IO. This buffer is used in
-     * the {@link #syncSend}.
-     */
-    private ByteBuffer syncSendBuffer = ByteBuffer.allocateDirect(4096);
-
-    /**
-     * A direct buffer is necessary for nio socket IO. This buffer is used in
-     * {@link #subscribeAndGet} and {@link #sendAndGet}.
-     */
-    private ByteBuffer getBuffer = ByteBuffer.allocateDirect(4096);
-
-    /**
-     * A direct buffer is necessary for nio socket IO. This buffer is used in
-     * the mutually exclusive {@link #subscribe} and {@link #unsubscribe} methods.
-     * There is no way for these methods to use this buffer simulaneously.
-     */
-    private ByteBuffer subBuffer = ByteBuffer.allocateDirect(4096);
-
     /** Name server's host. */
     private String nameServerHost;
 
@@ -97,6 +70,10 @@ public class cMsg extends cMsgDomainAdapter {
 
     /** Channel for talking to domain server. */
     private SocketChannel domainChannel;
+    /** Socket input stream associated with domainChannel - gets info from server. */
+    private DataInputStream  domainIn;
+    /** Socket output stream associated with domainChannel - sends info to server. */
+    private DataOutputStream domainOut;
 
     /** Channel for checking to see that the domain server is still alive. */
     private SocketChannel keepAliveChannel;
@@ -157,14 +134,8 @@ public class cMsg extends cMsgDomainAdapter {
     /** Lock to ensure {@link #subscribe} and {@link #unsubscribe} calls are sequential. */
     private Lock subscribeLock = new ReentrantLock();
 
-    /** Lock to ensure {@link #send} calls use {@link #sendBuffer} one at a time. */
-    private Lock sendBufferLock = new ReentrantLock();
-
-    /**
-     * Lock to ensure {@link #subscribeAndGet} and {@link #sendAndGet} calls use
-     * {@link #getBuffer} one at a time.
-     */
-    private Lock getBufferLock = new ReentrantLock();
+    /** Lock to ensure that methods using the socket write in sequence. */
+    private Lock socketLock = new ReentrantLock();
 
     /** Used to create unique id numbers associated with a specific message subject/type pair. */
     private AtomicInteger uniqueId;
@@ -338,9 +309,7 @@ public class cMsg extends cMsgDomainAdapter {
                 Socket socket = channel.socket();
                 // Set tcpNoDelay so no packets are delayed
                 socket.setTcpNoDelay(true);
-                // set buffer sizes
-                socket.setReceiveBufferSize(65535);
-                socket.setSendBufferSize(65535);
+                // no need to set buffer sizes
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
@@ -374,10 +343,13 @@ public class cMsg extends cMsgDomainAdapter {
             // create sending (to domain) channel
             try {
                 domainChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-                Socket socket = channel.socket();
+                // buffered communication streams for efficiency
+                Socket socket = domainChannel.socket();
                 socket.setTcpNoDelay(true);
                 socket.setReceiveBufferSize(65535);
                 socket.setSendBufferSize(65535);
+                domainIn  = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 2048));
+                domainOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
@@ -389,10 +361,12 @@ public class cMsg extends cMsgDomainAdapter {
             // create keepAlive socket
             try {
                 keepAliveChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-                Socket socket = channel.socket();
+                Socket socket = keepAliveChannel.socket();
                 socket.setTcpNoDelay(true);
-                socket.setReceiveBufferSize(65535);
-                socket.setSendBufferSize(65535);
+
+                // create thread to send periodic keep alives and handle dead server
+                keepAliveThread = new KeepAlive(this, keepAliveChannel);
+                keepAliveThread.start();
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
@@ -400,10 +374,6 @@ public class cMsg extends cMsgDomainAdapter {
                 }
                 throw new cMsgException("connect: cannot create keepAlive channel to domain server");
             }
-
-            // create thread to send periodic keep alives and handle dead server
-            keepAliveThread = new KeepAlive(this, keepAliveChannel);
-            keepAliveThread.start();
 
             connected = true;
         }
@@ -424,8 +394,6 @@ public class cMsg extends cMsgDomainAdapter {
         // cannot run this simultaneously with any other public method
         connectLock.lock();
 
-//bug bug talk to server;
-
         try {
             if (!connected) return;
             connected = false;
@@ -439,16 +407,16 @@ public class cMsg extends cMsgDomainAdapter {
             catch (InterruptedException e) {}
 
             // tell server we're disconnecting
-            sendBuffer.clear();
-            sendBuffer.putInt(4);
-            sendBuffer.putInt(cMsgConstants.msgDisconnectRequest);
+            socketLock.lock();
             try {
-                sendBuffer.flip();
-                while (sendBuffer.hasRemaining()) {
-                    domainChannel.write(sendBuffer);
-                }
+                domainOut.writeInt(4);
+                domainOut.writeInt(cMsgConstants.msgDisconnectRequest);
+                domainOut.flush();
             }
             catch (IOException e) {
+            }
+            finally {
+                socketLock.unlock();
             }
 
             // give server a chance to shutdown
@@ -518,83 +486,59 @@ public class cMsg extends cMsgDomainAdapter {
                 text = "";
             }
 
-            int outGoing[] = new int[16];
-            outGoing[1]  = cMsgConstants.msgSendRequest;
-            outGoing[2]  = 0; // reserved for future use
-            outGoing[3]  = message.getUserInt();
-            outGoing[4]  = message.getSysMsgId();
-            outGoing[5]  = message.getSenderToken();
-            outGoing[6]  = message.getInfo();
-
-            long now = new Date().getTime();
-            // send the time in milliseconds as 2, 32 bit integers
-            outGoing[7]  = (int) (now >>> 32); // higher 32 bits
-            outGoing[8]  = (int) (now & 0x00000000FFFFFFFFL); // lower 32 bits
-            outGoing[9]  = (int) (message.getUserTime().getTime() >>> 32);
-            outGoing[10] = (int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL);
-
-            outGoing[11] = subject.length();
-            outGoing[12] = type.length();
-
-            // send creator (this sender's name if msg created here)
+            // creator (this sender's name if msg created here)
             String creator = message.getCreator();
             if (creator == null) creator = name;
-            outGoing[13] = creator.length();
-
-            outGoing[14] = text.length();
 
             int binaryLength = message.getByteArrayLength();
-            outGoing[15] = binaryLength;
 
-            // total length of msg (not including this int) is 1st item
-            outGoing[0] = 4*(outGoing.length - 1) + outGoing[11] +
-                          outGoing[12] + outGoing[13] +
-                          outGoing[14] + outGoing[15];
-
-            // lock to prevent parallel sends from using same buffer
-            sendBufferLock.lock();
+            socketLock.lock();
             try {
-                // make sure there's enough room in the buffer
-                if (outGoing[0] + 4 > sendBuffer.capacity()) {
-                    sendBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
-                }
-                // get ready to write
-                sendBuffer.clear();
-                // send ints over together using view buffer
-                sendBuffer.asIntBuffer().put(outGoing);
-                // position original buffer at position of view buffer
-                sendBuffer.position(64);
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4*15 + subject.length() + type.length() + creator.length() +
+                                text.length() + binaryLength);
+                domainOut.writeInt(cMsgConstants.msgSendRequest);
+                domainOut.writeInt(0); // reserved for future use
+                domainOut.writeInt(message.getUserInt());
+                domainOut.writeInt(message.getSysMsgId());
+                domainOut.writeInt(message.getSenderToken());
+                domainOut.writeInt(message.getInfo());
 
-               // write strings
+                long now = new Date().getTime();
+                // send the time in milliseconds as 2, 32 bit integers
+                domainOut.writeInt((int) (now >>> 32)); // higher 32 bits
+                domainOut.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
+                domainOut.writeInt((int) (message.getUserTime().getTime() >>> 32));
+                domainOut.writeInt((int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL));
+
+                domainOut.writeInt(subject.length());
+                domainOut.writeInt(type.length());
+                domainOut.writeInt(creator.length());
+                domainOut.writeInt(text.length());
+                domainOut.writeInt(binaryLength);
+
+                // write strings & byte array
                 try {
-                    sendBuffer.put(subject.getBytes("US-ASCII"));
-                    sendBuffer.put(type.getBytes("US-ASCII"));
-                    sendBuffer.put(creator.getBytes("US-ASCII"));
-                    sendBuffer.put(text.getBytes("US-ASCII"));
+                    domainOut.write(subject.getBytes("US-ASCII"));
+                    domainOut.write(type.getBytes("US-ASCII"));
+                    domainOut.write(creator.getBytes("US-ASCII"));
+                    domainOut.write(text.getBytes("US-ASCII"));
                     if (binaryLength > 0) {
-                        sendBuffer.put(message.getByteArray(),
-                                       message.getByteArrayOffset(),
-                                       binaryLength);
+                        domainOut.write(message.getByteArray(),
+                                        message.getByteArrayOffset(),
+                                        binaryLength);
                     }
                 }
-                catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
-                }
-
-                try {
-                    // send buffer over the socket
-                    sendBuffer.flip();
-                    while (sendBuffer.hasRemaining()) {
-                        domainChannel.write(sendBuffer);
-                    }
-                }
-                catch (IOException e) {
-                    throw new cMsgException(e.getMessage());
-                }
+                catch (UnsupportedEncodingException e) {}
             }
             finally {
-                sendBufferLock.unlock();
+                socketLock.unlock();
             }
+
+            domainOut.flush(); // no need to be protected by socketLock
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
         }
         finally {
             notConnectLock.unlock();
@@ -641,86 +585,62 @@ public class cMsg extends cMsgDomainAdapter {
                 text = "";
             }
 
-            int outGoing[] = new int[16];
-            outGoing[1]  = cMsgConstants.msgSyncSendRequest;
-            outGoing[2]  = 0; // reserved for future use
-            outGoing[3]  = message.getUserInt();
-            outGoing[4]  = message.getSysMsgId();
-            outGoing[5]  = message.getSenderToken();
-            outGoing[6]  = message.getInfo();
-
-            long now = new Date().getTime();
-            // send the time in milliseconds as 2, 32 bit integers
-            outGoing[7]  = (int) (now >>> 32); // higher 32 bits
-            outGoing[8]  = (int) (now & 0x00000000FFFFFFFFL); // lower 32 bits
-            outGoing[9]  = (int) (message.getUserTime().getTime() >>> 32);
-            outGoing[10] = (int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL);
-
-            outGoing[11] = subject.length();
-            outGoing[12] = type.length();
-
-            // send creator (this sender's name if msg created here)
+            // creator (this sender's name if msg created here)
             String creator = message.getCreator();
             if (creator == null) creator = name;
-            outGoing[13] = creator.length();
-
-            outGoing[14] = text.length();
 
             int binaryLength = message.getByteArrayLength();
-            outGoing[15] = binaryLength;
 
-            // total length of msg (not including this int) is 1st item
-            outGoing[0] = 4*(outGoing.length - 1) + outGoing[11] +
-                          outGoing[12] + outGoing[13] +
-                          outGoing[14] + outGoing[15];
-
-            // make sure there's enough room in the buffer
-            if (outGoing[0] + 4 > syncSendBuffer.capacity()) {
-                syncSendBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
-            }
-
-            // get ready to write
-            syncSendBuffer.clear();
-            // send ints over together using view buffer
-            syncSendBuffer.asIntBuffer().put(outGoing);
-            // position original buffer at position of view buffer
-            syncSendBuffer.position(64);
-
-            // write strings
+            socketLock.lock();
             try {
-                syncSendBuffer.put(subject.getBytes("US-ASCII"));
-                syncSendBuffer.put(type.getBytes("US-ASCII"));
-                syncSendBuffer.put(creator.getBytes("US-ASCII"));
-                syncSendBuffer.put(text.getBytes("US-ASCII"));
-                if (binaryLength > 0) {
-                    syncSendBuffer.put(message.getByteArray(),
-                                   message.getByteArrayOffset(),
-                                   binaryLength);
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4 * 15 + subject.length() + type.length() + creator.length() +
+                                text.length() + binaryLength);
+                domainOut.writeInt(cMsgConstants.msgSendRequest);
+                domainOut.writeInt(0); // reserved for future use
+                domainOut.writeInt(message.getUserInt());
+                domainOut.writeInt(message.getSysMsgId());
+                domainOut.writeInt(message.getSenderToken());
+                domainOut.writeInt(message.getInfo());
+
+                long now = new Date().getTime();
+                // send the time in milliseconds as 2, 32 bit integers
+                domainOut.writeInt((int) (now >>> 32)); // higher 32 bits
+                domainOut.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
+                domainOut.writeInt((int) (message.getUserTime().getTime() >>> 32));
+                domainOut.writeInt((int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL));
+
+                domainOut.writeInt(subject.length());
+                domainOut.writeInt(type.length());
+                domainOut.writeInt(creator.length());
+                domainOut.writeInt(text.length());
+                domainOut.writeInt(binaryLength);
+
+                // write strings & byte array
+                try {
+                    domainOut.write(subject.getBytes("US-ASCII"));
+                    domainOut.write(type.getBytes("US-ASCII"));
+                    domainOut.write(creator.getBytes("US-ASCII"));
+                    domainOut.write(text.getBytes("US-ASCII"));
+                    if (binaryLength > 0) {
+                        domainOut.write(message.getByteArray(),
+                                        message.getByteArrayOffset(),
+                                        binaryLength);
+                    }
                 }
+                catch (UnsupportedEncodingException e) {}
             }
-            catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
-            }
-
-            try {
-                // send buffer over the socket
-                syncSendBuffer.flip();
-                while (syncSendBuffer.hasRemaining()) {
-                    domainChannel.write(syncSendBuffer);
-                }
-                // read acknowledgment - 1 int of data
-                cMsgUtilities.readSocketBytes(syncSendBuffer, domainChannel, 4, debug);
-            }
-            catch (IOException e) {
-                throw new cMsgException(e.getMessage());
+            finally {
+                socketLock.unlock();
             }
 
-            // go back to reading-from-buffer mode
-            syncSendBuffer.flip();
-
-            int response = syncSendBuffer.getInt();
+            domainOut.flush(); // no need to be protected by socketLock
+            int response = domainIn.readInt(); // this is protected by syncSendLock
             return response;
 
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
         }
         finally {
             syncSendLock.unlock();
@@ -799,56 +719,29 @@ public class cMsg extends cMsgDomainAdapter {
             // keep track of get calls
             subscribeAndGets.put(id, holder);
 
-            int[] outGoing = new int[5];
-            // send message id to server
-            outGoing[1] = cMsgConstants.msgSubscribeAndGetRequest;
-            // send unique id of this subscription
-            outGoing[2] = id;
-            // send length of subscription subject
-            outGoing[3] = subject.length();
-            // send length of subscription type
-            outGoing[4] = type.length();
-            // total length of msg (not including this int) is 1st item
-            outGoing[0] = 4*(outGoing.length - 1) + outGoing[3] + outGoing[4];
-
-            // lock to prevent parallel gets from using same buffer
-            getBufferLock.lock();
+            socketLock.lock();
             try {
-                // make sure there's enough room in the buffer
-                if (outGoing[0] + 4 > getBuffer.capacity()) {
-                    getBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
-                }
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4*4 + subject.length() + type.length());
+                domainOut.writeInt(cMsgConstants.msgSubscribeAndGetRequest);
+                domainOut.writeInt(id); // reserved for future use
+                domainOut.writeInt(subject.length());
+                domainOut.writeInt(type.length());
 
-                // get ready to write
-                getBuffer.clear();
-                // send ints over together using view buffer
-                getBuffer.asIntBuffer().put(outGoing);
-                // position original buffer at position of view buffer
-                getBuffer.position(20);
-
-                // write strings
+                // write strings & byte array
                 try {
-                    getBuffer.put(subject.getBytes("US-ASCII"));
-                    getBuffer.put(type.getBytes("US-ASCII"));
+                    domainOut.write(subject.getBytes("US-ASCII"));
+                    domainOut.write(type.getBytes("US-ASCII"));
                 }
-                catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
-                }
-
-                try {
-                    // send buffer over the socket
-                    getBuffer.flip();
-                    while (getBuffer.hasRemaining()) {
-                        domainChannel.write(getBuffer);
-                    }
-                }
-                catch (IOException e) {
-                    throw new cMsgException(e.getMessage());
-                }
+                catch (UnsupportedEncodingException e) {}
             }
             finally {
-                getBufferLock.unlock();
+                socketLock.unlock();
             }
+            domainOut.flush();
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
         }
         // release lock 'cause we can't block connect/disconnect forever
         finally {
@@ -950,82 +843,59 @@ public class cMsg extends cMsgDomainAdapter {
             // track specific get requests
             sendAndGets.put(id, holder);
 
-            int outGoing[] = new int[15];
-            outGoing[1]  = cMsgConstants.msgSendAndGetRequest;
-            outGoing[2]  = 0; // reserved for future use
-            outGoing[3]  = message.getUserInt();
-            outGoing[4]  = id;
-            outGoing[5]  = message.getInfo() | cMsgMessage.isGetRequest;
-
-            long now = new Date().getTime();
-            // send the time in milliseconds as 2, 32 bit integers
-            outGoing[6]  = (int) (now >>> 32); // higher 32 bits
-            outGoing[7]  = (int) (now & 0x00000000FFFFFFFFL); // lower 32 bits
-            outGoing[8]  = (int) (message.getUserTime().getTime() >>> 32);
-            outGoing[9]  = (int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL);
-
-            outGoing[10] = subject.length();
-            outGoing[11] = type.length();
-
+            // creator (this sender's name if msg created here)
             String creator = message.getCreator();
             if (creator == null) creator = name;
-            outGoing[12] = creator.length();
-
-            outGoing[13] = text.length();
 
             int binaryLength = message.getByteArrayLength();
-            outGoing[14] = binaryLength;
 
-            // total length of msg (not including this int) is 1st item
-            outGoing[0] = 4*(outGoing.length - 1) + outGoing[10] +
-                          outGoing[11] + outGoing[12] +
-                          outGoing[13] + outGoing[14];
-
-            // lock to prevent parallel gets from using same buffer
-            getBufferLock.lock();
+            socketLock.lock();
             try {
-                // make sure there's enough room in the buffer
-                if (outGoing[0] + 4 > getBuffer.capacity()) {
-                    getBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
-                }
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4*14 + subject.length() + type.length() + creator.length() +
+                                   text.length() + binaryLength);
+                domainOut.writeInt(cMsgConstants.msgSendAndGetRequest);
+                domainOut.writeInt(0); // reserved for future use
+                domainOut.writeInt(message.getUserInt());
+                domainOut.writeInt(id);
+                domainOut.writeInt(message.getInfo() | cMsgMessage.isGetRequest);
 
-                // get ready to write
-                getBuffer.clear();
-                // send ints over together using view buffer
-                getBuffer.asIntBuffer().put(outGoing);
-                // position original buffer at position of view buffer
-                getBuffer.position(60);
+                long now = new Date().getTime();
+                // send the time in milliseconds as 2, 32 bit integers
+                domainOut.writeInt((int) (now >>> 32)); // higher 32 bits
+                domainOut.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
+                domainOut.writeInt((int) (message.getUserTime().getTime() >>> 32));
+                domainOut.writeInt((int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL));
 
-                // write strings
+                domainOut.writeInt(subject.length());
+                domainOut.writeInt(type.length());
+                domainOut.writeInt(creator.length());
+                domainOut.writeInt(text.length());
+                domainOut.writeInt(binaryLength);
+
+                // write strings & byte array
                 try {
-                    getBuffer.put(subject.getBytes("US-ASCII"));
-                    getBuffer.put(type.getBytes("US-ASCII"));
-                    getBuffer.put(text.getBytes("US-ASCII"));
-                    getBuffer.put(creator.getBytes("US-ASCII"));
+                    domainOut.write(subject.getBytes("US-ASCII"));
+                    domainOut.write(type.getBytes("US-ASCII"));
+                    domainOut.write(creator.getBytes("US-ASCII"));
+                    domainOut.write(text.getBytes("US-ASCII"));
                     if (binaryLength > 0) {
-                        getBuffer.put(message.getByteArray(),
-                                      message.getByteArrayOffset(),
-                                      binaryLength);
+                        domainOut.write(message.getByteArray(),
+                                        message.getByteArrayOffset(),
+                                        binaryLength);
                     }
                 }
-                catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
-                }
-
-                try {
-                    // send buffer over the socket
-                    getBuffer.flip();
-                    while (getBuffer.hasRemaining()) {
-                        domainChannel.write(getBuffer);
-                    }
-                }
-                catch (IOException e) {
-                    throw new cMsgException(e.getMessage());
-                }
+                catch (UnsupportedEncodingException e) {}
             }
             finally {
-                getBufferLock.unlock();
+                socketLock.unlock();
             }
+
+            domainOut.flush(); // no need to be protected by socketLock
+
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
         }
         // release lock 'cause we can't block connect/disconnect forever
         finally {
@@ -1045,7 +915,6 @@ public class cMsg extends cMsgDomainAdapter {
         }
         catch (InterruptedException e) {
         }
-
 
         // Tell server to forget the get if necessary.
         if (holder.timedOut) {
@@ -1077,38 +946,26 @@ public class cMsg extends cMsgDomainAdapter {
      * @param id unique id of get request to delete
      * @throws cMsgException if there are communication problems with the server
      */
-    private void unSendAndGet(int id)
-            throws cMsgException {
+    private void unSendAndGet(int id) throws cMsgException {
 
         if (!connected) {
             throw new cMsgException("not connected to server");
         }
 
-        // lock to prevent parallel (un)gets from using same buffer
-        getBufferLock.lock();
+        socketLock.lock();
         try {
-            // get ready to write
-            getBuffer.clear();
-            // send ints over
-            getBuffer.putInt(8); // 2 ints coming
-            getBuffer.putInt(cMsgConstants.msgUnSendAndGetRequest);
-            getBuffer.putInt(id);
-
-            try {
-                // send buffer over the socket
-                getBuffer.flip();
-                while (getBuffer.hasRemaining()) {
-                    domainChannel.write(getBuffer);
-                }
-            }
-            catch (IOException e) {
-                throw new cMsgException(e.getMessage());
-            }
+            // total length of msg (not including this int) is 1st item
+            domainOut.writeInt(8);
+            domainOut.writeInt(cMsgConstants.msgUnSendAndGetRequest);
+            domainOut.writeInt(id); // reserved for future use
+            domainOut.flush();
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
         }
         finally {
-            getBufferLock.unlock();
+            socketLock.unlock();
         }
-
     }
 
 
@@ -1123,38 +980,26 @@ public class cMsg extends cMsgDomainAdapter {
      * @param id unique id of get request to delete
      * @throws cMsgException if there are communication problems with the server
      */
-    private void unSubscribeAndGet(int id)
-            throws cMsgException {
+    private void unSubscribeAndGet(int id) throws cMsgException {
 
         if (!connected) {
             throw new cMsgException("not connected to server");
         }
 
-        // lock to prevent parallel (un)gets from using same buffer
-        getBufferLock.lock();
+        socketLock.lock();
         try {
-            // get ready to write
-            getBuffer.clear();
-            // send ints over
-            getBuffer.putInt(8); // 2 ints coming
-            getBuffer.putInt(cMsgConstants.msgUnSubscribeAndGetRequest);
-            getBuffer.putInt(id);
-
-            try {
-                // send buffer over the socket
-                getBuffer.flip();
-                while (getBuffer.hasRemaining()) {
-                    domainChannel.write(getBuffer);
-                }
-            }
-            catch (IOException e) {
-                throw new cMsgException(e.getMessage());
-            }
+            // total length of msg (not including this int) is 1st item
+            domainOut.writeInt(8);
+            domainOut.writeInt(cMsgConstants.msgUnSubscribeAndGetRequest);
+            domainOut.writeInt(id); // reserved for future use
+            domainOut.flush();
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
         }
         finally {
-            getBufferLock.unlock();
+            socketLock.unlock();
         }
-
     }
 
 
@@ -1181,7 +1026,7 @@ public class cMsg extends cMsgDomainAdapter {
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
         // cannot run this simultaneously with unsubscribe (get wrong order at server)
-        // or itself (use same buffer)
+        // or itself (iterate over same hashtable)
         subscribeLock.lock();
 
         try {
@@ -1240,48 +1085,31 @@ public class cMsg extends cMsgDomainAdapter {
                                                         new cMsgCallbackThread(cb, userObj));
             subscriptions.add(sub);
 
-            int[] outGoing = new int[5];
-            // first send message id to server
-            outGoing[1] = cMsgConstants.msgSubscribeRequest;
-            // send unique id of this subscription
-            outGoing[2] = id;
-            // send length of subscription subject
-            outGoing[3] = subject.length();
-            // send length of subscription type
-            outGoing[4] = type.length();
-            // total length of msg (not including this int) is 1st item
-            outGoing[0] = 4*(outGoing.length - 1) + outGoing[3] + outGoing[4];
-
-            // make sure there's enough room in the buffer
-            if (outGoing[0] + 4 > subBuffer.capacity()) {
-                subBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
-            }
-
-            // get ready to write
-            subBuffer.clear();
-            // send ints over together using view buffer
-            subBuffer.asIntBuffer().put(outGoing);
-            // position original buffer at position of view buffer
-            subBuffer.position(20);
-
-            // write strings
+            socketLock.lock();
             try {
-                subBuffer.put(subject.getBytes("US-ASCII"));
-                subBuffer.put(type.getBytes("US-ASCII"));
-            }
-            catch (UnsupportedEncodingException e) {
-            }
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4*4 + subject.length() + type.length());
+                domainOut.writeInt(cMsgConstants.msgSubscribeRequest);
+                domainOut.writeInt(id); // reserved for future use
+                domainOut.writeInt(subject.length());
+                domainOut.writeInt(type.length());
 
-            try {
-                // send buffer over the socket
-                subBuffer.flip();
-                while (subBuffer.hasRemaining()) {
-                    domainChannel.write(subBuffer);
+                // write strings & byte array
+                try {
+                    domainOut.write(subject.getBytes("US-ASCII"));
+                    domainOut.write(type.getBytes("US-ASCII"));
                 }
+                catch (UnsupportedEncodingException e) {}
             }
-            catch (IOException e) {
-                throw new cMsgException(e.getMessage());
+            finally {
+                socketLock.unlock();
             }
+
+            domainOut.flush();
+
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
         }
         finally {
             subscribeLock.unlock();
@@ -1312,7 +1140,7 @@ public class cMsg extends cMsgDomainAdapter {
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
         // cannot run this simultaneously with subscribe (get wrong order at server)
-        // or itself (use same buffer)
+        // or itself (iterate over same hashtable)
         subscribeLock.lock();
 
         try {
@@ -1375,48 +1203,31 @@ public class cMsg extends cMsgDomainAdapter {
 
             // notify the domain server
 
-            int[] outGoing = new int[5];
-            // first send message id to server
-            outGoing[1] = cMsgConstants.msgUnsubscribeRequest;
-            // first send message id to server
-            outGoing[2] = id;
-            // send length of subject
-            outGoing[3] = subject.length();
-            // send length of type
-            outGoing[4] = type.length();
-            // total length of msg (not including this int) is 1st item
-            outGoing[0] = 4*(outGoing.length - 1) + outGoing[3] + outGoing[4];
-
-            // make sure there's enough room in the buffer
-            if (outGoing[0] + 4 > subBuffer.capacity()) {
-                subBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
-            }
-
-            // get ready to write
-            subBuffer.clear();
-            // send ints over together using view buffer
-            subBuffer.asIntBuffer().put(outGoing);
-            // position original buffer at position of view buffer
-            subBuffer.position(20);
-
-            // write strings
+            socketLock.lock();
             try {
-                subBuffer.put(subject.getBytes("US-ASCII"));
-                subBuffer.put(type.getBytes("US-ASCII"));
-            }
-            catch (UnsupportedEncodingException e) {
-            }
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4*4 + subject.length() + type.length());
+                domainOut.writeInt(cMsgConstants.msgUnsubscribeRequest);
+                domainOut.writeInt(id); // reserved for future use
+                domainOut.writeInt(subject.length());
+                domainOut.writeInt(type.length());
 
-            try {
-                // send buffer over the socket
-                subBuffer.flip();
-                while (subBuffer.hasRemaining()) {
-                    domainChannel.write(subBuffer);
+                // write strings & byte array
+                try {
+                    domainOut.write(subject.getBytes("US-ASCII"));
+                    domainOut.write(type.getBytes("US-ASCII"));
                 }
+                catch (UnsupportedEncodingException e) {}
             }
-            catch (IOException e) {
-                throw new cMsgException(e.getMessage());
+            finally {
+                socketLock.unlock();
             }
+
+            domainOut.flush();
+
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
         }
         finally {
             subscribeLock.unlock();
@@ -1456,46 +1267,31 @@ public class cMsg extends cMsgDomainAdapter {
                 server = new String("");
             }
 
-            int outGoing[] = new int[5];
-            outGoing[1] = cMsgConstants.msgShutdown;
-            outGoing[2] = flag;
-            outGoing[3] = client.length();
-            outGoing[4] = server.length();
-
-            // total length of msg (not including this int) is 1st item
-            outGoing[0] = 4*(outGoing.length - 1) + outGoing[3] + outGoing[4];
-
-            // make sure there's enough room in the buffer
-            if (outGoing[0] + 4 > sendBuffer.capacity()) {
-                sendBuffer = ByteBuffer.allocateDirect(outGoing[0] + 1004);
-            }
-
-            // get ready to write
-            sendBuffer.clear();
-            // send ints over together using view buffer
-            sendBuffer.asIntBuffer().put(outGoing);
-            // position original buffer at position of view buffer
-            sendBuffer.position(20);
-
-            // write strings
+            socketLock.lock();
             try {
-                sendBuffer.put(client.getBytes("US-ASCII"));
-                sendBuffer.put(server.getBytes("US-ASCII"));
-            }
-            catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
-            }
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4*4 + client.length() + server.length());
+                domainOut.writeInt(cMsgConstants.msgShutdown);
+                domainOut.writeInt(flag); // reserved for future use
+                domainOut.writeInt(client.length());
+                domainOut.writeInt(server.length());
 
-            try {
-                // send buffer over the socket
-                sendBuffer.flip();
-                while (sendBuffer.hasRemaining()) {
-                    domainChannel.write(sendBuffer);
+                // write strings & byte array
+                try {
+                    domainOut.write(client.getBytes("US-ASCII"));
+                    domainOut.write(server.getBytes("US-ASCII"));
                 }
+                catch (UnsupportedEncodingException e) {}
             }
-            catch (IOException e) {
-                throw new cMsgException(e.getMessage());
+            finally {
+                socketLock.unlock();
             }
+
+            domainOut.flush();
+
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
         }
         finally {
             connectLock.unlock();
@@ -1517,111 +1313,52 @@ public class cMsg extends cMsgDomainAdapter {
      */
     private void talkToNameServer(SocketChannel channel) throws IOException, cMsgException {
 
-        // A direct buffer is necessary for nio socket IO.
-        ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+        byte[] buf = new byte[512];
 
-        int[] outGoing = new int[11];
+        DataInputStream  in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream()));
+        DataOutputStream out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream()));
 
-        // first send message id to server
-        outGoing[0] = cMsgConstants.msgConnectRequest;
-        // major version
-        outGoing[1] = cMsgConstants.version;
-        // minor version
-        outGoing[2] = cMsgConstants.minorVersion;
-        // send my listening port (as an int) to server
-        outGoing[3] = port;
-        // send domain type of server I'm expecting to connect to
-        outGoing[4] = domain.length();
-        // send subdomain type of server I'm expecting to use
-        outGoing[5] = subdomain.length();
-        // send remainder for use by subdomain plugin
-        outGoing[6] = subRemainder.length();
-        // send length of my host name to server
-        outGoing[7] = host.length();
-        // send length of my name to server
-        outGoing[8] = name.length();
-        // send length of my UDL to server
-        outGoing[9] = UDL.length();
-        // send length of my description to server
-        outGoing[10] = description.length();
+        out.writeInt(cMsgConstants.msgConnectRequest);
+        out.writeInt(cMsgConstants.version);
+        out.writeInt(cMsgConstants.minorVersion);
+        out.writeInt(port);
+        out.writeInt(domain.length());
+        out.writeInt(subdomain.length());
+        out.writeInt(subRemainder.length());
+        out.writeInt(host.length());
+        out.writeInt(name.length());
+        out.writeInt(UDL.length());
+        out.writeInt(description.length());
 
-        // make sure there's enough room in the buffer
-        int len = domain.length() +
-                  subdomain.length() +
-                  subRemainder.length() +
-                  host.length() +
-                  name.length() +
-                  UDL.length() +
-                  description.length() + 44;
-
-        if (len > buffer.capacity()) {
-            buffer = ByteBuffer.allocateDirect(len);
-        }
-
-        // get ready to write
-        buffer.clear();
-        // send ints over together using view buffer
-        buffer.asIntBuffer().put(outGoing);
-        // position original buffer at position of view buffer
-        buffer.position(44);
-
+        // write strings & byte array
         try {
-            // send the type of domain server I'm expecting to connect to
-            buffer.put(domain.getBytes("US-ASCII"));
-
-            // send subdomain type of server I'm expecting to use
-            buffer.put(subdomain.getBytes("US-ASCII"));
-
-            // send UDL remainder for use by subdomain plugin
-            buffer.put(subRemainder.getBytes("US-ASCII"));
-
-            // send my host name to server
-            buffer.put(host.getBytes("US-ASCII"));
-
-            // send my name to server
-            buffer.put(name.getBytes("US-ASCII"));
-
-            // send UDL for completeness
-            buffer.put(UDL.getBytes("US-ASCII"));
-
-            // send description for completeness
-            buffer.put(description.getBytes("US-ASCII"));
+            out.write(domain.getBytes("US-ASCII"));
+            out.write(subdomain.getBytes("US-ASCII"));
+            out.write(subRemainder.getBytes("US-ASCII"));
+            out.write(host.getBytes("US-ASCII"));
+            out.write(name.getBytes("US-ASCII"));
+            out.write(UDL.getBytes("US-ASCII"));
+            out.write(description.getBytes("US-ASCII"));
         }
         catch (UnsupportedEncodingException e) {
         }
 
-        // get ready to write
-        buffer.flip();
+        out.flush(); // no need to be protected by socketLock
 
-        // write everything
-        while (buffer.hasRemaining()) {
-            channel.write(buffer);
-        }
-
-        // read acknowledgment & keep reading until we have 1 int of data
-        cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
-
-        // go back to reading-from-buffer mode
-        buffer.flip();
-
-        int error = buffer.getInt();
+        // read acknowledgment
+        int error = in.readInt();
 
         // if there's an error, read error string then quit
         if (error != cMsgConstants.ok) {
+
             // read string length
-            cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
-            buffer.flip();
-            len = buffer.getInt();
+            int len = in.readInt();
+            if (len > buf.length) {
+                buf = new byte[len+100];
+            }
 
             // read error string
-            if (len > buffer.capacity()) {
-                buffer = ByteBuffer.allocateDirect(len);
-            }
-            cMsgUtilities.readSocketBytes(buffer, channel, len, debug);
-            buffer.flip();
-            byte[] buf = new byte[len];
-            // read string
-            buffer.get(buf, 0, len);
+            in.readFully(buf, 0, len);
             String err = new String(buf, 0, len, "US-ASCII");
 
             throw new cMsgException("Error from server: " + err);
@@ -1631,38 +1368,27 @@ public class cMsg extends cMsgDomainAdapter {
         //   1) attributes of subdomain handler object
         //   2) domain server host & port
 
-        // Read attributes
-        cMsgUtilities.readSocketBytes(buffer, channel, 7, debug);
-        buffer.flip();
+        in.readFully(buf,0,7);
 
-        hasSend            = (buffer.get() == (byte)1) ? true : false;
-        hasSyncSend        = (buffer.get() == (byte)1) ? true : false;
-        hasSubscribeAndGet = (buffer.get() == (byte)1) ? true : false;
-        hasSendAndGet      = (buffer.get() == (byte)1) ? true : false;
-        hasSubscribe       = (buffer.get() == (byte)1) ? true : false;
-        hasUnsubscribe     = (buffer.get() == (byte)1) ? true : false;
-        hasShutdown        = (buffer.get() == (byte)1) ? true : false;
+        hasSend            = (buf[0] == (byte)1) ? true : false;
+        hasSyncSend        = (buf[1] == (byte)1) ? true : false;
+        hasSubscribeAndGet = (buf[2] == (byte)1) ? true : false;
+        hasSendAndGet      = (buf[3] == (byte)1) ? true : false;
+        hasSubscribe       = (buf[4] == (byte)1) ? true : false;
+        hasUnsubscribe     = (buf[5] == (byte)1) ? true : false;
+        hasShutdown        = (buf[6] == (byte)1) ? true : false;
 
         // Read port & length of host name.
-        // first read 2 ints of data
-        cMsgUtilities.readSocketBytes(buffer, channel, 8, debug);
-        buffer.flip();
-
-        domainServerPort = buffer.getInt();
-        int hostLength   = buffer.getInt();
+        domainServerPort = in.readInt();
+        int hostLength   = in.readInt();
 
         // read host name
-        cMsgUtilities.readSocketBytes(buffer, channel, hostLength, debug);
-
-        // go back to reading-from-buffer mode
-        buffer.flip();
-
-        // allocate byte array
-        byte[] buf = new byte[hostLength];
-
-        // read host
-        buffer.get(buf, 0, hostLength);
+        if (hostLength > buf.length) {
+            buf = new byte[hostLength];
+        }
+        in.readFully(buf, 0, hostLength);
         domainServerHost = new String(buf, 0, hostLength, "US-ASCII");
+
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("  domain server host = " + domainServerHost +
                                ", port = " + domainServerPort);
@@ -1782,8 +1508,11 @@ class KeepAlive extends Thread {
     /** Socket communication channel with domain server. */
     private SocketChannel channel;
 
-    /** A direct buffer is necessary for nio socket IO. */
-    private ByteBuffer buffer = ByteBuffer.allocateDirect(8);
+    /** Socket input stream associated with channel. */
+    private DataInputStream  in;
+
+    /** Socket output stream associated with channel. */
+    private DataOutputStream out;
 
     /** cMsg client object. */
     private cMsg client;
@@ -1806,10 +1535,14 @@ class KeepAlive extends Thread {
      * @param client client that is monitoring the health of the domain server
      * @param channel communication channel with domain server
      */
-    public KeepAlive(cMsg client, SocketChannel channel) {
+    public KeepAlive(cMsg client, SocketChannel channel) throws IOException {
         this.client  = client;
         this.channel = channel;
         this.debug   = client.debug;
+        // buffered communication streams for efficiency
+        in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream()));
+        out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream()));
+
         // die if no more non-daemon thds running
         setDaemon(true);
     }
@@ -1829,28 +1562,20 @@ class KeepAlive extends Thread {
                 }
 
                 // send keep alive command
-                buffer.clear();
-                buffer.putInt(4);
-                buffer.putInt(cMsgConstants.msgKeepAlive).flip();
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
+                out.writeInt(4);
+                out.writeInt(cMsgConstants.msgKeepAlive);
+                out.flush();
 
                 // read response -  1 int
-                cMsgUtilities.readSocketBytes(buffer, channel, 4, cMsgConstants.debugInfo);
-
-                // go back to reading-from-buffer mode
-                buffer.flip();
-
-                // read 1 int
-                buffer.getInt();
+                in.readInt();
 
                // sleep for 1 second and try again
-               try {Thread.sleep(1000);}
+               try {Thread.sleep(1500);}
                catch (InterruptedException e) {}
             }
         }
         catch (IOException e) {
+            e.printStackTrace();
         }
 
         // if we've reach here, there's an error, do a disconnect
@@ -1866,4 +1591,5 @@ class KeepAlive extends Thread {
         client.disconnect();
 
     }
+
 }
