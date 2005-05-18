@@ -17,9 +17,14 @@ public class cMsgProducer {
     String  subject = "SUBJECT";
     String  type = "TYPE";
 
-    String  text = "TEXT";
+    String  text;
     char[]  textChars;
     int     textSize;
+    boolean sendText;
+    
+    byte[]  binArray;
+    int     binSize;
+    boolean sendBinary;
 
     int     delay;
     boolean debug;
@@ -67,6 +72,7 @@ public class cMsgProducer {
             }
             else if (args[i].equalsIgnoreCase("-text")) {
                 text = args[i + 1];
+                sendText = true;
                 i++;
             }
             else if (args[i].equalsIgnoreCase("-textsize")) {
@@ -75,6 +81,17 @@ public class cMsgProducer {
                 Arrays.fill(textChars, 'A');
                 text = new String(textChars);
                 System.out.println("text len = " + text.length());
+                sendText = true;
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-binsize")) {
+                binSize  = Integer.parseInt(args[i + 1]);
+                binArray = new byte[binSize];
+                for (int j=0; j < binSize; j++) {
+                  binArray[j] = (byte)(j%255);
+                }
+                System.out.println("binary size = " + binSize);
+                sendBinary = true;
                 i++;
             }
             else if (args[i].equalsIgnoreCase("-delay")) {
@@ -162,17 +179,18 @@ public class cMsgProducer {
         cMsgMessage msg = new cMsgMessage();
         msg.setSubject(subject);
         msg.setType(type);
-        //msg.setText(text);
-
-        byte[] bin = new byte[100];
-        for (int i=0; i< bin.length; i++) {
-            bin[i] = (byte)(i%255);
+        if (sendText) {
+          System.out.println("Sending text\n");
+          msg.setText(text);
         }
-        msg.setByteArrayNoCopy(bin);
+        if (sendBinary) {
+          System.out.println("Sending byte array\n");
+          msg.setByteArrayNoCopy(binArray);
+        }
 
         // variables to track message rate
         double freq=0., freqAvg=0.;
-        long t1, t2, deltaT, totalT=0, totalC=0, count=30000;
+        long t1, t2, deltaT, totalT=0, totalC=0, count=100;
 
         // delay between messages
         if (delay != 0) count = count/(20 + delay);
