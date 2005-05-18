@@ -181,8 +181,8 @@ public class cMsgConsumer {
 
             if (debug) {
                 System.out.println("count = " + count + ", " +
-                                   doubleToString(freq, 0) + " Hz, Avg = " +
-                                   doubleToString(freqAvg, 0) + " Hz");
+                                   doubleToString(freq, 1) + " Hz, Avg = " +
+                                   doubleToString(freqAvg, 1) + " Hz");
             }
 
             if (!coda.isConnected()) {
