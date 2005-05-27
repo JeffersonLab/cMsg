@@ -34,7 +34,7 @@ extern "C" {
 /*
  * Initialize a read-write lock
  */
-int rwl_init (rwlock_t *rwl)
+int rwl_init (rwLock_t *rwl)
 {
     int status;
 
@@ -64,7 +64,7 @@ int rwl_init (rwlock_t *rwl)
 /*
  * Destroy a read-write lock
  */
-int rwl_destroy (rwlock_t *rwl)
+int rwl_destroy (rwLock_t *rwl)
 {
     int status, status1, status2;
 
@@ -111,7 +111,7 @@ int rwl_destroy (rwlock_t *rwl)
  */
 static void rwl_readcleanup (void *arg)
 {
-    rwlock_t    *rwl = (rwlock_t *)arg;
+    rwLock_t    *rwl = (rwLock_t *)arg;
 
     rwl->r_wait--;
     pthread_mutex_unlock (&rwl->mutex);
@@ -120,7 +120,7 @@ static void rwl_readcleanup (void *arg)
 /*
  * Lock a read-write lock for read access.
  */
-int rwl_readlock (rwlock_t *rwl)
+int rwl_readlock (rwLock_t *rwl)
 {
     int status;
 
@@ -150,7 +150,7 @@ int rwl_readlock (rwlock_t *rwl)
  * Attempt to lock a read-write lock for read access (don't
  * block if unavailable).
  */
-int rwl_readtrylock (rwlock_t *rwl)
+int rwl_readtrylock (rwLock_t *rwl)
 {
     int status, status2;
 
@@ -170,7 +170,7 @@ int rwl_readtrylock (rwlock_t *rwl)
 /*
  * Unlock a read-write lock from read access.
  */
-int rwl_readunlock (rwlock_t *rwl)
+int rwl_readunlock (rwLock_t *rwl)
 {
     int status, status2;
 
@@ -195,7 +195,7 @@ int rwl_readunlock (rwlock_t *rwl)
  */
 static void rwl_writecleanup (void *arg)
 {
-    rwlock_t *rwl = (rwlock_t *)arg;
+    rwLock_t *rwl = (rwLock_t *)arg;
 
     rwl->w_wait--;
     pthread_mutex_unlock (&rwl->mutex);
@@ -204,7 +204,7 @@ static void rwl_writecleanup (void *arg)
 /*
  * Lock a read-write lock for write access.
  */
-int rwl_writelock (rwlock_t *rwl)
+int rwl_writelock (rwLock_t *rwl)
 {
     int status;
 
@@ -234,7 +234,7 @@ int rwl_writelock (rwlock_t *rwl)
  * Attempt to lock a read-write lock for write access. Don't
  * block if unavailable.
  */
-int rwl_writetrylock (rwlock_t *rwl)
+int rwl_writetrylock (rwLock_t *rwl)
 {
     int status, status2;
 
@@ -254,7 +254,7 @@ int rwl_writetrylock (rwlock_t *rwl)
 /*
  * Unlock a read-write lock from write access.
  */
-int rwl_writeunlock (rwlock_t *rwl)
+int rwl_writeunlock (rwLock_t *rwl)
 {
     int status;
 
