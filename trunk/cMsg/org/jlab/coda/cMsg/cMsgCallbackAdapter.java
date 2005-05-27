@@ -56,7 +56,7 @@ public class cMsgCallbackAdapter implements cMsgCallbackInterface {
      * @return maximum number of messages to cue for the callback
      */
     public int getMaximumCueSize() {
-        return 60000;
+        return 1000;
     }
 
     /**
@@ -66,7 +66,7 @@ public class cMsgCallbackAdapter implements cMsgCallbackInterface {
      * @return maximum number of messages to skip over from the cue
      */
     public int getSkipSize() {
-        return 10000;
+        return 200;
     }
 
     /**
@@ -75,7 +75,7 @@ public class cMsgCallbackAdapter implements cMsgCallbackInterface {
      * @return maximum number of supplemental threads to start
      */
     public int getMaximumThreads() {
-        return 1000;
+        return 100;
     }
 
     /**
