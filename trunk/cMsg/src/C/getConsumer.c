@@ -39,8 +39,8 @@ int main(int argc,char **argv) {
   void *msg, *replyMsg;
   
   /* msg rate measuring variables */
-  int             count, i, delay=0, loops=5000;
-  struct timespec timeout, t1, t2;
+  int             dostring=1, count, i, delay=0, loops=5000;
+  struct timespec timeout, t1, t2, sleeep;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
 
@@ -48,33 +48,52 @@ int main(int argc,char **argv) {
   timeout.tv_sec  = 3;
   timeout.tv_nsec = 0;    
   
-    /*
+  sleeep.tv_sec  = 0;
+  sleeep.tv_nsec = 10000000; /* 10 millisec */
+  
+  
   if (argc > 1) {
-    char *p;
-    msgSize = atoi(argv[1]);
-    text = p = (char *) malloc((size_t) (msgSize + 1));
-    if (p == NULL) exit(1);
-    printf("using text size %d\n", msgSize);
-    for (i=0; i < msgSize; i++) {
-      *p = 'A';
-      p++;
-    }
-    *p = '\0';
+     if (strcmp("-s", argv[1]) == 0) {
+       dostring = 1;
+     }
+     else if (strcmp("-b", argv[1]) == 0) {
+       dostring = 0;
+     }
+     else {
+       printf("specify -s or -b flag for string or bytearray data\n");
+       exit(1);
+     }
   }
-  */
   
-  /*printf("Text = %s\n", text);*/
-  
-  if (argc > 1) {
-    char *p;
-    msgSize = atoi(argv[1]);
-    bytes = p = (char *) malloc((size_t) msgSize);
-    if (p == NULL) exit(1);
-    printf("using msg size %d\n", msgSize);
-    for (i=0; i < msgSize; i++) {
-      *p = i%255;
-      p++;
+  if (argc > 2) {
+    if (dostring) {
+      char *p;
+      msgSize = atoi(argv[2]);
+      text = p = (char *) malloc((size_t) (msgSize + 1));
+      if (p == NULL) exit(1);
+      printf("using text msg size %d\n", msgSize);
+      for (i=0; i < msgSize; i++) {
+        *p = 'A';
+        p++;
+      }
+      *p = '\0';
+      /*printf("Text = %s\n", text);*/
     }
+    else {
+      char *p;
+      msgSize = atoi(argv[2]);
+      bytes = p = (char *) malloc((size_t) msgSize);
+      if (p == NULL) exit(1);
+      printf("using array msg size %d\n", msgSize);
+      for (i=0; i < msgSize; i++) {
+        *p = i%255;
+        p++;
+      }
+    }
+  }
+  else {
+      printf("using no text or byte array\n");
+      dostring = 1;
   }
 
   if (debug) {
@@ -95,8 +114,15 @@ int main(int argc,char **argv) {
   msg = cMsgCreateMessage();
   cMsgSetSubject(msg, subject);
   cMsgSetType(msg, type);
-  /*cMsgSetText(msg, text);*/
-  cMsgSetByteArrayAndLimits(msg, bytes, 0, msgSize);
+  
+  if (dostring) {
+    printf("setting text\n");
+    cMsgSetText(msg, text);
+  }
+  else {
+    printf("setting byte array\n");
+    cMsgSetByteArrayAndLimits(msg, bytes, 0, msgSize);
+  }
     
   /* start receiving response messages */
   cMsgReceiveStart(domainId);
@@ -137,7 +163,7 @@ int main(int argc,char **argv) {
           }
           
           if (delay != 0) {
-              sleep(delay);
+              nanosleep(&sleeep, NULL);
           }          
       }
 
