@@ -16,6 +16,8 @@
  
 #ifdef VXWORKS
 #include <vxWorks.h>
+#else
+#include <strings.h>
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,12 +37,12 @@ int main(int argc,char **argv) {
   char *type    = "TYPE";
   char *text    = NULL;
   char *bytes   = NULL;
-  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
-  int   err, debug=1, domainId=-1, msgSize=0;
+  char *UDL     = "cMsg:cMsg://phecda:3456/cMsg/test";
+  int   err, debug=1, domainId=-1, msgSize=0, mainloops=10;
   void *msg;
   
   /* msg rate measuring variables */
-  int             dostring=0, count, i, delay=0, loops=100;
+  int             dostring=0, count, i, delay=0, loops=30000, ignore=4;
   struct timespec t1, t2, sleeep;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
@@ -79,7 +81,7 @@ int main(int argc,char **argv) {
     else {
       char *p;
       msgSize = atoi(argv[2]);
-      bytes = p = (char *) malloc((size_t) msgSize);
+      bytes = p = (char *) malloc((size_t) msgSize); /* allocating mem here */
       if (p == NULL) exit(1);
       printf("using array msg size %d\n", msgSize);
       for (i=0; i < msgSize; i++) {
@@ -108,9 +110,9 @@ int main(int argc,char **argv) {
   }
   
   /* create message to be sent */
-  msg = cMsgCreateMessage();
-  cMsgSetSubject(msg, subject);
-  cMsgSetType(msg, type);
+  msg = cMsgCreateMessage();    /* allocating mem here */
+  cMsgSetSubject(msg, subject); /* allocating mem here */
+  cMsgSetType(msg, type);       /* allocating mem here */
   
   if (dostring) {
     printf("setting text\n");
@@ -127,6 +129,7 @@ int main(int argc,char **argv) {
   }
   */
   
+  /*while (mainloops-- > 0) {*/
   while (1) {
       count = 0;
       
@@ -150,18 +153,24 @@ int main(int argc,char **argv) {
       }
 
       /* rate */
-      clock_gettime(CLOCK_REALTIME, &t2);
-      deltaT  = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
-      totalT += deltaT;
-      totalC += count;
-      freq    = count/deltaT;
-      freqAvg = (double)totalC/totalT;
-      
-      printf("count = %d, %9.0f Hz, %9.0f Hz Avg.\n", count, freq, freqAvg);
+      if (!ignore) {
+        clock_gettime(CLOCK_REALTIME, &t2);
+        deltaT  = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
+        totalT += deltaT;
+        totalC += count;
+        freq    = count/deltaT;
+        freqAvg = (double)totalC/totalT;
+
+        printf("count = %d, %9.1f Hz, %9.1f Hz Avg.\n", count, freq, freqAvg);
+      }
+      else {
+        ignore--;
+      } 
   } 
   
   end:
   
+  cMsgFreeMessage(msg);
   err = cMsgDisconnect(domainId);
   if (err != CMSG_OK) {
       if (debug) {

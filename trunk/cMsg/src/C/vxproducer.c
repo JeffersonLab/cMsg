@@ -36,12 +36,12 @@ int cMsgProducer(void) {
   char *type    = "TYPE";
   char *text    = "TEXT";
   char *bytes   = NULL;
-  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
+  char *UDL     = "cMsg:cMsg://phecda:3456/cMsg/test";
   int   err, debug=1, domainId=-1, msgSize=0, response;
   void *msg;
   
   /* msg rate measuring variables */
-  int             dostring=1, count, i, delay=0, loops=2000;
+  int             dostring=1, count, i, delay=0, loops=10000, ignore=5;
   struct timespec t1, t2;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
@@ -146,14 +146,19 @@ int cMsgProducer(void) {
       }
 
       /* rate */
-      clock_gettime(CLOCK_REALTIME, &t2);
-      deltaT  = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
-      totalT += deltaT;
-      totalC += count;
-      freq    = count/deltaT;
-      freqAvg = (double)totalC/totalT;
-      
-      printf("count = %d, %9.0f Hz, %9.0f Hz Avg.\n", count, freq, freqAvg);
+      if (!ignore) {
+        clock_gettime(CLOCK_REALTIME, &t2);
+        deltaT  = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
+        totalT += deltaT;
+        totalC += count;
+        freq    = count/deltaT;
+        freqAvg = (double)totalC/totalT;
+
+        printf("count = %d, %9.1f Hz, %9.1f Hz Avg.\n", count, freq, freqAvg);
+      }
+      else {
+        ignore--;
+      } 
   } 
   
   end:
