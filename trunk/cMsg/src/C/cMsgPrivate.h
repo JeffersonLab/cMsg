@@ -131,7 +131,7 @@ typedef struct domainFunctions_t {
 
 /** This structure holds function pointers by domain type. */
 typedef struct domainTypeInfo_t {
-  char *type;                 /**< Type of the domain. */
+  const char *type;                 /**< Type of the domain. */
   domainFunctions *functions; /**< Pointer to structure of domain implementation functions. */
 } domainTypeInfo;
 

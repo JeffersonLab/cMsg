@@ -110,7 +110,7 @@ static cMsgDomain domains[MAX_DOMAINS];
 
 
 /** Excluded characters from subject, type, and description strings. */
-static char *excludedChars = "`\'\"";
+static const char *excludedChars = "`\'\"";
 
 
 /** For domain implementations. */
@@ -1427,7 +1427,6 @@ int cMsgFreeMessage(void *vmsg) {
  */   
   void *cMsgCopyMessage(void *vmsg) {
     cMsgMessage *newMsg, *msg = (cMsgMessage *)vmsg;
-    void *p;
     
     if (vmsg == NULL) {
       return NULL;
