@@ -22,6 +22,7 @@
 #include <pthread.h>
 
 #include "cMsg.h"
+#include "errors.h"
 
 int count = 0, domainId = -1;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -29,10 +30,20 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /******************************************************************/
 static void callback(void *msg, void *arg) {
+  int status;
   
-  pthread_mutex_lock(&mutex);
+  status = pthread_mutex_lock(&mutex);
+  if (status != 0) {
+    err_abort(status, "error grabbing mutex");
+  }
+  
   count++;
-  pthread_mutex_unlock(&mutex);
+  
+  status = pthread_mutex_unlock(&mutex);
+  if (status != 0) {
+    err_abort(status, "error releasing mutex");
+  }
+  
   /* user MUST free messages passed to the callback */
   cMsgFreeMessage(msg);
 }
@@ -76,7 +87,7 @@ int main(int argc,char **argv) {
   char *myDescription = "C consumer";
   char *subject = "SUBJECT";
   char *type    = "TYPE";
-  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
+  char *UDL     = "cMsg:cMsg://phecda:3456/cMsg/test";
   int   err, debug = 1;
   cMsgSubscribeConfig *config;
   
@@ -84,7 +95,7 @@ int main(int argc,char **argv) {
   int             period = 5; /* sec */
   double          freq, freqAvg=0., totalT=0.;
   long long       totalC=0;
-  
+
   if (argc > 1) {
     myName = argv[1];
   }
@@ -107,9 +118,9 @@ int main(int argc,char **argv) {
   
   /* set the subscribe configuration */
   config = cMsgSubscribeConfigCreate();
-  cMsgSubscribeSetMaxCueSize(config, 100);
-  cMsgSubscribeSetSkipSize(config, 2000);
-  cMsgSubscribeSetMaySkip(config, 0);
+  cMsgSubscribeSetMaxCueSize(config, 1000);
+  cMsgSubscribeSetSkipSize(config, 200);
+  cMsgSubscribeSetMaySkip(config,0);
   cMsgSubscribeSetMustSerialize(config, 1);
   cMsgSubscribeSetMaxThreads(config, 290);
   cMsgSubscribeSetMessagesPerThread(config, 150);
@@ -135,7 +146,7 @@ int main(int argc,char **argv) {
       totalC += count;
       freq    = (double)count/period;
       freqAvg = totalC/totalT;
-      printf("count = %d, %9.0f Hz, %9.0f Hz Avg.\n", count, freq, freqAvg);
+      printf("count = %d, %9.1f Hz, %9.1f Hz Avg.\n", count, freq, freqAvg);
   }
 
   return(0);
