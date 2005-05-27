@@ -83,7 +83,7 @@ static pthread_mutex_t generalMutex = PTHREAD_MUTEX_INITIALIZER;
  * Read/write lock to prevent connect or disconnect from being
  * run simultaneously with any other function.
  */
-static rwlock_t connectLock = RWL_INITIALIZER; 
+static rwLock_t connectLock = RWL_INITIALIZER; 
 /** Id number which uniquely defines a subject/type pair. */
 static int subjectTypeId = 1;
 
@@ -544,6 +544,14 @@ static int codaSend(int domainId, void *vmsg) {
   long long llTime;
   struct timespec now;
     
+  /* msg rate measuring variables */
+  /*
+  static int             count=0, i, delay=0, loops=10000, ignore=5;
+  static struct timespec t1, t2;
+  static double          freq, freqAvg=0., deltaT, totalT=0.;
+  static long long       totalC=0;
+  */
+  
   if (!domain->hasSend) {
     return(CMSG_NOT_IMPLEMENTED);
   }
@@ -665,6 +673,25 @@ static int codaSend(int domainId, void *vmsg) {
   /* done protecting communications */
   socketMutexUnlock(domain);
   connectReadUnlock();
+
+  /* calculate rate */
+  /*
+  if (count == 0) {
+    clock_gettime(CLOCK_REALTIME, &t1);
+  }
+
+  if (count == loops-1) {
+      clock_gettime(CLOCK_REALTIME, &t2);
+      deltaT  = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
+      totalT += deltaT;
+      totalC += count;
+      freq    = count/deltaT;
+      freqAvg = (double)totalC/totalT;
+      printf("Sending count = %d, %9.1f Hz, %9.1f Hz Avg.\n", count, freq, freqAvg);
+      count = -1;
+  }
+  count++;
+  */
 
   return(CMSG_OK);
 }
@@ -2823,10 +2850,8 @@ static int codaDisconnect(int domainId) {
     fprintf(stderr, "codaDisconnect:cancel keep alive thread\n");
   }
   
-  status = pthread_cancel(domain->keepAliveThread);
-  if (status != 0) {
-    err_abort(status, "Cancelling keep alive thread");
-  }
+  /* don't care if this fails */
+  pthread_cancel(domain->keepAliveThread);
   close(domain->keepAliveSocket);
 
   /* Tell server we're disconnecting */
@@ -2863,10 +2888,7 @@ static int codaDisconnect(int domainId) {
     fprintf(stderr, "codaDisconnect:cancel listening & client threads\n");
   }
   
-  status = pthread_cancel(domain->pendThread);
-  if (status != 0) {
-    err_abort(status, "Cancelling message listening & client threads");
-  }
+  pthread_cancel(domain->pendThread);
   /* close listening socket */
   close(domain->listenSocket);
   
@@ -3072,7 +3094,7 @@ static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
   int  lengthHost, lengthName, lengthUDL, lengthDescription;
   int  outGoing[11], inComing[2];
   char temp[CMSG_MAXHOSTNAMELEN], atts[7];
-  char *domainType = "cMsg";
+  const char *domainType = "cMsg";
   struct iovec iov[8];
 
   /* first send message id (in network byte order) to server */
@@ -3451,6 +3473,12 @@ static void *callbackThread(void *arg)
         err_abort(status, "Failed callback mutex unlock");
       }
       
+      /* wakeup cMsgRunCallbacks thread if trying to add item to full cue */
+      status = pthread_cond_broadcast(&subscription->cond);
+      if (status != 0) {
+        err_abort(status, "Failed callback condition signal");
+      }
+
       /* print out number of messages in cue */
       /*
       t = time(NULL);
@@ -3594,6 +3622,11 @@ static void *supplementalThread(void *arg)
         err_abort(status, "Failed callback mutex unlock");
       }
       
+      /* wakeup cMsgRunCallbacks thread if trying to add item to full cue */
+      status = pthread_cond_broadcast(&subscription->cond);
+      if (status != 0) {
+        err_abort(status, "Failed callback condition signal");
+      }
 
       /* run callback */
 #ifdef	__cplusplus
@@ -3632,6 +3665,12 @@ int cMsgRunCallbacks(int domainId, cMsgMessage *msg) {
   getInfo *info;
   cMsgDomain_CODA *domain;
   cMsgMessage *message, *oldHead;
+  struct timespec wait, timeout;
+    
+
+  /* wait .1 sec for empty space on a full cue */
+  timeout.tv_sec  = 0;
+  timeout.tv_nsec = 100000000;
   
   domain = &cMsgDomains[domainId];
   
@@ -3698,21 +3737,38 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
                   subscription->messages--;
                   if (subscription->head == NULL) break;
                 }
+                if (cMsgDebug >= CMSG_DEBUG_INFO) {
+                  fprintf(stderr, "cMsgRunCallbacks: skipped %d messages\n", (k+1));
+                }
             }
             else {
-              /* unlock mutex */
-              status = pthread_mutex_unlock(&subscription->mutex);
-              if (status != 0) {
-                err_abort(status, "Failed callback mutex unlock");
-              }
-              cMsgFreeMessage((void *)message);
-              cMsgFreeMessage((void *)msg);
-              return CMSG_LIMIT_EXCEEDED;
+/*fprintf(stderr, "cMsgRunCallbacks: cue full, waiting\n");*/
+
+                /* wait until signaled - meaning item taken off cue */
+                getAbsoluteTime(&timeout, &wait);        
+                status = pthread_cond_timedwait(&subscription->cond, &subscription->mutex, &wait);
+                if (status != 0) {
+                  err_abort(status, "Failed callback cond wait");
+                }
+
+                /* if the wait timed out ... */
+                if (status == ETIMEDOUT) {
+/*fprintf(stderr, "cMsgRunCallbacks: cue full, timed out\n");*/
+                    /* unlock mutex */
+                    status = pthread_mutex_unlock(&subscription->mutex);
+                    if (status != 0) {
+                      err_abort(status, "Failed callback mutex unlock");
+                    }
+                    cMsgFreeMessage((void *)message);
+                    cMsgFreeMessage((void *)msg);
+                    return(CMSG_LIMIT_EXCEEDED);
+                }
+/*fprintf(stderr, "cMsgRunCallbacks: cue full, wokenup, there's room now!\n");*/
             }
         }
 
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          if (subscription->messages%1000 == 0)
+          if (subscription->messages !=0 && subscription->messages%1000 == 0)
             fprintf(stderr, "           msgs = %d\n", subscription->messages);
         }
 
@@ -3737,17 +3793,18 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
 /*printf("cMsgRunCallbacks: cb cue size = %d\n", subscription->messages);*/
         message->next = NULL;
 
+        /* unlock mutex */
+        status = pthread_mutex_unlock(&subscription->mutex);
+        if (status != 0) {
+          err_abort(status, "Failed callback mutex unlock");
+        }
+
         /* wakeup callback thread */
         status = pthread_cond_broadcast(&subscription->cond);
         if (status != 0) {
           err_abort(status, "Failed callback condition signal");
         }
 
-        /* unlock mutex */
-        status = pthread_mutex_unlock(&subscription->mutex);
-        if (status != 0) {
-          err_abort(status, "Failed callback mutex unlock");
-        }
       } /* search callback list */
     } /* if subscribe sub/type matches msg sub/type */
   } /* for each subscription */
