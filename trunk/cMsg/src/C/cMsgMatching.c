@@ -41,10 +41,10 @@
  * Characters which need to be escaped or replaced to avoid special interpretation
  * in regular expressions.
  */
-static char *escapeChars = "\\(){}[]+.|^$*?";
+static const char *escapeChars = "\\(){}[]+.|^$*?";
 
 /** Array of strings to replace the special characters with. */
-static char *replaceWith[] = {"\\\\", "\\(", "\\)", "\\{", "\\}", "\\[","\\]",
+static const char *replaceWith[] = {"\\\\", "\\(", "\\)", "\\{", "\\}", "\\[","\\]",
                               "\\+" ,"\\.", "\\|", "\\^", "\\$", ".*", ".{1}"};
 
 #ifdef VXWORKS
@@ -74,7 +74,8 @@ extern "C" {
  */
 char *cMsgStringEscape(const char *s) {
     int i, len;
-    char *c, *sub, catString[2];
+    const char *c;
+    char *sub, catString[2];
 
     if (s == NULL) return NULL;
 
