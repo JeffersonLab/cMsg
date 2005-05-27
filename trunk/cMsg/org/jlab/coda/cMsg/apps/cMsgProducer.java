@@ -13,7 +13,7 @@ import java.io.UnsupportedEncodingException;
 public class cMsgProducer {
     String  name = "producer";
     String  description = "java producer";
-    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
+    String  UDL = "cMsg:cMsg://phecda:3456/cMsg/test";
     String  subject = "SUBJECT";
     String  type = "TYPE";
 
@@ -28,7 +28,6 @@ public class cMsgProducer {
 
     int     delay;
     boolean debug;
-    long    count;
 
 
     /** Constructor. */
@@ -190,7 +189,7 @@ public class cMsgProducer {
 
         // variables to track message rate
         double freq=0., freqAvg=0.;
-        long t1, t2, deltaT, totalT=0, totalC=0, count=100;
+        long t1, t2, deltaT, totalT=0, totalC=0, count=4000, ignore=5;
 
         // delay between messages
         if (delay != 0) count = count/(20 + delay);
@@ -209,15 +208,20 @@ public class cMsgProducer {
             }
             t2 = System.currentTimeMillis();
 
-            deltaT  = t2 - t1; // millisec
-            freq    = (double)count/deltaT*1000;
-            totalT += deltaT;
-            totalC += count;
-            freqAvg = (double)totalC/totalT*1000;
+            if (ignore == 0) {
+                deltaT = t2 - t1; // millisec
+                freq = (double) count / deltaT * 1000;
+                totalT += deltaT;
+                totalC += count;
+                freqAvg = (double) totalC / totalT * 1000;
 
-            if (debug) {
-                System.out.println(doubleToString(freq, 1) + " Hz, Avg = " +
-                                   doubleToString(freqAvg, 1) + " Hz");
+                if (debug) {
+                    System.out.println(doubleToString(freq, 1) + " Hz, Avg = " +
+                                       doubleToString(freqAvg, 1) + " Hz");
+                }
+            }
+            else {
+                ignore--;
             }
 
         }
