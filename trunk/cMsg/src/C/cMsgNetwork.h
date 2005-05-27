@@ -70,10 +70,10 @@ extern "C" {
  * The 6100 board likes 36K buffers if there is no tcpNoDelay,
  * but it likes 22K if the socket is set for no delay.
  */
-#define CMSG_SOCKBUFSIZE    22000
+#define CMSG_SOCKBUFSIZE    65536
 #else
 /*#define CMSG_SOCKBUFSIZE    49640*/  /* multiple of 1460 - ethernet MSS */
-#define CMSG_SOCKBUFSIZE    65535
+#define CMSG_SOCKBUFSIZE    65536
 #endif
 
 #define CMSG_IOV_MAX        16     /* minimum for POSIX systems */
