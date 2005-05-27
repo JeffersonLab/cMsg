@@ -368,6 +368,10 @@ public class cMsgDomainServer extends Thread {
         private DataOutputStream out;
 
 
+        // variables to track message rate
+        //double freq=0., freqAvg=0.;
+        //long t1, t2, deltaT, totalT=0, totalC=0, count=0, loops=10000, ignore=5;
+
 
         /** Constructor. */
         ClientHandler(SocketChannel channel, int id) {
@@ -386,6 +390,30 @@ public class cMsgDomainServer extends Thread {
             start();
         }
 
+
+        /**
+         * Method to convert a double to a string with a specified number of decimal places.
+         *
+         * @param d double to convert to a string
+         * @param places number of decimal places
+         * @return string representation of the double
+         */
+        private String doubleToString(double d, int places) {
+            if (places < 0) places = 0;
+
+            double factor = Math.pow(10,places);
+            String s = "" + (double) (Math.round(d * factor)) / factor;
+
+            if (places == 0) {
+                return s.substring(0, s.length()-2);
+            }
+
+            while (s.length() - s.indexOf(".") < places+1) {
+                s += "0";
+            }
+
+            return s;
+        }
 
         /**
          * This method handles all communication between a cMsg user who has
@@ -420,6 +448,32 @@ public class cMsgDomainServer extends Thread {
 
                     // read client's request
                     msgId = in.readInt();
+
+
+                    // calculate rate
+                    /*
+                    if (count == 0) {
+                        t1 = System.currentTimeMillis();
+                    }
+                    else if (count == loops-1) {
+                        t2 = System.currentTimeMillis();
+
+                        deltaT  = t2 - t1; // millisec
+                        totalT += deltaT;
+                        totalC += count;
+                        freq    = ((double)  count) / ((double)deltaT) * 1000.;
+                        freqAvg = ((double) totalC) / ((double)totalT) * 1000.;
+                        //System.out.println(id + " t1 = " + t1 + ", t2 = " + t2 + ", deltaT = " + deltaT);
+                        //System.out.println(id + " count = " + count + ", totalC = " + totalC + ", totalT = " + totalT);
+                        count = -1;
+
+                        if (true) {
+                            System.out.println(doubleToString(freq, 1) + " Hz, Avg = " +
+                                               doubleToString(freqAvg, 1) + " Hz");
+                        }
+                    }
+                    count++;
+                    */
 
                     cMsgHolder holder = null;
                     useSubscribeCue = false;
@@ -486,7 +540,11 @@ public class cMsgDomainServer extends Thread {
                             if (debug >= cMsgConstants.debugWarn) {
                                 System.out.println("dServer handleClient: can't understand your message " + info.getName());
                             }
-                            break;
+                            if (calledShutdown.compareAndSet(false,true)) {
+                                //System.out.println("SHUTDOWN TO BE RUN BY msgDisconnectRequest");
+                                shutdown();
+                            }
+                            return;
                     }
 
 
