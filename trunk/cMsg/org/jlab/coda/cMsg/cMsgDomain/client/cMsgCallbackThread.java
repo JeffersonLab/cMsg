@@ -144,15 +144,26 @@ public class cMsgCallbackThread extends Thread {
      * @throws cMsgException if there are too many messages to handle
      */
     public void sendMessage(cMsgMessageFull message) throws cMsgException {
-        // if the cue is full, dump some messages if possible, else throw Exception
+        // if the cue is full ...
         if (!messageCue.offer(message)) {
+            // if messages may not be skipped ...
             if (!callback.maySkipMessages()) {
-                throw new cMsgException("too many messages for callback to handle");
+                try {
+                    // try for 0.1 seconds to add msg to cue
+                    if (!messageCue.offer(message, 100, TimeUnit.MILLISECONDS)) {
+                        // if no luck, throw exception
+                        throw new cMsgException("too many messages for callback to handle");
+                    }
+                }
+                catch (InterruptedException e) {
+                    throw new cMsgException("too many messages for callback to handle");
+                }
             }
-
-            messageCue.drainTo(dumpList, callback.getSkipSize());
-            dumpList.clear();
-            messageCue.offer(message);
+            else {
+                messageCue.drainTo(dumpList, callback.getSkipSize());
+                dumpList.clear();
+                messageCue.offer(message);
+            }
         }
 
         //if (messageCue.size() > 0 && messageCue.size() % 1000 == 0) {
