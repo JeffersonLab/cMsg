@@ -214,11 +214,14 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
 {
   int                 sockfd, err;
   const int           on=1, size=CMSG_SOCKBUFSIZE /* bytes */;
-  /*const int           tos = IPTOS_LOWDELAY;*/ /*IPTOS_THROUGHPUT;*/
   struct sockaddr_in  servaddr;
 #ifndef VXWORKS
   struct in_addr      **pptr;
   struct hostent      *hp;
+  struct hostent      *result;
+  char                *buff;
+  int buflen          = 8192;
+  int h_errnop;
 #endif
   
   if (ip_address == NULL || fd == NULL) {
@@ -238,16 +241,6 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
     return(CMSG_SOCKET_ERROR);
   }
-  
-  /* set the type of service */
-  /*
-  err = setsockopt(sockfd, IPPROTO_IP, IP_TOS, (char *) &tos, sizeof(tos));
-  if (err < 0) {
-    close(sockfd);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
-    return(CMSG_SOCKET_ERROR);
-  }
-  */
   
   /* set send buffer size */
   err = setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
@@ -269,7 +262,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   servaddr.sin_family = AF_INET;
   servaddr.sin_port   = htons(port);
 
-#ifdef VXWORKS
+#if defined VXWORKS
 
   servaddr.sin_addr.s_addr = hostGetByName((char *) ip_address);
   if ((int)servaddr.sin_addr.s_addr == ERROR) {
@@ -287,27 +280,96 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
     if (cMsgDebug >= CMSG_DEBUG_INFO) fprintf(stderr, "cMsgTcpConnect: connected to server\n");
   }   
 
-#else
+/*
+ * Need to make things reentrant so use gethostbyname_r.
+ * Unfortunately the linux folks defined the function 
+ * differently from the solaris folks!
+ */
+#elif defined sun
 	
-  if ((hp = gethostbyname(ip_address)) == NULL) {
+  /* Malloc hostent local structure and buffer to store canonical hostname, aliases etc.*/
+  if ( (result = (struct hostent *)malloc(sizeof(struct hostent))) == NULL) {
+    return(CMSG_OUT_OF_MEMORY); 
+  }
+  if ( (buff = (char *)malloc(buflen)) == NULL) {
+    return(CMSG_OUT_OF_MEMORY);  
+  }
+
+  if((hp = gethostbyname_r(ip_address, result, buff, buflen, &h_errnop)) == NULL){
     close(sockfd);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errno));
+    free(result);
+    free(buff);
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errnop));
     return(CMSG_NETWORK_ERROR);
   }
+  /*printf("Gethostbyname => %s %d \n", hp->h_name,(int)hp->h_addr_list[0]);*/
+
   pptr = (struct in_addr **) hp->h_addr_list;
 
   for ( ; *pptr != NULL; pptr++) {
     memcpy(&servaddr.sin_addr, *pptr, sizeof(struct in_addr));
     if ((err = connect(sockfd, (SA *) &servaddr, sizeof(servaddr))) < 0) {
-      if (cMsgDebug >= CMSG_DEBUG_WARN) fprintf(stderr, "cMsgTcpConnect: error attempting to connect to server\n");
+      free(result);
+      free(buff);
+      if (cMsgDebug >= CMSG_DEBUG_WARN) {
+        fprintf(stderr, "cMsgTcpConnect: error attempting to connect to server\n");
+      }
     }
     else {
-      if (cMsgDebug >= CMSG_DEBUG_INFO) fprintf(stderr, "cMsgTcpConnect: connected to server\n");
+      /* free the hostent and buff*/
+      free(result);
+      free(buff);
+      if (cMsgDebug >= CMSG_DEBUG_INFO) {
+        fprintf(stderr, "cMsgTcpConnect: connected to server\n");
+      }
       break;
     }
   }
-  
-#endif  
+
+#elif defined linux
+	
+  /* Malloc hostent local structure and buffer to store canonical hostname, aliases etc.*/
+  if ( (result = (struct hostent *)malloc(sizeof(struct hostent))) == NULL) {
+    return(CMSG_OUT_OF_MEMORY); 
+  }
+  if ( (buff = (char *)malloc(buflen)) == NULL) {
+    return(CMSG_OUT_OF_MEMORY);  
+  }
+
+  if(gethostbyname_r(ip_address, result, buff, buflen, &hp, &h_errnop) != 0){
+    close(sockfd);
+    free(result);
+    free(buff);
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errnop));
+    return(CMSG_NETWORK_ERROR);
+  }
+  /*printf("Gethostbyname => %s %d \n", hp->h_name,(int)hp->h_addr_list[0]);*/
+
+  pptr = (struct in_addr **) hp->h_addr_list;
+
+  for ( ; *pptr != NULL; pptr++) {
+    memcpy(&servaddr.sin_addr, *pptr, sizeof(struct in_addr));
+    if ((err = connect(sockfd, (SA *) &servaddr, sizeof(servaddr))) < 0) {
+      free(result);
+      free(buff);
+      if (cMsgDebug >= CMSG_DEBUG_WARN) {
+        fprintf(stderr, "cMsgTcpConnect: error attempting to connect to server\n");
+      }
+    }
+    else {
+      /* free the hostent and buff*/
+      free(result);
+      free(buff);
+      if (cMsgDebug >= CMSG_DEBUG_INFO) {
+        fprintf(stderr, "cMsgTcpConnect: connected to server\n");
+      }
+      break;
+    }
+  }
+
+#else
+  return(CMSG_NETWORK_ERROR);
+#endif 
 
 
 /* for debugging, print out our port */
