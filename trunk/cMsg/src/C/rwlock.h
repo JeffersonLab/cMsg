@@ -16,7 +16,7 @@
 /*
  * Structure describing a read-write lock.
  */
-typedef struct rwlock_tag {
+typedef struct rwLock_tag {
     pthread_mutex_t     mutex;
     pthread_cond_t      read;           /* wait for read */
     pthread_cond_t      write;          /* wait for write */
@@ -25,7 +25,7 @@ typedef struct rwlock_tag {
     int                 w_active;       /* writer active */
     int                 r_wait;         /* readers waiting */
     int                 w_wait;         /* writers waiting */
-} rwlock_t;
+} rwLock_t;
 
 #define RWLOCK_VALID    0xfacade
 
@@ -45,14 +45,14 @@ extern "C" {
 /*
  * Define read-write lock functions
  */
-extern int rwl_init (rwlock_t *rwlock);
-extern int rwl_destroy (rwlock_t *rwlock);
-extern int rwl_readlock (rwlock_t *rwlock);
-extern int rwl_readtrylock (rwlock_t *rwlock);
-extern int rwl_readunlock (rwlock_t *rwlock);
-extern int rwl_writelock (rwlock_t *rwlock);
-extern int rwl_writetrylock (rwlock_t *rwlock);
-extern int rwl_writeunlock (rwlock_t *rwlock);
+extern int rwl_init (rwLock_t *rwlock);
+extern int rwl_destroy (rwLock_t *rwlock);
+extern int rwl_readlock (rwLock_t *rwlock);
+extern int rwl_readtrylock (rwLock_t *rwlock);
+extern int rwl_readunlock (rwLock_t *rwlock);
+extern int rwl_writelock (rwLock_t *rwlock);
+extern int rwl_writetrylock (rwLock_t *rwlock);
+extern int rwl_writeunlock (rwLock_t *rwlock);
 
 
 #ifdef __cplusplus
