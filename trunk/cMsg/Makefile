@@ -6,26 +6,25 @@
 # cMsg will not compile properly for vxWorks under Linux cross compiler
 #
 
-# Operating system we are using
+# operating system we are using
 OSNAME := $(shell uname)
 MAKEFILE = Makefile.unix
 
 ifeq ($(OSNAME),SunOS)
 LIB_DIR = ./lib/SunOS
 BIN_DIR = ./bin/SunOS
-
-ifeq ($(ARCH),VXWORKSPPC)
-LIB_DIR = ./lib/vxworks
-BIN_DIR = ./bin/vxworks
-MAKEFILE = Makefile.vxworks
 endif
-
-endif
-
 
 ifeq ($(OSNAME),Linux)
 LIB_DIR = ./lib/Linux
 BIN_DIR = ./bin/Linux
+endif
+
+# if ARCH is defined, do a vxWorks build
+ifeq ($(ARCH),VXWORKSPPC)
+LIB_DIR = ./lib/vxworks
+BIN_DIR = ./bin/vxworks
+MAKEFILE = Makefile.vxworks
 endif
 
 # send this down to lower level makefiles
@@ -78,7 +77,7 @@ doxygen:
 clean: cClean jClean tarClean jarClean
 
 cClean: 
-	rm -f core *~ *.o *.so *.a *.class
+	-$(RM) -f core *~ *.o *.so *.a *.class
 	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) clean;
 	cd ./src/C;  $(MAKE) -f $(MAKEFILE) clean;
 	cd ./src/CC; $(MAKE) -f $(MAKEFILE) clean;
@@ -97,7 +96,8 @@ tarClean:
 	-$(RM) *.tar.gz
 
 jarClean:
-	-$(RM) *.jar
+	-$(RM) cMsg.jar
+	cd ./jar; $(RM) cMsg.jar
 
 
 
