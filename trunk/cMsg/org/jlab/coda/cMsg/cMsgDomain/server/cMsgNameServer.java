@@ -149,60 +149,63 @@ public class cMsgNameServer extends Thread {
 
     /** Run as a stand-alone application. */
     public static void main(String[] args) {
-        try {
-            int debug = cMsgConstants.debugNone;
-            int numberArgs = args.length;
-            int port=0, index=0;
-            String arg;
+        int debug = cMsgConstants.debugNone;
+        int port = 0;
 
-            if (numberArgs != 0 && numberArgs != 2 && numberArgs != 4) {
-                usage();
-                System.exit(-1);
+        // First check to see if debug level, port number, or timeordering
+        // was set on the command line. This can be done, while ignoring case,
+        // by scanning through all the properties.
+        for (Iterator i = System.getProperties().keySet().iterator(); i.hasNext();) {
+            String s = (String) i.next();
+
+            if (s.contains(".")) {
+                continue;
             }
 
-            while (index < numberArgs) {
-                arg = args[index++];
-
-                if (arg.equalsIgnoreCase("-p")) {
-                    port = Integer.parseInt(args[index++]);
+            if (s.equalsIgnoreCase("port")) {
+                try {
+                    port = Integer.parseInt(System.getProperty(s));
                 }
-                else if (arg.equalsIgnoreCase("-d") || arg.equalsIgnoreCase("-debug")) {
-                    arg = args[index++];
-                    if (arg.equalsIgnoreCase("info")) {
-                        debug = cMsgConstants.debugInfo;
-                    }
-                    else if (arg.equalsIgnoreCase("warn")) {
-                        debug = cMsgConstants.debugWarn;
-                    }
-                    else if (arg.equalsIgnoreCase("error")) {
-                        debug = cMsgConstants.debugError;
-                    }
-                    else if (arg.equalsIgnoreCase("severe")) {
-                        debug = cMsgConstants.debugSevere;
-                    }
-                    else if (arg.equalsIgnoreCase("none")) {
-                        debug = cMsgConstants.debugNone;
-                    }
-                    else {
-                        System.out.println("\nBad debug value");
-                        usage();
-                        System.exit(-1);
-                    }
+                catch (NumberFormatException e) {
+                    System.out.println("\nBad port number specified");
+                    usage();
+                    e.printStackTrace();
+                    System.exit(-1);
+                }
+            }
+            else if (s.equalsIgnoreCase("debug")) {
+                String arg = System.getProperty(s);
+
+                if (arg.equalsIgnoreCase("info")) {
+                    debug = cMsgConstants.debugInfo;
+                }
+                else if (arg.equalsIgnoreCase("warn")) {
+                    debug = cMsgConstants.debugWarn;
+                }
+                else if (arg.equalsIgnoreCase("error")) {
+                    debug = cMsgConstants.debugError;
+                }
+                else if (arg.equalsIgnoreCase("severe")) {
+                    debug = cMsgConstants.debugSevere;
+                }
+                else if (arg.equalsIgnoreCase("none")) {
+                    debug = cMsgConstants.debugNone;
                 }
                 else {
+                    System.out.println("\nBad debug value");
                     usage();
                     System.exit(-1);
                 }
             }
-            cMsgNameServer server = new cMsgNameServer(port, debug);
-            server.start();
+            else if (s.equalsIgnoreCase("timeorder")) {
+                if (System.getProperty(s).equalsIgnoreCase("on")) {
+                    cMsgDomainServer.setTimeOrdered(true);
+                }
+            }
         }
-        catch (NumberFormatException e) {
-            System.out.println("\nBad port number specified");
-            usage();
-            e.printStackTrace();
-            System.exit(-1);
-        }
+
+        cMsgNameServer server = new cMsgNameServer(port, debug);
+        server.start();
     }
 
 
@@ -356,6 +359,7 @@ public class cMsgNameServer extends Thread {
         // Create a domain server thread, and get back its host & port
         cMsgDomainServer server = new cMsgDomainServer(subdomainHandler, info,
                                                        cMsgNetworkConstants.domainServerStartingPort);
+
         // kill this thread too if name server thread quits
         server.setDaemon(true);
         server.start();
