@@ -4,8 +4,6 @@
 JAR_INSTALL = ./
 
 JAVAC = javac
-JAVAD = javadoc
-JAR   = jar
 
 TOPDIR = ../../../../..
 INSTALL = $(TOPDIR)/install-sh -c

@@ -4,9 +4,6 @@
 JAR_INSTALL = ./
 
 JAVAC = javac
-JAVAH = javah
-JAVAD = javadoc
-JAR   = jar
 
 TOPDIR = ../../../../..
 JARDIR = $(TOPDIR)/jar
