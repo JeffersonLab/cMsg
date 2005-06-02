@@ -3747,9 +3747,6 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
                 /* wait until signaled - meaning item taken off cue */
                 getAbsoluteTime(&timeout, &wait);        
                 status = pthread_cond_timedwait(&subscription->cond, &subscription->mutex, &wait);
-                if (status != 0) {
-                  err_abort(status, "Failed callback cond wait");
-                }
 
                 /* if the wait timed out ... */
                 if (status == ETIMEDOUT) {
@@ -3762,6 +3759,9 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
                     cMsgFreeMessage((void *)message);
                     cMsgFreeMessage((void *)msg);
                     return(CMSG_LIMIT_EXCEEDED);
+                }
+                else if (status != 0) {
+                  err_abort(status, "Failed callback cond wait");
                 }
 /*fprintf(stderr, "cMsgRunCallbacks: cue full, wokenup, there's room now!\n");*/
             }
