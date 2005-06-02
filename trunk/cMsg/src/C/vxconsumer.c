@@ -26,59 +26,63 @@
 
 #include "cMsg.h"
 
-/* recent versions of linux put float.h (and DBL_MAX) in a strange place */
-#define DOUBLE_MAX   1.7976931348623157E+308
-#define NUMGETS 1000
-
 int count = 0;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void callback(void *msg, void *arg);
 
 int cMsgConsumer(void) {  
-  char *myName   = "VX-consumer3";
+  char *myName   = "VX-consumer";
   char *myDescription = "trial run";
+  char *subject = "SUBJECT";
+  char *type    = "TYPE";
   int err, domainId = -1;
   cMsgSubscribeConfig *config;
   
-  double freq=0., freqAvg=0., freqTotal=0.;
-  long   iterations=1;
-  int    period = 5; /* sec */
+  /* msg rate measuring variables */
+  int             period = 5, ignore=4;
+  double          freq, freqAvg=0., totalT=0.;
+  long long       totalC=0;
   
-  printf("My name is %s\n", myName);
-  
-  printf("cMsgConnect ...\n");
-  err = cMsgConnect("cMsg:cMsg://aslan:3456/cMsg/vx/", myName, myDescription, &domainId);
-  printf("cMsgConnect: %s\n", cMsgPerror(err));
- 
+  printf("Running cMsg consumer %s\n", myName);
+    
+  err = cMsgConnect("cMsg:cMsg://aslan:3456/cMsg/test", myName, myDescription, &domainId);
+   
   cMsgReceiveStart(domainId);
   
-  printf("cMsgSubscribe ...\n");
   config = cMsgSubscribeConfigCreate();
-  cMsgSubscribeSetMaxCueSize(config, 10000);
-  cMsgSubscribeSetSkipSize(config, 2000);
+  cMsgSubscribeSetMaxCueSize(config, 1000);
+  cMsgSubscribeSetSkipSize(config, 200);
   cMsgSubscribeSetMaySkip(config, 0);
   cMsgSubscribeSetMustSerialize(config, 1);
-  cMsgSubscribeSetMaxThreads(config, 290);
+  cMsgSubscribeSetMaxThreads(config, 10);
   cMsgSubscribeSetMessagesPerThread(config, 150);
   cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
-  err = cMsgSubscribe(domainId, "SUBJECT", "TYPE", callback, NULL, config);
-  printf("cMsgSubscribe: %s\n", cMsgPerror(err));
 
+  /* subscribe */
+  err = cMsgSubscribe(domainId, subject, type, callback, NULL, config);
+  if (err != CMSG_OK) {
+      printf("cMsgSubscribe: %s\n",cMsgPerror(err));
+      exit(1);
+  }
+       
   while (1) {
       count = 0;
+      
+      /* wait for messages */
       sleep(period);
-
-      freq = (double)count/(double)period;
-      if (DOUBLE_MAX - freqTotal < freq) {
-          freqTotal  = 0.;
-          iterations = 1;
+      
+      /* calculate rate */
+      if (!ignore) {
+          totalT += period;
+          totalC += count;
+          freq    = (double)count/period;
+          freqAvg = totalC/totalT;
+          printf("count = %d, %9.1f Hz, %9.1f Hz Avg.\n", count, freq, freqAvg);
       }
-      freqTotal += freq;
-      freqAvg = freqTotal/iterations;
-      iterations++;
-      printf("count = %d, %9.0f Hz, %9.0f Hz Avg.\n", count, freq, freqAvg);
-      fflush(stdout);
+      else {
+          ignore--;
+      } 
   }
 
   return(0);
@@ -100,18 +104,17 @@ int cMsgGetConsumer(void) {
     char *myName  = "VX-getconsumer";
     char *myDescription = "trial run";
     int   i, err, domainId = -1;
-    
-    double freq=0., freqAvg=0., countTotal=0., timeTotal=0.;
-    long   count=0;
     void  *msg, *getMsg;
+    
+    /* msg rate measuring variables */
+    int             count, loops=1000, ignore=5;
     struct timespec t1, t2, timeout;
-    double time;
+    double          freq, freqAvg=0., deltaT, totalT=0;
+    long long       totalC=0;
 
-    printf("Running Message GET Consumer\n");
+    printf("Running cMsg GET consumer %s\n", myName);
 
-    printf("cMsgConnect ...\n");
     err = cMsgConnect(UDL, myName, myDescription, &domainId);
-    printf("cMsgConnect: %s\n", cMsgPerror(err));
  
     cMsgReceiveStart(domainId);
     
@@ -128,7 +131,7 @@ int cMsgGetConsumer(void) {
         clock_gettime(CLOCK_REALTIME, &t1);
 
         /* do a bunch of gets */
-        for (i=0; i < NUMGETS; i++) {
+        for (i=0; i < loops; i++) {
             /*err = cMsgSendAndGet(domainId, msg, &timeout, &getMsg);*/
             err = cMsgSubscribeAndGet(domainId, subject, type, &timeout, &getMsg);
 
@@ -143,19 +146,18 @@ int cMsgGetConsumer(void) {
             }
         }
         
-        clock_gettime(CLOCK_REALTIME, &t2);
-        time = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
-        
-        freq = count/time;
-        if ( ((DOUBLE_MAX - countTotal) < count)  ||
-             ((DOUBLE_MAX - timeTotal)  < time ) )  {
-          countTotal = 0.;
-          timeTotal  = 0.;
+        if (!ignore) {
+          clock_gettime(CLOCK_REALTIME, &t2);
+          deltaT  = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
+          totalT += deltaT;
+          totalC += count;
+          freq    = count/deltaT;
+          freqAvg = (double)totalC/totalT;
+
+          printf("count = %d, %9.1f Hz, %9.1f Hz Avg.\n", count, freq, freqAvg);
         }
-        countTotal += count;
-        timeTotal  += time;
-        freqAvg = countTotal/timeTotal;
-        printf("%9.0f Hz,  %9.0f Hz Avg.\n", freq, freqAvg);                    
-        t1 = t2;        
-    }
+        else {
+          ignore--;
+        } 
+   }
 }
