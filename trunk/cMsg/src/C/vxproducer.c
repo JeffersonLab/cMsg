@@ -173,10 +173,6 @@ int cMsgProducer(void) {
       count = 0;
       
       clock_gettime(CLOCK_REALTIME, &t1);
-      if (!once) {
-        t0 = t1;
-        once++;
-      }
 
       for (i=0; i < loops; i++) {
           cMsgSetUserInt(msg, counter++);
