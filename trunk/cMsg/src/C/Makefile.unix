@@ -14,7 +14,7 @@ endif
 
 # Linux
 ifeq ($(OSNAME),Linux)
-CC  = gcc
+CC = gcc
 LIB_DIR  = $(TOP_DIR)/lib/Linux
 BIN_DIR  = $(TOP_DIR)/bin/Linux
 AC_FLAGS =
@@ -24,7 +24,7 @@ endif
 
 # Solaris
 ifeq ($(OSNAME),SunOS)
-CC  = cc
+CC = cc
 LIB_DIR  = $(TOP_DIR)/lib/SunOS
 BIN_DIR  = $(TOP_DIR)/bin/SunOS
 AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
