@@ -134,15 +134,16 @@ public class cMsgNameServer extends Thread {
 
     /** Method to print out correct program command line usage. */
     private static void usage() {
-        System.out.println("\nUsage: java cMsgNameServer [-p <listening port>] [-d(ebug) <level>]\n");
-        System.out.println("       -p      port number from 1024 to 65535\n");
-        System.out.println("       -d");
-        System.out.println("       -debug  level of output with acceptable values of:\n");
+        System.out.println("\nUsage: java [-Dport=<listening port>]\n"+
+                             "            [-Ddebug=<level>]\n" +
+                             "            [-Dtimeorder]  cMsgNameServer\n");
+        System.out.println("       debug level has acceptable values of:");
         System.out.println("               info   for full output");
         System.out.println("               warn   for severity of warning or greater");
         System.out.println("               error  for severity of error or greater");
         System.out.println("               severe for severity of \"cannot go on\"");
         System.out.println("               none   for no debug output (default)");
+        System.out.println("       timeorder handles messages in order received");
         System.out.println();
     }
 
@@ -151,6 +152,11 @@ public class cMsgNameServer extends Thread {
     public static void main(String[] args) {
         int debug = cMsgConstants.debugNone;
         int port = 0;
+
+        if (args.length > 0) {
+            usage();
+            System.exit(-1);
+        }
 
         // First check to see if debug level, port number, or timeordering
         // was set on the command line. This can be done, while ignoring case,
@@ -198,9 +204,7 @@ public class cMsgNameServer extends Thread {
                 }
             }
             else if (s.equalsIgnoreCase("timeorder")) {
-                if (System.getProperty(s).equalsIgnoreCase("on")) {
-                    cMsgDomainServer.setTimeOrdered(true);
-                }
+                cMsgDomainServer.setTimeOrdered(true);
             }
         }
 
