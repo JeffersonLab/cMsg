@@ -24,13 +24,13 @@
 #include "cMsg.h"
 #include "errors.h"
 
-int count = 0, domainId = -1;
+int count = 0, domainId = -1, oldInt=-1;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 /******************************************************************/
 static void callback(void *msg, void *arg) {
-  int status;
+  int status, userInt;
   
   status = pthread_mutex_lock(&mutex);
   if (status != 0) {
@@ -38,7 +38,13 @@ static void callback(void *msg, void *arg) {
   }
   
   count++;
+  /*
+  cMsgGetUserInt(msg, &userInt);
+  if (userInt != oldInt+1)
+    printf("%d -> %d; ", oldInt, userInt);
   
+  oldInt = userInt;
+  */  
   status = pthread_mutex_unlock(&mutex);
   if (status != 0) {
     err_abort(status, "error releasing mutex");
@@ -92,7 +98,7 @@ int main(int argc,char **argv) {
   cMsgSubscribeConfig *config;
   
   /* msg rate measuring variables */
-  int             period = 5; /* sec */
+  int             period = 5, ignore=4;
   double          freq, freqAvg=0., totalT=0.;
   long long       totalC=0;
 
@@ -142,11 +148,16 @@ int main(int argc,char **argv) {
       sleep(period);
       
       /* calculate rate */
-      totalT += period;
-      totalC += count;
-      freq    = (double)count/period;
-      freqAvg = totalC/totalT;
-      printf("count = %d, %9.1f Hz, %9.1f Hz Avg.\n", count, freq, freqAvg);
+      if (!ignore) {
+          totalT += period;
+          totalC += count;
+          freq    = (double)count/period;
+          freqAvg = totalC/totalT;
+          printf("count = %d, %9.1f Hz, %9.1f Hz Avg.\n", count, freq, freqAvg);
+      }
+      else {
+          ignore--;
+      } 
   }
 
   return(0);
