@@ -26,7 +26,7 @@
 #include <time.h>
 
 #include "cMsg.h"
-
+extern int vxTicks;
 
 int cMsgProducer(void) {
   
@@ -37,18 +37,19 @@ int cMsgProducer(void) {
   char *text    = "TEXT";
   char *bytes   = NULL;
   char *UDL     = "cMsg:cMsg://phecda:3456/cMsg/test";
-  int   err, debug=1, domainId=-1, msgSize=0, response;
+  int   err, debug=1, domainId=-1, msgSize=0, response, counter=0, once=0;
   void *msg;
   
   /* msg rate measuring variables */
   int             dostring=1, count, i, delay=0, loops=10000, ignore=5;
-  struct timespec t1, t2;
-  double          freq, freqAvg=0., deltaT, totalT=0.;
+  struct timespec t1, t2, t0;
+  int             tick1, tick2, tick0=0;
+  double          freq, freqAvg=0., deltaT, totalT=0.,tickRate;
   long long       totalC=0;
   
   
   char *argv1 = "-b";
-  char *argv2 = "10000";
+  char *argv2 = "5000";
   int   argc = 3;
   
   if (argc > 1) {
@@ -122,16 +123,28 @@ int cMsgProducer(void) {
     printf("setting byte array\n");
     cMsgSetByteArrayAndLimits(msg, bytes, 0, msgSize);
   }
-    
+  
+  /*
+  tickRate = sysClkRateGet();
+  
   while (1) {
       count = 0;
       
-      /* read time for rate calculations */
-      clock_gettime(CLOCK_REALTIME, &t1);
+      tick1 = vxTicks;
+      
+      if (!once) {
+        tick0 = tick1;
+        once++;
+      }
 
       for (i=0; i < loops; i++) {
-          /* send msg */
-          /*if (cMsgSyncSend(domainId, msg, &response) != CMSG_OK) {*/
+          cMsgSetUserInt(msg, counter);
+          if (counter % 5000 == 0) {
+            tick2 = vxTicks;
+            deltaT = ((double)(tick2-tick0))/tickRate;
+            printf("%d @ %6.3f sec, ticks = %d\n", counter, deltaT, tick2);
+          }
+          counter++;
           if (cMsgSend(domainId, msg) != CMSG_OK) {
             printf("cMsgSend: %s\n",cMsgPerror(err));
             fflush(stdout);
@@ -145,7 +158,41 @@ int cMsgProducer(void) {
           }          
       }
 
-      /* rate */
+      deltaT = ((double)(vxTicks-tick1))/tickRate;
+      totalT += deltaT;
+      totalC += count;
+      freq    = count/deltaT;
+      freqAvg = (double)totalC/totalT;
+
+      printf("count = %d, %9.1f Hz, %9.1f Hz Avg., deltaT = %6.3f sec\n",
+              count, freq, freqAvg, deltaT);
+  }
+  */
+  
+  while (1) {
+      count = 0;
+      
+      clock_gettime(CLOCK_REALTIME, &t1);
+      if (!once) {
+        t0 = t1;
+        once++;
+      }
+
+      for (i=0; i < loops; i++) {
+          cMsgSetUserInt(msg, counter++);
+          if (cMsgSend(domainId, msg) != CMSG_OK) {
+            printf("cMsgSend: %s\n",cMsgPerror(err));
+            fflush(stdout);
+            goto end;
+          }
+          cMsgFlush(domainId);
+          count++;
+          
+          if (delay != 0) {
+              sleep(delay);
+          }          
+      }
+
       if (!ignore) {
         clock_gettime(CLOCK_REALTIME, &t2);
         deltaT  = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
@@ -160,7 +207,7 @@ int cMsgProducer(void) {
         ignore--;
       } 
   } 
-  
+
   end:
   
   err = cMsgDisconnect(domainId);
