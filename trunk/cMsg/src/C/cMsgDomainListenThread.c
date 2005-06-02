@@ -73,7 +73,7 @@ typedef struct cMsgThreadInfo_t {
 
 static int counter = 1;
 static int acknowledge = 0;
-
+static int msgNumber = 0;
 
 /* for c++ */
 #ifdef __cplusplus
@@ -328,8 +328,8 @@ static void *clientThread(void *arg)
 
   /* msg rate measuring variables */
   /*
-  int             dostring=1, count=0, i, delay=0, loops=10000, ignore=5;
-  struct timespec t1, t2;
+  int             dostring=1, count=0, i, delay=0, loops=2000, ignore=5, once=0;
+  struct timespec t1, t2, t0;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
   */
@@ -416,8 +416,18 @@ static void *clientThread(void *arg)
     
     /* calculate rate */
     /*
+    if (msgNumber > 0 && msgNumber % 5000 == 0) {
+            clock_gettime(CLOCK_REALTIME, &t2);
+            deltaT = (double)(t2.tv_sec - t0.tv_sec) + 1.e-9*(t2.tv_nsec - t0.tv_nsec);
+            printf("%d @ %6.3f sec\n", msgNumber, deltaT);    
+    }
+    
     if (count == 0) {
       clock_gettime(CLOCK_REALTIME, &t1);
+      if (!once) {
+        t0 = t1;
+        once++;
+      }      
     }
     else if (count == loops-1) {
         clock_gettime(CLOCK_REALTIME, &t2);
@@ -426,8 +436,8 @@ static void *clientThread(void *arg)
         totalC += count;
         freq    = count/deltaT;
         freqAvg = (double)totalC/totalT;
-        count = -1;
         printf("Listening thd count (%d) = %d, %9.1f Hz, %9.1f Hz Avg.\n", localCount, count, freq, freqAvg);
+        count = -1;
     }
     count++;
     */
@@ -911,6 +921,9 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage *msg) {
   msg->version  = ntohl(inComing[0]);  /* major version of cMsg */
   /* second int is for future use */
   msg->userInt  = ntohl(inComing[2]);  /* user int */
+
+  /*msgNumber = msg->userInt;*/
+
   msg->info     = ntohl(inComing[3]);  /* get info */
   /*
    * Time arrives as the high 32 bits followed by the low 32 bits
