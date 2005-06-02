@@ -42,20 +42,28 @@ import org.jlab.coda.cMsg.cMsgDomain.cMsgUtilities;
  * @version 1.0
  */
 public class cMsgDomainServer extends Thread {
-        private int id;
+    /** Number to keep track of threads for debugging purposes. */
+    private int id;
+
     /** Type of domain this is. */
     private static String domainType = "cMsg";
 
     /** Maximum number of temporary threads allowed per client connection. */
-    private static final int tempThreadsMax = 100;
+    private static int tempThreadsMax = 20;
 
     /**
-     * Maximum number of permanent threads per client connection. This should
+     * Maximum number of permanent threads per client. This should
      * be at least two (2). One thread can handle syncSends which can block
      * (but only 1 syncSend at a time can be run on the client side)
      * and the other to handle other requests.
      */
-    private static final int permanentThreads = 3;
+    private static int commandHandlingThreadsMax = 3;
+
+    /** Current number of running RequestThread threads handling non-subscribe requests. */
+    private int numberCommandHandlingThreads;
+
+    /** Does a (un)subscribe handling RequestThread exist yet? */
+    private boolean subscribeHandlingThreadExists;
 
     /** Port number listening on. */
     private int port;
@@ -135,6 +143,21 @@ public class cMsgDomainServer extends Thread {
      */
     public cMsgSubdomainInterface getSubdomainHandler() {
         return subdomainHandler;
+    }
+
+    /**
+     * Set the time ordering property of the server.
+     * If this is true, then all non-(un)subscribe commands sent to it
+     * are guaranteed to be passed to the subdomain handler object in
+     * the order in which they were received.
+     *
+     * @param timeOrdered set to true if timeordering of commands is desired
+     */
+    static public void setTimeOrdered(boolean timeOrdered) {
+        if (timeOrdered == true) {
+            commandHandlingThreadsMax = 1;
+            tempThreadsMax = 0;
+        }
     }
 
 
@@ -366,8 +389,6 @@ public class cMsgDomainServer extends Thread {
 
         private DataInputStream  in;
         private DataOutputStream out;
-
-
         // variables to track message rate
         //double freq=0., freqAvg=0.;
         //long t1, t2, deltaT, totalT=0, totalC=0, count=0, loops=10000, ignore=5;
@@ -377,12 +398,23 @@ public class cMsgDomainServer extends Thread {
         ClientHandler(SocketChannel channel, int id) {
             this.channel = channel;
             this.id = id;
+
             // start up permanent worker threads on the regular cue
-            for (int i = 0; i < permanentThreads; i++) {
-                requestThreads.add(new RequestThread(true, false));
+            for (int i = 0; i < commandHandlingThreadsMax; i++) {
+                if (numberCommandHandlingThreads < commandHandlingThreadsMax) {
+                    requestThreads.add(new RequestThread(true, false));
+                    numberCommandHandlingThreads++;
+                }
+                else {
+                    break;
+                }
             }
-            // start up 1 permanent worker thread on the (un)subscribe cue
-            requestThreads.add(new RequestThread(true, true));
+
+            // start up 1 and only 1 permanent worker thread on the (un)subscribe cue
+            if (!subscribeHandlingThreadExists) {
+                requestThreads.add(new RequestThread(true, true));
+                subscribeHandlingThreadExists = true;
+            }
 
             // die if no more non-daemon thds running
             setDaemon(true);
@@ -390,30 +422,6 @@ public class cMsgDomainServer extends Thread {
             start();
         }
 
-
-        /**
-         * Method to convert a double to a string with a specified number of decimal places.
-         *
-         * @param d double to convert to a string
-         * @param places number of decimal places
-         * @return string representation of the double
-         */
-        private String doubleToString(double d, int places) {
-            if (places < 0) places = 0;
-
-            double factor = Math.pow(10,places);
-            String s = "" + (double) (Math.round(d * factor)) / factor;
-
-            if (places == 0) {
-                return s.substring(0, s.length()-2);
-            }
-
-            while (s.length() - s.indexOf(".") < places+1) {
-                s += "0";
-            }
-
-            return s;
-        }
 
         /**
          * This method handles all communication between a cMsg user who has
@@ -880,7 +888,7 @@ public class cMsgDomainServer extends Thread {
             this.channel = channel;
             this.id = id;
             // start up permanent worker threads on the regular cue
-            for (int i = 0; i < permanentThreads; i++) {
+            for (int i = 0; i < commandHandlingThreadsMax; i++) {
                 requestThreads.add(new RequestThread(true, false));
             }
             // start up 1 permanent worker thread on the (un)subscribe cue
@@ -931,7 +939,7 @@ public class cMsgDomainServer extends Thread {
                         // allocate bigger byte array & buffer if necessary
                         // (allocate more than needed for speed's sake)
                         if (size > buffer.capacity()) {
-                            System.out.println("Increasing buffer size to " + (size + 1000));
+                            //System.out.println("Increasing buffer size to " + (size + 1000));
                             buffer = ByteBuffer.allocateDirect(size + 1000);
                             bytes  = new byte[size + 1000];
                         }
@@ -1065,6 +1073,7 @@ public class cMsgDomainServer extends Thread {
 
                     // if the cue is getting too large, add temp threads to handle the load
                     if (requestCue.size() > 2000 && tempThreads.get() < tempThreadsMax) {
+                        System.out.println("Cue is too large, start another request thread");
                         new RequestThread();
                     }
                 }
@@ -1367,7 +1376,6 @@ public class cMsgDomainServer extends Thread {
         /** A direct buffer is necessary for nio socket IO. */
         private ByteBuffer buffer = ByteBuffer.allocateDirect(8);
 
-
         /** Self-starting constructor. */
         RequestThread() {
             // by default thread is not permanent or reading (un)subscribe requests
@@ -1376,7 +1384,6 @@ public class cMsgDomainServer extends Thread {
 
             // die if main thread dies
             setDaemon(true);
-
             this.start();
         }
 
@@ -1392,14 +1399,14 @@ public class cMsgDomainServer extends Thread {
 
         /** Loop forever waiting for work to do. */
         public void run() {
-            cMsgHolder holder = null;
+            cMsgHolder holder;
             int answer;
-
-            //setPriority(Thread.MIN_PRIORITY);
 
             while (true) {
 
                 if (killSpawnedThreads) return;
+
+                holder = null;
 
                 try {
                     // try for up to 1/2 second to read a request from the cue
