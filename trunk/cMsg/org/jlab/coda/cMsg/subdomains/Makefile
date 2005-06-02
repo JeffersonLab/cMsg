@@ -2,8 +2,6 @@
 #
 
 JAVAC = javac
-JAVAD = javadoc
-JAR   = jar
 
 TOPDIR = ../../../../..
 JARDIR = $(TOPDIR)/jar

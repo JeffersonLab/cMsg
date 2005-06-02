@@ -54,7 +54,7 @@ HFILES = $(C_DIR)/cMsgNetwork.h \
 HFILESXX = cMsgBase.hxx \
 	   cMsg.hxx
 
-all: echoarch $(OBJS) $(CMSG_LIBSXX) $(PROGSXX)
+all: echoarch $(OBJS) $(CMSG_LIBSXX)
 
 $(CMSG_LIBSXX): $(SRCXX)
 	$(CXX) -c $(CFLAGSXX) $(INCS) $(SRCXX)
@@ -70,11 +70,8 @@ $(OBJSXX) : $(HFILESXX) $(SRCXX)
 
 %.o : %.cc
 	$(CXX) -c $(CFLAGSXX) $(INCS) -o $@ $<
-	@echo
-	@echo "Made " $*
-	@echo
 
-install: echoarch install-lib install-inc install-bin
+install: echoarch install-lib install-inc
 
 install-lib: $(CMSG_LIB) $(CMSG_LIBSXX)
 	@echo "Installing vxWorks C++ libraries in $(LIB_DIR)"
