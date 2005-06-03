@@ -48,6 +48,7 @@ cCode:
 
 # to avoid including the tar file in the tar file, back up one directory outside cMsg
 tarfile:
+	make clean
 	cd ..;	$(RM) cMsg-0.9.tar.gz; tar cvX cMsg/tarexclude -f cMsg-0.9.tar.gz -z cMsg
 
 
