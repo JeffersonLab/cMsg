@@ -5,7 +5,7 @@ bin/*
 inc/*
 graphs/*
 doc/javadoc/*
-doc/doxygen
+doc/doxygen/*
 org/jlab/coda/cMsg/*.class
 org/jlab/coda/cMsg/*/*.class
 org/jlab/coda/cMsg/cMsgDomain/*/*.class
