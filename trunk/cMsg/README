@@ -69,16 +69,16 @@ Simply type the command,
 where <installdir> is where the cMsg directory is located.
 If you want lots of informational output from the server, use this form,
 
-    java -cp <install dir>/cMsg/jar/cMsg-0.9.jar -Ddebug=info org/jlab/coda/cMsg/cMsgDomain/server/cMsgNameServer
+    java -cp <installdir>/cMsg/jar/cMsg-0.9.jar -Ddebug=info org/jlab/coda/cMsg/cMsgDomain/server/cMsgNameServer
 
 
 RUNNING A JAVA MESSAGE PRODUCER AND CONSUMER:
 
 To run the producer & consumer type,
 
-    java -cp <install dir>/cMsg/jar/cMsg-0.9.jar org/jlab/coda/cMsg/apps/cMsgProducer -debug -u cMsg://<serverhost>:3456/cMsg/test
+    java -cp <installdir>/cMsg/jar/cMsg-0.9.jar org/jlab/coda/cMsg/apps/cMsgProducer -debug -u cMsg://<serverhost>:3456/cMsg/test
 and 
-    java -cp <install dir>/cMsg/jar/cMsg-0.9.jar org/jlab/coda/cMsg/apps/cMsgConsumer -debug -u cMsg://<serverhost>:3456/cMsg/test
+    java -cp <installdir>/cMsg/jar/cMsg-0.9.jar org/jlab/coda/cMsg/apps/cMsgConsumer -debug -u cMsg://<serverhost>:3456/cMsg/test
 
 respectively, where <installdir> is where the cMsg directory is located,
 <serverhost> is the name of the computer running the server, and the
@@ -94,6 +94,10 @@ clients are a bit on the crude side.
     "cMsg://<serverhost>:3456/cMsg/test" where <serverhost> is the name
     of the computer running the server.
 * Type "make cCode" from the top level directory
+* Make sure the cMsg library is in your LD_LIBRARY_PATH by typing,
+    "setenv LD_LIBRARY_PATH <installdir>/cMsg/lib/Linux:$LD_LIBRARY_PATH"
+    If you're running on Solaris, substitute "SunOS" for "Linux".
+    
 * Now type,
 
     <installdir>/bin/Linux/producer
