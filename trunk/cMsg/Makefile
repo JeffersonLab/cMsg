@@ -46,7 +46,7 @@ cCode:
 
 tarfile:
 	-$(RM) cMsg.tar.gz
-	tar cfz cMsg.tar.gz `find . -type f | grep -v SCCS | grep -v BitKeeper | grep -v PENDING`
+	tar cX tarexclude -fz cMsg.tar.gz
 
 
 jarfile:
@@ -70,7 +70,8 @@ javadoc:
 	javadoc -package -d doc/javadoc org.jlab.coda.cMsg
 
 doxygen:
-	doxygen ./doc/doxygen/Doxyfile
+	doxygen ./doc/doxygen/DoxyfileC
+	doxygen ./doc/doxygen/DoxyfileCC
 
 
 
