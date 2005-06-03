@@ -150,7 +150,8 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   err = bind(listenfd, (SA *) &servaddr, sizeof(servaddr));
   if (err < 0) {
     close(listenfd);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: bind error\n");
+    /* Don't print this as it happens often with no effect. */
+    /*if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: bind error\n");*/
     return(CMSG_SOCKET_ERROR);
   }
   
