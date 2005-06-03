@@ -48,11 +48,11 @@ cCode:
 
 # to avoid including the tar file in the tar file, back up one directory outside cMsg
 tarfile:
-	cd ..;	$(RM) cMsg.tar.gz; tar cvX cMsg/tarexclude -f cMsg.tar.gz -z cMsg
+	cd ..;	$(RM) cMsg-0.9.tar.gz; tar cvX cMsg/tarexclude -f cMsg-0.9.tar.gz -z cMsg
 
 
 jarfile:
-	jar cf jar/cMsg.jar `find org/ -type f | grep -v SCCS | grep class`
+	jar cf jar/cMsg-0.9.jar `find org/ -type f | grep -v SCCS | grep class`
 
 java:
 	cd ./org/jlab/coda/cMsg; $(MAKE);
@@ -99,7 +99,7 @@ tarClean:
 	-$(RM) *.tar.gz
 
 jarClean:
-	-$(RM) jar/cMsg.jar
+	-$(RM) jar/cMsg-0.9.jar
 
 
 
