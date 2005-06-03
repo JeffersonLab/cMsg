@@ -30,7 +30,7 @@ endif
 # send this down to lower level makefiles
 export OSNAME
 
-all: mkdirs cCode java doc
+all: mkdirs cCode java jarfile doc
 
 mkdirs:
 	-mkdir ./lib
@@ -38,6 +38,8 @@ mkdirs:
 	-mkdir ./inc
 	-mkdir $(LIB_DIR)
 	-mkdir $(BIN_DIR)
+	-mkdir ./doc/doxygen/C
+	-mkdir ./doc/doxygen/CC
 
 cCode:
 	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) install;
