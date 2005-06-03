@@ -29,6 +29,15 @@ FULL INSTALLATION:
 * type "make"
 
 
+JAVA ONLY:
+
+If all you want to do is run the cMsg server and java clients, all you
+really need is the jar file - cMsg-0.9.jar which you can get off the
+Jefferson Lab ftp site. Follow the instructions below on how to run
+them. If you want the documentation however, you must do the full
+installation.
+
+
 PLATFORMS:
 
 This software is designed to be made on Solaris and Linux.
@@ -63,7 +72,7 @@ If you want lots of informational output from the server, use this form,
     java -cp <install dir>/cMsg/jar/cMsg-0.9.jar -Ddebug=info org/jlab/coda/cMsg/cMsgDomain/server/cMsgNameServer
 
 
-RUNNING A JAVA MESSAGE PRODUCER AND CONSUMER
+RUNNING A JAVA MESSAGE PRODUCER AND CONSUMER:
 
 To run the producer & consumer type,
 
@@ -76,9 +85,16 @@ respectively, where <installdir> is where the cMsg directory is located,
 "-debug" flag prints the rate of messages being produced or consumed.
 
 
-RUNNING A C MESSAGE PRODUCER AND CONSUMER
+RUNNING A C MESSAGE PRODUCER AND CONSUMER:
 
-To run the producer & consumer type,
+To run the producer & consumer a little editing must be done since these cMsg
+clients are a bit on the crude side.
+
+* Edit cMsg/src/C/producer.c and consumer.c so that the UDL has the value
+    "cMsg://<serverhost>:3456/cMsg/test" where <serverhost> is the name
+    of the computer running the server.
+* Type "make cCode" from the top level directory
+* Now type,
 
     <installdir>/bin/Linux/producer
 and
@@ -87,6 +103,11 @@ and
 where <installdir> is where the cMsg directory is located.
 If running on Solaris, substitute "SunOS" for "Linux".
 
+
+PROBLEMS:
+
+email Elliott Wolin - wolin@jlab.org, or
+      Carl Timmer   - timmer@jlab.org
 
 
 COPYRIGHT
