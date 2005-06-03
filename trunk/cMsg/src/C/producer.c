@@ -42,7 +42,7 @@ int main(int argc,char **argv) {
   void *msg;
   
   /* msg rate measuring variables */
-  int             dostring=0, count, i, delay=0, loops=30000, ignore=4;
+  int             dostring=0, count, i, delay=0, loops=10000, ignore=0;
   struct timespec t1, t2, sleeep;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
