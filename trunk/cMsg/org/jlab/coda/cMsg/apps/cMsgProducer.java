@@ -189,7 +189,7 @@ public class cMsgProducer {
 
         // variables to track message rate
         double freq=0., freqAvg=0.;
-        long t1, t2, deltaT, totalT=0, totalC=0, count=4000, ignore=5;
+        long t1, t2, deltaT, totalT=0, totalC=0, count=5000, ignore=0;
 
         // delay between messages
         if (delay != 0) count = count/(20 + delay);
@@ -197,7 +197,6 @@ public class cMsgProducer {
         while (true) {
             t1 = System.currentTimeMillis();
             for (int i = 0; i < count; i++) {
-                //coda.syncSend(msg);
                 coda.send(msg);
                 coda.flush();
                 // delay between messages sent
