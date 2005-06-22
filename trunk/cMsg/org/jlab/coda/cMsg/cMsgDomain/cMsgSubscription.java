@@ -23,6 +23,7 @@ import java.util.HashSet;
 
 /**
  * Class to store a client's subscription to a particular message subject and type.
+ * Used by both the cMsg domain API and cMsg subdomain handler objects.
  *
  * @author Carl Timmer
  * @version 1.0
@@ -48,12 +49,20 @@ public class cMsgSubscription {
      */
     private int id;
 
+    /**
+     * This refers to a cMsg subdomain's namespace in which this subscription resides.
+     * It is useful only when another server becomes a client for means of bridging
+     * messages. In this case, this special client does not reside in 1 namespace but
+     * represents subscriptions from different namespaces.
+     */
+    private String namespace;
+
     /** This set contains all of the callback objects {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread}. */
     private HashSet<cMsgCallbackThread> callbacks;
 
 
     /**
-     * Constructor.
+     * Constructor used by cMsg subdomain handler.
      * @param subject subscription subject
      * @param type subscription type
      * @param id unique id referring to subject and type combination
@@ -69,7 +78,7 @@ public class cMsgSubscription {
 
 
     /**
-     * Constructor.
+     * Constructor used by cMsg domain API.
      * @param subject subscription subject
      * @param type subscription type
      * @param id unique id referring to subject and type combination
@@ -124,6 +133,22 @@ public class cMsgSubscription {
      */
     public int getId() {
         return id;
+    }
+
+    /**
+     * Gets the namespace in the cMsg subdomain in which this subscription resides.
+     * @return namespace subscription resides in
+     */
+    public String getNamespace() {
+        return namespace;
+    }
+
+    /**
+     * Sets the namespace in the cMsg subdomain in which this subscription resides.
+     * @param namespace namespace subscription resides in
+     */
+    public void setNamespace(String namespace) {
+        this.namespace = namespace;
     }
 
 
