@@ -107,6 +107,21 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
+     * Method to synchronously get a single message from the local server for a one-time
+     * subscription of a subject and type by an outside server.
+     *
+     * @param subject message subject subscribed to
+     * @param type    message type subscribed to
+     * @param id      message id refering to these specific subject and type values
+     * @throws cMsgException
+     */
+    public void handleServerSubscribeAndGetRequest(String subject, String type, int id)
+            throws cMsgException {
+        throw new cMsgException("handleServerSubscribeAndGetRequest is not implemented");
+    }
+
+
+    /**
      * Method to synchronously get a single message from the server for a one-time
      * subscription of a subject and type.
      *
@@ -115,8 +130,8 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      * @param id      message id refering to these specific subject and type values
      * @throws cMsgException
      */
-    public void handleSubscribeAndGetRequest(String subject, String type,
-                                                      int id) throws cMsgException {
+    public void handleSubscribeAndGetRequest(String subject, String type, int id)
+            throws cMsgException {
         throw new cMsgException("handleSubscribeAndGetRequest is not implemented");
     }
 
@@ -158,6 +173,20 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
+     * Method to handle subscribe request sent by another cMsg server.
+     *
+     * @param subject message subject subscribed to
+     * @param type    message type subscribed to
+     * @param id      message id refering to these specific subject and type values
+     * @throws cMsgException
+     */
+    public void handleServerSubscribeRequest(String subject, String type, int id)
+            throws cMsgException {
+        throw new cMsgException("handleServerSubscribeRequest is not implemented");
+    }
+
+
+    /**
      * Method to handle subscribe request sent by domain client.
      *
      * @param subject  message subject to subscribe to
@@ -165,8 +194,8 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      * @param id       message id refering to these specific subject and type values
      * @throws cMsgException
      */
-    public void handleSubscribeRequest(String subject, String type,
-                                                int id) throws cMsgException {
+    public void handleSubscribeRequest(String subject, String type, int id)
+            throws cMsgException {
         throw new cMsgException("handleSubscribeRequest is not implemented");
     }
 
@@ -178,8 +207,8 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      * @param id       message id refering to these specific subject and type values
      * @throws cMsgException
      */
-    public void handleUnsubscribeRequest(String subject, String type,
-                                                  int id) throws cMsgException {
+    public void handleUnsubscribeRequest(String subject, String type, int id)
+            throws cMsgException {
         throw new cMsgException("handleUnsubscribeRequest is not implemented");
     }
 
@@ -192,9 +221,8 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      * @param flag   flag describing the mode of shutdown
      * @throws cMsgException
      */
-    public void handleShutdownRequest(String client, String server,
-                                      int flag) throws cMsgException {
-
+    public void handleShutdownRequest(String client, String server, int flag)
+            throws cMsgException {
         throw new cMsgException("handleShutdownRequest is not implemented");
     }
 
