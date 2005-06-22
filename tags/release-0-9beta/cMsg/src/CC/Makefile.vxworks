@@ -1,0 +1,99 @@
+
+# cMsg will not compile properly under Linux cross compiler
+#
+
+C_DIR   = ../C
+TOP_DIR = ../..
+INC_DIR = $(TOP_DIR)/inc
+LIB_DIR = $(TOP_DIR)/lib/vxworks
+BIN_DIR = $(TOP_DIR)/bin/vxworks
+INSTALL = $(TOP_DIR)/install-sh -c
+
+ifeq ($(ARCH),VXWORKSPPC)
+# vxWorks 5.5
+INCDIR=/site/vxworks/5.5/ppc/target/h
+CXX = g++ppc
+LD = ldppc -r
+DEFS = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
+INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I$(INC_DIR) -I$(INCDIR)
+CFLAGS = -O3 $(DEFS) 
+endif
+
+CFLAGSXX = $(CFLAGS) -Dcppversion
+
+CMSG_LIBSXX = cMsgLibxx.o
+
+PROGSXX =
+
+SRCXX =	$(C_DIR)/rwlock.c \
+	$(C_DIR)/sunConcurrency.c \
+	$(C_DIR)/cMsgMatching.c \
+	$(C_DIR)/cMsgNetwork.c \
+	$(C_DIR)/cMsg.c \
+	$(C_DIR)/cMsgDomainListenThread.c \
+	$(C_DIR)/cMsgDomain.c \
+	cMsgWrapper.cc
+
+OBJSXX = rwlock.o \
+	 sunConcurrency.o \
+	 cMsgMatching.o \
+         cMsgNetwork.o \
+	 cMsg.o \
+	 cMsgDomainListenThread.o \
+	 cMsgDomain.o \
+	 cMsgWrapper.o
+
+
+HFILES = $(C_DIR)/cMsgNetwork.h \
+	 $(C_DIR)/cMsgPrivate.h \
+	 $(C_DIR)/cMsgBase.h \
+	 $(C_DIR)/cMsgDomain.h \
+	 $(C_DIR)/rwlock.h \
+	 $(C_DIR)/errors.h
+
+HFILESXX = cMsgBase.hxx \
+	   cMsg.hxx
+
+all: echoarch $(OBJS) $(CMSG_LIBSXX)
+
+$(CMSG_LIBSXX): $(SRCXX)
+	$(CXX) -c $(CFLAGSXX) $(INCS) $(SRCXX)
+	${LD} -o $@ $(OBJSXX)
+
+echoarch:
+	@echo
+	@echo "Make for $(ARCH) on $(OSNAME)"
+	@echo
+        
+# file dependencies
+$(OBJSXX) : $(HFILESXX) $(SRCXX)
+
+%.o : %.cc
+	$(CXX) -c $(CFLAGSXX) $(INCS) -o $@ $<
+
+install: echoarch install-lib install-inc
+
+install-lib: $(CMSG_LIB) $(CMSG_LIBSXX)
+	@echo "Installing vxWorks C++ libraries in $(LIB_DIR)"
+	@for i in $(CMSG_LIBSXX); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
+	 done;
+
+install-inc: $(HFILESXX)
+	@echo "Installing includes in $(INC_DIR)"
+	@for i in $(HFILESXX); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(INC_DIR)/$$i; \
+	 done;
+
+install-bin: $(PROGSXX)
+	@echo "Installing C++ executables in $(BIN_DIR)"
+	@for i in $(PROGSXX); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(BIN_DIR)/$$i; \
+	done;
+
+
+clean:
+	rm -f core *~ *.o $(CMSG_LIBSXX)

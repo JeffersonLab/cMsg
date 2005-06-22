@@ -1,0 +1,80 @@
+# You probably want to take -DREDEBUG out of CFLAGS, and put something like
+# -O in, *after* testing (-DREDEBUG strengthens testing by enabling a lot of
+# internal assertion checking and some debugging facilities).
+# Do not take -DPOSIX_MISTAKE out.
+
+TOP_DIR = ../..
+INC_DIR = $(TOP_DIR)/inc
+LIB_DIR = $(TOP_DIR)/lib/vxworks
+BIN_DIR = $(TOP_DIR)/bin/vxworks
+INSTALL = $(TOP_DIR)/install-sh -c
+
+ifeq ($(ARCH),VXWORKSPPC)
+# vxWorks 5.5
+INCDIR = /site/vxworks/5.5/ppc/target/h
+CC     = ccppc
+LD     = ldppc -r
+DEFS   = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
+INCS   = -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -I./ -I$(INCDIR)
+CFLAGS = -O3 $(DEFS) -DPOSIX_MISTAKE 
+endif
+
+REGEX_LIB = libRegex.o
+HFILES = regex.h
+
+# Internal stuff, should not need changing.
+OBJS = regcomp.o regexec.o regerror.o regfree.o
+
+all: echoarch $(REGEX_LIB)
+
+$(REGEX_LIB): $(OBJS)
+	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
+
+# arrangements to build forward-reference header files
+%.ih : %.c
+	sh ./mkh -p $< >$@
+
+%.o : %.c
+	$(CC) -c $(CFLAGS) $(INCS) -o $@ $<
+	@echo
+	@echo "Made " $*
+	@echo
+
+# dependencies
+$(OBJS):	utils.h regex.h regex2.h
+regcomp.o:	cclass.h cname.h regcomp.ih
+regexec.o:	engine.c engine.ih
+regerror.o:	regerror.ih
+
+echoarch:
+	@echo
+	@echo "Make for $(ARCH) on $(OSNAME)"
+	@echo        
+       
+install: echoarch install-lib install-inc
+
+install-lib: $(REGEX_LIB)
+	@echo "Installing regular expression libraries in $(LIB_DIR)"
+	@for i in $(REGEX_LIB); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
+           done;
+
+install-inc: $(HFILES)
+	@echo "Installing includes in $(INC_DIR)"
+	@for i in $(HFILES); do \
+	   echo "  installing $$i"; \
+	   $(INSTALL) $$i $(INC_DIR)/$$i; \
+           done;
+
+# various forms of cleanup
+purge:
+	rm -f *.o
+
+tidy:
+	rm -f junk* core core.* *.core dtr *.tmp lint
+
+clean:	tidy
+	rm -f *.o *.s *.ih re libRegex
+        
+

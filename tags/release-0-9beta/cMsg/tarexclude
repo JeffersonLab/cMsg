@@ -1,0 +1,9 @@
+BitKeeper
+SCCS
+PENDING
+tarexclude
+lib/*
+bin/*
+doc/javadoc/*
+doc/doxygen/C/*
+doc/doxygen/CC/*
