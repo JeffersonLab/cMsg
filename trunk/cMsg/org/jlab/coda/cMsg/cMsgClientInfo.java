@@ -20,11 +20,9 @@ import java.lang.*;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.Lock;
-import java.nio.channels.SocketChannel;
-import java.io.*;
 
 /**
- * This class stores a domain client's information.
+ * This class stores a cMsg client's information.
  *
  * @author Carl Timmer
  * @version 1.0
@@ -51,6 +49,15 @@ public class cMsgClientInfo {
     /** Domain server's port. */
     private int    domainPort;
 
+    /** Is this client another cMsg server? */
+    boolean isServer;
+    /**
+     * If this client is a cMsg server, this quantity is the name server's port
+     * of the server which has just become a client of cMsg server where this
+     * object lives. (I hope you got that).
+     */
+    private int serverPort;
+
     /** Object for delivering messges to this client. */
     cMsgDeliverMessageInterface deliverer;
 
@@ -75,13 +82,15 @@ public class cMsgClientInfo {
     private Lock writeLock = lock.writeLock();
 
 
-    /** No arg constructor. */
-    cMsgClientInfo() {}
-    
+    /** No-arg constructor. */
+    public cMsgClientInfo() {
+    }
+
     /**
      * Constructor specifing client's name, port, host, subdomain, and UDL remainder.
      *
      * @param name  client's name
+     * @param nsPort name server's listening port
      * @param port  client's listening port
      * @param host  client's host
      * @param subdomain    client's subdomain
@@ -89,9 +98,10 @@ public class cMsgClientInfo {
      * @param UDL          client's UDL
      * @param description  client's description
      */
-    public cMsgClientInfo(String name, int port, String host, String subdomain,
+    public cMsgClientInfo(String name, int nsPort, int port, String host, String subdomain,
                           String UDLRemainder, String UDL, String description) {
         this.name = name;
+        serverPort = nsPort;
         clientPort = port;
         clientHost = host;
         this.subdomain = subdomain;
@@ -99,6 +109,23 @@ public class cMsgClientInfo {
         this.UDL = UDL;
         this.description = description;
     }
+
+    /**
+     * Constructor used when cMsg server acts as a client and connects a to cMsg server.
+     *
+     * @param name  client's name
+     * @param nsPort name server's listening port
+     * @param port  client's listening port
+     * @param host  client's host
+     */
+    public cMsgClientInfo(String name, int nsPort, int port, String host) {
+        this.name  = name;
+        serverPort = nsPort;
+        clientPort = port;
+        clientHost = host;
+        isServer   = true;
+    }
+
     /**
      * Constructor specifing client's name, port, host.
      *
@@ -107,7 +134,15 @@ public class cMsgClientInfo {
      * @param host  client's host
      */
     public cMsgClientInfo(String name, int port, String host) {
-        this(name, port, host, null, null, null, null);
+        this(name, -1, port, host, null, null, null, null);
+    }
+
+    /**
+     * Constructor for server's internal client (used to bridge
+     * cMsg domains).
+     */
+    public cMsgClientInfo(String name) {
+        this(name, -1, -1, null, null, null, null, null);
     }
 
     //-----------------------------------------------------------------------------------
@@ -249,6 +284,46 @@ public class cMsgClientInfo {
      * @param domainPort TCP port domain server is listening on
      */
     public void setDomainPort(int domainPort) {this.domainPort = domainPort;}
+
+    //-----------------------------------------------------------------------------------
+
+    /**
+     * Gets host connecting name server (client of this server) is running on.
+     * @return host connecting name server is running on
+     */
+    public String getServerHost() {return clientHost;}
+
+    /**
+     * Gets the TCP port the connecting name server (client of this server)
+     * is listening on.
+     * @return TCP port connecting name server is listening on
+     */
+    public int getServerPort() {return serverPort;}
+
+    /**
+     * Sets the TCP port the connecting name server (client of this server)
+     * is listening on.
+     * @param serverPort TCP port connecting name server is listening on
+     */
+    public void setServerPort(int serverPort) {this.serverPort = serverPort;}
+
+    //-----------------------------------------------------------------------------------
+
+    /**
+     * States whether this client is a cMsg server or not.
+     * @return true if this client is a cMsg server
+     */
+    public boolean isServer() {
+        return isServer;
+    }
+
+    /**
+     * Sets whether this client is a cMsg server or not.
+     * @param server if true, client is a cMsg server
+     */
+    public void setServer(boolean server) {
+        isServer = server;
+    }
 
     //-----------------------------------------------------------------------------------
 
