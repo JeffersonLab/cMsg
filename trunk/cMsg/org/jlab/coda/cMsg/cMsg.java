@@ -50,9 +50,11 @@ public class cMsg {
 
     private cMsgDomainInterface connection;
 
+
     /** Constructor. */
     private cMsg() {
     }
+
 
     /**
      * Constructor which automatically tries to connect to the name server specified.
@@ -60,13 +62,18 @@ public class cMsg {
      * @param UDL Uniform Domain Locator which specifies the server to connect to
      * @param name name of this client which must be unique in this domain
      * @param description description of this client
-     * @throws cMsgException if domain in not implemented or there are problems communicating
-     *                       with the name/domain server.
+     * @throws cMsgException if domain in not implemented, there are problems communicating
+     *                       with the name/domain server, or name contains colon
      */
     public cMsg(String UDL, String name, String description) throws cMsgException {
         this.UDL = UDL;
         this.name = name;
         this.description = description;
+
+        // do not allow colons in the name string
+        if (name.contains(":")) {
+            throw new cMsgException("invalid name - contains \":\"");    
+        }
 
         // parse the UDL - Uniform Domain Locator
         parseUDL(UDL);
@@ -145,6 +152,7 @@ public class cMsg {
         }
         UDLremainder = s2;
     }
+
 
     /**
      * Creates the object that makes the real connection to a particular domain's server
