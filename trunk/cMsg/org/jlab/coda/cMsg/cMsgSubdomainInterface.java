@@ -91,6 +91,19 @@ public interface cMsgSubdomainInterface {
 
 
     /**
+     * Method to synchronously get a single message from the local server for a one-time
+     * subscription of a subject and type by an outside server.
+     *
+     * @param subject message subject subscribed to
+     * @param type    message type subscribed to
+     * @param id      message id refering to these specific subject and type values
+     * @throws cMsgException
+     */
+    public void handleServerSubscribeAndGetRequest(String subject, String type, int id)
+            throws cMsgException;
+
+
+    /**
      * Method to synchronously get a single message from the server for a one-time
      * subscription of a subject and type.
      *
@@ -99,8 +112,18 @@ public interface cMsgSubdomainInterface {
      * @param id      message id refering to these specific subject and type values
      * @throws cMsgException
      */
-    public void handleSubscribeAndGetRequest(String subject, String type,
-                                             int id) throws cMsgException;
+    public void handleSubscribeAndGetRequest(String subject, String type, int id)
+            throws cMsgException;
+
+
+    /**
+     * Method to handle remove subscribeAndGet request sent by domain client
+     * (hidden from user).
+     *
+     * @param id message id refering to these specific subject and type values
+     * @throws cMsgException
+     */
+    public void handleUnSubscribeAndGetRequest(int id) throws cMsgException;
 
 
     /**
@@ -124,13 +147,15 @@ public interface cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle remove subscribeAndGet request sent by domain client
-     * (hidden from user).
+     * Method to handle subscribe request sent by another cMsg server.
      *
-     * @param id message id refering to these specific subject and type values
+     * @param subject message subject subscribed to
+     * @param type    message type subscribed to
+     * @param id      message id refering to these specific subject and type values
      * @throws cMsgException
      */
-    public void handleUnSubscribeAndGetRequest(int id) throws cMsgException;
+    public void handleServerSubscribeRequest(String subject, String type, int id)
+            throws cMsgException;
 
 
     /**
@@ -141,8 +166,9 @@ public interface cMsgSubdomainInterface {
      * @param id      message id refering to these specific subject and type values
      * @throws cMsgException
      */
-    public void handleSubscribeRequest(String subject, String type,
-                                       int id) throws cMsgException;
+    public void handleSubscribeRequest(String subject, String type, int id)
+            throws cMsgException;
+
 
     /**
      * Method to handle unsubscribe request sent by domain client.
@@ -152,8 +178,8 @@ public interface cMsgSubdomainInterface {
      * @param id      message id refering to these specific subject and type values
      * @throws cMsgException
      */
-    public void handleUnsubscribeRequest(String subject, String type,
-                                         int id) throws cMsgException;
+    public void handleUnsubscribeRequest(String subject, String type, int id)
+            throws cMsgException;
 
 
     /**
@@ -164,8 +190,8 @@ public interface cMsgSubdomainInterface {
      * @param flag   flag describing the mode of shutdown
      * @throws cMsgException
      */
-    public void handleShutdownRequest(String client, String server,
-                                      int flag) throws cMsgException;
+    public void handleShutdownRequest(String client, String server, int flag)
+            throws cMsgException;
 
 
     /**
