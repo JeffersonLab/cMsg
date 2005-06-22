@@ -44,6 +44,13 @@ public class cMsg extends cMsgDomainAdapter {
     /** Port number to listen on. */
     private int port;
 
+    /**
+     * A string of the form name:nameServerHost:nameserverPort.
+     * This is a variable of convenience so it does not have to
+     * be calculated for each send.
+     */
+    private String creator;
+
     /** Subdomain being used. */
     private String subdomain;
 
@@ -178,10 +185,9 @@ public class cMsg extends cMsgDomainAdapter {
 //-----------------------------------------------------------------------------
 
     /**
-     * Constructor which automatically tries to connect to the name server specified.
+     * Constructor which does NOT automatically try to connect to the name server specified.
      *
-     * @throws cMsgException if domain in not implemented or there are problems communicating
-     *                       with the name/domain server.
+     * @throws cMsgException if local host name cannot be found
      */
     public cMsg() throws cMsgException {
         domain = "cMsg";
@@ -222,15 +228,45 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * Method to connect to the domain server.
+     * Method to connect to the domain server from regular cMsg client.
      *
      * @throws cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server
      */
     public void connect() throws cMsgException {
+        connectReal(false);
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to connect to the domain server from a cMsg server acting as a bridge.
+     *
+     * @throws cMsgException if there are problems parsing the UDL or
+     *                       communication problems with the server
+     */
+    public void serverConnect() throws cMsgException {
+        connectReal(true);
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to connect to the domain server.
+     *
+     * @param fromServer boolean stating whether server is being connected to by another server
+     * @throws cMsgException if there are problems parsing the UDL or
+     *                       communication problems with the server
+     */
+    private void connectReal(boolean fromServer) throws cMsgException {
 
         // parse the domain-specific portion of the UDL (Uniform Domain Locator)
         parseUDL();
+        creator = name+":"+nameServerHost+":"+nameServerPort;
 
         // cannot run this simultaneously with any other public method
         connectLock.lock();
@@ -320,7 +356,7 @@ public class cMsg extends cMsgDomainAdapter {
 
             // get host & port to send messages & other info from name server
             try {
-                talkToNameServer(channel);
+                talkToNameServer(channel, fromServer);
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
@@ -486,9 +522,9 @@ public class cMsg extends cMsgDomainAdapter {
                 text = "";
             }
 
-            // creator (this sender's name if msg created here)
-            String creator = message.getCreator();
-            if (creator == null) creator = name;
+            // creator (this sender's name:nsHost:nsPort if msg created here)
+            String msgCreator = message.getCreator();
+            if (msgCreator == null) msgCreator = creator;
 
             int binaryLength = message.getByteArrayLength();
 
@@ -513,7 +549,7 @@ public class cMsg extends cMsgDomainAdapter {
 
                 domainOut.writeInt(subject.length());
                 domainOut.writeInt(type.length());
-                domainOut.writeInt(creator.length());
+                domainOut.writeInt(msgCreator.length());
                 domainOut.writeInt(text.length());
                 domainOut.writeInt(binaryLength);
 
@@ -521,7 +557,7 @@ public class cMsg extends cMsgDomainAdapter {
                 try {
                     domainOut.write(subject.getBytes("US-ASCII"));
                     domainOut.write(type.getBytes("US-ASCII"));
-                    domainOut.write(creator.getBytes("US-ASCII"));
+                    domainOut.write(msgCreator.getBytes("US-ASCII"));
                     domainOut.write(text.getBytes("US-ASCII"));
                     if (binaryLength > 0) {
                         domainOut.write(message.getByteArray(),
@@ -585,9 +621,9 @@ public class cMsg extends cMsgDomainAdapter {
                 text = "";
             }
 
-            // creator (this sender's name if msg created here)
-            String creator = message.getCreator();
-            if (creator == null) creator = name;
+            // this sender's name if msg created here
+            String msgCreator = message.getCreator();
+            if (msgCreator == null) msgCreator = creator;
 
             int binaryLength = message.getByteArrayLength();
 
@@ -612,7 +648,7 @@ public class cMsg extends cMsgDomainAdapter {
 
                 domainOut.writeInt(subject.length());
                 domainOut.writeInt(type.length());
-                domainOut.writeInt(creator.length());
+                domainOut.writeInt(msgCreator.length());
                 domainOut.writeInt(text.length());
                 domainOut.writeInt(binaryLength);
 
@@ -620,7 +656,7 @@ public class cMsg extends cMsgDomainAdapter {
                 try {
                     domainOut.write(subject.getBytes("US-ASCII"));
                     domainOut.write(type.getBytes("US-ASCII"));
-                    domainOut.write(creator.getBytes("US-ASCII"));
+                    domainOut.write(msgCreator.getBytes("US-ASCII"));
                     domainOut.write(text.getBytes("US-ASCII"));
                     if (binaryLength > 0) {
                         domainOut.write(message.getByteArray(),
@@ -843,9 +879,9 @@ public class cMsg extends cMsgDomainAdapter {
             // track specific get requests
             sendAndGets.put(id, holder);
 
-            // creator (this sender's name if msg created here)
-            String creator = message.getCreator();
-            if (creator == null) creator = name;
+            // this sender's creator if msg created here
+            String msgCreator = message.getCreator();
+            if (msgCreator == null) msgCreator = creator;
 
             int binaryLength = message.getByteArrayLength();
 
@@ -869,7 +905,7 @@ public class cMsg extends cMsgDomainAdapter {
 
                 domainOut.writeInt(subject.length());
                 domainOut.writeInt(type.length());
-                domainOut.writeInt(creator.length());
+                domainOut.writeInt(msgCreator.length());
                 domainOut.writeInt(text.length());
                 domainOut.writeInt(binaryLength);
 
@@ -877,7 +913,7 @@ public class cMsg extends cMsgDomainAdapter {
                 try {
                     domainOut.write(subject.getBytes("US-ASCII"));
                     domainOut.write(type.getBytes("US-ASCII"));
-                    domainOut.write(creator.getBytes("US-ASCII"));
+                    domainOut.write(msgCreator.getBytes("US-ASCII"));
                     domainOut.write(text.getBytes("US-ASCII"));
                     if (binaryLength > 0) {
                         domainOut.write(message.getByteArray(),
@@ -1303,6 +1339,34 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
+     * This method acts as a multiplexer to send client to server communications to
+     * the method {@link #talkToNameServerFromClient} and server to server communications
+     * to the method {@link #talkToNameServerFromServer}.
+     *
+     * @param channel nio socket communication channel
+     * @param fromServer boolean stating whether server is being connected by
+     *                   another server or by a client
+     * @throws IOException if there are communication problems with the name server
+     * @throws cMsgException if the name server's domain does not match the UDL's domain,'
+     *                       the client cannot be registered, the domain server cannot
+     *                       open a listening socket or find a port to listen on, or
+     *                       the name server cannot establish a connection to the client
+     */
+    private void talkToNameServer(SocketChannel channel, boolean fromServer)
+            throws IOException, cMsgException {
+        if (fromServer) {
+            talkToNameServerFromServer(channel);
+        }
+        else {
+            talkToNameServerFromClient(channel);
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
      * This method gets the host and port of the domain server from the name server.
      * It also gets information about the subdomain handler object.
      * Note to those who would make changes in the protocol, keep the first three
@@ -1311,7 +1375,109 @@ public class cMsg extends cMsgDomainAdapter {
      * @param channel nio socket communication channel
      * @throws IOException if there are communication problems with the name server
      */
-    private void talkToNameServer(SocketChannel channel) throws IOException, cMsgException {
+    private void talkToNameServerFromServer(SocketChannel channel)
+            throws IOException, cMsgException {
+        byte[] buf = new byte[512];
+
+        DataInputStream  in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream()));
+        DataOutputStream out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream()));
+
+        out.writeInt(cMsgConstants.msgServerConnectRequest);
+        out.writeInt(cMsgConstants.version);
+        out.writeInt(cMsgConstants.minorVersion);
+        out.writeInt(port);
+        out.writeInt(domain.length());
+        out.writeInt(subdomain.length());
+        out.writeInt(subRemainder.length());
+        out.writeInt(host.length());
+        out.writeInt(name.length());
+        out.writeInt(UDL.length());
+        out.writeInt(description.length());
+
+        // write strings & byte array
+        try {
+            out.write(domain.getBytes("US-ASCII"));
+            out.write(subdomain.getBytes("US-ASCII"));
+            out.write(subRemainder.getBytes("US-ASCII"));
+            out.write(host.getBytes("US-ASCII"));
+            out.write(name.getBytes("US-ASCII"));
+            out.write(UDL.getBytes("US-ASCII"));
+            out.write(description.getBytes("US-ASCII"));
+        }
+        catch (UnsupportedEncodingException e) {
+        }
+
+        out.flush(); // no need to be protected by socketLock
+
+        // read acknowledgment
+        int error = in.readInt();
+
+        // if there's an error, read error string then quit
+        if (error != cMsgConstants.ok) {
+
+            // read string length
+            int len = in.readInt();
+            if (len > buf.length) {
+                buf = new byte[len+100];
+            }
+
+            // read error string
+            in.readFully(buf, 0, len);
+            String err = new String(buf, 0, len, "US-ASCII");
+
+            throw new cMsgException("Error from server: " + err);
+        }
+
+        // Since everything's OK, we expect to get:
+        //   1) attributes of subdomain handler object
+        //   2) domain server host & port
+
+        in.readFully(buf,0,7);
+
+        hasSend            = (buf[0] == (byte)1) ? true : false;
+        hasSyncSend        = (buf[1] == (byte)1) ? true : false;
+        hasSubscribeAndGet = (buf[2] == (byte)1) ? true : false;
+        hasSendAndGet      = (buf[3] == (byte)1) ? true : false;
+        hasSubscribe       = (buf[4] == (byte)1) ? true : false;
+        hasUnsubscribe     = (buf[5] == (byte)1) ? true : false;
+        hasShutdown        = (buf[6] == (byte)1) ? true : false;
+
+        // Read port & length of host name.
+        domainServerPort = in.readInt();
+        int hostLength   = in.readInt();
+
+        // read host name
+        if (hostLength > buf.length) {
+            buf = new byte[hostLength];
+        }
+        in.readFully(buf, 0, hostLength);
+        domainServerHost = new String(buf, 0, hostLength, "US-ASCII");
+
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("  domain server host = " + domainServerHost +
+                               ", port = " + domainServerPort);
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * This method gets the host and port of the domain server from the name server.
+     * It also gets information about the subdomain handler object.
+     * Note to those who would make changes in the protocol, keep the first three
+     * ints the same. That way the server can reliably check for mismatched versions.
+     *
+     * @param channel nio socket communication channel
+     * @throws IOException if there are communication problems with the name server
+     * @throws cMsgException if the name server's domain does not match the UDL's domain,'
+     *                       the client cannot be registered, the domain server cannot
+     *                       open a listening socket or find a port to listen on, or
+     *                       the name server cannot establish a connection to the client
+     */
+    private void talkToNameServerFromClient(SocketChannel channel)
+            throws IOException, cMsgException {
 
         byte[] buf = new byte[512];
 
