@@ -109,30 +109,39 @@ public class cMsgConstants {
     // Codes sent by the client over the network to
     // specify a particular request.
 
-    /** Connect to the server. */
-    public static final int    msgConnectRequest           =  0;
-    /** Disconnect from the server. */
-    public static final int    msgDisconnectRequest        =  1;
+    /** Connect to the server from client. */
+    public static final int    msgConnectRequest               =  0;
+    /** Disconnect client from the server. */
+    public static final int    msgDisconnectRequest            =  1;
     /** See if the process on the other end of the socket is still alive. */
-    public static final int    msgKeepAlive                =  2;
+    public static final int    msgKeepAlive                    =  2;
     /** Shutdown various clients and servers. */
-    public static final int    msgShutdown                 =  3;
+    public static final int    msgShutdown                     =  3;
     /** Send a message. */
-    public static final int    msgSendRequest              =  4;
+    public static final int    msgSendRequest                  =  4;
     /** Send a message with synchronous response. */
-    public static final int    msgSyncSendRequest          =  5;
+    public static final int    msgSyncSendRequest              =  5;
     /** Subscribe to messages. */
-    public static final int    msgSubscribeRequest         =  6;
+    public static final int    msgSubscribeRequest             =  6;
     /** Unsubscribe to messages. */
-    public static final int    msgUnsubscribeRequest       =  7;
+    public static final int    msgUnsubscribeRequest           =  7;
     /** Get a message with 1-shot subscribe. */
-    public static final int    msgSubscribeAndGetRequest   =  8;
+    public static final int    msgSubscribeAndGetRequest       =  8;
     /** Remove "subscribeAndGet" request. */
-    public static final int    msgUnSubscribeAndGetRequest =  9;
+    public static final int    msgUnSubscribeAndGetRequest     =  9;
     /** Get a message from a responder of a sent message. */
-    public static final int    msgSendAndGetRequest        = 10;
+    public static final int    msgSendAndGetRequest            = 10;
     /** Remove "sendAndGet" request. */
-    public static final int    msgUnSendAndGetRequest      = 11;
+    public static final int    msgUnSendAndGetRequest          = 11;
+
+    /** Subscribe to messages by another server. */
+    public static final int    msgServerSubscribeRequest       = 12;
+    /** Get a message with 1-shot subscribe by another server. */
+    public static final int    msgServerSubscribeAndGetRequest = 13;
+    /** Connect to the server from server. */
+    public static final int    msgServerConnectRequest         = 14;
+    /** Disconnect server from the server. */
+    public static final int    msgServerDisconnectRequest      = 15;
 
     // Codes sent by the server to a client over the
     // network to specify a particular response.
