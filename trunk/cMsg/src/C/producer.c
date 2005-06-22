@@ -129,8 +129,8 @@ int main(int argc,char **argv) {
   }
   */
   
-  /*while (mainloops-- > 0) {*/
-  while (1) {
+  while (mainloops-- > 0) {
+  /*while (1) {*/
       count = 0;
       
       /* read time for rate calculations */
