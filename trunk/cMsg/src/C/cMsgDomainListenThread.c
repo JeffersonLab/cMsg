@@ -664,6 +664,10 @@ static void *clientThread(void *arg)
     /* decrease concurrency as this thread disappears */
     con = sun_getconcurrency();
     sun_setconcurrency(con - 1);
+    
+    /* release memory */
+    free(arg);
+    free((void*)buffer);
   
     /* quit thread */
     pthread_exit(NULL);
