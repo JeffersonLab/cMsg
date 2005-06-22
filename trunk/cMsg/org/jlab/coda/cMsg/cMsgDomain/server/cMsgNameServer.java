@@ -24,11 +24,9 @@ import java.nio.channels.Selector;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.ByteBuffer;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgNetworkConstants;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgUtilities;
 
 /**
  * This class implements a cMsg name server in the cMsg domain.
@@ -41,11 +39,11 @@ public class cMsgNameServer extends Thread {
     /** Type of domain this is. */
     private String domain = "cMsg";
 
+    /** This server's TCP listening port number. */
+    private int port;
+
     /** Server channel (contains socket). */
     private ServerSocketChannel serverChannel;
-
-    /** A direct buffer is necessary for nio socket IO. */
-    private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
     /**
      * Keep all domain server objects in a weak hashmap (if the
@@ -129,6 +127,8 @@ public class cMsgNameServer extends Thread {
             ex.printStackTrace();
             System.exit(-1);
         }
+
+        this.port = port;
     }
 
 
@@ -333,10 +333,11 @@ public class cMsgNameServer extends Thread {
      * @param info object containing information about the client
      * @throws cMsgException If a domain server could not be started for the client
      */
-    synchronized public cMsgSubdomainInterface registerClient(cMsgClientInfo info) throws cMsgException {
+    synchronized private cMsgSubdomainInterface registerClient(cMsgClientInfo info) throws cMsgException {
         cMsgSubdomainInterface subdomainHandler = createClientHandler(info.getSubdomain());
 
-        // The first thing we do is pass the UDL remainder to the handler
+        // The first thing we do is pass the UDL remainder to the handler.
+        // In the cMsg subdomain, it is parsed to find the namespace.
         subdomainHandler.setUDLRemainder(info.getUDLremainder());
 
         // The next thing to do is create an object enabling the handler
@@ -350,11 +351,12 @@ public class cMsgNameServer extends Thread {
             ex.setReturnCode(cMsgConstants.errorNetwork);
             throw ex;
         }
+        // The cMsg subdomain does not use this reference to the deliverer
+        // to communicate, but other subdomains do.
         subdomainHandler.setMessageDeliverer(deliverer);
 
         // Also store deliverer object in client info object.
-        // Do this because communication to client is a little
-        // different in cMsg subdomain.
+        // The cMsg subdomain uses this reference to communicate.
         info.setDeliverer(deliverer);
 
         // pass registration on to handler object
@@ -414,27 +416,22 @@ public class cMsgNameServer extends Thread {
                         ServerSocketChannel server = (ServerSocketChannel) key.channel();
                         // accept the connection from the client
                         SocketChannel channel = server.accept();
+
                         // set socket options
                         Socket socket = channel.socket();
                         // Set tcpNoDelay so no packets are delayed
                         socket.setTcpNoDelay(true);
-                        // let us know (in the next select call) if this socket is ready to read
-                        cMsgUtilities.registerChannel(selector, channel, SelectionKey.OP_READ);
+                        // set buffer sizes
+                        socket.setReceiveBufferSize(65535);
+                        socket.setSendBufferSize(65535);
+
+                        // start up client handling thread
+                        handleConnection(channel);
 
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("\ncMsgNameServer: accepted client connection");
+                            System.out.println("cMsgNameServer: new connection");
                         }
                     }
-
-                    // is there data to read on this channel?
-                    if (key.isValid() && key.isReadable()) {
-                        SocketChannel channel = (SocketChannel) key.channel();
-                        if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("cMsgNameServer: client request coming in");
-                        }
-                        handleClient(channel);
-                    }
-
                     // remove key from selected set since it's been handled
                     it.remove();
                 }
@@ -462,191 +459,48 @@ public class cMsgNameServer extends Thread {
      *
      * @param channel nio socket communication channel
      */
-    private void handleClient(SocketChannel channel) {
+    private void handleConnection(SocketChannel channel) {
 
         try {
-            int[] inComing = new int[8];
 
-            // keep reading until we have 3 ints of data
-            cMsgUtilities.readSocketBytes(buffer, channel, 12, debug);
-            buffer.flip();
-            buffer.asIntBuffer().get(inComing, 0, 3);
+            // buffered communication streams for efficiency
+            DataInputStream  in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 65536));
+            DataOutputStream out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 2048));
 
             // message id
-            int msgId = inComing[0];
+            int msgId = in.readInt();
             // major version
-            int version = inComing[1];
+            int version = in.readInt();
             // minor version
-            int minorVersion = inComing[2];
+            int minorVersion = in.readInt();
 
             // immediately check if this domain server is different cMsg version than client
             if (version != cMsgConstants.version) {
                 // send error to client
-                buffer.clear();
-                buffer.putInt(cMsgConstants.errorDifferentVersion);
+                out.writeInt(cMsgConstants.errorDifferentVersion);
                 // send error string to client
                 String s = "version mismatch";
-                buffer.putInt(s.length());
-                buffer.put(s.getBytes("US-ASCII")).flip();
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
+                out.writeInt(s.length());
+                try { out.write(s.getBytes("US-ASCII")); }
+                catch (UnsupportedEncodingException e) {}
+
+                out.flush();
                 return;
             }
 
-            // keep reading until we have 8 ints of data
-            cMsgUtilities.readSocketBytes(buffer, channel, 32, debug);
-            buffer.flip();
-            buffer.asIntBuffer().get(inComing);
-
-            // listening port of client
-            int clientListeningPort = inComing[0];
-            // length of domain type client is expecting to connect to
-            int lengthDomainType = inComing[1];
-            // length of subdomain type client is expecting to use
-            int lengthSubdomainType = inComing[2];
-            // length of UDL remainder to pass to subdomain handler
-            int lengthUDLRemainder = inComing[3];
-            // length of client's host name
-            int lengthHost = inComing[4];
-            // length of client's name
-            int lengthName = inComing[5];
-            // length of client's UDL
-            int lengthUDL = inComing[6];
-            // length of client's description
-            int lengthDescription = inComing[7];
-
-            // bytes expected
-            int bytesToRead = lengthDomainType + lengthSubdomainType +
-                              lengthUDLRemainder + lengthHost + lengthName +
-                              lengthUDL + lengthDescription;
-
-            // read in all remaining bytes
-            cMsgUtilities.readSocketBytes(buffer, channel, bytesToRead, debug);
-
-            // go back to reading-from-buffer mode
-            buffer.flip();
-
-            // allocate byte array big enough for everything
-            byte[] buf = new byte[bytesToRead];
-
-            // read domain
-            buffer.get(buf, 0, lengthDomainType);
-            String domainType = new String(buf, 0, lengthDomainType, "US-ASCII");
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  domain = " + domainType);
+            switch(msgId) {
+                case cMsgConstants.msgConnectRequest:
+                    handleClient(in, out);
+                    break;
+                case cMsgConstants.msgServerConnectRequest:
+                    handleServer(in, out);
+                    break;
+                default:
+                    if (debug >= cMsgConstants.debugWarn) {
+                        System.out.println("cMsg name server: can't understand your message -> " + msgId);
+                    }
+                    break;
             }
-
-            // read subdomain
-            buffer.get(buf, 0, lengthSubdomainType);
-            String subdomainType = new String(buf, 0, lengthSubdomainType, "US-ASCII");
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  subdomain = " + subdomainType);
-            }
-
-            // read UDL remainder
-            buffer.get(buf, 0, lengthUDLRemainder);
-            String UDLRemainder = new String(buf, 0, lengthUDLRemainder, "US-ASCII");
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  remainder = " + UDLRemainder);
-            }
-
-            // read host
-            buffer.get(buf, 0, lengthHost);
-            String host = new String(buf, 0, lengthHost, "US-ASCII");
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  host = " + host);
-            }
-
-            // read name
-            buffer.get(buf, 0, lengthName);
-            String name = new String(buf, 0, lengthName, "US-ASCII");
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  port = " + clientListeningPort);
-                System.out.println("  name = " + name);
-            }
-
-            // read UDL
-            buffer.get(buf, 0, lengthUDL);
-            String UDL = new String(buf, 0, lengthUDL, "US-ASCII");
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  UDL = " + UDL);
-            }
-
-            // read description
-            buffer.get(buf, 0, lengthDescription);
-            String description = new String(buf, 0, lengthDescription, "US-ASCII");
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  description = " + description);
-            }
-
-            // if this is not the domain of server the client is expecting, return an error
-            if (!domainType.equalsIgnoreCase(this.domain)) {
-                // send error to client
-                buffer.clear();
-                buffer.putInt(cMsgConstants.errorWrongDomainType);
-                // send error string to client
-                String s = "this server implements " + this.domain + " domain";
-                buffer.putInt(s.length());
-                buffer.put(s.getBytes("US-ASCII")).flip();
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
-                return;
-            }
-
-            // Try to register this client. If the cMsg system already has a
-            // client by this name, it will fail.
-            try {
-                cMsgClientInfo info = new cMsgClientInfo(name, clientListeningPort, host,
-                                                         subdomainType, UDLRemainder,
-                                                         UDL, description);
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("name server try to register " + name);
-                }
-
-                cMsgSubdomainInterface handler = registerClient(info);
-
-                buffer.clear();
-
-                // send ok back as acknowledgment
-                buffer.putInt(cMsgConstants.ok);
-
-                // send back attributes of clientHandler class/object
-                // 1 = has, 0 = don't have: send, subscribeAndGet, sendAndGet, subscribe, unsubscribe
-                byte[] atts = new byte[7];
-                atts[0] = handler.hasSend()            ? (byte)1 : (byte)0;
-                atts[1] = handler.hasSyncSend()        ? (byte)1 : (byte)0;
-                atts[2] = handler.hasSubscribeAndGet() ? (byte)1 : (byte)0;
-                atts[3] = handler.hasSendAndGet()      ? (byte)1 : (byte)0;
-                atts[4] = handler.hasSubscribe()       ? (byte)1 : (byte)0;
-                atts[5] = handler.hasUnsubscribe()     ? (byte)1 : (byte)0;
-                atts[6] = handler.hasShutdown()        ? (byte)1 : (byte)0;
-                buffer.put(atts);
-
-                // send cMsg domain host & port contact info back to client
-                buffer.putInt(info.getDomainPort());
-                buffer.putInt(info.getDomainHost().length());
-                buffer.put(info.getDomainHost().getBytes("US-ASCII")).flip();
-
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
-
-            }
-            catch (cMsgException ex) {
-                buffer.clear();
-                // send int error code to client
-                buffer.putInt(ex.getReturnCode());
-                // send error string to client
-                buffer.putInt(ex.getMessage().length());
-                buffer.put(ex.getMessage().getBytes("US-ASCII")).flip();
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
-            }
-
-            return;
         }
         catch (IOException ex) {
             if (debug >= cMsgConstants.debugError) {
@@ -661,6 +515,260 @@ public class cMsgNameServer extends Thread {
             catch (IOException ex) {
             }
         }
+
     }
+
+
+    /**
+     * This method handles all communication between a cMsg client
+     * and this name server for that domain.
+     *
+     * @param in input data stream
+     * @param out output data stream
+     * @throws IOException if problems with socket communication
+     */
+    private void handleClient(DataInputStream in, DataOutputStream out) throws IOException {
+        // listening port of client
+        int clientListeningPort = in.readInt();
+        // length of domain type client is expecting to connect to
+        int lengthDomainType = in.readInt();
+        // length of subdomain type client is expecting to use
+        int lengthSubdomainType = in.readInt();
+        // length of UDL remainder to pass to subdomain handler
+        int lengthUDLRemainder = in.readInt();
+        // length of client's host name
+        int lengthHost = in.readInt();
+        // length of client's name
+        int lengthName = in.readInt();
+        // length of client's UDL
+        int lengthUDL = in.readInt();
+        // length of client's description
+        int lengthDescription = in.readInt();
+
+        // bytes expected
+        int bytesToRead = lengthDomainType + lengthSubdomainType +
+                          lengthUDLRemainder + lengthHost + lengthName +
+                          lengthUDL + lengthDescription;
+        int offset = 0;
+
+        // read all string bytes
+        byte[] bytes = new byte[bytesToRead];
+        in.readFully(bytes, 0, bytesToRead);
+
+        // read domain
+        String domainType = new String(bytes, offset, lengthDomainType, "US-ASCII");
+        offset += lengthDomainType;
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("  domain = " + domainType);
+        }
+
+        // read subdomain
+        String subdomainType = new String(bytes, offset, lengthSubdomainType, "US-ASCII");
+        offset += lengthSubdomainType;
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("  subdomain = " + subdomainType);
+        }
+
+        // read UDL remainder
+        String UDLRemainder = new String(bytes, offset, lengthUDLRemainder, "US-ASCII");
+        offset += lengthUDLRemainder;
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("  remainder = " + UDLRemainder);
+        }
+
+        // read host
+        String host = new String(bytes, offset, lengthHost, "US-ASCII");
+        offset += lengthHost;
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("  host = " + host);
+        }
+
+        // read name
+        String name = new String(bytes, offset, lengthName, "US-ASCII");
+        offset += lengthName;
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("  port = " + clientListeningPort);
+            System.out.println("  name = " + name);
+        }
+
+        // read UDL
+        String UDL = new String(bytes, offset, lengthUDL, "US-ASCII");
+        offset += lengthUDL;
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("  UDL = " + UDL);
+        }
+
+        // read description
+        String description = new String(bytes, offset, lengthDescription, "US-ASCII");
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("  description = " + description);
+        }
+
+        // if this is not the domain of server the client is expecting, return an error
+        if (!domainType.equalsIgnoreCase(this.domain)) {
+            // send error to client
+            out.writeInt(cMsgConstants.errorWrongDomainType);
+            // send error string to client
+            String s = "this server implements " + this.domain + " domain";
+            out.writeInt(s.length());
+            try { out.write(s.getBytes("US-ASCII")); }
+            catch (UnsupportedEncodingException e) {}
+
+            out.flush();
+            return;
+        }
+
+        // Try to register this client. If the cMsg system already has a
+        // client by this name, it will fail.
+        try {
+            cMsgClientInfo info = new cMsgClientInfo(name, port,
+                                                     clientListeningPort, host,
+                                                     subdomainType, UDLRemainder,
+                                                     UDL, description);
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("name server try to register " + name);
+            }
+
+            cMsgSubdomainInterface handler = registerClient(info);
+
+            // send ok back as acknowledgment
+            out.writeInt(cMsgConstants.ok);
+
+            // send back attributes of clientHandler class/object
+            // 1 = has, 0 = don't have: send, subscribeAndGet, sendAndGet, subscribe, unsubscribe
+            byte[] atts = new byte[7];
+            atts[0] = handler.hasSend()            ? (byte)1 : (byte)0;
+            atts[1] = handler.hasSyncSend()        ? (byte)1 : (byte)0;
+            atts[2] = handler.hasSubscribeAndGet() ? (byte)1 : (byte)0;
+            atts[3] = handler.hasSendAndGet()      ? (byte)1 : (byte)0;
+            atts[4] = handler.hasSubscribe()       ? (byte)1 : (byte)0;
+            atts[5] = handler.hasUnsubscribe()     ? (byte)1 : (byte)0;
+            atts[6] = handler.hasShutdown()        ? (byte)1 : (byte)0;
+            out.write(atts);
+
+            // send cMsg domain host & port contact info back to client
+            out.writeInt(info.getDomainPort());
+            out.writeInt(info.getDomainHost().length());
+            try { out.write(info.getDomainHost().getBytes("US-ASCII")); }
+            catch (UnsupportedEncodingException e) {}
+
+            out.flush();
+        }
+        catch (cMsgException ex) {
+            // send int error code to client
+            out.writeInt(ex.getReturnCode());
+            // send error string to client
+            out.writeInt(ex.getMessage().length());
+            try { out.write(ex.getMessage().getBytes("US-ASCII")); }
+            catch (UnsupportedEncodingException e) {}
+            out.flush();
+        }
+    }
+
+
+    /**
+     * This method handles all communication between a cMsg server
+     * and this name server in the cMsg domain / cMsg subdomain.
+     *
+     * @param in input data stream
+     * @param out output data stream
+     * @throws IOException if problems with socket communication
+     */
+    private void handleServer(DataInputStream in, DataOutputStream out) throws IOException {
+        // listening port of client
+        int clientListeningPort = in.readInt();
+        // listening port of name server that client is a part of
+        int nameServerListeningPort = in.readInt();
+        // length of client's host name
+        int lengthHost = in.readInt();
+
+        // bytes expected
+        int bytesToRead = lengthHost;
+        int offset = 0;
+
+        // read all string bytes
+        byte[] bytes = new byte[bytesToRead];
+        in.readFully(bytes, 0, bytesToRead);
+
+        // read host
+        String host = new String(bytes, offset, lengthHost, "US-ASCII");
+        offset += lengthHost;
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("  host = " + host);
+        }
+
+        // Make this client's name = "host:port"
+        String name = host + ":" + nameServerListeningPort;
+
+        // Register this client. If the cMsg system already has a
+        // client by this name (it never should), it will fail.
+        cMsgSubdomainInterface handler;
+        cMsgClientInfo info = new cMsgClientInfo(name, nameServerListeningPort,
+                                                 clientListeningPort, host);
+        try {
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("name server try to register " + name);
+            }
+            handler = registerClient(info);
+        }
+        catch (cMsgException ex) {
+            // send int error code to client
+            out.writeInt(ex.getReturnCode());
+            // send error string to client
+            out.writeInt(ex.getMessage().length());
+            try { out.write(ex.getMessage().getBytes("US-ASCII")); }
+            catch (UnsupportedEncodingException e) {}
+            out.flush();
+        }
+
+        // send ok back as acknowledgment
+        out.writeInt(cMsgConstants.ok);
+
+        // send cMsg domain host & port contact info back to client
+        out.writeInt(info.getDomainPort());
+        out.writeInt(info.getDomainHost().length());
+        try { out.write(info.getDomainHost().getBytes("US-ASCII")); }
+        catch (UnsupportedEncodingException e) {}
+        out.flush();
+
+        // get list of servers this client is already connected to
+        int numServers = in.readInt();
+        int[] serverNameLengths = new int[numServers];
+
+        // first, get lengths of all server names
+        bytesToRead = offset = 0;
+        for (int i=0; i < numServers; i++) {
+            serverNameLengths[i] = in.readInt();
+            bytesToRead += serverNameLengths[i];
+        }
+
+        // second, get all server names
+        bytes = new byte[bytesToRead];
+        in.readFully(bytes, 0, bytesToRead);
+        String[] serverNames = new String[numServers];
+
+        for (int i=0; i < numServers; i++) {
+            serverNames[i] = new String(bytes, offset, serverNameLengths[i], "US-ASCII");
+            offset += serverNameLengths[i];
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  server = " + serverNames[i]);
+            }
+        }
+
+        // make connections to server contacting me now
+        try { new cMsgServerBridge(name); }
+        catch (cMsgException e) {}
+
+        // make connections to that server's list of servers, if not already done
+        for (int i=0; i < numServers; i++) {
+            try {
+                new cMsgServerBridge(serverNames[i]);
+            }
+            catch (cMsgException e) {
+                // already connected, so ignore error
+            }
+        }
+    }
+
 
 }
