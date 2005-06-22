@@ -311,6 +311,7 @@ public class cMsgMessageFull extends cMsgMessage {
 
     /**
      * Sets the creator of this message.
+     * Creator is of the form name:nameServerHost:nameServerPort.
      * @param creator creator of this message.
      */
     public void setCreator(String creator) {this.creator = creator;}
