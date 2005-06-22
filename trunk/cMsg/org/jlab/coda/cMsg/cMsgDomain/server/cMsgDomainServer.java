@@ -168,7 +168,7 @@ public class cMsgDomainServer extends Thread {
      * @param info object containing information about the client for which this
      *                    domain server was started
      * @param startingPort suggested port on which to starting listening for connections
-     * @throws org.jlab.coda.cMsg.cMsgException If a port to listen on could not be found
+     * @throws cMsgException if listening socket could not be opened or a port to listen on could not be found
      */
     public cMsgDomainServer(cMsgSubdomainInterface handler, cMsgClientInfo info, int startingPort) throws cMsgException {
         subdomainHandler = handler;
@@ -1470,6 +1470,15 @@ public class cMsgDomainServer extends Thread {
                         case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
                             subdomainHandler.handleUnsubscribeRequest(holder.subject, holder.type, holder.id);
                             break;
+
+                        case cMsgConstants.msgServerSubscribeRequest: // subscription by another server
+                            subdomainHandler.handleServerSubscribeRequest(holder.subject,
+                                                                          holder.type,
+                                                                          holder.id);
+                        case cMsgConstants.msgServerSubscribeAndGetRequest: // subscribeAndGet by another server
+                            subdomainHandler.handleServerSubscribeAndGetRequest(holder.subject,
+                                                                                holder.type,
+                                                                                holder.id);
 
                         case cMsgConstants.msgShutdown: // shutting down various clients and servers
                             subdomainHandler.handleShutdownRequest(holder.client, holder.server, holder.flag);
