@@ -43,7 +43,7 @@ void mycallback(void *msg, void *arg) {
         cMsgFreeMessage(msg);
         return;
     }
-    
+    sleep(5);
     cMsgSetSubject(sendMsg, "RESPONDING");
     cMsgSetType(sendMsg,"TO MESSAGE");
     cMsgSetText(sendMsg,"responder's text");
@@ -72,7 +72,7 @@ int main(int argc,char **argv) {
   char *myDescription = "C getresponder";
   char *subject = "SUBJECT";
   char *type    = "TYPE";
-  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
+  char *UDL     = "cMsg:cMsg://phecda:3456/cMsg/test";
   int   err, debug = 1, loops=0;
   cMsgSubscribeConfig *config;
 
