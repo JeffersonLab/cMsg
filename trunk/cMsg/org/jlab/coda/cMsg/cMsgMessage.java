@@ -86,7 +86,10 @@ public class cMsgMessage implements Cloneable {
     /** Version number of cMsg. */
     int version;
 
-    /** Creator of the this message. */
+    /**
+     * Creator of the this message in the form:
+     * name:nameServerHost:NameServerPort.
+     */
     String creator;
 
     /** Class member reserved for future use. */
@@ -345,10 +348,46 @@ public class cMsgMessage implements Cloneable {
 
     /**
      * Gets the creator of this message.
+     * It is in the form name:nameServerHost:nameServerPort.
      * @return creator of this message.
      */
     public String getCreator() {
         return creator;
+    }
+
+
+    /**
+     * Gets the name of the creator of this message.
+     * @return name of the creator of this message.
+     */
+    public String getCreatorName() {
+        String s[] = creator.split(":");
+        return s[0];
+    }
+
+
+    /**
+     * Gets the name server host of the creator of this message.
+     * @return name server host of the creator of this message.
+     */
+    public String getCreatorServerHost() {
+        String s[] = creator.split(":");
+        return s[1];
+    }
+
+
+    /**
+     * Gets the name server port of the creator of this message.
+     * @return name server port of the creator of this message.
+     */
+    public int getCreatorServerPort() {
+        String s[] = creator.split(":");
+        int p = 0;
+
+        try { p = Integer.parseInt(s[2]); }
+        catch (NumberFormatException e) {}
+
+        return p;
     }
 
 
