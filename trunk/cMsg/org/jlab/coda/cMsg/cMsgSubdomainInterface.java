@@ -91,19 +91,6 @@ public interface cMsgSubdomainInterface {
 
 
     /**
-     * Method to synchronously get a single message from the local server for a one-time
-     * subscription of a subject and type by an outside server.
-     *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id      message id refering to these specific subject and type values
-     * @throws cMsgException
-     */
-    public void handleServerSubscribeAndGetRequest(String subject, String type, int id)
-            throws cMsgException;
-
-
-    /**
      * Method to synchronously get a single message from the server for a one-time
      * subscription of a subject and type.
      *
@@ -144,18 +131,6 @@ public interface cMsgSubdomainInterface {
      * @throws cMsgException
      */
     public void handleUnSendAndGetRequest(int id) throws cMsgException;
-
-
-    /**
-     * Method to handle subscribe request sent by another cMsg server.
-     *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id      message id refering to these specific subject and type values
-     * @throws cMsgException
-     */
-    public void handleServerSubscribeRequest(String subject, String type, int id)
-            throws cMsgException;
 
 
     /**

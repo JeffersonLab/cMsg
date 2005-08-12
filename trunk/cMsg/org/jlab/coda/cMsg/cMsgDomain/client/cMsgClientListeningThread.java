@@ -293,7 +293,7 @@ public class cMsgClientListeningThread extends Thread {
 
                         case cMsgConstants.msgKeepAlive: // see if this end is still here
                             if (debug >= cMsgConstants.debugInfo) {
-                                System.out.println("    handleClient: got keep alive from server");
+//System.out.println("    handleClient: got keep alive from server");
                             }
                             // send ok back as acknowledgment
                             out.writeInt(cMsgConstants.ok);

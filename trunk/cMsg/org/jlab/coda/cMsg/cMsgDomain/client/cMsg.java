@@ -18,6 +18,7 @@ package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgDomain.*;
+import org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer;
 
 import java.io.*;
 import java.net.*;
@@ -135,8 +136,11 @@ public class cMsg extends cMsgDomainAdapter {
     /** Lock for calling methods other than {@link #connect} or {@link #disconnect}. */
     private Lock notConnectLock = methodLock.readLock();
 
-    /** Lock to ensure {@link #syncSend} calls are sequential. */
-    private Lock syncSendLock = new ReentrantLock();
+    /**
+     * Lock to ensure all calls requiring return communication
+     * (e.g. {@link #syncSend}) are sequential.
+     */
+    private Lock returnCommunicationLock = new ReentrantLock();
 
     /** Lock to ensure {@link #subscribe} and {@link #unsubscribe} calls are sequential. */
     private Lock subscribeLock = new ReentrantLock();
@@ -174,16 +178,6 @@ public class cMsg extends cMsgDomainAdapter {
 
 //-----------------------------------------------------------------------------
 
-
-    /**
-     * Get the name of the subdomain whose plugin is being used.
-     * @return subdomain name
-     */
-    public String getSubdomain() {return(subdomain);}
-
-
-//-----------------------------------------------------------------------------
-
     /**
      * Constructor which does NOT automatically try to connect to the name server specified.
      *
@@ -199,7 +193,7 @@ public class cMsg extends cMsgDomainAdapter {
 
         // store our host's name
         try {
-            host = InetAddress.getLocalHost().getHostName();
+            host = InetAddress.getLocalHost().getCanonicalHostName();
         }
         catch (UnknownHostException e) {
             throw new cMsgException("cMsg: cannot find host name");
@@ -218,6 +212,7 @@ public class cMsg extends cMsgDomainAdapter {
                 catch (cMsgException e) {}
             }
         }
+//System.out.println("        << CL: create client object");
 
         // Now make an instance of the shutdown handler
         // setShutdownHandler(new myShutdownHandler());
@@ -234,7 +229,7 @@ public class cMsg extends cMsgDomainAdapter {
      *                       communication problems with the server
      */
     public void connect() throws cMsgException {
-        connectReal(false);
+        connectReal(false, -1, true);
     }
 
 
@@ -243,12 +238,19 @@ public class cMsg extends cMsgDomainAdapter {
 
     /**
      * Method to connect to the domain server from a cMsg server acting as a bridge.
+     * This method is only called by the bridge object (cMsgServerBridge class).
      *
+     * @param fromNameServerPort port of name server calling this method
+     * @param isOriginator true if originating the connection between the 2 servers and
+     *                     false if this is the response or reciprocal connection
+     * @return set of servers (names of form "host:port") that the server
+     *         we're connecting to is already connected with
      * @throws cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server
      */
-    public void serverConnect() throws cMsgException {
-        connectReal(true);
+    public HashSet<String> serverConnect(int fromNameServerPort, boolean isOriginator)
+            throws cMsgException {
+        return connectReal(true, fromNameServerPort, isOriginator);
     }
 
 
@@ -259,10 +261,17 @@ public class cMsg extends cMsgDomainAdapter {
      * Method to connect to the domain server.
      *
      * @param fromServer boolean stating whether server is being connected to by another server
+     * @param fromNameServerPort port of name server calling this method
+     * @param isOriginator true if originating the connection between the 2 servers and
+     *                     false if this is the response or reciprocal connection.
+     *                     Ignore if client to server communication.
      * @throws cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server
      */
-    private void connectReal(boolean fromServer) throws cMsgException {
+    private HashSet<String> connectReal(boolean fromServer, int fromNameServerPort, boolean isOriginator)
+            throws cMsgException {
+        // list of servers that the server we're connecting to is already connected with
+        HashSet<String> serverSet = null;
 
         // parse the domain-specific portion of the UDL (Uniform Domain Locator)
         parseUDL();
@@ -271,7 +280,7 @@ public class cMsg extends cMsgDomainAdapter {
         // cannot run this simultaneously with any other public method
         connectLock.lock();
         try {
-            if (connected) return;
+            if (connected) return null;
 
             // read env variable for starting port number
             try {
@@ -340,6 +349,7 @@ public class cMsg extends cMsgDomainAdapter {
             // connect & talk to cMsg name server to check if name is unique
             SocketChannel channel = null;
             try {
+//System.out.println("        << CL: open socket to  " + nameServerHost + ":" + nameServerPort);
                 channel = SocketChannel.open(new InetSocketAddress(nameServerHost, nameServerPort));
                 // set socket options
                 Socket socket = channel.socket();
@@ -356,7 +366,15 @@ public class cMsg extends cMsgDomainAdapter {
 
             // get host & port to send messages & other info from name server
             try {
-                talkToNameServer(channel, fromServer);
+                // Returns list of servers that the server we're
+                // connecting to is already connected with. If we're
+                // connecting to a normal client, null is returned.
+                if (fromServer) {
+                    serverSet = talkToNameServerFromServer(channel, fromNameServerPort, isOriginator);
+                }
+                else {
+                    talkToNameServerFromClient(channel);
+                }
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
@@ -376,7 +394,7 @@ public class cMsg extends cMsgDomainAdapter {
                 }
             }
 
-            // create sending (to domain) channel
+            // create request sending (to domain) channel
             try {
                 domainChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
                 // buffered communication streams for efficiency
@@ -416,6 +434,9 @@ public class cMsg extends cMsgDomainAdapter {
         finally {
             connectLock.unlock();
         }
+
+//System.out.println("        << CL: done connecting to  " + nameServerHost + ":" + nameServerPort);
+        return serverSet;
     }
 
 
@@ -596,8 +617,9 @@ public class cMsg extends cMsgDomainAdapter {
     public int syncSend(cMsgMessage message) throws cMsgException {
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
-        // cannot run this simultaneously with itself
-        syncSendLock.lock();
+        // cannot run this simultaneously with itself since it receives communication
+        // back from the server
+        returnCommunicationLock.lock();
         try {
 
             if (!connected) {
@@ -629,10 +651,11 @@ public class cMsg extends cMsgDomainAdapter {
 
             socketLock.lock();
             try {
+//System.out.println("syncSend 1");
                 // total length of msg (not including this int) is 1st item
                 domainOut.writeInt(4 * 15 + subject.length() + type.length() + creator.length() +
                                 text.length() + binaryLength);
-                domainOut.writeInt(cMsgConstants.msgSendRequest);
+                domainOut.writeInt(cMsgConstants.msgSyncSendRequest);
                 domainOut.writeInt(0); // reserved for future use
                 domainOut.writeInt(message.getUserInt());
                 domainOut.writeInt(message.getSysMsgId());
@@ -663,6 +686,7 @@ public class cMsg extends cMsgDomainAdapter {
                                         message.getByteArrayOffset(),
                                         binaryLength);
                     }
+//System.out.println("syncSend 2");
                 }
                 catch (UnsupportedEncodingException e) {}
             }
@@ -671,7 +695,9 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             domainOut.flush(); // no need to be protected by socketLock
-            int response = domainIn.readInt(); // this is protected by syncSendLock
+//System.out.println("syncSend 3");
+            int response = domainIn.readInt(); // this is protected by returnCommunicationLock
+//System.out.println("syncSend 4");
             return response;
 
         }
@@ -679,7 +705,7 @@ public class cMsg extends cMsgDomainAdapter {
             throw new cMsgException(e.getMessage());
         }
         finally {
-            syncSendLock.unlock();
+            returnCommunicationLock.unlock();
             notConnectLock.unlock();
         }
     }
@@ -1337,29 +1363,273 @@ public class cMsg extends cMsgDomainAdapter {
 
 //-----------------------------------------------------------------------------
 
+    /**
+     * Lock the remote server so that no other servers may simultaneously join the
+     * cMsg subdomain server cloud or register a client.
+     *
+     * @param delay time in milliseconds to wait for locked to be grabbed before timing out
+     * @return true if successful, else false
+     * @throws IOException if there are communication problems with the name server
+     */
+    public boolean cloudLock(int delay) throws IOException {
+        int response;
+//System.out.println("        << CL:: try nonConnect lock");
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
+//System.out.println("        << CL:: try returnCommunication lock");
+        // cannot run this simultaneously with commands receiving a response
+        returnCommunicationLock.lock();
+
+        try {
+            if (!connected) {
+                return false;
+            }
+
+//System.out.println("        << CL:: try socket lock");
+            socketLock.lock();
+            try {
+                // total length of msg (not including this int) is 1st item
+//System.out.println("        << CL:: write size, msgServerCloudLock");
+                domainOut.writeInt(4);
+                domainOut.writeInt(cMsgConstants.msgServerCloudLock);
+                domainOut.writeInt(delay);
+            }
+            finally {
+                socketLock.unlock();
+            }
+
+            domainOut.flush(); // no need to be protected by socketLock
+//System.out.println("        << CL:: try reading lock response");
+            response = domainIn.readInt();
+//System.out.println("        << CL:: done reading lock response");
+        }
+        finally {
+            returnCommunicationLock.unlock();
+            notConnectLock.unlock();
+        }
+
+        if (response == 1) {
+            return true;
+        }
+        return false;
+    }
+
+
+//-----------------------------------------------------------------------------
 
     /**
-     * This method acts as a multiplexer to send client to server communications to
-     * the method {@link #talkToNameServerFromClient} and server to server communications
-     * to the method {@link #talkToNameServerFromServer}.
+     * Unlock the remote server enabling other servers to join the
+     * cMsg subdomain server cloud or register a client.
      *
-     * @param channel nio socket communication channel
-     * @param fromServer boolean stating whether server is being connected by
-     *                   another server or by a client
      * @throws IOException if there are communication problems with the name server
-     * @throws cMsgException if the name server's domain does not match the UDL's domain,'
-     *                       the client cannot be registered, the domain server cannot
-     *                       open a listening socket or find a port to listen on, or
-     *                       the name server cannot establish a connection to the client
      */
-    private void talkToNameServer(SocketChannel channel, boolean fromServer)
-            throws IOException, cMsgException {
-        if (fromServer) {
-            talkToNameServerFromServer(channel);
+    public void cloudUnlock() throws IOException {
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
+
+        try {
+            if (!connected) {
+                return;
+            }
+
+            socketLock.lock();
+            try {
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4);
+                domainOut.writeInt(cMsgConstants.msgServerCloudUnlock);
+            }
+            finally {
+                socketLock.unlock();
+            }
+
+            domainOut.flush(); // no need to be protected by socketLock
         }
-        else {
-            talkToNameServerFromClient(channel);
+        finally {
+            notConnectLock.unlock();
         }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+    /**
+     *
+     *
+     * @param delay time in milliseconds to wait for the lock before timing out
+     * @return
+     * @throws IOException
+     */
+    public boolean registrationLock(int delay) throws IOException {
+        int response;
+
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
+        // cannot run this simultaneously with commands receiving a response
+        returnCommunicationLock.lock();
+
+        try {
+            if (!connected) {
+                return false;
+            }
+
+            socketLock.lock();
+            try {
+                // total length of msg (not including this int) is 1st item
+//System.out.println("        << CL: try registration lock");
+                domainOut.writeInt(4);
+                domainOut.writeInt(cMsgConstants.msgServerRegistrationLock);
+                domainOut.writeInt(delay);
+            }
+            finally {
+                socketLock.unlock();
+            }
+
+            domainOut.flush(); // no need to be protected by socketLock
+            response = domainIn.readInt();
+//System.out.println("        << CL: got registration lock = " + response);
+        }
+        finally {
+            returnCommunicationLock.unlock();
+            notConnectLock.unlock();
+        }
+
+        if (response == 1) {
+            return true;
+        }
+        return false;
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    public void registrationUnlock() throws IOException {
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
+
+        try {
+            if (!connected) {
+                return;
+            }
+
+            socketLock.lock();
+            try {
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4);
+                domainOut.writeInt(cMsgConstants.msgServerRegistrationUnlock);
+            }
+            finally {
+                socketLock.unlock();
+            }
+
+            domainOut.flush(); // no need to be protected by socketLock
+        }
+        finally {
+            notConnectLock.unlock();
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    public void thisServerCloudStatus(int status) throws IOException {
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
+
+        try {
+            if (!connected) {
+                return;
+            }
+
+            socketLock.lock();
+            try {
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4);
+                domainOut.writeInt(cMsgConstants.msgServerCloudJoin);
+                domainOut.writeInt(status);
+            }
+            finally {
+                socketLock.unlock();
+            }
+
+            domainOut.flush(); // no need to be protected by socketLock
+        }
+        finally {
+            notConnectLock.unlock();
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    public String[] getClientNames() throws IOException {
+
+        String[] names;
+//System.out.println("        << CL: getClientNames");
+
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
+        // cannot run this simultaneously with commands receiving a response
+        returnCommunicationLock.lock();
+
+        try {
+            if (!connected) {
+                return null;
+            }
+
+            socketLock.lock();
+            try {
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4);
+                domainOut.writeInt(cMsgConstants.msgServerSendClientNames);
+//System.out.println("        << CL: wrote len of command and command");
+            }
+            finally {
+                socketLock.unlock();
+            }
+
+            domainOut.flush(); // no need to be protected by socketLock
+
+            int offset = 0;
+            int stringBytesToRead=0;
+
+            // read how many names are coming
+//System.out.println("        << CL: try to read in number of clients");
+            int numberOfClients = domainIn.readInt();
+//System.out.println("        << CL: number of clients = " + numberOfClients);
+
+            int[] lengths = new int[numberOfClients];
+            names = new String[numberOfClients];
+
+            // read lengths of all names being sent
+            for (int i=0; i < numberOfClients; i++) {
+                lengths[i] = domainIn.readInt();
+                stringBytesToRead += lengths[i];
+            }
+
+            // read all string bytes
+            byte[] bytes = new byte[stringBytesToRead];
+//System.out.println("        << CL: try to read #bytes = " + stringBytesToRead);
+            domainIn.readFully(bytes, 0, stringBytesToRead);
+
+            // change bytes to strings
+            String clientName;
+            for (int i=0; i < numberOfClients; i++) {
+                clientName = new String(bytes, offset, lengths[i], "US-ASCII");
+//System.out.println("        << CL: client name = " + clientName);
+                names[i] = clientName;
+                offset += lengths[i];
+            }
+        }
+        finally {
+            returnCommunicationLock.unlock();
+            notConnectLock.unlock();
+        }
+
+//System.out.println("        << CL: return");
+        return names;
     }
 
 
@@ -1373,9 +1643,14 @@ public class cMsg extends cMsgDomainAdapter {
      * ints the same. That way the server can reliably check for mismatched versions.
      *
      * @param channel nio socket communication channel
+     * @param fromNameServerPort port of name server calling this method
+     * @param isOriginator true if originating the connection between the 2 servers and
+     *                     false if this is the response or reciprocal connection.
      * @throws IOException if there are communication problems with the name server
      */
-    private void talkToNameServerFromServer(SocketChannel channel)
+    private HashSet<String> talkToNameServerFromServer(SocketChannel channel,
+                                                       int fromNameServerPort,
+                                                       boolean isOriginator)
             throws IOException, cMsgException {
         byte[] buf = new byte[512];
 
@@ -1385,28 +1660,25 @@ public class cMsg extends cMsgDomainAdapter {
         out.writeInt(cMsgConstants.msgServerConnectRequest);
         out.writeInt(cMsgConstants.version);
         out.writeInt(cMsgConstants.minorVersion);
+        // This client's listening port
         out.writeInt(port);
-        out.writeInt(domain.length());
-        out.writeInt(subdomain.length());
-        out.writeInt(subRemainder.length());
+        // What relationship does this server have to the server cloud?
+        // Can be INCLOUD, NONCLOUD, or BECOMINGCLOUD.
+        out.writeByte(cMsgNameServer.getCloudStatus());
+        // Is this client originating the connection or making a reciprocal one?
+        out.writeByte(isOriginator ? 1 : 0);
+        // This name server's listening port
+        out.writeInt(fromNameServerPort);
+        // Length of local host name
         out.writeInt(host.length());
-        out.writeInt(name.length());
-        out.writeInt(UDL.length());
-        out.writeInt(description.length());
 
         // write strings & byte array
         try {
-            out.write(domain.getBytes("US-ASCII"));
-            out.write(subdomain.getBytes("US-ASCII"));
-            out.write(subRemainder.getBytes("US-ASCII"));
             out.write(host.getBytes("US-ASCII"));
-            out.write(name.getBytes("US-ASCII"));
-            out.write(UDL.getBytes("US-ASCII"));
-            out.write(description.getBytes("US-ASCII"));
         }
-        catch (UnsupportedEncodingException e) {
-        }
+        catch (UnsupportedEncodingException e) {}
 
+//System.out.println("        << CL: Write ints & host");
         out.flush(); // no need to be protected by socketLock
 
         // read acknowledgment
@@ -1415,6 +1687,7 @@ public class cMsg extends cMsgDomainAdapter {
         // if there's an error, read error string then quit
         if (error != cMsgConstants.ok) {
 
+//System.out.println("        << CL: Read error");
             // read string length
             int len = in.readInt();
             if (len > buf.length) {
@@ -1424,25 +1697,15 @@ public class cMsg extends cMsgDomainAdapter {
             // read error string
             in.readFully(buf, 0, len);
             String err = new String(buf, 0, len, "US-ASCII");
+//System.out.println("        << CL: Error = " + err);
 
             throw new cMsgException("Error from server: " + err);
         }
 
-        // Since everything's OK, we expect to get:
-        //   1) attributes of subdomain handler object
-        //   2) domain server host & port
+        // read cloud status of sending server
+        //int cloudStatus  = in.readInt();
 
-        in.readFully(buf,0,7);
-
-        hasSend            = (buf[0] == (byte)1) ? true : false;
-        hasSyncSend        = (buf[1] == (byte)1) ? true : false;
-        hasSubscribeAndGet = (buf[2] == (byte)1) ? true : false;
-        hasSendAndGet      = (buf[3] == (byte)1) ? true : false;
-        hasSubscribe       = (buf[4] == (byte)1) ? true : false;
-        hasUnsubscribe     = (buf[5] == (byte)1) ? true : false;
-        hasShutdown        = (buf[6] == (byte)1) ? true : false;
-
-        // Read port & length of host name.
+        // read port & length of host name
         domainServerPort = in.readInt();
         int hostLength   = in.readInt();
 
@@ -1454,9 +1717,37 @@ public class cMsg extends cMsgDomainAdapter {
         domainServerHost = new String(buf, 0, hostLength, "US-ASCII");
 
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("  domain server host = " + domainServerHost +
+            System.out.println("        << CL: domain server host = " + domainServerHost +
                                ", port = " + domainServerPort);
         }
+
+        // return list of servers
+        HashSet<String> s = null;
+
+        // First, get the number of servers
+        int numServers = in.readInt();
+
+        // Second, for each server name, get string length then string
+        if (numServers > 0) {
+//System.out.println("        << CL: Try reading server names ...");
+            s = new HashSet<String>(numServers);
+            int serverNameLength;
+            String serverName;
+
+            for (int i = 0; i < numServers; i++) {
+                serverNameLength = in.readInt();
+                byte[] bytes = new byte[serverNameLength];
+                in.readFully(bytes, 0, serverNameLength);
+                serverName = new String(bytes, 0, serverNameLength, "US-ASCII");
+//System.out.println("        << CL: Got server \"" + serverName + "\" from server");
+                s.add(serverName);
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("  server = " + serverName);
+                }
+            }
+        }
+
+       return s;
     }
 
 
@@ -1476,7 +1767,7 @@ public class cMsg extends cMsgDomainAdapter {
      *                       open a listening socket or find a port to listen on, or
      *                       the name server cannot establish a connection to the client
      */
-    private void talkToNameServerFromClient(SocketChannel channel)
+    private HashSet<String> talkToNameServerFromClient(SocketChannel channel)
             throws IOException, cMsgException {
 
         byte[] buf = new byte[512];
@@ -1556,9 +1847,11 @@ public class cMsg extends cMsgDomainAdapter {
         domainServerHost = new String(buf, 0, hostLength, "US-ASCII");
 
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("  domain server host = " + domainServerHost +
+            System.out.println("        << CL: domain server host = " + domainServerHost +
                                ", port = " + domainServerPort);
         }
+
+        return null;
     }
 
 
@@ -1583,12 +1876,12 @@ public class cMsg extends cMsgDomainAdapter {
         //
         // Remember that for this domain:
         // 1) port is not necessary
-        // 2) host can be "localhost"
+        // 2) host can be "localhost" and may also includes dots (.)
         // 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
         //    if subdomainType is not cMsg, it is required
         // 4) remainder is past on to the subdomain plug-in
 
-        Pattern pattern = Pattern.compile("(\\w+):?(\\d+)?/?(\\w+)?/?(.*)");
+        Pattern pattern = Pattern.compile("([\\w\\.]+):?(\\d+)?/?(\\w+)?/?(.*)");
         Matcher matcher = pattern.matcher(UDLremainder);
 
         String s2=null, s3=null, s4=null, s5=null;
@@ -1631,13 +1924,19 @@ public class cMsg extends cMsgDomainAdapter {
 
         // if the host is "localhost", find the actual host name
         if (nameServerHost.equals("localhost")) {
-            try {nameServerHost = InetAddress.getLocalHost().getHostName();}
+            try {nameServerHost = InetAddress.getLocalHost().getCanonicalHostName();}
             catch (UnknownHostException e) {}
             if (debug >= cMsgConstants.debugWarn) {
                System.out.println("parseUDL: name server given as \"localhost\", substituting " +
                                   nameServerHost);
             }
         }
+
+        // get the fully qualified host name
+        try {
+            nameServerHost = InetAddress.getByName(nameServerHost).getCanonicalHostName();
+        }
+        catch (UnknownHostException e) {}
 
         // get name server port or guess if it's not given
         if (s3 != null && s3.length() > 0) {
@@ -1728,7 +2027,7 @@ class KeepAlive extends Thread {
                 }
 
                 // send keep alive command
-                out.writeInt(4);
+                //out.writeInt(4);
                 out.writeInt(cMsgConstants.msgKeepAlive);
                 out.flush();
 

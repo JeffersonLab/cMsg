@@ -134,15 +134,6 @@ public class cMsgConstants {
     /** Remove "sendAndGet" request. */
     public static final int    msgUnSendAndGetRequest          = 11;
 
-    /** Subscribe to messages by another server. */
-    public static final int    msgServerSubscribeRequest       = 12;
-    /** Get a message with 1-shot subscribe by another server. */
-    public static final int    msgServerSubscribeAndGetRequest = 13;
-    /** Connect to the server from server. */
-    public static final int    msgServerConnectRequest         = 14;
-    /** Disconnect server from the server. */
-    public static final int    msgServerDisconnectRequest      = 15;
-
     // Codes sent by the server to a client over the
     // network to specify a particular response.
 
@@ -152,6 +143,34 @@ public class cMsgConstants {
     public static final int    msgGetResponseIsNull        =  21;
     /** Respond with message to the subscribe command. */
     public static final int    msgSubscribeResponse        =  22;
+
+    // Codes sent by a server's "client" connection to another server
+    // in the cMsg subdomain only
+
+    /** Subscribe to messages by another server. */
+    public static final int    msgServerSubscribeRequest       = 30;
+    /** Get a message with 1-shot subscribe by another server. */
+    public static final int    msgServerSubscribeAndGetRequest = 31;
+    /** Connect to the server from server. */
+    public static final int    msgServerConnectRequest         = 32;
+    /** Disconnect server from the server. */
+    public static final int    msgServerDisconnectRequest      = 33;
+    /** Register client from another server. */
+    public static final int    msgServerRegisterClient         = 34;
+    /** Unregister client from another server. */
+    public static final int    msgServerUnRegisterClient       = 35;
+    /** Send names of local clients. */
+    public static final int    msgServerSendClientNames        = 36;
+    /** Lock server from doing other registrations. */
+    public static final int    msgServerRegistrationLock       = 37;
+    /** Unlock server for doing other registrations. */
+    public static final int    msgServerRegistrationUnlock     = 38;
+    /** Lock server from joining server cloud or accepting registrations. */
+    public static final int    msgServerCloudLock              = 39;
+    /** Unlock server for joining server cloud or accepting registrations. */
+    public static final int    msgServerCloudUnlock            = 40;
+    /** Unlock server for joining server cloud or accepting registrations. */
+    public static final int    msgServerCloudJoin              = 41;
 
     // Flags for client's shutdown method.
 

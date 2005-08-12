@@ -18,6 +18,8 @@ package org.jlab.coda.cMsg.cMsgDomain;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import java.nio.channels.SocketChannel;
+import java.io.DataOutputStream;
+import java.io.DataInputStream;
 
 /**
  * This class is used to help in implementing a client's "get" method. An object
@@ -41,6 +43,9 @@ public class cMsgHolder {
     /** Store type. */
     public String type;
 
+    /** Store type. */
+    public String namespace;
+
     /** Store client(s) to shutdown. */
     public String client;
 
@@ -48,10 +53,16 @@ public class cMsgHolder {
     public String server;
 
     /** Store id. */
+    public int delay;
+
+    /** Store id. */
     public int flag;
 
     /** Store id. */
     public int id;
+
+    /** Store answer. */
+    public int answer;
 
     /** Store request. */
     public int request;
@@ -59,11 +70,24 @@ public class cMsgHolder {
     /** Store communication channel. */
     public SocketChannel channel;
 
+    /** Store output communication stream. */
+    public DataOutputStream out;
+
+    /** Store input communication stream. */
+    public DataInputStream in;
+
+
     public cMsgHolder() {
     }
 
     public cMsgHolder(cMsgMessageFull message) {
         this.message = message;
+    }
+
+    /** Constructor for holding message information. */
+    public cMsgHolder(DataOutputStream out, int request) {
+        this.out = out;
+        this.request = request;
     }
 
     /** Constructor for holding message information. */

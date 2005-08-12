@@ -17,9 +17,14 @@
 package org.jlab.coda.cMsg.cMsgDomain;
 
 import org.jlab.coda.cMsg.cMsgMessageMatcher;
+import org.jlab.coda.cMsg.cMsgClientInfo;
 import org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread;
 
 import java.util.HashSet;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Class to store a client's subscription to a particular message subject and type.
@@ -53,27 +58,49 @@ public class cMsgSubscription {
      * This refers to a cMsg subdomain's namespace in which this subscription resides.
      * It is useful only when another server becomes a client for means of bridging
      * messages. In this case, this special client does not reside in 1 namespace but
-     * represents subscriptions from different namespaces.
+     * represents subscriptions from different namespaces. This is used on the server
+     * side.
      */
     private String namespace;
 
-    /** This set contains all of the callback objects {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread}. */
+    /**
+     * This set contains all of the callback objects {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread}
+     * used on the client side.
+     */
     private HashSet<cMsgCallbackThread> callbacks;
+
+    /** This set contains all clients subscribed to this exact subject and type and is used on the server side. */
+    private HashSet<cMsgClientInfo> subscribers;
+
+    private class subAndGetClient {
+        cMsgClientInfo info;
+        int id;
+
+        public subAndGetClient(cMsgClientInfo info, int id) {
+            this.info = info;
+            this.id = id;
+        }
+    }
+
+    /**
+     * This hashtable contains all clients who have called {@link org.jlab.coda.cMsg.cMsg#sendAndGet}
+     * with this exact subject and type. The client info object is the key and a unique id identifying
+     * the operation is the value. This is used on the server side.
+     */
+    private ArrayList<subAndGetClient> subAndGetters;
 
 
     /**
      * Constructor used by cMsg subdomain handler.
      * @param subject subscription subject
      * @param type subscription type
-     * @param id unique id referring to subject and type combination
      */
-    public cMsgSubscription(String subject, String type, int id) {
+    public cMsgSubscription(String subject, String type, String namespace) {
         this.subject = subject;
         this.type = type;
-        this.id = id;
+        this.namespace = namespace;
         subjectRegexp = cMsgMessageMatcher.escape(subject);
         typeRegexp    = cMsgMessageMatcher.escape(type);
-        callbacks = new HashSet<cMsgCallbackThread>(30);
     }
 
 
@@ -151,6 +178,9 @@ public class cMsgSubscription {
         this.namespace = namespace;
     }
 
+    //-----------------------------------------------------
+    // Methods for dealing with callbacks
+    //-----------------------------------------------------
 
     /**
      * Gets the hashset storing callback threads.
@@ -186,4 +216,61 @@ public class cMsgSubscription {
     public int numberOfCallbacks() {
         return callbacks.size();
     }
+
+    //-------------------------------------------------------------------------
+    // Methods for dealing with clients subscribed to the sub/type
+    //-------------------------------------------------------------------------
+
+    public boolean containsSubscriber(cMsgClientInfo client) {
+        return subscribers.contains(client);
+    }
+
+    public boolean addSubscriber(cMsgClientInfo client) {
+        return subscribers.add(client);
+    }
+
+    public boolean removeSubscriber(cMsgClientInfo client) {
+        return subscribers.remove(client);
+    }
+
+    public boolean addSubAndGetter(cMsgClientInfo client, int id) {
+        subAndGetClient clientObj = new subAndGetClient(client, id);
+        return subAndGetters.add(clientObj);
+    }
+
+    public void removeSubAndGetters() {
+        subAndGetters.clear();
+    }
+
+    public boolean removeSubAndGetter(cMsgClientInfo client, int id) {
+        subAndGetClient subCli = null;
+        Iterator it = subAndGetters.iterator();
+
+        while (it.hasNext()) {
+            subCli = (subAndGetClient) it.next();
+            if (subCli.info == client && subCli.id == id) {
+                it.remove();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean containsSubAndGetter(cMsgClientInfo client, int id) {
+        subAndGetClient subCli = null;
+        Iterator it = subAndGetters.iterator();
+
+        while (it.hasNext()) {
+            subCli = (subAndGetClient) it.next();
+            if (subCli.info == client && subCli.id == id) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public int numberOfSubscribers() {
+        return (subscribers.size() + subAndGetters.size());
+    }
+
 }
