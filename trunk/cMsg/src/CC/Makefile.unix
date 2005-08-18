@@ -126,7 +126,7 @@ clean:
 
 
 cMsgCAGateway: cMsgCAGateway.o epics_server.o
-	$(CXX) -o $* $(CFLAGSXX) $< epics_server.o -L./ -L$(LIB_DIR) -lcmsgxx -lcMsgRegex -L$(EPICS_DIR) $(EPICS_LIB) $(LIBS)
+	$(CXX) -o cMsgCAGateway $(CFLAGSXX) $< epics_server.o -L./ -L$(LIB_DIR) -lcmsgxx -lcMsgRegex -L$(EPICS_DIR) $(EPICS_LIB) $(LIBS)
         
 
 
