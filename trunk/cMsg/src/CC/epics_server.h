@@ -5,6 +5,10 @@
 //  E.Wolin, 3-Jul-03
 
 
+#ifndef _epics_server_h
+#define _epics_server_h
+
+
 #include <gddApps.h>
 #include <gddAppFuncTable.h>
 
@@ -105,3 +109,6 @@ class myAttrPV : public casPV {
   
 
 //-------------------------------------------------------------------------
+
+
+#endif /* _epics_server_h */
