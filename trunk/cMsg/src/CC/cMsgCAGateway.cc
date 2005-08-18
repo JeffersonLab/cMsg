@@ -45,6 +45,7 @@ using namespace std;
 #include <fstream>
 #include <sstream>
 #include <iomanip>
+#include <signal.h>
 
 
 // for cMsg
@@ -86,6 +87,8 @@ static map<const string, myPV*> pvMap;
 
 // prototypes
 void decode_command_line(int argc, char **argv);
+void create_signal_handler(void);
+void quit_callback(int sig);
 void parseXMLFile(string f);
 void parseXMLString(string s);
 void startElement(void *userData, const char *xmlname, const char **atts);
@@ -183,6 +186,10 @@ main(int argc,char **argv) {
   decode_command_line(argc,argv);
 
 
+  // create signal handler
+  create_signal_handler();
+
+
   // connect to cMsg system
   cmsg = new cMsg(udl,name,descr);
   cmsg->connect();
@@ -232,6 +239,7 @@ main(int argc,char **argv) {
 
   // done...clean up
   cmsg->disconnect();
+  cout << endl << " *** cMsgCAGateway done ***" << endl << endl;
   exit(EXIT_SUCCESS);
 }
        
@@ -370,6 +378,26 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
   }
 
   return;
+}
+
+
+//--------------------------------------------------------------------------
+
+
+void create_signal_handler(void) {
+
+  signal(SIGTERM,quit_callback);
+  signal(SIGQUIT,quit_callback);
+  signal( SIGINT,quit_callback);
+  signal( SIGHUP,quit_callback);
+}
+
+
+//--------------------------------------------------------------------------
+
+
+void quit_callback(int sig) {
+  done=1;
 }
 
 
