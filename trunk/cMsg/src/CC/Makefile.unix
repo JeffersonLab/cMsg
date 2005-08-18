@@ -16,11 +16,14 @@ endif
 # Linux
 ifeq ($(OSNAME),Linux)
 CXX = g++
-LIB_DIR  = $(TOP_DIR)/lib/Linux
-BIN_DIR  = $(TOP_DIR)/bin/Linux
-AC_FLAGS =
-CFLAGS   = -O3 -fPIC -I. -I$(INC_DIR) $(AC_FLAGS)
-LIBS     = -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
+LIB_DIR   = $(TOP_DIR)/lib/Linux
+BIN_DIR   = $(TOP_DIR)/bin/Linux
+EPICS_DIR = /site/epics/R3.13.4/base/lib/Linux
+EPICS_INC = -I/site/epics/R3.13.4/base/include -I/site/epics/R3.13.4/base/include/os/Linux 
+EPICS_LIB = -lca -lCom -lcas -lgdd -lAs -lDb
+AC_FLAGS  =
+CFLAGS    = -O3 -fPIC -I. -I$(INC_DIR) $(AC_FLAGS) $(EPICS_INC)
+LIBS      = -lexpat -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
 endif
 
 # Solaris
@@ -49,6 +52,8 @@ SRCXX =	$(C_DIR)/rwlock.c \
 	$(C_DIR)/cMsg.c \
 	$(C_DIR)/cMsgDomainListenThread.c \
 	$(C_DIR)/cMsgDomain.c \
+        epics_server.cc \
+	cMsgCAGateway.cc \
 	cMsgWrapper.cc
 
 
@@ -59,6 +64,8 @@ OBJSXX = rwlock.o \
 	 cMsg.o \
 	 cMsgDomainListenThread.o \
 	 cMsgDomain.o \
+         epics_server.o \
+	 cMsgCAGateway.o \
 	 cMsgWrapper.o
 
 
@@ -70,9 +77,10 @@ HFILES = $(C_DIR)/cMsgNetwork.h \
 	 $(C_DIR)/errors.h
 
 HFILESXX = cMsgBase.hxx \
-	   cMsg.hxx
+	   cMsg.hxx \
+           epics_server.h
 
-PROGSXX = cMsgCommand cMsgReceive
+PROGSXX = cMsgCommand cMsgReceive cMsgCAGateway
 
 
 all: $(CMSG_LIBSXX) $(PROGSXX)
@@ -115,6 +123,11 @@ $(OBJSXX) : $(HFILES) $(HFILESXX) $(SRCXX)
 
 clean: 
 	rm -f core *~ *.o *.so *.a *.class $(PROGSXX)
+
+
+cMsgCAGateway: cMsgCAGateway.o epics_server.o
+	$(CXX) -o $* $(CFLAGSXX) $< epics_server.o -L./ -L$(LIB_DIR) -lcmsgxx -lcMsgRegex -L$(EPICS_DIR) $(EPICS_LIB) $(LIBS)
+        
 
 
 # SUFFIX RULES
