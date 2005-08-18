@@ -1,6 +1,7 @@
 // to do:
 //   set done
-//   other than integers
+//   other than integers?
+
 
 
 //  cMsgCAGateway
@@ -16,7 +17,22 @@
 // cMsg message text field contains value
 
 
-//  ejw, 16-aug-2005
+
+/*----------------------------------------------------------------------------*
+*  Copyright (c) 2005        Southeastern Universities Research Association, *
+*                            Thomas Jefferson National Accelerator Facility  *
+*                                                                            *
+*    This software was developed under a United States Government license    *
+*    described in the NOTICE file included as part of this distribution.     *
+*                                                                            *
+*    E.Wolin, 18-Aug-2005, Jefferson Lab                                     *
+*                                                                            *
+*    Authors: Elliott Wolin                                                  *
+*             wolin@jlab.org                    Jefferson Lab, MS-6B         *
+*             Phone: (757) 269-7365             12000 Jefferson Ave.         *
+*             Fax:   (757) 269-5519             Newport News, VA 23606       *
+*
+*----------------------------------------------------------------------------*/
 
 
 using namespace std;
@@ -277,7 +293,7 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
 
   aitEnum pvCAType = aitEnumInt32;
   string pvUnits="";
-  int alrm=0,hihi=0,lolo=0,high=0,low=0,hopr=0,lopr=0,drvh=0,drvl=0,prec=0;
+  int alrm=0,val=0,hihi=0,lolo=0,high=0,low=0,hopr=0,lopr=0,drvh=0,drvl=0,prec=0;
 
 
   // only parse pv definitions
@@ -305,6 +321,9 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
 
       } else if(strcasecmp(atts[i],"alrm")==0) {
         alrm=atoi(atts[i+1]);
+
+      } else if(strcasecmp(atts[i],"val")==0) {
+        val=atoi(atts[i+1]);
 
       } else if(strcasecmp(atts[i],"hihi")==0) {
         hihi=atoi(atts[i+1]);
@@ -340,6 +359,7 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
     if(pvMap.count(pvName)<=0) {
       myPV *p = new myPV(pvName.c_str(),pvCAType,pvUnits.c_str(),
                          alrm,hihi,lolo,high,low,hopr,lopr,drvh,drvl,prec);
+      p->fillPV(val);
       pvMap[pvName] = p;
     }
     
