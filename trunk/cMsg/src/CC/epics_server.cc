@@ -114,10 +114,10 @@ public:
     myDRVH=drvh;
     myDRVL=drvl;
 
+    myValue = new gddScalar(gddAppType_value,type);
+    myValue->putConvert(0);
+
     myTime=0;
-    myIValue=0;
-    myUIValue=0;
-    myDValue=0.0;
     myStat=epicsAlarmNone;
     mySevr=epicsSevNone;
     myMonitor=0;
@@ -131,52 +131,50 @@ public:
 //---------------------------------------------------
 
 
-    void myPV::fillPV(int i) {
+  void myPV::fillPV(int i) {
 
-	if(i!=myIValue) {
-	    myUpdate=1;
-	    myIValue=i;
-	    myUIValue=(unsigned int)i;
-            myDValue=(double)i;
-	    myTime=time(NULL)-epicsToLocalTime;
-	}
-	setAlarm();
+    aitInt32 oldVal;
+
+    myValue->getConvert(oldVal);
+    if(i!=oldVal) {
+      myUpdate=1;
+      myValue->putConvert(i);
+      myTime=time(NULL)-epicsToLocalTime;
     }
+    setAlarm();
+  }
 
 
 //------------------------------------------------------------------
 
 
-    void myPV::fillPV(uint ui) {
+  void myPV::fillPV(uint ui) {
 
-	if(ui!=myUIValue) {
-	    myUpdate=1;
-	    myIValue=(int)ui;
-	    myUIValue=ui;
-            myDValue=(double)ui;
-	    myTime=time(NULL)-epicsToLocalTime;
-	}
-	setAlarm();
+    aitUint32 oldVal;
+    myValue->getConvert(oldVal);
+    if(ui!=oldVal) {
+      myUpdate=1;
+      myValue->putConvert(ui);
+      myTime=time(NULL)-epicsToLocalTime;
     }
+    setAlarm();
+  }
 
 
 //------------------------------------------------------------------
 
 
-    void myPV::fillPV(double d) {
+   void myPV::fillPV(double d) {
 
-      cout << "fillPV: " << d << endl;
-
-
-	if(d!=myDValue) {
-	    myUpdate=1;
-	    myIValue=(int)d;
-	    myUIValue=(unsigned int)d;
-	    myDValue=d;
-	    myTime=time(NULL)-epicsToLocalTime;
-	}
-	setAlarm();
-    }
+    aitFloat64 oldVal;
+    myValue->getConvert(oldVal);
+     if(d!=oldVal) {
+       myUpdate=1;
+       myValue->putConvert(d);
+       myTime=time(NULL)-epicsToLocalTime;
+     }
+     setAlarm();
+   }
 
 
 //------------------------------------------------------------------
@@ -184,26 +182,11 @@ public:
 
     void myPV::setAlarm() {
 
-        double dval;
+        aitFloat64 dval;
 	int oldStat = myStat;
 	int oldSevr = mySevr;
 	
-
-	if(myType==aitEnumInt32) {
-	    dval=(double)myIValue;
-	    
-	} else if (myType==aitEnumUint32) {
-	    dval=(double)myUIValue;
-	    
-	} else if (myType==aitEnumFloat64) {
-	    dval=myDValue;
-	    
-	} else {
-	    cerr << "setalarm...unknown ait type for " << myName << endl;
-	    return;
-	}
-	
-	
+        myValue->getConvert(dval);
 	if(myAlarm!=0) {
 	    if(dval>=myHIHI) {
 		myStat=epicsAlarmHiHi;
@@ -300,20 +283,10 @@ public:
   gddAppFuncTableStatus myPV::getVAL(gdd &value) {
     if(debug!=0) cout << "...myPV getVAL for " << myName << endl;
 
-    if(myType==aitEnumInt32) {
-      value.putConvert(myIValue);
+    aitFloat64 dval;
 
-    } else if (myType==aitEnumUint32) {
-      value.putConvert(myUIValue);
-
-    } else if (myType==aitEnumFloat64) {
-      value.putConvert(myDValue);
-
-    } else {
-      cerr << "Unknown ait type " << myType << endl;
-      value.putConvert(0);
-    }
-
+    myValue->getConvert(dval);
+    value.putConvert(dval);
     value.setStat(myStat);
     value.setSevr(mySevr);
 
@@ -547,7 +520,12 @@ public:
 
 
   aitEnum myAttrPV::bestExternalType() const {
-    return(aitEnumInt32);
+    if( (strncasecmp(myAttr,"ALRM",4)==0) || (strncasecmp(myAttr,"STAT",4)==0) ||
+        (strncasecmp(myAttr,"SEVR",4)==0) || (strncasecmp(myAttr,"PREC",4)==0) ) {
+      return(aitEnumInt32);
+    } else {
+      return(aitEnumFloat64);
+    }
 }
 
 

@@ -9,6 +9,7 @@
 #define _epics_server_h
 
 
+#include <gdd.h>
 #include <gddApps.h>
 #include <gddAppFuncTable.h>
 
@@ -16,6 +17,7 @@
 void setDebug(int val);
 
 
+//-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
 
 
@@ -41,10 +43,9 @@ public:
   double myDRVH;
   double myDRVL;
   int myPREC;
-  
-  int myIValue;
-  unsigned int myUIValue;
-  double myDValue;
+
+  gddScalar *myValue;
+
   time_t myTime;
   int myStat;
   int mySevr;
@@ -87,6 +88,7 @@ public:
 
 
 //-------------------------------------------------------------------------
+//-------------------------------------------------------------------------
 
 
 class myAttrPV : public casPV {
@@ -108,6 +110,7 @@ class myAttrPV : public casPV {
   };
   
 
+//-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
 
 
