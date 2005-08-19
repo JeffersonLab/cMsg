@@ -110,7 +110,6 @@ class myCallbackObject:public cMsgCallbackAdapter {
     } else {
 
       // fill pv value from text field, doubles for now
-      // ??? what about other types
       myPV *p = (myPV*)userObject;
 
       switch (p->myType) {
@@ -336,7 +335,8 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
   aitEnum pvCAType = aitEnumFloat64;   // default
   string pvUnits="";
   int alrm=0,prec=0;
-  double val=0.,hihi=0.,lolo=0.,high=0.,low=0.,hopr=0.,lopr=0.,drvh=0.,drvl=0.;
+  double hihi=0.,lolo=0.,high=0.,low=0.,hopr=0.,lopr=0.,drvh=0.,drvl=0.;
+  string val = "0";
 
 
   // only parse pv definitions
@@ -378,7 +378,7 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
         alrm=atoi(atts[i+1]);
 
       } else if(strcasecmp(atts[i],"val")==0) {
-        val=atof(atts[i+1]);
+        val=atts[i+1];
 
       } else if(strcasecmp(atts[i],"hihi")==0) {
         hihi=atof(atts[i+1]);
@@ -414,7 +414,23 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
     if(pvMap.count(pvName)<=0) {
       myPV *p = new myPV(pvName.c_str(),pvCAType,pvUnits.c_str(),
                          alrm,hihi,lolo,high,low,hopr,lopr,drvh,drvl,prec);
-      p->fillPV(val);
+
+      switch (pvCAType) {
+      case aitEnumFloat64:
+      case aitEnumFloat32:
+        p->fillPV(atof(val.c_str()));
+        break;
+
+      case aitEnumInt32:
+      case aitEnumUint32:
+      case aitEnumInt16:
+      case aitEnumUint16:
+      case aitEnumInt8:
+      case aitEnumUint8:
+        p->fillPV(atoi(val.c_str()));
+        break;
+      }
+
       pvMap[pvName] = p;
     }
     

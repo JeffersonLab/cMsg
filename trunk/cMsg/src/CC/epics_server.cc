@@ -131,8 +131,6 @@ public:
 //---------------------------------------------------
 
 
-//  ??? is there a better way
-
   void myPV::fillPV(int i) {
 
     aitInt32 oldVal;
@@ -253,8 +251,8 @@ public:
 
    void myPV::fillPV(double d) {
 
-    aitFloat64 oldVal;
-    myValue->getConvert(oldVal);
+     aitFloat64 oldVal;
+     myValue->getConvert(oldVal);
      if(d!=oldVal) {
        myUpdate=1;
        myValue->putConvert(d);
@@ -299,7 +297,7 @@ public:
 	    mySevr=epicsSevNone;
 	}
 	
-	
+
 	// force update if alarm state changed
 	if((oldStat!=myStat)||(oldSevr!=mySevr))myUpdate=1;
     }
@@ -372,11 +370,7 @@ public:
   gddAppFuncTableStatus myPV::getVAL(gdd &value) {
     if(debug!=0) cout << "...myPV getVAL for " << myName << endl;
 
-    aitFloat64 dval;
-    
-    //  ??? there must be a better way
-    myValue->getConvert(dval);
-    value.putConvert(dval);
+    value.copy(myValue);
     value.setStat(myStat);
     value.setSevr(mySevr);
 
