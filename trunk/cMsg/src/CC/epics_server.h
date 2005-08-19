@@ -32,14 +32,14 @@ public:
   aitEnum myType;
   char *myUnits;
   int myAlarm;
-  int myHIHI;
-  int myLOLO;
-  int myHIGH;
-  int myLOW;
-  int myHOPR;
-  int myLOPR;
-  int myDRVH;
-  int myDRVL;
+  double myHIHI;
+  double myLOLO;
+  double myHIGH;
+  double myLOW;
+  double myHOPR;
+  double myLOPR;
+  double myDRVH;
+  double myDRVL;
   int myPREC;
   
   int myIValue;
@@ -52,8 +52,8 @@ public:
   int myUpdate;
 
   
-  myPV(const char *name, aitEnum type, const char *units, int alarm, int hihi, int lolo, 
-       int high, int low, int hopr, int lopr, int drvh, int drvl, int prec);
+  myPV(const char *name, aitEnum type, const char *units, int alarm, double hihi, double lolo, 
+       double high, double low, double hopr, double lopr, double drvh, double drvl, int prec);
   void fillPV(int i);
   void fillPV(uint ui);
   void fillPV(double d);

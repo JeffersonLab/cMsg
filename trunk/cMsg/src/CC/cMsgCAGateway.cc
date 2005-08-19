@@ -1,6 +1,5 @@
 // to do:
-//   set done
-//   other than integers?
+//   pv types other than double
 
 
 
@@ -42,8 +41,6 @@ using namespace std;
 #include <string>
 #include <map>
 #include <iostream>
-#include <fstream>
-#include <sstream>
 #include <iomanip>
 #include <signal.h>
 
@@ -77,7 +74,7 @@ static string cfgFile;
 
 // misc variables
 static int pendTime          = 1;
-static int done              = 0;
+static bool done             = false;
 static int debug             = 0;
 
 
@@ -112,9 +109,9 @@ class myCallbackObject:public cMsgCallbackAdapter {
 
     } else {
 
-      // fill pv value from text field, integers for now
+      // fill pv value from text field, doubles for now
       myPV *p = (myPV*)userObject;
-      p->fillPV(atoi(msg.getText().c_str()));
+      p->fillPV(atof(msg.getText().c_str()));
     }
 
   }
@@ -169,7 +166,7 @@ public:
     
     
   ~myServer() {
-    if(debug!=0)cout << "myServer destructor" << endl;
+    if(debug==0)cout << "myServer destructor" << endl;
     return; 
     }
 };
@@ -216,7 +213,7 @@ main(int argc,char **argv) {
 
 
   // CA server loop
-  while(done==0) {
+  while(!done) {
 
     fileDescriptorManager.process((double)pendTime);
 
@@ -243,6 +240,26 @@ main(int argc,char **argv) {
   exit(EXIT_SUCCESS);
 }
        
+
+//--------------------------------------------------------------------------
+
+
+void create_signal_handler(void) {
+
+  signal(SIGTERM,quit_callback);
+  signal(SIGQUIT,quit_callback);
+  signal( SIGINT,quit_callback);
+  signal( SIGHUP,quit_callback);
+}
+
+
+//--------------------------------------------------------------------------
+
+
+void quit_callback(int sig) {
+  done=true;
+}
+
 
 //--------------------------------------------------------------------------
 
@@ -301,7 +318,8 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
 
   aitEnum pvCAType = aitEnumInt32;
   string pvUnits="";
-  int alrm=0,val=0,hihi=0,lolo=0,high=0,low=0,hopr=0,lopr=0,drvh=0,drvl=0,prec=0;
+  int alrm=0,prec=0;
+  double val=0.,hihi=0.,lolo=0.,high=0.,low=0.,hopr=0.,lopr=0.,drvh=0.,drvl=0.;
 
 
   // only parse pv definitions
@@ -322,6 +340,8 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
           pvCAType=aitEnumInt32;
         } else if(strcasecmp(atts[i+1],"uint32")==0) {
           pvCAType=aitEnumUint32;
+        } else if(strcasecmp(atts[i+1],"float64")==0) {
+          pvCAType=aitEnumFloat64;
         }
 
       } else if(strcasecmp(atts[i],"units")==0) {
@@ -331,31 +351,31 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
         alrm=atoi(atts[i+1]);
 
       } else if(strcasecmp(atts[i],"val")==0) {
-        val=atoi(atts[i+1]);
+        val=atof(atts[i+1]);
 
       } else if(strcasecmp(atts[i],"hihi")==0) {
-        hihi=atoi(atts[i+1]);
+        hihi=atof(atts[i+1]);
 
       } else if(strcasecmp(atts[i],"lolo")==0) {
-        lolo=atoi(atts[i+1]);
+        lolo=atof(atts[i+1]);
 
       } else if(strcasecmp(atts[i],"high")==0) {
-        high=atoi(atts[i+1]);
+        high=atof(atts[i+1]);
 
       } else if(strcasecmp(atts[i],"low")==0) {
-        low=atoi(atts[i+1]);
+        low=atof(atts[i+1]);
 
       } else if(strcasecmp(atts[i],"hopr")==0) {
-        hopr=atoi(atts[i+1]);
+        hopr=atof(atts[i+1]);
 
       } else if(strcasecmp(atts[i],"lopr")==0) {
-        lopr=atoi(atts[i+1]);
+        lopr=atof(atts[i+1]);
 
       } else if(strcasecmp(atts[i],"drvh")==0) {
-        drvh=atoi(atts[i+1]);
+        drvh=atof(atts[i+1]);
 
       } else if(strcasecmp(atts[i],"drvl")==0) {
-        drvl=atoi(atts[i+1]);
+        drvl=atof(atts[i+1]);
 
       } else if(strcasecmp(atts[i],"prec")==0) {
         prec=atoi(atts[i+1]);
@@ -378,26 +398,6 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
   }
 
   return;
-}
-
-
-//--------------------------------------------------------------------------
-
-
-void create_signal_handler(void) {
-
-  signal(SIGTERM,quit_callback);
-  signal(SIGQUIT,quit_callback);
-  signal( SIGINT,quit_callback);
-  signal( SIGHUP,quit_callback);
-}
-
-
-//--------------------------------------------------------------------------
-
-
-void quit_callback(int sig) {
-  done=1;
 }
 
 

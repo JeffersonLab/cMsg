@@ -14,7 +14,7 @@
 //   write only allowed to following fields:
 //       ALRM,HIHI,LOLO,HIGH,LOW,HOPR,LOPR,DRVH,DRVL
 
-//   all alarm limits are integers, set ALRM to 0(1) to turn alarms off(on)
+//   all alarm limits are double, set ALRM to 0(1) to turn alarms off(on)
 
 //   have to set EPICS_CAS_INTF_ADDR_LIST to limit server to single network interface
 
@@ -98,8 +98,8 @@ public:
 //---------------------------------------------------------------------------
 
 
-  myPV::myPV(const char *name, aitEnum type, const char *units, int alarm, int hihi, int lolo, 
-	     int high, int low, int hopr, int lopr, int drvh, int drvl, int prec) {
+  myPV::myPV(const char *name, aitEnum type, const char *units, int alarm, double hihi, double lolo, 
+	     double high, double low, double hopr, double lopr, double drvh, double drvl, int prec) {
 
     myName=strdup(name);
     myType=type;
@@ -136,6 +136,8 @@ public:
 	if(i!=myIValue) {
 	    myUpdate=1;
 	    myIValue=i;
+	    myUIValue=(unsigned int)i;
+            myDValue=(double)i;
 	    myTime=time(NULL)-epicsToLocalTime;
 	}
 	setAlarm();
@@ -149,7 +151,9 @@ public:
 
 	if(ui!=myUIValue) {
 	    myUpdate=1;
+	    myIValue=(int)ui;
 	    myUIValue=ui;
+            myDValue=(double)ui;
 	    myTime=time(NULL)-epicsToLocalTime;
 	}
 	setAlarm();
@@ -161,8 +165,13 @@ public:
 
     void myPV::fillPV(double d) {
 
+      cout << "fillPV: " << d << endl;
+
+
 	if(d!=myDValue) {
 	    myUpdate=1;
+	    myIValue=(int)d;
+	    myUIValue=(unsigned int)d;
 	    myDValue=d;
 	    myTime=time(NULL)-epicsToLocalTime;
 	}
@@ -175,19 +184,19 @@ public:
 
     void myPV::setAlarm() {
 
-	int ival;
+        double dval;
 	int oldStat = myStat;
 	int oldSevr = mySevr;
 	
 
 	if(myType==aitEnumInt32) {
-	    ival=myIValue;
+	    dval=(double)myIValue;
 	    
 	} else if (myType==aitEnumUint32) {
-	    ival=(int)myUIValue;
+	    dval=(double)myUIValue;
 	    
 	} else if (myType==aitEnumFloat64) {
-	    ival=(int)myDValue;
+	    dval=myDValue;
 	    
 	} else {
 	    cerr << "setalarm...unknown ait type for " << myName << endl;
@@ -196,16 +205,16 @@ public:
 	
 	
 	if(myAlarm!=0) {
-	    if(ival>=myHIHI) {
+	    if(dval>=myHIHI) {
 		myStat=epicsAlarmHiHi;
 		mySevr=epicsSevMajor;
-	    } else if (ival<=myLOLO) {
+	    } else if (dval<=myLOLO) {
 		myStat=epicsAlarmLoLo;
 		mySevr=epicsSevMajor;
-	    } else if (ival>=myHIGH) {
+	    } else if (dval>=myHIGH) {
 		myStat=epicsAlarmHigh;
 		mySevr=epicsSevMinor;
-	    } else if (ival<=myLOW) {
+	    } else if (dval<=myLOW) {
 		myStat=epicsAlarmLow;
 		mySevr=epicsSevMinor;
 	    } else {
@@ -617,28 +626,28 @@ public:
 	myPtr->myAlarm=(int)value;
 
     } else if (strncasecmp(myAttr,"HIHI",4)==0) {
-	myPtr->myHIHI=(int)value;
+	myPtr->myHIHI=(double)value;
 
     } else if (strncasecmp(myAttr,"LOLO",4)==0) {
-	myPtr->myLOLO=(int)value;
+	myPtr->myLOLO=(double)value;
       
     } else if (strncasecmp(myAttr,"HIGH",4)==0) {
-	myPtr->myHIGH=(int)value;
+	myPtr->myHIGH=(double)value;
       
     } else if (strncasecmp(myAttr,"LOW ",4)==0) {
-	myPtr->myLOW=(int)value;
+	myPtr->myLOW=(double)value;
 
     } else if (strncasecmp(myAttr,"HOPR",4)==0) {
-	myPtr->myHOPR=(int)value;
+	myPtr->myHOPR=(double)value;
 
     } else if (strncasecmp(myAttr,"LOPR",4)==0) {
-	myPtr->myLOPR=(int)value;
+	myPtr->myLOPR=(double)value;
 
     } else if (strncasecmp(myAttr,"DRVH",4)==0) {
-	myPtr->myDRVH=(int)value;
+	myPtr->myDRVH=(double)value;
 
     } else if (strncasecmp(myAttr,"DRVL",4)==0) {
-	myPtr->myDRVL=(int)value;
+	myPtr->myDRVL=(double)value;
 
     } else if (strncasecmp(myAttr,"PREC",4)==0) {
 	myPtr->myPREC=(int)value;
