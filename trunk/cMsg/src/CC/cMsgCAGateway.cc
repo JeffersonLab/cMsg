@@ -1,5 +1,5 @@
 // to do:
-//   pv types other than double
+//   other pv types
 
 
 
@@ -110,8 +110,25 @@ class myCallbackObject:public cMsgCallbackAdapter {
     } else {
 
       // fill pv value from text field, doubles for now
+      // ??? what about other types
       myPV *p = (myPV*)userObject;
-      p->fillPV(atof(msg.getText().c_str()));
+
+      switch (p->myType) {
+      case aitEnumFloat64:
+      case aitEnumFloat32:
+        p->fillPV(atof(msg.getText().c_str()));
+        break;
+
+      case aitEnumInt32:
+      case aitEnumUint32:
+      case aitEnumInt16:
+      case aitEnumUint16:
+      case aitEnumInt8:
+      case aitEnumUint8:
+        p->fillPV(atoi(msg.getText().c_str()));
+        break;
+      }
+
     }
 
   }
@@ -316,7 +333,7 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
 
   string pvName,pvSubject,pvType;
 
-  aitEnum pvCAType = aitEnumInt32;
+  aitEnum pvCAType = aitEnumFloat64;   // default
   string pvUnits="";
   int alrm=0,prec=0;
   double val=0.,hihi=0.,lolo=0.,high=0.,low=0.,hopr=0.,lopr=0.,drvh=0.,drvl=0.;
@@ -340,6 +357,16 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
           pvCAType=aitEnumInt32;
         } else if(strcasecmp(atts[i+1],"uint32")==0) {
           pvCAType=aitEnumUint32;
+        } else if(strcasecmp(atts[i+1],"int16")==0) {
+          pvCAType=aitEnumInt16;
+        } else if(strcasecmp(atts[i+1],"uint16")==0) {
+          pvCAType=aitEnumUint16;
+        } else if(strcasecmp(atts[i+1],"int8")==0) {
+          pvCAType=aitEnumInt8;
+        } else if(strcasecmp(atts[i+1],"uint8")==0) {
+          pvCAType=aitEnumUint8;
+        } else if(strcasecmp(atts[i+1],"float32")==0) {
+          pvCAType=aitEnumFloat32;
         } else if(strcasecmp(atts[i+1],"float64")==0) {
           pvCAType=aitEnumFloat64;
         }

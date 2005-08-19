@@ -57,6 +57,11 @@ public:
        double high, double low, double hopr, double lopr, double drvh, double drvl, int prec);
   void fillPV(int i);
   void fillPV(uint ui);
+  void fillPV(short s);
+  void fillPV(unsigned short us);
+  void fillPV(char c);
+  void fillPV(unsigned char uc);
+  void fillPV(float f);
   void fillPV(double d);
   void setAlarm();
   casChannel *createChannel(const casCtx &ctx,const char * const pUserName, 

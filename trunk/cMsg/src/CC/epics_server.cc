@@ -131,6 +131,8 @@ public:
 //---------------------------------------------------
 
 
+//  ??? is there a better way
+
   void myPV::fillPV(int i) {
 
     aitInt32 oldVal;
@@ -164,6 +166,91 @@ public:
 //------------------------------------------------------------------
 
 
+  void myPV::fillPV(short s) {
+
+    aitInt16 oldVal;
+
+    myValue->getConvert(oldVal);
+    if(s!=oldVal) {
+      myUpdate=1;
+      myValue->putConvert(s);
+      myTime=time(NULL)-epicsToLocalTime;
+    }
+    setAlarm();
+  }
+
+
+//------------------------------------------------------------------
+
+
+  void myPV::fillPV(unsigned short us) {
+
+    aitUint16 oldVal;
+
+    myValue->getConvert(oldVal);
+    if(us!=oldVal) {
+      myUpdate=1;
+      myValue->putConvert(us);
+      myTime=time(NULL)-epicsToLocalTime;
+    }
+    setAlarm();
+  }
+
+
+//------------------------------------------------------------------
+
+
+  void myPV::fillPV(char c) {
+
+    aitInt8 oldVal;
+
+    myValue->getConvert(oldVal);
+    if(c!=oldVal) {
+      myUpdate=1;
+      myValue->putConvert(c);
+      myTime=time(NULL)-epicsToLocalTime;
+    }
+    setAlarm();
+  }
+
+
+//------------------------------------------------------------------
+
+
+  void myPV::fillPV(unsigned char uc) {
+
+    aitUint8 oldVal;
+
+    myValue->getConvert(oldVal);
+    if(uc!=oldVal) {
+      myUpdate=1;
+      myValue->putConvert(uc);
+      myTime=time(NULL)-epicsToLocalTime;
+    }
+    setAlarm();
+  }
+
+
+//------------------------------------------------------------------
+
+
+  void myPV::fillPV(float f) {
+
+    aitFloat32 oldVal;
+
+    myValue->getConvert(oldVal);
+    if(f!=oldVal) {
+      myUpdate=1;
+      myValue->putConvert(f);
+      myTime=time(NULL)-epicsToLocalTime;
+    }
+    setAlarm();
+  }
+
+
+//------------------------------------------------------------------
+
+
    void myPV::fillPV(double d) {
 
     aitFloat64 oldVal;
@@ -181,6 +268,8 @@ public:
 
 
     void myPV::setAlarm() {
+
+      // alarm checking done using double since limits are all doubles
 
         aitFloat64 dval;
 	int oldStat = myStat;
@@ -284,7 +373,8 @@ public:
     if(debug!=0) cout << "...myPV getVAL for " << myName << endl;
 
     aitFloat64 dval;
-
+    
+    //  ??? there must be a better way
     myValue->getConvert(dval);
     value.putConvert(dval);
     value.setStat(myStat);
