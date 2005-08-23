@@ -60,7 +60,6 @@ using namespace std;
 //  misc variables
 static int debug = 0;
 static char temp[4096];
-static int epicsToLocalTime  = 20*(365*24*60*60) + 5*(24*60*60) - (60*60); //?daylight savings?
 
 
 //--------------------------------------------------------------------------
@@ -129,140 +128,6 @@ public:
   
 
 //---------------------------------------------------
-
-
-  void myPV::fillPV(int i) {
-
-    aitInt32 oldVal;
-
-    myValue->getConvert(oldVal);
-    if(i!=oldVal) {
-      myUpdate=1;
-      myValue->putConvert(i);
-      myTime=time(NULL)-epicsToLocalTime;
-    }
-    setAlarm();
-  }
-
-
-//------------------------------------------------------------------
-
-
-  void myPV::fillPV(uint ui) {
-
-    aitUint32 oldVal;
-    myValue->getConvert(oldVal);
-    if(ui!=oldVal) {
-      myUpdate=1;
-      myValue->putConvert(ui);
-      myTime=time(NULL)-epicsToLocalTime;
-    }
-    setAlarm();
-  }
-
-
-//------------------------------------------------------------------
-
-
-  void myPV::fillPV(short s) {
-
-    aitInt16 oldVal;
-
-    myValue->getConvert(oldVal);
-    if(s!=oldVal) {
-      myUpdate=1;
-      myValue->putConvert(s);
-      myTime=time(NULL)-epicsToLocalTime;
-    }
-    setAlarm();
-  }
-
-
-//------------------------------------------------------------------
-
-
-  void myPV::fillPV(unsigned short us) {
-
-    aitUint16 oldVal;
-
-    myValue->getConvert(oldVal);
-    if(us!=oldVal) {
-      myUpdate=1;
-      myValue->putConvert(us);
-      myTime=time(NULL)-epicsToLocalTime;
-    }
-    setAlarm();
-  }
-
-
-//------------------------------------------------------------------
-
-
-  void myPV::fillPV(char c) {
-
-    aitInt8 oldVal;
-
-    myValue->getConvert(oldVal);
-    if(c!=oldVal) {
-      myUpdate=1;
-      myValue->putConvert(c);
-      myTime=time(NULL)-epicsToLocalTime;
-    }
-    setAlarm();
-  }
-
-
-//------------------------------------------------------------------
-
-
-  void myPV::fillPV(unsigned char uc) {
-
-    aitUint8 oldVal;
-
-    myValue->getConvert(oldVal);
-    if(uc!=oldVal) {
-      myUpdate=1;
-      myValue->putConvert(uc);
-      myTime=time(NULL)-epicsToLocalTime;
-    }
-    setAlarm();
-  }
-
-
-//------------------------------------------------------------------
-
-
-  void myPV::fillPV(float f) {
-
-    aitFloat32 oldVal;
-
-    myValue->getConvert(oldVal);
-    if(f!=oldVal) {
-      myUpdate=1;
-      myValue->putConvert(f);
-      myTime=time(NULL)-epicsToLocalTime;
-    }
-    setAlarm();
-  }
-
-
-//------------------------------------------------------------------
-
-
-   void myPV::fillPV(double d) {
-
-     aitFloat64 oldVal;
-     myValue->getConvert(oldVal);
-     if(d!=oldVal) {
-       myUpdate=1;
-       myValue->putConvert(d);
-       myTime=time(NULL)-epicsToLocalTime;
-     }
-     setAlarm();
-   }
-
-
-//------------------------------------------------------------------
 
 
     void myPV::setAlarm() {
@@ -543,6 +408,26 @@ public:
 
   myPV::~myPV() {
     if(debug!=0)cout << "myPV destructor for " << myName << endl;
+  }
+
+
+//---------------------------------------------------------------------------
+
+
+  void myPV::fillPVString(aitString newVal) {
+    
+    return;  // ???
+
+    aitString oldVal; 
+    myValue->getConvert(oldVal);
+    
+    if(strcasecmp(newVal,oldVal)!=0) {
+      myUpdate=1;
+      myValue->putConvert(newVal);
+      myTime=time(NULL)-epicsToLocalTime;
+    }
+
+    // no alarm on string
   }
 
 

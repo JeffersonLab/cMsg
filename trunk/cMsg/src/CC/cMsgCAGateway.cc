@@ -1,5 +1,5 @@
 // to do:
-//   other pv types
+//    aitString not working ???
 
 
 
@@ -109,7 +109,7 @@ class myCallbackObject:public cMsgCallbackAdapter {
 
     } else {
 
-      // fill pv value from text field, doubles for now
+      // fill pv value from text field
       myPV *p = (myPV*)userObject;
 
       switch (p->myType) {
@@ -125,6 +125,11 @@ class myCallbackObject:public cMsgCallbackAdapter {
       case aitEnumInt8:
       case aitEnumUint8:
         p->fillPV(atoi(msg.getText().c_str()));
+        break;
+
+      case aitEnumFixedString:
+      case aitEnumString:
+        p->fillPVString(aitString(msg.getText().c_str()));
         break;
       }
 
@@ -369,6 +374,14 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
           pvCAType=aitEnumFloat32;
         } else if(strcasecmp(atts[i+1],"float64")==0) {
           pvCAType=aitEnumFloat64;
+        } else if(strcasecmp(atts[i+1],"string")==0) {
+             cerr << "?cMsgCAGateway...string not supported for pvName " << pvName 
+                  << ", defaulting to float64" << endl;
+//           pvCAType=aitEnumString;
+        } else if(strcasecmp(atts[i+1],"fixedString")==0) {
+             cerr << "?cMsgCAGateway...fixedString not supported for pvName " << pvName 
+                  << ", defaulting to float64" << endl;
+//           pvCAType=aitEnumFixedString;
         }
 
       } else if(strcasecmp(atts[i],"units")==0) {
@@ -428,6 +441,10 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
       case aitEnumInt8:
       case aitEnumUint8:
         p->fillPV(atoi(val.c_str()));
+        break;
+      case aitEnumFixedString:
+      case aitEnumString:
+        p->fillPVString(aitString(val.c_str()));
         break;
       }
 

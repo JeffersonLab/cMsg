@@ -14,6 +14,9 @@
 #include <gddAppFuncTable.h>
 
 
+static int epicsToLocalTime  = 20*(365*24*60*60) + 5*(24*60*60) - (60*60); //?daylight savings?
+
+
 void setDebug(int val);
 
 
@@ -55,14 +58,8 @@ public:
   
   myPV(const char *name, aitEnum type, const char *units, int alarm, double hihi, double lolo, 
        double high, double low, double hopr, double lopr, double drvh, double drvl, int prec);
-  void fillPV(int i);
-  void fillPV(uint ui);
-  void fillPV(short s);
-  void fillPV(unsigned short us);
-  void fillPV(char c);
-  void fillPV(unsigned char uc);
-  void fillPV(float f);
-  void fillPV(double d);
+  
+
   void setAlarm();
   casChannel *createChannel(const casCtx &ctx,const char * const pUserName, 
 			    const char * const pHostName);
@@ -88,6 +85,25 @@ public:
   epicsShareFunc const char *getName() const;
   void destroy();
   ~myPV();
+
+
+  // for filling pv's
+  void fillPVString(aitString newVal);
+
+  template<typename T>
+    void fillPV(const T &newVal) {
+    
+    T oldVal; 
+    myValue->getConvert(oldVal);
+    
+    if(newVal!=oldVal) {
+      myUpdate=1;
+      myValue->putConvert(newVal);
+      myTime=time(NULL)-epicsToLocalTime;
+    }
+    setAlarm();
+  }
+
 
 };
 
