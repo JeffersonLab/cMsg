@@ -148,29 +148,31 @@ public class cMsgConstants {
     // in the cMsg subdomain only
 
     /** Subscribe to messages by another server. */
-    public static final int    msgServerSubscribeRequest       = 30;
-    /** Get a message with 1-shot subscribe by another server. */
-    public static final int    msgServerSubscribeAndGetRequest = 31;
+    public static final int    msgServerSubscribeRequest         = 30;
+    /** Unsubscribe to messages by another server. */
+    public static final int    msgServerUnsubscribeRequest       = 31;
+    /** Unsubscribe to messages by another server. */
+    public static final int    msgServerUnsubscribeAndGetRequest = 33;
     /** Connect to the server from server. */
-    public static final int    msgServerConnectRequest         = 32;
+    public static final int    msgServerConnectRequest           = 34;
     /** Disconnect server from the server. */
-    public static final int    msgServerDisconnectRequest      = 33;
+    public static final int    msgServerDisconnectRequest        = 35;
     /** Register client from another server. */
-    public static final int    msgServerRegisterClient         = 34;
+    public static final int    msgServerRegisterClient           = 36;
     /** Unregister client from another server. */
-    public static final int    msgServerUnRegisterClient       = 35;
+    public static final int    msgServerUnRegisterClient         = 37;
     /** Send names of local clients. */
-    public static final int    msgServerSendClientNames        = 36;
+    public static final int    msgServerSendClientNames          = 38;
     /** Lock server from doing other registrations. */
-    public static final int    msgServerRegistrationLock       = 37;
+    public static final int    msgServerRegistrationLock         = 39;
     /** Unlock server for doing other registrations. */
-    public static final int    msgServerRegistrationUnlock     = 38;
+    public static final int    msgServerRegistrationUnlock       = 40;
     /** Lock server from joining server cloud or accepting registrations. */
-    public static final int    msgServerCloudLock              = 39;
+    public static final int    msgServerCloudLock                = 41;
     /** Unlock server for joining server cloud or accepting registrations. */
-    public static final int    msgServerCloudUnlock            = 40;
+    public static final int    msgServerCloudUnlock              = 42;
     /** Unlock server for joining server cloud or accepting registrations. */
-    public static final int    msgServerCloudJoin              = 41;
+    public static final int    msgServerCloudJoin                = 43;
 
     // Flags for client's shutdown method.
 

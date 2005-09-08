@@ -462,8 +462,10 @@ public class cMsgMessage implements Cloneable {
      * @return byte array of message.
      */
     public byte[] getByteArray() {return bytes;}
+
     /**
-     * Set byte array of message.
+     * Set byte array of message. If the byte array is null, both the offset
+     * and length get set to 0.
      * @param b byte array of message.
      */
     public void setByteArray(byte[] b) {
@@ -477,13 +479,23 @@ public class cMsgMessage implements Cloneable {
         offset = 0;
         length = b.length;
     }
+
     /**
-     * Set byte array of message.
+     * Set byte array of message. If the byte array is null, both the offset
+     * and length get set to 0.
      * @param b byte array of message.
      * @param offset index into byte array to bytes of interest.
      * @param length number of bytes of interest.
+     * @throws cMsgException if length, offset, or offset+length is out of array bounds
      */
     public void setByteArray(byte[] b, int offset, int length) throws cMsgException {
+        if (b == null) {
+            bytes = null;
+            this.offset = 0;
+            this.length = 0;
+            return;
+        }
+
         if ((length < 0) || (length > b.length)) {
             throw new cMsgException("length is out of array bounds");
         }
@@ -492,13 +504,6 @@ public class cMsgMessage implements Cloneable {
         }
         if ((offset + length) > b.length) {
             throw new cMsgException("offset + length is out of array bounds");
-        }
-
-        if (b == null) {
-            bytes = null;
-            this.offset = 0;
-            this.length = 0;
-            return;
         }
 
         if (offset == 0 && length == b.length) {
@@ -518,6 +523,7 @@ public class cMsgMessage implements Cloneable {
     /**
      * Set byte array of message to the given argument without
      * copying the byte array itself - only the reference is copied.
+     * If the byte array is null, both the offset and length get set to 0.
      * @param b byte array of message.
      */
     public void setByteArrayNoCopy(byte[] b) {
@@ -531,12 +537,24 @@ public class cMsgMessage implements Cloneable {
         offset = 0;
         length = b.length;
     }
+
     /**
      * Set byte array of message to the given argument without
      * copying the byte array itself - only the reference is copied.
+     * If the byte array is null, both the offset and length get set to 0.
      * @param b byte array of message.
+     * @param offset index into byte array to bytes of interest.
+     * @param length number of bytes of interest.
+     * @throws cMsgException if length, offset, or offset+length is out of array bounds
      */
     public void setByteArrayNoCopy(byte[] b, int offset, int length) throws cMsgException {
+        if (b == null) {
+            bytes = null;
+            this.offset = 0;
+            this.length = 0;
+            return;
+        }
+
         if ((length < 0) || (length > b.length)) {
             throw new cMsgException("length is out of array bounds");
         }
@@ -545,13 +563,6 @@ public class cMsgMessage implements Cloneable {
         }
         if ((offset + length) > b.length) {
             throw new cMsgException("offset + length is out of array bounds");
-        }
-
-        if (b == null) {
-            bytes = null;
-            this.offset = 0;
-            this.length = 0;
-            return;
         }
 
         bytes = b;
@@ -570,11 +581,20 @@ public class cMsgMessage implements Cloneable {
     /**
      * Set byte array length of data of interest. This may be smaller
      * than the total length of the array if the user is only interested
-     * in a portion of the array.
+     * in a portion of the array. If the byte array is null, all non-negative
+     * values are accepted.
      * @param length of byte array's data of interest.
+     * @throws cMsgException if length or offset+length is out of array bounds
      */
     public void setByteArrayLength(int length) throws cMsgException {
-        if ((length < 0) || (length > bytes.length)) {
+        if (length < 0) {
+            throw new cMsgException("length is out of array bounds");
+        }
+        if (bytes == null) {
+            this.length = length;
+            return;
+        }
+        if (length > bytes.length) {
             throw new cMsgException("length is out of array bounds");
         }
         if ((offset + length) > bytes.length) {
@@ -593,10 +613,19 @@ public class cMsgMessage implements Cloneable {
     /**
      * Set byte array index to data of interest. This may be non-zero
      * if the user is only interested in a portion of the array.
+     * If the byte array is null, all non-negative values are accepted.
      * @param offset index to byte array's data of interest.
+     * @throws cMsgException if offset or offset+length is out of array bounds
      */
     public void setByteArrayOffset(int offset) throws cMsgException {
-        if ((offset < 0) || (offset > bytes.length-1)) {
+        if (offset < 0) {
+            throw new cMsgException("offset is out of array bounds");
+        }
+        if (bytes == null) {
+            this.offset = offset;
+            return;
+        }
+        if (offset > bytes.length-1) {
             throw new cMsgException("offset is out of array bounds");
         }
         if ((offset + length) > bytes.length) {

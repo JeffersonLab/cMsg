@@ -40,6 +40,7 @@ public class cMsgMessageMatcher {
      *
      * @param regexp subscription string that can contain wildcards (* and ?)
      * @param s message string to be matched (can be blank which only matches *)
+     * @param escapeRegexp if true, the regexp argument is escaped, else not
      * @return true if there is a match, false if there is not
      */
     static final public boolean matches(String regexp, String s, boolean escapeRegexp) {

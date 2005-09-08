@@ -16,9 +16,6 @@
 
 package org.jlab.coda.cMsg;
 
-import java.nio.channels.SocketChannel;
-import java.nio.ByteBuffer;
-import java.util.List;
 import java.io.IOException;
 
 /**
@@ -45,7 +42,7 @@ public interface cMsgDeliverMessageInterface {
      * @throws cMsgException
      * @throws java.io.IOException
      */
-    public void deliverMessage(cMsgMessageFull msg, int msgType)
+    public void deliverMessage(cMsgMessage msg, int msgType)
             throws cMsgException, IOException;
 
     /**
@@ -58,7 +55,7 @@ public interface cMsgDeliverMessageInterface {
      * @throws cMsgException
      * @throws java.io.IOException
      */
-    public boolean deliverMessageAndAcknowledge(cMsgMessageFull msg, int msgType)
+    public boolean deliverMessageAndAcknowledge(cMsgMessage msg, int msgType)
             throws cMsgException, IOException;
 
 }

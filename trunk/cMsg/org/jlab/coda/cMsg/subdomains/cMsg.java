@@ -17,6 +17,7 @@
 package org.jlab.coda.cMsg.subdomains;
 
 import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
+import org.jlab.coda.cMsg.cMsgDomain.cMsgNotifier;
 import org.jlab.coda.cMsg.*;
 
 import java.util.*;
@@ -24,7 +25,6 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.io.IOException;
@@ -77,28 +77,18 @@ public class cMsg extends cMsgSubdomainAdapter {
     static private ConcurrentHashMap<Integer,DeleteGetInfo> deleteGets =
             new ConcurrentHashMap<Integer,DeleteGetInfo>(100);
 
-    /**
-     * Object used in waiting for and notification of new subscriptions.
-     * This thread-safe queue holds cMsgSubscription objects --
-     * subscribe requests in this cMsg subdomain. Other threads,
-     * such as cMsgServerBridge objects wait for these subscriptions so they can
-     * be repeated in other cMsg servers.
-     */
-    static private LinkedBlockingQueue<cMsgSubscription> subscribeCue =
-            new LinkedBlockingQueue<cMsgSubscription>(100);
-
-    /** Set of all subscriptions (including the subscribeAndGets). */
+    /** Set of all subscriptions (including the subscribeAndGets) of regular & bridge clients. */
     static private HashSet<cMsgSubscription> subscriptions =
             new HashSet<cMsgSubscription>(100);
 
     /** This lock is used in global registrations for regular clients and server clients. */
     static private final ReentrantLock registrationLock = new ReentrantLock();
 
-    /** Lock to ensure all (un)subscribe calls are sequential. */
+    /** Lock to ensure all access to {@link #subscriptions} is sequential. */
     static private final ReentrantLock subscribeLock = new ReentrantLock();
 
-    /** List of client info objects corresponding to entries in "subGetList" subscriptions. */
-    private ArrayList infoList = new ArrayList(100);
+    /** Set of client info objects to send the message to. */
+    private HashSet<cMsgClientInfo> sendToSet = new HashSet<cMsgClientInfo>(100);
 
     /** Level of debug output for this class. */
     private int debug = cMsgConstants.debugError;
@@ -164,28 +154,6 @@ public class cMsg extends cMsgSubdomainAdapter {
         return s;
     }
 
-    /**
-     * This method is lock protected since it could be called by many clients' threads
-     * simultaneously; however, subscriptions should be processed sequentially.
-     * @param sub
-     * @return
-     */
-    static boolean addSubscription(cMsgSubscription sub) {
-        subscribeLock.lock();
-        try {
-
-        }
-        finally {
-            subscribeLock.unlock();
-        }
-        return true;
-    }
-
-
-    static boolean removeSubscription(cMsgSubscription sub) {
-
-        return true;
-    }
 
 
     /**
@@ -365,6 +333,7 @@ public class cMsg extends cMsgSubdomainAdapter {
         }
 
         this.name   = clientName;
+//System.out.println("subdh: register client with info = " + info);
         this.myInfo = info;
 
         // this client is registered in this namespace
@@ -392,26 +361,29 @@ public class cMsg extends cMsgSubdomainAdapter {
 
 
     /**
-     * This method handles a message sent by the domain client. The message's subject and type
-     * are matched against all clients' subscriptions. For each client, the message is
-     * compared to each of its subscriptions until a match is found. At that point, the message
-     * is sent to that client. The client is responsible for finding all the matching gets
+     * This method handles a message sent by a local bridge object's callback.
+     * The message's subject and type are matched against all clients' subscriptions.
+     * For each client, the message is compared to each of its subscriptions until
+     * a match is found. At that point, the message is sent to that client.
+     * The client is responsible for finding all the matching gets
      * and subscribes and distributing the message among them as necessary.
+     * No messages are sent to server clients to avoid infinite loops.
      *
      * This method is synchronized because the use of infoList is not
      * thread-safe otherwise. Multiple threads in the domain server can be calling
      * this object's methods simultaneously.
      *
      * @param message message from sender
+     * @param namespace namespace of original message sender
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                          or socket properties cannot be set
      */
-    synchronized public void handleSendRequest(cMsgMessageFull message) throws cMsgException {
-
+    synchronized public void bridgeSend(cMsgMessage message, String namespace) throws cMsgException {
+//System.out.println("IN bridgeSend!!!");
         if (message == null) return;
 
         cMsgClientInfo info;
-        infoList.clear();
+        sendToSet.clear();
 
         // If message is sent in response to a specific get ...
         if (message.isGetResponse()) {
@@ -446,121 +418,74 @@ public class cMsg extends cMsgSubdomainAdapter {
             // Send it like any other to all subscribers.
         }
 
-        // Scan through all subscriptions.
-        HashSet gets;
-        boolean haveMatch, isServer;
-        String s;
-        int lastIndex;
-        String client=null;
 
-        for (cMsgSubscription sub : subscriptions) {
-            // Don't deliver a message to the sender
-            //if (client.equals(name)) {
-            //    continue;
-            //}
+        // ONLY REGULAR CLIENTS SEND MESSAGES, BRIDGES ONLY SUBSCRIBE
 
-            info = clients.get(client);
-            isServer = info.isServer();
+        // Scan through subscriptions of regular clients. Don't send to bridges.
+        // Lock for subscriptions
+        subscribeLock.lock();
+        try {
+            cMsgSubscription sub;
+            Iterator it = subscriptions.iterator();
 
-            // If the client we're going to send to is really just a bridge
-            // for another cMsg server, and this subdomain represents
-            // such a server, don't pass messages between them
-            if (isServer & myInfo.isServer()) {
+            while (it.hasNext()) {
+                sub = (cMsgSubscription)it.next();
+
+                // send only to matching namespace
+                if (!namespace.equalsIgnoreCase(sub.getNamespace())) {
                     continue;
-            }
-            // If not a server, first test to see if the messages sent by this
-            // client (in namespace) can be sent to other clients in their namespaces.
-            else if (!namespace.equalsIgnoreCase(info.getNamespace())) {
-//System.out.println(" handleSendRequest message in wrong namespace (" + info.getNamespace()
-//                   + ") for " + info.getName());
-                continue;
-            }
-
-            gets = info.getGets();
-            subscriptions = info.getSubscriptions();
-            Iterator it;
-            haveMatch = false;
-
-            // read lock for client's "subscription" and "gets" hashsets
-            info.getReadLock().lock();
-
-            try {
-                // Look at all subscriptions
-                it = subscriptions.iterator();
-                while (it.hasNext()) {
-                    sub = (cMsgSubscription) it.next();
-
-                    // If this is a server bridge, it is not in 1 namespace but represents
-                    // subscriptions from clients in many namespaces. Therefore, the proper
-                    // way to filter on namespaces is to check the namespace of the
-                    // subscription itself and not that of this client.
-                    if (isServer && !namespace.equalsIgnoreCase(sub.getNamespace())) {
-                        continue;
-                    }
-
-                    // if subscription matches the msg ...
-                    if (cMsgMessageMatcher.matches(sub.getSubjectRegexp(),
-                                                   message.getSubject(), false) &&
-                        cMsgMessageMatcher.matches(sub.getTypeRegexp(),
-                                                   message.getType(), false)) {
-
-                        haveMatch = true;
-                        // We know we must send at least 1 message to this client so
-                        // there is no need to check all its other subscriptions.
-                        // That part will be done on the client end, so we're done.
-//System.out.println(" handle send msg for subscribe to " + info.getName());
-                        break;
-                    }
                 }
 
-                // Look at all gets (since we need to remove all those that match)
-                it = gets.iterator();
-                while (it.hasNext()) {
-                    sub = (cMsgSubscription) it.next();
-
-                    // filter on server namespaces
-                    if (isServer && !namespace.equalsIgnoreCase(sub.getNamespace())) {
-                        continue;
-                    }
-
-                    // if get matches the msg ...
-                    if (cMsgMessageMatcher.matches(sub.getSubjectRegexp(),
-                                                   message.getSubject(), false) &&
-                        cMsgMessageMatcher.matches(sub.getTypeRegexp(),
-                                                   message.getType(), false)) {
-
-                        haveMatch = true;
-                        // get subscription is 1-shot deal so now remove it
-                        it.remove();
-//System.out.println(" handle send msg for subscribe&get to " + info.getName());
-                    }
+                // subscription subject and type must match msg's
+                if (!cMsgMessageMatcher.matches(sub.getSubjectRegexp(), message.getSubject(), false) ||
+                    !cMsgMessageMatcher.matches(sub.getTypeRegexp(), message.getType(), false)) {
+                    continue;
                 }
-            }
-            finally {
-                info.getReadLock().unlock();
+
+                // Put all subscribers and subscribeAndGetters of this
+                // subscription in the set of clients to send to.
+                sendToSet.addAll(sub.getClientSubscribers());
+                sendToSet.addAll(sub.getClientSubAndGetters().keySet());
+
+                // Clear subAndGetter lists as they're only a 1-shot deal.
+                // Note that all subscribeAndGets are done by local clients.
+                // Servers implement sub&Get with subscribes.
+                sub.getClientSubAndGetters().clear();
+
+                // fire off all notifiers for this subscription
+                for (cMsgNotifier notifier : sub.getNotifiers()) {
+//System.out.println("subdh: bridgeSend: Firing notifier");
+                    notifier.latch.countDown();
+                }
+                sub.clearNotifiers();
+
+                // delete sub if no more subscribers
+                if (sub.numberOfSubscribers() < 1) {
+//System.out.println("subdh: bridgeSend: remove subscription");
+                    it.remove();
+                }
+
             }
 
-            // store info only if client getting a msg
-            if (haveMatch) {
-                infoList.add(info);
-            }
+        }
+        finally {
+            subscribeLock.unlock();
         }
 
         // Once we have the subscription/get, msg, and client info,
         // no more need for sychronization
 
-        for (int i = 0; i < infoList.size(); i++) {
-
-            info = (cMsgClientInfo) infoList.get(i);
+        for (cMsgClientInfo client : sendToSet) {
 
             // Deliver this msg to this client.
             try {
-                info.getDeliverer().deliverMessage(message, cMsgConstants.msgSubscribeResponse);
+                client.getDeliverer().deliverMessage(message, cMsgConstants.msgSubscribeResponse);
             }
             catch (IOException e) {
                 continue;
             }
         }
+
     }
 
 
@@ -579,12 +504,12 @@ public class cMsg extends cMsgSubdomainAdapter {
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                          or socket properties cannot be set
      */
-    synchronized public void handleSendRequestOrig(cMsgMessageFull message) throws cMsgException {
-
+    synchronized public void handleSendRequest(cMsgMessageFull message) throws cMsgException {
+//System.out.println("\nhandleSendRequest(subdh): REGULAR SEND\n");
         if (message == null) return;
 
         cMsgClientInfo info;
-        infoList.clear();
+        sendToSet.clear();
 
         // If message is sent in response to a specific get ...
         if (message.isGetResponse()) {
@@ -619,135 +544,85 @@ public class cMsg extends cMsgSubdomainAdapter {
             // Send it like any other to all subscribers.
         }
 
-        // Scan through all clients.
-        cMsgSubscription sub;
-        HashSet subscriptions, gets;
-        boolean haveMatch, isServer;
-        String s;
-        int lastIndex;
 
-        for (String client : clients.keySet()) {
-            // Don't deliver a message to the sender
-            //if (client.equals(name)) {
-            //    continue;
-            //}
+        // ONLY REGULAR CLIENTS SEND MESSAGES, BRIDGES ONLY SUBSCRIBE
 
-            info = clients.get(client);
-            isServer = info.isServer();
+        // Scan through all subscriptions.
+        // Lock for subscriptions
+        subscribeLock.lock();
+        try {
+            cMsgSubscription sub;
+            Iterator it = subscriptions.iterator();
 
-            // If this client is really just a bridge for another cMsg server ...
-            if (isServer) {
-                // Filter out messages originating from another cMsg server
-                // that are going to be sent to a client from that same server
-                // which is acting as a bridge between that server and this one.
-                // This prevents messages from getting into an infinite loop.
+            while (it.hasNext()) {
+                sub = (cMsgSubscription)it.next();
 
-                // msg creator is of the form:
-                // clientName:originatingNameServerHost:originatingNameServerPort
-                s = message.getCreator();
-                // if client (remote server) has same nameserver host & port
-                // (of remote system) as message, reject it
-                lastIndex = s.lastIndexOf(':');
-                if ( s.substring(s.indexOf(':')+1, lastIndex).equals(info.getServerHost()) &&
-                     s.substring(lastIndex+1).equals(info.getServerPort())) {
-                    // go on to next client
+                // send only to matching namespace
+//System.out.println("handleSendRequest(subdh): compare sub ns = " + sub.getNamespace() +
+//                   " to my ns = " + namespace);
+                if (!namespace.equalsIgnoreCase(sub.getNamespace())) {
                     continue;
                 }
-            }
-            // If not a server, first test to see if the messages sent by this
-            // client (in namespace) can be sent to other clients in their namespaces.
-            else if (!namespace.equalsIgnoreCase(info.getNamespace())) {
-//System.out.println(" handleSendRequest message in wrong namespace (" + info.getNamespace()
-//                   + ") for " + info.getName());
-                continue;
-            }
 
-            gets = info.getGets();
-            subscriptions = info.getSubscriptions();
-            Iterator it;
-            haveMatch = false;
-
-            // read lock for client's "subscription" and "gets" hashsets
-            info.getReadLock().lock();
-
-            try {
-                // Look at all subscriptions
-                it = subscriptions.iterator();
-                while (it.hasNext()) {
-                    sub = (cMsgSubscription) it.next();
-
-                    // If this is a server bridge, it is not in 1 namespace but represents
-                    // subscriptions from clients in many namespaces. Therefore, the proper
-                    // way to filter on namespaces is to check the namespace of the
-                    // subscription itself and not that of this client.
-                    if (isServer && !namespace.equalsIgnoreCase(sub.getNamespace())) {
-                        continue;
-                    }
-
-                    // if subscription matches the msg ...
-                    if (cMsgMessageMatcher.matches(sub.getSubjectRegexp(),
-                                                   message.getSubject(), false) &&
-                        cMsgMessageMatcher.matches(sub.getTypeRegexp(),
-                                                   message.getType(), false)) {
-
-                        haveMatch = true;
-                        // We know we must send at least 1 message to this client so
-                        // there is no need to check all its other subscriptions.
-                        // That part will be done on the client end, so we're done.
-//System.out.println(" handle send msg for subscribe to " + info.getName());
-                        break;
-                    }
+                // subscription subject and type must match msg's
+                if (!cMsgMessageMatcher.matches(sub.getSubjectRegexp(), message.getSubject(), false) ||
+                    !cMsgMessageMatcher.matches(sub.getTypeRegexp(), message.getType(), false)) {
+                    continue;
                 }
 
-                // Look at all gets (since we need to remove all those that match)
-                it = gets.iterator();
-                while (it.hasNext()) {
-                    sub = (cMsgSubscription) it.next();
+                // Put all subscribers and subscribeAndGetters of this
+                // subscription in the set of clients to send to.
+//System.out.println("handleSendRequest(subdh): add client to send list");
+                sendToSet.addAll(sub.getAllSubscribers());
+                sendToSet.addAll(sub.getClientSubAndGetters().keySet());
 
-                    // filter on server namespaces
-                    if (isServer && !namespace.equalsIgnoreCase(sub.getNamespace())) {
-                        continue;
-                    }
+//System.out.println("  A# of subscribers = " + sub.getAllSubscribers().size());
+//System.out.println("  A# of sub&Getters = " + sub.getClientSubAndGetters().size());
+                //Iterator it1 = sub.getClientSubAndGetters().keySet().iterator();
+                //cMsgClientInfo info1 =  (cMsgClientInfo)it1.next();
+                //System.out.println("  subs count of sub&Getters = " + sub.getClientSubAndGetters().get(info1));
+                // clear subAndGetter list as it's only a 1-shot deal
+                sub.getClientSubAndGetters().clear();
+//System.out.println("  B# of subscribers = " + sub.getAllSubscribers().size());
+//System.out.println("  B# of sub&Getters = " + sub.getClientSubAndGetters().size());
+                //System.out.println("  subs count of sub&Getters = " + sub.getClientSubAndGetters().get(info1));
 
-                    // if get matches the msg ...
-                    if (cMsgMessageMatcher.matches(sub.getSubjectRegexp(),
-                                                   message.getSubject(), false) &&
-                        cMsgMessageMatcher.matches(sub.getTypeRegexp(),
-                                                   message.getType(), false)) {
-
-                        haveMatch = true;
-                        // get subscription is 1-shot deal so now remove it
-                        it.remove();
-//System.out.println(" handle send msg for subscribe&get to " + info.getName());
-                    }
+                // fire off all notifiers for this subscription
+                for (cMsgNotifier notifier : sub.getNotifiers()) {
+//System.out.println("handleSendRequest(subdh): Firing notifier");
+                    notifier.latch.countDown();
                 }
-            }
-            finally {
-                info.getReadLock().unlock();
+                sub.clearNotifiers();
+
+                // delete sub if no more subscribers
+                if (sub.numberOfSubscribers() < 1) {
+//System.out.println("handleSendRequest(subdh): remove subscription");
+                    it.remove();
+                }
+
             }
 
-            // store info only if client getting a msg
-            if (haveMatch) {
-                infoList.add(info);
-            }
+        }
+        finally {
+            subscribeLock.unlock();
         }
 
         // Once we have the subscription/get, msg, and client info,
         // no more need for sychronization
 
-        for (int i = 0; i < infoList.size(); i++) {
-
-            info = (cMsgClientInfo) infoList.get(i);
+        for (cMsgClientInfo client : sendToSet) {
 
             // Deliver this msg to this client.
             try {
-                info.getDeliverer().deliverMessage(message, cMsgConstants.msgSubscribeResponse);
+//System.out.println("handleSendRequest(subdh): send msg to client " + client.getName());
+                client.getDeliverer().deliverMessage(message, cMsgConstants.msgSubscribeResponse);
             }
             catch (IOException e) {
                 continue;
             }
         }
     }
+
 
 
     /**
@@ -773,48 +648,56 @@ public class cMsg extends cMsgSubdomainAdapter {
      * @param subject message subject subscribed to
      * @param type    message type subscribed to
      * @param namespace namespace message resides in
-     * @param id      message id refering to these specific subject and type values
      * @throws cMsgException
      */
-    public void handleServerSubscribeRequest(String subject, String type, String namespace, int id)
+    public void handleServerSubscribeRequest(String subject, String type, String namespace)
             throws cMsgException {
 
         boolean subscriptionExists = false;
         cMsgSubscription sub = null;
-        Iterator it = subscriptions.iterator();
 
-        while (it.hasNext()) {
-            sub = (cMsgSubscription) it.next();
-            if (sub.getNamespace().equals(namespace) &&
-                sub.getSubject().equals(subject) &&
-                sub.getType().equals(type)) {
+        subscribeLock.lock();
 
-                if (sub.containsSubscriber(myInfo)) {
-                    throw new cMsgException("handleSubscribeRequest: subscription already exists for subject = " +
-                                   subject + " and type = " + type);
+        try {
+
+            Iterator it = subscriptions.iterator();
+
+            while (it.hasNext()) {
+                sub = (cMsgSubscription) it.next();
+                if (sub.getNamespace().equals(namespace) &&
+                        sub.getSubject().equals(subject) &&
+                        sub.getType().equals(type)) {
+
+                    if (sub.containsSubscriber(myInfo)) {
+                        throw new cMsgException("handleServerSubscribeRequest: subscription already exists for subject = " +
+                                                subject + " and type = " + type);
+                    }
+                    // found existing subscription to subject and type so add this client to its list
+                    subscriptionExists = true;
+                    break;
                 }
-                // found existing subscription to subject and type so add this client to its list
-                subscriptionExists = true;
-                break;
+            }
+
+            // add this client to an exiting subscription
+            if (subscriptionExists) {
+//System.out.println("subdh handleServerSubscribeRequest ADD sub: subject = " + subject + ", type = " + type + ", ns = " + namespace);
+                sub.addSubscriber(myInfo);
+            }
+            // or else create a new subscription
+            else {
+                sub = new cMsgSubscription(subject, type, namespace);
+//System.out.println("subdh handleServerSubscribeRequest NEW sub: subject = " + subject + ", type = " + type + ", ns = " + namespace);
+                sub.addSubscriber(myInfo);
+                subscriptions.add(sub);
             }
         }
-
-        // add this client to an exiting subscription
-        if (subscriptionExists) {
-            sub.addSubscriber(myInfo);
-        }
-        // or else create a new subscription
-        else {
-            sub = new cMsgSubscription(subject, type, namespace);
-            sub.addSubscriber(myInfo);
-            subscriptions.add(sub);
-            // Note: do NOT notify the bridge to other servers about this subscription or
-            // messages will get into an infinite loop.
+        finally {
+            // Lock for subscriptions
+            subscribeLock.unlock();
         }
     }
 
 
-    // BUG BUG: sync with other methods that handle subscriptions
     /**
      * Method to handle subscribe request sent by domain client.
      * This method is run after all exchanges between domain server and client.
@@ -824,46 +707,55 @@ public class cMsg extends cMsgSubdomainAdapter {
      * @param id       message id refering to these specific subject and type values
      * @throws cMsgException if a subscription for this subject and type already exists
      */
-    synchronized public void handleSubscribeRequest(String subject, String type, int id)
+    public void handleSubscribeRequest(String subject, String type, int id)
             throws cMsgException {
 
         boolean subscriptionExists = false;
         cMsgSubscription sub = null;
-        Iterator it = subscriptions.iterator();
 
-        while (it.hasNext()) {
-            sub = (cMsgSubscription) it.next();
-            if (sub.getNamespace().equals(namespace) &&
-                sub.getSubject().equals(subject) &&
-                sub.getType().equals(type)) {
+        subscribeLock.lock();
 
-                if (sub.containsSubscriber(myInfo)) {
-                    throw new cMsgException("handleSubscribeRequest: subscription already exists for subject = " +
-                                   subject + " and type = " + type);
+        try {
+
+            Iterator it = subscriptions.iterator();
+
+            while (it.hasNext()) {
+                sub = (cMsgSubscription) it.next();
+                if (sub.getNamespace().equals(namespace) &&
+                        sub.getSubject().equals(subject) &&
+                        sub.getType().equals(type)) {
+
+                    if (sub.containsSubscriber(myInfo)) {
+                        throw new cMsgException("handleSubscribeRequest: subscription already exists for subject = " +
+                                                subject + " and type = " + type);
+                    }
+                    // found existing subscription to subject and type so add this client to its list
+                    subscriptionExists = true;
+                    break;
                 }
-                // found existing subscription to subject and type so add this client to its list
-                subscriptionExists = true;
-                break;
+            }
+
+            // add this client to an exiting subscription
+            if (subscriptionExists) {
+                sub.addSubscriber(myInfo);
+                sub.addClientSubscriber(myInfo);
+            }
+            // or else create a new subscription
+            else {
+                sub = new cMsgSubscription(subject, type, namespace);
+//System.out.println("subdh handleSubscribeRequest: subject = " + subject + ", type = " + type + ", ns = " + namespace);
+                sub.addSubscriber(myInfo);
+                sub.addClientSubscriber(myInfo);
+                subscriptions.add(sub);
             }
         }
-
-        // add this client to an exiting subscription
-        if (subscriptionExists) {
-            sub.addSubscriber(myInfo);
-        }
-        // or else create a new subscription
-        else {
-            sub = new cMsgSubscription(subject, type, namespace);
-            sub.addSubscriber(myInfo);
-            subscriptions.add(sub);
-            // Notify bridge to other servers that new subscription was made
-            try {subscribeCue.put(sub);}
-            catch (InterruptedException e) { }
+        finally {
+            // Lock for subscriptions
+            subscribeLock.unlock();
         }
     }
 
 
-    // BUG BUG: sync with other methods that handle subscriptions
     /**
      * Method to handle sunsubscribe request sent by domain client.
      * This method is run after all exchanges between domain server and client.
@@ -871,24 +763,75 @@ public class cMsg extends cMsgSubdomainAdapter {
      * @param subject  message subject to subscribe to
      * @param type     message type to subscribe to
      */
-     synchronized public void handleUnsubscribeRequest(String subject, String type) {
+     public void handleUnsubscribeRequest(String subject, String type, int id) {
         cMsgSubscription sub = null;
-        Iterator it = subscriptions.iterator();
 
-        while (it.hasNext()) {
-            sub = (cMsgSubscription) it.next();
-            if (sub.getNamespace().equals(namespace) &&
-                sub.getSubject().equals(subject) &&
-                sub.getType().equals(type)) {
+        subscribeLock.lock();
 
-                sub.removeSubscriber(myInfo);
-                break;
+        try {
+
+            Iterator it = subscriptions.iterator();
+
+            while (it.hasNext()) {
+                sub = (cMsgSubscription) it.next();
+                if (sub.getNamespace().equals(namespace) &&
+                        sub.getSubject().equals(subject) &&
+                        sub.getType().equals(type)) {
+
+                    sub.removeSubscriber(myInfo);
+                    sub.removeClientSubscriber(myInfo);
+                    break;
+                }
+            }
+
+            // get rid of this subscription if no more subscribers left
+            if (sub.numberOfSubscribers() < 1) {
+                subscriptions.remove(sub);
             }
         }
+        finally {
+            // Lock for subscriptions
+            subscribeLock.unlock();
+        }
+    }
 
-        // get rid of this subscription if no more subscribers left
-        if (sub.numberOfSubscribers() < 1) {
-            subscriptions.remove(sub);
+
+
+    /**
+     * Method to handle sunsubscribe request sent by domain client.
+     * This method is run after all exchanges between domain server and client.
+     *
+     * @param subject  message subject to subscribe to
+     * @param type     message type to subscribe to
+     */
+     public void handleServerUnsubscribeRequest(String subject, String type, String namespace) {
+        cMsgSubscription sub = null;
+
+        subscribeLock.lock();
+
+        try {
+
+            Iterator it = subscriptions.iterator();
+
+            while (it.hasNext()) {
+                sub = (cMsgSubscription) it.next();
+                if (sub.getNamespace().equals(namespace) &&
+                        sub.getSubject().equals(subject) &&
+                        sub.getType().equals(type)) {
+//System.out.println("SERVER UNSUBSCRIBE");
+                    sub.removeSubscriber(myInfo);
+                    break;
+                }
+            }
+
+            // get rid of this subscription if no more subscribers left
+            if (sub.numberOfSubscribers() < 1) {
+                subscriptions.remove(sub);
+            }
+        }
+        finally {
+            // Lock for subscriptions
+            subscribeLock.unlock();
         }
     }
 
@@ -963,46 +906,62 @@ public class cMsg extends cMsgSubdomainAdapter {
     }
 
 
-
+    // BUG BUG, registering sub & setting notifier must be "simultaneous" - no message sent
+    // during that interval (synchronizing works but may be too restrictive
     /**
      * Method to synchronously get a single message from the local server for a one-time
      * subscription of a subject and type by an outside server.
      *
      * @param subject message subject subscribed to
      * @param type    message type subscribed to
-     * @param namespace namespace message resides in
-     * @param id      message id refering to these specific subject and type values
+     * @param notifier object which allows the subdomain handler to notify other objects
+     *                 that a message matching this subscription has been sent (by a local
+     *                 client)
      * @throws cMsgException
      */
-    public void handleServerSubscribeAndGetRequest(String subject, String type, String namespace, int id)
-            throws cMsgException {
+    public void handleServerSubscribeAndGetRequest(String subject, String type,
+                                                   cMsgNotifier notifier)
+                                                                throws cMsgException {
+
         boolean subscriptionExists = false;
         cMsgSubscription sub = null;
-        Iterator it = subscriptions.iterator();
 
-        while (it.hasNext()) {
-            sub = (cMsgSubscription) it.next();
-            if (sub.getNamespace().equals(namespace) &&
-                sub.getSubject().equals(subject) &&
-                sub.getType().equals(type)) {
+        subscribeLock.lock();
 
-                // found existing subscription to subject and type so add this client to its list
-                subscriptionExists = true;
-                break;
+        try {
+
+            Iterator it = subscriptions.iterator();
+//System.out.println("In handleServerSub&GetRequest:");
+            while (it.hasNext()) {
+                sub = (cMsgSubscription) it.next();
+                if (sub.getNamespace().equals(namespace) &&
+                        sub.getSubject().equals(subject) &&
+                        sub.getType().equals(type)) {
+
+                    // found existing subscription to subject and type so add this client to its list
+                    subscriptionExists = true;
+                    break;
+                }
             }
-        }
 
-        // add this client to an exiting subscription
-        if (subscriptionExists) {
-            sub.addSubAndGetter(myInfo, id);
+            // add this client to an exiting subscription
+            if (subscriptionExists) {
+                sub.addSubAndGetter(myInfo);
+            }
+            // or else create a new subscription
+            else {
+                sub = new cMsgSubscription(subject, type, namespace);
+                sub.addSubAndGetter(myInfo);
+                subscriptions.add(sub);
+            }
+//System.out.println("  add notifier");
+            // Need to unsubscribe from remote servers if sub&Get is cancelled.
+            // This object notifies of the need to do so.
+            sub.addNotifier(notifier);
         }
-        // or else create a new subscription
-        else {
-            sub = new cMsgSubscription(subject, type, namespace);
-            sub.addSubAndGetter(myInfo, id);
-            subscriptions.add(sub);
-            // Note: do NOT notify the bridge to other servers about this subscription or
-            // messages will get into an infinite loop.
+        finally {
+            // Lock for subscriptions
+            subscribeLock.unlock();
         }
     }
 
@@ -1018,60 +977,102 @@ public class cMsg extends cMsgSubdomainAdapter {
     public void handleSubscribeAndGetRequest(String subject, String type, int id) {
         boolean subscriptionExists = false;
         cMsgSubscription sub = null;
-        Iterator it = subscriptions.iterator();
 
-        while (it.hasNext()) {
-            sub = (cMsgSubscription) it.next();
-            if (sub.getNamespace().equals(namespace) &&
-                sub.getSubject().equals(subject) &&
-                sub.getType().equals(type)) {
+        // Lock for subscriptions
+        subscribeLock.lock();
 
-                // found existing subscription to subject and type so add this client to its list
-                subscriptionExists = true;
-                break;
+        try {
+            Iterator it = subscriptions.iterator();
+
+//System.out.println("In sub&GetRequest:");
+            while (it.hasNext()) {
+                sub = (cMsgSubscription) it.next();
+                if (sub.getNamespace().equals(namespace) &&
+                        sub.getSubject().equals(subject) &&
+                        sub.getType().equals(type)) {
+
+                    // found existing subscription to subject and type so add this client to its list
+                    subscriptionExists = true;
+                    break;
+                }
+            }
+
+            // add this client to an exiting subscription
+            if (subscriptionExists) {
+//System.out.println("    add sub&Gettter");
+                sub.addSubAndGetter(myInfo);
+            }
+            // or else create a new subscription
+            else {
+//System.out.println("    create subscription");
+                sub = new cMsgSubscription(subject, type, namespace);
+                sub.addSubAndGetter(myInfo);
+                subscriptions.add(sub);
             }
         }
-
-        // add this client to an exiting subscription
-        if (subscriptionExists) {
-            sub.addSubAndGetter(myInfo, id);
+        finally {
+            // Lock for subscriptions
+            subscribeLock.unlock();
         }
-        // or else create a new subscription
-        else {
-            sub = new cMsgSubscription(subject, type, namespace);
-            sub.addSubAndGetter(myInfo, id);
-            subscriptions.add(sub);
-            // Notify bridge to other servers that a new subscription was made
-            try {subscribeCue.put(sub);}
-            catch (InterruptedException e) { }
-        }
+//System.out.println("    subs count of sub&Getters = " + sub.getClientSubAndGetters().get(myInfo));
     }
 
 
-    // BUG BUG what about namespaces?
     /**
      * Method to handle remove subscribeAndGet request sent by domain client
      * (hidden from user).
      *
      * @param id message id refering to these specific subject and type values
      */
-    public void handleUnSubscribeAndGetRequest(int id) {
+    public void handleUnsubscribeAndGetRequest(String subject, String type, int id) {
         cMsgSubscription sub = null;
-        Iterator it = subscriptions.iterator();
 
-        while (it.hasNext()) {
-            sub = (cMsgSubscription) it.next();
-            if (sub.removeSubAndGetter(myInfo, id)) {
-                break;
+        subscribeLock.lock();
+
+        try {
+            Iterator it = subscriptions.iterator();
+
+//System.out.println("In UN Sub&GetRequest: s,t,ns = " + subject + ", " + type + ", " + namespace);
+            while (it.hasNext()) {
+                sub = (cMsgSubscription) it.next();
+//System.out.println("  sub subject,type,ns = " + sub.getSubject() + ", " +
+//                                   sub.getType() + ", " + sub.getNamespace());
+                if (sub.getNamespace().equals(namespace) &&
+                        sub.getSubject().equals(subject) &&
+                        sub.getType().equals(type)) {
+//System.out.println("  remove Sub&Getter from sub object");
+//System.out.println("  subs A# of sub&Getters = " + sub.getClientSubAndGetters().size());
+//System.out.println("  subs count of sub&Getters = " + sub.getClientSubAndGetters().get(myInfo));
+                    sub.removeSubAndGetter(myInfo);
+//System.out.println("  removed Sub&Getter from sub object");
+                    break;
+                }
+            }
+
+            // If a msg was sent and sub removed simultaneously while a sub&Get (on client)
+            // timed out so an unSub&Get was sent, ignore the unSub&get.
+            if (sub == null) return;
+
+            // get rid of this subscription if no more subscribers left
+//System.out.println("  subs B# of sub&Getters = " + sub.getClientSubAndGetters().size());
+//System.out.println("  subs count of sub&Getters = " + sub.getClientSubAndGetters().get(myInfo));
+            if (sub.numberOfSubscribers() < 1) {
+//System.out.println("  remove subscription object");
+                subscriptions.remove(sub);
+            }
+
+            // fire notifier if one exists, then get rid of it
+            for (cMsgNotifier notifier : sub.getNotifiers()) {
+                if (notifier.client == myInfo  && notifier.id == id) {
+//System.out.println("  fire notifier now thenand remove from subscription object, id = " + id);
+                    notifier.latch.countDown();
+                    sub.removeNotifier(notifier);
+                    break;
+                }
             }
         }
-
-        // get rid of this subscription if no more subscribers left
-        if (sub.numberOfSubscribers() < 1) {
-            subscriptions.remove(sub);
-            // Notify bridge to other servers that subscription was removed
-            try {subscribeCue.put(sub);}
-            catch (InterruptedException e) { }
+        finally {
+            subscribeLock.unlock();
         }
     }
 
@@ -1087,7 +1088,7 @@ public class cMsg extends cMsgSubdomainAdapter {
     public void handleShutdownRequest(String client, String server,
                                       int flag) throws cMsgException {
 
-System.out.println("dHandler: try to kill client " + client);
+//System.out.println("dHandler: try to kill client " + client);
         // Match all clients that need to be shutdown.
         // Scan through all clients.
         cMsgClientInfo info;

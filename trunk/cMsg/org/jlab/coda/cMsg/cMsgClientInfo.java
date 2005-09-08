@@ -61,26 +61,6 @@ public class cMsgClientInfo {
     /** Object for delivering messges to this client. */
     cMsgDeliverMessageInterface deliverer;
 
-    /** Collection of all subscriptions. */
-    private HashSet subscriptions = new HashSet(20);
-
-    /** Collection of all subscribeAndGet "subscriptions". */
-    private HashSet gets = new HashSet(20);
-
-    /**
-     * This lock is for controlling access to the {@link #subscriptions} and
-     * {@link #gets} hashsets. It is inherently more flexible than synchronizing
-     * code, as most accesses of the hashsets are only reads. Using a readwrite
-     * lock will prevent the mutual exclusion guaranteed by using synchronization.
-     */
-    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-
-    /** Read lock for {@link #subscriptions} and {@link #gets} hashmaps. */
-    private Lock readLock = lock.readLock();
-
-    /** Write lock for {@link #subscriptions} and {@link #gets} hashmaps. */
-    private Lock writeLock = lock.writeLock();
-
 
     /** No-arg constructor. */
     public cMsgClientInfo() {
@@ -343,37 +323,6 @@ public class cMsgClientInfo {
         this.deliverer = deliverer;
     }
 
-    //-----------------------------------------------------------------------------------
 
-    /**
-     * Gets HashSet collection of all message subscriptions.
-     * @return HashSet of all message subscriptions
-     */
-    public HashSet getSubscriptions() {
-        return subscriptions;
-    }
-
-    /**
-     * Gets HashSet collection of all message gets.
-     * @return HashSet of all message gets
-     */
-    public HashSet getGets() {
-        return gets;
-    }
-
-    //-----------------------------------------------------------------------------------
-
-    /**
-     * Lock for reading {@link #subscriptions} and {@link #gets} hashmaps.
-     * @return reading lock object
-     */
-    public Lock getReadLock() {return readLock;}
-
-    /**
-     * Lock for writing to {@link #subscriptions} and {@link #gets} hashmaps.
-     * @return writing lock object
-     */
-    public Lock getWriteLock() {return writeLock;}
-
-}
+ }
 

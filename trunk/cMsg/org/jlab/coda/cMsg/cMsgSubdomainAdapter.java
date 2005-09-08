@@ -107,21 +107,6 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to synchronously get a single message from the local server for a one-time
-     * subscription of a subject and type by an outside server.
-     *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id      message id refering to these specific subject and type values
-     * @throws cMsgException
-     */
-    public void handleServerSubscribeAndGetRequest(String subject, String type, int id)
-            throws cMsgException {
-        throw new cMsgException("handleServerSubscribeAndGetRequest is not implemented");
-    }
-
-
-    /**
      * Method to synchronously get a single message from the server for a one-time
      * subscription of a subject and type.
      *
@@ -164,25 +149,14 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      * Method to handle remove subscribeAndGet request sent by domain client
      * (hidden from user).
      *
+     * @param subject message subject subscribed to
+     * @param type    message type subscribed to
      * @param id message id refering to these specific subject and type values
      * @throws cMsgException
      */
-    public void handleUnSubscribeAndGetRequest(int id) throws cMsgException {
-        throw new cMsgException("handleUnSubscribeAndGetRequest is not implemented");
-    }
-
-
-    /**
-     * Method to handle subscribe request sent by another cMsg server.
-     *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id      message id refering to these specific subject and type values
-     * @throws cMsgException
-     */
-    public void handleServerSubscribeRequest(String subject, String type, int id)
+    public void handleUnsubscribeAndGetRequest(String subject, String type, int id)
             throws cMsgException {
-        throw new cMsgException("handleServerSubscribeRequest is not implemented");
+        throw new cMsgException("handleUnSubscribeAndGetRequest is not implemented");
     }
 
 

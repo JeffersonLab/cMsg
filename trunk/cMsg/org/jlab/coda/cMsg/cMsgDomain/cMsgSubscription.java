@@ -20,11 +20,9 @@ import org.jlab.coda.cMsg.cMsgMessageMatcher;
 import org.jlab.coda.cMsg.cMsgClientInfo;
 import org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread;
 
-import java.util.HashSet;
-import java.util.HashMap;
-import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Class to store a client's subscription to a particular message subject and type.
@@ -63,31 +61,38 @@ public class cMsgSubscription {
      */
     private String namespace;
 
+    /** Used to notify servers that their subscribeAndGet is complete. */
+    private HashSet<cMsgNotifier> notifiers;
+
     /**
-     * This set contains all of the callback objects {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread}
+     * This set contains all of the callback objects
+     * {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread}
      * used on the client side.
      */
     private HashSet<cMsgCallbackThread> callbacks;
 
-    /** This set contains all clients subscribed to this exact subject and type and is used on the server side. */
-    private HashSet<cMsgClientInfo> subscribers;
-
-    private class subAndGetClient {
-        cMsgClientInfo info;
-        int id;
-
-        public subAndGetClient(cMsgClientInfo info, int id) {
-            this.info = info;
-            this.id = id;
-        }
-    }
+    /**
+     * This set contains all clients (regular and bridge) subscribed to this exact subject, type,
+     * and namespace and is used on the server side.
+     */
+    private HashSet<cMsgClientInfo> allSubscribers;
 
     /**
-     * This hashtable contains all clients who have called {@link org.jlab.coda.cMsg.cMsg#sendAndGet}
-     * with this exact subject and type. The client info object is the key and a unique id identifying
-     * the operation is the value. This is used on the server side.
+     * This map contains all regular clients (servers do not call
+     * subscribeAndGet but use subscribe to implement it) who have
+     * called {@link org.jlab.coda.cMsg.cMsg#subscribeAndGet}
+     * with this exact subject, type, and namespace. A count is
+     * keep of how many times subscribeAndGet for a particular
+     * client has been called. The client info object is the key
+     * and count is the value. This is used on the server side.
      */
-    private ArrayList<subAndGetClient> subAndGetters;
+    private HashMap<cMsgClientInfo, Integer> clientSubAndGetters;
+
+    /**
+     * This set contains only regular clients subscribed to this exact subject, type,
+     * and namespace and is used on the server side.
+     */
+    private HashSet<cMsgClientInfo> clientSubscribers;
 
 
     /**
@@ -99,8 +104,12 @@ public class cMsgSubscription {
         this.subject = subject;
         this.type = type;
         this.namespace = namespace;
-        subjectRegexp = cMsgMessageMatcher.escape(subject);
-        typeRegexp    = cMsgMessageMatcher.escape(type);
+        subjectRegexp  = cMsgMessageMatcher.escape(subject);
+        typeRegexp     = cMsgMessageMatcher.escape(type);
+        notifiers      = new HashSet<cMsgNotifier>(30);
+        allSubscribers       = new HashSet<cMsgClientInfo>(30);
+        clientSubAndGetters  = new HashMap<cMsgClientInfo, Integer>(30);
+        clientSubscribers    = new HashSet<cMsgClientInfo>(30);
     }
 
 
@@ -117,7 +126,11 @@ public class cMsgSubscription {
         this.id = id;
         subjectRegexp = cMsgMessageMatcher.escape(subject);
         typeRegexp    = cMsgMessageMatcher.escape(type);
-        callbacks = new HashSet<cMsgCallbackThread>(30);
+        notifiers     = new HashSet<cMsgNotifier>(30);
+        clientSubAndGetters  = new HashMap<cMsgClientInfo, Integer>(30);
+        allSubscribers       = new HashSet<cMsgClientInfo>(30);
+        clientSubscribers    = new HashSet<cMsgClientInfo>(30);
+        callbacks            = new HashSet<cMsgCallbackThread>(30);
         callbacks.add(cbThread);
     }
 
@@ -220,57 +233,96 @@ public class cMsgSubscription {
     //-------------------------------------------------------------------------
     // Methods for dealing with clients subscribed to the sub/type
     //-------------------------------------------------------------------------
+    public HashSet<cMsgClientInfo> getClientSubscribers() {
+        return clientSubscribers;
+    }
+
+    public boolean addClientSubscriber(cMsgClientInfo client) {
+        return clientSubscribers.add(client);
+    }
+
+    public boolean removeClientSubscriber(cMsgClientInfo client) {
+        return clientSubscribers.remove(client);
+    }
+
+
+    //-------------------------------------------------------------------------
+    // Methods for dealing with clients & servers subscribed to the sub/type
+    //-------------------------------------------------------------------------
+    public HashSet<cMsgClientInfo> getAllSubscribers() {
+        return allSubscribers;
+    }
 
     public boolean containsSubscriber(cMsgClientInfo client) {
-        return subscribers.contains(client);
+        return allSubscribers.contains(client);
     }
 
     public boolean addSubscriber(cMsgClientInfo client) {
-        return subscribers.add(client);
+        return allSubscribers.add(client);
     }
 
     public boolean removeSubscriber(cMsgClientInfo client) {
-        return subscribers.remove(client);
+        return allSubscribers.remove(client);
     }
 
-    public boolean addSubAndGetter(cMsgClientInfo client, int id) {
-        subAndGetClient clientObj = new subAndGetClient(client, id);
-        return subAndGetters.add(clientObj);
+
+    //-------------------------------------------------------------------------------
+    // Methods for dealing with clients who subscribeAndGet to the sub/type/namespace
+    //-------------------------------------------------------------------------------
+    public HashMap<cMsgClientInfo, Integer> getClientSubAndGetters() {
+        return clientSubAndGetters;
     }
 
-    public void removeSubAndGetters() {
-        subAndGetters.clear();
-    }
-
-    public boolean removeSubAndGetter(cMsgClientInfo client, int id) {
-        subAndGetClient subCli = null;
-        Iterator it = subAndGetters.iterator();
-
-        while (it.hasNext()) {
-            subCli = (subAndGetClient) it.next();
-            if (subCli.info == client && subCli.id == id) {
-                it.remove();
-                return true;
-            }
+    public void addSubAndGetter(cMsgClientInfo client) {
+        Integer count = clientSubAndGetters.get(client);
+        if (count == null) {
+//System.out.println("      SUB: set sub&Getter cnt to 1");
+            clientSubAndGetters.put(client, 1);
         }
-        return false;
-    }
-
-    public boolean containsSubAndGetter(cMsgClientInfo client, int id) {
-        subAndGetClient subCli = null;
-        Iterator it = subAndGetters.iterator();
-
-        while (it.hasNext()) {
-            subCli = (subAndGetClient) it.next();
-            if (subCli.info == client && subCli.id == id) {
-                return true;
-            }
+        else {
+//System.out.println("      SUB: set sub&Getter cnt to " + (count + 1));
+            clientSubAndGetters.put(client, count + 1);
         }
-        return false;
     }
+
+    public void clearSubAndGetters() {
+        clientSubAndGetters.clear();
+    }
+
+    public void removeSubAndGetter(cMsgClientInfo client) {
+        Integer count = clientSubAndGetters.get(client);
+        if (count == null || count < 2) {
+            clientSubAndGetters.remove(client);
+        }
+        else {
+            clientSubAndGetters.put(client, count - 1);
+        }
+    }
+
+
 
     public int numberOfSubscribers() {
-        return (subscribers.size() + subAndGetters.size());
+        return (allSubscribers.size() + clientSubAndGetters.size());
     }
 
+
+    //--------------------------------------------------------------------------
+    // Methods for dealing with servers' notifiers of subscribeAndGet completion
+    //--------------------------------------------------------------------------
+
+    public void addNotifier(cMsgNotifier notifier) {
+        notifiers.add(notifier);
+    }
+
+    public void removeNotifier(cMsgNotifier notifier) {
+        notifiers.remove(notifier);
+    }
+
+    public void clearNotifiers() {
+        notifiers.clear();
+    }
+
+    public Set<cMsgNotifier> getNotifiers() {
+        return notifiers;
+    }
 }

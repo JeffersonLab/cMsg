@@ -5,7 +5,7 @@
  *    This software was developed under a United States Government license    *
  *    described in the NOTICE file included as part of this distribution.     *
  *                                                                            *
- *    C. Timmer, 22-Oct-2004, Jefferson Lab                                    *
+ *    C. Timmer, 22-Oct-2004, Jefferson Lab                                   *
  *                                                                            *
  *     Author: Carl Timmer                                                    *
  *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
@@ -17,13 +17,10 @@
 package org.jlab.coda.cMsg.cMsgDomain;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
-import java.nio.channels.SocketChannel;
-import java.io.DataOutputStream;
-import java.io.DataInputStream;
 
 /**
- * This class is used to help in implementing a client's "get" method. An object
- * of this class stores a msg from the server to the "get" caller and is used to
+ * This class is used to help in implementing a client's "subscribeAndGet" method. An object
+ * of this class stores a msg from the server to the method's caller and is used to
  * synchronize/wait/notify on. It also indicates whether the call timed out or not.
  *
  * This class is also used to implement Domain server by storing an incoming message
@@ -34,7 +31,7 @@ public class cMsgHolder {
     /** Location to store message object. */
     public cMsgMessageFull message;
 
-    /** Has the "get" call timed out? */
+    /** Has the "subscribeAndGet" call timed out? */
     public boolean timedOut = true;
 
     /** Store subject. */
@@ -61,20 +58,8 @@ public class cMsgHolder {
     /** Store id. */
     public int id;
 
-    /** Store answer. */
-    public int answer;
-
     /** Store request. */
     public int request;
-
-    /** Store communication channel. */
-    public SocketChannel channel;
-
-    /** Store output communication stream. */
-    public DataOutputStream out;
-
-    /** Store input communication stream. */
-    public DataInputStream in;
 
 
     public cMsgHolder() {
@@ -82,18 +67,6 @@ public class cMsgHolder {
 
     public cMsgHolder(cMsgMessageFull message) {
         this.message = message;
-    }
-
-    /** Constructor for holding message information. */
-    public cMsgHolder(DataOutputStream out, int request) {
-        this.out = out;
-        this.request = request;
-    }
-
-    /** Constructor for holding message information. */
-    public cMsgHolder(cMsgMessageFull message, int request) {
-        this.message = message;
-        this.request = request;
     }
 
     /** Constructor for client's subscribeAndGet. */

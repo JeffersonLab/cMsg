@@ -107,10 +107,13 @@ public interface cMsgSubdomainInterface {
      * Method to handle remove subscribeAndGet request sent by domain client
      * (hidden from user).
      *
+     * @param subject message subject subscribed to
+     * @param type    message type subscribed to
      * @param id message id refering to these specific subject and type values
      * @throws cMsgException
      */
-    public void handleUnSubscribeAndGetRequest(int id) throws cMsgException;
+    public void handleUnsubscribeAndGetRequest(String subject, String type, int id)
+            throws cMsgException;
 
 
     /**
