@@ -109,7 +109,8 @@ typedef struct cMsgDomain_CODA_t {
                                     callbacks (1) or if they are being igmored (0). */
   volatile int lostConnection; /**< Boolean telling if connection to cMsg server is lost. */
   
-  int sendSocket;      /**< File descriptor for TCP socket to send messages on. */
+  int sendSocket;      /**< File descriptor for TCP socket to send messages/requests on. */
+  int receiveSocket;   /**< File descriptor for TCP socket to receive request responses on. */
   int listenSocket;    /**< File descriptor for socket this program listens on for TCP connections. */
   int keepAliveSocket; /**< File descriptor for socket to tell if server is still alive or not. */
 

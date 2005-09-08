@@ -175,7 +175,8 @@ static int   talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
 static int   parseUDL(const char *UDLremainder, char **host, unsigned short *port,
                       char **subdomainType, char **UDLsubRemainder);
 static int   unSendAndGet(int domainId, int id);
-static int   unSubscribeAndGet(int domainId, int id);
+static int   unSubscribeAndGet(int domainId, const char *subject,
+                               const char *type, int id);
 static int   getAbsoluteTime(const struct timespec *deltaTime, struct timespec *absTime);
 static void  defaultShutdownHandler(void *userArg);
 
@@ -453,11 +454,10 @@ static int codaConnect(const char *myUDL, const char *myName, const char *myDesc
                              cMsgDomains[id].sendPort);
   }
   
-  /* create sending socket and store */
+  /* create receiving socket and store */
   if ( (err = cMsgTcpConnect(cMsgDomains[id].sendHost,
                              cMsgDomains[id].sendPort,
-                             &cMsgDomains[id].sendSocket)) != CMSG_OK) {
-    close(serverfd);
+                             &cMsgDomains[id].receiveSocket)) != CMSG_OK) {
     pthread_cancel(cMsgDomains[id].pendThread);
     domainClear(&cMsgDomains[id]);
     connectWriteUnlock();
@@ -465,16 +465,14 @@ static int codaConnect(const char *myUDL, const char *myName, const char *myDesc
   }
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "codaConnect: created sending socket fd = %d\n", cMsgDomains[id].sendSocket);
+    fprintf(stderr, "codaConnect: created receiving socket fd = %d\n", cMsgDomains[id].receiveSocket);
   }
-  
-  /* init is complete */
-  *domainId = id ;
-
+    
+  /* create keep alive socket and store */
   if ( (err = cMsgTcpConnect(cMsgDomains[id].sendHost,
                              cMsgDomains[id].sendPort,
                              &cMsgDomains[id].keepAliveSocket)) != CMSG_OK) {
-    close(cMsgDomains[id].sendSocket);
+    close(cMsgDomains[id].receiveSocket);
     pthread_cancel(cMsgDomains[id].pendThread);
     domainClear(&cMsgDomains[id]);
     connectWriteUnlock();
@@ -495,6 +493,25 @@ static int codaConnect(const char *myUDL, const char *myName, const char *myDesc
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "codaConnect: created keep alive thread\n");
   }
+
+  /* create sending socket and store */
+  if ( (err = cMsgTcpConnect(cMsgDomains[id].sendHost,
+                             cMsgDomains[id].sendPort,
+                             &cMsgDomains[id].sendSocket)) != CMSG_OK) {
+    close(cMsgDomains[id].keepAliveSocket);
+    close(cMsgDomains[id].receiveSocket);
+    pthread_cancel(cMsgDomains[id].pendThread);
+    domainClear(&cMsgDomains[id]);
+    connectWriteUnlock();
+    return(err);
+  }
+
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "codaConnect: created sending socket fd = %d\n", cMsgDomains[id].sendSocket);
+  }
+  
+  /* init is complete */
+  *domainId = id ;
 
   /* install default shutdown handler (exits program) */
   codaSetShutdownHandler(id, defaultShutdownHandler, NULL);
@@ -881,6 +898,7 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
   cMsgMessage *msg = (cMsgMessage *) vmsg;
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   int fd = domain->sendSocket;
+  int fdIn = domain->receiveSocket;
   char *creator;
   long long llTime;
   struct timespec now;
@@ -1014,7 +1032,7 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
   socketMutexUnlock(domain);
   
   /* now read reply */
-  if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
+  if (cMsgTcpRead(fdIn, (void *) &err, sizeof(err)) != sizeof(err)) {
     socketMutexUnlock(domain);
     syncSendMutexUnlock(domain);
     connectReadUnlock();
@@ -1066,7 +1084,7 @@ static int codaSubscribeAndGet(int domainId, const char *subject, const char *ty
   cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
   int i, uniqueId, status, len, lenSubject, lenType;
   int gotSpot, fd = domain->sendSocket;
-  int outGoing[5];
+  int outGoing[6];
   getInfo *info = NULL;
   struct timespec wait;
   struct iovec iov[3];
@@ -1131,14 +1149,16 @@ static int codaSubscribeAndGet(int domainId, const char *subject, const char *ty
   /* message id (in network byte order) to domain server */
   outGoing[1] = htonl(CMSG_SUBSCRIBE_AND_GET_REQUEST);
   /* unique id for receiverSubscribeId */
-  outGoing[2] = htonl(uniqueId);
-  
+  outGoing[2] = htonl(uniqueId);  
   /* length of "subject" string */
   lenSubject  = strlen(subject);
   outGoing[3] = htonl(lenSubject);
   /* length of "type" string */
   lenType     = strlen(type);
   outGoing[4] = htonl(lenType);
+  /* length of "namespace" string (0 in this case, since
+   * only used for server-to-server) */
+  outGoing[5] = htonl(0);
 
   /* total length of message (minus first int) is first item sent */
   len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType;
@@ -1226,7 +1246,7 @@ static int codaSubscribeAndGet(int domainId, const char *subject, const char *ty
       info->active  = 0;
 
       /* remove the get from server */
-      unSubscribeAndGet(domainId, uniqueId);
+      unSubscribeAndGet(domainId, subject, type, uniqueId);
       *replyMsg = NULL;
       return (CMSG_TIMEOUT);
   }
@@ -1287,6 +1307,7 @@ static int codaSyncSendOrig(int domainId, void *vmsg, int *response) {
   cMsgMessage *msg = (cMsgMessage *) vmsg;
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   int fd = domain->sendSocket;
+  int fdIn = domain->receiveSocket;
   char *creator;
   long long llTime;
   struct timespec now;
@@ -1408,7 +1429,7 @@ static int codaSyncSendOrig(int domainId, void *vmsg, int *response) {
   socketMutexUnlock(domain);
   
   /* now read reply */
-  if (cMsgTcpRead(fd, (void *) &err, sizeof(err)) != sizeof(err)) {
+  if (cMsgTcpRead(fdIn, (void *) &err, sizeof(err)) != sizeof(err)) {
     socketMutexUnlock(domain);
     syncSendMutexUnlock(domain);
     connectReadUnlock();
@@ -1620,7 +1641,7 @@ static int codaSubscribeAndGetOrig(int domainId, const char *subject, const char
       info->active  = 0;
 
       /* remove the get from server */
-      unSubscribeAndGet(domainId, uniqueId);
+      unSubscribeAndGet(domainId, subject, type, uniqueId);
       *replyMsg = NULL;
       return (CMSG_TIMEOUT);
   }
@@ -2290,31 +2311,51 @@ static int unSendAndGet(int domainId, int id) {
  * This routine tells the cMsg server to "forget" about the cMsgSubscribeAndGet()
  * call (specified by the id argument) since a timeout occurred.
  */   
-static int unSubscribeAndGet(int domainId, int id) {
+static int unSubscribeAndGet(int domainId, const char *subject, const char *type, int id) {
   
-  int outGoing[3];
+  int len, outGoing[6], lenSubject, lenType;
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   int fd = domain->sendSocket;
-    
-  /* size of info coming - 8 bytes */
-  outGoing[0] = htonl(8);
+  struct iovec iov[3];
+
   /* message id (in network byte order) to domain server */
   outGoing[1] = htonl(CMSG_UNSUBSCRIBE_AND_GET_REQUEST);
   /* receiverSubscribe */
   outGoing[2] = htonl(id);
+  /* length of "subject" string */
+  lenSubject  = strlen(subject);
+  outGoing[3] = htonl(lenSubject);
+  /* length of "type" string */
+  lenType     = strlen(type);
+  outGoing[4] = htonl(lenType);
+  /* length of "namespace" string (0 in this case, since
+   * only used for server-to-server) */
+  outGoing[5] = htonl(0);
+
+  /* total length of message (minus first int) is first item sent */
+  len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType;
+  outGoing[0] = htonl(len);
+
+  iov[0].iov_base = (char*) outGoing;
+  iov[0].iov_len  = sizeof(outGoing);
+
+  iov[1].iov_base = (char*) subject;
+  iov[1].iov_len  = lenSubject;
+
+  iov[2].iov_base = (char*) type;
+  iov[2].iov_len  = lenType;
 
   /* make send socket communications thread-safe */
   socketMutexLock(domain);
-  
-  /* send ints over together */
-  if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
+
+  if (cMsgTcpWritev(fd, iov, 3, 16) == -1) {
     socketMutexUnlock(domain);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "unSubscribeAndGet: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
- 
+
   socketMutexUnlock(domain);
 
   return(CMSG_OK);
@@ -2480,7 +2521,7 @@ static int codaSubscribe(int domainId, const char *subject, const char *type, cM
   for (i=0; i<MAX_SUBSCRIBE; i++) {
     int len, lenSubject, lenType;
     int fd = domain->sendSocket;
-    int outGoing[5];
+    int outGoing[6];
     
     if (domain->subscribeInfo[i].active != 0) {
       continue;
@@ -2538,6 +2579,9 @@ static int codaSubscribe(int domainId, const char *subject, const char *type, cM
     /* length of "type" string */
     lenType     = strlen(type);
     outGoing[4] = htonl(lenType);
+    /* length of "namespace" string (0 in this case, since
+     * only used for server-to-server) */
+    outGoing[5] = htonl(0);
 
     /* total length of message is first item sent */
     len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType;
@@ -2702,7 +2746,7 @@ static int codaUnsubscribe(int domainId, const char *subject, const char *type, 
 
     int len, lenSubject, lenType;
     int fd = domain->sendSocket;
-    int outGoing[5];
+    int outGoing[6];
 
     domain->subscribeInfo[i].active = 0;
     free(domain->subscribeInfo[i].subject);
@@ -2731,6 +2775,9 @@ static int codaUnsubscribe(int domainId, const char *subject, const char *type, 
     /* length of "type" string */
     lenType     = strlen(type);
     outGoing[4] = htonl(lenType);
+    /* length of "namespace" string (0 in this case, since
+     * only used for server-to-server) */
+    outGoing[5] = htonl(0);
 
     /* total length of message (minus first int) is first item sent */
     len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType;
@@ -3293,7 +3340,7 @@ static void *keepAliveThread(void *arg)
     cMsgDomain_CODA *domain = (cMsgDomain_CODA *) arg;
     int domainId = domain->id;
     int socket   = domain->keepAliveSocket;
-    int outGoing[2], alive, err;
+    int outGoing, alive, err;
 
     /* increase concurrency for this thread for early Solaris */
     int  con;
@@ -3309,8 +3356,7 @@ static void *keepAliveThread(void *arg)
     }
   
     /* request to send */
-    outGoing[0] = htonl(4); /* sending 4 bytes */
-    outGoing[1] = htonl(CMSG_KEEP_ALIVE);
+    outGoing = htonl(CMSG_KEEP_ALIVE);
     
     /* keep checking to see if the server/agent is alive */
     while(1) {
@@ -3318,7 +3364,7 @@ static void *keepAliveThread(void *arg)
          fprintf(stderr, "keepAliveThread: send keep alive request\n");
        }
        
-       if (cMsgTcpWrite(socket, outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
+       if (cMsgTcpWrite(socket, &outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
          if (cMsgDebug >= CMSG_DEBUG_ERROR) {
            fprintf(stderr, "keepAliveThread: error writing request\n");
          }
@@ -4181,6 +4227,7 @@ static void domainInit(cMsgDomain_CODA *domain, int reInit) {
   domain->lostConnection     = 1;
       
   domain->sendSocket         = 0;
+  domain->receiveSocket      = 0;
   domain->listenSocket       = 0;
   domain->keepAliveSocket    = 0;
   
