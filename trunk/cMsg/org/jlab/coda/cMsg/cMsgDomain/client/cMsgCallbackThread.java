@@ -34,7 +34,7 @@ public class cMsgCallbackThread extends Thread {
     /** List of ordered messages to be passed to the callback. */
     private LinkedBlockingQueue<cMsgMessageFull> messageCue;
 
-    /** List of message that need to be dumped. */
+    /** List of messages that need to be dumped. */
     private ArrayList<cMsgMessageFull> dumpList;
 
     /** User argument to be passed to the callback. */
@@ -48,6 +48,9 @@ public class cMsgCallbackThread extends Thread {
 
     /** Place to temporarily store the returned message from a get. */
     cMsgMessageFull message;
+
+    /** Number of identical subscriptions (with the same callback and arg) made. */
+    private int count;
 
     /** Setting this to true will kill this thread as soon as possible. */
     private volatile boolean dieNow;
@@ -66,6 +69,21 @@ public class cMsgCallbackThread extends Thread {
         return arg;
     }
 
+    /**
+     * Gets the number of identical subscriptions.
+     * @return the number of identical subscriptions
+     */
+    public int getCount() {
+        return count;
+    }
+
+    /**
+     * Sets the number of identical subscriptions.
+     * @param count the number of identical subscriptions
+     */
+    public void setCount(int count) {
+        this.count = count;
+    }
 
     /**
      * Class defining threads which can be run in parallel when many incoming
@@ -121,6 +139,7 @@ public class cMsgCallbackThread extends Thread {
         this.arg      = arg;
         messageCue    = new LinkedBlockingQueue<cMsgMessageFull>(callback.getMaximumCueSize());
         dumpList      = new ArrayList<cMsgMessageFull>(callback.getSkipSize());
+        count         = 1;
         start();
     }
 
@@ -134,6 +153,7 @@ public class cMsgCallbackThread extends Thread {
         this.arg      = this;
         messageCue    = new LinkedBlockingQueue<cMsgMessageFull>(callback.getMaximumCueSize());
         dumpList      = new ArrayList<cMsgMessageFull>(callback.getSkipSize());
+        count         = 1;
         start();
     }
 

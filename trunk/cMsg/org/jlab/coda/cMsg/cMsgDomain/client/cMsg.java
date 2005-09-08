@@ -77,10 +77,12 @@ public class cMsg extends cMsgDomainAdapter {
     private int domainServerPort;
 
     /** Channel for talking to domain server. */
-    private SocketChannel domainChannel;
-    /** Socket input stream associated with domainChannel - gets info from server. */
+    private SocketChannel domainOutChannel;
+    /** Channel for receiving from domain server. */
+    private SocketChannel domainInChannel;
+    /** Socket input stream associated with domainInChannel - gets info from server. */
     private DataInputStream  domainIn;
-    /** Socket output stream associated with domainChannel - sends info to server. */
+    /** Socket output stream associated with domainOutChannel - sends info to server. */
     private DataOutputStream domainOut;
 
     /** Channel for checking to see that the domain server is still alive. */
@@ -94,7 +96,10 @@ public class cMsg extends cMsgDomainAdapter {
 
     /**
      * Collection of all of this client's message subscriptions which are
-     * {@link cMsgSubscription} objects. This set is synchronized.
+     * {@link cMsgSubscription} objects. This set is synchronized. A client is either
+     * a regular client or a bridge but not both. That means it does not matter that
+     * a bridge client will add namespace data to the stored subscription but a regular
+     * client will not.
      */
     Set<cMsgSubscription> subscriptions;
 
@@ -394,16 +399,15 @@ public class cMsg extends cMsgDomainAdapter {
                 }
             }
 
-            // create request sending (to domain) channel
+            // create request sending (to domain) channel (This takes longest so do last)
+            // create request response reading (from domain) channel
             try {
-                domainChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
+                domainInChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
                 // buffered communication streams for efficiency
-                Socket socket = domainChannel.socket();
+                Socket socket = domainInChannel.socket();
                 socket.setTcpNoDelay(true);
-                socket.setReceiveBufferSize(65535);
-                socket.setSendBufferSize(65535);
-                domainIn  = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 2048));
-                domainOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
+                socket.setReceiveBufferSize(2048);
+                domainIn = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 2048));
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
@@ -427,6 +431,21 @@ public class cMsg extends cMsgDomainAdapter {
                     e.printStackTrace();
                 }
                 throw new cMsgException("connect: cannot create keepAlive channel to domain server");
+            }
+
+            try {
+                domainOutChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
+                // buffered communication streams for efficiency
+                Socket socket = domainOutChannel.socket();
+                socket.setTcpNoDelay(true);
+                socket.setSendBufferSize(65535);
+                domainOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
+            }
+            catch (IOException e) {
+                if (debug >= cMsgConstants.debugError) {
+                    e.printStackTrace();
+                }
+                throw new cMsgException("connect: cannot create channel to domain server");
             }
 
             connected = true;
@@ -775,7 +794,7 @@ public class cMsg extends cMsgDomainAdapter {
 
             id = uniqueId.getAndIncrement();
 
-            // for get, create cMsgHolder object (not callback thread object)
+            // create cMsgHolder object (not callback thread object)
             holder = new cMsgHolder(subject, type);
 
             // keep track of get calls
@@ -784,11 +803,13 @@ public class cMsg extends cMsgDomainAdapter {
             socketLock.lock();
             try {
                 // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(4*4 + subject.length() + type.length());
+                domainOut.writeInt(5*4 + subject.length() + type.length());
                 domainOut.writeInt(cMsgConstants.msgSubscribeAndGetRequest);
                 domainOut.writeInt(id); // reserved for future use
                 domainOut.writeInt(subject.length());
                 domainOut.writeInt(type.length());
+                domainOut.writeInt(0); // namespace length (we don't send this from
+                                       // regular client only from "server" client)
 
                 // write strings & byte array
                 try {
@@ -832,7 +853,7 @@ public class cMsg extends cMsgDomainAdapter {
             System.out.println("subscribeAndGet: timed out");
             // remove the get from server
             subscribeAndGets.remove(id);
-            unSubscribeAndGet(id);
+            unSubscribeAndGet(subject, type, id);
             throw new TimeoutException();
         }
 
@@ -844,6 +865,8 @@ public class cMsg extends cMsgDomainAdapter {
 
         return holder.message;
     }
+
+
 
     /**
      * The message is sent as it would be in the {@link #send} method. The server notes
@@ -1042,7 +1065,7 @@ public class cMsg extends cMsgDomainAdapter {
      * @param id unique id of get request to delete
      * @throws cMsgException if there are communication problems with the server
      */
-    private void unSubscribeAndGet(int id) throws cMsgException {
+    private void unSubscribeAndGet(String subject, String type, int id) throws cMsgException {
 
         if (!connected) {
             throw new cMsgException("not connected to server");
@@ -1051,10 +1074,19 @@ public class cMsg extends cMsgDomainAdapter {
         socketLock.lock();
         try {
             // total length of msg (not including this int) is 1st item
-            domainOut.writeInt(8);
+            domainOut.writeInt(5*4 + subject.length() + type.length());
             domainOut.writeInt(cMsgConstants.msgUnSubscribeAndGetRequest);
-            domainOut.writeInt(id); // reserved for future use
-            domainOut.flush();
+            domainOut.writeInt(id); // reseved for future use
+            domainOut.writeInt(subject.length());
+            domainOut.writeInt(type.length());
+            domainOut.writeInt(0); // no namespace being sent
+
+            // write strings & byte array
+            try {
+                domainOut.write(subject.getBytes("US-ASCII"));
+                domainOut.write(type.getBytes("US-ASCII"));
+            }
+            catch (UnsupportedEncodingException e) {}
         }
         catch (IOException e) {
             throw new cMsgException(e.getMessage());
@@ -1112,7 +1144,9 @@ public class cMsg extends cMsgDomainAdapter {
 
             // for each subscription ...
             for (cMsgSubscription sub : subscriptions) {
-                // if subscription to subject & type exists ...
+                // If subscription to subject & type exist already, keep track of it locally
+                // and don't bother the server since any matching message will be delivered
+                // to this client anyway.
                 if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
                     // Only add another callback if the callback/userObj
                     // combination does NOT already exist. In other words,
@@ -1145,21 +1179,181 @@ public class cMsg extends cMsgDomainAdapter {
             // add a new subscription & callback
             cMsgSubscription sub = new cMsgSubscription(subject, type, id,
                                                         new cMsgCallbackThread(cb, userObj));
-            subscriptions.add(sub);
+            // client listening thread may be interating thru subscriptions concurrently
+            // and we're changing the set structure
+            synchronized(subscriptions) {
+                subscriptions.add(sub);
+            }
 
             socketLock.lock();
             try {
                 // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(4*4 + subject.length() + type.length());
+                domainOut.writeInt(5*4 + subject.length() + type.length());
                 domainOut.writeInt(cMsgConstants.msgSubscribeRequest);
                 domainOut.writeInt(id); // reserved for future use
                 domainOut.writeInt(subject.length());
                 domainOut.writeInt(type.length());
+                domainOut.writeInt(0); // namespace length (we don't send this from
+                                       // regular client only from "server" client)
 
                 // write strings & byte array
                 try {
                     domainOut.write(subject.getBytes("US-ASCII"));
                     domainOut.write(type.getBytes("US-ASCII"));
+                }
+                catch (UnsupportedEncodingException e) {}
+            }
+            finally {
+                socketLock.unlock();
+            }
+
+            domainOut.flush();
+
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
+        }
+        finally {
+            subscribeLock.unlock();
+            notConnectLock.unlock();
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method for a server to subscribe to receive messages of a subject
+     * and type from the domain server. The combination of arguments must be unique.
+     * In other words, only 1 subscription is allowed for a given set of subject,
+     * type, callback, and userObj.
+     *
+     * @param subject    message subject
+     * @param type       message type
+     * @param namespace  message namespace
+     * @param cb      callback object whose single method is called upon receiving a message
+     *                of subject and type
+     * @param userObj any user-supplied object to be given to the callback method as an argument
+     * @throws cMsgException if the callback, subject, or type is null; the subject or type is
+     *                       blank; an identical subscription already exists; there are
+     *                       communication problems with the server
+     */
+    public void serverSubscribe(String subject, String type, String namespace,
+                                cMsgCallbackInterface cb, Object userObj)
+            throws cMsgException {
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
+        // cannot run this simultaneously with unsubscribe (get wrong order at server)
+        // or itself (iterate over same hashtable)
+        subscribeLock.lock();
+
+        try {
+            if (!connected) {
+                throw new cMsgException("not connected to server");
+            }
+
+            // check args first
+            if (subject == null || type == null || cb == null) {
+                throw new cMsgException("subject, type or callback argument is null");
+            }
+            else if (subject.length() < 1 || type.length() < 1) {
+                throw new cMsgException("subject or type is blank string");
+            }
+
+            // null namespace means default namespace
+            if (namespace == null) {
+                namespace = "/defaultNamespace";
+            }
+
+            // add to callback list if subscription to same subject/type exists
+
+            // for each subscription ...
+            for (cMsgSubscription sub : subscriptions) {
+                // If subscription to subject, type & namespace exist already, keep track of it
+                // locally and don't bother the server since any matching message will be delivered
+                // to this client anyway. The clients who call subscribe will never call
+                // serverSubscribe and vice versa so we may match namespaces in the following
+                // line of code and not worry about conflicts arising due to clients calling
+                // subscribe.
+                if (sub.getSubject().equals(subject) &&
+                    sub.getType().equals(type) &&
+                    sub.getNamespace().equals(namespace)) {
+                    // Only add another callback if the callback/userObj
+                    // combination does NOT already exist. In other words,
+                    // a callback/argument pair must be unique for a single
+                    // subscription. Otherwise it is impossible to unsubscribe.
+
+                    // for each callback listed ...
+                    for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
+                        // Unlike the regular subscribe, here we allow duplicate identical
+                        // subscriptions. The reason is that "subscribeAndGet" is implemented
+                        // for other servers in the cloud as a "subscribe".
+                        //
+                        // It is possible to for 2 different thds of a client to each do an
+                        // identical subscribeAndGet. This results in 2 identical subscriptions
+                        // which would normally not be permitted but in this case we must.
+                        //
+                        // What I've also found is that a client who does many subscribeAndGets
+                        // sequentially runs into problems. The "unsubscribe" that happens after
+                        // a subscribeAndGet times out, can actually reach the server AFTER the
+                        // client does the next subscribeAndGet. In this case, a 2nd indentical
+                        // subscription is attempted.
+                        //
+                        // This method is also used to implement the client's regular subscribes
+                        // on other cloud servers. In this case, the client calls the regular
+                        // subscribe which will not allow duplicate subscriptions. Thus, passing
+                        // that on to other servers will also NOT result in duplicate subscriptions.
+                        if ((cbThread.callback == cb) && (cbThread.getArg() == userObj)) {
+                            // increment a count which will be decremented during an unsubscribe
+//System.out.println("bridge cli subscribe: callback thread count = " + cbThread.getCount() + " -> " +
+//(cbThread.getCount()+1) );
+                            cbThread.setCount(cbThread.getCount()+1);
+                            return;
+                        }
+                    }
+
+                    // add to existing set of callbacks
+                    sub.addCallback(new cMsgCallbackThread(cb, userObj));
+                    return;
+                }
+            }
+
+            // If we're here, the subscription to that subject & type in namespace does not exist yet.
+            // We need to create it and register it with the domain server.
+
+            // First generate a unique id for the receiveSubscribeId field. This info is
+            // sent back by the domain server in the future when messages of this subject
+            // and type are sent to this cMsg client. This helps eliminate the need to
+            // parse subject and type each time a message arrives.
+            int id = uniqueId.getAndIncrement();
+
+            // add a new subscription & callback
+            cMsgSubscription sub = new cMsgSubscription(subject, type, id,
+                                                        new cMsgCallbackThread(cb, userObj));
+            sub.setNamespace(namespace);
+            // client listening thread may be interating thru subscriptions concurrently
+            // and we're changing the set structure
+            synchronized(subscriptions) {
+                subscriptions.add(sub);
+            }
+//System.out.println("bridge client subscribing, subscription map size = " + subscriptions.size());
+
+            socketLock.lock();
+            try {
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4*5 + subject.length() + type.length());
+                domainOut.writeInt(cMsgConstants.msgServerSubscribeRequest);
+                domainOut.writeInt(id); // reserved for future use
+                domainOut.writeInt(subject.length());
+                domainOut.writeInt(type.length());
+                domainOut.writeInt(namespace.length());
+
+                // write strings & byte array
+                try {
+                    domainOut.write(subject.getBytes("US-ASCII"));
+                    domainOut.write(type.getBytes("US-ASCII"));
+                    domainOut.write(namespace.getBytes("US-ASCII"));
                 }
                 catch (UnsupportedEncodingException e) {}
             }
@@ -1223,6 +1417,7 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             // look for and remove any subscription to subject/type with this callback object
+            boolean foundMatch = false;
             cMsgSubscription sub;
             int id = 0;
 
@@ -1236,6 +1431,8 @@ public class cMsg extends cMsgDomainAdapter {
                     // if subscription to subject & type exist ...
                     if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
 
+                        foundMatch = true;
+
                         // for each callback listed ...
                         for (Iterator iter2 = sub.getCallbacks().iterator(); iter2.hasNext();) {
                             cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
@@ -1244,6 +1441,7 @@ public class cMsg extends cMsgDomainAdapter {
                                 cbThread.dieNow();
                                 // remove this callback from the set
                                 iter2.remove();
+                                break;
                             }
                         }
 
@@ -1261,6 +1459,11 @@ public class cMsg extends cMsgDomainAdapter {
                         break;
                     }
                 }
+
+                // if no subscription to sub/type, return
+                if (!foundMatch) {
+                    return;
+                }
             }
 
             // notify the domain server
@@ -1268,16 +1471,168 @@ public class cMsg extends cMsgDomainAdapter {
             socketLock.lock();
             try {
                 // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(4*4 + subject.length() + type.length());
+                domainOut.writeInt(5*4 + subject.length() + type.length());
                 domainOut.writeInt(cMsgConstants.msgUnsubscribeRequest);
                 domainOut.writeInt(id); // reserved for future use
                 domainOut.writeInt(subject.length());
                 domainOut.writeInt(type.length());
+                domainOut.writeInt(0); // no namespace being sent
 
                 // write strings & byte array
                 try {
                     domainOut.write(subject.getBytes("US-ASCII"));
                     domainOut.write(type.getBytes("US-ASCII"));
+                }
+                catch (UnsupportedEncodingException e) {}
+            }
+            finally {
+                socketLock.unlock();
+            }
+
+            domainOut.flush();
+
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
+        }
+        finally {
+            subscribeLock.unlock();
+            notConnectLock.unlock();
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method for a server to unsubscribe a previous subscription to receive messages of a subject and type
+     * from the domain server. Since many subscriptions may be made to the same subject and type
+     * values, but with different callbacks and user objects, the callback and user object must
+     * be specified so the correct subscription can be removed.
+     *
+     * @param subject    message subject
+     * @param type       message type
+     * @param namespace  message namespace
+     * @param cb      callback object whose single method is called upon receiving a message
+     *                of subject and type
+     * @param userObj any user-supplied object to be given to the callback method as an argument
+     * @throws cMsgException if there are communication problems with the server
+     */
+    public void serverUnsubscribe(String subject, String type, String namespace,
+                                  cMsgCallbackInterface cb, Object userObj)
+            throws cMsgException {
+
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
+        // cannot run this simultaneously with subscribe (get wrong order at server)
+        // or itself (iterate over same hashtable)
+        subscribeLock.lock();
+
+        try {
+            if (!connected) {
+                throw new cMsgException("not connected to server");
+            }
+
+            if (!hasUnsubscribe) {
+                throw new cMsgException("unsubscribe is not implemented by this subdomain");
+            }
+
+            // check args first
+            if (subject == null || type == null || cb == null) {
+                throw new cMsgException("subject, type or callback argument is null");
+            }
+            else if (subject.length() < 1 || type.length() < 1) {
+                throw new cMsgException("subject or type is blank string");
+            }
+
+            // null namespace means default namespace
+            if (namespace == null) {
+                namespace = "/defaultNamespace";
+            }
+
+            boolean foundMatch = false;
+            cMsgSubscription sub;
+            int id = 0;
+
+            // client listening thread may be interating thru subscriptions concurrently
+            // and we may change set structure
+            synchronized (subscriptions) {
+
+                // for each subscription ...
+                for (Iterator iter = subscriptions.iterator(); iter.hasNext();) {
+                    sub = (cMsgSubscription) iter.next();
+                    // If subscription to subject, type & namespace exist already, we may be
+                    // able to take care of it locally and not bother the server.
+                    // The clients who call unsubscribe will never call serverUnsubscribe and
+                    // vice versa so we may match namespaces in the following line of code and
+                    // not worry about conflicts arising due to clients calling unsubscribe.
+                    if (sub.getSubject().equals(subject) &&
+                        sub.getType().equals(type) &&
+                        sub.getNamespace().equals(namespace)) {
+
+                        foundMatch = true;
+
+                        // for each callback listed ...
+                        for (Iterator iter2 = sub.getCallbacks().iterator(); iter2.hasNext();) {
+                            cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
+                            if ((cbThread.callback == cb) && (cbThread.getArg() == userObj)) {
+                                // first check the count
+//System.out.println("bridge cli serverUnsubscribe: callback thread count = " + cbThread.getCount() + " -> " +
+//                   (cbThread.getCount()-1));
+                                cbThread.setCount(cbThread.getCount()-1);
+                                if (cbThread.getCount() > 0) {
+                                    return;
+                                }
+                                else {
+                                    // kill callback thread(s)
+                                    cbThread.dieNow();
+                                    // remove this callback from the set
+                                    iter2.remove();
+                                }
+                                break;
+                            }
+                        }
+
+                        // If there are still callbacks left,
+                        // don't unsubscribe for this subject/type
+                        if (sub.numberOfCallbacks() > 0) {
+                            return;
+                        }
+                        // else get rid of the whole subscription
+                        else {
+//System.out.println("bridge cli serverUnsubscribe: remove subscription");
+                            id = sub.getId();
+                            iter.remove();
+                        }
+
+                        break;
+                    }
+                }
+
+                // if no subscription to sub/type/ns, return
+                if (!foundMatch) {
+                    return;
+                }
+            }
+
+            // notify the domain server
+
+            socketLock.lock();
+            try {
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(5*4 + subject.length() + type.length());
+                domainOut.writeInt(cMsgConstants.msgServerUnsubscribeRequest);
+                domainOut.writeInt(id); // reserved for future use
+                domainOut.writeInt(subject.length());
+                domainOut.writeInt(type.length());
+                domainOut.writeInt(namespace.length());
+
+                // write strings & byte array
+                try {
+                    domainOut.write(subject.getBytes("US-ASCII"));
+                    domainOut.write(type.getBytes("US-ASCII"));
+                    domainOut.write(namespace.getBytes("US-ASCII"));
                 }
                 catch (UnsupportedEncodingException e) {}
             }
@@ -1373,10 +1728,11 @@ public class cMsg extends cMsgDomainAdapter {
      */
     public boolean cloudLock(int delay) throws IOException {
         int response;
-//System.out.println("        << CL:: try nonConnect lock");
+//System.out.println("        << CL: in cloudLock");
+//System.out.println("        << CL: try nonConnect lock");
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
-//System.out.println("        << CL:: try returnCommunication lock");
+//System.out.println("        << CL: try returnCommunication lock");
         // cannot run this simultaneously with commands receiving a response
         returnCommunicationLock.lock();
 
@@ -1385,13 +1741,14 @@ public class cMsg extends cMsgDomainAdapter {
                 return false;
             }
 
-//System.out.println("        << CL:: try socket lock");
+//System.out.println("        << CL: try socket lock");
             socketLock.lock();
             try {
                 // total length of msg (not including this int) is 1st item
-//System.out.println("        << CL:: write size, msgServerCloudLock");
-                domainOut.writeInt(4);
+//System.out.println("        << CL: write size, msgServerCloudLock, delay");
+                domainOut.writeInt(8);
                 domainOut.writeInt(cMsgConstants.msgServerCloudLock);
+//System.out.println("Sent msgServerCloudLock command (" + cMsgConstants.msgServerCloudLock + ")");
                 domainOut.writeInt(delay);
             }
             finally {
@@ -1399,9 +1756,9 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             domainOut.flush(); // no need to be protected by socketLock
-//System.out.println("        << CL:: try reading lock response");
+//System.out.println("        << CL: try reading lock response");
             response = domainIn.readInt();
-//System.out.println("        << CL:: done reading lock response");
+//System.out.println("        << CL: done reading lock response");
         }
         finally {
             returnCommunicationLock.unlock();
@@ -1476,7 +1833,7 @@ public class cMsg extends cMsgDomainAdapter {
             try {
                 // total length of msg (not including this int) is 1st item
 //System.out.println("        << CL: try registration lock");
-                domainOut.writeInt(4);
+                domainOut.writeInt(8);
                 domainOut.writeInt(cMsgConstants.msgServerRegistrationLock);
                 domainOut.writeInt(delay);
             }
@@ -1545,7 +1902,7 @@ public class cMsg extends cMsgDomainAdapter {
             socketLock.lock();
             try {
                 // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(4);
+                domainOut.writeInt(8);
                 domainOut.writeInt(cMsgConstants.msgServerCloudJoin);
                 domainOut.writeInt(status);
             }
@@ -1747,7 +2104,15 @@ public class cMsg extends cMsgDomainAdapter {
             }
         }
 
-       return s;
+        hasSend            = true;
+        hasSyncSend        = true;
+        hasSubscribeAndGet = true;
+        hasSendAndGet      = true;
+        hasSubscribe       = true;
+        hasUnsubscribe     = true;
+        hasShutdown        = true;
+
+        return s;
     }
 
 

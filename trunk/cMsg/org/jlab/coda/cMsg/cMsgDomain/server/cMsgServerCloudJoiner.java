@@ -234,7 +234,7 @@ public class cMsgServerCloudJoiner extends Thread {
 //System.out.println("    << JR: try in-cloud lock");
                         try {
                             if (bridge.cloudLock(200)) {
-//System.out.println("    << JR: grabbed in-cloud lock");
+//System.out.println("    << JR: first grabbed 1 cloud lock (for " + bridge.server + ")");
                                 lockedBridges.add(bridge);
                                 firstLockBridge = bridge;
                                 gotCloudLock = true;
@@ -282,12 +282,13 @@ public class cMsgServerCloudJoiner extends Thread {
 
                     // If it's already locked, skip it
                     if (lockedBridges.contains(bridge)) {
+//System.out.println("    << JR: Already grabbed (so skip grabbing) cloud lock for " + bridge.server);
                         continue;
                     }
 
                     try {
                         // If sucessfull in locking remote server ...
-//System.out.println("    << JR: Try to lock bridge to " + bridge.server);
+//System.out.println("    << JR: Try to cloud lock bridge to " + bridge.server);
                         if (bridge.cloudLock(200)) {
 //System.out.println("    << JR: LOCKED IT!!");
                             lockedBridges.add(bridge);
@@ -311,6 +312,7 @@ public class cMsgServerCloudJoiner extends Thread {
 
                 // If we have all the in-cloud locks we're done and can move on.
                 if (numberOfLockedCloudMembers >= totalCloudMembers) {
+//System.out.println("    << JR: Have all locks, move on");
                     break;
                 }
                 // If we have a majority (but not all) in-cloud locks, try to get the rest.
@@ -359,10 +361,19 @@ public class cMsgServerCloudJoiner extends Thread {
 
             // release the locks
             for (cMsgServerBridge bridge : cMsgNameServer.bridges.values()) {
-                try {bridge.cloudUnlock();}
-                catch (IOException e) {continue;}
+                try {
+//System.out.println("    << JR: Try unlocking cloud lock for " + bridge.server);
+                    bridge.cloudUnlock();
+//System.out.println("    << JR: UNLOCKED cloud lock for " + bridge.server);
+                }
+                catch (IOException e) {
+                    e.printStackTrace();
+                    continue;
+                }
             }
+//System.out.println("    << JR: Try unlocking cloud lock for this server");
             cMsgNameServer.cloudUnlock();
+//System.out.println("    << JR: Unlocked cloud lock for this server");
 
 //System.out.println("    << JR: I'm in the cloud\n\n");
             amInCloud = true;

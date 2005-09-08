@@ -140,7 +140,7 @@ public class cMsgNameServer extends Thread {
      * and to ensure that clients are added to servers one-at-a-time as well.
      * This is used only in the cMsg subdomain.
      */
-    static private ReentrantLock cloudLock = new ReentrantLock();
+    static public ReentrantLock cloudLock = new ReentrantLock();
 
     /**
      * This method is used in adding servers to the server cloud and in adding
@@ -172,7 +172,9 @@ public class cMsgNameServer extends Thread {
      * clients to servers. This is used only in the cMsg subdomain.
      */
     static public void cloudUnlock() {
+//System.out.println(">> NS: try to unlock cloud");
         cloudLock.unlock();
+//System.out.println(">> NS: unlocked cloud");
     }
 
     /**
@@ -720,7 +722,8 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
             cMsgSubdomainInterface subdomainHandler = createClientHandler(info.getSubdomain());
 
             // The first thing we do is pass the UDL remainder to the handler.
-            // In the cMsg subdomain, it is parsed to find the namespace.
+            // In the cMsg subdomain, it is parsed to find the namespace which
+            // is stored in the subdomainHandler object.
             subdomainHandler.setUDLRemainder(info.getUDLremainder());
 
             // The next thing to do is create an object enabling the handler
@@ -855,7 +858,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
 
 //System.out.println(">> NS: IN subdomainRegistration");
             // If there are no connections to other servers (bridges), do local registration only
-            if (bridges.size() == 0) {
+            if (bridges.size() < 1) {
 //System.out.println(">> NS: no bridges so do regular registration of client");
                 subdomainHandler.registerClient(info);
                 return;
@@ -883,13 +886,15 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
 
                     do {
 //System.out.println(">> NS: grabLockTries = " + grabLockTries);
-//System.out.println(">> NS: try in-cloud lock");
+//System.out.println(">> NS: try local cloud lock");
 
                         // First, (since we are in the cloud now) we grab our own
                         // cloud lock so we stop cloud-joiners and check all cloud
                         // members' clients. Can also calculate a majority of cloud members.
-                        if (!gotCloudLock && cMsgNameServer.cloudLock(200)) {
-//System.out.println(">> NS: grabbed in-cloud lock");
+                        boolean locked = cloudLock.isLocked();
+//System.out.println("local cloud locked = " + locked);
+                        if (!gotCloudLock && cloudLock(500)) {
+//System.out.println(">> NS: grabbed local cloud lock");
                             gotCloudLock = true;
                         }
 
@@ -915,6 +920,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
                                 continue startOver;
                             }
 
+//System.out.println(">> NS: cannot grab a/both locks, wait .01 sec and try againr");
                             try {Thread.sleep(10);}
                             catch (InterruptedException e) {}
                         }
@@ -931,6 +937,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
                     int numberOfLockedCloudMembers = 1;
 
                     // Try to get all of the in-cloud servers' registration locks
+//System.out.println(">> NS: Try to get all of the in-cloud servers' registration locks");
                     do {
                         // Grab the locks of other servers
                         for (cMsgServerBridge bridge : cMsgNameServer.bridges.values()) {
@@ -951,6 +958,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
                                 }
                                 // else if cannot lock remote server, try next one
                                 else {
+//System.out.println(">> NS: CANNOT Lock it, so skip it");
                                     continue;
                                 }
                             }

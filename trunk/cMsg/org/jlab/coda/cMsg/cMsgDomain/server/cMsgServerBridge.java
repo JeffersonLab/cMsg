@@ -16,20 +16,18 @@
 
 package org.jlab.coda.cMsg.cMsgDomain.server;
 
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
+import org.jlab.coda.cMsg.*;
+
 import java.util.Set;
 import java.io.IOException;
 
 /**
- * This class acts to bridge 2 cMsg domain servers by existing in one server
+ * This class acts to bridge two cMsg domain servers by existing in one server
  * and becoming a client of another cMsg domain server.
  */
-public class cMsgServerBridge extends Thread {
+public class cMsgServerBridge {
 
-    /** cMsg subdomain handler object. */
-    private org.jlab.coda.cMsg.subdomains.cMsg subdomainHandler;
-
+    /** Client of cMsg server this object is a bridge to. It is the means of connection. */
     private org.jlab.coda.cMsg.cMsgDomain.client.cMsg client;
 
     /** Name of cMsg server ("host:port") this server is connected to. */
@@ -38,10 +36,54 @@ public class cMsgServerBridge extends Thread {
     /** The cloud status of the cMsg server this server is connected to. */
     volatile int cloudStatus = cMsgNameServer.UNKNOWNCLOUD;
 
+    /**
+     * Did this server originate the connection/bridge between this server
+     * and the one this bridge is to? Or was the bridge created in
+     * response to an originating connection? This information is necessary
+     * to avoid infinite loops when connecting two servers to each other.
+     */
     boolean isOriginator;
 
+    /** The port this name server is listening on. */
     int port;
 
+    /** Reference to subdomain handler object for use by all bridges in this server. */
+    static private org.jlab.coda.cMsg.subdomains.cMsg subdomainHandler = new org.jlab.coda.cMsg.subdomains.cMsg();
+
+    /**
+     * This class defines the callback to be run when a message matching
+     * our subscription arrives from a bridge connection and must be
+     * passed on to a client(s).
+     */
+    static class SubscribeCallback extends cMsgCallbackAdapter {
+        /**
+         * Callback which passes on a message to other clients.
+         *
+         * @param msg message received from domain server
+         * @param userObject in this case the original msg sender's namespace.
+         */
+        public void callback(cMsgMessage msg, Object userObject) {
+//System.out.println("In bridge callback!!!");
+            String namespace = (String) userObject;
+
+            // check for null text
+            if (msg.getText() == null) {
+                msg.setText("");
+            }
+
+            try {
+                // pass this message on to local clients
+                subdomainHandler.bridgeSend(msg, namespace);
+            }
+            catch (cMsgException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+
+    /** Need 1 callback for subscriptions. */
+    SubscribeCallback subCallback = new SubscribeCallback();
 
     /**
      * Constructor.
@@ -78,9 +120,6 @@ public class cMsgServerBridge extends Thread {
         // Pass in the UDL remainder
 //System.out.println("      << BR: set UDL remainder to: " + server + "/" + "cMsg");
         client.setUDLRemainder(server + "/" + "cMsg");
-
-        // Make a cMsg subdomain handler object.
-        subdomainHandler = new org.jlab.coda.cMsg.subdomains.cMsg();
     }
 
     /**
@@ -93,6 +132,7 @@ public class cMsgServerBridge extends Thread {
     public Set<String> connect(boolean isOriginator) throws cMsgException {
         this.isOriginator = isOriginator;
         // create a connection to the UDL
+        client.start();
         return client.serverConnect(port, isOriginator);
     }
 
@@ -109,8 +149,8 @@ public class cMsgServerBridge extends Thread {
 
 
     /**
-     * This method sets the cloud status of the server this server is
-     * connected to. Possible values are {@link cMsgNameServer.INCLOUD},
+     * This method locally sets the cloud status of the server this server is
+     * connected to through this bridge. Possible values are {@link cMsgNameServer.INCLOUD},
      * {@link cMsgNameServer.NONCLOUD}, or{@link cMsgNameServer.BECOMINGCLOUD}.
      *
      * @param cloudStatus true if in cloud, else false
@@ -128,7 +168,9 @@ public class cMsgServerBridge extends Thread {
      * @throws IOException if communication error with server
      */
     void thisServerCloudStatus(int status) throws IOException {
+//System.out.println("      << BR: try setting cloud status");
         client.thisServerCloudStatus(status);
+//System.out.println("      << BR: done setting cloud status");
     }
 
 
@@ -190,21 +232,46 @@ public class cMsgServerBridge extends Thread {
     }
 
 
-    /** This method is executed as a thread. */
-     public void run() {
-        cMsgSubscription sub;
+    /**
+     * Method for a server to subscribe to receive messages of a subject
+     * and type from the domain server. The combination of arguments must be unique.
+     * In other words, only 1 subscription is allowed for a given set of subject,
+     * type, callback, and userObj.
+     *
+     * @param subject    message subject
+     * @param type       message type
+     * @param namespace  message namespace
+     * @throws cMsgException if the callback, subject, or type is null; the subject or type is
+     *                       blank; an identical subscription already exists; there are
+     *                       communication problems with the server
+     */
+    public void subscribe(String subject, String type, String namespace)
+        throws cMsgException {
 
-        // If we have existing local subscriptions, create identical
-        // subscriptions on the connected server.
-
-        while (true) {
-            sub = subdomainHandler.waitForNewSubscription();
-
-        }
-
-
-
-
-
+//System.out.println("Bridge: call serverSubscribe with ns = " + namespace);
+        client.serverSubscribe(subject, type, namespace, subCallback, namespace);
+        return;
     }
+
+
+    /**
+     * Method for a server to unsubscribe for messages of a subject
+     * and type from the domain server.
+     *
+     * @param subject    message subject
+     * @param type       message type
+     * @param namespace  message namespace
+     * @throws cMsgException if the callback, subject, or type is null; the subject or type is
+     *                       blank; an identical subscription already exists; there are
+     *                       communication problems with the server
+     */
+    public void unsubscribe(String subject, String type, String namespace)
+        throws cMsgException {
+
+//System.out.println("Bridge: call serverUnsubscribe with ns = " + namespace);
+        client.serverUnsubscribe(subject, type, namespace, subCallback, namespace);
+        return;
+    }
+
+
 }
