@@ -20,10 +20,8 @@ import java.io.*;
 import java.net.*;
 import java.lang.*;
 import java.util.*;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.*;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.nio.channels.*;
@@ -31,6 +29,7 @@ import java.nio.channels.*;
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgHolder;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgNotifier;
+import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
 
 /**
  * This class implements a cMsg domain server in the cMsg domain. If this class is
@@ -151,6 +150,12 @@ public class cMsgDomainServer extends Thread {
      * handler has already been called.
      */
     private AtomicBoolean calledSubdomainShutdown = new AtomicBoolean();
+
+    /** Set of all subscriptions (including the subscribeAndGets) of this client. */
+    private HashSet<cMsgSubscription> subscriptions = new HashSet<cMsgSubscription>(100);
+
+    /** Lock to ensure all access to {@link #subscriptions} is sequential. */
+    private final ReentrantLock subscribeLock = new ReentrantLock();
 
     /** Kill main thread if true. */
     private volatile boolean killMainThread;
@@ -289,7 +294,7 @@ public class cMsgDomainServer extends Thread {
 
     /** Method to gracefully shutdown this object's threads. */
     synchronized void shutdown() {
-        //System.out.println("SHUTDOWN BEING RUN");
+//System.out.println("Domain Server: SHUTDOWN BEING RUN");
 
         // tell subdomain handler to shutdown
         if (calledSubdomainShutdown.compareAndSet(false,true)) {
@@ -328,6 +333,32 @@ public class cMsgDomainServer extends Thread {
         // now shutdown the main thread which shouldn't take more than 1 second
         killMainThread = true;
 
+        // Unsubscribe bridges from all subscriptions.
+        // Cannot have servers joining cloud while subscriptions are removed.
+        subscribeLock.lock();
+        try {
+            // foreach bridge ...
+            for (cMsgServerBridge b : cMsgNameServer.bridges.values()) {
+                // only cloud members please
+                if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
+                    continue;
+                }
+
+                // foreach subscription, unsubscribe
+                for (cMsgSubscription sub : subscriptions) {
+                    try {
+//System.out.println("Domain Server: SHUTDOWN: unsubscribe from " + b.server);
+                        b.unsubscribe(sub.getSubject(), sub.getType(), info.getNamespace());
+                    }
+                    catch (cMsgException e) {
+                    }
+                }
+            }
+        }
+        finally {
+            subscribeLock.unlock();
+        }
+
         // remove client from "bridges" and "nameServers" collections
         cMsgServerBridge b = cMsgNameServer.bridges.remove(info.getName());
         Integer i = cMsgNameServer.nameServers.remove(info.getName());
@@ -339,7 +370,24 @@ public class cMsgDomainServer extends Thread {
                 System.out.println(">>    DS: COULD NOT DELETE SERVER FROM BRIDGES AND/OR NAMESERVERS");
             }
         }
+    }
 
+    /**
+     * Method to remove a subscription from a list of all subscriptions made by
+     * this client. This is called after a subscriptionLock has been locked.
+     * @param subject subject of subscription to remove
+     * @param type type of subscription to remove
+     */
+    private void removeSubscription(String subject, String type) {
+        cMsgSubscription sub=null;
+        for (Iterator it=subscriptions.iterator(); it.hasNext();) {
+            sub = (cMsgSubscription)it.next();
+            if (sub.getSubject().equals(subject) &&
+                sub.getType().equals(type)) {
+                it.remove();
+                break;
+            }
+        }
     }
 
 
@@ -676,40 +724,65 @@ public class cMsgDomainServer extends Thread {
                         case cMsgConstants.msgServerCloudJoin: // server client is joining cMsg subdomain server cloud
                             int status = in.readInt();
                             cMsgServerBridge bridge = cMsgNameServer.bridges.get(info.getName());
-                            if (bridge != null) {
+                            // We cannot have servers joining the cloud while subscriptions
+                            // are added or removed.
+                            subscribeLock.lock();
+                            try {
+                                if (bridge != null) {
 //System.out.println(">>    DS: got request 1 to tell us that " + bridge.server + " has joined the cloud");
-                                bridge.setCloudStatus(status);
-                            }
-                            // if bridge can't be found, try alternate name first
-                            else {
-                                String alternateName = null;
-                                String name = info.getName();
-                                String sPort = name.substring(name.lastIndexOf(":") + 1);
-                                int index = name.indexOf(".");
-
-                                // If the name has a dot (is qualified), create unqualified name
-                                if (index > -1) {
-                                    alternateName = name.substring(0, index) + ":" + sPort;
+                                    bridge.setCloudStatus(status);
                                 }
-                                // else create qualified name
+                                // if bridge can't be found, try alternate name first
                                 else {
-                                    try {
-                                        // take off ending port
-                                        alternateName = name.substring(0, name.lastIndexOf(":"));
-                                        alternateName = InetAddress.getByName(alternateName).getCanonicalHostName();
-                                        alternateName = alternateName + ":" + sPort;
+                                    String alternateName = null;
+                                    String name = info.getName();
+                                    String sPort = name.substring(name.lastIndexOf(":") + 1);
+                                    int index = name.indexOf(".");
+
+                                    // If the name has a dot (is qualified), create unqualified name
+                                    if (index > -1) {
+                                        alternateName = name.substring(0, index) + ":" + sPort;
                                     }
-                                    catch (UnknownHostException e) {
+                                    // else create qualified name
+                                    else {
+                                        try {
+                                            // take off ending port
+                                            alternateName = name.substring(0, name.lastIndexOf(":"));
+                                            alternateName = InetAddress.getByName(alternateName).getCanonicalHostName();
+                                            alternateName = alternateName + ":" + sPort;
+                                        }
+                                        catch (UnknownHostException e) {
+                                            break;
+                                        }
+                                    }
+                                    bridge = cMsgNameServer.bridges.get(alternateName);
+                                    if (bridge != null) {
+//System.out.println(">>    DS: got request 2 to tell us that " + bridge.server + " has joined the cloud");
+                                        bridge.setCloudStatus(status);
+                                    }
+                                    else {
                                         break;
                                     }
                                 }
-                                bridge = cMsgNameServer.bridges.get(alternateName);
-                                if (bridge != null) {
-//System.out.println(">>    DS: got request 2 to tell us that " + bridge.server + " has joined the cloud");
-                                    bridge.setCloudStatus(status);
+//System.out.println(">>    DS: done setting cloud status for " + bridge.server);
+                                // update the new "INCLOUD" bridge with all of this client's subscriptions
+                                for (cMsgSubscription sub : subscriptions) {
+                                    try {
+                                        bridge.subscribe(sub.getSubject(), sub.getType(), info.getNamespace());
+                                    }
+                                    catch (cMsgException e) {
+                                        if (debug >= cMsgConstants.debugWarn) {
+                                            System.out.println("dServer requestThread: cannot subscribe with server " +
+                                                               bridge.server);
+                                            e.printStackTrace();
+                                        }
+                                    }
                                 }
                             }
-//System.out.println(">>    DS: done setting cloud status for " + bridge.server);
+                            finally {
+                                subscribeLock.unlock();
+                            }
+
                             break;
 
                         case cMsgConstants.msgServerSendClientNames: // in cMsg subdomain send back all local client names
@@ -1241,7 +1314,8 @@ public class cMsgDomainServer extends Thread {
                                 }
                                 catch (cMsgException e) {
                                     if (debug >= cMsgConstants.debugWarn) {
-                                        System.out.println("dServer requestThread: cannot subscribe with server " + b.server);
+                                        System.out.println("dServer requestThread: cannot subscribe with server " +
+                                                           b.server);
                                         e.printStackTrace();
                                     }
                                 }
@@ -1267,33 +1341,60 @@ public class cMsgDomainServer extends Thread {
                         case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
 //System.out.println("Domain Server: got subscribe for reg client");
                             subdomainHandler.handleSubscribeRequest(holder.subject, holder.type, holder.id);
-                            // Regular client is subscribing to sub/type.
-                            // Pass this on to any cMsg subdomain bridges.
-                            if (cMsgNameServer.bridges.size() > 0) {
-                                for (cMsgServerBridge b : cMsgNameServer.bridges.values()) {
+                            // Cannot have servers joining cloud while a subscription is added
+                            subscribeLock.lock();
+                            try {
+                                // Regular client is subscribing to sub/type.
+                                // Pass this on to any cMsg subdomain bridges.
+                                if (cMsgNameServer.bridges.size() > 0) {
+                                    for (cMsgServerBridge b : cMsgNameServer.bridges.values()) {
 //System.out.println("Domain Server: call bridge subscribe");
-                                    try {
-                                        b.subscribe(holder.subject, holder.type, info.getNamespace());
-                                    }
-                                    catch (cMsgException e) {
-                                        if (debug >= cMsgConstants.debugWarn) {
-                                            System.out.println("dServer requestThread: cannot subscribe with server " + b.server);
-                                            e.printStackTrace();
+                                        // only cloud members please
+                                        if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
+                                            continue;
+                                        }
+                                        try {
+                                            b.subscribe(holder.subject, holder.type, info.getNamespace());
+                                        }
+                                        catch (cMsgException e) {
+                                            if (debug >= cMsgConstants.debugWarn) {
+                                                System.out.println("dServer requestThread: cannot subscribe with server " +
+                                                                   b.server);
+                                                e.printStackTrace();
+                                            }
                                         }
                                     }
                                 }
+                                // keep track of all subscriptions made or removed by this client
+                                subscriptions.add(new cMsgSubscription(holder.subject, holder.type));
+                            }
+                            finally {
+                                subscribeLock.unlock();
                             }
                             break;
 
                         case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
                             subdomainHandler.handleUnsubscribeRequest(holder.subject, holder.type, holder.id);
-                            // Regular client is unsubscribing to sub/type.
-                            // Pass this on to any cMsg subdomain bridges.
-                            if (cMsgNameServer.bridges.size() > 0) {
-                                for (cMsgServerBridge b : cMsgNameServer.bridges.values()) {
+                            // Cannot have servers joining cloud while a subscription is removed
+                            subscribeLock.lock();
+                            try {
+                                // Regular client is unsubscribing to sub/type.
+                                // Pass this on to any cMsg subdomain bridges.
+                                if (cMsgNameServer.bridges.size() > 0) {
+                                    for (cMsgServerBridge b : cMsgNameServer.bridges.values()) {
 //System.out.println("Domain Server: call bridge unsubscribe");
-                                    b.unsubscribe(holder.subject, holder.type, info.getNamespace());
+                                        // only cloud members please
+                                        if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
+                                            continue;
+                                        }
+                                        b.unsubscribe(holder.subject, holder.type, info.getNamespace());
+                                    }
                                 }
+                                // keep track of all subscriptions made or removed by this client
+                                removeSubscription(holder.subject, holder.type);
+                            }
+                            finally {
+                                subscribeLock.unlock();
                             }
                             break;
 
