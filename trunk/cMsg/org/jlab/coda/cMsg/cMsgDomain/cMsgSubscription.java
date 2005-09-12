@@ -96,6 +96,17 @@ public class cMsgSubscription {
 
 
     /**
+     * Constructor used by cMsgDomainServer object basically for storage of subject and type.
+     * @param subject subscription subject
+     * @param type subscription type
+     */
+    public cMsgSubscription(String subject, String type) {
+        this.subject = subject;
+        this.type = type;
+    }
+
+
+    /**
      * Constructor used by cMsg subdomain handler.
      * @param subject subscription subject
      * @param type subscription type
@@ -291,10 +302,13 @@ public class cMsgSubscription {
 
     public void removeSubAndGetter(cMsgClientInfo client) {
         Integer count = clientSubAndGetters.get(client);
+//System.out.println("      SUB: removeSub&Getter: count = " + count);
         if (count == null || count < 2) {
+//System.out.println("      SUB: remove sub&Getter");
             clientSubAndGetters.remove(client);
         }
         else {
+//System.out.println("      SUB: reduce sub&Getter cnt to " + (count - 1));
             clientSubAndGetters.put(client, count - 1);
         }
     }
