@@ -102,7 +102,7 @@ public class cMsg extends cMsgSubdomainAdapter {
     /** Name of client using this subdomain handler. */
     private String name;
 
-    /** Object containing informatoin about the client this object corresponds to. */
+    /** Object containing information about the client this object corresponds to. */
     private cMsgClientInfo myInfo;
 
 
@@ -680,13 +680,13 @@ public class cMsg extends cMsgSubdomainAdapter {
 
             // add this client to an exiting subscription
             if (subscriptionExists) {
-//System.out.println("subdh handleServerSubscribeRequest ADD sub: subject = " + subject + ", type = " + type + ", ns = " + namespace);
+//System.out.println("handleServerSubscribeRequest ADD sub: subject = " + subject + ", type = " + type + ", ns = " + namespace);
                 sub.addSubscriber(myInfo);
             }
             // or else create a new subscription
             else {
                 sub = new cMsgSubscription(subject, type, namespace);
-//System.out.println("subdh handleServerSubscribeRequest NEW sub: subject = " + subject + ", type = " + type + ", ns = " + namespace);
+//System.out.println("handleServerSubscribeRequest NEW sub: subject = " + subject + ", type = " + type + ", ns = " + namespace);
                 sub.addSubscriber(myInfo);
                 subscriptions.add(sub);
             }
@@ -737,13 +737,14 @@ public class cMsg extends cMsgSubdomainAdapter {
 
             // add this client to an exiting subscription
             if (subscriptionExists) {
+//System.out.println("handleSubscribeRequest ADD sub: subject = " + subject + ", type = " + type + ", ns = " + namespace);
                 sub.addSubscriber(myInfo);
                 sub.addClientSubscriber(myInfo);
             }
             // or else create a new subscription
             else {
                 sub = new cMsgSubscription(subject, type, namespace);
-//System.out.println("subdh handleSubscribeRequest: subject = " + subject + ", type = " + type + ", ns = " + namespace);
+//System.out.println("handleSubscribeRequest NEW sub: subject = " + subject + ", type = " + type + ", ns = " + namespace);
                 sub.addSubscriber(myInfo);
                 sub.addClientSubscriber(myInfo);
                 subscriptions.add(sub);
@@ -778,6 +779,7 @@ public class cMsg extends cMsgSubdomainAdapter {
                         sub.getSubject().equals(subject) &&
                         sub.getType().equals(type)) {
 
+//System.out.println("handleUNSubscribeRequest sub: subject = " + subject + ", type = " + type);
                     sub.removeSubscriber(myInfo);
                     sub.removeClientSubscriber(myInfo);
                     break;
@@ -786,6 +788,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 
             // get rid of this subscription if no more subscribers left
             if (sub.numberOfSubscribers() < 1) {
+//System.out.println("  : remove entire subscription");
                 subscriptions.remove(sub);
             }
         }
@@ -1096,13 +1099,13 @@ public class cMsg extends cMsgSubdomainAdapter {
         for (String clientName : clients.keySet()) {
             // Do not shutdown client sending this command, unless told to with flag "includeMe"
             if ( ((flag & cMsgConstants.includeMe) == 0) && (clientName.equals(name)) ) {
-                System.out.println("  dHandler: skip client " + clientName);
+//System.out.println("  dHandler: skip client " + clientName);
                 continue;
             }
 
             if (cMsgMessageMatcher.matches(client, clientName, true)) {
                 try {
-                    System.out.println("  dHandler: deliver shutdown message to client " + clientName);
+//System.out.println("  dHandler: deliver shutdown message to client " + clientName);
                     info = clients.get(clientName);
                     info.getDeliverer().deliverMessage(null, cMsgConstants.msgShutdown);
                 }
@@ -1139,7 +1142,74 @@ public class cMsg extends cMsgSubdomainAdapter {
         if (debug >= cMsgConstants.debugWarn) {
             System.out.println("dHandler: SHUTDOWN client " + name);
         }
+
         clients.remove(name);
+        servers.remove(name);
+
+        // Scan through list of name/senderToken value pairs.
+        // Find those that match our client name and get the
+        // associated sysMsgId numbers. Use that number as a
+        // key to remove the specificGet (sendAndGet).
+        int sysId = -1;
+        DeleteGetInfo dgi;
+        for (Iterator it=deleteGets.values().iterator(); it.hasNext(); ) {
+            dgi = (DeleteGetInfo) it.next();
+            if (dgi.name.equals(name)) {
+                sysId = dgi.sysMsgId;
+                it.remove();
+            }
+
+            // If it has already been removed, forget about it
+            if (sysId > -1) {
+//System.out.println("  SHUTDOWN: remove specific get for " + name);
+                specificGets.remove(sysId);
+            }
+        }
+
+        // Remove subscribes and subscribeAndGets
+        cMsgSubscription sub = null;
+        subscribeLock.lock();
+        try {
+            for (Iterator it=subscriptions.iterator(); it.hasNext(); ) {
+                sub = (cMsgSubscription) it.next();
+                // remove any subscribes
+                boolean b = sub.removeSubscriber(myInfo);
+                /*
+                if (b)
+                    System.out.println("  SHUTDOWN: removed subscriber");
+                else
+                    System.out.println("  SHUTDOWN: did NOT remove subscriber");
+                */
+                b = sub.removeClientSubscriber(myInfo);
+                /*
+                if (b)
+                    System.out.println("  SHUTDOWN: removed client subscriber");
+                else
+                    System.out.println("  SHUTDOWN: did NOT remove client subscriber");
+                */
+                // remove any subscribeAndGets
+                sub.removeSubAndGetter(myInfo);
+                // fire associated notifier if one exists, then get rid of it
+//System.out.println("  SHUTDOWN: number of  notifiers = " + (sub.getNotifiers().size()));
+                for (cMsgNotifier notifier : sub.getNotifiers()) {
+                    if (notifier.client == myInfo) {
+//System.out.println("  SHUTDOWN: fire notifier and remove");
+                        notifier.latch.countDown();
+                        sub.removeNotifier(notifier);
+                    }
+                }
+
+                // get rid of this subscription entirely if no more subscribers left
+                if (sub.numberOfSubscribers() < 1) {
+//System.out.println("  SHUTDOWN: removed subscription entirely");
+                    it.remove();
+                }
+            }
+        }
+        finally {
+            subscribeLock.unlock();
+        }
+
     }
 
 
