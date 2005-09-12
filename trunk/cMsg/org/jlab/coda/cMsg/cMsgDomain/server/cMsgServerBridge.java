@@ -79,6 +79,8 @@ public class cMsgServerBridge {
                 e.printStackTrace();
             }
         }
+
+        //public boolean mustSerializeMessages() {return false;}
     }
 
 

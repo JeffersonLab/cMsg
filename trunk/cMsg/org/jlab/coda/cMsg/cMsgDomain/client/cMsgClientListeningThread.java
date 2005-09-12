@@ -458,7 +458,7 @@ public class cMsgClientListeningThread extends Thread {
             msg.setReceiver(client.getName());
             msg.setReceiverHost(client.getHost());
             msg.setReceiverTime(new Date()); // current time
-
+//System.out.println("MESSAGE RECEIVED");
             return msg;
         }
 
@@ -471,7 +471,7 @@ public class cMsgClientListeningThread extends Thread {
          * @param msg incoming message
          */
         private void runCallbacks(cMsgMessageFull msg) throws cMsgException {
-
+//System.out.println("TRY RUNNING CALLBACKS");
             // if callbacks have been stopped, return
             if (!client.isReceiving()) {
                 if (debug >= cMsgConstants.debugInfo) {
@@ -483,6 +483,8 @@ public class cMsgClientListeningThread extends Thread {
             // handle subscriptions
             Set<cMsgSubscription> set = client.subscriptions;
 
+//System.out.println("  try matching msg sub/type = " + msg.getSubject() + " / " + msg.getType());
+//System.out.println("  subscription set size = " +set.size());
             if (set.size() > 0) {
 
                 // set is NOT modified here
@@ -490,11 +492,12 @@ public class cMsgClientListeningThread extends Thread {
 
                     // for each subscription of this client ...
                     for (cMsgSubscription sub : set) {
-
+//System.out.println("sub = " + sub);
+//System.out.println("  try matching msg sub/type = " + msg.getSubject() + " / " + msg.getType());
                         // if subject & type of incoming message match those in subscription ...
                         if (msg.getSubject().matches(sub.getSubjectRegexp()) &&
                                 msg.getType().matches(sub.getTypeRegexp())) {
-//System.out.println(" handle send msg");
+//System.out.println("  handle send msg");
 
                             // run through all callbacks
                             for (cMsgCallbackThread cbThread : sub.getCallbacks()) {

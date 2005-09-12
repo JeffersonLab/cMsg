@@ -57,11 +57,11 @@ public class cMsgServerSubscribeAndGetter extends Thread {
 
     public void run() {
         // Wait for a signal to cancel remote subscriptions
-//System.out.println("cMsgServerSubscribeAndGetter object: Wait on notifier");
+System.out.println("cMsgServerSubscribeAndGetter object: Wait on notifier");
         try {notifier.latch.await();}
         catch (InterruptedException e) {}
 
-//System.out.println("cMsgServerSubscribeAndGetter object: notifier fired");
+System.out.println("cMsgServerSubscribeAndGetter object: notifier fired");
         if (serverSubs.size() > 0) {
             for (cMsgServerBridge b : serverSubs) {
                 //System.out.println("Domain Server: call bridge subscribe");
