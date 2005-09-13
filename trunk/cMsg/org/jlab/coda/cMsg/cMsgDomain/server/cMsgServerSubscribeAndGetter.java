@@ -18,8 +18,12 @@ package org.jlab.coda.cMsg.cMsgDomain.server;
 
 import org.jlab.coda.cMsg.cMsgDomain.cMsgHolder;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgNotifier;
+import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
 import org.jlab.coda.cMsg.cMsgException;
-import java.util.HashSet;
+import org.jlab.coda.cMsg.cMsgClientInfo;
+
+import java.util.Iterator;
+import java.util.Set;
 
 /**
  * This class handles a client's subscribeAndGet request and propagates it to all the
@@ -36,17 +40,18 @@ public class cMsgServerSubscribeAndGetter extends Thread {
      */
     cMsgNotifier notifier;
 
-    /** Set of bridges for which subscriptions were made in implementing a subscribeAndGet. */
-    HashSet<cMsgServerBridge> serverSubs;
-
     /** Contains the subscription information to use for unsubscribing. */
     cMsgHolder holder;
 
+    Set subscriptions;
+    cMsgClientInfo info;
+
     public cMsgServerSubscribeAndGetter(cMsgNotifier notifier, cMsgHolder holder,
-                                        HashSet<cMsgServerBridge> serverSubs) {
+                                        Set subscriptions, cMsgClientInfo info) {
         this.notifier   = notifier;
         this.holder     = holder;
-        this.serverSubs = serverSubs;
+        this.subscriptions = subscriptions;
+        this.info = info;
 
         // die if main thread dies
         setDaemon(true);
@@ -57,24 +62,57 @@ public class cMsgServerSubscribeAndGetter extends Thread {
 
     public void run() {
         // Wait for a signal to cancel remote subscriptions
-System.out.println("cMsgServerSubscribeAndGetter object: Wait on notifier");
+//System.out.println("cMsgServerSubscribeAndGetter object: Wait on notifier");
         try {notifier.latch.await();}
         catch (InterruptedException e) {}
 
-System.out.println("cMsgServerSubscribeAndGetter object: notifier fired");
-        if (serverSubs.size() > 0) {
-            for (cMsgServerBridge b : serverSubs) {
+//System.out.println("cMsgServerSubscribeAndGetter object: notifier fired");
+
+        cMsgDomainServer.joinCloudLock.lock();
+        try {
+            for (cMsgServerBridge b : cMsgNameServer.bridges.values()) {
                 //System.out.println("Domain Server: call bridge subscribe");
                 try {
-//System.out.println("cMsgServerSubscribeAndGetter object: unsubscribe for " + b.server);
+                    // only cloud members please
+                    if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
+                        continue;
+                    }
+//System.out.println("cMsgServerSubscribeAndGetter object: unsubscribe to bridge " + b.server +
+//                   "  sub = " + holder.subject + ", type = " + holder.type + ", ns = " + holder.namespace);
                     b.unsubscribe(holder.subject, holder.type, holder.namespace);
+
                 }
                 catch (cMsgException e) {
                     e.printStackTrace();
                     // ignore exceptions as server is probably gone and so no matter
                 }
             }
+
+            cMsgSubscription sub = null;
+            Iterator it = subscriptions.iterator();
+            while (it.hasNext()) {
+                sub = (cMsgSubscription) it.next();
+                if (sub.getSubject().equals(holder.subject) &&
+                        sub.getType().equals(holder.type)) {
+//System.out.println("cMsgServerSubscribeAndGetter object: remove sub&Get from sub object");
+                    sub.removeSubAndGetter(info);
+                    break;
+                }
+            }
+
+            // If a msg was sent and sub removed simultaneously while a sub&Get (on client)
+            // timed out so an unSub&Get was sent, ignore the unSub&get.
+//System.out.println("cMsgServerSubscribeAndGetter object: # of subscribers= " + sub.numberOfSubscribers());
+            if ((sub != null) && (sub.numberOfSubscribers() < 1)) {
+//System.out.println("cMsgServerSubscribeAndGetter object: remove whole subscription");
+                subscriptions.remove(sub);
+            }
+//System.out.println("");
         }
+        finally {
+            cMsgDomainServer.joinCloudLock.unlock();
+        }
+
     }
 
 
