@@ -103,6 +103,8 @@ public class cMsgSubscription {
     public cMsgSubscription(String subject, String type) {
         this.subject = subject;
         this.type = type;
+        allSubscribers       = new HashSet<cMsgClientInfo>(30);
+        clientSubAndGetters  = new HashMap<cMsgClientInfo, Integer>(30);
     }
 
 
@@ -280,11 +282,12 @@ public class cMsgSubscription {
     //-------------------------------------------------------------------------------
     // Methods for dealing with clients who subscribeAndGet to the sub/type/namespace
     //-------------------------------------------------------------------------------
-    public HashMap<cMsgClientInfo, Integer> getClientSubAndGetters() {
+    public HashMap<cMsgClientInfo, Integer> getSubAndGetters() {
         return clientSubAndGetters;
     }
 
     public void addSubAndGetter(cMsgClientInfo client) {
+//System.out.println("      SUB: addSub&Getter arg = " + client);
         Integer count = clientSubAndGetters.get(client);
         if (count == null) {
 //System.out.println("      SUB: set sub&Getter cnt to 1");
@@ -304,7 +307,7 @@ public class cMsgSubscription {
         Integer count = clientSubAndGetters.get(client);
 //System.out.println("      SUB: removeSub&Getter: count = " + count);
         if (count == null || count < 2) {
-//System.out.println("      SUB: remove sub&Getter");
+//System.out.println("      SUB: remove sub&Getter completely (count = 0)");
             clientSubAndGetters.remove(client);
         }
         else {
