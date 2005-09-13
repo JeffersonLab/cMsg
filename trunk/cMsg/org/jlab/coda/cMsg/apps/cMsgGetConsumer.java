@@ -185,17 +185,20 @@ public class cMsgGetConsumer {
             t1 = (new Date()).getTime();
 
             // do a bunch of gets
-            for (int i=0; i < 4000; i++) {
+            for (int i=0; i < 400; i++) {
                 // do the synchronous sendAndGet with timeout
-                //try {msg = coda.subscribeAndGet(subject, type, timeout);}
-                try {msg = coda.sendAndGet(sendMsg, timeout);}
+                try {msg = coda.subscribeAndGet(subject, type, timeout);}
+                //try {msg = coda.sendAndGet(sendMsg, timeout);}
                 catch (TimeoutException e) {
                     System.out.println("Timeout in sendAndGet");
                     continue;
                 }
-                if (msg == null) {
-                    System.out.println("Got null msg");
-                }
+                //if (msg == null) {
+                //    System.out.println("Got null msg");
+                //}
+                //else {
+                //    System.out.println("CLIENT GOT MESSAGE!!!");
+                //}
                 count++;
             }
 
