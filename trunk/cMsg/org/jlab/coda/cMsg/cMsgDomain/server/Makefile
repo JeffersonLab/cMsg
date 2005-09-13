@@ -10,10 +10,11 @@ INSTALL = $(TOPDIR)/install-sh -c
 JAVAC_FLAGS = -classpath $(TOPDIR)
 
 JAVA_OBJS = \
-	cMsgInternalDeliverer.class \
 	cMsgMessageDeliverer.class \
 	cMsgServerBridge.class \
+	cMsgServerCloudJoiner.class \
 	cMsgServerStatistics.class \
+	cMsgServerSubscribeAndGetter.class \
 	cMsgSubscriptionHolder.class \
 	cMsgMonitorClient.class \
 	cMsgNameServer.class \
