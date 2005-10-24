@@ -2930,6 +2930,9 @@ static int codaDisconnect(int domainId) {
   /* close sending socket */
   close(domain->sendSocket);
 
+  /* close receiving socket */
+  close(domain->receiveSocket);
+
   /* stop listening and client communication threads */
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "codaDisconnect:cancel listening & client threads\n");
