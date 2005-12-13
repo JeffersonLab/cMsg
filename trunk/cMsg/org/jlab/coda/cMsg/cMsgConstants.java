@@ -128,7 +128,7 @@ public class cMsgConstants {
     /** Get a message with 1-shot subscribe. */
     public static final int    msgSubscribeAndGetRequest       =  8;
     /** Remove "subscribeAndGet" request. */
-    public static final int    msgUnSubscribeAndGetRequest     =  9;
+    public static final int    msgUnsubscribeAndGetRequest     =  9;
     /** Get a message from a responder of a sent message. */
     public static final int    msgSendAndGetRequest            = 10;
     /** Remove "sendAndGet" request. */
@@ -139,10 +139,10 @@ public class cMsgConstants {
 
     /** Respond to a "sendAndGet" request. */
     public static final int    msgGetResponse              =  20;
-    /** Respond to a "sendAndGet" command is null. */
-    public static final int    msgGetResponseIsNull        =  21;
     /** Respond with message to the subscribe command. */
     public static final int    msgSubscribeResponse        =  22;
+    /** Respond to a server's "sendAndGet" request. */
+    public static final int    msgServerGetResponse        =  23;
 
     // Codes sent by a server's "client" connection to another server
     // in the cMsg subdomain only
@@ -151,7 +151,9 @@ public class cMsgConstants {
     public static final int    msgServerSubscribeRequest         = 30;
     /** Unsubscribe to messages by another server. */
     public static final int    msgServerUnsubscribeRequest       = 31;
-    /** Unsubscribe to messages by another server. */
+    /** SubscribeAndGet a message by another server. */
+    public static final int    msgServerSubscribeAndGetRequest   = 32;
+    /** UnsubscribeAndGet to a message by another server. */
     public static final int    msgServerUnsubscribeAndGetRequest = 33;
     /** Connect to the server from server. */
     public static final int    msgServerConnectRequest           = 34;
@@ -172,7 +174,11 @@ public class cMsgConstants {
     /** Unlock server for joining server cloud or accepting registrations. */
     public static final int    msgServerCloudUnlock              = 42;
     /** Unlock server for joining server cloud or accepting registrations. */
-    public static final int    msgServerCloudJoin                = 43;
+    public static final int    msgServerCloudSetStatus           = 43;
+    /** SendAndGet a message by another server. */
+    public static final int    msgServerSendAndGetRequest        = 44;
+    /** UnSendAndGet to a message by another server. */
+    public static final int    msgServerUnSendAndGetRequest      = 45;
 
     // Flags for client's shutdown method.
 
