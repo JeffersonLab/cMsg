@@ -197,7 +197,7 @@ public class cMsgServerCloudJoiner extends Thread {
             // of joining (not in-cloud), then grabbing their locks will stop
             // them from trying to join simulaneously. This should, again,
             // make things work more smoothly.
-            // Thus we grab our own lock (even thought we're not part of
+            // Thus we grab our own lock (even though we're not part of
             // the cloud yet) and the locks of all the bridges. When we
             // have all the locks of the servers IN the cloud, then we can
             // procede to join.

@@ -21,18 +21,19 @@ import org.jlab.coda.cMsg.cMsgDomain.cMsgNotifier;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgClientInfo;
+import org.jlab.coda.cMsg.cMsgCallbackAdapter;
 
-import java.util.Iterator;
 import java.util.Set;
+import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * This class handles a client's subscribeAndGet request and propagates it to all the
+ * This class handles a server client's subscribeAndGet request and propagates it to all the
  * connected servers. It takes care of all the details of getting a response and forwarding
  * that to the client as well as cancelling the request to servers after the first
  * response is received.
  */
-public class cMsgServerSubscribeAndGetter extends Thread {
-
+public class cMsgServerSubscribeAndGetter implements Runnable {
     /**
      * Wait on this object which tells us when a matching message has been sent
      * to a subscribeAndGet so we can notify bridges to cancel their subscriptions
@@ -43,43 +44,46 @@ public class cMsgServerSubscribeAndGetter extends Thread {
     /** Contains the subscription information to use for unsubscribing. */
     cMsgHolder holder;
 
+    /** Contains all subscriptions made by this server. */
     Set subscriptions;
-    cMsgClientInfo info;
+    cMsgServerSubscribeInfo sub;
+    cMsgCallbackAdapter cb;
+
 
     public cMsgServerSubscribeAndGetter(cMsgNotifier notifier, cMsgHolder holder,
-                                        Set subscriptions, cMsgClientInfo info) {
-        this.notifier   = notifier;
-        this.holder     = holder;
+                                        cMsgCallbackAdapter cb,
+                                        Set subscriptions, cMsgServerSubscribeInfo sub) {
+        this.cb = cb;
+        this.sub = sub;
+        this.holder = holder;
+        this.notifier = notifier;
         this.subscriptions = subscriptions;
-        this.info = info;
-
-        // die if main thread dies
-        setDaemon(true);
-
-        // run thread
-        this.start();
     }
 
     public void run() {
         // Wait for a signal to cancel remote subscriptions
-//System.out.println("cMsgServerSubscribeAndGetter object: Wait on notifier");
-        try {notifier.latch.await();}
-        catch (InterruptedException e) {}
+        try {
+            if (Thread.currentThread().isInterrupted()) {
+                return;
+            }
+            notifier.latch.await();
+        }
+        catch (InterruptedException e) {
+            // If we've been interrupted it's because the client has died
+            // and the server is cleaning up all the threads (including
+            // this one).
+            return;
+        }
 
-//System.out.println("cMsgServerSubscribeAndGetter object: notifier fired");
-
-        cMsgDomainServer.joinCloudLock.lock();
+        cMsgDomainServer.subscribeLock.lock();
         try {
             for (cMsgServerBridge b : cMsgNameServer.bridges.values()) {
-                //System.out.println("Domain Server: call bridge subscribe");
                 try {
                     // only cloud members please
                     if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
                         continue;
                     }
-//System.out.println("cMsgServerSubscribeAndGetter object: unsubscribe to bridge " + b.server +
-//                   "  sub = " + holder.subject + ", type = " + holder.type + ", ns = " + holder.namespace);
-                    b.unsubscribe(holder.subject, holder.type, holder.namespace);
+                    b.unsubscribeAndGet(holder.subject, holder.type, holder.namespace, cb);
 
                 }
                 catch (cMsgException e) {
@@ -88,31 +92,17 @@ public class cMsgServerSubscribeAndGetter extends Thread {
                 }
             }
 
-            cMsgSubscription sub = null;
-            Iterator it = subscriptions.iterator();
-            while (it.hasNext()) {
-                sub = (cMsgSubscription) it.next();
-                if (sub.getSubject().equals(holder.subject) &&
-                        sub.getType().equals(holder.type)) {
-//System.out.println("cMsgServerSubscribeAndGetter object: remove sub&Get from sub object");
-                    sub.removeSubAndGetter(info);
-                    break;
-                }
-            }
+            sub.removeSubAndGetter(holder.id);
 
             // If a msg was sent and sub removed simultaneously while a sub&Get (on client)
             // timed out so an unSub&Get was sent, ignore the unSub&get.
-//System.out.println("cMsgServerSubscribeAndGetter object: # of subscribers= " + sub.numberOfSubscribers());
-            if ((sub != null) && (sub.numberOfSubscribers() < 1)) {
-//System.out.println("cMsgServerSubscribeAndGetter object: remove whole subscription");
+            if (sub.numberOfSubscribers() < 1) {
                 subscriptions.remove(sub);
             }
-//System.out.println("");
         }
         finally {
-            cMsgDomainServer.joinCloudLock.unlock();
+            cMsgDomainServer.subscribeLock.unlock();
         }
-
     }
 
 

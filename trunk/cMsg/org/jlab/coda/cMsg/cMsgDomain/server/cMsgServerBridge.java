@@ -19,6 +19,8 @@ package org.jlab.coda.cMsg.cMsgDomain.server;
 import org.jlab.coda.cMsg.*;
 
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ConcurrentHashMap;
 import java.io.IOException;
 
 /**
@@ -28,7 +30,7 @@ import java.io.IOException;
 public class cMsgServerBridge {
 
     /** Client of cMsg server this object is a bridge to. It is the means of connection. */
-    private org.jlab.coda.cMsg.cMsgDomain.client.cMsg client;
+    private org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient client;
 
     /** Name of cMsg server ("host:port") this server is connected to. */
     String server;
@@ -50,6 +52,15 @@ public class cMsgServerBridge {
     /** Reference to subdomain handler object for use by all bridges in this server. */
     static private org.jlab.coda.cMsg.subdomains.cMsg subdomainHandler = new org.jlab.coda.cMsg.subdomains.cMsg();
 
+    /** Need 1 callback for all subscriptions. */
+    static SubscribeCallback subCallback = new SubscribeCallback();
+
+    /**
+     * Map to store a sendAndGet id of the originating cMsg server and the corresponding
+     * id of the propagated sendAndGet in the server connected to this bridge.
+     */
+    private ConcurrentHashMap<Integer,Integer> idStorage;
+
     /**
      * This class defines the callback to be run when a message matching
      * our subscription arrives from a bridge connection and must be
@@ -70,22 +81,174 @@ public class cMsgServerBridge {
             if (msg.getText() == null) {
                 msg.setText("");
             }
-
+            //try {
+            //    Thread.sleep(1);
+            //}
+            //catch (InterruptedException e) {}
             try {
                 // pass this message on to local clients
-                subdomainHandler.bridgeSend(msg, namespace);
+                subdomainHandler.localSend(msg, namespace);
             }
             catch (cMsgException e) {
                 e.printStackTrace();
             }
         }
 
-        //public boolean mustSerializeMessages() {return false;}
+        // Increase cue size from 1000 to 3000 for server smoothness.
+        public int getMaximumCueSize() {return 3000;}
     }
 
 
-    /** Need 1 callback for subscriptions. */
-    SubscribeCallback subCallback = new SubscribeCallback();
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * This class defines the callback to be run when a message matching
+     * our subscription arrives from a bridge connection and must be
+     * passed on to a client(s).
+     */
+    static class SubscribeAndGetCallback extends cMsgCallbackAdapter {
+        // We only want this callback to be run ONCE as it tries
+        // to emulate a subscribeAndGet call which only lasts
+        // for 1 message.
+        AtomicBoolean skip = new AtomicBoolean(false);
+
+        /**
+         * Callback which passes on a message to other clients.
+         *
+         * @param msg message received from domain server
+         * @param userObject in this case the original msg sender's namespace.
+         */
+        public void callback(cMsgMessage msg, Object userObject) {
+//System.out.println("In sub&Get callback!!!");
+            // If skip's current value is false, set it to true (atomically).
+            // If skip's current value is NOT false, return.
+            if (!skip.compareAndSet(false,true)) {
+                return;
+            }
+
+            String namespace = (String) userObject;
+
+            try {
+
+                // check for null text
+                if (msg.getText() == null) {
+                    msg.setText("");
+                }
+                // pass this message on to local clients
+                subdomainHandler.localSend(msg, namespace);
+            }
+            catch (cMsgException e) {
+                e.printStackTrace();
+            }
+        }
+
+        // We're only interested in getting 1 message so ignore the rest.
+        public boolean maySkipMessages() {
+            return true;
+        }
+
+        public int getMaximumCueSize() {
+            return 1000;
+        }
+
+        public int getSkipSize() {
+            return 1000;
+        }
+
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    static public cMsgCallbackAdapter getSubAndGetCallback() {
+        return subCallback;
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * This class defines the callback to be run when a message matching
+     * our subscription arrives from a bridge connection and must be
+     * passed on to a client(s).
+     */
+    static class SendAndGetCallback extends cMsgCallbackAdapter {
+        /** Send messges's senderToken on this server. */
+        int id;
+        /** Send message's sysMsgId on this server. */
+        int sysMsgId;
+        /**
+         * Allow this callback to skip extra incoming messages since
+         * only one is needed.
+         */
+        AtomicBoolean skip = new AtomicBoolean(false);
+
+        /**
+         * Constructor.
+         * @param id incoming message's senderToken needs to be changed to this value
+         * @param sysMsgId incoming message's sysMsgId needs to be changed to this value
+         */
+        SendAndGetCallback(int id, int sysMsgId) {
+            this.id = id;
+            this.sysMsgId = sysMsgId;
+        }
+
+
+        /**
+         * Callback which passes on a message to local clients.
+         *
+         * @param msg message received from domain server
+         * @param userObject in this case the original msg sender's namespace.
+         */
+        public void callback(cMsgMessage msg, Object userObject) {
+            // If skip's current value is false, set it to true (atomically).
+            // If skip's current value is NOT false, return.
+            if (!skip.compareAndSet(false,true)) {
+                return;
+            }
+
+            // The message delivered to this callback is actually
+            // a cMsgMessageFull object and can be cast to that.
+            cMsgMessageFull fullMsg = (cMsgMessageFull) msg;
+
+            String namespace = (String) userObject;
+
+            try {
+                // check for null text
+                if (fullMsg.getText() == null) {
+                    fullMsg.setText("");
+                }
+
+                // put in correct ids for local sendAndGet (isGetResponse already set)
+                fullMsg.setSenderToken(id);
+                fullMsg.setSysMsgId(sysMsgId);
+//System.out.println("CB: changed senderToken,sysMsgId from");
+//System.out.print("    " + msg.getSenderToken() + ", " + msg.getSysMsgId() + " to " );
+//System.out.println("   " + id + ", " + sysMsgId);
+                // pass this message on to local clients
+                subdomainHandler.localSend(fullMsg, namespace);
+            }
+            catch (cMsgException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /** Need 1 callback for sendAndGet calls. */
+    static public cMsgCallbackAdapter getSendAndGetCallback(int id, int sysMsgId) {
+        return new SendAndGetCallback(id, sysMsgId);
+    }
+
+
+//-----------------------------------------------------------------------------
+
 
     /**
      * Constructor.
@@ -97,6 +260,7 @@ public class cMsgServerBridge {
     public cMsgServerBridge(String server, int thisNameServerPort) throws cMsgException {
         this.server = server;
         port = thisNameServerPort;
+        idStorage = new ConcurrentHashMap<Integer,Integer>(100);
 
         // Normally a client uses the top level API. That is unecessary
         // (and undesirable) here because we already know we're in the
@@ -109,7 +273,7 @@ public class cMsgServerBridge {
 
         // create cMsg connection object
 //System.out.println("      << BR: const, make client object");
-        client = new org.jlab.coda.cMsg.cMsgDomain.client.cMsg();
+        client = new org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient();
 
         // Pass in the UDL
 //System.out.println("      << BR: set UDL to " + UDL);
@@ -124,6 +288,10 @@ public class cMsgServerBridge {
         client.setUDLRemainder(server + "/" + "cMsg");
     }
 
+
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to connect to server.
      * @param isOriginator true if originating the connection between the 2 servers and
@@ -135,7 +303,7 @@ public class cMsgServerBridge {
         this.isOriginator = isOriginator;
         // create a connection to the UDL
         client.start();
-        return client.serverConnect(port, isOriginator);
+        return client.connect(port, isOriginator);
     }
 
    /**
@@ -275,5 +443,79 @@ public class cMsgServerBridge {
         return;
     }
 
+    /**
+     *
+     * @param msg message sent to server
+     * @param namespace  message namespace
+     * @param cb callback for response to sendAndGet request
+     * @throws cMsgException
+     */
+    public void sendAndGet(cMsgMessage msg, String namespace, cMsgCallbackInterface cb)
+            throws cMsgException {
+        // id number of the sendAndGet stored for future unSendAndGet
+        int id = client.serverSendAndGet(msg, namespace, cb);
+        // Store 2 id numbers: 1 from system originating msg,
+        // the other from system getting send a propagating msg.
+        idStorage.put(msg.getSenderToken(), id);
+//System.out.print(" +"+idStorage.size());
+        return;
+    }
 
+
+     /**
+      * Method to remove a previous subscribeAndGet to receive a message of a subject
+      * and type from the domain server. This method is only called when a subscribeAndGet
+      * times out and the server must be told to forget about the get.
+      *
+      * @param id receiverSubscribeId of original message send in sendAndGet
+      * @throws cMsgException if there are communication problems with the server
+      */
+     public void unSendAndGet(int id)
+             throws cMsgException {
+         Integer newId = idStorage.remove(id);
+         if (newId == null) {
+             return;
+         }
+//System.out.print(" -"+idStorage.size());
+//System.out.println("bridge unSendAndGet: substituting id " + newId.intValue() +
+//                            " for " + id);
+         client.serverUnSendAndGet(newId);
+         return;
+     }
+
+
+    /**
+     * This method is like a one-time subscribe. The server grabs the first incoming
+     * message of the requested subject and type and sends that to the caller.
+     *
+     * @param subject subject of message desired from server
+     * @param type type of message desired from server
+     * @param namespace  message namespace
+     * @throws cMsgException
+     */
+    public void subscribeAndGet(String subject, String type,
+            String namespace, cMsgCallbackInterface cb)
+            throws cMsgException {
+
+//System.out.println("Bridge: call serverSubscribe with ns = " + namespace);
+        client.serverSubscribe(subject, type, namespace, cb, namespace);
+        return;
+    }
+
+
+    /**
+     * Method to remove a previous subscribeAndGet to receive a message of a subject
+     * and type from the domain server. This method is only called when a subscribeAndGet
+     * times out and the server must be told to forget about the get.
+     *
+     * @param subject subject of message desired from server
+     * @param type type of message desired from server
+     * @throws cMsgException if there are communication problems with the server
+     */
+    public void unsubscribeAndGet(String subject, String type,
+                                  String namespace, cMsgCallbackInterface cb)
+            throws cMsgException {
+        client.serverUnsubscribe(subject, type, namespace, cb, namespace);
+        return;
+    }
 }

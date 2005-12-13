@@ -17,7 +17,6 @@
 package org.jlab.coda.cMsg.cMsgDomain.server;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgUtilities;
 
 import java.io.*;
 import java.nio.channels.SocketChannel;
@@ -32,8 +31,8 @@ import java.net.Socket;
  * <ul>
  * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgGetResponse} for a message sent in
  * response to a {@link org.jlab.coda.cMsg.cMsg#sendAndGet}<p>
- * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgGetResponseIsNull} for a null sent in
- * response to a {@link org.jlab.coda.cMsg.cMsg#sendAndGet}<p>
+ * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgServerGetResponse} for a message sent in
+ * response to a {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient#serverSendAndGet}<p>
  * with a return acknowlegment<p>
  * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgSubscribeResponse} for a message sent in
  * response to a {@link org.jlab.coda.cMsg.cMsg#subscribe}<p>
@@ -178,27 +177,12 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             throw new cMsgException("Call createClientConnection first to create connection to client");
         }
 
-        // if a get has a null response ...
-        boolean nullResponse = false;
-        if (msgType == cMsgConstants.msgGetResponseIsNull) {
-            nullResponse = true;
-        }
 
         if (msgType == cMsgConstants.msgShutdown) {
             // size
             out.writeInt(8);
             // msg type
             out.writeInt(msgType);
-            // want an acknowledgment?
-            out.writeInt(acknowledge ? 1 : 0);
-        }
-        else if (nullResponse) {
-            // size
-            out.writeInt(12);
-            // msg type
-            out.writeInt(msgType);
-            // senderToken
-            out.writeInt(msg.getSenderToken());
             // want an acknowledgment?
             out.writeInt(acknowledge ? 1 : 0);
         }

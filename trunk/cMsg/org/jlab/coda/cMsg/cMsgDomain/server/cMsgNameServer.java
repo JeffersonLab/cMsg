@@ -109,15 +109,9 @@ public class cMsgNameServer extends Thread {
 
     /**
      * Keep track of all name servers which have connected to this server.
-     * This hashmap stores the server name (host:port) as key
-     * and a Integer as the value -- which tells the relationship
-     * of the connecting server to the cloud. The value may be one
-     * of {@link #INCLOUD}, {@link #NONCLOUD}, or {@link #BECOMINGCLOUD}.
-     * The value is not used, and strictly speaking a HashSet could be used;
-     * however, it is not for the convenience of using the concurrent hashmap.
+     * This hashset stores the server name (host:port).
      */
-    static ConcurrentHashMap<String,Integer> nameServers =
-            new ConcurrentHashMap<String,Integer>(20);
+    static Set<String> nameServers = Collections.synchronizedSet(new HashSet<String>(20));
 
     /**
      * Keep track of all the cMsgServerBridge objects in the cMsg subdomain.
@@ -279,10 +273,10 @@ public class cMsgNameServer extends Thread {
                              "            [-Dserver=<servername:serverport>]\n" +
                              "            [-Ddebug=<level>]\n" +
                              "            [-Dtimeorder]  cMsgNameServer\n");
+        System.out.println("       listening port is the TCP port this server listens on");
         System.out.println("       servername is the name of another cMsg server");
         System.out.println("               whose cMsg subdomain you want to join,");
         System.out.println("               and serverport is that server's port");
-        System.out.println("       servername is the name of another cMsg server");
         System.out.println("       debug level has acceptable values of:");
         System.out.println("               info   for full output");
         System.out.println("               warn   for severity of warning or greater");
@@ -891,7 +885,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
                         // First, (since we are in the cloud now) we grab our own
                         // cloud lock so we stop cloud-joiners and check all cloud
                         // members' clients. Can also calculate a majority of cloud members.
-                        boolean locked = cloudLock.isLocked();
+// boolean locked = cloudLock.isLocked();
 //System.out.println("local cloud locked = " + locked);
                         if (!gotCloudLock && cloudLock(500)) {
 //System.out.println(">> NS: grabbed local cloud lock");
@@ -1253,11 +1247,13 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
             int nameServerListeningPort = in.readInt();
             // length of client's host name
             int lengthHost = in.readInt();
-//System.out.println(">> NS: cli listen port = " + clientListeningPort +
-//                               ", cloud status = " + connectingCloudStatus +
-//                               ", reciprocal connection = " + isReciprocalConnection +
-//                               ", nameServer listen port = " + nameServerListeningPort +
-//                               ", host name len = " + lengthHost);
+/*
+System.out.println(">> NS: cli listen port = " + clientListeningPort +
+                               ", cloud status = " + connectingCloudStatus +
+                               ", reciprocal connection = " + isReciprocalConnection +
+                               ", nameServer listen port = " + nameServerListeningPort +
+                               ", host name len = " + lengthHost);
+*/
             // bytes expected
             int bytesToRead = lengthHost;
             int offset = 0;
@@ -1276,16 +1272,17 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
             String name = host + ":" + nameServerListeningPort;
 //System.out.println(">> NS: host name = " + host + ", client hame = " + name);
 
-            if (nameServers.containsKey(name) ) {
-//System.out.println(">> NS: ALREADY CONNECTED TO " + name);
-                throw new cMsgException ("ALREADY CONNECTED");
-            }
-
             // At this point grab the "cloud" lock so no other servers
             // can connect simultaneously
             cloudLock.lock();
 
             try {
+                // First, check to see if this server is already connected.
+                // If so, abort.
+                if (nameServers.contains(name) ) {
+System.out.println(">> NS: ALREADY CONNECTED TO " + name);
+                    throw new cMsgException ("ALREADY CONNECTED");
+                }
 
                 // Allow other servers to connect to this one if:
                 //   (1) this server is a cloud member, or
@@ -1424,10 +1421,12 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
                     out.writeInt(nameServers.size());
 
                     // for each cloud server, send name length, then name
-                    for (String serverName : nameServers.keySet()) {
-//System.out.println(">>    - " + serverName);
-                        out.writeInt(serverName.length());
-                        out.write(serverName.getBytes("US-ASCII"));
+                    synchronized (nameServers) {
+                        for (String serverName : nameServers) {
+                            System.out.println(">>    - " + serverName);
+                            out.writeInt(serverName.length());
+                            out.write(serverName.getBytes("US-ASCII"));
+                        }
                     }
                 }
                 else {
@@ -1444,7 +1443,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
                     connectingCloudStatus = BECOMINGCLOUD;
                 }
 //System.out.println(">> NS: Add " + name + " to nameServers with status = " + connectingCloudStatus);
-                nameServers.put(name, (int) connectingCloudStatus);
+                nameServers.add(name);
 
             }
             finally {
