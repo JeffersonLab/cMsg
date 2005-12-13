@@ -435,10 +435,10 @@ public class FileQueue extends cMsgSubdomainAdapter {
         // send response to client
         try {
             if(null_response) {
-                myDeliverer.deliverMessage(response, cMsgConstants.msgGetResponseIsNull);
-            } else {
-                myDeliverer.deliverMessage(response, cMsgConstants.msgGetResponse);
+                //myDeliverer.deliverMessage(response, cMsgConstants.msgGetResponseIsNull);
+                //BUG BUG Elliott, modify msg somehow right here
             }
+            myDeliverer.deliverMessage(response, cMsgConstants.msgGetResponse);
         } catch (IOException e) {
             e.printStackTrace();
             cMsgException ce = new cMsgException(e.toString());

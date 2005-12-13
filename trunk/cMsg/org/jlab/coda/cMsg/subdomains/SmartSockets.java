@@ -51,8 +51,8 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
 
     /** static collections. */
-    private static Map subjects  = Collections.synchronizedMap(new HashMap(100));
-    private static Map callbacks = Collections.synchronizedMap(new HashMap(100));
+    private static Map<String,MyInt> subjects    = Collections.synchronizedMap(new HashMap<String,MyInt>(100));
+    private static Map<Integer,TipcCb> callbacks = Collections.synchronizedMap(new HashMap<Integer,TipcCb>(100));
 
 
     /** client registration info. */
