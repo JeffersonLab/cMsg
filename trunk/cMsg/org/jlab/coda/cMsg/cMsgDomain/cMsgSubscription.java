@@ -18,11 +18,11 @@ package org.jlab.coda.cMsg.cMsgDomain;
 
 import org.jlab.coda.cMsg.cMsgMessageMatcher;
 import org.jlab.coda.cMsg.cMsgClientInfo;
+import org.jlab.coda.cMsg.cMsgCallbackAdapter;
 import org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.CountDownLatch;
+import java.util.regex.Pattern;
 
 /**
  * Class to store a client's subscription to a particular message subject and type.
@@ -45,6 +45,12 @@ public class cMsgSubscription {
     /** Type turned into regular expression that understands * and ?. */
     private String typeRegexp;
 
+    /** Compiled regular expression given in {@link #subjectRegexp}. */
+    private Pattern subjectPattern;
+
+    /** Compiled regular expression given in {@link #typeRegexp}. */
+    private Pattern typePattern;
+
     /**
      * Id which eliminates the need to parse subject and type
      * strings upon client's receipt of a message. Sometimes referred
@@ -65,7 +71,7 @@ public class cMsgSubscription {
     private HashSet<cMsgNotifier> notifiers;
 
     /**
-     * This set contains all of the callback objects
+     * This set contains all of the callback thread objects
      * {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread}
      * used on the client side.
      */
@@ -95,23 +101,12 @@ public class cMsgSubscription {
     private HashSet<cMsgClientInfo> clientSubscribers;
 
 
-    /**
-     * Constructor used by cMsgDomainServer object basically for storage of subject and type.
-     * @param subject subscription subject
-     * @param type subscription type
-     */
-    public cMsgSubscription(String subject, String type) {
-        this.subject = subject;
-        this.type = type;
-        allSubscribers       = new HashSet<cMsgClientInfo>(30);
-        clientSubAndGetters  = new HashMap<cMsgClientInfo, Integer>(30);
-    }
-
 
     /**
      * Constructor used by cMsg subdomain handler.
      * @param subject subscription subject
      * @param type subscription type
+     * @param namespace namespace subscription exists in
      */
     public cMsgSubscription(String subject, String type, String namespace) {
         this.subject = subject;
@@ -119,6 +114,8 @@ public class cMsgSubscription {
         this.namespace = namespace;
         subjectRegexp  = cMsgMessageMatcher.escape(subject);
         typeRegexp     = cMsgMessageMatcher.escape(type);
+        subjectPattern = Pattern.compile(subjectRegexp);
+        typePattern    = Pattern.compile(typeRegexp);
         notifiers      = new HashSet<cMsgNotifier>(30);
         allSubscribers       = new HashSet<cMsgClientInfo>(30);
         clientSubAndGetters  = new HashMap<cMsgClientInfo, Integer>(30);
@@ -137,9 +134,11 @@ public class cMsgSubscription {
         this.subject = subject;
         this.type = type;
         this.id = id;
-        subjectRegexp = cMsgMessageMatcher.escape(subject);
-        typeRegexp    = cMsgMessageMatcher.escape(type);
-        notifiers     = new HashSet<cMsgNotifier>(30);
+        subjectRegexp  = cMsgMessageMatcher.escape(subject);
+        typeRegexp     = cMsgMessageMatcher.escape(type);
+        subjectPattern = Pattern.compile(subjectRegexp);
+        typePattern    = Pattern.compile(typeRegexp);
+        notifiers      = new HashSet<cMsgNotifier>(30);
         clientSubAndGetters  = new HashMap<cMsgClientInfo, Integer>(30);
         allSubscribers       = new HashSet<cMsgClientInfo>(30);
         clientSubscribers    = new HashSet<cMsgClientInfo>(30);
@@ -165,6 +164,14 @@ public class cMsgSubscription {
     }
 
     /**
+     * Gets subject turned into compiled regular expression pattern.
+     * @return subject subscribed to in compiled regexp form
+     */
+    public Pattern getSubjectPattern() {
+        return subjectPattern;
+    }
+
+    /**
      * Gets type subscribed to.
      * @return type subscribed to
      */
@@ -179,6 +186,14 @@ public class cMsgSubscription {
      public String getTypeRegexp() {
          return typeRegexp;
      }
+
+    /**
+     * Gets type turned into compiled regular expression pattern.
+     * @return type subscribed to in compiled regexp form
+     */
+    public Pattern getTypePattern() {
+        return typePattern;
+    }
 
     /**
      * Gets the id which client associates with a particular subject and type pair.
@@ -218,8 +233,9 @@ public class cMsgSubscription {
 
 
     /**
-     * Method to add a callback.
-     * @param cbThread  object containing callback, its argument, and the thread to run it
+     * Method to add a callback thread.
+     * @param cbThread  object containing callback thread, its argument,
+     *                  and the thread to run it
      */
     public void addCallback(cMsgCallbackThread cbThread) {
         callbacks.add(cbThread);
@@ -227,8 +243,8 @@ public class cMsgSubscription {
 
 
     /**
-     * Method to remove a callback.
-     * @param cbThread  object containing callback to be removed
+     * Method to remove a callback thread.
+     * @param cbThread  object containing callback thread to be removed
      */
     public void removeCallback(cMsgCallbackThread cbThread) {
         callbacks.remove(cbThread);
@@ -236,12 +252,13 @@ public class cMsgSubscription {
 
 
     /**
-     * Method to return the number of callbacks registered.
+     * Method to return the number of callback threads registered.
      * @return number of callback registered
      */
     public int numberOfCallbacks() {
         return callbacks.size();
     }
+
 
     //-------------------------------------------------------------------------
     // Methods for dealing with clients subscribed to the sub/type
@@ -341,5 +358,8 @@ public class cMsgSubscription {
 
     public Set<cMsgNotifier> getNotifiers() {
         return notifiers;
+    }
+    public int numberOfNotifiers() {
+        return (notifiers.size());
     }
 }
