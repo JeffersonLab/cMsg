@@ -16,13 +16,6 @@
 
 package org.jlab.coda.cMsg;
 
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgMessageFull;
-
-import java.io.IOException;
-import java.util.List;
-import java.nio.ByteBuffer;
-import java.nio.channels.SocketChannel;
 
 /**
  * This interface is an API for an object that a domain server
