@@ -12,7 +12,6 @@ JAVAC_FLAGS = -classpath $(TOPDIR)
 
 JAVA_OBJS = \
 	cMsgException.class \
-	cMsgWaitNotify.class \
 	cMsgMessage.class \
 	cMsgMessageFull.class \
 	cMsgMessageMatcher.class \
