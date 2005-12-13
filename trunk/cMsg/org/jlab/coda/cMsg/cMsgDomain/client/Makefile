@@ -10,8 +10,10 @@ INSTALL = $(TOPDIR)/install-sh -c
 JAVAC_FLAGS = -classpath $(TOPDIR)
 
 JAVA_OBJS = \
+	cMsgSendAndGetCallbackThread.class \
 	cMsgCallbackThread.class \
 	cMsgClientListeningThread.class \
+	cMsgServerClient.class \
 	cMsg.class
 
 all: $(JAVA_OBJS)

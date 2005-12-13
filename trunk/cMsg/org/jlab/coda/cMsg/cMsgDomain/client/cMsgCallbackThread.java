@@ -55,6 +55,8 @@ public class cMsgCallbackThread extends Thread {
     /** Setting this to true will kill this thread as soon as possible. */
     private volatile boolean dieNow;
 
+int myId;
+static int staticId;
 
     /** Kills this thread as soon as possible. */
     public void dieNow() {
@@ -101,6 +103,7 @@ public class cMsgCallbackThread extends Thread {
             cMsgMessageFull message;
             int empty;
 
+Thread.currentThread().setName("Callback Supplemental " + myId);
             while (true) {
                 empty = 0;
                 message = null;
@@ -140,6 +143,8 @@ public class cMsgCallbackThread extends Thread {
         messageCue    = new LinkedBlockingQueue<cMsgMessageFull>(callback.getMaximumCueSize());
         dumpList      = new ArrayList<cMsgMessageFull>(callback.getSkipSize());
         count         = 1;
+myId = staticId++;
+
         start();
     }
 
@@ -154,6 +159,7 @@ public class cMsgCallbackThread extends Thread {
         messageCue    = new LinkedBlockingQueue<cMsgMessageFull>(callback.getMaximumCueSize());
         dumpList      = new ArrayList<cMsgMessageFull>(callback.getSkipSize());
         count         = 1;
+myId = staticId++;
         start();
     }
 
@@ -166,14 +172,19 @@ public class cMsgCallbackThread extends Thread {
     public void sendMessage(cMsgMessageFull message) throws cMsgException {
         // if the cue is full ...
         if (!messageCue.offer(message)) {
+//System.out.println("CUE FULL");
             // if messages may not be skipped ...
             if (!callback.maySkipMessages()) {
                 try {
-                    // try for 0.1 seconds to add msg to cue
-                    if (!messageCue.offer(message, 100, TimeUnit.MILLISECONDS)) {
-                        // if no luck, throw exception
-                        throw new cMsgException("too many messages for callback to handle");
-                    }
+                    // Block trying to put msg on cue. That should propagate
+                    // back pressure through the whole cmsg system.
+                    messageCue.put(message);
+
+                    // The following has no back pressure but throws an exception
+                    //if (!messageCue.offer(message, 100, TimeUnit.MILLISECONDS)) {
+                    //    // if no luck, throw exception
+                    //    throw new cMsgException("too many messages for callback to handle");
+                    //}
                 }
                 catch (InterruptedException e) {
                     throw new cMsgException("too many messages for callback to handle");
@@ -183,12 +194,15 @@ public class cMsgCallbackThread extends Thread {
                 messageCue.drainTo(dumpList, callback.getSkipSize());
                 dumpList.clear();
                 messageCue.offer(message);
+//System.out.println("CUE DRAINED");
             }
         }
+//            try {Thread.sleep(1);}
+//            catch (InterruptedException e) {}
 
-        //if (messageCue.size() > 0 && messageCue.size() % 1000 == 0) {
-        //    System.out.println("" + messageCue.size());
-        //}
+//if (messageCue.size() > 0 && messageCue.size() % 100 == 0) {
+    //System.out.println("" + messageCue.size());
+//}
     }
 
 
@@ -196,6 +210,8 @@ public class cMsgCallbackThread extends Thread {
     public void run() {
         cMsgMessageFull message;
         int threadsAdded, threadsExisting, need, maxToAdd, wantToAdd;
+
+Thread.currentThread().setName("Callback " + myId);
 
         while (true) {
             threadsExisting = threads.get();

@@ -17,16 +17,13 @@
 package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgUtilities;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgHolder;
-import org.jlab.coda.cMsg.cMsgDomain.server.cMsgDomainServer;
 
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.Selector;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
-import java.nio.ByteBuffer;
 import java.io.*;
 import java.util.*;
 import java.net.Socket;
@@ -47,6 +44,9 @@ public class cMsgClientListeningThread extends Thread {
     /** cMsg client that created this object. */
     private cMsg client;
 
+    /** cMsg client that created this object. */
+    private cMsgServerClient serverClient;
+
     /** Server channel (contains socket). */
     private ServerSocketChannel serverChannel;
 
@@ -55,7 +55,7 @@ public class cMsgClientListeningThread extends Thread {
 
     /**
      * List of all ClientHandler objects. This list is used to
-     * end these threads nicley during a shutdown.
+     * end these threads nicely during a shutdown.
      */
     private ArrayList<ClientHandler> handlerThreads;
 
@@ -66,6 +66,9 @@ public class cMsgClientListeningThread extends Thread {
     public void killThread() {
         killThread = true;
     }
+
+int myId;
+static int staticId;
 
 
     /**
@@ -82,6 +85,20 @@ public class cMsgClientListeningThread extends Thread {
         handlerThreads = new ArrayList<ClientHandler>(2);
         // die if no more non-daemon thds running
         setDaemon(true);
+myId = staticId++;
+    }
+
+
+    /**
+     * Constructor which starts threads.
+     *
+     * @param myClient cMsg client that created this object
+     * @param channel suggested port on which to starting listening for connections
+     */
+    public cMsgClientListeningThread(cMsgServerClient myClient, ServerSocketChannel channel) {
+        this((cMsg)myClient, channel);
+        this.serverClient = myClient;
+myId = staticId++;
     }
 
 
@@ -97,6 +114,8 @@ public class cMsgClientListeningThread extends Thread {
 
     /** This method is executed as a thread. */
     public void run() {
+Thread.currentThread().setName("Client Listening " + myId);
+
         int id = 1;
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("Running Client Listening Thread");
@@ -208,6 +227,8 @@ public class cMsgClientListeningThread extends Thread {
         /** Does the server want an acknowledgment returned? */
         private boolean acknowledge;
 
+        int counter;
+
         /** Constructor. */
         ClientHandler(SocketChannel channel) {
             this.channel = channel;
@@ -258,7 +279,8 @@ public class cMsgClientListeningThread extends Thread {
 
                             break;
 
-                        case cMsgConstants.msgGetResponse: // receiving a message for sendAndGet
+                        case cMsgConstants.msgGetResponse:       // receiving a message for sendAndGet
+                        case cMsgConstants.msgServerGetResponse: // server receiving a message for sendAndGet
                             // read the message here
                             msg = readIncomingMessage();
                             msg.setGetResponse(true);
@@ -271,23 +293,12 @@ public class cMsgClientListeningThread extends Thread {
                             }
 
                             // wakeup caller with this message
-                            wakeGets(msg);
-
-                            break;
-
-                        case cMsgConstants.msgGetResponseIsNull: // receiving null for sendAndGet
-                            // read the id to be notified
-                            int token = readSenderToken();
-
-                            // if server wants an acknowledgment, send one back
-                            if (acknowledge) {
-                                // send ok back as acknowledgment
-                                out.writeInt(cMsgConstants.ok);
-                                out.flush();
+                            if (msgId == cMsgConstants.msgGetResponse) {
+                                wakeGets(msg);
                             }
-
-                            // wakeup caller with null
-                            wakeGets(token);
+                            else {
+                                runServerCallbacks(msg);
+                            }
 
                             break;
 
@@ -462,7 +473,7 @@ public class cMsgClientListeningThread extends Thread {
             return msg;
         }
 
-
+//BUG BUG should NOT throw exception here and interrupt IO
         /**
          * This method runs all appropriate callbacks - each in their own thread.
          * Different callbacks are run depending on the subject and type of the
@@ -478,6 +489,41 @@ public class cMsgClientListeningThread extends Thread {
                     System.out.println("runCallbacks: all callbacks have been stopped");
                 }
                 return;
+            }
+
+            if (client.subscribeAndGets.size() > 0) {
+//if (counter++ % 100000 == 0) {
+//    System.out.println(" skip");
+//}
+                // for each subscribeAndGet called by this client ...
+                cMsgHolder holder;
+                for (Iterator i = client.subscribeAndGets.values().iterator(); i.hasNext();) {
+                    holder = (cMsgHolder) i.next();
+                    if (cMsgMessageMatcher.matches(holder.subject, msg.getSubject(), true) &&
+                            cMsgMessageMatcher.matches(holder.type, msg.getType(), true)) {
+//System.out.println(" handle subscribeAndGet msg");
+
+                        holder.timedOut = false;
+                        holder.message = msg.copy();
+//System.out.println(" sending notify for subscribeAndGet");
+                        // Tell the get-calling thread to wakeup and retrieved the held msg
+/*
+                        try {
+                            synchronized (holder) {
+                                holder.notify();
+                                holder.wait();
+                            }
+                        }
+                        catch (InterruptedException e) {
+                        }
+*/
+
+                        synchronized (holder) {
+                            holder.notify();
+                        }
+                    }
+                    i.remove();
+                }
             }
 
             // handle subscriptions
@@ -498,7 +544,7 @@ public class cMsgClientListeningThread extends Thread {
                         if (msg.getSubject().matches(sub.getSubjectRegexp()) &&
                                 msg.getType().matches(sub.getTypeRegexp())) {
 //System.out.println("  handle send msg");
-
+//BUG BUG  Concurrent mod exception if regular sub and sub&get called by diff clients simultaneously
                             // run through all callbacks
                             for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
                                 // The callback thread copies the message given
@@ -511,26 +557,35 @@ public class cMsgClientListeningThread extends Thread {
                 }
             }
 
-            if (client.subscribeAndGets.size() < 1) return;
+        }
 
-            // for each subscribeAndGet called by this client ...
-            cMsgHolder holder;
-            for (Iterator i = client.subscribeAndGets.values().iterator(); i.hasNext();) {
-                holder = (cMsgHolder) i.next();
-                if (cMsgMessageMatcher.matches(holder.subject, msg.getSubject(), true) &&
-                        cMsgMessageMatcher.matches(holder.type, msg.getType(), true)) {
-//System.out.println(" handle subscribeAndGet msg");
 
-                    holder.timedOut = false;
-                    holder.message = msg.copy();
-//System.out.println(" sending notify for subscribeAndGet");
-                    // Tell the get-calling thread to wakeup and retrieved the held msg
-                    synchronized (holder) {
-                        holder.notify();
-                    }
+//BUG BUG should NOT throw exception here and interrupt IO
+        /**
+         * This method wakes up an active sendAndGet method and delivers a message to it.
+         *
+         * @param msg incoming message
+         */
+        private void runServerCallbacks(cMsgMessageFull msg) throws cMsgException {
+
+            // if gets have been stopped, return
+            if (!client.isReceiving()) {
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("wakeGets: all gets have been stopped");
                 }
-                i.remove();
+                return;
             }
+
+            cMsgSendAndGetCallbackThread cbThread =
+                    serverClient.serverSendAndGets.remove(msg.getSenderToken());
+
+            if (cbThread == null) {
+                return;
+            }
+
+            cbThread.sendMessage(msg);
+
+            return;
         }
 
 
@@ -566,38 +621,6 @@ public class cMsgClientListeningThread extends Thread {
             return;
         }
 
-
-        /**
-         * This method wakes up an active sendAndGet method and supplies
-         * a null message to the client associated with senderToken.
-         *
-         * @param senderToken sendAndGet caller to wake up
-         */
-        private void wakeGets(int senderToken) {
-
-            // if gets have been stopped, return
-            if (!client.isReceiving()) {
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("wakeGets: all gets have been stopped");
-                }
-                return;
-            }
-
-            cMsgHolder holder = client.sendAndGets.remove(senderToken);
-
-            if (holder == null) {
-                return;
-            }
-            holder.timedOut = false;
-            holder.message = null;
-
-            // Tell the get-calling thread to wakeup
-            synchronized (holder) {
-                holder.notify();
-            }
-
-            return;
-        }
     }
 
 
