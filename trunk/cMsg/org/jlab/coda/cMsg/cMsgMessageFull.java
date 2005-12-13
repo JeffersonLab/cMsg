@@ -224,8 +224,7 @@ public class cMsgMessageFull extends cMsgMessage {
 
     /**
      * Creates a proper response message to this message which was sent by a client calling
-     * sendAndGet. In this case, the response message is encoded so that the receiver of this
-     * message (original sendAndGet caller) does not receive a message at all, but only a null.
+     * sendAndGet. In this case, the response message is marked as a null response.
      *
      * @return message with the response fields properly set so original sender gets a null
      * @throws cMsgException if this message was not sent from a "sendAndGet" method call
@@ -248,6 +247,8 @@ public class cMsgMessageFull extends cMsgMessage {
 
     /**
      * Converts existing message to response of supplied message.
+     *
+     * @param msg message this message will be made a response to
      */
     public void makeResponse(cMsgMessageFull msg) {
         this.sysMsgId    = msg.getSysMsgId();
@@ -256,6 +257,11 @@ public class cMsgMessageFull extends cMsgMessage {
     }
 
 
+    /**
+     * Converts existing message to null response of supplied message.
+     *
+     * @param msg message this message will be made a null response to
+     */
     public void makeNullResponse(cMsgMessageFull msg) {
         this.sysMsgId    = msg.getSysMsgId();
         this.senderToken = msg.getSenderToken();

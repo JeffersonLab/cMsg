@@ -47,7 +47,7 @@ public class cMsgMessage implements Cloneable {
      */
     public static final int isGetResponse = 0x2;
     /**
-     * Is the response message null instead of a message? -- stored in 3rd bit of info.
+     * Is message null response to a sendAndGet? -- stored in 3rd bit of info.
      * This is only for internal use.
      */
     public static final int isNullGetResponse = 0x4;
@@ -229,8 +229,7 @@ public class cMsgMessage implements Cloneable {
 
     /**
      * Creates a proper response message to this message which was sent by a client calling
-     * sendAndGet. In this case, the response message is encoded so that the receiver of this
-     * message (original sendAndGet caller) does not receive a message at all, but only a null.
+     * sendAndGet. In this case, the response message is marked as a null response.
      *
      * @return message with the response fields properly set so original sender gets a null
      * @throws cMsgException if this message was not sent from a "sendAndGet" method call
@@ -252,6 +251,8 @@ public class cMsgMessage implements Cloneable {
 
     /**
      * Converts existing message to response of supplied message.
+     *
+     * @param msg message this message will be made a response to
      */
     public void makeResponse(cMsgMessage msg) {
         this.sysMsgId    = msg.getSysMsgId();
@@ -260,6 +261,11 @@ public class cMsgMessage implements Cloneable {
     }
 
 
+    /**
+     * Converts existing message to null response of supplied message.
+     *
+     * @param msg message this message will be made a null response to
+     */
     public void makeNullResponse(cMsgMessage msg) {
         this.sysMsgId    = msg.getSysMsgId();
         this.senderToken = msg.getSenderToken();
@@ -287,8 +293,8 @@ public class cMsgMessage implements Cloneable {
 
 
     /**
-     * Is this message a response to a "sendAndGet" request?
-     * @return true if this message is a response to a "sendAndGet" request.
+     * Is this message a response to a "sendAndGet" message?
+     * @return true if this message is a response to a "sendAndGet" message.
      */
     public boolean isGetResponse() {return ((info & isGetResponse) == isGetResponse ? true : false);}
     /**
@@ -301,17 +307,13 @@ public class cMsgMessage implements Cloneable {
 
 
     /**
-     * Is this message a response to a "sendAndGet" request with a null
-     * pointer to be delivered instead of this message?
-     * @return true if this message is a response to a "sendAndGet" request
-     *         with a null pointer to be delivered instead of this message
+     * Is this message a null response to a "sendAndGet" message?
+     * @return true if this message is a null response to a "sendAndGet" message
      */
     public boolean isNullGetResponse() {return ((info & isNullGetResponse) == isNullGetResponse ? true : false);}
     /**
-     * Specify whether this message is a response to a "sendAndGet" request with a null
-     * pointer to be delivered instead of this message.
-     * @param nullGetResponse true if this message is a response to a "sendAndGet" request
-     *                        with a null pointer to be delivered instead of this message
+     * Specify whether this message is a null response to a "sendAndGet" message.
+     * @param nullGetResponse true if this message is a null response to a "sendAndGet" message
      */
     public void setNullGetResponse(boolean nullGetResponse) {
         info = nullGetResponse ? info|isNullGetResponse : info & ~isNullGetResponse;
