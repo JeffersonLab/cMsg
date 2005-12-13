@@ -16,15 +16,6 @@
 
 package org.jlab.coda.cMsg;
 
-import org.jlab.coda.cMsg.cMsgDomain.cMsgUtilities;
-
-import java.util.List;
-import java.nio.channels.SocketChannel;
-import java.nio.ByteBuffer;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.InetSocketAddress;
-import java.net.Socket;
 
 /**
  * This class provides a very basic (non-functional/dummy) implementation
