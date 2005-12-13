@@ -49,10 +49,13 @@ public class cMsgHolder {
     /** Store server(s) to shutdown. */
     public String server;
 
-    /** Store id. */
+    /**
+     * Delay (miiliseconds) in cloud locking and client registration.
+     * Also used for holding subscribeAndGet timeout.
+     */
     public int delay;
 
-    /** Store id. */
+    /** In shutdown call, do we want to shut ourselves down or not. */
     public int flag;
 
     /** Store id. */
