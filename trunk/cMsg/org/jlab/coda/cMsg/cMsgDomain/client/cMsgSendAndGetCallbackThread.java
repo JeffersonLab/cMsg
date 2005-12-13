@@ -1,0 +1,110 @@
+/*----------------------------------------------------------------------------*
+ *  Copyright (c) 2005        Southeastern Universities Research Association, *
+ *                            Thomas Jefferson National Accelerator Facility  *
+ *                                                                            *
+ *    This software was developed under a United States Government license    *
+ *    described in the NOTICE file included as part of this distribution.     *
+ *                                                                            *
+ *    C. Timmer, 1-Dec-2005, Jefferson Lab                                    *
+ *                                                                            *
+ *     Author: Carl Timmer                                                    *
+ *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
+ *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
+ *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *                                                                            *
+ *----------------------------------------------------------------------------*/
+
+package org.jlab.coda.cMsg.cMsgDomain.client;
+
+import org.jlab.coda.cMsg.cMsgMessageFull;
+import org.jlab.coda.cMsg.cMsgCallbackInterface;
+import org.jlab.coda.cMsg.cMsgException;
+
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.SynchronousQueue;
+
+/**
+ * This class is a callback-running thread to be used with the enterprise-level
+ * implementation of sendAndGet.
+ */
+public class cMsgSendAndGetCallbackThread implements Runnable {
+    /** A single message to be passed to the callback. */
+     private SynchronousQueue<cMsgMessageFull> messageCue;
+
+     /** User argument to be passed to the callback. */
+     private Object arg;
+
+     /** Callback to be run. */
+     cMsgCallbackInterface callback;
+
+     /** Place to temporarily store the returned message from a get. */
+     cMsgMessageFull message;
+
+     /** Setting this to true will kill this thread as soon as possible. */
+     private volatile boolean dieNow;
+
+
+     /** Kills this thread as soon as possible. */
+     public void dieNow() {
+         dieNow = true;
+     }
+
+
+     /**
+      * Constructor used to pass an arbitrary argument to callback method.
+      * @param callback callback to be run when message arrives
+      * @param arg user-supplied argument for callback
+      */
+     cMsgSendAndGetCallbackThread(cMsgCallbackInterface callback, Object arg) {
+         this.callback = callback;
+         this.arg      = arg;
+         messageCue    = new SynchronousQueue<cMsgMessageFull>();
+     }
+
+
+     /**
+      * Set message to be given to the callback.
+      * @param message message to be passed to callback
+      * @throws org.jlab.coda.cMsg.cMsgException if there are too many messages to handle
+      */
+     public void sendMessage(cMsgMessageFull message) throws cMsgException {
+         try {
+             messageCue.put(message);
+         }
+         catch (InterruptedException e) {
+         }
+     }
+
+
+     /** This method is executed as a thread which runs the callback method */
+     public void run() {
+         cMsgMessageFull message;
+
+         while (true) {
+             message = null;
+
+             while (message == null) {
+                 // die immediately if commanded to
+                 if (dieNow) {
+                     return;
+                 }
+
+                 try {
+                     message = messageCue.poll(1000, TimeUnit.MILLISECONDS);
+                 }
+                 catch (InterruptedException e) {
+                 }
+             }
+
+             if (dieNow) {
+                 return;
+             }
+
+             // only callback gets message so don't bother to copy it
+             callback.callback(message, arg);
+
+             // end this thread after running callback
+             return;
+         }
+     }
+}
