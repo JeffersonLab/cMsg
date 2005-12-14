@@ -140,9 +140,9 @@ public class cMsgConstants {
     /** Respond to a "sendAndGet" request. */
     public static final int    msgGetResponse              =  20;
     /** Respond with message to the subscribe command. */
-    public static final int    msgSubscribeResponse        =  22;
+    public static final int    msgSubscribeResponse        =  21;
     /** Respond to a server's "sendAndGet" request. */
-    public static final int    msgServerGetResponse        =  23;
+    public static final int    msgServerGetResponse        =  22;
 
     // Codes sent by a server's "client" connection to another server
     // in the cMsg subdomain only
