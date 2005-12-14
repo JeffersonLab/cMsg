@@ -91,21 +91,21 @@ install-lib: $(CMSG_LIBSXX)
 	@echo "Installing CMSG C++ libraries in $(LIB_DIR)"
 	@for i in $(CMSG_LIBSXX); do \
 	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
+	   cp $$i $(LIB_DIR)/$$i; \
 	done;
 
 install-inc: $(HFILESXX)
 	@echo "Installing C++ includes in $(INC_DIR)"
 	@for i in $(HFILESXX); do \
 	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(INC_DIR)/$$i; \
+	   cp $$i $(INC_DIR)/$$i; \
 	done;
 
 install-bin: $(PROGSXX)
 	@echo "Installing C++ executables in $(BIN_DIR)"
 	@for i in $(PROGSXX); do \
 	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(BIN_DIR)/$$i; \
+	   cp $$i $(BIN_DIR)/$$i; \
 	done;
 
 # libraries

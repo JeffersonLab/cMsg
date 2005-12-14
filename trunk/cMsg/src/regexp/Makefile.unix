@@ -33,7 +33,7 @@ REGEX_LIBS = libcMsgRegex.so libcMsgRegex.a
 HFILES = regex.h
 
 SHLIB_LD = ld -G
-PROGS = main
+PROGS =
 
 # Internal stuff, should not need changing.
 OBJPRODN=regcomp.o regexec.o regerror.o regfree.o
@@ -64,14 +64,14 @@ install-lib: $(REGEX_LIBS)
 	@echo "Installing regular expression libraries in $(LIB_DIR)"
 	@for i in $(REGEX_LIBS); do \
 	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
+	   cp $$i $(LIB_DIR)/$$i; \
            done;
 
 install-inc: $(HFILES)
 	@echo "Installing includes in $(INC_DIR)"
 	@for i in $(HFILES); do \
 	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(INC_DIR)/$$i; \
+	   cp $$i $(INC_DIR)/$$i; \
            done;
            
 # various forms of cleanup

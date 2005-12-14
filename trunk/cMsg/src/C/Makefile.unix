@@ -67,21 +67,21 @@ install-lib: $(CMSG_LIBS)
 	@echo "Installing CMSG C libraries in $(LIB_DIR)"
 	@for i in $(CMSG_LIBS); do \
 	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
+	   cp $$i $(LIB_DIR)/$$i; \
 	 done;
 
 install-inc: $(HFILES)
 	@echo "Installing C includes in $(INC_DIR)"
 	@for i in $(HFILES); do \
 	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(INC_DIR)/$$i; \
+	   cp $$i $(INC_DIR)/$$i; \
 	 done;
 
 install-bin: $(PROGS)
 	@echo "Installing C executables in $(BIN_DIR)"
 	@for i in $(PROGS); do \
 	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(BIN_DIR)/$$i; \
+	   cp $$i $(BIN_DIR)/$$i; \
 	 done;
 
 # libraries
