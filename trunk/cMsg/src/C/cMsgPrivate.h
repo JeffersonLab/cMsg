@@ -221,7 +221,6 @@ enum requestMsgId {
 /** Responses sent to client from server. */
 enum responseMsgId {
   CMSG_GET_RESPONSE         = 20,    /**< SendAndGet response. */
-  CMSG_GET_RESPONSE_IS_NULL,         /**< Get response is NULL. */
   CMSG_SUBSCRIBE_RESPONSE            /**< Subscribe response. */
 };
 

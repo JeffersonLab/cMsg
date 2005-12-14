@@ -171,7 +171,6 @@ typedef struct mainThreadInfo_t {
 /* prototypes */
 int   cMsgRunCallbacks(int domainId, cMsgMessage *msg);
 int   cMsgWakeGet(int domainId, cMsgMessage *msg);
-int   cMsgWakeGetWithNull(int domainId, int senderToken);
 char *cMsgStringEscape(const char *s);
 int   cMsgStringMatches(char *regexp, const char *s);
 int   cMsgRegexpMatches(char *regexp, const char *s);

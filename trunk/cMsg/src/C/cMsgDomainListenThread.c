@@ -555,40 +555,6 @@ static void *clientThread(void *arg)
       }
       break;
 
-      case CMSG_GET_RESPONSE_IS_NULL:
-      {
-          int senderToken;
-          
-          if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "clientThread %d: subscribe is null response received\n", localCount);
-          }
-                    
-          if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
-            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread %d: error reading command\n", localCount);
-            }
-            goto end;
-          }
-
-          senderToken = ntohl(inComing[0]);
-          acknowledge = ntohl(inComing[1]);
-          
-          /* send back ok */
-          if (acknowledge) {
-            ok = htonl(CMSG_OK);
-            if (cMsgTcpWrite(connfd, (void *) &ok, sizeof(ok)) != sizeof(ok)) {
-              if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                fprintf(stderr, "clientThread %d: write failure\n", localCount);
-              }
-              goto end;
-            }
-          }       
-
-          /* wakeup get caller for this message */
-          cMsgWakeGetWithNull(domainId, senderToken);
-      }
-      break;
-
       case  CMSG_KEEP_ALIVE:
       {
         int alive;

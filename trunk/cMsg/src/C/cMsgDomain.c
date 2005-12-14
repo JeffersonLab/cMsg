@@ -2003,7 +2003,7 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
   int i, uniqueId, status;
   int len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int gotSpot, fd = domain->sendSocket;
-  int highInt, lowInt, outGoing[15];
+  int highInt, lowInt, outGoing[16];
   getInfo *info = NULL;
   struct timespec wait;
   char *creator;
@@ -2105,24 +2105,27 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
 
   /* length of "subject" string */
   lenSubject   = strlen(msg->subject);
-  outGoing[10]  = htonl(lenSubject);
+  outGoing[10] = htonl(lenSubject);
   /* length of "type" string */
   lenType      = strlen(msg->type);
   outGoing[11] = htonl(lenType);
+  
+  /* namespace length */
+  outGoing[12] = htonl(0);
   
   /* send creator (this sender's name if msg created here) */
   creator = msg->creator;
   if (creator == NULL) creator = domain->name;
   /* length of "creator" string */
   lenCreator   = strlen(creator);
-  outGoing[12] = htonl(lenCreator);
+  outGoing[13] = htonl(lenCreator);
   
   /* length of "text" string */
-  outGoing[13] = htonl(lenText);
+  outGoing[14] = htonl(lenText);
   
   /* length of byte array */
   lenByteArray = msg->byteArrayLength;
-  outGoing[14] = htonl(lenByteArray);
+  outGoing[15] = htonl(lenByteArray);
     
   /* total length of message (minus first int) is first item sent */
   len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType +
@@ -3948,56 +3951,6 @@ fprintf(stderr, "cMsgWakeGets: domainId = %d, uniqueId = %d, msg sender token = 
 /*fprintf(stderr, "cMsgWakeGets: match with msg token %d\n", msg->senderToken);*/
       /* pass msg to "get" */
       info->msg = msg;
-      info->msgIn = 1;
-
-      /* wakeup "get" */      
-      status = pthread_cond_signal(&info->cond);
-      if (status != 0) {
-        err_abort(status, "Failed get condition signal");
-      }
-    }
-  }
-  
-  return (CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine runs all the appropriate sendAndGet
- * callbacks when a NULL arrives from the server. 
- */
-int cMsgWakeGetWithNull(int domainId, int senderToken) {
-
-  int i, status;
-  getInfo *info;
-  cMsgDomain_CODA *domain;
-  
-  domain = &cMsgDomains[domainId];
-  
-  /* message receiption has been stopped */
-  if (domain->receiveState == 0) {
-    if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "cMsgWakeGetWithNull: message receiption has been stopped\n");
-    }
-    return (CMSG_OK);
-  }
- 
-  /* find the right get */
-  for (i=0; i<MAX_SEND_AND_GET; i++) {
-
-    info = &domain->sendAndGetInfo[i];
-
-    if (info->active != 1) {
-      continue;
-    }    
-    
-    /* if the id's match, wakeup the "get" for this sub/type */
-    if (info->id == senderToken) {
-      /* pass msg to "get" */
-      info->msg = NULL;
       info->msgIn = 1;
 
       /* wakeup "get" */      
