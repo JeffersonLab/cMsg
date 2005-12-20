@@ -52,8 +52,6 @@ SRCXX =	$(C_DIR)/rwlock.c \
 	$(C_DIR)/cMsg.c \
 	$(C_DIR)/cMsgDomainListenThread.c \
 	$(C_DIR)/cMsgDomain.c \
-        epics_server.cc \
-	cMsgCAGateway.cc \
 	cMsgWrapper.cc
 
 
@@ -64,8 +62,6 @@ OBJSXX = rwlock.o \
 	 cMsg.o \
 	 cMsgDomainListenThread.o \
 	 cMsgDomain.o \
-         epics_server.o \
-	 cMsgCAGateway.o \
 	 cMsgWrapper.o
 
 
@@ -125,8 +121,8 @@ clean:
 	rm -f core *~ *.o *.so *.a *.class $(PROGSXX)
 
 
-cMsgCAGateway: cMsgCAGateway.o epics_server.o
-	$(CXX) -o cMsgCAGateway $(CFLAGSXX) $< epics_server.o -L./ -L$(LIB_DIR) -lcmsgxx -lcMsgRegex -L$(EPICS_DIR) $(EPICS_LIB) $(LIBS)
+cMsgCAGateway: cMsgCAGateway.cc epics_server.cc
+	$(CXX) -o cMsgCAGateway $(CFLAGSXX) cMsgCAGateway.cc epics_server.cc -L./ -L$(LIB_DIR) -lcmsgxx -lcMsgRegex -L$(EPICS_DIR) $(EPICS_LIB) $(LIBS)
         
 
 
