@@ -301,11 +301,7 @@ void *cMsgClientListeningThread(void *arg)
     }
   }
   
-  /* BUG BUG: if thread is canceled, memory leak of threadArg */
-  
-  /* don't forget to free mem allocated for the argument passed to this routine */
-  free(threadArg);
-  
+ 
   /* on some operating systems (Linux) this call is necessary - calls cleanup handler */
   pthread_cleanup_pop(1);
   

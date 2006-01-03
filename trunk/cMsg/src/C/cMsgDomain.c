@@ -398,7 +398,10 @@ static int codaConnect(const char *myUDL, const char *myName, const char *myDesc
     }
     exit(-1);
   }
-     
+       
+  /* free mem allocated for the argument passed to listening thread */
+  free(threadArg);
+  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "codaConnect: created listening thread\n");
   }
@@ -2996,6 +2999,7 @@ static int codaDisconnect(int domainId) {
   sleep(1);
   
   /* free memory (non-NULL items), reset variables*/
+  free(msgBuffer);
   domainClear(domain);
   
   connectWriteUnlock();
