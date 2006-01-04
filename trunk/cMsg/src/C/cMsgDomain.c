@@ -2999,7 +2999,8 @@ static int codaDisconnect(int domainId) {
   sleep(1);
   
   /* free memory (non-NULL items), reset variables*/
-  free(msgBuffer);
+  if(msgBuffer!=NULL) free(msgBuffer);
+  msgBuffer=NULL;
   domainClear(domain);
   
   connectWriteUnlock();
@@ -3546,7 +3547,7 @@ static void *callbackThread(void *arg)
 
       /* run callback */
 #ifdef	__cplusplus
-      subscription->callback->callback(cMsgMessageBase(msg), subscription->userArg); 
+      subscription->callback->callback(new cMsgMessageBase(msg), subscription->userArg); 
 #else
       subscription->callback(msg, subscription->userArg);
 #endif
@@ -3686,7 +3687,7 @@ static void *supplementalThread(void *arg)
 
       /* run callback */
 #ifdef	__cplusplus
-      subscription->callback->callback(cMsgMessageBase(msg), subscription->userArg);
+      subscription->callback->callback(new cMsgMessageBase(msg), subscription->userArg);
 #else
       subscription->callback(msg, subscription->userArg);
 #endif
