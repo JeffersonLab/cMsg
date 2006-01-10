@@ -89,9 +89,9 @@ static int subjectTypeId = 1;
 
 
 /** Buffer for sending messages. */
-static char *msgBuffer;
+/* static char *msgBuffer;*/
 /** Size of buffer in bytes for sending messages. */
-static int msgBufferSize = 15000;
+static int initialMsgBufferSize = 15000;
 
 
 /* for c++ */
@@ -282,8 +282,9 @@ static int codaConnect(const char *myUDL, const char *myName, const char *myDesc
   }
 
   /* allocate memory for message-sending buffer */
-  msgBuffer = (char *) malloc(msgBufferSize);
-  if (msgBuffer == NULL) {
+  cMsgDomains[id].msgBuffer     = (char *) malloc(initialMsgBufferSize);
+  cMsgDomains[id].msgBufferSize = initialMsgBufferSize;
+  if (cMsgDomains[id].msgBuffer == NULL) {
     connectWriteUnlock();
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -655,11 +656,11 @@ static int codaSend(int domainId, void *vmsg) {
   socketMutexLock(domain);
 
   /* allocate more memory for message-sending buffer if necessary */
-  if (msgBufferSize < (int)(len+sizeof(int))) {
-    free(msgBuffer);
-    msgBufferSize = len + 1004; /* give us 1kB extra */
-    msgBuffer = (char *) malloc(msgBufferSize);
-    if (msgBuffer == NULL) {
+  if (domain->msgBufferSize < (int)(len+sizeof(int))) {
+    free(domain->msgBuffer);
+    domain->msgBufferSize = len + 1004; /* give us 1kB extra */
+    domain->msgBuffer = (char *) malloc(domain->msgBufferSize);
+    if (domain->msgBuffer == NULL) {
       socketMutexUnlock(domain);
       connectReadUnlock();
       return(CMSG_OUT_OF_MEMORY);
@@ -667,21 +668,21 @@ static int codaSend(int domainId, void *vmsg) {
   }
   
   /* copy data into a single static buffer */
-  memcpy(msgBuffer, (void *)outGoing, sizeof(outGoing));
+  memcpy(domain->msgBuffer, (void *)outGoing, sizeof(outGoing));
   len = sizeof(outGoing);
-  memcpy(msgBuffer+len, (void *)msg->subject, lenSubject);
+  memcpy(domain->msgBuffer+len, (void *)msg->subject, lenSubject);
   len += lenSubject;
-  memcpy(msgBuffer+len, (void *)msg->type, lenType);
+  memcpy(domain->msgBuffer+len, (void *)msg->type, lenType);
   len += lenType;
-  memcpy(msgBuffer+len, (void *)creator, lenCreator);
+  memcpy(domain->msgBuffer+len, (void *)creator, lenCreator);
   len += lenCreator;
-  memcpy(msgBuffer+len, (void *)msg->text, lenText);
+  memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
   len += lenText;
-  memcpy(msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
+  memcpy(domain->msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
   len += lenByteArray;   
   
   /* send data over socket */
-  if (cMsgTcpWrite(fd, (void *) msgBuffer, len) != len) {
+  if (cMsgTcpWrite(fd, (void *) domain->msgBuffer, len) != len) {
     socketMutexUnlock(domain);
     connectReadUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -991,11 +992,11 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
   socketMutexLock(domain);
 
   /* allocate more memory for message-sending buffer if necessary */
-  if (msgBufferSize < (int)(len+sizeof(int))) {
-    free(msgBuffer);
-    msgBufferSize = len + 1004; /* give us 1kB extra */
-    msgBuffer = (char *) malloc(msgBufferSize);
-    if (msgBuffer == NULL) {
+  if (domain->msgBufferSize < (int)(len+sizeof(int))) {
+    free(domain->msgBuffer);
+    domain->msgBufferSize = len + 1004; /* give us 1kB extra */
+    domain->msgBuffer = (char *) malloc(domain->msgBufferSize);
+    if (domain->msgBuffer == NULL) {
       socketMutexUnlock(domain);
       syncSendMutexUnlock(domain);
       connectReadUnlock();
@@ -1007,21 +1008,21 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
   }
   
   /* copy data into a single static buffer */
-  memcpy(msgBuffer, (void *)outGoing, sizeof(outGoing));
+  memcpy(domain->msgBuffer, (void *)outGoing, sizeof(outGoing));
   len = sizeof(outGoing);
-  memcpy(msgBuffer+len, (void *)msg->subject, lenSubject);
+  memcpy(domain->msgBuffer+len, (void *)msg->subject, lenSubject);
   len += lenSubject;
-  memcpy(msgBuffer+len, (void *)msg->type, lenType);
+  memcpy(domain->msgBuffer+len, (void *)msg->type, lenType);
   len += lenType;
-  memcpy(msgBuffer+len, (void *)creator, lenCreator);
+  memcpy(domain->msgBuffer+len, (void *)creator, lenCreator);
   len += lenCreator;
-  memcpy(msgBuffer+len, (void *)msg->text, lenText);
+  memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
   len += lenText;
-  memcpy(msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
+  memcpy(domain->msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
   len += lenByteArray;   
     
   /* send data over socket */
-  if (cMsgTcpWrite(fd, (void *) msgBuffer, len) != len) {
+  if (cMsgTcpWrite(fd, (void *) domain->msgBuffer, len) != len) {
     socketMutexUnlock(domain);
     syncSendMutexUnlock(domain);
     connectReadUnlock();
@@ -2139,11 +2140,11 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
   socketMutexLock(domain);
   
   /* allocate more memory for message-sending buffer if necessary */
-  if (msgBufferSize < (int)(len+sizeof(int))) {
-    free(msgBuffer);
-    msgBufferSize = len + 1004; /* give us 1kB extra */
-    msgBuffer = (char *) malloc(msgBufferSize);
-    if (msgBuffer == NULL) {
+  if (domain->msgBufferSize < (int)(len+sizeof(int))) {
+    free(domain->msgBuffer);
+    domain->msgBufferSize = len + 1004; /* give us 1kB extra */
+    domain->msgBuffer = (char *) malloc(domain->msgBufferSize);
+    if (domain->msgBuffer == NULL) {
       socketMutexUnlock(domain);
       connectReadUnlock();
       free(info->subject);
@@ -2159,21 +2160,21 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
   }
   
   /* copy data into a single static buffer */
-  memcpy(msgBuffer, (void *)outGoing, sizeof(outGoing));
+  memcpy(domain->msgBuffer, (void *)outGoing, sizeof(outGoing));
   len = sizeof(outGoing);
-  memcpy(msgBuffer+len, (void *)msg->subject, lenSubject);
+  memcpy(domain->msgBuffer+len, (void *)msg->subject, lenSubject);
   len += lenSubject;
-  memcpy(msgBuffer+len, (void *)msg->type, lenType);
+  memcpy(domain->msgBuffer+len, (void *)msg->type, lenType);
   len += lenType;
-  memcpy(msgBuffer+len, (void *)creator, lenCreator);
+  memcpy(domain->msgBuffer+len, (void *)creator, lenCreator);
   len += lenCreator;
-  memcpy(msgBuffer+len, (void *)msg->text, lenText);
+  memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
   len += lenText;
-  memcpy(msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
+  memcpy(domain->msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
   len += lenByteArray;   
     
   /* send data over socket */
-  if (cMsgTcpWrite(fd, (void *) msgBuffer, len) != len) {
+  if (cMsgTcpWrite(fd, (void *) domain->msgBuffer, len) != len) {
     socketMutexUnlock(domain);
     connectReadUnlock();
     free(info->subject);
@@ -4214,6 +4215,12 @@ static void domainInit(cMsgDomain_CODA *domain, int reInit) {
   
   domain->shutdownHandler    = NULL;
   domain->shutdownUserArg    = NULL;
+  
+  domain->msgBuffer          = NULL;
+  domain->msgBufferSize      = 0;
+
+  domain->msgInBuffer[0]     = NULL;
+  domain->msgInBuffer[1]     = NULL;
 
   for (i=0; i<MAX_SUBSCRIBE; i++) {
     subscribeInfoInit(&domain->subscribeInfo[i], reInit);
@@ -4341,12 +4348,15 @@ static void domainFree(cMsgDomain_CODA *domain) {
   int status;
 #endif
   
-  if (domain->myHost      != NULL) free(domain->myHost);
-  if (domain->sendHost    != NULL) free(domain->sendHost);
-  if (domain->serverHost  != NULL) free(domain->serverHost);
-  if (domain->name        != NULL) free(domain->name);
-  if (domain->udl         != NULL) free(domain->udl);
-  if (domain->description != NULL) free(domain->description);
+  if (domain->myHost           != NULL) free(domain->myHost);
+  if (domain->sendHost         != NULL) free(domain->sendHost);
+  if (domain->serverHost       != NULL) free(domain->serverHost);
+  if (domain->name             != NULL) free(domain->name);
+  if (domain->udl              != NULL) free(domain->udl);
+  if (domain->description      != NULL) free(domain->description);
+  if (domain->msgBuffer        != NULL) free(domain->msgBuffer);
+  if (domain->msgInBuffer[0]   != NULL) free(domain->msgInBuffer[0]);
+  if (domain->msgInBuffer[1]   != NULL) free(domain->msgInBuffer[1]);
   
 #ifdef sun
   /* cannot destroy mutexes in vxworks & Linux(?) */

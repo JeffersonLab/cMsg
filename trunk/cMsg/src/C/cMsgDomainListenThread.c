@@ -58,6 +58,7 @@ typedef struct cMsgClientThreadInfo_t {
 typedef struct cMsgThreadInfo_t {
   int connfd;   /**< Socket connection's file descriptor. */
   int domainId; /**< Index into the cMsgDomains array. */
+  int connectionNumber; /**< Number of connection to this listening port (starting at 0). */
   cMsgClientThreadInfo *clientInfo; /**< Pointer to client thread info of this thread. */
 } cMsgThreadInfo;
 
@@ -138,7 +139,7 @@ void *cMsgClientListeningThread(void *arg)
   mainThreadInfo *threadArg = (mainThreadInfo *) arg;
   int             listenFd  = threadArg->listenFd;
   int             blocking  = threadArg->blocking;
-  int             i, err, index, status;
+  int             i, err, index, status, connectionNumber=0;
   const int       on=1;
   fd_set          readSet;
   struct timeval  timeout;
@@ -243,8 +244,9 @@ void *cMsgClientListeningThread(void *arg)
     }
     
     /* set values to pass on to thread */
-    pinfo->domainId   = domainId;
-    pinfo->clientInfo = NULL;
+    pinfo->domainId         = domainId;
+    pinfo->clientInfo       = NULL;
+    pinfo->connectionNumber = connectionNumber++;
     index = -1;
     for (i=0; i<CMSG_CLIENTSMAX; i++) {
       if (clientThreads[i].isUsed == 0) {
@@ -316,7 +318,7 @@ void *cMsgClientListeningThread(void *arg)
 static void *clientThread(void *arg)
 {
   int  inComing[2];
-  int  err, ok, size, msgId, connfd, domainId, localCount=0;
+  int  err, ok, size, msgId, connfd, domainId, connectionNumber, localCount=0;
   cMsgThreadInfo *info;
   cMsgClientThreadInfo *clientInfo;
   int  con, bufSize;
@@ -330,10 +332,11 @@ static void *clientThread(void *arg)
   long long       totalC=0;
   */
   
-  info       = (cMsgThreadInfo *) arg;
-  domainId   = info->domainId;
-  connfd     = info->connfd;
-  clientInfo = info->clientInfo;
+  info             = (cMsgThreadInfo *) arg;
+  domainId         = info->domainId;
+  connfd           = info->connfd;
+  clientInfo       = info->clientInfo;
+  connectionNumber = info->connectionNumber;
   free(arg);
 
   /* increase concurrency for this thread */
@@ -352,7 +355,8 @@ static void *clientThread(void *arg)
       }
       exit(1);
   }
-  bufSize = 65536;
+  bufSize = 65536;  
+  cMsgDomains[domainId].msgInBuffer[connectionNumber] = buffer;
 
   /*--------------------------------------*/
   /* wait for and process client requests */
@@ -405,6 +409,7 @@ static void *clientThread(void *arg)
         goto end;
       }
       bufSize = size + 1000;
+      cMsgDomains[domainId].msgInBuffer[connectionNumber] = buffer;
     }
         
     /* extract command */
