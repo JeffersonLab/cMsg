@@ -3000,8 +3000,10 @@ static int codaDisconnect(int domainId) {
   sleep(1);
   
   /* free memory (non-NULL items), reset variables*/
+  /*
   if(msgBuffer!=NULL) free(msgBuffer);
   msgBuffer=NULL;
+  */
   domainClear(domain);
   
   connectWriteUnlock();
