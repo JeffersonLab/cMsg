@@ -154,14 +154,13 @@ public interface cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle shutdown request sent by domain client.
+     * Method to handle request to shutdown clients sent by domain client.
      *
      * @param client client(s) to be shutdown
-     * @param server server(s) to be shutdown
      * @param flag   flag describing the mode of shutdown
      * @throws cMsgException
      */
-    public void handleShutdownRequest(String client, String server, int flag)
+    public void handleShutdownClientsRequest(String client, int flag)
             throws cMsgException;
 
 
@@ -251,10 +250,10 @@ public interface cMsgSubdomainInterface {
 
     /**
      * Method to tell if the "shutdown" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleShutdownRequest}
+     * by this interface implementation in the {@link #handleShutdownClientsRequest}
      * method.
      *
-     * @return true if shutdown implemented in {@link #handleShutdownRequest}
+     * @return true if shutdown implemented in {@link #handleShutdownClientsRequest}
      */
     public boolean hasShutdown();
 }
