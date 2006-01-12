@@ -115,24 +115,26 @@ public class cMsgConstants {
     public static final int    msgDisconnectRequest            =  1;
     /** See if the process on the other end of the socket is still alive. */
     public static final int    msgKeepAlive                    =  2;
-    /** Shutdown various clients and servers. */
-    public static final int    msgShutdown                     =  3;
+    /** Shutdown various clients. */
+    public static final int    msgShutdownClients              =  3;
+    /** Shutdown various servers. */
+    public static final int    msgShutdownServers              =  4;
     /** Send a message. */
-    public static final int    msgSendRequest                  =  4;
+    public static final int    msgSendRequest                  =  5;
     /** Send a message with synchronous response. */
-    public static final int    msgSyncSendRequest              =  5;
+    public static final int    msgSyncSendRequest              =  6;
     /** Subscribe to messages. */
-    public static final int    msgSubscribeRequest             =  6;
+    public static final int    msgSubscribeRequest             =  7;
     /** Unsubscribe to messages. */
-    public static final int    msgUnsubscribeRequest           =  7;
+    public static final int    msgUnsubscribeRequest           =  8;
     /** Get a message with 1-shot subscribe. */
-    public static final int    msgSubscribeAndGetRequest       =  8;
+    public static final int    msgSubscribeAndGetRequest       =  9;
     /** Remove "subscribeAndGet" request. */
-    public static final int    msgUnsubscribeAndGetRequest     =  9;
+    public static final int    msgUnsubscribeAndGetRequest     = 10;
     /** Get a message from a responder of a sent message. */
-    public static final int    msgSendAndGetRequest            = 10;
+    public static final int    msgSendAndGetRequest            = 11;
     /** Remove "sendAndGet" request. */
-    public static final int    msgUnSendAndGetRequest          = 11;
+    public static final int    msgUnSendAndGetRequest          = 12;
 
     // Codes sent by the server to a client over the
     // network to specify a particular response.
@@ -179,10 +181,24 @@ public class cMsgConstants {
     public static final int    msgServerSendAndGetRequest        = 44;
     /** UnSendAndGet to a message by another server. */
     public static final int    msgServerUnSendAndGetRequest      = 45;
+    /** Shutdown various clients. */
+    public static final int    msgServerShutdownClients          = 46;
+    /** Shutdown various servers. */
+    public static final int    msgServerShutdownSelf             = 47;
 
-    // Flags for client's shutdown method.
+    // Flags for client's shutdown methods.
 
-    /** Do NOT exclude the client calling shutdown from being shutdown. */
+    /**
+     * For {@link org.jlab.coda.cMsg.cMsg#shutdownClients(String, int)},
+     * do NOT exclude the client calling shutdown from being shutdown.
+     */
     public static final int    includeMe = 1;
+
+    /**
+     * For {@link org.jlab.coda.cMsg.cMsg#shutdownServers(String, int)},
+     * do NOT exclude the server that the calling client is connected to
+     * from being shutdown.
+     */
+    public static final int    includeMyServer = 2;
 
 }
