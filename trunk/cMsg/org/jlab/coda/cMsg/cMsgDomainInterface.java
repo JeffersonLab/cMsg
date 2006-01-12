@@ -152,14 +152,24 @@ public interface cMsgDomainInterface {
     public void stop();
 
     /**
-     * Method to shutdown the given clients and/or servers.
+     * Method to shutdown the given clients.
+     * Wildcards used to match client names with the given string.
      *
      * @param client client(s) to be shutdown
+     * @param flag   flag describing the mode of shutdown
+     * @throws cMsgException
+     */
+    public void shutdownClients(String client, int flag) throws cMsgException;
+
+    /**
+     * Method to shutdown the given servers.
+     * Wildcards used to match client names with the given string.
+     *
      * @param server server(s) to be shutdown
      * @param flag   flag describing the mode of shutdown
      * @throws cMsgException
      */
-    public void shutdown(String client, String server, int flag) throws cMsgException;
+    public void shutdownServers(String server, int flag) throws cMsgException;
 
     /**
      * Method to set the shutdown handler of the client.
