@@ -117,7 +117,8 @@ static int   codaStart(int domainId);
 static int   codaStop(int domainId);
 static int   codaDisconnect(int domainId);
 static int   codaSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, void *userArg);
-static int   codaShutdown(int domainId, const char *client, const char *server, int flag);
+static int   codaShutdownClients(int domainId, const char *client, int flag);
+static int   codaShutdownServers(int domainId, const char *server, int flag);
 
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
@@ -126,7 +127,8 @@ static domainFunctions functions = {codaConnect, codaSend,
                                     codaSubscribe, codaUnsubscribe,
                                     codaSubscribeAndGet, codaSendAndGet,
                                     codaStart, codaStop, codaDisconnect,
-                                    codaShutdown, codaSetShutdownHandler};
+                                    codaShutdownClients, codaShutdownServers,
+                                    codaSetShutdownHandler};
 
 /* cMsg domain type */
 domainTypeInfo codaDomainTypeInfo = {
@@ -3060,11 +3062,10 @@ static int codaSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, vo
 
 
 /**
- * Method to shutdown the given clients and/or servers.
+ * Method to shutdown the given clients.
  *
  * @param domainId id number of the domain connection
  * @param client client(s) to be shutdown
- * @param server server(s) to be shutdown
  * @param flag   flag describing the mode of shutdown: 0 to not include self,
  *               CMSG_SHUTDOWN_INCLUDE_ME to include self in shutdown.
  * 
@@ -3074,12 +3075,12 @@ static int codaSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, vo
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */
-static int codaShutdown(int domainId, const char *client, const char *server, int flag) {
+static int codaShutdownClients(int domainId, const char *client, int flag) {
   
-  int len, cLen, sLen, outGoing[5];
+  int len, cLen, outGoing[4];
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   int fd = domain->sendSocket;
-  struct iovec iov[3];
+  struct iovec iov[2];
 
   if (!domain->hasShutdown) {
     return(CMSG_NOT_IMPLEMENTED);
@@ -3090,7 +3091,7 @@ static int codaShutdown(int domainId, const char *client, const char *server, in
   connectWriteLock();
     
   /* message id (in network byte order) to domain server */
-  outGoing[1] = htonl(CMSG_SHUTDOWN);
+  outGoing[1] = htonl(CMSG_SHUTDOWN_CLIENTS);
   outGoing[2] = htonl(flag);
   
   if (client == NULL) {
@@ -3102,17 +3103,8 @@ static int codaShutdown(int domainId, const char *client, const char *server, in
     outGoing[3] = htonl(cLen);
   }
   
-  if (server == NULL) {
-    sLen = 0;
-    outGoing[4] = 0;
-  }
-  else {
-    sLen = strlen(server);
-    outGoing[4] = htonl(sLen);
-  }
-
   /* total length of message (minus first int) is first item sent */
-  len = sizeof(outGoing) - sizeof(int) + cLen + sLen;
+  len = sizeof(outGoing) - sizeof(int) + cLen;
   outGoing[0] = htonl(len);
   
   iov[0].iov_base = (char*) outGoing;
@@ -3120,14 +3112,86 @@ static int codaShutdown(int domainId, const char *client, const char *server, in
 
   iov[1].iov_base = (char*) client;
   iov[1].iov_len  = cLen;
-
-  iov[2].iov_base = (char*) server;
-  iov[2].iov_len  = sLen;
   
   /* make send socket communications thread-safe */
   socketMutexLock(domain);
   
-  if (cMsgTcpWritev(fd, iov, 3, 16) == -1) {
+  if (cMsgTcpWritev(fd, iov, 2, 16) == -1) {
+    socketMutexUnlock(domain);
+    connectWriteUnlock();
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "codaUnsubscribe: write failure\n");
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+   
+  socketMutexUnlock(domain);  
+  connectWriteUnlock();
+
+  return CMSG_OK;
+
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * Method to shutdown the given servers.
+ *
+ * @param domainId id number of the domain connection
+ * @param server server(s) to be shutdown
+ * @param flag   flag describing the mode of shutdown: 0 to not include self,
+ *               CMSG_SHUTDOWN_INCLUDE_ME to include self in shutdown.
+ * 
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement shutdown
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
+ *                               since cMsgConnect() was never called
+ */
+static int codaShutdownServers(int domainId, const char *server, int flag) {
+  
+  int len, sLen, outGoing[4];
+  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  int fd = domain->sendSocket;
+  struct iovec iov[2];
+
+  if (!domain->hasShutdown) {
+    return(CMSG_NOT_IMPLEMENTED);
+  } 
+  
+  if (domain->initComplete != 1) return(CMSG_NOT_INITIALIZED);
+      
+  connectWriteLock();
+    
+  /* message id (in network byte order) to domain server */
+  outGoing[1] = htonl(CMSG_SHUTDOWN_SERVERS);
+  outGoing[2] = htonl(flag);
+  
+  if (server == NULL) {
+    sLen = 0;
+    outGoing[3] = 0;
+  }
+  else {
+    sLen = strlen(server);
+    outGoing[3] = htonl(sLen);
+  }
+
+  /* total length of message (minus first int) is first item sent */
+  len = sizeof(outGoing) - sizeof(int) + sLen;
+  outGoing[0] = htonl(len);
+  
+  iov[0].iov_base = (char*) outGoing;
+  iov[0].iov_len  = sizeof(outGoing);
+
+  iov[1].iov_base = (char*) server;
+  iov[1].iov_len  = sLen;
+  
+  /* make send socket communications thread-safe */
+  socketMutexLock(domain);
+  
+  if (cMsgTcpWritev(fd, iov, 2, 16) == -1) {
     socketMutexUnlock(domain);
     connectWriteUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {

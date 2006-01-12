@@ -731,26 +731,54 @@ int cMsgSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, void *use
 /*-------------------------------------------------------------------*/
 
 /**
- * Method to shutdown the given clients and/or servers.
+ * Method to shutdown the given clients.
  *
  * @param domainId id number of the domain connection
  * @param client client(s) to be shutdown
- * @param server server(s) to be shutdown
  * @param flag   flag describing the mode of shutdown: 0 to not include self,
  *               CMSG_SHUTDOWN_INCLUDE_ME to include self in shutdown.
  * 
  * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement shutdown
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
  * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
  * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
  */
-int cMsgShutdown(int domainId, const char *client, const char *server, int flag) {
+int cMsgShutdownClients(int domainId, const char *client, int flag) {
   
   int id = domainId - DOMAIN_ID_OFFSET;
 
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   if (flag != 0 && flag!= CMSG_SHUTDOWN_INCLUDE_ME) return(CMSG_BAD_ARGUMENT);
     
-  return(domains[id].functions->shutdown(domains[id].implId, client, server, flag));
+  return(domains[id].functions->shutdownClients(domains[id].implId, client, flag));
+
+}
+
+/*-------------------------------------------------------------------*/
+
+/**
+ * Method to shutdown the given servers.
+ *
+ * @param domainId id number of the domain connection
+ * @param server server(s) to be shutdown
+ * @param flag   flag describing the mode of shutdown: 0 to not include self,
+ *               CMSG_SHUTDOWN_INCLUDE_ME to include self in shutdown.
+ * 
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement shutdown
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
+ * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
+ */
+int cMsgShutdownServers(int domainId, const char *server, int flag) {
+  
+  int id = domainId - DOMAIN_ID_OFFSET;
+
+  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
+  if (flag != 0 && flag!= CMSG_SHUTDOWN_INCLUDE_ME) return(CMSG_BAD_ARGUMENT);
+    
+  return(domains[id].functions->shutdownServers(domains[id].implId, server, flag));
 
 }
 

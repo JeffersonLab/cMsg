@@ -34,7 +34,7 @@ int main(int argc,char **argv) {
   char *type    = "TYPE";
   char *text    = "TEXT";
   char *bytes   = NULL;
-  char *UDL     = "cMsg:cMsg://phecda:3456/cMsg/test";
+  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
   int   err, debug=1, domainId = -1, msgSize=0;
   void *msg, *replyMsg;
   
@@ -48,8 +48,10 @@ int main(int argc,char **argv) {
   timeout.tv_sec  = 3;
   timeout.tv_nsec = 0;    
   
-  sleeep.tv_sec  = 0;
-  sleeep.tv_nsec = 10000000; /* 10 millisec */
+/*  sleeep.tv_sec  = 0;
+  sleeep.tv_nsec = 10000000;*/ /* 10 millisec */
+  sleeep.tv_sec  = 2; /* 2 sec */
+  sleeep.tv_nsec = 0; 
   
   
   if (argc > 1) {

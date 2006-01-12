@@ -355,8 +355,10 @@ static void *clientThread(void *arg)
       }
       exit(1);
   }
-  bufSize = 65536;  
-  cMsgDomains[domainId].msgInBuffer[connectionNumber] = buffer;
+  bufSize = 65536;
+  if (connectionNumber < 2) {  
+    cMsgDomains[domainId].msgInBuffer[connectionNumber] = buffer;
+  }
 
   /*--------------------------------------*/
   /* wait for and process client requests */
@@ -409,7 +411,9 @@ static void *clientThread(void *arg)
         goto end;
       }
       bufSize = size + 1000;
-      cMsgDomains[domainId].msgInBuffer[connectionNumber] = buffer;
+      if (connectionNumber < 2) {  
+        cMsgDomains[domainId].msgInBuffer[connectionNumber] = buffer;
+      }
     }
         
     /* extract command */
@@ -575,7 +579,7 @@ static void *clientThread(void *arg)
       }
       break;
 
-      case  CMSG_SHUTDOWN:
+      case  CMSG_SHUTDOWN_CLIENTS:
       {
         if (cMsgTcpRead(connfd, &acknowledge, sizeof(acknowledge)) != sizeof(acknowledge)) {
           if (cMsgDebug >= CMSG_DEBUG_ERROR) {

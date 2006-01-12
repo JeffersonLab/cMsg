@@ -120,8 +120,11 @@ typedef struct domainFunctions_t {
   /** This function disconnects the client from its cMsg server. */
   int (*disconnect)      (int domainId);
   
-  /** This function shuts down the given clients and/or servers. */
-  int (*shutdown)        (int domainId, const char *client, const char *server, int flag);
+  /** This function shuts down the given clients. */
+  int (*shutdownClients) (int domainId, const char *client, int flag);
+  
+  /** This function shuts down the given servers. */
+  int (*shutdownServers) (int domainId, const char *server, int flag);
   
   /** This function sets the shutdown handler. */
   int (*setShutdownHandler) (int domainId, cMsgShutdownHandler *handler, void *userArg);
@@ -206,7 +209,8 @@ enum requestMsgId {
   CMSG_SERVER_CONNECT     = 0,       /**< Connect client to name server. */
   CMSG_SERVER_DISCONNECT,            /**< Disconnect client from name server. */
   CMSG_KEEP_ALIVE,                   /**< Tell me if you are alive. */
-  CMSG_SHUTDOWN,                     /**< Shutdown the server/client. */
+  CMSG_SHUTDOWN_CLIENTS,             /**< Shutdown clients. */
+  CMSG_SHUTDOWN_SERVERS,             /**< Shutdown servers. */
   CMSG_SEND_REQUEST,                 /**< Send request. */
   CMSG_SYNC_SEND_REQUEST,            /**< SyncSend request. */
   CMSG_SUBSCRIBE_REQUEST,            /**< Subscribe request. */

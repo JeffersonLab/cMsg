@@ -33,7 +33,6 @@ void mycallback(void *msg, void *arg) {
     struct timespec wait;
     /* Create a response to the incoming message */
     void *sendMsg = cMsgCreateResponseMessage(msg);
-    
     /*
      * If we've run out of memory, msg is NULL, or
      * msg was not sent from a sendAndGet() call,
@@ -43,7 +42,7 @@ void mycallback(void *msg, void *arg) {
         cMsgFreeMessage(msg);
         return;
     }
-    sleep(5);
+    /*sleep(1);*/
     cMsgSetSubject(sendMsg, "RESPONDING");
     cMsgSetType(sendMsg,"TO MESSAGE");
     cMsgSetText(sendMsg,"responder's text");
@@ -72,7 +71,7 @@ int main(int argc,char **argv) {
   char *myDescription = "C getresponder";
   char *subject = "SUBJECT";
   char *type    = "TYPE";
-  char *UDL     = "cMsg:cMsg://phecda:3456/cMsg/test";
+  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
   int   err, debug = 1, loops=0;
   cMsgSubscribeConfig *config;
 
@@ -107,8 +106,8 @@ int main(int argc,char **argv) {
     
   /* set the subscribe configuration */
   config = cMsgSubscribeConfigCreate();
-  cMsgSubscribeSetMaxCueSize(config, 10000);
-  cMsgSubscribeSetSkipSize(config, 2000);
+  cMsgSubscribeSetMaxCueSize(config, 1000);
+  cMsgSubscribeSetSkipSize(config, 200);
   cMsgSubscribeSetMaySkip(config, 0);
   cMsgSubscribeSetMustSerialize(config, 1);
   cMsgSubscribeSetMaxThreads(config, 10);

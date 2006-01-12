@@ -38,11 +38,11 @@ int main(int argc,char **argv) {
   char *text    = NULL;
   char *bytes   = NULL;
   char *UDL     = "cMsg:cMsg://phecda:3456/cMsg/test";
-  int   err, debug=1, domainId=-1, msgSize=0, mainloops=10;
+  int   err, debug=1, domainId=-1, msgSize=0, mainloops=200;
   void *msg;
   
   /* msg rate measuring variables */
-  int             dostring=0, count, i, delay=0, loops=10000, ignore=0;
+  int             dostring=0, count, i, delay=0, loops=100000, ignore=0;
   struct timespec t1, t2, sleeep;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
