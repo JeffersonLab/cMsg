@@ -384,15 +384,27 @@ public class cMsg {
     }
 
     /**
-     * Method to shutdown the given clients and/or servers.
+     * Method to shutdown the given clients.
+     * Wildcards used to match client names with the given string.
      *
      * @param client client(s) to be shutdown
+     * @param flag   flag describing the mode of shutdown
+     * @throws cMsgException
+     */
+    public void shutdownClients(String client, int flag) throws cMsgException {
+        connection.shutdownClients(client, flag);
+    }
+
+    /**
+     * Method to shutdown the given servers.
+     * Wildcards used to match client names with the given string.
+     *
      * @param server server(s) to be shutdown
      * @param flag   flag describing the mode of shutdown
      * @throws cMsgException
      */
-    public void shutdown(String client, String server, int flag) throws cMsgException {
-        connection.shutdown(client, server, flag);
+    public void shutdownServers(String server, int flag) throws cMsgException {
+        connection.shutdownClients(server, flag);
     }
 
     /**
