@@ -115,7 +115,8 @@ extern "C" {
   int 	cMsgReceiveStart   (int domainId);
   int 	cMsgReceiveStop    (int domainId);
   int 	cMsgDisconnect     (int domainId);
-  int   cMsgShutdown       (int domainId, const char *client, const char *server, int flag);
+  int   cMsgShutdownClients(int domainId, const char *client, int flag);
+  int   cMsgShutdownServers(int domainId, const char *server, int flag);
   char *cMsgPerror         (int errorCode);
   
   
