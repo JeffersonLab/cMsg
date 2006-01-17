@@ -22,6 +22,7 @@ import org.jlab.coda.cMsg.cMsgCallbackInterface;
 import org.jlab.coda.cMsg.cMsgConstants;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgNetworkConstants;
+import org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer;
 
 import java.util.Date;
 import java.util.Iterator;
@@ -42,6 +43,8 @@ import java.net.Socket;
  * @version 1.0
  */
 public class cMsgServerClient extends cMsg {
+    /** NameServer that this server client object resides in. */
+    private cMsgNameServer nameServer;
 
     /**
      * Collection of all of this server client's {@link #serverSendAndGet} calls,
@@ -50,6 +53,16 @@ public class cMsgServerClient extends cMsg {
      * Key is senderToken object, value is {@link org.jlab.coda.cMsg.cMsgDomain.cMsgHolder} object.
      */
     ConcurrentHashMap<Integer,cMsgSendAndGetCallbackThread> serverSendAndGets;
+
+    /**
+     * Collection of all Future objects from a client's {@link #serverSendAndGet} calls.
+     * These objects allow the cancellation of such a call currently in execution.
+     * Interrupting these threads directly seems to cause problems with the thread pool
+     * executor.
+     *
+     * Key is senderToken object, value is {@link Future} object.
+     */
+    ConcurrentHashMap<Integer,Future<Boolean>> serverSendAndGetCancel;
 
     /** A pool of threads to handle all the sendAndGetCallback threads. */
     private ThreadPoolExecutor sendAndGetCallbackThreadPool;
@@ -66,11 +79,14 @@ System.out.println("REJECT HANDLER: start new sendAndGet callback thread");
     }
 
 
-    public cMsgServerClient() throws cMsgException {
+    public cMsgServerClient(cMsgNameServer nameServer) throws cMsgException {
         super();
-        serverSendAndGets = new ConcurrentHashMap<Integer,cMsgSendAndGetCallbackThread>(20);
-        // Run up to 3 threads with no queue. Wait 2 min before terminating
-        // extra (more than 1) unused threads. Overflow tasks spawn independent
+        this.nameServer = nameServer;
+
+        serverSendAndGets      = new ConcurrentHashMap<Integer,cMsgSendAndGetCallbackThread>(20);
+        serverSendAndGetCancel = new ConcurrentHashMap<Integer,Future<Boolean>>(20);
+        // Run up to 5 threads with no queue. Wait 2 min before terminating
+        // extra (more than 5) unused threads. Overflow tasks spawn independent
         // threads.
         sendAndGetCallbackThreadPool =
                 new ThreadPoolExecutor(5, 5, 120L, TimeUnit.SECONDS,
@@ -198,7 +214,10 @@ System.out.println("REJECT HANDLER: start new sendAndGet callback thread");
             try {
                 // Returns list of servers that the server we're
                 // connecting to is already connected with.
-                serverSet = talkToNameServerFromServer(channel, fromNameServerPort, isOriginator);
+                serverSet = talkToNameServerFromServer(channel,
+                                                       nameServer.getCloudStatus(),
+                                                       fromNameServerPort,
+                                                       isOriginator);
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
@@ -317,10 +336,11 @@ System.out.println("REJECT HANDLER: start new sendAndGet callback thread");
 
             // create callback thread
             cMsgSendAndGetCallbackThread thd = new cMsgSendAndGetCallbackThread(cb, namespace);
+            // run callback thread in thread pool
+            Future<Boolean> future = sendAndGetCallbackThreadPool.submit(thd);
             // track specific get requests
             serverSendAndGets.put(id, thd);
-            // run callback thread in thread pool
-            sendAndGetCallbackThreadPool.execute(thd);
+            serverSendAndGetCancel.put(id, future);
 
             // this sender's creator if msg created here
             String msgCreator = message.getCreator();
@@ -408,15 +428,17 @@ System.out.println("REJECT HANDLER: start new sendAndGet callback thread");
 
         // Kill off callback thread waiting for a response.
         cMsgSendAndGetCallbackThread thd = serverSendAndGets.remove(id);
+        Future<Boolean> future = serverSendAndGetCancel.remove(id);
         if (thd != null) {
-            thd.dieNow();
+//System.out.println("serverUnSendAndGet: tell cb thread to DIE");
+            future.cancel(true);
         }
         else {
             // There's a chance 2 unSendAndGets may be sent if a get
             // response is on its way and fires the notifier just before
             // the sendAndGet times out and sends its own unSendAndGet.
             // In this case, ignore it and return;
-//System.out.println("serverUnSendAndGet: nothing to undo");
+System.out.println("serverUnSendAndGet: nothing to undo");
             return;
         }
 
@@ -603,7 +625,8 @@ static int subAddingCounter=0;
      * @param cb      callback object whose single method is called upon receiving a message
      *                of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
-     * @throws cMsgException if there are communication problems with the server
+     * @throws cMsgException if the callback, subject, or type is null; the subject or type is
+     *                       blank; there are communication problems with the server
      */
     public void serverUnsubscribe(String subject, String type, String namespace,
                                   cMsgCallbackInterface cb, Object userObj)
@@ -741,6 +764,227 @@ System.out.println("br cli serverUnsubscribe: NO SUB TO UNSUBSCRIBE");
             subscribeLock.unlock();
             notConnectLock.unlock();
         }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to shutdown the given clients.
+     * Wildcards used to match client names with the given string.
+     *
+     * @param client client(s) to be shutdown
+     * @param flag   flag describing the mode of shutdown
+     * @throws cMsgException if there are communication problems with the server
+     */
+    public void serverShutdownClients(String client, int flag) throws cMsgException {
+        // cannot run this simultaneously with any other public method
+//BUGBUG true??
+        connectLock.lock();
+        try {
+            if (!connected) {
+                throw new cMsgException("not connected to server");
+            }
+
+            // make sure null args are sent as blanks
+            if (client == null) {
+                client = new String("");
+            }
+
+            socketLock.lock();
+            try {
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(3*4 + client.length());
+                domainOut.writeInt(cMsgConstants.msgServerShutdownClients);
+                domainOut.writeInt(flag);
+                domainOut.writeInt(client.length());
+
+                // write string
+                try {
+                    domainOut.write(client.getBytes("US-ASCII"));
+                }
+                catch (UnsupportedEncodingException e) {}
+            }
+            finally {
+                socketLock.unlock();
+            }
+
+            domainOut.flush();
+
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
+        }
+        finally {
+            connectLock.unlock();
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to shutdown the server connected to.
+     *
+     * @throws cMsgException if there are communication problems with the server
+     */
+    public void serverShutdown() throws cMsgException {
+        // cannot run this simultaneously with any other public method
+//BUGBUG true??
+        connectLock.lock();
+        try {
+            if (!connected) {
+                throw new cMsgException("not connected to server");
+            }
+
+            socketLock.lock();
+            try {
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4);
+                domainOut.writeInt(cMsgConstants.msgServerShutdownSelf);
+            }
+            finally {
+                socketLock.unlock();
+            }
+
+            domainOut.flush();
+
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
+        }
+        finally {
+            connectLock.unlock();
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * This method gets the host and port of the domain server from the name server.
+     * It also gets information about the subdomain handler object.
+     * Note to those who would make changes in the protocol, keep the first three
+     * ints the same. That way the server can reliably check for mismatched versions.
+     *
+     * @param channel nio socket communication channel
+     * @param fromNameServerPort port of name server calling this method
+     * @param isOriginator true if originating the connection between the 2 servers and
+     *                     false if this is the response or reciprocal connection.
+     * @throws IOException if there are communication problems with the name server
+     */
+    HashSet<String> talkToNameServerFromServer(SocketChannel channel,
+                                               int cloudStatus,
+                                               int fromNameServerPort,
+                                               boolean isOriginator)
+            throws IOException, cMsgException {
+        byte[] buf = new byte[512];
+
+        DataInputStream  in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream()));
+        DataOutputStream out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream()));
+
+        out.writeInt(cMsgConstants.msgServerConnectRequest);
+        out.writeInt(cMsgConstants.version);
+        out.writeInt(cMsgConstants.minorVersion);
+        // This client's listening port
+        out.writeInt(port);
+        // What relationship does this server have to the server cloud?
+        // Can be INCLOUD, NONCLOUD, or BECOMINGCLOUD.
+        out.writeByte(cloudStatus);
+        // Is this client originating the connection or making a reciprocal one?
+        out.writeByte(isOriginator ? 1 : 0);
+        // This name server's listening port
+        out.writeInt(fromNameServerPort);
+        // Length of local host name
+        out.writeInt(host.length());
+
+        // write strings & byte array
+        try {
+            out.write(host.getBytes("US-ASCII"));
+        }
+        catch (UnsupportedEncodingException e) {}
+
+//System.out.println("        << CL: Write ints & host");
+        out.flush(); // no need to be protected by socketLock
+
+        // read acknowledgment
+        int error = in.readInt();
+
+        // if there's an error, read error string then quit
+        if (error != cMsgConstants.ok) {
+
+//System.out.println("        << CL: Read error");
+            // read string length
+            int len = in.readInt();
+            if (len > buf.length) {
+                buf = new byte[len+100];
+            }
+
+            // read error string
+            in.readFully(buf, 0, len);
+            String err = new String(buf, 0, len, "US-ASCII");
+//System.out.println("        << CL: Error = " + err);
+
+            throw new cMsgException("Error from server: " + err);
+        }
+
+        // read cloud status of sending server
+        //int cloudStatus  = in.readInt();
+
+        // read port & length of host name
+        domainServerPort = in.readInt();
+        int hostLength   = in.readInt();
+
+        // read host name
+        if (hostLength > buf.length) {
+            buf = new byte[hostLength];
+        }
+        in.readFully(buf, 0, hostLength);
+        domainServerHost = new String(buf, 0, hostLength, "US-ASCII");
+
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("        << CL: domain server host = " + domainServerHost +
+                               ", port = " + domainServerPort);
+        }
+
+        // return list of servers
+        HashSet<String> s = null;
+
+        // First, get the number of servers
+        int numServers = in.readInt();
+
+        // Second, for each server name, get string length then string
+        if (numServers > 0) {
+//System.out.println("        << CL: Try reading server names ...");
+            s = new HashSet<String>(numServers);
+            int serverNameLength;
+            String serverName;
+
+            for (int i = 0; i < numServers; i++) {
+                serverNameLength = in.readInt();
+                byte[] bytes = new byte[serverNameLength];
+                in.readFully(bytes, 0, serverNameLength);
+                serverName = new String(bytes, 0, serverNameLength, "US-ASCII");
+//System.out.println("        << CL: Got server \"" + serverName + "\" from server");
+                s.add(serverName);
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("  server = " + serverName);
+                }
+            }
+        }
+
+        hasSend            = true;
+        hasSyncSend        = true;
+        hasSubscribeAndGet = true;
+        hasSendAndGet      = true;
+        hasSubscribe       = true;
+        hasUnsubscribe     = true;
+        hasShutdown        = true;
+
+        return s;
     }
 
 
