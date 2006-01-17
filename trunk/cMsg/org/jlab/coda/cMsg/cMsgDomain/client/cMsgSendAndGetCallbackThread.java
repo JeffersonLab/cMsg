@@ -22,12 +22,13 @@ import org.jlab.coda.cMsg.cMsgException;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.Callable;
 
 /**
  * This class is a callback-running thread to be used with the enterprise-level
  * implementation of sendAndGet.
  */
-public class cMsgSendAndGetCallbackThread implements Runnable {
+public class cMsgSendAndGetCallbackThread implements Callable {
     /** A single message to be passed to the callback. */
      private SynchronousQueue<cMsgMessageFull> messageCue;
 
@@ -39,15 +40,6 @@ public class cMsgSendAndGetCallbackThread implements Runnable {
 
      /** Place to temporarily store the returned message from a get. */
      cMsgMessageFull message;
-
-     /** Setting this to true will kill this thread as soon as possible. */
-     private volatile boolean dieNow;
-
-
-     /** Kills this thread as soon as possible. */
-     public void dieNow() {
-         dieNow = true;
-     }
 
 
      /**
@@ -77,34 +69,22 @@ public class cMsgSendAndGetCallbackThread implements Runnable {
 
 
      /** This method is executed as a thread which runs the callback method */
-     public void run() {
-         cMsgMessageFull message;
+     public Boolean call() {
+         cMsgMessageFull message = null;
 
-         while (true) {
-             message = null;
-
-             while (message == null) {
-                 // die immediately if commanded to
-                 if (dieNow) {
-                     return;
-                 }
-
-                 try {
-                     message = messageCue.poll(1000, TimeUnit.MILLISECONDS);
-                 }
-                 catch (InterruptedException e) {
-                 }
-             }
-
-             if (dieNow) {
-                 return;
-             }
+         try {
+             message = messageCue.take();
 
              // only callback gets message so don't bother to copy it
              callback.callback(message, arg);
 
              // end this thread after running callback
-             return;
+             return Boolean.TRUE;
+         }
+         catch (InterruptedException e) {
+//System.out.println("INTERRUPTED S&G callback thread");
+             return Boolean.FALSE;
          }
      }
+
 }
