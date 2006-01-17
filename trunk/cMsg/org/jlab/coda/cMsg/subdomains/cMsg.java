@@ -234,10 +234,10 @@ public class cMsg extends cMsgSubdomainAdapter {
 
     /**
      * Method to tell if the "shutdown" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleShutdownRequest}
+     * by this interface implementation in the {@link #handleShutdownClientsRequest}
      * method.
      *
-     * @return true if shutdown implemented in {@link #handleShutdownRequest}
+     * @return true if shutdown implemented in {@link #handleShutdownClientsRequest}
      */
     public boolean hasShutdown() {
         return true;
@@ -395,7 +395,7 @@ public class cMsg extends cMsgSubdomainAdapter {
      *                          or socket properties cannot be set
      */
     synchronized public void localSend(cMsgMessage message, String namespace) throws cMsgException {
-//System.out.println("IN bridgeSend!!!");
+//System.out.println("\nIN localSend\n");
         if (message == null) return;
 
         sendToSet.clear();
@@ -405,22 +405,26 @@ public class cMsg extends cMsgSubdomainAdapter {
             int id = message.getSysMsgId();
             // Recall the client who originally sent the get request
             // and remove the item from the hashtable
-//System.out.println(" localSend, get rid of (send msg to) send&Get id = " + id);
+//System.out.println(" localSend, get rid of send&Get id = " + id);
             deleteGets.remove(id);
             GetInfo gi = specificGets.remove(id);
             cMsgClientInfo info = null;
             if (gi != null) {
+//System.out.println("          , got a specific Gets object");
                 info = gi.info;
             }
 
             // If this is the first response to a sendAndGet ...
             if (info != null) {
                 try {
-//System.out.println(" handle send msg for send&get to " + info.getName());
+//System.out.println(" localSend: handle send msg for send&get to " + info.getName());
                     // fire notifier
                     if (gi.notifier != null) {
-//System.out.println(" localSend, fire notifier for send&Get response");
+//System.out.println("          , fire notifier for send&Get response");
                         gi.notifier.latch.countDown();
+                    }
+                    else {
+//System.out.println("          , NO notifier");
                     }
                     // deliver message
                     info.getDeliverer().deliverMessage(message, cMsgConstants.msgGetResponse);
@@ -521,7 +525,7 @@ public class cMsg extends cMsgSubdomainAdapter {
      *                          or socket properties cannot be set
      */
     synchronized public void handleSendRequest(cMsgMessageFull message) throws cMsgException {
-//System.out.println("\nhandleSendRequest(subdh): REGULAR SEND\n");
+//System.out.println("\nIN REGULAR SEND\n");
         if (message == null) return;
 
         sendToSet.clear();
@@ -531,16 +535,26 @@ public class cMsg extends cMsgSubdomainAdapter {
             int id = message.getSysMsgId();
             // Recall the client who originally sent the get request
             // and remove the item from the hashtable
+//System.out.println(" Reg subdh handleSendRequest, get rid of send&Get id = " + id);
             deleteGets.remove(id);
             GetInfo gi = specificGets.remove(id);
             cMsgClientInfo info = null;
             if (gi != null) {
+//System.out.println("                          , got a specific Gets object");
                 info = gi.info;
             }
 
             // If this is the first response to a sendAndGet ...
             if (info != null) {
                 int flag = 0;
+
+                if (gi.notifier != null) {
+//System.out.println("                          , fire notifier for send&Get response");
+                    gi.notifier.latch.countDown();
+                }
+                else {
+//System.out.println("                          , NO notifier");
+                }
 
                 if (info.isServer()) {
                     flag = cMsgConstants.msgServerGetResponse;
@@ -1179,15 +1193,13 @@ System.out.println("handleUnSend&GetRequest: FIRE NOTIFIER & get rid of send&G d
 
 
     /**
-     * Method to handle shutdown request sent by domain client.
+     * Method to handle request to shutdown clients sent by domain client.
      *
      * @param client client(s) to be shutdown
-     * @param server server(s) to be shutdown
      * @param flag   flag describing the mode of shutdown
      * @throws cMsgException
      */
-    public void handleShutdownRequest(String client, String server,
-                                      int flag) throws cMsgException {
+    public void handleShutdownClientsRequest(String client, int flag) throws cMsgException {
 
 //System.out.println("dHandler: try to kill client " + client);
         // Match all clients that need to be shutdown.
@@ -1205,7 +1217,7 @@ System.out.println("handleUnSend&GetRequest: FIRE NOTIFIER & get rid of send&G d
                 try {
 //System.out.println("  dHandler: deliver shutdown message to client " + clientName);
                     info = clients.get(clientName);
-                    info.getDeliverer().deliverMessage(null, cMsgConstants.msgShutdown);
+                    info.getDeliverer().deliverMessage(null, cMsgConstants.msgShutdownClients);
                 }
                 catch (IOException e) {
                     if (debug >= cMsgConstants.debugError) {

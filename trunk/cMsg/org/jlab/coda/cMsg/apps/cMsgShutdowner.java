@@ -113,10 +113,10 @@ public class cMsgShutdowner {
         coda.setShutdownHandler(new myShutdownHandler());
 
         // if we want to shutdown ourselves, then call ...
-        coda.shutdown(name, null, cMsgConstants.includeMe);
+        coda.shutdownClients(name, cMsgConstants.includeMe);
 
         // shutdown specified client
-        //coda.shutdown(client, null, 0);
+        //coda.shutdownClients(client, 0);
 
         try {Thread.sleep(5000);}
         catch (InterruptedException e) {}
