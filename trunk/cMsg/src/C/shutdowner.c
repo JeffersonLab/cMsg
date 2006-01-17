@@ -58,7 +58,7 @@ int main(int argc,char **argv) {
   printf("Kill myself now\n");
 
   /* tell client "shutdowner" (including me) to shutdown */
-  err = cMsgShutdown(domainId, "shutdowner", NULL, CMSG_SHUTDOWN_INCLUDE_ME);
+  err = cMsgShutdownClients(domainId, "shutdowner", CMSG_SHUTDOWN_INCLUDE_ME);
   if (err != CMSG_OK) {
       printf("cMsgShutdown: %s\n",cMsgPerror(err));
       exit(1);
