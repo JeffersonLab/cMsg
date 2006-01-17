@@ -29,37 +29,30 @@ import java.io.IOException;
  */
 public class cMsgServerBridge {
 
-    /** Client of cMsg server this object is a bridge to. It is the means of connection. */
-    private org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient client;
-
-    /** Name of cMsg server ("host:port") this server is connected to. */
-    String server;
-
-    /** The cloud status of the cMsg server this server is connected to. */
-    volatile int cloudStatus = cMsgNameServer.UNKNOWNCLOUD;
-
-    /**
-     * Did this server originate the connection/bridge between this server
-     * and the one this bridge is to? Or was the bridge created in
-     * response to an originating connection? This information is necessary
-     * to avoid infinite loops when connecting two servers to each other.
-     */
-    boolean isOriginator;
-
-    /** The port this name server is listening on. */
-    int port;
-
     /** Reference to subdomain handler object for use by all bridges in this server. */
     static private org.jlab.coda.cMsg.subdomains.cMsg subdomainHandler = new org.jlab.coda.cMsg.subdomains.cMsg();
 
     /** Need 1 callback for all subscriptions. */
-    static SubscribeCallback subCallback = new SubscribeCallback();
+    static private SubscribeCallback subCallback = new SubscribeCallback();
+
+    /** Client of cMsg server this object is a bridge to. It is the means of connection. */
+    private org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient client;
+
+    /** Name of cMsg server ("host:port") this server is connected to. */
+    String serverName;
+
+    /** The cloud status of the cMsg server this server is connected to. */
+    private volatile int cloudStatus = cMsgNameServer.UNKNOWNCLOUD;
+
+    /** The port this name server is listening on. */
+    private int port;
 
     /**
      * Map to store a sendAndGet id of the originating cMsg server and the corresponding
      * id of the propagated sendAndGet in the server connected to this bridge.
      */
     private ConcurrentHashMap<Integer,Integer> idStorage;
+
 
     /**
      * This class defines the callback to be run when a message matching
@@ -101,67 +94,12 @@ public class cMsgServerBridge {
 
 //-----------------------------------------------------------------------------
 
-
     /**
-     * This class defines the callback to be run when a message matching
-     * our subscription arrives from a bridge connection and must be
-     * passed on to a client(s).
+     * This method returns a reference to the one callback needed for
+     * subscribes and subscribeAndGets to propogate messages back to
+     * original client.
+     * @return callback object for propogating messages back to original client
      */
-    static class SubscribeAndGetCallback extends cMsgCallbackAdapter {
-        // We only want this callback to be run ONCE as it tries
-        // to emulate a subscribeAndGet call which only lasts
-        // for 1 message.
-        AtomicBoolean skip = new AtomicBoolean(false);
-
-        /**
-         * Callback which passes on a message to other clients.
-         *
-         * @param msg message received from domain server
-         * @param userObject in this case the original msg sender's namespace.
-         */
-        public void callback(cMsgMessage msg, Object userObject) {
-//System.out.println("In sub&Get callback!!!");
-            // If skip's current value is false, set it to true (atomically).
-            // If skip's current value is NOT false, return.
-            if (!skip.compareAndSet(false,true)) {
-                return;
-            }
-
-            String namespace = (String) userObject;
-
-            try {
-
-                // check for null text
-                if (msg.getText() == null) {
-                    msg.setText("");
-                }
-                // pass this message on to local clients
-                subdomainHandler.localSend(msg, namespace);
-            }
-            catch (cMsgException e) {
-                e.printStackTrace();
-            }
-        }
-
-        // We're only interested in getting 1 message so ignore the rest.
-        public boolean maySkipMessages() {
-            return true;
-        }
-
-        public int getMaximumCueSize() {
-            return 1000;
-        }
-
-        public int getSkipSize() {
-            return 1000;
-        }
-
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
     static public cMsgCallbackAdapter getSubAndGetCallback() {
         return subCallback;
     }
@@ -171,19 +109,15 @@ public class cMsgServerBridge {
 
 
     /**
-     * This class defines the callback to be run when a message matching
-     * our subscription arrives from a bridge connection and must be
-     * passed on to a client(s).
+     * This class defines the callback to be run when a sendAndGet response message
+     * arrives from a bridge connection and must be passed on to a client(s).
      */
     static class SendAndGetCallback extends cMsgCallbackAdapter {
         /** Send messges's senderToken on this server. */
         int id;
         /** Send message's sysMsgId on this server. */
         int sysMsgId;
-        /**
-         * Allow this callback to skip extra incoming messages since
-         * only one is needed.
-         */
+        /** Allow this callback to skip extra incoming messages since only one is needed.  */
         AtomicBoolean skip = new AtomicBoolean(false);
 
         /**
@@ -241,7 +175,7 @@ public class cMsgServerBridge {
 //-----------------------------------------------------------------------------
 
 
-    /** Need 1 callback for sendAndGet calls. */
+    /** Get a callback for a sendAndGet call. */
     static public cMsgCallbackAdapter getSendAndGetCallback(int id, int sysMsgId) {
         return new SendAndGetCallback(id, sysMsgId);
     }
@@ -253,12 +187,17 @@ public class cMsgServerBridge {
     /**
      * Constructor.
      *
-     * @param server name of server to connect to in the form "host:port"
-     * @param thisNameServerPort the port this name server is listening on
+     * @param nameServer THIS name server (the one using this object)
+     * @param serverName name of server to connect to in the form "host:port"
+     * @param thisNameServerPort the port THIS name server is listening on
      * @throws cMsgException
      */
-    public cMsgServerBridge(String server, int thisNameServerPort) throws cMsgException {
-        this.server = server;
+    public cMsgServerBridge(cMsgNameServer nameServer,
+                            String serverName,
+                            int thisNameServerPort)
+            throws cMsgException {
+
+        this.serverName = serverName;
         port = thisNameServerPort;
         idStorage = new ConcurrentHashMap<Integer,Integer>(100);
 
@@ -269,23 +208,19 @@ public class cMsgServerBridge {
         // The next few lines simply do what the top level API does.
 
         // create a proper UDL out of this server name
-        String UDL = "cMsg://" + server + "/cMsg";
+        String UDL = "cMsg://" + serverName + "/cMsg";
 
         // create cMsg connection object
-//System.out.println("      << BR: const, make client object");
-        client = new org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient();
+        client = new org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient(nameServer);
 
         // Pass in the UDL
-//System.out.println("      << BR: set UDL to " + UDL);
         client.setUDL(UDL);
         // Pass in the name
-//System.out.println("      << BR: set Name to " + server);
-        client.setName(server);
+        client.setName(serverName);
         // Pass in the description
         client.setDescription("server");
         // Pass in the UDL remainder
-//System.out.println("      << BR: set UDL remainder to: " + server + "/" + "cMsg");
-        client.setUDLRemainder(server + "/" + "cMsg");
+        client.setUDLRemainder(serverName + "/" + "cMsg");
     }
 
 
@@ -294,13 +229,15 @@ public class cMsgServerBridge {
 
     /**
      * Method to connect to server.
+     *
      * @param isOriginator true if originating the connection between the 2 servers and
      *                     false if this is the response or reciprocal connection
-     * @return
-     * @throws cMsgException
+     * @return set of servers (names of form "host:port") that the server
+     *         we're connecting to is already connected with
+     * @throws cMsgException if there are problems parsing the UDL or
+     *                       communication problems with the server
      */
     public Set<String> connect(boolean isOriginator) throws cMsgException {
-        this.isOriginator = isOriginator;
         // create a connection to the UDL
         client.start();
         return client.connect(port, isOriginator);
@@ -323,7 +260,7 @@ public class cMsgServerBridge {
      * connected to through this bridge. Possible values are {@link cMsgNameServer.INCLOUD},
      * {@link cMsgNameServer.NONCLOUD}, or{@link cMsgNameServer.BECOMINGCLOUD}.
      *
-     * @param cloudStatus true if in cloud, else false
+     * @param cloudStatus cloud status of the server this is a bridge to
      */
     void setCloudStatus(int cloudStatus) {
         this.cloudStatus = cloudStatus;
@@ -332,20 +269,19 @@ public class cMsgServerBridge {
 
     /**
      * This method tells the server this server is connected to,
-     * what cloud status this server officially has.
+     * what cloud status this server has.
      *
      * @param status cMsgNameServer.INCLOUD, .NONCLOUD, or .BECOMINGCLOUD
      * @throws IOException if communication error with server
      */
     void thisServerCloudStatus(int status) throws IOException {
-//System.out.println("      << BR: try setting cloud status");
         client.thisServerCloudStatus(status);
-//System.out.println("      << BR: done setting cloud status");
     }
 
 
     /**
-     * This method grabs the cloud lock for adding a server to the cMsg subdomain server cloud.
+     * This method grabs the cloud lock of a connected server in order to add
+     * this server to the cMsg domain server cloud.
      *
      * @param delay time in milliseconds to wait for the lock before timing out
      * @return true if lock was obtained, else false
@@ -358,7 +294,9 @@ public class cMsgServerBridge {
 
 
     /**
-     * This method releases the cloud lock for adding a server to the cMsg subdomain server cloud.
+     * This method releases the cloud lock of a connected server when adding
+     * this server to the cMsg domain server cloud.
+     *
      * @throws IOException if communication error with server
      */
     void cloudUnlock() throws IOException {
@@ -369,7 +307,8 @@ public class cMsgServerBridge {
 
 
     /**
-     * This method grabs the lock (for adding a client) of another server's cMsg subdomain.
+     * This method grabs the registration lock (for adding a client)
+     * of another cMsg domain server.
      *
      * @param  delay time in milliseconds to wait for the lock before timing out
      * @return true if lock was obtained, else false
@@ -381,7 +320,9 @@ public class cMsgServerBridge {
 
 
     /**
-     * This method releases the lock (for adding a client) of another server's cMsg subdomain.
+     * This method releases the registration lock (when adding a client)
+     * of another cMsg domain server.
+     *
      * @throws IOException if communication error with server
      */
     void registrationUnlock() throws IOException {
@@ -392,10 +333,10 @@ public class cMsgServerBridge {
 
     /**
      * This method gets the names of all the local clients (not servers)
-     * of another server's cMsg subdomain.
+     * of another cMsg domain server.
      *
      * @return array of client names
-     * @throws IOException
+     * @throws IOException if communication error with server
      */
     String[] getClientNames() throws IOException {
         return client.getClientNames();
@@ -404,7 +345,7 @@ public class cMsgServerBridge {
 
     /**
      * Method for a server to subscribe to receive messages of a subject
-     * and type from the domain server. The combination of arguments must be unique.
+     * and type from another cMsg server. The combination of arguments must be unique.
      * In other words, only 1 subscription is allowed for a given set of subject,
      * type, callback, and userObj.
      *
@@ -426,7 +367,7 @@ public class cMsgServerBridge {
 
     /**
      * Method for a server to unsubscribe for messages of a subject
-     * and type from the domain server.
+     * and type from another cMsg server.
      *
      * @param subject    message subject
      * @param type       message type
@@ -444,11 +385,12 @@ public class cMsgServerBridge {
     }
 
     /**
+     * Method to do a sendAndGet of a message of subject and type to another cMsg server.
      *
      * @param msg message sent to server
      * @param namespace  message namespace
      * @param cb callback for response to sendAndGet request
-     * @throws cMsgException
+     * @throws cMsgException if there are communication problems with the server
      */
     public void sendAndGet(cMsgMessage msg, String namespace, cMsgCallbackInterface cb)
             throws cMsgException {
@@ -457,41 +399,43 @@ public class cMsgServerBridge {
         // Store 2 id numbers: 1 from system originating msg,
         // the other from system getting send a propagating msg.
         idStorage.put(msg.getSenderToken(), id);
-//System.out.print(" +"+idStorage.size());
+//System.out.println("bridge   sendAndGet: store id " + id + " with token " + msg.getSenderToken());
         return;
     }
 
 
      /**
-      * Method to remove a previous subscribeAndGet to receive a message of a subject
-      * and type from the domain server. This method is only called when a subscribeAndGet
+      * Method to remove a previous sendAndGet to receive a message of a subject
+      * and type from the domain server. This method is only called when a sendAndGet
       * times out and the server must be told to forget about the get.
       *
-      * @param id receiverSubscribeId of original message send in sendAndGet
+      * @param id receiverSubscribeId of original message sent in sendAndGet
       * @throws cMsgException if there are communication problems with the server
       */
      public void unSendAndGet(int id)
              throws cMsgException {
          Integer newId = idStorage.remove(id);
          if (newId == null) {
+//System.out.println("bridge unSendAndGet: cannot find id " + id);
              return;
          }
 //System.out.print(" -"+idStorage.size());
-//System.out.println("bridge unSendAndGet: substituting id " + newId.intValue() +
-//                            " for " + id);
+//System.out.println("bridge unSendAndGet: removed msg id " +  id +
+//                            " and new id " + newId.intValue());
          client.serverUnSendAndGet(newId);
          return;
      }
 
 
     /**
-     * This method is like a one-time subscribe. The server grabs the first incoming
-     * message of the requested subject and type and sends that to the caller.
+     * Method for a subscribeAndGet (a one-time subscribe) on another cMsg server.
      *
      * @param subject subject of message desired from server
      * @param type type of message desired from server
      * @param namespace  message namespace
-     * @throws cMsgException
+     * @throws cMsgException if the callback, subject, or type is null; the subject or type is
+     *                       blank; an identical subscription already exists; there are
+     *                       communication problems with the server
      */
     public void subscribeAndGet(String subject, String type,
             String namespace, cMsgCallbackInterface cb)
@@ -504,13 +448,15 @@ public class cMsgServerBridge {
 
 
     /**
-     * Method to remove a previous subscribeAndGet to receive a message of a subject
-     * and type from the domain server. This method is only called when a subscribeAndGet
-     * times out and the server must be told to forget about the get.
+     * Method to remove a previous subscribeAndGet ton another cMsg server.
+     * This method is only called when a subscribeAndGet times out and the
+     * server must be told to forget about the subscribeAndGet call.
      *
      * @param subject subject of message desired from server
      * @param type type of message desired from server
-     * @throws cMsgException if there are communication problems with the server
+     * @param namespace  message namespace
+     * @throws cMsgException if the callback, subject, or type is null; the subject or type is
+     *                       blank; there are communication problems with the server
      */
     public void unsubscribeAndGet(String subject, String type,
                                   String namespace, cMsgCallbackInterface cb)
@@ -518,4 +464,29 @@ public class cMsgServerBridge {
         client.serverUnsubscribe(subject, type, namespace, cb, namespace);
         return;
     }
-}
+
+
+    /**
+     * Method to shutdown the given clients.
+     * Wildcards are used to match client names with the given string.
+     *
+     * @param clientName client(s) to be shutdown
+     * @param flag       flag describing the mode of shutdown
+     * @throws cMsgException if there are communication problems with the server
+     */
+    public void shutdownClients(String clientName, int flag) throws cMsgException {
+        client.serverShutdownClients(clientName, flag);
+    }
+
+
+    /**
+     * Method to shutdown the given server this client is connected to.
+     *
+     * @throws cMsgException if there are communication problems with the server
+     */
+    public void shutdownServer() throws cMsgException {
+        client.serverShutdown();
+    }
+
+
+ }

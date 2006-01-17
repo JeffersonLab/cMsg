@@ -53,7 +53,7 @@ public class cMsgMonitorClient extends Thread {
     private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
 
     /** Level of debug output for this class. */
-    private int debug = cMsgConstants.debugNone;
+    private int debug;
     
     /**
      * Do a select before reading a keepalive response. This will catch
@@ -67,9 +67,11 @@ public class cMsgMonitorClient extends Thread {
      *
      * @param info object containing information about the client
      * @param server domain server which created this monitor
+     * @param debug level of debug output
      */
-    public cMsgMonitorClient(cMsgClientInfo info, cMsgDomainServer server) {
+    public cMsgMonitorClient(cMsgClientInfo info, cMsgDomainServer server, int debug) {
         this.info   = info;
+        this.debug  = debug;
         this.domainServer = server;
 
         try {

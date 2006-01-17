@@ -34,14 +34,29 @@ import org.jlab.coda.cMsg.cMsgDomain.cMsgNetworkConstants;
 
 /**
  * This class implements a cMsg name server in the cMsg domain.
+ * A word of caution. If multiple cMsgNameServer objects exist in
+ * a single JVM and they both service clients in the cMsg subdomain,
+ * then there will be undesirable effects. In other words, the
+ * cMsg subdomain uses static data in some of its implementing
+ * classes (cMsgServerBridge & subdomains.cMsg).
  *
  * @author Carl Timmer
  * @version 1.0
  */
 public class cMsgNameServer extends Thread {
+     /** This server's name. */
+    private String serverName;
 
     /** This server's TCP listening port number. */
     private int port;
+
+    /**
+     * This is the time ordering property of the server.
+     * If this is true, then all non-(un)subscribe commands sent to it
+     * are guaranteed to be passed to the subdomain handler objects in
+     * the order in which they were received.
+     */
+    private boolean timeOrdered;
 
     /** Server channel (contains socket). */
     private ServerSocketChannel serverChannel;
@@ -55,10 +70,20 @@ public class cMsgNameServer extends Thread {
      * handleServerShutdown methods when this name server is being
      * shutdown.
      */
-    private WeakHashMap domainServers;
+    private WeakHashMap<cMsgDomainServer, Void> domainServers;
 
     /** Level of debug output for this class. */
     private int debug;
+
+    /**
+     * Set of all subscriptions (including the subscribeAndGets) of all clients
+     * on this server. This is mutex protected by {@link #subscribeLock}.
+     */
+    HashSet<cMsgServerSubscribeInfo> subscriptions =
+            new HashSet<cMsgServerSubscribeInfo>(100);
+
+    /** Lock to ensure all access to {@link #subscriptions} is sequential. */
+    final ReentrantLock subscribeLock = new ReentrantLock();
 
     /** Tell the server to kill spawned threads. */
     private boolean killAllThreads;
@@ -72,9 +97,9 @@ public class cMsgNameServer extends Thread {
     /** Gets boolean value specifying whether to kill this and all spawned threads. */
     public boolean getKillAllThreads() {return killAllThreads;}
 
-     /**
+    /**
      * List of all ClientHandler objects. This list is used to
-     * end these threads nicley during a shutdown.
+     * end these threads nicely during a shutdown.
      */
     private ArrayList<ClientHandler> handlerThreads;
 
@@ -84,7 +109,7 @@ public class cMsgNameServer extends Thread {
     //--------------------------------------------------------
 
     /** Server this name server is in the middle of or starting to connect to. */
-    volatile static cMsgServerBridge bridgeBeingCreated;
+    volatile cMsgServerBridge bridgeBeingCreated;
 
     /**
      * Use this to signal that this server's listening thread has been started
@@ -96,9 +121,9 @@ public class cMsgNameServer extends Thread {
      * Use this to signal the point at which other servers and clients
      * are allowed to connect to this server.
      */
-    static CountDownLatch allowConnectionsSignal = new CountDownLatch(1);
+    CountDownLatch allowConnectionsSignal = new CountDownLatch(1);
 
-    /** Srver is in the server cloud. */
+    /** Server is in the server cloud. */
     static final byte INCLOUD  = 0;
     /** Server is NOT in the server cloud. */
     static final byte NONCLOUD = 1;
@@ -111,14 +136,14 @@ public class cMsgNameServer extends Thread {
      * Keep track of all name servers which have connected to this server.
      * This hashset stores the server name (host:port).
      */
-    static Set<String> nameServers = Collections.synchronizedSet(new HashSet<String>(20));
+    Set<String> nameServers = Collections.synchronizedSet(new HashSet<String>(20));
 
     /**
      * Keep track of all the cMsgServerBridge objects in the cMsg subdomain.
      * A bridge is a connection from this cMsg server to another.
      * The server name (host:port) is the key and the bridge object is the value.
      */
-    static ConcurrentHashMap<String, cMsgServerBridge> bridges =
+    ConcurrentHashMap<String, cMsgServerBridge> bridges =
             new ConcurrentHashMap<String, cMsgServerBridge>(20);
 
     /**
@@ -127,31 +152,31 @@ public class cMsgNameServer extends Thread {
      * or {@link #BECOMINGCLOUD}. It may only be used/changed when
      * the cloudLock is locked.
      */
-    static private int cloudStatus = NONCLOUD;
+    private int cloudStatus = NONCLOUD;
 
     /**
      * Lock to ensure that servers are added to the server cloud one-at-a-time
      * and to ensure that clients are added to servers one-at-a-time as well.
      * This is used only in the cMsg subdomain.
      */
-    static public ReentrantLock cloudLock = new ReentrantLock();
+    public ReentrantLock cloudLock = new ReentrantLock();
 
     /**
-     * This method is used in adding servers to the server cloud and in adding
+     * This method locks a lock used in adding servers to the server cloud and in adding
      * clients to servers. This is used only in the cMsg subdomain.
      */
-    static public void cloudLock() {
+    public void cloudLock() {
 //System.out.println(">> NS: try to lock cloud (blocking)");
         cloudLock.lock();
     }
 
     /**
-     * This method is used in adding servers to the server cloud and in adding
+     * This method locks a lock used in adding servers to the server cloud and in adding
      * clients to servers. This is used only in the cMsg subdomain.
      * @param delay time in milliseconds to wait for the lock before timing out
      * @return true if locked, false otherwise
      */
-    static public boolean cloudLock(int delay) {
+    public boolean cloudLock(int delay) {
         try {
 //System.out.println(">> NS: try to lock cloud (timeout = " + delay + " ms)");
             return cloudLock.tryLock(delay, TimeUnit.MILLISECONDS);
@@ -162,10 +187,10 @@ public class cMsgNameServer extends Thread {
     }
 
     /**
-     * This method is used in adding servers to the server cloud and in adding
+     * This method unlocks a lock used in adding servers to the server cloud and in adding
      * clients to servers. This is used only in the cMsg subdomain.
      */
-    static public void cloudUnlock() {
+    public void cloudUnlock() {
 //System.out.println(">> NS: try to unlock cloud");
         cloudLock.unlock();
 //System.out.println(">> NS: unlocked cloud");
@@ -177,7 +202,7 @@ public class cMsgNameServer extends Thread {
      * @return status which is one of {@link #INCLOUD}, {@link #NONCLOUD},
      *         or {@link #BECOMINGCLOUD}
      */
-    static public int getCloudStatus() {
+    public int getCloudStatus() {
         return cloudStatus;
     }
 
@@ -185,23 +210,31 @@ public class cMsgNameServer extends Thread {
      * Set the status of the relationship of this server to the cMsg subdomain
      * server cloud. The status may only be one of {@link #INCLOUD}, {@link #NONCLOUD},
      * or {@link #BECOMINGCLOUD}.
-     * @param cloudStatus
+     * @param status
      */
-    static public void setCloudStatus(int cloudStatus) {
-        if ((cloudStatus != INCLOUD) &&
-            (cloudStatus != NONCLOUD) &&
-            (cloudStatus != BECOMINGCLOUD)) {
+    public void setCloudStatus(int status) {
+        if ((status != INCLOUD) &&
+            (status != NONCLOUD) &&
+            (status != BECOMINGCLOUD)) {
             return;
         }
-        cMsgNameServer.cloudStatus = cloudStatus;
+        cloudStatus = status;
     }
 
     //--------------------------------------------------------
     //--------------------------------------------------------
 
+    /**
+     * Get this server's name (host:port).
+     * @return server's name
+     */
+    public String getServerName() {
+         return serverName;
+     }
+
 
     /**
-     * Get the name server's listening port;
+     * Get the name server's listening port.
      * @return listening port
      */
     public int getPort() {
@@ -210,11 +243,12 @@ public class cMsgNameServer extends Thread {
 
 
     /** Constructor which reads environmental variables and opens listening socket. */
-    public cMsgNameServer(int port, int debug) {
-        domainServers  = new WeakHashMap(20);
+    public cMsgNameServer(int port, boolean timeOrdered, int debug) {
+        domainServers  = new WeakHashMap<cMsgDomainServer, Void>(20);
         handlerThreads = new ArrayList<ClientHandler>(10);
 
         this.debug = debug;
+        this.timeOrdered = timeOrdered;
 
         // read env variable for starting (desired) port number
         if (port < 1) {
@@ -264,17 +298,28 @@ public class cMsgNameServer extends Thread {
         }
 
         this.port = port;
+
+        // record our own name
+
+        try {
+            serverName = InetAddress.getLocalHost().getCanonicalHostName();
+        }
+        catch (UnknownHostException e) {
+        }
+        serverName = serverName + ":" + port;
+
+
     }
 
 
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage: java [-Dport=<listening port>]\n"+
-                             "            [-Dserver=<servername:serverport>]\n" +
+                             "            [-Dserver=<hostname:serverport>]\n" +
                              "            [-Ddebug=<level>]\n" +
                              "            [-Dtimeorder]  cMsgNameServer\n");
         System.out.println("       listening port is the TCP port this server listens on");
-        System.out.println("       servername is the name of another cMsg server");
+        System.out.println("       hostname is the name of another host on which a cMsg server is running");
         System.out.println("               whose cMsg subdomain you want to join,");
         System.out.println("               and serverport is that server's port");
         System.out.println("       debug level has acceptable values of:");
@@ -292,6 +337,8 @@ public class cMsgNameServer extends Thread {
     public static void main(String[] args) {
         int debug = cMsgConstants.debugNone;
         int port = 0;
+        boolean timeOrdered = false;
+
         String serverArg = null;
 
         if (args.length > 0) {
@@ -347,46 +394,20 @@ public class cMsgNameServer extends Thread {
             else if (s.equalsIgnoreCase("server")) {
                 serverArg = System.getProperty(s);
 
-                // Separate the server name from the server port.
-                // First check for ":"
-                int index = serverArg.indexOf(":");
-                if (index == -1) {
-                    System.out.println("\nThe -Dserver option requires a \"host:port\" format");
-                    System.exit(-1);
-                }
-
-                String sName = serverArg.substring(0, index);
-                String sPort = serverArg.substring(index+1);
-                int serverPort = 0;
-
-                // translate the port from string to int
                 try {
-                    serverPort = Integer.parseInt(sPort);
+                    serverArg = cMsgMessageMatcher.constructServerName(serverArg);
                 }
-                catch (NumberFormatException e) {
-                    System.out.println("\nThe -Dserver option requires the port to be an integer between 1024 & 65535");
+                catch (cMsgException e) {
                     System.exit(-1);
                 }
-
-                // See if this host is recognizable. To do that
-                InetAddress address = null;
-                try {
-                    address = InetAddress.getByName(sName);
-                }
-                catch (UnknownHostException e) {
-                    System.out.println("\nSpecified server is unknown");
-                    System.exit(-1);
-                }
-                // put everything in canonical form if possible
-                serverArg = address.getCanonicalHostName() + ":" + sPort;
             }
             else if (s.equalsIgnoreCase("timeorder")) {
-                cMsgDomainServer.setTimeOrdered(true);
+                timeOrdered = true;
             }
         }
 
-        // create server
-        cMsgNameServer server = new cMsgNameServer(port, debug);
+        // create server object
+        cMsgNameServer server = new cMsgNameServer(port, timeOrdered, debug);
 
         // start server
         server.start();
@@ -395,15 +416,15 @@ public class cMsgNameServer extends Thread {
         // which will also generate a connection to this server from that server
         // in response.
         if (serverArg != null) {
-            new cMsgServerCloudJoiner(server.getPort(), serverArg);
-System.out.println(">> NS: TRY JOINING " + serverArg);
+            new cMsgServerCloudJoiner(server, server.getPort(), serverArg, debug);
+//System.out.println(">> NS: TRY JOINING " + serverArg);
         }
         else {
             // if we're not joining a cloud, then we're by definition the nucleas of one
             server.cloudStatus = INCLOUD;
-System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
+//System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
             // allow client connections
-            cMsgNameServer.allowConnectionsSignal.countDown();
+            server.allowConnectionsSignal.countDown();
         }
 
     }
@@ -411,9 +432,8 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
 
     /**
      * Method to be run when this server is unreachable and all its threads are killed.
-     *
      * Finalize methods are run after an object has become unreachable and
-     * before the garbage collector is run;
+     * before the garbage collector is run.
      */
     public void finalize() throws cMsgException {
         cMsgDomainServer server;
@@ -425,10 +445,51 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
     }
 
 
+    /**
+     * Method to gracefully shutdown all threads associated with this server
+     * and to clean up.
+     */
+    synchronized void shutdown() {
+        // stop cloud joiners
+        cloudLock();
+
+        // Shutdown this object's listening thread
+        setKillAllThreads(true);
+
+        // Shutdown all domain servers
+        cMsgDomainServer server = null;
+        for (Iterator i = domainServers.keySet().iterator(); i.hasNext(); ) {
+            server = (cMsgDomainServer)i.next();
+            // need to shutdown this domain server
+            if (server.calledShutdown.compareAndSet(false, true)) {
+System.out.println("DS shutdown to be run by NameServer");
+                shutdown();
+            }
+        }
+
+        cloudUnlock();
+
+        bridges.clear();
+        nameServers.clear();
+        handlerThreads.clear();
+        domainServers.clear();
+        subscriptions.clear();
+
+    }
+
+
+    /**
+     * This method creates a particular subdomain's client handler object.
+     *
+     * @param subdomain subdomain for which to create client handler
+     * @return client handler object
+     * @throws cMsgException if no class was found or class could not be instantiated or
+     *                       accessed
+     */
     static private cMsgSubdomainInterface createClientHandler(String subdomain)
             throws cMsgException {
 
-        /** Object to handle clients' inputs */
+        // Object to handle clients' inputs
         cMsgSubdomainInterface clientHandler = null;
 
         String clientHandlerClass = null;
@@ -606,17 +667,17 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
     }
 
 
-    /**
-     * Class to handle a socket connection to the client of which there may be many.
-     */
+    /** Class to handle a socket connection to the client of which there may be many. */
     private class ClientHandler extends Thread {
         /** Type of domain this is. */
         private String domain = "cMsg";
 
+        /** Socket channel to client. */
         SocketChannel channel;
 
-        // buffered communication streams for efficiency
+        /** Buffered input communication streams for efficiency. */
         DataInputStream  in;
+        /** Buffered output communication streams for efficiency. */
         DataOutputStream out;
 
         /** Constructor. */
@@ -626,16 +687,14 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
         }
 
 
-        /** This method is executed as a thread. */
+        /**
+          * This method handles all communication between a cMsg user
+          * and this name server for that domain.
+          * Note to those who would make changes in the protocol, keep the first three
+          * ints the same. That way the server can reliably check for mismatched versions.
+          */
          public void run() {
 
-            /**
-              * This method handles all communication between a cMsg user
-              * and this name server for that domain.
-              * Note to those who would make changes in the protocol, keep the first three
-              * ints the same. That way the server can reliably check for mismatched versions.
-              *
-              */
             try {
                 // buffered communication streams for efficiency
                 in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 65536));
@@ -669,7 +728,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
                         handleServer();
                         break;
                     default:
-                        if (debug >= cMsgConstants.debugWarn) {
+                        if (debug >= cMsgConstants.debugError) {
                             System.out.println("cMsg name server: can't understand your message -> " + msgId);
                         }
                         break;
@@ -698,7 +757,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
 
 
         /**
-         * Method to register a client with this name server. This method passes on the
+         * This method registers a client with this name server. This method passes on the
          * registration function to the client handler object. Part of the information
          * in the cMsgClientInfo object is the subdomain which specifies the type of
          * client handler object needed. This handler object gets the UDL remainder
@@ -706,13 +765,16 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
          * <p/>
          * The subdomain should have a class by that name that can be loaded and used
          * as the client handler object. The classes corresponding to these handlers
-         * must be passed to the name server on the command line as in the following:
-         * java cMsgNameServer -DcMsg=myCmsgClientHandlerClass
+         * can be passed to the name server on the command line as in the following:
+         * java cMsgNameServer -DmySubdomain=myCmsgClientHandlerClass
          *
          * @param info object containing information about the client
          * @throws cMsgException If a domain server could not be started for the client
          */
-        synchronized private cMsgSubdomainInterface registerClient(cMsgClientInfo info) throws cMsgException, IOException {
+        synchronized private cMsgSubdomainInterface registerClient(cMsgClientInfo info)
+                throws cMsgException, IOException {
+
+            // create a subdomain handler object
             cMsgSubdomainInterface subdomainHandler = createClientHandler(info.getSubdomain());
 
             // The first thing we do is pass the UDL remainder to the handler.
@@ -767,12 +829,14 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
             }
 
             // Create a domain server thread, and get back its host & port
-            cMsgDomainServer server = new cMsgDomainServer(subdomainHandler, info,
-                                                           cMsgNetworkConstants.domainServerStartingPort);
+            cMsgDomainServer server = new cMsgDomainServer(cMsgNameServer.this, subdomainHandler, info,
+                                                           cMsgNetworkConstants.domainServerStartingPort,
+                                                           timeOrdered);
 
             // kill this thread too if name server thread quits
             server.setDaemon(true);
             server.start();
+            // store ref to this domain server
             domainServers.put(server, null);
 
             return subdomainHandler;
@@ -780,7 +844,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
 
 
         /**
-         * Method to register a server "client" with this name server. This method passes on the
+         * This method registers a server "client" with this name server. This method passes on the
          * registration function to the client handler object. These server clients exist only in
          * the cMsg subdomain.
          *
@@ -818,12 +882,14 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
             subdomainHandler.registerServer(info);
 
             // Create a domain server thread, and get back its host & port
-            cMsgDomainServer server = new cMsgDomainServer(subdomainHandler, info,
-                                                           cMsgNetworkConstants.domainServerStartingPort);
+            cMsgDomainServer server = new cMsgDomainServer(cMsgNameServer.this, subdomainHandler, info,
+                                                           cMsgNetworkConstants.domainServerStartingPort,
+                                                           timeOrdered);
 
             // kill this thread too if name server thread quits
             server.setDaemon(true);
             server.start();
+            // store ref to this domain server
             domainServers.put(server, null);
 
             return subdomainHandler;
@@ -834,7 +900,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
          * This method registers regular (non-server) clients in the cMsg subdomain.
          * Registration is more complicated in this domain than other domains as it
          * must contact all other cMsg servers to which it has a bridge. To ensure
-         * global uniqueness of a client name, locks must be taken out at all servers
+         * global uniqueness of a client name, locks must be taken out on all servers
          * so that no other potential client may connect during this time.
          *
          * @param info             object containing information about the client
@@ -862,7 +928,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
             boolean gotCloudLock  = false;
             boolean gotRegistrationLock = false;
             boolean registrationSuccessful = false;
-            int maxNumberOfTrys=3, numberOfTrys=0, backOffFactor = 2;
+            int maxNumberOfTrys=3, numberOfTrys=0;
             LinkedList<cMsgServerBridge> lockedServers = new LinkedList<cMsgServerBridge>();
 
             startOver:
@@ -922,7 +988,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
 
                     // Calculate the majority
                     int totalCloudMembers = 1; // we is first
-                    for (cMsgServerBridge b : cMsgNameServer.bridges.values()) {
+                    for (cMsgServerBridge b : bridges.values()) {
                         if (b.getCloudStatus() == cMsgNameServer.INCLOUD) {
                             totalCloudMembers++;
                         }
@@ -934,7 +1000,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
 //System.out.println(">> NS: Try to get all of the in-cloud servers' registration locks");
                     do {
                         // Grab the locks of other servers
-                        for (cMsgServerBridge bridge : cMsgNameServer.bridges.values()) {
+                        for (cMsgServerBridge bridge : bridges.values()) {
 
                             // If it's already locked or not in the cloud, skip it
                             if (lockedServers.contains(bridge) ||
@@ -985,7 +1051,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
                                 catch (IOException e) {}
                             }
                             cMsgSubdomainHandler.registrationUnlock();
-                            cMsgNameServer.cloudUnlock();
+                            cloudUnlock();
 
                             // try to lock 'em again
                             gotCloudLock = false;
@@ -1031,12 +1097,12 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
                     }
                     finally {
                         // release the locks
-                        for (cMsgServerBridge b : cMsgNameServer.bridges.values()) {
+                        for (cMsgServerBridge b : bridges.values()) {
                             try {b.registrationUnlock();}
                             catch (IOException e) {continue;}
                         }
                         cMsgSubdomainHandler.registrationUnlock();
-                        cMsgNameServer.cloudUnlock();
+                        cloudUnlock();
                     }
 
 //System.out.println(">> NS: registration is successful!\n\n");
@@ -1047,7 +1113,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
                 // If we could not register the client due to not being able to get the required locks ...
                 if (!registrationSuccessful) {
                     // release the locks
-                    for (cMsgServerBridge b : cMsgNameServer.bridges.values()) {
+                    for (cMsgServerBridge b : bridges.values()) {
                         try {b.registrationUnlock();}
                         catch (IOException e) {continue;}
                     }
@@ -1057,7 +1123,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
                     }
 
                     if (gotCloudLock) {
-                        cMsgNameServer.cloudUnlock();
+                        cloudUnlock();
                     }
 
                     System.out.println(">> NS: **********************************************************************");
@@ -1071,7 +1137,7 @@ System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
 
 
         /**
-         * This method handles all communication between a cMsg client
+         * This method handles all communication between a regular (non-server) cMsg client
          * and this name server for that domain.
          *
          * @throws IOException if problems with socket communication
@@ -1270,7 +1336,7 @@ System.out.println(">> NS: cli listen port = " + clientListeningPort +
             }
             // Make this client's name = "host:port"
             String name = host + ":" + nameServerListeningPort;
-//System.out.println(">> NS: host name = " + host + ", client hame = " + name);
+System.out.println(">> NS: host name = " + host + ", client hame = " + name);
 
             // At this point grab the "cloud" lock so no other servers
             // can connect simultaneously
@@ -1336,7 +1402,6 @@ System.out.println(">> NS: ALREADY CONNECTED TO " + name);
 
                 // Register this client. If this cMsg server already has a
                 // client by this name (it never should), it will fail.
-                cMsgSubdomainInterface handler;
                 cMsgClientInfo info = new cMsgClientInfo(name, nameServerListeningPort,
                                                          clientListeningPort, host);
 
@@ -1346,7 +1411,7 @@ System.out.println(">> NS: ALREADY CONNECTED TO " + name);
                         System.out.println(">> NS: try to register " + name);
                     }
 //System.out.println(">> NS: Register connecting server");
-                    handler = registerServer(info);
+                    registerServer(info);
                 }
                 catch (cMsgException ex) {
                     // send int error code to client
@@ -1379,7 +1444,7 @@ System.out.println(">> NS: ALREADY CONNECTED TO " + name);
                     // If this is not a reciprocal connection, we need to make one.
                     if (!isReciprocalConnection) {
 //System.out.println(">> NS: Create reciprocal bridge to " + name);
-                        cMsgServerBridge b = new cMsgServerBridge(name, port);
+                        cMsgServerBridge b = new cMsgServerBridge(cMsgNameServer.this, name, port);
                         // connect as reciprocal (originating = false)
                         b.connect(false);
 //System.out.println(">> NS: Add " + name + " to bridges");

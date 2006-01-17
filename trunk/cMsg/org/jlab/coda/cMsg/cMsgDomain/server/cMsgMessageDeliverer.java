@@ -20,7 +20,6 @@ import org.jlab.coda.cMsg.*;
 
 import java.io.*;
 import java.nio.channels.SocketChannel;
-import java.nio.ByteBuffer;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 
@@ -32,17 +31,16 @@ import java.net.Socket;
  * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgGetResponse} for a message sent in
  * response to a {@link org.jlab.coda.cMsg.cMsg#sendAndGet}<p>
  * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgServerGetResponse} for a message sent in
- * response to a {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient#serverSendAndGet}<p>
+ * response to a {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient#serverSendAndGet}
  * with a return acknowlegment<p>
  * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgSubscribeResponse} for a message sent in
- * response to a {@link org.jlab.coda.cMsg.cMsg#subscribe}<p>
+ * response to a {@link org.jlab.coda.cMsg.cMsg#subscribe}
  * with a return acknowlegment<p>
+ * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgShutdownClients} for a message to shutdown
+ * the receiving client<p>
  * </ul>
  */
 public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
-
-    /** A direct buffer is necessary for nio socket IO. */
-    private ByteBuffer buffer = ByteBuffer.allocateDirect(65536);
 
     /** Communication channel used by subdomainHandler to talk to client. */
     private SocketChannel channel;
@@ -50,7 +48,6 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
     private DataInputStream  in;
     /** Buffered data output stream associated with channel socket. */
     private DataOutputStream out;
-
 
     //-----------------------------------------------------------------------------------
 
@@ -66,55 +63,12 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
     //-----------------------------------------------------------------------------------
 
     /**
-     * Gets communication channel used by server to talk to client.
-     * @return communication channel
-     */
-    public SocketChannel getChannel() {
-        return channel;
-    }
-
-    /**
-      * Sets communication channel used by server to talk to client and create a
-      * buffered input stream and a buffered output stream associated with the
-      * channel's socket.
-      *
-      * @param channel channel communication channel used by server to talk to client
-     * @throws IOException if socket is not connected and so input and output streams
-     *         cannot be constructed
-      */
-     public void setChannel(SocketChannel channel) throws IOException {
-         this.channel = channel;
-         // create buffered communication streams for efficiency
-         in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 2048));
-         out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 65536));
-     }
-
-    //-----------------------------------------------------------------------------------
-
-    /**
-     * Gets data input stream used by server to receive responses from client.
-     * @return data input stream from client
-     */
-    public DataInputStream getInputStream() {
-        return in;
-    }
-
-    /**
-     * Gets data output stream used by server to send messages to client.
-     * @return data output stream to client
-     */
-    public DataOutputStream getOutputStream() {
-        return out;
-    }
-
-    //-----------------------------------------------------------------------------------
-
-    /**
      * Method to deliver a message from a domain server's subdomain handler to a client.
      *
      * @param msg message to sent to client
      * @param msgType type of communication with the client
-     * @throws IOException
+     * @throws IOException if the message cannot be sent over the channel
+     *                     or client returns an error
      * @throws cMsgException if connection to client has not been established
      */
     synchronized public void deliverMessage(cMsgMessage msg, int msgType)
@@ -129,7 +83,8 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
      * @param msg message to sent to client
      * @param msgType type of communication with the client
      * @return true if message acknowledged by receiver or acknowledgment undesired, otherwise false
-     * @throws IOException
+     * @throws IOException if the message cannot be sent over the channel
+     *                     or client returns an error
      * @throws cMsgException if connection to client has not been established
      */
     synchronized public boolean deliverMessageAndAcknowledge(cMsgMessage msg, int msgType)
@@ -178,7 +133,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
         }
 
 
-        if (msgType == cMsgConstants.msgShutdown) {
+        if (msgType == cMsgConstants.msgShutdownClients) {
             // size
             out.writeInt(8);
             // msg type

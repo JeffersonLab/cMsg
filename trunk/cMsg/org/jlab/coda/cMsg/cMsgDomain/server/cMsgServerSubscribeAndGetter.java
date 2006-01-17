@@ -16,16 +16,11 @@
 
 package org.jlab.coda.cMsg.cMsgDomain.server;
 
-import org.jlab.coda.cMsg.cMsgDomain.cMsgHolder;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgNotifier;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
 import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgClientInfo;
 import org.jlab.coda.cMsg.cMsgCallbackAdapter;
 
 import java.util.Set;
-import java.util.HashMap;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * This class handles a server client's subscribeAndGet request and propagates it to all the
@@ -34,6 +29,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * response is received.
  */
 public class cMsgServerSubscribeAndGetter implements Runnable {
+    /** Name server object that this thread is run by. */
+    private cMsgNameServer nameServer;
+
     /**
      * Wait on this object which tells us when a matching message has been sent
      * to a subscribeAndGet so we can notify bridges to cancel their subscriptions
@@ -41,22 +39,26 @@ public class cMsgServerSubscribeAndGetter implements Runnable {
      */
     cMsgNotifier notifier;
 
-    /** Contains the subscription information to use for unsubscribing. */
-    cMsgHolder holder;
-
     /** Contains all subscriptions made by this server. */
     Set subscriptions;
+
+    /** Contains information about this particular subscription. */
     cMsgServerSubscribeInfo sub;
+
+    /** Callback for this subscription. */
     cMsgCallbackAdapter cb;
 
 
-    public cMsgServerSubscribeAndGetter(cMsgNotifier notifier, cMsgHolder holder,
+    /** Constructor. */
+    public cMsgServerSubscribeAndGetter(cMsgNameServer nameServer,
+                                        cMsgNotifier notifier,
                                         cMsgCallbackAdapter cb,
-                                        Set subscriptions, cMsgServerSubscribeInfo sub) {
+                                        Set subscriptions,
+                                        cMsgServerSubscribeInfo sub) {
         this.cb = cb;
         this.sub = sub;
-        this.holder = holder;
         this.notifier = notifier;
+        this.nameServer = nameServer;
         this.subscriptions = subscriptions;
     }
 
@@ -75,24 +77,23 @@ public class cMsgServerSubscribeAndGetter implements Runnable {
             return;
         }
 
-        cMsgDomainServer.subscribeLock.lock();
+        nameServer.subscribeLock.lock();
         try {
-            for (cMsgServerBridge b : cMsgNameServer.bridges.values()) {
+            for (cMsgServerBridge b : nameServer.bridges.values()) {
                 try {
                     // only cloud members please
                     if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
                         continue;
                     }
-                    b.unsubscribeAndGet(holder.subject, holder.type, holder.namespace, cb);
+                    b.unsubscribeAndGet(sub.subject, sub.type, sub.namespace, cb);
 
                 }
                 catch (cMsgException e) {
-                    e.printStackTrace();
                     // ignore exceptions as server is probably gone and so no matter
                 }
             }
 
-            sub.removeSubAndGetter(holder.id);
+            sub.removeSubAndGetter(notifier.id);
 
             // If a msg was sent and sub removed simultaneously while a sub&Get (on client)
             // timed out so an unSub&Get was sent, ignore the unSub&get.
@@ -101,7 +102,7 @@ public class cMsgServerSubscribeAndGetter implements Runnable {
             }
         }
         finally {
-            cMsgDomainServer.subscribeLock.unlock();
+            nameServer.subscribeLock.unlock();
         }
     }
 

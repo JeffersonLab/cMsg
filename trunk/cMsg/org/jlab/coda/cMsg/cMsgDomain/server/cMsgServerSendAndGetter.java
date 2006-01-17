@@ -17,13 +17,9 @@
 package org.jlab.coda.cMsg.cMsgDomain.server;
 
 import org.jlab.coda.cMsg.cMsgDomain.cMsgNotifier;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgHolder;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
-import org.jlab.coda.cMsg.cMsgClientInfo;
 import org.jlab.coda.cMsg.cMsgCallbackAdapter;
 import org.jlab.coda.cMsg.cMsgException;
 
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -33,35 +29,30 @@ import java.util.concurrent.ConcurrentHashMap;
  * response is received.
  */
 public class cMsgServerSendAndGetter implements Runnable {
-    static int counter;
+    /** Name server object that this thread is run by. */
+    private cMsgNameServer nameServer;
+
     /**
-     * Wait on this object which tells us when a matching message has been sent
-     * to a subscribeAndGet so we can notify bridges to cancel their subscriptions
-     * (which are used to implement remote subscribeAndGets).
+     * Wait on this object which tells us when a response message has been sent
+     * to a sendAndGet so we can notify bridges to cancel their sendAndGets.
      */
     cMsgNotifier notifier;
 
-    /** Contains the information to use for unSendAndGetting. */
-
-    /** Contains all subscriptions made by this server. */
-    cMsgCallbackAdapter cb;
+    /** A list of all cMsgServerSendAndGetter objects (threads) for this client. */
     ConcurrentHashMap sendAndGetters;
 
 
-    public cMsgServerSendAndGetter(cMsgNotifier notifier,
-                                    cMsgCallbackAdapter cb,
-                                    ConcurrentHashMap sendAndGetters) {
-        this.cb = cb;
+    /** Constructor. */
+    public cMsgServerSendAndGetter(cMsgNameServer nameServer,
+                                   cMsgNotifier notifier,
+                                   ConcurrentHashMap sendAndGetters) {
         this.notifier = notifier;
+        this.nameServer = nameServer;
         this.sendAndGetters = sendAndGetters;
     }
 
     public void run() {
-        counter++;
-        if (counter > 10) {
-            System.out.println("getter threads = " + counter);
-        }
-        // Wait for a signal to cancel remote subscriptions
+        // Wait for a signal to cancel sendAndGet
 //System.out.println("cMsgServerSendAndGetter object: Wait on notifier");
         try {
             if (Thread.currentThread().isInterrupted()) {
@@ -78,28 +69,27 @@ public class cMsgServerSendAndGetter implements Runnable {
 
 //System.out.println("cMsgServerSendAndGetter object: notifier fired");
 
-            for (cMsgServerBridge b : cMsgNameServer.bridges.values()) {
-                //System.out.println("Domain Server: call bridge subscribe");
-                try {
-                    // only cloud members please
-                    if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
-                        continue;
-                    }
-//System.out.println("cMsgServerSendAndGetter object: unSendAndGet to bridge " + b.server +
+        // for each server in the cloud, cancel the sendAndGet
+        for (cMsgServerBridge b : nameServer.bridges.values()) {
+            //System.out.println("Domain Server: call bridge subscribe");
+            try {
+                // only cloud members please
+                if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
+                    continue;
+                }
+//System.out.println("cMsgServerSendAndGetter object: unSendAndGet to bridge " + b.serverName +
 //                   ", id = " + notifier.id);
 
-                    b.unSendAndGet(notifier.id);
-                }
-                catch (cMsgException e) {
-                    // e.printStackTrace();
-                    // ignore exceptions as server is probably gone and so no matter
-                }
+                b.unSendAndGet(notifier.id);
             }
-//System.out.println("");
+            catch (cMsgException e) {
+                // ignore exceptions as server is probably gone and so no matter
+            }
+        }
 
-            // Clear entry in hash table of subAndGetters
-            sendAndGetters.remove(notifier.id);
-        counter--;
+        // Clear entry of this object in hash table of all client's sendAndGetter objects
+        sendAndGetters.remove(notifier.id);
+//System.out.println("EXIT GETTER for id = " + notifier.id + "\n");
 
     }
 
