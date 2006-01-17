@@ -43,11 +43,8 @@ public class cMsgHolder {
     /** Store type. */
     public String namespace;
 
-    /** Store client(s) to shutdown. */
+    /** Store client(s) OR server(s) to shutdown. */
     public String client;
-
-    /** Store server(s) to shutdown. */
-    public String server;
 
     /**
      * Delay (miiliseconds) in cloud locking and client registration.
@@ -79,9 +76,8 @@ public class cMsgHolder {
     }
 
     /** Constructor for holding shutdown information from client. */
-    public cMsgHolder(String client, String server, int flag) {
+    public cMsgHolder(String client, int flag) {
         this.client = client;
-        this.server = server;
         this.flag = flag;
     }
 

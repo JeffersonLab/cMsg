@@ -158,25 +158,25 @@ public class cMsg extends cMsgDomainAdapter {
     AtomicInteger uniqueId;
 
     /** The subdomain server object or client handler implements {@link #send}. */
-    private boolean hasSend;
+    boolean hasSend;
 
     /** The subdomain server object or client handler implements {@link #syncSend}. */
-    private boolean hasSyncSend;
+    boolean hasSyncSend;
 
     /** The subdomain server object or client handler implements {@link #subscribeAndGet}. */
-    private boolean hasSubscribeAndGet;
+    boolean hasSubscribeAndGet;
 
     /** The subdomain server object or client handler implements {@link #sendAndGet}. */
-    private boolean hasSendAndGet;
+    boolean hasSendAndGet;
 
     /** The subdomain server object or client handler implements {@link #subscribe}. */
-    private boolean hasSubscribe;
+    boolean hasSubscribe;
 
     /** The subdomain server object or client handler implements {@link #unsubscribe}. */
-    private boolean hasUnsubscribe;
+    boolean hasUnsubscribe;
 
-    /** The subdomain server object or client handler implements {@link #shutdown}. */
-    private boolean hasShutdown;
+    /** The subdomain server object or client handler implements {@link #shutdownClients}. */
+    boolean hasShutdown;
 
     /** Level of debug output for this class. */
     int debug = cMsgConstants.debugError;
@@ -1322,14 +1322,14 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * Method to shutdown the given clients and/or servers.
+     * Method to shutdown the given clients.
+     * Wildcards used to match client names with the given string.
      *
      * @param client client(s) to be shutdown
-     * @param server server(s) to be shutdown
      * @param flag   flag describing the mode of shutdown
      * @throws cMsgException
      */
-    public void shutdown(String client, String server, int flag) throws cMsgException {
+    public void shutdownClients(String client, int flag) throws cMsgException {
         // cannot run this simultaneously with any other public method
         connectLock.lock();
         try {
@@ -1345,6 +1345,68 @@ public class cMsg extends cMsgDomainAdapter {
             if (client == null) {
                 client = new String("");
             }
+
+            socketLock.lock();
+            try {
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(3*4 + client.length());
+                domainOut.writeInt(cMsgConstants.msgShutdownClients);
+                domainOut.writeInt(flag);
+                domainOut.writeInt(client.length());
+
+                // write string
+                try {
+                    domainOut.write(client.getBytes("US-ASCII"));
+                }
+                catch (UnsupportedEncodingException e) {}
+            }
+            finally {
+                socketLock.unlock();
+            }
+
+            domainOut.flush();
+
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
+        }
+        finally {
+            connectLock.unlock();
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to shutdown the given servers.
+     * Wildcards used to match client names with the given string.
+     *
+     * @param server server(s) to be shutdown
+     * @param flag   flag describing the mode of shutdown
+     * @throws cMsgException if server arg is not in the correct form (host:port),
+     *                       the host is unknown, client not connected to server,
+     *                       or IO error.
+     */
+    public void shutdownServers(String server, int flag) throws cMsgException {
+        // Parse the server string to see if it's in an acceptable form.
+        // It must be of the form "host:port" where host should be the
+        // canonical form. If it isn't, that must be corrected here.
+        server = cMsgMessageMatcher.constructServerName(server);
+
+        // cannot run this simultaneously with any other public method
+        connectLock.lock();
+        try {
+            if (!connected) {
+                throw new cMsgException("not connected to server");
+            }
+
+            if (!hasShutdown) {
+                throw new cMsgException("shutdown is not implemented by this subdomain");
+            }
+
+            // make sure null args are sent as blanks
             if (server == null) {
                 server = new String("");
             }
@@ -1352,15 +1414,13 @@ public class cMsg extends cMsgDomainAdapter {
             socketLock.lock();
             try {
                 // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(4*4 + client.length() + server.length());
-                domainOut.writeInt(cMsgConstants.msgShutdown);
-                domainOut.writeInt(flag); // reserved for future use
-                domainOut.writeInt(client.length());
+                domainOut.writeInt(3*4 + server.length());
+                domainOut.writeInt(cMsgConstants.msgShutdownServers);
+                domainOut.writeInt(flag);
                 domainOut.writeInt(server.length());
 
-                // write strings & byte array
+                // write string
                 try {
-                    domainOut.write(client.getBytes("US-ASCII"));
                     domainOut.write(server.getBytes("US-ASCII"));
                 }
                 catch (UnsupportedEncodingException e) {}
@@ -1652,132 +1712,6 @@ public class cMsg extends cMsgDomainAdapter {
 
 //System.out.println("        << CL: return");
         return names;
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * This method gets the host and port of the domain server from the name server.
-     * It also gets information about the subdomain handler object.
-     * Note to those who would make changes in the protocol, keep the first three
-     * ints the same. That way the server can reliably check for mismatched versions.
-     *
-     * @param channel nio socket communication channel
-     * @param fromNameServerPort port of name server calling this method
-     * @param isOriginator true if originating the connection between the 2 servers and
-     *                     false if this is the response or reciprocal connection.
-     * @throws IOException if there are communication problems with the name server
-     */
-    HashSet<String> talkToNameServerFromServer(SocketChannel channel,
-                                                       int fromNameServerPort,
-                                                       boolean isOriginator)
-            throws IOException, cMsgException {
-        byte[] buf = new byte[512];
-
-        DataInputStream  in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream()));
-        DataOutputStream out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream()));
-
-        out.writeInt(cMsgConstants.msgServerConnectRequest);
-        out.writeInt(cMsgConstants.version);
-        out.writeInt(cMsgConstants.minorVersion);
-        // This client's listening port
-        out.writeInt(port);
-        // What relationship does this server have to the server cloud?
-        // Can be INCLOUD, NONCLOUD, or BECOMINGCLOUD.
-        out.writeByte(cMsgNameServer.getCloudStatus());
-        // Is this client originating the connection or making a reciprocal one?
-        out.writeByte(isOriginator ? 1 : 0);
-        // This name server's listening port
-        out.writeInt(fromNameServerPort);
-        // Length of local host name
-        out.writeInt(host.length());
-
-        // write strings & byte array
-        try {
-            out.write(host.getBytes("US-ASCII"));
-        }
-        catch (UnsupportedEncodingException e) {}
-
-//System.out.println("        << CL: Write ints & host");
-        out.flush(); // no need to be protected by socketLock
-
-        // read acknowledgment
-        int error = in.readInt();
-
-        // if there's an error, read error string then quit
-        if (error != cMsgConstants.ok) {
-
-//System.out.println("        << CL: Read error");
-            // read string length
-            int len = in.readInt();
-            if (len > buf.length) {
-                buf = new byte[len+100];
-            }
-
-            // read error string
-            in.readFully(buf, 0, len);
-            String err = new String(buf, 0, len, "US-ASCII");
-//System.out.println("        << CL: Error = " + err);
-
-            throw new cMsgException("Error from server: " + err);
-        }
-
-        // read cloud status of sending server
-        //int cloudStatus  = in.readInt();
-
-        // read port & length of host name
-        domainServerPort = in.readInt();
-        int hostLength   = in.readInt();
-
-        // read host name
-        if (hostLength > buf.length) {
-            buf = new byte[hostLength];
-        }
-        in.readFully(buf, 0, hostLength);
-        domainServerHost = new String(buf, 0, hostLength, "US-ASCII");
-
-        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("        << CL: domain server host = " + domainServerHost +
-                               ", port = " + domainServerPort);
-        }
-
-        // return list of servers
-        HashSet<String> s = null;
-
-        // First, get the number of servers
-        int numServers = in.readInt();
-
-        // Second, for each server name, get string length then string
-        if (numServers > 0) {
-//System.out.println("        << CL: Try reading server names ...");
-            s = new HashSet<String>(numServers);
-            int serverNameLength;
-            String serverName;
-
-            for (int i = 0; i < numServers; i++) {
-                serverNameLength = in.readInt();
-                byte[] bytes = new byte[serverNameLength];
-                in.readFully(bytes, 0, serverNameLength);
-                serverName = new String(bytes, 0, serverNameLength, "US-ASCII");
-//System.out.println("        << CL: Got server \"" + serverName + "\" from server");
-                s.add(serverName);
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("  server = " + serverName);
-                }
-            }
-        }
-
-        hasSend            = true;
-        hasSyncSend        = true;
-        hasSubscribeAndGet = true;
-        hasSendAndGet      = true;
-        hasSubscribe       = true;
-        hasUnsubscribe     = true;
-        hasShutdown        = true;
-
-        return s;
     }
 
 

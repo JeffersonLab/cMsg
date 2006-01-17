@@ -26,6 +26,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.Future;
 import java.net.Socket;
 
 /**
@@ -311,7 +312,7 @@ Thread.currentThread().setName("Client Listening " + myId);
                             out.flush();
                             break;
 
-                        case cMsgConstants.msgShutdown: // told this server to shutdown
+                        case cMsgConstants.msgShutdownClients: // told this server to shutdown
                             if (debug >= cMsgConstants.debugInfo) {
                                 System.out.println("handleClient: got shutdown from server");
                             }
@@ -506,7 +507,7 @@ Thread.currentThread().setName("Client Listening " + myId);
                         holder.timedOut = false;
                         holder.message = msg.copy();
 //System.out.println(" sending notify for subscribeAndGet");
-                        // Tell the get-calling thread to wakeup and retrieved the held msg
+                        // Tell the get-calling thread to wakeup and retrieve the held msg
 /*
                         try {
                             synchronized (holder) {
@@ -578,6 +579,7 @@ Thread.currentThread().setName("Client Listening " + myId);
 
             cMsgSendAndGetCallbackThread cbThread =
                     serverClient.serverSendAndGets.remove(msg.getSenderToken());
+            serverClient.serverSendAndGetCancel.remove(msg.getSenderToken());
 
             if (cbThread == null) {
                 return;
