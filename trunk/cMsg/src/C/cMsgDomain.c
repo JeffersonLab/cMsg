@@ -3625,7 +3625,7 @@ printf("     callback thd: reduce cue size to %d\n",subscription->messages);
 /*printf("TOLD TO QUIT MAIN CALLBACK THREAD\n");*/
         goto end;
       }
-    }
+    } /* while(1) */
     
   end:
           
@@ -3855,7 +3855,7 @@ fprintf(stderr, "\ncMsgRunCallbacks: cue size = %d, max = %d\n",
 subscription->messages, subscription->config.maxCueSize);
 
         /* check to see if there are too many messages in the cue */
-        if (subscription->messages > subscription->config.maxCueSize) {
+        if (subscription->messages >= subscription->config.maxCueSize) {
             /* if we may skip messages, dump oldest */
             if (subscription->config.maySkip) {
 fprintf(stderr, "cMsgRunCallbacks: cue full, skipping\n");
