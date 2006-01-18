@@ -3794,9 +3794,10 @@ int cMsgRunCallbacks(int domainId, cMsgMessage *msg) {
   struct timespec wait, timeout;
     
 
-  /* wait .1 sec for empty space on a full cue */
-  timeout.tv_sec  = 0;
-  timeout.tv_nsec = 100000000;
+  /* wait 3 sec for empty space on a full cue */
+  timeout.tv_sec  = 3;
+  timeout.tv_nsec = 0;
+  /* timeout.tv_nsec = 100000000; */ /* .1 sec */
   
   domain = &cMsgDomains[domainId];
   
