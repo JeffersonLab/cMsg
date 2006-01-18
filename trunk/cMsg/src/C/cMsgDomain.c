@@ -3486,7 +3486,7 @@ static void *callbackThread(void *arg)
     int numMsgs, numThreads;
     cMsgMessage *msg;
     pthread_t thd;
-    /*time_t now, t;*/ /* for printing msg cue size periodically */
+    time_t now, t; /* for printing msg cue size periodically */
     
     /* increase concurrency for this thread for early Solaris */
     int  con;
@@ -3494,7 +3494,7 @@ static void *callbackThread(void *arg)
     sun_setconcurrency(con + 1);
     
     /* for printing msg cue size periodically */
-    /* now = time(NULL); */
+    now = time(NULL);
 
     /* release system resources when thread finishes */
     pthread_detach(pthread_self());
@@ -3590,6 +3590,7 @@ static void *callbackThread(void *arg)
         subscription->head = msg->next;
       }
       subscription->messages--;
+printf("     callback thd: reduce cue size to %d\n",subscription->messages);
      
       /* unlock mutex */
       status = pthread_mutex_unlock(&subscription->mutex);
@@ -3606,8 +3607,8 @@ static void *callbackThread(void *arg)
       /* print out number of messages in cue */
       /*
       t = time(NULL);
-      if (now + 5 <= t) {
-        printf("     %d\n",subscription->messages);
+      if (now + 3 <= t) {
+        printf("     callback thd: cue size = %d\n",subscription->messages);
         now = t;
       }
       */
@@ -3739,6 +3740,7 @@ static void *supplementalThread(void *arg)
         subscription->head = msg->next;
       }
       subscription->messages--;
+printf("     supp thd: reduce cue size to %d\n",subscription->messages);
      
       /* unlock mutex */
       status = pthread_mutex_unlock(&subscription->mutex);
@@ -3849,11 +3851,14 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
         if (status != 0) {
           err_abort(status, "Failed callback mutex lock");
         }
+fprintf(stderr, "\ncMsgRunCallbacks: cue size = %d, max = %d\n",
+subscription->messages, subscription->config.maxCueSize);
 
         /* check to see if there are too many messages in the cue */
         if (subscription->messages > subscription->config.maxCueSize) {
             /* if we may skip messages, dump oldest */
             if (subscription->config.maySkip) {
+fprintf(stderr, "cMsgRunCallbacks: cue full, skipping\n");
                 for (k=0; k < subscription->config.skipSize; k++) {
                   oldHead = subscription->head;
                   subscription->head = subscription->head->next;
@@ -3866,7 +3871,7 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
                 }
             }
             else {
-/*fprintf(stderr, "cMsgRunCallbacks: cue full, waiting\n");*/
+fprintf(stderr, "cMsgRunCallbacks: cue full, waiting\n");
 
                 /* wait until signaled - meaning item taken off cue */
                 getAbsoluteTime(&timeout, &wait);        
@@ -3874,7 +3879,7 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
 
                 /* if the wait timed out ... */
                 if (status == ETIMEDOUT) {
-/*fprintf(stderr, "cMsgRunCallbacks: cue full, timed out\n");*/
+fprintf(stderr, "cMsgRunCallbacks: cue full, timed out\n");
                     /* unlock mutex */
                     status = pthread_mutex_unlock(&subscription->mutex);
                     if (status != 0) {
@@ -3914,7 +3919,7 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
         }
 
         subscription->messages++;
-/*printf("cMsgRunCallbacks: cb cue size = %d\n", subscription->messages);*/
+printf("cMsgRunCallbacks: increase cue size = %d\n", subscription->messages);
         message->next = NULL;
 
         /* unlock mutex */
@@ -4216,8 +4221,8 @@ static void subscribeInfoInit(subInfo *info, int reInit) {
       info->cbInfo[j].config.init          = 0;
       info->cbInfo[j].config.maySkip       = 0;
       info->cbInfo[j].config.mustSerialize = 1;
-      info->cbInfo[j].config.maxCueSize    = 10000;
-      info->cbInfo[j].config.skipSize      = 2000;
+      info->cbInfo[j].config.maxCueSize    = 100;
+      info->cbInfo[j].config.skipSize      = 20;
       info->cbInfo[j].config.maxThreads    = 100;
       info->cbInfo[j].config.msgsPerThread = 150;
       
