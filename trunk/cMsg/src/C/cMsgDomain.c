@@ -62,6 +62,7 @@
 #include "cMsgDomain.h"
 #include "errors.h"
 #include "rwlock.h"
+#include "regex.h"
 
 
 
@@ -174,6 +175,8 @@ static void  subscribeInfoFree(subInfo *info);
 /* misc */
 static int   talkToNameServer(cMsgDomain_CODA *domain, int serverfd,
                                           char *subdomain, char *UDLremainder);
+static int   parseUDLregex(const char *UDLremainder, char **host, unsigned short *port,
+                      char **subdomainType, char **UDLsubRemainder);
 static int   parseUDL(const char *UDLremainder, char **host, unsigned short *port,
                       char **subdomainType, char **UDLsubRemainder);
 static int   unSendAndGet(int domainId, int id);
@@ -3486,7 +3489,7 @@ static void *callbackThread(void *arg)
     int numMsgs, numThreads;
     cMsgMessage *msg;
     pthread_t thd;
-    time_t now, t; /* for printing msg cue size periodically */
+    /* time_t now, t;*/ /* for printing msg cue size periodically */
     
     /* increase concurrency for this thread for early Solaris */
     int  con;
@@ -3494,7 +3497,7 @@ static void *callbackThread(void *arg)
     sun_setconcurrency(con + 1);
     
     /* for printing msg cue size periodically */
-    now = time(NULL);
+    /* now = time(NULL); */
 
     /* release system resources when thread finishes */
     pthread_detach(pthread_self());
@@ -3590,7 +3593,7 @@ static void *callbackThread(void *arg)
         subscription->head = msg->next;
       }
       subscription->messages--;
-printf("     callback thd: reduce cue size to %d\n",subscription->messages);
+/*printf("     callback thd: reduce cue size to %d\n",subscription->messages);*/
      
       /* unlock mutex */
       status = pthread_mutex_unlock(&subscription->mutex);
@@ -3794,10 +3797,9 @@ int cMsgRunCallbacks(int domainId, cMsgMessage *msg) {
   struct timespec wait, timeout;
     
 
-  /* wait 3 sec for empty space on a full cue */
-  timeout.tv_sec  = 3;
+  /* wait 60 sec between warning messages for a full cue */
+  timeout.tv_sec  = 60;
   timeout.tv_nsec = 0;
-  /* timeout.tv_nsec = 100000000; */ /* .1 sec */
   
   domain = &cMsgDomains[domainId];
   
@@ -3852,14 +3854,16 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
         if (status != 0) {
           err_abort(status, "Failed callback mutex lock");
         }
+ /*
 fprintf(stderr, "\ncMsgRunCallbacks: cue size = %d, max = %d\n",
 subscription->messages, subscription->config.maxCueSize);
+*/
 
         /* check to see if there are too many messages in the cue */
         if (subscription->messages >= subscription->config.maxCueSize) {
             /* if we may skip messages, dump oldest */
             if (subscription->config.maySkip) {
-fprintf(stderr, "cMsgRunCallbacks: cue full, skipping\n");
+/*fprintf(stderr, "cMsgRunCallbacks: cue full, skipping\n");*/
                 for (k=0; k < subscription->config.skipSize; k++) {
                   oldHead = subscription->head;
                   subscription->head = subscription->head->next;
@@ -3872,26 +3876,26 @@ fprintf(stderr, "cMsgRunCallbacks: cue full, skipping\n");
                 }
             }
             else {
-fprintf(stderr, "cMsgRunCallbacks: cue full, waiting\n");
+/*fprintf(stderr, "cMsgRunCallbacks: cue full, waiting\n");*/
+                while(subscription->messages >= subscription->config.maxCueSize) {
+                    /* wait until signaled - meaning item taken off cue */
+                    getAbsoluteTime(&timeout, &wait);        
+                    status = pthread_cond_timedwait(&subscription->cond, &subscription->mutex, &wait);
 
-                /* wait until signaled - meaning item taken off cue */
-                getAbsoluteTime(&timeout, &wait);        
-                status = pthread_cond_timedwait(&subscription->cond, &subscription->mutex, &wait);
-
-                /* if the wait timed out ... */
-                if (status == ETIMEDOUT) {
-fprintf(stderr, "cMsgRunCallbacks: cue full, timed out\n");
-                    /* unlock mutex */
-                    status = pthread_mutex_unlock(&subscription->mutex);
-                    if (status != 0) {
-                      err_abort(status, "Failed callback mutex unlock");
+                    /* if the wait timed out ... */
+                    if (status == ETIMEDOUT) {
+                        if (cMsgDebug >= CMSG_DEBUG_WARN) {
+                          fprintf(stderr, "cMsgRunCallbacks: waited 1 minute for cue to empty\n");
+                        }
                     }
-                    cMsgFreeMessage((void *)message);
-                    cMsgFreeMessage((void *)msg);
-                    return(CMSG_LIMIT_EXCEEDED);
-                }
-                else if (status != 0) {
-                  err_abort(status, "Failed callback cond wait");
+                    /* else if error */
+                    else if (status != 0) {
+                      err_abort(status, "Failed callback cond wait");
+                    }
+                    /* else woken up 'cause msg taken off cue */
+                    else {
+                        break;
+                    }
                 }
 /*fprintf(stderr, "cMsgRunCallbacks: cue full, wokenup, there's room now!\n");*/
             }
@@ -3920,7 +3924,7 @@ fprintf(stderr, "cMsgRunCallbacks: cue full, timed out\n");
         }
 
         subscription->messages++;
-printf("cMsgRunCallbacks: increase cue size = %d\n", subscription->messages);
+/*printf("cMsgRunCallbacks: increase cue size = %d\n", subscription->messages);*/
         message->next = NULL;
 
         /* unlock mutex */
@@ -4068,6 +4072,186 @@ static int getAbsoluteTime(const struct timespec *deltaTime, struct timespec *ab
       absTime->tv_sec  = deltaTime->tv_sec + now.tv_sec;
     }
     return CMSG_OK;
+}
+
+
+/*-------------------------------------------------------------------*/
+/**
+ * This routine parses the cMsg domain portion of the UDL sent from the 
+ * "next level up" in the API.
+ */
+static int parseUDLregex(const char *UDLremainder, char **host, unsigned short *port,
+                         char **subdomainType, char **UDLsubRemainder) {
+
+    int        i, err, len, returnCode, bufLength, Port;
+    char       *buffer;
+    /*const char *pattern = "([\\w\\.]+):?(\\d+)?/?(\\w+)?/?(.*)";*/    
+    const char *pattern = "([a-zA-Z0-9\\.]+):?([0-9]+)?/?([a-zA-Z0-9]+)?/?(.*)/?";  
+    /*const char *pattern = "^.+$"; */   
+    regmatch_t matches[5]; /* we have 5 potential matches: 1 whole, 4 sub */
+    regex_t    compiled;
+    /*char *UDLremainder = "aslan:3456/cMsg/test";*/
+    
+    if (UDLremainder == NULL) {
+        return (CMSG_BAD_FORMAT);
+    }
+    
+    /* make a big enough buffer to construct various strings, 256 chars minimum */
+    len       = strlen(UDLremainder) + 1;
+    bufLength = len < 256 ? 256 : len;    
+    buffer    = (char *) malloc(bufLength);
+    if (buffer == NULL) {
+      return(CMSG_OUT_OF_MEMORY);
+    }
+printf("parseUDLregex: made buffer\n");
+printf("parseUDLregex: pattern = %s\n", pattern);
+printf("parseUDLregex: match to %s\n", UDLremainder);
+
+    /*
+    // cMsg domain UDL is of the form:
+    //       cMsg:<domainType>://<host>:<port>/<subdomainType>/<subdomain remainder>
+    //
+    // We could parse the whole UDL, but we've been passed the UDL with
+    // the "cMsg:<domainType>://" stripped off, in UDLremainder (in the software
+    // layer one up). So just parse that.
+    //
+    // Remember that for this domain:
+    // 1) port is not necessary
+    // 2) host can be "localhost" and may also includes dots (.)
+    // 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
+    //    if subdomainType is not cMsg, it is required
+    // 4) remainder is past on to the subdomain plug-in
+    */
+
+    /* compile regular expression */
+    err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED);
+    if (err != 0) {
+        free(buffer);
+        return err;
+    }
+    
+printf("parseUDLregex: compiled regex\n");
+    /* find matches */
+    err = cMsgRegexec(&compiled, UDLremainder, 5, matches, 0);
+    /*err = cMsgRegexec(&compiled, UDLremainder, 0, NULL, 0);*/
+    if (err == 0) {
+        returnCode = 1;
+printf("parseUDLregex: sucessful parse\n");
+    }
+    else if (err == REG_NOMATCH) {
+        returnCode = 0;
+printf("parseUDLregex: no match in parse\n");
+    }
+    else {
+        returnCode = -1;
+printf("parseUDLregex: error in parse\n");
+    }
+    
+    /* free up memory */
+    cMsgRegfree(&compiled);
+    
+    for (i=0; i<5; i++) {
+printf("parseUDLregex: match[%d].start = %p\n", i, matches[i].rm_so);
+printf("                           end = %p\n", matches[i].rm_eo);
+    }
+        
+    /* find host name */
+    if ((unsigned int)(matches[1].rm_so) < 0) {
+        /* no match for host */
+        free(buffer);
+        return (CMSG_BAD_FORMAT);
+    }
+    else {
+       buffer[0] = 0;
+       len = matches[1].rm_eo - matches[1].rm_so;
+       strncat(buffer, UDLremainder+matches[1].rm_so, len);
+                
+        /* if the host is "localhost", find the actual host name */
+        if (strcmp(buffer, "localhost") == 0) {
+            /* get canonical local host name */
+            if (cMsgLocalHost(buffer, bufLength) != CMSG_OK) {
+                /* error */
+                free(buffer);
+                return (CMSG_BAD_FORMAT);
+            }
+        }
+        
+        if (host != NULL) {
+            *host = (char *)strdup(buffer);
+        }
+    }
+
+printf("parseUDLregex: host = %s\n", buffer);
+
+    /* find port */
+    if (matches[2].rm_so < 0) {
+        /* no match for port so use default */
+        Port = CMSG_NAME_SERVER_STARTING_PORT;
+        if (cMsgDebug >= CMSG_DEBUG_WARN) {
+            fprintf(stderr, "parseUDLregex: guessing that the name server port is %d\n",
+                   Port);
+        }
+    }
+    else {
+        buffer[0] = 0;
+        len = matches[2].rm_eo - matches[2].rm_so;
+        strncat(buffer, UDLremainder+matches[2].rm_so, len);        
+        Port = atoi(buffer);        
+    }
+
+    if (Port < 1024 || Port > 65535) {
+      if (host != NULL) free((void *) *host);
+      free(buffer);
+      return (CMSG_OUT_OF_RANGE);
+    }
+               
+    if (port != NULL) {
+      *port = Port;
+    }
+printf("parseUDLregex: port = %hu\n", Port );                
+
+
+    /* find subdomain */
+    if (matches[3].rm_so < 0) {
+        /* no match for subdomain, cMsg is default */
+        if (subdomainType != NULL) {
+            *subdomainType = (char *) strdup("cMsg");
+        }
+    }
+    else {
+        len = matches[3].rm_eo - matches[3].rm_so;
+printf("parseUDLregex: subdomain length = %d\n", len);                
+        strncpy(buffer, UDLremainder+matches[3].rm_so, len);
+                
+        if (subdomainType != NULL) {
+            *subdomainType = (char *) strdup(buffer);
+        }        
+printf("parseUDLregex: subdomain = %s\n", buffer);
+    }
+
+
+    /* find subdomain remainder */
+    if (matches[4].rm_so < 0) {
+        /* no match */
+        if (UDLsubRemainder != NULL) {
+          *UDLsubRemainder = NULL;
+        }
+    }
+    else {
+        len = matches[4].rm_eo - matches[4].rm_so;
+printf("parseUDLregex: subdomain remainder length = %d\n", len);                
+        strncpy(buffer, UDLremainder+matches[4].rm_so, len);
+                
+        if (UDLsubRemainder != NULL) {
+            *UDLsubRemainder = (char *) strdup(buffer);
+        }        
+printf("parseUDLregex: subdomain remainder = %s\n", buffer);
+    }
+
+
+    /* UDL parsed ok */
+    free(buffer);
+    return(CMSG_OK);
 }
 
 
