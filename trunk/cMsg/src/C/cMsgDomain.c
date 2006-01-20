@@ -312,7 +312,7 @@ static int codaConnect(const char *myUDL, const char *myName, const char *myDesc
   /* Parse the UDL (Uniform Domain Locator) remainder
    * passed down from the level above.
    */
-  if ( (err = parseUDL(UDLremainder, &cMsgDomains[id].serverHost,
+  if ( (err = parseUDLregex(UDLremainder, &cMsgDomains[id].serverHost,
                        &cMsgDomains[id].serverPort, &subdomain, &UDLsubRemainder)) != CMSG_OK ) {
     /* there's been a parsing error */
     domainClear(&cMsgDomains[id]);
@@ -4077,20 +4077,17 @@ static int getAbsoluteTime(const struct timespec *deltaTime, struct timespec *ab
 
 /*-------------------------------------------------------------------*/
 /**
- * This routine parses the cMsg domain portion of the UDL sent from the 
- * "next level up" in the API.
+ * This routine parses, using regular expressions, the cMsg domain
+ * portion of the UDL sent from the next level up" in the API.
  */
 static int parseUDLregex(const char *UDLremainder, char **host, unsigned short *port,
                          char **subdomainType, char **UDLsubRemainder) {
 
     int        i, err, len, returnCode, bufLength, Port;
     char       *buffer;
-    /*const char *pattern = "([\\w\\.]+):?(\\d+)?/?(\\w+)?/?(.*)";*/    
     const char *pattern = "([a-zA-Z0-9\\.]+):?([0-9]+)?/?([a-zA-Z0-9]+)?/?(.*)/?";  
-    /*const char *pattern = "^.+$"; */   
     regmatch_t matches[5]; /* we have 5 potential matches: 1 whole, 4 sub */
     regex_t    compiled;
-    /*char *UDLremainder = "aslan:3456/cMsg/test";*/
     
     if (UDLremainder == NULL) {
         return (CMSG_BAD_FORMAT);
@@ -4103,10 +4100,7 @@ static int parseUDLregex(const char *UDLremainder, char **host, unsigned short *
     if (buffer == NULL) {
       return(CMSG_OUT_OF_MEMORY);
     }
-printf("parseUDLregex: made buffer\n");
-printf("parseUDLregex: pattern = %s\n", pattern);
-printf("parseUDLregex: match to %s\n", UDLremainder);
-
+    
     /*
     // cMsg domain UDL is of the form:
     //       cMsg:<domainType>://<host>:<port>/<subdomainType>/<subdomain remainder>
@@ -4130,31 +4124,17 @@ printf("parseUDLregex: match to %s\n", UDLremainder);
         return err;
     }
     
-printf("parseUDLregex: compiled regex\n");
     /* find matches */
     err = cMsgRegexec(&compiled, UDLremainder, 5, matches, 0);
-    /*err = cMsgRegexec(&compiled, UDLremainder, 0, NULL, 0);*/
-    if (err == 0) {
-        returnCode = 1;
-printf("parseUDLregex: sucessful parse\n");
-    }
-    else if (err == REG_NOMATCH) {
-        returnCode = 0;
-printf("parseUDLregex: no match in parse\n");
-    }
-    else {
-        returnCode = -1;
-printf("parseUDLregex: error in parse\n");
+    if (err != 0) {
+        /* no match */
+        free(buffer);
+        return (CMSG_BAD_FORMAT);
     }
     
     /* free up memory */
     cMsgRegfree(&compiled);
-    
-    for (i=0; i<5; i++) {
-printf("parseUDLregex: match[%d].start = %p\n", i, matches[i].rm_so);
-printf("                           end = %p\n", matches[i].rm_eo);
-    }
-        
+            
     /* find host name */
     if ((unsigned int)(matches[1].rm_so) < 0) {
         /* no match for host */
@@ -4181,7 +4161,7 @@ printf("                           end = %p\n", matches[i].rm_eo);
         }
     }
 
-printf("parseUDLregex: host = %s\n", buffer);
+/*printf("parseUDLregex: host = %s\n", buffer);*/
 
     /* find port */
     if (matches[2].rm_so < 0) {
@@ -4208,7 +4188,7 @@ printf("parseUDLregex: host = %s\n", buffer);
     if (port != NULL) {
       *port = Port;
     }
-printf("parseUDLregex: port = %hu\n", Port );                
+/*printf("parseUDLregex: port = %hu\n", Port );*/           
 
 
     /* find subdomain */
@@ -4217,16 +4197,17 @@ printf("parseUDLregex: port = %hu\n", Port );
         if (subdomainType != NULL) {
             *subdomainType = (char *) strdup("cMsg");
         }
+/*printf("parseUDLregex: subdomain = cMsg\n");*/
     }
     else {
+        buffer[0] = 0;
         len = matches[3].rm_eo - matches[3].rm_so;
-printf("parseUDLregex: subdomain length = %d\n", len);                
-        strncpy(buffer, UDLremainder+matches[3].rm_so, len);
+        strncat(buffer, UDLremainder+matches[3].rm_so, len);
                 
         if (subdomainType != NULL) {
             *subdomainType = (char *) strdup(buffer);
         }        
-printf("parseUDLregex: subdomain = %s\n", buffer);
+/*printf("parseUDLregex: subdomain = %s\n", buffer);*/
     }
 
 
@@ -4238,14 +4219,14 @@ printf("parseUDLregex: subdomain = %s\n", buffer);
         }
     }
     else {
+        buffer[0] = 0;
         len = matches[4].rm_eo - matches[4].rm_so;
-printf("parseUDLregex: subdomain remainder length = %d\n", len);                
-        strncpy(buffer, UDLremainder+matches[4].rm_so, len);
+        strncat(buffer, UDLremainder+matches[4].rm_so, len);
                 
         if (UDLsubRemainder != NULL) {
             *UDLsubRemainder = (char *) strdup(buffer);
         }        
-printf("parseUDLregex: subdomain remainder = %s\n", buffer);
+/*printf("parseUDLregex: subdomain remainder = %s\n", buffer);*/
     }
 
 
