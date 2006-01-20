@@ -83,7 +83,12 @@ extern "C" {
  */
 #define CMSG_MAXHOSTNAMELEN 256
 
+/** TCP port at which a client starts looking for an unused listening port. */
 #define CMSG_CLIENT_LISTENING_PORT 2345
+/** TCP port at which a name server starts looking for an unused listening port. */
+#define CMSG_NAME_SERVER_STARTING_PORT 3456;
+/** TCP port at which a domain server starts looking for an unused listening port. */
+#define CMSG_DOMAIN_SERVER_STARTING_PORT 4567;
 
 /* socket and/or thread blocking options */
 #define CMSG_BLOCKING    0
@@ -99,6 +104,7 @@ extern int   cMsgAccept(int fd, struct sockaddr *sa, socklen_t *salenptr);
 extern int   cMsgTcpRead(int fd, void *vptr, int n);
 extern int   cMsgTcpWrite(int fd, const void *vptr, int n);
 extern int   cMsgTcpWritev(int fd, struct iovec iov[], int nbufs, int iov_max);
+extern int   cMsgLocalHost(char *host, int length);
 
 extern int   cMsgLocalByteOrder(int *endian);
 extern const char *cMsgHstrerror(int err);

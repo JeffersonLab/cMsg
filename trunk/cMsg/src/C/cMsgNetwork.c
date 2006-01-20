@@ -594,11 +594,11 @@ const char *cMsgHstrerror(int err)
 /*    Return the default fully qualified host name of this host      */
 
 
-int cMsgDefaultHost(char *host, int length)
+int cMsgLocalHost(char *host, int length)
 {
 #ifdef VXWORKS
   if (host == NULL) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultHost: bad argument\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalHost: bad argument\n");
     return(CMSG_ERROR);
   }
 
@@ -610,17 +610,17 @@ int cMsgDefaultHost(char *host, int length)
   struct hostent *hptr;
   
   if (host == NULL) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultHost: bad argument\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalHost: bad argument\n");
     return(CMSG_ERROR);
   }
 
   /* find out the name of the machine we're on */
   if (uname(&myname) < 0) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultHost: cannot find hostname\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalHost: cannot find hostname\n");
     return(CMSG_ERROR);
   }
   if ( (hptr = gethostbyname(myname.nodename)) == NULL) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultHost: cannot find hostname\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalHost: cannot find hostname\n");
     return(CMSG_ERROR);
   }
 
@@ -637,7 +637,7 @@ int cMsgDefaultHost(char *host, int length)
 /*      Return the default dotted-decimal address of this host       */
 
 
-int cMsgDefaultAddress(char *address, int length)
+int cMsgLocalAddress(char *address, int length)
 {
 #ifdef VXWORKS
 
@@ -648,7 +648,7 @@ int cMsgDefaultAddress(char *address, int length)
   } u;
 
   if (address == NULL) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultAddress: bad argument\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalAddress: bad argument\n");
     return(CMSG_ERROR);
   }
 
@@ -668,17 +668,17 @@ int cMsgDefaultAddress(char *address, int length)
   char           **pptr, *val;
   
   if (address == NULL) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultAddress: bad argument\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalAddress: bad argument\n");
     return(CMSG_ERROR);
   }
 
   /* find out the name of the machine we're on */
   if (uname(&myname) < 0) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultAddress: cannot find hostname\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalAddress: cannot find hostname\n");
     return(CMSG_ERROR);
   }
   if ( (hptr = gethostbyname(myname.nodename)) == NULL) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgDefaultAddress: cannot find hostname\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalAddress: cannot find hostname\n");
     return(CMSG_ERROR);
   }
 
