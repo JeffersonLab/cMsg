@@ -4083,7 +4083,7 @@ static int getAbsoluteTime(const struct timespec *deltaTime, struct timespec *ab
 static int parseUDLregex(const char *UDLremainder, char **host, unsigned short *port,
                          char **subdomainType, char **UDLsubRemainder) {
 
-    int        i, err, len, returnCode, bufLength, Port;
+    int        i, err, len, bufLength, Port;
     char       *buffer;
     const char *pattern = "([a-zA-Z0-9\\.]+):?([0-9]+)?/?([a-zA-Z0-9]+)?/?(.*)";  
     regmatch_t matches[5]; /* we have 5 potential matches: 1 whole, 4 sub */
@@ -4121,7 +4121,7 @@ static int parseUDLregex(const char *UDLremainder, char **host, unsigned short *
     err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED);
     if (err != 0) {
         free(buffer);
-        return err;
+        return (CMSG_ERROR);
     }
     
     /* find matches */
@@ -4215,7 +4215,7 @@ static int parseUDLregex(const char *UDLremainder, char **host, unsigned short *
     if (matches[4].rm_so < 0) {
         /* no match */
         if (UDLsubRemainder != NULL) {
-          *UDLsubRemainder = NULL;
+            *UDLsubRemainder = NULL;
         }
     }
     else {
