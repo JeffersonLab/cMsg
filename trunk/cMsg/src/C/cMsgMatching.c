@@ -25,11 +25,8 @@
 
 /**
  * @file
- * This file contains the cMsg domain implementation of the cMsg user API.
- * This a messaging system programmed by the Data Acquisition Group at Jefferson
- * Lab. The cMsg domain has a dual function. It acts as a framework so that the
- * cMsg client can connect to a variety of subdomains (messaging systems). However,
- * it also acts as a messaging system itself in the cMsg <b>subdomain</b>.
+ * This file contains part of the cMsg domain implementation of the cMsg messaging
+ * system -- the routines which do regular expression matching.</b>.
  */  
  
 #include <stdio.h>
