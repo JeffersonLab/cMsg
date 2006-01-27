@@ -30,28 +30,31 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.io.IOException;
 
 /**
- * Class to handles all client cMsg requests.
+ * This class handles all client cMsg requests in the cMsg subdomain.
+ * Much of the functionality of this class is obtained by using static
+ * members. Practically, this means that only 1 name server can be run
+ * in a single JVM when using the cMsg subdomain.
  *
  * @author Carl Timmer
  * @version 1.0
  */
 public class cMsg extends cMsgSubdomainAdapter {
-    /** Used to create a unique id number associated with a specific message. */
+    /** Used to create a unique id number associated with a specific sendAndGet message. */
     static private AtomicInteger sysMsgId = new AtomicInteger();
 
     /** HashMap to store server clients. Name is key and cMsgClientInfo is value. */
     static private ConcurrentHashMap<String,cMsgClientInfo> servers =
             new ConcurrentHashMap<String,cMsgClientInfo>(100);
 
-    /** HashMap to store clients. Name is key and cMsgClientInfo is value. */
+    /** HashMap to store regular clients. Name is key and cMsgClientInfo is value. */
     static private ConcurrentHashMap<String,cMsgClientInfo> clients =
             new ConcurrentHashMap<String,cMsgClientInfo>(100);
 
     /**
-     * HashMap to store specific "get" in progress. sysMsgId of get msg is key,
+     * HashMap to store sendAndGets in progress. sysMsgId of get msg is key,
      * and client name is value.
      */
-    static private ConcurrentHashMap<Integer,GetInfo> specificGets =
+    static private ConcurrentHashMap<Integer,GetInfo> sendAndGets =
             new ConcurrentHashMap<Integer,GetInfo>(100);
 
     /**
@@ -100,8 +103,11 @@ public class cMsg extends cMsgSubdomainAdapter {
     /** This lock is used in global registrations for regular clients and server clients. */
     static private final ReentrantLock registrationLock = new ReentrantLock();
 
-    /** Lock to ensure all access to {@link #subscriptions} is sequential. */
+    /** This lock is used to ensure all access to {@link #subscriptions} is sequential. */
     static private final ReentrantLock subscribeLock = new ReentrantLock();
+
+
+
 
     /** Set of client info objects to send the message to. */
     private HashSet<cMsgClientInfo> sendToSet = new HashSet<cMsgClientInfo>(100);
@@ -128,21 +134,11 @@ public class cMsg extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to notify other objects (say, bridge to another server) that a new
-     * subscription has been made, and also return the new subscription. This method
-     * only notifies if a regular client makes a new subscription -- not another server.
-     */
-    public cMsgSubscription waitForNewSubscription() {
-        cMsgSubscription sub = null;
-
-        return sub;
-    }
-
-
-    /**
-     *
+     * This lock must be locked before a client registration in the cMsg subdomain
+     * can be made. Because this method and its lock are static, there is effectively
+     * one lock per cMsg server.
      * @param delay time in milliseconds to wait for the lock before timing out
-     * @return
+     * @return true if lock successful, false otherwise
      */
     static public boolean registrationLock(int delay) {
         try {
@@ -154,98 +150,77 @@ public class cMsg extends cMsgSubdomainAdapter {
     }
 
 
+    /** Unlock the registration lock. */
     static public void registrationUnlock() {
         registrationLock.unlock();
     }
 
+
+    /**
+     * This method gets the names of all clients in the cMsg subdomain.
+     * @return an array of names of all clients in the cMsg subdomain
+     */
     public String[] getClientNames() {
-//System.out.println("subdh: in getClientNames, size = " + clients.size());
         String[] s = new String[clients.size()];
         int i=0;
         for (String q : clients.keySet()) {
-//System.out.println("subdh: getClientNames: add string = " + q);
             s[i++] = q;
         }
-//System.out.println("subdh: return");
         return s;
     }
 
 
-
     /**
-     * Method to tell if the "send" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendRequest}
-     * method.
-     *
-     * @return true if send implemented in {@link #handleSendRequest}
+     * Method saying this subdomain implements {@link #handleSendRequest}.
+     * @return true
      */
-    public boolean hasSend() {return true;};
+    public boolean hasSend() {return true;}
 
 
     /**
-     * Method to tell if the "syncSsend" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSyncSendRequest}
-     * method.
-     *
-     * @return true if send implemented in {@link #handleSyncSendRequest}
+     * Method saying this subdomain implements {@link #handleSyncSendRequest}.
+     * @return true
      */
-    public boolean hasSyncSend() {return true;};
+    public boolean hasSyncSend() {return true;}
 
 
     /**
-     * Method to tell if the "subscribeAndGet" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSubscribeAndGetRequest}
-     * method.
-     *
-     * @return true if subscribeAndGet implemented in {@link #handleSubscribeAndGetRequest}
+     * Method saying this subdomain implements {@link #handleSubscribeAndGetRequest}.
+     * @return true
      */
     public boolean hasSubscribeAndGet() {return true;}
 
 
     /**
-     * Method to tell if the "sendAndGet" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendAndGetRequest}
-     * method.
-     *
-     * @return true if sendAndGet implemented in {@link #handleSendAndGetRequest}
+     * Method saying this subdomain implements {@link #handleSendAndGetRequest}.
+     * @return true
      */
     public boolean hasSendAndGet() {return true;}
 
 
     /**
-     * Method to tell if the "subscribe" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSubscribeRequest}
-     * method.
-     *
-     * @return true if subscribe implemented in {@link #handleSubscribeRequest}
+     * Method saying this subdomain implements {@link #handleSubscribeRequest}.
+     * @return true
      */
-    public boolean hasSubscribe() {return true;};
+    public boolean hasSubscribe() {return true;}
 
 
     /**
-     * Method to tell if the "unsubscribe" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleUnsubscribeRequest}
-     * method.
-     *
-     * @return true if unsubscribe implemented in {@link #handleUnsubscribeRequest}
+     * Method saying this subdomain implements {@link #handleUnsubscribeRequest}.
+     * @return true
      */
-    public boolean hasUnsubscribe() {return true;};
+    public boolean hasUnsubscribe() {return true;}
 
 
     /**
-     * Method to tell if the "shutdown" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleShutdownClientsRequest}
-     * method.
-     *
-     * @return true if shutdown implemented in {@link #handleShutdownClientsRequest}
+     * Method saying this subdomain implements {@link #handleShutdownClientsRequest}.
+     * @return true
      */
-    public boolean hasShutdown() {
-        return true;
-    }
+    public boolean hasShutdown() {return true;}
 
 
     /**
-     * Method to give the subdomain handler the appropriate part
+     * This method gives this subdomain handler the appropriate part
      * of the UDL the client used to talk to the domain server.
      * In the cMsg subdomain of the cMsg domain, each client sends messages to a namespace.
      * If no namespace is specified, the namespace is "/defaultNamespace".
@@ -256,7 +231,7 @@ public class cMsg extends cMsgSubdomainAdapter {
      * All trailing forward slashes will be removed.
      *
      * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
-     * @throws cMsgException
+     * @throws cMsgException if there's an invalid namespace
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
         this.UDLRemainder = UDLRemainder;
@@ -309,8 +284,7 @@ public class cMsg extends cMsgSubdomainAdapter {
      *
      * @param deliverer object able to deliver messages to the client
      */
-    public void setMessageDeliverer(cMsgDeliverMessageInterface deliverer) {
-    }
+    public void setMessageDeliverer(cMsgDeliverMessageInterface deliverer) {}
 
 
     /**
@@ -323,8 +297,9 @@ public class cMsg extends cMsgSubdomainAdapter {
         return false;
     }
 
+
     /**
-     * Method to register domain client.
+     * Method to register a domain client.
      *
      * @param info information about client
      * @throws cMsgException if client already exists or argument is null
@@ -338,8 +313,8 @@ public class cMsg extends cMsgSubdomainAdapter {
         }
 
         String clientName = info.getName();
-//System.out.println("subdh: put " + clientName + " into clients hashmap");
         cMsgClientInfo ci = clients.putIfAbsent(clientName, info);
+
         // Check to see if name was taken already.
         // If ci is not null, this key already existed.
         if (ci != null) {
@@ -349,7 +324,6 @@ public class cMsg extends cMsgSubdomainAdapter {
         }
 
         this.name   = clientName;
-//System.out.println("subdh: register client with info = " + info);
         this.myInfo = info;
 
         // this client is registered in this namespace
@@ -366,7 +340,7 @@ public class cMsg extends cMsgSubdomainAdapter {
     public void registerServer(cMsgClientInfo info) {
         String clientName = info.getName();
 
-        cMsgClientInfo ci = servers.putIfAbsent(clientName, info);
+        servers.putIfAbsent(clientName, info);
 
         this.name   = clientName;
         this.myInfo = info;
@@ -378,6 +352,14 @@ public class cMsg extends cMsgSubdomainAdapter {
 
     /**
      * This method handles a message sent by a local bridge object's callback.
+     * Try to follow this. A bridge object has a server client. That client of
+     * another cMsg server has a callback. So when messages come in from the remote
+     * server, the callback gets run. That callback uses the single subdomain handler
+     * for the bridge and passes the message on to this server by means of this method.
+     * Thus, the message which originated on another server gets passes around to the
+     * REGULAR clients of this server (that's why it's called a LOCAL send). If it were
+     * to pass these messages to ALL clients on this server, we could get infinite loops.
+     *
      * The message's subject and type are matched against all clients' subscriptions.
      * For each client, the message is compared to each of its subscriptions until
      * a match is found. At that point, the message is sent to that client.
@@ -385,61 +367,58 @@ public class cMsg extends cMsgSubdomainAdapter {
      * and subscribes and distributing the message among them as necessary.
      * No messages are sent to server clients to avoid infinite loops.
      *
-     * This method is synchronized because the use of infoList is not
+     * This method is synchronized because the use of {@link #sendToSet} is not
      * thread-safe otherwise. Multiple threads in the domain server can be calling
      * this object's methods simultaneously.
      *
      * @param message message from sender
      * @param namespace namespace of original message sender
      * @throws cMsgException if a channel to the client is closed, cannot be created,
-     *                          or socket properties cannot be set
+     *                       or socket properties cannot be set
      */
     synchronized public void localSend(cMsgMessage message, String namespace) throws cMsgException {
 //System.out.println("\nIN localSend\n");
         if (message == null) return;
 
+        // start by sending nothing to no one
         sendToSet.clear();
 
-        // If message is sent in response to a specific get ...
+        // If message is sent in response to a sendAndGet ...
         if (message.isGetResponse()) {
             int id = message.getSysMsgId();
             // Recall the client who originally sent the get request
             // and remove the item from the hashtable
 //System.out.println(" localSend, get rid of send&Get id = " + id);
             deleteGets.remove(id);
-            GetInfo gi = specificGets.remove(id);
+            GetInfo gi = sendAndGets.remove(id);
             cMsgClientInfo info = null;
             if (gi != null) {
-//System.out.println("          , got a specific Gets object");
+//System.out.println("          , got a send&get object");
                 info = gi.info;
             }
 
             // If this is the first response to a sendAndGet ...
             if (info != null) {
-                try {
 //System.out.println(" localSend: handle send msg for send&get to " + info.getName());
                     // fire notifier
                     if (gi.notifier != null) {
 //System.out.println("          , fire notifier for send&Get response");
                         gi.notifier.latch.countDown();
                     }
-                    else {
+//                    else {
 //System.out.println("          , NO notifier");
-                    }
+//                    }
+                try {
                     // deliver message
                     info.getDeliverer().deliverMessage(message, cMsgConstants.msgGetResponse);
                 }
                 catch (IOException e) {
-                    return;
                 }
                 return;
             }
             // If we're here, treat it like it's a normal message.
             // Send it like any other to all subscribers.
         }
-
-
-        // ONLY REGULAR CLIENTS SEND MESSAGES, BRIDGES ONLY SUBSCRIBE
 
         // Scan through subscriptions of regular clients. Don't send to bridges.
         // Lock for subscriptions
@@ -470,7 +449,7 @@ public class cMsg extends cMsgSubdomainAdapter {
                 // Clear subAndGetter lists as they're only a 1-shot deal.
                 // Note that all subscribeAndGets are done by local clients.
                 // Servers implement sub&Get with subscribes.
-                sub.getSubAndGetters().clear();
+                sub.clearSubAndGetters();
 
                 // fire off all notifiers for this subscription
                 for (cMsgNotifier notifier : sub.getNotifiers()) {
@@ -484,9 +463,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 //System.out.println("subdh: bridgeSend: remove subscription");
                     it.remove();
                 }
-
             }
-
         }
         finally {
             subscribeLock.unlock();
@@ -494,50 +471,49 @@ public class cMsg extends cMsgSubdomainAdapter {
 
         // Once we have the subscription/get, msg, and client info,
         // no more need for sychronization
-
         for (cMsgClientInfo client : sendToSet) {
-
             // Deliver this msg to this client.
             try {
+                // message delivery in cMsg subdomain is synchronized
                 client.getDeliverer().deliverMessage(message, cMsgConstants.msgSubscribeResponse);
             }
             catch (IOException e) {
                 continue;
             }
         }
-
     }
 
 
     /**
-     * This method handles a message sent by the domain client. The message's subject and type
-     * are matched against all clients' subscriptions. For each client, the message is
+     * This method handles a message sent by reuglar (non-server) client. The message's subject
+     * and type are matched against all clients' subscriptions. For each client, the message is
      * compared to each of its subscriptions until a match is found. At that point, the message
      * is sent to that client. The client is responsible for finding all the matching gets
      * and subscribes and distributing the message among them as necessary.
      *
-     * This method is synchronized because the use of infoList is not
+     * This method is synchronized because the use of sendToSet is not
      * thread-safe otherwise. Multiple threads in the domain server can be calling
      * this object's methods simultaneously.
      *
      * @param message message from sender
      * @throws cMsgException if a channel to the client is closed, cannot be created,
-     *                          or socket properties cannot be set
+     *                       or socket properties cannot be set
      */
     synchronized public void handleSendRequest(cMsgMessageFull message) throws cMsgException {
 //System.out.println("\nIN REGULAR SEND\n");
         if (message == null) return;
 
+        // start by sending nothing to no one
         sendToSet.clear();
 
-        // If message is sent in response to a specific get ...
+        // If message is sent in response to a sendAndGet ...
         if (message.isGetResponse()) {
             int id = message.getSysMsgId();
             // Recall the client who originally sent the get request
             // and remove the item from the hashtable
 //System.out.println(" Reg subdh handleSendRequest, get rid of send&Get id = " + id);
             deleteGets.remove(id);
-            GetInfo gi = specificGets.remove(id);
+            GetInfo gi = sendAndGets.remove(id);
             cMsgClientInfo info = null;
             if (gi != null) {
 //System.out.println("                          , got a specific Gets object");
@@ -576,9 +552,6 @@ public class cMsg extends cMsgSubdomainAdapter {
             // Send it like any other to all subscribers.
         }
 
-
-        // ONLY REGULAR CLIENTS SEND MESSAGES, BRIDGES ONLY SUBSCRIBE
-
         // Scan through all subscriptions.
         // Lock for subscriptions
         subscribeLock.lock();
@@ -614,7 +587,7 @@ public class cMsg extends cMsgSubdomainAdapter {
                 //cMsgClientInfo info1 =  (cMsgClientInfo)it1.next();
                 //System.out.println("  subs count of sub&Getters = " + sub.getClientSubAndGetters().get(info1));
                 // clear subAndGetter list as it's only a 1-shot deal
-                sub.getSubAndGetters().clear();
+                sub.clearSubAndGetters();
 //System.out.println("  B# of subscribers = " + sub.getAllSubscribers().size());
 //System.out.println("  B# of sub&Getters = " + sub.getClientSubAndGetters().size());
                 //System.out.println("  subs count of sub&Getters = " + sub.getClientSubAndGetters().get(info1));
@@ -631,9 +604,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 //System.out.println("handleSendRequest(subdh): remove subscription");
                     it.remove();
                 }
-
             }
-
         }
         finally {
             subscribeLock.unlock();
@@ -641,9 +612,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 
         // Once we have the subscription/get, msg, and client info,
         // no more need for sychronization
-
         for (cMsgClientInfo client : sendToSet) {
-
             // Deliver this msg to this client.
             try {
 //System.out.println("handleSendRequest(subdh): send msg to client " + client.getName());
@@ -658,15 +627,13 @@ public class cMsg extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle message sent by domain client in synchronous mode.
-     * It requires a synchronous integer response from this object but is
-     * not implemented in the cMsg (this) subdomain. It's here only in order
-     * to implement the required interface.
+     * Method to handle message sent by client in synchronous mode.
+     * It requires a synchronous integer response from this object.
      *
      * @param message message from sender
      * @return response from this object
      * @throws cMsgException if a channel to the client is closed, cannot be created,
-     *                          or socket properties cannot be set
+     *                       or socket properties cannot be set
      */
     public int handleSyncSendRequest(cMsgMessageFull message) throws cMsgException {
         handleSendRequest(message);
@@ -675,69 +642,12 @@ public class cMsg extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle subscribe request sent by another cMsg server.
+     * Method to handle subscribe request sent by regular client.
      *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param namespace namespace message resides in
-     * @throws cMsgException
-     */
-    public void handleServerSubscribeRequest(String subject, String type, String namespace)
-            throws cMsgException {
-
-        boolean subscriptionExists = false;
-        cMsgSubscription sub = null;
-
-        subscribeLock.lock();
-
-        try {
-
-            Iterator it = subscriptions.iterator();
-
-            while (it.hasNext()) {
-                sub = (cMsgSubscription) it.next();
-                if (sub.getNamespace().equals(namespace) &&
-                        sub.getSubject().equals(subject) &&
-                        sub.getType().equals(type)) {
-
-                    if (sub.containsSubscriber(myInfo)) {
-                        throw new cMsgException("handleServerSubscribeRequest: subscription already exists for subject = " +
-                                                subject + " and type = " + type);
-                    }
-                    // found existing subscription to subject and type so add this client to its list
-                    subscriptionExists = true;
-                    break;
-                }
-            }
-
-            // add this client to an exiting subscription
-            if (subscriptionExists) {
-//System.out.println("handleServerSubscribeRequest ADD sub: subject = " + subject + ", type = " + type + ", ns = " + namespace);
-                sub.addSubscriber(myInfo);
-            }
-            // or else create a new subscription
-            else {
-                sub = new cMsgSubscription(subject, type, namespace);
-//System.out.println("handleServerSubscribeRequest NEW sub: subject = " + subject + ", type = " + type + ", ns = " + namespace);
-                sub.addSubscriber(myInfo);
-                subscriptions.add(sub);
-            }
-        }
-        finally {
-            // Lock for subscriptions
-            subscribeLock.unlock();
-        }
-    }
-
-
-    /**
-     * Method to handle subscribe request sent by domain client.
-     * This method is run after all exchanges between domain server and client.
-     *
-     * @param subject  message subject to subscribe to
-     * @param type     message type to subscribe to
-     * @param id       message id refering to these specific subject and type values
-     * @throws cMsgException if a subscription for this subject and type already exists
+     * @param subject  subject to subscribe to
+     * @param type     type to subscribe to
+     * @param id       id (not used)
+     * @throws cMsgException if a subscription for this subject and type already exists for this client
      */
     public void handleSubscribeRequest(String subject, String type, int id)
             throws cMsgException {
@@ -790,11 +700,68 @@ public class cMsg extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle sunsubscribe request sent by domain client.
-     * This method is run after all exchanges between domain server and client.
+     * Method to handle subscribe request sent by another cMsg server (server client).
      *
-     * @param subject  message subject to subscribe to
-     * @param type     message type to subscribe to
+     * @param subject subject subscribed to
+     * @param type    type subscribed to
+     * @param namespace namespace subscription resides in
+     * @throws cMsgException if subscription already exists for this particular server client
+     */
+    public void handleServerSubscribeRequest(String subject, String type, String namespace)
+            throws cMsgException {
+
+        boolean subscriptionExists = false;
+        cMsgSubscription sub = null;
+
+        subscribeLock.lock();
+
+        try {
+
+            Iterator it = subscriptions.iterator();
+
+            while (it.hasNext()) {
+                sub = (cMsgSubscription) it.next();
+                if (sub.getNamespace().equals(namespace) &&
+                        sub.getSubject().equals(subject) &&
+                        sub.getType().equals(type)) {
+
+                    if (sub.containsSubscriber(myInfo)) {
+                        throw new cMsgException("handleServerSubscribeRequest: subscription already exists for subject = " +
+                                                subject + " and type = " + type);
+                    }
+                    // found existing subscription to subject and type so add this client to its list
+                    subscriptionExists = true;
+                    break;
+                }
+            }
+
+            // add this client to an exiting subscription
+            if (subscriptionExists) {
+//System.out.println("handleServerSubscribeRequest ADD sub: subject = " + subject + ", type = " + type + ", ns = " + namespace);
+                sub.addSubscriber(myInfo);
+            }
+            // or else create a new subscription
+            else {
+                sub = new cMsgSubscription(subject, type, namespace);
+//System.out.println("handleServerSubscribeRequest NEW sub: subject = " + subject + ", type = " + type + ", ns = " + namespace);
+                sub.addSubscriber(myInfo);
+                subscriptions.add(sub);
+            }
+        }
+        finally {
+            // Lock for subscriptions
+            subscribeLock.unlock();
+        }
+    }
+
+
+
+    /**
+     * Method to handle unsubscribe request sent by regular client.
+     *
+     * @param subject  subject of subscription
+     * @param type     type of subscription
+     * @param id       id (not used)
      */
      public void handleUnsubscribeRequest(String subject, String type, int id) {
         cMsgSubscription sub = null;
@@ -833,11 +800,11 @@ public class cMsg extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle sunsubscribe request sent by domain client.
-     * This method is run after all exchanges between domain server and client.
+     * Method to handle unsubscribe request sent by another cMsg server (server client).
      *
-     * @param subject  message subject to subscribe to
-     * @param type     message type to subscribe to
+     * @param subject  subject of subscription
+     * @param type     type of subscription
+     * @param namespace namespace subscription resides in
      */
      public void handleServerUnsubscribeRequest(String subject, String type, String namespace) {
         cMsgSubscription sub = null;
@@ -873,12 +840,12 @@ public class cMsg extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to synchronously get a single message from a receiver by sending out a
-     * message to be responded to.
+     * Method to synchronously get a single message from a responder to a
+     * message being sent by the client.
      *
      * @param message message requesting what sort of message to get
      * @throws cMsgException if a channel to the client is closed, cannot be created,
-     *                          or socket properties cannot be set
+     *                       or socket properties cannot be set
      */
     public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException {
         // Create a unique number
@@ -887,7 +854,7 @@ public class cMsg extends cMsgSubdomainAdapter {
         message.setSysMsgId(id);
         // Store this client's info with the number as the key so any response to it
         // can retrieve this associated client
-        specificGets.put(id, new GetInfo(myInfo));
+        sendAndGets.put(id, new GetInfo(myInfo));
         // Allow for cancelation of this sendAndGet
         DeleteGetInfo dgi = new DeleteGetInfo(name, message.getSenderToken(), id);
         deleteGets.put(id, dgi);
@@ -904,14 +871,20 @@ public class cMsg extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to synchronously get a single message from a receiver by sending out a
-     * message to be responded to. This method is called by a domain server wanting to
-     * do a local sendAndGet just after having done a sendAndGet through all the
-     * bridge objects.
+     * Method to synchronously get a single message from a responder to a
+     * message being sent by the client. This method is called as a result
+     * of a regular client calling sendAndGet. If there are bridges to other
+     * cMsg servers (server cloud contains more than one server), then this
+     * server does a LOCAL sendAndGet (this method) before doing a sendAndGet
+     * through all the bridge objects. The purpose of this is to install the
+     * notifier object and letting local responders immediate ability to
+     * respond to the message going out from this sendAndGet.
      *
      * @param message message requesting what sort of message to get
+     * @param namespace namespace message resides in
+     * @param notifier object used to notify others that a response message has arrived
      * @throws cMsgException if a channel to the client is closed, cannot be created,
-     *                          or socket properties cannot be set
+     *                       or socket properties cannot be set
      */
     public int handleServerSendAndGetRequest(cMsgMessageFull message, String namespace,
                                               cMsgNotifier notifier)
@@ -922,7 +895,7 @@ public class cMsg extends cMsgSubdomainAdapter {
         message.setSysMsgId(id);
         // Store this client's info with the number as the key so any response to it
         // can retrieve this associated client
-        specificGets.put(id, new GetInfo(myInfo,notifier));
+        sendAndGets.put(id, new GetInfo(myInfo,notifier));
         // Allow for cancelation of this sendAndGet
         DeleteGetInfo dgi = new DeleteGetInfo(name, message.getSenderToken(), id);
         deleteGets.put(id, dgi);
@@ -941,13 +914,16 @@ public class cMsg extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to synchronously get a single message from a receiver by sending out a
-     * message to be responded to. This method is called as a result of a bridge client
-     * doing a serverSendAndGet to a remote server. No notifier is needed here.
+     * Method to synchronously get a single message from a resonder to a message
+     * beug sent by the server client. This method is called as a result of a bridge
+     * client doing a serverSendAndGet to a remote server. No notifier is needed here.
+     * We only want to send to local responders to avoid imfinite loops that would occur
+     * if servers should get this request.
      *
      * @param message message requesting what sort of message to get
+     * @param namespace namespace message resides in
      * @throws cMsgException if a channel to the client is closed, cannot be created,
-     *                          or socket properties cannot be set
+     *                       or socket properties cannot be set
      */
     public void handleServerSendAndGetRequest(cMsgMessageFull message, String namespace)
             throws cMsgException {
@@ -957,7 +933,7 @@ public class cMsg extends cMsgSubdomainAdapter {
         message.setSysMsgId(id);
         // Store this client's info with the number as the key so any response to it
         // can retrieve this associated client
-        specificGets.put(id, new GetInfo(myInfo));
+        sendAndGets.put(id, new GetInfo(myInfo));
         // Allow for cancelation of this sendAndGet
         DeleteGetInfo dgi = new DeleteGetInfo(name, message.getSenderToken(), id);
         deleteGets.put(id, dgi);
@@ -971,10 +947,10 @@ public class cMsg extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle remove sendAndGet request sent by domain client
+     * Method to handle remove sendAndGet request sent by any client
      * (hidden from user).
      *
-     * @param id message id refering to these specific subject and type values
+     * @param id sendAndGet message's senderToken id
      */
     public void handleUnSendAndGetRequest(int id) {
         int sysId = -1;
@@ -982,7 +958,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 
         // Scan through list of name/senderToken value pairs. (This combo is unique.)
         // Find the one that matches ours and get its associated sysMsgId number.
-        // Use that number as a key to remove the specificGet (sendAndGet).
+        // Use that number as a key to remove the sendAndGet.
         for (Iterator i=deleteGets.values().iterator(); i.hasNext(); ) {
             dgi = (DeleteGetInfo) i.next();
             if (dgi.name.equals(name) && dgi.senderToken == id) {
@@ -998,100 +974,29 @@ public class cMsg extends cMsgSubdomainAdapter {
         }
 
         // clean up hashmap
-        GetInfo myInfo = specificGets.remove(sysId);
+        GetInfo myInfo = sendAndGets.remove(sysId);
 
         // fire notifier if there is one
         if ((myInfo != null) && (myInfo.notifier != null)) {
-System.out.println("handleUnSend&GetRequest: FIRE NOTIFIER & get rid of send&G due to timeout");
+//System.out.println("handleUnSend&GetRequest: FIRE NOTIFIER & get rid of send&G due to timeout");
              myInfo.notifier.latch.countDown();
         }
     }
 
 
-    // BUG BUG, registering sub & setting notifier must be "simultaneous" - no message sent
-    // during that interval (synchronizing works but may be too restrictive
-  //  * @param notifier object which allows the subdomain handler to notify other objects
-  //  *                 that a message matching this subscription has been sent (by a local
-  //  *                 client)
     /**
-     * Method to synchronously get a single message from the local server for a one-time
-     * subscription of a subject and type by an outside server.
+     * Method for regular client to synchronously get a single message from
+     * the server for a one-time subscription of a subject and type.
      *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @throws cMsgException
-     */
-    public void handleServerSubscribeAndGetRequest(String subject, String type,
-                                                   cMsgNotifier notifier)
-                                                                throws cMsgException {
-
-        boolean subscriptionExists = false;
-        cMsgSubscription sub = null;
-
-        subscribeLock.lock();
-
-        try {
-
-            Iterator it = subscriptions.iterator();
-//System.out.println("In handleServerSub&GetRequest:");
-            while (it.hasNext()) {
-                sub = (cMsgSubscription) it.next();
-                if (sub.getNamespace().equals(namespace) &&
-                        sub.getSubject().equals(subject) &&
-                        sub.getType().equals(type)) {
-
-                    // found existing subscription to subject and type so add this client to its list
-                    subscriptionExists = true;
-                    break;
-                }
-            }
-
-            // add this client to an exiting subscription
-            if (subscriptionExists) {
-//System.out.println("    SUBDH server: add sub&Getter");
-                sub.addSubAndGetter(myInfo);
-            }
-            // or else create a new subscription
-            else {
-                sub = new cMsgSubscription(subject, type, namespace);
-//System.out.println("    SUBDH server: create subscription & add sub&Getter");
-                sub.addSubAndGetter(myInfo);
-                subscriptions.add(sub);
-            }
-//System.out.println("  add notifier");
-            // Need to unsubscribe from remote servers if sub&Get is cancelled.
-            // This object notifies of the need to do so.
-            sub.addNotifier(notifier);
-
-/*
-            if (subscriptions.size() > 100 && subscriptions.size()%100 == 0) {
-                System.out.println("subdh sub size = " + subscriptions.size());
-            }
-            if (sub.numberOfNotifiers() > 100 && sub.numberOfNotifiers()%100 == 0) {
-                System.out.println("subdh sub size = " + sub.numberOfNotifiers());
-            }
-*/
-        }
-        finally {
-            // Lock for subscriptions
-            subscribeLock.unlock();
-        }
-    }
-
-
-    /**
-     * Method to synchronously get a single message from the server for a one-time
-     * subscription of a subject and type.
-     *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id      message id refering to these specific subject and type values
+     * @param subject subject subscribed to
+     * @param type    type subscribed to
+     * @param id      id (not used)
      */
     public void handleSubscribeAndGetRequest(String subject, String type, int id) {
         boolean subscriptionExists = false;
         cMsgSubscription sub = null;
 
-        // Lock for subscriptions
+        // Lock subscriptions
         subscribeLock.lock();
 
         try {
@@ -1133,13 +1038,90 @@ System.out.println("handleUnSend&GetRequest: FIRE NOTIFIER & get rid of send&G d
     }
 
 
+    // BUG BUG, registering sub & setting notifier must be "simultaneous" - no message sent
+    // during that interval (synchronizing works but may be too restrictive
+  //  * @param notifier object which allows the subdomain handler to notify other objects
+  //  *                 that a message matching this subscription has been sent (by a local
+  //  *                 client)
     /**
-     * Method to handle remove subscribeAndGet request sent by domain client
+     * Method for regular client to synchronously get a single message from
+     * the server for a one-time subscription of a subject and type.
+     * This method is called as a result of a regular client calling subscribeAndGet.
+     * If there are bridges to other cMsg servers (server cloud contains more than
+     * one server), then this server does NOT call {@link #handleSubscribeAndGetRequest}
+     * but instead calls this method after doing a subscribeAndGet through all the bridge
+     * objects. The purpose of this is to install the notifier object.
+     *
+     * @param subject  subject subscribed to
+     * @param type     type subscribed to
+     * @param notifier object used to notify others that a matching message has arrived
+     */
+    public void handleServerSubscribeAndGetRequest(String subject, String type,
+                                                   cMsgNotifier notifier) {
+        boolean subscriptionExists = false;
+        cMsgSubscription sub = null;
+
+        subscribeLock.lock();
+
+        try {
+
+            Iterator it = subscriptions.iterator();
+//System.out.println("In handleServerSub&GetRequest:");
+            while (it.hasNext()) {
+                sub = (cMsgSubscription) it.next();
+                if (sub.getNamespace().equals(namespace) &&
+                        sub.getSubject().equals(subject) &&
+                        sub.getType().equals(type)) {
+
+                    // found existing subscription to subject and type so add this client to its list
+                    subscriptionExists = true;
+                    break;
+                }
+            }
+
+            // add this client to an exiting subscription
+            if (subscriptionExists) {
+//System.out.println("    SUBDH server: add sub&Getter");
+                sub.addSubAndGetter(myInfo);
+            }
+            // or else create a new subscription
+            else {
+                sub = new cMsgSubscription(subject, type, namespace);
+//System.out.println("    SUBDH server: create subscription & add sub&Getter");
+                sub.addSubAndGetter(myInfo);
+                subscriptions.add(sub);
+            }
+//System.out.println("  add notifier");
+            // Need to unsubscribe from remote servers if sub&Get is cancelled.
+            // This object notifies of the need to do so.
+            sub.addNotifier(notifier);
+/*
+            if (subscriptions.size() > 100 && subscriptions.size()%100 == 0) {
+                System.out.println("subdh sub size = " + subscriptions.size());
+            }
+            if (sub.numberOfNotifiers() > 100 && sub.numberOfNotifiers()%100 == 0) {
+                System.out.println("subdh sub size = " + sub.numberOfNotifiers());
+            }
+*/
+        }
+        finally {
+            // Lock for subscriptions
+            subscribeLock.unlock();
+        }
+    }
+
+
+    /**
+     * Method to handle a remove subscribeAndGet request sent by client
      * (hidden from user).
      *
-     * @param id message id refering to these specific subject and type values
+     * @param subject  subject of subscription
+     * @param type     type of subscription
+     * @param id       request id
      */
     public void handleUnsubscribeAndGetRequest(String subject, String type, int id) {
+
+        boolean subscriptionExists = false;
         cMsgSubscription sub = null;
 
         subscribeLock.lock();
@@ -1159,6 +1141,7 @@ System.out.println("handleUnSend&GetRequest: FIRE NOTIFIER & get rid of send&G d
 //System.out.println("  subs A# of sub&Getters = " + sub.getClientSubAndGetters().size());
 //System.out.println("  subs count of sub&Getters = " + sub.getClientSubAndGetters().get(myInfo));
                     sub.removeSubAndGetter(myInfo);
+                    subscriptionExists = true;
 //System.out.println("  removed Sub&Getter from sub object");
                     break;
                 }
@@ -1166,7 +1149,8 @@ System.out.println("handleUnSend&GetRequest: FIRE NOTIFIER & get rid of send&G d
 
             // If a msg was sent and sub removed simultaneously while a sub&Get (on client)
             // timed out so an unSub&Get was sent, ignore the unSub&get.
-            if (sub == null) return;
+            // if (sub == null) return;
+            if (!subscriptionExists) return;
 
             // get rid of this subscription if no more subscribers left
 //System.out.println("  subs B# of sub&Getters = " + sub.getClientSubAndGetters().size());
@@ -1193,13 +1177,14 @@ System.out.println("handleUnSend&GetRequest: FIRE NOTIFIER & get rid of send&G d
 
 
     /**
-     * Method to handle request to shutdown clients sent by domain client.
+     * Method to handle request to shutdown clients sent by client.
      *
      * @param client client(s) to be shutdown
-     * @param flag   flag describing the mode of shutdown
-     * @throws cMsgException
+     * @param includeMe   if true, this client may be shutdown too
+     * @throws cMsgException if a channel to the client is closed, cannot be created,
+     *                       or socket properties cannot be set
      */
-    public void handleShutdownClientsRequest(String client, int flag) throws cMsgException {
+    public void handleShutdownClientsRequest(String client, boolean includeMe) throws cMsgException {
 
 //System.out.println("dHandler: try to kill client " + client);
         // Match all clients that need to be shutdown.
@@ -1208,7 +1193,7 @@ System.out.println("handleUnSend&GetRequest: FIRE NOTIFIER & get rid of send&G d
 
         for (String clientName : clients.keySet()) {
             // Do not shutdown client sending this command, unless told to with flag "includeMe"
-            if ( ((flag & cMsgConstants.includeMe) == 0) && (clientName.equals(name)) ) {
+            if ( !includeMe && clientName.equals(name) ) {
 //System.out.println("  dHandler: skip client " + clientName);
                 continue;
             }
@@ -1272,7 +1257,7 @@ System.out.println("handleUnSend&GetRequest: FIRE NOTIFIER & get rid of send&G d
             // If it has already been removed, forget about it
             if (sysId > -1) {
 //System.out.println("  CLIENT SHUTDOWN: remove specific get for " + name);
-                specificGets.remove(sysId);
+                sendAndGets.remove(sysId);
             }
         }
 
@@ -1332,14 +1317,5 @@ System.out.println("handleUnSend&GetRequest: FIRE NOTIFIER & get rid of send&G d
 
     }
 
-
-    /**
-     * Method to handle a complete name server down.
-     * This method is run after all exchanges between domain server and client but
-     * before the server is killed (since that is what is running this
-     * method).
-     */
-    public void handleServerShutdown() {
-    }
 
 }
