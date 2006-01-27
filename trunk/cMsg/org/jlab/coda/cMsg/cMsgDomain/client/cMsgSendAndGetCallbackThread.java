@@ -18,9 +18,6 @@ package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgCallbackInterface;
-import org.jlab.coda.cMsg.cMsgException;
-
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.Callable;
 
@@ -29,17 +26,15 @@ import java.util.concurrent.Callable;
  * implementation of sendAndGet.
  */
 public class cMsgSendAndGetCallbackThread implements Callable {
-    /** A single message to be passed to the callback. */
+
+     /** A cue containing a single message to be passed to the callback. */
      private SynchronousQueue<cMsgMessageFull> messageCue;
 
      /** User argument to be passed to the callback. */
      private Object arg;
 
      /** Callback to be run. */
-     cMsgCallbackInterface callback;
-
-     /** Place to temporarily store the returned message from a get. */
-     cMsgMessageFull message;
+     private cMsgCallbackInterface callback;
 
 
      /**
@@ -54,17 +49,13 @@ public class cMsgSendAndGetCallbackThread implements Callable {
      }
 
 
-     /**
-      * Set message to be given to the callback.
-      * @param message message to be passed to callback
-      * @throws org.jlab.coda.cMsg.cMsgException if there are too many messages to handle
-      */
-     public void sendMessage(cMsgMessageFull message) throws cMsgException {
-         try {
-             messageCue.put(message);
-         }
-         catch (InterruptedException e) {
-         }
+    /**
+     * Put message on a cue waiting to be taken by the callback.
+     * @param message message to be passed to callback
+     */
+     public void sendMessage(cMsgMessageFull message) {
+         try { messageCue.put(message); }
+         catch (InterruptedException e) { }
      }
 
 

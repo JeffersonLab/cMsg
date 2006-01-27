@@ -5,7 +5,7 @@
  *    This software was developed under a United States Government license    *
  *    described in the NOTICE file included as part of this distribution.     *
  *                                                                            *
- *    C. Timmer, 20-Aug-2004, Jefferson Lab                                    *
+ *    C. Timmer, 20-Aug-2004, Jefferson Lab                                   *
  *                                                                            *
  *     Author: Carl Timmer                                                    *
  *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
@@ -26,13 +26,12 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.Future;
 import java.net.Socket;
 
 /**
  * This class implements a cMsg client's thread which listens for
- * communications from the domain server. The server sends it messages
- * to which the client has subscribed.
+ * communications from the domain server. The server sends it keep alives,
+ * messages to which the client has subscribed, and other directives.
  *
  * @author Carl Timmer
  * @version 1.0
@@ -45,7 +44,7 @@ public class cMsgClientListeningThread extends Thread {
     /** cMsg client that created this object. */
     private cMsg client;
 
-    /** cMsg client that created this object. */
+    /** cMsg server client that created this object. */
     private cMsgServerClient serverClient;
 
     /** Server channel (contains socket). */
@@ -68,12 +67,9 @@ public class cMsgClientListeningThread extends Thread {
         killThread = true;
     }
 
-int myId;
-static int staticId;
-
 
     /**
-     * Constructor which starts threads.
+     * Constructor for regular clients.
      *
      * @param myClient cMsg client that created this object
      * @param channel suggested port on which to starting listening for connections
@@ -86,23 +82,22 @@ static int staticId;
         handlerThreads = new ArrayList<ClientHandler>(2);
         // die if no more non-daemon thds running
         setDaemon(true);
-myId = staticId++;
     }
 
 
     /**
-     * Constructor which starts threads.
+     * Constructor for server clients.
      *
-     * @param myClient cMsg client that created this object
+     * @param myClient cMsg server client that created this object
      * @param channel suggested port on which to starting listening for connections
      */
     public cMsgClientListeningThread(cMsgServerClient myClient, ServerSocketChannel channel) {
         this((cMsg)myClient, channel);
         this.serverClient = myClient;
-myId = staticId++;
     }
 
 
+    /** Kills ClientHandler threads. */
     private void killClientHandlerThreads() {
         // stop threads that get commands/messages over sockets
         for (ClientHandler h : handlerThreads) {
@@ -115,9 +110,7 @@ myId = staticId++;
 
     /** This method is executed as a thread. */
     public void run() {
-Thread.currentThread().setName("Client Listening " + myId);
 
-        int id = 1;
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("Running Client Listening Thread");
         }
@@ -132,7 +125,8 @@ Thread.currentThread().setName("Client Listening " + myId);
             // register the channel with the selector for accepts
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
-            // cMsg object is waiting for this thread to start in connect method
+            // cMsg object is waiting for this thread to start in connect method,
+            // so tell it we've started.
             synchronized(this) {
                 notifyAll();
             }
@@ -228,9 +222,11 @@ Thread.currentThread().setName("Client Listening " + myId);
         /** Does the server want an acknowledgment returned? */
         private boolean acknowledge;
 
-        int counter;
 
-        /** Constructor. */
+        /**
+         * Constructor.
+         * @param channel socket channel data is coming in on
+         */
         ClientHandler(SocketChannel channel) {
             this.channel = channel;
 
@@ -241,8 +237,8 @@ Thread.currentThread().setName("Client Listening " + myId);
 
 
         /**
-         * This method handles all incoming commands and messages from a domain server and this
-         * cMsg user who has connected to that domain server.
+         * This method handles all incoming commands and messages from a domain server to this
+         * cMsg client.
          */
         public void run() {
 
@@ -252,7 +248,7 @@ Thread.currentThread().setName("Client Listening " + myId);
                 out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 2048));
 
                 while (true) {
-                    // read first int
+                    // read first int -- total size in bytes
                     int size = in.readInt();
                     //System.out.println(" size = " + size + ", id = " + id);
 
@@ -303,7 +299,7 @@ Thread.currentThread().setName("Client Listening " + myId);
 
                             break;
 
-                        case cMsgConstants.msgKeepAlive: // see if this end is still here
+                        case cMsgConstants.msgKeepAlive: // server ckecking to see if this client is still alive
                             if (debug >= cMsgConstants.debugInfo) {
 //System.out.println("    handleClient: got keep alive from server");
                             }
@@ -312,7 +308,7 @@ Thread.currentThread().setName("Client Listening " + myId);
                             out.flush();
                             break;
 
-                        case cMsgConstants.msgShutdownClients: // told this server to shutdown
+                        case cMsgConstants.msgShutdownClients: // server told this client to shutdown
                             if (debug >= cMsgConstants.debugInfo) {
                                 System.out.println("handleClient: got shutdown from server");
                             }
@@ -343,38 +339,25 @@ Thread.currentThread().setName("Client Listening " + myId);
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("handleClient: I/O ERROR in cMsg client");
                 }
-                //e.printStackTrace();
+
+                // We're here if there is an IO error.
+                // Disconnect the client (kill listening (this) thread and keepAlive thread).
                 try {
                     channel.close();
+                    client.disconnect();
                 }
                 catch (IOException e1) {
                     e1.printStackTrace();
                 }
             }
-            catch (cMsgException e) {
-                // We're here if too many messages are sent to a callback.
-                // Disconnect the client (kill listening (this) thread and keepAlive thread).
-                System.out.println(e.getMessage());
-                client.disconnect();
-                return;
-            }
+
+            return;
         }
 
 
-        /**
-         * This method reads incoming receiver-subscribe ids from a clientHandler object.
-         *
-         * @return senderToken
-         */
-        private int readSenderToken() throws IOException {
-            int token = in.readInt();
-            acknowledge = in.readInt() == 1 ? true : false;
-            return token;
-        }
-
 
         /**
-         * This method reads an incoming cMsgMessageFull from a clientHandler object.
+         * This method reads an incoming message from the server.
          *
          * @return message read from channel
          * @throws IOException if socket read or write error
@@ -474,15 +457,14 @@ Thread.currentThread().setName("Client Listening " + myId);
             return msg;
         }
 
-//BUG BUG should NOT throw exception here and interrupt IO
+
         /**
-         * This method runs all appropriate callbacks - each in their own thread.
-         * Different callbacks are run depending on the subject and type of the
-         * incoming message. It also wakes up all active general-get methods.
+         * This method runs all appropriate callbacks - each in their own thread -
+         * for client subscribe and subscribeAndGet calls.
          *
          * @param msg incoming message
          */
-        private void runCallbacks(cMsgMessageFull msg) throws cMsgException {
+        private void runCallbacks(cMsgMessageFull msg)  {
 //System.out.println("TRY RUNNING CALLBACKS");
             // if callbacks have been stopped, return
             if (!client.isReceiving()) {
@@ -507,18 +489,8 @@ Thread.currentThread().setName("Client Listening " + myId);
                         holder.timedOut = false;
                         holder.message = msg.copy();
 //System.out.println(" sending notify for subscribeAndGet");
-                        // Tell the get-calling thread to wakeup and retrieve the held msg
-/*
-                        try {
-                            synchronized (holder) {
-                                holder.notify();
-                                holder.wait();
-                            }
-                        }
-                        catch (InterruptedException e) {
-                        }
-*/
-
+                        // Tell the subscribeAndGet-calling thread to wakeup
+                        // and retrieve the held msg
                         synchronized (holder) {
                             holder.notify();
                         }
@@ -557,28 +529,32 @@ Thread.currentThread().setName("Client Listening " + myId);
                     }
                 }
             }
-
         }
 
 
-//BUG BUG should NOT throw exception here and interrupt IO
         /**
-         * This method wakes up an active sendAndGet method and delivers a message to it.
+         * This method wakes up a thread in a server client waiting in the sendAndGet method
+         * and delivers a message to it.
          *
          * @param msg incoming message
          */
-        private void runServerCallbacks(cMsgMessageFull msg) throws cMsgException {
+        private void runServerCallbacks(cMsgMessageFull msg)  {
 
             // if gets have been stopped, return
             if (!client.isReceiving()) {
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("wakeGets: all gets have been stopped");
+                    System.out.println("wakeGets: all sendAndGets have been stopped");
                 }
                 return;
             }
 
+            // Get thread waiting on sendAndGet response from another cMsg server.
+            // Remove it from table.
             cMsgSendAndGetCallbackThread cbThread =
                     serverClient.serverSendAndGets.remove(msg.getSenderToken());
+
+            // Remove future object for thread waiting on sendAndGet response from
+            // another cMsg server.  Remove it from table.
             serverClient.serverSendAndGetCancel.remove(msg.getSenderToken());
 
             if (cbThread == null) {
@@ -586,13 +562,12 @@ Thread.currentThread().setName("Client Listening " + myId);
             }
 
             cbThread.sendMessage(msg);
-
-            return;
         }
 
 
         /**
-         * This method wakes up an active sendAndGet method and delivers a message to it.
+         * This method wakes up a thread in a regular client waiting in the sendAndGet method
+         * and delivers a message to it.
          *
          * @param msg incoming message
          */
@@ -601,7 +576,7 @@ Thread.currentThread().setName("Client Listening " + myId);
             // if gets have been stopped, return
             if (!client.isReceiving()) {
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("wakeGets: all gets have been stopped");
+                    System.out.println("wakeGets: all sendAndGets have been stopped");
                 }
                 return;
             }
@@ -615,12 +590,10 @@ Thread.currentThread().setName("Client Listening " + myId);
             // Do NOT need to copy msg as only 1 receiver gets it
             holder.message = msg;
 
-            // Tell the get-calling thread to wakeup and retrieve the held msg
+            // Tell the sendAndGet-calling thread to wakeup and retrieve the held msg
             synchronized (holder) {
                 holder.notify();
             }
-
-            return;
         }
 
     }
