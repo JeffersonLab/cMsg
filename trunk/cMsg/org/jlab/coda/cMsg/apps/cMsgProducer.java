@@ -1,3 +1,19 @@
+/*----------------------------------------------------------------------------*
+ *  Copyright (c) 2004        Southeastern Universities Research Association, *
+ *                            Thomas Jefferson National Accelerator Facility  *
+ *                                                                            *
+ *    This software was developed under a United States Government license    *
+ *    described in the NOTICE file included as part of this distribution.     *
+ *                                                                            *
+ *    C. Timmer,       2004, Jefferson Lab                                    *
+ *                                                                            *
+ *     Author: Carl Timmer                                                    *
+ *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
+ *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
+ *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *                                                                            *
+ *----------------------------------------------------------------------------*/
+
 package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.cMsgException;
@@ -5,7 +21,6 @@ import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsg;
 
 import java.util.Arrays;
-import java.io.UnsupportedEncodingException;
 
 /**
  * An example class which creates a cMsg message producer.
@@ -13,7 +28,7 @@ import java.io.UnsupportedEncodingException;
 public class cMsgProducer {
     String  name = "producer";
     String  description = "java producer";
-    String  UDL = "cMsg:cMsg://phecda:3456/cMsg/test";
+    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
     String  subject = "SUBJECT";
     String  type = "TYPE";
 
@@ -189,15 +204,17 @@ public class cMsgProducer {
 
         // variables to track message rate
         double freq=0., freqAvg=0.;
-        long t1, t2, deltaT, totalT=0, totalC=0, count=5000, ignore=0;
+        long t1, t2, deltaT, totalT=0, totalC=0, count=50000, ignore=0;
+        int counter=0;
 
         // delay between messages
-        if (delay != 0) count = count/(20 + delay);
+        //if (delay != 0) count = count/(20 + delay);
 
         while (true) {
             t1 = System.currentTimeMillis();
             for (int i = 0; i < count; i++) {
                 coda.send(msg);
+                //int a = coda.syncSend(msg);
                 coda.flush();
                 // delay between messages sent
                 if (delay != 0) {
