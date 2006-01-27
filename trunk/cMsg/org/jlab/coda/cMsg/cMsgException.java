@@ -15,7 +15,7 @@
 package org.jlab.coda.cMsg;
 
 /**
- * Signals that an error occurred while attempting to execute a cMsg method.
+ * This class represents an error that occurred while attempting to execute a cMsg method.
  *
  * @author Carl Timmer
  */
@@ -31,7 +31,7 @@ public class cMsgException extends Exception {
     }
 
     /**
-     * Constructs a new exception with the specified message.
+     * Constructs a new exception with the specified message and a return code.
      *
      * @param msg the error message
      * @param returnCode

@@ -182,12 +182,12 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      * Method to handle request to shutdown clients sent by domain client.
      *
      * @param client client(s) to be shutdown
-     * @param flag   flag describing the mode of shutdown
+     * @param includeMe   if true, this client may be shutdown too
      * @throws cMsgException
      */
-    public void handleShutdownClientsRequest(String client, int flag)
+    public void handleShutdownClientsRequest(String client, boolean includeMe)
             throws cMsgException {
-        throw new cMsgException("handleShutdownRequest is not implemented");
+        throw new cMsgException("handleShutdownClientsRequest is not implemented");
     }
 
 
@@ -208,16 +208,7 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      * @throws cMsgException
      */
     public void handleClientShutdown() throws cMsgException {
-        throw new cMsgException("handleClientShutdown is not implemented");
-    }
-
-    /**
-     * Method to handle a complete name server down.
-     *
-     * @throws cMsgException
-     */
-    public void handleServerShutdown() throws cMsgException {
-        throw new cMsgException("handleServerShutdown is not implemented");
+        return;
     }
 
 

@@ -5,7 +5,7 @@
  *    This software was developed under a United States Government license    *
  *    described in the NOTICE file included as part of this distribution.     *
  *                                                                            *
- *    C. Timmer, 14-Jul-2004, Jefferson Lab                                    *
+ *    C. Timmer, 14-Jul-2004, Jefferson Lab                                   *
  *                                                                            *
  *     Author: Carl Timmer                                                    *
  *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
@@ -55,7 +55,7 @@ public interface cMsgSubdomainInterface {
 
 
     /**
-     * Method to register domain client.
+     * Method to register a domain client.
      *
      * @param info information about client
      * @throws cMsgException
@@ -64,7 +64,7 @@ public interface cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle message sent by domain client.
+     * Method to handle a message sent by a domain client.
      *
      * @param message message from sender
      * @throws cMsgException
@@ -73,7 +73,7 @@ public interface cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle message sent by domain client in synchronous mode.
+     * Method to handle a message sent by a domain client in synchronous mode.
      * It requries an integer response from the subdomain handler.
      *
      * @param message message from sender
@@ -89,7 +89,7 @@ public interface cMsgSubdomainInterface {
      *
      * @param subject message subject subscribed to
      * @param type    message type subscribed to
-     * @param id      message id refering to these specific subject and type values
+     * @param id      message id
      * @throws cMsgException
      */
     public void handleSubscribeAndGetRequest(String subject, String type, int id)
@@ -97,12 +97,11 @@ public interface cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle remove subscribeAndGet request sent by domain client
-     * (hidden from user).
+     * Method to remove a subscribeAndGet request previously sent by a domain client.
      *
      * @param subject message subject subscribed to
      * @param type    message type subscribed to
-     * @param id message id refering to these specific subject and type values
+     * @param id      message id
      * @throws cMsgException
      */
     public void handleUnsubscribeAndGetRequest(String subject, String type, int id)
@@ -110,18 +109,17 @@ public interface cMsgSubdomainInterface {
 
 
     /**
-     * Method to synchronously get a single message from a receiver by sending out a
-     * message to be responded to.
+     * Method to synchronously get a single message by sending out a
+     * message which is responded to by its receiver(s).
      *
-     * @param message message requesting what sort of message to get
+     * @param message message requesting what sort of response message to get
      * @throws cMsgException
      */
     public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException;
 
 
     /**
-     * Method to handle remove sendAndGet request sent by domain client
-     * (hidden from user).
+     * Method to remove a sendAndGet request previously sent by a domain client.
      *
      * @param id message id refering to these specific subject and type values
      * @throws cMsgException
@@ -130,11 +128,11 @@ public interface cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle subscribe request sent by domain client.
+     * Method to handle a subscribe request sent by a domain client.
      *
      * @param subject message subject subscribed to
      * @param type    message type subscribed to
-     * @param id      message id refering to these specific subject and type values
+     * @param id      message id
      * @throws cMsgException
      */
     public void handleSubscribeRequest(String subject, String type, int id)
@@ -142,11 +140,11 @@ public interface cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle unsubscribe request sent by domain client.
+     * Method to handle an unsubscribe request sent by a domain client.
      *
      * @param subject message subject subscribed to
      * @param type    message type subscribed to
-     * @param id      message id refering to these specific subject and type values
+     * @param id      message id
      * @throws cMsgException
      */
     public void handleUnsubscribeRequest(String subject, String type, int id)
@@ -154,19 +152,19 @@ public interface cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle request to shutdown clients sent by domain client.
+     * Method to handle a request to shutdown clients sent by a domain client.
      *
      * @param client client(s) to be shutdown
-     * @param flag   flag describing the mode of shutdown
+     * @param includeMe   if true, this client may be shutdown too
      * @throws cMsgException
      */
-    public void handleShutdownClientsRequest(String client, int flag)
+    public void handleShutdownClientsRequest(String client, boolean includeMe)
             throws cMsgException;
 
 
     /**
-     * Method to handle keepalive sent by domain client checking to see
-     * if the domain server socket is still up.
+     * Method to handle a keepalive sent by a domain client checking to see
+     * if the domain server is still up.
      *
      * @throws cMsgException
      */
@@ -174,18 +172,11 @@ public interface cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle a client or domain server down.
+     * Method to handle a client or domain server (and therefore subdomain handler) shutdown.
      *
      * @throws cMsgException
      */
     public void handleClientShutdown() throws cMsgException;
-
-    /**
-     * Method to handle a complete name server down.
-     *
-     * @throws cMsgException
-     */
-    public void handleServerShutdown() throws cMsgException;
 
 
     /**

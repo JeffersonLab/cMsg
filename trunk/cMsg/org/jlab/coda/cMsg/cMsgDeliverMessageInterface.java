@@ -25,12 +25,6 @@ import java.io.IOException;
  * the deliverMessage and deliverMessageAndAcknowledge methods do not have an argument
  * specifying the client. The implementing class should store and use this information
  * aside from the use of this interface.<p>
- * Various types of messages may be sent. These are already defined and are: <p>
- * <ul>
- * <li>{@link cMsgConstants#msgGetResponse} for a message sent in response to a {@link cMsg#sendAndGet}<p>
- * <li>{@link cMsgConstants#msgGetResponseIsNull} for a null sent in response to a {@link cMsg#sendAndGet}<p>
- * <li>{@link cMsgConstants#msgSubscribeResponse} for a message sent in response to a {@link cMsg#subscribe}<p>
- * </ul>
  */
 public interface cMsgDeliverMessageInterface {
 
