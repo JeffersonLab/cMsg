@@ -19,52 +19,57 @@ package org.jlab.coda.cMsg.cMsgDomain;
 import org.jlab.coda.cMsg.cMsgMessageFull;
 
 /**
- * This class is used to help in implementing a client's "subscribeAndGet" method. An object
- * of this class stores a msg from the server to the method's caller and is used to
- * synchronize/wait/notify on. It also indicates whether the call timed out or not.
+ * This class is used to help in implementing a client's "subscribeAndGet" method.
+ * An object of this class stores a msg from the server to the method's caller and
+ * is used to synchronize/wait/notify on. It also indicates whether the call timed
+ * out or not.
  *
- * This class is also used to implement Domain server by storing an incoming message
+ * This class is also used to implement the cMsg domain server by storing an incoming message
  * along with subject, type, id, and request (or client, server, flag for a shutdown)
  * for later action by a thread from the thread pool.
  */
 public class cMsgHolder {
-    /** Location to store message object. */
+    /** Message object. */
     public cMsgMessageFull message;
 
-    /** Has the "subscribeAndGet" call timed out? */
+    /** Has the "subscribeAndGet" or "sendAndGet" call timed out? */
     public boolean timedOut = true;
 
-    /** Store subject. */
+    /** In a shutdownClients or shutdownServers call, include self or own server? */
+    public boolean include;
+
+    /** Subject. */
     public String subject;
 
-    /** Store type. */
+    /** Type. */
     public String type;
 
-    /** Store type. */
+    /** Namespace. */
     public String namespace;
 
     /** Store client(s) OR server(s) to shutdown. */
     public String client;
 
-    /**
-     * Delay (miiliseconds) in cloud locking and client registration.
-     * Also used for holding subscribeAndGet timeout.
-     */
+    /** Delay (milliseconds) in cloud locking and client registration. */
     public int delay;
 
     /** In shutdown call, do we want to shut ourselves down or not. */
     public int flag;
 
-    /** Store id. */
+    /** Request id. */
     public int id;
 
-    /** Store request. */
+    /** Request type. */
     public int request;
 
-
+    /**
+     * Constructor for holding sendAndGet, subscribe, and unget information from client.
+     * It's also used in (un)locking cloud and registration locks on the server side.
+     */
     public cMsgHolder() {
     }
 
+    /** Constructor for holding send and get information from client. */
     public cMsgHolder(cMsgMessageFull message) {
         this.message = message;
     }
@@ -76,9 +81,9 @@ public class cMsgHolder {
     }
 
     /** Constructor for holding shutdown information from client. */
-    public cMsgHolder(String client, int flag) {
-        this.client = client;
-        this.flag = flag;
+    public cMsgHolder(String client, boolean include) {
+        this.client  = client;
+        this.include = include;
     }
 
 }
