@@ -1253,7 +1253,7 @@ System.out.println("subAndGetting to sub/type = " + sub.subject + "/" + sub.type
             // read client
             String client = new String(bytes, 0, lengthClient, "US-ASCII");
 
-            return new cMsgHolder(client, flag);
+            return new cMsgHolder(client, (flag == 1 ? true : false));
         }
 
 
@@ -1471,12 +1471,12 @@ System.out.println("Domain Server: got msgUnSendAndGetRequest from client, ns = 
                             break;
 
                         case cMsgConstants.msgServerShutdownClients: // tell local clients to shutdown
-                            subdomainHandler.handleShutdownClientsRequest(holder.client, holder.flag);
+                            subdomainHandler.handleShutdownClientsRequest(holder.client, holder.include);
                             break;
 
                         case cMsgConstants.msgShutdownClients: // shutting down various clients
                             // shutdown local clients
-                            subdomainHandler.handleShutdownClientsRequest(holder.client, holder.flag);
+                            subdomainHandler.handleShutdownClientsRequest(holder.client, holder.include);
                             // send this command to other servers
                             if (nameServer.bridges.size() > 0) {
                                 for (cMsgServerBridge b : nameServer.bridges.values()) {
@@ -1484,7 +1484,7 @@ System.out.println("Domain Server: got msgUnSendAndGetRequest from client, ns = 
                                     if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
                                         continue;
                                     }
-                                    b.shutdownClients(holder.client, holder.flag);
+                                    b.shutdownClients(holder.client, holder.include);
                                 }
                             }
                             break;
@@ -1504,10 +1504,10 @@ System.out.println("Domain Server: got msgUnSendAndGetRequest from client, ns = 
                                     }
                                 }
                             }
-                            // shut ourselves down if necessary
-                            if (cMsgMessageMatcher.matches(holder.client,
-                                                           nameServer.getServerName(),
-                                                           true)) {
+                            // shut ourselves down if directed to
+                            if (holder.include && cMsgMessageMatcher.matches(holder.client,
+                                                                             nameServer.getServerName(),
+                                                                             true)) {
                                 nameServer.shutdown();
                             }
                             break;

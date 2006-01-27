@@ -113,7 +113,7 @@ public class cMsgShutdowner {
         coda.setShutdownHandler(new myShutdownHandler());
 
         // if we want to shutdown ourselves, then call ...
-        coda.shutdownClients(name, cMsgConstants.includeMe);
+        coda.shutdownClients(name, true);
 
         // shutdown specified client
         //coda.shutdownClients(client, 0);
