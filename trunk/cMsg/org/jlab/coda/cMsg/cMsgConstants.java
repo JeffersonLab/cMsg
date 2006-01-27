@@ -189,13 +189,13 @@ public class cMsgConstants {
     // Flags for client's shutdown methods.
 
     /**
-     * For {@link org.jlab.coda.cMsg.cMsg#shutdownClients(String, int)},
+     * For shutdownClients,
      * do NOT exclude the client calling shutdown from being shutdown.
      */
     public static final int    includeMe = 1;
 
     /**
-     * For {@link org.jlab.coda.cMsg.cMsg#shutdownServers(String, int)},
+     * For shutdownServers,
      * do NOT exclude the server that the calling client is connected to
      * from being shutdown.
      */

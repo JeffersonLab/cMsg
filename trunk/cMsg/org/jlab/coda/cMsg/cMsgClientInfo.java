@@ -17,9 +17,7 @@
 package org.jlab.coda.cMsg;
 
 import java.lang.*;
-import java.util.*;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.concurrent.locks.Lock;
+
 
 /**
  * This class stores a cMsg client's information.
@@ -62,12 +60,9 @@ public class cMsgClientInfo {
     cMsgDeliverMessageInterface deliverer;
 
 
-    /** No-arg constructor. */
-    public cMsgClientInfo() {
-    }
-
     /**
      * Constructor specifing client's name, port, host, subdomain, and UDL remainder.
+     * Used in nameServer for a connecting regular client.
      *
      * @param name  client's name
      * @param nsPort name server's listening port
@@ -92,6 +87,7 @@ public class cMsgClientInfo {
 
     /**
      * Constructor used when cMsg server acts as a client and connects a to cMsg server.
+     * Used in nameServer for a connecting server client.
      *
      * @param name  client's name
      * @param nsPort name server's listening port
@@ -106,24 +102,6 @@ public class cMsgClientInfo {
         isServer   = true;
     }
 
-    /**
-     * Constructor specifing client's name, port, host.
-     *
-     * @param name  client's name
-     * @param port  client's listening port
-     * @param host  client's host
-     */
-    public cMsgClientInfo(String name, int port, String host) {
-        this(name, -1, port, host, null, null, null, null);
-    }
-
-    /**
-     * Constructor for server's internal client (used to bridge
-     * cMsg domains).
-     */
-    public cMsgClientInfo(String name) {
-        this(name, -1, -1, null, null, null, null, null);
-    }
 
     //-----------------------------------------------------------------------------------
 
