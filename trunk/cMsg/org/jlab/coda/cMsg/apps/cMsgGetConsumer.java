@@ -1,3 +1,19 @@
+/*----------------------------------------------------------------------------*
+ *  Copyright (c) 2004        Southeastern Universities Research Association, *
+ *                            Thomas Jefferson National Accelerator Facility  *
+ *                                                                            *
+ *    This software was developed under a United States Government license    *
+ *    described in the NOTICE file included as part of this distribution.     *
+ *                                                                            *
+ *    C. Timmer,        2005, Jefferson Lab                                   *
+ *                                                                            *
+ *     Author: Carl Timmer                                                    *
+ *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
+ *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
+ *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *                                                                            *
+ *----------------------------------------------------------------------------*/
+
 package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
@@ -22,7 +38,7 @@ public class cMsgGetConsumer {
     char[]  textChars;
     int     textSize;
 
-    int     timeout = 1000; // 1 second default timeout
+    int     timeout = 3000; // 3 second default timeout
     boolean debug;
 
 
@@ -167,13 +183,15 @@ public class cMsgGetConsumer {
         cMsgMessage sendMsg = new cMsgMessage();
         sendMsg.setSubject(subject);
         sendMsg.setType(type);
-        //sendmsg.setText(text);
+        sendMsg.setText(text);
 
+/*
         byte[] bin = new byte[10000];
         for (int i=0; i< bin.length; i++) {
             bin[i] = 1;
         }
         sendMsg.setByteArrayNoCopy(bin);
+*/
 
         // variables to track incoming message rate
         double freq=0., freqAvg=0.;
@@ -185,21 +203,31 @@ public class cMsgGetConsumer {
             t1 = (new Date()).getTime();
 
             // do a bunch of gets
-            for (int i=0; i < 400; i++) {
-                // do the synchronous sendAndGet with timeout
-                try {msg = coda.subscribeAndGet(subject, type, timeout);}
-                //try {msg = coda.sendAndGet(sendMsg, timeout);}
+            for (int i=0; i < 1000; i++) {
+//                try {
+//                    msg = coda.subscribeAndGet(subject, type, timeout);
+//                }
+                try {
+                    // do the synchronous sendAndGet with timeout
+                    msg = coda.sendAndGet(sendMsg, timeout);
+                }
                 catch (TimeoutException e) {
                     System.out.println("Timeout in sendAndGet");
                     continue;
                 }
-                //if (msg == null) {
-                //    System.out.println("Got null msg");
-                //}
-                //else {
-                //    System.out.println("CLIENT GOT MESSAGE!!!");
-                //}
+                if (msg == null) {
+                    System.out.println("Got null msg");
+                }
+                else {
+//                    System.out.println("CLIENT GOT MESSAGE!!!");
+//                    System.out.println("    sub =  " + msg.getSubject());
+//                    System.out.println("    typ =  " + msg.getType());
+//                    System.out.println("    txt =  " + msg.getText());
+                }
                 count++;
+                // delay between messages sent
+//               try {Thread.sleep(20);}
+//               catch (InterruptedException e) {}
             }
 
             t2 = (new Date()).getTime();
