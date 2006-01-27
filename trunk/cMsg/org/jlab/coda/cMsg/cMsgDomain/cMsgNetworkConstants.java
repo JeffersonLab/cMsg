@@ -26,17 +26,13 @@ public class cMsgNetworkConstants {
   
     private cMsgNetworkConstants() {}
 
+    // constants from cMsgNetwork.h
+
     /** TCP port at which a name server starts looking for an unused listening port. */
     public static final int    nameServerStartingPort   = 3456;
     /** TCP port at which a domain server starts looking for an unused listening port. */
-    public static final int    domainServerStartingPort = 4567;
-
-    // constants from cMsgNetwork.h
-  
+    public static final int    domainServerStartingPort = 4567;  
     /** TCP port at which a client starts looking for an unused listening port. */
     public static final int    clientServerStartingPort = 2345;
 
-    /** Maximum size of a message in bytes */
-    public static final int    maxMessageSize      = 1500;
-   
 }
