@@ -14,6 +14,8 @@ JAVA_OBJS = \
 	cMsgLogger.class \
 	cMsgGateway.class \
 	cMsgConsumer.class \
+	cMsgDualConsumer.class \
+	cMsgEnterpriseTester.class \
 	cMsgGetConsumer.class \
 	cMsgProducer.class \
 	cMsgGetResponder.class \
