@@ -34,7 +34,7 @@ import java.net.Socket;
 public class cMsgUtilities {
 
     /**
-      * This methods reads a minimum of number of bytes from the channel into the buffer.
+      * This methods reads a minimum of number of bytes from a channel into a buffer.
       *
       * @param buffer   a byte buffer which channel data is read into
       * @param channel  nio socket communication channel
@@ -64,7 +64,7 @@ public class cMsgUtilities {
 
 
     /**
-      * This methods reads a minimum of number of bytes from the channel into the buffer.
+      * This methods reads a minimum of number of bytes from a channel into a buffer.
       *
       * @param buffer   a byte buffer which channel data is read into
       * @param channel  nio socket communication channel

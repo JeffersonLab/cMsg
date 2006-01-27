@@ -5,7 +5,7 @@
  *    This software was developed under a United States Government license    *
  *    described in the NOTICE file included as part of this distribution.     *
  *                                                                            *
- *    C. Timmer, 11-Aug-2004, Jefferson Lab                                    *
+ *    C. Timmer, 11-Aug-2004, Jefferson Lab                                   *
  *                                                                            *
  *     Author: Carl Timmer                                                    *
  *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
@@ -18,7 +18,6 @@ package org.jlab.coda.cMsg.cMsgDomain;
 
 import org.jlab.coda.cMsg.cMsgMessageMatcher;
 import org.jlab.coda.cMsg.cMsgClientInfo;
-import org.jlab.coda.cMsg.cMsgCallbackAdapter;
 import org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread;
 
 import java.util.*;
@@ -51,11 +50,7 @@ public class cMsgSubscription {
     /** Compiled regular expression given in {@link #typeRegexp}. */
     private Pattern typePattern;
 
-    /**
-     * Id which eliminates the need to parse subject and type
-     * strings upon client's receipt of a message. Sometimes referred
-     * to as receiverSubscribeId.
-     */
+    /** Client generated id. */
     private int id;
 
     /**
@@ -67,7 +62,7 @@ public class cMsgSubscription {
      */
     private String namespace;
 
-    /** Used to notify servers that their subscribeAndGet is complete. */
+    /** Set of objects used to notify servers that their subscribeAndGet is complete. */
     private HashSet<cMsgNotifier> notifiers;
 
     /**
@@ -261,36 +256,87 @@ public class cMsgSubscription {
 
 
     //-------------------------------------------------------------------------
-    // Methods for dealing with clients subscribed to the sub/type
+    // Methods for dealing with clients subscribed to the sub/type/ns
     //-------------------------------------------------------------------------
+
+    /**
+     * Gets the set containing only regular clients subscribed to this subject, type,
+     * and namespace. Used only on the server side.
+     *
+     * @return set containing only regular clients subscribed to this subject, type,
+     *         and namespace
+     */
     public HashSet<cMsgClientInfo> getClientSubscribers() {
         return clientSubscribers;
     }
 
+    /**
+     * Adds a client to the set containing only regular clients subscribed to this subject, type,
+     * and namespace. Used only on the server side.
+     *
+     * @param client regular client to be added to subscription
+     * @return true if set did not already contain client, else false
+     */
     public boolean addClientSubscriber(cMsgClientInfo client) {
         return clientSubscribers.add(client);
     }
 
+    /**
+     * Removes a client from the set containing only regular clients subscribed to this subject, type,
+     * and namespace. Used only on the server side.
+     *
+     * @param client regular client to be removed from subscription
+     * @return true if set contained client, else false
+     */
     public boolean removeClientSubscriber(cMsgClientInfo client) {
         return clientSubscribers.remove(client);
     }
 
 
     //-------------------------------------------------------------------------
-    // Methods for dealing with clients & servers subscribed to the sub/type
+    // Methods for dealing with clients & servers subscribed to the sub/type/ns
     //-------------------------------------------------------------------------
+
+    /**
+     * Gets the set containing all clients (regular and bridge) subscribed to this
+     * subject, type, and namespace. Used only on the server side.
+     *
+     * @return set containing all clients (regular and bridge) subscribed to this subject, type,
+     *         and namespace
+     */
     public HashSet<cMsgClientInfo> getAllSubscribers() {
         return allSubscribers;
     }
 
+    /**
+     * Is this a subscription of the given client (regular or bridge)?
+     * Used only on the server side.
+     *
+     * @param client client
+     * @return true if this is a subscription of the given client, else false
+     */
     public boolean containsSubscriber(cMsgClientInfo client) {
         return allSubscribers.contains(client);
     }
 
+    /**
+     * Adds a client to the set containing all clients (regular and bridge) subscribed
+     * to this subject, type, and namespace. Used only on the server side.
+     *
+     * @param client client to be added to subscription
+     * @return true if set did not already contain client, else false
+     */
     public boolean addSubscriber(cMsgClientInfo client) {
         return allSubscribers.add(client);
     }
 
+    /**
+     * Removes a client from the set containing all clients (regular and bridge) subscribed
+     * to this subject, type, and namespace. Used only on the server side.
+     *
+     * @param client client to be removed from subscription
+     * @return true if set contained client, else false
+     */
     public boolean removeSubscriber(cMsgClientInfo client) {
         return allSubscribers.remove(client);
     }
@@ -299,10 +345,29 @@ public class cMsgSubscription {
     //-------------------------------------------------------------------------------
     // Methods for dealing with clients who subscribeAndGet to the sub/type/namespace
     //-------------------------------------------------------------------------------
+
+    /**
+     * Gets the hashmap containing all regular clients who have
+     * called {@link org.jlab.coda.cMsg.cMsg#subscribeAndGet}
+     * with this subject, type, and namespace. A count is
+     * keep of how many times subscribeAndGet for a particular
+     * client has been called. The client info object is the key
+     * and count is the value. This is used on the server side.
+     *
+     * @return hashmap containing all regular clients who have
+     *         called {@link org.jlab.coda.cMsg.cMsg#subscribeAndGet}
+     */
     public HashMap<cMsgClientInfo, Integer> getSubAndGetters() {
         return clientSubAndGetters;
     }
 
+    /**
+     * Adds a client to the hashmap containing all regular clients who have
+     * called {@link org.jlab.coda.cMsg.cMsg#subscribeAndGet}.
+     * This is used on the server side.
+     *
+     * @param client client who called subscribeAndGet
+     */
     public void addSubAndGetter(cMsgClientInfo client) {
 //System.out.println("      SUB: addSub&Getter arg = " + client);
         Integer count = clientSubAndGetters.get(client);
@@ -316,10 +381,24 @@ public class cMsgSubscription {
         }
     }
 
+    /**
+     * Clears the hashmap containing all regular clients who have
+     * called {@link org.jlab.coda.cMsg.cMsg#subscribeAndGet}.
+     * This is used on the server side.
+     */
     public void clearSubAndGetters() {
         clientSubAndGetters.clear();
     }
 
+    /**
+     * Removes a client from the hashmap containing all regular clients who have
+     * called {@link org.jlab.coda.cMsg.cMsg#subscribeAndGet}. If the client has
+     * called subscribeAndGet more than once, it's entry in the table stays but
+     * it's count of active subscribeAndGet calls is decremented.
+     * This is used on the server side.
+     *
+     * @param client client who called subscribeAndGet
+     */
     public void removeSubAndGetter(cMsgClientInfo client) {
         Integer count = clientSubAndGetters.get(client);
 //System.out.println("      SUB: removeSub&Getter: count = " + count);
@@ -333,8 +412,12 @@ public class cMsgSubscription {
         }
     }
 
-
-
+    /**
+     * Returns the total number of subscribers and subscribeAndGet callers
+     * subscribed to this subject, type, and namespace.
+     * @return the total number of subscribers and subscribeAndGet callers
+     *         subscribed to this subject, type, and namespace
+     */
     public int numberOfSubscribers() {
         return (allSubscribers.size() + clientSubAndGetters.size());
     }
@@ -344,22 +427,41 @@ public class cMsgSubscription {
     // Methods for dealing with servers' notifiers of subscribeAndGet completion
     //--------------------------------------------------------------------------
 
+    /**
+     * Gets the set of objects used to notify servers that their subscribeAndGet is complete.
+     *
+     * @return set of objects used to notify servers that their subscribeAndGet is complete
+     */
+    public Set<cMsgNotifier> getNotifiers() {
+        return notifiers;
+    }
+
+    /**
+     * Add a notifier object to the set of objects used to notify servers that their
+     * subscribeAndGet is complete.
+     *
+     * @param notifier notifier object
+     */
     public void addNotifier(cMsgNotifier notifier) {
         notifiers.add(notifier);
     }
 
+    /**
+     * Remove a notifier object from the set of objects used to notify servers that their
+     * subscribeAndGet is complete.
+     *
+     * @param notifier  notifier object
+     */
     public void removeNotifier(cMsgNotifier notifier) {
         notifiers.remove(notifier);
     }
 
+    /**
+     * Clear all notifier objects from the set of objects used to notify servers that their
+     * subscribeAndGet is complete.
+     */
     public void clearNotifiers() {
         notifiers.clear();
     }
 
-    public Set<cMsgNotifier> getNotifiers() {
-        return notifiers;
-    }
-    public int numberOfNotifiers() {
-        return (notifiers.size());
-    }
-}
+ }

@@ -21,7 +21,7 @@ import java.util.concurrent.CountDownLatch;
 
 /**
  * This class is used on server side to store information associated with a
- * subscribeAndGet for later unsubscription and deletion of subscribeAndGet
+ * subscribeAndGet and sendAndGet for later unsubscription and deletion
  * when timeout occurs on client side.
  */
 public class cMsgNotifier {
