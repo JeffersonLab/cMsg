@@ -5,7 +5,7 @@
  *    This software was developed under a United States Government license    *
  *    described in the NOTICE file included as part of this distribution.     *
  *                                                                            *
- *    C. Timmer, 14-Jul-2004, Jefferson Lab                                    *
+ *    C. Timmer, 14-Jul-2004, Jefferson Lab                                   *
  *                                                                            *
  *     Author: Carl Timmer                                                    *
  *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
@@ -266,27 +266,25 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      * Wildcards used to match client names with the given string.
      *
      * @param client client(s) to be shutdown
-     * @param flag   flag describing the mode of shutdown
+     * @param includeMe  if true, it is permissible to shutdown calling client
      * @throws cMsgException
      */
-    public void shutdownClients(String client, int flag) throws cMsgException {
-        throw new cMsgException("shutdown is not implemented");
+    public void shutdownClients(String client, boolean includeMe) throws cMsgException {
+        throw new cMsgException("shutdownClients is not implemented");
     }
-
-
-//-----------------------------------------------------------------------------
 
 
     /**
      * Method to shutdown the given servers.
-     * Wildcards used to match client names with the given string.
+     * Wildcards used to match server names with the given string.
      *
      * @param server server(s) to be shutdown
-     * @param flag   flag describing the mode of shutdown
+     * @param includeMyServer  if true, it is permissible to shutdown calling client's
+     *                         cMsg server
      * @throws cMsgException
      */
-    public void shutdownServers(String server, int flag) throws cMsgException {
-        throw new cMsgException("shutdown is not implemented");
+    public void shutdownServers(String server, boolean includeMyServer) throws cMsgException {
+        throw new cMsgException("shutdownServers is not implemented");
     }
 
 

@@ -5,7 +5,7 @@
  *    This software was developed under a United States Government license    *
  *    described in the NOTICE file included as part of this distribution.     *
  *                                                                            *
- *    C. Timmer, 17-Nov-2004, Jefferson Lab                                    *
+ *    C. Timmer, 17-Nov-2004, Jefferson Lab                                   *
  *                                                                            *
  *     Author: Carl Timmer                                                    *
  *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
@@ -48,6 +48,7 @@ public class cMsg {
     /** String containing the domain part of the UDL. */
     private String domain;
 
+    /** A specific implementation of the cMsg API. */
     private cMsgDomainInterface connection;
 
 
@@ -62,8 +63,8 @@ public class cMsg {
      * @param UDL Uniform Domain Locator which specifies the server to connect to
      * @param name name of this client which must be unique in this domain
      * @param description description of this client
-     * @throws cMsgException if domain in not implemented, there are problems communicating
-     *                       with the name/domain server, or name contains colon
+     * @throws cMsgException if domain in not implemented; there are problems communicating
+     *                       with the name/domain server; or name contains colon
      */
     public cMsg(String UDL, String name, String description) throws cMsgException {
         this.UDL = UDL;
@@ -102,7 +103,7 @@ public class cMsg {
      * where the initial "cMsg" is optional
      *
      * @param UDL Universal Domain Locator
-     * @throws cMsgException if UDL is null, or no domainType is given in UDL
+     * @throws cMsgException if UDL is null; or no domainType is given in UDL
      */
     private void parseUDL(String UDL) throws cMsgException {
 
@@ -388,24 +389,27 @@ public class cMsg {
      * Wildcards used to match client names with the given string.
      *
      * @param client client(s) to be shutdown
-     * @param flag   flag describing the mode of shutdown
+     * @param includeMe  if true, it is permissible to shutdown calling client
      * @throws cMsgException
      */
-    public void shutdownClients(String client, int flag) throws cMsgException {
-        connection.shutdownClients(client, flag);
+    public void shutdownClients(String client, boolean includeMe) throws cMsgException {
+        connection.shutdownClients(client, includeMe);
     }
+
 
     /**
      * Method to shutdown the given servers.
-     * Wildcards used to match client names with the given string.
+     * Wildcards used to match server names with the given string.
      *
      * @param server server(s) to be shutdown
-     * @param flag   flag describing the mode of shutdown
+     * @param includeMyServer  if true, it is permissible to shutdown calling client's
+     *                         cMsg server
      * @throws cMsgException
      */
-    public void shutdownServers(String server, int flag) throws cMsgException {
-        connection.shutdownClients(server, flag);
+    public void shutdownServers(String server, boolean includeMyServer) throws cMsgException {
+        connection.shutdownClients(server, includeMyServer);
     }
+
 
     /**
      * Method to set the shutdown handler of the client.

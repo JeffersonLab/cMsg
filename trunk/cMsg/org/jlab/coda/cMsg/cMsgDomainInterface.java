@@ -156,20 +156,21 @@ public interface cMsgDomainInterface {
      * Wildcards used to match client names with the given string.
      *
      * @param client client(s) to be shutdown
-     * @param flag   flag describing the mode of shutdown
+     * @param includeMe  if true, it is permissible to shutdown calling client
      * @throws cMsgException
      */
-    public void shutdownClients(String client, int flag) throws cMsgException;
+    public void shutdownClients(String client, boolean includeMe) throws cMsgException;
 
     /**
      * Method to shutdown the given servers.
-     * Wildcards used to match client names with the given string.
+     * Wildcards used to match server names with the given string.
      *
      * @param server server(s) to be shutdown
-     * @param flag   flag describing the mode of shutdown
+     * @param includeMyServer  if true, it is permissible to shutdown calling client's
+     *                         cMsg server
      * @throws cMsgException
      */
-    public void shutdownServers(String server, int flag) throws cMsgException;
+    public void shutdownServers(String server, boolean includeMyServer) throws cMsgException;
 
     /**
      * Method to set the shutdown handler of the client.
