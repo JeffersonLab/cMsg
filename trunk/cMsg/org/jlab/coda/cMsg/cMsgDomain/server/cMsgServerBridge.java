@@ -468,14 +468,14 @@ public class cMsgServerBridge {
 
     /**
      * Method to shutdown the given clients.
-     * Wildcards are used to match client names with the given string.
+     * Wildcards used to match client names with the given string.
      *
      * @param clientName client(s) to be shutdown
-     * @param flag       flag describing the mode of shutdown
+     * @param includeMe  if true, it is permissible to shutdown calling client
      * @throws cMsgException if there are communication problems with the server
      */
-    public void shutdownClients(String clientName, int flag) throws cMsgException {
-        client.serverShutdownClients(clientName, flag);
+    public void shutdownClients(String clientName, boolean includeMe) throws cMsgException {
+        client.serverShutdownClients(clientName, includeMe);
     }
 
 
