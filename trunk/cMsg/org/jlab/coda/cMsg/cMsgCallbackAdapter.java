@@ -5,7 +5,7 @@
  *    This software was developed under a United States Government license    *
  *    described in the NOTICE file included as part of this distribution.     *
  *                                                                            *
- *    C. Timmer, 15-Oct-2004, Jefferson Lab                                    *
+ *    C. Timmer, 15-Oct-2004, Jefferson Lab                                   *
  *                                                                            *
  *     Author: Carl Timmer                                                    *
  *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
