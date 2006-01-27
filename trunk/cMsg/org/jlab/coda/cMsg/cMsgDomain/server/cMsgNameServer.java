@@ -393,13 +393,6 @@ public class cMsgNameServer extends Thread {
             }
             else if (s.equalsIgnoreCase("server")) {
                 serverArg = System.getProperty(s);
-
-                try {
-                    serverArg = cMsgMessageMatcher.constructServerName(serverArg);
-                }
-                catch (cMsgException e) {
-                    System.exit(-1);
-                }
             }
             else if (s.equalsIgnoreCase("timeorder")) {
                 timeOrdered = true;
@@ -410,23 +403,42 @@ public class cMsgNameServer extends Thread {
         cMsgNameServer server = new cMsgNameServer(port, timeOrdered, debug);
 
         // start server
-        server.start();
+        server.startServer(serverArg);
+    }
 
-        // Create a bridge to another server (if specified on the command line)
-        // which will also generate a connection to this server from that server
-        // in response.
-        if (serverArg != null) {
-            new cMsgServerCloudJoiner(server, server.getPort(), serverArg, debug);
-//System.out.println(">> NS: TRY JOINING " + serverArg);
+
+    /**
+     * Method to start up this server and join the cMsg server cloud that the
+     * argument, serverToJoin, is a part of. If the argument is null, this
+     * server is the nucleas of a new server cloud.
+     *
+     * @param serverToJoin server whose cloud this server is to be joined to
+     */
+    public void startServer(String serverToJoin) {
+        // start this server
+        start();
+
+        // Create a bridge to another server (if specified) which
+        // will also generate a connection to this server from that
+        // server in response.
+        if (serverToJoin != null) {
+            // first make sure the given server name is of the right format (host:port)
+            try {
+                serverToJoin = cMsgMessageMatcher.constructServerName(serverToJoin);
+            }
+            catch (cMsgException e) {
+                System.out.println("Name of server to join not in \"host:port\" format");
+                System.exit(-1);
+            }
+
+            new cMsgServerCloudJoiner(this, getPort(), serverToJoin, debug);
         }
         else {
             // if we're not joining a cloud, then we're by definition the nucleas of one
-            server.cloudStatus = INCLOUD;
-//System.out.println(">> NS: NOT JOINING A CLOUD, SO I ARE A CLOUD");
+            cloudStatus = INCLOUD;
             // allow client connections
-            server.allowConnectionsSignal.countDown();
+            allowConnectionsSignal.countDown();
         }
-
     }
 
 
@@ -439,7 +451,6 @@ public class cMsgNameServer extends Thread {
         cMsgDomainServer server;
         for (Iterator i = domainServers.keySet().iterator(); i.hasNext(); ) {
             server = (cMsgDomainServer)i.next();
-            server.getSubdomainHandler().handleServerShutdown();
         }
         System.out.println("\n>> NS: FINALIZE NAME SERVER!!!\n");
     }
@@ -463,7 +474,7 @@ public class cMsgNameServer extends Thread {
             // need to shutdown this domain server
             if (server.calledShutdown.compareAndSet(false, true)) {
 System.out.println("DS shutdown to be run by NameServer");
-                shutdown();
+                server.shutdown();
             }
         }
 
@@ -474,7 +485,6 @@ System.out.println("DS shutdown to be run by NameServer");
         handlerThreads.clear();
         domainServers.clear();
         subscriptions.clear();
-
     }
 
 
