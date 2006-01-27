@@ -5,7 +5,7 @@
  *    This software was developed under a United States Government license    *
  *    described in the NOTICE file included as part of this distribution.     *
  *                                                                            *
- *    C. Timmer, 14-Jul-2004, Jefferson Lab                                    *
+ *    C. Timmer, 14-Jul-2004, Jefferson Lab                                   *
  *                                                                            *
  *     Author: Carl Timmer                                                    *
  *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
@@ -18,7 +18,6 @@ package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgDomain.*;
-import org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer;
 
 import java.io.*;
 import java.net.*;
@@ -55,7 +54,7 @@ public class cMsg extends cMsgDomainAdapter {
     /** Subdomain being used. */
     private String subdomain;
 
-    /** String containing the subdomain remainder part of the UDL. */
+    /** Subdomain remainder part of the UDL. */
     private String subRemainder;
 
     /** Port number from which to start looking for a suitable listening port. */
@@ -104,19 +103,15 @@ public class cMsg extends cMsgDomainAdapter {
     public Set<cMsgSubscription> subscriptions;
 
     /**
-     * Collection of all of this client's {@link #subscribeAndGet} calls, NOT directed to
-     * a specific receiver, currently in execution.
+     * Collection of all of this client's {@link #subscribeAndGet} calls currently in execution.
      * SubscribeAndGets are very similar to subscriptions and can be thought of as
      * one-shot subscriptions.
-     *
      * Key is receiverSubscribeId object, value is {@link cMsgHolder} object.
      */
     ConcurrentHashMap<Integer,cMsgHolder> subscribeAndGets;
 
     /**
-     * Collection of all of this client's {@link #sendAndGet} calls, directed to a specific
-     * receiver, currently in execution.
-     *
+     * Collection of all of this client's {@link #sendAndGet} calls currently in execution.
      * Key is senderToken object, value is {@link cMsgHolder} object.
      */
     ConcurrentHashMap<Integer,cMsgHolder> sendAndGets;
@@ -130,7 +125,7 @@ public class cMsg extends cMsgDomainAdapter {
      * thread-safe and may be called simultaneously from multiple threads. The
      * {@link #syncSend} method is thread-safe with other methods but not itself
      * (since it requires a response from the server) and requires an additional lock.
-     * The {@link #subscribeAndGet}, @link #sendAndGet}, {@link #subscribe}, and
+     * The {@link #subscribeAndGet}, {@link #sendAndGet}, {@link #subscribe}, and
      * {@link #unsubscribe} methods are also thread-safe but require some locking
      * for bookkeeping purposes by means of other locks.
      */
@@ -146,12 +141,12 @@ public class cMsg extends cMsgDomainAdapter {
      * Lock to ensure all calls requiring return communication
      * (e.g. {@link #syncSend}) are sequential.
      */
-    private Lock returnCommunicationLock = new ReentrantLock();
+    Lock returnCommunicationLock = new ReentrantLock();
 
     /** Lock to ensure {@link #subscribe} and {@link #unsubscribe} calls are sequential. */
     Lock subscribeLock = new ReentrantLock();
 
-    /** Lock to ensure that methods using the socket write in sequence. */
+    /** Lock to ensure that methods using the socket, write in sequence. */
     Lock socketLock = new ReentrantLock();
 
     /** Used to create unique id numbers associated with a specific message subject/type pair. */
@@ -218,10 +213,9 @@ public class cMsg extends cMsgDomainAdapter {
                 catch (cMsgException e) {}
             }
         }
-//System.out.println("        << CL: create client object");
 
         // Now make an instance of the shutdown handler
-        // setShutdownHandler(new myShutdownHandler());
+        setShutdownHandler(new myShutdownHandler(this));
     }
 
 
@@ -229,7 +223,7 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * Method to connect to the domain server from regular cMsg client.
+     * Method to connect to the domain server from this client.
      *
      * @throws cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server
@@ -290,7 +284,7 @@ public class cMsg extends cMsgDomainAdapter {
                 }
             }
 
-            // launch pend thread and start listening on receive socket
+            // launch thread and start listening on receive socket
             listeningThread = new cMsgClientListeningThread(this, serverChannel);
             listeningThread.start();
 
@@ -349,7 +343,6 @@ public class cMsg extends cMsgDomainAdapter {
                 }
             }
 
-            // create request sending (to domain) channel (This takes longest so do last)
             // create request response reading (from domain) channel
             try {
                 domainInChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
@@ -383,6 +376,7 @@ public class cMsg extends cMsgDomainAdapter {
                 throw new cMsgException("connect: cannot create keepAlive channel to domain server");
             }
 
+            // create request sending (to domain) channel (This takes longest so do last)
             try {
                 domainOutChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
                 // buffered communication streams for efficiency
@@ -506,7 +500,8 @@ public class cMsg extends cMsgDomainAdapter {
      * Method to send a message to the domain server for further distribution.
      *
      * @param message message to send
-     * @throws cMsgException if there are communication problems with the server
+     * @throws cMsgException if there are communication problems with the server;
+     *                       subject and/or type is null
      */
     public void send(cMsgMessage message) throws cMsgException {
         // cannot run this simultaneously with connect or disconnect
@@ -602,7 +597,8 @@ public class cMsg extends cMsgDomainAdapter {
      *
      * @param message message
      * @return response from subdomain handler
-     * @throws cMsgException
+     * @throws cMsgException if there are communication problems with the server;
+     *                       subject and/or type is null
      */
     public int syncSend(cMsgMessage message) throws cMsgException {
         // cannot run this simultaneously with connect or disconnect
@@ -714,8 +710,8 @@ public class cMsg extends cMsgDomainAdapter {
      * @param cb      callback object whose single method is called upon receiving a message
      *                of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
-     * @throws cMsgException if the callback, subject, or type is null; the subject or type is
-     *                       blank; an identical subscription already exists; there are
+     * @throws cMsgException if the callback, subject and/or type is null or blank;
+     *                       an identical subscription already exists; there are
      *                       communication problems with the server
      */
     public void subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
@@ -780,10 +776,8 @@ public class cMsg extends cMsgDomainAdapter {
                 // If we're here, the subscription to that subject & type does not exist yet.
                 // We need to create it and register it with the domain server.
 
-                // First generate a unique id for the receiveSubscribeId field. This info is
-                // sent back by the domain server in the future when messages of this subject
-                // and type are sent to this cMsg client. This helps eliminate the need to
-                // parse subject and type each time a message arrives.
+                // First generate a unique id for the receiveSubscribeId field. This info
+                // allows us to unsubscribe.
                 id = uniqueId.getAndIncrement();
 
                 // add a new subscription & callback
@@ -843,7 +837,8 @@ public class cMsg extends cMsgDomainAdapter {
      * @param cb      callback object whose single method is called upon receiving a message
      *                of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
-     * @throws cMsgException if there are communication problems with the server
+     * @throws cMsgException if there are communication problems with the server; subject
+     *                       and/or type is null or blank
      */
     public void unsubscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
@@ -964,15 +959,16 @@ public class cMsg extends cMsgDomainAdapter {
      * This method is like a one-time subscribe. The server grabs the first incoming
      * message of the requested subject and type and sends that to the caller.
      *
-     * NOTE: Disconnecting when one thread is in the waiting part of a get may cause that
-     * thread to block forever. It is best to always use a timeout with "get" so the thread
+     * NOTE: Disconnecting when one thread is in the waiting part of a subscribeAndGEt may cause that
+     * thread to block forever. It is best to always use a timeout with subscribeAndGet so the thread
      * is assured of eventually resuming execution.
      *
      * @param subject subject of message desired from server
      * @param type type of message desired from server
      * @param timeout time in milliseconds to wait for a message
      * @return response message
-     * @throws cMsgException
+     * @throws cMsgException if there are communication problems with the server;
+     *                       subject and/or type is null or blank
      * @throws TimeoutException if timeout occurs
      */
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
@@ -1088,11 +1084,11 @@ public class cMsg extends cMsgDomainAdapter {
     /**
      * Method to remove a previous subscribeAndGet to receive a message of a subject
      * and type from the domain server. This method is only called when a subscribeAndGet
-     * times out and the server must be told to forget about the get.
+     * times out and the server must be told to forget about the subscribeAndGet.
      *
      * @param subject subject of subscription
      * @param type type of subscription
-     * @param id unique id of get request to delete
+     * @param id unique id of subscribeAndGet request to delete
      * @throws cMsgException if there are communication problems with the server
      */
     private void unSubscribeAndGet(String subject, String type, int id)
@@ -1134,17 +1130,18 @@ public class cMsg extends cMsgDomainAdapter {
     /**
      * The message is sent as it would be in the {@link #send} method. The server notes
      * the fact that a response to it is expected, and sends it to all subscribed to its
-     * subject and type. When a marked response is received from a client, it sends that
+     * subject and type. When a marked response is received from a client, it sends the
      * first response back to the original sender regardless of its subject or type.
      *
-     * NOTE: Disconnecting when one thread is in the waiting part of a get may cause that
-     * thread to block forever. It is best to always use a timeout with "get" so the thread
+     * NOTE: Disconnecting when one thread is in the waiting part of a sendAndGet may cause that
+     * thread to block forever. It is best to always use a timeout with sendAndGet so the thread
      * is assured of eventually resuming execution.
      *
      * @param message message sent to server
      * @param timeout time in milliseconds to wait for a reponse message
      * @return response message
-     * @throws cMsgException
+     * @throws cMsgException if there are communication problems with the server;
+     *                       subject and/or type is null
      * @throws TimeoutException if timeout occurs
      */
     public cMsgMessage sendAndGet(cMsgMessage message, int timeout)
@@ -1288,9 +1285,9 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * Method to remove a previous sendAndGet to receive a message of a subject and type
-     * from the domain server. This method is only called when a sendAndGet times out
-     * and the server must be told to forget about the get.
+     * Method to remove a previous sendAndGet from the domain server.
+     * This method is only called when a sendAndGet times out
+     * and the server must be told to forget about the sendAndGet.
      *
      * @param id unique id of get request to delete
      * @throws cMsgException if there are communication problems with the server
@@ -1326,10 +1323,10 @@ public class cMsg extends cMsgDomainAdapter {
      * Wildcards used to match client names with the given string.
      *
      * @param client client(s) to be shutdown
-     * @param flag   flag describing the mode of shutdown
-     * @throws cMsgException
+     * @param includeMe  if true, it is permissible to shutdown calling client
+     * @throws cMsgException if there are communication problems with the server
      */
-    public void shutdownClients(String client, int flag) throws cMsgException {
+    public void shutdownClients(String client, boolean includeMe) throws cMsgException {
         // cannot run this simultaneously with any other public method
         connectLock.lock();
         try {
@@ -1345,6 +1342,8 @@ public class cMsg extends cMsgDomainAdapter {
             if (client == null) {
                 client = new String("");
             }
+
+            int flag = includeMe ? cMsgConstants.includeMe : 0;
 
             socketLock.lock();
             try {
@@ -1381,15 +1380,15 @@ public class cMsg extends cMsgDomainAdapter {
 
     /**
      * Method to shutdown the given servers.
-     * Wildcards used to match client names with the given string.
+     * Wildcards used to match server names with the given string.
      *
      * @param server server(s) to be shutdown
-     * @param flag   flag describing the mode of shutdown
+     * @param includeMyServer if true, it is permissible to shutdown calling client's cMsg server
      * @throws cMsgException if server arg is not in the correct form (host:port),
      *                       the host is unknown, client not connected to server,
      *                       or IO error.
      */
-    public void shutdownServers(String server, int flag) throws cMsgException {
+    public void shutdownServers(String server, boolean includeMyServer) throws cMsgException {
         // Parse the server string to see if it's in an acceptable form.
         // It must be of the form "host:port" where host should be the
         // canonical form. If it isn't, that must be corrected here.
@@ -1410,6 +1409,8 @@ public class cMsg extends cMsgDomainAdapter {
             if (server == null) {
                 server = new String("");
             }
+
+            int flag = includeMyServer ? cMsgConstants.includeMyServer : 0;
 
             socketLock.lock();
             try {
@@ -1441,281 +1442,6 @@ public class cMsg extends cMsgDomainAdapter {
     }
 
 
-//-----------------------------------------------------------------------------
-
-    /**
-     * Lock the remote server so that no other servers may simultaneously join the
-     * cMsg subdomain server cloud or register a client.
-     *
-     * @param delay time in milliseconds to wait for locked to be grabbed before timing out
-     * @return true if successful, else false
-     * @throws IOException if there are communication problems with the name server
-     */
-    public boolean cloudLock(int delay) throws IOException {
-        int response;
-//System.out.println("        << CL: in cloudLock");
-//System.out.println("        << CL: try nonConnect lock");
-        // cannot run this simultaneously with connect or disconnect
-        notConnectLock.lock();
-//System.out.println("        << CL: try returnCommunication lock");
-        // cannot run this simultaneously with commands receiving a response
-        returnCommunicationLock.lock();
-
-        try {
-            if (!connected) {
-                return false;
-            }
-
-//System.out.println("        << CL: try socket lock");
-            socketLock.lock();
-            try {
-                // total length of msg (not including this int) is 1st item
-//System.out.println("        << CL: write size, msgServerCloudLock, delay");
-                domainOut.writeInt(8);
-                domainOut.writeInt(cMsgConstants.msgServerCloudLock);
-//System.out.println("Sent msgServerCloudLock command (" + cMsgConstants.msgServerCloudLock + ")");
-                domainOut.writeInt(delay);
-            }
-            finally {
-                socketLock.unlock();
-            }
-
-            domainOut.flush(); // no need to be protected by socketLock
-//System.out.println("        << CL: try reading lock response");
-            response = domainIn.readInt();
-//System.out.println("        << CL: done reading lock response");
-        }
-        finally {
-            returnCommunicationLock.unlock();
-            notConnectLock.unlock();
-        }
-
-        if (response == 1) {
-            return true;
-        }
-        return false;
-    }
-
-
-//-----------------------------------------------------------------------------
-
-    /**
-     * Unlock the remote server enabling other servers to join the
-     * cMsg subdomain server cloud or register a client.
-     *
-     * @throws IOException if there are communication problems with the name server
-     */
-    public void cloudUnlock() throws IOException {
-        // cannot run this simultaneously with connect or disconnect
-        notConnectLock.lock();
-
-        try {
-            if (!connected) {
-                return;
-            }
-
-            socketLock.lock();
-            try {
-                // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(4);
-                domainOut.writeInt(cMsgConstants.msgServerCloudUnlock);
-            }
-            finally {
-                socketLock.unlock();
-            }
-
-            domainOut.flush(); // no need to be protected by socketLock
-        }
-        finally {
-            notConnectLock.unlock();
-        }
-    }
-
-
-//-----------------------------------------------------------------------------
-
-    /**
-     *
-     *
-     * @param delay time in milliseconds to wait for the lock before timing out
-     * @return
-     * @throws IOException
-     */
-    public boolean registrationLock(int delay) throws IOException {
-        int response;
-
-        // cannot run this simultaneously with connect or disconnect
-        notConnectLock.lock();
-        // cannot run this simultaneously with commands receiving a response
-        returnCommunicationLock.lock();
-
-        try {
-            if (!connected) {
-                return false;
-            }
-
-            socketLock.lock();
-            try {
-                // total length of msg (not including this int) is 1st item
-//System.out.println("        << CL: try registration lock");
-                domainOut.writeInt(8);
-                domainOut.writeInt(cMsgConstants.msgServerRegistrationLock);
-                domainOut.writeInt(delay);
-            }
-            finally {
-                socketLock.unlock();
-            }
-
-            domainOut.flush(); // no need to be protected by socketLock
-            response = domainIn.readInt();
-//System.out.println("        << CL: got registration lock = " + response);
-        }
-        finally {
-            returnCommunicationLock.unlock();
-            notConnectLock.unlock();
-        }
-
-        if (response == 1) {
-            return true;
-        }
-        return false;
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    public void registrationUnlock() throws IOException {
-        // cannot run this simultaneously with connect or disconnect
-        notConnectLock.lock();
-
-        try {
-            if (!connected) {
-                return;
-            }
-
-            socketLock.lock();
-            try {
-                // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(4);
-                domainOut.writeInt(cMsgConstants.msgServerRegistrationUnlock);
-            }
-            finally {
-                socketLock.unlock();
-            }
-
-            domainOut.flush(); // no need to be protected by socketLock
-        }
-        finally {
-            notConnectLock.unlock();
-        }
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    public void thisServerCloudStatus(int status) throws IOException {
-        // cannot run this simultaneously with connect or disconnect
-        notConnectLock.lock();
-
-        try {
-            if (!connected) {
-                return;
-            }
-
-            socketLock.lock();
-            try {
-                // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(8);
-                domainOut.writeInt(cMsgConstants.msgServerCloudSetStatus);
-                domainOut.writeInt(status);
-            }
-            finally {
-                socketLock.unlock();
-            }
-
-            domainOut.flush(); // no need to be protected by socketLock
-        }
-        finally {
-            notConnectLock.unlock();
-        }
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    public String[] getClientNames() throws IOException {
-
-        String[] names;
-//System.out.println("        << CL: getClientNames");
-
-        // cannot run this simultaneously with connect or disconnect
-        notConnectLock.lock();
-        // cannot run this simultaneously with commands receiving a response
-        returnCommunicationLock.lock();
-
-        try {
-            if (!connected) {
-                return null;
-            }
-
-            socketLock.lock();
-            try {
-                // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(4);
-                domainOut.writeInt(cMsgConstants.msgServerSendClientNames);
-//System.out.println("        << CL: wrote len of command and command");
-            }
-            finally {
-                socketLock.unlock();
-            }
-
-            domainOut.flush(); // no need to be protected by socketLock
-
-            int offset = 0;
-            int stringBytesToRead=0;
-
-            // read how many names are coming
-//System.out.println("        << CL: try to read in number of clients");
-            int numberOfClients = domainIn.readInt();
-//System.out.println("        << CL: number of clients = " + numberOfClients);
-
-            int[] lengths = new int[numberOfClients];
-            names = new String[numberOfClients];
-
-            // read lengths of all names being sent
-            for (int i=0; i < numberOfClients; i++) {
-                lengths[i] = domainIn.readInt();
-                stringBytesToRead += lengths[i];
-            }
-
-            // read all string bytes
-            byte[] bytes = new byte[stringBytesToRead];
-//System.out.println("        << CL: try to read #bytes = " + stringBytesToRead);
-            domainIn.readFully(bytes, 0, stringBytesToRead);
-
-            // change bytes to strings
-            String clientName;
-            for (int i=0; i < numberOfClients; i++) {
-                clientName = new String(bytes, offset, lengths[i], "US-ASCII");
-//System.out.println("        << CL: client name = " + clientName);
-                names[i] = clientName;
-                offset += lengths[i];
-            }
-        }
-        finally {
-            returnCommunicationLock.unlock();
-            notConnectLock.unlock();
-        }
-
-//System.out.println("        << CL: return");
-        return names;
-    }
-
-
-//-----------------------------------------------------------------------------
 
 
     /**
@@ -1726,12 +1452,12 @@ public class cMsg extends cMsgDomainAdapter {
      *
      * @param channel nio socket communication channel
      * @throws IOException if there are communication problems with the name server
-     * @throws cMsgException if the name server's domain does not match the UDL's domain,'
-     *                       the client cannot be registered, the domain server cannot
-     *                       open a listening socket or find a port to listen on, or
+     * @throws cMsgException if the name server's domain does not match the UDL's domain;
+     *                       the client cannot be registered; the domain server cannot
+     *                       open a listening socket or find a port to listen on; or
      *                       the name server cannot establish a connection to the client
      */
-    HashSet<String> talkToNameServerFromClient(SocketChannel channel)
+    void talkToNameServerFromClient(SocketChannel channel)
             throws IOException, cMsgException {
 
         byte[] buf = new byte[512];
@@ -1814,8 +1540,6 @@ public class cMsg extends cMsgDomainAdapter {
             System.out.println("        << CL: domain server host = " + domainServerHost +
                                ", port = " + domainServerPort);
         }
-
-        return null;
     }
 
 
