@@ -234,7 +234,8 @@ static int strcasecmp(const char *s1, const char *s2) {
  */   
 int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription, int *domainId) {
 
-  int i, id=-1, err, implId;
+  int i, id=-1, err;
+  void *implId;
   
   /* check args */
   if ( (checkString(myName)        != CMSG_OK) ||
@@ -999,10 +1000,10 @@ static void registerDomainTypeInfo(void) {
  */   
 static void domainInit(cMsgDomain *domain) {  
   domain->id             = 0;
-  domain->implId         = -1;
   domain->initComplete   = 0;
   domain->receiveState   = 0;
       
+  domain->implId         = NULL;
   domain->type           = NULL;
   domain->name           = NULL;
   domain->udl            = NULL;

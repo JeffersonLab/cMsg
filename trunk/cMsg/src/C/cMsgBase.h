@@ -101,23 +101,25 @@ extern "C" {
 
 
   /* basic functions */
-  int 	cMsgConnect        (const char *myUDL, const char *myName, const char *myDescription, int *domainId);
-  int 	cMsgSend           (int domainId, void *msg);
-  int   cMsgSyncSend       (int domainId, void *msg, int *response);
-  int 	cMsgFlush          (int domainId);
-  int 	cMsgSubscribe      (int domainId, const char *subject, const char *type, cMsgCallback *callback,
-                            void *userArg, cMsgSubscribeConfig *config);
-  int 	cMsgUnSubscribe    (int domainId, const char *subject, const char *type, cMsgCallback *callback,
-                            void *userArg);
-  int   cMsgSendAndGet     (int domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
-  int   cMsgSubscribeAndGet(int domainId, const char *subject, const char *type,
-                            const struct timespec *timeout, void **replyMsg);
-  int 	cMsgReceiveStart   (int domainId);
-  int 	cMsgReceiveStop    (int domainId);
-  int 	cMsgDisconnect     (int domainId);
-  int   cMsgShutdownClients(int domainId, const char *client, int flag);
-  int   cMsgShutdownServers(int domainId, const char *server, int flag);
-  char *cMsgPerror         (int errorCode);
+  int 	cMsgConnect           (const char *myUDL, const char *myName, const char *myDescription,
+                               int *domainId);
+  int 	cMsgSend              (int domainId, void *msg);
+  int   cMsgSyncSend          (int domainId, void *msg, int *response);
+  int 	cMsgFlush             (int domainId);
+  int 	cMsgSubscribe         (int domainId, const char *subject, const char *type, cMsgCallback *callback,
+                               void *userArg, cMsgSubscribeConfig *config);
+  int 	cMsgUnSubscribe       (int domainId, const char *subject, const char *type, cMsgCallback *callback,
+                               void *userArg);
+  int   cMsgSendAndGet        (int domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
+  int   cMsgSubscribeAndGet   (int domainId, const char *subject, const char *type,
+                               const struct timespec *timeout, void **replyMsg);
+  int 	cMsgReceiveStart      (int domainId);
+  int 	cMsgReceiveStop       (int domainId);
+  int 	cMsgDisconnect        (int domainId);
+  int   cMsgSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, void *userArg);
+  int   cMsgShutdownClients   (int domainId, const char *client, int flag);
+  int   cMsgShutdownServers   (int domainId, const char *server, int flag);
+  char *cMsgPerror            (int errorCode);
   
   
   /* message access functions */

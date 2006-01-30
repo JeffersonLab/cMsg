@@ -101,25 +101,25 @@ extern "C" {
 #endif
 
 /* Prototypes of the functions which implement the standard cMsg tasks in the cMsg domain. */
-static int   codaConnect(const char *myUDL, const char *myName, const char *myDescription,
-                         const char *UDLremainder,int *domainId);
-static int   codaSend(int domainId, void *msg);
-static int   codaSyncSend(int domainId, void *msg, int *response);
-static int   codaFlush(int domainId);
-static int   codaSubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
-                           void *userArg, cMsgSubscribeConfig *config);
-static int   codaUnsubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
-                             void *userArg);
-static int   codaSubscribeAndGet(int domainId, const char *subject, const char *type,
-                                 const struct timespec *timeout, void **replyMsg);
-static int   codaSendAndGet(int domainId, void *sendMsg, const struct timespec *timeout,
-                            void **replyMsg);
-static int   codaStart(int domainId);
-static int   codaStop(int domainId);
-static int   codaDisconnect(int domainId);
-static int   codaSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, void *userArg);
-static int   codaShutdownClients(int domainId, const char *client, int flag);
-static int   codaShutdownServers(int domainId, const char *server, int flag);
+static int   codaConnect           (const char *myUDL, const char *myName, const char *myDescription,
+                                    const char *UDLremainder,void **domainId);
+static int   codaSend              (void *domainId, void *msg);
+static int   codaSyncSend          (void *domainId, void *msg, int *response);
+static int   codaFlush             (void *domainId);
+static int   codaSubscribe         (void *domainId, const char *subject, const char *type, cMsgCallback *callback,
+                                    void *userArg, cMsgSubscribeConfig *config);
+static int   codaUnsubscribe       (void *domainId, const char *subject, const char *type, cMsgCallback *callback,
+                                    void *userArg);
+static int   codaSubscribeAndGet   (void *domainId, const char *subject, const char *type,
+                                    const struct timespec *timeout, void **replyMsg);
+static int   codaSendAndGet        (void *domainId, void *sendMsg, const struct timespec *timeout,
+                                    void **replyMsg);
+static int   codaStart             (void *domainId);
+static int   codaStop              (void *domainId);
+static int   codaDisconnect        (void *domainId);
+static int   codaSetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
+static int   codaShutdownClients   (void *domainId, const char *client, int flag);
+static int   codaShutdownServers   (void *domainId, const char *server, int flag);
 
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
@@ -179,8 +179,8 @@ static int   parseUDLregex(const char *UDLremainder, char **host, unsigned short
                       char **subdomainType, char **UDLsubRemainder);
 static int   parseUDL(const char *UDLremainder, char **host, unsigned short *port,
                       char **subdomainType, char **UDLsubRemainder);
-static int   unSendAndGet(int domainId, int id);
-static int   unSubscribeAndGet(int domainId, const char *subject,
+static int   unSendAndGet(void *domainId, int id);
+static int   unSubscribeAndGet(void *domainId, const char *subject,
                                const char *type, int id);
 static int   getAbsoluteTime(const struct timespec *deltaTime, struct timespec *absTime);
 static void  defaultShutdownHandler(void *userArg);
@@ -237,7 +237,7 @@ static char *strdup(const char *s1) {
  *                             or a communication error with either server occurs.
  */   
 static int codaConnect(const char *myUDL, const char *myName, const char *myDescription,
-                       const char *UDLremainder, int *domainId) {
+                       const char *UDLremainder, void **domainId) {
 
   int i, id=-1, err, serverfd, status, hz, num_try, try_max;
   char *portEnvVariable=NULL, temp[CMSG_MAXHOSTNAMELEN];
@@ -520,10 +520,10 @@ static int codaConnect(const char *myUDL, const char *myName, const char *myDesc
   }
   
   /* init is complete */
-  *domainId = id ;
+  *domainId = (void *)id;
 
   /* install default shutdown handler (exits program) */
-  codaSetShutdownHandler(id, defaultShutdownHandler, NULL);
+  codaSetShutdownHandler((void *)id, defaultShutdownHandler, NULL);
     
   cMsgDomains[id].lostConnection = 0;
       
@@ -546,7 +546,7 @@ static int codaConnect(const char *myUDL, const char *myName, const char *myDesc
  * Another version was tried with many writes (one for ints and one for each
  * string), but the performance died sharply
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  * @param vmsg pointer to a message structure
  *
  * @returns CMSG_OK if successful
@@ -559,12 +559,12 @@ static int codaConnect(const char *myUDL, const char *myName, const char *myDesc
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSend(int domainId, void *vmsg) {
+static int codaSend(void *domainId, void *vmsg) {
   
   int len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
   cMsgMessage *msg = (cMsgMessage *) vmsg;
-  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
   int fd = domain->sendSocket;
   char *creator;
   long long llTime;
@@ -735,7 +735,7 @@ static int codaSend(int domainId, void *vmsg) {
  * Another version was tried with many writes (one for ints and one for each
  * string), but the performance died sharply
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  * @param vmsg pointer to a message structure
  *
  * @returns CMSG_OK if successful
@@ -747,12 +747,12 @@ static int codaSend(int domainId, void *vmsg) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSendOrig(int domainId, void *vmsg) {
+static int codaSendOrig(void *domainId, void *vmsg) {
   
   int len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
   cMsgMessage *msg = (cMsgMessage *) vmsg;
-  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[(int) domainId];
   int fd = domain->sendSocket;
   char *creator;
   long long llTime;
@@ -886,7 +886,7 @@ static int codaSendOrig(int domainId, void *vmsg) {
  * given the appropriate UDL. In this domain cMsgFlush() does nothing and
  * does not need to be called for the message to be sent immediately.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  * @param vmsg pointer to a message structure
  * @param response integer pointer that gets filled with the server's response
  *
@@ -900,12 +900,12 @@ static int codaSendOrig(int domainId, void *vmsg) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSyncSend(int domainId, void *vmsg, int *response) {
+static int codaSyncSend(void *domainId, void *vmsg, int *response) {
   
   int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
   cMsgMessage *msg = (cMsgMessage *) vmsg;
-  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
   int fd = domain->sendSocket;
   int fdIn = domain->receiveSocket;
   char *creator;
@@ -1070,7 +1070,7 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
  * given the appropriate UDL. In this domain cMsgFlush() does nothing and
  * does not need to be called for the subscription to be started immediately.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  * @param subject subject of message subscribed to
  * @param type type of message subscribed to
  * @param timeout amount of time to wait for the message; if NULL, wait forever
@@ -1087,10 +1087,10 @@ static int codaSyncSend(int domainId, void *vmsg, int *response) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSubscribeAndGet(int domainId, const char *subject, const char *type,
+static int codaSubscribeAndGet(void *domainId, const char *subject, const char *type,
                            const struct timespec *timeout, void **replyMsg) {
                              
-  cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
   int i, uniqueId, status, len, lenSubject, lenType;
   int gotSpot, fd = domain->sendSocket;
   int outGoing[6];
@@ -1295,7 +1295,7 @@ static int codaSubscribeAndGet(int domainId, const char *subject, const char *ty
  * given the appropriate UDL. In this domain cMsgFlush() does nothing and
  * does not need to be called for the message to be sent immediately.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  * @param vmsg pointer to a message structure
  * @param response integer pointer that gets filled with the server's response
  *
@@ -1309,12 +1309,12 @@ static int codaSubscribeAndGet(int domainId, const char *subject, const char *ty
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSyncSendOrig(int domainId, void *vmsg, int *response) {
+static int codaSyncSendOrig(void *domainId, void *vmsg, int *response) {
   
   int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
   cMsgMessage *msg = (cMsgMessage *) vmsg;
-  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
   int fd = domain->sendSocket;
   int fdIn = domain->receiveSocket;
   char *creator;
@@ -1467,7 +1467,7 @@ static int codaSyncSendOrig(int domainId, void *vmsg, int *response) {
  * given the appropriate UDL. In this domain cMsgFlush() does nothing and
  * does not need to be called for the subscription to be started immediately.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  * @param subject subject of message subscribed to
  * @param type type of message subscribed to
  * @param timeout amount of time to wait for the message; if NULL, wait forever
@@ -1484,10 +1484,10 @@ static int codaSyncSendOrig(int domainId, void *vmsg, int *response) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSubscribeAndGetOrig(int domainId, const char *subject, const char *type,
+static int codaSubscribeAndGetOrig(void *domainId, const char *subject, const char *type,
                            const struct timespec *timeout, void **replyMsg) {
                              
-  cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
   int i, uniqueId, status, len, lenSubject, lenType;
   int gotSpot, fd = domain->sendSocket;
   int outGoing[5];
@@ -1693,7 +1693,7 @@ static int codaSubscribeAndGetOrig(int domainId, const char *subject, const char
  * does nothing and does not need to be called for the mesage to be
  * sent immediately.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  * @param sendMsg messages to send to all listeners
  * @param timeout amount of time to wait for the response message; if NULL,
  *                wait forever
@@ -1711,10 +1711,10 @@ static int codaSubscribeAndGetOrig(int domainId, const char *subject, const char
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSendAndGetOrig(int domainId, void *sendMsg, const struct timespec *timeout,
+static int codaSendAndGetOrig(void *domainId, void *sendMsg, const struct timespec *timeout,
                       void **replyMsg) {
   
-  cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
   cMsgMessage *msg = (cMsgMessage *) sendMsg;
   int i, uniqueId, status;
   int len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
@@ -1986,7 +1986,7 @@ static int codaSendAndGetOrig(int domainId, void *sendMsg, const struct timespec
  * does nothing and does not need to be called for the mesage to be
  * sent immediately.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  * @param sendMsg messages to send to all listeners
  * @param timeout amount of time to wait for the response message; if NULL,
  *                wait forever
@@ -2004,10 +2004,10 @@ static int codaSendAndGetOrig(int domainId, void *sendMsg, const struct timespec
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *timeout,
+static int codaSendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
                       void **replyMsg) {
   
-  cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain  = &cMsgDomains[(int)domainId];
   cMsgMessage *msg = (cMsgMessage *) sendMsg;
   int i, uniqueId, status;
   int len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
@@ -2285,10 +2285,10 @@ static int codaSendAndGet(int domainId, void *sendMsg, const struct timespec *ti
  * This routine tells the cMsg server to "forget" about the cMsgSendAndGet()
  * call (specified by the id argument) since a timeout occurred.
  */   
-static int unSendAndGet(int domainId, int id) {
+static int unSendAndGet(void *domainId, int id) {
   
   int outGoing[3];
-  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
   int fd = domain->sendSocket;
     
   /* size of info coming - 8 bytes */
@@ -2323,10 +2323,10 @@ static int unSendAndGet(int domainId, int id) {
  * This routine tells the cMsg server to "forget" about the cMsgSubscribeAndGet()
  * call (specified by the id argument) since a timeout occurred.
  */   
-static int unSubscribeAndGet(int domainId, const char *subject, const char *type, int id) {
+static int unSubscribeAndGet(void *domainId, const char *subject, const char *type, int id) {
   
   int len, outGoing[6], lenSubject, lenType;
-  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
   int fd = domain->sendSocket;
   struct iovec iov[3];
 
@@ -2383,11 +2383,11 @@ static int unSubscribeAndGet(int domainId, const char *subject, const char *type
  * all writes over the socket are sent immediately. Thus, this routine does
  * nothing.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  *
  * @returns CMSG_OK always
  */   
-static int codaFlush(int domainId) {  
+static int codaFlush(void *domainId) {  
   return(CMSG_OK);
 }
 
@@ -2406,7 +2406,7 @@ static int codaFlush(int domainId) {
  * Only 1 subscription for a specific combination of subject, type, callback
  * and userArg is allowed.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  * @param subject subject of messages subscribed to
  * @param type type of messages subscribed to
  * @param callback pointer to callback to be executed on receipt of message
@@ -2424,11 +2424,11 @@ static int codaFlush(int domainId) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaSubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
+static int codaSubscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
                      void *userArg, cMsgSubscribeConfig *config) {
 
   int i, j, iok, jok, uniqueId, status;
-  cMsgDomain_CODA *domain  = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain  = &cMsgDomains[(int)domainId];
   subscribeConfig *sConfig = (subscribeConfig *) config;
   struct iovec iov[3];
 
@@ -2658,7 +2658,7 @@ static int codaSubscribe(int domainId, const char *subject, const char *type, cM
  * does nothing and does not need to be called for codaUnsubscribe to be
  * started immediately.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  * @param subject subject of messages to unsubscribed from
  * @param type type of messages to unsubscribed from
  * @param callback pointer to callback to be removed
@@ -2673,13 +2673,13 @@ static int codaSubscribe(int domainId, const char *subject, const char *type, cM
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int codaUnsubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
+static int codaUnsubscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
                            void *userArg) {
 
   int i, j, status;
   int cbCount = 0;     /* total number of callbacks for the subject/type pair of interest */
   int cbsRemoved = 0;  /* total number of callbacks removed for that subject/type pair */
-  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
   struct iovec iov[3];
   subscribeCbInfo *subscription;
   
@@ -2842,13 +2842,13 @@ static int codaUnsubscribe(int domainId, const char *subject, const char *type, 
  * The receiving of messages is disabled by default and must be explicitly
  * enabled.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  *
  * @returns CMSG_OK if successful
  */   
-static int codaStart(int domainId) {
+static int codaStart(void *domainId) {
   
-  cMsgDomains[domainId].receiveState = 1;
+  cMsgDomains[(int)domainId].receiveState = 1;
   return(CMSG_OK);
 }
 
@@ -2861,13 +2861,13 @@ static int codaStart(int domainId) {
  * The receiving of messages is disabled by default. This routine only has an
  * effect when cMsgReceiveStart() was previously called.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  *
  * @returns CMSG_OK if successful
  */   
-static int codaStop(int domainId) {
+static int codaStop(void *domainId) {
   
-  cMsgDomains[domainId].receiveState = 0;
+  cMsgDomains[(int)domainId].receiveState = 0;
   return(CMSG_OK);
 }
 
@@ -2878,17 +2878,17 @@ static int codaStop(int domainId) {
 /**
  * This routine disconnects the client from the cMsg server.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */   
-static int codaDisconnect(int domainId) {
+static int codaDisconnect(void *domainId) {
   
   int i, j, status, outGoing[2];
-  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
   int fd = domain->sendSocket;
   subscribeCbInfo *subscription;
   getInfo *info;
@@ -3040,7 +3040,7 @@ static void defaultShutdownHandler(void *userArg) {
 /**
  * This routine sets the shutdown handler function.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  * @param handler shutdown handler function
  * @param userArg argument to shutdown handler 
  *
@@ -3048,9 +3048,9 @@ static void defaultShutdownHandler(void *userArg) {
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */   
-static int codaSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, void *userArg) {
+static int codaSetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg) {
   
-  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
 
   if (domain->initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
@@ -3067,7 +3067,7 @@ static int codaSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, vo
 /**
  * Method to shutdown the given clients.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  * @param client client(s) to be shutdown
  * @param flag   flag describing the mode of shutdown: 0 to not include self,
  *               CMSG_SHUTDOWN_INCLUDE_ME to include self in shutdown.
@@ -3078,10 +3078,10 @@ static int codaSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, vo
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */
-static int codaShutdownClients(int domainId, const char *client, int flag) {
+static int codaShutdownClients(void *domainId, const char *client, int flag) {
   
   int len, cLen, outGoing[4];
-  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
   int fd = domain->sendSocket;
   struct iovec iov[2];
 
@@ -3142,7 +3142,7 @@ static int codaShutdownClients(int domainId, const char *client, int flag) {
 /**
  * Method to shutdown the given servers.
  *
- * @param domainId id number of the domain connection
+ * @param domainId id of the domain connection
  * @param server server(s) to be shutdown
  * @param flag   flag describing the mode of shutdown: 0 to not include self,
  *               CMSG_SHUTDOWN_INCLUDE_ME to include self in shutdown.
@@ -3153,10 +3153,10 @@ static int codaShutdownClients(int domainId, const char *client, int flag) {
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */
-static int codaShutdownServers(int domainId, const char *server, int flag) {
+static int codaShutdownServers(void *domainId, const char *server, int flag) {
   
   int len, sLen, outGoing[4];
-  cMsgDomain_CODA *domain = &cMsgDomains[domainId];
+  cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
   int fd = domain->sendSocket;
   struct iovec iov[2];
 
@@ -3472,7 +3472,7 @@ static void *keepAliveThread(void *arg)
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "keepAliveThread: server is probably dead, disconnect\n");
     }
-    cMsgDisconnect(domainId);
+    codaDisconnect((void *)domainId);
     
     sun_setconcurrency(con);
     

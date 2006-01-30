@@ -80,54 +80,54 @@ extern int cMsgDebug;
 typedef struct domainFunctions_t {
   /** This function connects to a cMsg server. */
   int (*connect)         (const char *udl, const char *name, const char *description,
-                          const char *UDLremainder, int *domainId); 
+                          const char *UDLremainder, void **domainId); 
   
   /** This function sends a message to a cMsg server. */
-  int (*send)            (int domainId, void *msg);
+  int (*send)            (void *domainId, void *msg);
   
   /** This function sends a message to a cMsg server and receives a synchronous response. */
-  int (*syncSend)        (int domainId, void *msg, int *response);
+  int (*syncSend)        (void *domainId, void *msg, int *response);
   
   /** This function sends any pending (queued up) communication with the server. */
-  int (*flush)           (int domainId);
+  int (*flush)           (void *domainId);
   
   /** This function subscribes to messages of the given subject and type. */
-  int (*subscribe)       (int domainId, const char *subject, const char *type, cMsgCallback *callback,
+  int (*subscribe)       (void *domainId, const char *subject, const char *type, cMsgCallback *callback,
                           void *userArg, cMsgSubscribeConfig *config);
   
   /** This functin unsubscribes to messages of the given subject, type and callback. */
-  int (*unsubscribe)     (int domainId, const char *subject, const char *type, cMsgCallback *callback,
+  int (*unsubscribe)     (void *domainId, const char *subject, const char *type, cMsgCallback *callback,
                           void *userArg);
   
   /**
    * This function gets one message from a one-time subscription to the given
    * subject and type.
    */
-  int (*subscribeAndGet) (int domainId, const char *subject, const char *type,
+  int (*subscribeAndGet) (void *domainId, const char *subject, const char *type,
                           const struct timespec *timeout, void **replyMsg);
   /**
    * This function gets one message from another cMsg client by sending out
    * an initial message to that responder.
    */
-  int (*sendAndGet)      (int domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
+  int (*sendAndGet)      (void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
   
   /** This function enables the receiving of messages and delivery to callbacks. */
-  int (*start)           (int domainId);
+  int (*start)           (void *domainId);
   
   /** This function disables the receiving of messages and delivery to callbacks. */
-  int (*stop)            (int domainId);
+  int (*stop)            (void *domainId);
   
   /** This function disconnects the client from its cMsg server. */
-  int (*disconnect)      (int domainId);
+  int (*disconnect)      (void *domainId);
   
   /** This function shuts down the given clients. */
-  int (*shutdownClients) (int domainId, const char *client, int flag);
+  int (*shutdownClients) (void *domainId, const char *client, int flag);
   
   /** This function shuts down the given servers. */
-  int (*shutdownServers) (int domainId, const char *server, int flag);
+  int (*shutdownServers) (void *domainId, const char *server, int flag);
   
   /** This function sets the shutdown handler. */
-  int (*setShutdownHandler) (int domainId, cMsgShutdownHandler *handler, void *userArg);
+  int (*setShutdownHandler) (void *domainId, cMsgShutdownHandler *handler, void *userArg);
   
 } domainFunctions;
 
@@ -142,7 +142,7 @@ typedef struct domainTypeInfo_t {
 /** This structure contains information about a domain connection. */
 typedef struct cMsgDomain_t {
   int id;              /**< Index into an array of this domain structure. */
-  int implId;          /**< Index into the array of the implementation domain structure. */
+  void *implId;        /**< Pointer set by implementation to identify particular domain connection. */
 
   /* other state variables */
   int initComplete;    /**< Is initialization of this structure complete? 0 = No, 1 = Yes */
