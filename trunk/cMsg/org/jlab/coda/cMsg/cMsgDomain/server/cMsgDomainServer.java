@@ -118,10 +118,10 @@ public class cMsgDomainServer extends Thread {
     static private final int LOCK = 2;
 
     /**
-     * Thread-safe list of RequestThread objects. This cue is used
+     * Thread-safe list of request handling Thread objects. This cue is used
      * to end these threads nicely during a shutdown.
      */
-    private ConcurrentLinkedQueue<RequestThread> requestThreads;
+    private ConcurrentLinkedQueue<Thread> requestThreads;
 
     /**
      * The ClientHandler thread reads all incoming requests. It fulfills some
@@ -137,7 +137,7 @@ public class cMsgDomainServer extends Thread {
      */
     private KeepAliveHandler keepAliveThread;
 
-    /** Current number of temporary normal request-handling threads. */
+    /** Current number of temporary, normal, request-handling threads. */
     private AtomicInteger tempThreads = new AtomicInteger();
 
     /** A pool of threads to execute all the subscribeAndGet calls which come in. */
@@ -151,13 +151,11 @@ public class cMsgDomainServer extends Thread {
 
     /**
      * Keep track of whether the handleShutdown method of the subdomain
-     * handler has already been called.
+     * handler object has already been called.
      */
     private AtomicBoolean calledSubdomainShutdown = new AtomicBoolean();
 
-    /**
-     * Hashtable of all sendAndGetter objects of this client.
-     */
+    /** Hashtable of all sendAndGetter objects of this client. */
     private ConcurrentHashMap<Integer, cMsgServerSendAndGetter> sendAndGetters;
 
     /** Kill main thread if true. */
@@ -192,6 +190,32 @@ public class cMsgDomainServer extends Thread {
         if (timeOrdered == true) {
             permanentCommandHandlingThreads = 1;
             tempThreadsMax = 0;
+        }
+    }
+
+
+    /** This method prints out the sizes of all objects which store other objects. */
+    private void printSizes() {
+        System.out.println("\n\nSIZES:");
+        System.out.println("     request   cue   = " + requestCue.size());
+        System.out.println("     subscribe cue   = " + subscribeCue.size());
+        System.out.println("     lock      cue   = " + lockCue.size());
+        System.out.println("     request threads = " + requestThreads.size());
+        System.out.println("     sendAndGetters  = " + sendAndGetters.size());
+        System.out.println("     clientHandlerThread buffer  = " + clientHandlerThread.bytes.length);
+
+        System.out.println();
+
+        nameServer.printSizes();
+
+        // print static stuff for cMsg subdomain class
+        org.jlab.coda.cMsg.subdomains.cMsg.printStaticSizes();
+
+        System.out.println();
+
+        // print sizes for our specific cMsg subdomain handler
+        if (cMsgSubdomainHandler != null) {
+            cMsgSubdomainHandler.printSizes();
         }
     }
 
@@ -231,14 +255,13 @@ public class cMsgDomainServer extends Thread {
         subscribeCue = new LinkedBlockingQueue<cMsgHolder>(100);
         lockCue      = new LinkedBlockingQueue<cMsgHolder>(100);
 
-        requestThreads = new ConcurrentLinkedQueue<RequestThread>();
+        requestThreads = new ConcurrentLinkedQueue<Thread>();
         sendAndGetters = new ConcurrentHashMap<Integer, cMsgServerSendAndGetter>(10);
 
         // Start a thread pool for subscribeAndGet handling.
         class RejectHandler implements RejectedExecutionHandler {
             public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
                 // Just run a new thread
-System.out.println("REJECT HANDLER: DS start new sendAndGet/subAndGet thread");
                 Thread t = new Thread(r);
                 t.setDaemon(true);
                 t.start();
@@ -326,9 +349,7 @@ System.out.println("REJECT HANDLER: DS start new sendAndGet/subAndGet thread");
      * before the garbage collector is run;
      */
     public void finalize() throws cMsgException {
-System.out.println("\nIN FINALIZE !!!\n");
         if (calledSubdomainShutdown.compareAndSet(false,true)) {
-System.out.println("  From finalize: run subdomain handler clientShutdown method");
             subdomainHandler.handleClientShutdown();
         }
     }
@@ -371,13 +392,15 @@ System.out.println("  From finalize: run subdomain handler clientShutdown method
         try { Thread.sleep(10); }
         catch (InterruptedException e) {}
 
-        // clear cue, no more requests should be coming in
+        // clear cues, no more requests should be coming in
         requestCue.clear();
+        subscribeCue.clear();
+        lockCue.clear();
 
-        // Give request handling threads a chance to shutdown.
-        // They wakeup every .5 sec
-        try { Thread.sleep(800); }
-        catch (InterruptedException e) {}
+        // Shutdown request-handling threads
+        for (Thread t : requestThreads) {
+            t.interrupt();
+        }
 
         // now shutdown the main thread which shouldn't take more than 1 second
         killMainThread = true;
@@ -409,14 +432,14 @@ System.out.println("  From finalize: run subdomain handler clientShutdown method
 
                             try {
                                 if (sub.isSubscribed()) {
-System.out.println("    **** unsubscribing to sub/type = " + sub.subject + "/" + sub.type + " on " +
-      b.serverName + " from " + sub.info.getName());
+//System.out.println("    **** unsubscribing to sub/type = " + sub.subject + "/" + sub.type + " on " +
+//      b.serverName + " from " + sub.info.getName());
                                     b.unsubscribe(sub.subject, sub.type, sub.namespace);
                                 }
 
                                 for (Map.Entry<Integer, cMsgCallbackAdapter> entry : sub.getSubAndGetters().entrySet()) {
-System.out.println("    **** unsubAndGetting to sub/type = " + sub.subject + "/" + sub.type + " on " +
-   b.serverName);
+//System.out.println("    **** unsubAndGetting to sub/type = " + sub.subject + "/" + sub.type + " on " +
+//   b.serverName);
                                     b.unsubscribeAndGet(sub.subject, sub.type,
                                                         sub.namespace, entry.getValue());
                                 }
@@ -432,7 +455,7 @@ System.out.println("    **** unsubAndGetting to sub/type = " + sub.subject + "/"
                 for (Iterator it = nameServer.subscriptions.iterator(); it.hasNext();) {
                     sub = (cMsgServerSubscribeInfo) it.next();
                     if (sub.info == info) {
-System.out.println("    **** Removing subs of " + info.getName() + " from subscriptions");
+//System.out.println("    **** Removing subs of " + info.getName() + " from subscriptions");
                         it.remove();
                     }
                 }
@@ -611,6 +634,9 @@ System.out.println("    **** Removing subs of " + info.getName() + " from subscr
                 out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 2048));
 
                 while (true) {
+                    if (Thread.currentThread().isInterrupted()) {
+                        return;
+                    }
                     // read client's request
                     msgId = in.readInt();
                     if (msgId != cMsgConstants.msgKeepAlive) {
@@ -628,6 +654,10 @@ System.out.println("    **** Removing subs of " + info.getName() + " from subscr
                     System.out.println(">>    DS: keep alive thread's connection to client is dead from cMsg error");
                     ex.printStackTrace();
                 }
+            }
+            catch (InterruptedIOException ex) {
+                // If this thread has been interrupted, quit
+                return;
             }
             catch (IOException ex) {
                 if (debug >= cMsgConstants.debugError) {
@@ -647,7 +677,7 @@ System.out.println("    **** Removing subs of " + info.getName() + " from subscr
         private SocketChannel channel;
 
         /** Allocate byte array once (used for reading in data) for efficiency's sake. */
-        private byte[] bytes = new byte[20000];
+        byte[] bytes = new byte[20000];
 
         /** Input stream from client socket. */
         private DataInputStream  in;
@@ -666,14 +696,14 @@ System.out.println("    **** Removing subs of " + info.getName() + " from subscr
 
             // start up "normal", permanent worker threads on the regular cue
             for (int i = 0; i < permanentCommandHandlingThreads; i++) {
-                requestThreads.add(new RequestThread(true, NORMAL));
+                requestThreads.add(new RequestCueThread(true));
             }
 
-            // start up 1 and only 1 permanent worker thread on the (un)subscribe cue
-            requestThreads.add(new RequestThread(true, SUBSCRIBE));
+            // start up 1 and only 1 worker thread on the (un)subscribe cue
+            requestThreads.add(new SubscribeCueThread());
 
-            // start up 1 and only 1 permanent worker thread on the (un)lock cue
-            requestThreads.add(new RequestThread(true, LOCK));
+            // start up 1 and only 1 worker thread on the (un)lock cue
+            requestThreads.add(new LockCueThread());
 
             // die if no more non-daemon thds running
             setDaemon(true);
@@ -690,10 +720,8 @@ System.out.println("    **** Removing subs of " + info.getName() + " from subscr
             int size, msgId=0, requestType=NORMAL;
             cMsgHolder holder = null;
             // for printing out request cue size periodically
-            /*
-            Date now, t;
-            now = new Date();
-            */
+            //Date now, t;
+            //now = new Date();
 
             try {
                 // buffered communication streams for efficiency
@@ -841,24 +869,23 @@ System.out.println("    **** Removing subs of " + info.getName() + " from subscr
                         catch (InterruptedException e) {
                         }
                     }
-                    // print out request cue size periodically
-                    /*
-                    t = new Date();
-                    if (now.getTime() + 5000 <= t.getTime()) {
-                        System.out.println(info.getName() + ":");
-                        System.out.println("requests = " + requestCue.size());
-                        System.out.println("subscribes = " + subscribeCue.size());
-                        System.out.println("req thds = " + requestThreads.size());
-                        System.out.println("handler thds = " + handlerThreads.size());
-                        now = t;
-                    }
-                    */
+
+                    // print out request cue sizes periodically
+                    //t = new Date();
+                    //if (now.getTime() + 10000 <= t.getTime()) {
+                    //    printSizes();
+                    //    now = t;
+                    //}
 
                     // if the cue is almost full, add temp threads to handle the load
                     if (requestCue.remainingCapacity() < 10 && tempThreads.get() < tempThreadsMax) {
-                        new RequestThread();
+                        new RequestCueThread();
                     }
                 }
+            }
+            catch (InterruptedIOException ex) {
+                // If this thread has been interrupted, quit
+                return;
             }
             catch (IOException ex) {
                 if (debug >= cMsgConstants.debugError) {
@@ -947,19 +974,18 @@ System.out.println("    **** Removing subs of " + info.getName() + " from subscr
                     }
                 }
 
-System.out.println("    DS: size of subscriptions = " + nameServer.subscriptions.size());
                 // update the new "INCLOUD" bridge with all cMsg domain subscriptions
                 for (cMsgServerSubscribeInfo sub : nameServer.subscriptions) {
                     try {
                         if (sub.isSubscribed()) {
-System.out.println("subscribing to sub/type = " + sub.subject + "/" + sub.type + "/" +
-   sub.namespace + " on " + bridge.serverName + " from " + sub.info.getName());
+//System.out.println("subscribing to sub/type = " + sub.subject + "/" + sub.type + "/" +
+//   sub.namespace + " on " + bridge.serverName + " from " + sub.info.getName());
                             bridge.subscribe(sub.subject, sub.type, sub.namespace);
                         }
 
                         for (Map.Entry<Integer, cMsgCallbackAdapter> entry : sub.getSubAndGetters().entrySet()) {
-System.out.println("subAndGetting to sub/type = " + sub.subject + "/" + sub.type + "/" +
-   sub.namespace + " on " +   bridge.serverName + " from " + sub.info.getName());
+//System.out.println("subAndGetting to sub/type = " + sub.subject + "/" + sub.type + "/" +
+//   sub.namespace + " on " +   bridge.serverName + " from " + sub.info.getName());
                             bridge.subscribeAndGet(sub.subject, sub.type,
                                                    sub.namespace, entry.getValue());
                         }
@@ -1274,201 +1300,56 @@ System.out.println("subAndGetting to sub/type = " + sub.subject + "/" + sub.type
     }
 
 
+
     /**
-     * Class for taking a cued-up request from the client and processing it.
-     * There are 3 different types of cues. One is for "normal" requests, another for
-     * (un)subscribes, and another for (un)locks.
+     * Class for taking and processing a cued-up request from the client
+     * having to do with (un)locks of various sorts and shutdown commands.
      */
-    private class RequestThread extends Thread {
-        /** Is this thread temporary or permanent? */
-        boolean permanent;
+    private class LockCueThread extends Thread {
 
-        /** Does this thread read from the (un)subscribe, (un)lock, or normal cue? */
-        int requestType;
-
-
-        /** Constructor for temporary thread to work on normal request cue. */
-        RequestThread() {
-            // thread is not permanent and only reads normal requests
-            this(false, NORMAL);
-        }
-
-        /** General constructor. */
-        RequestThread(boolean permanent, int requestType) {
-            this.permanent   = permanent;
-            this.requestType = requestType;
-
-//System.out.println("DS Start new request handling thread");
-            if (!permanent) {
-                tempThreads.getAndIncrement();
-            }
-
+        /** Constructor. */
+        LockCueThread() {
             // die if main thread dies
             setDaemon(true);
-
             this.start();
         }
 
         /**
-          * This method returns an integer value to the client.
-          *
-          * @param answer return value to pass to client
-          * @throws IOException if socket read or write error
-          */
-         private void sendIntReply(int answer) throws IOException {
-             // send back answer
-             backToClient.writeInt(answer);
-             backToClient.flush();
-         }
+         * This method returns an integer value to the client.
+         *
+         * @param answer return value to pass to client
+         * @throws IOException if socket read or write error
+         */
+        private void sendIntReply(int answer) throws IOException {
+            // send back answer
+            backToClient.writeInt(answer);
+            backToClient.flush();
+        }
 
         /** Loop forever waiting for work to do. */
         public void run() {
             cMsgHolder holder;
             int answer;
 
-            /*
-            if (requestType == NORMAL)
-                System.out.println("Starting up NORMAL request thread " + Thread.currentThread());
-            else if (requestType == SUBSCRIBE)
-                System.out.println("Starting up SUBSCRIBE request thread " + Thread.currentThread());
-            else
-                System.out.println("Starting up LOCK request thread " + Thread.currentThread());
-            */
-
             while (true) {
 
-                if (killSpawnedThreads) return;
+                if (killSpawnedThreads || Thread.currentThread().isInterrupted()) {
+                    return;
+                }
 
                 holder = null;
 
-                try {
-                    // try for up to 1/2 second to read a request from the cue
-                    if (requestType == NORMAL) {
-//System.out.println("WAITING FOR REQUESTS in " + Thread.currentThread());
-                        holder = requestCue.poll(500, TimeUnit.MILLISECONDS);
-                    }
-                    else if (requestType == SUBSCRIBE) {
-//System.out.println("WAITING FOR SUBSCRIBES in " + Thread.currentThread());
-                        holder = subscribeCue.poll(500, TimeUnit.MILLISECONDS);
-                    }
-                    else {
-//System.out.println("WAITING FOR LOCKS in " + Thread.currentThread());
-                        holder = lockCue.poll(500, TimeUnit.MILLISECONDS);
-                    }
-                }
-                catch (InterruptedException e) {
-                }
+                // Grab item off cue. Cannot use timeout
+                //  here due to bug in Java library.
+                try { holder = lockCue.take(); }
+                catch (InterruptedException e) { }
 
                 if (holder == null) {
-                    // if this is a permanent thread, keeping trying to read requests
-                    if (permanent) {
-                        continue;
-                    }
-                    // if this is a temp thread, disappear after no requests for 1/2 second
-                    else {
-                        tempThreads.getAndDecrement();
-//System.out.println(temp +" temp");
-                        return;
-                    }
+                    continue;
                 }
 
                 try {
                     switch (holder.request) {
-
-                        case cMsgConstants.msgSendRequest: // receiving a message
-                            subdomainHandler.handleSendRequest(holder.message);
-                            break;
-
-                        case cMsgConstants.msgSyncSendRequest: // receiving a message
-                            answer = subdomainHandler.handleSyncSendRequest(holder.message);
-                            sendIntReply(answer);
-                            break;
-
-                        case cMsgConstants.msgSendAndGetRequest: // sending a message to a responder
-//System.out.println("Domain Server: got msgSendAndGetRequest from client, ns = " + holder.namespace);
-                            // If not cMsg subdomain just call subdomain handler.
-                            if (cMsgSubdomainHandler == null) {
-System.out.println("Domain Server: call NON-CMSG subdomain send&Get");
-                                subdomainHandler.handleSendAndGetRequest(holder.message);
-                                break;
-                            }
-                            handleCmsgSubdomainSendAndGet(holder);
-                            break;
-
-                        case cMsgConstants.msgUnSendAndGetRequest: // ungetting sendAndGet
-                            // This will fire notifier if one exists.
-                            // The fired notifier will take care of unSendAndGetting any bridges.
-System.out.println("Domain Server: got msgUnSendAndGetRequest from client, ns = " + holder.namespace);
-                            subdomainHandler.handleUnSendAndGetRequest(holder.id);
-                            break;
-
-                        case cMsgConstants.msgSubscribeAndGetRequest: // getting 1 message of subject & type
-                            // if not cMsg subdomain, just call subdomain handler
-                            if (cMsgSubdomainHandler == null) {
-//System.out.println("Domain Server: call regular sub&Get");
-                                subdomainHandler.handleSubscribeAndGetRequest(holder.subject,
-                                                                              holder.type,
-                                                                              holder.id);
-                                break;
-                            }
-                            handleCmsgSubdomainSubscribeAndGet(holder);
-                            break;
-
-                        case cMsgConstants.msgUnsubscribeAndGetRequest: // ungetting subscribeAndGet
-                            // this will fire notifier if one exists (cmsg subdomain)
-                            subdomainHandler.handleUnsubscribeAndGetRequest(holder.subject,
-                                                                            holder.type,
-                                                                            holder.id);
-                            // for cmsg subdomain
-                            if (cMsgSubdomainHandler != null) {
-                                handleCmsgSubdomainUnsubscribeAndGet(holder);
-                            }
-                            break;
-
-                        case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
-                            subdomainHandler.handleSubscribeRequest(holder.subject,
-                                                                    holder.type,
-                                                                    holder.id);
-                            // for cmsg subdomain
-                            if (cMsgSubdomainHandler != null) {
-                                handleCmsgSubdomainSubscribe(holder);
-                            }
-                            break;
-
-                        case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
-                            subdomainHandler.handleUnsubscribeRequest(holder.subject,
-                                                                      holder.type,
-                                                                      holder.id);
-                            // for cmsg subdomain
-                            if (cMsgSubdomainHandler != null) {
-                                handleCmsgSubdomainUnsubscribe(holder);
-                            }
-                            break;
-
-                        case cMsgConstants.msgServerSubscribeRequest: // subscription by another server
-//System.out.println("Domain Server: got serverSubscribe for bridge client, namespace = " + holder.namespace);
-                            cMsgSubdomainHandler.handleServerSubscribeRequest(holder.subject,
-                                                                              holder.type,
-                                                                              holder.namespace);
-                            break;
-
-                        case cMsgConstants.msgServerUnsubscribeRequest: // unsubscribing by another server
-//System.out.println("Domain Server: got serverUNSubscribe for bridge client");
-                            cMsgSubdomainHandler.handleServerUnsubscribeRequest(holder.subject,
-                                                                                holder.type,
-                                                                                holder.namespace);
-                            break;
-
-                        case cMsgConstants.msgServerSendAndGetRequest: // sendAndGet by another server
-//System.out.println("Domain Server: got msgServerSendAndGetRequest from bridge client, ns = " + holder.namespace);
-                            cMsgSubdomainHandler.handleServerSendAndGetRequest(holder.message,
-                                                                               holder.namespace);
-                            break;
-
-                        case cMsgConstants.msgServerUnSendAndGetRequest: // unsubscribing by another server
-//System.out.println("Domain Server: got msgServerUnSendAndGetRequest from bridge client, ns = " + holder.namespace);
-                            cMsgSubdomainHandler.handleUnSendAndGetRequest(holder.id);
-                            break;
 
                         case cMsgConstants.msgServerShutdownClients: // tell local clients to shutdown
                             subdomainHandler.handleShutdownClientsRequest(holder.client, holder.include);
@@ -1545,6 +1426,382 @@ System.out.println("Domain Server: got msgUnSendAndGetRequest from client, ns = 
                             answer = gotLock ? 1 : 0;
                             sendIntReply(answer);
                             break;
+
+                        default:
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("dServer lockThread: can't understand your message " + info.getName());
+                            }
+                            break;
+                    }
+                }
+                catch (cMsgException e) {
+                    if (debug >= cMsgConstants.debugError) {
+                        System.out.println("dServer lockThread: thread picking commands off cue has died from cMsg error");
+                        e.printStackTrace();
+                    }
+                }
+                catch (IOException e) {
+                    if (debug >= cMsgConstants.debugError) {
+                        System.out.println("dServer lockThread: thread picking commands off cue has died from IO error");
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+    }
+
+
+    /**
+     * Class for taking and processing a cued-up request from the client
+     * having to do with (un)subscribes of various sorts.
+     */
+    private class SubscribeCueThread extends Thread {
+
+        /** Constructor for temporary thread to work on normal request cue. */
+        SubscribeCueThread() {
+            // die if main thread dies
+            setDaemon(true);
+            this.start();
+        }
+
+        /** Loop forever waiting for work to do. */
+        public void run() {
+            cMsgHolder holder;
+
+            while (true) {
+
+                if (killSpawnedThreads || Thread.currentThread().isInterrupted()) {
+                    return;
+                }
+
+                holder = null;
+
+                try { holder = subscribeCue.take(); }
+                catch (InterruptedException e) { }
+
+                if (holder == null) {
+                    continue;
+                }
+
+                try {
+                    switch (holder.request) {
+
+                        case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
+                            subdomainHandler.handleSubscribeRequest(holder.subject,
+                                                                    holder.type,
+                                                                    holder.id);
+                            // for cmsg subdomain
+                            if (cMsgSubdomainHandler != null) {
+                                handleCmsgSubdomainSubscribe(holder);
+                            }
+                            break;
+
+                        case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
+                            subdomainHandler.handleUnsubscribeRequest(holder.subject,
+                                                                      holder.type,
+                                                                      holder.id);
+                            // for cmsg subdomain
+                            if (cMsgSubdomainHandler != null) {
+                                handleCmsgSubdomainUnsubscribe(holder);
+                            }
+                            break;
+
+                        case cMsgConstants.msgServerSubscribeRequest: // subscription by another server
+//System.out.println("Domain Server: got serverSubscribe for bridge client, namespace = " + holder.namespace);
+                            cMsgSubdomainHandler.handleServerSubscribeRequest(holder.subject,
+                                                                              holder.type,
+                                                                              holder.namespace);
+                            break;
+
+                        case cMsgConstants.msgServerUnsubscribeRequest: // unsubscribing by another server
+//System.out.println("Domain Server: got serverUNSubscribe for bridge client");
+                            cMsgSubdomainHandler.handleServerUnsubscribeRequest(holder.subject,
+                                                                                holder.type,
+                                                                                holder.namespace);
+                            break;
+
+
+                        default:
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("dServer requestThread: can't understand your message " + info.getName());
+                            }
+                            break;
+                    }
+                }
+                catch (cMsgException e) {
+                    if (debug >= cMsgConstants.debugError) {
+                        System.out.println("dServer requestThread: thread picking commands off cue has died from cMsg error");
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+
+
+       /**
+        * This method handles what extra things need to be done in the
+        * cMsg subdomain when a subscribe request is made by the client.
+        *
+        * @param holder object that holds request information
+        * @throws cMsgException if trying to add more than 1 identical subscription
+        */
+       private void handleCmsgSubdomainSubscribe(cMsgHolder holder) throws cMsgException {
+//System.out.println("    DS: got subscribe for reg client " + holder.subject + " " + holder.type);
+            holder.namespace = info.getNamespace();
+
+            // Cannot have servers joining cloud while a subscription is added
+            nameServer.subscribeLock.lock();
+            try {
+                cMsgServerSubscribeInfo sub = null;
+                // Regular client is subscribing to sub/type.
+                // Pass this on to any cMsg subdomain bridges.
+                if (nameServer.bridges.size() > 0) {
+                    for (cMsgServerBridge b : nameServer.bridges.values()) {
+//System.out.println("    DS: call bridge subscribe");
+                        // only cloud members please
+                        if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
+                            continue;
+                        }
+                        try {
+                            b.subscribe(holder.subject, holder.type, holder.namespace);
+                        }
+                        catch (cMsgException e) {
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("dServer requestThread: cannot subscribe with server " +
+                                                   b.serverName);
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                }
+
+                // Keep track of all subscriptions/sub&Gets made by this client.
+                boolean subExists = false;
+                for (Iterator it = nameServer.subscriptions.iterator(); it.hasNext();) {
+                    sub = (cMsgServerSubscribeInfo) it.next();
+                    if (sub.info == info &&
+                            sub.namespace.equals(holder.namespace) &&
+                            sub.subject.equals(holder.subject) &&
+                            sub.type.equals(holder.type)) {
+
+                        subExists = true;
+                        break;
+                    }
+                }
+
+                // add this client to an exiting subscription
+                if (subExists) {
+                    // this will happen if subscribeAndGet preceeds a subscribe
+//System.out.println("    DS: add subscribe to existing subscription");
+                    sub.addSubscription();
+                }
+                // or else create a new subscription
+                else {
+//System.out.println("    DS: create subscribeInfo & add subscribe with sub/type/ns = " +
+//   holder.subject + "/" + holder.type + "/" + holder.namespace);
+                    sub = new cMsgServerSubscribeInfo(holder.subject, holder.type,
+                                                holder.namespace, info);
+                    nameServer.subscriptions.add(sub);
+                }
+            }
+            finally {
+                nameServer.subscribeLock.unlock();
+            }
+//System.out.println("    DS: size of subscription = " + subscriptions.size());
+
+        }
+
+
+        /**
+         * This method handles the extra things that need to be done in the
+         * cMsg subdomain when an unsubscribe request is made by the client.
+         *
+         * @param holder object that holds request information
+         * @throws cMsgException if IO error in sending message
+         */
+        private void handleCmsgSubdomainUnsubscribe(cMsgHolder holder) throws cMsgException {
+//System.out.println("Domain Server: got UNSubscribe for bridge client");
+            // Cannot have servers joining cloud while a subscription is removed
+            nameServer.subscribeLock.lock();
+            try {
+                cMsgServerSubscribeInfo sub = null;
+                // Regular client is unsubscribing to sub/type.
+                // Pass this on to any cMsg subdomain bridges.
+                if (nameServer.bridges.size() > 0) {
+                    for (cMsgServerBridge b : nameServer.bridges.values()) {
+//System.out.println("Domain Server: call bridge unsubscribe");
+                        // only cloud members please
+                        if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
+                            continue;
+                        }
+                        b.unsubscribe(holder.subject, holder.type, info.getNamespace());
+                    }
+                }
+
+                // keep track of all subscriptions removed by this client
+                for (Iterator it = nameServer.subscriptions.iterator(); it.hasNext();) {
+                    sub = (cMsgServerSubscribeInfo) it.next();
+                    if (sub.info == info &&
+                            sub.namespace.equals(info.getNamespace()) &&
+                            sub.subject.equals(holder.subject) &&
+                            sub.type.equals(holder.type)) {
+
+//System.out.println("    DS: removing subscribe with sub/type/ns = " +
+//   holder.subject + "/" + holder.type + "/" + info.getNamespace());
+                        sub.removeSubscription();
+                        break;
+                    }
+                }
+                // get rid of this subscription if no more subscribers left
+                if (sub.numberOfSubscribers() < 1) {
+//System.out.println("    DS: removing sub object for subscribe");
+                    nameServer.subscriptions.remove(sub);
+                }
+            }
+            finally {
+                nameServer.subscribeLock.unlock();
+            }
+        }
+    }
+
+
+    /**
+     * Class for taking and processing a cued-up request from the client
+     * having to do with everything EXCEPT lock and subscribe commands.
+     */
+    private class RequestCueThread extends Thread {
+        /** Is this thread temporary or permanent? */
+        boolean permanent;
+
+        /** Constructor for temporary thread to work on normal request cue. */
+        RequestCueThread() {
+            // thread is not permanent and only reads normal requests
+            this(false);
+        }
+
+        /** General constructor. */
+        RequestCueThread(boolean permanent) {
+            this.permanent = permanent;
+
+            if (!permanent) {
+                tempThreads.getAndIncrement();
+            }
+
+            // die if main thread dies
+            setDaemon(true);
+
+            this.start();
+        }
+
+        /**
+         * This method returns an integer value to the client.
+         *
+         * @param answer return value to pass to client
+         * @throws IOException if socket read or write error
+         */
+        private void sendIntReply(int answer) throws IOException {
+            // send back answer
+            backToClient.writeInt(answer);
+            backToClient.flush();
+        }
+
+        /** Loop forever waiting for work to do. */
+        public void run() {
+            cMsgHolder holder;
+            int answer;
+
+            while (true) {
+
+                if (killSpawnedThreads || Thread.currentThread().isInterrupted()) {
+                    return;
+                }
+
+                holder = null;
+
+                if (permanent) {
+                    try { holder = requestCue.take(); }
+                    catch (InterruptedException e) { }
+
+                    if (holder == null) { continue; }
+                }
+                else {
+                    try {
+                        // try for up to 1/2 second to read a request from the cue
+                        holder = requestCue.poll(500, TimeUnit.MILLISECONDS);
+                    }
+                    catch (InterruptedException e) { }
+
+                    // disappear after no requests for 1/2 second
+                    if (holder == null) {
+                        tempThreads.getAndDecrement();
+                        return;
+                    }
+                }
+
+                try {
+                    switch (holder.request) {
+
+                        case cMsgConstants.msgSendRequest: // receiving a message
+                            subdomainHandler.handleSendRequest(holder.message);
+                            break;
+
+                        case cMsgConstants.msgSyncSendRequest: // receiving a message
+                            answer = subdomainHandler.handleSyncSendRequest(holder.message);
+                            sendIntReply(answer);
+                            break;
+
+                        case cMsgConstants.msgSendAndGetRequest: // sending a message to a responder
+//System.out.println("Domain Server: got msgSendAndGetRequest from client, ns = " + holder.namespace);
+                            // If not cMsg subdomain just call subdomain handler.
+                            if (cMsgSubdomainHandler == null) {
+//System.out.println("Domain Server: call NON-CMSG subdomain send&Get");
+                                subdomainHandler.handleSendAndGetRequest(holder.message);
+                                break;
+                            }
+                            handleCmsgSubdomainSendAndGet(holder);
+                            break;
+
+                        case cMsgConstants.msgUnSendAndGetRequest: // ungetting sendAndGet
+                            // This will fire notifier if one exists.
+                            // The fired notifier will take care of unSendAndGetting any bridges.
+//System.out.println("Domain Server: got msgUnSendAndGetRequest from client, ns = " + holder.namespace);
+                            subdomainHandler.handleUnSendAndGetRequest(holder.id);
+                            break;
+
+                        case cMsgConstants.msgSubscribeAndGetRequest: // getting 1 message of subject & type
+                            // if not cMsg subdomain, just call subdomain handler
+                            if (cMsgSubdomainHandler == null) {
+//System.out.println("Domain Server: call regular sub&Get");
+                                subdomainHandler.handleSubscribeAndGetRequest(holder.subject,
+                                                                              holder.type,
+                                                                              holder.id);
+                                break;
+                            }
+                            handleCmsgSubdomainSubscribeAndGet(holder);
+                            break;
+
+                        case cMsgConstants.msgUnsubscribeAndGetRequest: // ungetting subscribeAndGet
+                            // this will fire notifier if one exists (cmsg subdomain)
+                            subdomainHandler.handleUnsubscribeAndGetRequest(holder.subject,
+                                                                            holder.type,
+                                                                            holder.id);
+                            // for cmsg subdomain
+                            if (cMsgSubdomainHandler != null) {
+                                handleCmsgSubdomainUnsubscribeAndGet(holder);
+                            }
+                            break;
+
+                        case cMsgConstants.msgServerSendAndGetRequest: // sendAndGet by another server
+//System.out.println("Domain Server: got msgServerSendAndGetRequest from bridge client, ns = " + holder.namespace);
+                            cMsgSubdomainHandler.handleServerSendAndGetRequest(holder.message,
+                                                                               holder.namespace);
+                            break;
+
+                        case cMsgConstants.msgServerUnSendAndGetRequest: // unsubscribing by another server
+//System.out.println("Domain Server: got msgServerUnSendAndGetRequest from bridge client, ns = " + holder.namespace);
+                            cMsgSubdomainHandler.handleUnSendAndGetRequest(holder.id);
+                            break;
+
 
                         default:
                             if (debug >= cMsgConstants.debugWarn) {
@@ -1747,9 +2004,6 @@ System.out.println("Domain Server: got msgUnSendAndGetRequest from client, ns = 
                                                       holder.id, cb);
                     nameServer.subscriptions.add(sub);
                 }
-if (nameServer.subscriptions.size() > 10 && nameServer.subscriptions.size() % 10 == 0) {
-    System.out.println("sub size = " + nameServer.subscriptions.size());
-}
             }
             finally {
                 nameServer.subscribeLock.unlock();
@@ -1796,132 +2050,6 @@ if (nameServer.subscriptions.size() > 10 && nameServer.subscriptions.size() % 10
 //if (subscriptions.size() > 100 && subscriptions.size()%100 == 0) {
 //    System.out.println("sub size = " + subscriptions.size());
 //}
-            }
-            finally {
-                nameServer.subscribeLock.unlock();
-            }
-        }
-
-
-       /**
-        * This method handles what extra things need to be done in the
-        * cMsg subdomain when a subscribe request is made by the client.
-        *
-        * @param holder object that holds request information
-        * @throws cMsgException if trying to add more than 1 identical subscription
-        */
-       private void handleCmsgSubdomainSubscribe(cMsgHolder holder) throws cMsgException {
-//System.out.println("    DS: got subscribe for reg client " + holder.subject + " " + holder.type);
-            holder.namespace = info.getNamespace();
-
-            // Cannot have servers joining cloud while a subscription is added
-            nameServer.subscribeLock.lock();
-            try {
-                cMsgServerSubscribeInfo sub = null;
-                // Regular client is subscribing to sub/type.
-                // Pass this on to any cMsg subdomain bridges.
-                if (nameServer.bridges.size() > 0) {
-                    for (cMsgServerBridge b : nameServer.bridges.values()) {
-//System.out.println("    DS: call bridge subscribe");
-                        // only cloud members please
-                        if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
-                            continue;
-                        }
-                        try {
-                            b.subscribe(holder.subject, holder.type, holder.namespace);
-                        }
-                        catch (cMsgException e) {
-                            if (debug >= cMsgConstants.debugWarn) {
-                                System.out.println("dServer requestThread: cannot subscribe with server " +
-                                                   b.serverName);
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                }
-
-                // Keep track of all subscriptions/sub&Gets made by this client.
-                boolean subExists = false;
-                for (Iterator it = nameServer.subscriptions.iterator(); it.hasNext();) {
-                    sub = (cMsgServerSubscribeInfo) it.next();
-                    if (sub.info == info &&
-                            sub.namespace.equals(holder.namespace) &&
-                            sub.subject.equals(holder.subject) &&
-                            sub.type.equals(holder.type)) {
-
-                        subExists = true;
-                        break;
-                    }
-                }
-
-                // add this client to an exiting subscription
-                if (subExists) {
-                    // this will happen if subscribeAndGet preceeds a subscribe
-//System.out.println("    DS: add subscribe to existing subscription");
-                    sub.addSubscription();
-                }
-                // or else create a new subscription
-                else {
-//System.out.println("    DS: create subscribeInfo & add subscribe with sub/type/ns = " +
-//   holder.subject + "/" + holder.type + "/" + holder.namespace);
-                    sub = new cMsgServerSubscribeInfo(holder.subject, holder.type,
-                                                holder.namespace, info);
-                    nameServer.subscriptions.add(sub);
-                }
-            }
-            finally {
-                nameServer.subscribeLock.unlock();
-            }
-//System.out.println("    DS: size of subscription = " + subscriptions.size());
-
-        }
-
-
-        /**
-         * This method handles the extra things that need to be done in the
-         * cMsg subdomain when an unsubscribe request is made by the client.
-         *
-         * @param holder object that holds request information
-         * @throws cMsgException if IO error in sending message
-         */
-        private void handleCmsgSubdomainUnsubscribe(cMsgHolder holder) throws cMsgException {
-//System.out.println("Domain Server: got UNSubscribe for bridge client");
-            // Cannot have servers joining cloud while a subscription is removed
-            nameServer.subscribeLock.lock();
-            try {
-                cMsgServerSubscribeInfo sub = null;
-                // Regular client is unsubscribing to sub/type.
-                // Pass this on to any cMsg subdomain bridges.
-                if (nameServer.bridges.size() > 0) {
-                    for (cMsgServerBridge b : nameServer.bridges.values()) {
-//System.out.println("Domain Server: call bridge unsubscribe");
-                        // only cloud members please
-                        if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
-                            continue;
-                        }
-                        b.unsubscribe(holder.subject, holder.type, info.getNamespace());
-                    }
-                }
-
-                // keep track of all subscriptions removed by this client
-                for (Iterator it = nameServer.subscriptions.iterator(); it.hasNext();) {
-                    sub = (cMsgServerSubscribeInfo) it.next();
-                    if (sub.info == info &&
-                            sub.namespace.equals(info.getNamespace()) &&
-                            sub.subject.equals(holder.subject) &&
-                            sub.type.equals(holder.type)) {
-
-//System.out.println("    DS: removing subscribe with sub/type/ns = " +
-//   holder.subject + "/" + holder.type + "/" + info.getNamespace());
-                        sub.removeSubscription();
-                        break;
-                    }
-                }
-                // get rid of this subscription if no more subscribers left
-                if (sub.numberOfSubscribers() < 1) {
-//System.out.println("    DS: removing sub object for subscribe");
-                    nameServer.subscriptions.remove(sub);
-                }
             }
             finally {
                 nameServer.subscribeLock.unlock();

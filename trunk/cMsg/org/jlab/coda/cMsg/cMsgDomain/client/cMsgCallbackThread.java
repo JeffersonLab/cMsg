@@ -59,6 +59,9 @@ public class cMsgCallbackThread extends Thread {
     /** Kills this thread as soon as possible. */
     public void dieNow() {
         dieNow = true;
+        //System.out.println("CallbackThd: Will interrupt callback thread");
+        this.interrupt();
+        //System.out.println("CallbackThd: Interrupted callback thread");
     }
 
     /**
@@ -171,6 +174,8 @@ public class cMsgCallbackThread extends Thread {
 //System.out.println("CUE DRAINED");
             }
         }
+//            try {Thread.sleep(1);}
+//            catch (InterruptedException e) {}
 
 //if (messageCue.size() > 0 && messageCue.size() % 100 == 0) {
     //System.out.println("" + messageCue.size());
@@ -221,14 +226,17 @@ public class cMsgCallbackThread extends Thread {
 
             while (message == null) {
                 // die immediately if commanded to
-                if (dieNow) {
+                if (dieNow || Thread.currentThread().isInterrupted()) {
                     return;
                 }
 
-                try {
-                    message = messageCue.poll(1000, TimeUnit.MILLISECONDS);
-                }
+                // Cannot do a messageCue.poll(1000, TimeUnit.MILLISECONDS)
+                // because of a bug in Java 1.5 of a memory for a timeout in
+                // a LinkedBlockingQueue.
+                // BUGBUG
+                try { message = messageCue.take(); }
                 catch (InterruptedException e) {
+                    //System.out.println("CallbackThd: Interrupted a messageCue take");
                 }
             }
 
