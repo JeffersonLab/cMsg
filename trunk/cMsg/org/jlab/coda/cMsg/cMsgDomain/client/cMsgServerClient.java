@@ -64,6 +64,12 @@ public class cMsgServerClient extends cMsg {
      */
     ConcurrentHashMap<Integer,Future<Boolean>> serverSendAndGetCancel;
 
+    /** This method prints sizes of maps for debugging purposes. */
+    public void printSizes() {
+        System.out.println("              cli send&Gets         = " + serverSendAndGets.size());
+        System.out.println("              cli send&Gets cancels = " + serverSendAndGetCancel.size());
+    }
+
     /** A pool of threads to handle all the sendAndGetCallback threads. */
     private ThreadPoolExecutor sendAndGetCallbackThreadPool;
 

@@ -96,7 +96,6 @@ public class cMsgSubscription {
     private HashSet<cMsgClientInfo> clientSubscribers;
 
 
-
     /**
      * Constructor used by cMsg subdomain handler.
      * @param subject subscription subject
@@ -141,6 +140,17 @@ public class cMsgSubscription {
         callbacks.add(cbThread);
     }
 
+
+    /** This method prints the sizes of all sets and maps. */
+    public void printSizes() {
+        System.out.println("        notifiers           = " + notifiers.size());
+        if (callbacks != null) {
+            System.out.println("        callbacks           = " + callbacks.size());
+        }
+        System.out.println("        allSubscribers      = " + allSubscribers.size());
+        System.out.println("        clientSubscribers   = " + clientSubscribers.size());
+        System.out.println("        clientSubAndGetters = " + clientSubAndGetters.size());
+    }
 
     /**
      * Gets subject subscribed to.

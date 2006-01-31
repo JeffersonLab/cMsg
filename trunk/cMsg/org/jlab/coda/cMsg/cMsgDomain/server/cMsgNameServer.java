@@ -115,7 +115,7 @@ public class cMsgNameServer extends Thread {
      * Use this to signal that this server's listening thread has been started
      * so bridges may be created.
      */
-    private CountDownLatch listeningThreadStartedSignal = new CountDownLatch(1);
+    CountDownLatch listeningThreadStartedSignal = new CountDownLatch(1);
 
     /**
      * Use this to signal the point at which other servers and clients
@@ -330,6 +330,27 @@ public class cMsgNameServer extends Thread {
         System.out.println("               none   for no debug output (default)");
         System.out.println("       timeorder handles messages in order received");
         System.out.println();
+    }
+
+
+    /** This method prints out the sizes of all objects which store other objects. */
+    public void printSizes() {
+        System.out.println("     bridges        = " + bridges.size());
+        System.out.println("     nameservers    = " + nameServers.size());
+        System.out.println("     domainservers  = " + domainServers.size());
+        System.out.println("     subscriptions  = " + subscriptions.size());
+        System.out.println("     handlerThreads = " + handlerThreads.size());
+
+        System.out.println();
+
+        for (cMsgServerBridge b : bridges.values()) {
+            System.out.println("       bridge " + b.serverName + ":");
+            b.printSizes();
+        }
+
+        if (bridges.size() > 0) {
+            System.out.println();
+        }
     }
 
 

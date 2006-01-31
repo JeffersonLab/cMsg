@@ -53,6 +53,12 @@ public class cMsgServerBridge {
      */
     private ConcurrentHashMap<Integer,Integer> idStorage;
 
+    /** This method prints sizes of maps for debugging purposes. */
+    public void printSizes() {
+        System.out.println("              ids  = " + idStorage.size());
+        client.printSizes();
+    }
+
 
     /**
      * This class defines the callback to be run when a message matching

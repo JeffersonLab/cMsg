@@ -106,8 +106,28 @@ public class cMsg extends cMsgSubdomainAdapter {
     /** This lock is used to ensure all access to {@link #subscriptions} is sequential. */
     static private final ReentrantLock subscribeLock = new ReentrantLock();
 
+    static public void printStaticSizes() {
+        System.out.println("cMsg subdomain static:");
+        System.out.println("     servers       = " + servers.size());
+        System.out.println("     clients       = " + clients.size());
+        System.out.println("     sendAndGets   = " + sendAndGets.size());
+        System.out.println("     deleteGets    = " + deleteGets.size());
+        System.out.println("     subscriptions = " + subscriptions.size());
+    }
 
 
+    public void printSizes() {
+        System.out.println("cMsg subdomain handler:");
+        System.out.println("     sendToSet      = " + sendToSet.size());
+        System.out.println("     subscriptions:");
+
+        subscribeLock.lock();
+        for (cMsgSubscription sub : subscriptions) {
+            sub.printSizes();
+            System.out.println();
+        }
+        subscribeLock.unlock();
+    }
 
     /** Set of client info objects to send the message to. */
     private HashSet<cMsgClientInfo> sendToSet = new HashSet<cMsgClientInfo>(100);
@@ -1244,7 +1264,7 @@ public class cMsg extends cMsgSubdomainAdapter {
         // Scan through list of name/senderToken value pairs.
         // Find those that match our client name and get the
         // associated sysMsgId numbers. Use that number as a
-        // key to remove the specificGet (sendAndGet).
+        // key to remove the sendAndGet.
         int sysId = -1;
         DeleteGetInfo dgi;
         for (Iterator it=deleteGets.values().iterator(); it.hasNext(); ) {
