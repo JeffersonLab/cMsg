@@ -77,6 +77,16 @@ public class cMsgServerCloudJoiner extends Thread {
         HashSet<String> unknownServers = new HashSet<String>(10);
 
         do {
+
+            // Wait until this name server is ready to accept connections
+            // before going out and connecting to servers that will turn
+            // around and connect back to this one.
+            try {
+                nameServer.listeningThreadStartedSignal.await();
+            }
+            catch (InterruptedException e) {
+            }
+
             // Start with clean slate - no servers we don't know about.
             // (We know about all servers.)
             unknownServers.clear();
