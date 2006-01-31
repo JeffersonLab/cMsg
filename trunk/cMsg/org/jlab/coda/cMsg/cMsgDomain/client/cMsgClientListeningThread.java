@@ -508,7 +508,6 @@ public class cMsgClientListeningThread extends Thread {
 
                 // set is NOT modified here
                 synchronized (set) {
-
                     // for each subscription of this client ...
                     for (cMsgSubscription sub : set) {
 //System.out.println("sub = " + sub);
