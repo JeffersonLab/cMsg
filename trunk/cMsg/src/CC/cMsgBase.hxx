@@ -91,7 +91,7 @@ public:
   cMsgMessageBase(void) throw(cMsgException);
   cMsgMessageBase(const cMsgMessageBase &m) throw(cMsgException);
   cMsgMessageBase(void *msgPointer) throw(cMsgException);
-  virtual ~cMsgMessageBase(void) throw(cMsgException);
+  virtual ~cMsgMessageBase(void);
 
   virtual string getSubject(void) const throw(cMsgException);
   virtual void setSubject(const string &subject) throw(cMsgException);
@@ -149,7 +149,7 @@ class cMsgCallback {
    */
 
 public:
-  virtual void callback(cMsgMessageBase msg, void *userObject) = 0;
+  virtual void callback(cMsgMessageBase *msg, void *userObject) = 0;
 };
 
 
@@ -225,7 +225,7 @@ class cMsgCallbackAdapter:public cMsgCallbackInterface {
    */
 
 public:
-  virtual void callback(cMsgMessageBase msg, void *userObject);
+  virtual void callback(cMsgMessageBase *msg, void *userObject) = 0;
   virtual bool maySkipMessages(void);
   virtual bool mustSerializeMessages(void);
   virtual int getMaxCueSize(void);
@@ -264,7 +264,7 @@ public:
   virtual ~cMsg(void);
 
   virtual void connect() throw(cMsgException);
-  virtual void disconnect(void) throw(cMsgException);
+  virtual void disconnect(void);
   virtual void send(cMsgMessageBase &msg) throw(cMsgException);
   virtual void send(cMsgMessageBase *msg) throw(cMsgException);
   virtual int  syncSend(cMsgMessageBase &msg) throw(cMsgException);
@@ -290,7 +290,8 @@ public:
   virtual bool isConnected(void) const;
   virtual bool isReceiving(void) const;
   virtual void setShutdownHandler(cMsgShutdownHandlerInterface *handler, void* userArg) throw(cMsgException);
-  virtual void shutdown(string &client, string &server, int flag) throw(cMsgException);
+  virtual void shutdownClients(string &client, int flag) throw(cMsgException);
+  virtual void shutdownServers(string &server, int flag) throw(cMsgException);
 };
 
 

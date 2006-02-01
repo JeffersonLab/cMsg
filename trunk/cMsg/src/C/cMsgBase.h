@@ -181,6 +181,8 @@ extern "C" {
   int    cMsgSetByteArrayAndLimits(void *vmsg, char *array, int offset, int length);
   int    cMsgCopyByteArray        (void *vmsg, char *array, int offset, int length);
 
+  int    cMsgToString             (void *vmsg, char **string);
+
 
   /* system and domain info access functions */
   int cMsgGetUDL         (int domainId, char **udl);

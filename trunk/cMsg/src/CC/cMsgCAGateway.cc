@@ -98,14 +98,14 @@ void startElement(void *userData, const char *xmlname, const char **atts);
 // cMsg callback class
 class myCallbackObject:public cMsgCallbackAdapter {
   
-  void callback(cMsgMessage msg, void* userObject) {
+  void callback(cMsgMessage *msg, void* userObject) {
 
 
     // NULL is for new xml config, otherwise PV update
     if(userObject==NULL) {
 
       // parse xml config string
-      parseXMLString(msg.getText());
+      parseXMLString(msg->getText());
 
     } else {
 
@@ -115,7 +115,7 @@ class myCallbackObject:public cMsgCallbackAdapter {
       switch (p->myType) {
       case aitEnumFloat64:
       case aitEnumFloat32:
-        p->fillPV(atof(msg.getText().c_str()));
+        p->fillPV(atof(msg->getText().c_str()));
         break;
 
       case aitEnumInt32:
@@ -124,17 +124,18 @@ class myCallbackObject:public cMsgCallbackAdapter {
       case aitEnumUint16:
       case aitEnumInt8:
       case aitEnumUint8:
-        p->fillPV(atoi(msg.getText().c_str()));
+        p->fillPV(atoi(msg->getText().c_str()));
         break;
 
       case aitEnumFixedString:
       case aitEnumString:
-        p->fillPVString(aitString(msg.getText().c_str()));
+        p->fillPVString(aitString(msg->getText().c_str()));
         break;
       }
 
     }
 
+    delete(msg);
   }
 };
 

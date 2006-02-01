@@ -44,7 +44,8 @@ SRC =   rwlock.c \
 	cMsgNetwork.c \
 	cMsg.c \
 	cMsgDomainListenThread.c \
-	cMsgDomain.c
+	cMsgDomain.c \
+	fileDomain.c
 
 OBJS =  rwlock.o \
 	sunConcurrency.o \
@@ -52,7 +53,8 @@ OBJS =  rwlock.o \
 	cMsgNetwork.o \
 	cMsg.o \
 	cMsgDomainListenThread.o \
-	cMsgDomain.o
+	cMsgDomain.o \
+	fileDomain.o
 
 HFILES = cMsgNetwork.h cMsgPrivate.h cMsgBase.h cMsgDomain.h rwlock.h errors.h
 

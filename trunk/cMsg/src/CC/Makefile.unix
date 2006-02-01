@@ -52,6 +52,7 @@ SRCXX =	$(C_DIR)/rwlock.c \
 	$(C_DIR)/cMsg.c \
 	$(C_DIR)/cMsgDomainListenThread.c \
 	$(C_DIR)/cMsgDomain.c \
+	$(C_DIR)/fileDomain.c \
 	cMsgWrapper.cc
 
 
@@ -62,6 +63,7 @@ OBJSXX = rwlock.o \
 	 cMsg.o \
 	 cMsgDomainListenThread.o \
 	 cMsgDomain.o \
+	 fileDomain.o \
 	 cMsgWrapper.o
 
 

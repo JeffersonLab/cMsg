@@ -42,15 +42,16 @@ void decodeCommandLine(int argc, char **argv);
 // callback class
 class myCallbackObject:public cMsgCallbackAdapter {
 
-  void callback(cMsgMessage msg, void* userObject) {
+  void callback(cMsgMessage *msg, void* userObject) {
      if(!silent) {
-         cout << "subject is:            " << msg.getSubject() << endl;
-         cout << "type is:               " << msg.getType() << endl;
-         cout << "userInt is:            " << msg.getUserInt() << endl;
-         cout << "text is:               " << msg.getText() << endl;
-         cout << "byte array length is:  " << msg.getByteArrayLength() << endl;
+         cout << "subject is:            " << msg->getSubject() << endl;
+         cout << "type is:               " << msg->getType() << endl;
+         cout << "userInt is:            " << msg->getUserInt() << endl;
+         cout << "text is:               " << msg->getText() << endl;
+         cout << "byte array length is:  " << msg->getByteArrayLength() << endl;
          cout << endl;
      }
+     delete(msg);
   }
 };
 

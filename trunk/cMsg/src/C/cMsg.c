@@ -115,6 +115,7 @@ static const char *excludedChars = "`\'\"";
 
 /** For domain implementations. */
 extern domainTypeInfo codaDomainTypeInfo;
+extern domainTypeInfo fileDomainTypeInfo;
 
 
 /* for c++ */
@@ -981,9 +982,16 @@ static void registerDomainTypeInfo(void) {
   /* cMsg type */
   dTypeInfo[0].type = (char *)strdup(codaDomainTypeInfo.type); 
   dTypeInfo[0].functions = codaDomainTypeInfo.functions;
+
+
   /* for clients, runcontrol domain is same as cMsg domain */
   dTypeInfo[1].type = (char *)strdup("rc"); 
   dTypeInfo[1].functions = codaDomainTypeInfo.functions;
+
+
+  /* for file domain */
+  dTypeInfo[2].type = (char *)strdup("file"); 
+  dTypeInfo[2].functions = fileDomainTypeInfo.functions;
 
   return;
 }
@@ -1352,7 +1360,7 @@ static void initMessage(cMsgMessage *msg) {
     int endian;
     if (msg == NULL) return;
     
-    msg->version      = 0;
+    msg->version      = CMSG_VERSION_MAJOR;
     msg->sysMsgId     = 0;
     msg->bits         = 0;
     msg->info         = 0;
@@ -2733,6 +2741,100 @@ int cMsgGetReceiverTime(void *vmsg, struct timespec *receiverTime) {
   *receiverTime = msg->receiverTime;
   return (CMSG_OK);
 }
+
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine converts the message to a printable string.
+ *
+ * @param vmsg pointer to message
+ * @param string is pointer to char* that will hold the malloc'd string
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgToString(void *vmsg, char **string) {
+
+  char *format =
+    "<cMsgMessage date=\"%s\"\n"
+    "     version              = \"%d\"\n"
+    "     domain               = \"%s\"\n"
+    "     getRequest           = \"%s\"\n"
+    "     getResponse          = \"%s\"\n"
+    "     nullGetResponse      = \"%s\"\n"
+    "     creator              = \"%s\"\n"
+    "     sender               = \"%s\"\n"
+    "     senderHost           = \"%s\"\n"
+    "     senderTime           = \"%s\"\n"
+    "     userInt              = \"%d\"\n"
+    "     userTime             = \"%s\"\n"
+    "     receiver             = \"%s\"\n"
+    "     receiverHost         = \"%s\"\n"
+    "     receiverTime         = \"%s\"\n"
+    "     subject              = \"%s\"\n"
+    "     type                 = \"%s\"\n"
+    "<![CDATA[\n"
+    "%s\n]]>\n"
+    "</cMsgMessage>\n\n";
+  int formatLen = strlen(format);
+
+  struct timespec userTime, senderTime, receiverTime;
+  char *buffer;
+  int slen;
+  time_t now;
+  char nowBuf[32],userTimeBuf[32],senderTimeBuf[32],receiverTimeBuf[32];
+
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+
+
+  // get times in ascii and remove newlines
+  now=time(NULL);
+  ctime_r(&now,nowBuf);                               nowBuf[strlen(nowBuf)-1]='\0';
+  ctime_r(&msg->senderTime.tv_sec,senderTimeBuf);     senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
+  ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf); receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
+  ctime_r(&msg->userTime.tv_sec,userTimeBuf);         userTimeBuf[strlen(userTimeBuf)-1]='\0';
+  
+
+  // get string len
+  slen=formatLen;
+  if(msg->domain!=NULL)        slen+=strlen(msg->domain);
+  if(msg->creator!=NULL)       slen+=strlen(msg->creator);
+  if(msg->sender!=NULL)        slen+=strlen(msg->sender);
+  if(msg->senderHost!=NULL)    slen+=strlen(msg->senderHost);
+  if(msg->receiver!=NULL)      slen+=strlen(msg->receiver);
+  if(msg->receiverHost!=NULL)  slen+=strlen(msg->receiverHost);
+  if(msg->subject!=NULL)       slen+=strlen(msg->subject);
+  if(msg->type!=NULL)          slen+=strlen(msg->type);
+  if(msg->text!=NULL)          slen+=strlen(msg->text);
+  slen+=1024;   // to account for everything else
+
+
+  // allocate and fill buffer
+  buffer=(char*)malloc(slen);
+  sprintf(buffer,format,
+          nowBuf,msg->version,msg->domain,
+          ((msg->info & CMSG_IS_GET_REQUEST)!=0)?"true":"false",
+          ((msg->info & CMSG_IS_GET_RESPONSE)!=0)?"true":"false",
+          ((msg->info & CMSG_IS_NULL_GET_RESPONSE)!=0)?"true":"false",
+          msg->creator,msg->sender,msg->senderHost,senderTimeBuf,
+          msg->userInt,userTimeBuf,
+          msg->receiver,msg->receiverHost,receiverTimeBuf,
+          msg->subject,msg->type,msg->text);
+
+
+  // hand newly allocated buffer off to user
+  *string=buffer;
+
+
+  // done
+  return (CMSG_OK);
+}
+
 
 /*-------------------------------------------------------------------*/
 /*   subscribe config functions                                      */

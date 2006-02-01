@@ -1,8 +1,7 @@
 // to do
 //   shutdown handler
+//   defaults for subscribe config
 //   documentation
-//   harmonize C and Java api's 
-//   does use of return-by-value (copy constructors) slow things down too much?
 
 
 
@@ -29,7 +28,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
 
 
 //-----------------------------------------------------------------------------
@@ -165,14 +163,10 @@ cMsgMessageBase::cMsgMessageBase(void *msgPointer) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase::~cMsgMessageBase(void) throw(cMsgException) {
+cMsgMessageBase::~cMsgMessageBase(void) {
 
   if(myMsgPointer==NULL)return;
-
-  int stat;
-  if((stat=cMsgFreeMessage(myMsgPointer))!=CMSG_OK) {
-    throw(cMsgException(cMsgPerror(stat),stat));
-  }
+  cMsgFreeMessage(myMsgPointer);
 }
 
 
@@ -191,7 +185,9 @@ string cMsgMessageBase::getSubject(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    return(string(s));
+    string ss = string(s);
+    free(s);
+    return(ss);
   }
 }
 
@@ -223,7 +219,9 @@ string cMsgMessageBase::getType(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    return(string(s));
+    string ss = string(s);
+    free(s);
+    return(ss);
   }
 }
   
@@ -255,7 +253,9 @@ string cMsgMessageBase::getText(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    return(string(s));
+    string ss = string(s);
+    free(s);
+    return(ss);
   }
 }
 
@@ -472,7 +472,9 @@ string cMsgMessageBase::getCreator() const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    return(string(s));
+    string ss = string(s);
+    free(s);
+    return(ss);
   }
 }
 
@@ -492,7 +494,9 @@ string cMsgMessageBase::getDomain() const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    return(string(s));
+    string ss = string(s);
+    free(s);
+    return(ss);
   }
 }
 
@@ -512,7 +516,9 @@ string cMsgMessageBase::getReceiver() const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    return(string(s));
+    string ss = string(s);
+    free(s);
+    return(ss);
   }
 }
 
@@ -532,7 +538,9 @@ string cMsgMessageBase::getReceiverHost() const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    return(string(s));
+    string ss = string(s);
+    free(s);
+    return(ss);
   }
 }
 
@@ -552,7 +560,9 @@ string cMsgMessageBase::getSender() const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    return(string(s));
+    string ss = string(s);
+    free(s);
+    return(ss);
   }
 }
 
@@ -572,7 +582,9 @@ string cMsgMessageBase::getSenderHost() const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    return(string(s));
+    string ss = string(s);
+    free(s);
+    return(ss);
   }
 }
 
@@ -765,31 +777,13 @@ void cMsgMessageBase::setNullGetResponse(bool b) throw(cMsgException) {
 
 string cMsgMessageBase::toString(void) const throw(cMsgException) {
 
-  time_t now = time(NULL);
-  string t(ctime(&now));
+  char *cs;
 
-  string s(
-    "<cMsgMessage date=\"" + t.substr(0,t.length()-1) + "\"\n"
-    + "     " + "version              = \"" + itos(getVersion()) + "\"\n"
-    + "     " + "domain               = \"" + getDomain() + "\"\n"
-    + "     " + "getRequest           = \"" + btos(isGetRequest()) + "\"\n"
-    + "     " + "getResponse          = \"" + btos(isGetResponse()) + "\"\n"
-    + "     " + "nullGetResponse      = \"" + btos(isNullGetResponse()) + "\"\n"
-    + "     " + "creator              = \"" + getCreator() + "\"\n"
-    + "     " + "sender               = \"" + getSender() + "\"\n"
-    + "     " + "senderHost           = \"" + getSenderHost() + "\"\n"
-    + "     " + "senderTime           = \"" + ttos(getSenderTime()) + "\"\n"
-    + "     " + "userInt              = \"" + itos(getUserInt()) + "\"\n"
-    + "     " + "userTime             = \"" + ttos(getUserTime()) + "\"\n"
-    + "     " + "receiver             = \"" + getReceiver() + "\"\n"
-    + "     " + "receiverHost         = \"" + getReceiverHost() + "\"\n"
-    + "     " + "receiverTime         = \"" + ttos(getReceiverTime()) + "\"\n"
-    + "     " + "subject              = \"" + getSubject() + "\"\n"
-    + "     " + "type                 = \"" + getType() + "\">\n"
-    + "<![CDATA[\n" + getText() + "\n]]>\n"
-    + "</cMsgMessage>\n\n");
-
-    return(s);
+  cMsgToString(myMsgPointer,&cs);
+  string s(cs);
+  free(cs);
+  return(s);
+           
 }
 
 
@@ -808,14 +802,6 @@ void cMsgShutdownHandlerDefault::handleShutdown(void) {
 //-----------------------------------------------------------------------------
 
 
-void cMsgCallbackAdapter::callback(cMsgMessageBase msg, void *userObject) {
-  return;
-}
-
-
-//-----------------------------------------------------------------------------
-
-
 bool cMsgCallbackAdapter::maySkipMessages(void) {
   return(false);
 }
@@ -831,7 +817,7 @@ bool cMsgCallbackAdapter::mustSerializeMessages(void) {
 
 
 int cMsgCallbackAdapter::getMaxCueSize(void) {
-  return(60000);
+  return(1000);
 }
 
 
@@ -839,7 +825,7 @@ int cMsgCallbackAdapter::getMaxCueSize(void) {
 
 
 int cMsgCallbackAdapter::getSkipSize(void) {
-  return(10000);
+  return(1000);
 }
 
 
@@ -847,7 +833,7 @@ int cMsgCallbackAdapter::getSkipSize(void) {
 
 
 int cMsgCallbackAdapter::getMaxThreads(void) {
-  return(1000);
+  return(100);
 }
 
 
@@ -898,14 +884,10 @@ void cMsg::connect(void) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsg::disconnect(void) throw(cMsgException) {
+void cMsg::disconnect(void) {
 
+  if(connected)cMsgDisconnect(myDomainId);
   connected=false;
-
-  int stat;
-  if((stat=cMsgDisconnect(myDomainId))!=CMSG_OK) {
-    throw(cMsgException(cMsgPerror(stat),stat));
-  }
 }
 
 
@@ -962,6 +944,11 @@ void cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAdap
   cMsgSubscribeConfig *myConfig = cMsgSubscribeConfigCreate();
 
   cMsgSubscribeSetMaxCueSize(myConfig,        cba->getMaxCueSize());
+
+
+  printf("max cue size for subject %s, type %s is %d\n",subject.c_str(),type.c_str(),cba->getMaxCueSize());
+
+
   cMsgSubscribeSetSkipSize(myConfig,          cba->getSkipSize());
   cMsgSubscribeSetMaySkip(myConfig,           (cba->maySkipMessages())?1:0);
   cMsgSubscribeSetMustSerialize(myConfig,     (cba->mustSerializeMessages())?1:0);
@@ -1152,10 +1139,22 @@ void cMsg::setShutdownHandler(cMsgShutdownHandlerInterface *handler, void* userA
 //-----------------------------------------------------------------------------
 
 
-void cMsg::shutdown(string &client, string &server, int flag) throw(cMsgException) {
+void cMsg::shutdownClients(string &client, int flag) throw(cMsgException) {
 
   int stat;
-  if((stat=cMsgShutdown(myDomainId,client.c_str(),server.c_str(),flag))!=CMSG_OK) {
+  if((stat=cMsgShutdownClients(myDomainId,client.c_str(),flag))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+void cMsg::shutdownServers(string &server, int flag) throw(cMsgException) {
+
+  int stat;
+  if((stat=cMsgShutdownServers(myDomainId,server.c_str(),flag))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
 }
