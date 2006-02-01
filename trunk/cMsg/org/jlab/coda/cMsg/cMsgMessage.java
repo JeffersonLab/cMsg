@@ -157,7 +157,9 @@ public class cMsgMessage implements Cloneable {
 
 
     /** The constructor for a blank message. */
-    public cMsgMessage() {}
+    public cMsgMessage() {
+        version = cMsgConstants.version;
+    }
 
 
     /** The constructor which copies a given message, EXCEPT for the creator field. */
