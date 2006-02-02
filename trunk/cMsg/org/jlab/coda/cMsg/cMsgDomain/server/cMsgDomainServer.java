@@ -26,7 +26,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.nio.channels.*;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgHolder;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgNotifier;
 
 /**
