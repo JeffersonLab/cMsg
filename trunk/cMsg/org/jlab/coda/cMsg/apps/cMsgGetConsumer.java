@@ -33,6 +33,7 @@ public class cMsgGetConsumer {
     String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
     String  subject = "SUBJECT";
     String  type = "TYPE";
+    boolean send;
 
     String  text = "TEXT";
     char[]  textChars;
@@ -99,6 +100,9 @@ public class cMsgGetConsumer {
             }
             else if (args[i].equalsIgnoreCase("-debug")) {
                 debug = true;
+            }
+            else if (args[i].equalsIgnoreCase("-send")) {
+                send = true;
             }
             else {
                 usage();
@@ -203,13 +207,15 @@ public class cMsgGetConsumer {
             t1 = (new Date()).getTime();
 
             // do a bunch of gets
-            for (int i=0; i < 1000; i++) {
-//                try {
-//                    msg = coda.subscribeAndGet(subject, type, timeout);
-//                }
+            for (int i=0; i < 5000; i++) {
+
                 try {
-                    // do the synchronous sendAndGet with timeout
-                    msg = coda.sendAndGet(sendMsg, timeout);
+                    if (send) {
+                        msg = coda.sendAndGet(sendMsg, timeout);
+                    }
+                    else {
+                        msg = coda.subscribeAndGet(subject, type, timeout);
+                    }
                 }
                 catch (TimeoutException e) {
                     System.out.println("Timeout in sendAndGet");
