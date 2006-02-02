@@ -30,7 +30,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgNetworkConstants;
+import org.jlab.coda.cMsg.cMsgNetworkConstants;
 
 /**
  * This class implements a cMsg name server in the cMsg domain.

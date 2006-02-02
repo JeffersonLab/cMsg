@@ -16,7 +16,6 @@
 
 package org.jlab.coda.cMsg;
 
-import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -47,6 +46,7 @@ public class cMsgMessageMatcher {
 
     /** Length of each item in {@link #replaceWith}. */
     static final private int replaceWithLen = 2;
+
 
 
     /**
@@ -80,25 +80,43 @@ public class cMsgMessageMatcher {
     }
 
     /**
-     * This method implements a simple wildcard matching scheme where "*" means
-     * any or no characters and "?" means exactly 1 character.
+     * This method checks to see if there is a match between a subject & type
+     * pair and a subscription. The subscription's subject and type may include
+     * wildcards where "*" means any or no characters and "?" means exactly 1
+     * character. There is a match only if both subject and type strings match
+     * their conterparts in the subscription.
      *
-     * @param pattern compiled subscription regexp string that can contain wildcards (* and ?)
-     * @param s message string to be matched (can be blank which only matches *)
-     * @return true if there is a match, false if there is not
+     * @param subject subject
+     * @param type type
+     * @param sub subscription
+     * @return true if there is a match of both subject and type, false if there is not
      */
-    static final public boolean matches(Pattern pattern, String s) {
-        // It's a match if regexp (subscription string) is null
-        if (pattern == null) return true;
+    static final public boolean matches(String subject, String type, cMsgSubscription sub) {
+        boolean matchSubj = false;
+        boolean matchType = false;
 
-        // If the message's string is null, something's wrong
-        if (s == null) return false;
+        // if there are no wildcards in the subscription's subject, just use string compare
+        if (!sub.areWildCardsInSub()) {
+            matchSubj = subject.equals(sub.getSubject());
+        }
+        // else if there are wildcards in the subscription's subject, use regexp matching
+        else {
+            Matcher m = sub.getSubjectPattern().matcher(subject);
+            matchSubj = m.matches();
+        }
 
-        Matcher m = pattern.matcher(s);
+        if (!sub.areWildCardsInType()) {
+            matchType = type.equals(sub.getType());
+        }
+        else {
+            Matcher m = sub.getTypePattern().matcher(type);
+            matchType = m.matches();
+        }
 
-        // Now see if there's a match with the string arg
-        return m.matches();
+        return (matchType && matchSubj);
     }
+
+
 
     /**
      * This method takes a string and escapes most special, regular expression characters.

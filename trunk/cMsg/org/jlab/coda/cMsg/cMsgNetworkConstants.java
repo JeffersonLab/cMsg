@@ -12,7 +12,7 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg.cMsgDomain;
+package org.jlab.coda.cMsg;
 
 /**
  * This interface defines some useful constants. These constants correspond

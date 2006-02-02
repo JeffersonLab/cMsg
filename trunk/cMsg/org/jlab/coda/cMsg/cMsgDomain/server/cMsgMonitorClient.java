@@ -18,7 +18,7 @@ package org.jlab.coda.cMsg.cMsgDomain.server;
 
 import org.jlab.coda.cMsg.cMsgConstants;
 import org.jlab.coda.cMsg.cMsgClientInfo;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgUtilities;
+import org.jlab.coda.cMsg.cMsgUtilities;
 
 import java.nio.channels.SocketChannel;
 import java.nio.channels.Selector;

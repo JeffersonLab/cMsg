@@ -14,7 +14,7 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg.cMsgDomain;
+package org.jlab.coda.cMsg;
 
 import org.jlab.coda.cMsg.cMsgClientInfo;
 import java.util.concurrent.CountDownLatch;

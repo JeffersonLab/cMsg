@@ -14,10 +14,8 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg.cMsgDomain;
+package org.jlab.coda.cMsg;
 
-import org.jlab.coda.cMsg.cMsgMessageMatcher;
-import org.jlab.coda.cMsg.cMsgClientInfo;
 import org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread;
 
 import java.util.*;

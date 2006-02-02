@@ -17,7 +17,7 @@
 package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
+import org.jlab.coda.cMsg.cMsgSubscription;
 
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.Selector;

@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.nio.channels.*;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgNotifier;
+import org.jlab.coda.cMsg.cMsgNotifier;
 
 /**
  * This class implements a cMsg domain server in the cMsg domain. One object handles all

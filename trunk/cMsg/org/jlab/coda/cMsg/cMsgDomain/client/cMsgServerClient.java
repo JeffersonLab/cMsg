@@ -20,8 +20,8 @@ import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgCallbackInterface;
 import org.jlab.coda.cMsg.cMsgConstants;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgNetworkConstants;
+import org.jlab.coda.cMsg.cMsgSubscription;
+import org.jlab.coda.cMsg.cMsgNetworkConstants;
 import org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer;
 
 import java.util.Date;

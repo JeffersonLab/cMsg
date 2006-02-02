@@ -16,7 +16,7 @@
 
 package org.jlab.coda.cMsg.cMsgDomain.server;
 
-import org.jlab.coda.cMsg.cMsgDomain.cMsgNotifier;
+import org.jlab.coda.cMsg.cMsgNotifier;
 import org.jlab.coda.cMsg.cMsgException;
 
 import java.util.concurrent.ConcurrentHashMap;
