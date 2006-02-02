@@ -38,14 +38,20 @@ public class cMsgSubscription {
     /** Subject turned into regular expression that understands * and ?. */
     private String subjectRegexp;
 
+    /** Compiled regular expression given in {@link #subjectRegexp}. */
+    private Pattern subjectPattern;
+
+    /** Are there any * or ? characters in the subject? */
+    private boolean wildCardsInSub;
+
     /** Type subscribed to. */
     private String type;
 
     /** Type turned into regular expression that understands * and ?. */
     private String typeRegexp;
 
-    /** Compiled regular expression given in {@link #subjectRegexp}. */
-    private Pattern subjectPattern;
+    /** Are there any * or ? characters in the type? */
+    private boolean wildCardsInType;
 
     /** Compiled regular expression given in {@link #typeRegexp}. */
     private Pattern typePattern;
@@ -106,11 +112,20 @@ public class cMsgSubscription {
         this.subject = subject;
         this.type = type;
         this.namespace = namespace;
-        subjectRegexp  = cMsgMessageMatcher.escape(subject);
-        typeRegexp     = cMsgMessageMatcher.escape(type);
-        subjectPattern = Pattern.compile(subjectRegexp);
-        typePattern    = Pattern.compile(typeRegexp);
-        notifiers      = new HashSet<cMsgNotifier>(30);
+
+        // we only need to do the regexp stuff if there are wildcards chars in subj or type
+        if ((subject.contains("*") || subject.contains("?"))) {
+            wildCardsInSub = true;
+            subjectRegexp  = cMsgMessageMatcher.escape(subject);
+            subjectPattern = Pattern.compile(subjectRegexp);
+        }
+        if ((type.contains("*") || type.contains("?"))) {
+            wildCardsInType = true;
+            typeRegexp      = cMsgMessageMatcher.escape(type);
+            typePattern     = Pattern.compile(typeRegexp);
+        }
+
+        notifiers            = new HashSet<cMsgNotifier>(30);
         allSubscribers       = new HashSet<cMsgClientInfo>(30);
         clientSubAndGetters  = new HashMap<cMsgClientInfo, Integer>(30);
         clientSubscribers    = new HashSet<cMsgClientInfo>(30);
@@ -128,11 +143,20 @@ public class cMsgSubscription {
         this.subject = subject;
         this.type = type;
         this.id = id;
-        subjectRegexp  = cMsgMessageMatcher.escape(subject);
-        typeRegexp     = cMsgMessageMatcher.escape(type);
-        subjectPattern = Pattern.compile(subjectRegexp);
-        typePattern    = Pattern.compile(typeRegexp);
-        notifiers      = new HashSet<cMsgNotifier>(30);
+
+        // we only need to do the regexp stuff if there are wildcards chars in subj or type
+        if ((subject.contains("*") || subject.contains("?"))) {
+            wildCardsInSub = true;
+            subjectRegexp  = cMsgMessageMatcher.escape(subject);
+            subjectPattern = Pattern.compile(subjectRegexp);
+        }
+        if ((type.contains("*") || type.contains("?"))) {
+            wildCardsInType = true;
+            typeRegexp      = cMsgMessageMatcher.escape(type);
+            typePattern     = Pattern.compile(typeRegexp);
+        }
+
+        notifiers            = new HashSet<cMsgNotifier>(30);
         clientSubAndGetters  = new HashMap<cMsgClientInfo, Integer>(30);
         allSubscribers       = new HashSet<cMsgClientInfo>(30);
         clientSubscribers    = new HashSet<cMsgClientInfo>(30);
@@ -151,6 +175,24 @@ public class cMsgSubscription {
         System.out.println("        clientSubscribers   = " + clientSubscribers.size());
         System.out.println("        clientSubAndGetters = " + clientSubAndGetters.size());
     }
+
+    /**
+     * Returns true if there are * or ? characters in subject.
+     * @return true if there are * or ? characters in subject.
+     */
+    public boolean areWildCardsInSub() {
+        return wildCardsInSub;
+    }
+
+
+    /**
+     * Returns true if there are * or ? characters in type.
+     * @return true if there are * or ? characters in type.
+     */
+    public boolean areWildCardsInType() {
+        return wildCardsInType;
+    }
+
 
     /**
      * Gets subject subscribed to.
