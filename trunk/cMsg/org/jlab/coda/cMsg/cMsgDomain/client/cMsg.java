@@ -106,15 +106,15 @@ public class cMsg extends cMsgDomainAdapter {
      * Collection of all of this client's {@link #subscribeAndGet} calls currently in execution.
      * SubscribeAndGets are very similar to subscriptions and can be thought of as
      * one-shot subscriptions.
-     * Key is receiverSubscribeId object, value is {@link cMsgHolder} object.
+     * Key is receiverSubscribeId object, value is {@link cMsgGetHelper} object.
      */
-    ConcurrentHashMap<Integer,cMsgHolder> subscribeAndGets;
+    ConcurrentHashMap<Integer,cMsgGetHelper> subscribeAndGets;
 
     /**
      * Collection of all of this client's {@link #sendAndGet} calls currently in execution.
-     * Key is senderToken object, value is {@link cMsgHolder} object.
+     * Key is senderToken object, value is {@link cMsgGetHelper} object.
      */
-    ConcurrentHashMap<Integer,cMsgHolder> sendAndGets;
+    ConcurrentHashMap<Integer,cMsgGetHelper> sendAndGets;
 
 
     /**
@@ -188,8 +188,8 @@ public class cMsg extends cMsgDomainAdapter {
         domain = "cMsg";
 
         subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
-        subscribeAndGets = new ConcurrentHashMap<Integer,cMsgHolder>(20);
-        sendAndGets      = new ConcurrentHashMap<Integer,cMsgHolder>(20);
+        subscribeAndGets = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
+        sendAndGets      = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
         uniqueId         = new AtomicInteger();
 
         // store our host's name
@@ -468,22 +468,18 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             // wakeup all subscribeAndGets
-            Iterator iter = subscribeAndGets.values().iterator();
-            for (; iter.hasNext();) {
-                cMsgHolder holder = (cMsgHolder) iter.next();
-                holder.message = null;
-                synchronized (holder) {
-                    holder.notify();
+            for (cMsgGetHelper helper : subscribeAndGets.values()) {
+                helper.message = null;
+                synchronized (helper) {
+                    helper.notify();
                 }
             }
 
             // wakeup all sendAndGets
-            iter = sendAndGets.values().iterator();
-            for (; iter.hasNext();) {
-                cMsgHolder holder = (cMsgHolder) iter.next();
-                holder.message = null;
-                synchronized (holder) {
-                    holder.notify();
+            for (cMsgGetHelper helper : sendAndGets.values()) {
+                helper.message = null;
+                synchronized (helper) {
+                    helper.notify();
                 }
             }
         }
@@ -975,7 +971,7 @@ public class cMsg extends cMsgDomainAdapter {
             throws cMsgException, TimeoutException {
 
         int id;
-        cMsgHolder holder = null;
+        cMsgGetHelper helper = null;
 
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
@@ -1005,11 +1001,11 @@ public class cMsg extends cMsgDomainAdapter {
 
             id = uniqueId.getAndIncrement();
 
-            // create cMsgHolder object (not callback thread object)
-            holder = new cMsgHolder(subject, type);
+            // create cMsgGetHelper object (not callback thread object)
+            helper = new cMsgGetHelper(subject, type);
 
             // keep track of get calls
-            subscribeAndGets.put(id, holder);
+            subscribeAndGets.put(id, helper);
 
             socketLock.lock();
             try {
@@ -1044,23 +1040,23 @@ public class cMsg extends cMsgDomainAdapter {
 
         // WAIT for the msg-receiving thread to wake us up
         try {
-            synchronized (holder) {
+            synchronized (helper) {
                 if (timeout > 0) {
-                    holder.wait(timeout);
+                    helper.wait(timeout);
                 }
                 else {
-                    holder.wait();
+                    helper.wait();
                 }
-                //holder.notify();
+                //helper.notify();
             }
         }
         catch (InterruptedException e) {
         }
 
-        // Check the message stored for us in holder.
+        // Check the message stored for us in helper.
         // If msg is null, we timed out.
         // Tell server to forget the get if necessary.
-        if (holder.timedOut) {
+        if (helper.timedOut) {
 //System.out.println("subscribeAndGet: timed out, call unSubscribeAndGet");
             // remove the get from server
             subscribeAndGets.remove(id);
@@ -1074,7 +1070,7 @@ public class cMsg extends cMsgDomainAdapter {
 
 //System.out.println("subscribeAndGet: SUCCESS!!!");
 
-        return holder.message;
+        return helper.message;
     }
 
 
@@ -1147,7 +1143,7 @@ public class cMsg extends cMsgDomainAdapter {
     public cMsgMessage sendAndGet(cMsgMessage message, int timeout)
             throws cMsgException, TimeoutException {
         int id;
-        cMsgHolder holder = null;
+        cMsgGetHelper helper = null;
 
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
@@ -1182,11 +1178,11 @@ public class cMsg extends cMsgDomainAdapter {
 
             id = uniqueId.getAndIncrement();
 
-            // for get, create cMsgHolder object (not callback thread object)
-            holder = new cMsgHolder();
+            // for get, create cMsgGetHelper object (not callback thread object)
+            helper = new cMsgGetHelper();
 
             // track specific get requests
-            sendAndGets.put(id, holder);
+            sendAndGets.put(id, helper);
 
             // this sender's creator if msg created here
             String msgCreator = message.getCreator();
@@ -1250,12 +1246,12 @@ public class cMsg extends cMsgDomainAdapter {
 
         // WAIT for the msg-receiving thread to wake us up
         try {
-            synchronized (holder) {
+            synchronized (helper) {
                 if (timeout > 0) {
-                    holder.wait(timeout);
+                    helper.wait(timeout);
                 }
                 else {
-                    holder.wait();
+                    helper.wait();
                 }
             }
         }
@@ -1263,7 +1259,7 @@ public class cMsg extends cMsgDomainAdapter {
         }
 
         // Tell server to forget the get if necessary.
-        if (holder.timedOut) {
+        if (helper.timedOut) {
 //System.out.println("sendAndGet: timed out");
             // remove the get from server
             sendAndGets.remove(id);
@@ -1277,7 +1273,7 @@ public class cMsg extends cMsgDomainAdapter {
 
 //System.out.println("get: SUCCESS!!!");
 
-        return holder.message;
+        return helper.message;
     }
 
 

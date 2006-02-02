@@ -18,7 +18,6 @@ package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgHolder;
 
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.Selector;
@@ -479,20 +478,20 @@ public class cMsgClientListeningThread extends Thread {
 //    System.out.println(" skip");
 //}
                 // for each subscribeAndGet called by this client ...
-                cMsgHolder holder;
+                cMsgGetHelper helper;
                 for (Iterator i = client.subscribeAndGets.values().iterator(); i.hasNext();) {
-                    holder = (cMsgHolder) i.next();
-                    if (cMsgMessageMatcher.matches(holder.subject, msg.getSubject(), true) &&
-                            cMsgMessageMatcher.matches(holder.type, msg.getType(), true)) {
+                    helper = (cMsgGetHelper) i.next();
+                    if (cMsgMessageMatcher.matches(helper.subject, msg.getSubject(), true) &&
+                            cMsgMessageMatcher.matches(helper.type, msg.getType(), true)) {
 //System.out.println(" handle subscribeAndGet msg");
 
-                        holder.timedOut = false;
-                        holder.message = msg.copy();
+                        helper.timedOut = false;
+                        helper.message = msg.copy();
 //System.out.println(" sending notify for subscribeAndGet");
                         // Tell the subscribeAndGet-calling thread to wakeup
                         // and retrieve the held msg
-                        synchronized (holder) {
-                            holder.notify();
+                        synchronized (helper) {
+                            helper.notify();
                         }
                     }
                     i.remove();
@@ -513,9 +512,20 @@ public class cMsgClientListeningThread extends Thread {
 //System.out.println("sub = " + sub);
 //System.out.println("  try matching msg sub/type = " + msg.getSubject() + " / " + msg.getType());
                         // if subject & type of incoming message match those in subscription ...
-                        if (msg.getSubject().matches(sub.getSubjectRegexp()) &&
-                                msg.getType().matches(sub.getTypeRegexp())) {
-//System.out.println("  handle send msg");
+//                        if (msg.getSubject().matches(sub.getSubjectRegexp()) &&
+//                                msg.getType().matches(sub.getTypeRegexp())) {
+/*
+                          if (cMsgMessageMatcher.matches(msg.getSubject(),
+                                                         sub.getSubject(),
+                                                         sub.getSubjectRegexp()) &&
+                              cMsgMessageMatcher.matches(msg.getType(),
+                                                         sub.getType(),
+                                                         sub.getTypeRegexp())) {
+*/
+                        if (cMsgMessageMatcher.matches(msg.getSubject(), msg.getType(), sub)) {
+
+
+                        //System.out.println("  handle send msg");
 //BUG BUG  Concurrent mod exception if regular sub and sub&get called by diff clients simultaneously
                             // run through all callbacks
                             for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
@@ -580,18 +590,18 @@ public class cMsgClientListeningThread extends Thread {
                 return;
             }
 
-            cMsgHolder holder = client.sendAndGets.remove(msg.getSenderToken());
+            cMsgGetHelper helper = client.sendAndGets.remove(msg.getSenderToken());
 
-            if (holder == null) {
+            if (helper == null) {
                 return;
             }
-            holder.timedOut = false;
+            helper.timedOut = false;
             // Do NOT need to copy msg as only 1 receiver gets it
-            holder.message = msg;
+            helper.message = msg;
 
             // Tell the sendAndGet-calling thread to wakeup and retrieve the held msg
-            synchronized (holder) {
-                holder.notify();
+            synchronized (helper) {
+                helper.notify();
             }
         }
 
