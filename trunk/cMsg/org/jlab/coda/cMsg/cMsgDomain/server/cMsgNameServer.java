@@ -473,7 +473,7 @@ public class cMsgNameServer extends Thread {
         for (Iterator i = domainServers.keySet().iterator(); i.hasNext(); ) {
             server = (cMsgDomainServer)i.next();
         }
-        System.out.println("\n>> NS: FINALIZE NAME SERVER!!!\n");
+//System.out.println("\n>> NS: FINALIZE NAME SERVER!!!\n");
     }
 
 
@@ -494,7 +494,7 @@ public class cMsgNameServer extends Thread {
             server = (cMsgDomainServer)i.next();
             // need to shutdown this domain server
             if (server.calledShutdown.compareAndSet(false, true)) {
-System.out.println("DS shutdown to be run by NameServer");
+//System.out.println("DS shutdown to be run by NameServer");
                 server.shutdown();
             }
         }
@@ -616,7 +616,7 @@ System.out.println("DS shutdown to be run by NameServer");
     /** This method is executed as a thread. */
     public void run() {
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println(">> NS: Running Name Server");
+            System.out.println(">> NS: Running Name Server at " + (new Date()) );
         }
 
         try {
@@ -1367,7 +1367,7 @@ System.out.println(">> NS: cli listen port = " + clientListeningPort +
             }
             // Make this client's name = "host:port"
             String name = host + ":" + nameServerListeningPort;
-System.out.println(">> NS: host name = " + host + ", client hame = " + name);
+//System.out.println(">> NS: host name = " + host + ", client hame = " + name);
 
             // At this point grab the "cloud" lock so no other servers
             // can connect simultaneously
@@ -1377,7 +1377,7 @@ System.out.println(">> NS: host name = " + host + ", client hame = " + name);
                 // First, check to see if this server is already connected.
                 // If so, abort.
                 if (nameServers.contains(name) ) {
-System.out.println(">> NS: ALREADY CONNECTED TO " + name);
+//System.out.println(">> NS: ALREADY CONNECTED TO " + name);
                     throw new cMsgException ("ALREADY CONNECTED");
                 }
 
@@ -1546,7 +1546,7 @@ System.out.println(">> NS: ALREADY CONNECTED TO " + name);
                 // At this point release the "cloud" lock
                 cloudLock.unlock();
             }
-            System.out.println("");
+//System.out.println("");
         }
 
     }
