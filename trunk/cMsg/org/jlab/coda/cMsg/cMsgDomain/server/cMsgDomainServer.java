@@ -1915,6 +1915,15 @@ public class cMsgDomainServer extends Thread {
          */
         private void handleCmsgSubdomainSubscribeAndGet(cMsgHolder holder) throws cMsgException {
 
+            // If not in a cMsg server cloud, just call subdomain handler.
+            if (nameServer.bridges.size() < 1) {
+//System.out.println("    DS: call regular cmsg subdomain send&Get");
+                subdomainHandler.handleSubscribeAndGetRequest(holder.subject,
+                                                              holder.type,
+                                                              holder.id);
+                return;
+            }
+
             cMsgCallbackAdapter cb = null;
             cMsgNotifier notifier  = null;
             cMsgServerSubscribeInfo sub = null;
