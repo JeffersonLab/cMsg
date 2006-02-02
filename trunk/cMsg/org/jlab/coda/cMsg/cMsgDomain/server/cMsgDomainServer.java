@@ -1915,15 +1915,7 @@ public class cMsgDomainServer extends Thread {
          */
         private void handleCmsgSubdomainSubscribeAndGet(cMsgHolder holder) throws cMsgException {
 
-            // If not in a cMsg server cloud, just call subdomain handler.
-            if (nameServer.bridges.size() < 1) {
-//System.out.println("    DS: call regular cmsg subdomain send&Get");
-                subdomainHandler.handleSubscribeAndGetRequest(holder.subject,
-                                                              holder.type,
-                                                              holder.id);
-                return;
-            }
-
+            boolean localOnly = true;
             cMsgCallbackAdapter cb = null;
             cMsgNotifier notifier  = null;
             cMsgServerSubscribeInfo sub = null;
@@ -1932,55 +1924,64 @@ public class cMsgDomainServer extends Thread {
             // Can't have bridges joining cloud while (un)subscribeAndGetting
             nameServer.subscribeLock.lock();
             try {
-                // If we're in cMsg subdomain, take care of connected server issues.
-                //
-                // First create an object (notifier) which will tell us if someone
-                // has sent a matching message to our client. Then we can tell connected
-                // servers to cancel the order (subscription). We can also clean up
-                // entries in the hashtable storing subscription info.
-                notifier = new cMsgNotifier();
-                notifier.id = holder.id;
-                notifier.latch = new CountDownLatch(1);
-                notifier.client = info;
+                // If not in a cMsg server cloud, just call subdomain handler.
+                if (nameServer.bridges.size() < 1) {
+//System.out.println("    DS: call regular cmsg subdomain send&Get");
+                    subdomainHandler.handleSubscribeAndGetRequest(holder.subject,
+                                                                  holder.type,
+                                                                  holder.id);
+                }
+                else {
+                    // Take care of connected server issues.
+                    // First create an object (notifier) which will tell us if someone
+                    // has sent a matching message to our client. Then we can tell connected
+                    // servers to cancel the order (subscription). We can also clean up
+                    // entries in the hashtable storing subscription info.
+                    localOnly = false;
+                    notifier = new cMsgNotifier();
+                    notifier.id = holder.id;
+                    notifier.latch = new CountDownLatch(1);
+                    notifier.client = info;
 
-                cb = cMsgServerBridge.getSubAndGetCallback();
+                    cb = cMsgServerBridge.getSubAndGetCallback();
 
-                // Here we use "subscribe" to implement a "subscribeAndGet" for other servers
-                for (cMsgServerBridge b : nameServer.bridges.values()) {
-                    // Only deal with cloud members
-                    if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
-                        continue;
-                    }
+                    // Here we use "subscribe" to implement a "subscribeAndGet" for other servers
+                    for (cMsgServerBridge b : nameServer.bridges.values()) {
+                        // Only deal with cloud members
+                        if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
+                            continue;
+                        }
 
-                    try {
-                        // if message already arrived, bail out
-                        if (notifier.latch.getCount() < 1) break;
-                        // This subscribe will pass on a received message by calling subdomain
-                        // handler object's "bridgeSend" method which will, in turn,
-                        // fire off the notifier. The notifier was associated with
-                        // this subscription by the above calling of the
-                        // "handleServerSubscribeAndGetRequest" method.
+                        try {
+                            // if message already arrived, bail out
+                            if (notifier.latch.getCount() < 1) break;
+                            // This subscribe will pass on a received message by calling subdomain
+                            // handler object's "bridgeSend" method which will, in turn,
+                            // fire off the notifier. The notifier was associated with
+                            // this subscription by the above calling of the
+                            // "handleServerSubscribeAndGetRequest" method.
 //System.out.println("    DS: call bridge subscribe for " + b.serverName);
-                        b.subscribeAndGet(holder.subject, holder.type,
-                                          holder.namespace, cb);
-                    }
-                    catch (cMsgException e) {
-                        if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("dServer requestThread: cannot subscribe with server " +
-                                               b.serverName);
-                            e.printStackTrace();
+                            b.subscribeAndGet(holder.subject, holder.type,
+                                              holder.namespace, cb);
+                        }
+                        catch (cMsgException e) {
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("dServer requestThread: cannot subscribe with server " +
+                                                   b.serverName);
+                                e.printStackTrace();
+                            }
                         }
                     }
-                }
 
-                // Do a local subscribeAndGet. This associates the notifier
-                // object with the subscription. The call to this method MUST COME
-                // AFTER the bridges' subscribeAndGets. If not, then there is a race
-                // condition in which subscribes and unsubscribes get out of order.
+                    // Do a local subscribeAndGet. This associates the notifier
+                    // object with the subscription. The call to this method MUST COME
+                    // AFTER the bridges' subscribeAndGets. If not, then there is a race
+                    // condition in which subscribes and unsubscribes get out of order.
 //System.out.println("    DS: call serverSub&GetRequest with id = " + holder.id);
-                cMsgSubdomainHandler.handleServerSubscribeAndGetRequest(holder.subject,
-                                                                        holder.type,
-                                                                        notifier);
+                    cMsgSubdomainHandler.handleServerSubscribeAndGetRequest(holder.subject,
+                                                                            holder.type,
+                                                                            notifier);
+                }
 
                 // Keep track of this subscribeAndGet (just like we do in the cMsg
                 // subdomain handler object) so later, if another server joins the
@@ -2018,11 +2019,13 @@ public class cMsgDomainServer extends Thread {
             }
 
             // Run thd that waits for notifier and cleans up server subscriptions
-            cMsgServerSubscribeAndGetter getter =
+            if (!localOnly) {
+                cMsgServerSubscribeAndGetter getter =
                         new cMsgServerSubscribeAndGetter(nameServer,
                                                          notifier, cb,
                                                          nameServer.subscriptions, sub);
-            subAndGetThreadPool.execute(getter);
+                subAndGetThreadPool.execute(getter);
+            }
         }
 
 
