@@ -481,8 +481,7 @@ public class cMsgClientListeningThread extends Thread {
                 cMsgGetHelper helper;
                 for (Iterator i = client.subscribeAndGets.values().iterator(); i.hasNext();) {
                     helper = (cMsgGetHelper) i.next();
-                    if (cMsgMessageMatcher.matches(helper.subject, msg.getSubject(), true) &&
-                            cMsgMessageMatcher.matches(helper.type, msg.getType(), true)) {
+                    if (cMsgMessageMatcher.matches(msg.getSubject(), msg.getType(), helper)) {
 //System.out.println(" handle subscribeAndGet msg");
 
                         helper.timedOut = false;
@@ -504,35 +503,18 @@ public class cMsgClientListeningThread extends Thread {
 //System.out.println("  try matching msg sub/type = " + msg.getSubject() + " / " + msg.getType());
 //System.out.println("  subscription set size = " +set.size());
             if (set.size() > 0) {
-
                 // set is NOT modified here
                 synchronized (set) {
                     // for each subscription of this client ...
                     for (cMsgSubscription sub : set) {
 //System.out.println("sub = " + sub);
-//System.out.println("  try matching msg sub/type = " + msg.getSubject() + " / " + msg.getType());
                         // if subject & type of incoming message match those in subscription ...
-//                        if (msg.getSubject().matches(sub.getSubjectRegexp()) &&
-//                                msg.getType().matches(sub.getTypeRegexp())) {
-/*
-                          if (cMsgMessageMatcher.matches(msg.getSubject(),
-                                                         sub.getSubject(),
-                                                         sub.getSubjectRegexp()) &&
-                              cMsgMessageMatcher.matches(msg.getType(),
-                                                         sub.getType(),
-                                                         sub.getTypeRegexp())) {
-*/
                         if (cMsgMessageMatcher.matches(msg.getSubject(), msg.getType(), sub)) {
-
-
-                        //System.out.println("  handle send msg");
-//BUG BUG  Concurrent mod exception if regular sub and sub&get called by diff clients simultaneously
                             // run through all callbacks
                             for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
                                 // The callback thread copies the message given
                                 // to it before it runs the callback method on it.
                                 cbThread.sendMessage(msg);
-//System.out.println(" sent wakeup for SUBSCRIBE");
                             }
                         }
                     }
