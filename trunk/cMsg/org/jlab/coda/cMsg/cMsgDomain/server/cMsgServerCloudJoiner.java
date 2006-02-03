@@ -102,6 +102,7 @@ public class cMsgServerCloudJoiner extends Thread {
                 Set<String> serverNames = null;
                 try {
 //System.out.println("    << JR: Creating bridge to: " + server);
+                    // This throws cMsgException if cannot find localhost's name
                     cMsgServerBridge bridge = new cMsgServerBridge(nameServer, server, port);
                     // Store reference to bridge so cMsgNameServer can use it when
                     // accepting reciprocal connection.
@@ -124,6 +125,7 @@ public class cMsgServerCloudJoiner extends Thread {
                     // (given on command line), then exit with error.
                     if (nameServer.getCloudStatus() == cMsgNameServer.NONCLOUD) {
 //System.out.println("      << JR: Cannot connect to given server: " + server);
+                        System.out.println(e.getMessage());
                         System.exit(-1);
                     }
                 }

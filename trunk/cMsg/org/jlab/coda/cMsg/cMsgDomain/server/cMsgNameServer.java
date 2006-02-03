@@ -108,6 +108,9 @@ public class cMsgNameServer extends Thread {
     // server-to-server operation of the cMsg subdomain.
     //--------------------------------------------------------
 
+    /** Does this server stand alone and NOT allow bridges to other servers? */
+    boolean standAlone;
+
     /** Server this name server is in the middle of or starting to connect to. */
     volatile cMsgServerBridge bridgeBeingCreated;
 
@@ -243,12 +246,13 @@ public class cMsgNameServer extends Thread {
 
 
     /** Constructor which reads environmental variables and opens listening socket. */
-    public cMsgNameServer(int port, boolean timeOrdered, int debug) {
+    public cMsgNameServer(int port, boolean timeOrdered, boolean standAlone, int debug) {
         domainServers  = new WeakHashMap<cMsgDomainServer, Void>(20);
         handlerThreads = new ArrayList<ClientHandler>(10);
 
         this.debug = debug;
         this.timeOrdered = timeOrdered;
+        this.standAlone  = standAlone;
 
         // read env variable for starting (desired) port number
         if (port < 1) {
@@ -317,7 +321,8 @@ public class cMsgNameServer extends Thread {
         System.out.println("\nUsage: java [-Dport=<listening port>]\n"+
                              "            [-Dserver=<hostname:serverport>]\n" +
                              "            [-Ddebug=<level>]\n" +
-                             "            [-Dtimeorder]  cMsgNameServer\n");
+                             "            [-Dtimeorder]\n" +
+                             "            [-Dstandalone]  cMsgNameServer\n");
         System.out.println("       listening port is the TCP port this server listens on");
         System.out.println("       hostname is the name of another host on which a cMsg server is running");
         System.out.println("               whose cMsg subdomain you want to join,");
@@ -328,7 +333,8 @@ public class cMsgNameServer extends Thread {
         System.out.println("               error  for severity of error or greater");
         System.out.println("               severe for severity of \"cannot go on\"");
         System.out.println("               none   for no debug output (default)");
-        System.out.println("       timeorder handles messages in order received");
+        System.out.println("       timeorder means messages handled in order received");
+        System.out.println("       standalone means no other servers may connect or vice versa");
         System.out.println();
     }
 
@@ -356,11 +362,12 @@ public class cMsgNameServer extends Thread {
 
     /** Run as a stand-alone application. */
     public static void main(String[] args) {
+
         int debug = cMsgConstants.debugNone;
         int port = 0;
         boolean timeOrdered = false;
-
-        String serverArg = null;
+        boolean standAlone  = false;
+        String serverToJoin = null;
 
         if (args.length > 0) {
             usage();
@@ -413,18 +420,25 @@ public class cMsgNameServer extends Thread {
                 }
             }
             else if (s.equalsIgnoreCase("server")) {
-                serverArg = System.getProperty(s);
+                serverToJoin = System.getProperty(s);
             }
             else if (s.equalsIgnoreCase("timeorder")) {
                 timeOrdered = true;
             }
+            else if (s.equalsIgnoreCase("standalone")) {
+                standAlone = true;
+            }
+        }
+
+        if (standAlone) {
+            serverToJoin = null;
         }
 
         // create server object
-        cMsgNameServer server = new cMsgNameServer(port, timeOrdered, debug);
+        cMsgNameServer server = new cMsgNameServer(port, timeOrdered, standAlone, debug);
 
         // start server
-        server.startServer(serverArg);
+        server.startServer(serverToJoin);
     }
 
 
@@ -1374,70 +1388,81 @@ System.out.println(">> NS: cli listen port = " + clientListeningPort +
             cloudLock.lock();
 
             try {
-                // First, check to see if this server is already connected.
-                // If so, abort.
-                if (nameServers.contains(name) ) {
-//System.out.println(">> NS: ALREADY CONNECTED TO " + name);
-                    throw new cMsgException ("ALREADY CONNECTED");
-                }
 
-                // Allow other servers to connect to this one if:
-                //   (1) this server is a cloud member, or
-                //   (2) this server is not a cloud member and it is a
-                //       reciprocal connection from a cloud member, or
-                //   (3) this server is becoming a cloud member and it is an
-                //       original or reciprocal connection from a another server
-                //       that is simultaneously trying to become a cloud member.
-                boolean allowConnection = false;
+                cMsgClientInfo info = null;
 
-                if (cloudStatus == INCLOUD) {
-                    allowConnection = true;
-                    // If I'm in the cloud, the connecting server cannot be making
-                    // a reciprocal connection since a reciprocal connection
-                    // is the only kind I can make.
-                    isReciprocalConnection = false;
-                }
-                else if (connectingCloudStatus == INCLOUD) {
-                    allowConnection = true;
-                    // If the connecting server is a cloud member and I am not,
-                    // it must be making a reciprocal connection since that's the
-                    // only kind of connection a cloud member can make.
-                    isReciprocalConnection = true;
-                }
-                else if (cloudStatus == BECOMINGCLOUD && connectingCloudStatus == BECOMINGCLOUD) {
-                    allowConnection = true;
-                }
-                else {
-                    // If we've reached here, then it's a connection from a noncloud server
-                    // trying to connect to a noncloud/becomingcloud server or vice versa which
-                    // is forbidden. This connection will not be allowed to proceed until this
-                    // server becomes part of the cloud.
-                }
-
-                if (!allowConnection) {
-                    try {
-                        // Wait here up to 5 sec if the connecting server is not allowed to connect.
-//System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connection");
-                        if (!allowConnectionsSignal.await(5L, TimeUnit.SECONDS)) {
-                            cMsgException ex = new cMsgException("nameserver not in server cloud - timeout error");
-                            ex.setReturnCode(cMsgConstants.errorTimeout);
-                            throw ex;
-                        }
-                    }
-                    catch (InterruptedException e) {
-                        cMsgException ex = new cMsgException("interrupted while waiting for name server to join server cloud");
+                try {
+                    // First, check to see if this is a stand alone server.
+                    if (standAlone) {
+                        cMsgException ex = new cMsgException("stand alone server - no server connections allowed");
                         ex.setReturnCode(cMsgConstants.error);
                         throw ex;
                     }
-                }
 
-                // Register this client. If this cMsg server already has a
-                // client by this name (it never should), it will fail.
-                cMsgClientInfo info = new cMsgClientInfo(name, nameServerListeningPort,
-                                                         clientListeningPort, host);
+                    // Second, check to see if this server is already connected.
+                    if (nameServers.contains(name)) {
+//System.out.println(">> NS: ALREADY CONNECTED TO " + name);
+                        cMsgException ex = new cMsgException("already connected");
+                        ex.setReturnCode(cMsgConstants.errorAlreadyExists);
+                        throw ex;
+                    }
 
-                // register the server (store info in cMsg subdomain class)
-                try {
+                    // Allow other servers to connect to this one if:
+                    //   (1) this server is a cloud member, or
+                    //   (2) this server is not a cloud member and it is a
+                    //       reciprocal connection from a cloud member, or
+                    //   (3) this server is becoming a cloud member and it is an
+                    //       original or reciprocal connection from a another server
+                    //       that is simultaneously trying to become a cloud member.
+                    boolean allowConnection = false;
+
+                    if (cloudStatus == INCLOUD) {
+                        allowConnection = true;
+                        // If I'm in the cloud, the connecting server cannot be making
+                        // a reciprocal connection since a reciprocal connection
+                        // is the only kind I can make.
+                        isReciprocalConnection = false;
+                    }
+                    else if (connectingCloudStatus == INCLOUD) {
+                        allowConnection = true;
+                        // If the connecting server is a cloud member and I am not,
+                        // it must be making a reciprocal connection since that's the
+                        // only kind of connection a cloud member can make.
+                        isReciprocalConnection = true;
+                    }
+                    else if (cloudStatus == BECOMINGCLOUD && connectingCloudStatus == BECOMINGCLOUD) {
+                        allowConnection = true;
+                    }
+                    else {
+                        // If we've reached here, then it's a connection from a noncloud server
+                        // trying to connect to a noncloud/becomingcloud server or vice versa which
+                        // is forbidden. This connection will not be allowed to proceed until this
+                        // server becomes part of the cloud.
+                    }
+
+                    if (!allowConnection) {
+                        try {
+                            // Wait here up to 5 sec if the connecting server is not allowed to connect.
+//System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connection");
+                            if (!allowConnectionsSignal.await(5L, TimeUnit.SECONDS)) {
+                                cMsgException ex = new cMsgException("nameserver not in server cloud - timeout error");
+                                ex.setReturnCode(cMsgConstants.errorTimeout);
+                                throw ex;
+                            }
+                        }
+                        catch (InterruptedException e) {
+                            cMsgException ex = new cMsgException("interrupted while waiting for name server to join server cloud");
+                            ex.setReturnCode(cMsgConstants.error);
+                            throw ex;
+                        }
+                    }
+
+                    // Register this client. If this cMsg server already has a
+                    // client by this name (it never should), it will fail.
+                    info = new cMsgClientInfo(name, nameServerListeningPort,
+                                                             clientListeningPort, host);
+
+                    // register the server (store info in cMsg subdomain class)
                     if (debug >= cMsgConstants.debugInfo) {
                         System.out.println(">> NS: try to register " + name);
                     }
