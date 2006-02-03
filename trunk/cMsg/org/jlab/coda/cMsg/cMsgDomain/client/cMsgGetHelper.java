@@ -17,6 +17,9 @@
 package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
+import org.jlab.coda.cMsg.cMsgMessageMatcher;
+
+import java.util.regex.Pattern;
 
 /**
  * This class is used to help in implementing a client's {@link cMsg#subscribeAndGet}
@@ -32,11 +35,32 @@ public class cMsgGetHelper {
     /** Has the "subscribeAndGet" or "sendAndGet" call timed out? */
     boolean timedOut = true;
 
+
     /** Subject. */
     String subject;
 
+    /** Subject turned into regular expression that understands * and ?. */
+    String subjectRegexp;
+
+    /** Compiled regular expression given in {@link #subjectRegexp}. */
+    Pattern subjectPattern;
+
+    /** Are there any * or ? characters in the subject? */
+    boolean wildCardsInSub;
+
+
     /** Type. */
     String type;
+
+    /** Type turned into regular expression that understands * and ?. */
+    String typeRegexp;
+
+    /** Compiled regular expression given in {@link #typeRegexp}. */
+    Pattern typePattern;
+
+    /** Are there any * or ? characters in the type? */
+    boolean wildCardsInType;
+
 
     /** Constructor used in sendndGet. */
     public cMsgGetHelper() {
@@ -50,5 +74,85 @@ public class cMsgGetHelper {
     public cMsgGetHelper(String subject, String type) {
         this.subject = subject;
         this.type = type;
+
+        // we only need to do the regexp stuff if there are wildcards chars in subj or type
+        if ((subject.contains("*") || subject.contains("?"))) {
+            wildCardsInSub = true;
+            subjectRegexp  = cMsgMessageMatcher.escape(subject);
+            subjectPattern = Pattern.compile(subjectRegexp);
+        }
+        if ((type.contains("*") || type.contains("?"))) {
+            wildCardsInType = true;
+            typeRegexp      = cMsgMessageMatcher.escape(type);
+            typePattern     = Pattern.compile(typeRegexp);
+        }
     }
+
+
+    /**
+     * Returns true if there are * or ? characters in subject.
+     * @return true if there are * or ? characters in subject.
+     */
+    public boolean areWildCardsInSub() {
+        return wildCardsInSub;
+    }
+
+
+    /**
+     * Returns true if there are * or ? characters in type.
+     * @return true if there are * or ? characters in type.
+     */
+    public boolean areWildCardsInType() {
+        return wildCardsInType;
+    }
+
+
+    /**
+     * Gets subject subscribed to.
+     * @return subject subscribed to
+     */
+    public String getSubject() {
+        return subject;
+    }
+
+    /**
+     * Gets subject turned into regular expression that understands * and ?.
+     * @return subject subscribed to in regexp form
+     */
+    public String getSubjectRegexp() {
+        return subjectRegexp;
+    }
+
+    /**
+     * Gets subject turned into compiled regular expression pattern.
+     * @return subject subscribed to in compiled regexp form
+     */
+    public Pattern getSubjectPattern() {
+        return subjectPattern;
+    }
+
+    /**
+     * Gets type subscribed to.
+     * @return type subscribed to
+     */
+    public String getType() {
+        return type;
+    }
+
+    /**
+     * Gets type turned into regular expression that understands * and ?.
+     * @return type subscribed to in regexp form
+     */
+     public String getTypeRegexp() {
+         return typeRegexp;
+     }
+
+    /**
+     * Gets type turned into compiled regular expression pattern.
+     * @return type subscribed to in compiled regexp form
+     */
+    public Pattern getTypePattern() {
+        return typePattern;
+    }
+
 }

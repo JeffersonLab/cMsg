@@ -919,7 +919,9 @@ public class cMsgServerClient extends cMsg {
             String err = new String(buf, 0, len, "US-ASCII");
 //System.out.println("        << CL: Error = " + err);
 
-            throw new cMsgException("Error from server: " + err);
+            cMsgException ex = new cMsgException("Error from server: " + err);
+            ex.setReturnCode(error);
+            throw ex;
         }
 
         // read port & length of host name
