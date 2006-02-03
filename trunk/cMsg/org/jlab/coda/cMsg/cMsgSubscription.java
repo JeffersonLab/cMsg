@@ -48,11 +48,11 @@ public class cMsgSubscription {
     /** Type turned into regular expression that understands * and ?. */
     private String typeRegexp;
 
-    /** Are there any * or ? characters in the type? */
-    private boolean wildCardsInType;
-
     /** Compiled regular expression given in {@link #typeRegexp}. */
     private Pattern typePattern;
+
+    /** Are there any * or ? characters in the type? */
+    private boolean wildCardsInType;
 
     /** Client generated id. */
     private int id;
