@@ -16,6 +16,8 @@
 
 package org.jlab.coda.cMsg;
 
+import org.jlab.coda.cMsg.cMsgDomain.client.cMsgGetHelper;
+
 import java.util.regex.Matcher;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -78,6 +80,46 @@ public class cMsgMessageMatcher {
         if (s.matches(regexp)) return true;
         return false;
     }
+
+    /**
+     * This method checks to see if there is a match between a subject & type
+     * pair and a subscribeAndGet helper object.
+     * The subscription's subject and type may include
+     * wildcards where "*" means any or no characters and "?" means exactly 1
+     * character. There is a match only if both subject and type strings match
+     * their conterparts in the subscription.
+     *
+     * @param subject subject
+     * @param type type
+     * @param helper subscription
+     * @return true if there is a match of both subject and type, false if there is not
+     */
+    static final public boolean matches(String subject, String type, cMsgGetHelper helper) {
+        boolean matchSubj = false;
+        boolean matchType = false;
+
+        // if there are no wildcards in the helper's subject, just use string compare
+        if (!helper.areWildCardsInSub()) {
+            matchSubj = subject.equals(helper.getSubject());
+        }
+        // else if there are wildcards in the helper's subject, use regexp matching
+        else {
+            Matcher m = helper.getSubjectPattern().matcher(subject);
+            matchSubj = m.matches();
+        }
+
+        if (!helper.areWildCardsInType()) {
+            matchType = type.equals(helper.getType());
+        }
+        else {
+            Matcher m = helper.getTypePattern().matcher(type);
+            matchType = m.matches();
+        }
+
+        return (matchType && matchSubj);
+    }
+
+
 
     /**
      * This method checks to see if there is a match between a subject & type
