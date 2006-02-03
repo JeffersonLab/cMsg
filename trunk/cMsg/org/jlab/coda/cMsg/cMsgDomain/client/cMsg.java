@@ -1178,7 +1178,7 @@ public class cMsg extends cMsgDomainAdapter {
 
             id = uniqueId.getAndIncrement();
 
-            // for get, create cMsgGetHelper object (not callback thread object)
+            // for get, create cMsgHolder object (not callback thread object)
             helper = new cMsgGetHelper();
 
             // track specific get requests
