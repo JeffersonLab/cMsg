@@ -103,12 +103,27 @@ public class cMsgNameServer extends Thread {
      */
     private ArrayList<ClientHandler> handlerThreads;
 
+    /**
+     * Password that clients need to match before being allowed to connect.
+     * This is subdomain independent and applies to the server as a whole.
+     */
+    String clientPassword;
+
     //--------------------------------------------------------
     // The following class members are associated with the
     // server-to-server operation of the cMsg subdomain.
     //--------------------------------------------------------
 
-    /** Does this server stand alone and NOT allow bridges to other servers? */
+    /**
+     * Password that this server needs to join a cloud and the password that
+     * another server needs to join this one. This is cMsg subdomain specific.
+     */
+    String cloudPassword;
+
+    /**
+     * Does this server stand alone and NOT allow bridges
+     * to/from other cMsg subdomain servers?
+     */
     boolean standAlone;
 
     /** Server this name server is in the middle of or starting to connect to. */
@@ -245,14 +260,27 @@ public class cMsgNameServer extends Thread {
     }
 
 
-    /** Constructor which reads environmental variables and opens listening socket. */
-    public cMsgNameServer(int port, boolean timeOrdered, boolean standAlone, int debug) {
+    /**
+     * Constructor which reads environmental variables and opens listening socket.
+     *
+     * @param port
+     * @param timeOrdered
+     * @param standAlone
+     * @param clientPassword
+     * @param cloudPassword
+     * @param debug
+     */
+    public cMsgNameServer(int port, boolean timeOrdered, boolean standAlone,
+                          String clientPassword, String cloudPassword, int debug) {
+
         domainServers  = new WeakHashMap<cMsgDomainServer, Void>(20);
         handlerThreads = new ArrayList<ClientHandler>(10);
 
-        this.debug = debug;
-        this.timeOrdered = timeOrdered;
-        this.standAlone  = standAlone;
+        this.debug          = debug;
+        this.timeOrdered    = timeOrdered;
+        this.standAlone     = standAlone;
+        this.cloudPassword  = cloudPassword;
+        this.clientPassword = clientPassword;
 
         // read env variable for starting (desired) port number
         if (port < 1) {
@@ -316,25 +344,66 @@ public class cMsgNameServer extends Thread {
     }
 
 
+    /**
+     * Find the first occurance of ?cmsgpassword=<password>? in a client-given UDL
+     * (where cmsgpaswword is case insensitive) in order to find the password for
+     * allowing a client to connect to this server. It needs to match this object's
+     * {@link #clientPassword} for a connection to be established. Null is returned
+     * if no password is found.
+     *
+     * @param UDL UDL given by connecting client
+     * @return client's password embedded in UDL
+     */
+    private static String findClientPassword(String UDL) {
+        if (UDL ==  null) return null;
+
+        // I had no luck using regular expression to pull any occurrances of
+        // ?cmsgpassword=<password>? from the UDL.It always seemed to choke on the ?'s.
+
+        // Find the first occurance of cmsgpassword (case insensitive)
+        // in order to find the password for a client to connect to this server.
+        String key = "?cmsgpassword=";
+        int index1 = UDL.toLowerCase().indexOf(key);
+        if (index1 > -1) {
+            index1 += key.length();
+            int index2 = UDL.indexOf("?", index1);
+            if (index2 < 0) {
+                return UDL.substring(index1);
+            }
+            else {
+                return UDL.substring(index1, index2);
+            }
+        }
+
+        // no password given in the UDL
+        return null;
+    }
+
+
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage: java [-Dport=<listening port>]\n"+
                              "            [-Dserver=<hostname:serverport>]\n" +
                              "            [-Ddebug=<level>]\n" +
                              "            [-Dtimeorder]\n" +
-                             "            [-Dstandalone]  cMsgNameServer\n");
+                             "            [-Dstandalone]\n" +
+                             "            [-Dpassword=<password>]\n" +
+                             "            [-Dcloudpassword=<password>]  cMsgNameServer\n");
         System.out.println("       listening port is the TCP port this server listens on");
-        System.out.println("       hostname is the name of another host on which a cMsg server is running");
-        System.out.println("               whose cMsg subdomain you want to join,");
-        System.out.println("               and serverport is that server's port");
+        System.out.println("       hostname       is the name of another host on which a cMsg server");
+        System.out.println("                      is running whose cMsg subdomain you want to join");
+        System.out.println("                      and serverport is that server's port");
         System.out.println("       debug level has acceptable values of:");
         System.out.println("               info   for full output");
         System.out.println("               warn   for severity of warning or greater");
         System.out.println("               error  for severity of error or greater");
         System.out.println("               severe for severity of \"cannot go on\"");
         System.out.println("               none   for no debug output (default)");
-        System.out.println("       timeorder means messages handled in order received");
-        System.out.println("       standalone means no other servers may connect or vice versa");
+        System.out.println("       timeorder      means messages handled in order received");
+        System.out.println("       standalone     means no other servers may connect or vice versa");
+        System.out.println("       password       is used to block clients without this password in their UDL's");
+        System.out.println("       cloudpassword  is used to join a password-portected cloud or to allow");
+        System.out.println("                      servers with this password to join this cloud");
         System.out.println();
     }
 
@@ -365,9 +434,11 @@ public class cMsgNameServer extends Thread {
 
         int debug = cMsgConstants.debugNone;
         int port = 0;
-        boolean timeOrdered = false;
-        boolean standAlone  = false;
-        String serverToJoin = null;
+        boolean timeOrdered   = false;
+        boolean standAlone    = false;
+        String serverToJoin   = null;
+        String cloudPassword  = null;
+        String clientPassword = null;
 
         if (args.length > 0) {
             usage();
@@ -428,6 +499,12 @@ public class cMsgNameServer extends Thread {
             else if (s.equalsIgnoreCase("standalone")) {
                 standAlone = true;
             }
+            else if (s.equalsIgnoreCase("cloudpassword")) {
+                cloudPassword = System.getProperty(s);
+            }
+            else if (s.equalsIgnoreCase("password")) {
+                clientPassword = System.getProperty(s);
+            }
         }
 
         if (standAlone) {
@@ -435,7 +512,8 @@ public class cMsgNameServer extends Thread {
         }
 
         // create server object
-        cMsgNameServer server = new cMsgNameServer(port, timeOrdered, standAlone, debug);
+        cMsgNameServer server = new cMsgNameServer(port, timeOrdered, standAlone,
+                                                   clientPassword, cloudPassword, debug);
 
         // start server
         server.startServer(serverToJoin);
@@ -777,11 +855,6 @@ public class cMsgNameServer extends Thread {
                             System.out.println("cMsg name server: can't understand your message -> " + msgId);
                         }
                         break;
-                }
-            }
-            catch (cMsgException ex) {
-                if (debug >= cMsgConstants.debugError) {
-                    System.out.println("cMsgNameServer's Client thread: client may not connect");
                 }
             }
             catch (IOException ex) {
@@ -1188,7 +1261,6 @@ public class cMsgNameServer extends Thread {
          * @throws IOException if problems with socket communication
          */
         private void handleClient() throws IOException {
-//System.out.println(">> NS: IN handleClient");
             // listening port of client
             int clientListeningPort = in.readInt();
             // length of domain type client is expecting to connect to
@@ -1282,6 +1354,38 @@ public class cMsgNameServer extends Thread {
                 return;
             }
 
+            // if the client does not provide the correct password if required, return an error
+            if (clientPassword != null) {
+                String givenPassword = findClientPassword(UDL);
+
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("  local password = " + clientPassword);
+                    System.out.println("  given password = " + givenPassword);
+                }
+
+                if (givenPassword == null ||
+                        !clientPassword.equals(givenPassword)) {
+
+                    if (debug >= cMsgConstants.debugError) {
+                        System.out.println("  wrong password sent");
+                    }
+
+                    // send error to client
+                    out.writeInt(cMsgConstants.errorWrongPassword);
+                    // send error string to client
+                    String s = "wrong password given";
+                    out.writeInt(s.length());
+                    try {
+                        out.write(s.getBytes("US-ASCII"));
+                    }
+                    catch (UnsupportedEncodingException e) {
+                    }
+
+                    out.flush();
+                    return;
+                }
+            }
+
             // Try to register this client. If the cMsg system already has a
             // client by this name, it will fail.
             try {
@@ -1293,7 +1397,6 @@ public class cMsgNameServer extends Thread {
                     System.out.println("name server try to register " + name);
                 }
 
-//System.out.println(">> NS: Register regular client");
                 cMsgSubdomainInterface handler = registerClient(info);
 
                 // send ok back as acknowledgment
@@ -1341,13 +1444,12 @@ public class cMsgNameServer extends Thread {
          * This method handles all communication between a cMsg server
          * and this name server in the cMsg domain / cMsg subdomain.
          *
-         * @throws cMsgException if problems with socket communication
          * @throws IOException   if problems with socket communication
          */
-        private void handleServer() throws cMsgException, IOException {
+        private void handleServer() throws IOException {
 //System.out.println(">> NS: IN handleServer");
 
-            // listening port of client
+            // listening port of server client
             int clientListeningPort = in.readInt();
             // What relationship does the connecting server have to the server cloud?
             // Can be INCLOUD, NONCLOUD, or BECOMINGCLOUD.
@@ -1356,17 +1458,13 @@ public class cMsgNameServer extends Thread {
             boolean isReciprocalConnection = in.readByte() == 0? true : false;
             // listening port of name server that client is a part of
             int nameServerListeningPort = in.readInt();
-            // length of client's host name
+            // length of server client's host name
             int lengthHost = in.readInt();
-/*
-System.out.println(">> NS: cli listen port = " + clientListeningPort +
-                               ", cloud status = " + connectingCloudStatus +
-                               ", reciprocal connection = " + isReciprocalConnection +
-                               ", nameServer listen port = " + nameServerListeningPort +
-                               ", host name len = " + lengthHost);
-*/
+            // length of server client's password
+            int lengthPassword = in.readInt();
+
             // bytes expected
-            int bytesToRead = lengthHost;
+            int bytesToRead = lengthHost + lengthPassword;
             int offset = 0;
 
             // read all string bytes
@@ -1379,6 +1477,14 @@ System.out.println(">> NS: cli listen port = " + clientListeningPort +
             if (debug >= cMsgConstants.debugInfo) {
                 System.out.println(">> NS: host = " + host);
             }
+
+            // read password
+            String password = new String(bytes, offset, lengthPassword, "US-ASCII");
+            offset += lengthPassword;
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println(">> NS: given cloud password = " + password);
+            }
+
             // Make this client's name = "host:port"
             String name = host + ":" + nameServerListeningPort;
 //System.out.println(">> NS: host name = " + host + ", client hame = " + name);
@@ -1392,14 +1498,24 @@ System.out.println(">> NS: cli listen port = " + clientListeningPort +
                 cMsgClientInfo info = null;
 
                 try {
-                    // First, check to see if this is a stand alone server.
+                    // First, check to see if password matches.
+System.out.println("local cloudpassword = " + cloudPassword +
+                   ", given password = " + password);
+                    if (cloudPassword != null && !cloudPassword.equals(password)) {
+System.out.println(">> NS: PASSWORDS DO NOT MATCH");
+                        cMsgException ex = new cMsgException("wrong password - connection refused");
+                        ex.setReturnCode(cMsgConstants.errorWrongPassword);
+                        throw ex;
+                    }
+
+                    // Second, check to see if this is a stand alone server.
                     if (standAlone) {
                         cMsgException ex = new cMsgException("stand alone server - no server connections allowed");
                         ex.setReturnCode(cMsgConstants.error);
                         throw ex;
                     }
 
-                    // Second, check to see if this server is already connected.
+                    // Third, check to see if this server is already connected.
                     if (nameServers.contains(name)) {
 //System.out.println(">> NS: ALREADY CONNECTED TO " + name);
                         cMsgException ex = new cMsgException("already connected");
@@ -1502,7 +1618,7 @@ System.out.println(">> NS: cli listen port = " + clientListeningPort +
 //System.out.println(">> NS: Create reciprocal bridge to " + name);
                         cMsgServerBridge b = new cMsgServerBridge(cMsgNameServer.this, name, port);
                         // connect as reciprocal (originating = false)
-                        b.connect(false);
+                        b.connect(false, cloudPassword);
 //System.out.println(">> NS: Add " + name + " to bridges");
                         bridges.put(name, b);
                         // If status was NONCLOUD, it is now BECOMINGCLOUD,

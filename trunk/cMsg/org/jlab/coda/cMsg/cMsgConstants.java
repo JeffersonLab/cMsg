@@ -105,6 +105,8 @@ public class cMsgConstants {
     public static final int    errorNoClassFound       = 21;
     /** Error due to being different version. */
     public static final int    errorDifferentVersion   = 22;
+    /** Error due to wrong password. */
+    public static final int    errorWrongPassword      = 23;
 
     // Codes sent by the client over the network to
     // specify a particular request.

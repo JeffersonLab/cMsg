@@ -108,7 +108,7 @@ public class cMsgServerCloudJoiner extends Thread {
                     // accepting reciprocal connection.
                     nameServer.bridgeBeingCreated = bridge;
                     // Connect returns set of servers that "server" is connected to
-                    serverNames = bridge.connect(true);
+                    serverNames = bridge.connect(true, nameServer.cloudPassword);
                     // After our first successful connect (currently NONCLOUD status),
                     // we are now in the BECOMINGCLOUD status.
                     if (nameServer.getCloudStatus() == cMsgNameServer.NONCLOUD) {

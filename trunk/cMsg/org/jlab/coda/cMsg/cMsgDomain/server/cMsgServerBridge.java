@@ -238,15 +238,16 @@ public class cMsgServerBridge {
      *
      * @param isOriginator true if originating the connection between the 2 servers and
      *                     false if this is the response or reciprocal connection
+     * @param cloudPassword password for connecting to a server in a particular cloud
      * @return set of servers (names of form "host:port") that the server
      *         we're connecting to is already connected with
      * @throws cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server
      */
-    public Set<String> connect(boolean isOriginator) throws cMsgException {
+    public Set<String> connect(boolean isOriginator, String cloudPassword) throws cMsgException {
         // create a connection to the UDL
         client.start();
-        return client.connect(port, isOriginator);
+        return client.connect(port, isOriginator, cloudPassword);
     }
 
    /**

@@ -17,7 +17,6 @@
 package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgDomain.*;
 
 import java.io.*;
 import java.net.*;
@@ -56,6 +55,9 @@ public class cMsg extends cMsgDomainAdapter {
 
     /** Subdomain remainder part of the UDL. */
     private String subRemainder;
+
+    /** Optional password included in UDL for connection to server requiring one. */
+    private String password;
 
     /** Port number from which to start looking for a suitable listening port. */
     int startingPort;
@@ -174,7 +176,7 @@ public class cMsg extends cMsgDomainAdapter {
     boolean hasShutdown;
 
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugError;
+    int debug = cMsgConstants.debugInfo;
 
 
 //-----------------------------------------------------------------------------
@@ -306,7 +308,7 @@ public class cMsg extends cMsgDomainAdapter {
             // connect & talk to cMsg name server to check if name is unique
             SocketChannel channel = null;
             try {
-//System.out.println("        << CL: open socket to  " + nameServerHost + ":" + nameServerPort);
+System.out.println("        << CL: open socket to  " + nameServerHost + ":" + nameServerPort);
                 channel = SocketChannel.open(new InetSocketAddress(nameServerHost, nameServerPort));
                 // set socket options
                 Socket socket = channel.socket();
@@ -398,7 +400,7 @@ public class cMsg extends cMsgDomainAdapter {
             connectLock.unlock();
         }
 
-//System.out.println("        << CL: done connecting to  " + nameServerHost + ":" + nameServerPort);
+System.out.println("        << CL: done connecting to  " + nameServerHost + ":" + nameServerPort);
         return;
     }
 
@@ -1552,7 +1554,7 @@ public class cMsg extends cMsgDomainAdapter {
         }
 
         // cMsg domain UDL is of the form:
-        //       cMsg:<domainType>://<host>:<port>/<subdomainType>/<subdomain remainder>
+        //       cMsg:<domainType>://<host>:<port>/<subdomainType>/<subdomain remainder>?tag=value
         //
         // We could parse the whole UDL, but we've also been passed the UDL with
         // the "cMsg:<domainType>://" stripped off, in UDLremainder. So just parse
@@ -1565,7 +1567,9 @@ public class cMsg extends cMsgDomainAdapter {
         //    if subdomainType is not cMsg, it is required
         // 4) remainder is past on to the subdomain plug-in
 
+
         Pattern pattern = Pattern.compile("([\\w\\.]+):?(\\d+)?/?(\\w+)?/?(.*)");
+        //Pattern pattern = Pattern.compile("([\\w\\.]+):?(\\d+)?/?(\\w+)?/?(.*(?<=\\?)(?:password=(\\w+))?(\\?)*.*)?");
         Matcher matcher = pattern.matcher(UDLremainder);
 
         String s2=null, s3=null, s4=null, s5=null;
@@ -1584,12 +1588,33 @@ public class cMsg extends cMsgDomainAdapter {
             throw new cMsgException("invalid UDL");
         }
 
+        // I had no luck using regular expression to pull any occurrances of
+        // ?cmsgpassword=<password>... It always seemed to choke on the ?'s.
+        // So just look by hand so to speak.
+        if (s5 != null) {
+            // Find the first occurance of cmsgpassword (case insensitive)
+            // in order to find the password for a client to connect to the server.
+            String key = "?cmsgpassword=";
+            int index1 = s5.toLowerCase().indexOf(key);
+            if (index1 > -1) {
+                index1 += key.length();
+                int index2 = s5.indexOf("?", index1);
+                if (index2 < 0) {
+                    password = s5.substring(index1);
+                }
+                else {
+                    password = s5.substring(index1, index2);
+                }
+            }
+        }
+
         if (debug >= cMsgConstants.debugInfo) {
            System.out.println("\nparseUDL: " +
                               "\n  host      = " + s2 +
                               "\n  port      = " + s3 +
                               "\n  subdomain = " + s4 +
-                              "\n  remainder = " + s5);
+                              "\n  remainder = " + s5 +
+                              "\n  password  = " + password);
         }
 
         // need at least host

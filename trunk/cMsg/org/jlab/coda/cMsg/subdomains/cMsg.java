@@ -16,8 +16,8 @@
 
 package org.jlab.coda.cMsg.subdomains;
 
-import org.jlab.coda.cMsg.cMsgDomain.cMsgSubscription;
-import org.jlab.coda.cMsg.cMsgDomain.cMsgNotifier;
+import org.jlab.coda.cMsg.cMsgSubscription;
+import org.jlab.coda.cMsg.cMsgNotifier;
 import org.jlab.coda.cMsg.*;
 
 import java.util.*;
@@ -266,7 +266,7 @@ public class cMsg extends cMsgSubdomainAdapter {
         }
 
         // parse UDLRemainder to find the namespace this client is in
-        Pattern pattern = Pattern.compile("([\\w/]+)[?]*.*");
+        Pattern pattern = Pattern.compile("^([\\w/]*)\\?*.*");
         Matcher matcher = pattern.matcher(UDLRemainder);
 
         String s = null;
@@ -289,7 +289,14 @@ public class cMsg extends cMsgSubdomainAdapter {
         while (s.endsWith("/")) {
             s = s.substring(0, s.length()-1);
         }
-        namespace = "/" + s;
+
+        // if namespace is blank, use default
+        if (s.equals("")) {
+            namespace = "/defaultNamespace";
+        }
+        else {
+            namespace = "/" + s;
+        }
 
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("setUDLRemainder:  namespace = " + namespace);
@@ -456,8 +463,13 @@ public class cMsg extends cMsgSubdomainAdapter {
                 }
 
                 // subscription subject and type must match msg's
+                /*
                 if (!cMsgMessageMatcher.matches(sub.getSubjectPattern(), message.getSubject()) ||
                     !cMsgMessageMatcher.matches(sub.getTypePattern(), message.getType())) {
+                    continue;
+                }
+                */
+                if (!cMsgMessageMatcher.matches(message.getSubject(), message.getType(), sub)) {
                     continue;
                 }
 
@@ -590,8 +602,11 @@ public class cMsg extends cMsgSubdomainAdapter {
                 }
 
                 // subscription subject and type must match msg's
-                if (!cMsgMessageMatcher.matches(sub.getSubjectPattern(), message.getSubject()) ||
-                    !cMsgMessageMatcher.matches(sub.getTypePattern(), message.getType())) {
+//                if (!cMsgMessageMatcher.matches(sub.getSubjectPattern(), message.getSubject()) ||
+//                    !cMsgMessageMatcher.matches(sub.getTypePattern(), message.getType())) {
+//                    continue;
+//                }
+                if (!cMsgMessageMatcher.matches(message.getSubject(), message.getType(), sub)) {
                     continue;
                 }
 

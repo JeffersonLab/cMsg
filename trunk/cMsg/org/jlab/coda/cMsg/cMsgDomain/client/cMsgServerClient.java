@@ -121,15 +121,16 @@ public class cMsgServerClient extends cMsg {
      * @param fromNameServerPort port of name server calling this method
      * @param isOriginator true if originating the connection between the 2 servers and
      *                     false if this is the response or reciprocal connection
+     * @param cloudPassword password for connecting to a server in a particular cloud
      * @return set of servers (names of form "host:port") that the server
      *         we're connecting to is already connected with
      * @throws cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server
      */
-    public HashSet<String> connect(int fromNameServerPort, boolean isOriginator)
+    public HashSet<String> connect(int fromNameServerPort, boolean isOriginator,
+                                   String cloudPassword) 
             throws cMsgException {
-        System.out.println("Doing server client's connect");
-
+        
         // list of servers that the server we're connecting to is already connected with
         HashSet<String> serverSet = null;
 
@@ -231,7 +232,8 @@ public class cMsgServerClient extends cMsg {
                 serverSet = talkToNameServerFromServer(channel,
                                                        nameServer.getCloudStatus(),
                                                        fromNameServerPort,
-                                                       isOriginator);
+                                                       isOriginator,
+                                                       cloudPassword);
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
@@ -865,12 +867,14 @@ public class cMsgServerClient extends cMsg {
      * @param fromNameServerPort port of name server calling this method
      * @param isOriginator true if originating the connection between the 2 servers and
      *                     false if this is the response or reciprocal connection.
+     * @param cloudPassword password for connecting to a server in a particular cloud
      * @throws IOException if there are communication problems with the name server
      */
     HashSet<String> talkToNameServerFromServer(SocketChannel channel,
                                                int cloudStatus,
                                                int fromNameServerPort,
-                                               boolean isOriginator)
+                                               boolean isOriginator,
+                                               String cloudPassword)
             throws IOException, cMsgException {
         byte[] buf = new byte[512];
 
@@ -891,10 +895,17 @@ public class cMsgServerClient extends cMsg {
         out.writeInt(fromNameServerPort);
         // Length of local host name
         out.writeInt(host.length());
+        // Length of password
+        if (cloudPassword == null) {
+            cloudPassword = "";
+        }
+        System.out.println("length of cloud password = " + cloudPassword.length());
+        out.writeInt(cloudPassword.length());
 
         // write strings & byte array
         try {
             out.write(host.getBytes("US-ASCII"));
+            out.write(cloudPassword.getBytes("US-ASCII"));
         }
         catch (UnsupportedEncodingException e) {}
 
