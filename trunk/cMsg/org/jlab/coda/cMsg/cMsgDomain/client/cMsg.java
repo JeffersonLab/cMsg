@@ -59,6 +59,9 @@ public class cMsg extends cMsgDomainAdapter {
     /** Optional password included in UDL for connection to server requiring one. */
     private String password;
 
+    /** An array of UDLs to failover to if connection to server fails. */
+    String failoverUDLs[];
+
     /** Port number from which to start looking for a suitable listening port. */
     int startingPort;
 
@@ -1554,7 +1557,7 @@ System.out.println("        << CL: done connecting to  " + nameServerHost + ":" 
         }
 
         // cMsg domain UDL is of the form:
-        //       cMsg:<domainType>://<host>:<port>/<subdomainType>/<subdomain remainder>?tag=value
+        //       cMsg:<domainType>://<host>:<port>/<subdomainType>/<subdomain remainder>?tag=value&tag2=value2 ...
         //
         // We could parse the whole UDL, but we've also been passed the UDL with
         // the "cMsg:<domainType>://" stripped off, in UDLremainder. So just parse
@@ -1566,13 +1569,12 @@ System.out.println("        << CL: done connecting to  " + nameServerHost + ":" 
         // 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
         //    if subdomainType is not cMsg, it is required
         // 4) remainder is past on to the subdomain plug-in
-
+        // 5) client's password is in tag=value part of UDL as cmsgpassword=<password>
 
         Pattern pattern = Pattern.compile("([\\w\\.]+):?(\\d+)?/?(\\w+)?/?(.*)");
-        //Pattern pattern = Pattern.compile("([\\w\\.]+):?(\\d+)?/?(\\w+)?/?(.*(?<=\\?)(?:password=(\\w+))?(\\?)*.*)?");
         Matcher matcher = pattern.matcher(UDLremainder);
 
-        String s2=null, s3=null, s4=null, s5=null;
+        String s2=null, s3=null, s4=null, s5=null, s6=null;
 
         if (matcher.find()) {
             // host
@@ -1583,38 +1585,36 @@ System.out.println("        << CL: done connecting to  " + nameServerHost + ":" 
             s4 = matcher.group(3);
             // remainder
             s5 = matcher.group(4);
+
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("\nparseUDL: " +
+                                   "\n  host      = " + s2 +
+                                   "\n  port      = " + s3 +
+                                   "\n  subdomain = " + s4 +
+                                   "\n  remainder = " + s5);
+            }
         }
         else {
             throw new cMsgException("invalid UDL");
         }
 
-        // I had no luck using regular expression to pull any occurrances of
-        // ?cmsgpassword=<password>... It always seemed to choke on the ?'s.
-        // So just look by hand so to speak.
+        // find cmsgpassword parameter if it exists
         if (s5 != null) {
-            // Find the first occurance of cmsgpassword (case insensitive)
-            // in order to find the password for a client to connect to the server.
-            String key = "?cmsgpassword=";
-            int index1 = s5.toLowerCase().indexOf(key);
-            if (index1 > -1) {
-                index1 += key.length();
-                int index2 = s5.indexOf("?", index1);
-                if (index2 < 0) {
-                    password = s5.substring(index1);
-                }
-                else {
-                    password = s5.substring(index1, index2);
-                }
-            }
-        }
-
-        if (debug >= cMsgConstants.debugInfo) {
-           System.out.println("\nparseUDL: " +
-                              "\n  host      = " + s2 +
-                              "\n  port      = " + s3 +
-                              "\n  subdomain = " + s4 +
-                              "\n  remainder = " + s5 +
-                              "\n  password  = " + password);
+            Pattern pat = Pattern.compile("(?:[&\\?](\\w+)=(\\w+)(?=&))");
+            Matcher mat = pat.matcher(s5+"&");
+            loop: while (mat.find()) {
+                    for (int i=0; i < mat.groupCount()+1; i++) {
+                        s6 = mat.group(i);
+                        if (s6.equalsIgnoreCase("cmsgpassword")) {
+                            password = mat.group(i+1);
+                            if (debug >= cMsgConstants.debugInfo) {
+                                System.out.println("  cmsg password = " + password);
+                            }
+                            break loop;
+                        }
+                        //System.out.println("group("+ i + ") = " + s6);
+                    }
+                  }
         }
 
         // need at least host
