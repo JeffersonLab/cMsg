@@ -68,7 +68,7 @@
 
 /* built-in limits */
 /** Maximum number of domains for each client to connect to at once. */
-#define MAXDOMAINS_CODA  10
+#define MAXDOMAINS_CODA  100
 /** Number of seconds to wait for cMsgClientListeningThread threads to start. */
 #define WAIT_FOR_THREADS 10
 
