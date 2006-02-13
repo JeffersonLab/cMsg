@@ -90,7 +90,7 @@ enum {
   CMSG_BAD_MESSAGE,         /**< Message is not in the correct form. */
   CMSG_WRONG_DOMAIN_TYPE,   /**< UDL does not match the server type. */
   CMSG_NO_CLASS_FOUND,      /**< Java class cannot be found to instantiate subdomain handler. */
-  CMSG_DIFFERENT_VERSION    /**< Client and server are different cMsg versions. */
+  CMSG_DIFFERENT_VERSION,   /**< Client and server are different cMsg versions. */
   CMSG_WRONG_PASSWORD       /**< Wrong password given. */
 };
 

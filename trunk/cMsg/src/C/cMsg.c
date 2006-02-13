@@ -919,7 +919,7 @@ char *cMsgPerror(int error) {
     if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_DIFFERENT_VERSION: client and server are different versions\n");
     break;
 
-  case CMSG_WRONG_PASSWORD
+  case CMSG_WRONG_PASSWORD:
     sprintf(temp, "CMSG_WRONG_PASSWORD: wrong password given\n");
     if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_WRONG_PASSWORD: wrong password given\n");
     break;
