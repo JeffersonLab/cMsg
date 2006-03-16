@@ -91,7 +91,8 @@ enum {
   CMSG_WRONG_DOMAIN_TYPE,   /**< UDL does not match the server type. */
   CMSG_NO_CLASS_FOUND,      /**< Java class cannot be found to instantiate subdomain handler. */
   CMSG_DIFFERENT_VERSION,   /**< Client and server are different cMsg versions. */
-  CMSG_WRONG_PASSWORD       /**< Wrong password given. */
+  CMSG_WRONG_PASSWORD,      /**< Wrong password given. */
+  CMSG_SERVER_DIED          /**< Server died. */
 };
 
 
@@ -175,6 +176,7 @@ extern "C" {
   
   int    cMsgSetByteArrayEndian   (void *vmsg, int endian);
   int    cMsgGetByteArrayEndian   (void *vmsg, int *endian);
+  int    cMsgNeedToSwap           (void *vmsg, int *swap);
   
   int    cMsgSetByteArray         (void *vmsg, char  *array);
   int    cMsgGetByteArray         (void *vmsg, char **array);

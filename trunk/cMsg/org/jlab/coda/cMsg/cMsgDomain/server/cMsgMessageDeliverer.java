@@ -100,6 +100,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
     public void createClientConnection(cMsgClientInfo info) throws IOException {
         channel = SocketChannel.open(new InetSocketAddress(info.getClientHost(),
                                                            info.getClientPort()));
+System.out.println("Created socket to client for sending messages, " + info.getClientHost() + ":" + info.getClientPort());
         // set socket options
         Socket socket = channel.socket();
         // Set tcpNoDelay so no packets are delayed

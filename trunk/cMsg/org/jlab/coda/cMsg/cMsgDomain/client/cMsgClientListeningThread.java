@@ -97,7 +97,7 @@ public class cMsgClientListeningThread extends Thread {
 
 
     /** Kills ClientHandler threads. */
-    private void killClientHandlerThreads() {
+    void killClientHandlerThreads() {
         // stop threads that get commands/messages over sockets
         for (ClientHandler h : handlerThreads) {
             h.interrupt();
@@ -174,7 +174,9 @@ public class cMsgClientListeningThread extends Thread {
                         socket.setReceiveBufferSize(65535);
                         socket.setSendBufferSize(65535);
 
-                        // start up client handling thread & store reference
+                        // Start up client handling thread & store reference.
+                        // The first of the 2 connections is for message receiving.
+                        // The second is to respond to keepAlives from the server.
                         handlerThreads.add(new ClientHandler(channel));
 
                         if (debug >= cMsgConstants.debugInfo) {
@@ -247,6 +249,10 @@ public class cMsgClientListeningThread extends Thread {
                 out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 2048));
 
                 while (true) {
+                    if (this.isInterrupted()) {
+                        return;
+                    }
+
                     // read first int -- total size in bytes
                     int size = in.readInt();
                     //System.out.println(" size = " + size + ", id = " + id);
@@ -334,6 +340,8 @@ public class cMsgClientListeningThread extends Thread {
                     }
                 }
             }
+//            catch (InterruptedIOException e) {
+//            }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("handleClient: I/O ERROR in cMsg client");
@@ -342,11 +350,11 @@ public class cMsgClientListeningThread extends Thread {
                 // We're here if there is an IO error.
                 // Disconnect the client (kill listening (this) thread and keepAlive thread).
                 try {
+System.out.println("handleClient: close server to client socket, port = " + channel.socket().getLocalPort());
                     channel.close();
-                    client.disconnect();
+                    //client.disconnect();   // cannot run this due to possible reconnects to failover servers
                 }
                 catch (IOException e1) {
-                    e1.printStackTrace();
                 }
             }
 
@@ -464,29 +472,16 @@ public class cMsgClientListeningThread extends Thread {
          * @param msg incoming message
          */
         private void runCallbacks(cMsgMessageFull msg)  {
-//System.out.println("TRY RUNNING CALLBACKS");
-            // if callbacks have been stopped, return
-            if (!client.isReceiving()) {
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("runCallbacks: all callbacks have been stopped");
-                }
-                return;
-            }
 
             if (client.subscribeAndGets.size() > 0) {
-//if (counter++ % 100000 == 0) {
-//    System.out.println(" skip");
-//}
                 // for each subscribeAndGet called by this client ...
                 cMsgGetHelper helper;
                 for (Iterator i = client.subscribeAndGets.values().iterator(); i.hasNext();) {
                     helper = (cMsgGetHelper) i.next();
                     if (cMsgMessageMatcher.matches(msg.getSubject(), msg.getType(), helper)) {
-//System.out.println(" handle subscribeAndGet msg");
 
                         helper.timedOut = false;
                         helper.message = msg.copy();
-//System.out.println(" sending notify for subscribeAndGet");
                         // Tell the subscribeAndGet-calling thread to wakeup
                         // and retrieve the held msg
                         synchronized (helper) {
@@ -500,14 +495,20 @@ public class cMsgClientListeningThread extends Thread {
             // handle subscriptions
             Set<cMsgSubscription> set = client.subscriptions;
 
-//System.out.println("  try matching msg sub/type = " + msg.getSubject() + " / " + msg.getType());
-//System.out.println("  subscription set size = " +set.size());
             if (set.size() > 0) {
+                // if callbacks have been stopped, return
+                if (!client.isReceiving()) {
+                    if (debug >= cMsgConstants.debugInfo) {
+                        System.out.println("runCallbacks: all subscription callbacks have been stopped");
+                    }
+                    return;
+                }
+
                 // set is NOT modified here
+//BUGBUG sendMessage can block forever!! then no new subscriptions can be made !!
                 synchronized (set) {
                     // for each subscription of this client ...
                     for (cMsgSubscription sub : set) {
-//System.out.println("sub = " + sub);
                         // if subject & type of incoming message match those in subscription ...
                         if (cMsgMessageMatcher.matches(msg.getSubject(), msg.getType(), sub)) {
                             // run through all callbacks
@@ -530,14 +531,6 @@ public class cMsgClientListeningThread extends Thread {
          * @param msg incoming message
          */
         private void runServerCallbacks(cMsgMessageFull msg)  {
-
-            // if gets have been stopped, return
-            if (!client.isReceiving()) {
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("wakeGets: all sendAndGets have been stopped");
-                }
-                return;
-            }
 
             // Get thread waiting on sendAndGet response from another cMsg server.
             // Remove it from table.
@@ -563,14 +556,6 @@ public class cMsgClientListeningThread extends Thread {
          * @param msg incoming message
          */
         private void wakeGets(cMsgMessageFull msg) {
-
-            // if gets have been stopped, return
-            if (!client.isReceiving()) {
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("wakeGets: all sendAndGets have been stopped");
-                }
-                return;
-            }
 
             cMsgGetHelper helper = client.sendAndGets.remove(msg.getSenderToken());
 

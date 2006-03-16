@@ -302,13 +302,16 @@ public class cMsgDomainServer extends Thread {
 
         while (true) {
             try {
+System.out.println("Trying to open socket on port " + port);
                 listeningSocket.bind(new InetSocketAddress(port));
                 break;
             }
             catch (IOException ex) {
                 // try another port by adding one
-                if (port < 65536) {
+                if (port < 65535) {
                     port++;
+                    try { Thread.sleep(100);  }
+                    catch (InterruptedException e) {}
                 }
                 else {
                     ex.printStackTrace();
@@ -356,14 +359,8 @@ public class cMsgDomainServer extends Thread {
 
     /** Method to gracefully shutdown this object's threads and clean things up. */
     synchronized void shutdown() {
-/*
-        if (info.isServer()) {
-            System.out.println("\nDomain Server: SHUTDOWN run on client which is a server\n");
-        }
-        else {
-            System.out.println("\nDomain Server: SHUTDOWN run on client which is NOT a server\n");
-        }
-*/
+System.out.println("SHUTTING DOWN for " + info.getName());
+
         // tell subdomain handler to shutdown
         if (calledSubdomainShutdown.compareAndSet(false,true)) {
             try {subdomainHandler.handleClientShutdown();}
@@ -443,7 +440,7 @@ public class cMsgDomainServer extends Thread {
                                                         sub.namespace, entry.getValue());
                                 }
                             }
-                            catch (cMsgException e) {
+                            catch (IOException e) {
                             }
                         }
                     }
@@ -474,6 +471,11 @@ public class cMsgDomainServer extends Thread {
         else {
             // remove client from "bridges" (hashmap is concurrent)
             cMsgServerBridge b = nameServer.bridges.remove(info.getName());
+
+            // clean up the server client - shutdown thread pool, clear hashes
+            if (b!=null) {
+                b.client.cleanup();
+            }
 
             // remove client from "nameServers" (hashset is synchronized)
             boolean removed = nameServer.nameServers.remove(info.getName());
@@ -638,6 +640,7 @@ public class cMsgDomainServer extends Thread {
                     }
                     // read client's request
                     msgId = in.readInt();
+// System.out.println("Got keep alive from " + info.getName());
                     if (msgId != cMsgConstants.msgKeepAlive) {
                         throw new cMsgException("Wrong request, expecting keep alive but got " + msgId);
                     }
@@ -989,7 +992,7 @@ public class cMsgDomainServer extends Thread {
                                                    sub.namespace, entry.getValue());
                         }
                     }
-                    catch (cMsgException e) {
+                    catch (IOException e) {
                         if (debug >= cMsgConstants.debugWarn) {
                             System.out.println("dServer requestThread: cannot subscribe with server " +
                                                bridge.serverName);
@@ -1564,7 +1567,7 @@ public class cMsgDomainServer extends Thread {
                         try {
                             b.subscribe(holder.subject, holder.type, holder.namespace);
                         }
-                        catch (cMsgException e) {
+                        catch (IOException e) {
                             if (debug >= cMsgConstants.debugWarn) {
                                 System.out.println("dServer requestThread: cannot subscribe with server " +
                                                    b.serverName);
@@ -1616,9 +1619,8 @@ public class cMsgDomainServer extends Thread {
          * cMsg subdomain when an unsubscribe request is made by the client.
          *
          * @param holder object that holds request information
-         * @throws cMsgException if IO error in sending message
          */
-        private void handleCmsgSubdomainUnsubscribe(cMsgHolder holder) throws cMsgException {
+        private void handleCmsgSubdomainUnsubscribe(cMsgHolder holder) {
 //System.out.println("Domain Server: got UNSubscribe for bridge client");
             // Cannot have servers joining cloud while a subscription is removed
             nameServer.subscribeLock.lock();
@@ -1633,7 +1635,16 @@ public class cMsgDomainServer extends Thread {
                         if (b.getCloudStatus() != cMsgNameServer.INCLOUD) {
                             continue;
                         }
-                        b.unsubscribe(holder.subject, holder.type, info.getNamespace());
+                        try {
+                            b.unsubscribe(holder.subject, holder.type, info.getNamespace());
+                        }
+                        catch (IOException e) {
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("dServer requestThread: cannot unsubscribe with server " +
+                                                   b.serverName);
+                                e.printStackTrace();
+                            }
+                        }
                     }
                 }
 
@@ -1888,7 +1899,7 @@ public class cMsgDomainServer extends Thread {
 //System.out.println("    DS: call bridge sendAndGet for " + b.serverName);
                     b.sendAndGet(holder.message, holder.namespace, cb);
                 }
-                catch (cMsgException e) {
+                catch (IOException e) {
                    // if (debug >= cMsgConstants.debugWarn) {
                         System.out.println("DS requestThread: error on sendAndGet with server " +
                                            b.serverName);
@@ -1964,7 +1975,7 @@ public class cMsgDomainServer extends Thread {
                             b.subscribeAndGet(holder.subject, holder.type,
                                               holder.namespace, cb);
                         }
-                        catch (cMsgException e) {
+                        catch (IOException e) {
                             if (debug >= cMsgConstants.debugWarn) {
                                 System.out.println("dServer requestThread: cannot subscribe with server " +
                                                    b.serverName);

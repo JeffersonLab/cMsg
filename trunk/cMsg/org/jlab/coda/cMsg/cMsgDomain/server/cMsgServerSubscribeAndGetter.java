@@ -21,6 +21,7 @@ import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgCallbackAdapter;
 
 import java.util.Set;
+import java.io.IOException;
 
 /**
  * This class handles a server client's subscribeAndGet request and propagates it to all the
@@ -88,7 +89,7 @@ public class cMsgServerSubscribeAndGetter implements Runnable {
                     b.unsubscribeAndGet(sub.subject, sub.type, sub.namespace, cb);
 
                 }
-                catch (cMsgException e) {
+                catch (IOException e) {
                     // ignore exceptions as server is probably gone and so no matter
                 }
             }

@@ -18,6 +18,7 @@ package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgMessageMatcher;
+import org.jlab.coda.cMsg.cMsgConstants;
 
 import java.util.regex.Pattern;
 
@@ -33,8 +34,13 @@ public class cMsgGetHelper {
     cMsgMessageFull message;
 
     /** Has the "subscribeAndGet" or "sendAndGet" call timed out? */
-    boolean timedOut = true;
+    boolean timedOut;
 
+    /**
+     * When a "subscribeAndGet" or "sendAndGet" is woken up by an error condition,
+     * such as "the server died", this code is set.
+     */
+    int errorCode;
 
     /** Subject. */
     String subject;
@@ -64,6 +70,8 @@ public class cMsgGetHelper {
 
     /** Constructor used in sendndGet. */
     public cMsgGetHelper() {
+        timedOut  = true;
+        errorCode = cMsgConstants.ok;
     }
 
     /**
@@ -73,7 +81,9 @@ public class cMsgGetHelper {
      */
     public cMsgGetHelper(String subject, String type) {
         this.subject = subject;
-        this.type = type;
+        this.type    = type;
+        timedOut     = true;
+        errorCode    = cMsgConstants.ok;
 
         // we only need to do the regexp stuff if there are wildcards chars in subj or type
         if ((subject.contains("*") || subject.contains("?"))) {

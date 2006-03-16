@@ -95,7 +95,7 @@
 #define CMSG_MAXHOSTNAMELEN 256
 
 /** Global debug level. */
-int cMsgDebug = CMSG_DEBUG_ERROR;
+int cMsgDebug = CMSG_DEBUG_NONE;
 
 
 /* local variables */
@@ -114,7 +114,7 @@ static const char *excludedChars = "`\'\"";
 
 
 /** For domain implementations. */
-extern domainTypeInfo codaDomainTypeInfo;
+extern domainTypeInfo cmsgDomainTypeInfo;
 extern domainTypeInfo fileDomainTypeInfo;
 
 
@@ -924,6 +924,11 @@ char *cMsgPerror(int error) {
     if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_WRONG_PASSWORD: wrong password given\n");
     break;
 
+  case CMSG_SERVER_DIED:
+    sprintf(temp, "CMSG_SERVER_DIED: server died\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_SERVER_DIED: server died\n");
+    break;
+
   default:
     sprintf(temp, "?cMsgPerror...no such error: %d\n",error);
     if (cMsgDebug>CMSG_DEBUG_ERROR) printf("?cMsgPerror...no such error: %d\n",error);
@@ -985,13 +990,13 @@ int cMsgSetDebugLevel(int level) {
 static void registerDomainTypeInfo(void) {
 
   /* cMsg type */
-  dTypeInfo[0].type = (char *)strdup(codaDomainTypeInfo.type); 
-  dTypeInfo[0].functions = codaDomainTypeInfo.functions;
+  dTypeInfo[0].type = (char *)strdup(cmsgDomainTypeInfo.type); 
+  dTypeInfo[0].functions = cmsgDomainTypeInfo.functions;
 
 
   /* for clients, runcontrol domain is same as cMsg domain */
   dTypeInfo[1].type = (char *)strdup("rc"); 
-  dTypeInfo[1].functions = codaDomainTypeInfo.functions;
+  dTypeInfo[1].functions = cmsgDomainTypeInfo.functions;
 
 
   /* for file domain */
@@ -2483,6 +2488,46 @@ int cMsgGetByteArrayEndian(void *vmsg, int *endian) {
   return (CMSG_OK);
 }
 
+/**
+ * This method specifies whether the endian value of the byte array is
+ * the same value as the local host. If not, a 1 is returned indicating
+ * that the data needs to be swapped. If so, a 0 is returned indicating
+ * that no swap is needed.
+ *
+ * @param swap int pointer to be filled with 1 if byte array needs swapping, else 0
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if local endianness is unknown
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */
+int cMsgNeedToSwap(void *vmsg, int *swap) {
+
+  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  int localEndian, msgEndian;
+  
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  /* find local host's byte order */ 
+  if (cMsgLocalByteOrder(&localEndian) != CMSG_OK) return CMSG_ERROR;
+  
+  /* find messge byte array's byte order */
+  if ((msg->info & CMSG_IS_BIG_ENDIAN) > 1) {
+      msgEndian = CMSG_ENDIAN_BIG;
+  }
+  else {
+      msgEndian = CMSG_ENDIAN_LITTLE;
+  }
+  
+  if (localEndian == msgEndian) {
+      *swap = 0;
+  }
+  else {
+      *swap = 1;
+  }
+  
+  return (CMSG_OK);
+}
+
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
@@ -2746,7 +2791,6 @@ int cMsgGetReceiverTime(void *vmsg, struct timespec *receiverTime) {
   *receiverTime = msg->receiverTime;
   return (CMSG_OK);
 }
-
 
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/

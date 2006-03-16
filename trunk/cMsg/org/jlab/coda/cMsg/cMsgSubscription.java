@@ -241,11 +241,19 @@ public class cMsgSubscription {
     }
 
     /**
-     * Gets the id which client associates with a particular subject and type pair.
+     * Gets the id which client generates (receiverSubscribeId).
      * @return receiverSubscribeId
      */
     public int getId() {
         return id;
+    }
+
+    /**
+     * Sets the id which client generates (receiverSubscribeId).
+     * @param id id which client generates (receiverSubscribeId)
+     */
+    public void setId(int id) {
+        this.id = id;
     }
 
     /**

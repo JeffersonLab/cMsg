@@ -20,6 +20,7 @@ import org.jlab.coda.cMsg.cMsgNotifier;
 import org.jlab.coda.cMsg.cMsgException;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.io.IOException;
 
 /**
  * This class handles a server client's sendAndGet request and propagates it to all the
@@ -81,7 +82,7 @@ public class cMsgServerSendAndGetter implements Runnable {
 
                 b.unSendAndGet(notifier.id);
             }
-            catch (cMsgException e) {
+            catch (IOException e) {
                 // ignore exceptions as server is probably gone and so no matter
             }
         }

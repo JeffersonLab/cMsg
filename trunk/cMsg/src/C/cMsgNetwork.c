@@ -47,6 +47,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <pthread.h>
 
 #ifdef sun
 #include <sys/filio.h>
@@ -55,6 +56,7 @@
 #include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
 #include "cMsgBase.h"
+#include "errors.h"
 
 /* set the debug level here */
 /* static int cMsgDebug = CMSG_DEBUG_INFO; */
@@ -64,6 +66,9 @@
 extern "C" {
 #endif
 
+/* mutex to protect non-reentrant gethostbyname in Linux since the
+ * gethostbyname_r is so buggy. */
+static pthread_mutex_t getHostByNameMutex = PTHREAD_MUTEX_INITIALIZER;
 
 /*-------------------------------------------------------------------*/
 
@@ -213,7 +218,7 @@ int cMsgGetListeningSocket(int blocking, unsigned short startingPort, unsigned s
 
 int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
 {
-  int                 sockfd, err;
+  int                 status, sockfd, err=0;
   const int           on=1, size=CMSG_SOCKBUFSIZE /* bytes */;
   struct sockaddr_in  servaddr;
 #ifndef VXWORKS
@@ -222,9 +227,9 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   struct hostent      *result;
   char                *buff;
   int buflen          = 8192;
-  int h_errnop;
+  int h_errnop        = 0;
 #endif
-  
+
   if (ip_address == NULL || fd == NULL) {
      if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: null argument(s)\n");
      return(CMSG_BAD_ARGUMENT);
@@ -298,7 +303,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
 
   if((hp = gethostbyname_r(ip_address, result, buff, buflen, &h_errnop)) == NULL){
     close(sockfd);
-    free(result);
+    if (result != NULL) free(result);
     free(buff);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errnop));
     return(CMSG_NETWORK_ERROR);
@@ -328,8 +333,59 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   }
 
 #elif defined linux
-	
+
+/*
+ * There seem to be serious bugs with Linux implementation of
+ * gethostbyname_r. See:
+ * http://curl.haxx.se/mail/lib-2003-10/0201.html
+ * http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6369541
+ 
+ * Sooo, let's us the non-reentrant version and simply protect
+ * with our own mutex.
+ */
+ 
+  /* make gethostbyname thread-safe */
+  status = pthread_mutex_lock(&getHostByNameMutex);
+  if (status != 0) {
+    err_abort(status, "Lock gethostbyname Mutex");
+  }
+   
+  if ((hp = gethostbyname(ip_address)) == NULL) {
+    status = pthread_mutex_unlock(&getHostByNameMutex);
+    if (status != 0) {
+      err_abort(status, "Unlock gethostbyname Mutex");
+    }
+    close(sockfd);
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errnop));
+    return -1;
+  }
+  pptr = (struct in_addr **) hp->h_addr_list;
+
+  for ( ; *pptr != NULL; pptr++) {
+    memcpy(&servaddr.sin_addr, *pptr, sizeof(struct in_addr));
+    if ((err = connect(sockfd, (SA *) &servaddr, sizeof(servaddr))) < 0) {
+      if (cMsgDebug >= CMSG_DEBUG_WARN) {
+        fprintf(stderr, "cMsgTcpConnect: error attempting to connect to server, %s\n", strerror(errno));
+      }
+    }
+    else {
+      if (cMsgDebug >= CMSG_DEBUG_INFO) {
+        fprintf(stderr, "cMsgTcpConnect: connected to server\n");
+      }
+      break;
+    }
+  }
+   
+  status = pthread_mutex_unlock(&getHostByNameMutex);
+  if (status != 0) {
+    err_abort(status, "Unlock gethostbyname Mutex");
+  }
+    
+    
+    	
   /* Malloc hostent local structure and buffer to store canonical hostname, aliases etc.*/
+  
+  /*
   if ( (result = (struct hostent *)malloc(sizeof(struct hostent))) == NULL) {
     return(CMSG_OUT_OF_MEMORY); 
   }
@@ -337,15 +393,36 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
     return(CMSG_OUT_OF_MEMORY);  
   }
 
-  if(gethostbyname_r(ip_address, result, buff, buflen, &hp, &h_errnop) != 0){
+  err = gethostbyname_r(ip_address, result, buff, buflen, &hp, &h_errnop);
+  
+  if (err != 0) {
+    if (err == ERANGE) {
+      printf("cMsgTcpConnect: INCREASE THE BUFFER SIZE to avoid gethostbyname error\n");     
+    }
     close(sockfd);
-    free(result);
+    if (result != NULL) free(result);
     free(buff);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errnop));
+    fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errnop));
     return(CMSG_NETWORK_ERROR);
   }
-  /*printf("Gethostbyname => %s %d \n", hp->h_name,(int)hp->h_addr_list[0]);*/
-
+  */
+  
+  /*
+   * A bug in Linux brainlessly does not return a non-zero result on error
+   * of gethostbyname_r so catch errors here.
+   * There is a related bug in which h_errnop is set to HOST_NOT_FOUND
+   * even though there is no problem. There are also internal bugs which
+   * cause a SEGV.
+   */ 
+  /* 
+  if (h_errnop == HOST_NOT_FOUND || hp == NULL) {
+    if (result != NULL) free(result);
+    free(buff);
+    printf("host %s not found\n", ip_address);
+    return(CMSG_NETWORK_ERROR);
+  }
+  
   pptr = (struct in_addr **) hp->h_addr_list;
 
   for ( ; *pptr != NULL; pptr++) {
@@ -358,7 +435,6 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
       }
     }
     else {
-      /* free the hostent and buff*/
       free(result);
       free(buff);
       if (cMsgDebug >= CMSG_DEBUG_INFO) {
@@ -367,6 +443,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
       break;
     }
   }
+  */
 
 #else
   return(CMSG_NETWORK_ERROR);
@@ -389,7 +466,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   
   if (err == -1) {
     close(sockfd);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: socket connect error, %s\n", strerror(errno));
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: socket connect error\n");
     return(CMSG_NETWORK_ERROR);
   }
   
@@ -416,7 +493,7 @@ again:
     }
     else {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cMsgAccept: error, errno = %d\n", errno);
+        fprintf(stderr, "cMsgAccept: errno = %d, err = \n", errno, strerror(errno));
       }
     }
   }
@@ -608,6 +685,7 @@ int cMsgLocalHost(char *host, int length)
 #else
   struct utsname myname;
   struct hostent *hptr;
+  int status;
   
   if (host == NULL) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalHost: bad argument\n");
@@ -619,7 +697,18 @@ int cMsgLocalHost(char *host, int length)
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalHost: cannot find hostname\n");
     return(CMSG_ERROR);
   }
+  
+  /* make gethostbyname thread-safe */
+  status = pthread_mutex_lock(&getHostByNameMutex);
+  if (status != 0) {
+    err_abort(status, "Lock gethostbyname Mutex");
+  }   
+
   if ( (hptr = gethostbyname(myname.nodename)) == NULL) {
+    status = pthread_mutex_unlock(&getHostByNameMutex);
+    if (status != 0) {
+      err_abort(status, "Unlock gethostbyname Mutex");
+    }
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalHost: cannot find hostname\n");
     return(CMSG_ERROR);
   }
@@ -628,6 +717,11 @@ int cMsgLocalHost(char *host, int length)
   strncpy(host, hptr->h_name, length);
   host[length-1] = '\0';
   
+  status = pthread_mutex_unlock(&getHostByNameMutex);
+  if (status != 0) {
+    err_abort(status, "Unlock gethostbyname Mutex");
+  }
+
   return(CMSG_OK);
 #endif
 }
@@ -662,10 +756,11 @@ int cMsgLocalAddress(char *address, int length)
   return(CMSG_OK);
 
 #else
-
+  
   struct utsname myname;
   struct hostent *hptr;
   char           **pptr, *val;
+  int            status;
   
   if (address == NULL) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalAddress: bad argument\n");
@@ -677,7 +772,18 @@ int cMsgLocalAddress(char *address, int length)
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalAddress: cannot find hostname\n");
     return(CMSG_ERROR);
   }
+  
+  /* make gethostbyname thread-safe */
+  status = pthread_mutex_lock(&getHostByNameMutex);
+  if (status != 0) {
+    err_abort(status, "Lock gethostbyname Mutex");
+  }   
+
   if ( (hptr = gethostbyname(myname.nodename)) == NULL) {
+    status = pthread_mutex_unlock(&getHostByNameMutex);
+    if (status != 0) {
+      err_abort(status, "Unlock gethostbyname Mutex");
+    }
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalAddress: cannot find hostname\n");
     return(CMSG_ERROR);
   }
@@ -688,10 +794,19 @@ int cMsgLocalAddress(char *address, int length)
   
   /* return the null-teminated dotted-decimal address */
   if (val == NULL) {
+    status = pthread_mutex_unlock(&getHostByNameMutex);
+    if (status != 0) {
+      err_abort(status, "Unlock gethostbyname Mutex");
+    }
     return(CMSG_ERROR);
   }
   strncpy(address, val, length);
   address[length-1] = '\0';
+
+  status = pthread_mutex_unlock(&getHostByNameMutex);
+  if (status != 0) {
+    err_abort(status, "Unlock gethostbyname Mutex");
+  }
   
   return(CMSG_OK);
   

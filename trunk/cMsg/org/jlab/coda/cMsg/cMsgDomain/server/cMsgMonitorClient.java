@@ -85,6 +85,7 @@ public class cMsgMonitorClient extends Thread {
 
             channel = SocketChannel.open(new InetSocketAddress(info.getClientHost(),
                                                                info.getClientPort()));
+System.out.println("Created socket to client for keepalives, " + info.getClientHost() + ":" + info.getClientPort());
             channel.configureBlocking(false);
             // set socket options
             Socket socket = channel.socket();
@@ -129,7 +130,7 @@ public class cMsgMonitorClient extends Thread {
                     channel.write(buffer);
                 }
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("cMsgMonitorClient: wrote keepAlive & 1 to " +
+                    System.out.println("cMsgMonitorClient: wrote keepAlive to " +
                                        info.getName());
                 }
 
@@ -145,7 +146,7 @@ public class cMsgMonitorClient extends Thread {
                     catch (IOException ex) {}
 
                     if (debug >= cMsgConstants.debugError) {
-                        System.out.println("cMsgMonitorClient: CANNOT COMMUNICATE with " +
+                        System.out.println("cMsgMonitorClient: 1 CANNOT COMMUNICATE with " +
                                            info.getName() + "\n");
                     }
 
@@ -188,8 +189,10 @@ public class cMsgMonitorClient extends Thread {
                 catch (IOException ex) {}
 
                 if (debug >= cMsgConstants.debugError) {
-                    System.out.println("cMsgMonitorClient: CANNOT COMMUNICATE with client " +
-                                       info.getName() + "\n");
+                    System.out.println("cMsgMonitorClient: 2 CANNOT COMMUNICATE with client " +
+                                       info.getName() + ":" +
+                                       info.getClientHost() + ":" +
+                                       info.getClientPort() + "\n");
                 }
 
                 if (domainServer.calledShutdown.compareAndSet(false,true)) {

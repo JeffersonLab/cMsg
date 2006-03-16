@@ -107,6 +107,8 @@ public class cMsgConstants {
     public static final int    errorDifferentVersion   = 22;
     /** Error due to wrong password. */
     public static final int    errorWrongPassword      = 23;
+    /** Error due to server dying. */
+    public static final int    errorServerDied         = 24;
 
     // Codes sent by the client over the network to
     // specify a particular request.

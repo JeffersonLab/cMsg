@@ -108,6 +108,21 @@ public class cMsgServerClient extends cMsg {
 
     }
 
+
+//-----------------------------------------------------------------------------
+
+
+    /** Method to clean up after this object. */
+    public void cleanup() {
+        // shutdown thread pool threads
+        sendAndGetCallbackThreadPool.shutdownNow();
+
+        // clear hashes
+        serverSendAndGets.clear();
+        serverSendAndGetCancel.clear();
+    }
+
+
 //-----------------------------------------------------------------------------
 
 
@@ -134,8 +149,10 @@ public class cMsgServerClient extends cMsg {
         // list of servers that the server we're connecting to is already connected with
         HashSet<String> serverSet = null;
 
-        // parse the domain-specific portion of the UDL (Uniform Domain Locator)
-        parseUDL();
+        // parse the UDL (Uniform Domain Locator)
+        ParsedUDL p = parseUDL(UDL);
+        p.copyToLocal();
+
         creator = name+":"+nameServerHost+":"+nameServerPort;
 
         // cannot run this simultaneously with any other public method
@@ -164,7 +181,7 @@ public class cMsgServerClient extends cMsg {
                 serverChannel = ServerSocketChannel.open();
             }
             catch (IOException ex) {
-                ex.printStackTrace();
+ex.printStackTrace();
                 throw new cMsgException("connect: cannot open a listening socket");
             }
 
@@ -182,6 +199,10 @@ public class cMsgServerClient extends cMsg {
                         port++;
                     }
                     else {
+                        // close channel
+                        try { serverChannel.close(); }
+                        catch (IOException e) { }
+
                         ex.printStackTrace();
                         throw new cMsgException("connect: cannot find port to listen on");
                     }
@@ -219,6 +240,11 @@ public class cMsgServerClient extends cMsg {
                 // no need to set buffer sizes
             }
             catch (IOException e) {
+                // undo everything we've just done
+                listeningThread.killThread();
+                try {if (channel != null) channel.close();}
+                catch (IOException e1) {}
+
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
@@ -236,6 +262,11 @@ public class cMsgServerClient extends cMsg {
                                                        cloudPassword);
             }
             catch (IOException e) {
+                // undo everything we've just done
+                listeningThread.killThread();
+                try {channel.close();}
+                catch (IOException e1) {}
+
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
@@ -263,6 +294,13 @@ public class cMsgServerClient extends cMsg {
                 domainIn = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 2048));
             }
             catch (IOException e) {
+                // undo everything we've just done
+                listeningThread.killThread();
+                try {channel.close();}
+                catch (IOException e1) {}
+                try {if (domainInChannel != null) domainInChannel.close();}
+                catch (IOException e1) {}
+
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
@@ -275,11 +313,22 @@ public class cMsgServerClient extends cMsg {
                 Socket socket = keepAliveChannel.socket();
                 socket.setTcpNoDelay(true);
 
-                // create thread to send periodic keep alives and handle dead server
-                keepAliveThread = new KeepAlive(this, keepAliveChannel);
+                // Create thread to send periodic keep alives and handle dead server
+                // but with no failover capability.
+                keepAliveThread = new KeepAlive(keepAliveChannel, false, null);
                 keepAliveThread.start();
             }
             catch (IOException e) {
+                // undo everything we've just done so far
+                listeningThread.killThread();
+                try { channel.close(); }
+                catch (IOException e1) {}
+                try { domainInChannel.close(); }
+                catch (IOException e1) {}
+                try { if (keepAliveChannel != null) keepAliveChannel.close(); }
+                catch (IOException e1) {}
+                if (keepAliveThread != null) keepAliveThread.killThread();
+
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
@@ -296,6 +345,18 @@ public class cMsgServerClient extends cMsg {
                 domainOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
             }
             catch (IOException e) {
+                // undo everything we've just done so far
+                listeningThread.killThread();
+                try { channel.close(); }
+                catch (IOException e1) {}
+                try { domainInChannel.close(); }
+                catch (IOException e1) {}
+                try { keepAliveChannel.close(); }
+                catch (IOException e1) {}
+                keepAliveThread.killThread();
+                try {if (domainOutChannel != null) domainOutChannel.close();}
+                catch (IOException e1) {}
+
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
@@ -327,23 +388,26 @@ public class cMsgServerClient extends cMsg {
      * @param namespace namespace of message sent
      * @param cb callback to run on receipt of response message
      * @return the receiverSubscribe id number of the sendAndGet
-     * @throws cMsgException if there are communication problems with the server
+     * @throws IOException if there are communication problems with the server
      */
     public int serverSendAndGet(cMsgMessage message, String namespace,
-                                cMsgCallbackInterface cb) throws cMsgException {
+                                cMsgCallbackInterface cb) throws IOException {
         int id = 0;
+
+        String subject    = message.getSubject();
+        String type       = message.getType();
+        String text       = message.getText();
+        String msgCreator = message.getCreator();
+        // this sender's creator if msg created here
+        if (msgCreator == null) msgCreator = creator;
 
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
 
         try {
             if (!connected) {
-                throw new cMsgException("not connected to server");
+                throw new IOException("not connected to server");
             }
-
-            String subject = message.getSubject();
-            String type = message.getType();
-            String text = message.getText();
 
             // First generate a unique id for the receiveSubscribeId and senderToken field.
             // We're expecting a specific response, so the senderToken is sent back
@@ -357,10 +421,6 @@ public class cMsgServerClient extends cMsg {
             // track specific get requests
             serverSendAndGets.put(id, thd);
             serverSendAndGetCancel.put(id, future);
-
-            // this sender's creator if msg created here
-            String msgCreator = message.getCreator();
-            if (msgCreator == null) msgCreator = creator;
 
             int binaryLength = message.getByteArrayLength();
 
@@ -413,9 +473,6 @@ public class cMsgServerClient extends cMsg {
             domainOut.flush(); // no need to be protected by socketLock
 
         }
-        catch (IOException e) {
-            throw new cMsgException(e.getMessage());
-        }
         // release lock 'cause we can't block connect/disconnect forever
         finally {
             notConnectLock.unlock();
@@ -433,12 +490,12 @@ public class cMsgServerClient extends cMsg {
      * serverSendAndGet times out and the server must be told to forget about the serverSendAndGet.
      *
      * @param id unique id of serverSendAndGet request to delete
-     * @throws cMsgException if there are communication problems with the server
+     * @throws IOException if there are communication problems with the server
      */
-    public void serverUnSendAndGet(int id) throws cMsgException {
+    public void serverUnSendAndGet(int id) throws IOException {
 
         if (!connected) {
-            throw new cMsgException("not connected to server");
+            throw new IOException("not connected to server");
         }
 
         // Kill off callback thread waiting for a response.
@@ -465,9 +522,6 @@ public class cMsgServerClient extends cMsg {
             domainOut.writeInt(id); // reserved for future use
             domainOut.flush();
         }
-        catch (IOException e) {
-            throw new cMsgException(e.getMessage());
-        }
         finally {
             socketLock.unlock();
         }
@@ -489,125 +543,139 @@ public class cMsgServerClient extends cMsg {
      * @param cb      callback object whose single method is called upon receiving a message
      *                of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
-     * @throws cMsgException an identical subscription already exists; there are
-     *                       communication problems with the server
+     * @throws IOException there are communication problems with the server
      */
     public void serverSubscribe(String subject, String type, String namespace,
                                 cMsgCallbackInterface cb, Object userObj)
-            throws cMsgException {
-        // cannot run this simultaneously with connect or disconnect
-        notConnectLock.lock();
-        // cannot run this simultaneously with unsubscribe (get wrong order at server)
-        // or itself (iterate over same hashtable)
-        subscribeLock.lock();
+            throws IOException {
+
+        boolean addedHashEntry  = false;
+        cMsgSubscription newSub = null;
+        cMsgCallbackThread cbThread = null;
 
         try {
-            if (!connected) {
-                throw new cMsgException("not connected to server");
-            }
+            // cannot run this simultaneously with connect or disconnect
+            notConnectLock.lock();
+            // cannot run this simultaneously with unsubscribe (get wrong order at server)
+            // or itself (iterate over same hashtable)
+            subscribeLock.lock();
 
-            // null namespace means default namespace
-            if (namespace == null) {
-                namespace = "/defaultNamespace";
-            }
+            try {
+                if (!connected) {
+                    throw new IOException("not connected to server");
+                }
 
-            // add to callback list if subscription to same subject/type exists
+                // null namespace means default namespace
+                if (namespace == null) {
+                    namespace = "/defaultNamespace";
+                }
 
-            int id = 0;
+                // add to callback list if subscription to same subject/type exists
 
-            // client listening thread may be interating thru subscriptions concurrently
-            // and we may change set structure
-            synchronized (subscriptions) {
+                int id = 0;
 
-                // for each subscription ...
-                for (cMsgSubscription sub : subscriptions) {
-                    // If subscription to subject, type & namespace exist already, keep track of it
-                    // locally and don't bother the server since any matching message will be delivered
-                    // to this client anyway. The clients who call subscribe will never call
-                    // serverSubscribe and vice versa so we may match namespaces in the following
-                    // line of code and not worry about conflicts arising due to clients calling
-                    // subscribe.
-                    if (sub.getSubject().equals(subject) &&
-                            sub.getType().equals(type) &&
-                            sub.getNamespace().equals(namespace)) {
+                // client listening thread may be interating thru subscriptions concurrently
+                // and we may change set structure
+                synchronized (subscriptions) {
 
-                        // for each callback listed ...
-                        for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
-                            // Unlike the regular subscribe, here we allow duplicate identical
-                            // subscriptions. The reason is that "subscribeAndGet" is implemented
-                            // for other servers in the cloud as a "subscribe".
-                            //
-                            // It is possible to for 2 different thds of a client to each do an
-                            // identical subscribeAndGet. This results in 2 identical subscriptions
-                            // which would normally not be permitted but in this case we must.
-                            //
-                            // This method is also used to implement the client's regular subscribes
-                            // on other cloud servers. In this case, the client calls the regular
-                            // subscribe which will not allow duplicate subscriptions. Thus, passing
-                            // that on to other servers will also NOT result in duplicate subscriptions.
-                            if ((cbThread.callback == cb) && (cbThread.getArg() == userObj)) {
-                                // increment a count which will be decremented during an unsubscribe
+                    // for each subscription ...
+                    for (cMsgSubscription sub : subscriptions) {
+                        // If subscription to subject, type & namespace exist already, keep track of it
+                        // locally and don't bother the server since any matching message will be delivered
+                        // to this client anyway. The clients who call subscribe will never call
+                        // serverSubscribe and vice versa so we may match namespaces in the following
+                        // line of code and not worry about conflicts arising due to clients calling
+                        // subscribe.
+                        if (sub.getSubject().equals(subject) &&
+                                sub.getType().equals(type) &&
+                                sub.getNamespace().equals(namespace)) {
+
+                            // for each callback listed ...
+                            for (cMsgCallbackThread cbt : sub.getCallbacks()) {
+                                // Unlike the regular subscribe, here we allow duplicate identical
+                                // subscriptions. The reason is that "subscribeAndGet" is implemented
+                                // for other servers in the cloud as a "subscribe".
+                                //
+                                // It is possible to for 2 different thds of a client to each do an
+                                // identical subscribeAndGet. This results in 2 identical subscriptions
+                                // which would normally not be permitted but in this case we must.
+                                //
+                                // This method is also used to implement the client's regular subscribes
+                                // on other cloud servers. In this case, the client calls the regular
+                                // subscribe which will not allow duplicate subscriptions. Thus, passing
+                                // that on to other servers will also NOT result in duplicate subscriptions.
+                                if ((cbt.callback == cb) && (cbt.getArg() == userObj)) {
+                                    // increment a count which will be decremented during an unsubscribe
 //System.out.println("bridge cli sub: count = " + cbThread.getCount() + " -> " +
 //(cbThread.getCount() + 1));
-                                cbThread.setCount(cbThread.getCount() + 1);
-                                return;
+                                    cbt.setCount(cbt.getCount() + 1);
+                                    return;
+                                }
                             }
+
+                            // add to existing set of callbacks
+                            sub.addCallback(new cMsgCallbackThread(cb, userObj));
+                            return;
                         }
-
-                        // add to existing set of callbacks
-                        sub.addCallback(new cMsgCallbackThread(cb, userObj));
-                        return;
                     }
+
+                    // If we're here, the subscription to that subject & type in namespace does not exist yet.
+                    // We need to create it and register it with the domain server.
+
+                    // First generate a unique id for the receiveSubscribeId field. This info
+                    // allows us to unsubscribe.
+                    id = uniqueId.getAndIncrement();
+
+                    // add a new subscription & callback
+                    cbThread = new cMsgCallbackThread(cb, userObj);
+                    newSub   = new cMsgSubscription(subject, type, id, cbThread);
+
+
+                    newSub.setNamespace(namespace);
+                    // client listening thread may be interating thru subscriptions concurrently
+                    // and we're changing the set structure
+                    subscriptions.add(newSub);
+                    addedHashEntry = true;
                 }
-
-                // If we're here, the subscription to that subject & type in namespace does not exist yet.
-                // We need to create it and register it with the domain server.
-
-                // First generate a unique id for the receiveSubscribeId field. This info
-                // allows us to unsubscribe.
-                id = uniqueId.getAndIncrement();
-
-                // add a new subscription & callback
-                cMsgSubscription sub = new cMsgSubscription(subject, type, id,
-                                                            new cMsgCallbackThread(cb, userObj));
-                sub.setNamespace(namespace);
-                // client listening thread may be interating thru subscriptions concurrently
-                // and we're changing the set structure
-                subscriptions.add(sub);
-            }
 //System.out.println("bridge client sub to server, size = " + subscriptions.size());
 
-            socketLock.lock();
-            try {
-                // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(4*5 + subject.length() + type.length() + namespace.length());
-                domainOut.writeInt(cMsgConstants.msgServerSubscribeRequest);
-                domainOut.writeInt(id); // reserved for future use
-                domainOut.writeInt(subject.length());
-                domainOut.writeInt(type.length());
-                domainOut.writeInt(namespace.length());
-
-                // write strings & byte array
+                socketLock.lock();
                 try {
-                    domainOut.write(subject.getBytes("US-ASCII"));
-                    domainOut.write(type.getBytes("US-ASCII"));
-                    domainOut.write(namespace.getBytes("US-ASCII"));
+                    // total length of msg (not including this int) is 1st item
+                    domainOut.writeInt(4*5 + subject.length() + type.length() + namespace.length());
+                    domainOut.writeInt(cMsgConstants.msgServerSubscribeRequest);
+                    domainOut.writeInt(id); // reserved for future use
+                    domainOut.writeInt(subject.length());
+                    domainOut.writeInt(type.length());
+                    domainOut.writeInt(namespace.length());
+
+                    // write strings & byte array
+                    try {
+                        domainOut.write(subject.getBytes("US-ASCII"));
+                        domainOut.write(type.getBytes("US-ASCII"));
+                        domainOut.write(namespace.getBytes("US-ASCII"));
+                    }
+                    catch (UnsupportedEncodingException e) {}
                 }
-                catch (UnsupportedEncodingException e) {}
+                finally {
+                    socketLock.unlock();
+                }
+
+                domainOut.flush();
             }
             finally {
-                socketLock.unlock();
+                subscribeLock.unlock();
+                notConnectLock.unlock();
             }
-
-            domainOut.flush();
-
         }
         catch (IOException e) {
-            throw new cMsgException(e.getMessage());
-        }
-        finally {
-            subscribeLock.unlock();
-            notConnectLock.unlock();
+            // undo the modification of the hashtable we made & stop the created thread
+            if (addedHashEntry) {
+                // "subscriptions" is synchronized so it's mutex protected
+                subscriptions.remove(newSub);
+                cbThread.dieNow();
+            }
+            throw e;
         }
     }
 
@@ -627,11 +695,14 @@ public class cMsgServerClient extends cMsg {
      * @param cb      callback object whose single method is called upon receiving a message
      *                of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
-     * @throws cMsgException there are communication problems with the server
+     * @throws IOException there are communication problems with the server
      */
     public void serverUnsubscribe(String subject, String type, String namespace,
                                   cMsgCallbackInterface cb, Object userObj)
-            throws cMsgException {
+            throws IOException {
+
+        cMsgSubscription   oldSub   = null;
+        cMsgCallbackThread cbThread = null;
 
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
@@ -641,7 +712,7 @@ public class cMsgServerClient extends cMsg {
 
         try {
             if (!connected) {
-                throw new cMsgException("not connected to server");
+                throw new IOException("not connected to server");
             }
 
             // null namespace means default namespace
@@ -666,59 +737,61 @@ public class cMsgServerClient extends cMsg {
                     // vice versa so we may match namespaces in the following line of code and
                     // not worry about conflicts arising due to clients calling unsubscribe.
                     if (sub.getSubject().equals(subject) &&
-                        sub.getType().equals(type) &&
-                        sub.getNamespace().equals(namespace)) {
-
-                        foundMatch = true;
+                            sub.getType().equals(type) &&
+                            sub.getNamespace().equals(namespace)) {
 
                         // for each callback listed ...
                         for (Iterator iter2 = sub.getCallbacks().iterator(); iter2.hasNext();) {
-                            cMsgCallbackThread cbThread = (cMsgCallbackThread) iter2.next();
-                            if ((cbThread.callback == cb) && (cbThread.getArg() == userObj)) {
+                            cMsgCallbackThread cbt = (cMsgCallbackThread) iter2.next();
+                            if ((cbt.callback == cb) && (cbt.getArg() == userObj)) {
+                                // Found our cb & userArg pair to get rid of.
+                                // However, don't kill the thread and remove it from
+                                // the callback set until the server is notified or
+                                // the server doesn't need to be notified.
+                                // That way we can "undo" the unsubscribe if there
+                                // is an IO error.
+                                foundMatch = true;
+                                cbThread = cbt;
+
                                 // first check the count
-//System.out.println("br cli serverUnsubscribe: count = " + cbThread.getCount() + " -> " +
-//                   (cbThread.getCount()-1));
-                                cbThread.setCount(cbThread.getCount()-1);
-                                if (cbThread.getCount() > 0) {
+                                cbt.setCount(cbt.getCount() - 1);
+                                if (cbt.getCount() > 0) {
                                     return;
-                                }
-                                else if (cbThread.getCount() == 0) {
-                                    // kill callback thread(s)
-                                    cbThread.dieNow();
-                                    // remove this callback from the set
-                                    iter2.remove();
-                                }
-                                else {
-//System.out.println("br cli serverUnsubscribe: NEGATIVE callback thd count");
                                 }
                                 break;
                             }
                         }
 
+                        // if no subscription to sub/type/cb/arg, return
+                        if (!foundMatch) {
+                            return;
+                        }
+
                         // If there are still callbacks left,
                         // don't unsubscribe for this subject/type
-                        if (sub.numberOfCallbacks() > 0) {
+                        if (sub.numberOfCallbacks() > 1) {
 //System.out.println("br cli serverUnsubscribe: callbacks > 0");
+                            // kill callback thread
+                            cbThread.dieNow();
+                            // remove this callback from the set
+                            sub.getCallbacks().remove(cbThread);
                             return;
                         }
                         // else get rid of the whole subscription
-                        else if (sub.numberOfCallbacks() == 0) {
+                        else {
 //System.out.println("br cli serverUnsubscribe: remove subscription");
                             id = sub.getId();
-                            iter.remove();
-                        }
-                        else {
-//System.out.println("br cli serverUnsubscribe: NEGATIVE NUM CALLBACKS");
+                            oldSub = sub;
+                            //iter.remove();
                         }
                         break;
                     }
                 }
-
-                // if no subscription to sub/type/ns, return
-                if (!foundMatch) {
+            }
+            // if no subscription to sub/type/ns, return
+            if (!foundMatch) {
 //System.out.println("br cli serverUnsubscribe: NO SUB TO UNSUBSCRIBE");
-                    return;
-                }
+                return;
             }
 
             // notify the domain server
@@ -727,7 +800,7 @@ public class cMsgServerClient extends cMsg {
             socketLock.lock();
             try {
                 // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(5*4 + subject.length() + type.length() + namespace.length());
+                domainOut.writeInt(5 * 4 + subject.length() + type.length() + namespace.length());
                 domainOut.writeInt(cMsgConstants.msgServerUnsubscribeRequest);
                 domainOut.writeInt(id); // reserved for future use
                 domainOut.writeInt(subject.length());
@@ -740,22 +813,29 @@ public class cMsgServerClient extends cMsg {
                     domainOut.write(type.getBytes("US-ASCII"));
                     domainOut.write(namespace.getBytes("US-ASCII"));
                 }
-                catch (UnsupportedEncodingException e) {}
+                catch (UnsupportedEncodingException e) {
+                }
+                domainOut.flush();
             }
             finally {
                 socketLock.unlock();
             }
 
-            domainOut.flush();
+            // Now that we've communicated with the server,
+            // delete stuff from hashes & kill threads -
+            // basically, do the unsubscribe now.
+            cbThread.dieNow();
+            synchronized (subscriptions) {
+                oldSub.getCallbacks().remove(cbThread);
+                subscriptions.remove(oldSub);
+            }
 
-        }
-        catch (IOException e) {
-            throw new cMsgException(e.getMessage());
         }
         finally {
             subscribeLock.unlock();
             notConnectLock.unlock();
         }
+
     }
 
 
@@ -768,16 +848,16 @@ public class cMsgServerClient extends cMsg {
      *
      * @param client client(s) to be shutdown
      * @param includeMe  if true, it is permissible to shutdown calling client
-     * @throws cMsgException if there are communication problems with the server
+     * @throws IOException if there are communication problems with the server
      */
-    public void serverShutdownClients(String client, boolean includeMe) throws cMsgException {
+    public void serverShutdownClients(String client, boolean includeMe) throws IOException {
 
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
 
         try {
             if (!connected) {
-                throw new cMsgException("not connected to server");
+                throw new IOException("not connected to server");
             }
 
             // make sure null args are sent as blanks
@@ -808,9 +888,6 @@ public class cMsgServerClient extends cMsg {
             domainOut.flush();
 
         }
-        catch (IOException e) {
-            throw new cMsgException(e.getMessage());
-        }
         finally {
             notConnectLock.unlock();
         }
@@ -822,14 +899,14 @@ public class cMsgServerClient extends cMsg {
 
     /**
      * Method to shutdown the server connected to.
-     * @throws cMsgException if there are communication problems with the server
+     * @throws IOException if there are communication problems with the server
      */
-    public void serverShutdown() throws cMsgException {
+    public void serverShutdown() throws IOException {
         // cannot run this simultaneously with any other public method
         connectLock.lock();
         try {
             if (!connected) {
-                throw new cMsgException("not connected to server");
+                throw new IOException("not connected to server");
             }
 
             socketLock.lock();
@@ -844,9 +921,6 @@ public class cMsgServerClient extends cMsg {
 
             domainOut.flush();
 
-        }
-        catch (IOException e) {
-            throw new cMsgException(e.getMessage());
         }
         finally {
             connectLock.unlock();
@@ -868,6 +942,7 @@ public class cMsgServerClient extends cMsg {
      * @param isOriginator true if originating the connection between the 2 servers and
      *                     false if this is the response or reciprocal connection.
      * @param cloudPassword password for connecting to a server in a particular cloud
+     * @throws cMsgException error returned from server
      * @throws IOException if there are communication problems with the name server
      */
     HashSet<String> talkToNameServerFromServer(SocketChannel channel,
@@ -1009,7 +1084,7 @@ public class cMsgServerClient extends cMsg {
 
         try {
             if (!connected) {
-                return false;
+                throw new IOException("not connected to server");
             }
 
 //System.out.println("        << CL: try socket lock");
@@ -1057,7 +1132,7 @@ public class cMsgServerClient extends cMsg {
 
         try {
             if (!connected) {
-                return;
+                throw new IOException("not connected to server");
             }
 
             socketLock.lock();
@@ -1098,7 +1173,7 @@ public class cMsgServerClient extends cMsg {
 
         try {
             if (!connected) {
-                return false;
+                throw new IOException("not connected to server");
             }
 
             socketLock.lock();
@@ -1144,7 +1219,7 @@ public class cMsgServerClient extends cMsg {
 
         try {
             if (!connected) {
-                return;
+                throw new IOException("not connected to server");
             }
 
             socketLock.lock();
@@ -1180,7 +1255,7 @@ public class cMsgServerClient extends cMsg {
 
         try {
             if (!connected) {
-                return;
+                throw new IOException("not connected to server");
             }
 
             socketLock.lock();
@@ -1223,7 +1298,7 @@ public class cMsgServerClient extends cMsg {
 
         try {
             if (!connected) {
-                return null;
+                throw new IOException("not connected to server");
             }
 
             socketLock.lock();

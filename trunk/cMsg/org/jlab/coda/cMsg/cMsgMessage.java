@@ -683,6 +683,18 @@ public class cMsgMessage implements Cloneable {
             this.info &= ~isBigEndian;
         }
     }
+    /**
+     * This method specifies whether the endian value of the byte array is little
+     * endian or not. Since the Java JVM is big endian on all platforms, if the array
+     * is big endian it returns false indicating that there is no need to swap data.
+     * If the array is little endian then it returns true.
+     *
+     * @return true if byte array is little endian, else false
+     */
+    public boolean needToSwap() {
+        if ((this.info & isBigEndian) > 1) return false;
+        return true;
+    }
 
     
     /////////////

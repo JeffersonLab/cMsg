@@ -1263,6 +1263,8 @@ public class cMsgNameServer extends Thread {
         private void handleClient() throws IOException {
             // listening port of client
             int clientListeningPort = in.readInt();
+            // length of password
+            int lengthPassword = in.readInt();
             // length of domain type client is expecting to connect to
             int lengthDomainType = in.readInt();
             // length of subdomain type client is expecting to use
@@ -1279,14 +1281,21 @@ public class cMsgNameServer extends Thread {
             int lengthDescription = in.readInt();
 
             // bytes expected
-            int bytesToRead = lengthDomainType + lengthSubdomainType +
-                    lengthUDLRemainder + lengthHost + lengthName +
-                    lengthUDL + lengthDescription;
+            int bytesToRead = lengthPassword + lengthDomainType + lengthSubdomainType +
+                              lengthUDLRemainder + lengthHost + lengthName + lengthUDL +
+                              lengthDescription;
             int offset = 0;
 
             // read all string bytes
             byte[] bytes = new byte[bytesToRead];
             in.readFully(bytes, 0, bytesToRead);
+
+            // read password
+            String password = new String(bytes, offset, lengthPassword, "US-ASCII");
+            offset += lengthPassword;
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  password = " + password);
+            }
 
             // read domain
             String domainType = new String(bytes, offset, lengthDomainType, "US-ASCII");
@@ -1356,15 +1365,15 @@ public class cMsgNameServer extends Thread {
 
             // if the client does not provide the correct password if required, return an error
             if (clientPassword != null) {
-                String givenPassword = findClientPassword(UDL);
 
                 if (debug >= cMsgConstants.debugInfo) {
                     System.out.println("  local password = " + clientPassword);
-                    System.out.println("  given password = " + givenPassword);
+                    System.out.println("  given password = " + password);
                 }
 
-                if (givenPassword == null ||
-                        !clientPassword.equals(givenPassword)) {
+                if (password == null ||
+                        password.length() < 1 ||
+                        !clientPassword.equals(password)) {
 
                     if (debug >= cMsgConstants.debugError) {
                         System.out.println("  wrong password sent");

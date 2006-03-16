@@ -36,7 +36,7 @@ public class cMsgServerBridge {
     static private SubscribeCallback subCallback = new SubscribeCallback();
 
     /** Client of cMsg server this object is a bridge to. It is the means of connection. */
-    private org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient client;
+    org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient client;
 
     /** Name of cMsg server ("host:port") this server is connected to. */
     String serverName;
@@ -359,12 +359,10 @@ public class cMsgServerBridge {
      * @param subject    message subject
      * @param type       message type
      * @param namespace  message namespace
-     * @throws cMsgException if the callback, subject, or type is null; the subject or type is
-     *                       blank; an identical subscription already exists; there are
-     *                       communication problems with the server
+     * @throws IOException  there are communication problems with the server
      */
     public void subscribe(String subject, String type, String namespace)
-        throws cMsgException {
+        throws IOException {
 
 //System.out.println("Bridge: call serverSubscribe with ns = " + namespace);
         client.serverSubscribe(subject, type, namespace, subCallback, namespace);
@@ -379,12 +377,10 @@ public class cMsgServerBridge {
      * @param subject    message subject
      * @param type       message type
      * @param namespace  message namespace
-     * @throws cMsgException if the callback, subject, or type is null; the subject or type is
-     *                       blank; an identical subscription already exists; there are
-     *                       communication problems with the server
+     * @throws IOException there are communication problems with the server
      */
     public void unsubscribe(String subject, String type, String namespace)
-        throws cMsgException {
+        throws IOException {
 
 //System.out.println("Bridge: call serverUnsubscribe with ns = " + namespace);
         client.serverUnsubscribe(subject, type, namespace, subCallback, namespace);
@@ -397,10 +393,10 @@ public class cMsgServerBridge {
      * @param msg message sent to server
      * @param namespace  message namespace
      * @param cb callback for response to sendAndGet request
-     * @throws cMsgException if there are communication problems with the server
+     * @throws IOException if there are communication problems with the server
      */
     public void sendAndGet(cMsgMessage msg, String namespace, cMsgCallbackInterface cb)
-            throws cMsgException {
+            throws IOException {
         // id number of the sendAndGet stored for future unSendAndGet
         int id = client.serverSendAndGet(msg, namespace, cb);
         // Store 2 id numbers: 1 from system originating msg,
@@ -417,10 +413,10 @@ public class cMsgServerBridge {
       * times out and the server must be told to forget about the get.
       *
       * @param id receiverSubscribeId of original message sent in sendAndGet
-      * @throws cMsgException if there are communication problems with the server
+      * @throws IOException if there are communication problems with the server
       */
      public void unSendAndGet(int id)
-             throws cMsgException {
+             throws IOException {
          Integer newId = idStorage.remove(id);
          if (newId == null) {
 //System.out.println("bridge unSendAndGet: cannot find id " + id);
@@ -440,13 +436,11 @@ public class cMsgServerBridge {
      * @param subject subject of message desired from server
      * @param type type of message desired from server
      * @param namespace  message namespace
-     * @throws cMsgException if the callback, subject, or type is null; the subject or type is
-     *                       blank; an identical subscription already exists; there are
-     *                       communication problems with the server
+     * @throws IOException there are communication problems with the server
      */
     public void subscribeAndGet(String subject, String type,
             String namespace, cMsgCallbackInterface cb)
-            throws cMsgException {
+            throws IOException {
 
 //System.out.println("Bridge: call serverSubscribe with ns = " + namespace);
         client.serverSubscribe(subject, type, namespace, cb, namespace);
@@ -462,12 +456,11 @@ public class cMsgServerBridge {
      * @param subject subject of message desired from server
      * @param type type of message desired from server
      * @param namespace  message namespace
-     * @throws cMsgException if the callback, subject, or type is null; the subject or type is
-     *                       blank; there are communication problems with the server
+     * @throws IOException there are communication problems with the server
      */
     public void unsubscribeAndGet(String subject, String type,
                                   String namespace, cMsgCallbackInterface cb)
-            throws cMsgException {
+            throws IOException {
         client.serverUnsubscribe(subject, type, namespace, cb, namespace);
         return;
     }
@@ -479,9 +472,9 @@ public class cMsgServerBridge {
      *
      * @param clientName client(s) to be shutdown
      * @param includeMe  if true, it is permissible to shutdown calling client
-     * @throws cMsgException if there are communication problems with the server
+     * @throws IOException if there are communication problems with the server
      */
-    public void shutdownClients(String clientName, boolean includeMe) throws cMsgException {
+    public void shutdownClients(String clientName, boolean includeMe) throws IOException {
         client.serverShutdownClients(clientName, includeMe);
     }
 
@@ -489,9 +482,9 @@ public class cMsgServerBridge {
     /**
      * Method to shutdown the given server this client is connected to.
      *
-     * @throws cMsgException if there are communication problems with the server
+     * @throws IOException if there are communication problems with the server
      */
-    public void shutdownServer() throws cMsgException {
+    public void shutdownServer() throws IOException {
         client.serverShutdown();
     }
 
