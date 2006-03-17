@@ -645,10 +645,7 @@ public class cMsgNameServer extends Thread {
 
         // If there is still no handler class look in predefined classes.
         if (clientHandlerClass == null) {
-            if (subdomain.equalsIgnoreCase("cMsg")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.cMsg";
-            }
-            else if (subdomain.equalsIgnoreCase("CA")) {
+            if (subdomain.equalsIgnoreCase("CA")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.subdomains.CA";
             }
             else if (subdomain.equalsIgnoreCase("Database")) {
@@ -1311,6 +1308,11 @@ public class cMsgNameServer extends Thread {
                 System.out.println("  subdomain = " + subdomainType);
             }
 
+            // Elliott wanted this printed out
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  server port = " + port);
+            }
+
             // read UDL remainder
             String UDLRemainder = new String(bytes, offset, lengthUDLRemainder, "US-ASCII");
             offset += lengthUDLRemainder;
@@ -1329,7 +1331,7 @@ public class cMsgNameServer extends Thread {
             String name = new String(bytes, offset, lengthName, "US-ASCII");
             offset += lengthName;
             if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  port = " + clientListeningPort);
+                System.out.println("  client port = " + clientListeningPort);
                 System.out.println("  name = " + name);
             }
 
