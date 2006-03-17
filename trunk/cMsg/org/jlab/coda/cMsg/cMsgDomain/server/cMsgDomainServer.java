@@ -310,7 +310,7 @@ System.out.println("Trying to open socket on port " + port);
                 // try another port by adding one
                 if (port < 65535) {
                     port++;
-                    try { Thread.sleep(100);  }
+                    try { Thread.sleep(1);  }
                     catch (InterruptedException e) {}
                 }
                 else {
@@ -359,7 +359,7 @@ System.out.println("Trying to open socket on port " + port);
 
     /** Method to gracefully shutdown this object's threads and clean things up. */
     synchronized void shutdown() {
-System.out.println("SHUTTING DOWN for " + info.getName());
+//System.out.println("SHUTTING DOWN for " + info.getName());
 
         // tell subdomain handler to shutdown
         if (calledSubdomainShutdown.compareAndSet(false,true)) {
@@ -494,6 +494,10 @@ System.out.println("SHUTTING DOWN for " + info.getName());
         subAndGetThreadPool.shutdownNow();
         sendAndGetThreadPool.shutdownNow();
 
+        // shutdown this domain server's listening thread
+        try { serverChannel.close(); }
+        catch (IOException e) {};
+
 //System.out.println("\nDomain Server: EXITING SHUTDOWN\n");
     }
 
@@ -589,9 +593,9 @@ System.out.println("SHUTTING DOWN for " + info.getName());
             }
         }
 
-        if (debug >= cMsgConstants.debugInfo) {
+ //       if (debug >= cMsgConstants.debugInfo) {
             System.out.println("\n>>    DS: Quitting Domain Server");
-        }
+ //       }
 
         return;
     }
