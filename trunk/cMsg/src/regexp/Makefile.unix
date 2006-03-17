@@ -18,6 +18,7 @@ LIB_DIR  = $(TOP_DIR)/lib/Linux
 BIN_DIR  = $(TOP_DIR)/bin/Linux
 AC_FLAGS =
 CFLAGS   = -O3 -fPIC -I./ -DPOSIX_MISTAKE $(AC_FLAGS)
+SHLIB_LD = g++ -shared
 endif
 
 # Solaris
@@ -27,12 +28,12 @@ LIB_DIR  = $(TOP_DIR)/lib/SunOS
 BIN_DIR  = $(TOP_DIR)/bin/SunOS
 AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
 CFLAGS   = -mt -xO5 -KPIC -I. -DPOSIX_MISTAKE $(AC_FLAGS)
+SHLIB_LD = ld -G
 endif
 
 REGEX_LIBS = libcMsgRegex.so libcMsgRegex.a
 HFILES = regex.h
 
-SHLIB_LD = ld -G
 PROGS =
 
 # Internal stuff, should not need changing.

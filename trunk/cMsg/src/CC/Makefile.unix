@@ -24,6 +24,7 @@ EPICS_LIB = -lca -lCom -lcas -lgdd -lAs -lDb
 AC_FLAGS  =
 CFLAGS    = -O3 -fPIC -I. -I$(INC_DIR) $(AC_FLAGS) $(EPICS_INC)
 LIBS      = -lexpat -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
+SHLIB_LD  = g++ -shared
 endif
 
 # Solaris
@@ -34,10 +35,10 @@ BIN_DIR  = $(TOP_DIR)/bin/SunOS
 AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
 CFLAGS   = -mt -xO5 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
 LIBS     = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
+SHLIB_LD  = ld -G
 endif
 
 CFLAGSXX  = $(CFLAGS) -Dcppversion
-SHLIB_LD  = ld -G
 
 LIBNAMXX      = libcmsgxx
 LIB_STATICXX  = $(LIBNAMXX).a

@@ -20,6 +20,7 @@ BIN_DIR  = $(TOP_DIR)/bin/Linux
 AC_FLAGS =
 CFLAGS   = -O3 -fPIC -I. -I$(INC_DIR) $(AC_FLAGS)
 LIBS     = -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
+SHLIB_LD = g++ -shared
 endif
 
 # Solaris
@@ -30,9 +31,9 @@ BIN_DIR  = $(TOP_DIR)/bin/SunOS
 AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
 CFLAGS   = -mt -xO5 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
 LIBS     = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
+SHLIB_LD    = ld -G
 endif
 
-SHLIB_LD    = ld -G
 LIBNAM      = libcmsg
 LIB_STATIC  = $(LIBNAM).a
 LIB_DYNAMIC = $(LIBNAM).so
