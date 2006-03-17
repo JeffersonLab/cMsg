@@ -79,6 +79,11 @@ doxygen:
 
 clean: cClean jClean tarClean jarClean
 
+distClean: clean bClean
+
+bClean:
+	-$(RM) -f $(LIB_DIR)/* $(BIN_DIR)/*
+
 cClean: 
 	-$(RM) -f core *~ *.o *.so *.a *.class
 	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) clean;
