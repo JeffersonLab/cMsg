@@ -2816,13 +2816,6 @@ static int cmsgd_Disconnect(void *domainId) {
 
 
 /*-------------------------------------------------------------------*/
-int blah(void *domainId) {
-  cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
-
-
-}
-/*-------------------------------------------------------------------*/
-
 
 /**
  * This routine disconnects the client from the cMsg server when

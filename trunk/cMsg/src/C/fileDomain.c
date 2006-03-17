@@ -115,7 +115,7 @@ int fileConnect(const char *myUDL, const char *myName, const char *myDescription
 
 
   char *fname;
-  char *c;
+  const char *c;
   unsigned short port;
   int textOnly;
   fileDomainInfo *fdi;
