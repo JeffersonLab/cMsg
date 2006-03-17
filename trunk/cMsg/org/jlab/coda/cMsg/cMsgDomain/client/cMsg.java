@@ -263,7 +263,6 @@ public class cMsg extends cMsgDomainAdapter {
      */
     private boolean failoverSuccessful(boolean waitForResubscribes) {
 
-System.out.println("IN failoverSuccessful");
         // If only 1 valid UDL is given by client, forget about
         // waiting for failovers to complete before throwing
         // an exception.
@@ -272,7 +271,6 @@ System.out.println("IN failoverSuccessful");
         // Check every .1 seconds for 3 seconds for a new connection
         // before giving up and throwing an exception.
         for (int i=0; i < 30; i++) {
-System.out.println("wait " + (i+1));
             try { Thread.sleep(100); }
             catch (InterruptedException e) {}
 
@@ -307,7 +305,6 @@ System.out.println("wait " + (i+1));
 
         // If there's only 1 UDL ...
         if (failoverUDLs.length < 2) {
- System.out.println("Only 1 UDL = " + UDL);
             // parse UDL
             ParsedUDL p = parseUDL(failoverUDLs[0]);
             // store locally
@@ -318,8 +315,11 @@ System.out.println("wait " + (i+1));
         }
 
         // else if there's a bunch of UDL's
-        for (String s : failoverUDLs) {
-            System.out.println("More than one UDL = " + s);
+        if (debug >= cMsgConstants.debugInfo) {
+            int i=0;
+            for (String s : failoverUDLs) {
+                System.out.println("UDL" + (i++) + " = " + s);
+            }
         }
 
         // parse the list of UDLs and store them
@@ -333,7 +333,9 @@ System.out.println("wait " + (i+1));
             catch (cMsgException e) {
                 // invalid UDL
                 p = new ParsedUDL(udl, false);
-                System.out.println("  Bad UDL marked as invalid");
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("UDL \"" + udl + "\" marked as invalid");
+                }
             }
             failovers.add(p);
             if (p.valid) viableUDLs++;
@@ -358,14 +360,15 @@ System.out.println("wait " + (i+1));
             // copy info locally
             p.copyToLocal();
             // connect using that UDL info
-System.out.println("\nTrying to connect with UDL = " + p.UDL);
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("Trying to connect with UDL = " + p.UDL);
+            }
 
             try {
                 connectImpl();
                 return;
             }
             catch (cMsgException e) {
-System.out.println(e.getMessage());
                 // clear effects of p.copyToLocal()
                 p.clearLocal();
                 connectFailures++;
@@ -444,7 +447,7 @@ System.out.println(e.getMessage());
                     }
                 }
             }
-System.out.println("  Listening on port " + port);
+
             // launch thread and start listening on receive socket
             listeningThread = new cMsgClientListeningThread(this, serverChannel);
             listeningThread.start();
@@ -467,7 +470,6 @@ System.out.println("  Listening on port " + port);
             // connect & talk to cMsg name server to check if name is unique
             SocketChannel channel = null;
             try {
-System.out.println("        << CL: open socket to  " + nameServerHost + ":" + nameServerPort);
                 channel = SocketChannel.open(new InetSocketAddress(nameServerHost, nameServerPort));
                 // set socket options
                 Socket socket = channel.socket();
@@ -599,7 +601,6 @@ System.out.println("        << CL: open socket to  " + nameServerHost + ":" + na
             connectLock.unlock();
         }
 
-System.out.println("        << CL: done connecting to  " + nameServerHost + ":" + nameServerPort);
         return;
     }
 
@@ -699,14 +700,10 @@ System.out.println("        << CL: done connecting to  " + nameServerHost + ":" 
      */
     private void reconnect() throws cMsgException {
 
-        System.out.println("\nRECONNECT:");
-
         // cannot run this simultaneously with any other public method
         connectLock.lock();
 
         try {
-            //connected = false;
-
             // KeepAlive & listening threads needs to keep running.
             // Keep all existing callback threads for the subscribes.
 
@@ -734,7 +731,6 @@ System.out.println("        << CL: done connecting to  " + nameServerHost + ":" 
             // connect & talk to cMsg name server to check if name is unique
             SocketChannel channel = null;
             try {
-//System.out.println("     open socket to nameserver " + nameServerHost + ":" + nameServerPort);
                 channel = SocketChannel.open(new InetSocketAddress(nameServerHost, nameServerPort));
                 // set socket options
                 Socket socket = channel.socket();
@@ -751,7 +747,6 @@ System.out.println("        << CL: done connecting to  " + nameServerHost + ":" 
 
             // get host & port to send messages & other info from name server
             try {
-//System.out.println("     talk to nameserver");
                 talkToNameServerFromClient(channel);
             }
             catch (IOException e) {
@@ -763,7 +758,6 @@ System.out.println("        << CL: done connecting to  " + nameServerHost + ":" 
 
             // done talking to server
             try {
-//System.out.println("     close channel to nameserver");
                 channel.close();
             }
             catch (IOException e) {
@@ -775,7 +769,6 @@ System.out.println("        << CL: done connecting to  " + nameServerHost + ":" 
 
             // create request response reading (from domain) channel
             try {
-//System.out.println("     open return channel from domain server");
                 domainInChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
                 // buffered communication streams for efficiency
                 Socket socket = domainInChannel.socket();
@@ -792,7 +785,6 @@ System.out.println("        << CL: done connecting to  " + nameServerHost + ":" 
 
             // create keepAlive socket
             try {
-//System.out.println("     open keep alive channel to domain server");
                 keepAliveChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
                 Socket socket = keepAliveChannel.socket();
                 socket.setTcpNoDelay(true);
@@ -809,7 +801,6 @@ System.out.println("        << CL: done connecting to  " + nameServerHost + ":" 
 
             // create request sending (to domain) channel (This takes longest so do last)
             try {
-System.out.println("     open request channel to domain server");
                 domainOutChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
                 // buffered communication streams for efficiency
                 Socket socket = domainOutChannel.socket();
@@ -830,7 +821,6 @@ System.out.println("     open request channel to domain server");
             connectLock.unlock();
         }
 
-System.out.println("     done reconnecting to  " + nameServerHost + ":" + nameServerPort);
         return;
     }
 
@@ -933,7 +923,6 @@ System.out.println("     done reconnecting to  " + nameServerHost + ":" + nameSe
             catch (IOException e) {
                 // wait awhile for possible failover
                 if (failoverSuccessful(false)) {
-System.out.println("FAILOVER SUCCESSFUL, try send again");
                     continue tryagain;
                 }
                 throw new cMsgException(e.getMessage());
@@ -999,7 +988,6 @@ System.out.println("FAILOVER SUCCESSFUL, try send again");
 
                     socketLock.lock();
                     try {
-//System.out.println("syncSend 1");
                         // total length of msg (not including this int) is 1st item
                         domainOut.writeInt(4 * 15 + subject.length() + type.length() + msgCreator.length() +
                                            text.length() + binaryLength);
@@ -1034,7 +1022,6 @@ System.out.println("FAILOVER SUCCESSFUL, try send again");
                                                 message.getByteArrayOffset(),
                                                 binaryLength);
                             }
-//System.out.println("syncSend 2");
                         }
                         catch (UnsupportedEncodingException e) {
                         }
@@ -1044,9 +1031,7 @@ System.out.println("FAILOVER SUCCESSFUL, try send again");
                     }
 
                     domainOut.flush(); // no need to be protected by socketLock
-//System.out.println("syncSend 3");
                     int response = domainIn.readInt(); // this is protected by returnCommunicationLock
-//System.out.println("syncSend 4");
                     return response;
                 }
                 finally {
@@ -1057,7 +1042,6 @@ System.out.println("FAILOVER SUCCESSFUL, try send again");
             catch (IOException e) {
                 // wait awhile for possible failover
                 if (failoverSuccessful(false)) {
-System.out.println("FAILOVER SUCCESSFUL, try syncSend again");
                     continue tryagain;
                 }
                 throw new cMsgException(e.getMessage());
@@ -1213,7 +1197,6 @@ System.out.println("FAILOVER SUCCESSFUL, try syncSend again");
 
                 // wait awhile for possible failover
                 if (failoverSuccessful(false)) {
-System.out.println("FAILOVER SUCCESSFUL, try subscribe again");
                     continue tryagain;
                 }
 
@@ -1383,7 +1366,6 @@ System.out.println("FAILOVER SUCCESSFUL, try subscribe again");
             catch (IOException e) {
                 // wait awhile for possible failover && resubscribe is complete
                 if (failoverSuccessful(true)) {
-System.out.println("FAILOVER SUCCESSFUL, try unsubscribe again");
                     continue tryagain;
                 }
 
@@ -1598,7 +1580,6 @@ System.out.println("FAILOVER SUCCESSFUL, try unsubscribe again");
         // If msg is null, we timed out.
         // Tell server to forget the get if necessary.
         if (helper.timedOut) {
-//System.out.println("subscribeAndGet: timed out, call unSubscribeAndGet");
             // remove the get from server
             subscribeAndGets.remove(id);
             unSubscribeAndGet(subject, type, id);
@@ -1612,9 +1593,6 @@ System.out.println("FAILOVER SUCCESSFUL, try unsubscribe again");
         // If msg is received, server has removed subscription from his records.
         // Client listening thread has also removed subscription from client's
         // records (subscribeAndGets HashSet).
-
-//System.out.println("subscribeAndGet: SUCCESS!!!");
-
         return helper.message;
     }
 
@@ -1814,7 +1792,6 @@ System.out.println("FAILOVER SUCCESSFUL, try unsubscribe again");
 
         // Tell server to forget the get if necessary.
         if (helper.timedOut) {
-//System.out.println("sendAndGet: timed out");
             // remove the get from server
             sendAndGets.remove(id);
             unSendAndGet(id);
@@ -1828,9 +1805,6 @@ System.out.println("FAILOVER SUCCESSFUL, try unsubscribe again");
         // If msg arrived (may be null), server has removed subscription from his records.
         // Client listening thread has also removed subscription from client's
         // records (subscribeAndGets HashSet).
-
-//System.out.println("get: SUCCESS!!!");
-
         return helper.message;
     }
 
@@ -2123,7 +2097,6 @@ System.out.println("FAILOVER SUCCESSFUL, try unsubscribe again");
         if (udl == null) {
             throw new cMsgException("invalid UDL");
         }
-System.out.println("parseUDL: udl = " + udl);
 
         // cMsg domain UDL is of the form:
         //       cMsg:cMsg://<host>:<port>/<subdomainType>/<subdomain remainder>?tag=value&tag2=value2 ...
@@ -2135,7 +2108,6 @@ System.out.println("parseUDL: udl = " + udl);
             throw new cMsgException("invalid UDL");
         }
         String udlRemainder = udl.substring(index+7);
-System.out.println("udl is pared down to " + udlRemainder);
 
         // Remember that for this domain:
         // 1) port is not necessary
@@ -2265,7 +2237,6 @@ System.out.println("udl is pared down to " + udlRemainder);
             for (cMsgSubscription sub : subscriptions) {
                 // Only got to do 1 resubscription for each sub/type pair.
                 // Don't need to bother with each cb/userObject combo.
-System.out.println("Resubscribing to " + sub.getSubject() + "/" + sub.getType());
                 resubscribe(sub.getSubject(),sub.getType());
             }
         }
@@ -2477,7 +2448,7 @@ System.out.println("Resubscribing to " + sub.getSubject() + "/" + sub.getType())
 
                     try {
                         // connect with another server
-System.out.println("\nTrying to REconnect with UDL = " + p.UDL);
+//System.out.println("\nTrying to REconnect with UDL = " + p.UDL);
                         reconnect();
 
                         // restore subscriptions on the new server
@@ -2496,7 +2467,6 @@ System.out.println("\nTrying to REconnect with UDL = " + p.UDL);
                         weGotAConnection = true;
                     }
                     catch (cMsgException e) {
-System.out.println("  Got error: " + e.getMessage());
                         // clear effects of p.copyToLocal()
                         p.clearLocal();
                         connectFailures++;
@@ -2509,7 +2479,6 @@ System.out.println("  Got error: " + e.getMessage());
             catch (IOException e) { }
 
             // disconnect
-System.out.println("KeepAlive: run client's disconnect & end");
             disconnect();
         }
 
