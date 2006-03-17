@@ -53,6 +53,7 @@
 #include <errno.h>
 #include <time.h>
 #include <string.h>
+#include <ctype.h>
 
 
 /* package includes */
@@ -4215,8 +4216,8 @@ static int parseUDLregex(const char *UDL, char **password,
                               char **subdomainType,
                               char **UDLsubRemainder) {
 
-    int        i, err, len, bufLength, Port;
-    char       *p, *portString, *udl, *udlRemainder, *pswd;
+    int        i, err, len, bufLength, Port, index;
+    char       *p, *portString, *udl, *udlLowerCase, *udlRemainder, *pswd;
     char       *buffer;
     const char *pattern = "([a-zA-Z0-9\\.]+):?([0-9]+)?/?([a-zA-Z0-9]+)?/?(.*)";  
     regmatch_t matches[5]; /* we have 5 potential matches: 1 whole, 4 sub */
@@ -4228,14 +4229,24 @@ static int parseUDLregex(const char *UDL, char **password,
     
     /* make a copy */
     udl = (char *) strdup(UDL);
+    
+    /* make a copy in all lower case */
+    udlLowerCase = (char *) strdup(UDL);
+    for (i=0; i<strlen(udlLowerCase); i++) {
+      udlLowerCase[i] = tolower(udlLowerCase[i]);
+    }
   
     /* strip off the beginning cMsg:cMsg:// */
-    udlRemainder = strstr(udl, "cMsg://");
-    if (udlRemainder == NULL) {
+    p = strstr(udlLowerCase, "cmsg://");
+    if (p == NULL) {
       free(udl);
+      free(udlLowerCase);
       return(CMSG_BAD_ARGUMENT);  
     }
-    udlRemainder += 7;
+    index = (int) (p - udlLowerCase);
+    free(udlLowerCase);
+    
+    udlRemainder = udl + index + 7;
 /* printf("parseUDLregex: udl remainder = %s\n", udlRemainder); */
     
     
