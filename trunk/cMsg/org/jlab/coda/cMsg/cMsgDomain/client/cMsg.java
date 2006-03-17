@@ -2101,9 +2101,12 @@ public class cMsg extends cMsgDomainAdapter {
         // cMsg domain UDL is of the form:
         //       cMsg:cMsg://<host>:<port>/<subdomainType>/<subdomain remainder>?tag=value&tag2=value2 ...
         //
-        // strip off the cMsg:cMsg:// to begin with
+        // where the domain name is case insensitive as is the subdomainType
 
-        int index = udl.indexOf("cMsg://");
+
+        // strip off the cMsg:cMsg:// to begin with
+        String udlLowerCase = udl.toLowerCase();
+        int index = udlLowerCase.indexOf("cmsg://");
         if (index < 0) {
             throw new cMsgException("invalid UDL");
         }
