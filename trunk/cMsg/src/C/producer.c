@@ -35,14 +35,14 @@ int main(int argc,char **argv) {
   char *myDescription = "C producer";
   char *subject = "SUBJECT";
   char *type    = "TYPE";
-  char *text    = NULL;
+  char *text    = "JUNK";
   char *bytes   = NULL;
-  char *UDL     = "cMsg:cMsg://phecda:3456/cMsg/test";
-  int   err, debug=1, domainId=-1, msgSize=0, mainloops=200;
+  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test;cMsg:cMsg://aslan:3457/cMsg/test";
+  int   err, debug=1, domainId=-1, msgSize=0, mainloops=200, response;
   void *msg;
   
   /* msg rate measuring variables */
-  int             dostring=0, count, i, delay=0, loops=100000, ignore=0;
+  int             dostring=0, count, i, delay=1, loops=200, ignore=0;
   struct timespec t1, t2, sleeep;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
@@ -115,7 +115,7 @@ int main(int argc,char **argv) {
   cMsgSetType(msg, type);       /* allocating mem here */
   
   if (dostring) {
-    printf("setting text\n");
+    printf("setting text to %s\n", text);
     cMsgSetText(msg, text);
   }
   else {
@@ -123,11 +123,6 @@ int main(int argc,char **argv) {
     cMsgSetByteArrayAndLimits(msg, bytes, 0, msgSize);
   }
   
-  /*
-  if (delay != 0) {
-      loops = loops/(2000*delay);      
-  }
-  */
   
   while (mainloops-- > 0) {
   /*while (1) {*/
@@ -138,9 +133,10 @@ int main(int argc,char **argv) {
 
       for (i=0; i < loops; i++) {
           /* send msg */
-          /*if (cMsgSyncSend(domainId, msg, &response) != CMSG_OK) {*/
-          if (cMsgSend(domainId, msg) != CMSG_OK) {
-            printf("cMsgSend: %s\n",cMsgPerror(err));
+          /* err = cMsgSyncSend(domainId, msg, &response); */
+          err = cMsgSend(domainId, msg);
+          if (err != CMSG_OK) {
+            printf("cMsgSend: err = %d, %s\n",err, cMsgPerror(err));
             fflush(stdout);
             goto end;
           }
@@ -174,7 +170,7 @@ int main(int argc,char **argv) {
   err = cMsgDisconnect(domainId);
   if (err != CMSG_OK) {
       if (debug) {
-          printf("%s\n",cMsgPerror(err));
+          printf("err = %d, %s\n",err, cMsgPerror(err));
       }
   }
     

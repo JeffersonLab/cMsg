@@ -31,6 +31,13 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 /******************************************************************/
 static void callback(void *msg, void *arg) {
   int status, userInt;
+  struct timespec sleeep;
+  
+  sleeep.tv_sec  = 0;
+  sleeep.tv_nsec = 10000000; /* 10 millisec */
+  sleeep.tv_sec  = 1;
+  sleeep.tv_nsec = 0;
+  
   
   status = pthread_mutex_lock(&mutex);
   if (status != 0) {
@@ -38,6 +45,9 @@ static void callback(void *msg, void *arg) {
   }
   
   count++;
+  
+  nanosleep(&sleeep, NULL);
+  
   /*
   cMsgGetUserInt(msg, &userInt);
   if (userInt != oldInt+1)
@@ -87,13 +97,14 @@ static void callback2(void *msg, void *arg) {
 
 
 /******************************************************************/
-int main(int argc,char **argv) {  
+int main(int argc,char **argv) {
 
   char *myName   = "C Consumer";
   char *myDescription = "C consumer";
   char *subject = "SUBJECT";
   char *type    = "TYPE";
-  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
+  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test;cMsg:cMsg://aslan:3457/cMsg/test";
+  /*char *UDL     = "cMsg://blah.jlab.org/;cMsg:cMsg://aslan:3456/cMsg/test/stuff?blah=blah&cmsgpassword=charlie&junk=junk"; */
   int   err, debug = 1;
   cMsgSubscribeConfig *config;
   
@@ -106,8 +117,13 @@ int main(int argc,char **argv) {
     myName = argv[1];
   }
   
+  if (argc > 2) {
+    UDL = argv[2];
+  }
+  
   if (debug) {
     printf("Running the cMsg consumer, \"%s\"\n", myName);
+    printf("  connecting to, %s\n", UDL);
   }
 
   /* connect to cMsg server */
@@ -124,8 +140,8 @@ int main(int argc,char **argv) {
   
   /* set the subscribe configuration */
   config = cMsgSubscribeConfigCreate();
-  cMsgSubscribeSetMaxCueSize(config, 1000);
-  cMsgSubscribeSetSkipSize(config, 200);
+  cMsgSubscribeSetMaxCueSize(config, 100);
+  cMsgSubscribeSetSkipSize(config, 20);
   cMsgSubscribeSetMaySkip(config,0);
   cMsgSubscribeSetMustSerialize(config, 1);
   cMsgSubscribeSetMaxThreads(config, 290);
