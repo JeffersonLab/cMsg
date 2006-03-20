@@ -494,7 +494,7 @@ System.out.println("Trying to open socket on port " + port);
         subAndGetThreadPool.shutdownNow();
         sendAndGetThreadPool.shutdownNow();
 
-        // shutdown this domain server's listening thread
+        // close this domain server's listening thread's socket
         try { serverChannel.close(); }
         catch (IOException e) {};
 
@@ -536,7 +536,8 @@ System.out.println("Trying to open socket on port " + port);
                 int n = selector.select(1000);
 
                 // first check to see if we've been commanded to die
-                if (killMainThread)  return;
+                if (killMainThread) return;
+
                 // if no channels (sockets) are ready, listen some more
                 if (n == 0) continue;
 
@@ -588,14 +589,7 @@ System.out.println("Trying to open socket on port " + port);
             }
         }
         catch (IOException ex) {
-            if (debug >= cMsgConstants.debugError) {
-                //ex.printStackTrace();
-            }
         }
-
- //       if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("\n>>    DS: Quitting Domain Server");
- //       }
 
         return;
     }
