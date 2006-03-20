@@ -1,7 +1,6 @@
 // to do
 //   shutdown handler
-//   defaults for subscribe config
-//   documentation
+//   doxygen doc
 
 
 
@@ -450,10 +449,10 @@ int cMsgMessageBase::getVersion(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase cMsgMessageBase::copy(void) const throw(cMsgException) {
+cMsgMessageBase *cMsgMessageBase::copy(void) const throw(cMsgException) {
 
   void *newPointer = cMsgCopyMessage(myMsgPointer);
-  return(cMsgMessageBase(newPointer));
+  return(new cMsgMessageBase(newPointer));
 }
 
 
@@ -723,28 +722,28 @@ void cMsgMessageBase::makeResponse(cMsgMessageBase *msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase cMsgMessageBase::nullResponse(void) const throw(cMsgException) {
+cMsgMessageBase *cMsgMessageBase::nullResponse(void) const throw(cMsgException) {
 
   void *newMsgPointer;
   if((newMsgPointer=cMsgCreateNullResponseMessage(myMsgPointer))==NULL) {
     throw(cMsgException("?cMsgMessageBase::nullResponse...unable to create message",CMSG_ERROR));
   }
 
-  return(cMsgMessageBase(newMsgPointer));
+  return(new cMsgMessageBase(newMsgPointer));
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase cMsgMessageBase::response(void) const throw(cMsgException) {
+cMsgMessageBase *cMsgMessageBase::response(void) const throw(cMsgException) {
 
   void *newMsgPointer;
   if((newMsgPointer=cMsgCreateResponseMessage(myMsgPointer))==NULL) {
     throw(cMsgException("?cMsgMessageBase::response...unable to create message",CMSG_ERROR));
   }
 
-  return(cMsgMessageBase(newMsgPointer));
+  return(new cMsgMessageBase(newMsgPointer));
 }
 
 
@@ -793,7 +792,7 @@ string cMsgMessageBase::toString(void) const throw(cMsgException) {
 
 
 void cMsgShutdownHandlerDefault::handleShutdown(void) {
-  exit(-1);
+  std::exit(EXIT_FAILURE);
 }
 
 
@@ -825,7 +824,7 @@ int cMsgCallbackAdapter::getMaxCueSize(void) {
 
 
 int cMsgCallbackAdapter::getSkipSize(void) {
-  return(1000);
+  return(200);
 }
 
 
@@ -944,11 +943,6 @@ void cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAdap
   cMsgSubscribeConfig *myConfig = cMsgSubscribeConfigCreate();
 
   cMsgSubscribeSetMaxCueSize(myConfig,        cba->getMaxCueSize());
-
-
-  printf("max cue size for subject %s, type %s is %d\n",subject.c_str(),type.c_str(),cba->getMaxCueSize());
-
-
   cMsgSubscribeSetSkipSize(myConfig,          cba->getSkipSize());
   cMsgSubscribeSetMaySkip(myConfig,           (cba->maySkipMessages())?1:0);
   cMsgSubscribeSetMustSerialize(myConfig,     (cba->mustSerializeMessages())?1:0);
@@ -1001,7 +995,7 @@ void cMsg::unsubscribe(const string &subject, const string &type, cMsgCallbackAd
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase cMsg::sendAndGet(cMsgMessageBase &sendMsg, const struct timespec &timeout) throw(cMsgException) {
+cMsgMessageBase *cMsg::sendAndGet(cMsgMessageBase &sendMsg, const struct timespec &timeout) throw(cMsgException) {
     
   void *replyPtr;
 
@@ -1010,14 +1004,14 @@ cMsgMessageBase cMsg::sendAndGet(cMsgMessageBase &sendMsg, const struct timespec
     throw(cMsgException(cMsgPerror(stat),stat));
   }
 
-  return(cMsgMessageBase(replyPtr));
+  return(new cMsgMessageBase(replyPtr));
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase cMsg::sendAndGet(cMsgMessageBase *sendMsg, const struct timespec &timeout) throw(cMsgException) {
+cMsgMessageBase *cMsg::sendAndGet(cMsgMessageBase *sendMsg, const struct timespec &timeout) throw(cMsgException) {
 
   void *replyPtr;
 
@@ -1026,13 +1020,13 @@ cMsgMessageBase cMsg::sendAndGet(cMsgMessageBase *sendMsg, const struct timespec
     throw(cMsgException(cMsgPerror(stat),stat));
   }
 
-  return(cMsgMessageBase(replyPtr));
+  return(new cMsgMessageBase(replyPtr));
 }
 
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase cMsg::subscribeAndGet(const string &subject, const string &type, const struct timespec &timeout) throw(cMsgException) {
+cMsgMessageBase *cMsg::subscribeAndGet(const string &subject, const string &type, const struct timespec &timeout) throw(cMsgException) {
 
   void *replyPtr;
 
@@ -1041,7 +1035,7 @@ cMsgMessageBase cMsg::subscribeAndGet(const string &subject, const string &type,
     throw(cMsgException(cMsgPerror(stat),stat));
   }
 
-  return(cMsgMessageBase(replyPtr));
+  return(new cMsgMessageBase(replyPtr));
 }
 
 

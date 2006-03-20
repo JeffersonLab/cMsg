@@ -130,9 +130,9 @@ public:
   virtual void setGetResponse(bool b) throw(cMsgException);
   virtual void setNullGetResponse(bool b) throw(cMsgException);
   virtual string toString(void) const throw(cMsgException);
-  virtual cMsgMessageBase copy(void) const throw(cMsgException);
-  virtual cMsgMessageBase nullResponse(void) const throw(cMsgException);
-  virtual cMsgMessageBase response(void) const throw(cMsgException);
+  virtual cMsgMessageBase *copy(void) const throw(cMsgException);
+  virtual cMsgMessageBase *nullResponse(void) const throw(cMsgException);
+  virtual cMsgMessageBase *response(void) const throw(cMsgException);
 };
 
 
@@ -262,7 +262,6 @@ private:
 public:
   cMsg(const string &UDL, const string &name, const string &descr);
   virtual ~cMsg(void);
-
   virtual void connect() throw(cMsgException);
   virtual void disconnect(void);
   virtual void send(cMsgMessageBase &msg) throw(cMsgException);
@@ -277,9 +276,11 @@ public:
     throw(cMsgException);
   virtual void unsubscribe(const string &subject, const string &type, cMsgCallbackAdapter &cba, void *userArg)
     throw(cMsgException);
-  virtual cMsgMessageBase sendAndGet(cMsgMessageBase &sendMsg, const struct timespec &timeout) throw(cMsgException);
-  virtual cMsgMessageBase sendAndGet(cMsgMessageBase *sendMsg, const struct timespec &timeout) throw(cMsgException);
-  virtual cMsgMessageBase subscribeAndGet(const string &subject, const string &type, const struct timespec &timeout)
+  virtual cMsgMessageBase *sendAndGet(cMsgMessageBase &sendMsg, const struct timespec &timeout) 
+    throw(cMsgException);
+  virtual cMsgMessageBase *sendAndGet(cMsgMessageBase *sendMsg, const struct timespec &timeout)
+    throw(cMsgException);
+  virtual cMsgMessageBase *subscribeAndGet(const string &subject, const string &type, const struct timespec &timeout)
     throw(cMsgException);
   virtual void flush(void) throw(cMsgException);
   virtual void start(void) throw(cMsgException);
