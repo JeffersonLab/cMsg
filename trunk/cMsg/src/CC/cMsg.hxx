@@ -19,6 +19,7 @@
 #define _cMsg_hxx
 
 
+#include "cMsgConstants.h"
 #include "cMsgBase.hxx"
 
 
