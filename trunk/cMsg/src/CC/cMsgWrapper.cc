@@ -29,28 +29,6 @@
 #include <unistd.h>
 
 
-//-----------------------------------------------------------------------------
-
-
-// misc string conversion functions
-
-static string itos(int i) {
-  char c[64];
-  sprintf(c,"%d",i);
-  return(string(c));
-
-}
-
-static string btos(bool b) {
-  return(b?"true":"false");
-}
-
-
-static string ttos(const struct timespec& t) {
-  string s(ctime(&t.tv_sec));
-  return(s.substr(0,s.length()-1));
-}
-
 
 //-----------------------------------------------------------------------------
 //  cMsgException methods
