@@ -207,7 +207,7 @@ public class cMsgLogger {
             } catch (UnknownHostException e) {
                 System.err.println("?unknown host exception");
             }
-            name = "cMsgLogger:" + host + ":" + (new Date()).getTime();
+            name = "cMsgLogger@" + host + "@" + (new Date()).getTime();
         }
 
 

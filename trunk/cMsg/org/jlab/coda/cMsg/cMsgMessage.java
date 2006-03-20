@@ -696,7 +696,7 @@ public class cMsgMessage implements Cloneable {
         return true;
     }
 
-    
+
     /////////////
     // sender
     /////////////
@@ -791,7 +791,8 @@ public class cMsgMessage implements Cloneable {
             + "     " + "receiverTime         = \"" + this.getReceiverTime() + "\"\n"
             + "     " + "receiverSubscribeId  = \"" + this.getReceiverSubscribeId() + "\"\n"
             + "     " + "subject              = \"" + this.getSubject() + "\"\n"
-            + "     " + "type                 = \"" + this.getType() + "\">\n"
+            + "     " + "type                 = \"" + this.getType() + "\"\n"
+            + "     " + "byteArrayLength      = \"" + this.getByteArrayLength() + "\">\n"
             + "<![CDATA[\n" + this.getText() + "\n]]>\n"
             + "</cMsgMessage>\n\n");
     }
