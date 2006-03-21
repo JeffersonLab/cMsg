@@ -74,13 +74,13 @@
 #include <taskLib.h>
 #else
 #include <strings.h>
+#include <dlfcn.h>
 #endif
 
 #include <stdio.h>
 #include <pthread.h>
 #include <string.h>
 #include <ctype.h>
-
 
 /* package includes */
 #include "errors.h"
@@ -94,9 +94,6 @@
  */
 #define CMSG_MAXHOSTNAMELEN 256
 
-/** Global debug level. */
-int cMsgDebug = CMSG_DEBUG_NONE;
-
 
 /* local variables */
 /** Is the one-time initialization done? */
@@ -107,26 +104,26 @@ static pthread_mutex_t connectMutex = PTHREAD_MUTEX_INITIALIZER;
 static domainTypeInfo dTypeInfo[MAX_DOMAINS];
 /** Store information about each domain connected to. */
 static cMsgDomain domains[MAX_DOMAINS];
-
-
 /** Excluded characters from subject, type, and description strings. */
 static const char *excludedChars = "`\'\"";
-
-
-/** For domain implementations. */
-extern domainTypeInfo cmsgDomainTypeInfo;
-extern domainTypeInfo fileDomainTypeInfo;
-
 
 /* for c++ */
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/** Global debug level. */
+int cMsgDebug = CMSG_DEBUG_NONE;
+
+/** For domain implementations. */
+extern domainTypeInfo cmsgDomainTypeInfo;
+extern domainTypeInfo fileDomainTypeInfo;
+
 
 /* local prototypes */
 static int   checkString(const char *s);
-static void  registerDomainTypeInfo(void);
+static int   registerPermanentDomains();
+static int   registerDynamicDomains(char *domainType);
 static void  domainInit(cMsgDomain *domain);
 static void  domainFree(cMsgDomain *domain);
 static int   parseUDL(const char *UDL, char **domainType, char **UDLremainder);
@@ -237,6 +234,7 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
 
   int i, id=-1, err;
   void *implId;
+  char *domainType, *UDLremainder;
   
   /* check args */
   if ( (checkString(myName)        != CMSG_OK) ||
@@ -255,7 +253,15 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
    * connection. Hope you caught that.
    */
   connectMutexLock();
+
   
+  /* parse the UDL - Uniform Domain Locator */
+  if ( (err = parseUDL(myUDL, &domainType, &UDLremainder)) != CMSG_OK ) {
+    /* there's been a parsing error */
+    connectMutexUnlock();
+    return(err);
+  }  
+
 
   /* do one time initialization */
   if (!oneTimeInitialized) {
@@ -265,9 +271,21 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
     for (i=0; i<MAX_DOMAINS; i++) domainInit(&domains[i]);
 
     /* register domain types */
-    registerDomainTypeInfo();
+    if ( (err = registerPermanentDomains()) != CMSG_OK ) {
+      /* if we can't find the domain lib, or run out of memory, return error */
+      connectMutexUnlock();
+      return(err);
+    }
 
     oneTimeInitialized = 1;
+  }
+  
+  
+  /* register dynamic domain types */
+  if ( (err = registerDynamicDomains(domainType)) != CMSG_OK ) {
+    /* if we can't find the domain lib, or run out of memory, return error */
+    connectMutexUnlock();
+    return(err);
   }
   
 
@@ -291,22 +309,14 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
 
   /* reserve this element of the "domains" array */
   domains[id].initComplete = 1;
-      
   /* save ref to self */
   domains[id].id = id;
-      
   /* store names, can be changed until server connection established */
-  domains[id].name        = (char *) strdup(myName);
-  domains[id].udl         = (char *) strdup(myUDL);
-  domains[id].description = (char *) strdup(myDescription);
-  
-  /* parse the UDL - Uniform Domain Locator */
-  if ( (err = parseUDL(myUDL, &domains[id].type, &domains[id].UDLremainder)) != CMSG_OK ) {
-    /* there's been a parsing error */
-    domainClear(&domains[id]);
-    connectMutexUnlock();
-    return(err);
-  }
+  domains[id].name         = (char *) strdup(myName);
+  domains[id].udl          = (char *) strdup(myUDL);
+  domains[id].description  = (char *) strdup(myDescription);
+  domains[id].type         = domainType;
+  domains[id].UDLremainder = UDLremainder;
 
   /* if such a domain type exists, store pointer to functions */
   domains[id].functions = NULL;
@@ -979,31 +989,256 @@ int cMsgSetDebugLevel(int level) {
 
 
 /**
- * This routine registers the name of a domain implementation
- * along with the set of functions that implement all the basic domain
+ * This routine registers a few permanent domain implementations consisting
+ * of a set of functions that implement all the basic domain
  * functionality (connect, disconnect, send, syncSend, flush, subscribe,
- * unsubscribe, sendAndGet, subscribeAndGet, start, and stop).
- * 
- * This routine must be updated to include each new domain accessible
- * from the "C" language.
+ * unsubscribe, sendAndGet, subscribeAndGet, start, and stop). These
+ * permanent domains are the cmsg, rc, and file domains.
+ * This routine must be updated to include each new permanent domain
+ * accessible from the "C" language.
  */   
-static void registerDomainTypeInfo(void) {
-
+static int registerPermanentDomains() {
+  
   /* cMsg type */
-  dTypeInfo[0].type = (char *)strdup(cmsgDomainTypeInfo.type); 
+  dTypeInfo[0].type = (char *)strdup("CMSG"); 
   dTypeInfo[0].functions = cmsgDomainTypeInfo.functions;
 
 
   /* for clients, runcontrol domain is same as cMsg domain */
-  dTypeInfo[1].type = (char *)strdup("rc"); 
+  dTypeInfo[1].type = (char *)strdup("RC"); 
   dTypeInfo[1].functions = cmsgDomainTypeInfo.functions;
 
 
   /* for file domain */
-  dTypeInfo[2].type = (char *)strdup("file"); 
+  dTypeInfo[2].type = (char *)strdup("FILE"); 
   dTypeInfo[2].functions = fileDomainTypeInfo.functions;
+     
+  return(CMSG_OK);  
+}
 
-  return;
+
+/**
+ * This routine registers domain implementations dynamically.
+ * The registration includes the name of the domain (in all caps)
+ * along with the set of functions that implement all the basic domain
+ * functionality (connect, disconnect, send, syncSend, flush, subscribe,
+ * unsubscribe, sendAndGet, subscribeAndGet, start, and stop).
+ * This routine is used when a connection to a user-written domain
+ * is found in a client's UDL.
+ */   
+static int registerDynamicDomains(char *domainType) {
+
+  char *upperCase, libName[256];
+  int i, index=-1;
+  void *libHandle, *sym;
+  domainFunctions *funcs;
+      
+  /*
+   * We have already loaded the cMsg, rc, and file domains.
+   * Now we need to dynamically load any libraries needed
+   * to support other domains. Look for shared libraries
+   * with names of cMsgLib<domain>.so where domain is the
+   * domain found in the parsing of the UDL raised to all
+   * capital letters.
+   */
+   
+  /* First raise the domain name to all caps. */
+  upperCase = (char *) strdup(domainType);
+  for (i=0; i<strlen(upperCase); i++) {
+    upperCase[i] = toupper(upperCase[i]);
+  }
+  
+  /* Check to see if it's been loaded already */
+  for (i=0; i < MAX_DOMAINS; i++) {
+    if (dTypeInfo[i].type == NULL) {
+        if (index < 0) {
+            index = i;
+        }
+        continue;
+    }    
+    
+    if ( strcmp(upperCase, dTypeInfo[i].type) == 0 ) {
+        /* already have this domain loaded */
+/* printf("registerDynamicDomains: domain %s is already loaded\n", upperCase); */
+        free(upperCase);
+        return(CMSG_OK);    
+    }  
+  }
+  
+#ifdef VXWORKS
+
+  printf("registerDynamicDomains: dynamic loading of domains in vxWorks is not supported\n");
+  return(CMSG_BAD_DOMAIN_TYPE);
+
+#else 
+  
+  /* we need to load a new domain library */  
+  funcs = (domainFunctions *) malloc(sizeof(domainFunctions));
+  if (funcs == NULL) {
+    free(upperCase);
+    return(CMSG_OUT_OF_MEMORY);  
+  }
+  
+  /* create name of library to look for */
+  sprintf(libName, "%s%s%s", "libcmsg", upperCase, ".so");
+/* printf("registerDynamicDomains: looking for %s\n", libName); */
+  
+  /* open library */
+  libHandle = dlopen(libName, RTLD_NOW);
+  if (libHandle == NULL) {
+    free(funcs);
+    free(upperCase);
+    return(CMSG_ERROR);
+  }
+  
+  /* get "connect" function */
+  sym = dlsym(libHandle, "cmsgd_connect");
+  if (sym == NULL) {
+    free(funcs);
+    free(upperCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->connect = (CONNECT_PTR) sym;
+
+  /* get "send" function */
+  sym = dlsym(libHandle, "cmsgd_send");
+  if (sym == NULL) {
+    free(funcs);
+    free(upperCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->send = (SEND_PTR) sym;
+
+  /* get "syncSend" function */
+  sym = dlsym(libHandle, "cmsgd_syncSend");
+  if (sym == NULL) {
+    free(funcs);
+    free(upperCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->syncSend = (SYNCSEND_PTR) sym;
+
+  /* get "flush" function */
+  sym = dlsym(libHandle, "cmsgd_flush");
+  if (sym == NULL) {
+    free(funcs);
+    free(upperCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->flush = (FUNC_PTR) sym;
+
+  /* get "subscribe" function */
+  sym = dlsym(libHandle, "cmsgd_subscribe");
+  if (sym == NULL) {
+    free(funcs);
+    free(upperCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->subscribe = (SUBSCRIBE_PTR) sym;
+
+  /* get "unsubscribe" function */
+  sym = dlsym(libHandle, "cmsgd_unsubscribe");
+  if (sym == NULL) {
+    free(funcs);
+    free(upperCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->unsubscribe = (UNSUBSCRIBE_PTR) sym;
+
+  /* get "subscribeAndGet" function */
+  sym = dlsym(libHandle, "cmsgd_subscribeAndGet");
+  if (sym == NULL) {
+    free(funcs);
+    free(upperCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->subscribeAndGet = (SUBSCRIBE_AND_GET_PTR) sym;
+
+  /* get "sendAndGet" function */
+  sym = dlsym(libHandle, "cmsgd_sendAndGet");
+  if (sym == NULL) {
+    free(funcs);
+    free(upperCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->sendAndGet = (SEND_AND_GET_PTR) sym;
+
+  /* get "start" function */
+  sym = dlsym(libHandle, "cmsgd_start");
+  if (sym == NULL) {
+    free(funcs);
+    free(upperCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->start = (FUNC_PTR) sym;
+
+  /* get "stop" function */
+  sym = dlsym(libHandle, "cmsgd_stop");
+  if (sym == NULL) {
+    free(funcs);
+    free(upperCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->stop = (FUNC_PTR) sym;
+
+  /* get "disconnect" function */
+  sym = dlsym(libHandle, "cmsgd_disconnect");
+  if (sym == NULL) {
+    free(funcs);
+    free(upperCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->disconnect = (FUNC_PTR) sym;
+
+  /* get "shutdownClients" function */
+  sym = dlsym(libHandle, "cmsgd_shutdownClients");
+  if (sym == NULL) {
+    free(funcs);
+    free(upperCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->shutdownClients = (SHUTDOWN_PTR) sym;
+
+  /* get "shutdownServers" function */
+  sym = dlsym(libHandle, "cmsgd_shutdownServers");
+  if (sym == NULL) {
+    free(funcs);
+    free(upperCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->shutdownServers = (SHUTDOWN_PTR) sym;
+
+  /* get "setShutdownHandler" function */
+  sym = dlsym(libHandle, "cmsgd_setShutdownHandler");
+  if (sym == NULL) {
+    free(funcs);
+    free(upperCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->setShutdownHandler = (SET_SHUTDOWN_HANDLER_PTR) sym;
+
+
+   /* for new domain */
+  dTypeInfo[index].type = upperCase; 
+  dTypeInfo[index].functions = funcs;
+
+#endif  
+      
+  return(CMSG_OK);
 }
 
 

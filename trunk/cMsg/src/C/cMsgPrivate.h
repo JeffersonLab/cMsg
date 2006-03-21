@@ -30,7 +30,7 @@
 
 /* This file may be compiled with the C or C++ compiler.
  * cMsgCallback is defined as C version (function) or
- *   C++ version (class) via the following macro.
+ * C++ version (class) via the following macro.
  *
  * EJW, 21-Mar-2005
  */
@@ -76,58 +76,96 @@ extern "C" {
 extern int cMsgDebug;
 
 
+
+/** Typedef for a domain's connection function */
+typedef int (*CONNECT_PTR)     (const char *udl, const char *name, const char *description,
+                                const char *UDLremainder, void **domainId); 
+                                  
+/** Typedef for a domain's send function */  
+typedef int (*SEND_PTR)        (void *domainId, void *msg);
+
+/** Typedef for a domain's syncSend function */  
+typedef int (*SYNCSEND_PTR)    (void *domainId, void *msg, int *response);
+
+/** Typedef for a domain's subscribe function */  
+typedef int (*SUBSCRIBE_PTR)   (void *domainId, const char *subject, const char *type,
+                                cMsgCallback *callback, void *userArg,
+                                cMsgSubscribeConfig *config);
+
+/** Typedef for a domain's unsubscribe function */  
+typedef int (*UNSUBSCRIBE_PTR) (void *domainId, const char *subject, const char *type,
+                                cMsgCallback *callback, void *userArg);
+  
+/** Typedef for a domain's subscribeAndGet function */  
+typedef int (*SUBSCRIBE_AND_GET_PTR) (void *domainId, const char *subject, const char *type,
+                                    const struct timespec *timeout, void **replyMsg);
+
+/** Typedef for a domain's sendAndGet function */  
+typedef int (*SEND_AND_GET_PTR)         (void *domainId, void *sendMsg,
+                                         const struct timespec *timeout, void **replyMsg);
+
+/** Typedef for a domain's flush, start, stop, and disconnect functions */  
+typedef int (*FUNC_PTR)                 (void *domainId);
+
+/** Typedef for a domain's shutdownClients and shutdownServers functions */  
+typedef int (*SHUTDOWN_PTR)             (void *domainId, const char *client, int flag);
+
+/** Typedef for a domain's shutdownClients and shutdownServers functions */  
+typedef int (*SET_SHUTDOWN_HANDLER_PTR) (void *domainId, cMsgShutdownHandler *handler,
+                                         void *userArg);
+
+
+
 /** This structure holds domain implementation function pointers. */
 typedef struct domainFunctions_t {
+
   /** This function connects to a cMsg server. */
-  int (*connect)         (const char *udl, const char *name, const char *description,
-                          const char *UDLremainder, void **domainId); 
+  CONNECT_PTR connect; 
   
   /** This function sends a message to a cMsg server. */
-  int (*send)            (void *domainId, void *msg);
+  SEND_PTR send;
   
   /** This function sends a message to a cMsg server and receives a synchronous response. */
-  int (*syncSend)        (void *domainId, void *msg, int *response);
+  SYNCSEND_PTR syncSend;
   
   /** This function sends any pending (queued up) communication with the server. */
-  int (*flush)           (void *domainId);
+  FUNC_PTR flush;
   
   /** This function subscribes to messages of the given subject and type. */
-  int (*subscribe)       (void *domainId, const char *subject, const char *type, cMsgCallback *callback,
-                          void *userArg, cMsgSubscribeConfig *config);
+  SUBSCRIBE_PTR subscribe;
   
   /** This functin unsubscribes to messages of the given subject, type and callback. */
-  int (*unsubscribe)     (void *domainId, const char *subject, const char *type, cMsgCallback *callback,
-                          void *userArg);
+  UNSUBSCRIBE_PTR unsubscribe;
   
   /**
    * This function gets one message from a one-time subscription to the given
    * subject and type.
    */
-  int (*subscribeAndGet) (void *domainId, const char *subject, const char *type,
-                          const struct timespec *timeout, void **replyMsg);
+  SUBSCRIBE_AND_GET_PTR subscribeAndGet;
+  
   /**
    * This function gets one message from another cMsg client by sending out
    * an initial message to that responder.
    */
-  int (*sendAndGet)      (void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
+  SEND_AND_GET_PTR sendAndGet;
   
   /** This function enables the receiving of messages and delivery to callbacks. */
-  int (*start)           (void *domainId);
+  FUNC_PTR start;
   
   /** This function disables the receiving of messages and delivery to callbacks. */
-  int (*stop)            (void *domainId);
+  FUNC_PTR stop;
   
   /** This function disconnects the client from its cMsg server. */
-  int (*disconnect)      (void *domainId);
+  FUNC_PTR disconnect;
   
   /** This function shuts down the given clients. */
-  int (*shutdownClients) (void *domainId, const char *client, int flag);
+  SHUTDOWN_PTR shutdownClients;
   
   /** This function shuts down the given servers. */
-  int (*shutdownServers) (void *domainId, const char *server, int flag);
+  SHUTDOWN_PTR shutdownServers;
   
   /** This function sets the shutdown handler. */
-  int (*setShutdownHandler) (void *domainId, cMsgShutdownHandler *handler, void *userArg);
+  SET_SHUTDOWN_HANDLER_PTR setShutdownHandler;
   
 } domainFunctions;
 
