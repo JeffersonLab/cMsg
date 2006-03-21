@@ -22,7 +22,7 @@ EPICS_DIR = /site/epics/R3.13.4/base/lib/Linux
 EPICS_INC = -I/site/epics/R3.13.4/base/include -I/site/epics/R3.13.4/base/include/os/Linux 
 EPICS_LIB = -lca -lCom -lcas -lgdd -lAs -lDb
 AC_FLAGS  =
-CFLAGS    = -O3 -fPIC -I. -I$(INC_DIR) $(AC_FLAGS) $(EPICS_INC)
+CFLAGS    = -O3 -fPIC -I. -I$(C_DIR) -I$(INC_DIR) $(AC_FLAGS) $(EPICS_INC)
 LIBS      = -lexpat -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
 SHLIB_LD  = g++ -shared
 endif
@@ -33,7 +33,7 @@ CXX = CC
 LIB_DIR  = $(TOP_DIR)/lib/SunOS
 BIN_DIR  = $(TOP_DIR)/bin/SunOS
 AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
-CFLAGS   = -mt -xO5 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
+CFLAGS   = -mt -xO5 -KPIC -I. -I$(C_DIR) -I$(INC_DIR) $(AC_FLAGS)
 LIBS     = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
 SHLIB_LD  = ld -G
 endif

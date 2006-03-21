@@ -15,7 +15,7 @@ INCDIR=/site/vxworks/5.5/ppc/target/h
 CXX = g++ppc
 LD = ldppc -r
 DEFS = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
-INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I$(INC_DIR) -I$(INCDIR)
+INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I$(C_DIR) -I$(INC_DIR) -I$(INCDIR)
 CFLAGS = -O3 $(DEFS) 
 endif
 
