@@ -87,6 +87,7 @@
 #include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
 #include "cMsgBase.h"
+#include "regex.h"
 
 /**
  * Because MAXHOSTNAMELEN is defined to be 256 on Solaris and 64 on Linux,
@@ -127,6 +128,7 @@ static int   registerDynamicDomains(char *domainType);
 static void  domainInit(cMsgDomain *domain);
 static void  domainFree(cMsgDomain *domain);
 static int   parseUDL(const char *UDL, char **domainType, char **UDLremainder);
+static int   parseUDLregex(const char *UDL, char **domainType, char **UDLremainder);
 static void  connectMutexLock(void);
 static void  connectMutexUnlock(void);
 static void  domainClear(cMsgDomain *domain);
@@ -256,7 +258,7 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
 
   
   /* parse the UDL - Uniform Domain Locator */
-  if ( (err = parseUDL(myUDL, &domainType, &UDLremainder)) != CMSG_OK ) {
+  if ( (err = parseUDLregex(myUDL, &domainType, &UDLremainder)) != CMSG_OK ) {
     /* there's been a parsing error */
     connectMutexUnlock();
     return(err);
@@ -1364,7 +1366,8 @@ static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
    * The initial cMsg is optional.
    */
 
-  char *p, *udl, *pudl;
+  char *p, *udl, *pudl, *udlLowerCase;
+  int i;
 
   if (UDL == NULL) {
     return(CMSG_BAD_ARGUMENT);
@@ -1373,16 +1376,20 @@ static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
   /* strtok modifies the string it tokenizes, so make a copy */
   pudl = udl = (char *) strdup(UDL);
   
-/*printf("UDL = %s\n", udl);*/
+  /* make a copy in all lower case */
+  udlLowerCase = (char *) strdup(UDL);
+  for (i=0; i<strlen(udlLowerCase); i++) {
+    udlLowerCase[i] = tolower(udlLowerCase[i]);
+  }
 
   /*
    * Check to see if optional "cMsg:" in front.
    * Start by looking for any occurance.
    */  
-  p = strstr(udl, "cMsg:");
+  p = strstr(udlLowerCase, "cmsg:");
   
   /* if there a "cMsg:" in front ... */
-  if (p == udl) {
+  if (p == udlLowerCase) {
     /* if there is still the domain before "://", strip off first "cMsg:" */
     pudl = udl+5;
     p = strstr(pudl, "//");
@@ -1396,6 +1403,7 @@ static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
   /* find domain */
   if ( (p = (char *) strtok(pudl, ":/")) == NULL) {
     free(udl);
+    free(udlLowerCase);
     return (CMSG_BAD_FORMAT);
   }
   if (domainType != NULL) *domainType = (char *) strdup(p);
@@ -1414,7 +1422,110 @@ static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
 
   /* UDL parsed ok */
   free(udl);
+  free(udlLowerCase);
   return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+/**
+ * This routine parses the UDL using regular expressions. The domain
+ * is picked out and all the domain-specific remaining portion is put
+ * in a "remainder" string.
+ */
+static int parseUDLregex(const char *UDL, char **domainType, char **UDLremainder) {
+
+    int        i, err, len, bufLength;
+    char       *p, *udl;
+    char       *buffer;
+    const char *pattern = "(cMsg)?:?([a-zA-Z0-9_]+)://(.*)?";  
+    regmatch_t matches[4]; /* we have 4 potential matches: 1 whole, 3 sub */
+    regex_t    compiled;
+    
+    if (UDL == NULL) {
+        return (CMSG_BAD_FORMAT);
+    }
+    
+    /* make a copy */
+    udl = (char *) strdup(UDL);
+    
+    /* make a big enough buffer to construct various strings, 256 chars minimum */
+    len       = strlen(UDL) + 1;
+    bufLength = len < 256 ? 256 : len;    
+    buffer    = (char *) malloc(bufLength);
+    if (buffer == NULL) {
+      free(udl);
+      return(CMSG_OUT_OF_MEMORY);
+    }
+
+    /*
+     * cMsg domain UDL is of the form:
+     *        cMsg:<domain>://<domain-specific-stuff>
+     * where the first "cMsg:" is optional and case insensitive.
+     */
+
+    /* compile regular expression (case insensitive matching) */
+    err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED|REG_ICASE);
+    if (err != 0) {
+        free(udl);
+        free(buffer);
+        return (CMSG_ERROR);
+    }
+    
+    /* find matches */
+    err = cMsgRegexec(&compiled, udl, 4, matches, 0);
+    if (err != 0) {
+        /* no match */
+        free(udl);
+        free(buffer);
+        return (CMSG_BAD_FORMAT);
+    }
+    
+    /* free up memory */
+    cMsgRegfree(&compiled);
+            
+    /* find domain name */
+    if ((unsigned int)(matches[2].rm_so) < 0) {
+        /* no match for host */
+        free(udl);
+        free(buffer);
+        return (CMSG_BAD_FORMAT);
+    }
+    else {
+       buffer[0] = 0;
+       len = matches[2].rm_eo - matches[2].rm_so;
+       strncat(buffer, udl+matches[2].rm_so, len);
+                        
+        if (domainType != NULL) {
+            *domainType = (char *)strdup(buffer);
+        }
+    }
+/* printf("parseUDLregex: domain = %s\n", buffer); */
+
+
+    /* find domain remainder */
+    buffer[0] = 0;
+    if (matches[3].rm_so < 0) {
+        /* no match */
+        if (UDLremainder != NULL) {
+            *UDLremainder = NULL;
+        }
+    }
+    else {
+        buffer[0] = 0;
+        len = matches[3].rm_eo - matches[3].rm_so;
+        strncat(buffer, udl+matches[3].rm_so, len);
+                
+        if (UDLremainder != NULL) {
+            *UDLremainder = (char *) strdup(buffer);
+        }        
+/* printf("parseUDLregex: domain remainder = %s\n", buffer); */
+    }
+
+    /* UDL parsed ok */
+    free(udl);
+    free(buffer);
+    return(CMSG_OK);
 }
 
 
