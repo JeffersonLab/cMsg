@@ -127,7 +127,6 @@ static int   registerPermanentDomains();
 static int   registerDynamicDomains(char *domainType);
 static void  domainInit(cMsgDomain *domain);
 static void  domainFree(cMsgDomain *domain);
-static int   parseUDL(const char *UDL, char **domainType, char **UDLremainder);
 static int   parseUDLregex(const char *UDL, char **domainType, char **UDLremainder);
 static void  connectMutexLock(void);
 static void  connectMutexUnlock(void);
@@ -1355,84 +1354,11 @@ static void connectMutexUnlock(void) {
  *                     after the ://
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if regular expression compilation fails
  * @returns CMSG_BAD_ARGUMENT if the UDL is null
  * @returns CMSG_BAD_FORMAT if the UDL is formatted incorrectly
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
  */   
-static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
-
-  /* note:  cMsg domain UDL is of the form:
-   *                    cMsg:domainType://somethingDomainSpecific
-   *
-   * The initial cMsg is optional.
-   */
-
-  char *p, *udl, *pudl, *udlLowerCase;
-  int i;
-
-  if (UDL == NULL) {
-    return(CMSG_BAD_ARGUMENT);
-  }
-  
-  /* strtok modifies the string it tokenizes, so make a copy */
-  pudl = udl = (char *) strdup(UDL);
-  
-  /* make a copy in all lower case */
-  udlLowerCase = (char *) strdup(UDL);
-  for (i=0; i<strlen(udlLowerCase); i++) {
-    udlLowerCase[i] = tolower(udlLowerCase[i]);
-  }
-
-  /*
-   * Check to see if optional "cMsg:" in front.
-   * Start by looking for any occurance.
-   */  
-  p = strstr(udlLowerCase, "cmsg:");
-  
-  /* if there a "cMsg:" in front ... */
-  if (p == udlLowerCase) {
-    /* if there is still the domain before "://", strip off first "cMsg:" */
-    pudl = udl+5;
-    p = strstr(pudl, "//");
-    if (p == pudl) {
-      pudl = udl;
-    }
-  }
-    
-  /* get tokens separated by ":" or "/" */
-  
-  /* find domain */
-  if ( (p = (char *) strtok(pudl, ":/")) == NULL) {
-    free(udl);
-    free(udlLowerCase);
-    return (CMSG_BAD_FORMAT);
-  }
-  if (domainType != NULL) *domainType = (char *) strdup(p);
-/*printf("domainType = %s\n", p);*/
-   
-  /* find UDL remainder */
-  if ( (p = (char *) strtok(NULL, "")) != NULL) {
-    /* skip over any beginning "/" chars */
-    while (*p == '/') {
-      p++;
-    }
-    
-    if (UDLremainder != NULL) *UDLremainder = (char *) strdup(p);
-/*printf("remainder = %s\n", p);*/
-  }
-
-  /* UDL parsed ok */
-  free(udl);
-  free(udlLowerCase);
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-/**
- * This routine parses the UDL using regular expressions. The domain
- * is picked out and all the domain-specific remaining portion is put
- * in a "remainder" string.
- */
 static int parseUDLregex(const char *UDL, char **domainType, char **UDLremainder) {
 
     int        i, err, len, bufLength;
