@@ -31,7 +31,7 @@ BIN_DIR  = $(TOP_DIR)/bin/SunOS
 AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
 CFLAGS   = -mt -xO5 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
 LIBS     = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
-SHLIB_LD    = ld -G
+SHLIB_LD = ld -G
 endif
 
 LIBNAM      = libcmsg
@@ -57,7 +57,7 @@ OBJS =  rwlock.o \
 	cMsgDomain.o \
 	fileDomain.o
 
-HFILES = cMsgNetwork.h cMsgPrivate.h cMsgBase.h cMsgDomain.h rwlock.h errors.h
+HFILES = cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsgBase.h cMsgDomain.h rwlock.h errors.h
 
 PROGS  = producer consumer getConsumer getResponder shutdowner
 
