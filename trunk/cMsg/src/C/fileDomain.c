@@ -116,7 +116,6 @@ int fileConnect(const char *myUDL, const char *myName, const char *myDescription
 
   char *fname;
   const char *c;
-  unsigned short port;
   int textOnly;
   fileDomainInfo *fdi;
   FILE *f;
@@ -127,6 +126,7 @@ int fileConnect(const char *myUDL, const char *myName, const char *myDescription
   c = strchr(UDLremainder,'?');
   if(c==NULL) {
     fname=strdup(UDLremainder);
+    textOnly=1;
   } else {
     int nc = c-UDLremainder+1;
     fname=(char*)malloc(nc+1);
@@ -169,8 +169,10 @@ static int fileSend(void *domainId, void *vmsg) {
   char *s;
   time_t now;
   char nowBuf[32];
-  char *creator;
-  int len,stat;
+#ifdef VXWORKS
+  size_t nowLen=sizeof(nowBuf);
+#endif
+  int stat;
   cMsgMessage *msg    = (cMsgMessage*)vmsg;
   fileDomainInfo *fdi = (fileDomainInfo*)domainId;
   
@@ -196,7 +198,11 @@ static int fileSend(void *domainId, void *vmsg) {
     free(s);
   } else {
     now=time(NULL);
+#ifdef VXWORKS
+    ctime_r(&now,nowBuf,&nowLen);
+#else
     ctime_r(&now,nowBuf);
+#endif
     nowBuf[strlen(nowBuf)-1]='\0';
     s=(char*)malloc(strlen(nowBuf)+strlen(msg->text)+64);
     sprintf(s,"%s:    %s\n",nowBuf,msg->text);

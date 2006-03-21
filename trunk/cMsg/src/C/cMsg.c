@@ -2830,12 +2830,13 @@ int cMsgToString(void *vmsg, char **string) {
     "</cMsgMessage>\n\n";
   int formatLen = strlen(format);
 
-  struct timespec userTime, senderTime, receiverTime;
   char *buffer;
   int slen;
   time_t now;
   char nowBuf[32],userTimeBuf[32],senderTimeBuf[32],receiverTimeBuf[32];
-
+#ifdef VXWORKS
+  size_t len=sizeof(nowBuf);
+#endif
 
   cMsgMessage *msg = (cMsgMessage *)vmsg;
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
@@ -2843,11 +2844,17 @@ int cMsgToString(void *vmsg, char **string) {
 
   // get times in ascii and remove newlines
   now=time(NULL);
+#ifdef VXWORKS
+  ctime_r(&now,nowBuf,&len);                                nowBuf[strlen(nowBuf)-1]='\0';
+  ctime_r(&msg->senderTime.tv_sec,senderTimeBuf,&len);      senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
+  ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf,&len);  receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
+  ctime_r(&msg->userTime.tv_sec,userTimeBuf,&len);          userTimeBuf[strlen(userTimeBuf)-1]='\0';
+#else
   ctime_r(&now,nowBuf);                               nowBuf[strlen(nowBuf)-1]='\0';
   ctime_r(&msg->senderTime.tv_sec,senderTimeBuf);     senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
   ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf); receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
   ctime_r(&msg->userTime.tv_sec,userTimeBuf);         userTimeBuf[strlen(userTimeBuf)-1]='\0';
-  
+#endif  
 
   // get string len
   slen=formatLen;

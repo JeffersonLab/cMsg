@@ -85,6 +85,7 @@ static char *strdup(const char *s1) {
  * It's task is to remove all the client threads.
  *-------------------------------------------------------------------*/
 static void cleanUpHandler(void *arg) {
+  struct timespec sTime = {0,500000000};
   cMsgDomain_CODA *domain = (cMsgDomain_CODA *) arg;
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
@@ -106,7 +107,7 @@ static void cleanUpHandler(void *arg) {
    */  
   domain->killClientThread = 1;
   pthread_cond_signal(&domain->subscribeCond);
-  usleep(500000);
+  nanosleep(&sTime,NULL);
   pthread_cancel(domain->clientThread[0]);
   domain->killClientThread = 0;
 

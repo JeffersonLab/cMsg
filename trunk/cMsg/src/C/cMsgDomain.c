@@ -809,6 +809,7 @@ static int reconnect(int domainId, int failoverIndex) {
   mainThreadInfo *threadArg;
   struct timespec waitForThread;
   getInfo *info;
+  struct timespec sTime = {0,500000000};
   
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
   parsedUDL *myParsedUDL  = &domain->failovers[failoverIndex];
@@ -898,7 +899,7 @@ static int reconnect(int domainId, int failoverIndex) {
   if (status != 0) {
     err_abort(status, "Failed callback condition signal");
   }
-  usleep(500000);
+  nanosleep(&sTime,NULL);
   pthread_cancel(domain->clientThread[0]);
   domain->killClientThread = 0;
   

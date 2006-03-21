@@ -1101,7 +1101,7 @@ bool cMsg::isReceiving(void) const {
 
 void cMsg::setShutdownHandler(cMsgShutdownHandlerInterface *handler, void* userArg) throw(cMsgException) {
 
-  int stat;
+  //  int stat;
 //   if((stat=cMsgSetShutdownHandler(myDomainId,handler,userArg))!=CMSG_OK) {
 //     throw(cMsgException(cMsgPerror(stat),stat));
 //   }
