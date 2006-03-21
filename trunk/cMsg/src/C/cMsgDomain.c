@@ -194,8 +194,6 @@ static int parseUDLregex(const char *UDL, char **password,
                               char **UDLRemainder,
                               char **subdomainType,
                               char **UDLsubRemainder);
-static int   parseUDL(const char *UDLremainder, char **host, unsigned short *port,
-                      char **subdomainType, char **UDLsubRemainder);
 static int   unSendAndGet(void *domainId, int id);
 static int   unSubscribeAndGet(void *domainId, const char *subject,
                                const char *type, int id);
@@ -270,7 +268,7 @@ static int restoreSubscriptions(cMsgDomain_CODA *domain)  {
  * @returns 1 if there is a connection to a cMsg server in 3 seconds or 0 if not 
  */
 static int failoverSuccessful(cMsgDomain_CODA *domain, int waitForResubscribes) {
-    int i, err;
+    int err;
     struct timespec wait;
         
     wait.tv_sec  = 3;
@@ -589,13 +587,12 @@ static int cmsgd_Connect(const char *myUDL, const char *myName, const char *myDe
 static int cmsgd_ConnectImpl(int domainId, int failoverIndex) {
 
   int i, id=-1, err, serverfd, status, hz, num_try, try_max;
-  char *portEnvVariable=NULL, temp[CMSG_MAXHOSTNAMELEN];
+  char *portEnvVariable=NULL;
   unsigned short startingPort;
   mainThreadInfo *threadArg;
   struct timespec waitForThread;
   
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
-  parsedUDL *myParsedUDL  = &domain->failovers[failoverIndex];
   
   id = domainId;    
   /*
@@ -803,16 +800,11 @@ static int cmsgd_ConnectImpl(int domainId, int failoverIndex) {
  */   
 static int reconnect(int domainId, int failoverIndex) {
 
-  int i, id=-1, err, serverfd, status, hz, num_try, try_max;
-  char *portEnvVariable=NULL, temp[CMSG_MAXHOSTNAMELEN];
-  unsigned short startingPort;
-  mainThreadInfo *threadArg;
-  struct timespec waitForThread;
+  int i, id=-1, err, serverfd, status;
+  struct timespec waitForThread = {0,500000000};
   getInfo *info;
-  struct timespec sTime = {0,500000000};
   
   cMsgDomain_CODA *domain = &cMsgDomains[domainId];
-  parsedUDL *myParsedUDL  = &domain->failovers[failoverIndex];
   
   id = domainId;    
 
@@ -899,7 +891,7 @@ static int reconnect(int domainId, int failoverIndex) {
   if (status != 0) {
     err_abort(status, "Failed callback condition signal");
   }
-  nanosleep(&sTime,NULL);
+  nanosleep(&waitForThread, NULL);
   pthread_cancel(domain->clientThread[0]);
   domain->killClientThread = 0;
   
@@ -1012,7 +1004,7 @@ static int reconnect(int domainId, int failoverIndex) {
  */   
 static int cmsgd_Send(void *domainId, void *vmsg) {
   
-  int i, err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
+  int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
   cMsgMessage *msg = (cMsgMessage *) vmsg;
   cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
@@ -1020,8 +1012,6 @@ static int cmsgd_Send(void *domainId, void *vmsg) {
   char *creator;
   long long llTime;
   struct timespec now;
-  int status;
-  static int zeroStart = 0;
   
   if (!domain->hasSend) {
     return(CMSG_NOT_IMPLEMENTED);
@@ -1161,7 +1151,6 @@ static int cmsgd_Send(void *domainId, void *vmsg) {
        printf("cmsgd_Send: FAILOVER SUCCESSFUL, try send again\n");
        goto tryagain;
     }  
-printf("cmsgd_Send: FAILOVER NOT successful, quitting, err = %d\n", err);
   }
   
   return(err);
@@ -2832,7 +2821,7 @@ static int cmsgd_Disconnect(void *domainId) {
  */   
 static int disconnectFromKeepAlive(void *domainId) {
   
-  int i, j, status, outGoing[2];
+  int i, j, status;
   cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
   subscribeCbInfo *subscription;
   getInfo *info;
@@ -3335,7 +3324,6 @@ static void *keepAliveThread(void *arg)
     int failoverIndex = domain->failoverIndex;
     int connectFailures = 0;
     int weGotAConnection = 1; /* true */
-    int resubscriptionsComplete = 0; /* false */
     struct timespec wait;
     
     /* increase concurrency for this thread for early Solaris */
@@ -4218,7 +4206,7 @@ static int parseUDLregex(const char *UDL, char **password,
                               char **UDLsubRemainder) {
 
     int        i, err, len, bufLength, Port, index;
-    char       *p, *portString, *udl, *udlLowerCase, *udlRemainder, *pswd;
+    char       *p, *udl, *udlLowerCase, *udlRemainder, *pswd;
     char       *buffer;
     const char *pattern = "([a-zA-Z0-9\\.]+):?([0-9]+)?/?([a-zA-Z0-9]+)?/?(.*)";  
     regmatch_t matches[5]; /* we have 5 potential matches: 1 whole, 4 sub */
@@ -4444,99 +4432,6 @@ static int parseUDLregex(const char *UDL, char **password,
     free(buffer);
     return(CMSG_OK);
 }
-
-
-/*-------------------------------------------------------------------*/
-/**
- * This routine parses the cMsg domain portion of the UDL sent from the 
- * "next level up" in the API.
- */
-static int parseUDL(const char *UDLremainder, char **host, unsigned short *port,
-                    char **subdomainType, char **UDLsubRemainder) {
-
-  /* note: the full cMsg UDL is of the form:
-   *       cMsg:<domainType>://<host>:<port>/<subdomainType>/<remainder>
-   *
-   * where the first "cMsg:" is optional. The subdomain is optional with
-   * the default being cMsg.
-   *
-   * However, we're parsing the UDL with the initial  "cMsg:<domainType>://"
-   * stripped off (in the software layer one up).
-   */
-
-  int   Port;
-  char *p, *portString, *udl;
-
-  if (UDLremainder == NULL) {
-    return(CMSG_BAD_ARGUMENT);
-  }
-  
-  /* strtok modifies the string it tokenizes, so make a copy */
-  udl = (char *) strdup(UDLremainder);
-  
-/*printf("UDL remainder = %s\n", udl);*/
-    
-  /* get tokens separated by ":" or "/" */
-    
-  /* find host */
-  if ( (p = (char *) strtok(udl, ":/")) == NULL) {
-    free(udl);
-    return (CMSG_BAD_FORMAT);
-  }
-  if (host != NULL) *host =(char *) strdup(p);
-/*printf("host = %s\n", p);*/
-  
-  
-  /* find port */
-  if ( (p = (char *) strtok(NULL, "/")) == NULL) {
-    if (host != NULL) free(*host);
-    free(udl);
-    return (CMSG_BAD_FORMAT);
-  }
-  portString = (char *) strdup(p);
-  Port = atoi(portString);
-  free(portString);
-  if (port != NULL) {
-    *port = Port;
-  }
-/*printf("port string = %s, port int = %hu\n", portString, Port);*/
-  if (Port < 1024 || Port > 65535) {
-    if (port != NULL) free((void *) portString);
-    if (host != NULL) free((void *) *host);
-    free(udl);
-    return (CMSG_OUT_OF_RANGE);
-  }
-  
-  /* find subdomain */
-  if ( (p = (char *) strtok(NULL, "/")) != NULL) {
-    if (subdomainType != NULL) {
-      *subdomainType = (char *) strdup(p);
-    }
-  }
-  else {
-    if (subdomainType != NULL) {
-        *subdomainType = (char *) strdup("cMsg");
-    }
-/*printf("subdomainType = cMsg\n");*/
-    free(udl);
-    return(CMSG_OK);
-  }
-  
-/*printf("subdomainType = %s\n", p);*/
-
-  /* find UDL remainder's remainder */
-  if ( (p = (char *) strtok(NULL, "")) != NULL) {
-    if (UDLsubRemainder != NULL) {
-      *UDLsubRemainder = (char *) strdup(p);
-    }
-/*printf("remainder = %s\n", p);*/
-  }
-  
-  /* UDL parsed ok */
-  free(udl);
-  return(CMSG_OK);
-}
-
 
 /*-------------------------------------------------------------------*/
 
@@ -5208,7 +5103,6 @@ static int latchCountDown(countDownLatch *latch, const struct timespec *timeout)
  */
 static void latchReset(countDownLatch *latch, int count, const struct timespec *timeout) {
   int status;
-  struct timespec wait;
 
   /* Lock mutex */
   status = pthread_mutex_lock(&latch->mutex);

@@ -57,7 +57,6 @@ typedef struct cMsgThreadInfo_t {
 
 static int counter = 1;
 static int acknowledge = 0;
-static int msgNumber = 0;
 
 /* for c++ */
 #ifdef __cplusplus
@@ -130,14 +129,13 @@ void *cMsgClientListeningThread(void *arg)
   int             listenFd  = threadArg->listenFd;
   int             blocking  = threadArg->blocking;
   int             domainId  = threadArg->domainId;
-  int             i, err, status, connectionNumber=0;
+  int             err, status, connectionNumber=0;
   int             state, type, index=0;
   const int       on=1;
   fd_set          readSet;
   struct timeval  timeout;
   struct sockaddr_in cliaddr;
   socklen_t	  addrlen, len;
-  pthread_t       threadId;
   pthread_attr_t  attr;
   
   /* pointer to information to be passed to threads */
@@ -384,34 +382,6 @@ static void *clientThread(void *arg)
     /* extract command */
     msgId = ntohl(inComing[1]);
     
-    /* calculate rate */
-    /*
-    if (msgNumber > 0 && msgNumber % 5000 == 0) {
-            clock_gettime(CLOCK_REALTIME, &t2);
-            deltaT = (double)(t2.tv_sec - t0.tv_sec) + 1.e-9*(t2.tv_nsec - t0.tv_nsec);
-            printf("%d @ %6.3f sec\n", msgNumber, deltaT);    
-    }
-    
-    if (count == 0) {
-      clock_gettime(CLOCK_REALTIME, &t1);
-      if (!once) {
-        t0 = t1;
-        once++;
-      }      
-    }
-    else if (count == loops-1) {
-        clock_gettime(CLOCK_REALTIME, &t2);
-        deltaT  = (double)(t2.tv_sec - t1.tv_sec) + 1.e-9*(t2.tv_nsec - t1.tv_nsec);
-        totalT += deltaT;
-        totalC += count;
-        freq    = count/deltaT;
-        freqAvg = (double)totalC/totalT;
-        printf("Listening thd count (%d) = %d, %9.1f Hz, %9.1f Hz Avg.\n", localCount, count, freq, freqAvg);
-        count = -1;
-    }
-    count++;
-    */
-
     switch (msgId) {
 
       case CMSG_SUBSCRIBE_RESPONSE:
@@ -634,8 +604,6 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage *msg) {
   msg->version  = ntohl(inComing[0]);  /* major version of cMsg */
   /* second int is for future use */
   msg->userInt  = ntohl(inComing[2]);  /* user int */
-
-  /*msgNumber = msg->userInt;*/
 
   msg->info     = ntohl(inComing[3]);  /* get info */
   /*

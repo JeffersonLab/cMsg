@@ -224,10 +224,12 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
 #ifndef VXWORKS
   struct in_addr      **pptr;
   struct hostent      *hp;
+  int h_errnop        = 0;
+#ifdef sun
   struct hostent      *result;
   char                *buff;
   int buflen          = 8192;
-  int h_errnop        = 0;
+#endif
 #endif
 
   if (ip_address == NULL || fd == NULL) {
@@ -493,7 +495,7 @@ again:
     }
     else {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cMsgAccept: errno = %d, err = \n", errno, strerror(errno));
+        fprintf(stderr, "cMsgAccept: errno = %d, err = %s\n", errno, strerror(errno));
       }
     }
   }
