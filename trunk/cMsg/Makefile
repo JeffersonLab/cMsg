@@ -30,7 +30,7 @@ endif
 # send this down to lower level makefiles
 export OSNAME
 
-all: mkdirs cCode java jarfile doc
+all: mkdirs cCode java jarfile
 
 mkdirs:
 	-mkdir ./lib
@@ -46,14 +46,15 @@ cCode:
 	cd ./src/C;  $(MAKE) -f $(MAKEFILE) install;
 	cd ./src/CC; $(MAKE) -f $(MAKEFILE) install;
 
-# to avoid including the tar file in the tar file, back up one directory outside cMsg
+
 tarfile:
 	make clean
-	cd ..;	$(RM) cMsg-0.9.tar.gz; tar cvX cMsg/tarexclude -f cMsg-0.9.tar.gz -z cMsg
+	$(RM) cMsg-0.9.tar.gz; tar cvX tarexclude -f cMsg-0.9.tar.gz -z .
 
 
 jarfile:
-	jar cf jar/cMsg-0.9.jar `find org/ -type f | grep -v SCCS | grep class`
+	jar cf jar/cMsg-0.9.jar `find org/ -type f | grep -v SCCS | grep -v CVS | grep class`
+
 
 java:
 	cd ./org/jlab/coda/cMsg; $(MAKE);
