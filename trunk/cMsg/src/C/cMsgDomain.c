@@ -3136,11 +3136,11 @@ static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd, int failoverI
   outGoing[6] = htonl(lengthSubdomain);
   /* send length of the UDL remainder.*/
   /* this may be null */
-  if (pUDL->udlRemainder == NULL) {
+  if (pUDL->subRemainder == NULL) {
     lengthRemainder = outGoing[7] = 0;
   }
   else {
-    lengthRemainder = strlen(pUDL->udlRemainder);
+    lengthRemainder = strlen(pUDL->subRemainder);
     outGoing[7] = htonl(lengthRemainder);
   }
   /* send length of my host name to server */
@@ -3168,7 +3168,7 @@ static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd, int failoverI
   iov[3].iov_base = (char*) pUDL->subdomain;
   iov[3].iov_len  = lengthSubdomain;
   
-  iov[4].iov_base = (char*) pUDL->udlRemainder;
+  iov[4].iov_base = (char*) pUDL->subRemainder;
   iov[4].iov_len  = lengthRemainder;
   
   iov[5].iov_base = (char*) domain->myHost;
@@ -4236,8 +4236,7 @@ static int parseUDLregex(const char *UDL, char **password,
     free(udlLowerCase);
     
     udlRemainder = udl + index + 7;
-/* printf("parseUDLregex: udl remainder = %s\n", udlRemainder); */
-    
+/* printf("parseUDLregex: udl remainder = %s\n", udlRemainder); */    
     
     if (UDLRemainder != NULL) {
         *UDLRemainder = (char *) strdup(udlRemainder);
@@ -4375,14 +4374,13 @@ static int parseUDLregex(const char *UDL, char **password,
         }
     }
     else {
-        /*buffer[0] = 0;*/
         len = matches[4].rm_eo - matches[4].rm_so;
         strncat(buffer, udlRemainder+matches[4].rm_so, len);
                 
         if (UDLsubRemainder != NULL) {
             *UDLsubRemainder = (char *) strdup(buffer);
         }        
-/* printf("parseUDLregex: subdomain remainder = %s\n", buffer); */
+/* printf("parseUDLregex: subdomain remainder = %s, len = %d\n", buffer, len); */
     }
 
 
