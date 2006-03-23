@@ -49,11 +49,11 @@ cCode:
 
 tarfile:
 ###	make clean
-	$(RM) cMsg-0.9.tar.gz; tar cvX tarexclude -f cMsg-0.9.tar.gz -z .
+	$(RM) cMsg-1.0.tar.gz; tar cvX tarexclude -f cMsg-1.0.tar.gz -z .
 
 
 jarfile:
-	jar cf jar/cMsg-0.9.jar `find org/ -type f | grep -v SCCS | grep -v CVS | grep class`
+	jar cf jar/cMsg-1.0.jar `find org/ -type f | grep -v SCCS | grep -v CVS | grep class`
 
 
 java:
@@ -104,7 +104,7 @@ tarClean:
 	-$(RM) *.tar.gz
 
 jarClean:
-	-$(RM) jar/cMsg-0.9.jar
+	-$(RM) jar/cMsg*.jar
 
 
 
