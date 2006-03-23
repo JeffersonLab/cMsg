@@ -28,6 +28,10 @@ using namespace std;
 #include <string>
 
 
+// copied from cMsgBase.h
+typedef void (cMsgShutdownHandler) (void *userArg);
+
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
@@ -123,6 +127,7 @@ public:
   virtual bool isGetRequest(void) const throw(cMsgException);
   virtual bool isGetResponse(void) const throw(cMsgException);
   virtual bool isNullGetResponse(void) const throw(cMsgException);
+  virtual bool needToSwap(void) const throw(cMsgException);
   virtual void makeNullResponse(cMsgMessageBase &msg) throw(cMsgException);
   virtual void makeNullResponse(cMsgMessageBase *msg) throw(cMsgException);
   virtual void makeResponse(cMsgMessageBase &msg) throw(cMsgException);
@@ -150,40 +155,6 @@ class cMsgCallback {
 
 public:
   virtual void callback(cMsgMessageBase *msg, void *userObject) = 0;
-};
-
-
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-
-
-class cMsgShutdownHandlerInterface {
-
-  /**
-   * Pure virtual class defines shutdown handler method.
-   *
-   * @version 1.0
-   */
-
-public:
-  virtual void handleShutdown(void) = 0;
-};
-
-
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-
-
-class cMsgShutdownHandlerDefault:public cMsgShutdownHandlerInterface {
-
-  /**
-   * Concrete class supplies default shutdown handler.
-   *
-   * @version 1.0
-   */
-
-public:
-  virtual void handleShutdown(void);
 };
 
 
@@ -290,7 +261,7 @@ public:
   virtual string getDescription(void) const;
   virtual bool isConnected(void) const;
   virtual bool isReceiving(void) const;
-  virtual void setShutdownHandler(cMsgShutdownHandlerInterface *handler, void* userArg) throw(cMsgException);
+  virtual void setShutdownHandler(cMsgShutdownHandler *handler, void* userArg) throw(cMsgException);
   virtual void shutdownClients(string &client, int flag) throw(cMsgException);
   virtual void shutdownServers(string &server, int flag) throw(cMsgException);
 };

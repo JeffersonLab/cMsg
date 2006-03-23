@@ -1,5 +1,5 @@
 // to do
-//   shutdown handler
+//   endian functions, other C functions
 //   doxygen doc
 
 
@@ -644,6 +644,21 @@ bool cMsgMessageBase::isNullGetResponse() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+bool cMsgMessageBase::needToSwap() const throw(cMsgException) {
+
+  int flag,stat;
+
+  if((stat=cMsgNeedToSwap(myMsgPointer,&flag))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+
+  return(flag==1);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
 void cMsgMessageBase::makeNullResponse(cMsgMessageBase &msg) throw(cMsgException) {
 
   cMsgMessage *t = (cMsgMessage*)myMsgPointer;
@@ -761,16 +776,6 @@ string cMsgMessageBase::toString(void) const throw(cMsgException) {
   free(cs);
   return(s);
            
-}
-
-
-//-----------------------------------------------------------------------------
-// cMsgShutdownHandlerDefault methods
-//-----------------------------------------------------------------------------
-
-
-void cMsgShutdownHandlerDefault::handleShutdown(void) {
-  std::exit(EXIT_FAILURE);
 }
 
 
@@ -1099,12 +1104,12 @@ bool cMsg::isReceiving(void) const {
 //-----------------------------------------------------------------------------
 
 
-void cMsg::setShutdownHandler(cMsgShutdownHandlerInterface *handler, void* userArg) throw(cMsgException) {
+void cMsg::setShutdownHandler(cMsgShutdownHandler *handler, void* userArg) throw(cMsgException) {
 
-  //  int stat;
-//   if((stat=cMsgSetShutdownHandler(myDomainId,handler,userArg))!=CMSG_OK) {
-//     throw(cMsgException(cMsgPerror(stat),stat));
-//   }
+  int stat;
+  if((stat=cMsgSetShutdownHandler(myDomainId,handler,userArg))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
 }
 
 
