@@ -48,7 +48,7 @@ cCode:
 
 
 tarfile:
-	make clean
+###	make clean
 	$(RM) cMsg-0.9.tar.gz; tar cvX tarexclude -f cMsg-0.9.tar.gz -z .
 
 
