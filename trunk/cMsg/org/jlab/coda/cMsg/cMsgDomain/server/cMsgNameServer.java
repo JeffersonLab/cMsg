@@ -383,6 +383,7 @@ public class cMsgNameServer extends Thread {
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage: java [-Dport=<listening port>]\n"+
+                             "            [-D<subdomainName=<className>]\n" +
                              "            [-Dserver=<hostname:serverport>]\n" +
                              "            [-Ddebug=<level>]\n" +
                              "            [-Dtimeorder]\n" +
@@ -390,6 +391,8 @@ public class cMsgNameServer extends Thread {
                              "            [-Dpassword=<password>]\n" +
                              "            [-Dcloudpassword=<password>]  cMsgNameServer\n");
         System.out.println("       listening port is the TCP port this server listens on");
+        System.out.println("       subdomainName  is the name of a subdomain and className is the");
+        System.out.println("                      name of the java class used to implement the subdomain");
         System.out.println("       hostname       is the name of another host on which a cMsg server");
         System.out.println("                      is running whose cMsg subdomain you want to join");
         System.out.println("                      and serverport is that server's port");
@@ -402,7 +405,7 @@ public class cMsgNameServer extends Thread {
         System.out.println("       timeorder      means messages handled in order received");
         System.out.println("       standalone     means no other servers may connect or vice versa");
         System.out.println("       password       is used to block clients without this password in their UDL's");
-        System.out.println("       cloudpassword  is used to join a password-portected cloud or to allow");
+        System.out.println("       cloudpassword  is used to join a password-protected cloud or to allow");
         System.out.println("                      servers with this password to join this cloud");
         System.out.println();
     }
