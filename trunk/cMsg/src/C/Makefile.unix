@@ -98,6 +98,20 @@ $(LIB_DYNAMIC): $(OBJS)
 # file dependencies
 $(OBJS)   : $(HFILES) $(SRC)
 
+# dummy stuff for example on how to create domain
+LIB_DUMMY = libcmsgDUMMY.so
+
+dummydomain: $(LIB_DUMMY) dummy
+
+$(LIB_DUMMY): dummyDomain.o
+	$(SHLIB_LD) dummyDomain.o -o $@
+        
+dummyDomain.o : $(HFILES) dummyDomain.c
+
+dummy : dummy.c
+	$(CC) -o dummy $(CFLAGS) dummy.c -L./ -L$(LIB_DIR) -lcmsgDUMMY -lcmsg -lcMsgRegex  $(LIBS)
+
+# Clean up
 clean: 
 	rm -f core *~ *.o *.so *.a *.class $(PROGS)
 
