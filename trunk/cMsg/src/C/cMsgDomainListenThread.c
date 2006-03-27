@@ -36,12 +36,6 @@
 #include "cMsgDomain.h"
 
 /**
- * Array containing a structure of information about each client
- * connection to the cMsg domain.
- */
-extern cMsgDomain_CODA cMsgDomains[];
-
-/**
  * This structure passes relevant info to each thread serving
  * a cMsg connection.
  */
@@ -62,6 +56,13 @@ static int acknowledge = 0;
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * Array containing a structure of information about each client
+ * connection to the cMsg domain.
+ */
+extern cMsgDomain_CODA cMsgDomains[];
+
 
 /* prototypes */
 static void *clientThread(void *arg);

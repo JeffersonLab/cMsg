@@ -73,9 +73,6 @@
 /** Number of seconds to wait for cMsgClientListeningThread threads to start. */
 #define WAIT_FOR_THREADS 10
 
-/** Store information about each cMsg domain connected to. */
-cMsgDomain_CODA cMsgDomains[MAXDOMAINS_CODA];
-
 /* local variables */
 /** Is the one-time initialization done? */
 static int oneTimeInitialized = 0;
@@ -100,6 +97,10 @@ static int initialMsgBufferSize = 15000;
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/** Store information about each cMsg domain connected to. */
+cMsgDomain_CODA cMsgDomains[MAXDOMAINS_CODA];
+
 
 /* Prototypes of the functions which implement the standard cMsg tasks in the cMsg domain. */
 static int   cmsgd_Connect           (const char *myUDL, const char *myName, const char *myDescription,
