@@ -359,7 +359,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
     }
     close(sockfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errnop));
-    return -1;
+    return(CMSG_NETWORK_ERROR);
   }
   pptr = (struct in_addr **) hp->h_addr_list;
 
