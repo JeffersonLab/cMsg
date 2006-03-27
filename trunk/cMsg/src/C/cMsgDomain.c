@@ -4209,7 +4209,7 @@ static int parseUDLregex(const char *UDL, char **password,
     int        i, err, len, bufLength, Port, index;
     char       *p, *udl, *udlLowerCase, *udlRemainder, *pswd;
     char       *buffer;
-    const char *pattern = "([a-zA-Z0-9\\.]+):?([0-9]+)?/?([a-zA-Z0-9]+)?/?(.*)";  
+    const char *pattern = "([a-zA-Z0-9\\.\\-]+):?([0-9]+)?/?([a-zA-Z0-9]+)?/?(.*)";  
     regmatch_t matches[5]; /* we have 5 potential matches: 1 whole, 4 sub */
     regex_t    compiled;
     

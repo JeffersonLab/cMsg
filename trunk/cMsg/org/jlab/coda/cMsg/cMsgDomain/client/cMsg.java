@@ -2114,13 +2114,13 @@ public class cMsg extends cMsgDomainAdapter {
 
         // Remember that for this domain:
         // 1) port is not necessary
-        // 2) host can be "localhost" and may also includes dots (.)
+        // 2) host can be "localhost" and may also be in dotted form (129.57.35.21)
         // 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
         //    if subdomainType is not cMsg, it is required
         // 4) remainder is past on to the subdomain plug-in
         // 5) client's password is in tag=value part of UDL as cmsgpassword=<password>
 
-        Pattern pattern = Pattern.compile("([\\w\\.]+):?(\\d+)?/?(\\w+)?/?(.*)");
+        Pattern pattern = Pattern.compile("([\\w\\.\\-]+):?(\\d+)?/?(\\w+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
         String udlHost=null, udlPort=null, udlSubdomain=null, udlSubRemainder=null;
