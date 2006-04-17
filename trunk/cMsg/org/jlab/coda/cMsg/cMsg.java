@@ -185,14 +185,19 @@ public class cMsg {
         if (domainConnectionClass == null) {
             domainConnectionClass = System.getenv("CMSG_DOMAIN");
         }
-
+System.out.println("Looking for domain " + domain);
         // If there is still no handler class, look for the
         // standard, provided classes.
         if (domainConnectionClass == null) {
             // cMsg and runcontrol domains use the same client code
-            if (domain.equalsIgnoreCase("cMsg") ||
-                domain.equalsIgnoreCase("rc")  )  {
+            if (domain.equalsIgnoreCase("cMsg"))  {
                 domainConnectionClass = "org.jlab.coda.cMsg.cMsgDomain.client.cMsg";
+            }
+            else if (domain.equalsIgnoreCase("cc")) {
+                domainConnectionClass = "org.jlab.coda.cMsg.CodaCompDomain.CodaComp";
+            }
+            else if (domain.equalsIgnoreCase("TCPS")) {
+                domainConnectionClass = "org.jlab.coda.cMsg.TCPSDomain.TCPS";
             }
             else if (domain.equalsIgnoreCase("file")) {
                 domainConnectionClass = "org.jlab.coda.cMsg.FileDomain.File";
