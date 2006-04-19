@@ -119,6 +119,7 @@ int cMsgDebug = CMSG_DEBUG_NONE;
 /** For domain implementations. */
 extern domainTypeInfo cmsgDomainTypeInfo;
 extern domainTypeInfo fileDomainTypeInfo;
+extern domainTypeInfo   ccDomainTypeInfo;
 
 
 /* local prototypes */
@@ -375,15 +376,8 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
 int cMsgSend(int domainId, void *msg) {
   
   int id = domainId - DOMAIN_ID_OFFSET;
-  cMsgMessage *cmsg = (cMsgMessage *)msg;
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
-  /* check args */
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  if ( (checkString(cmsg->subject)  !=0 ) ||
-       (checkString(cmsg->type)     !=0 )   ) {
-    return(CMSG_BAD_ARGUMENT);
-  }
 
   /* dispatch to function registered for this domain type */
   return(domains[id].functions->send(domains[id].implId, msg));
@@ -415,16 +409,8 @@ int cMsgSend(int domainId, void *msg) {
 int cMsgSyncSend(int domainId, void *msg, int *response) {
   
   int id = domainId - DOMAIN_ID_OFFSET;
-  cMsgMessage *cmsg = (cMsgMessage *)msg;
   
-  if (domains[id].initComplete != 1)   return(CMSG_NOT_INITIALIZED);
-  /* check args */
-  if (msg == NULL || response == NULL) return(CMSG_BAD_ARGUMENT);
-  if ( (checkString(cmsg->subject)  !=0 ) ||
-       (checkString(cmsg->type)     !=0 )   ) {
-    return(CMSG_BAD_ARGUMENT);
-  }
-  
+  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);  
 
   /* dispatch to function registered for this domain type */
   return(domains[id].functions->syncSend(domains[id].implId, msg, response));
@@ -451,8 +437,7 @@ int cMsgFlush(int domainId) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
-  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
-  
+  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);  
 
   /* dispatch to function registered for this domain type */
   return(domains[id].functions->flush(domains[id].implId));
@@ -476,6 +461,8 @@ int cMsgFlush(int domainId) {
  * @param callback pointer to callback to be executed on receipt of message
  * @param userArg user-specified pointer to be passed to the callback
  * @param config pointer to callback configuration structure
+ * @param handle pointer to handle (void pointer) to be used for unsubscribing
+ *               from this subscription
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
@@ -484,22 +471,15 @@ int cMsgFlush(int domainId) {
  *          of cMsgSubscribe
  */   
 int cMsgSubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
-                  void *userArg, cMsgSubscribeConfig *config) {
+                  void *userArg, cMsgSubscribeConfig *config, void **handle) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
-
-  /* check args */
-  if ( (checkString(subject) !=0 )  ||
-       (checkString(type)    !=0 )  ||
-       (callback == NULL)          )  {
-    return(CMSG_BAD_ARGUMENT);
-  }
   
   /* dispatch to function registered for this domain type */
   return(domains[id].functions->subscribe(domains[id].implId, subject, type, callback,
-                                          userArg, config));
+                                          userArg, config, handle));
 }
 
 
@@ -507,14 +487,10 @@ int cMsgSubscribe(int domainId, const char *subject, const char *type, cMsgCallb
 
 
 /**
- * This routine unsubscribes to messages of the given subject, type,
- * callback, and user argument.
+ * This routine unsubscribes to messages of the given handle (which
+ * represents a given subject, type, callback, and user argument).
  *
- * @param domainId id number of the domain connection
- * @param subject subject of messages to unsubscribed from
- * @param type type of messages to unsubscribed from
- * @param callback pointer to callback to be removed
- * @param userArg user-specified pointer to be passed to the callback
+ * @param handle void pointer obtained from cMsgSubscribe
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
@@ -522,26 +498,14 @@ int cMsgSubscribe(int domainId, const char *subject, const char *type, cMsgCallb
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgUnSubscribe
  */   
-int cMsgUnSubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
-                    void *userArg) {
+int cMsgUnSubscribe(int domainId, void *handle) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
-
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
 
-
-  /* check args */
-  if ( (checkString(subject) !=0 )  ||
-       (checkString(type)    !=0 )  ||
-       (callback == NULL)          )  {
-    return(CMSG_BAD_ARGUMENT);
-  }
-  
-
   /* dispatch to function registered for this domain type */
-  return(domains[id].functions->unsubscribe(domains[id].implId, subject, type, callback,
-                                            userArg));
+  return(domains[id].functions->unsubscribe(domains[id].implId, handle));
 } 
 
 
@@ -571,19 +535,9 @@ int cMsgUnSubscribe(int domainId, const char *subject, const char *type, cMsgCal
 int cMsgSendAndGet(int domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
-  cMsgMessage *msg;
 
-  if (domains[id].initComplete != 1)       return(CMSG_NOT_INITIALIZED);
-  if (sendMsg == NULL || replyMsg == NULL) return(CMSG_BAD_ARGUMENT);
-  
-  msg = (cMsgMessage *)sendMsg;
-  
-  /* check msg fields */
-  if ( (checkString(msg->subject)  !=0 ) ||
-       (checkString(msg->type)     !=0 )   ) {
-    return(CMSG_BAD_ARGUMENT);
-  }
-
+  if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
+    
   return(domains[id].functions->sendAndGet(domains[id].implId, sendMsg, timeout, replyMsg));
 }
 
@@ -613,14 +567,7 @@ int cMsgSubscribeAndGet(int domainId, const char *subject, const char *type,
   int id = domainId - DOMAIN_ID_OFFSET;
 
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
-  if (replyMsg == NULL)              return(CMSG_BAD_ARGUMENT);
   
-  /* check args */
-  if ( (checkString(subject) !=0 ) ||
-       (checkString(type)    !=0 ))  {
-    return(CMSG_BAD_ARGUMENT);
-  }
-
   return(domains[id].functions->subscribeAndGet(domains[id].implId, subject, type,
                                                 timeout, replyMsg));
 }
@@ -1005,9 +952,9 @@ static int registerPermanentDomains() {
   dTypeInfo[0].functions = cmsgDomainTypeInfo.functions;
 
 
-  /* for clients, runcontrol domain is same as cMsg domain */
-  dTypeInfo[1].type = (char *)strdup("RC"); 
-  dTypeInfo[1].functions = cmsgDomainTypeInfo.functions;
+  /* coda component (CC) domain */
+  dTypeInfo[1].type = (char *)strdup("CC"); 
+  dTypeInfo[1].functions = ccDomainTypeInfo.functions;
 
 
   /* for file domain */
@@ -1029,10 +976,14 @@ static int registerPermanentDomains() {
  */   
 static int registerDynamicDomains(char *domainType) {
 
-  char *upperCase, libName[256];
-  int i, index=-1;
+  char *upperCase;
+  unsigned int i;
+  int   index=-1;
+#ifndef VXWORKS
+  char  libName[256];
   void *libHandle, *sym;
   domainFunctions *funcs;
+#endif
       
   /*
    * We have already loaded the cMsg, rc, and file domains.
@@ -1361,9 +1312,8 @@ static void connectMutexUnlock(void) {
  */   
 static int parseUDLregex(const char *UDL, char **domainType, char **UDLremainder) {
 
-    int        i, err, len, bufLength;
-    char       *p, *udl;
-    char       *buffer;
+    int        err, len, bufLength;
+    char       *udl, *buffer;
     const char *pattern = "(cMsg)?:?([a-zA-Z0-9_]+)://(.*)?";  
     regmatch_t matches[4]; /* we have 4 potential matches: 1 whole, 3 sub */
     regex_t    compiled;
