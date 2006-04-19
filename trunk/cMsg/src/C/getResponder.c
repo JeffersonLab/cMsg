@@ -74,6 +74,7 @@ int main(int argc,char **argv) {
   char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
   int   err, debug = 1, loops=0;
   cMsgSubscribeConfig *config;
+  void *unSubHandle;
 
   /* msg rate measuring variables */
   int             period = 5; /* sec */
@@ -115,7 +116,7 @@ int main(int argc,char **argv) {
   cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
 
   /* subscribe with default configuration */
-  err = cMsgSubscribe(domainId, subject, type, mycallback, NULL, config);
+  err = cMsgSubscribe(domainId, subject, type, mycallback, NULL, config, &unSubHandle);
   if (err != CMSG_OK) {
       if (debug) {
           printf("cMsgSubscribe: %s\n",cMsgPerror(err));

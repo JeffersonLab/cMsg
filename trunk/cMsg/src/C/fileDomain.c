@@ -67,9 +67,8 @@ static int   fileSend(void *domainId, void *msg);
 static int   fileSyncSend(void *domainId, void *msg, int *response);
 static int   fileFlush(void *domainId);
 static int   fileSubscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
-                           void *userArg, cMsgSubscribeConfig *config);
-static int   fileUnsubscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
-                              void *userArg);
+                           void *userArg, cMsgSubscribeConfig *config, void **handle);
+static int   fileUnsubscribe(void *domainId, void *handle);
 static int   fileSubscribeAndGet(void *domainId, const char *subject, const char *type,
                                  const struct timespec *timeout, void **replyMsg);
 static int   fileSendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
@@ -255,7 +254,7 @@ static int fileFlush(void *domainId) {
 
 
 static int fileSubscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
-                     void *userArg, cMsgSubscribeConfig *config) {
+                     void *userArg, cMsgSubscribeConfig *config, void **handle) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -263,8 +262,7 @@ static int fileSubscribe(void *domainId, const char *subject, const char *type, 
 /*-------------------------------------------------------------------*/
 
 
-static int fileUnsubscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
-                           void *userArg) {
+static int fileUnsubscribe(void *domainId, void *handle) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 

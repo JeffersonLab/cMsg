@@ -6,7 +6,7 @@
  *    This software was developed under a United States Government license    *
  *    described in the NOTICE file included as part of this distribution.     *
  *                                                                            *
- *    E.Wolin, 13-Jan-2006, Jefferson Lab                                     *
+ *    c. Timmer, 31-Mar-2006, Jefferson Lab                                     *
  *                                                                            *
  *    Authors: Carl Timmer                                                    *
  *             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
@@ -48,9 +48,8 @@ int   cmsgd_send(void *domainId, void *msg);
 int   cmsgd_syncSend(void *domainId, void *msg, int *response);
 int   cmsgd_flush(void *domainId);
 int   cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
-                           void *userArg, cMsgSubscribeConfig *config);
-int   cmsgd_unsubscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
-                              void *userArg);
+                           void *userArg, cMsgSubscribeConfig *config, void **handle);
+int   cmsgd_unsubscribe(void *domainId, void *handle);
 int   cmsgd_subscribeAndGet(void *domainId, const char *subject, const char *type,
                                  const struct timespec *timeout, void **replyMsg);
 int   cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
@@ -124,7 +123,7 @@ int cmsgd_flush(void *domainId) {
 
 
 int cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
-                    void *userArg, cMsgSubscribeConfig *config) {
+                    void *userArg, cMsgSubscribeConfig *config, void **handle) {
   printf("Subscribe\n");
   return(CMSG_OK);
 }
@@ -133,8 +132,7 @@ int cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgC
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_unsubscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
-                      void *userArg) {
+int cmsgd_unsubscribe(void *domainId, void *handle) {
   printf("Unsubscribe\n");
   return(CMSG_OK);
 }
