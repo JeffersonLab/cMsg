@@ -86,6 +86,9 @@ static rwLock_t connectLock = RWL_INITIALIZER;
 /** Id number which uniquely defines a subject/type pair. */
 static int subjectTypeId = 1;
 
+/** Excluded characters from subject, type, and description strings. */
+static const char *excludedChars = "`\'\"";
+
 
 /** Buffer for sending messages. */
 /* static char *msgBuffer;*/
@@ -103,35 +106,34 @@ cMsgDomain_CODA cMsgDomains[MAXDOMAINS_CODA];
 
 
 /* Prototypes of the functions which implement the standard cMsg tasks in the cMsg domain. */
-static int   cmsgd_Connect           (const char *myUDL, const char *myName, const char *myDescription,
-                                    const char *UDLremainder,void **domainId);
-static int   cmsgd_Send              (void *domainId, void *msg);
-static int   cmsgd_SyncSend          (void *domainId, void *msg, int *response);
-static int   cmsgd_Flush             (void *domainId);
-static int   cmsgd_Subscribe         (void *domainId, const char *subject, const char *type, cMsgCallback *callback,
-                                    void *userArg, cMsgSubscribeConfig *config);
-static int   cmsgd_Unsubscribe       (void *domainId, const char *subject, const char *type, cMsgCallback *callback,
-                                    void *userArg);
-static int   cmsgd_SubscribeAndGet   (void *domainId, const char *subject, const char *type,
-                                    const struct timespec *timeout, void **replyMsg);
-static int   cmsgd_SendAndGet        (void *domainId, void *sendMsg, const struct timespec *timeout,
-                                    void **replyMsg);
-static int   cmsgd_Start             (void *domainId);
-static int   cmsgd_Stop              (void *domainId);
-static int   cmsgd_Disconnect        (void *domainId);
-static int   cmsgd_SetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
-static int   cmsgd_ShutdownClients   (void *domainId, const char *client, int flag);
-static int   cmsgd_ShutdownServers   (void *domainId, const char *server, int flag);
+static int   cmsgd_connect           (const char *myUDL, const char *myName, const char *myDescription,
+                                      const char *UDLremainder,void **domainId);
+static int   cmsgd_send              (void *domainId, void *msg);
+static int   cmsgd_syncSend          (void *domainId, void *msg, int *response);
+static int   cmsgd_flush             (void *domainId);
+static int   cmsgd_subscribe         (void *domainId, const char *subject, const char *type, cMsgCallback *callback,
+                                      void *userArg, cMsgSubscribeConfig *config, void **handle);
+static int   cmsgd_unsubscribe       (void *domainId, void *handle);
+static int   cmsgd_subscribeAndGet   (void *domainId, const char *subject, const char *type,
+                                      const struct timespec *timeout, void **replyMsg);
+static int   cmsgd_sendAndGet        (void *domainId, void *sendMsg, const struct timespec *timeout,
+                                      void **replyMsg);
+static int   cmsgd_start             (void *domainId);
+static int   cmsgd_stop              (void *domainId);
+static int   cmsgd_disconnect        (void *domainId);
+static int   cmsgd_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
+static int   cmsgd_shutdownClients   (void *domainId, const char *client, int flag);
+static int   cmsgd_shutdownServers   (void *domainId, const char *server, int flag);
 
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
-static domainFunctions functions = {cmsgd_Connect, cmsgd_Send,
-                                    cmsgd_SyncSend, cmsgd_Flush,
-                                    cmsgd_Subscribe, cmsgd_Unsubscribe,
-                                    cmsgd_SubscribeAndGet, cmsgd_SendAndGet,
-                                    cmsgd_Start, cmsgd_Stop, cmsgd_Disconnect,
-                                    cmsgd_ShutdownClients, cmsgd_ShutdownServers,
-                                    cmsgd_SetShutdownHandler};
+static domainFunctions functions = {cmsgd_connect, cmsgd_send,
+                                    cmsgd_syncSend, cmsgd_flush,
+                                    cmsgd_subscribe, cmsgd_unsubscribe,
+                                    cmsgd_subscribeAndGet, cmsgd_sendAndGet,
+                                    cmsgd_start, cmsgd_stop, cmsgd_disconnect,
+                                    cmsgd_shutdownClients, cmsgd_shutdownServers,
+                                    cmsgd_setShutdownHandler};
 
 /* cMsg domain type */
 domainTypeInfo cmsgDomainTypeInfo = {
@@ -187,8 +189,9 @@ static int failoverSuccessful(cMsgDomain_CODA *domain, int waitForResubscribes);
 static int resubscribe(cMsgDomain_CODA *domain, const char *subject, const char *type);
 
 /* misc */
+static int checkString(const char *s);
 static int disconnectFromKeepAlive(void *domainId);
-static int cmsgd_ConnectImpl(int domainId, int failoverIndex);
+static int cmsgd_connectImpl(int domainId, int failoverIndex);
 static int talkToNameServer(cMsgDomain_CODA *domain, int serverfd, int failoverIndex);
 static int parseUDLregex(const char *UDL, char **password,
                               char **host, unsigned short *port,
@@ -210,6 +213,38 @@ static char *strdup(const char *s1) {
     return strcpy(s, s1);
 }
 #endif
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine checks a string given as a function argument.
+ * It returns an error if it contains an unprintable character or any
+ * character from a list of excluded characters (`'").
+ *
+ * @param s string to check
+ *
+ * @returns CMSG_OK if string is OK
+ * @returns CMSG_ERROR if string contains excluded or unprintable characters
+ */   
+static int checkString(const char *s) {
+
+  int i;
+
+  if (s == NULL) return(CMSG_ERROR);
+
+  /* check for printable character */
+  for (i=0; i<(int)strlen(s); i++) {
+    if (isprint((int)s[i]) == 0) return(CMSG_ERROR);
+  }
+
+  /* check for excluded chars */
+  if (strpbrk(s, excludedChars) != 0) return(CMSG_ERROR);
+  
+  /* string ok */
+  return(CMSG_OK);
+}
 
 
 
@@ -336,7 +371,7 @@ static int failoverSuccessful(cMsgDomain_CODA *domain, int waitForResubscribes) 
  * the connection uniquely and is required as an argument by many other routines.
  *
  * This routine mainly does the UDL parsing. The actual connecting
- * to the name server is done in "cmsgd_ConnectImpl".
+ * to the name server is done in "cmsgd_connectImpl".
  * 
  * @param myUDL the Universal Domain Locator used to uniquely identify the cMsg
  *        server to connect to
@@ -361,7 +396,7 @@ static int failoverSuccessful(cMsgDomain_CODA *domain, int waitForResubscribes) 
  * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
  *                             or a communication error with either server occurs.
  */   
-static int cmsgd_Connect(const char *myUDL, const char *myName, const char *myDescription,
+static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDescription,
                         const char *UDLremainder, void **domainId) {
         
   char *p, *udl;
@@ -508,7 +543,7 @@ static int cmsgd_Connect(const char *myUDL, const char *myName, const char *myDe
           return(CMSG_ERROR);            
       }
       
-      err = cmsgd_ConnectImpl(id, 0);
+      err = cmsgd_connectImpl(id, 0);
       if (err != CMSG_OK) {
           domainClear(&cMsgDomains[id]);
           connectWriteUnlock();
@@ -534,7 +569,7 @@ static int cmsgd_Connect(const char *myUDL, const char *myName, const char *myDe
 /* printf("\nTrying to connect with UDL = %s\n",
       cMsgDomains[id].failovers[failoverIndex].udl); */
 
-      err = cmsgd_ConnectImpl(id, failoverIndex);
+      err = cmsgd_connectImpl(id, failoverIndex);
       if (err == CMSG_OK) {
         cMsgDomains[id].failoverIndex = failoverIndex;
         gotConnection = 1;
@@ -557,7 +592,7 @@ static int cmsgd_Connect(const char *myUDL, const char *myName, const char *myDe
   *domainId = (void *)id;
 
   /* install default shutdown handler (exits program) */
-  cmsgd_SetShutdownHandler((void *)id, defaultShutdownHandler, NULL);
+  cmsgd_setShutdownHandler((void *)id, defaultShutdownHandler, NULL);
 
   cMsgDomains[id].gotConnection = 1;
 
@@ -571,7 +606,7 @@ static int cmsgd_Connect(const char *myUDL, const char *myName, const char *myDe
 
 
 /**
- * This routine is called by cmsgd_Connect and does the real work of
+ * This routine is called by cmsgd_connect and does the real work of
  * connecting to the cMsg name server.
  * 
  * @param domainId pointer to integer which gets filled with a unique id referring
@@ -585,7 +620,7 @@ static int cmsgd_Connect(const char *myUDL, const char *myName, const char *myDe
  * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
  *                             or a communication error with either server occurs.
  */   
-static int cmsgd_ConnectImpl(int domainId, int failoverIndex) {
+static int cmsgd_connectImpl(int domainId, int failoverIndex) {
 
   int i, id=-1, err, serverfd, status, hz, num_try, try_max;
   char *portEnvVariable=NULL;
@@ -611,7 +646,7 @@ static int cmsgd_ConnectImpl(int domainId, int failoverIndex) {
   if ( (portEnvVariable = getenv("CMSG_PORT")) == NULL ) {
     startingPort = CMSG_CLIENT_LISTENING_PORT;
     if (cMsgDebug >= CMSG_DEBUG_WARN) {
-      fprintf(stderr, "cmsgd_ConnectImpl: cannot find CMSG_PORT env variable, first try port %hu\n", startingPort);
+      fprintf(stderr, "cmsgd_connectImpl: cannot find CMSG_PORT env variable, first try port %hu\n", startingPort);
     }
   }
   else {
@@ -619,7 +654,7 @@ static int cmsgd_ConnectImpl(int domainId, int failoverIndex) {
     if (i < 1025 || i > 65535) {
       startingPort = CMSG_CLIENT_LISTENING_PORT;
       if (cMsgDebug >= CMSG_DEBUG_WARN) {
-        fprintf(stderr, "cmsgd_ConnectImpl: CMSG_PORT contains a bad port #, first try port %hu\n", startingPort);
+        fprintf(stderr, "cmsgd_connectImpl: CMSG_PORT contains a bad port #, first try port %hu\n", startingPort);
       }
     }
     else {
@@ -674,7 +709,7 @@ static int cmsgd_ConnectImpl(int domainId, int failoverIndex) {
   }
   if (num_try > try_max) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cmsgd_ConnectImpl, cannot start listening thread\n");
+      fprintf(stderr, "cmsgd_connectImpl, cannot start listening thread\n");
     }
     exit(-1);
   }
@@ -683,7 +718,7 @@ static int cmsgd_ConnectImpl(int domainId, int failoverIndex) {
   free(threadArg);
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_ConnectImpl: created listening thread\n");
+    fprintf(stderr, "cmsgd_connectImpl: created listening thread\n");
   }
   
   /*---------------------------------------------------------------*/
@@ -700,7 +735,7 @@ static int cmsgd_ConnectImpl(int domainId, int failoverIndex) {
   }
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_ConnectImpl: connected to name server\n");
+    fprintf(stderr, "cmsgd_connectImpl: connected to name server\n");
   }
   
   /* get host & port (domain->sendHost,sendPort) to send messages to */
@@ -714,15 +749,15 @@ static int cmsgd_ConnectImpl(int domainId, int failoverIndex) {
   /* BUGBUG free up memory allocated in parseUDL & no longer needed */
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_ConnectImpl: got host and port from name server\n");
+    fprintf(stderr, "cmsgd_connectImpl: got host and port from name server\n");
   }
   
   /* done talking to server */
   close(serverfd);
  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_ConnectImpl: closed name server socket\n");
-    fprintf(stderr, "cmsgd_ConnectImpl: sendHost = %s, sendPort = %hu\n",
+    fprintf(stderr, "cmsgd_connectImpl: closed name server socket\n");
+    fprintf(stderr, "cmsgd_connectImpl: sendHost = %s, sendPort = %hu\n",
                              domain->sendHost,
                              domain->sendPort);
   }
@@ -736,7 +771,7 @@ static int cmsgd_ConnectImpl(int domainId, int failoverIndex) {
   }
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_ConnectImpl: created receiving socket fd = %d\n", domain->receiveSocket);
+    fprintf(stderr, "cmsgd_connectImpl: created receiving socket fd = %d\n", domain->receiveSocket);
   }
     
   /* create keep alive socket and store */
@@ -749,7 +784,7 @@ static int cmsgd_ConnectImpl(int domainId, int failoverIndex) {
   }
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_ConnectImpl: created keepalive socket fd = %d\n",domain->keepAliveSocket );
+    fprintf(stderr, "cmsgd_connectImpl: created keepalive socket fd = %d\n",domain->keepAliveSocket );
   }
   
   /* create thread to send periodic keep alives and handle dead server */
@@ -760,7 +795,7 @@ static int cmsgd_ConnectImpl(int domainId, int failoverIndex) {
   }
      
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_ConnectImpl: created keep alive thread\n");
+    fprintf(stderr, "cmsgd_connectImpl: created keep alive thread\n");
   }
 
   /* create sending socket and store */
@@ -774,7 +809,7 @@ static int cmsgd_ConnectImpl(int domainId, int failoverIndex) {
   }
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_ConnectImpl: created sending socket fd = %d\n", domain->sendSocket);
+    fprintf(stderr, "cmsgd_connectImpl: created sending socket fd = %d\n", domain->sendSocket);
   }
   
   return(CMSG_OK);
@@ -785,7 +820,7 @@ static int cmsgd_ConnectImpl(int domainId, int failoverIndex) {
 
 
 /**
- * This routine is called by cmsgd_Connect and does the real work of
+ * This routine is called by cmsgd_connect and does the real work of
  * connecting to the cMsg name server.
  * 
  * @param domainId pointer to integer which gets filled with a unique id referring
@@ -824,7 +859,7 @@ static int reconnect(int domainId, int failoverIndex) {
     return(err);
   }  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_ConnectImpl: connected to name server\n");
+    fprintf(stderr, "reconnect: connected to name server\n");
   }
 
   /* The thread listening for TCP connections needs to keep running.
@@ -911,17 +946,15 @@ static int reconnect(int domainId, int failoverIndex) {
 /* BUGBUG free up memory allocated in parseUDL & no longer needed */
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_ConnectImpl: got host and port from name server\n");
+    fprintf(stderr, "reconnect: got host and port from name server\n");
   }
   
   /* done talking to server */
   close(serverfd);
  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_ConnectImpl: closed name server socket\n");
-    fprintf(stderr, "cmsgd_ConnectImpl: sendHost = %s, sendPort = %hu\n",
-                             domain->sendHost,
-                             domain->sendPort);
+    fprintf(stderr, "reconnect: closed name server socket\n");
+    fprintf(stderr, "reconnect: sendHost = %s, sendPort = %hu\n", domain->sendHost, domain->sendPort);
   }
 /* printf("reconnect 4\n"); */
   
@@ -934,7 +967,7 @@ static int reconnect(int domainId, int failoverIndex) {
   }
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_ConnectImpl: created receiving socket fd = %d\n", domain->receiveSocket);
+    fprintf(stderr, "reconnect: created receiving socket fd = %d\n", domain->receiveSocket);
   }
     
 /* printf("reconnect 5\n"); */
@@ -948,7 +981,7 @@ static int reconnect(int domainId, int failoverIndex) {
   }
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_ConnectImpl: created keepalive socket fd = %d\n",domain->keepAliveSocket );
+    fprintf(stderr, "reconnect: created keepalive socket fd = %d\n",domain->keepAliveSocket );
   }
 /* printf("reconnect 6\n"); */
   
@@ -968,7 +1001,7 @@ static int reconnect(int domainId, int failoverIndex) {
   }
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_ConnectImpl: created sending socket fd = %d\n", domain->sendSocket);
+    fprintf(stderr, "reconnect: created sending socket fd = %d\n", domain->sendSocket);
   }
   
   connectWriteUnlock();
@@ -994,6 +1027,7 @@ static int reconnect(int domainId, int failoverIndex) {
  * @param vmsg pointer to a message structure
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the message argument is null or has null subject or type
  * @returns CMSG_OUT_OF_MEMOERY if the allocating memory for message buffer failed
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement sending
  *                               messages
@@ -1003,7 +1037,7 @@ static int reconnect(int domainId, int failoverIndex) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_Send(void *domainId, void *vmsg) {
+static int cmsgd_send(void *domainId, void *vmsg) {
   
   int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
@@ -1016,6 +1050,14 @@ static int cmsgd_Send(void *domainId, void *vmsg) {
   
   if (!domain->hasSend) {
     return(CMSG_NOT_IMPLEMENTED);
+  }
+  
+  /* check args */
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  if ( (checkString(msg->subject) != CMSG_OK ) ||
+       (checkString(msg->type)    != CMSG_OK )    ) {
+    return(CMSG_BAD_ARGUMENT);
   }
   
   tryagain:
@@ -1132,7 +1174,7 @@ static int cmsgd_Send(void *domainId, void *vmsg) {
       socketMutexUnlock(domain);
       connectReadUnlock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cmsgd_Send: write failure\n");
+        fprintf(stderr, "cmsgd_send: write failure\n");
       }
       err = CMSG_NETWORK_ERROR;
       break;
@@ -1149,7 +1191,7 @@ static int cmsgd_Send(void *domainId, void *vmsg) {
     /* don't wait for resubscribes */
     if (failoverSuccessful(domain, 0)) {
        fd = domain->sendSocket;
-       printf("cmsgd_Send: FAILOVER SUCCESSFUL, try send again\n");
+       printf("cmsgd_send: FAILOVER SUCCESSFUL, try send again\n");
        goto tryagain;
     }  
   }
@@ -1173,6 +1215,7 @@ static int cmsgd_Send(void *domainId, void *vmsg) {
  * @param response integer pointer that gets filled with the server's response
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the message argument is null or has null subject or type
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement the
  *                               synchronous sending of messages
  * @returns CMSG_OUT_OF_MEMOERY if the allocating memory for message buffer failed
@@ -1182,7 +1225,7 @@ static int cmsgd_Send(void *domainId, void *vmsg) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_SyncSend(void *domainId, void *vmsg, int *response) {
+static int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
   
   int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
@@ -1198,6 +1241,14 @@ static int cmsgd_SyncSend(void *domainId, void *vmsg, int *response) {
     return(CMSG_NOT_IMPLEMENTED);
   }
  
+  /* check args */
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  if ( (checkString(msg->subject) != CMSG_OK ) ||
+       (checkString(msg->type)    != CMSG_OK )    ) {
+    return(CMSG_BAD_ARGUMENT);
+  }
+  
   tryagain:
   while (1) {
     err = CMSG_OK;
@@ -1294,7 +1345,7 @@ static int cmsgd_SyncSend(void *domainId, void *vmsg, int *response) {
         syncSendMutexUnlock(domain);
         connectReadUnlock();
         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-          fprintf(stderr, "cmsgd_SyncSend: out of memory\n");
+          fprintf(stderr, "cmsgd_syncSend: out of memory\n");
         }
         return(CMSG_OUT_OF_MEMORY);
       }
@@ -1320,7 +1371,7 @@ static int cmsgd_SyncSend(void *domainId, void *vmsg, int *response) {
       syncSendMutexUnlock(domain);
       connectReadUnlock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cmsgd_SyncSend: write failure\n");
+        fprintf(stderr, "cmsgd_syncSend: write failure\n");
       }
       err = CMSG_NETWORK_ERROR;
       break;
@@ -1334,7 +1385,7 @@ static int cmsgd_SyncSend(void *domainId, void *vmsg, int *response) {
       syncSendMutexUnlock(domain);
       connectReadUnlock();
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cmsgd_SyncSend: read failure\n");
+        fprintf(stderr, "cmsgd_syncSend: read failure\n");
       }
       err = CMSG_NETWORK_ERROR;
       break;
@@ -1350,10 +1401,10 @@ static int cmsgd_SyncSend(void *domainId, void *vmsg, int *response) {
     /* don't wait for resubscribes */
     if (failoverSuccessful(domain, 0)) {
        fd = domain->sendSocket;
-       printf("cmsgd_SyncSend: FAILOVER SUCCESSFUL, try suncSend again\n");
+       printf("cmsgd_syncSend: FAILOVER SUCCESSFUL, try suncSend again\n");
        goto tryagain;
     }  
-printf("cmsgd_SyncSend: FAILOVER NOT successful, quitting, err = %d\n", err);
+printf("cmsgd_syncSend: FAILOVER NOT successful, quitting, err = %d\n", err);
   }
 
   /* return domain server's reply */  
@@ -1379,6 +1430,7 @@ printf("cmsgd_SyncSend: FAILOVER NOT successful, quitting, err = %d\n", err);
  * @param replyMsg message received
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the subject, type, or replyMsg arguments are null
  * @returns CMSG_TIMEOUT if routine received no message in the specified time
  * @returns CMSG_OUT_OF_MEMORY if all available subscription memory has been used
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement
@@ -1389,7 +1441,7 @@ printf("cmsgd_SyncSend: FAILOVER NOT successful, quitting, err = %d\n", err);
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_SubscribeAndGet(void *domainId, const char *subject, const char *type,
+static int cmsgd_subscribeAndGet(void *domainId, const char *subject, const char *type,
                            const struct timespec *timeout, void **replyMsg) {
                              
   cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
@@ -1404,6 +1456,14 @@ static int cmsgd_SubscribeAndGet(void *domainId, const char *subject, const char
     return(CMSG_NOT_IMPLEMENTED);
   }   
            
+  /* check args */
+  if (replyMsg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  if ( (checkString(subject) != CMSG_OK ) ||
+       (checkString(type)    != CMSG_OK )    ) {
+    return(CMSG_BAD_ARGUMENT);
+  }
+
   connectReadLock();
 
   if (domain->initComplete != 1) {
@@ -1418,7 +1478,7 @@ static int cmsgd_SubscribeAndGet(void *domainId, const char *subject, const char
   /*
    * Pick a unique identifier for the subject/type pair, and
    * send it to the domain server & remember it for future use
-   * Mutex protect this operation as many cmsgd_Connect calls may
+   * Mutex protect this operation as many cmsgd_connect calls may
    * operate in parallel on this static variable.
    */
   idMutexLock();
@@ -1664,6 +1724,7 @@ static int unSubscribeAndGet(void *domainId, const char *subject, const char *ty
  * @param replyMsg message received from the responder
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the sendMsg or replyMsg arguments or the sendMsg's subject or type are null
  * @returns CMSG_TIMEOUT if routine received no message in the specified time
  * @returns CMSG_OUT_OF_MEMORY if all available sendAndGet memory has been used
  *                             or allocating memory for message buffer failed
@@ -1675,7 +1736,7 @@ static int unSubscribeAndGet(void *domainId, const char *subject, const char *ty
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_SendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
+static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
                       void **replyMsg) {
   
   cMsgDomain_CODA *domain  = &cMsgDomains[(int)domainId];
@@ -1694,6 +1755,14 @@ static int cmsgd_SendAndGet(void *domainId, void *sendMsg, const struct timespec
     return(CMSG_NOT_IMPLEMENTED);
   }   
            
+  /* check args */
+  if (sendMsg == NULL || replyMsg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  if ( (checkString(msg->subject) != CMSG_OK ) ||
+       (checkString(msg->type)    != CMSG_OK )    ) {
+    return(CMSG_BAD_ARGUMENT);
+  }
+
   connectReadLock();
 
   if (domain->initComplete != 1) {
@@ -1715,7 +1784,7 @@ static int cmsgd_SendAndGet(void *domainId, void *sendMsg, const struct timespec
   /*
    * Pick a unique identifier for the subject/type pair, and
    * send it to the domain server & remember it for future use
-   * Mutex protect this operation as many cmsgd_Connect calls may
+   * Mutex protect this operation as many cmsgd_connect calls may
    * operate in parallel on this static variable.
    */
   idMutexLock();
@@ -1830,7 +1899,7 @@ static int cmsgd_SendAndGet(void *domainId, void *sendMsg, const struct timespec
       info->type    = NULL;
       info->active  = 0;
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cmsgd_SendAndGet: out of memory\n");
+        fprintf(stderr, "cmsgd_sendAndGet: out of memory\n");
       }
       return(CMSG_OUT_OF_MEMORY);
     }
@@ -1860,7 +1929,7 @@ static int cmsgd_SendAndGet(void *domainId, void *sendMsg, const struct timespec
     info->type    = NULL;
     info->active  = 0;
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cmsgd_SendAndGet: write failure\n");
+      fprintf(stderr, "cmsgd_sendAndGet: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1999,7 +2068,7 @@ static int unSendAndGet(void *domainId, int id) {
  *
  * @returns CMSG_OK always
  */   
-static int cmsgd_Flush(void *domainId) {  
+static int cmsgd_flush(void *domainId) {  
   return(CMSG_OK);
 }
 
@@ -2024,8 +2093,11 @@ static int cmsgd_Flush(void *domainId) {
  * @param callback pointer to callback to be executed on receipt of message
  * @param userArg user-specified pointer to be passed to the callback
  * @param config pointer to callback configuration structure
+ * @param handle pointer to handle (void pointer) to be used for unsubscribing
+ *               from this subscription
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the ubject, type, or callback are null
  * @returns CMSG_OUT_OF_MEMORY if all available subscription memory has been used
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement
  *                               subscribe
@@ -2036,10 +2108,10 @@ static int cmsgd_Flush(void *domainId) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_Subscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
-                     void *userArg, cMsgSubscribeConfig *config) {
+static int cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
+                     void *userArg, cMsgSubscribeConfig *config, void **handle) {
 
-  int i, j, iok, jok, uniqueId, status, err;
+  int i, j, iok=0, jok=0, uniqueId, status, err;
   cMsgDomain_CODA *domain  = &cMsgDomains[(int)domainId];
   subscribeConfig *sConfig = (subscribeConfig *) config;
   cbArg *cbarg;
@@ -2050,6 +2122,13 @@ static int cmsgd_Subscribe(void *domainId, const char *subject, const char *type
     return(CMSG_NOT_IMPLEMENTED);
   } 
   
+  /* check args */  
+  if ( (checkString(subject) != CMSG_OK ) ||
+       (checkString(type)    != CMSG_OK ) ||
+       (callback == NULL)                    ) {
+    return(CMSG_BAD_ARGUMENT);
+  }
+
   tryagain:
   while (1) {
     err = CMSG_OK;
@@ -2115,6 +2194,8 @@ static int cmsgd_Subscribe(void *domainId, const char *subject, const char *type
             domain->subscribeInfo[i].cbInfo[j].messages = 0;
             domain->subscribeInfo[i].cbInfo[j].config   = *sConfig;
             
+            domain->subscribeInfo[i].numCallbacks++;
+            
             cbarg = (cbArg *) malloc(sizeof(cbArg));
             if (cbarg == NULL) {
               subscribeMutexUnlock(domain);
@@ -2124,6 +2205,10 @@ static int cmsgd_Subscribe(void *domainId, const char *subject, const char *type
             cbarg->domainId = (int) domainId;
             cbarg->subIndex = i;
             cbarg->cbIndex  = j;
+            
+            if (handle != NULL) {
+              *handle = (void *)cbarg;
+            }
 
             /* start callback thread now */
             status = pthread_create(&domain->subscribeInfo[i].cbInfo[j].thread,
@@ -2180,6 +2265,8 @@ static int cmsgd_Subscribe(void *domainId, const char *subject, const char *type
       domain->subscribeInfo[i].cbInfo[0].messages = 0;
       domain->subscribeInfo[i].cbInfo[0].config   = *sConfig;
 
+      domain->subscribeInfo[i].numCallbacks++;
+
       cbarg = (cbArg *) malloc(sizeof(cbArg));
       if (cbarg == NULL) {
         subscribeMutexUnlock(domain);
@@ -2189,6 +2276,10 @@ static int cmsgd_Subscribe(void *domainId, const char *subject, const char *type
       cbarg->domainId = (int) domainId;
       cbarg->subIndex = i;
       cbarg->cbIndex  = 0;
+      
+      if (handle != NULL) {
+        *handle = (void *)cbarg;
+      }
 
       /* start callback thread now */
       status = pthread_create(&domain->subscribeInfo[i].cbInfo[0].thread,
@@ -2207,7 +2298,7 @@ static int cmsgd_Subscribe(void *domainId, const char *subject, const char *type
       /*
        * Pick a unique identifier for the subject/type pair, and
        * send it to the domain server & remember it for future use
-       * Mutex protect this operation as many cmsgd_Connect calls may
+       * Mutex protect this operation as many cmsgd_connect calls may
        * operate in parallel on this static variable.
        */
       idMutexLock();
@@ -2262,10 +2353,11 @@ static int cmsgd_Subscribe(void *domainId, const char *subject, const char *type
         domain->subscribeInfo[i].type          = NULL;
         domain->subscribeInfo[i].subjectRegexp = NULL;
         domain->subscribeInfo[i].typeRegexp    = NULL;
-        domain->subscribeInfo[i].active = 0;
+        domain->subscribeInfo[i].active        = 0;
+        domain->subscribeInfo[i].numCallbacks--;
         
         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-          fprintf(stderr, "cmsgd_Subscribe: write failure\n");
+          fprintf(stderr, "cmsgd_subscribe: write failure\n");
         }
         
         err = CMSG_LOST_CONNECTION;
@@ -2290,10 +2382,10 @@ static int cmsgd_Subscribe(void *domainId, const char *subject, const char *type
     /* don't wait for resubscribes */
     if (failoverSuccessful(domain, 0)) {
        fd = domain->sendSocket;
-       printf("cmsgd_Subscribe: FAILOVER SUCCESSFUL, try subscribe again\n");
+       printf("cmsgd_subscribe: FAILOVER SUCCESSFUL, try subscribe again\n");
        goto tryagain;
     }  
-printf("cmsgd_Subscribe: FAILOVER NOT successful, quitting, err = %d\n", err);
+printf("cmsgd_subscribe: FAILOVER NOT successful, quitting, err = %d\n", err);
   }
 
   return(err);
@@ -2392,7 +2484,7 @@ static int resubscribe(cMsgDomain_CODA *domain, const char *subject, const char 
 
   if (cMsgTcpWritev(fd, iov, 3, 16) == -1) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cmsgd_Subscribe: write failure\n");
+      fprintf(stderr, "cmsgd_subscribe: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -2405,19 +2497,18 @@ static int resubscribe(cMsgDomain_CODA *domain, const char *subject, const char 
 
 
 /**
- * This routine unsubscribes to messages of the given subject, type,
- * callback, and user argument. This routine is called by the user through
+ * This routine unsubscribes to messages of the given handle (which
+ * represents a given subject, type, callback, and user argument).
+ * This routine is called by the user through
  * cMsgUnSubscribe() given the appropriate UDL. In this domain cMsgFlush()
- * does nothing and does not need to be called for cmsgd_Unsubscribe to be
+ * does nothing and does not need to be called for cmsgd_unsubscribe to be
  * started immediately.
  *
  * @param domainId id of the domain connection
- * @param subject subject of messages to unsubscribed from
- * @param type type of messages to unsubscribed from
- * @param callback pointer to callback to be removed
- * @param userArg user-specified pointer to be passed to the callback
+ * @param handle void pointer obtained from cmsgd_subscribe
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the ubject, type, or callback are null
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement
  *                               unsubscribe
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server
@@ -2426,21 +2517,55 @@ static int resubscribe(cMsgDomain_CODA *domain, const char *subject, const char 
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_Unsubscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
-                           void *userArg) {
+/*static int cmsgd_unsubscribe(void *domainId, const char *subject, const char *type,
+                             cMsgCallback *callback, void *userArg) {*/
+static int cmsgd_unsubscribe(void *domainId, void *handle) {
 
   int i, j, status, err;
-  int cbCount = 0;     /* total number of callbacks for the subject/type pair of interest */
-  int cbsRemoved = 0;  /* total number of callbacks removed for that subject/type pair */
   cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
   int fd = domain->sendSocket;
   struct iovec iov[3];
-  subscribeCbInfo *subscription, *matchingSub;
+  cbArg           *cbarg;
+  subInfo         *subscriptionInfo;
+  subscribeCbInfo *callbackInfo;
   
   if (!domain->hasUnsubscribe) {
     return(CMSG_NOT_IMPLEMENTED);
   }
  
+  /* check args */
+  if (handle == NULL) {
+    return(CMSG_BAD_ARGUMENT);  
+  }
+  
+  cbarg = (cbArg *)handle;
+  
+  if (cbarg->domainId != (int)domainId  ||
+      cbarg->subIndex < 0 ||
+      cbarg->cbIndex  < 0 ||
+      cbarg->subIndex >= MAX_SUBSCRIBE ||
+      cbarg->cbIndex  >= MAX_CALLBACK    ) {
+    return(CMSG_BAD_ARGUMENT);    
+  }
+  
+  /* convenience variables */
+  subscriptionInfo = &domain->subscribeInfo[cbarg->subIndex];
+  callbackInfo     = &subscriptionInfo->cbInfo[cbarg->cbIndex];  
+  
+  /* if subscription has no active callbacks ... */
+  if (!subscriptionInfo->active ||
+      !callbackInfo->active     ||
+       subscriptionInfo->numCallbacks < 1) {
+    return(CMSG_BAD_ARGUMENT);  
+  }
+  
+  /* gotta have subject, type, and callback */
+  if ( (checkString(subscriptionInfo->subject) != CMSG_OK ) ||
+       (checkString(subscriptionInfo->type)    != CMSG_OK ) ||
+       (callbackInfo->callback == NULL)                    )  {
+    return(CMSG_BAD_ARGUMENT);
+  }
+
   tryagain:
   while (1) {
     err = CMSG_OK;
@@ -2459,69 +2584,17 @@ static int cmsgd_Unsubscribe(void *domainId, const char *subject, const char *ty
 
     /* make sure subscribe and unsubscribe are not run at the same time */
     subscribeMutexLock(domain);
-
-    /* search entry list */
-    for (i=0; i<MAX_SUBSCRIBE; i++) {
-
-      if (domain->subscribeInfo[i].active == 0) {
-        continue;
-      }
-
-      /* if there is a match with subject & type ... */
-      if ( (strcmp(domain->subscribeInfo[i].subject, subject) == 0)  && 
-           (strcmp(domain->subscribeInfo[i].type,    type)    == 0) )  {
-
-        /* search callback list */
-        for (j=0; j<MAX_CALLBACK; j++) {
-
-          /* convenience variable */
-          subscription = &domain->subscribeInfo[i].cbInfo[j];
-
-          /* if the subscription is active ... */
-	  if (subscription->active == 1) {
-
-            cbCount++;
-
-            /* if the callback and argument are identical (there will only be one)... */
-	    if ( (subscription->callback == callback) &&
-                 (subscription->userArg  ==  userArg))  {
-             
-              /* Save the subscription so we can delete it LATER,
-               * after the server gets notified. That way, if there
-               * is an error in communication with the server, we
-               * will not have actually removed the callback yet
-               * and can back out gracefully.
-               */
-              matchingSub = subscription;
-              /* removing 1 callback */
-              cbsRemoved++;
-            }
-	  }          
-          
-        } /* for j */
-        break;
-      }
-    } /* for i */
-    
-    
-    /* if there is no matching callback, return */
-    if (cbsRemoved < 1) {
-      subscribeMutexUnlock(domain);
-      connectReadUnlock();
-      return(CMSG_OK);   
-    }
-    
-
+        
     /* Delete entry and notify server if there was at least 1 callback
      * to begin with and now there are none for this subject/type.
      */
-    if ((cbCount > 0) && (cbCount-cbsRemoved < 1)) {
+    if (subscriptionInfo->numCallbacks - 1 < 1) {
 
       int len, lenSubject, lenType;
       int outGoing[6];
 
       if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "cmsgd_Unsubscribe: send 4 ints\n");
+        fprintf(stderr, "cmsgd_unsubscribe: send 4 ints\n");
       }
 
       /* notify server */
@@ -2529,12 +2602,12 @@ static int cmsgd_Unsubscribe(void *domainId, const char *subject, const char *ty
       /* message id (in network byte order) to domain server */
       outGoing[1] = htonl(CMSG_UNSUBSCRIBE_REQUEST);
       /* unique id associated with subject/type */
-      outGoing[2] = htonl(domain->subscribeInfo[i].id);
+      outGoing[2] = htonl(subscriptionInfo->id);
       /* length of "subject" string */
-      lenSubject  = strlen(subject);
+      lenSubject  = strlen(subscriptionInfo->subject);
       outGoing[3] = htonl(lenSubject);
       /* length of "type" string */
-      lenType     = strlen(type);
+      lenType     = strlen(subscriptionInfo->type);
       outGoing[4] = htonl(lenType);
       /* length of "namespace" string (0 in this case, since
        * only used for server-to-server) */
@@ -2547,10 +2620,10 @@ static int cmsgd_Unsubscribe(void *domainId, const char *subject, const char *ty
       iov[0].iov_base = (char*) outGoing;
       iov[0].iov_len  = sizeof(outGoing);
 
-      iov[1].iov_base = (char*) subject;
+      iov[1].iov_base = (char*) subscriptionInfo->subject;
       iov[1].iov_len  = lenSubject;
 
-      iov[2].iov_base = (char*) type;
+      iov[2].iov_base = (char*) subscriptionInfo->type;
       iov[2].iov_len  = lenType;
 
       /* make send socket communications thread-safe */
@@ -2562,7 +2635,7 @@ static int cmsgd_Unsubscribe(void *domainId, const char *subject, const char *ty
         connectReadUnlock();
         
         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-          fprintf(stderr, "cmsgd_Unsubscribe: write failure\n");
+          fprintf(stderr, "cmsgd_unsubscribe: write failure\n");
         }
         err = CMSG_NETWORK_ERROR;
         break;
@@ -2572,31 +2645,38 @@ static int cmsgd_Unsubscribe(void *domainId, const char *subject, const char *ty
       socketMutexUnlock(domain);
       
       /* We told the server, now do the unsubscribe. */
-      free(domain->subscribeInfo[i].subject);
-      free(domain->subscribeInfo[i].type);
-      free(domain->subscribeInfo[i].subjectRegexp);
-      free(domain->subscribeInfo[i].typeRegexp);
+      free(subscriptionInfo->subject);
+      free(subscriptionInfo->type);
+      free(subscriptionInfo->subjectRegexp);
+      free(subscriptionInfo->typeRegexp);
       /* set these equal to NULL so they aren't freed again later */
-      domain->subscribeInfo[i].subject       = NULL;
-      domain->subscribeInfo[i].type          = NULL;
-      domain->subscribeInfo[i].subjectRegexp = NULL;
-      domain->subscribeInfo[i].typeRegexp    = NULL;
+      subscriptionInfo->subject       = NULL;
+      subscriptionInfo->type          = NULL;
+      subscriptionInfo->subjectRegexp = NULL;
+      subscriptionInfo->typeRegexp    = NULL;
       /* make array space available for another subscription */
-      domain->subscribeInfo[i].active = 0;
+      subscriptionInfo->active        = 0;
       
     } /* if gotta notify server */
     
+    /* free mem */
+    free(cbarg);
+    
+    /* one less callback */
+    subscriptionInfo->numCallbacks--;
+
     /* tell callback thread to end */
-    matchingSub->quit = 1;
+    callbackInfo->quit = 1;
 
     /* wakeup callback thread */
-    status = pthread_cond_broadcast(&matchingSub->cond);
+    status = pthread_cond_broadcast(&callbackInfo->cond);
     if (status != 0) {
       err_abort(status, "Failed callback condition signal");
     }
+    
     /*
      * Once this subscription wakes up it sets the array location
-     * as inactive/available (subscription->active = 0). Don't do
+     * as inactive/available (callbackInfo->active = 0). Don't do
      * that yet as another subscription may be done
      * (and set subscription->active = 1) before it wakes up
      * and thus not end itself.
@@ -2614,10 +2694,10 @@ static int cmsgd_Unsubscribe(void *domainId, const char *subject, const char *ty
     /* wait awhile for possible failover && resubscribe is complete */
     if (failoverSuccessful(domain, 1)) {
        fd = domain->sendSocket;
-       printf("cmsgd_Unsubscribe: FAILOVER SUCCESSFUL, try unsubscribe again\n");
+       printf("cmsgd_unsubscribe: FAILOVER SUCCESSFUL, try unsubscribe again\n");
        goto tryagain;
     }  
-printf("cmsgd_Unsubscribe: FAILOVER NOT successful, quitting, err = %d\n", err);
+printf("cmsgd_unsubscribe: FAILOVER NOT successful, quitting, err = %d\n", err);
   }
   
   return(err);
@@ -2636,7 +2716,7 @@ printf("cmsgd_Unsubscribe: FAILOVER NOT successful, quitting, err = %d\n", err);
  *
  * @returns CMSG_OK if successful
  */   
-static int cmsgd_Start(void *domainId) {
+static int cmsgd_start(void *domainId) {
   
   cMsgDomains[(int)domainId].receiveState = 1;
   return(CMSG_OK);
@@ -2655,7 +2735,7 @@ static int cmsgd_Start(void *domainId) {
  *
  * @returns CMSG_OK if successful
  */   
-static int cmsgd_Stop(void *domainId) {
+static int cmsgd_stop(void *domainId) {
   
   cMsgDomains[(int)domainId].receiveState = 0;
   return(CMSG_OK);
@@ -2675,7 +2755,7 @@ static int cmsgd_Stop(void *domainId) {
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */   
-static int cmsgd_Disconnect(void *domainId) {
+static int cmsgd_disconnect(void *domainId) {
   
   int i, j, status, outGoing[2];
   cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
@@ -2696,7 +2776,7 @@ static int cmsgd_Disconnect(void *domainId) {
    
   /* stop keep alive thread */
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_Disconnect:cancel keep alive thread\n");
+    fprintf(stderr, "cmsgd_disconnect:cancel keep alive thread\n");
   }
   
   /* don't care if this fails */
@@ -2720,7 +2800,7 @@ static int cmsgd_Disconnect(void *domainId) {
     connectWriteUnlock();
     */
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cmsgd_Disconnect: write failure, but continue\n");
+      fprintf(stderr, "cmsgd_disconnect: write failure, but continue\n");
     }
     /*return(CMSG_NETWORK_ERROR);*/
   }
@@ -2737,7 +2817,7 @@ static int cmsgd_Disconnect(void *domainId) {
 
   /* stop listening and client communication threads */
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_Disconnect:cancel listening & client threads\n");
+    fprintf(stderr, "cmsgd_disconnect:cancel listening & client threads\n");
   }
   
   pthread_cancel(domain->pendThread);
@@ -2759,7 +2839,7 @@ static int cmsgd_Disconnect(void *domainId) {
           subscription->quit = 1;
           
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "cmsgd_Disconnect:wake up callback thread\n");
+            fprintf(stderr, "cmsgd_disconnect:wake up callback thread\n");
           }
   
           /* wakeup callback thread */
@@ -2782,7 +2862,7 @@ static int cmsgd_Disconnect(void *domainId) {
     
     /* wakeup "get" */      
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "cmsgd_Disconnect:wake up a sendAndGet\n");
+      fprintf(stderr, "cmsgd_disconnect:wake up a sendAndGet\n");
     }
   
     status = pthread_cond_signal(&info->cond);
@@ -2857,7 +2937,7 @@ printf("disconnect: cancelling pend thread\n");
           subscription->quit = 1;
           
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "cmsgd_Disconnect:wake up callback thread\n");
+            fprintf(stderr, "cmsgd_disconnect:wake up callback thread\n");
           }
   
           /* wakeup callback thread */
@@ -2880,7 +2960,7 @@ printf("disconnect: cancelling pend thread\n");
     
     /* wakeup "get" */      
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "cmsgd_Disconnect:wake up a sendAndGet\n");
+      fprintf(stderr, "cmsgd_disconnect:wake up a sendAndGet\n");
     }
   
     status = pthread_cond_signal(&info->cond);
@@ -2936,7 +3016,7 @@ static void defaultShutdownHandler(void *userArg) {
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */   
-static int cmsgd_SetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg) {
+static int cmsgd_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg) {
   
   cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
 
@@ -2966,7 +3046,7 @@ static int cmsgd_SetShutdownHandler(void *domainId, cMsgShutdownHandler *handler
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */
-static int cmsgd_ShutdownClients(void *domainId, const char *client, int flag) {
+static int cmsgd_shutdownClients(void *domainId, const char *client, int flag) {
   
   int len, cLen, outGoing[4];
   cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
@@ -3011,7 +3091,7 @@ static int cmsgd_ShutdownClients(void *domainId, const char *client, int flag) {
     socketMutexUnlock(domain);
     connectWriteUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cmsgd_Unsubscribe: write failure\n");
+      fprintf(stderr, "cmsgd_unsubscribe: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -3041,7 +3121,7 @@ static int cmsgd_ShutdownClients(void *domainId, const char *client, int flag) {
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */
-static int cmsgd_ShutdownServers(void *domainId, const char *server, int flag) {
+static int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
   
   int len, sLen, outGoing[4];
   cMsgDomain_CODA *domain = &cMsgDomains[(int)domainId];
@@ -3086,7 +3166,7 @@ static int cmsgd_ShutdownServers(void *domainId, const char *server, int flag) {
     socketMutexUnlock(domain);
     connectWriteUnlock();
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cmsgd_Unsubscribe: write failure\n");
+      fprintf(stderr, "cmsgd_unsubscribe: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -3663,7 +3743,8 @@ static void *callbackThread(void *arg)
     
   end:
     
-    free(arg);     
+    /* don't free arg as it is used for the unsubscribe handle */
+    /*free(arg);*/     
     sun_setconcurrency(con);
 /* fprintf(stderr, "QUITTING MAIN CALLBACK THREAD\n"); */
     pthread_exit(NULL);
@@ -4206,7 +4287,8 @@ static int parseUDLregex(const char *UDL, char **password,
                               char **subdomainType,
                               char **UDLsubRemainder) {
 
-    int        i, err, len, bufLength, Port, index;
+    int        err, len, bufLength, Port, index;
+    unsigned int i;
     char       *p, *udl, *udlLowerCase, *udlRemainder, *pswd;
     char       *buffer;
     const char *pattern = "([a-zA-Z0-9\\.\\-]+):?([0-9]+)?/?([a-zA-Z0-9]+)?/?(.*)";  
@@ -4537,10 +4619,11 @@ static void getInfoInit(getInfo *info, int reInit) {
 static void subscribeInfoInit(subInfo *info, int reInit) {
     int j, status;
     
-    info->id      = 0;
-    info->active  = 0;
-    info->type    = NULL;
-    info->subject = NULL;
+    info->id            = 0;
+    info->active        = 0;
+    info->numCallbacks  = 0;
+    info->type          = NULL;
+    info->subject       = NULL;
     info->typeRegexp    = NULL;
     info->subjectRegexp = NULL;
     
@@ -5213,9 +5296,9 @@ static void idMutexUnlock(void) {
 
 /**
  * This routine locks the read lock used to allow simultaneous
- * execution of cmsgd_Send, cmsgd_SyncSend, cmsgd_Subscribe, cmsgd_Unsubscribe,
- * cmsgd_SendAndGet, and cmsgd_SubscribeAndGet, but NOT allow simultaneous
- * execution of those routines with cmsgd_Connect or cmsgd_Disconnect.
+ * execution of cmsgd_send, cmsgd_syncSend, cmsgd_subscribe, cmsgd_unsubscribe,
+ * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
+ * execution of those routines with cmsgd_connect or cmsgd_disconnect.
  */
 static void connectReadLock(void) {
 
@@ -5231,9 +5314,9 @@ static void connectReadLock(void) {
 
 /**
  * This routine unlocks the read lock used to allow simultaneous
- * execution of cmsgd_Send, cmsgd_SyncSend, cmsgd_Subscribe, cmsgd_Unsubscribe,
- * cmsgd_SendAndGet, and cmsgd_SubscribeAndGet, but NOT allow simultaneous
- * execution of those routines with cmsgd_Connect or cmsgd_Disconnect.
+ * execution of cmsgd_send, cmsgd_syncSend, cmsgd_subscribe, cmsgd_unsubscribe,
+ * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
+ * execution of those routines with cmsgd_connect or cmsgd_disconnect.
  */
 static void connectReadUnlock(void) {
 
@@ -5249,9 +5332,9 @@ static void connectReadUnlock(void) {
 
 /**
  * This routine locks the write lock used to allow simultaneous
- * execution of cmsgd_Send, cmsgd_SyncSend, cmsgd_Subscribe, cmsgd_Unsubscribe,
- * cmsgd_SendAndGet, and cmsgd_SubscribeAndGet, but NOT allow simultaneous
- * execution of those routines with cmsgd_Connect or cmsgd_Disconnect.
+ * execution of cmsgd_send, cmsgd_syncSend, cmsgd_subscribe, cmsgd_unsubscribe,
+ * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
+ * execution of those routines with cmsgd_connect or cmsgd_disconnect.
  */
 static void connectWriteLock(void) {
 
@@ -5267,9 +5350,9 @@ static void connectWriteLock(void) {
 
 /**
  * This routine unlocks the write lock used to allow simultaneous
- * execution of cmsgd_Send, cmsgd_SyncSend, cmsgd_Subscribe, cmsgd_Unsubscribe,
- * cmsgd_SendAndGet, and cmsgd_SubscribeAndGet, but NOT allow simultaneous
- * execution of those routines with cmsgd_Connect or cmsgd_Disconnect.
+ * execution of cmsgd_send, cmsgd_syncSend, cmsgd_subscribe, cmsgd_unsubscribe,
+ * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
+ * execution of those routines with cmsgd_connect or cmsgd_disconnect.
  */
 static void connectWriteUnlock(void) {
 
@@ -5315,7 +5398,7 @@ static void socketMutexUnlock(cMsgDomain_CODA *domain) {
 /*-------------------------------------------------------------------*/
 
 
-/** This routine locks the pthread mutex used to serialize cmsgd_SyncSend calls. */
+/** This routine locks the pthread mutex used to serialize cmsgd_syncSend calls. */
 static void syncSendMutexLock(cMsgDomain_CODA *domain) {
 
   int status = pthread_mutex_lock(&domain->syncSendMutex);
@@ -5328,7 +5411,7 @@ static void syncSendMutexLock(cMsgDomain_CODA *domain) {
 /*-------------------------------------------------------------------*/
 
 
-/** This routine unlocks the pthread mutex used to serialize cmsgd_SyncSend calls. */
+/** This routine unlocks the pthread mutex used to serialize cmsgd_syncSend calls. */
 static void syncSendMutexUnlock(cMsgDomain_CODA *domain) {
 
   int status = pthread_mutex_unlock(&domain->syncSendMutex);
@@ -5343,7 +5426,7 @@ static void syncSendMutexUnlock(cMsgDomain_CODA *domain) {
 
 /**
  * This routine locks the pthread mutex used to serialize
- * cmsgd_Subscribe and cmsgd_Unsubscribe calls.
+ * cmsgd_subscribe and cmsgd_unsubscribe calls.
  */
 static void subscribeMutexLock(cMsgDomain_CODA *domain) {
 
@@ -5359,7 +5442,7 @@ static void subscribeMutexLock(cMsgDomain_CODA *domain) {
 
 /**
  * This routine unlocks the pthread mutex used to serialize
- * cmsgd_Subscribe and cmsgd_Unsubscribe calls.
+ * cmsgd_subscribe and cmsgd_unsubscribe calls.
  */
 static void subscribeMutexUnlock(cMsgDomain_CODA *domain) {
 
