@@ -90,11 +90,10 @@ typedef int (*SYNCSEND_PTR)    (void *domainId, void *msg, int *response);
 /** Typedef for a domain's subscribe function */  
 typedef int (*SUBSCRIBE_PTR)   (void *domainId, const char *subject, const char *type,
                                 cMsgCallback *callback, void *userArg,
-                                cMsgSubscribeConfig *config);
+                                cMsgSubscribeConfig *config, void **handle);
 
 /** Typedef for a domain's unsubscribe function */  
-typedef int (*UNSUBSCRIBE_PTR) (void *domainId, const char *subject, const char *type,
-                                cMsgCallback *callback, void *userArg);
+typedef int (*UNSUBSCRIBE_PTR) (void *domainId, void *handle);
   
 /** Typedef for a domain's subscribeAndGet function */  
 typedef int (*SUBSCRIBE_AND_GET_PTR) (void *domainId, const char *subject, const char *type,
