@@ -66,9 +66,11 @@
 extern "C" {
 #endif
 
+#ifndef VXWORKS
 /* mutex to protect non-reentrant gethostbyname in Linux since the
  * gethostbyname_r is so buggy. */
 static pthread_mutex_t getHostByNameMutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
 
 /*-------------------------------------------------------------------*/
 
@@ -218,10 +220,11 @@ int cMsgGetListeningSocket(int blocking, unsigned short startingPort, unsigned s
 
 int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
 {
-  int                 status, sockfd, err=0;
+  int                 sockfd, err=0;
   const int           on=1, size=CMSG_SOCKBUFSIZE /* bytes */;
   struct sockaddr_in  servaddr;
 #ifndef VXWORKS
+  int                 status;
   struct in_addr      **pptr;
   struct hostent      *hp;
   int h_errnop        = 0;
