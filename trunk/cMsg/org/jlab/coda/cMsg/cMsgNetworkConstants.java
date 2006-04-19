@@ -28,11 +28,15 @@ public class cMsgNetworkConstants {
 
     // constants from cMsgNetwork.h
 
-    /** TCP port at which a name server starts looking for an unused listening port. */
+    /** TCP port at which a cMsg domain name server starts looking for an unused listening port. */
     public static final int    nameServerStartingPort   = 3456;
-    /** TCP port at which a domain server starts looking for an unused listening port. */
+    /** TCP port at which a cMsg domain, domain server starts looking for an unused listening port. */
     public static final int    domainServerStartingPort = 4567;  
-    /** TCP port at which a client starts looking for an unused listening port. */
+    /** TCP port at which a cMsg domain client starts looking for an unused listening port. */
     public static final int    clientServerStartingPort = 2345;
+    /** TCP port at which a TCPServer server listens for connections. */
+    public static final int    tcpServerPort = 5432;
+    /** UDP port at which a CodaComponent server listens for broadcasts. */
+    public static final int    ccBroadcastPort = 6543;
 
 }
