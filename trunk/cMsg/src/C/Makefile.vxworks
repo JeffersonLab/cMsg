@@ -6,7 +6,7 @@ TOP_DIR = ../..
 INC_DIR = $(TOP_DIR)/inc
 LIB_DIR = $(TOP_DIR)/lib/vxworks
 BIN_DIR = $(TOP_DIR)/bin/vxworks
-INSTALL = $(TOP_DIR)/install-sh -c
+INSTALL = cp
 
 ifeq ($(ARCH),VXWORKSPPC)
 # vxWorks 5.5
@@ -29,7 +29,8 @@ SRC =   rwlock.c \
 	cMsgNetwork.c \
 	cMsg.c \
 	cMsgDomainListenThread.c \
-	cMsgDomain.c
+	cMsgDomain.c \
+	fileDomain.c
 
 OBJS =  rwlock.o \
 	sunConcurrency.o \
@@ -37,9 +38,10 @@ OBJS =  rwlock.o \
 	cMsgNetwork.o \
 	cMsg.o \
 	cMsgDomainListenThread.o \
-	cMsgDomain.o
+	cMsgDomain.o \
+	fileDomain.o
 
-HFILES = cMsgNetwork.h cMsgPrivate.h cMsgBase.h cMsgDomain.h rwlock.h errors.h
+HFILES = cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsgBase.h cMsgDomain.h rwlock.h errors.h
 
 all: echoarch $(OBJS) $(CMSG_LIB) $(PROGS)
 
