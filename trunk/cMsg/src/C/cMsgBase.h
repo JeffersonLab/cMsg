@@ -52,9 +52,8 @@ extern "C" {
   int   cMsgSyncSend          (int domainId, void *msg, int *response);
   int 	cMsgFlush             (int domainId);
   int 	cMsgSubscribe         (int domainId, const char *subject, const char *type, cMsgCallback *callback,
-                               void *userArg, cMsgSubscribeConfig *config);
-  int 	cMsgUnSubscribe       (int domainId, const char *subject, const char *type, cMsgCallback *callback,
-                               void *userArg);
+                               void *userArg, cMsgSubscribeConfig *config, void **handle);
+  int 	cMsgUnSubscribe       (int domainId, void *handle);
   int   cMsgSendAndGet        (int domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
   int   cMsgSubscribeAndGet   (int domainId, const char *subject, const char *type,
                                const struct timespec *timeout, void **replyMsg);
