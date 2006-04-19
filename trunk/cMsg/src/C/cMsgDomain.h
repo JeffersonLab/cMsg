@@ -77,10 +77,11 @@ typedef struct subscribeCbInfo_t {
  * This structure represents a subscription of a certain subject and type.
  */
 typedef struct subscribeInfo_t {
-  int  id;       /**< Unique id # corresponding to a unique subject/type pair. */
-  int  active;   /**< Boolean telling if this subject/type has an active callback. */
-  char *subject; /**< Subject of subscription. */
-  char *type;    /**< Type of subscription. */
+  int  id;             /**< Unique id # corresponding to a unique subject/type pair. */
+  int  active;         /**< Boolean telling if this subject/type has an active callback. */
+  int  numCallbacks;   /**< Current number of active callbacks. */
+  char *subject;       /**< Subject of subscription. */
+  char *type;          /**< Type of subscription. */
   char *subjectRegexp; /**< Subject of subscription made into regular expression. */
   char *typeRegexp;    /**< Type of subscription made into regular expression. */
   struct subscribeCbInfo_t cbInfo[MAX_CALLBACK]; /**< Array of callbacks. */
