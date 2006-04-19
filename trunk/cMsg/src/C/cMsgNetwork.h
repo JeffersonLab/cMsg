@@ -90,6 +90,9 @@ extern "C" {
 /** TCP port at which a domain server starts looking for an unused listening port. */
 #define CMSG_DOMAIN_SERVER_STARTING_PORT 4567;
 
+/** UDP port at which a CC client looks for its server. */
+#define CC_BROADCAST_PORT 6543;
+
 /* socket and/or thread blocking options */
 #define CMSG_BLOCKING    0
 #define CMSG_NONBLOCKING 1
