@@ -37,20 +37,25 @@ int cMsgProducer(void) {
   char *text    = "TEXT";
   char *bytes   = NULL;
   char *UDL     = "cMsg:cMsg://phecda:3456/cMsg/test";
-  int   err, debug=1, domainId=-1, msgSize=0, response, counter=0, once=0;
+  int   err, debug=1, domainId=-1, msgSize=0, counter=0;
   void *msg;
   
   /* msg rate measuring variables */
-  int             dostring=1, count, i, delay=0, loops=10000, ignore=5;
-  struct timespec t1, t2, t0;
-  int             tick1, tick2, tick0=0;
-  double          freq, freqAvg=0., deltaT, totalT=0.,tickRate;
+  int             dostring=1, count, i, delay=1, loops=5, ignore=0, numTimes=5;
+  struct timespec t1, t2;
+  double          freq, freqAvg=0., deltaT, totalT=0;
   long long       totalC=0;
   
+  /*
+  struct timespec t0;
+  double          tickRate;
+  int             response, once=0;
+  int             tick1, tick2, tick0=0;
+  */
   
-  char *argv1 = "-b";
+  char *argv1 = "-s";
   char *argv2 = "5000";
-  int   argc = 3;
+  int   argc = 2;
   
   if (argc > 1) {
      if (strcmp("-s", argv1) == 0) {
@@ -169,7 +174,7 @@ int cMsgProducer(void) {
   }
   */
   
-  while (1) {
+  while (numTimes-- > 0) {
       count = 0;
       
       clock_gettime(CLOCK_REALTIME, &t1);
