@@ -138,6 +138,15 @@ public class cMsg extends cMsgDomainAdapter {
     public Set<cMsgSubscription> subscriptions;
 
     /**
+     * HashMap of all of this client's callback threads (keys) and their associated
+     * subscriptions (values). The cMsgCallbackThread object of a new subscription
+     * is returned (as an Object) as the unsubscribe handle. When this object is
+     * passed as the single argument of an unsubscribe, a quick lookup of the
+     * subscription is done using this hashmap.
+     */
+    private ConcurrentHashMap<Object, cMsgSubscription> unsubscriptions;
+
+    /**
      * Collection of all of this client's {@link #subscribeAndGet} calls currently in execution.
      * SubscribeAndGets are very similar to subscriptions and can be thought of as
      * one-shot subscriptions.
@@ -225,6 +234,7 @@ public class cMsg extends cMsgDomainAdapter {
         subscribeAndGets = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
         sendAndGets      = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
         uniqueId         = new AtomicInteger();
+        unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
 
         // store our host's name
         try {
@@ -662,11 +672,13 @@ public class cMsg extends cMsgDomainAdapter {
             listeningThread.killThread();
 
             // stop all callback threads
-            for (cMsgSubscription sub : subscriptions) {
-                // run through all callbacks
-                for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
-                    // Tell the callback thread(s) to wakeup and die
-                    cbThread.dieNow();
+            synchronized (subscriptions) {
+                for (cMsgSubscription sub : subscriptions) {
+                    // run through all callbacks
+                    for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
+                        // Tell the callback thread(s) to wakeup and die
+                        cbThread.dieNow();
+                    }
                 }
             }
 
@@ -685,6 +697,13 @@ public class cMsg extends cMsgDomainAdapter {
                     helper.notify();
                 }
             }
+
+            // empty all hash tables
+            subscriptions.clear();
+            sendAndGets.clear();
+            subscribeAndGets.clear();
+            unsubscriptions.clear();
+            failovers.clear();
         }
         finally {
             connectLock.unlock();
@@ -1068,11 +1087,12 @@ public class cMsg extends cMsgDomainAdapter {
      * @param cb      callback object whose single method is called upon receiving a message
      *                of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
+     * @return handle object to be used for unsubscribing
      * @throws cMsgException if the callback, subject and/or type is null or blank;
      *                       an identical subscription already exists; there are
      *                       communication problems with the server
      */
-    public void subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+    public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
 
         if (!hasSubscribe) {
@@ -1087,13 +1107,14 @@ public class cMsg extends cMsgDomainAdapter {
             throw new cMsgException("subject or type is blank string");
         }
 
+        cMsgCallbackThread cbThread = null;
+
         // go here to try the subscribe again
         tryagain:
         while (true) {
 
             boolean addedHashEntry  = false;
             cMsgSubscription newSub = null;
-            cMsgCallbackThread cbThread = null;
 
             try {
                 // cannot run this simultaneously with connect or disconnect
@@ -1135,8 +1156,10 @@ public class cMsg extends cMsgDomainAdapter {
                                 }
 
                                 // add to existing set of callbacks
-                                sub.addCallback(new cMsgCallbackThread(cb, userObj));
-                                return;
+                                cbThread = new cMsgCallbackThread(cb, userObj);
+                                sub.addCallback(cbThread);
+                                unsubscriptions.put(cbThread, sub);
+                                return (Object)cbThread;
                             }
                         }
 
@@ -1150,6 +1173,7 @@ public class cMsg extends cMsgDomainAdapter {
                         // add a new subscription & callback
                         cbThread = new cMsgCallbackThread(cb, userObj);
                         newSub   = new cMsgSubscription(subject, type, id, cbThread);
+                        unsubscriptions.put(cbThread, newSub);
 
                         // client listening thread may be interating thru subscriptions concurrently
                         // and we're changing the set structure
@@ -1192,6 +1216,7 @@ public class cMsg extends cMsgDomainAdapter {
                 if (addedHashEntry) {
                     // "subscriptions" is synchronized so it's mutex protected
                     subscriptions.remove(newSub);
+                    unsubscriptions.remove(cbThread);
                     cbThread.dieNow();
                 }
 
@@ -1205,6 +1230,8 @@ public class cMsg extends cMsgDomainAdapter {
 
             break;
         }
+
+        return (Object)cbThread;
     }
 
 
@@ -1213,43 +1240,38 @@ public class cMsg extends cMsgDomainAdapter {
 
     /**
      * Method to unsubscribe a previous subscription to receive messages of a subject and type
-     * from the domain server. Since many subscriptions may be made to the same subject and type
-     * values, but with different callbacks and user objects, the callback and user object must
-     * be specified so the correct subscription can be removed.
+     * from the domain server.
      *
      * Note about the server failing and an IOException being thrown. To have "unsubscribe" make
      * sense on the failover server, we must wait until all existing subscriptions have been
      * successfully resubscribed on the new server.
      *
-     * @param subject message subject
-     * @param type    message type
-     * @param cb      callback object whose single method is called upon receiving a message
-     *                of subject and type
-     * @param userObj any user-supplied object to be given to the callback method as an argument
+     * @param obj the object "handle" returned from a subscribe call
      * @throws cMsgException if there are communication problems with the server; subject
      *                       and/or type is null or blank
      */
-    public void unsubscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+    public void unsubscribe(Object obj)
             throws cMsgException {
 
         if (!hasUnsubscribe) {
             throw new cMsgException("unsubscribe is not implemented by this subdomain");
         }
 
-        // check args first
-        if (subject == null || type == null || cb == null) {
-            throw new cMsgException("subject, type or callback argument is null");
+        // check arg first
+        if (obj == null) {
+            throw new cMsgException("argument is null");
         }
-        else if (subject.length() < 1 || type.length() < 1) {
-            throw new cMsgException("subject or type is blank string");
+
+        cMsgSubscription sub = unsubscriptions.remove(obj);
+        // already unsubscribed
+        if (sub == null) {
+            return;
         }
+        cMsgCallbackThread cbThread = (cMsgCallbackThread) obj;
 
         // go here to try the unsubscribe again
         tryagain:
         while (true) {
-
-            cMsgSubscription oldSub  = null;
-            cMsgCallbackThread cbThread = null;
 
             try {
                 // cannot run this simultaneously with connect or disconnect
@@ -1263,75 +1285,28 @@ public class cMsg extends cMsgDomainAdapter {
                         throw new cMsgException("not connected to server");
                     }
 
-                    // look for and remove any subscription to subject/type with this callback object
-                    boolean foundMatch = false;
-                    cMsgSubscription sub;
-                    int id = 0;
-
-                    // client listening thread may be interating thru subscriptions concurrently
-                    // and we may change set structure
-                    synchronized (subscriptions) {
-
-                        // for each subscription ...
-                        for (Iterator iter = subscriptions.iterator(); iter.hasNext();) {
-                            sub = (cMsgSubscription) iter.next();
-                            // if subscription to subject & type exist ...
-                            if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
-                                // for each callback listed ...
-                                for (Iterator iter2 = sub.getCallbacks().iterator(); iter2.hasNext();) {
-                                    cMsgCallbackThread cbt = (cMsgCallbackThread) iter2.next();
-                                    if ((cbt.callback == cb) && (cbt.getArg() == userObj)) {
-                                        // Found our cb & userArg pair to get rid of.
-                                        // However, don't kill the thread and remove it from
-                                        // the callback set until the server is notified or
-                                        // the server doesn't need to be notified.
-                                        // That way we can "undo" the unsubscribe if there
-                                        // is an IO error.
-                                        foundMatch = true;
-                                        cbThread = cbt;
-                                        break;
-                                    }
-                                }
-
-                                // if no subscription to sub/type/cb/arg, return
-                                if (!foundMatch) {
-                                    return;
-                                }
-
-                                // If there are still callbacks left,
-                                // don't unsubscribe for this subject/type
-                                if (sub.numberOfCallbacks() > 1) {
-                                    // kill callback thread
-                                    cbThread.dieNow();
-                                    // remove this callback from the set
-                                    sub.getCallbacks().remove(cbThread);
-                                    return;
-                                }
-                                // else get rid of the whole subscription
-                                else {
-                                    id = sub.getId();
-                                    oldSub = sub;
-                                    //iter.remove();
-                                }
-
-                                break;
-                            }
+                    // If there are still callbacks left,
+                    // don't unsubscribe for this subject/type
+                    if (sub.numberOfCallbacks() > 1) {
+                        // kill callback thread
+                        cbThread.dieNow();
+                        // remove this callback from the set
+                        synchronized (subscriptions) {
+                            sub.getCallbacks().remove(cbThread);
                         }
-                    }
-
-                    // if no subscription to sub/type, return
-                    if (!foundMatch) {
                         return;
                     }
 
-                    // notify the domain server
+                    // Get rid of the whole subscription - notify the domain server
+                    String subject = sub.getSubject();
+                    String type    = sub.getType();
 
                     socketLock.lock();
                     try {
                         // total length of msg (not including this int) is 1st item
                         domainOut.writeInt(5 * 4 + subject.length() + type.length());
                         domainOut.writeInt(cMsgConstants.msgUnsubscribeRequest);
-                        domainOut.writeInt(id); // reserved for future use
+                        domainOut.writeInt(sub.getId()); // reserved for future use
                         domainOut.writeInt(subject.length());
                         domainOut.writeInt(type.length());
                         domainOut.writeInt(0); // no namespace being sent
@@ -1353,10 +1328,9 @@ public class cMsg extends cMsgDomainAdapter {
                     // basically, do the unsubscribe now.
                     cbThread.dieNow();
                     synchronized (subscriptions) {
-                        oldSub.getCallbacks().remove(cbThread);
-                        subscriptions.remove(oldSub);
+                        sub.getCallbacks().remove(cbThread);
+                        subscriptions.remove(sub);
                     }
-
                 }
                 finally {
                     subscribeLock.unlock();

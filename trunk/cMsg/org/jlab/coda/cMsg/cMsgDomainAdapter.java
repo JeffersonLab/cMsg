@@ -206,9 +206,10 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      * @param cb      callback object whose {@link cMsgCallbackInterface#callback(cMsgMessage, Object)}
      *                method is called upon receiving a message of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
+     * @return handle object to be used for unsubscribing
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public void subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+    public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
         throw new cMsgException("subscribe is not implemented");
     }
@@ -219,18 +220,12 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
     /**
      * Method to unsubscribe a previous subscription to receive messages of a subject and type
-     * from the domain server. Since many subscriptions may be made to the same subject and type
-     * values, but with different callbacks and user objects, the callback and user object must
-     * be specified so the correct subscription can be removed.
+     * from the domain server.
      *
-     * @param subject message subject
-     * @param type    message type
-     * @param cb      callback object whose single method is called upon receiving a message
-     *                of subject and type
-     * @param userObj any user-supplied object to be given to the callback method as an argument
+     * @param obj the object "handle" returned from a subscribe call
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public void unsubscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+    public void unsubscribe(Object obj)
             throws cMsgException {
         throw new cMsgException("unsubscribe is not implemented");
     }

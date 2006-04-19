@@ -134,10 +134,10 @@ public class CA extends cMsgDomainAdapter {
     /** holds subscription info */
     private class SubInfo {
 
-        private String subject;
-        private String type;
-        private cMsgCallbackInterface cb;
-        private Object userObj;
+        String subject;
+        String type;
+        cMsgCallbackInterface cb;
+        Object userObj;
 
         SubInfo(String s, String t, cMsgCallbackInterface c, Object o) {
             subject = s;
@@ -377,12 +377,16 @@ public class CA extends cMsgDomainAdapter {
      * @param cb      callback object whose single method is called upon receiving a message
      *                of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
+     * @return handle object to be used for unsubscribing
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public void subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj) throws cMsgException {
+    public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+            throws cMsgException {
+
+        SubInfo info = new SubInfo(subject,type,cb,userObj);
 
         synchronized (mySubList) {
-            mySubList.add(new SubInfo(subject,type,cb,userObj));
+            mySubList.add(info);
         }
 
         if(myMonitor==null) {
@@ -397,6 +401,8 @@ public class CA extends cMsgDomainAdapter {
                 throw ce;
             }
         }
+
+        return info;
     }
 
 
@@ -409,28 +415,19 @@ public class CA extends cMsgDomainAdapter {
      * values, but with different callbacks, the callback must be specified so the correct
      * subscription can be removed.
      *
-     * @param subject message subject
-     * @param type    message type
-     * @param cb      callback object whose single method is called upon receiving a message
-     *                of subject and type
+     * @param obj the object "handle" returned from a subscribe call
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public void unsubscribe(String subject, String type, cMsgCallbackInterface cb) throws cMsgException {
+    public void unsubscribe(Object obj)
+            throws cMsgException {
 
         int cnt=0;
-
+        SubInfo info = (SubInfo)obj;
 
         // remove subscrition from list
         synchronized (mySubList) {
-            for(SubInfo s : mySubList) {
-                if((s.subject.equals(subject)) &&
-                   (s.type.equals(type)) &&
-                   (s.cb==cb) ) {
-                    mySubList.remove(s);
-                } else {
-                    cnt++;
-                }
-            }
+            mySubList.remove(info);
+            cnt = mySubList.size();
         }
 
 
