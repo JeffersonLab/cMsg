@@ -76,13 +76,10 @@
 /* local variables */
 /** Is the one-time initialization done? */
 static int oneTimeInitialized = 0;
-/** Pthread mutex to protect the local generation of unique numbers. */
+
+/** Pthread mutex to protect one-time initialization and the local generation of unique numbers. */
 static pthread_mutex_t generalMutex = PTHREAD_MUTEX_INITIALIZER;
-/**
- * Read/write lock to prevent connect or disconnect from being
- * run simultaneously with any other function.
- */
-static rwLock_t connectLock = RWL_INITIALIZER; 
+
 /** Id number which uniquely defines a subject/type pair. */
 static int subjectTypeId = 1;
 
@@ -151,12 +148,12 @@ void *cMsgClientListeningThread(void *arg);
 /* mutexes and read/write locks */
 static void  mutexLock(pthread_mutex_t *mutex);
 static void  mutexUnlock(pthread_mutex_t *mutex);
-static void  idMutexLock(void);
-static void  idMutexUnlock(void);
-static void  connectReadLock(void);
-static void  connectReadUnlock(void);
-static void  connectWriteLock(void);
-static void  connectWriteUnlock(void);
+static void  staticMutexLock(void);
+static void  staticMutexUnlock(void);
+static void  connectReadLock(cMsgDomain_CODA *domain);
+static void  connectReadUnlock(cMsgDomain_CODA *domain);
+static void  connectWriteLock(cMsgDomain_CODA *domain);
+static void  connectWriteUnlock(cMsgDomain_CODA *domain);
 static void  socketMutexLock(cMsgDomain_CODA *domain);
 static void  socketMutexUnlock(cMsgDomain_CODA *domain);
 static void  syncSendMutexLock(cMsgDomain_CODA *domain);
@@ -266,7 +263,7 @@ static int restoreSubscriptions(cMsgDomain_CODA *domain)  {
    * We don't want any cMsg commands to be sent to the server
    * while we are busy resubscribing to a failover server.
    */
-  connectWriteLock();  
+  connectWriteLock(domain);  
 
   /* for each client subscription ... */
   for (i=0; i<MAX_SUBSCRIBE; i++) {
@@ -283,12 +280,12 @@ static int restoreSubscriptions(cMsgDomain_CODA *domain)  {
                               domain->subscribeInfo[i].type);
     
     if (err != CMSG_OK) {
-        connectWriteUnlock();  
+        connectWriteUnlock(domain);  
         return(err);
     }        
   }
   
-  connectWriteUnlock();  
+  connectWriteUnlock(domain);  
 
   return(CMSG_OK);
 }
@@ -407,14 +404,11 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
 
 
   /* First, grab lock for thread safety. This lock must be held until
-   * the initialization is completely finished. Otherwise, if we set
-   * initComplete = 1 (so that we reserve space in the cMsgDomains array)
-   * before it's finished and then release the lock, we may give an
-   * "existing" connection to a user who does a second init
-   * when in fact, an error may still occur in that "existing"
-   * connection. Hope you caught that.
+   * the initialization is completely finished. But just hold through
+   * the whole routine anyway since we do domainClear's if there is an
+   * error.
    */
-  connectWriteLock();  
+  staticMutexLock();  
 
   /* do one time initialization */
   if (!oneTimeInitialized) {
@@ -440,7 +434,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
 
   /* exceeds number of domain connections allowed */
   if (id < 0) {
-    connectWriteUnlock();
+    staticMutexUnlock();
     return(CMSG_LIMIT_EXCEEDED);
   }
 
@@ -449,7 +443,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
   cMsgDomains[id].msgBufferSize = initialMsgBufferSize;
   if (cMsgDomains[id].msgBuffer == NULL) {
     domainClear(&cMsgDomains[id]);
-    connectWriteUnlock();
+    staticMutexUnlock();
     return(CMSG_OUT_OF_MEMORY);
   }
 
@@ -484,7 +478,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
 
   if (failoverUDLCount < 1) {
     domainClear(&cMsgDomains[id]);
-    connectWriteUnlock();
+    staticMutexUnlock();
     return(CMSG_ERROR);        
   }
 
@@ -493,7 +487,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
   cMsgDomains[id].failovers = (parsedUDL *) calloc(failoverUDLCount, sizeof(parsedUDL));
   if (cMsgDomains[id].failovers == NULL) {
     domainClear(&cMsgDomains[id]);
-    connectWriteUnlock();
+    staticMutexUnlock();
     return(CMSG_OUT_OF_MEMORY);
   }
 
@@ -539,14 +533,14 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
       /* connect using that UDL */
       if (!cMsgDomains[id].failovers[0].valid) {
           domainClear(&cMsgDomains[id]);
-          connectWriteUnlock();
+          staticMutexUnlock();
           return(CMSG_ERROR);            
       }
       
       err = cmsgd_connectImpl(id, 0);
       if (err != CMSG_OK) {
           domainClear(&cMsgDomains[id]);
-          connectWriteUnlock();
+          staticMutexUnlock();
           return(err);            
       }
   }
@@ -583,7 +577,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
 
     if (!gotConnection) {
       domainClear(&cMsgDomains[id]);
-      connectWriteUnlock();
+      staticMutexUnlock();
       return(CMSG_ERROR);                      
     }        
   }
@@ -597,7 +591,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
   cMsgDomains[id].gotConnection = 1;
 
   /* no more mutex protection is necessary */
-  connectWriteUnlock();
+  staticMutexUnlock();
 
   return(CMSG_OK);
 }
@@ -845,7 +839,7 @@ static int reconnect(int domainId, int failoverIndex) {
   id = domainId;    
 
   
-  connectWriteLock();  
+  connectWriteLock(domain);  
 
   /*--------------------------------------------------------------------*/
   /* Connect to cMsg name server to check if server can be connected to.
@@ -855,7 +849,7 @@ static int reconnect(int domainId, int failoverIndex) {
   if ( (err = cMsgTcpConnect(domain->failovers[failoverIndex].nameServerHost,
                              domain->failovers[failoverIndex].nameServerPort,
                              &serverfd)) != CMSG_OK) {
-    connectWriteUnlock();
+    connectWriteUnlock(domain);
     return(err);
   }  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
@@ -938,7 +932,7 @@ static int reconnect(int domainId, int failoverIndex) {
   /* get host & port (domain->sendHost,sendPort) to send messages to */
   err = talkToNameServer(domain, serverfd, failoverIndex);
   if (err != CMSG_OK) {
-    connectWriteUnlock();
+    connectWriteUnlock(domain);
     close(serverfd);
     return(err);
   }
@@ -962,7 +956,7 @@ static int reconnect(int domainId, int failoverIndex) {
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              domain->sendPort,
                              &domain->receiveSocket)) != CMSG_OK) {
-    connectWriteUnlock();
+    connectWriteUnlock(domain);
     return(err);
   }
 
@@ -975,7 +969,7 @@ static int reconnect(int domainId, int failoverIndex) {
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              domain->sendPort,
                              &domain->keepAliveSocket)) != CMSG_OK) {
-    connectWriteUnlock();
+    connectWriteUnlock(domain);
     close(domain->receiveSocket);
     return(err);
   }
@@ -994,7 +988,7 @@ static int reconnect(int domainId, int failoverIndex) {
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              domain->sendPort,
                              &domain->sendSocket)) != CMSG_OK) {
-    connectWriteUnlock();
+    connectWriteUnlock(domain);
     close(domain->keepAliveSocket);
     close(domain->receiveSocket);
     return(err);
@@ -1004,7 +998,7 @@ static int reconnect(int domainId, int failoverIndex) {
     fprintf(stderr, "reconnect: created sending socket fd = %d\n", domain->sendSocket);
   }
   
-  connectWriteUnlock();
+  connectWriteUnlock(domain);
   
 /* printf("reconnect END\n"); */
   return(CMSG_OK);
@@ -1065,14 +1059,14 @@ static int cmsgd_send(void *domainId, void *vmsg) {
     err = CMSG_OK;
     
     /* Cannot run this while connecting/disconnecting */
-    connectReadLock();
+    connectReadLock(domain);
 
     if (domain->initComplete != 1) {
-      connectReadUnlock();
+      connectReadUnlock(domain);
       return(CMSG_NOT_INITIALIZED);
     }
     if (domain->gotConnection != 1) {
-      connectReadUnlock();
+      connectReadUnlock(domain);
       err = CMSG_LOST_CONNECTION;
       break;
     }
@@ -1150,7 +1144,7 @@ static int cmsgd_send(void *domainId, void *vmsg) {
       domain->msgBuffer = (char *) malloc(domain->msgBufferSize);
       if (domain->msgBuffer == NULL) {
         socketMutexUnlock(domain);
-        connectReadUnlock();
+        connectReadUnlock(domain);
         return(CMSG_OUT_OF_MEMORY);
       }
     }
@@ -1172,7 +1166,7 @@ static int cmsgd_send(void *domainId, void *vmsg) {
     /* send data over socket */
     if (cMsgTcpWrite(fd, (void *) domain->msgBuffer, len) != len) {
       socketMutexUnlock(domain);
-      connectReadUnlock();
+      connectReadUnlock(domain);
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "cmsgd_send: write failure\n");
       }
@@ -1182,7 +1176,7 @@ static int cmsgd_send(void *domainId, void *vmsg) {
 
     /* done protecting communications */
     socketMutexUnlock(domain);
-    connectReadUnlock();
+    connectReadUnlock(domain);
     break;
 
   }
@@ -1254,14 +1248,14 @@ static int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
     err = CMSG_OK;
 
     /* Cannot run this while connecting/disconnecting */
-    connectReadLock();
+    connectReadLock(domain);
 
     if (domain->initComplete != 1) {
-      connectReadUnlock();
+      connectReadUnlock(domain);
       return(CMSG_NOT_INITIALIZED);
     }
     if (domain->gotConnection != 1) {
-      connectReadUnlock();
+      connectReadUnlock(domain);
       err = CMSG_LOST_CONNECTION;
       break;
     }
@@ -1343,7 +1337,7 @@ static int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
       if (domain->msgBuffer == NULL) {
         socketMutexUnlock(domain);
         syncSendMutexUnlock(domain);
-        connectReadUnlock();
+        connectReadUnlock(domain);
         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
           fprintf(stderr, "cmsgd_syncSend: out of memory\n");
         }
@@ -1369,7 +1363,7 @@ static int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
     if (cMsgTcpWrite(fd, (void *) domain->msgBuffer, len) != len) {
       socketMutexUnlock(domain);
       syncSendMutexUnlock(domain);
-      connectReadUnlock();
+      connectReadUnlock(domain);
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "cmsgd_syncSend: write failure\n");
       }
@@ -1383,7 +1377,7 @@ static int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
     /* now read reply */
     if (cMsgTcpRead(fdIn, (void *) &err, sizeof(err)) != sizeof(err)) {
       syncSendMutexUnlock(domain);
-      connectReadUnlock();
+      connectReadUnlock(domain);
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "cmsgd_syncSend: read failure\n");
       }
@@ -1392,7 +1386,7 @@ static int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
     }
 
     syncSendMutexUnlock(domain);
-    connectReadUnlock();
+    connectReadUnlock(domain);
     break;
   }
   
@@ -1464,14 +1458,14 @@ static int cmsgd_subscribeAndGet(void *domainId, const char *subject, const char
     return(CMSG_BAD_ARGUMENT);
   }
 
-  connectReadLock();
+  connectReadLock(domain);
 
   if (domain->initComplete != 1) {
-    connectReadUnlock();
+    connectReadUnlock(domain);
     return(CMSG_NOT_INITIALIZED);
   }
   if (domain->gotConnection != 1) {
-    connectReadUnlock();
+    connectReadUnlock(domain);
     return(CMSG_LOST_CONNECTION);
   }
   
@@ -1481,9 +1475,9 @@ static int cmsgd_subscribeAndGet(void *domainId, const char *subject, const char
    * Mutex protect this operation as many cmsgd_connect calls may
    * operate in parallel on this static variable.
    */
-  idMutexLock();
+  staticMutexLock();
   uniqueId = subjectTypeId++;
-  idMutexUnlock();
+  staticMutexUnlock();
 
   /* make new entry and notify server */
   gotSpot = 0;
@@ -1507,7 +1501,7 @@ static int cmsgd_subscribeAndGet(void *domainId, const char *subject, const char
   } 
 
   if (!gotSpot) {
-    connectReadUnlock();
+    connectReadUnlock(domain);
     free(info->subject);
     free(info->type);
     info->subject = NULL;
@@ -1550,7 +1544,7 @@ static int cmsgd_subscribeAndGet(void *domainId, const char *subject, const char
   
   if (cMsgTcpWritev(fd, iov, 3, 16) == -1) {
     socketMutexUnlock(domain);
-    connectReadUnlock();
+    connectReadUnlock(domain);
     free(info->subject);
     free(info->type);
     info->subject = NULL;
@@ -1564,7 +1558,7 @@ static int cmsgd_subscribeAndGet(void *domainId, const char *subject, const char
   
   /* done protecting communications */
   socketMutexUnlock(domain);
-  connectReadUnlock();
+  connectReadUnlock(domain);
   
   /* Now ..., wait for asynchronous response */
   
@@ -1763,14 +1757,14 @@ static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec
     return(CMSG_BAD_ARGUMENT);
   }
 
-  connectReadLock();
+  connectReadLock(domain);
 
   if (domain->initComplete != 1) {
-    connectReadUnlock();
+    connectReadUnlock(domain);
     return(CMSG_NOT_INITIALIZED);
   }
   if (domain->gotConnection != 1) {
-    connectReadUnlock();
+    connectReadUnlock(domain);
     return(CMSG_LOST_CONNECTION);
   }
  
@@ -1787,9 +1781,9 @@ static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec
    * Mutex protect this operation as many cmsgd_connect calls may
    * operate in parallel on this static variable.
    */
-  idMutexLock();
+  staticMutexLock();
   uniqueId = subjectTypeId++;
-  idMutexUnlock();
+  staticMutexUnlock();
 
   /* make new entry and notify server */
   gotSpot = 0;
@@ -1813,7 +1807,7 @@ static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec
   }
 
   if (!gotSpot) {
-    connectReadUnlock();
+    connectReadUnlock(domain);
     /* free up memory */
     free(info->subject);
     free(info->type);
@@ -1892,7 +1886,7 @@ static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec
     domain->msgBuffer = (char *) malloc(domain->msgBufferSize);
     if (domain->msgBuffer == NULL) {
       socketMutexUnlock(domain);
-      connectReadUnlock();
+      connectReadUnlock(domain);
       free(info->subject);
       free(info->type);
       info->subject = NULL;
@@ -1922,7 +1916,7 @@ static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec
   /* send data over socket */
   if (cMsgTcpWrite(fd, (void *) domain->msgBuffer, len) != len) {
     socketMutexUnlock(domain);
-    connectReadUnlock();
+    connectReadUnlock(domain);
     free(info->subject);
     free(info->type);
     info->subject = NULL;
@@ -1936,7 +1930,7 @@ static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec
      
   /* done protecting communications */
   socketMutexUnlock(domain);
-  connectReadUnlock();
+  connectReadUnlock(domain);
   
   /* Now ..., wait for asynchronous response */
   
@@ -2133,14 +2127,14 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
   while (1) {
     err = CMSG_OK;
     
-    connectReadLock();
+    connectReadLock(domain);
 
     if (domain->initComplete != 1) {
-      connectReadUnlock();
+      connectReadUnlock(domain);
       return(CMSG_NOT_INITIALIZED);
     }
     if (domain->gotConnection != 1) {
-      connectReadUnlock();
+      connectReadUnlock(domain);
       err = CMSG_LOST_CONNECTION;
       break;
     }
@@ -2176,7 +2170,7 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
                (domain->subscribeInfo[i].cbInfo[j].userArg  ==  userArg))  {
 
             subscribeMutexUnlock(domain);
-            connectReadUnlock();
+            connectReadUnlock(domain);
             return(CMSG_ALREADY_EXISTS);
           }
         }
@@ -2199,7 +2193,7 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
             cbarg = (cbArg *) malloc(sizeof(cbArg));
             if (cbarg == NULL) {
               subscribeMutexUnlock(domain);
-              connectReadUnlock();
+              connectReadUnlock(domain);
               return(CMSG_OUT_OF_MEMORY);  
             }                        
             cbarg->domainId = (int) domainId;
@@ -2232,12 +2226,12 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
 
     if ((iok == 1) && (jok == 0)) {
       subscribeMutexUnlock(domain);
-      connectReadUnlock();
+      connectReadUnlock(domain);
       return(CMSG_OUT_OF_MEMORY);
     }
     if ((iok == 1) && (jok == 1)) {
       subscribeMutexUnlock(domain);
-      connectReadUnlock();
+      connectReadUnlock(domain);
       return(CMSG_OK);
     }
 
@@ -2270,7 +2264,7 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
       cbarg = (cbArg *) malloc(sizeof(cbArg));
       if (cbarg == NULL) {
         subscribeMutexUnlock(domain);
-        connectReadUnlock();
+        connectReadUnlock(domain);
         return(CMSG_OUT_OF_MEMORY);  
       }                        
       cbarg->domainId = (int) domainId;
@@ -2301,9 +2295,9 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
        * Mutex protect this operation as many cmsgd_connect calls may
        * operate in parallel on this static variable.
        */
-      idMutexLock();
+      staticMutexLock();
       uniqueId = subjectTypeId++;
-      idMutexUnlock();
+      staticMutexUnlock();
       domain->subscribeInfo[i].id = uniqueId;
 
       /* notify domain server */
@@ -2371,7 +2365,7 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
 
     /* done protecting subscribe */
     subscribeMutexUnlock(domain);
-    connectReadUnlock();
+    connectReadUnlock(domain);
     break;  
   } /* while(1) */
 
@@ -2448,9 +2442,9 @@ static int resubscribe(cMsgDomain_CODA *domain, const char *subject, const char 
   }
   
   /* Pick a unique identifier for the subject/type pair. */
-  idMutexLock();
+  staticMutexLock();
   uniqueId = subjectTypeId++;
-  idMutexUnlock();
+  staticMutexUnlock();
   i = mySubIndex;
   domain->subscribeInfo[i].id = uniqueId;
 
@@ -2570,14 +2564,14 @@ static int cmsgd_unsubscribe(void *domainId, void *handle) {
   while (1) {
     err = CMSG_OK;
     
-    connectReadLock();
+    connectReadLock(domain);
 
     if (domain->initComplete != 1) {
-      connectReadUnlock();
+      connectReadUnlock(domain);
       return(CMSG_NOT_INITIALIZED);
     }
     if (domain->gotConnection != 1) {
-      connectReadUnlock();
+      connectReadUnlock(domain);
       err = CMSG_LOST_CONNECTION;
       break;
     }
@@ -2632,7 +2626,7 @@ static int cmsgd_unsubscribe(void *domainId, void *handle) {
       if (cMsgTcpWritev(fd, iov, 3, 16) == -1) {
         socketMutexUnlock(domain);
         subscribeMutexUnlock(domain);
-        connectReadUnlock();
+        connectReadUnlock(domain);
         
         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
           fprintf(stderr, "cmsgd_unsubscribe: write failure\n");
@@ -2684,7 +2678,7 @@ static int cmsgd_unsubscribe(void *domainId, void *handle) {
     
     /* done protecting unsubscribe */
     subscribeMutexUnlock(domain);
-    connectReadUnlock();
+    connectReadUnlock(domain);
   
     break;
     
@@ -2766,7 +2760,7 @@ static int cmsgd_disconnect(void *domainId) {
   if (domain->initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
   /* When changing initComplete / connection status, protect it */
-  connectWriteLock();
+  connectWriteLock(domain);
   
   /*
    * If the domain server thread terminates first, our keep alive thread will
@@ -2797,7 +2791,7 @@ static int cmsgd_disconnect(void *domainId) {
   if (cMsgTcpWrite(fd, (char*) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
     /*
     socketMutexUnlock(domain);
-    connectWriteUnlock();
+    connectWriteUnlock(domain);
     */
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cmsgd_disconnect: write failure, but continue\n");
@@ -2879,9 +2873,12 @@ static int cmsgd_disconnect(void *domainId) {
   if(msgBuffer!=NULL) free(msgBuffer);
   msgBuffer=NULL;
   */
+  /* protect the domain array when freeing up a space */
+  staticMutexLock();
   domainClear(domain);
+  staticMutexUnlock();
   
-  connectWriteUnlock();
+  connectWriteUnlock(domain);
 
   return(CMSG_OK);
 }
@@ -2909,7 +2906,7 @@ static int disconnectFromKeepAlive(void *domainId) {
 
   
   /* When changing initComplete / connection status, protect it */
-  connectWriteLock();
+  connectWriteLock(domain);
      
   /* stop listening and client communication threads */
 printf("disconnect: cancelling pend thread\n");
@@ -2976,10 +2973,12 @@ printf("disconnect: cancelling pend thread\n");
   /*close(domain->listenSocket);*/
   
   /* free memory (non-NULL items), reset variables*/
+  /* protect the domain array when freeing up a space */
+  staticMutexLock();
   domainClear(domain);
+  staticMutexUnlock();
   
-  connectWriteUnlock();
-printf("disconnect: end KA thread\n");
+  connectWriteUnlock(domain);
 
   return(CMSG_OK);
 }
@@ -3059,7 +3058,7 @@ static int cmsgd_shutdownClients(void *domainId, const char *client, int flag) {
   
   if (domain->initComplete != 1) return(CMSG_NOT_INITIALIZED);
       
-  connectWriteLock();
+  connectWriteLock(domain);
     
   /* message id (in network byte order) to domain server */
   outGoing[1] = htonl(CMSG_SHUTDOWN_CLIENTS);
@@ -3089,7 +3088,7 @@ static int cmsgd_shutdownClients(void *domainId, const char *client, int flag) {
   
   if (cMsgTcpWritev(fd, iov, 2, 16) == -1) {
     socketMutexUnlock(domain);
-    connectWriteUnlock();
+    connectWriteUnlock(domain);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cmsgd_unsubscribe: write failure\n");
     }
@@ -3097,7 +3096,7 @@ static int cmsgd_shutdownClients(void *domainId, const char *client, int flag) {
   }
    
   socketMutexUnlock(domain);  
-  connectWriteUnlock();
+  connectWriteUnlock(domain);
 
   return CMSG_OK;
 
@@ -3134,7 +3133,7 @@ static int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
   
   if (domain->initComplete != 1) return(CMSG_NOT_INITIALIZED);
       
-  connectWriteLock();
+  connectWriteLock(domain);
     
   /* message id (in network byte order) to domain server */
   outGoing[1] = htonl(CMSG_SHUTDOWN_SERVERS);
@@ -3164,7 +3163,7 @@ static int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
   
   if (cMsgTcpWritev(fd, iov, 2, 16) == -1) {
     socketMutexUnlock(domain);
-    connectWriteUnlock();
+    connectWriteUnlock(domain);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cmsgd_unsubscribe: write failure\n");
     }
@@ -3172,7 +3171,7 @@ static int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
   }
    
   socketMutexUnlock(domain);  
-  connectWriteUnlock();
+  connectWriteUnlock(domain);
 
   return CMSG_OK;
 
@@ -4738,6 +4737,11 @@ static void domainInit(cMsgDomain_CODA *domain, int reInit) {
   if (reInit) return;
 #endif
 
+  status = rwl_init(&domain->connectLock);
+  if (status != 0) {
+    err_abort(status, "domainInit:initializing connect read/write lock");
+  }
+  
   status = pthread_mutex_init(&domain->socketMutex, NULL);
   if (status != 0) {
     err_abort(status, "domainInit:initializing socket mutex");
@@ -4912,6 +4916,11 @@ static void domainFree(cMsgDomain_CODA *domain) {
   status = pthread_cond_destroy (&domain->subscribeCond);
   if (status != 0) {
     err_abort(status, "domainFree:destroying cond var");
+  }
+    
+  status = rwl_destroy (&domain->connectLock);
+  if (status != 0) {
+    err_abort(status, "domainFree:destroying connect read/write lock");
   }
     
 #endif
@@ -5268,8 +5277,10 @@ static void mutexUnlock(pthread_mutex_t *mutex) {
 
 /*-------------------------------------------------------------------*/
 
-/** This routine locks the pthread mutex used when creating unique id numbers. */
-static void idMutexLock(void) {
+/**
+ * This routine locks the pthread mutex used when creating unique id numbers
+ * and doing the one-time intialization. */
+static void staticMutexLock(void) {
 
   int status = pthread_mutex_lock(&generalMutex);
   if (status != 0) {
@@ -5281,8 +5292,10 @@ static void idMutexLock(void) {
 /*-------------------------------------------------------------------*/
 
 
-/** This routine unlocks the pthread mutex used when creating unique id numbers. */
-static void idMutexUnlock(void) {
+/**
+ * This routine unlocks the pthread mutex used when creating unique id numbers
+ * and doing the one-time intialization. */
+static void staticMutexUnlock(void) {
 
   int status = pthread_mutex_unlock(&generalMutex);
   if (status != 0) {
@@ -5300,9 +5313,9 @@ static void idMutexUnlock(void) {
  * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
  * execution of those routines with cmsgd_connect or cmsgd_disconnect.
  */
-static void connectReadLock(void) {
+static void connectReadLock(cMsgDomain_CODA *domain) {
 
-  int status = rwl_readlock(&connectLock);
+  int status = rwl_readlock(&domain->connectLock);
   if (status != 0) {
     err_abort(status, "Failed read lock");
   }
@@ -5318,9 +5331,9 @@ static void connectReadLock(void) {
  * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
  * execution of those routines with cmsgd_connect or cmsgd_disconnect.
  */
-static void connectReadUnlock(void) {
+static void connectReadUnlock(cMsgDomain_CODA *domain) {
 
-  int status = rwl_readunlock(&connectLock);
+  int status = rwl_readunlock(&domain->connectLock);
   if (status != 0) {
     err_abort(status, "Failed read unlock");
   }
@@ -5336,9 +5349,9 @@ static void connectReadUnlock(void) {
  * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
  * execution of those routines with cmsgd_connect or cmsgd_disconnect.
  */
-static void connectWriteLock(void) {
+static void connectWriteLock(cMsgDomain_CODA *domain) {
 
-  int status = rwl_writelock(&connectLock);
+  int status = rwl_writelock(&domain->connectLock);
   if (status != 0) {
     err_abort(status, "Failed read lock");
   }
@@ -5354,9 +5367,9 @@ static void connectWriteLock(void) {
  * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
  * execution of those routines with cmsgd_connect or cmsgd_disconnect.
  */
-static void connectWriteUnlock(void) {
+static void connectWriteUnlock(cMsgDomain_CODA *domain) {
 
-  int status = rwl_writeunlock(&connectLock);
+  int status = rwl_writeunlock(&domain->connectLock);
   if (status != 0) {
     err_abort(status, "Failed read unlock");
   }

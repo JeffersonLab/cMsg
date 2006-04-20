@@ -26,6 +26,7 @@
 #define __cMsgDomain_h
 
 #include "cMsgPrivate.h"
+#include "rwlock.h"
 
 #ifdef	__cplusplus
 extern "C" {
@@ -180,7 +181,12 @@ typedef struct cMsgDomain_CODA_t {
   pthread_t pendThread;      /**< Listening thread. */
   pthread_t keepAliveThread; /**< Thread sending keep alives to server. */
   pthread_t clientThread[2]; /**< Threads from server connecting to client (created by pendThread). */
-
+  
+  /**
+   * Read/write lock to prevent connect or disconnect from being
+   * run simultaneously with any other function.
+   */
+  rwLock_t connectLock;
   pthread_mutex_t socketMutex;    /**< Mutex to ensure thread-safety of socket use. */
   pthread_mutex_t syncSendMutex;  /**< Mutex to ensure thread-safety of syncSends. */
   pthread_mutex_t subscribeMutex; /**< Mutex to ensure thread-safety of (un)subscribes. */

@@ -11,6 +11,10 @@
  * The rwl_init() and rwl_destroy() functions, respectively, allow you to
  * initialize/create and destroy/free the reader/writer lock.
  */
+
+#ifndef __rwlock_h /* added by Carl Timmer */
+#define __rwlock_h
+
 #include <pthread.h>
 
 /*
@@ -57,4 +61,6 @@ extern int rwl_writeunlock (rwLock_t *rwlock);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif
