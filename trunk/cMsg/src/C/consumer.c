@@ -46,7 +46,7 @@ static void callback(void *msg, void *arg) {
   
   count++;
   
-  nanosleep(&sleeep, NULL);
+  /*nanosleep(&sleeep, NULL);*/
   
   /*
   cMsgGetUserInt(msg, &userInt);
@@ -103,10 +103,12 @@ int main(int argc,char **argv) {
   char *myDescription = "C consumer";
   char *subject = "SUBJECT";
   char *type    = "TYPE";
-  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test;cMsg:cMsg://aslan:3457/cMsg/test";
+  char *UDL     = "cMsg:cMsg://phecda:3456/cMsg/test";
   /*char *UDL     = "cMsg://blah.jlab.org/;cMsg:cMsg://aslan:3456/cMsg/test/stuff?blah=blah&cmsgpassword=charlie&junk=junk"; */
   int   err, debug = 1;
   cMsgSubscribeConfig *config;
+  void *unSubHandle;
+  int toggle = 2;
   
   /* msg rate measuring variables */
   int             period = 5, ignore=0;
@@ -149,7 +151,7 @@ int main(int argc,char **argv) {
   cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
   
   /* subscribe */
-  err = cMsgSubscribe(domainId, subject, type, callback, NULL, config);
+  err = cMsgSubscribe(domainId, subject, type, callback, NULL, config, &unSubHandle);
   if (err != CMSG_OK) {
       if (debug) {
           printf("cMsgSubscribe: %s\n",cMsgPerror(err));
@@ -173,7 +175,16 @@ int main(int argc,char **argv) {
       }
       else {
           ignore--;
-      } 
+      }
+      
+      /* test unsubscribe */
+      if (toggle++%2 == 0) {
+          cMsgUnSubscribe(domainId, unSubHandle);
+      }
+      else {
+          cMsgSubscribe(domainId, subject, type, callback, NULL, config, &unSubHandle);
+      }
+      
   }
 
   return(0);
