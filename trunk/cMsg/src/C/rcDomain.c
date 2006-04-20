@@ -108,8 +108,8 @@ static domainFunctions functions = {cmsgd_connect, cmsgd_send,
                                     cmsgd_setShutdownHandler};
 
 /* CC domain type */
-domainTypeInfo ccDomainTypeInfo = {
-  "CC",
+domainTypeInfo rcDomainTypeInfo = {
+  "rc",
   &functions
 };
 

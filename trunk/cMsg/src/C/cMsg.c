@@ -119,7 +119,7 @@ int cMsgDebug = CMSG_DEBUG_NONE;
 /** For domain implementations. */
 extern domainTypeInfo cmsgDomainTypeInfo;
 extern domainTypeInfo fileDomainTypeInfo;
-extern domainTypeInfo   ccDomainTypeInfo;
+extern domainTypeInfo   rcDomainTypeInfo;
 
 
 /* local prototypes */
@@ -953,8 +953,8 @@ static int registerPermanentDomains() {
 
 
   /* coda component (CC) domain */
-  dTypeInfo[1].type = (char *)strdup("CC"); 
-  dTypeInfo[1].functions = ccDomainTypeInfo.functions;
+  dTypeInfo[1].type = (char *)strdup("RC"); 
+  dTypeInfo[1].functions = rcDomainTypeInfo.functions;
 
 
   /* for file domain */
