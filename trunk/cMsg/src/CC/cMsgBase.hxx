@@ -239,14 +239,11 @@ public:
   virtual void send(cMsgMessageBase *msg) throw(cMsgException);
   virtual int  syncSend(cMsgMessageBase &msg) throw(cMsgException);
   virtual int  syncSend(cMsgMessageBase *msg) throw(cMsgException);
-  virtual void subscribe(const string &subject, const string &type, cMsgCallbackAdapter *cba, void *userArg)
+  virtual void *subscribe(const string &subject, const string &type, cMsgCallbackAdapter *cba, void *userArg)
     throw(cMsgException);
-  virtual void subscribe(const string &subject, const string &type, cMsgCallbackAdapter &cba, void *userArg)
+  virtual void *subscribe(const string &subject, const string &type, cMsgCallbackAdapter &cba, void *userArg)
     throw(cMsgException);
-  virtual void unsubscribe(const string &subject, const string &type, cMsgCallbackAdapter *cba, void *userArg)
-    throw(cMsgException);
-  virtual void unsubscribe(const string &subject, const string &type, cMsgCallbackAdapter &cba, void *userArg)
-    throw(cMsgException);
+  virtual void unsubscribe(void *handle) throw(cMsgException);
   virtual cMsgMessageBase *sendAndGet(cMsgMessageBase &sendMsg, const struct timespec &timeout) 
     throw(cMsgException);
   virtual cMsgMessageBase *sendAndGet(cMsgMessageBase *sendMsg, const struct timespec &timeout)

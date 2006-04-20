@@ -1,5 +1,6 @@
 // to do
 //   endian functions, other C functions
+//   redo callback
 //   doxygen doc
 
 
@@ -27,6 +28,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+
+
+//-----------------------------------------------------------------------------
+//  struct and static function needed to dispatch callbacks between c and c++
+//-----------------------------------------------------------------------------
+
+
+typedef struct {
+  cMsgCallbackAdapter *cba;
+  void *userArg;
+} dispatcherStruct;
+
+
+static void callbackDispatcher(void *msg, void *userArg) {
+  dispatcherStruct *ds = (dispatcherStruct*)userArg;
+  ds->cba->callback(new cMsgMessageBase(msg),ds->userArg);
+}
 
 
 
@@ -919,7 +938,7 @@ int cMsg::syncSend(cMsgMessageBase *msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAdapter *cba, void *userArg) throw(cMsgException) {
+void *cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAdapter *cba, void *userArg) throw(cMsgException) {
     
 
   // create and fill config
@@ -933,45 +952,45 @@ void cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAdap
   cMsgSubscribeSetMessagesPerThread(myConfig, cba->getMessagesPerThread());
 
 
-  // subscribe
-  int stat=cMsgSubscribe(myDomainId,subject.c_str(),type.c_str(),cba,userArg,myConfig);
+  // create and fill dispatcher struct ???
+//   dispatcherStruct *d = new dispatcherStruct();
+//   d->cba=cba;
+//   d->userArg=userArg;
+
+
+
+  // subscribe and get handle
+  void *handle;
+  int stat=cMsgSubscribe(myDomainId,subject.c_str(),type.c_str(),cba,userArg,myConfig,&handle);
+
+  //???  int stat=cMsgSubscribe(myDomainId,subject.c_str(),type.c_str(),callbackDispatcher,(void*)d,myConfig);
 
 
   // destroy config
   cMsgSubscribeConfigDestroy(myConfig);
 
 
-  if(stat!=CMSG_OK) {
-    throw(cMsgException(cMsgPerror(stat),stat));
-  }
+  if(stat!=CMSG_OK) throw(cMsgException(cMsgPerror(stat),stat));
+  return(handle);
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-void cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAdapter &cba, void *userArg) throw(cMsgException) {
-  cMsg::subscribe(subject, type, &cba, userArg);
+void *cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAdapter &cba, void *userArg) throw(cMsgException) {
+  return(cMsg::subscribe(subject, type, &cba, userArg));
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-void cMsg::unsubscribe(const string &subject, const string &type, cMsgCallbackAdapter *cba, void *userArg) throw(cMsgException) {
-    
+void cMsg::unsubscribe(void *handle) throw(cMsgException) {
   int stat;
-  if((stat=cMsgUnSubscribe(myDomainId,subject.c_str(),type.c_str(),cba,userArg))!=CMSG_OK) {
+  if((stat=cMsgUnSubscribe(myDomainId,handle))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
-}
-
-
-//-----------------------------------------------------------------------------
-
-
-void cMsg::unsubscribe(const string &subject, const string &type, cMsgCallbackAdapter &cba, void *userArg) throw(cMsgException) {
-  cMsg::unsubscribe(subject, type, &cba, userArg);
 }
 
 
