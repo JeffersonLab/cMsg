@@ -30,6 +30,7 @@ SRC =   rwlock.c \
 	cMsg.c \
 	cMsgDomainListenThread.c \
 	cMsgDomain.c \
+	rcDomain.c \
 	fileDomain.c
 
 OBJS =  rwlock.o \
@@ -39,6 +40,7 @@ OBJS =  rwlock.o \
 	cMsg.o \
 	cMsgDomainListenThread.o \
 	cMsgDomain.o \
+	rcDomain.c \
 	fileDomain.o
 
 HFILES = cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsgBase.h cMsgDomain.h rwlock.h errors.h
