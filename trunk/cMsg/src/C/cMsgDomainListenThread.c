@@ -35,39 +35,25 @@
 #include "cMsgBase.h"
 #include "cMsgDomain.h"
 
-/**
- * This structure passes relevant info to each thread serving
- * a cMsg connection.
- */
-typedef struct cMsgThreadInfo_t {
-  int connfd;   /**< Socket connection's file descriptor. */
-  int domainId; /**< Index into the cMsgDomains array. */
-  int connectionNumber; /**< Number of connection to this listening port (starting at 0). */
-} cMsgThreadInfo;
-
-/** Expected maximum size of a message in bytes. */
-#define CMSG_MESSAGE_SIZE 4096
-
 
 static int counter = 1;
-static int acknowledge = 0;
 
 /* for c++ */
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+
 /**
  * Array containing a structure of information about each client
  * connection to the cMsg domain.
  */
-extern cMsgDomain_CODA cMsgDomains[];
+extern cMsgDomainInfo cMsgDomains[];
 
 
 /* prototypes */
 static void *clientThread(void *arg);
 static void  cleanUpHandler(void *arg);
-static int   cMsgReadMessage(int connfd, char *buffer, cMsgMessage *msg);
 
 #ifdef VXWORKS
 static char *strdup(const char *s1) {
@@ -86,7 +72,7 @@ static char *strdup(const char *s1) {
  *-------------------------------------------------------------------*/
 static void cleanUpHandler(void *arg) {
   struct timespec sTime = {0,500000000};
-  cMsgDomain_CODA *domain = (cMsgDomain_CODA *) arg;
+  cMsgDomainInfo *domain = (cMsgDomainInfo *) arg;
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "cMsgClientListeningThread: in cleanup handler\n");
@@ -296,14 +282,8 @@ static void *clientThread(void *arg)
   cMsgThreadInfo *info;
   int  con, bufSize, index;
   char *buffer;
+  int acknowledge = 0;
 
-  /* msg rate measuring variables */
-  /*
-  int             dostring=1, count=0, i, delay=0, loops=2000, ignore=5, once=0;
-  struct timespec t1, t2, t0;
-  double          freq, freqAvg=0., deltaT, totalT=0.;
-  long long       totalC=0;
-  */
   
   info             = (cMsgThreadInfo *) arg;
   domainId         = info->domainId;
@@ -408,7 +388,7 @@ static void *clientThread(void *arg)
           message->receiverHost = (char *) strdup(cMsgDomains[domainId].myHost);
           
           /* read the message */
-          if ( cMsgReadMessage(connfd, buffer, message) != CMSG_OK) {
+          if ( cMsgReadMessage(connfd, buffer, message, &acknowledge) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread %d: error reading message\n", localCount);
             }
@@ -430,7 +410,7 @@ static void *clientThread(void *arg)
           }       
 
           /* run callbacks for this message */
-          err = cMsgRunCallbacks(domainId, message);
+          err = cMsgRunCallbacks(&cMsgDomains[domainId], message);
           if (err != CMSG_OK) {
             if (err == CMSG_OUT_OF_MEMORY) {
               if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -470,7 +450,7 @@ static void *clientThread(void *arg)
           message->receiverHost = (char *) strdup(cMsgDomains[domainId].myHost);
           
           /* read the message */
-          if ( cMsgReadMessage(connfd, buffer, message) != CMSG_OK) {
+          if ( cMsgReadMessage(connfd, buffer, message, &acknowledge) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread %d: error reading message\n", localCount);
             }
@@ -579,208 +559,6 @@ static void *clientThread(void *arg)
     return NULL;
 }
 
-
-/*-------------------------------------------------------------------*/
-
-/*
- * This routine is called by a single thread spawned from the client's
- * listening thread. Since it's called serially, it can safely use
- * arrays declared at the top of the file.
- */
-/** This routine reads a message sent from the server to the client. */
-static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage *msg) {
-
-  long long llTime;
-  int  stringLen, lengths[7], inComing[18];
-  char *pchar, *tmp;
-    
-  if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgReadMessage: error reading message 1\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-
-  /* swap to local endian */
-  msg->version  = ntohl(inComing[0]);  /* major version of cMsg */
-  /* second int is for future use */
-  msg->userInt  = ntohl(inComing[2]);  /* user int */
-
-  msg->info     = ntohl(inComing[3]);  /* get info */
-  /*
-   * Time arrives as the high 32 bits followed by the low 32 bits
-   * of a 64 bit integer in units of milliseconds.
-   */
-  llTime = (((long long) ntohl(inComing[4])) << 32) |
-           (((long long) ntohl(inComing[5])) & 0x00000000FFFFFFFF);
-  /* turn long long into struct timespec */
-  msg->senderTime.tv_sec  =  llTime/1000;
-  msg->senderTime.tv_nsec = (llTime%1000)*1000000;
-  
-  llTime = (((long long) ntohl(inComing[6])) << 32) |
-           (((long long) ntohl(inComing[7])) & 0x00000000FFFFFFFF);
-  msg->userTime.tv_sec  =  llTime/1000;
-  msg->userTime.tv_nsec = (llTime%1000)*1000000;
-  
-  msg->sysMsgId    = ntohl(inComing[8]);  /* system msg id */
-  msg->senderToken = ntohl(inComing[9]);  /* sender token */
-  lengths[0]       = ntohl(inComing[10]); /* sender length */
-  lengths[1]       = ntohl(inComing[11]); /* senderHost length */
-  lengths[2]       = ntohl(inComing[12]); /* subject length */
-  lengths[3]       = ntohl(inComing[13]); /* type length */
-  lengths[4]       = ntohl(inComing[14]); /* creator length */
-  lengths[5]       = ntohl(inComing[15]); /* text length */
-  lengths[6]       = ntohl(inComing[16]); /* binary length */
-  acknowledge      = ntohl(inComing[17]); /* acknowledge receipt of message? (1-y,0-n) */
-  
-  /* length of strings to read in */
-  stringLen = lengths[0] + lengths[1] + lengths[2] +
-              lengths[3] + lengths[4] + lengths[5];
-  
-  if (cMsgTcpRead(connfd, buffer, stringLen) != stringLen) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgReadMessage: error reading message 2\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-  
-  /* init pointer */
-  pchar = buffer;
-
-  /*--------------------*/
-  /* read sender string */
-  /*--------------------*/
-  /* allocate memory for sender string */
-  if ( (tmp = (char *) malloc((size_t) (lengths[0]+1))) == NULL) {
-    return(CMSG_OUT_OF_MEMORY);    
-  }
-  /* read sender string into memory */
-  memcpy(tmp, pchar, lengths[0]);
-  /* add null terminator to string */
-  tmp[lengths[0]] = 0;
-  /* store string in msg structure */
-  msg->sender = tmp;
-  /* go to next string */
-  pchar += lengths[0];
-  /*printf("sender = %s\n", tmp);*/
-      
-  /*------------------------*/
-  /* read senderHost string */
-  /*------------------------*/
-  if ( (tmp = (char *) malloc((size_t) (lengths[1]+1))) == NULL) {
-    free((void *) msg->sender);
-    return(CMSG_OUT_OF_MEMORY);    
-  }
-  memcpy(tmp, pchar, lengths[1]);
-  tmp[lengths[1]] = 0;
-  msg->senderHost = tmp;
-  pchar += lengths[1];
-  /*printf("senderHost = %s\n", tmp);*/
-  
-  /*---------------------*/
-  /* read subject string */
-  /*---------------------*/
-  if ( (tmp = (char *) malloc((size_t) (lengths[2]+1))) == NULL) {
-    free((void *) msg->sender);
-    free((void *) msg->senderHost);
-    return(CMSG_OUT_OF_MEMORY);    
-  }
-  memcpy(tmp, pchar, lengths[2]);
-  tmp[lengths[2]] = 0;
-  msg->subject = tmp;
-  pchar += lengths[2];  
-  /*printf("subject = %s\n", tmp);*/
-  
-  /*------------------*/
-  /* read type string */
-  /*------------------*/
-  if ( (tmp = (char *) malloc((size_t) (lengths[3]+1))) == NULL) {
-    free((void *) msg->sender);
-    free((void *) msg->senderHost);
-    free((void *) msg->subject);
-    return(CMSG_OUT_OF_MEMORY);    
-  }
-  memcpy(tmp, pchar, lengths[3]);
-  tmp[lengths[3]] = 0;
-  msg->type = tmp;
-  pchar += lengths[3];    
-  /*printf("type = %s\n", tmp);*/
-  
-  /*---------------------*/
-  /* read creator string */
-  /*---------------------*/
-  if ( (tmp = (char *) malloc((size_t) (lengths[4]+1))) == NULL) {
-    free((void *) msg->sender);
-    free((void *) msg->senderHost);
-    free((void *) msg->subject);
-    free((void *) msg->type);
-    return(CMSG_OUT_OF_MEMORY);    
-  }
-  memcpy(tmp, pchar, lengths[4]);
-  tmp[lengths[4]] = 0;
-  msg->creator = tmp;
-  pchar += lengths[4];    
-  /*printf("creator = %s\n", tmp);*/
-    
-  /*------------------*/
-  /* read text string */
-  /*------------------*/
-  if (lengths[5] > 0) {
-    if ( (tmp = (char *) malloc((size_t) (lengths[5]+1))) == NULL) {
-      free((void *) msg->sender);
-      free((void *) msg->senderHost);
-      free((void *) msg->subject);
-      free((void *) msg->type);
-      free((void *) msg->creator);
-      return(CMSG_OUT_OF_MEMORY);    
-    }
-    memcpy(tmp, pchar, lengths[5]);
-    tmp[lengths[5]] = 0;
-    msg->text = tmp;
-    pchar += lengths[5];    
-    /*printf("text = %s\n", tmp);*/
-  }
-  
-  /*-----------------------------*/
-  /* read binary into byte array */
-  /*-----------------------------*/
-  if (lengths[6] > 0) {
-    
-    if ( (tmp = (char *) malloc((size_t) (lengths[6]))) == NULL) {
-      free((void *) msg->sender);
-      free((void *) msg->senderHost);
-      free((void *) msg->subject);
-      free((void *) msg->type);
-      free((void *) msg->creator);
-      if (lengths[5] > 0) {
-        free((void *) msg->text);
-      }
-      return(CMSG_OUT_OF_MEMORY);    
-    }
-    
-    if (cMsgTcpRead(connfd, tmp, lengths[6]) != lengths[6]) {
-      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cMsgReadMessage: error reading message 3\n");
-      }
-      return(CMSG_NETWORK_ERROR);
-    }
-
-    msg->byteArray       = tmp;
-    msg->byteArrayOffset = 0;
-    msg->byteArrayLength = lengths[6];
-    msg->bits |= CMSG_BYTE_ARRAY_IS_COPIED; /* byte array is COPIED */
-    /*        
-    for (;i<lengths[6]; i++) {
-        printf("%d ", (int)msg->byteArray[i]);
-    }
-    printf("\n");
-    */
-            
-  }
-  
-      
-  return(CMSG_OK);
-}
 
 
 #ifdef __cplusplus

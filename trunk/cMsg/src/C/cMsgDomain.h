@@ -127,7 +127,7 @@ typedef struct parsedUDL_t {
  * This structure contains all information concerning a single client
  * connection to this domain.
  */
-typedef struct cMsgDomain_CODA_t {  
+typedef struct cMsgDomainInfo_t {  
   
   int id;                     /**< Unique id of connection. */ 
   
@@ -205,7 +205,7 @@ typedef struct cMsgDomain_CODA_t {
   /** Shutdown handler user argument. */
   void *shutdownUserArg;  
  
-} cMsgDomain_CODA;
+} cMsgDomainInfo;
 
 
 /** This structure (pointer) is passed as an argument to a callback. */
@@ -213,6 +213,7 @@ typedef struct cbArg_t {
   int domainId;  /**< Domain identifier. */
   int subIndex;  /**< Index into domain structure's subscription array. */
   int cbIndex;   /**< Index into subscription structure's callback array. */
+  cMsgDomainInfo *domain;  /**< Pointer to element of domain structure array. */
 } cbArg;
 
 
@@ -225,14 +226,62 @@ typedef struct mainThreadInfo_t {
                       not (CMSG_NONBLOCKING)? */
 } mainThreadInfo;
 
+/**
+ * This structure passes relevant info to each thread spawned by the 
+ * cMsgClientListeningThread or the rcClientListeningThread serving
+ * a cMsg connection.
+ */
+typedef struct cMsgThreadInfo_t {
+  int connfd;   /**< Socket connection's file descriptor. */
+  int domainId; /**< Index into the cMsgDomains or rcDomains array. */
+  int connectionNumber; /**< Number of connection to this listening port (starting at 0). */
+} cMsgThreadInfo;
+
 /* prototypes */
-int   cMsgRunCallbacks(int domainId, cMsgMessage *msg);
+int   cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage *msg);
 int   cMsgWakeGet(int domainId, cMsgMessage *msg);
+int   cMsgReadMessage(int connfd, char *buffer, cMsgMessage *msg, int *acknowledge);
+
+/* string matching */
 char *cMsgStringEscape(const char *s);
 int   cMsgStringMatches(char *regexp, const char *s);
 int   cMsgRegexpMatches(char *regexp, const char *s);
+
+/* mutexes and read/write locks */
+void  mutexLock(pthread_mutex_t *mutex);
+void  mutexUnlock(pthread_mutex_t *mutex);
+void  connectReadLock(cMsgDomainInfo *domain);
+void  connectReadUnlock(cMsgDomainInfo *domain);
+void  connectWriteLock(cMsgDomainInfo *domain);
+void  connectWriteUnlock(cMsgDomainInfo *domain);
+void  socketMutexLock(cMsgDomainInfo *domain);
+void  socketMutexUnlock(cMsgDomainInfo *domain);
+void  syncSendMutexLock(cMsgDomainInfo *domain);
+void  syncSendMutexUnlock(cMsgDomainInfo *domain);
+void  subscribeMutexLock(cMsgDomainInfo *domain);
+void  subscribeMutexUnlock(cMsgDomainInfo *domain);
+void  countDownLatchFree(countDownLatch *latch); 
+void  countDownLatchInit(countDownLatch *latch, int count, int reInit);
+
+/* threads */
+void *callbackThread(void *arg);
+void *supplementalThread(void *arg);
+
+/* initialization and freeing */
+void  domainInit(cMsgDomainInfo *domain, int reInit);
+void  domainFree(cMsgDomainInfo *domain);  
+void  domainClear(cMsgDomainInfo *domain);
+void  getInfoInit(getInfo *info, int reInit);
+void  subscribeInfoInit(subInfo *info, int reInit);
+void  getInfoFree(getInfo *info);
+void  subscribeInfoFree(subInfo *info);
+
+/* misc */
+int   checkString(const char *s);
+int   getAbsoluteTime(const struct timespec *deltaTime, struct timespec *absTime);
 int   sun_setconcurrency(int newLevel);
 int   sun_getconcurrency(void);
+
 
 #ifdef	__cplusplus
 }
