@@ -44,14 +44,26 @@
 #include <vxWorks.h>
 #endif
 
+/* for c++ */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** Excluded characters from subject, type, and description strings. */
 static const char *excludedChars = "`\'\"";
+
+/* local prototypes */
+static void  domainFree(cMsgDomainInfo *domain); 
+static void  getInfoInit(getInfo *info, int reInit);
+static void  subscribeInfoInit(subInfo *info, int reInit);
+static void  getInfoFree(getInfo *info);
+static void  subscribeInfoFree(subInfo *info);
 
 /*-------------------------------------------------------------------*/
 
 
 /** This routine locks the given pthread mutex. */
-void mutexLock(pthread_mutex_t *mutex) {
+void cMsgMutexLock(pthread_mutex_t *mutex) {
 
   int status = pthread_mutex_lock(mutex);
   if (status != 0) {
@@ -64,7 +76,7 @@ void mutexLock(pthread_mutex_t *mutex) {
 
 
 /** This routine unlocks the given pthread mutex. */
-void mutexUnlock(pthread_mutex_t *mutex) {
+void cMsgMutexUnlock(pthread_mutex_t *mutex) {
 
   int status = pthread_mutex_unlock(mutex);
   if (status != 0) {
@@ -82,7 +94,7 @@ void mutexUnlock(pthread_mutex_t *mutex) {
  * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
  * execution of those routines with cmsgd_disconnect.
  */
-void connectReadLock(cMsgDomainInfo *domain) {
+void cMsgConnectReadLock(cMsgDomainInfo *domain) {
 
   int status = rwl_readlock(&domain->connectLock);
   if (status != 0) {
@@ -100,7 +112,7 @@ void connectReadLock(cMsgDomainInfo *domain) {
  * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
  * execution of those routines with cmsgd_disconnect.
  */
-void connectReadUnlock(cMsgDomainInfo *domain) {
+void cMsgConnectReadUnlock(cMsgDomainInfo *domain) {
 
   int status = rwl_readunlock(&domain->connectLock);
   if (status != 0) {
@@ -118,7 +130,7 @@ void connectReadUnlock(cMsgDomainInfo *domain) {
  * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
  * execution of those routines with cmsgd_disconnect.
  */
-void connectWriteLock(cMsgDomainInfo *domain) {
+void cMsgConnectWriteLock(cMsgDomainInfo *domain) {
 
   int status = rwl_writelock(&domain->connectLock);
   if (status != 0) {
@@ -136,7 +148,7 @@ void connectWriteLock(cMsgDomainInfo *domain) {
  * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
  * execution of those routines with cmsgd_disconnect.
  */
-void connectWriteUnlock(cMsgDomainInfo *domain) {
+void cMsgConnectWriteUnlock(cMsgDomainInfo *domain) {
 
   int status = rwl_writeunlock(&domain->connectLock);
   if (status != 0) {
@@ -152,7 +164,7 @@ void connectWriteUnlock(cMsgDomainInfo *domain) {
  * This routine locks the pthread mutex used to make network
  * communication thread-safe.
  */
-void socketMutexLock(cMsgDomainInfo *domain) {
+void cMsgSocketMutexLock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_lock(&domain->socketMutex);
   if (status != 0) {
@@ -168,7 +180,7 @@ void socketMutexLock(cMsgDomainInfo *domain) {
  * This routine unlocks the pthread mutex used to make network
  * communication thread-safe.
  */
-void socketMutexUnlock(cMsgDomainInfo *domain) {
+void cMsgSocketMutexUnlock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_unlock(&domain->socketMutex);
   if (status != 0) {
@@ -181,7 +193,7 @@ void socketMutexUnlock(cMsgDomainInfo *domain) {
 
 
 /** This routine locks the pthread mutex used to serialize cmsgd_syncSend calls. */
-void syncSendMutexLock(cMsgDomainInfo *domain) {
+void cMsgSyncSendMutexLock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_lock(&domain->syncSendMutex);
   if (status != 0) {
@@ -194,7 +206,7 @@ void syncSendMutexLock(cMsgDomainInfo *domain) {
 
 
 /** This routine unlocks the pthread mutex used to serialize cmsgd_syncSend calls. */
-void syncSendMutexUnlock(cMsgDomainInfo *domain) {
+void cMsgSyncSendMutexUnlock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_unlock(&domain->syncSendMutex);
   if (status != 0) {
@@ -210,7 +222,7 @@ void syncSendMutexUnlock(cMsgDomainInfo *domain) {
  * This routine locks the pthread mutex used to serialize
  * cmsgd_subscribe and cmsgd_unsubscribe calls.
  */
-void subscribeMutexLock(cMsgDomainInfo *domain) {
+void cMsgSubscribeMutexLock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_lock(&domain->subscribeMutex);
   if (status != 0) {
@@ -226,7 +238,7 @@ void subscribeMutexLock(cMsgDomainInfo *domain) {
  * This routine unlocks the pthread mutex used to serialize
  * cmsgd_subscribe and cmsgd_unsubscribe calls.
  */
-void subscribeMutexUnlock(cMsgDomainInfo *domain) {
+void cMsgSubscribeMutexUnlock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_unlock(&domain->subscribeMutex);
   if (status != 0) {
@@ -248,7 +260,7 @@ void subscribeMutexUnlock(cMsgDomainInfo *domain) {
  * @returns CMSG_OK if string is OK
  * @returns CMSG_ERROR if string contains excluded or unprintable characters
  */   
-int checkString(const char *s) {
+int cMsgCheckString(const char *s) {
 
   int i;
 
@@ -271,7 +283,7 @@ int checkString(const char *s) {
 
 
 /** This routine translates a delta time into an absolute time for pthread_cond_wait. */
-int getAbsoluteTime(const struct timespec *deltaTime, struct timespec *absTime) {
+int cMsgGetAbsoluteTime(const struct timespec *deltaTime, struct timespec *absTime) {
     struct timespec now;
     long   nsecTotal;
     
@@ -300,7 +312,7 @@ int getAbsoluteTime(const struct timespec *deltaTime, struct timespec *absTime) 
  * This routine initializes the structure used to handle a get - 
  * either a sendAndGet or a subscribeAndGet.
  */
-void getInfoInit(getInfo *info, int reInit) {
+static void getInfoInit(getInfo *info, int reInit) {
     int status;
     
     info->id      = 0;
@@ -332,7 +344,7 @@ void getInfoInit(getInfo *info, int reInit) {
 
 
 /** This routine initializes the structure used to handle a subscribe. */
-void subscribeInfoInit(subInfo *info, int reInit) {
+static void subscribeInfoInit(subInfo *info, int reInit) {
     int j, status;
     
     info->id            = 0;
@@ -343,7 +355,7 @@ void subscribeInfoInit(subInfo *info, int reInit) {
     info->typeRegexp    = NULL;
     info->subjectRegexp = NULL;
     
-    for (j=0; j<MAX_CALLBACK; j++) {
+    for (j=0; j<CMSG_MAX_CALLBACK; j++) {
       info->cbInfo[j].active   = 0;
       info->cbInfo[j].threads  = 0;
       info->cbInfo[j].messages = 0;
@@ -384,7 +396,7 @@ void subscribeInfoInit(subInfo *info, int reInit) {
  * This routine initializes the structure used to hold connection-to-
  * a-domain information.
  */
-void domainInit(cMsgDomainInfo *domain, int reInit) {
+void cMsgDomainInit(cMsgDomainInfo *domain, int reInit) {
   int i, status;
  
   domain->id                  = 0;
@@ -434,18 +446,18 @@ void domainInit(cMsgDomainInfo *domain, int reInit) {
 
   domain->msgInBuffer[0]      = NULL;
   domain->msgInBuffer[1]      = NULL;
-      
-  countDownLatchInit(&domain->failoverLatch, 1, reInit);
+        
+  cMsgCountDownLatchInit(&domain->failoverLatch, 1, reInit);
 
-  for (i=0; i<MAX_SUBSCRIBE; i++) {
+  for (i=0; i<CMSG_MAX_SUBSCRIBE; i++) {
     subscribeInfoInit(&domain->subscribeInfo[i], reInit);
   }
   
-  for (i=0; i<MAX_SUBSCRIBE_AND_GET; i++) {
+  for (i=0; i<CMSG_MAX_SUBSCRIBE_AND_GET; i++) {
     getInfoInit(&domain->subscribeAndGetInfo[i], reInit);
   }
   
-  for (i=0; i<MAX_SEND_AND_GET; i++) {
+  for (i=0; i<CMSG_MAX_SEND_AND_GET; i++) {
     getInfoInit(&domain->sendAndGetInfo[i], reInit);
   }
 
@@ -456,27 +468,27 @@ void domainInit(cMsgDomainInfo *domain, int reInit) {
 
   status = rwl_init(&domain->connectLock);
   if (status != 0) {
-    err_abort(status, "domainInit:initializing connect read/write lock");
+    err_abort(status, "cMsgDomainInit:initializing connect read/write lock");
   }
   
   status = pthread_mutex_init(&domain->socketMutex, NULL);
   if (status != 0) {
-    err_abort(status, "domainInit:initializing socket mutex");
+    err_abort(status, "cMsgDomainInit:initializing socket mutex");
   }
   
   status = pthread_mutex_init(&domain->syncSendMutex, NULL);
   if (status != 0) {
-    err_abort(status, "domainInit:initializing sync send mutex");
+    err_abort(status, "cMsgDomainInit:initializing sync send mutex");
   }
   
   status = pthread_mutex_init(&domain->subscribeMutex, NULL);
   if (status != 0) {
-    err_abort(status, "domainInit:initializing subscribe mutex");
+    err_abort(status, "cMsgDomainInit:initializing subscribe mutex");
   }
   
   status = pthread_cond_init (&domain->subscribeCond,  NULL);
   if (status != 0) {
-    err_abort(status, "domainInit:initializing condition var");
+    err_abort(status, "cMsgDomainInit:initializing condition var");
   }
       
 }
@@ -489,12 +501,12 @@ void domainInit(cMsgDomainInfo *domain, int reInit) {
  * This routine frees allocated memory in a structure used to hold
  * subscribe information.
  */
-void subscribeInfoFree(subInfo *info) {  
+static void subscribeInfoFree(subInfo *info) {  
 #ifdef sun    
     /* cannot destroy mutexes and cond vars in vxworks & apparently Linux */
     int j, status;
 
-    for (j=0; j<MAX_CALLBACK; j++) {
+    for (j=0; j<CMSG_MAX_CALLBACK; j++) {
       status = pthread_cond_destroy (&info->cbInfo[j].cond);
       if (status != 0) {
         err_abort(status, "subscribeInfoFree:destroying cond var");
@@ -530,7 +542,7 @@ void subscribeInfoFree(subInfo *info) {
  * This routine frees allocated memory in a structure used to hold
  * subscribeAndGet/sendAndGet information.
  */
-void getInfoFree(getInfo *info) {  
+static void getInfoFree(getInfo *info) {  
 #ifdef sun    
     /* cannot destroy mutexes and cond vars in vxworks & Linux(?) */
     int status;
@@ -568,7 +580,7 @@ void getInfoFree(getInfo *info) {
  * This routine frees memory allocated for the structure used to hold
  * connection-to-a-domain information.
  */
-void domainFree(cMsgDomainInfo *domain) {  
+static void domainFree(cMsgDomainInfo *domain) {  
   int i;
 #ifdef sun
   int status;
@@ -626,17 +638,17 @@ void domainFree(cMsgDomainInfo *domain) {
     
 #endif
 
-  countDownLatchFree(&domain->failoverLatch);
+  cMsgCountDownLatchFree(&domain->failoverLatch);
     
-  for (i=0; i<MAX_SUBSCRIBE; i++) {
+  for (i=0; i<CMSG_MAX_SUBSCRIBE; i++) {
     subscribeInfoFree(&domain->subscribeInfo[i]);
   }
   
-  for (i=0; i<MAX_SUBSCRIBE_AND_GET; i++) {
+  for (i=0; i<CMSG_MAX_SUBSCRIBE_AND_GET; i++) {
     getInfoFree(&domain->subscribeAndGetInfo[i]);
   }
   
-  for (i=0; i<MAX_SEND_AND_GET; i++) {
+  for (i=0; i<CMSG_MAX_SEND_AND_GET; i++) {
     getInfoFree(&domain->sendAndGetInfo[i]);
   }
 }
@@ -649,9 +661,9 @@ void domainFree(cMsgDomainInfo *domain) {
  * This routine both frees and clears the structure used to hold
  * connection-to-a-domain information.
  */
-void domainClear(cMsgDomainInfo *domain) {
+void cMsgDomainClear(cMsgDomainInfo *domain) {
   domainFree(domain);
-  domainInit(domain, 1);
+  cMsgDomainInit(domain, 1);
 }
 
  
@@ -660,7 +672,7 @@ void domainClear(cMsgDomainInfo *domain) {
 /**
  * This routine initializes the structure used to implement a countdown latch.
  */
-void countDownLatchInit(countDownLatch *latch, int count, int reInit) {
+void cMsgCountDownLatchInit(countDownLatch *latch, int count, int reInit) {
     int status;
     
     latch->count   = count;
@@ -695,7 +707,7 @@ void countDownLatchInit(countDownLatch *latch, int count, int reInit) {
  * This routine frees allocated memory in a structure used to implement
  * a countdown latch.
  */
-void countDownLatchFree(countDownLatch *latch) {  
+void cMsgCountDownLatchFree(countDownLatch *latch) {  
 #ifdef sun    
     /* cannot destroy mutexes and cond vars in vxworks & Linux(?) */
     int status;
@@ -721,212 +733,9 @@ void countDownLatchFree(countDownLatch *latch) {
 
 /*-------------------------------------------------------------------*/
 
-/*
- * This routine is called by a single thread spawned from the client's
- * listening thread. Since it's called serially, it can safely use
- * arrays declared at the top of the file.
- */
-/** This routine reads a message sent from the server to the client. */
-int cMsgReadMessage(int connfd, char *buffer, cMsgMessage *msg, int *acknowledge) {
-
-  long long llTime;
-  int  stringLen, lengths[7], inComing[18];
-  char *pchar, *tmp;
-    
-  if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgReadMessage: error reading message 1\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-
-  /* swap to local endian */
-  msg->version  = ntohl(inComing[0]);  /* major version of cMsg */
-  /* second int is for future use */
-  msg->userInt  = ntohl(inComing[2]);  /* user int */
-
-  msg->info     = ntohl(inComing[3]);  /* get info */
-  /*
-   * Time arrives as the high 32 bits followed by the low 32 bits
-   * of a 64 bit integer in units of milliseconds.
-   */
-  llTime = (((long long) ntohl(inComing[4])) << 32) |
-           (((long long) ntohl(inComing[5])) & 0x00000000FFFFFFFF);
-  /* turn long long into struct timespec */
-  msg->senderTime.tv_sec  =  llTime/1000;
-  msg->senderTime.tv_nsec = (llTime%1000)*1000000;
-  
-  llTime = (((long long) ntohl(inComing[6])) << 32) |
-           (((long long) ntohl(inComing[7])) & 0x00000000FFFFFFFF);
-  msg->userTime.tv_sec  =  llTime/1000;
-  msg->userTime.tv_nsec = (llTime%1000)*1000000;
-  
-  msg->sysMsgId    = ntohl(inComing[8]);  /* system msg id */
-  msg->senderToken = ntohl(inComing[9]);  /* sender token */
-  lengths[0]       = ntohl(inComing[10]); /* sender length */
-  lengths[1]       = ntohl(inComing[11]); /* senderHost length */
-  lengths[2]       = ntohl(inComing[12]); /* subject length */
-  lengths[3]       = ntohl(inComing[13]); /* type length */
-  lengths[4]       = ntohl(inComing[14]); /* creator length */
-  lengths[5]       = ntohl(inComing[15]); /* text length */
-  lengths[6]       = ntohl(inComing[16]); /* binary length */
-  *acknowledge     = ntohl(inComing[17]); /* acknowledge receipt of message? (1-y,0-n) */
-  
-  /* length of strings to read in */
-  stringLen = lengths[0] + lengths[1] + lengths[2] +
-              lengths[3] + lengths[4] + lengths[5];
-  
-  if (cMsgTcpRead(connfd, buffer, stringLen) != stringLen) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgReadMessage: error reading message 2\n");
-    }
-    return(CMSG_NETWORK_ERROR);
-  }
-  
-  /* init pointer */
-  pchar = buffer;
-
-  /*--------------------*/
-  /* read sender string */
-  /*--------------------*/
-  /* allocate memory for sender string */
-  if ( (tmp = (char *) malloc((size_t) (lengths[0]+1))) == NULL) {
-    return(CMSG_OUT_OF_MEMORY);    
-  }
-  /* read sender string into memory */
-  memcpy(tmp, pchar, lengths[0]);
-  /* add null terminator to string */
-  tmp[lengths[0]] = 0;
-  /* store string in msg structure */
-  msg->sender = tmp;
-  /* go to next string */
-  pchar += lengths[0];
-  /*printf("sender = %s\n", tmp);*/
-      
-  /*------------------------*/
-  /* read senderHost string */
-  /*------------------------*/
-  if ( (tmp = (char *) malloc((size_t) (lengths[1]+1))) == NULL) {
-    free((void *) msg->sender);
-    return(CMSG_OUT_OF_MEMORY);    
-  }
-  memcpy(tmp, pchar, lengths[1]);
-  tmp[lengths[1]] = 0;
-  msg->senderHost = tmp;
-  pchar += lengths[1];
-  /*printf("senderHost = %s\n", tmp);*/
-  
-  /*---------------------*/
-  /* read subject string */
-  /*---------------------*/
-  if ( (tmp = (char *) malloc((size_t) (lengths[2]+1))) == NULL) {
-    free((void *) msg->sender);
-    free((void *) msg->senderHost);
-    return(CMSG_OUT_OF_MEMORY);    
-  }
-  memcpy(tmp, pchar, lengths[2]);
-  tmp[lengths[2]] = 0;
-  msg->subject = tmp;
-  pchar += lengths[2];  
-  /*printf("subject = %s\n", tmp);*/
-  
-  /*------------------*/
-  /* read type string */
-  /*------------------*/
-  if ( (tmp = (char *) malloc((size_t) (lengths[3]+1))) == NULL) {
-    free((void *) msg->sender);
-    free((void *) msg->senderHost);
-    free((void *) msg->subject);
-    return(CMSG_OUT_OF_MEMORY);    
-  }
-  memcpy(tmp, pchar, lengths[3]);
-  tmp[lengths[3]] = 0;
-  msg->type = tmp;
-  pchar += lengths[3];    
-  /*printf("type = %s\n", tmp);*/
-  
-  /*---------------------*/
-  /* read creator string */
-  /*---------------------*/
-  if ( (tmp = (char *) malloc((size_t) (lengths[4]+1))) == NULL) {
-    free((void *) msg->sender);
-    free((void *) msg->senderHost);
-    free((void *) msg->subject);
-    free((void *) msg->type);
-    return(CMSG_OUT_OF_MEMORY);    
-  }
-  memcpy(tmp, pchar, lengths[4]);
-  tmp[lengths[4]] = 0;
-  msg->creator = tmp;
-  pchar += lengths[4];    
-  /*printf("creator = %s\n", tmp);*/
-    
-  /*------------------*/
-  /* read text string */
-  /*------------------*/
-  if (lengths[5] > 0) {
-    if ( (tmp = (char *) malloc((size_t) (lengths[5]+1))) == NULL) {
-      free((void *) msg->sender);
-      free((void *) msg->senderHost);
-      free((void *) msg->subject);
-      free((void *) msg->type);
-      free((void *) msg->creator);
-      return(CMSG_OUT_OF_MEMORY);    
-    }
-    memcpy(tmp, pchar, lengths[5]);
-    tmp[lengths[5]] = 0;
-    msg->text = tmp;
-    pchar += lengths[5];    
-    /*printf("text = %s\n", tmp);*/
-  }
-  
-  /*-----------------------------*/
-  /* read binary into byte array */
-  /*-----------------------------*/
-  if (lengths[6] > 0) {
-    
-    if ( (tmp = (char *) malloc((size_t) (lengths[6]))) == NULL) {
-      free((void *) msg->sender);
-      free((void *) msg->senderHost);
-      free((void *) msg->subject);
-      free((void *) msg->type);
-      free((void *) msg->creator);
-      if (lengths[5] > 0) {
-        free((void *) msg->text);
-      }
-      return(CMSG_OUT_OF_MEMORY);    
-    }
-    
-    if (cMsgTcpRead(connfd, tmp, lengths[6]) != lengths[6]) {
-      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cMsgReadMessage: error reading message 3\n");
-      }
-      return(CMSG_NETWORK_ERROR);
-    }
-
-    msg->byteArray       = tmp;
-    msg->byteArrayOffset = 0;
-    msg->byteArrayLength = lengths[6];
-    msg->bits |= CMSG_BYTE_ARRAY_IS_COPIED; /* byte array is COPIED */
-    /*        
-    for (;i<lengths[6]; i++) {
-        printf("%d ", (int)msg->byteArray[i]);
-    }
-    printf("\n");
-    */
-            
-  }
-  
-      
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
 
 /** This routine is run as a thread in which a single callback is executed. */
-void *callbackThread(void *arg)
+void *cMsgCallbackThread(void *arg)
 {
     /* subscription information passed in thru arg */
     cbArg *cbarg = (cbArg *) arg;
@@ -984,7 +793,7 @@ void *callbackThread(void *arg)
           threadsAdded = maxToAdd > wantToAdd ? wantToAdd : maxToAdd;
                     
           for (i=0; i < threadsAdded; i++) {
-            status = pthread_create(&thd, NULL, supplementalThread, arg);
+            status = pthread_create(&thd, NULL, cMsgSupplementalThread, arg);
             if (status != 0) {
               err_abort(status, "Creating supplemental callback thread");
             }
@@ -994,7 +803,7 @@ void *callbackThread(void *arg)
            
       /* lock mutex */
 /* fprintf(stderr, "  CALLBACK THREAD: will grab mutex %p\n", &cback->mutex); */
-      mutexLock(&cback->mutex);
+      cMsgMutexLock(&cback->mutex);
 /* fprintf(stderr, "  CALLBACK THREAD: grabbed mutex\n"); */
       
       /* quit if commanded to */
@@ -1017,7 +826,7 @@ void *callbackThread(void *arg)
           cback->messages = 0;
           
           /* unlock mutex */
-          mutexUnlock(&cback->mutex);
+          cMsgMutexUnlock(&cback->mutex);
 
           /* Signal to cMsgRunCallbacks in case the cue is full and it's
            * blocked trying to put another message in. So now we tell it that
@@ -1071,7 +880,7 @@ void *callbackThread(void *arg)
           cback->messages = 0;
           
           /* unlock mutex */
-          mutexUnlock(&cback->mutex);
+          cMsgMutexUnlock(&cback->mutex);
 
           /* Signal to cMsgRunCallbacks in case the cue is full and it's
            * blocked trying to put another message in. So now we tell it that
@@ -1104,7 +913,7 @@ void *callbackThread(void *arg)
       /* unlock mutex */
 /* fprintf(stderr, "  CALLBACK THREAD: message taken off cue, cue = %d\n",cback->messages);
    fprintf(stderr, "  CALLBACK THREAD: release mutex\n"); */
-      mutexUnlock(&cback->mutex);
+      cMsgMutexUnlock(&cback->mutex);
       
       /* wakeup cMsgRunCallbacks thread if trying to add item to full cue */
 /* fprintf(stderr, "  CALLBACK THREAD: wake up cMsgRunCallbacks thread\n"); */
@@ -1144,15 +953,15 @@ void *callbackThread(void *arg)
 
 
 /*-------------------------------------------------------------------*
- * supplementalThread is a thread used to run a callback in parallel
- * with the callbackThread. As many supplemental threads are created
+ * cMsgSupplementalThread is a thread used to run a callback in parallel
+ * with the cMsgCallbackThread. As many supplemental threads are created
  * as needed to keep the cue size manageable.
  *-------------------------------------------------------------------*/
 /**
  * This routine is run as a thread in which a callback is executed in
  * parallel with other similar threads.
  */
-void *supplementalThread(void *arg)
+void *cMsgSupplementalThread(void *arg)
 {
     /* subscription information passed in thru arg */
     cbArg *cbarg = (cbArg *) arg;
@@ -1182,7 +991,7 @@ void *supplementalThread(void *arg)
       empty = 0;
       
       /* lock mutex before messing with linked list */
-      mutexLock(&cback->mutex);
+      cMsgMutexLock(&cback->mutex);
       
       /* quit if commanded to */
       if (cback->quit) {
@@ -1204,7 +1013,7 @@ void *supplementalThread(void *arg)
           cback->messages = 0;
           
           /* unlock mutex */
-          mutexUnlock(&cback->mutex);
+          cMsgMutexUnlock(&cback->mutex);
 
           /* Signal to cMsgRunCallbacks in case the cue is full and it's
            * blocked trying to put another message in. So now we tell it that
@@ -1223,7 +1032,7 @@ void *supplementalThread(void *arg)
         /* wait until signaled or for .2 sec, before
          * waking thread up and checking for messages
          */
-        getAbsoluteTime(&timeout, &wait);        
+        cMsgGetAbsoluteTime(&timeout, &wait);        
         status = pthread_cond_timedwait(&cback->cond, &cback->mutex, &wait);
         
         /* if the wait timed out ... */
@@ -1236,7 +1045,7 @@ void *supplementalThread(void *arg)
             }
             
             /* unlock mutex & kill this thread */
-            mutexUnlock(&cback->mutex);
+            cMsgMutexUnlock(&cback->mutex);
             
             sun_setconcurrency(con);
 
@@ -1269,7 +1078,7 @@ void *supplementalThread(void *arg)
           cback->messages = 0;
           
           /* unlock mutex */
-          mutexUnlock(&cback->mutex);
+          cMsgMutexUnlock(&cback->mutex);
 
           /* Signal to cMsgRunCallbacks in case the cue is full and it's
            * blocked trying to put another message in. So now we tell it that
@@ -1299,7 +1108,7 @@ void *supplementalThread(void *arg)
       cback->messages--;
      
       /* unlock mutex */
-      mutexUnlock(&cback->mutex);
+      cMsgMutexUnlock(&cback->mutex);
       
       /* wakeup cMsgRunCallbacks thread if trying to add item to full cue */
       status = pthread_cond_signal(&domain->subscribeCond);
@@ -1325,258 +1134,8 @@ void *supplementalThread(void *arg)
 }
 
 
-/*-------------------------------------------------------------------*/
-
-/**
- * This routine runs all the appropriate subscribe and subscribeAndGet
- * callbacks when a message arrives from the server. 
- */
-int cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage *msg) {
-
-  int i, j, k, status, goToNextCallback;
-  subscribeCbInfo *cback;
-  getInfo *info;
-  cMsgMessage *message, *oldHead;
-  struct timespec wait, timeout;
-    
-
-  /* wait 60 sec between warning messages for a full cue */
-  timeout.tv_sec  = 3;
-  timeout.tv_nsec = 0;
-    
-  /* for each subscribeAndGet ... */
-  for (j=0; j<MAX_SUBSCRIBE_AND_GET; j++) {
-    
-    info = &domain->subscribeAndGetInfo[j];
-
-    if (info->active != 1) {
-      continue;
-    }
-
-    /* if the subject & type's match, wakeup the "subscribeAndGet */      
-    if ( (cMsgStringMatches(info->subject, msg->subject) == 1) &&
-         (cMsgStringMatches(info->type, msg->type) == 1)) {
-/*
-printf("cMsgRunCallbacks: MATCHES:\n");
-printf("                  SUBJECT = msg (%s), subscription (%s)\n",
-                        msg->subject, info->subject);
-printf("                  TYPE    = msg (%s), subscription (%s)\n",
-                        msg->type, info->type);
-*/
-      /* pass msg to "get" */
-      /* copy message so each callback has its own copy */
-      message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
-      if (message == NULL) {
-        if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          fprintf(stderr, "cMsgRunCallbacks: out of memory\n");
-        }
-        return(CMSG_OUT_OF_MEMORY);
-      }
-
-      info->msg = message;
-      info->msgIn = 1;
-
-      /* wakeup "get" */      
-      status = pthread_cond_signal(&info->cond);
-      if (status != 0) {
-        err_abort(status, "Failed get condition signal");
-      }
-      
-    }
-  }
-           
-  
-  /* callbacks have been stopped */
-  if (domain->receiveState == 0) {
-    if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "cMsgRunCallbacks: all callbacks have been stopped\n");
-    }
-    cMsgFreeMessage((void *)msg);
-    return (CMSG_OK);
-  }
-   
-  /* Don't want subscriptions added or removed while iterating through them. */
-  subscribeMutexLock(domain);
-  
-  /* for each client subscription ... */
-  for (i=0; i<MAX_SUBSCRIBE; i++) {
-
-    /* if subscription not active, forget about it */
-    if (domain->subscribeInfo[i].active != 1) {
-      continue;
-    }
-
-    /* if the subject & type's match, run callbacks */      
-    if ( (cMsgRegexpMatches(domain->subscribeInfo[i].subjectRegexp, msg->subject) == 1) &&
-         (cMsgRegexpMatches(domain->subscribeInfo[i].typeRegexp, msg->type) == 1)) {
-/*
-printf("cMsgRunCallbacks: MATCHES:\n");
-printf("                  SUBJECT = msg (%s), subscription (%s)\n",
-                        msg->subject, domain->subscribeInfo[i].subject);
-printf("                  TYPE    = msg (%s), subscription (%s)\n",
-                        msg->type, domain->subscribeInfo[i].type);
-*/
-      /* search callback list */
-      for (j=0; j<MAX_CALLBACK; j++) {
-        /* convenience variable */
-        cback = &domain->subscribeInfo[i].cbInfo[j];
-
-	/* if there is no existing callback, look at next item ... */
-        if (cback->active != 1) {
-          continue;
-        }
-
-        /* copy message so each callback has its own copy */
-        message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
-        if (message == NULL) {
-          subscribeMutexUnlock(domain);
-          if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "cMsgRunCallbacks: out of memory\n");
-          }
-          return(CMSG_OUT_OF_MEMORY);
-        }
-
-        /* check to see if there are too many messages in the cue */
-        if (cback->messages >= cback->config.maxCueSize) {
-          /* if we may skip messages, dump oldest */
-          if (cback->config.maySkip) {
-/* fprintf(stderr, "cMsgRunCallbacks: cue full, skipping\n");
-fprintf(stderr, "cMsgRunCallbacks: will grab mutex, %p\n", &cback->mutex); */
-              /* lock mutex before messing with linked list */
-              mutexLock(&cback->mutex);
-/* fprintf(stderr, "cMsgRunCallbacks: grabbed mutex\n"); */
-
-              for (k=0; k < cback->config.skipSize; k++) {
-                oldHead = cback->head;
-                cback->head = cback->head->next;
-                cMsgFreeMessage(oldHead);
-                cback->messages--;
-                if (cback->head == NULL) break;
-              }
-
-              mutexUnlock(&cback->mutex);
-
-              if (cMsgDebug >= CMSG_DEBUG_INFO) {
-                fprintf(stderr, "cMsgRunCallbacks: skipped %d messages\n", (k+1));
-              }
-          }
-          else {
-/* fprintf(stderr, "cMsgRunCallbacks: cue full (%d), waiting\n", cback->messages); */
-              goToNextCallback = 0;
-
-              while (cback->messages >= cback->config.maxCueSize) {
-                  /* Wait here until signaled - meaning message taken off cue or unsubscribed.
-                   * There is a problem doing a pthread_cancel on this thread because
-                   * the only cancellation point is the timedwait which follows. The
-                   * cancellation wakes the timewait which locks the mutex and then it
-                   * exits the thread. However, we do NOT want to block cancellation
-                   * here just in case we need to kill things no matter what.
-                   */
-                  getAbsoluteTime(&timeout, &wait);        
-/* fprintf(stderr, "cMsgRunCallbacks: cue full, start waiting, will UNLOCK mutex\n"); */
-                  status = pthread_cond_timedwait(&domain->subscribeCond, &domain->subscribeMutex, &wait);
-/* fprintf(stderr, "cMsgRunCallbacks: out of wait, mutex is LOCKED\n"); */
-                  
-                  /* Check to see if server died and this thread is being killed. */
-                  if (domain->killClientThread == 1) {
-                    subscribeMutexUnlock(domain);
-                    cMsgFreeMessage((void *)message);
-/* fprintf(stderr, "cMsgRunCallbacks: told to die GRACEFULLY so return error\n"); */
-                    return(CMSG_SERVER_DIED);
-                  }
-                  
-                  /* BUGBUG
-                   * There is a race condition here. If an unsubscribe of the current
-                   * callback was done during the above wait there may be a problem.
-                   * It's possible that the array element storing the callback info
-                   * would be overwritten with the new subscription. This can only
-                   * happen if the new subscription sneaks in after the above wait
-                   * and before the check on the next line. In any case, what could
-                   * happen is that the message waiting to be put on the cue is now
-                   * put on the new cue.
-                   * Check for our callback being unsubscribed first.
-                   */
-                  if (cback->active == 0) {
-	            /* if there is no callback anymore, dump message, look at next callback */
-                    cMsgFreeMessage((void *)message);
-                    goToNextCallback = 1;                     
-/* fprintf(stderr, "cMsgRunCallbacks: unsubscribe during pthread_cond_wait\n"); */
-                    break;                      
-                  }
-
-                  /* if the wait timed out ... */
-                  if (status == ETIMEDOUT) {
-/* fprintf(stderr, "cMsgRunCallbacks: timeout of waiting\n"); */
-                      if (cMsgDebug >= CMSG_DEBUG_WARN) {
-                        fprintf(stderr, "cMsgRunCallbacks: waited 1 minute for cue to empty\n");
-                      }
-                  }
-                  /* else if error */
-                  else if (status != 0) {
-                    err_abort(status, "Failed callback cond wait");
-                  }
-                  /* else woken up 'cause msg taken off cue */
-                  else {
-                      break;
-                  }
-              }
-/* fprintf(stderr, "cMsgRunCallbacks: cue was full, wokenup, there's room now!\n"); */
-              if (goToNextCallback) {
-                continue;
-              }
-           }
-        } /* if too many messages in cue */
-
-        if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          if (cback->messages !=0 && cback->messages%1000 == 0)
-            fprintf(stderr, "           msgs = %d\n", cback->messages);
-        }
-
-        /*
-         * Add this message to linked list for this callback.
-         * It will now be the responsibility of message consumer
-         * to free the msg allocated here.
-         */       
-
-        mutexLock(&cback->mutex);
-
-        /* if there are no messages ... */
-        if (cback->head == NULL) {
-          cback->head = message;
-          cback->tail = message;
-        }
-        /* else put message after the tail */
-        else {
-          cback->tail->next = message;
-          cback->tail = message;
-        }
-
-        cback->messages++;
-/*printf("cMsgRunCallbacks: increase cue size = %d\n", cback->messages);*/
-        message->next = NULL;
-
-        /* unlock mutex */
-/* printf("cMsgRunCallbacks: messge put on cue\n");
-printf("cMsgRunCallbacks: will UNLOCK mutex\n"); */
-        mutexUnlock(&cback->mutex);
-/* printf("cMsgRunCallbacks: mutex is UNLOCKED, msg taken off cue, broadcast to callback thd\n"); */
-
-        /* wakeup callback thread */
-        status = pthread_cond_broadcast(&cback->cond);
-        if (status != 0) {
-          err_abort(status, "Failed callback condition signal");
-        }
-
-      } /* search callback list */
-    } /* if subscribe sub/type matches msg sub/type */
-  } /* for each cback */
-
-  subscribeMutexUnlock(domain);
-  
-  /* Need to free up msg allocated by client's listening thread */
-  cMsgFreeMessage((void *)msg);
-  
-  return (CMSG_OK);
+#ifdef __cplusplus
 }
+#endif
 
 

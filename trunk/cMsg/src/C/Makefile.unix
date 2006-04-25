@@ -49,7 +49,6 @@ SRC =   rwlock.c \
 	cMsgDomainUtil.c \
 	cMsgDomainListenThread.c \
 	cMsgDomain.c \
-	rcDomainListenThread.c \
 	rcDomain.c \
 	fileDomain.c
 
@@ -61,7 +60,6 @@ OBJS =  rwlock.o \
 	cMsgDomainUtil.o \
 	cMsgDomainListenThread.o \
 	cMsgDomain.o \
-	rcDomainListenThread.o \
 	rcDomain.o \
 	fileDomain.o
 

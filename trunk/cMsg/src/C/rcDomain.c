@@ -162,7 +162,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
     char  *portEnvVariable=NULL;
     unsigned short startingPort;
     cMsgDomainInfo *domain;
-    mainThreadInfo *threadArg;
+    cMsgThreadInfo *threadArg;
     int    hz, num_try, try_max;
     struct timespec waitForThread;
     
@@ -182,7 +182,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
 
     /* First, grab lock for thread safety. This lock must be held until
      * the initialization is completely finished. But just hold through
-     * the whole routine anyway since we do domainClear's if there is an
+     * the whole routine anyway since we do cMsgDomainClear's if there is an
      * error.
      */
     staticMutexLock();
@@ -195,7 +195,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
     if (!oneTimeInitialized) {
       /* clear domain arrays */
       for (i=0; i<MAXDOMAINS_RC; i++) {
-        domainInit(&rcDomains[i], 0);
+        cMsgDomainInit(&rcDomains[i], 0);
       }
       oneTimeInitialized = 1;
     }
@@ -205,7 +205,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
       if (rcDomains[i].initComplete > 0) {
         continue;
       }
-      domainClear(&rcDomains[i]);
+      cMsgDomainClear(&rcDomains[i]);
       id = i;
       break;
     }
@@ -220,7 +220,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
     rcDomains[id].msgBuffer     = (char *) malloc(initialMsgBufferSize);
     rcDomains[id].msgBufferSize = initialMsgBufferSize;
     if (rcDomains[id].msgBuffer == NULL) {
-      domainClear(&rcDomains[id]);
+      cMsgDomainClear(&rcDomains[id]);
       staticMutexUnlock();
       return(CMSG_OUT_OF_MEMORY);
     }
@@ -288,16 +288,15 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
     }
 
     /* launch pend thread and start listening on receive socket */
-    threadArg = (mainThreadInfo *) malloc(sizeof(mainThreadInfo));
+    threadArg = (cMsgThreadInfo *) malloc(sizeof(cMsgThreadInfo));
     if (threadArg == NULL) {
         return(CMSG_OUT_OF_MEMORY);  
     }
     threadArg->isRunning = 0;
-    threadArg->domainId  = id;
     threadArg->listenFd  = domain->listenSocket;
     threadArg->blocking  = CMSG_NONBLOCKING;
     status = pthread_create(&domain->pendThread, NULL,
-                            rcClientListeningThread, (void *) threadArg);
+                            cMsgClientListeningThread, (void *) threadArg);
     if (status != 0) {
       err_abort(status, "Creating message listening thread");
     }
@@ -419,7 +418,7 @@ printf("GOT EXPID = %s\n", expid);
         /* send UDP  packet to rc server */
         sendto(sockfd, (void *)buffer, len, 0, (SA *) &servaddr, sizeof(servaddr));
 
-        getAbsoluteTime(&wait, &time);
+        cMsgGetAbsoluteTime(&wait, &time);
         status = pthread_cond_timedwait(&cond, &mutex, &time);
         if (status == ETIMEDOUT) {
             numLoops--;
@@ -519,7 +518,7 @@ static int cmsgd_send(void *domainId, void *vmsg) {
     bzero(buffer, 2048);
         
     /* Cannot run this while connecting/disconnecting */
-    connectReadLock(domain);
+    cMsgConnectReadLock(domain);
     
     fd = (int) domainId;
 printf("Try sending on udp socket = %d\n", fd);
@@ -554,7 +553,7 @@ printf("Try sending on udp socket = %d\n", fd);
     }
     
     /* done protecting communications */
-    connectReadUnlock(domain);
+    cMsgConnectReadUnlock(domain);
     
     return(err);
 
@@ -569,10 +568,10 @@ static int cmsgd_disconnect(void *domainId) {
     int fd;
     cMsgDomainInfo *domain = &rcDomains[(int)domainId];
     
-    connectWriteLock(domain);  
+    cMsgConnectWriteLock(domain);  
       fd = (int) domainId;
       close(fd);
-    connectWriteUnlock(domain);
+    cMsgConnectWriteUnlock(domain);
     
     return(CMSG_OK);
 }
@@ -659,20 +658,20 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
 
 
     /* check args */  
-    if ( (checkString(subject) != CMSG_OK ) ||
-         (checkString(type)    != CMSG_OK ) ||
+    if ( (cMsgCheckString(subject) != CMSG_OK ) ||
+         (cMsgCheckString(type)    != CMSG_OK ) ||
          (callback == NULL)                    ) {
       return(CMSG_BAD_ARGUMENT);
     }
     
-    connectReadLock(domain);
+    cMsgConnectReadLock(domain);
 
     if (domain->initComplete != 1) {
-      connectReadUnlock(domain);
+      cMsgConnectReadUnlock(domain);
       return(CMSG_NOT_INITIALIZED);
     }
     if (domain->gotConnection != 1) {
-      connectReadUnlock(domain);
+      cMsgConnectReadUnlock(domain);
       return(CMSG_LOST_CONNECTION);
     }
 
@@ -682,11 +681,11 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
     }
 
     /* make sure subscribe and unsubscribe are not run at the same time */
-    subscribeMutexLock(domain);
+    cMsgSubscribeMutexLock(domain);
 
     /* add to callback list if subscription to same subject/type exists */
     iok = jok = 0;
-    for (i=0; i<MAX_SUBSCRIBE; i++) {
+    for (i=0; i<CMSG_MAX_SUBSCRIBE; i++) {
       if (domain->subscribeInfo[i].active == 0) {
         continue;
       }
@@ -698,7 +697,7 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
         jok = 0;
 
         /* scan through callbacks looking for duplicates */ 
-        for (j=0; j<MAX_CALLBACK; j++) {
+        for (j=0; j<CMSG_MAX_CALLBACK; j++) {
 	  if (domain->subscribeInfo[i].cbInfo[j].active == 0) {
             continue;
           }
@@ -706,14 +705,14 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
           if ( (domain->subscribeInfo[i].cbInfo[j].callback == callback) &&
                (domain->subscribeInfo[i].cbInfo[j].userArg  ==  userArg))  {
 
-            subscribeMutexUnlock(domain);
-            connectReadUnlock(domain);
+            cMsgSubscribeMutexUnlock(domain);
+            cMsgConnectReadUnlock(domain);
             return(CMSG_ALREADY_EXISTS);
           }
         }
 
         /* scan through callbacks looking for empty space */ 
-        for (j=0; j<MAX_CALLBACK; j++) {
+        for (j=0; j<CMSG_MAX_CALLBACK; j++) {
 	  if (domain->subscribeInfo[i].cbInfo[j].active == 0) {
 
             domain->subscribeInfo[i].cbInfo[j].active   = 1;
@@ -729,8 +728,8 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
             
             cbarg = (cbArg *) malloc(sizeof(cbArg));
             if (cbarg == NULL) {
-              subscribeMutexUnlock(domain);
-              connectReadUnlock(domain);
+              cMsgSubscribeMutexUnlock(domain);
+              cMsgConnectReadUnlock(domain);
               return(CMSG_OUT_OF_MEMORY);  
             }                        
             cbarg->domainId = (int) domainId;
@@ -744,7 +743,7 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
 
             /* start callback thread now */
             status = pthread_create(&domain->subscribeInfo[i].cbInfo[j].thread,
-                                    NULL, callbackThread, (void *) cbarg);
+                                    NULL, cMsgCallbackThread, (void *) cbarg);
             if (status != 0) {
               err_abort(status, "Creating callback thread");
             }
@@ -763,19 +762,19 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
     }
 
     if ((iok == 1) && (jok == 0)) {
-      subscribeMutexUnlock(domain);
-      connectReadUnlock(domain);
+      cMsgSubscribeMutexUnlock(domain);
+      cMsgConnectReadUnlock(domain);
       return(CMSG_OUT_OF_MEMORY);
     }
     if ((iok == 1) && (jok == 1)) {
-      subscribeMutexUnlock(domain);
-      connectReadUnlock(domain);
+      cMsgSubscribeMutexUnlock(domain);
+      cMsgConnectReadUnlock(domain);
       return(CMSG_OK);
     }
 
     /* no match, make new entry */
     iok = 0;
-    for (i=0; i<MAX_SUBSCRIBE; i++) {
+    for (i=0; i<CMSG_MAX_SUBSCRIBE; i++) {
       int len, lenSubject, lenType;
       int outGoing[6];
 
@@ -801,8 +800,8 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
 
       cbarg = (cbArg *) malloc(sizeof(cbArg));
       if (cbarg == NULL) {
-        subscribeMutexUnlock(domain);
-        connectReadUnlock(domain);
+        cMsgSubscribeMutexUnlock(domain);
+        cMsgConnectReadUnlock(domain);
         return(CMSG_OUT_OF_MEMORY);  
       }                        
       cbarg->domainId = (int) domainId;
@@ -816,7 +815,7 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
 
       /* start callback thread now */
       status = pthread_create(&domain->subscribeInfo[i].cbInfo[0].thread,
-                              NULL, callbackThread, (void *) cbarg);                              
+                              NULL, cMsgCallbackThread, (void *) cbarg);                              
       if (status != 0) {
         err_abort(status, "Creating callback thread");
       }
@@ -843,8 +842,8 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
     } /* for i */
 
     /* done protecting subscribe */
-    subscribeMutexUnlock(domain);
-    connectReadUnlock(domain);
+    cMsgSubscribeMutexUnlock(domain);
+    cMsgConnectReadUnlock(domain);
 
     if (iok == 0) {
       err = CMSG_OUT_OF_MEMORY;
@@ -899,8 +898,8 @@ static int cmsgd_unsubscribe(void *domainId, void *handle) {
     if (cbarg->domainId != (int)domainId  ||
         cbarg->subIndex < 0 ||
         cbarg->cbIndex  < 0 ||
-        cbarg->subIndex >= MAX_SUBSCRIBE ||
-        cbarg->cbIndex  >= MAX_CALLBACK    ) {
+        cbarg->subIndex >= CMSG_MAX_SUBSCRIBE ||
+        cbarg->cbIndex  >= CMSG_MAX_CALLBACK    ) {
       return(CMSG_BAD_ARGUMENT);    
     }
 
@@ -916,25 +915,25 @@ static int cmsgd_unsubscribe(void *domainId, void *handle) {
     }
 
     /* gotta have subject, type, and callback */
-    if ( (checkString(subscriptionInfo->subject) != CMSG_OK ) ||
-         (checkString(subscriptionInfo->type)    != CMSG_OK ) ||
+    if ( (cMsgCheckString(subscriptionInfo->subject) != CMSG_OK ) ||
+         (cMsgCheckString(subscriptionInfo->type)    != CMSG_OK ) ||
          (callbackInfo->callback == NULL)                    )  {
       return(CMSG_BAD_ARGUMENT);
     }
     
-    connectReadLock(domain);
+    cMsgConnectReadLock(domain);
 
     if (domain->initComplete != 1) {
-      connectReadUnlock(domain);
+      cMsgConnectReadUnlock(domain);
       return(CMSG_NOT_INITIALIZED);
     }
     if (domain->gotConnection != 1) {
-      connectReadUnlock(domain);
+      cMsgConnectReadUnlock(domain);
       return(CMSG_LOST_CONNECTION);
     }
 
     /* make sure subscribe and unsubscribe are not run at the same time */
-    subscribeMutexLock(domain);
+    cMsgSubscribeMutexLock(domain);
         
     /* Delete entry if there was at least 1 callback
      * to begin with and now there are none for this subject/type.
@@ -978,8 +977,8 @@ static int cmsgd_unsubscribe(void *domainId, void *handle) {
      */
     
     /* done protecting unsubscribe */
-    subscribeMutexUnlock(domain);
-    connectReadUnlock(domain);
+    cMsgSubscribeMutexUnlock(domain);
+    cMsgConnectReadUnlock(domain);
 
     return(err);
 }
@@ -1026,9 +1025,28 @@ static int cmsgd_stop(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine sets the shutdown handler function.
+ *
+ * @param domainId id of the domain connection
+ * @param handler shutdown handler function
+ * @param userArg argument to shutdown handler 
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
+ *                               since cMsgConnect() was never called
+ */   
 static int cmsgd_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
                                     void *userArg) {
-  return(CMSG_NOT_IMPLEMENTED);
+  
+  cMsgDomainInfo *domain = &rcDomains[(int)domainId];
+
+  if (domain->initComplete != 1) return(CMSG_NOT_INITIALIZED);
+  
+  domain->shutdownHandler = handler;
+  domain->shutdownUserArg = userArg;
+      
+  return CMSG_OK;
 }
 
 
@@ -1212,8 +1230,6 @@ static int parseUDL(const char *UDL,
     free(buffer);
     return(CMSG_OK);
 }
-
-/*-------------------------------------------------------------------*/
 
 
 /*-------------------------------------------------------------------*/
