@@ -128,7 +128,7 @@ static int   registerPermanentDomains();
 static int   registerDynamicDomains(char *domainType);
 static void  domainInit(cMsgDomain *domain);
 static void  domainFree(cMsgDomain *domain);
-static int   parseUDLregex(const char *UDL, char **domainType, char **UDLremainder);
+static int   parseUDL(const char *UDL, char **domainType, char **UDLremainder);
 static void  connectMutexLock(void);
 static void  connectMutexUnlock(void);
 static void  domainClear(cMsgDomain *domain);
@@ -258,7 +258,7 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
 
   
   /* parse the UDL - Uniform Domain Locator */
-  if ( (err = parseUDLregex(myUDL, &domainType, &UDLremainder)) != CMSG_OK ) {
+  if ( (err = parseUDL(myUDL, &domainType, &UDLremainder)) != CMSG_OK ) {
     /* there's been a parsing error */
     connectMutexUnlock();
     return(err);
@@ -1310,7 +1310,7 @@ static void connectMutexUnlock(void) {
  * @returns CMSG_BAD_FORMAT if the UDL is formatted incorrectly
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  */   
-static int parseUDLregex(const char *UDL, char **domainType, char **UDLremainder) {
+static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
 
     int        err, len, bufLength;
     char       *udl, *buffer;
@@ -1376,7 +1376,7 @@ static int parseUDLregex(const char *UDL, char **domainType, char **UDLremainder
             *domainType = (char *)strdup(buffer);
         }
     }
-/* printf("parseUDLregex: domain = %s\n", buffer); */
+/* printf("parseUDL: domain = %s\n", buffer); */
 
 
     /* find domain remainder */
@@ -1395,7 +1395,7 @@ static int parseUDLregex(const char *UDL, char **domainType, char **UDLremainder
         if (UDLremainder != NULL) {
             *UDLremainder = (char *) strdup(buffer);
         }        
-/* printf("parseUDLregex: domain remainder = %s\n", buffer); */
+/* printf("parseUDL: domain remainder = %s\n", buffer); */
     }
 
     /* UDL parsed ok */

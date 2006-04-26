@@ -155,7 +155,7 @@ static int resubscribe(cMsgDomainInfo *domain, const char *subject, const char *
 static int disconnectFromKeepAlive(void *domainId);
 static int cmsgd_connectImpl(int domainId, int failoverIndex);
 static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIndex);
-static int parseUDLregex(const char *UDL, char **password,
+static int parseUDL(const char *UDL, char **password,
                               char **host, unsigned short *port,
                               char **UDLRemainder,
                               char **subdomainType,
@@ -312,11 +312,10 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
  *        to this connection.
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if the cMsg domain specific part of the UDL is NULL,
- *                            or the host name of the server to connect to is bad,
+ * @returns CMSG_ERROR if general error
  * @returns CMSG_BAD_FORMAT if the UDL is malformed
- * @returns CMSG_OUT_OF_RANGE if the port specified in the UDL is out-of-range
- * @returns CMSG_OUT_OF_MEMOERY if the allocating memory for message buffer failed
+ * @returns CMSG_BAD_ARGUMENT if no UDL given
+ * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
  * @returns CMSG_LIMIT_EXCEEDED if the maximum number of domain connections has
  *          been exceeded
  * @returns CMSG_SOCKET_ERROR if the listening thread finds all the ports it tries
@@ -326,7 +325,7 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
  *                             or a communication error with either server occurs.
  */   
 static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDescription,
-                        const char *UDLremainder, void **domainId) {
+                         const char *UDLremainder, void **domainId) {
         
   char *p, *udl;
   int failoverUDLCount = 0, failoverIndex=0, viableUDLs = 0;
@@ -411,7 +410,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
   if (failoverUDLCount < 1) {
     cMsgDomainClear(&cMsgDomains[id]);
     staticMutexUnlock();
-    return(CMSG_ERROR);        
+    return(CMSG_BAD_ARGUMENT);        
   }
 
   /* Now that we know how many UDLs there are, allocate array. */
@@ -429,12 +428,12 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
   i   = 0;
   while (p != NULL) {
     /* Parse the UDL (Uniform Domain Locator) */
-    if ( (err = parseUDLregex(p, &cMsgDomains[id].failovers[i].password,
-                                 &cMsgDomains[id].failovers[i].nameServerHost,
-                                 &cMsgDomains[id].failovers[i].nameServerPort,
-                                 &cMsgDomains[id].failovers[i].udlRemainder,
-                                 &cMsgDomains[id].failovers[i].subdomain,
-                                 &cMsgDomains[id].failovers[i].subRemainder)) != CMSG_OK ) {
+    if ( (err = parseUDL(p, &cMsgDomains[id].failovers[i].password,
+                            &cMsgDomains[id].failovers[i].nameServerHost,
+                            &cMsgDomains[id].failovers[i].nameServerPort,
+                            &cMsgDomains[id].failovers[i].udlRemainder,
+                            &cMsgDomains[id].failovers[i].subdomain,
+                            &cMsgDomains[id].failovers[i].subRemainder)) != CMSG_OK ) {
 
       /* There's been a parsing error, mark as invalid UDL */
       cMsgDomains[id].failovers[i].valid = 0;
@@ -455,8 +454,14 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
   /* Make a real connection. */
   /*-------------------------*/
 
-  /* If there's only 1 viable UDL ... */
-  if (viableUDLs < 2) {
+  /* If there are no viable UDLs ... */
+  if (viableUDLs < 1) {
+      cMsgDomainClear(&cMsgDomains[id]);
+      staticMutexUnlock();
+      return(CMSG_BAD_FORMAT);            
+  }
+  /* Else if there's only 1 viable UDL ... */
+  else if (viableUDLs < 2) {
 /* printf("Only 1 UDL = %s\n", cMsgDomains[id].failovers[0].udl); */
 
       /* Ain't using failovers */
@@ -466,7 +471,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
       if (!cMsgDomains[id].failovers[0].valid) {
           cMsgDomainClear(&cMsgDomains[id]);
           staticMutexUnlock();
-          return(CMSG_ERROR);            
+          return(CMSG_BAD_FORMAT);            
       }
       
       err = cmsgd_connectImpl(id, 0);
@@ -510,7 +515,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
     if (!gotConnection) {
       cMsgDomainClear(&cMsgDomains[id]);
       staticMutexUnlock();
-      return(CMSG_ERROR);                      
+      return(err);                      
     }        
   }
 
@@ -539,7 +544,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
  *        to this connection.
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_OUT_OF_MEMOERY if the allocating memory for message buffer failed
+ * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
  * @returns CMSG_SOCKET_ERROR if the listening thread finds all the ports it tries
  *                            to listen on are busy, or socket options could not be
  *                            set
@@ -746,17 +751,17 @@ static int cmsgd_connectImpl(int domainId, int failoverIndex) {
 
 
 /**
- * This routine is called by cmsgd_connect and does the real work of
- * connecting to the cMsg name server.
+ * This routine is called by the keepAlive thread upon the death of the
+ * cMsg server in an attempt to failover to another server whose UDL was
+ * given in the original call to connect(). 
  * 
- * @param domainId pointer to integer which gets filled with a unique id referring
- *        to this connection.
+ * @param domainId the domain info array index
+ * @param failoverIndex index into the array of parsed UDLs to which
+ *                      a connection is to be attempted with this function
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_OUT_OF_MEMOERY if the allocating memory for message buffer failed
- * @returns CMSG_SOCKET_ERROR if the listening thread finds all the ports it tries
- *                            to listen on are busy, or socket options could not be
- *                            set
+ * @returns CMSG_OUT_OF_MEMOERY if the allocating memory failed
+ * @returns CMSG_SOCKET_ERROR if socket options could not be set
  * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
  *                             or a communication error with either server occurs.
  */   
@@ -770,7 +775,6 @@ static int reconnect(int domainId, int failoverIndex) {
   
   id = domainId;    
 
-  
   cMsgConnectWriteLock(domain);  
 
   /*--------------------------------------------------------------------*/
@@ -941,20 +945,23 @@ static int reconnect(int domainId, int failoverIndex) {
 
 
 /**
- * This routine sends a msg to the specified cMsg domain server.  It is called
- * by the user through cMsgSend() given the appropriate UDL. It is completely
- * asynchronous and never blocks. In this domain cMsgFlush() does nothing and
+ * This routine sends a msg to the specified cMsg domain server. It is called
+ * by the user through cMsgSend() given the appropriate UDL. It is asynchronous
+ * and should rarely block. It will only block if the cMsg domain server has
+ * reached it maximum number of request-handling threads and each of those threads
+ * has a cue which is completely full. In this domain cMsgFlush() does nothing and
  * does not need to be called for the message to be sent immediately.<p>
+ *
  * This version of this routine uses writev to write all data in one write call.
  * Another version was tried with many writes (one for ints and one for each
- * string), but the performance died sharply
+ * string), but the performance died sharply.
  *
  * @param domainId id of the domain connection
  * @param vmsg pointer to a message structure
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if the message argument is null or has null subject or type
- * @returns CMSG_OUT_OF_MEMOERY if the allocating memory for message buffer failed
+ * @returns CMSG_OUT_OF_MEMORY if the allocating memory for message buffer failed
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement sending
  *                               messages
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server
@@ -1144,7 +1151,7 @@ static int cmsgd_send(void *domainId, void *vmsg) {
  * @returns CMSG_BAD_ARGUMENT if the message argument is null or has null subject or type
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement the
  *                               synchronous sending of messages
- * @returns CMSG_OUT_OF_MEMOERY if the allocating memory for message buffer failed
+ * @returns CMSG_OUT_OF_MEMORY if the allocating memory for message buffer failed
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
@@ -1575,7 +1582,15 @@ static int cmsgd_subscribeAndGet(void *domainId, const char *subject, const char
 
 /**
  * This routine tells the cMsg server to "forget" about the cMsgSubscribeAndGet()
- * call (specified by the id argument) since a timeout occurred.
+ * call (specified by the id argument) since a timeout occurred. Internal use
+ * only.
+ *
+ * @param domainId id of the domain connection
+ * @param subject subject of message subscribed to
+ * @param type type of message subscribed to
+ * @param id unique id associated with a subscribeAndGet
+ *
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
  */   
 static int unSubscribeAndGet(void *domainId, const char *subject, const char *type, int id) {
   
@@ -1650,7 +1665,8 @@ static int unSubscribeAndGet(void *domainId, const char *subject, const char *ty
  * @param replyMsg message received from the responder
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if the sendMsg or replyMsg arguments or the sendMsg's subject or type are null
+ * @returns CMSG_BAD_ARGUMENT if the sendMsg or replyMsg arguments or the
+ *                            sendMsg's subject or type are null
  * @returns CMSG_TIMEOUT if routine received no message in the specified time
  * @returns CMSG_OUT_OF_MEMORY if all available sendAndGet memory has been used
  *                             or allocating memory for message buffer failed
@@ -1948,7 +1964,13 @@ static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec
 
 /**
  * This routine tells the cMsg server to "forget" about the cMsgSendAndGet()
- * call (specified by the id argument) since a timeout occurred.
+ * call (specified by the id argument) since a timeout occurred. Internal use
+ * only.
+ *
+ * @param domainId id of the domain connection
+ * @param id unique id associated with a sendAndGet
+ *
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
  */   
 static int unSendAndGet(void *domainId, int id) {
   
@@ -2008,10 +2030,8 @@ static int cmsgd_flush(void *domainId) {
  * pointer and the userArg pointer and then is executed. A configuration
  * structure is given to determine the behavior of the callback.
  * This routine is called by the user through cMsgSubscribe() given the
- * appropriate UDL. In this domain cMsgFlush() does nothing and does not
- * need to be called for the subscription to be started immediately.
- * Only 1 subscription for a specific combination of subject, type, callback
- * and userArg is allowed.
+ * appropriate UDL. Only 1 subscription for a specific combination of
+ * subject, type, callback and userArg is allowed.
  *
  * @param domainId id of the domain connection
  * @param subject subject of messages subscribed to
@@ -2436,7 +2456,9 @@ static int resubscribe(cMsgDomainInfo *domain, const char *subject, const char *
  * @param handle void pointer obtained from cmsgd_subscribe
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if the ubject, type, or callback are null
+ * @returns CMSG_BAD_ARGUMENT if the handle or its subject, type, or callback are null,
+ *                            or the given subscription (thru handle) does not have
+ *                            an active subscription or callbacks
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement
  *                               unsubscribe
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server
@@ -2673,7 +2695,6 @@ static int cmsgd_stop(void *domainId) {
  * @param domainId id of the domain connection
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_NETWORK_ERROR if error in communicating with the server
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */   
@@ -2796,13 +2817,9 @@ static int cmsgd_disconnect(void *domainId) {
   /* give the above threads a chance to quit before we reset everytbing */
   sleep(1);
   
-  /* free memory (non-NULL items), reset variables*/
-  /*
-  if(msgBuffer!=NULL) free(msgBuffer);
-  msgBuffer=NULL;
-  */
   /* protect the domain array when freeing up a space */
   staticMutexLock();
+  /* free memory (non-NULL items), reset variables*/
   cMsgDomainClear(domain);
   staticMutexUnlock();
   
@@ -2922,9 +2939,9 @@ printf("disconnect: cancelling pend thread\n");
  * @param userArg argument to shutdown handler 
  */   
 static void defaultShutdownHandler(void *userArg) {
-   /* if (cMsgDebug >= CMSG_DEBUG_ERROR) { */
+   if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "Ran default shutdown handler\n");
-   /* } */
+    }
     exit(-1);      
 }
 
@@ -3110,7 +3127,17 @@ static int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
 /*-------------------------------------------------------------------*/
 
 
-/** This routine exchanges information with the name server. */
+/**
+ * This routine exchanges information with the name server.
+ *
+ * @param domain  pointer to element in domain info array
+ * @param serverfd  socket to send to cMsg name server
+ * @param failoverIndex  index into the array of parsed UDLs of the current UDL.
+ * 
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ *
+ */
 static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIndex) {
 
   int  err, lengthDomain, lengthSubdomain, lengthRemainder, lengthPassword;
@@ -3314,14 +3341,13 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIn
 }
 
 
-/*-------------------------------------------------------------------*
- * keepAliveThread is a thread used to send keep alive packets
- * to other cMsg-enabled programs. If there is no response or there is
- * an I/O error. The other end of the socket is presumed dead.
- *-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+
 /**
  * This routine is run as a thread which is used to send keep alive
- * communication to a cMsg server.
+ * communication to a cMsg server.  If there is no response or there is
+ * an I/O error, the other end of the socket & the server is presumed dead.
  */
 static void *keepAliveThread(void *arg)
 {
@@ -3487,11 +3513,11 @@ static void parsedUDLFree(parsedUDL *p) {
  * This routine parses, using regular expressions, the cMsg domain
  * portion of the UDL sent from the next level up" in the API.
  */
-static int parseUDLregex(const char *UDL, char **password,
-                              char **host, unsigned short *port,
-                              char **UDLRemainder,
-                              char **subdomainType,
-                              char **UDLsubRemainder) {
+static int parseUDL(const char *UDL, char **password,
+                          char **host, unsigned short *port,
+                          char **UDLRemainder,
+                          char **subdomainType,
+                          char **UDLsubRemainder) {
 
     int        err, len, bufLength, Port, index;
     unsigned int i;
@@ -3525,7 +3551,7 @@ static int parseUDLregex(const char *UDL, char **password,
     free(udlLowerCase);
     
     udlRemainder = udl + index + 7;
-/* printf("parseUDLregex: udl remainder = %s\n", udlRemainder); */    
+/* printf("parseUDL: udl remainder = %s\n", udlRemainder); */    
     
     if (UDLRemainder != NULL) {
         *UDLRemainder = (char *) strdup(udlRemainder);
@@ -3588,7 +3614,7 @@ static int parseUDLregex(const char *UDL, char **password,
                 
         /* if the host is "localhost", find the actual host name */
         if (strcmp(buffer, "localhost") == 0) {
-/* printf("parseUDLregex: host = localhost\n"); */
+/* printf("parseUDL: host = localhost\n"); */
             /* get canonical local host name */
             if (cMsgLocalHost(buffer, bufLength) != CMSG_OK) {
                 /* error */
@@ -3602,7 +3628,7 @@ static int parseUDLregex(const char *UDL, char **password,
             *host = (char *)strdup(buffer);
         }
     }
-/* printf("parseUDLregex: host = %s\n", buffer); */
+/* printf("parseUDL: host = %s\n", buffer); */
 
 
     /* find port */
@@ -3610,7 +3636,7 @@ static int parseUDLregex(const char *UDL, char **password,
         /* no match for port so use default */
         Port = CMSG_NAME_SERVER_STARTING_PORT;
         if (cMsgDebug >= CMSG_DEBUG_WARN) {
-            fprintf(stderr, "parseUDLregex: guessing that the name server port is %d\n",
+            fprintf(stderr, "parseUDL: guessing that the name server port is %d\n",
                    Port);
         }
     }
@@ -3631,7 +3657,7 @@ static int parseUDLregex(const char *UDL, char **password,
     if (port != NULL) {
       *port = Port;
     }
-/* printf("parseUDLregex: port = %hu\n", Port ); */
+/* printf("parseUDL: port = %hu\n", Port ); */
 
 
     /* find subdomain */
@@ -3640,7 +3666,7 @@ static int parseUDLregex(const char *UDL, char **password,
         if (subdomainType != NULL) {
             *subdomainType = (char *) strdup("cMsg");
         }
-/* printf("parseUDLregex: subdomain = cMsg\n"); */
+/* printf("parseUDL: subdomain = cMsg\n"); */
     }
     else {
         buffer[0] = 0;
@@ -3650,7 +3676,7 @@ static int parseUDLregex(const char *UDL, char **password,
         if (subdomainType != NULL) {
             *subdomainType = (char *) strdup(buffer);
         }        
-/* printf("parseUDLregex: subdomain = %s\n", buffer); */
+/* printf("parseUDL: subdomain = %s\n", buffer); */
     }
 
 
@@ -3669,7 +3695,7 @@ static int parseUDLregex(const char *UDL, char **password,
         if (UDLsubRemainder != NULL) {
             *UDLsubRemainder = (char *) strdup(buffer);
         }        
-/* printf("parseUDLregex: subdomain remainder = %s, len = %d\n", buffer, len); */
+/* printf("parseUDL: subdomain remainder = %s, len = %d\n", buffer, len); */
     }
 
 
@@ -3706,7 +3732,7 @@ static int parseUDLregex(const char *UDL, char **password,
            if (password != NULL) {
              *password = (char *) strdup(buffer);
            }        
-/* printf("parseUDLregex: password = %s\n", buffer); */
+/* printf("parseUDL: password = %s\n", buffer); */
         }
         
         free(pswd);
