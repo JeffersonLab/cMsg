@@ -274,6 +274,10 @@ typedef struct subscribeConfig_t {
 
 /** Routine for getting the userArg of a subscription given its handle. */
 int cMsgGetUserArg(int domainId, void *handle, void **userArg);
+/** Routine for getting a list of the userArgs of subscriptions with a particular
+  * subject, type, and callback. */
+int cMsgGetUserArgList(int domainId, char* subject, char *type,
+                       cMsgCallbackFunc *callback, void ***pUserArg, int *size);
 
 
 #ifdef	__cplusplus

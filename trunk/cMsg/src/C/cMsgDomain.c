@@ -3128,7 +3128,8 @@ static int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
 /**
  * This routine returns the user argument of a subscription given the
  * subscription's handle (which represents a given subject, type, callback,
- * and user argument).
+ * and user argument). This function is needed for the C++ wrapper of the
+ * cMsg domain C code.
  *
  * @param domainId id of the domain connection in the top level API
  * @param handle void pointer obtained from cmsgd_subscribe
@@ -3166,6 +3167,111 @@ int cMsgGetUserArg(int domainId, void *handle, void **userArg) {
   
   if (userArg != NULL) {
       *userArg = callbackInfo->userArg;
+  }
+  
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine returns an array filled with all the user arguments
+ * associated with a given subject, type, and callback represented in this
+ * case by the given handle. This function is needed for the C++ wrapper of
+ * the cMsg domain C code.
+ *
+ * @param domainId id of the domain connection in the top level API
+ * @param subject subject of messages subscribed to
+ * @param type type of messages subscribed to
+ * @param callback pointer to callback to be executed on receipt of message
+ * @param pointer to array of userArg pointers which gets filled with the relevant
+ *        subscriptions' user arguments
+ * @param size pointer to int filled in with size of the userArg array
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_OUT_OF_MEMORY if no memory available
+ */   
+int cMsgGetUserArgList(int domainId, char* subject, char *type,
+                       cMsgCallbackFunc *callback, void ***pUserArg, int *size) {
+  
+  int id = domainId - DOMAIN_ID_OFFSET;
+  cMsgDomainInfo  *domain = &cMsgDomains[(int) domains[id].implId];
+  void **userArgs;
+  int i,j, count = 0, index = 0;
+  
+  cMsgConnectReadLock(domain);
+  cMsgSubscribeMutexLock(domain);
+   
+  /* scan callback list */
+  for (i=0; i<CMSG_MAX_SUBSCRIBE; i++) {
+    if (domain->subscribeInfo[i].active == 0) {
+      continue;
+    }
+    
+    if ((strcmp(domain->subscribeInfo[i].subject, subject) == 0) && 
+        (strcmp(domain->subscribeInfo[i].type, type) == 0) ) {
+
+      /* scan through callbacks looking for duplicates */ 
+      for (j=0; j<CMSG_MAX_CALLBACK; j++) {
+	if (domain->subscribeInfo[i].cbInfo[j].active == 0) {
+          continue;
+        }
+
+        if (domain->subscribeInfo[i].cbInfo[j].callback == callback) {
+          count++;
+        }
+      }
+      
+      break;
+      
+    }    
+  }
+  
+  /* Now that we know how many we have, malloc the array and stuff it. */
+  userArgs = (void **) calloc(count, sizeof(void *));
+  if (userArgs == NULL) {
+    cMsgConnectReadUnlock(domain);
+    cMsgSubscribeMutexUnlock(domain);
+    return(CMSG_OUT_OF_MEMORY);  
+  }
+  
+  /* scan callback list */
+  for (i=0; i<CMSG_MAX_SUBSCRIBE; i++) {
+    if (domain->subscribeInfo[i].active == 0) {
+      continue;
+    }
+    
+    if ((strcmp(domain->subscribeInfo[i].subject, subject) == 0) && 
+        (strcmp(domain->subscribeInfo[i].type, type) == 0) ) {
+
+      /* scan through callbacks looking for duplicates */ 
+      for (j=0; j<CMSG_MAX_CALLBACK; j++) {
+	if (domain->subscribeInfo[i].cbInfo[j].active == 0) {
+          continue;
+        }
+
+        if (domain->subscribeInfo[i].cbInfo[j].callback == callback) {
+          userArgs[index++] = domain->subscribeInfo[i].cbInfo[j].userArg;
+        }
+      }
+      
+      break;
+      
+    }    
+  }
+  
+  cMsgSubscribeMutexUnlock(domain);
+  cMsgConnectReadUnlock(domain);
+
+
+  if (pUserArg != NULL) {
+      *pUserArg = userArgs;
+  }
+  
+  if (size != NULL) {
+      *size = count;
   }
   
   return(CMSG_OK);
