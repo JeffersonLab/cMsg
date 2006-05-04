@@ -55,16 +55,12 @@
 
 #include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
-#include "cMsgBase.h"
+#include "cMsg.h"
 #include "errors.h"
 
 /* set the debug level here */
 /* static int cMsgDebug = CMSG_DEBUG_INFO; */
 
-/* for c++ */
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #ifndef VXWORKS
 /* mutex to protect non-reentrant gethostbyname in Linux since the
@@ -817,8 +813,3 @@ int cMsgLocalAddress(char *address, int length)
   
 #endif
 }
-
-#ifdef __cplusplus
-}
-#endif
-

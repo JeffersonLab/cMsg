@@ -25,10 +25,6 @@
 #include "errors.h"
 #include "rwlock.h"
 
-/* for c++ */
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 
 /*
@@ -280,7 +276,3 @@ int rwl_writeunlock (rwLock_t *rwl)
     status = pthread_mutex_unlock (&rwl->mutex);
     return status;
 }
-
-#ifdef __cplusplus
-}
-#endif

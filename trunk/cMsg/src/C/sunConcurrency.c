@@ -28,9 +28,6 @@
  * code in rwlock.h, rwlock.c if not so isolated.
  */  
 
-#ifdef	__cplusplus
-extern "C" {
-#endif
 
 #ifdef sun
 #ifndef VXWORKS
@@ -82,10 +79,3 @@ extern "C" {
     return 0;
 #endif
   }
-
-
-
-#ifdef	__cplusplus
-}
-#endif
-

@@ -46,41 +46,19 @@ LIB_DYNAMICXX = $(LIBNAMXX).so
 
 CMSG_LIBSXX = $(LIB_STATICXX) $(LIB_DYNAMICXX)
 
-SRCXX =	$(C_DIR)/rwlock.c \
-	$(C_DIR)/sunConcurrency.c \
-	$(C_DIR)/cMsgMatching.c \
-	$(C_DIR)/cMsgNetwork.c \
-	$(C_DIR)/cMsg.c \
-	$(C_DIR)/cMsgDomainUtil.c \
-	$(C_DIR)/cMsgDomainListenThread.c \
-	$(C_DIR)/cMsgDomain.c \
-	$(C_DIR)/rcDomain.c \
-	$(C_DIR)/fileDomain.c \
-	cMsgWrapper.cc
+SRCXX =	cMsgWrapper.cc
 
-
-OBJSXX = rwlock.o \
-	 sunConcurrency.o \
-	 cMsgMatching.o \
-         cMsgNetwork.o \
-	 cMsg.o \
-	 cMsgDomainUtil.o \
-	 cMsgDomainListenThread.o \
-	 cMsgDomain.o \
-	 rcDomain.o \
-	 fileDomain.o \
-	 cMsgWrapper.o
+OBJSXX = cMsgWrapper.o
 
 
 HFILES = $(C_DIR)/cMsgNetwork.h \
 	 $(C_DIR)/cMsgPrivate.h \
-	 $(C_DIR)/cMsgBase.h \
+	 $(C_DIR)/cMsg.h \
 	 $(C_DIR)/cMsgDomain.h \
 	 $(C_DIR)/rwlock.h \
 	 $(C_DIR)/errors.h
 
-HFILESXX = cMsgBase.hxx \
-	   cMsg.hxx \
+HFILESXX = cMsg.hxx \
            epics_server.h
 
 PROGSXX = cMsgCommand cMsgReceive cMsgCAGateway
@@ -129,15 +107,15 @@ clean:
 
 
 cMsgCAGateway: cMsgCAGateway.cc epics_server.cc
-	$(CXX) -o cMsgCAGateway $(CFLAGSXX) cMsgCAGateway.cc epics_server.cc -L./ -L$(LIB_DIR) -lcmsgxx -lcMsgRegex -L$(EPICS_DIR) $(EPICS_LIB) $(LIBS)
+	$(CXX) -o cMsgCAGateway $(CFLAGSXX) cMsgCAGateway.cc epics_server.cc -L./ -L$(LIB_DIR) -lcmsgxx -lcmsg -lcMsgRegex -L$(EPICS_DIR) $(EPICS_LIB) $(LIBS)
         
 
 
 # SUFFIX RULES
 .c:
-	$(CXX) -o $* $(CFLAGSXX) $< -L./ -L$(LIB_DIR) -lcmsgxx -lcMsgRegex $(LIBS)
+	$(CXX) -o $* $(CFLAGSXX) $< -L./ -L$(LIB_DIR) -lcmsgxx -lcmsg -lcMsgRegex $(LIBS)
 .cc:
-	$(CXX) -o $* $(CFLAGSXX) $< -L./ -L$(LIB_DIR) -lcmsgxx -lcMsgRegex $(LIBS)
+	$(CXX) -o $* $(CFLAGSXX) $< -L./ -L$(LIB_DIR) -lcmsgxx -lcmsg -lcMsgRegex $(LIBS)
 .c.o:
 	$(CXX) -c $(CFLAGSXX) $<
 .cc.o:

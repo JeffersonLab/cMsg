@@ -59,7 +59,7 @@
 /* package includes */
 #include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
-#include "cMsgBase.h"
+#include "cMsg.h"
 #include "cMsgDomain.h"
 #include "errors.h"
 #include "rwlock.h"
@@ -87,10 +87,6 @@ static int subjectTypeId = 1;
 static int initialMsgBufferSize = 15000;
 
 
-/* for c++ */
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /** Store information about each cMsg domain connected to. */
 cMsgDomainInfo cMsgDomains[MAXDOMAINS_CODA];
@@ -102,7 +98,7 @@ static int   cmsgd_connect           (const char *myUDL, const char *myName, con
 static int   cmsgd_send              (void *domainId, void *msg);
 static int   cmsgd_syncSend          (void *domainId, void *msg, int *response);
 static int   cmsgd_flush             (void *domainId);
-static int   cmsgd_subscribe         (void *domainId, const char *subject, const char *type, cMsgCallback *callback,
+static int   cmsgd_subscribe         (void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                                       void *userArg, cMsgSubscribeConfig *config, void **handle);
 static int   cmsgd_unsubscribe       (void *domainId, void *handle);
 static int   cmsgd_subscribeAndGet   (void *domainId, const char *subject, const char *type,
@@ -974,7 +970,7 @@ static int cmsgd_send(void *domainId, void *vmsg) {
   
   int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
-  cMsgMessage *msg = (cMsgMessage *) vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
   cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
   int fd = domain->sendSocket;
   char *creator;
@@ -1162,7 +1158,7 @@ static int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
   
   int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
-  cMsgMessage *msg = (cMsgMessage *) vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
   cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
   int fd = domain->sendSocket;
   int fdIn = domain->receiveSocket;
@@ -1682,7 +1678,7 @@ static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec
                       void **replyMsg) {
   
   cMsgDomainInfo *domain  = &cMsgDomains[(int)domainId];
-  cMsgMessage *msg = (cMsgMessage *) sendMsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *) sendMsg;
   int i, err, uniqueId, status;
   int len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int gotSpot, fd = domain->sendSocket;
@@ -2054,7 +2050,7 @@ static int cmsgd_flush(void *domainId) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
+static int cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                      void *userArg, cMsgSubscribeConfig *config, void **handle) {
 
   int i, j, iok=0, jok=0, uniqueId, status, err;
@@ -4073,10 +4069,3 @@ static void staticMutexUnlock(void) {
 
 
 /*-------------------------------------------------------------------*/
-
-
-
-#ifdef __cplusplus
-}
-#endif
-

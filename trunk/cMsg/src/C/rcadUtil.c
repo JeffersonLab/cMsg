@@ -55,7 +55,7 @@
 #endif
 
 #include "cMsgPrivate.h"
-#include "cMsgBase.h"
+#include "cMsg.h"
 #include "rcAgentDomain.h"
 
 
@@ -445,7 +445,7 @@ int requestAgent(char *name, char *type, int port, char *host){
  *
  *************************************************************************************************/
 
-int cMsg2Wire( cMsgMessage *cmsg, msg *wire){
+int cMsg2Wire(cMsgMessage_t *cmsg, msg *wire){
 
   int status;
   int priority;
@@ -456,7 +456,7 @@ int cMsg2Wire( cMsgMessage *cmsg, msg *wire){
   char *type;
   char *text;
   
-/* N.B. user integer of the cmsgMessage is used to set the priority of the rc wire protocole*/
+/* N.B. user integer of the cMsgMessage is used to set the priority of the rc wire protocole*/
   status = cMsgGetUserInt(cmsg,  &priority);
   status = cMsgGetUserTime(cmsg, usertime);
   status = cMsgGetCreator(cmsg, &creator);
@@ -485,7 +485,7 @@ int cMsg2Wire( cMsgMessage *cmsg, msg *wire){
  *
  *************************************************************************************************/
 
-int Wire2cMsg( msg *wire, cMsgMessage *cmsg){
+int Wire2cMsg( msg *wire, cMsgMessage_t *cmsg){
   
   int status;
     struct timespec *usertime;

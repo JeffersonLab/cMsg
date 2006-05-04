@@ -34,20 +34,16 @@
 
 #include "rcAgentDomain.h"
 
-/* for c++ */
-#ifdef __cplusplus
-extern "C" {
-#endif
-  
+
   /* Prototypes of the functions which implement the standard cMsg tasks in the cMsg domain. */
   static int   rcConnect(const char *myUDL, const char *myName, const char *myDescription,
 			 const char *UDLremainder,int *domainId);
   static int   rcSend(int domainId, void *msg);
   static int   rcSyncSend(int domainId, void *msg, int *response);
   static int   rcFlush(int domainId);
-  static int   rcSubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
+  static int   rcSubscribe(int domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                            void *userArg, cMsgSubscribeConfig *config);
-  static int   rcUnsubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
+  static int   rcUnsubscribe(int domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                              void *userArg);
   static int   rcSubscribeAndGet(int domainId, const char *subject, const char *type,
                                  struct timespec *timeout, void **replyMsg);
@@ -307,7 +303,7 @@ extern "C" {
     msg *output;
     
     /* Cast the cmsg to cMsgMessage*/
-    cMsgMessage *mycmsg = (cMsgMessage *)cmsg;
+    cMsgMessage_t *mycmsg = (cMsgMessage_t *)cmsg;
     
     /* Translate to the wire protocole*/
     if ((ret = cMsg2Wire(mycmsg, output)) != CMSG_OK) return(ret);
@@ -425,7 +421,7 @@ extern "C" {
    * @returns CMSG_OK if successful
    * @returns CMSG_ALREADY_EXISTS if an identical subscription already exists
    ****************************************************************************/   
-  static int rcSubscribe(int domainId, const char *subject, const char *type,cMsgCallback *callback,
+  static int rcSubscribe(int domainId, const char *subject, const char *type,cMsgCallbackFunc *callback,
 			 void *userArg, cMsgSubscribeConfig *config) {
     
     int i,j;
@@ -445,7 +441,7 @@ extern "C" {
     /** Name of the queue*/
     char *Qname;
     /** cMsg structure*/
-    cMsgMessage *message;
+    cMsgMessage_t *message;
     /** callback_t structure for the user new callbacks*/
     callback_t *new_callb;    
 
@@ -585,7 +581,7 @@ Vardan: may not modify subject or type
    ********************************************************************************/
   void *usrHandlThread(void *arg){
     
-    cMsgMessage *cmsg;
+    cMsgMessage_t *cmsg;
     callback_t *clb;
     usera_t *myargs;
     
@@ -631,7 +627,7 @@ Vardan: may not modify subject or type
     /** Message queue priority.*/
     unsigned int msg_prio;
     /** pointer to the cMsg structure*/
-    cMsgMessage *outcMsg;
+    cMsgMessage_t *outcMsg;
     /**Structure which is passed as an argument to the user callback handling thread */  
     usera_t *userArguments;
 
@@ -700,7 +696,7 @@ Vardan: may not modify subject or type
    * @returns CMSG_OK if successful
    *
    **********************************************************************************/   
-  static int rcUnsubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
+  static int rcUnsubscribe(int domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                            void *userArg) {
     int i,j;
     /** single subscription structure*/
@@ -717,7 +713,7 @@ Vardan: may not modify subject or type
     /** Name of the queue*/
     char *Qname;
     /** cMsg structure*/
-    cMsgMessage *message;
+    cMsgMessage_t *message;
     
     
     /* increase concurrency for this thread for early Solaris */
@@ -764,7 +760,7 @@ Vardan: may not modify subject or type
     sMutexUnlock((mySubscriptions->mutex)); /* mutex unlock */    
     /* Send a unsubscribe message to the agent */
     /* Create cMsgMessage */
-    message = (cMsgMessage *) cMsgCreateMessage();
+    message = (cMsgMessage_t *) cMsgCreateMessage();
     cMsgSetUserInt(message, UNSUBSCRIBE);
     cMsgSetSubject(message, subject);
     cMsgSetType(message, type);
@@ -1016,7 +1012,7 @@ Vardan: may not modify subject or type
       ret = mq_receive(myMsgOutQ->mqd, msgptr, CMSG_MAX_SIZE, &msg_prio);
       sMutexUnlock((myMsgOutQ->mutex));      
       if(ret != EAGAIN) {           /* In case there is a message in the queue*/ 
-	cMsg2Wire((cMsgMessage *)msgptr, outMsg);  /* Translate between cMsg to wire protocole*/
+	cMsg2Wire((cMsgMessage_t *)msgptr, outMsg);  /* Translate between cMsg to wire protocole*/
 	/* Send the message*/
 	if (transmit2Agent(sk, outMsg) == ERROR_TRANSMITING_TO_AGENT) exit(-1); 
 	free(msgptr);               /* free the memory*/
@@ -1056,5 +1052,3 @@ Vardan: may not modify subject or type
       err_abort(status, "Failed mutex unlock");
     }
   }
-  
-  

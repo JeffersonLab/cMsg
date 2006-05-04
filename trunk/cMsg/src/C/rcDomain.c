@@ -42,7 +42,7 @@
 
 #include "errors.h"
 #include "cMsgPrivate.h"
-#include "cMsgBase.h"
+#include "cMsg.h"
 #include "cMsgNetwork.h"
 #include "rwlock.h"
 #include "regex.h"
@@ -52,11 +52,6 @@
 #include <vxWorks.h>
 #endif
 
-
-/* for c++ */
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 
 /**
@@ -121,7 +116,7 @@ static int   cmsgd_send(void *domainId, void *msg);
 static int   cmsgd_syncSend(void *domainId, void *msg, int *response);
 static int   cmsgd_flush(void *domainId);
 static int   cmsgd_subscribe(void *domainId, const char *subject, const char *type,
-                             cMsgCallback *callback, void *userArg,
+                             cMsgCallbackFunc *callback, void *userArg,
                              cMsgSubscribeConfig *config, void **handle);
 static int   cmsgd_unsubscribe(void *domainId, void *handle);
 static int   cmsgd_subscribeAndGet(void *domainId, const char *subject, const char *type,
@@ -560,7 +555,7 @@ static int cmsgd_send(void *domainId, void *vmsg) {
     int err=CMSG_OK, len, lenText;
     int outGoing[2];
     char buffer[2048];
-    cMsgMessage *msg = (cMsgMessage *) vmsg;
+    cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
     cMsgDomainInfo *domain = &rcDomains[(int)domainId];
     
     /* clear array */
@@ -697,7 +692,7 @@ static int cmsgd_flush(void *domainId) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
+static int cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                            void *userArg, cMsgSubscribeConfig *config, void **handle) {
 
     int i, j, iok=0, jok=0, uniqueId, status, err=CMSG_OK;
@@ -1399,10 +1394,3 @@ static void staticMutexUnlock(void) {
     err_abort(status, "Failed mutex unlock");
   }
 }
-
-
-
-
-#ifdef __cplusplus
-}
-#endif

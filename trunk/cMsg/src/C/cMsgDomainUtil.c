@@ -35,7 +35,7 @@
 
 #include "errors.h"
 #include "cMsgPrivate.h"
-#include "cMsgBase.h"
+#include "cMsg.h"
 #include "cMsgNetwork.h"
 #include "rwlock.h"
 #include "cMsgDomain.h"
@@ -44,10 +44,6 @@
 #include <vxWorks.h>
 #endif
 
-/* for c++ */
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /** Excluded characters from subject, type, and description strings. */
 static const char *excludedChars = "`\'\"";
@@ -746,7 +742,7 @@ void *cMsgCallbackThread(void *arg)
     subscribeCbInfo *cback  = &domain->subscribeInfo[subIndex].cbInfo[cbIndex];
     int i, status, need, threadsAdded, maxToAdd, wantToAdd;
     int numMsgs, numThreads;
-    cMsgMessage *msg, *nextMsg;
+    cMsgMessage_t *msg, *nextMsg;
     pthread_t thd;
     /* time_t now, t; *//* for printing msg cue size periodically */
     
@@ -929,14 +925,9 @@ void *cMsgCallbackThread(void *arg)
         now = t;
       }
  */      
+
       /* run callback */
-#ifdef	__cplusplus
-      cback->callback->callback(new cMsgMessageBase(msg), cback->userArg); 
-#else
-/* fprintf(stderr, "  CALLBACK THREAD: will run callback\n"); */
       cback->callback(msg, cback->userArg);
-/* fprintf(stderr, "  CALLBACK THREAD: just ran callback\n"); */
-#endif
       
     } /* while(1) */
     
@@ -971,7 +962,7 @@ void *cMsgSupplementalThread(void *arg)
     cMsgDomainInfo *domain = cbarg->domain;
     subscribeCbInfo *cback  = &domain->subscribeInfo[subIndex].cbInfo[cbIndex];
     int status, empty;
-    cMsgMessage *msg, *nextMsg;
+    cMsgMessage_t *msg, *nextMsg;
     struct timespec wait, timeout;
     
     /* increase concurrency for this thread for early Solaris */
@@ -1117,11 +1108,7 @@ void *cMsgSupplementalThread(void *arg)
       }
 
       /* run callback */
-#ifdef	__cplusplus
-      cback->callback->callback(new cMsgMessageBase(msg), cback->userArg);
-#else
       cback->callback(msg, cback->userArg);
-#endif
       
     }
     
@@ -1132,10 +1119,3 @@ void *cMsgSupplementalThread(void *arg)
     pthread_exit(NULL);
     return NULL;
 }
-
-
-#ifdef __cplusplus
-}
-#endif
-
-

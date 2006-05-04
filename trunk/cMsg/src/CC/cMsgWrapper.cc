@@ -1,6 +1,6 @@
 // to do
+//   destroy dispatcher struct
 //   endian functions, other C functions
-//   redo callback
 //   doxygen doc
 
 
@@ -22,8 +22,10 @@
 *----------------------------------------------------------------------------*/
 
 
-#include <cMsgBase.hxx>
-#include <cMsgBase.h>
+// #include <cMsgBase.hxx>
+// #include <cMsgBase.h>
+
+#include <cMsg.hxx>
 #include <cMsgPrivate.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,7 +46,7 @@ typedef struct {
 
 static void callbackDispatcher(void *msg, void *userArg) {
   dispatcherStruct *ds = (dispatcherStruct*)userArg;
-  ds->cba->callback(new cMsgMessageBase(msg),ds->userArg);
+  ds->cba->callback(new cMsgMessage(msg),ds->userArg);
 }
 
 
@@ -119,15 +121,15 @@ string cMsgException::toString(void) const {
 
 
 //-----------------------------------------------------------------------------
-//  cMsgMessageBase methods
+//  cMsgMessage methods
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase::cMsgMessageBase(void) throw(cMsgException) {
+cMsgMessage::cMsgMessage(void) throw(cMsgException) {
     
   myMsgPointer=cMsgCreateMessage();
   if(myMsgPointer==NULL) {
-    throw(cMsgException("?cMsgMessageBase constructor...unable to create message",CMSG_ERROR));
+    throw(cMsgException("?cMsgMessage constructor...unable to create message",CMSG_ERROR));
   }
 }
 
@@ -135,11 +137,11 @@ cMsgMessageBase::cMsgMessageBase(void) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase::cMsgMessageBase(const cMsgMessageBase &msg) throw(cMsgException) {
+cMsgMessage::cMsgMessage(const cMsgMessage &msg) throw(cMsgException) {
 
   myMsgPointer=cMsgCopyMessage(msg.myMsgPointer);
   if(myMsgPointer==NULL) {
-    throw(cMsgException("?cMsgMessageBase copy constructor...unable to create message",CMSG_ERROR));
+    throw(cMsgException("?cMsgMessage copy constructor...unable to create message",CMSG_ERROR));
   }
 }
 
@@ -147,11 +149,11 @@ cMsgMessageBase::cMsgMessageBase(const cMsgMessageBase &msg) throw(cMsgException
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase::cMsgMessageBase(void *msgPointer) throw(cMsgException) {
+cMsgMessage::cMsgMessage(void *msgPointer) throw(cMsgException) {
 
   myMsgPointer=msgPointer;
   if(myMsgPointer==NULL) {
-    throw(cMsgException("?cMsgMessageBase pointer constructor...unable to create message",CMSG_ERROR));
+    throw(cMsgException("?cMsgMessage pointer constructor...unable to create message",CMSG_ERROR));
   }
 }
 
@@ -159,7 +161,7 @@ cMsgMessageBase::cMsgMessageBase(void *msgPointer) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase::~cMsgMessageBase(void) {
+cMsgMessage::~cMsgMessage(void) {
 
   if(myMsgPointer==NULL)return;
   cMsgFreeMessage(myMsgPointer);
@@ -169,7 +171,7 @@ cMsgMessageBase::~cMsgMessageBase(void) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getSubject(void) const throw(cMsgException) {
+string cMsgMessage::getSubject(void) const throw(cMsgException) {
 
   char *s;
 
@@ -191,7 +193,7 @@ string cMsgMessageBase::getSubject(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::setSubject(const string &subject) throw(cMsgException) {
+void cMsgMessage::setSubject(const string &subject) throw(cMsgException) {
 
   int stat;
   if((stat=cMsgSetSubject(myMsgPointer,subject.c_str()))!=CMSG_OK) {
@@ -203,7 +205,7 @@ void cMsgMessageBase::setSubject(const string &subject) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getType(void) const throw(cMsgException) {
+string cMsgMessage::getType(void) const throw(cMsgException) {
 
   char *s;
 
@@ -225,7 +227,7 @@ string cMsgMessageBase::getType(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::setType(const string &type) throw(cMsgException) {
+void cMsgMessage::setType(const string &type) throw(cMsgException) {
 
   int stat;
   if((stat=cMsgSetType(myMsgPointer,type.c_str()))!=CMSG_OK) {
@@ -237,7 +239,7 @@ void cMsgMessageBase::setType(const string &type) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getText(void) const throw(cMsgException) {
+string cMsgMessage::getText(void) const throw(cMsgException) {
 
   char *s;
 
@@ -259,7 +261,7 @@ string cMsgMessageBase::getText(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::setText(const string &text) throw(cMsgException) {
+void cMsgMessage::setText(const string &text) throw(cMsgException) {
 
   int stat;
   if((stat=cMsgSetText(myMsgPointer,text.c_str()))!=CMSG_OK) {
@@ -271,7 +273,7 @@ void cMsgMessageBase::setText(const string &text) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::setByteArrayLength(int length) throw(cMsgException) {
+void cMsgMessage::setByteArrayLength(int length) throw(cMsgException) {
 
   int stat;
   if((stat=cMsgSetByteArrayLength(myMsgPointer,length)!=CMSG_OK)) {
@@ -283,7 +285,7 @@ void cMsgMessageBase::setByteArrayLength(int length) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-int cMsgMessageBase::getByteArrayLength(void) const throw(cMsgException) {
+int cMsgMessage::getByteArrayLength(void) const throw(cMsgException) {
 
   int i;
 
@@ -298,7 +300,7 @@ int cMsgMessageBase::getByteArrayLength(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::setByteArrayOffset(int offset) throw(cMsgException) {
+void cMsgMessage::setByteArrayOffset(int offset) throw(cMsgException) {
 
   int stat;
   if((stat=cMsgSetByteArrayOffset(myMsgPointer,offset)!=CMSG_OK)) {
@@ -310,7 +312,7 @@ void cMsgMessageBase::setByteArrayOffset(int offset) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-int cMsgMessageBase::getByteArrayOffset(void) const throw(cMsgException) {
+int cMsgMessage::getByteArrayOffset(void) const throw(cMsgException) {
 
   int i;
 
@@ -325,7 +327,7 @@ int cMsgMessageBase::getByteArrayOffset(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::setByteArray(char *array) throw(cMsgException) {
+void cMsgMessage::setByteArray(char *array) throw(cMsgException) {
 
   int stat;
   if((stat=cMsgSetByteArray(myMsgPointer,array)!=CMSG_OK)) {
@@ -337,7 +339,7 @@ void cMsgMessageBase::setByteArray(char *array) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-char* cMsgMessageBase::getByteArray(void) const throw(cMsgException) {
+char* cMsgMessage::getByteArray(void) const throw(cMsgException) {
 
   char *p;
 
@@ -353,7 +355,7 @@ char* cMsgMessageBase::getByteArray(void) const throw(cMsgException) {
 
 
 
-void cMsgMessageBase::setByteArrayAndLimits(char *array, int offset, int length) throw(cMsgException) {
+void cMsgMessage::setByteArrayAndLimits(char *array, int offset, int length) throw(cMsgException) {
 
   int stat;
   if((stat=cMsgSetByteArrayAndLimits(myMsgPointer,array,offset,length)!=CMSG_OK)) {
@@ -365,7 +367,7 @@ void cMsgMessageBase::setByteArrayAndLimits(char *array, int offset, int length)
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::copyByteArray(char* array, int offset, int length) throw(cMsgException) {
+void cMsgMessage::copyByteArray(char* array, int offset, int length) throw(cMsgException) {
 
   int stat;
   if((stat=cMsgCopyByteArray(myMsgPointer,array,offset,length)!=CMSG_OK)) {
@@ -377,7 +379,7 @@ void cMsgMessageBase::copyByteArray(char* array, int offset, int length) throw(c
 //-----------------------------------------------------------------------------
 
 
-int cMsgMessageBase::getUserInt(void) const throw(cMsgException) {
+int cMsgMessage::getUserInt(void) const throw(cMsgException) {
 
   int i;
 
@@ -392,7 +394,7 @@ int cMsgMessageBase::getUserInt(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::setUserInt(int i) throw(cMsgException) {
+void cMsgMessage::setUserInt(int i) throw(cMsgException) {
 
   int stat;
   if((stat=cMsgSetUserInt(myMsgPointer,i))!=CMSG_OK) {
@@ -404,7 +406,7 @@ void cMsgMessageBase::setUserInt(int i) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-struct timespec cMsgMessageBase::getUserTime(void) const throw(cMsgException) {
+struct timespec cMsgMessage::getUserTime(void) const throw(cMsgException) {
 
   struct timespec t;
 
@@ -419,7 +421,7 @@ struct timespec cMsgMessageBase::getUserTime(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::setUserTime(const struct timespec &userTime) throw(cMsgException) {
+void cMsgMessage::setUserTime(const struct timespec &userTime) throw(cMsgException) {
 
   int stat;
   if((stat=cMsgSetUserTime(myMsgPointer, &userTime))!=CMSG_OK) {
@@ -431,7 +433,7 @@ void cMsgMessageBase::setUserTime(const struct timespec &userTime) throw(cMsgExc
 //-----------------------------------------------------------------------------
 
 
-int cMsgMessageBase::getVersion(void) const throw(cMsgException) {
+int cMsgMessage::getVersion(void) const throw(cMsgException) {
 
   int version;
 
@@ -446,17 +448,17 @@ int cMsgMessageBase::getVersion(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase *cMsgMessageBase::copy(void) const throw(cMsgException) {
+cMsgMessage *cMsgMessage::copy(void) const throw(cMsgException) {
 
   void *newPointer = cMsgCopyMessage(myMsgPointer);
-  return(new cMsgMessageBase(newPointer));
+  return(new cMsgMessage(newPointer));
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getCreator() const throw(cMsgException) {
+string cMsgMessage::getCreator() const throw(cMsgException) {
 
   char *s;
 
@@ -478,7 +480,7 @@ string cMsgMessageBase::getCreator() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getDomain() const throw(cMsgException) {
+string cMsgMessage::getDomain() const throw(cMsgException) {
 
   char *s;
 
@@ -500,7 +502,7 @@ string cMsgMessageBase::getDomain() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getReceiver() const throw(cMsgException) {
+string cMsgMessage::getReceiver() const throw(cMsgException) {
 
   char *s;
 
@@ -522,7 +524,7 @@ string cMsgMessageBase::getReceiver() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getReceiverHost() const throw(cMsgException) {
+string cMsgMessage::getReceiverHost() const throw(cMsgException) {
 
   char *s;
 
@@ -544,7 +546,7 @@ string cMsgMessageBase::getReceiverHost() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getSender() const throw(cMsgException) {
+string cMsgMessage::getSender() const throw(cMsgException) {
 
   char *s;
 
@@ -566,7 +568,7 @@ string cMsgMessageBase::getSender() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::getSenderHost() const throw(cMsgException) {
+string cMsgMessage::getSenderHost() const throw(cMsgException) {
 
   char *s;
 
@@ -588,7 +590,7 @@ string cMsgMessageBase::getSenderHost() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-struct timespec cMsgMessageBase::getReceiverTime(void) const throw(cMsgException) {
+struct timespec cMsgMessage::getReceiverTime(void) const throw(cMsgException) {
 
   struct timespec t;
 
@@ -603,7 +605,7 @@ struct timespec cMsgMessageBase::getReceiverTime(void) const throw(cMsgException
 //-----------------------------------------------------------------------------
 
 
-struct timespec cMsgMessageBase::getSenderTime(void) const throw(cMsgException) {
+struct timespec cMsgMessage::getSenderTime(void) const throw(cMsgException) {
 
   struct timespec t;
 
@@ -618,7 +620,7 @@ struct timespec cMsgMessageBase::getSenderTime(void) const throw(cMsgException) 
 //-----------------------------------------------------------------------------
 
 
-bool cMsgMessageBase::isGetRequest() const throw(cMsgException) {
+bool cMsgMessage::isGetRequest() const throw(cMsgException) {
   
   int b;
 
@@ -633,7 +635,7 @@ bool cMsgMessageBase::isGetRequest() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-bool cMsgMessageBase::isGetResponse() const throw(cMsgException) {
+bool cMsgMessage::isGetResponse() const throw(cMsgException) {
   
   int b;
 
@@ -648,7 +650,7 @@ bool cMsgMessageBase::isGetResponse() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-bool cMsgMessageBase::isNullGetResponse() const throw(cMsgException) {
+bool cMsgMessage::isNullGetResponse() const throw(cMsgException) {
   
   int b;
 
@@ -663,7 +665,7 @@ bool cMsgMessageBase::isNullGetResponse() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-bool cMsgMessageBase::needToSwap() const throw(cMsgException) {
+bool cMsgMessage::needToSwap() const throw(cMsgException) {
 
   int flag,stat;
 
@@ -678,24 +680,10 @@ bool cMsgMessageBase::needToSwap() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::makeNullResponse(cMsgMessageBase &msg) throw(cMsgException) {
+void cMsgMessage::makeNullResponse(cMsgMessage &msg) throw(cMsgException) {
 
-  cMsgMessage *t = (cMsgMessage*)myMsgPointer;
-  cMsgMessage *m = (cMsgMessage*)msg.myMsgPointer;
-
-  t->sysMsgId    = m->sysMsgId;
-  t->senderToken = m->senderToken;
-  t->info        = CMSG_IS_GET_RESPONSE | CMSG_IS_NULL_GET_RESPONSE;
-}
-
-
-//-----------------------------------------------------------------------------
-
-
-void cMsgMessageBase::makeNullResponse(cMsgMessageBase *msg) throw(cMsgException) {
-
-  cMsgMessage *t = (cMsgMessage*)myMsgPointer;
-  cMsgMessage *m = (cMsgMessage*)msg->myMsgPointer;
+  cMsgMessage_t *t = (cMsgMessage_t*)myMsgPointer;
+  cMsgMessage_t *m = (cMsgMessage_t*)msg.myMsgPointer;
 
   t->sysMsgId    = m->sysMsgId;
   t->senderToken = m->senderToken;
@@ -706,10 +694,24 @@ void cMsgMessageBase::makeNullResponse(cMsgMessageBase *msg) throw(cMsgException
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::makeResponse(cMsgMessageBase &msg) throw(cMsgException) {
+void cMsgMessage::makeNullResponse(cMsgMessage *msg) throw(cMsgException) {
 
-  cMsgMessage *t = (cMsgMessage*)myMsgPointer;
-  cMsgMessage *m = (cMsgMessage*)msg.myMsgPointer;
+  cMsgMessage_t *t = (cMsgMessage_t*)myMsgPointer;
+  cMsgMessage_t *m = (cMsgMessage_t*)msg->myMsgPointer;
+
+  t->sysMsgId    = m->sysMsgId;
+  t->senderToken = m->senderToken;
+  t->info        = CMSG_IS_GET_RESPONSE | CMSG_IS_NULL_GET_RESPONSE;
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+void cMsgMessage::makeResponse(cMsgMessage &msg) throw(cMsgException) {
+
+  cMsgMessage_t *t = (cMsgMessage_t*)myMsgPointer;
+  cMsgMessage_t *m = (cMsgMessage_t*)msg.myMsgPointer;
 
   t->sysMsgId    = m->sysMsgId;
   t->senderToken = m->senderToken;
@@ -720,10 +722,10 @@ void cMsgMessageBase::makeResponse(cMsgMessageBase &msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::makeResponse(cMsgMessageBase *msg) throw(cMsgException) {
+void cMsgMessage::makeResponse(cMsgMessage *msg) throw(cMsgException) {
 
-  cMsgMessage *t = (cMsgMessage*)myMsgPointer;
-  cMsgMessage *m = (cMsgMessage*)msg->myMsgPointer;
+  cMsgMessage_t *t = (cMsgMessage_t*)myMsgPointer;
+  cMsgMessage_t *m = (cMsgMessage_t*)msg->myMsgPointer;
 
   t->sysMsgId    = m->sysMsgId;
   t->senderToken = m->senderToken;
@@ -734,35 +736,35 @@ void cMsgMessageBase::makeResponse(cMsgMessageBase *msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase *cMsgMessageBase::nullResponse(void) const throw(cMsgException) {
+cMsgMessage *cMsgMessage::nullResponse(void) const throw(cMsgException) {
 
   void *newMsgPointer;
   if((newMsgPointer=cMsgCreateNullResponseMessage(myMsgPointer))==NULL) {
-    throw(cMsgException("?cMsgMessageBase::nullResponse...unable to create message",CMSG_ERROR));
+    throw(cMsgException("?cMsgMessage::nullResponse...unable to create message",CMSG_ERROR));
   }
 
-  return(new cMsgMessageBase(newMsgPointer));
+  return(new cMsgMessage(newMsgPointer));
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase *cMsgMessageBase::response(void) const throw(cMsgException) {
+cMsgMessage *cMsgMessage::response(void) const throw(cMsgException) {
 
   void *newMsgPointer;
   if((newMsgPointer=cMsgCreateResponseMessage(myMsgPointer))==NULL) {
-    throw(cMsgException("?cMsgMessageBase::response...unable to create message",CMSG_ERROR));
+    throw(cMsgException("?cMsgMessage::response...unable to create message",CMSG_ERROR));
   }
 
-  return(new cMsgMessageBase(newMsgPointer));
+  return(new cMsgMessage(newMsgPointer));
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::setGetResponse(bool b) throw(cMsgException) {
+void cMsgMessage::setGetResponse(bool b) throw(cMsgException) {
 
   int stat;
   if((stat=cMsgSetGetResponse(myMsgPointer,b))!=CMSG_OK) {
@@ -774,7 +776,7 @@ void cMsgMessageBase::setGetResponse(bool b) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsgMessageBase::setNullGetResponse(bool b) throw(cMsgException) {
+void cMsgMessage::setNullGetResponse(bool b) throw(cMsgException) {
 
   int stat;
   if((stat=cMsgSetNullGetResponse(myMsgPointer,b))!=CMSG_OK) {
@@ -786,7 +788,7 @@ void cMsgMessageBase::setNullGetResponse(bool b) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessageBase::toString(void) const throw(cMsgException) {
+string cMsgMessage::toString(void) const throw(cMsgException) {
 
   char *cs;
 
@@ -895,7 +897,7 @@ void cMsg::disconnect(void) {
 //-----------------------------------------------------------------------------
 
 
-void cMsg::send(cMsgMessageBase &msg) throw(cMsgException) {
+void cMsg::send(cMsgMessage &msg) throw(cMsgException) {
     
   int stat;
   if((stat=cMsgSend(myDomainId,msg.myMsgPointer))!=CMSG_OK) {
@@ -907,7 +909,7 @@ void cMsg::send(cMsgMessageBase &msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-void cMsg::send(cMsgMessageBase *msg) throw(cMsgException) {
+void cMsg::send(cMsgMessage *msg) throw(cMsgException) {
   cMsg::send(*msg);
 }
 
@@ -915,7 +917,7 @@ void cMsg::send(cMsgMessageBase *msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-int cMsg::syncSend(cMsgMessageBase &msg) throw(cMsgException) {
+int cMsg::syncSend(cMsgMessage &msg) throw(cMsgException) {
     
   int response;
 
@@ -930,7 +932,7 @@ int cMsg::syncSend(cMsgMessageBase &msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-int cMsg::syncSend(cMsgMessageBase *msg) throw(cMsgException) {
+int cMsg::syncSend(cMsgMessage *msg) throw(cMsgException) {
   return(cMsg::syncSend(*msg));
 }
 
@@ -952,18 +954,15 @@ void *cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAda
   cMsgSubscribeSetMessagesPerThread(myConfig, cba->getMessagesPerThread());
 
 
-  // create and fill dispatcher struct ???
-//   dispatcherStruct *d = new dispatcherStruct();
-//   d->cba=cba;
-//   d->userArg=userArg;
-
+  // create and fill dispatcher struct
+  dispatcherStruct *d = new dispatcherStruct();
+  d->cba=cba;
+  d->userArg=userArg;
 
 
   // subscribe and get handle
   void *handle;
-  int stat=cMsgSubscribe(myDomainId,subject.c_str(),type.c_str(),cba,userArg,myConfig,&handle);
-
-  //???  int stat=cMsgSubscribe(myDomainId,subject.c_str(),type.c_str(),callbackDispatcher,(void*)d,myConfig);
+  int stat=cMsgSubscribe(myDomainId,subject.c_str(),type.c_str(),callbackDispatcher,(void*)d,myConfig,&handle);
 
 
   // destroy config
@@ -988,6 +987,14 @@ void *cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAda
 
 void cMsg::unsubscribe(void *handle) throw(cMsgException) {
   int stat;
+
+  if(handle==NULL) throw(cMsgException(cMsgPerror(CMSG_BAD_ARGUMENT),CMSG_BAD_ARGUMENT));
+
+
+  // get userArg and free dispatcher struct ???
+
+
+  // now unsubscribe
   if((stat=cMsgUnSubscribe(myDomainId,handle))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
@@ -997,7 +1004,7 @@ void cMsg::unsubscribe(void *handle) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase *cMsg::sendAndGet(cMsgMessageBase &sendMsg, const struct timespec &timeout) throw(cMsgException) {
+cMsgMessage *cMsg::sendAndGet(cMsgMessage &sendMsg, const struct timespec &timeout) throw(cMsgException) {
     
   void *replyPtr;
 
@@ -1006,14 +1013,14 @@ cMsgMessageBase *cMsg::sendAndGet(cMsgMessageBase &sendMsg, const struct timespe
     throw(cMsgException(cMsgPerror(stat),stat));
   }
 
-  return(new cMsgMessageBase(replyPtr));
+  return(new cMsgMessage(replyPtr));
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase *cMsg::sendAndGet(cMsgMessageBase *sendMsg, const struct timespec &timeout) throw(cMsgException) {
+cMsgMessage *cMsg::sendAndGet(cMsgMessage *sendMsg, const struct timespec &timeout) throw(cMsgException) {
 
   void *replyPtr;
 
@@ -1022,13 +1029,13 @@ cMsgMessageBase *cMsg::sendAndGet(cMsgMessageBase *sendMsg, const struct timespe
     throw(cMsgException(cMsgPerror(stat),stat));
   }
 
-  return(new cMsgMessageBase(replyPtr));
+  return(new cMsgMessage(replyPtr));
 }
 
 //-----------------------------------------------------------------------------
 
 
-cMsgMessageBase *cMsg::subscribeAndGet(const string &subject, const string &type, const struct timespec &timeout) throw(cMsgException) {
+cMsgMessage *cMsg::subscribeAndGet(const string &subject, const string &type, const struct timespec &timeout) throw(cMsgException) {
 
   void *replyPtr;
 
@@ -1037,7 +1044,7 @@ cMsgMessageBase *cMsg::subscribeAndGet(const string &subject, const string &type
     throw(cMsgException(cMsgPerror(stat),stat));
   }
 
-  return(new cMsgMessageBase(replyPtr));
+  return(new cMsgMessage(replyPtr));
 }
 
 

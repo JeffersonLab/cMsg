@@ -57,19 +57,19 @@ typedef struct countDownLatch_t {
 
 /** This structure represents a single subscription's callback. */
 typedef struct subscribeCbInfo_t {
-  int             active;   /**< Boolean telling if this callback is active. */
-  cMsgCallback   *callback; /**< Callback function (or C++ callback class instance) to be called. */
-  void           *userArg;  /**< User argument to be passed to the callback. */
-  cMsgMessage    *head;     /**< Head of linked list of messages given to callback. */
-  cMsgMessage    *tail;     /**< Tail of linked list of messages given to callback. */
-  int             messages; /**< Number of messages in list. */
-  int             threads;  /**< Number of supplemental threads to run callback if
-                             *   config allows parallelizing (mustSerialize = 0). */
-  subscribeConfig config;   /**< Subscription configuration info. */
-  char            quit;     /**< Boolean telling thread to end. */
-  pthread_t       thread;   /**< Thread running callback. */
-  pthread_cond_t  cond;     /**< Condition variable callback thread is waiting on. */
-  pthread_mutex_t mutex;    /**< Mutex callback thread is waiting on. */
+  int              active;   /**< Boolean telling if this callback is active. */
+  cMsgCallbackFunc *callback; /**< Callback function (or C++ callback class instance) to be called. */
+  void             *userArg;  /**< User argument to be passed to the callback. */
+  cMsgMessage_t    *head;     /**< Head of linked list of messages given to callback. */
+  cMsgMessage_t    *tail;     /**< Tail of linked list of messages given to callback. */
+  int               messages; /**< Number of messages in list. */
+  int               threads;  /**< Number of supplemental threads to run callback if
+                               *   config allows parallelizing (mustSerialize = 0). */
+  subscribeConfig   config;   /**< Subscription configuration info. */
+  char              quit;     /**< Boolean telling thread to end. */
+  pthread_t         thread;   /**< Thread running callback. */
+  pthread_cond_t    cond;     /**< Condition variable callback thread is waiting on. */
+  pthread_mutex_t   mutex;    /**< Mutex callback thread is waiting on. */
 } subscribeCbInfo;
 
 
@@ -100,7 +100,7 @@ typedef struct getInfo_t {
   char quit;     /**< Boolean commanding sendAndGet to end. */
   char *subject; /**< Subject of sendAndGet. */
   char *type;    /**< Type of sendAndGet. */
-  cMsgMessage *msg;      /**< Message to be passed to the caller. */
+  cMsgMessage_t *msg;      /**< Message to be passed to the caller. */
   pthread_cond_t  cond;  /**< Condition variable sendAndGet thread is waiting on. */
   pthread_mutex_t mutex; /**< Mutex sendAndGet thread is waiting on. */
 } getInfo;

@@ -27,20 +27,7 @@
 #ifndef __cMsgPrivate_h
 #define __cMsgPrivate_h
 
-
-/* This file may be compiled with the C or C++ compiler.
- * cMsgCallback is defined as C version (function) or
- * C++ version (class) via the following macro.
- *
- * EJW, 21-Mar-2005
- */
-#ifdef cppversion
-#include "cMsgBase.hxx"
-# else
-typedef void (cMsgCallback) (void *msg, void *userArg);
-#endif
-
-#include "cMsgBase.h"
+#include "cMsg.h"
 
 
 #ifdef	__cplusplus
@@ -89,7 +76,7 @@ typedef int (*SYNCSEND_PTR)    (void *domainId, void *msg, int *response);
 
 /** Typedef for a domain's subscribe function */  
 typedef int (*SUBSCRIBE_PTR)   (void *domainId, const char *subject, const char *type,
-                                cMsgCallback *callback, void *userArg,
+                                cMsgCallbackFunc *callback, void *userArg,
                                 cMsgSubscribeConfig *config, void **handle);
 
 /** Typedef for a domain's unsubscribe function */  
@@ -238,7 +225,7 @@ typedef struct cMsg_t {
   int     receiverSubscribeId; /**< Unique id used by system in subscribes and subscribeAndGets. */  
   
   struct cMsg_t *next; /**< For using messages in a linked list. */
-} cMsgMessage;
+} cMsgMessage_t;
 
 
 /** Commands/Requests sent from client to server. */

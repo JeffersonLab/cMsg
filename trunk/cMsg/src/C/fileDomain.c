@@ -35,16 +35,11 @@
 
 
 #include "cMsgPrivate.h"
-#include "cMsgBase.h"
+#include "cMsg.h"
 #include "errors.h"
 #include "cMsgNetwork.h"
 #include "rwlock.h"
 
-
-/* for c++ */
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 
 /** Implementation of strdup() to cover vxWorks operating system. */
@@ -66,7 +61,7 @@ static int   fileConnect(const char *myUDL, const char *myName, const char *myDe
 static int   fileSend(void *domainId, void *msg);
 static int   fileSyncSend(void *domainId, void *msg, int *response);
 static int   fileFlush(void *domainId);
-static int   fileSubscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
+static int   fileSubscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                            void *userArg, cMsgSubscribeConfig *config, void **handle);
 static int   fileUnsubscribe(void *domainId, void *handle);
 static int   fileSubscribeAndGet(void *domainId, const char *subject, const char *type,
@@ -172,7 +167,7 @@ static int fileSend(void *domainId, void *vmsg) {
   size_t nowLen=sizeof(nowBuf);
 #endif
   int stat;
-  cMsgMessage *msg    = (cMsgMessage*)vmsg;
+  cMsgMessage_t *msg    = (cMsgMessage_t*)vmsg;
   fileDomainInfo *fdi = (fileDomainInfo*)domainId;
   
 
@@ -253,7 +248,7 @@ static int fileFlush(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-static int fileSubscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
+static int fileSubscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                      void *userArg, cMsgSubscribeConfig *config, void **handle) {
   return(CMSG_NOT_IMPLEMENTED);
 }
@@ -336,9 +331,3 @@ static int fileShutdownServers(void *domainId, const char *server, int flag) {
 
 
 /*-------------------------------------------------------------------*/
-
-
-#ifdef __cplusplus
-}
-#endif
-

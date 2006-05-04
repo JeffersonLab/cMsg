@@ -25,14 +25,8 @@
 
 
 #include "cMsgPrivate.h"
-#include "cMsgBase.h"
+#include "cMsg.h"
 #include "cMsgNetwork.h"
-
-
-/* for c++ */
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 
 #ifdef VXWORKS
@@ -47,7 +41,7 @@ int   cmsgd_connect(const char *myUDL, const char *myName, const char *myDescrip
 int   cmsgd_send(void *domainId, void *msg);
 int   cmsgd_syncSend(void *domainId, void *msg, int *response);
 int   cmsgd_flush(void *domainId);
-int   cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
+int   cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                            void *userArg, cMsgSubscribeConfig *config, void **handle);
 int   cmsgd_unsubscribe(void *domainId, void *handle);
 int   cmsgd_subscribeAndGet(void *domainId, const char *subject, const char *type,
@@ -122,7 +116,7 @@ int cmsgd_flush(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallback *callback,
+int cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                     void *userArg, cMsgSubscribeConfig *config, void **handle) {
   printf("Subscribe\n");
   return(CMSG_OK);
@@ -195,9 +189,3 @@ int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
 
 
 /*-------------------------------------------------------------------*/
-
-
-#ifdef __cplusplus
-}
-#endif
-

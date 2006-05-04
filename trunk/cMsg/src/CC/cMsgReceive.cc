@@ -40,7 +40,7 @@ void decodeCommandLine(int argc, char **argv);
 
 
 // callback class
-class myCallbackObject:public cMsgCallbackAdapter {
+class myCallbackObject : public cMsgCallbackAdapter {
 
   void callback(cMsgMessage *msg, void* userObject) {
      if(!silent) {

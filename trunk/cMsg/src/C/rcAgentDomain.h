@@ -139,7 +139,7 @@ typedef struct NetInfo {
 
 /** Struncture for single user callback function*/
 typedef struct Callback {
-  cMsgCallback *callback;
+  cMsgCallbackFunc *callback;
   void * userArg;
 }callback_t;
 
@@ -173,7 +173,7 @@ typedef struct msgoutq {
 /** Structure which is passed as an argument to the user callback handling thread*/
 typedef struct Usera {
   callback_t *usrcallb;
-  cMsgMessage *usrmsg;
+  cMsgMessage_t *usrmsg;
 } usera_t;
 
 /* Global variables */
@@ -205,8 +205,8 @@ int subscriptions_init(subscriptions_t *subs);
 int outQ_init(msgoutq_t *q);
 int requestAgent(char *name, char *type, int port, char *host);
 
-int cMsg2Wire(cMsgMessage *cmsg, msg *wire);
-int Wire2cMsg( msg *wire, cMsgMessage *cmsg);
+int cMsg2Wire(cMsgMessage_t *cmsg, msg *wire);
+int Wire2cMsg( msg *wire, cMsgMessage_t *cmsg);
 
 void *listen2Agent(void *arg);
 void *send2Agent(void *arg);

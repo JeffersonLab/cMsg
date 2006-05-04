@@ -25,40 +25,19 @@ CMSG_LIBSXX = cMsgLibxx.o
 
 PROGSXX =
 
-SRCXX =	$(C_DIR)/rwlock.c \
-	$(C_DIR)/sunConcurrency.c \
-	$(C_DIR)/cMsgMatching.c \
-	$(C_DIR)/cMsgNetwork.c \
-	$(C_DIR)/cMsg.c \
-	$(C_DIR)/cMsgDomainUtil.c \
-	$(C_DIR)/cMsgDomainListenThread.c \
-	$(C_DIR)/cMsgDomain.c \
-	$(C_DIR)/rcDomain.c \
-	$(C_DIR)/fileDomain.c \
-	cMsgWrapper.cc
+SRCXX =	cMsgWrapper.cc
 
-OBJSXX = rwlock.o \
-	 sunConcurrency.o \
-	 cMsgMatching.o \
-         cMsgNetwork.o \
-	 cMsg.o \
-	 cMsgDomainUtil.o \
-	 cMsgDomainListenThread.o \
-	 cMsgDomain.o \
-	 rcDomain.o \
-	 fileDomain.o \
-	 cMsgWrapper.o
+OBJSXX = cMsgWrapper.o
 
 
 HFILES = $(C_DIR)/cMsgNetwork.h \
 	 $(C_DIR)/cMsgPrivate.h \
-	 $(C_DIR)/cMsgBase.h \
+	 $(C_DIR)/cMsg.h \
 	 $(C_DIR)/cMsgDomain.h \
 	 $(C_DIR)/rwlock.h \
 	 $(C_DIR)/errors.h
 
-HFILESXX = cMsgBase.hxx \
-	   cMsg.hxx
+HFILESXX = cMsg.hxx
 
 all: echoarch $(OBJS) $(CMSG_LIBSXX)
 

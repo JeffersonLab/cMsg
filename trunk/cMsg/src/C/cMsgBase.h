@@ -39,6 +39,9 @@ typedef void *cMsgSubscribeConfig;
 /** Shutdown handler function. */
 typedef void (cMsgShutdownHandler) (void *userArg);
 
+/** Callback function. */
+typedef void (cMsgCallbackFunc) (void *msg, void *userArg);
+
 /* function prototypes */
 #ifdef __cplusplus
 extern "C" {
@@ -51,7 +54,7 @@ extern "C" {
   int 	cMsgSend              (int domainId, void *msg);
   int   cMsgSyncSend          (int domainId, void *msg, int *response);
   int 	cMsgFlush             (int domainId);
-  int 	cMsgSubscribe         (int domainId, const char *subject, const char *type, cMsgCallback *callback,
+  int 	cMsgSubscribe         (int domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                                void *userArg, cMsgSubscribeConfig *config, void **handle);
   int 	cMsgUnSubscribe       (int domainId, void *handle);
   int   cMsgSendAndGet        (int domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);

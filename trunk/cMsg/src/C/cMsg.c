@@ -86,7 +86,7 @@
 #include "errors.h"
 #include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
-#include "cMsgBase.h"
+#include "cMsg.h"
 #include "regex.h"
 
 /**
@@ -108,10 +108,6 @@ static cMsgDomain domains[MAX_DOMAINS];
 /** Excluded characters from subject, type, and description strings. */
 static const char *excludedChars = "`\'\"";
 
-/* for c++ */
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /** Global debug level. */
 int cMsgDebug = CMSG_DEBUG_NONE;
@@ -132,7 +128,7 @@ static int   parseUDL(const char *UDL, char **domainType, char **UDLremainder);
 static void  connectMutexLock(void);
 static void  connectMutexUnlock(void);
 static void  domainClear(cMsgDomain *domain);
-static void  initMessage(cMsgMessage *msg);
+static void  initMessage(cMsgMessage_t *msg);
 
 #ifdef VXWORKS
 
@@ -470,7 +466,7 @@ int cMsgFlush(int domainId) {
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSubscribe
  */   
-int cMsgSubscribe(int domainId, const char *subject, const char *type, cMsgCallback *callback,
+int cMsgSubscribe(int domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                   void *userArg, cMsgSubscribeConfig *config, void **handle) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
@@ -1588,7 +1584,7 @@ int cMsgGetReceiveState(int domainId, int *receiveState) {
  *
  * @param msg pointer to message structure being initialized
  */   
-static void initMessage(cMsgMessage *msg) {
+static void initMessage(cMsgMessage_t *msg) {
     int endian;
     if (msg == NULL) return;
     
@@ -1652,7 +1648,7 @@ static void initMessage(cMsgMessage *msg) {
  */   
 int cMsgFreeMessage(void *vmsg) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   
@@ -1695,14 +1691,14 @@ int cMsgFreeMessage(void *vmsg) {
  * @returns NULL if argument is NULL or no memory available
  */   
   void *cMsgCopyMessage(void *vmsg) {
-    cMsgMessage *newMsg, *msg = (cMsgMessage *)vmsg;
+    cMsgMessage_t *newMsg, *msg = (cMsgMessage_t *)vmsg;
     
     if (vmsg == NULL) {
       return NULL;
     }
     
     /* create a message structure */
-    if ((newMsg = (cMsgMessage *)malloc(sizeof(cMsgMessage))) == NULL) {
+    if ((newMsg = (cMsgMessage_t *)malloc(sizeof(cMsgMessage_t))) == NULL) {
       return NULL;
     }
     
@@ -1924,7 +1920,7 @@ int cMsgFreeMessage(void *vmsg) {
  * @param vmsg pointer to message structure being initialized
  */   
 void cMsgInitMessage(void *vmsg) {
-    cMsgMessage *msg = (cMsgMessage *)vmsg;
+    cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
     
     if (msg == NULL) return;
     
@@ -1958,9 +1954,9 @@ void cMsgInitMessage(void *vmsg) {
  * @returns NULL if no memory available
  */   
 void *cMsgCreateMessage(void) {
-  cMsgMessage *msg;
+  cMsgMessage_t *msg;
   
-  msg = (cMsgMessage *) malloc(sizeof(cMsgMessage));
+  msg = (cMsgMessage_t *) malloc(sizeof(cMsgMessage_t));
   if (msg == NULL) return NULL;
   /* initialize the memory */
   initMessage(msg);
@@ -1983,11 +1979,11 @@ void *cMsgCreateMessage(void) {
  * @returns NULL if no memory available or message argument is NULL
  */   
 void *cMsgCreateNewMessage(void *vmsg) {  
-    cMsgMessage *newMsg;
+    cMsgMessage_t *newMsg;
     
     if (vmsg == NULL) return NULL;  
     
-    if ((newMsg = (cMsgMessage *)cMsgCopyMessage(vmsg)) == NULL) {
+    if ((newMsg = (cMsgMessage_t *)cMsgCopyMessage(vmsg)) == NULL) {
       return NULL;
     }
     
@@ -2016,15 +2012,15 @@ void *cMsgCreateNewMessage(void *vmsg) {
  *               message argument is not from calling sendAndGet()
  */   
 void *cMsgCreateResponseMessage(void *vmsg) {
-    cMsgMessage *newMsg;
-    cMsgMessage *msg = (cMsgMessage *)vmsg;
+    cMsgMessage_t *newMsg;
+    cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
     
     if (vmsg == NULL) return NULL;
     
     /* if message is not a get request ... */
     if (!(msg->info & CMSG_IS_GET_REQUEST)) return NULL;
     
-    if ((newMsg = (cMsgMessage *)cMsgCreateMessage()) == NULL) {
+    if ((newMsg = (cMsgMessage_t *)cMsgCreateMessage()) == NULL) {
       return NULL;
     }
     
@@ -2053,15 +2049,15 @@ void *cMsgCreateResponseMessage(void *vmsg) {
  *               message argument is not from calling sendAndGet()
  */   
 void *cMsgCreateNullResponseMessage(void *vmsg) {
-    cMsgMessage *newMsg;
-    cMsgMessage *msg = (cMsgMessage *)vmsg;
+    cMsgMessage_t *newMsg;
+    cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
     
     if (vmsg == NULL) return NULL;  
     
     /* if message is not a get request ... */
     if (!(msg->info & CMSG_IS_GET_REQUEST)) return NULL;
     
-    if ((newMsg = (cMsgMessage *)cMsgCreateMessage()) == NULL) {
+    if ((newMsg = (cMsgMessage_t *)cMsgCreateMessage()) == NULL) {
       return NULL;
     }
     
@@ -2087,7 +2083,7 @@ void *cMsgCreateNullResponseMessage(void *vmsg) {
  */   
 int cMsgGetVersion(void *vmsg, int *version) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   *version = msg->version;
@@ -2112,7 +2108,7 @@ int cMsgGetVersion(void *vmsg, int *version) {
  */   
 int cMsgSetGetResponse(void *vmsg, int getResponse) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   msg->info = getResponse ? msg->info |  CMSG_IS_GET_RESPONSE :
@@ -2136,7 +2132,7 @@ int cMsgSetGetResponse(void *vmsg, int getResponse) {
  */   
 int cMsgGetGetResponse(void *vmsg, int *getResponse) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   *getResponse = (msg->info & CMSG_IS_GET_RESPONSE) == CMSG_IS_GET_RESPONSE ? 1 : 0;
@@ -2162,7 +2158,7 @@ int cMsgGetGetResponse(void *vmsg, int *getResponse) {
  */   
 int cMsgSetNullGetResponse(void *vmsg, int nullGetResponse) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   msg->info = nullGetResponse ? msg->info |  CMSG_IS_NULL_GET_RESPONSE :
@@ -2187,7 +2183,7 @@ int cMsgSetNullGetResponse(void *vmsg, int nullGetResponse) {
  */   
 int cMsgGetNullGetResponse(void *vmsg, int *nullGetResponse) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   *nullGetResponse = (msg->info & CMSG_IS_NULL_GET_RESPONSE) == CMSG_IS_NULL_GET_RESPONSE ? 1 : 0;
@@ -2212,7 +2208,7 @@ int cMsgGetNullGetResponse(void *vmsg, int *nullGetResponse) {
  */   
 int cMsgGetGetRequest(void *vmsg, int *getRequest) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   *getRequest = (msg->info & CMSG_IS_GET_REQUEST) == CMSG_IS_GET_REQUEST ? 1 : 0;
@@ -2240,7 +2236,7 @@ int cMsgGetGetRequest(void *vmsg, int *getRequest) {
  */   
 int cMsgGetDomain(void *vmsg, char **domain) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->domain == NULL) {
@@ -2272,7 +2268,7 @@ int cMsgGetDomain(void *vmsg, char **domain) {
  */   
 int cMsgGetCreator(void *vmsg, char **creator) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->creator == NULL) {
@@ -2298,7 +2294,7 @@ int cMsgGetCreator(void *vmsg, char **creator) {
  */   
 int cMsgSetSubject(void *vmsg, const char *subject) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->subject != NULL) free(msg->subject);  
@@ -2326,7 +2322,7 @@ int cMsgSetSubject(void *vmsg, const char *subject) {
  */   
 int cMsgGetSubject(void *vmsg, char **subject) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->subject == NULL) {
@@ -2352,7 +2348,7 @@ int cMsgGetSubject(void *vmsg, char **subject) {
  */   
 int cMsgSetType(void *vmsg, const char *type) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->type != NULL) free(msg->type);
@@ -2379,7 +2375,7 @@ int cMsgSetType(void *vmsg, const char *type) {
  */   
 int cMsgGetType(void *vmsg, char **type) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->type == NULL) {
@@ -2405,7 +2401,7 @@ int cMsgGetType(void *vmsg, char **type) {
  */   
 int cMsgSetText(void *vmsg, const char *text) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->text != NULL) free(msg->text);
@@ -2432,7 +2428,7 @@ int cMsgSetText(void *vmsg, const char *text) {
  */   
 int cMsgGetText(void *vmsg, char **text) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->text == NULL) {
@@ -2459,7 +2455,7 @@ int cMsgGetText(void *vmsg, char **text) {
  */   
 int cMsgSetUserInt(void *vmsg, int userInt) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   msg->userInt = userInt;
@@ -2478,7 +2474,7 @@ int cMsgSetUserInt(void *vmsg, int userInt) {
  */   
 int cMsgGetUserInt(void *vmsg, int *userInt) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   *userInt = msg->userInt;
@@ -2500,7 +2496,7 @@ int cMsgGetUserInt(void *vmsg, int *userInt) {
  */   
 int cMsgSetUserTime(void *vmsg, const struct timespec *userTime) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   msg->userTime = *userTime;
@@ -2520,7 +2516,7 @@ int cMsgSetUserTime(void *vmsg, const struct timespec *userTime) {
  */   
 int cMsgGetUserTime(void *vmsg, struct timespec *userTime) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   *userTime = msg->userTime;
@@ -2541,7 +2537,7 @@ int cMsgGetUserTime(void *vmsg, struct timespec *userTime) {
  */   
 int cMsgSetByteArrayLength(void *vmsg, int length) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (length < 0)  return(CMSG_BAD_ARGUMENT);
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
@@ -2562,7 +2558,7 @@ int cMsgSetByteArrayLength(void *vmsg, int length) {
  */   
 int cMsgGetByteArrayLength(void *vmsg, int *length) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   *length = msg->byteArrayLength;
@@ -2583,7 +2579,7 @@ int cMsgGetByteArrayLength(void *vmsg, int *length) {
  */   
 int cMsgSetByteArrayOffset(void *vmsg, int offset) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   
@@ -2603,7 +2599,7 @@ int cMsgSetByteArrayOffset(void *vmsg, int offset) {
  */   
 int cMsgGetByteArrayOffset(void *vmsg, int *offset) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   *offset = msg->byteArrayOffset;
@@ -2627,7 +2623,7 @@ int cMsgGetByteArrayOffset(void *vmsg, int *offset) {
  */   
 int cMsgSetByteArrayEndian(void *vmsg, int endian) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   int ndian;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
@@ -2696,7 +2692,7 @@ int cMsgSetByteArrayEndian(void *vmsg, int endian) {
  */   
 int cMsgGetByteArrayEndian(void *vmsg, int *endian) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   
@@ -2724,7 +2720,7 @@ int cMsgGetByteArrayEndian(void *vmsg, int *endian) {
  */
 int cMsgNeedToSwap(void *vmsg, int *swap) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   int localEndian, msgEndian;
   
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
@@ -2765,7 +2761,7 @@ int cMsgNeedToSwap(void *vmsg, int *swap) {
  */   
 int cMsgSetByteArray(void *vmsg, char *array) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   msg->bits &= ~CMSG_BYTE_ARRAY_IS_COPIED; /* byte array is NOT copied */
@@ -2788,7 +2784,7 @@ int cMsgSetByteArray(void *vmsg, char *array) {
  */   
 int cMsgSetByteArrayAndLimits(void *vmsg, char *array, int offset, int length) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (length < 0)  return(CMSG_BAD_ARGUMENT);
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
@@ -2816,7 +2812,7 @@ int cMsgSetByteArrayAndLimits(void *vmsg, char *array, int offset, int length) {
  */   
 int cMsgCopyByteArray(void *vmsg, char *array, int offset, int length) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (length < 0)  return(CMSG_BAD_ARGUMENT);
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
@@ -2846,7 +2842,7 @@ int cMsgCopyByteArray(void *vmsg, char *array, int offset, int length) {
  */   
 int cMsgGetByteArray(void *vmsg, char **array) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   *array = msg->byteArray;
@@ -2870,7 +2866,7 @@ int cMsgGetByteArray(void *vmsg, char **array) {
  */   
 int cMsgGetSender(void *vmsg, char **sender) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->sender == NULL) {
@@ -2899,7 +2895,7 @@ int cMsgGetSender(void *vmsg, char **sender) {
  */   
 int cMsgGetSenderHost(void *vmsg, char **senderHost) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->senderHost == NULL) {
@@ -2926,7 +2922,7 @@ int cMsgGetSenderHost(void *vmsg, char **senderHost) {
  */   
 int cMsgGetSenderTime(void *vmsg, struct timespec *senderTime) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   *senderTime = msg->senderTime;
@@ -2950,7 +2946,7 @@ int cMsgGetSenderTime(void *vmsg, struct timespec *senderTime) {
  */   
 int cMsgGetReceiver(void *vmsg, char **receiver) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->receiver == NULL) {
@@ -2980,7 +2976,7 @@ int cMsgGetReceiver(void *vmsg, char **receiver) {
  */   
 int cMsgGetReceiverHost(void *vmsg, char **receiverHost) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->receiverHost == NULL) {
@@ -3007,7 +3003,7 @@ int cMsgGetReceiverHost(void *vmsg, char **receiverHost) {
  */   
 int cMsgGetReceiverTime(void *vmsg, struct timespec *receiverTime) {
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   *receiverTime = msg->receiverTime;
@@ -3060,7 +3056,7 @@ int cMsgToString(void *vmsg, char **string) {
   size_t len=sizeof(nowBuf);
 #endif
 
-  cMsgMessage *msg = (cMsgMessage *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
 
 
@@ -3491,8 +3487,3 @@ int cMsgSubscribeGetMessagesPerThread(cMsgSubscribeConfig *config, int *mpt) {
 }
 
 /*-------------------------------------------------------------------*/
-
-#ifdef __cplusplus
-}
-#endif
-

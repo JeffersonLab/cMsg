@@ -23,13 +23,11 @@
 #ifndef _cMsgBase_hxx
 #define _cMsgBase_hxx
 
+#include <cMsg.h>
 
 using namespace std;
 #include <string>
 
-
-// copied from cMsgBase.h
-typedef void (cMsgShutdownHandler) (void *userArg);
 
 
 //-----------------------------------------------------------------------------
@@ -68,16 +66,10 @@ public:
 //-----------------------------------------------------------------------------
 
 
-class cMsgMessageBase {
+class cMsgMessage {
   
   /**
    * Wrapper for cMsg message class.  
-   *
-   * Due to a name clash between the C and C++ API's, cMsgMessageBase 
-   *  is typedef'd to cMsgMessage in cMsg.hxx, so it is only 
-   *  available in user code.
-   *
-   * Internally cMsgMessageBase is always used.
    *
    * @version 1.0
    */
@@ -92,10 +84,10 @@ private:
   
   
 public:
-  cMsgMessageBase(void) throw(cMsgException);
-  cMsgMessageBase(const cMsgMessageBase &m) throw(cMsgException);
-  cMsgMessageBase(void *msgPointer) throw(cMsgException);
-  virtual ~cMsgMessageBase(void);
+  cMsgMessage(void) throw(cMsgException);
+  cMsgMessage(const cMsgMessage &m) throw(cMsgException);
+  cMsgMessage(void *msgPointer) throw(cMsgException);
+  virtual ~cMsgMessage(void);
 
   virtual string getSubject(void) const throw(cMsgException);
   virtual void setSubject(const string &subject) throw(cMsgException);
@@ -128,16 +120,16 @@ public:
   virtual bool isGetResponse(void) const throw(cMsgException);
   virtual bool isNullGetResponse(void) const throw(cMsgException);
   virtual bool needToSwap(void) const throw(cMsgException);
-  virtual void makeNullResponse(cMsgMessageBase &msg) throw(cMsgException);
-  virtual void makeNullResponse(cMsgMessageBase *msg) throw(cMsgException);
-  virtual void makeResponse(cMsgMessageBase &msg) throw(cMsgException);
-  virtual void makeResponse(cMsgMessageBase *msg) throw(cMsgException);
+  virtual void makeNullResponse(cMsgMessage &msg) throw(cMsgException);
+  virtual void makeNullResponse(cMsgMessage *msg) throw(cMsgException);
+  virtual void makeResponse(cMsgMessage &msg) throw(cMsgException);
+  virtual void makeResponse(cMsgMessage *msg) throw(cMsgException);
   virtual void setGetResponse(bool b) throw(cMsgException);
   virtual void setNullGetResponse(bool b) throw(cMsgException);
   virtual string toString(void) const throw(cMsgException);
-  virtual cMsgMessageBase *copy(void) const throw(cMsgException);
-  virtual cMsgMessageBase *nullResponse(void) const throw(cMsgException);
-  virtual cMsgMessageBase *response(void) const throw(cMsgException);
+  virtual cMsgMessage *copy(void) const throw(cMsgException);
+  virtual cMsgMessage *nullResponse(void) const throw(cMsgException);
+  virtual cMsgMessage *response(void) const throw(cMsgException);
 };
 
 
@@ -154,7 +146,7 @@ class cMsgCallback {
    */
 
 public:
-  virtual void callback(cMsgMessageBase *msg, void *userObject) = 0;
+  virtual void callback(cMsgMessage *msg, void *userObject) = 0;
 };
 
 
@@ -196,7 +188,7 @@ class cMsgCallbackAdapter:public cMsgCallbackInterface {
    */
 
 public:
-  virtual void callback(cMsgMessageBase *msg, void *userObject) = 0;
+  virtual void callback(cMsgMessage *msg, void *userObject) = 0;
   virtual bool maySkipMessages(void);
   virtual bool mustSerializeMessages(void);
   virtual int getMaxCueSize(void);
@@ -235,20 +227,20 @@ public:
   virtual ~cMsg(void);
   virtual void connect() throw(cMsgException);
   virtual void disconnect(void);
-  virtual void send(cMsgMessageBase &msg) throw(cMsgException);
-  virtual void send(cMsgMessageBase *msg) throw(cMsgException);
-  virtual int  syncSend(cMsgMessageBase &msg) throw(cMsgException);
-  virtual int  syncSend(cMsgMessageBase *msg) throw(cMsgException);
+  virtual void send(cMsgMessage &msg) throw(cMsgException);
+  virtual void send(cMsgMessage *msg) throw(cMsgException);
+  virtual int  syncSend(cMsgMessage &msg) throw(cMsgException);
+  virtual int  syncSend(cMsgMessage *msg) throw(cMsgException);
   virtual void *subscribe(const string &subject, const string &type, cMsgCallbackAdapter *cba, void *userArg)
     throw(cMsgException);
   virtual void *subscribe(const string &subject, const string &type, cMsgCallbackAdapter &cba, void *userArg)
     throw(cMsgException);
   virtual void unsubscribe(void *handle) throw(cMsgException);
-  virtual cMsgMessageBase *sendAndGet(cMsgMessageBase &sendMsg, const struct timespec &timeout) 
+  virtual cMsgMessage *sendAndGet(cMsgMessage &sendMsg, const struct timespec &timeout) 
     throw(cMsgException);
-  virtual cMsgMessageBase *sendAndGet(cMsgMessageBase *sendMsg, const struct timespec &timeout)
+  virtual cMsgMessage *sendAndGet(cMsgMessage *sendMsg, const struct timespec &timeout)
     throw(cMsgException);
-  virtual cMsgMessageBase *subscribeAndGet(const string &subject, const string &type, const struct timespec &timeout)
+  virtual cMsgMessage *subscribeAndGet(const string &subject, const string &type, const struct timespec &timeout)
     throw(cMsgException);
   virtual void flush(void) throw(cMsgException);
   virtual void start(void) throw(cMsgException);

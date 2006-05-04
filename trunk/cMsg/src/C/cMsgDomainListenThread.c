@@ -32,24 +32,19 @@
 #include "errors.h"
 #include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
-#include "cMsgBase.h"
+#include "cMsg.h"
 #include "cMsgDomain.h"
 
 
 static int counter = 1;
 
-/* for c++ */
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 
 /* prototypes */
 static void *clientThread(void *arg);
 static void  cleanUpHandler(void *arg);
-static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage *msg, int *acknowledge);
-static int cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage *msg);
-static int cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage *msg);
+static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *acknowledge);
+static int cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage_t *msg);
+static int cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 
 #ifdef VXWORKS
 static char *strdup(const char *s1) {
@@ -369,8 +364,8 @@ static void *clientThread(void *arg)
 
       case CMSG_SUBSCRIBE_RESPONSE:
       {
-          cMsgMessage *message;
-          message = (cMsgMessage *) cMsgCreateMessage();
+          cMsgMessage_t *message;
+          message = (cMsgMessage_t *) cMsgCreateMessage();
           if (message == NULL) {
             if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
               fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
@@ -431,8 +426,8 @@ static void *clientThread(void *arg)
 
       case CMSG_GET_RESPONSE:
       {
-          cMsgMessage *message;
-          message = (cMsgMessage *) cMsgCreateMessage();
+          cMsgMessage_t *message;
+          message = (cMsgMessage_t *) cMsgCreateMessage();
           if (message == NULL) {
             if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
               fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
@@ -570,7 +565,7 @@ static void *clientThread(void *arg)
  * arrays declared at the top of the file.
  */
 /** This routine reads a message sent from the server to the client. */
-static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage *msg, int *acknowledge) {
+static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *acknowledge) {
 
   long long llTime;
   int  stringLen, lengths[7], inComing[18];
@@ -771,7 +766,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage *msg, int *ackn
  * This routine wakes up the appropriate sendAndGet
  * when a message arrives from the server. 
  */
-static int cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage *msg) {
+static int cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
 
   int i, status, delivered=0;
   getInfo *info;  
@@ -818,12 +813,12 @@ static int cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage *msg) {
  * This routine runs all the appropriate subscribe and subscribeAndGet
  * callbacks when a message arrives from the server. 
  */
-static int cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage *msg) {
+static int cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
 
   int i, j, k, status, goToNextCallback;
   subscribeCbInfo *cback;
   getInfo *info;
-  cMsgMessage *message, *oldHead;
+  cMsgMessage_t *message, *oldHead;
   struct timespec wait, timeout;
     
 
@@ -852,7 +847,7 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
 */
       /* pass msg to "get" */
       /* copy message so each callback has its own copy */
-      message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
+      message = (cMsgMessage_t *) cMsgCopyMessage((void *)msg);
       if (message == NULL) {
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "cMsgRunCallbacks: out of memory\n");
@@ -914,7 +909,7 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
         }
 
         /* copy message so each callback has its own copy */
-        message = (cMsgMessage *) cMsgCopyMessage((void *)msg);
+        message = (cMsgMessage_t *) cMsgCopyMessage((void *)msg);
         if (message == NULL) {
           cMsgSubscribeMutexUnlock(domain);
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
@@ -1065,10 +1060,3 @@ printf("cMsgRunCallbacks: will UNLOCK mutex\n"); */
   
   return (CMSG_OK);
 }
-
-
-
-#ifdef __cplusplus
-}
-#endif
-
