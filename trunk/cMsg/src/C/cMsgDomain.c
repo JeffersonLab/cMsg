@@ -3124,6 +3124,55 @@ static int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
 
 
 /**
+ * This routine returns the user argument of a subscription given the
+ * subscription's handle (which represents a given subject, type, callback,
+ * and user argument).
+ *
+ * @param domainId id of the domain connection
+ * @param handle void pointer obtained from cmsgd_subscribe
+ * @param userArg pointer to void pointer which gets filled with the subscription's
+ *        user argument
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the handle is null, or the given subscription
+ *                            (thru handle) does not have proper values
+ */   
+int cMsgGetUserArg(void *domainId, void *handle, void **userArg) {
+
+  cMsgDomainInfo  *domain = &cMsgDomains[(int)domainId];
+  cbArg           *cbarg;
+  subscribeCbInfo *callbackInfo;
+   
+  /* check args */
+  if (handle == NULL) {
+      return(CMSG_BAD_ARGUMENT);  
+  }
+  
+  cbarg = (cbArg *)handle;
+  
+  if (cbarg->domainId != (int)domainId  ||
+      cbarg->subIndex < 0 ||
+      cbarg->cbIndex  < 0 ||
+      cbarg->subIndex >= CMSG_MAX_SUBSCRIBE ||
+      cbarg->cbIndex  >= CMSG_MAX_CALLBACK    ) {
+    return(CMSG_BAD_ARGUMENT);    
+  }
+  
+  /* convenience variable */
+  callbackInfo = &domain->subscribeInfo[cbarg->subIndex].cbInfo[cbarg->cbIndex];  
+  
+  if (userArg != NULL) {
+      *userArg = callbackInfo->userArg;
+  }
+  
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
  * This routine exchanges information with the name server.
  *
  * @param domain  pointer to element in domain info array

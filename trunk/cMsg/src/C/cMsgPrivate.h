@@ -270,6 +270,9 @@ typedef struct subscribeConfig_t {
 } subscribeConfig;
 
 
+/** Routine for getting the userArg of a subscription given its handle. */
+int cMsgGetUserArg(void *domainId, void *handle, void **userArg);
+
 
 #ifdef	__cplusplus
 }
