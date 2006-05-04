@@ -248,8 +248,10 @@ enum requestMsgId {
 
 /** Responses sent to client from server. */
 enum responseMsgId {
-  CMSG_GET_RESPONSE         = 20,    /**< SendAndGet response. */
-  CMSG_SUBSCRIBE_RESPONSE            /**< Subscribe response. */
+  CMSG_GET_RESPONSE         = 20, /**< SendAndGet response. */
+  CMSG_SUBSCRIBE_RESPONSE,        /**< Subscribe response. */
+  CMSG_SERVER_GET_RESPONSE,       /**< Respose to server's "sendAndGet" request. */
+  CMSG_RC_CONNECT                 /**< Respond to RC server's "connect" request. */
 };
 
 
@@ -271,7 +273,7 @@ typedef struct subscribeConfig_t {
 
 
 /** Routine for getting the userArg of a subscription given its handle. */
-int cMsgGetUserArg(void *domainId, void *handle, void **userArg);
+int cMsgGetUserArg(int domainId, void *handle, void **userArg);
 
 
 #ifdef	__cplusplus

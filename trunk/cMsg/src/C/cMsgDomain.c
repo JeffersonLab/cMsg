@@ -86,6 +86,8 @@ static int subjectTypeId = 1;
 /** Size of buffer in bytes for sending messages. */
 static int initialMsgBufferSize = 15000;
 
+/** Need a reference to the main domain info array defined in cMsg.c . */
+extern cMsgDomain domains[];
 
 
 /** Store information about each cMsg domain connected to. */
@@ -3128,7 +3130,7 @@ static int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
  * subscription's handle (which represents a given subject, type, callback,
  * and user argument).
  *
- * @param domainId id of the domain connection
+ * @param domainId id of the domain connection in the top level API
  * @param handle void pointer obtained from cmsgd_subscribe
  * @param userArg pointer to void pointer which gets filled with the subscription's
  *        user argument
@@ -3137,12 +3139,13 @@ static int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
  * @returns CMSG_BAD_ARGUMENT if the handle is null, or the given subscription
  *                            (thru handle) does not have proper values
  */   
-int cMsgGetUserArg(void *domainId, void *handle, void **userArg) {
-
-  cMsgDomainInfo  *domain = &cMsgDomains[(int)domainId];
+int cMsgGetUserArg(int domainId, void *handle, void **userArg) {
+  
+  int id = domainId - DOMAIN_ID_OFFSET;
+  cMsgDomainInfo  *domain = &cMsgDomains[(int) domains[id].implId];
   cbArg           *cbarg;
   subscribeCbInfo *callbackInfo;
-   
+     
   /* check args */
   if (handle == NULL) {
       return(CMSG_BAD_ARGUMENT);  
