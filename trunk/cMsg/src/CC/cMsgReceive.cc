@@ -81,8 +81,17 @@ main(int argc, char **argv) {
   
 
   //  subscribe and start dispatching to callback
-  c.subscribe(subject,type,new myCallbackObject(),NULL);
-  c.start();
+  try {
+    myCallbackObject *cbo = new myCallbackObject();
+    void *handle = c.subscribe(subject,type,cbo,NULL);
+    //    c.unsubscribe(handle);
+    //    c.subscribe(subject,type,cbo,NULL);
+    c.start();
+  } catch (cMsgException e) {
+    cerr << e.toString();
+    exit(EXIT_FAILURE);
+  }
+
     
     
   // wait forever for messages

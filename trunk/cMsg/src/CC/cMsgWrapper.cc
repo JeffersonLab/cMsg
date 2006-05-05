@@ -1113,6 +1113,7 @@ void cMsg::unsubscribe(void *handle) throw(cMsgException) {
   if((stat=cMsgUnSubscribe(myDomainId,handle))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
+
 }
 
 
