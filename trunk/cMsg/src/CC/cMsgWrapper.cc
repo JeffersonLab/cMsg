@@ -1,5 +1,4 @@
 // to do
-//   destroy dispatcher struct
 //   endian functions, other C functions
 //   doxygen doc
 
@@ -22,32 +21,132 @@
 *----------------------------------------------------------------------------*/
 
 
-// #include <cMsgBase.hxx>
-// #include <cMsgBase.h>
-
 #include <cMsg.hxx>
 #include <cMsgPrivate.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <vector>
 
 
 
 //-----------------------------------------------------------------------------
-//  struct and static function needed to dispatch callbacks between c and c++
+//  local data and static functions
 //-----------------------------------------------------------------------------
 
 
+// stores callback dispatching info
 typedef struct {
   cMsgCallbackAdapter *cba;
   void *userArg;
 } dispatcherStruct;
 
 
+// holds local subscription info
+typedef struct {
+  int domainId;
+  string subject;
+  string type;
+  dispatcherStruct *d;
+  void *handle;
+} subscrStruct;
+
+
+// vector of current subscriptions and mutex
+static vector<subscrStruct*> subscrVec;
+static pthread_mutex_t subscrMutex = PTHREAD_MUTEX_INITIALIZER;
+
+
+
+//-----------------------------------------------------------------------------
+
+
 static void callbackDispatcher(void *msg, void *userArg) {
   dispatcherStruct *ds = (dispatcherStruct*)userArg;
   ds->cba->callback(new cMsgMessage(msg),ds->userArg);
 }
+
+
+//-----------------------------------------------------------------------------
+
+
+static bool subscriptionExists(int domainId, const string &subject, const string &type, 
+                               cMsgCallbackAdapter *cba, void *userArg) {
+
+  bool itExists = false;
+
+
+  // search list for matching subscription
+  pthread_mutex_lock(&subscrMutex);
+  for(int i=0; i<subscrVec.size(); i++) {
+    if( (subscrVec[i]->domainId   == domainId) &&
+        (subscrVec[i]->subject    == subject) &&
+        (subscrVec[i]->type       == type) &&
+        (subscrVec[i]->d->cba     == cba) &&
+        (subscrVec[i]->d->userArg == userArg)
+        ) {
+      itExists=true;
+      break;
+    }
+  }
+  pthread_mutex_unlock(&subscrMutex);
+
+
+  // done searching
+  return(itExists);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+static void addSubscription(int domainId, const string &subject, const string &type,
+                            dispatcherStruct *d, void *handle) {
+
+  subscrStruct *s = new subscrStruct();
+
+  s->domainId=domainId;
+  s->subject=subject;
+  s->type=type;
+  s->d=d;
+  s->handle=handle;
+
+  pthread_mutex_lock(&subscrMutex);
+  subscrVec.push_back(s);
+  pthread_mutex_unlock(&subscrMutex);
+
+  return;
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+static bool deleteSubscription(int domainId, void *handle) {
+
+  bool deleted = false;
+  vector<subscrStruct*>::iterator iter;
+
+  pthread_mutex_lock(&subscrMutex);
+  for(iter=subscrVec.begin(); iter!=subscrVec.end(); iter++) {
+    if(((*iter)->domainId==domainId)&&((*iter)->handle==handle)) {
+      delete((*iter)->d);
+      delete(*iter);
+      subscrVec.erase(iter);
+      deleted=true;
+      break;
+    }
+  }
+  pthread_mutex_unlock(&subscrMutex);
+
+  return(deleted);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+
 
 
 
@@ -942,6 +1041,14 @@ int cMsg::syncSend(cMsgMessage *msg) throw(cMsgException) {
 
 void *cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAdapter *cba, void *userArg) throw(cMsgException) {
     
+  int stat;
+  void *handle;
+
+
+  // check if this is a duplicate subscription
+  if(subscriptionExists(myDomainId,subject,type,cba,userArg))
+    throw(cMsgException(cMsgPerror(CMSG_ALREADY_EXISTS),CMSG_ALREADY_EXISTS));
+
 
   // create and fill config
   cMsgSubscribeConfig *myConfig = cMsgSubscribeConfigCreate();
@@ -961,15 +1068,21 @@ void *cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAda
 
 
   // subscribe and get handle
-  void *handle;
-  int stat=cMsgSubscribe(myDomainId,subject.c_str(),type.c_str(),callbackDispatcher,(void*)d,myConfig,&handle);
+  stat=cMsgSubscribe(myDomainId,subject.c_str(),type.c_str(),callbackDispatcher,(void*)d,myConfig,&handle);
 
 
   // destroy config
   cMsgSubscribeConfigDestroy(myConfig);
 
 
+  // check if subscription accepted
   if(stat!=CMSG_OK) throw(cMsgException(cMsgPerror(stat),stat));
+
+
+  // add this subscription to internal list
+  addSubscription(myDomainId,subject,type,d,handle);
+
+
   return(handle);
 }
 
@@ -986,15 +1099,17 @@ void *cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAda
 
 
 void cMsg::unsubscribe(void *handle) throw(cMsgException) {
+
   int stat;
 
-  if(handle==NULL) throw(cMsgException(cMsgPerror(CMSG_BAD_ARGUMENT),CMSG_BAD_ARGUMENT));
+
+  // remove subscription from internal list
+  if(!deleteSubscription(myDomainId,handle)) {
+    throw(cMsgException(cMsgPerror(CMSG_BAD_ARGUMENT),CMSG_BAD_ARGUMENT));
+  }
 
 
-  // get userArg and free dispatcher struct ???
-
-
-  // now unsubscribe
+  // unsubscribe
   if((stat=cMsgUnSubscribe(myDomainId,handle))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
