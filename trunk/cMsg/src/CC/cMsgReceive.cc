@@ -84,6 +84,7 @@ main(int argc, char **argv) {
   try {
     myCallbackObject *cbo = new myCallbackObject();
     void *handle = c.subscribe(subject,type,cbo,NULL);
+    //    c.unsubscribe((void*)((int)handle+1));
     //    c.unsubscribe(handle);
     //    c.subscribe(subject,type,cbo,NULL);
     c.start();
