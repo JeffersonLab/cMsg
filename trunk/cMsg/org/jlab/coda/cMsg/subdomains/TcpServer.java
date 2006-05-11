@@ -229,19 +229,21 @@ public class TcpServer extends cMsgSubdomainAdapter{
 
         // return result
         try {
-            cMsgMessageFull responseMsg = msg.response();
+            cMsgMessageFull responseMsg = new cMsgMessageFull();
             responseMsg.setCreator(myName);
             responseMsg.setSubject(msg.getSubject());
             responseMsg.setType(msg.getType());
             responseMsg.setText(sb.toString());
             responseMsg.setSender(myName);
             responseMsg.setSenderHost(myHost);
-//BUG BUG review this
-            //if(msg.getText().length()<=0) {
-            //    myDeliverer.deliverMessage(responseMsg, cMsgConstants.msgGetResponseIsNull);
-            //} else {
-                myDeliverer.deliverMessage(responseMsg, cMsgConstants.msgGetResponse);
-            //}
+
+            if(msg.getText().length()<=0) {
+                responseMsg.makeNullResponse(msg);
+            } else {
+                responseMsg.makeResponse(msg);
+            }
+            myDeliverer.deliverMessage(responseMsg, cMsgConstants.msgGetResponse);
+
         } catch (IOException e) {
             cMsgException ce = new cMsgException(e.toString());
             ce.setReturnCode(1);
