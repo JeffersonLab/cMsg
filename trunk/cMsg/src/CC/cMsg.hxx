@@ -95,6 +95,9 @@ public:
   virtual int getByteArrayLength(void) const throw(cMsgException);
   virtual void setByteArrayOffset(int offset) throw(cMsgException);
   virtual int getByteArrayOffset(void) const throw(cMsgException);
+  virtual int getByteArrayEndian(void) const throw(cMsgException);
+  virtual void setByteArrayEndian(int endian) throw(cMsgException);
+  virtual bool needToSwap(void) const throw(cMsgException);
   virtual void setByteArray(char *array) throw(cMsgException);
   virtual char* getByteArray(void) const throw(cMsgException);
   virtual void setByteArrayAndLimits(char *array, int offset, int length) throw(cMsgException);
@@ -115,7 +118,6 @@ public:
   virtual bool isGetRequest(void) const throw(cMsgException);
   virtual bool isGetResponse(void) const throw(cMsgException);
   virtual bool isNullGetResponse(void) const throw(cMsgException);
-  virtual bool needToSwap(void) const throw(cMsgException);
   virtual void makeNullResponse(cMsgMessage &msg) throw(cMsgException);
   virtual void makeNullResponse(cMsgMessage *msg) throw(cMsgException);
   virtual void makeResponse(cMsgMessage &msg) throw(cMsgException);
@@ -214,8 +216,6 @@ private:
   string myUDL;
   string myName;
   string myDescr;
-  bool connected;
-  bool receiving;
 
 
 public:

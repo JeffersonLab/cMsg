@@ -1537,7 +1537,7 @@ int cMsgGetDescription(int domainId, char **description) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_DOMAIN_ID if an out-of-range domain id is used
  */   
-int cMsgGetInitState(int domainId, int *initState) {
+int cMsgGetConnectState(int domainId, int *initState) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 

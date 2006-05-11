@@ -764,7 +764,35 @@ bool cMsgMessage::isNullGetResponse() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-bool cMsgMessage::needToSwap() const throw(cMsgException) {
+int cMsgMessage::getByteArrayEndian(void) const throw(cMsgException) {
+  int stat,endian;
+
+  if((stat=cMsgGetByteArrayEndian(myMsgPointer,&endian))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+
+  return(endian);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+void cMsgMessage::setByteArrayEndian(int endian) throw(cMsgException) {
+  int stat;
+
+  if((stat=cMsgSetByteArrayEndian(myMsgPointer,endian))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+
+  return;
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+bool cMsgMessage::needToSwap(void) const throw(cMsgException) {
 
   int flag,stat;
 
@@ -956,8 +984,6 @@ cMsg::cMsg(const string &UDL, const string &name, const string &descr) {
   myUDL=UDL;
   myName=name;
   myDescr=descr;
-  connected=false;
-  receiving=false;
 }
 
 
@@ -978,8 +1004,6 @@ void cMsg::connect(void) throw(cMsgException) {
   if((stat=cMsgConnect(myUDL.c_str(),myName.c_str(),myDescr.c_str(),&myDomainId))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
-
-  connected=true;
 }
 
 
@@ -987,9 +1011,7 @@ void cMsg::connect(void) throw(cMsgException) {
 
 
 void cMsg::disconnect(void) {
-
-  if(connected)cMsgDisconnect(myDomainId);
-  connected=false;
+  cMsgDisconnect(myDomainId);
 }
 
 
@@ -1185,7 +1207,6 @@ void cMsg::start(void) throw(cMsgException) {
   if((stat=cMsgReceiveStart(myDomainId))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
-  receiving=true;
 }
 
 
@@ -1193,8 +1214,6 @@ void cMsg::start(void) throw(cMsgException) {
 
 
 void cMsg::stop(void) throw(cMsgException) {
-
-  receiving=false;
 
   int stat;
   if((stat=cMsgReceiveStop(myDomainId))!=CMSG_OK) {
@@ -1231,7 +1250,12 @@ string cMsg::getUDL(void) const{
 
 
 bool cMsg::isConnected(void) const {
-  return(connected);
+
+  int stat,connected;
+  if((stat=cMsgGetConnectState(myDomainId,&connected))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+  return(connected==1);
 }
 
 
@@ -1239,7 +1263,12 @@ bool cMsg::isConnected(void) const {
 
 
 bool cMsg::isReceiving(void) const {
-  return(receiving);
+
+  int stat,receiving;
+  if((stat=cMsgGetReceiveState(myDomainId,&receiving))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+  return(receiving==1);
 }
 
 

@@ -27,8 +27,11 @@
  
 /**
  * @file
- * This is the one necessary header file for all cMsg users.
- 
+ * This is the one necessary header file for all cMsg C users.  C++ users must 
+ *  include cMsg.hxx instead, which includes this file.
+ *
+ *
+ *
  * <b>INTRODUCTION</b>
  *
  * cMsg is a simple, abstract API to an arbitrary underlying message service. It 
@@ -205,7 +208,7 @@ extern "C" {
   int cMsgGetUDL         (int domainId, char **udl);
   int cMsgGetName        (int domainId, char **name);
   int cMsgGetDescription (int domainId, char **description);
-  int cMsgGetInitState   (int domainId, int   *initState);
+  int cMsgGetConnectState   (int domainId, int *connected);
   int cMsgGetReceiveState(int domainId, int   *receiveState);
 
   
