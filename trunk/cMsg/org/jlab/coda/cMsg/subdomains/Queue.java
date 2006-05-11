@@ -398,8 +398,8 @@ public class Queue extends cMsgSubdomainAdapter {
         boolean null_response = false;
 
 
-        // create msg as get response
-        cMsgMessageFull response = message.response();
+        // create msg
+        cMsgMessageFull response = new cMsgMessageFull();
 
 
         // retrieve oldest entry and delete
@@ -447,12 +447,16 @@ public class Queue extends cMsgSubdomainAdapter {
         }
 
 
+        // mark as (possibly null) response to message
+        if(null_response) {
+            response.makeNullResponse(message);
+        } else {
+            response.makeResponse(message);
+        }
+
+
         // send message
         try {
-            if(null_response) {
-                //myDeliverer.deliverMessage(response, cMsgConstants.msgGetResponseIsNull);
-                //BUG BUG Elliott, modify msg somehow right here
-            }
             myDeliverer.deliverMessage(response, cMsgConstants.msgGetResponse);
         } catch (IOException e) {
             e.printStackTrace();

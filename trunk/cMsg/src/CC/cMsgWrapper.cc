@@ -1,6 +1,5 @@
 // to do
-//   endian functions, other C functions
-//   doxygen doc
+//   word doc, doxygen doc
 
 
 

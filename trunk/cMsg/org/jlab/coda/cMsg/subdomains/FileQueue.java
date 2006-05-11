@@ -428,16 +428,16 @@ public class FileQueue extends cMsgSubdomainAdapter {
         }
 
 
-        // mark as response to message
-        response.makeResponse(message);
+        // mark as (possibly null) response to message
+        if(null_response) {
+            response.makeNullResponse(message);
+        } else {
+            response.makeResponse(message);
+        }
 
 
         // send response to client
         try {
-            if(null_response) {
-                //myDeliverer.deliverMessage(response, cMsgConstants.msgGetResponseIsNull);
-                //BUG BUG Elliott, modify msg somehow right here
-            }
             myDeliverer.deliverMessage(response, cMsgConstants.msgGetResponse);
         } catch (IOException e) {
             e.printStackTrace();
