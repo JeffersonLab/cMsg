@@ -127,7 +127,7 @@ public class cMsgMessage implements Cloneable {
     // sender quantities
 
 
-    /** Unique name of message sender. */
+    /** Name of message sender (must be unique in some domains). */
     String sender;
 
     /** Host sender is running on. */
@@ -143,7 +143,7 @@ public class cMsgMessage implements Cloneable {
     // receiver quantities
 
 
-    /** Unique name of message receiver. */
+    /** Nme of message receiver. */
     String receiver;
 
     /** Host receiver is running on. */
