@@ -33,6 +33,7 @@ public class cMsgMessageFull extends cMsgMessage {
 
     /** Constructor. */
     public cMsgMessageFull() {
+        super();
     }
 
 
