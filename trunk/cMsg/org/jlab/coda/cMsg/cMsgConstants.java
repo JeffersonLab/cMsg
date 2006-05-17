@@ -149,6 +149,8 @@ public class cMsgConstants {
     public static final int    msgSubscribeResponse        =  21;
     /** Respond to a server's "sendAndGet" request. */
     public static final int    msgServerGetResponse        =  22;
+    /** Respond to a runcontrol server's "connect" request. */
+    public static final int    msgRcConnect                =  23;
 
     // Codes sent by a server's "client" connection to another server
     // in the cMsg subdomain only

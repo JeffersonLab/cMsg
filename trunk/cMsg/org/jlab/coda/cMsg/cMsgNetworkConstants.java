@@ -36,7 +36,9 @@ public class cMsgNetworkConstants {
     public static final int    clientServerStartingPort = 2345;
     /** TCP port at which a TCPServer server listens for connections. */
     public static final int    tcpServerPort = 5432;
-    /** UDP port at which a CodaComponent server listens for broadcasts. */
-    public static final int    ccBroadcastPort = 6543;
+    /** UDP port at which a RunControl server listens for broadcasts. */
+    public static final int    rcBroadcastPort = 6543;
+    /** TCP port at which a RunControl server assumes a client is waiting for connections on. */
+    public static final int    rcClientPort = 6543;
 
 }

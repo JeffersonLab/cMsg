@@ -117,7 +117,7 @@ public class cMsg {
         // (1) initial cMsg: in not necessary
         // (2) cMsg and domainType are case independent
 
-        Pattern pattern = Pattern.compile("(cMsg)?:?(\\w+)://(.*)", Pattern.CASE_INSENSITIVE);
+        Pattern pattern = Pattern.compile("(cMsg)?:?([\\w\\-]+)://(.*)", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(UDL);
 
         String s0=null, s1=null, s2=null;
@@ -185,7 +185,7 @@ public class cMsg {
         if (domainConnectionClass == null) {
             domainConnectionClass = System.getenv("CMSG_DOMAIN");
         }
-System.out.println("Looking for domain " + domain);
+//System.out.println("Looking for domain " + domain);
         // If there is still no handler class, look for the
         // standard, provided classes.
         if (domainConnectionClass == null) {
@@ -193,8 +193,14 @@ System.out.println("Looking for domain " + domain);
             if (domain.equalsIgnoreCase("cMsg"))  {
                 domainConnectionClass = "org.jlab.coda.cMsg.cMsgDomain.client.cMsg";
             }
-            else if (domain.equalsIgnoreCase("cc")) {
-                domainConnectionClass = "org.jlab.coda.cMsg.CodaCompDomain.CodaComp";
+            else if (domain.equalsIgnoreCase("rc")) {
+                domainConnectionClass = "org.jlab.coda.cMsg.RCDomain.RunControl";
+            }
+            else if (domain.equalsIgnoreCase("rcs")) {
+                domainConnectionClass = "org.jlab.coda.cMsg.RCServerDomain.RCServer";
+            }
+            else if (domain.equalsIgnoreCase("rcb")) {
+                domainConnectionClass = "org.jlab.coda.cMsg.RCBroadcastDomain.RCBroadcast";
             }
             else if (domain.equalsIgnoreCase("TCPS")) {
                 domainConnectionClass = "org.jlab.coda.cMsg.TCPSDomain.TCPS";
