@@ -378,8 +378,11 @@ printf("Wait for 5 more seconds, then exit\n");
         exit(-1);
     }
 
-    /* free mem allocated for the argument passed to listening thread */
-    free(threadArg);
+    /* Mem allocated for the argument passed to listening thread is 
+     * now freed in the pthread cancellation cleanup handler.in
+     * cMsgDomainListenThread.c
+     */
+    /*free(threadArg);*/
 
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
         fprintf(stderr, "cmsg_rc_connect: created listening thread\n");

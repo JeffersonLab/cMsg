@@ -138,8 +138,6 @@ static void cleanUpHandler(void *arg) {
     pthread_cancel(domain->clientThread[1]);
   }
   
-  free(threadArg->domainType);
-  
   /* Nornally we could just cancel the thread and if the subscription
    * mutex were locked, the reinitialization would free it. However,
    * in vxWorks, reinitialization of a pthread mutex is not allowed
@@ -151,7 +149,10 @@ static void cleanUpHandler(void *arg) {
   nanosleep(&sTime,NULL);
   pthread_cancel(domain->clientThread[0]);
   domain->killClientThread = 0;
-
+  
+  /* free up arg memory */
+  free(threadArg->domainType);
+  free(threadArg);
 }
 
 
