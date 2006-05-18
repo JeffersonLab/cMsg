@@ -191,8 +191,8 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
   
     unsigned short serverPort;
     char  *serverHost, *expid, buffer[1024];
-    int    err, status, len, expidLen, expidLenNet;
-    int    i, id = -1, outGoing[2], broadcastTO=0, connectTO=0;
+    int    err, status, len, expidLen, nameLen;
+    int    i, id = -1, outGoing[3], broadcastTO=0, connectTO=0;
     char   temp[CMSG_MAXHOSTNAMELEN];
     char  *portEnvVariable=NULL;
     unsigned short startingPort;
@@ -432,23 +432,25 @@ printf("Wait for 5 more seconds, then exit\n");
         pthread_cancel(domain->pendThread);
         return(CMSG_ERROR);
     }
-    expidLen    = strlen(expid);
-    expidLenNet = htonl(expidLen);
+    nameLen  = strlen(myName);
+    expidLen = strlen(expid);
 /*printf("Sending tcp port = %d, expid = %s to port = %hu on host %s\n",
         ((int) domain->listenPort), expid, serverPort, serverHost);*/
     
     /* tcp port */
     outGoing[0] = htonl((int) domain->listenPort);
+    /* length of "myName" string */
+    outGoing[1] = htonl(nameLen);
     /* length of "expid" string */
-    outGoing[1] = htonl(expidLen);
+    outGoing[2] = htonl(expidLen);
 
     /* copy data into a single buffer */
     memcpy(buffer, (void *)outGoing, sizeof(outGoing));
     len = sizeof(outGoing);
+    memcpy(buffer+len, (const void *)myName, nameLen);
+    len += nameLen;
     memcpy(buffer+len, (const void *)expid, expidLen);
     len += expidLen;
-    buffer[len] = '\0'; /* add null to end of string */
-    len += 1;        /* total length of message */
     
     /* create a thread which will receive any responses to our broadcast */
     bzero(&arg.clientaddr, sizeof(arg.clientaddr));
