@@ -1390,6 +1390,9 @@ static int parseUDL(const char *UDLR,
      *    environmental variable EXPID
      * 4) broadcastTO is the time to wait in seconds before connect returns a
      *    timeout when a rc broadcast server does not answer 
+     * 5) connectTO is the time to wait in seconds before connect returns a
+     *    timeout while waiting for the rc server to send a special (tcp)
+     *    concluding connect message
      */
 
     /* compile regular expression */
