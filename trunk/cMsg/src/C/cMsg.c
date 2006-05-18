@@ -944,17 +944,17 @@ int cMsgSetDebugLevel(int level) {
 static int registerPermanentDomains() {
   
   /* cMsg type */
-  dTypeInfo[0].type = (char *)strdup("CMSG"); 
+  dTypeInfo[0].type = (char *)strdup(cmsgDomainTypeInfo.type); 
   dTypeInfo[0].functions = cmsgDomainTypeInfo.functions;
 
 
-  /* coda component (CC) domain */
-  dTypeInfo[1].type = (char *)strdup("RC"); 
+  /* runcontrol (rc) domain */
+  dTypeInfo[1].type = (char *)strdup(rcDomainTypeInfo.type); 
   dTypeInfo[1].functions = rcDomainTypeInfo.functions;
 
 
   /* for file domain */
-  dTypeInfo[2].type = (char *)strdup("FILE"); 
+  dTypeInfo[2].type = (char *)strdup(fileDomainTypeInfo.type); 
   dTypeInfo[2].functions = fileDomainTypeInfo.functions;
      
   return(CMSG_OK);  
@@ -963,7 +963,7 @@ static int registerPermanentDomains() {
 
 /**
  * This routine registers domain implementations dynamically.
- * The registration includes the name of the domain (in all caps)
+ * The registration includes the name of the domain
  * along with the set of functions that implement all the basic domain
  * functionality (connect, disconnect, send, syncSend, flush, subscribe,
  * unsubscribe, sendAndGet, subscribeAndGet, start, and stop).
@@ -972,28 +972,32 @@ static int registerPermanentDomains() {
  */   
 static int registerDynamicDomains(char *domainType) {
 
-  char *upperCase;
+  char *lowerCase;
   unsigned int i;
   int   index=-1;
-#ifndef VXWORKS
+#ifdef VXWORKS
+  char     *pValue;
+  SYM_TYPE  pType;
+#else
+  char  functionName[256];
   char  libName[256];
   void *libHandle, *sym;
   domainFunctions *funcs;
 #endif
       
   /*
-   * We have already loaded the cMsg, rc, and file domains.
+   * We have already loaded the cmsg, rc, and file domains.
    * Now we need to dynamically load any libraries needed
    * to support other domains. Look for shared libraries
    * with names of cMsgLib<domain>.so where domain is the
-   * domain found in the parsing of the UDL raised to all
-   * capital letters.
+   * domain found in the parsing of the UDL lowered to all
+   * lower case letters.
    */
    
-  /* First raise the domain name to all caps. */
-  upperCase = (char *) strdup(domainType);
-  for (i=0; i<strlen(upperCase); i++) {
-    upperCase[i] = toupper(upperCase[i]);
+  /* First lower the domain name to all lower case letters. */
+  lowerCase = (char *) strdup(domainType);
+  for (i=0; i<strlen(lowerCase); i++) {
+    lowerCase[i] = tolower(lowerCase[i]);
   }
   
   /* Check to see if it's been loaded already */
@@ -1005,186 +1009,326 @@ static int registerDynamicDomains(char *domainType) {
         continue;
     }    
     
-    if ( strcmp(upperCase, dTypeInfo[i].type) == 0 ) {
+    if ( strcmp(lowerCase, dTypeInfo[i].type) == 0 ) {
         /* already have this domain loaded */
-/* printf("registerDynamicDomains: domain %s is already loaded\n", upperCase); */
-        free(upperCase);
+/* printf("registerDynamicDomains: domain %s is already loaded\n", lowerCase); */
+        free(lowerCase);
         return(CMSG_OK);    
     }  
   }
   
-#ifdef VXWORKS
-
-  printf("registerDynamicDomains: dynamic loading of domains in vxWorks is not supported\n");
-  return(CMSG_BAD_DOMAIN_TYPE);
-
-#else 
-  
   /* we need to load a new domain library */  
   funcs = (domainFunctions *) malloc(sizeof(domainFunctions));
   if (funcs == NULL) {
-    free(upperCase);
+    free(lowerCase);
     return(CMSG_OUT_OF_MEMORY);  
   }
   
+
+#ifdef VXWORKS
+
+  /* get "connect" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_connect", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->connect = (CONNECT_PTR) pValue;
+  
+  /* get "send" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_send", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->send = (SEND_PTR) pValue;
+  
+  /* get "syncSend" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_syncSend", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->syncSend = (SYNCSEND_PTR) pValue;
+  
+  /* get "flush" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_flush", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->flush = (FUNC_PTR) pValue;
+  
+  /* get "subscribe" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_subscribe", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->subscribe = (SUBSCRIBE_PTR) pValue;
+  
+  /* get "unsubscribe" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_unsubscribe", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->unsubscribe = (UNSUBSCRIBE_PTR) pValue;
+  
+  /* get "subscribeAndGet" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_subscribeAndGet", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->subscribeAndGet = (SUBSCRIBE_AND_GET_PTR) pValue;
+  
+  /* get "sendAndGet" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_sendAndGet", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->sendAndGet = (SEND_AND_GET_PTR) pValue;
+  
+  /* get "start" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_start", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->start = (FUNC_PTR) pValue;
+  
+  /* get "stop" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_stop", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->stop = (FUNC_PTR) pValue;
+  
+  /* get "disconnect" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_disconnect", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->disconnect = (FUNC_PTR) pValue;
+    
+  /* get "shutdownClients" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_shutdownClients", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->shutdownClients = (SHUTDOWN_PTR) pValue;
+
+  /* get "shutdownServers" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_shutdownServers", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->shutdownServers = (SHUTDOWN_PTR) pValue;
+
+  /* get "setShutdownHandler" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_setShutdownHandler", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->shutdownClients = (SET_SHUTDOWN_HANDLER_PTR) pValue;
+
+
+#else 
+  
   /* create name of library to look for */
-  sprintf(libName, "%s%s%s", "libcmsg", upperCase, ".so");
+  sprintf(libName, "libcmsg%s.so", lowerCase);
 /* printf("registerDynamicDomains: looking for %s\n", libName); */
   
   /* open library */
   libHandle = dlopen(libName, RTLD_NOW);
   if (libHandle == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     return(CMSG_ERROR);
   }
   
   /* get "connect" function */
-  sym = dlsym(libHandle, "cmsgd_connect");
+  sprintf(functionName, "cmsg_%s_connect", lowerCase);
+  sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
   funcs->connect = (CONNECT_PTR) sym;
 
   /* get "send" function */
-  sym = dlsym(libHandle, "cmsgd_send");
+  sprintf(functionName, "cmsg_%s_send", lowerCase);
+  sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
   funcs->send = (SEND_PTR) sym;
 
   /* get "syncSend" function */
-  sym = dlsym(libHandle, "cmsgd_syncSend");
+  sprintf(functionName, "cmsg_%s_syncSend", lowerCase);
+  sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
   funcs->syncSend = (SYNCSEND_PTR) sym;
 
   /* get "flush" function */
-  sym = dlsym(libHandle, "cmsgd_flush");
+  sprintf(functionName, "cmsg_%s_flush", lowerCase);
+  sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
   funcs->flush = (FUNC_PTR) sym;
 
   /* get "subscribe" function */
-  sym = dlsym(libHandle, "cmsgd_subscribe");
+  sprintf(functionName, "cmsg_%s_subscribe", lowerCase);
+  sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
   funcs->subscribe = (SUBSCRIBE_PTR) sym;
 
   /* get "unsubscribe" function */
-  sym = dlsym(libHandle, "cmsgd_unsubscribe");
+  sprintf(functionName, "cmsg_%s_unsubscribe", lowerCase);
+  sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
   funcs->unsubscribe = (UNSUBSCRIBE_PTR) sym;
 
   /* get "subscribeAndGet" function */
-  sym = dlsym(libHandle, "cmsgd_subscribeAndGet");
+  sprintf(functionName, "cmsg_%s_subscribeAndGet", lowerCase);
+  sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
   funcs->subscribeAndGet = (SUBSCRIBE_AND_GET_PTR) sym;
 
   /* get "sendAndGet" function */
-  sym = dlsym(libHandle, "cmsgd_sendAndGet");
+  sprintf(functionName, "cmsg_%s_sendAndGet", lowerCase);
+  sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
   funcs->sendAndGet = (SEND_AND_GET_PTR) sym;
 
   /* get "start" function */
-  sym = dlsym(libHandle, "cmsgd_start");
+  sprintf(functionName, "cmsg_%s_start", lowerCase);
+  sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
   funcs->start = (FUNC_PTR) sym;
 
   /* get "stop" function */
-  sym = dlsym(libHandle, "cmsgd_stop");
+  sprintf(functionName, "cmsg_%s_stop", lowerCase);
+  sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
   funcs->stop = (FUNC_PTR) sym;
 
   /* get "disconnect" function */
-  sym = dlsym(libHandle, "cmsgd_disconnect");
+  sprintf(functionName, "cmsg_%s_disconnect", lowerCase);
+  sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
   funcs->disconnect = (FUNC_PTR) sym;
 
   /* get "shutdownClients" function */
-  sym = dlsym(libHandle, "cmsgd_shutdownClients");
+  sprintf(functionName, "cmsg_%s_shutdownClients", lowerCase);
+  sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
   funcs->shutdownClients = (SHUTDOWN_PTR) sym;
 
   /* get "shutdownServers" function */
-  sym = dlsym(libHandle, "cmsgd_shutdownServers");
+  sprintf(functionName, "cmsg_%s_shutdownServers", lowerCase);
+  sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
   funcs->shutdownServers = (SHUTDOWN_PTR) sym;
 
   /* get "setShutdownHandler" function */
-  sym = dlsym(libHandle, "cmsgd_setShutdownHandler");
+  sprintf(functionName, "cmsg_%s_setShutdownHandler", lowerCase);
+  sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
     free(funcs);
-    free(upperCase);
+    free(lowerCase);
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
   funcs->setShutdownHandler = (SET_SHUTDOWN_HANDLER_PTR) sym;
 
 
+#endif  
+
    /* for new domain */
-  dTypeInfo[index].type = upperCase; 
+  dTypeInfo[index].type = lowerCase; 
   dTypeInfo[index].functions = funcs;
 
-#endif  
       
   return(CMSG_OK);
 }
@@ -1310,7 +1454,7 @@ static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
 
     int        err, len, bufLength;
     char       *udl, *buffer;
-    const char *pattern = "(cMsg)?:?([a-zA-Z0-9_]+)://(.*)?";  
+    const char *pattern = "(cMsg)?:?([a-zA-Z0-9_\\-]+)://(.*)?";  
     regmatch_t matches[4]; /* we have 4 potential matches: 1 whole, 3 sub */
     regex_t    compiled;
     
@@ -1372,7 +1516,7 @@ static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
             *domainType = (char *)strdup(buffer);
         }
     }
-/* printf("parseUDL: domain = %s\n", buffer); */
+/*printf("parseUDL: domain = %s\n", buffer);*/
 
 
     /* find domain remainder */

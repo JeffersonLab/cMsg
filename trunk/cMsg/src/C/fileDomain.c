@@ -56,33 +56,33 @@ static char *strdup(const char *s1) {
 
 
 /* Prototypes of the 14 functions which implement the standard cMsg tasks in the cMsg domain. */
-static int   fileConnect(const char *myUDL, const char *myName, const char *myDescription,
+int   cmsg_file_Connect(const char *myUDL, const char *myName, const char *myDescription,
                          const char *UDLremainder, void **domainId);
-static int   fileSend(void *domainId, void *msg);
-static int   fileSyncSend(void *domainId, void *msg, int *response);
-static int   fileFlush(void *domainId);
-static int   fileSubscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
+int   cmsg_file_Send(void *domainId, void *msg);
+int   cmsg_file_SyncSend(void *domainId, void *msg, int *response);
+int   cmsg_file_Flush(void *domainId);
+int   cmsg_file_Subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                            void *userArg, cMsgSubscribeConfig *config, void **handle);
-static int   fileUnsubscribe(void *domainId, void *handle);
-static int   fileSubscribeAndGet(void *domainId, const char *subject, const char *type,
+int   cmsg_file_Unsubscribe(void *domainId, void *handle);
+int   cmsg_file_SubscribeAndGet(void *domainId, const char *subject, const char *type,
                                  const struct timespec *timeout, void **replyMsg);
-static int   fileSendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
-static int   fileStart(void *domainId);
-static int   fileStop(void *domainId);
-static int   fileDisconnect(void *domainId);
-static int   fileShutdownClients(void *domainId, const char *client, int flag);
-static int   fileShutdownServers(void *domainId, const char *server, int flag);
-static int   fileSetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
+int   cmsg_file_SendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
+int   cmsg_file_Start(void *domainId);
+int   cmsg_file_Stop(void *domainId);
+int   cmsg_file_Disconnect(void *domainId);
+int   cmsg_file_ShutdownClients(void *domainId, const char *client, int flag);
+int   cmsg_file_ShutdownServers(void *domainId, const char *server, int flag);
+int   cmsg_file_SetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
 
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
-static domainFunctions functions = { fileConnect, fileSend,
-                                     fileSyncSend, fileFlush,
-                                     fileSubscribe, fileUnsubscribe,
-                                     fileSubscribeAndGet, fileSendAndGet,
-                                     fileStart, fileStop, fileDisconnect,
-                                     fileShutdownClients, fileShutdownServers,
-                                     fileSetShutdownHandler
+static domainFunctions functions = { cmsg_file_Connect, cmsg_file_Send,
+                                     cmsg_file_SyncSend, cmsg_file_Flush,
+                                     cmsg_file_Subscribe, cmsg_file_Unsubscribe,
+                                     cmsg_file_SubscribeAndGet, cmsg_file_SendAndGet,
+                                     cmsg_file_Start, cmsg_file_Stop, cmsg_file_Disconnect,
+                                     cmsg_file_ShutdownClients, cmsg_file_ShutdownServers,
+                                     cmsg_file_SetShutdownHandler
 };
 
 
@@ -104,7 +104,7 @@ typedef struct {
 /*-------------------------------------------------------------------*/
 
 
-int fileConnect(const char *myUDL, const char *myName, const char *myDescription,
+int cmsg_file_Connect(const char *myUDL, const char *myName, const char *myDescription,
                        const char *UDLremainder, void **domainId) {
 
 
@@ -158,7 +158,7 @@ int fileConnect(const char *myUDL, const char *myName, const char *myDescription
 /*-------------------------------------------------------------------*/
 
 
-static int fileSend(void *domainId, void *vmsg) {
+int cmsg_file_Send(void *domainId, void *vmsg) {
 
   char *s;
   time_t now;
@@ -213,16 +213,16 @@ static int fileSend(void *domainId, void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
-static int fileSyncSend(void *domainId, void *vmsg, int *response) {
+int cmsg_file_SyncSend(void *domainId, void *vmsg, int *response) {
   *response=0;
-  return(fileSend(domainId,vmsg));
+  return(cmsg_file_Send(domainId,vmsg));
 }
 
 
 /*-------------------------------------------------------------------*/
 
 
-static int fileSubscribeAndGet(void *domainId, const char *subject, const char *type,
+int cmsg_file_SubscribeAndGet(void *domainId, const char *subject, const char *type,
                            const struct timespec *timeout, void **replyMsg) {
   return(CMSG_NOT_IMPLEMENTED);
 }
@@ -231,7 +231,7 @@ static int fileSubscribeAndGet(void *domainId, const char *subject, const char *
 /*-------------------------------------------------------------------*/
 
 
-static int fileSendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
+int cmsg_file_SendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
                       void **replyMsg) {
   return(CMSG_NOT_IMPLEMENTED);
 }
@@ -240,7 +240,7 @@ static int fileSendAndGet(void *domainId, void *sendMsg, const struct timespec *
 /*-------------------------------------------------------------------*/
 
 
-static int fileFlush(void *domainId) {  
+int cmsg_file_Flush(void *domainId) {  
   return(CMSG_OK);
 }
 
@@ -248,7 +248,7 @@ static int fileFlush(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-static int fileSubscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
+int cmsg_file_Subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                      void *userArg, cMsgSubscribeConfig *config, void **handle) {
   return(CMSG_NOT_IMPLEMENTED);
 }
@@ -257,7 +257,7 @@ static int fileSubscribe(void *domainId, const char *subject, const char *type, 
 /*-------------------------------------------------------------------*/
 
 
-static int fileUnsubscribe(void *domainId, void *handle) {
+int cmsg_file_Unsubscribe(void *domainId, void *handle) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -265,7 +265,7 @@ static int fileUnsubscribe(void *domainId, void *handle) {
 /*-------------------------------------------------------------------*/
 
 
-static int fileStart(void *domainId) {
+int cmsg_file_Start(void *domainId) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -273,7 +273,7 @@ static int fileStart(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-static int fileStop(void *domainId) {
+int cmsg_file_Stop(void *domainId) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -281,7 +281,7 @@ static int fileStop(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-static int fileDisconnect(void *domainId) {
+int cmsg_file_Disconnect(void *domainId) {
 
   int stat;
   fileDomainInfo *fdi;
@@ -309,7 +309,7 @@ static int fileDisconnect(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-static int fileSetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg) {
+int cmsg_file_SetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -317,7 +317,7 @@ static int fileSetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, 
 /*-------------------------------------------------------------------*/
 
 
-static int fileShutdownClients(void *domainId, const char *client, int flag) {
+int cmsg_file_ShutdownClients(void *domainId, const char *client, int flag) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -325,7 +325,7 @@ static int fileShutdownClients(void *domainId, const char *client, int flag) {
 /*-------------------------------------------------------------------*/
 
 
-static int fileShutdownServers(void *domainId, const char *server, int flag) {
+int cmsg_file_ShutdownServers(void *domainId, const char *server, int flag) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
