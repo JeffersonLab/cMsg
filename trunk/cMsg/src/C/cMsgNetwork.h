@@ -109,6 +109,7 @@ extern int   cMsgTcpWrite(int fd, const void *vptr, int n);
 extern int   cMsgTcpWritev(int fd, struct iovec iov[], int nbufs, int iov_max);
 extern int   cMsgLocalHost(char *host, int length);
 
+extern int   cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr);
 extern int   cMsgLocalByteOrder(int *endian);
 extern const char *cMsgHstrerror(int err);
 

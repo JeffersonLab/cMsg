@@ -57,6 +57,7 @@
 #include "cMsgPrivate.h"
 #include "cMsg.h"
 #include "errors.h"
+#include "regex.h"
 
 /* set the debug level here */
 /* static int cMsgDebug = CMSG_DEBUG_INFO; */
@@ -382,88 +383,9 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
     err_abort(status, "Unlock gethostbyname Mutex");
   }
     
-    
-    	
-  /* Malloc hostent local structure and buffer to store canonical hostname, aliases etc.*/
-  
-  /*
-  if ( (result = (struct hostent *)malloc(sizeof(struct hostent))) == NULL) {
-    return(CMSG_OUT_OF_MEMORY); 
-  }
-  if ( (buff = (char *)malloc(buflen)) == NULL) {
-    return(CMSG_OUT_OF_MEMORY);  
-  }
-
-  err = gethostbyname_r(ip_address, result, buff, buflen, &hp, &h_errnop);
-  
-  if (err != 0) {
-    if (err == ERANGE) {
-      printf("cMsgTcpConnect: INCREASE THE BUFFER SIZE to avoid gethostbyname error\n");     
-    }
-    close(sockfd);
-    if (result != NULL) free(result);
-    free(buff);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errnop));
-    fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errnop));
-    return(CMSG_NETWORK_ERROR);
-  }
-  */
-  
-  /*
-   * A bug in Linux brainlessly does not return a non-zero result on error
-   * of gethostbyname_r so catch errors here.
-   * There is a related bug in which h_errnop is set to HOST_NOT_FOUND
-   * even though there is no problem. There are also internal bugs which
-   * cause a SEGV.
-   */ 
-  /* 
-  if (h_errnop == HOST_NOT_FOUND || hp == NULL) {
-    if (result != NULL) free(result);
-    free(buff);
-    printf("host %s not found\n", ip_address);
-    return(CMSG_NETWORK_ERROR);
-  }
-  
-  pptr = (struct in_addr **) hp->h_addr_list;
-
-  for ( ; *pptr != NULL; pptr++) {
-    memcpy(&servaddr.sin_addr, *pptr, sizeof(struct in_addr));
-    if ((err = connect(sockfd, (SA *) &servaddr, sizeof(servaddr))) < 0) {
-      free(result);
-      free(buff);
-      if (cMsgDebug >= CMSG_DEBUG_WARN) {
-        fprintf(stderr, "cMsgTcpConnect: error attempting to connect to server\n");
-      }
-    }
-    else {
-      free(result);
-      free(buff);
-      if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "cMsgTcpConnect: connected to server\n");
-      }
-      break;
-    }
-  }
-  */
-
 #else
   return(CMSG_NETWORK_ERROR);
 #endif 
-
-
-/* for debugging, print out our port */
-/*
-{
-  struct sockaddr_in localaddr;
-  socklen_t	  addrlen, len;
-  unsigned short  portt;
-  
-  addrlen = sizeof(localaddr);
-  getsockname(sockfd, (SA *) &localaddr, &addrlen);
-  portt = ntohs(localaddr.sin_port);
-  printf("My Port is %hu\n", portt);
-}
-*/	
   
   if (err == -1) {
     close(sockfd);
@@ -472,6 +394,172 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   }
   
   if (fd != NULL)  *fd = sockfd;
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+/**
+ * Function to take a string IP address, either an alphabetic host name such as
+ * mycomputer.jlab.org or one in presentation format such as 129.57.120.113,
+ * and convert it to binary numeric format and place it in a sockaddr_in
+ * structure.
+ *
+ * @param ip_address string IP address of a host
+ * @param addr pointer to struct holding the binary numeric value of the host
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if ip_address is null
+ * @returns CMSG_NETWORK_ERROR if the numeric address could not be obtained
+ */
+int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
+{
+  int                 err=0;
+#ifndef VXWORKS
+  int                 status;
+  struct in_addr      **pptr;
+  struct hostent      *hp;
+  int h_errnop        = 0;
+#ifdef sun
+  struct hostent      *result;
+  char                *buff;
+  int buflen          = 8192;
+#endif
+#endif
+
+  if (ip_address == NULL) {
+     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: null argument\n");
+     return(CMSG_BAD_ARGUMENT);
+  }
+  	
+
+#if defined VXWORKS
+
+  addr->sin_addr.s_addr = hostGetByName((char *) ip_address);
+  if ((int)servaddr->sin_addr.s_addr == ERROR) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgStringToNumericIPaddr: unknown address for host %s\n",ip_address);
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+
+#else
+  /*
+   * Check to see if ip_address is in dotted-decimal form. If so, use inet_pton,
+   * else we must do something more complicated.
+   */
+  while(1) {
+    const char *pattern = "([0-9]+\\.[0-9\\.]+)";
+    regmatch_t matches[2]; /* we have 2 potential matches: 1 whole, 1 sub */
+    regex_t    compiled;
+
+    /* compile regular expression */
+    err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED);
+    if (err != 0) {
+      break;
+    }
+
+    /* find matches */
+    err = cMsgRegexec(&compiled, ip_address, 2, matches, 0);
+    if (err != 0) {
+      /* no match so not in dotted-decimal form */
+      cMsgRegfree(&compiled);
+      break;
+    }
+
+    if (inet_pton(AF_INET, ip_address, &addr->sin_addr) < 1) {
+      cMsgRegfree(&compiled);
+      return(CMSG_NETWORK_ERROR);
+    }
+
+    /* free up memory */
+    cMsgRegfree(&compiled);
+    return(CMSG_OK);
+  }
+  
+
+/*
+ * Need to make things reentrant so use gethostbyname_r.
+ * Unfortunately the linux folks defined the function 
+ * differently from the solaris folks!
+ */
+#if defined sun
+	
+  /* Malloc hostent local structure and buffer to store canonical hostname, aliases etc.*/
+  if ( (result = (struct hostent *)malloc(sizeof(struct hostent))) == NULL) {
+    return(CMSG_OUT_OF_MEMORY); 
+  }
+  if ( (buff = (char *)malloc(buflen)) == NULL) {
+    return(CMSG_OUT_OF_MEMORY);  
+  }
+
+  if((hp = gethostbyname_r(ip_address, result, buff, buflen, &h_errnop)) == NULL){
+    if (result != NULL) free(result);
+    free(buff);
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errnop));
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+  /*printf("Gethostbyname => %s %d \n", hp->h_name,(int)hp->h_addr_list[0]);*/
+
+  pptr = (struct in_addr **) hp->h_addr_list;
+
+  for ( ; *pptr != NULL; pptr++) {}
+    memcpy(&addr->sin_addr, *pptr, sizeof(struct in_addr));
+    break;
+  }
+  
+  free(result);
+  free(buff);
+
+#elif defined linux
+
+/*
+ * There seem to be serious bugs with Linux implementation of
+ * gethostbyname_r. See:
+ * http://curl.haxx.se/mail/lib-2003-10/0201.html
+ * http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6369541
+ 
+ * Sooo, let's us the non-reentrant version and simply protect
+ * with our own mutex.
+ */
+ 
+  /* make gethostbyname thread-safe */
+  status = pthread_mutex_lock(&getHostByNameMutex);
+  if (status != 0) {
+    err_abort(status, "Lock gethostbyname Mutex");
+  }
+   
+  if ((hp = gethostbyname(ip_address)) == NULL) {
+    status = pthread_mutex_unlock(&getHostByNameMutex);
+    if (status != 0) {
+      err_abort(status, "Unlock gethostbyname Mutex");
+    }
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errnop));
+    }
+    return(CMSG_NETWORK_ERROR);
+  }
+  
+  pptr = (struct in_addr **) hp->h_addr_list;
+
+  for ( ; *pptr != NULL; pptr++) {
+    memcpy(&addr->sin_addr, *pptr, sizeof(struct in_addr));
+    break;
+  }
+   
+  status = pthread_mutex_unlock(&getHostByNameMutex);
+  if (status != 0) {
+    err_abort(status, "Unlock gethostbyname Mutex");
+  }
+    
+#else
+  return(CMSG_NETWORK_ERROR);
+#endif 
+#endif 
+    
   return(CMSG_OK);
 }
 
