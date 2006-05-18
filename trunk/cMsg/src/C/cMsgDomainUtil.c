@@ -417,6 +417,8 @@ void cMsgDomainInit(cMsgDomainInfo *domain, int reInit) {
   domain->hasSubscribe        = 0;
   domain->hasUnsubscribe      = 0;
   domain->hasShutdown         = 0;
+  
+  domain->rcConnectComplete   = 0;
 
   domain->myHost              = NULL;
   domain->sendHost            = NULL;
@@ -443,7 +445,7 @@ void cMsgDomainInit(cMsgDomainInfo *domain, int reInit) {
   domain->msgInBuffer[0]      = NULL;
   domain->msgInBuffer[1]      = NULL;
         
-  cMsgCountDownLatchInit(&domain->failoverLatch, 1, reInit);
+  cMsgCountDownLatchInit(&domain->syncLatch, 1, reInit);
 
   for (i=0; i<CMSG_MAX_SUBSCRIBE; i++) {
     subscribeInfoInit(&domain->subscribeInfo[i], reInit);
@@ -485,6 +487,16 @@ void cMsgDomainInit(cMsgDomainInfo *domain, int reInit) {
   status = pthread_cond_init (&domain->subscribeCond,  NULL);
   if (status != 0) {
     err_abort(status, "cMsgDomainInit:initializing condition var");
+  }
+      
+  status = pthread_mutex_init(&domain->rcConnectMutex, NULL);
+  if (status != 0) {
+    err_abort(status, "cMsgDomainInit:initializing rc connect mutex");
+  }
+  
+  status = pthread_cond_init (&domain->rcConnectCond,  NULL);
+  if (status != 0) {
+    err_abort(status, "cMsgDomainInit:initializing rc connect condition var");
   }
       
 }
@@ -627,6 +639,16 @@ static void domainFree(cMsgDomainInfo *domain) {
     err_abort(status, "domainFree:destroying cond var");
   }
     
+  status = pthread_mutex_destroy(&domain->rcConnectMutex);
+  if (status != 0) {
+    err_abort(status, "domainFree:destroying rc connect mutex");
+  }
+  
+  status = pthread_cond_destroy (&domain->rcConnectCond);
+  if (status != 0) {
+    err_abort(status, "domainFree:destroying rc connect cond var");
+  }
+    
   status = rwl_destroy (&domain->connectLock);
   if (status != 0) {
     err_abort(status, "domainFree:destroying connect read/write lock");
@@ -634,7 +656,7 @@ static void domainFree(cMsgDomainInfo *domain) {
     
 #endif
 
-  cMsgCountDownLatchFree(&domain->failoverLatch);
+  cMsgCountDownLatchFree(&domain->syncLatch);
     
   for (i=0; i<CMSG_MAX_SUBSCRIBE; i++) {
     subscribeInfoFree(&domain->subscribeInfo[i]);
@@ -730,12 +752,309 @@ void cMsgCountDownLatchFree(countDownLatch *latch) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine waits for the given count down latch to be counted down
+ * to 0 before returning. Once the count down is at 0, it notifies the
+ * "cMsgLatchCountDown" caller that it got the message and then returns.
+ *
+ * @param latch pointer to latch structure
+ * @param timeout time to wait for the count down to reach 0 before returning
+ *                with a timeout code (0)
+ *
+ * @returns -1 if the latch is being reset
+ * @returns  0 if the count down has not reached 0 before timing out
+ * @returns +1 if the count down has reached 0
+ */
+int cMsgLatchAwait(countDownLatch *latch, const struct timespec *timeout) {
+  int status;
+  struct timespec wait;
+  
+  /* Lock mutex */
+  status = pthread_mutex_lock(&latch->mutex);
+  if (status != 0) {
+    err_abort(status, "Failed mutex lock");
+  }
+  
+  /* if latch is being reset, return -1 (error) */
+  if (latch->count < 0) {
+/* printf("    cMsgLatchAwait: resetting so return -1\n"); */
+    status = pthread_mutex_unlock(&latch->mutex);
+    if (status != 0) {
+      err_abort(status, "Failed mutex unlock");
+    }
+
+    return -1;  
+  }
+  /* if count = 0 already, return 1 (true) */
+  else if (latch->count == 0) {
+/* printf("    cMsgLatchAwait: count is already 0 so return 1\n"); */
+    status = pthread_mutex_unlock(&latch->mutex);
+    if (status != 0) {
+      err_abort(status, "Failed mutex unlock");
+    }
+    
+    return 1;
+  }
+  
+  /* We're a waiter */
+  latch->waiters++;
+/* printf("    cMsgLatchAwait: waiters set to %d\n",latch->waiters); */
+  
+  /* wait until count <= 0 */
+  while (latch->count > 0) {
+    /* wait until signaled */
+    if (timeout == NULL) {
+/* printf("    cMsgLatchAwait: wait forever\n"); */
+      status = pthread_cond_wait(&latch->countCond, &latch->mutex);
+    }
+    /* wait until signaled or timeout */
+    else {
+      cMsgGetAbsoluteTime(timeout, &wait);
+/* printf("    cMsgLatchAwait: timed wait\n"); */
+      status = pthread_cond_timedwait(&latch->countCond, &latch->mutex, &wait);
+    }
+    
+    /* if we've timed out, return 0 (false) */
+    if (status == ETIMEDOUT) {
+/* printf("    cMsgLatchAwait: timed out, return 0\n"); */
+      status = pthread_mutex_unlock(&latch->mutex);
+      if (status != 0) {
+        err_abort(status, "Failed mutex unlock");
+      }
+
+      return 0;
+    }
+    else if (status != 0) {
+      err_abort(status, "Failed cond wait");
+    }
+  }
+  
+  /* if latch is being reset, return -1 (error) */
+  if (latch->count < 0) {
+/* printf("    cMsgLatchAwait: resetting so return -1\n"); */
+    status = pthread_mutex_unlock(&latch->mutex);
+    if (status != 0) {
+      err_abort(status, "Failed mutex unlock");
+    }
+
+    return -1;  
+  }
+  
+  /* if count down reached (count == 0) ... */
+  latch->waiters--;  
+/* printf("    cMsgLatchAwait: waiters set to %d\n",latch->waiters); */
+
+  /* signal that we're done */
+  status = pthread_cond_broadcast(&latch->notifyCond);
+  if (status != 0) {
+    err_abort(status, "Failed condition broadcast");
+  }
+/* printf("    cMsgLatchAwait: broadcasted to (notified) cMsgLatchCountDowner\n"); */
+
+  /* unlock mutex */
+  status = pthread_mutex_unlock(&latch->mutex);
+  if (status != 0) {
+    err_abort(status, "Failed mutex unlock");
+  }
+/* printf("    cMsgLatchAwait: done, return 1\n"); */
+  
+  return 1;
+}
+
+ 
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine reduces the count of a count down latch by 1.
+ * Once the count down is at 0, it notifies the "cMsgLatchAwait" callers
+ * of the fact and then waits for those callers to notify this routine
+ * that they got the message. Once all the callers have done so, this
+ * routine returns.
+ *
+ * @param latch pointer to latch structure
+ * @param timeout time to wait for the "cMsgLatchAwait" callers to respond
+ *                before returning with a timeout code (0)
+ *
+ * @returns -1 if the latch is being reset
+ * @returns  0 if the "cMsgLatchAwait" callers have not responded before timing out
+ * @returns +1 if the count down has reached 0 and all waiters have responded
+ */
+int cMsgLatchCountDown(countDownLatch *latch, const struct timespec *timeout) {
+  int status;
+  struct timespec wait;
+  
+  /* Lock mutex */
+  status = pthread_mutex_lock(&latch->mutex);
+  if (status != 0) {
+    err_abort(status, "Failed mutex lock");
+  }
+  
+  /* if latch is being reset, return -1 (false) */
+  if (latch->count < 0) {
+/* printf("cMsgLatchCountDown: resetting so return -1\n"); */
+    status = pthread_mutex_unlock(&latch->mutex);
+    if (status != 0) {
+      err_abort(status, "Failed mutex unlock");
+    }
+
+    return -1;  
+  }  
+  /* if count = 0 already, return 1 (true) */
+  else if (latch->count == 0) {
+/* printf("cMsgLatchCountDown: count = 0 so return 1\n"); */
+    status = pthread_mutex_unlock(&latch->mutex);
+    if (status != 0) {
+      err_abort(status, "Failed mutex unlock");
+    }
+    
+    return 1;
+  }
+  
+  /* We're reducing the count */
+  latch->count--;
+/* printf("cMsgLatchCountDown: count is now %d\n", latch->count); */
+  
+  /* if we've reached 0, signal all waiters to wake up */
+  if (latch->count == 0) {
+/* printf("cMsgLatchCountDown: count = 0 so broadcast to waiters\n"); */
+    status = pthread_cond_broadcast(&latch->countCond);
+    if (status != 0) {
+      err_abort(status, "Failed condition broadcast");
+    }    
+  }
+    
+  /* wait until all waiters have reported back to us that they're awake */
+  while (latch->waiters > 0) {
+    /* wait until signaled */
+    if (timeout == NULL) {
+/* printf("cMsgLatchCountDown: wait for ever\n"); */
+      status = pthread_cond_wait(&latch->notifyCond, &latch->mutex);
+    }
+    /* wait until signaled or timeout */
+    else {
+      cMsgGetAbsoluteTime(timeout, &wait);
+/* printf("cMsgLatchCountDown: timed wait\n"); */
+      status = pthread_cond_timedwait(&latch->notifyCond, &latch->mutex, &wait);
+    }
+    
+    /* if we've timed out, return 0 (false) */
+    if (status == ETIMEDOUT) {
+/* printf("cMsgLatchCountDown: timed out\n"); */
+      status = pthread_mutex_unlock(&latch->mutex);
+      if (status != 0) {
+        err_abort(status, "Failed mutex unlock");
+      }
+
+      return 0;
+    }
+    else if (status != 0) {
+      err_abort(status, "Failed cond wait");
+    }
+    
+    /* if latch is being reset, return -1 (error) */
+    if (latch->count < 0) {
+/* printf("cMsgLatchCountDown: resetting so return -1\n"); */
+      status = pthread_mutex_unlock(&latch->mutex);
+      if (status != 0) {
+        err_abort(status, "Failed mutex unlock");
+      }
+
+      return -1;  
+    }  
+
+  }
+    
+  /* unlock mutex */
+  status = pthread_mutex_unlock(&latch->mutex);
+  if (status != 0) {
+    err_abort(status, "await: Failed mutex unlock");
+  }
+/* printf("cMsgLatchCountDown:done, return 1\n"); */
+  
+  return 1;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine resets a count down latch to a given count.
+ * The latch is disabled, the "cMsgLatchAwait" and "cMsgLatchCountDown"
+ * callers are awakened, wait some time, and finally the count is reset.
+ *
+ * @param latch pointer to latch structure
+ * @param count number to reset the initial count of the latch to
+ * @param timeout time to wait for the "cMsgLatchAwait" and "cMsgLatchCountDown" callers
+ *                to return errors before going ahead and resetting the count
+ */
+void cMsgLatchReset(countDownLatch *latch, int count, const struct timespec *timeout) {
+  int status;
+
+  /* Lock mutex */
+  status = pthread_mutex_lock(&latch->mutex);
+  if (status != 0) {
+    err_abort(status, "Failed mutex lock");
+  }
+    
+  /* Disable the latch */
+  latch->count = -1;
+/* printf("  cMsgLatchReset: count set to -1\n"); */
+  
+  /* signal all waiters to wake up */
+  status = pthread_cond_broadcast(&latch->countCond);
+  if (status != 0) {
+    err_abort(status, "Failed condition broadcast");
+  }
+     
+  /* signal all countDowners to wake up */
+  status = pthread_cond_broadcast(&latch->notifyCond);
+  if (status != 0) {
+    err_abort(status, "Failed condition broadcast");
+  }      
+/* printf("  cMsgLatchReset: broadcasted to count & notify cond vars\n"); */
+        
+  /* unlock mutex */
+  status = pthread_mutex_unlock(&latch->mutex);
+  if (status != 0) {
+    err_abort(status, "await: Failed mutex unlock");
+  }
+  
+  /* wait the given amount for all parties to detect the reset */
+  if (timeout != NULL) {
+/* printf("  cMsgLatchReset: sleeping\n"); */
+    nanosleep(timeout, NULL);
+  }
+  
+  /* Lock mutex again */
+  status = pthread_mutex_lock(&latch->mutex);
+  if (status != 0) {
+    err_abort(status, "Failed mutex lock");
+  }
+    
+  /* Reset the latch */
+  latch->count = count;
+/* printf("  cMsgLatchReset: count set to %d\n", count); */
+  
+  /* unlock mutex */
+  status = pthread_mutex_unlock(&latch->mutex);
+  if (status != 0) {
+    err_abort(status, "await: Failed mutex unlock");
+  }
+/* printf("  cMsgLatchReset: done\n"); */
+
+}
+
+ 
+/*-------------------------------------------------------------------*/
+
+
 /** This routine is run as a thread in which a single callback is executed. */
 void *cMsgCallbackThread(void *arg)
 {
     /* subscription information passed in thru arg */
     cbArg *cbarg = (cbArg *) arg;
-    int domainId = cbarg->domainId;
     int subIndex = cbarg->subIndex;
     int cbIndex  = cbarg->cbIndex;
     cMsgDomainInfo *domain = cbarg->domain;
@@ -956,7 +1275,6 @@ void *cMsgSupplementalThread(void *arg)
 {
     /* subscription information passed in thru arg */
     cbArg *cbarg = (cbArg *) arg;
-    int domainId = cbarg->domainId;
     int subIndex = cbarg->subIndex;
     int cbIndex  = cbarg->cbIndex;
     cMsgDomainInfo *domain = cbarg->domain;
