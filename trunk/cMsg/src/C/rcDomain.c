@@ -100,45 +100,45 @@ static pthread_cond_t cond   = PTHREAD_COND_INITIALIZER;
 
 
 /* Local prototypes */
-
 static void  staticMutexLock(void);
 static void  staticMutexUnlock(void);
 static void *receiver(void *arg);
 static void  defaultShutdownHandler(void *userArg);
-static int   parseUDL(const char *UDL, char **host,
-                      unsigned short *port, char **UDLRemainder);
-
+static int   parseUDL(const char *UDLR, char **host,
+                      unsigned short *port, char **expid,
+                      int  *broadcastTO, int *connectTO, char **junk);
+                      
 /* Prototypes of the 14 functions which implement the standard tasks in cMsg. */
-static int   cmsgd_connect(const char *myUDL, const char *myName,
-                           const char *myDescription,
-                           const char *UDLremainder, void **domainId);
-static int   cmsgd_send(void *domainId, void *msg);
-static int   cmsgd_syncSend(void *domainId, void *msg, int *response);
-static int   cmsgd_flush(void *domainId);
-static int   cmsgd_subscribe(void *domainId, const char *subject, const char *type,
-                             cMsgCallbackFunc *callback, void *userArg,
-                             cMsgSubscribeConfig *config, void **handle);
-static int   cmsgd_unsubscribe(void *domainId, void *handle);
-static int   cmsgd_subscribeAndGet(void *domainId, const char *subject, const char *type,
-                                   const struct timespec *timeout, void **replyMsg);
-static int   cmsgd_sendAndGet(void *domainId, void *sendMsg,
+int   cmsg_rc_connect(const char *myUDL, const char *myName,
+                      const char *myDescription,
+                      const char *UDLremainder, void **domainId);
+int   cmsg_rc_send(void *domainId, void *msg);
+int   cmsg_rc_syncSend(void *domainId, void *msg, int *response);
+int   cmsg_rc_flush(void *domainId);
+int   cmsg_rc_subscribe(void *domainId, const char *subject, const char *type,
+                        cMsgCallbackFunc *callback, void *userArg,
+                        cMsgSubscribeConfig *config, void **handle);
+int   cmsg_rc_unsubscribe(void *domainId, void *handle);
+int   cmsg_rc_subscribeAndGet(void *domainId, const char *subject, const char *type,
                               const struct timespec *timeout, void **replyMsg);
-static int   cmsgd_start(void *domainId);
-static int   cmsgd_stop(void *domainId);
-static int   cmsgd_disconnect(void *domainId);
-static int   cmsgd_shutdownClients(void *domainId, const char *client, int flag);
-static int   cmsgd_shutdownServers(void *domainId, const char *server, int flag);
-static int   cmsgd_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
+int   cmsg_rc_sendAndGet(void *domainId, void *sendMsg,
+                         const struct timespec *timeout, void **replyMsg);
+int   cmsg_rc_start(void *domainId);
+int   cmsg_rc_stop(void *domainId);
+int   cmsg_rc_disconnect(void *domainId);
+int   cmsg_rc_shutdownClients(void *domainId, const char *client, int flag);
+int   cmsg_rc_shutdownServers(void *domainId, const char *server, int flag);
+int   cmsg_rc_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
                                       void *userArg);
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
-static domainFunctions functions = {cmsgd_connect, cmsgd_send,
-                                    cmsgd_syncSend, cmsgd_flush,
-                                    cmsgd_subscribe, cmsgd_unsubscribe,
-                                    cmsgd_subscribeAndGet, cmsgd_sendAndGet,
-                                    cmsgd_start, cmsgd_stop, cmsgd_disconnect,
-                                    cmsgd_shutdownClients, cmsgd_shutdownServers,
-                                    cmsgd_setShutdownHandler};
+static domainFunctions functions = {cmsg_rc_connect, cmsg_rc_send,
+                                    cmsg_rc_syncSend, cmsg_rc_flush,
+                                    cmsg_rc_subscribe, cmsg_rc_unsubscribe,
+                                    cmsg_rc_subscribeAndGet, cmsg_rc_sendAndGet,
+                                    cmsg_rc_start, cmsg_rc_stop, cmsg_rc_disconnect,
+                                    cmsg_rc_shutdownClients, cmsg_rc_shutdownServers,
+                                    cmsg_rc_setShutdownHandler};
 
 /* CC domain type */
 domainTypeInfo rcDomainTypeInfo = {
@@ -186,14 +186,13 @@ domainTypeInfo rcDomainTypeInfo = {
  * @returns CMSG_NETWORK_ERROR if no connection to the rc server can be made,
  *                             or a communication error with server occurs.
  */   
-static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDescription,
+int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescription,
                          const char *UDLremainder, void **domainId) {
   
     unsigned short serverPort;
     char  *serverHost, *expid, buffer[1024];
-    int    err, status, len, expidLen, expidLenNet, tcpServerPort;
-    int    i, id = -1;
-    int    outGoing[2];
+    int    err, status, len, expidLen, expidLenNet;
+    int    i, id = -1, outGoing[2], broadcastTO=0, connectTO=0;
     char   temp[CMSG_MAXHOSTNAMELEN];
     char  *portEnvVariable=NULL;
     unsigned short startingPort;
@@ -215,15 +214,16 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
     bzero(buffer, 1024);
     
     /* parse the UDLRemainder to get the host and port but ignore everything else */
-    err = parseUDL(UDLremainder, &serverHost, &serverPort, NULL);
+    err = parseUDL(UDLremainder, &serverHost, &serverPort,
+                   &expid, &broadcastTO, &connectTO, NULL);
     if (err != CMSG_OK) {
         return(err);
     }
 
     /* First, grab lock for thread safety. This lock must be held until
      * the initialization is completely finished. But just hold through
-     * the whole routine anyway since we do cMsgDomainClear's if there is an
-     * error.
+     * the whole routine anyway since we do cMsgDomainClear's if there
+     * is an error.
      */
     staticMutexLock();
     
@@ -252,29 +252,32 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
         return(CMSG_LIMIT_EXCEEDED);
     }
 
+    /* convenience variable */
+    domain = &rcDomains[id];
+
     /* allocate memory for message-sending buffer */
-    rcDomains[id].msgBuffer     = (char *) malloc(initialMsgBufferSize);
-    rcDomains[id].msgBufferSize = initialMsgBufferSize;
-    if (rcDomains[id].msgBuffer == NULL) {
-        cMsgDomainClear(&rcDomains[id]);
+    domain->msgBuffer     = (char *) malloc(initialMsgBufferSize);
+    domain->msgBufferSize = initialMsgBufferSize;
+    if (domain->msgBuffer == NULL) {
+        cMsgDomainClear(domain);
         staticMutexUnlock();
         return(CMSG_OUT_OF_MEMORY);
     }
 
     /* reserve this element of the "cMsgDomains" array */
-    rcDomains[id].initComplete = 1;
+    domain->initComplete = 1;
 
     /* save ref to self */
-    rcDomains[id].id = id;
+    domain->id = id;
 
     /* store our host's name */
     gethostname(temp, CMSG_MAXHOSTNAMELEN);
-    rcDomains[id].myHost = (char *) strdup(temp);
+    domain->myHost = (char *) strdup(temp);
 
     /* store names, can be changed until server connection established */
-    rcDomains[id].name        = (char *) strdup(myName);
-    rcDomains[id].udl         = (char *) strdup(myUDL);
-    rcDomains[id].description = (char *) strdup(myDescription);
+    domain->name        = (char *) strdup(myName);
+    domain->udl         = (char *) strdup(myUDL);
+    domain->description = (char *) strdup(myDescription);
 
     /*--------------------------------------------------------------------------
      * First find a port on which to receive incoming messages.
@@ -285,14 +288,13 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
      * But before that, define a port number from which to start looking.
      * If CMSG_PORT is defined, it's the starting port number.
      * If CMSG_PORT is NOT defind, start at CMSG_CLIENT_LISTENING_PORT (2345).
-     *-------------------------------------------------------------------------/
-
+     *-------------------------------------------------------------------------*/
+    
     /* pick starting port number */
-    domain = &rcDomains[id];
     if ( (portEnvVariable = getenv("CMSG_PORT")) == NULL ) {
         startingPort = CMSG_CLIENT_LISTENING_PORT;
         if (cMsgDebug >= CMSG_DEBUG_WARN) {
-            fprintf(stderr, "cmsgd_connectImpl: cannot find CMSG_PORT env variable, first try port %hu\n", startingPort);
+            fprintf(stderr, "cmsg_rc_connectImpl: cannot find CMSG_PORT env variable, first try port %hu\n", startingPort);
         }
     }
     else {
@@ -300,7 +302,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
         if (i < 1025 || i > 65535) {
             startingPort = CMSG_CLIENT_LISTENING_PORT;
             if (cMsgDebug >= CMSG_DEBUG_WARN) {
-                fprintf(stderr, "cmsgd_connect: CMSG_PORT contains a bad port #, first try port %hu\n", startingPort);
+                fprintf(stderr, "cmsg_rc_connect: CMSG_PORT contains a bad port #, first try port %hu\n", startingPort);
             }
         }
         else {
@@ -313,7 +315,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
                                        startingPort,
                                        &domain->listenPort,
                                        &domain->listenSocket)) != CMSG_OK) {
-        cMsgDomainClear(&rcDomains[id]);
+        cMsgDomainClear(domain);
         staticMutexUnlock();
         return(err);
     }
@@ -321,17 +323,18 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
     /* launch pend thread and start listening on receive socket */
     threadArg = (cMsgThreadInfo *) malloc(sizeof(cMsgThreadInfo));
     if (threadArg == NULL) {
-        cMsgDomainClear(&rcDomains[id]);
+        cMsgDomainClear(domain);
         staticMutexUnlock();
         return(CMSG_OUT_OF_MEMORY);  
     }
     threadArg->isRunning = 0;
     threadArg->listenFd  = domain->listenSocket;
     threadArg->blocking  = CMSG_NONBLOCKING;
+    threadArg->domain    = domain;
     status = pthread_create(&domain->pendThread, NULL,
                             cMsgClientListeningThread, (void *) threadArg);
     if (status != 0) {
-        err_abort(status, "Creating message listening thread");
+        err_abort(status, "Creating TCP message listening thread");
     }
 
     /*
@@ -359,7 +362,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
     }
     if (num_try > try_max) {
         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-            fprintf(stderr, "cmsgd_connect, cannot start listening thread\n");
+            fprintf(stderr, "cmsg_rc_connect, cannot start listening thread\n");
         }
         exit(-1);
     }
@@ -368,7 +371,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
     free(threadArg);
 
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "cmsgd_connect: created listening thread\n");
+        fprintf(stderr, "cmsg_rc_connect: created listening thread\n");
     }
 
     /*-------------------------------------------------------
@@ -382,25 +385,43 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
     /* create UDP socket */
     domain->sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (domain->sendSocket < 0) {
-        cMsgDomainClear(&rcDomains[id]);
+        cMsgDomainClear(domain);
         staticMutexUnlock();
         return(CMSG_SOCKET_ERROR);
     }
 
+    if ( (err = cMsgStringToNumericIPaddr(serverHost, &servaddr)) != CMSG_OK ) {
+        cMsgDomainClear(domain);
+        staticMutexUnlock();
+        return(err);
+    }
+    
     /*
      * We send 2 items explicitly:
      *   1) TCP server port, and
      *   2) EXPID (experiment id string)
      * The host we're sending from gets sent for free
      * as does the UDP port we're sending from.
+     * The EXPID is obtained from the UDL, but if it's
+     * not defined there then use the environmental
+     * variable value.
      */
-    expid       = getenv("EXPID");
+    if (expid == NULL) {
+        expid = getenv("EXPID");
+    }
+    /* if expid not defined anywhere, return error */
+    if (expid == NULL) {
+        cMsgDomainClear(domain);
+        staticMutexUnlock();
+        return(CMSG_ERROR);
+    }
     expidLen    = strlen(expid);
     expidLenNet = htonl(expidLen);
-/*printf("GOT EXPID = %s\n", expid); */
+/*printf("Sending tcp port = %d, expid = %s to port = %hu on host %s\n",
+        ((int) domain->listenPort), expid, serverPort, serverHost);*/
     
     /* tcp port */
-    outGoing[0] = htonl((int) tcpServerPort);
+    outGoing[0] = htonl((int) domain->listenPort);
     /* length of "expid" string */
     outGoing[1] = htonl(expidLen);
 
@@ -411,12 +432,6 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
     len += expidLen;
     buffer[len] = '\0'; /* add null to end of string */
     len += 1;        /* total length of message */
-    
-    if ( inet_pton(AF_INET, serverHost,  &servaddr.sin_addr) < 1) {
-        cMsgDomainClear(&rcDomains[id]);
-        staticMutexUnlock();
-        return(CMSG_NETWORK_ERROR);
-    }
     
     /* create a thread which will receive any responses to our broadcast */
     bzero(&arg.clientaddr, sizeof(arg.clientaddr));
@@ -430,62 +445,126 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
         err_abort(status, "Creating keep alive thread");
     }
     
-    /* wait for a response for 2 seconds */
-    wait.tv_sec  = 2;
+    /* Wait for a response. If broadcastTO is given in the UDL, use that.
+     * The default wait or the wait if broadcastTO is set to 0, is forever.
+     * Round things to the nearest second since we're only broadcasting a
+     * message every second anyway.
+     */
+    wait.tv_sec  = 1; /* broadcast every second */
     wait.tv_nsec = 0;
     
-    numLoops = 5;
+    if (broadcastTO > 0) {
+/* printf("Wait %d sed for broadcast to be answered\n", broadcastTO); */
+        numLoops = broadcastTO;
+    }
+    else {
+/* printf("Wait forever for broadcast to be answered\n"); */
+        numLoops = 1;    
+    }
+    
     while (!gotResponse && numLoops > 0) {
-        /* send UDP  packet to rc server */
+        /* send UDP packet to rc server */
+/* printf("Send broadcast to RC Broadcast server\n"); */
         sendto(domain->sendSocket, (void *)buffer, len, 0, (SA *) &servaddr,
                sizeof(servaddr));
 
         cMsgGetAbsoluteTime(&wait, &time);
+        
         status = pthread_cond_timedwait(&cond, &mutex, &time);
         if (status == ETIMEDOUT) {
-            numLoops--;
+            /* go forever if broadcastTO == 0 */
+            if (broadcastTO > 0) {       
+                numLoops--;
+            }
             continue;
         }
-        if (status != 0) {
+        else if (status != 0) {
             err_abort(status, "pthread_cond_timedwait");
         }
+        
         gotResponse = 1;
     }
 
     if (!gotResponse) {
-printf("Got no response\n");
-        cMsgDomainClear(&rcDomains[id]);
+/* printf("Got no response\n"); */
+        cMsgDomainClear(domain);
         staticMutexUnlock();
         return(CMSG_NETWORK_ERROR);
     }
+/* printf("Got a response, wait for connect to finish\n"); */
+
+    /* Wait for a special message to come in to the TCP listening thread.
+     * The message will contain the host and UDP port of the destination
+     * of our subsequent sends. If connectTO is given in the UDL, use that.
+     * Otherwise, wait for a maximum of 30 seconds before timing out of this
+     * connect call.
+     */
+     
+    if (connectTO > 0) {
+        wait.tv_sec  = connectTO;
+        wait.tv_nsec = 0;
+    }
+        
+    cMsgMutexLock(&domain->rcConnectMutex);
+    
+    if (connectTO > 0) {
+/* printf("Wait for connect to finish in %d seconds\n", connectTO); */
+        status = cMsgLatchAwait(&domain->syncLatch, &wait);
+    }
     else {
-printf("Got a response!\n");
-printf("main connect thread: clientaddr = %p, len = %d\n", &(arg.clientaddr), arg.len);    
+/* printf("Wait FOREVER for connect to finish\n"); */
+        status = cMsgLatchAwait(&domain->syncLatch, NULL);
     }
 
+    if (status < 1 || !domain->rcConnectComplete) {
+/* printf("Wait timeout or rcConnectComplete is not 1\n"); */
+        cMsgDomainClear(domain);
+        staticMutexUnlock();
+        return(CMSG_TIMEOUT);
+    }
+        
+    cMsgMutexUnlock(&domain->rcConnectMutex);
+
     /*
-     * Create a UDP "connection". This means all subsequent sends are to be
-     * done with the "send" and not the "sendto" function. The benefit is 
-     * that the udp socket does not have to connect and disconnect
-     * for each message sent.
+     * Create a new UDP "connection". This means all subsequent sends are to
+     * be done with the "send" and not the "sendto" function. The benefit is 
+     * that the udp socket does not have to connect and disconnect for each
+     * message sent.
      */
-printf("main connect thread: sending to port = %hu\n", ntohs(arg.clientaddr.sin_port));    
-    err = connect(domain->sendSocket, (SA *)&arg.clientaddr, sizeof(arg.clientaddr));
-    /*err = connect(sockfd, (SA *)&arg.clientaddr, arg.len);*/
-    if (err < 0) {
-printf("Cannot do \"connect\" on udp socket = %d\n", domain->sendSocket);
-perror("connect");
-        cMsgDomainClear(&rcDomains[id]);
+    bzero(&servaddr, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_port = htons(domain->sendPort);
+    
+    /* create new UDP socket for sends */
+    close(domain->sendSocket); /* close old socket */
+    domain->sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (domain->sendSocket < 0) {
+        cMsgDomainClear(domain);
         staticMutexUnlock();
         return(CMSG_SOCKET_ERROR);
     }
-    
+
+    if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
+        cMsgDomainClear(domain);
+        staticMutexUnlock();
+        return(err);
+    }
+
+/*printf("try UDP connection to port = %hu\n", ntohs(servaddr.sin_port));*/
+    err = connect(domain->sendSocket, (SA *)&servaddr, sizeof(servaddr));
+    if (err < 0) {
+        cMsgDomainClear(domain);
+        staticMutexUnlock();
+        return(CMSG_SOCKET_ERROR);
+    }
+   
+    /* return id */
     *domainId = (void *) id;
         
     /* install default shutdown handler (exits program) */
-    cmsgd_setShutdownHandler((void *)id, defaultShutdownHandler, NULL);
+    cmsg_rc_setShutdownHandler((void *)id, defaultShutdownHandler, NULL);
 
-    rcDomains[id].gotConnection = 1;
+    domain->gotConnection = 1;
     
     /* no more mutex protection is necessary */
     staticMutexUnlock();
@@ -503,19 +582,6 @@ static void *receiver(void *arg) {
 
     receiverArg *threadArg = (receiverArg *) arg;
     char buf[1024];
-    int err;
-    struct sockaddr_in clientaddr;
-    socklen_t len;
-    struct timespec wait;
-    
-    wait.tv_sec  = 0;
-    wait.tv_nsec = 100000000;
-    
-    /*
-     * Wait .1 sec for the main thread to hit the timed wait
-     * before we look for a response.
-     */
-    nanosleep(&wait, NULL);
     
     /* ignore error as it will be caught later */   
     recvfrom(threadArg->sockfd, (void *)buf, 1024, 0,
@@ -538,6 +604,19 @@ static void *receiver(void *arg) {
  * reached it limit which is not likely. In this domain cMsgFlush() does nothing
  * and does not need to be called for the message to be sent immediately.<p>
  *
+ * This routine only sends the following messge fields:
+ * <ol>
+ *   <li>cMsg version</li>
+ *   <li>user int</li>
+ *   <li>info</li>
+ *   <li>sender time</li>
+ *   <li>user time</li>
+ *   <li>subject</li>
+ *   <li>type</li>
+ *   <li>creator</li>
+ *   <li>text</li>
+ *   <li>byte array</li>
+ * </ol>
  * @param domainId id of the domain connection
  * @param vmsg pointer to a message structure
  *
@@ -550,20 +629,27 @@ static void *receiver(void *arg) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_send(void *domainId, void *vmsg) {  
+int cmsg_rc_send(void *domainId, void *vmsg) {  
 
-    int err=CMSG_OK, len, lenText;
-    int outGoing[2];
-    char buffer[2048];
     cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
     cMsgDomainInfo *domain = &rcDomains[(int)domainId];
-    
+    char buffer[1510];
+    int err=CMSG_OK, len, lenText, lenSender, lenSubject, lenType, lenByteArray;
+    int highInt, lowInt, outGoing[14];
+    long long llTime;
+    struct timespec now;
+     
     /* clear array */
-    bzero(buffer, 2048);
+    bzero(buffer, 1510);
         
     /* check args */
     if (msg == NULL) return(CMSG_BAD_ARGUMENT);
     
+    if ( (cMsgCheckString(msg->subject) != CMSG_OK ) ||
+         (cMsgCheckString(msg->type)    != CMSG_OK )    ) {
+      return(CMSG_BAD_ARGUMENT);
+    }
+
     if (msg->text == NULL) {
       lenText = 0;
     }
@@ -571,12 +657,76 @@ static int cmsgd_send(void *domainId, void *vmsg) {
       lenText = strlen(msg->text);
     }
     
-    if (lenText > 1500) {
+    /* message id (in network byte order) to domain server */
+    outGoing[1] = htonl(CMSG_SUBSCRIBE_RESPONSE);
+    /* cMsg major version */
+    outGoing[2] = htonl(CMSG_VERSION_MAJOR);
+    /* user int */
+    outGoing[3] = htonl(msg->userInt);
+    /* bit info */
+    outGoing[4] = htonl(msg->info);
+
+    /* time message sent (right now) */
+    clock_gettime(CLOCK_REALTIME, &now);
+    /* convert to milliseconds */
+    llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);
+    highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+    lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+    outGoing[5] = htonl(highInt);
+    outGoing[6] = htonl(lowInt);
+
+    /* user time */
+    llTime  = ((long long)msg->userTime.tv_sec * 1000) +
+              ((long long)msg->userTime.tv_nsec/1000000);
+    highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+    lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+    outGoing[7] = htonl(highInt);
+    outGoing[8] = htonl(lowInt);
+
+    /* length of "sender" string */
+    lenSender   = strlen(domain->name);
+    outGoing[9] = htonl(lenSender);
+    
+    /* length of "subject" string */
+    lenSubject  = strlen(msg->subject);
+    outGoing[10] = htonl(lenSubject);
+    
+    /* length of "type" string */
+    lenType      = strlen(msg->type);
+    outGoing[11] = htonl(lenType);
+
+    /* length of "text" string */
+    outGoing[12] = htonl(lenText);
+
+    /* length of byte array */
+    lenByteArray = msg->byteArrayLength;
+    outGoing[13] = htonl(lenByteArray);
+
+    /* total length of message (minus first int) is first item sent */
+    len = sizeof(outGoing) + lenSubject + lenType +
+          lenSender + lenText + lenByteArray;
+    outGoing[0] = htonl(len - sizeof(int));
+
+    if (len > 1500) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cmsgd_send: may NOT write > 1 packet (1500 bytes)\n");
+        fprintf(stderr, "cmsg_rc_send: may NOT write > 1 packet (1500 bytes)\n");
       }
       return(CMSG_LIMIT_EXCEEDED);
     }
+
+    /* copy data into a single static buffer */
+    memcpy(buffer,     (void *)outGoing, sizeof(outGoing));
+    len = sizeof(outGoing);
+    memcpy(buffer+len, (void *)domain->name, lenSender);
+    len += lenSender;
+    memcpy(buffer+len, (void *)msg->subject, lenSubject);
+    len += lenSubject;
+    memcpy(buffer+len, (void *)msg->type, lenType);
+    len += lenType;
+    memcpy(buffer+len, (void *)msg->text, lenText);
+    len += lenText;
+    memcpy(buffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
+    len += lenByteArray;   
 
     /* Cannot run this while connecting/disconnecting */
     cMsgConnectReadLock(domain);
@@ -589,38 +739,22 @@ static int cmsgd_send(void *domainId, void *vmsg) {
       cMsgConnectReadUnlock(domain);
       return(CMSG_LOST_CONNECTION);
     }
-printf("Try sending on udp socket = %d\n", domain->sendSocket);
-
-    /* flag */
-    outGoing[0] = htonl(1);
-    /* length of "text" string */
-    outGoing[1] = htonl(lenText);
-
-    /* copy data into a single buffer */
-    memcpy(buffer, (void *)outGoing, sizeof(outGoing));
-    len = sizeof(outGoing);
-    memcpy(buffer+len, (void *)msg->text, lenText);
-    len += lenText;
-    buffer[len] = '\0'; /* add null to end of string */
-    len += 1;           /* total length of message   */
 
     /* Send data over (connected) socket. No mutex protection
      * needed here since "write" is atomic and only sends a
      * single packet.
      */
     if (cMsgTcpWrite(domain->sendSocket, (void *) buffer, len) != len) {
-    /*if (send(fd, (void *) buffer, len, 0) != len) {*/
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cmsgd_send: write failure\n");
+        fprintf(stderr, "cmsg_rc_send: write failure\n");
       }
       err = CMSG_NETWORK_ERROR;
     }
-    
+     
     /* done protecting communications */
     cMsgConnectReadUnlock(domain);
     
     return(err);
-
 }
 
 
@@ -628,7 +762,7 @@ printf("Try sending on udp socket = %d\n", domain->sendSocket);
 
 
 /** syncSend is not implemented in the rc domain. */
-static int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
+int cmsg_rc_syncSend(void *domainId, void *vmsg, int *response) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -637,7 +771,7 @@ static int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
 
 
 /** subscribeAndGet is not implemented in the rc domain. */
-static int cmsgd_subscribeAndGet(void *domainId, const char *subject, const char *type,
+int cmsg_rc_subscribeAndGet(void *domainId, const char *subject, const char *type,
                                  const struct timespec *timeout, void **replyMsg) {
   return(CMSG_NOT_IMPLEMENTED);
 }
@@ -647,7 +781,7 @@ static int cmsgd_subscribeAndGet(void *domainId, const char *subject, const char
 
 
 /** sendAndGet is not implemented in the rc domain. */
-static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
+int cmsg_rc_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
                             void **replyMsg) {
   return(CMSG_NOT_IMPLEMENTED);
 }
@@ -657,7 +791,7 @@ static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec
 
 
 /** flush does nothing in the rc domain. */
-static int cmsgd_flush(void *domainId) {  
+int cmsg_rc_flush(void *domainId) {  
   return(CMSG_OK);
 }
 
@@ -692,16 +826,13 @@ static int cmsgd_flush(void *domainId) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
+int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                            void *userArg, cMsgSubscribeConfig *config, void **handle) {
 
     int i, j, iok=0, jok=0, uniqueId, status, err=CMSG_OK;
     cMsgDomainInfo *domain  = &rcDomains[(int)domainId];
     subscribeConfig *sConfig = (subscribeConfig *) config;
     cbArg *cbarg;
-    struct iovec iov[3];
-    int fd = domain->sendSocket;
-
 
     /* check args */  
     if ( (cMsgCheckString(subject) != CMSG_OK ) ||
@@ -821,9 +952,7 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
     /* no match, make new entry */
     iok = 0;
     for (i=0; i<CMSG_MAX_SUBSCRIBE; i++) {
-      int len, lenSubject, lenType;
-      int outGoing[6];
-
+    
       if (domain->subscribeInfo[i].active != 0) {
         continue;
       }
@@ -876,7 +1005,7 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
       /*
        * Pick a unique identifier for the subject/type pair, and
        * send it to the domain server & remember it for future use
-       * Mutex protect this operation as many cmsgd_connect calls may
+       * Mutex protect this operation as many cmsg_rc_connect calls may
        * operate in parallel on this static variable.
        */
       staticMutexLock();
@@ -907,11 +1036,11 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
  * represents a given subject, type, callback, and user argument).
  * This routine is called by the user through
  * cMsgUnSubscribe() given the appropriate UDL. In this domain cMsgFlush()
- * does nothing and does not need to be called for cmsgd_unsubscribe to be
+ * does nothing and does not need to be called for cmsg_rc_unsubscribe to be
  * started immediately.
  *
  * @param domainId id of the domain connection
- * @param handle void pointer obtained from cmsgd_subscribe
+ * @param handle void pointer obtained from cmsg_rc_subscribe
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if the handle or its subject, type, or callback are null,
@@ -922,12 +1051,10 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_unsubscribe(void *domainId, void *handle) {
+int cmsg_rc_unsubscribe(void *domainId, void *handle) {
 
-    int i, j, status, err=CMSG_OK;
+    int status, err=CMSG_OK;
     cMsgDomainInfo *domain = &rcDomains[(int)domainId];
-    int fd = domain->sendSocket;
-    struct iovec iov[3];
     cbArg           *cbarg;
     subInfo         *subscriptionInfo;
     subscribeCbInfo *callbackInfo;
@@ -1041,7 +1168,7 @@ static int cmsgd_unsubscribe(void *domainId, void *handle) {
  *
  * @returns CMSG_OK if successful
  */   
-static int cmsgd_start(void *domainId) {
+int cmsg_rc_start(void *domainId) {
   rcDomains[(int)domainId].receiveState = 1;
   return(CMSG_OK);
 }
@@ -1059,7 +1186,7 @@ static int cmsgd_start(void *domainId) {
  *
  * @returns CMSG_OK if successful
  */   
-static int cmsgd_stop(void *domainId) {
+int cmsg_rc_stop(void *domainId) {
   rcDomains[(int)domainId].receiveState = 0;
   return(CMSG_OK);
 }
@@ -1077,11 +1204,10 @@ static int cmsgd_stop(void *domainId) {
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */   
-static int cmsgd_disconnect(void *domainId) {
+int cmsg_rc_disconnect(void *domainId) {
 
     cMsgDomainInfo *domain = &rcDomains[(int)domainId];
     int i, j, status;
-    int fd = domain->sendSocket;
     subscribeCbInfo *subscription;
 
     if (domain->initComplete != 1) return(CMSG_NOT_INITIALIZED);
@@ -1099,7 +1225,7 @@ static int cmsgd_disconnect(void *domainId) {
 
     /* stop listening and client communication threads */
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "cmsgd_disconnect:cancel listening & client threads\n");
+      fprintf(stderr, "cmsg_rc_disconnect:cancel listening & client threads\n");
     }
 
     pthread_cancel(domain->pendThread);
@@ -1121,7 +1247,7 @@ static int cmsgd_disconnect(void *domainId) {
             subscription->quit = 1;
 
             if (cMsgDebug >= CMSG_DEBUG_INFO) {
-              fprintf(stderr, "cmsgd_disconnect:wake up callback thread\n");
+              fprintf(stderr, "cmsg_rc_disconnect:wake up callback thread\n");
             }
 
             /* wakeup callback thread */
@@ -1180,7 +1306,7 @@ static void defaultShutdownHandler(void *userArg) {
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */   
-static int cmsgd_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
+int cmsg_rc_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
                                     void *userArg) {
   
   cMsgDomainInfo *domain = &rcDomains[(int)domainId];
@@ -1198,7 +1324,7 @@ static int cmsgd_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler
 
 
 /** shutdownClients is not implemented in the rc domain. */
-static int cmsgd_shutdownClients(void *domainId, const char *client, int flag) {
+int cmsg_rc_shutdownClients(void *domainId, const char *client, int flag) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -1207,7 +1333,7 @@ static int cmsgd_shutdownClients(void *domainId, const char *client, int flag) {
 
 
 /** shutdownServers is not implemented in the rc domain. */
-static int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
+int cmsg_rc_shutdownServers(void *domainId, const char *server, int flag) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -1222,11 +1348,13 @@ static int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
 static int parseUDL(const char *UDLR,
                     char **host,
                     unsigned short *port,
+                    char **expid,
+                    int  *broadcastTO,
+                    int  *connectTO,
                     char **junk) {
 
     int        err, len, bufLength, Port, index;
-    unsigned int i;
-    char       *p, *udl, *udlLowerCase, *udlRemainder, *pswd;
+    char       *udl, *udlRemainder, *val;
     char       *buffer;
     const char *pattern = "(([a-zA-Z]+[a-zA-Z0-9\\.\\-]*)|([0-9]+\\.[0-9\\.]+))?:?([0-9]+)?/?(.*)";
     regmatch_t matches[6]; /* we have 6 potential matches: 1 whole, 5 sub */
@@ -1238,7 +1366,7 @@ static int parseUDL(const char *UDLR,
     
     /* make a copy */        
     udlRemainder = (char *) strdup(UDLR);
-/*printf("parseUDLregex: udl remainder = %s\n", udlRemainder);*/   
+/*printf("parseUDL: udl remainder = %s\n", udlRemainder);*/
  
     /* make a big enough buffer to construct various strings, 256 chars minimum */
     len       = strlen(udlRemainder) + 1;
@@ -1249,7 +1377,7 @@ static int parseUDL(const char *UDLR,
     }
     
     /* RC domain UDL is of the form:
-     *        cMsg:CC://<host>:<port>/<junk>
+     *        cMsg:rc://<host>:<port>/?expid=<expid>&broadcastTO=<timeout>&connectTO=<timeout>
      *
      * where we ignore <junk>. But this routine is only passed:
      *       <host>:<port>:/<junk>
@@ -1258,6 +1386,10 @@ static int parseUDL(const char *UDLR,
      * 1) port is optional with a default of RC_BROADCAST_PORT (6543)
      * 2) host is optional with a default of 255.255.255.255 (broadcast)
      *    and may be "localhost" or in dotted decimal form
+     * 3) the experiment id or expid is optional, it is taken from the
+     *    environmental variable EXPID
+     * 4) broadcastTO is the time to wait in seconds before connect returns a
+     *    timeout when a rc broadcast server does not answer 
      */
 
     /* compile regular expression */
@@ -1286,31 +1418,29 @@ static int parseUDL(const char *UDLR,
                 
         /* if the host is "localhost", find the actual host name */
         if (strcmp(buffer, "localhost") == 0) {
-/*printf("parseUDLregex: host = localhost\n");*/
             /* get canonical local host name */
             if (cMsgLocalHost(buffer, bufLength) != CMSG_OK) {
                 /* error finding local host so just broadcast */
+                buffer[0] = 0;
                 strncat(buffer, "255.255.255.255", 15);
-                buffer[15] = '\0';
             }
         }
     }
     else {
+        buffer[0] = 0;
         strncat(buffer, "255.255.255.255", 15);
-        buffer[15] = '\0';
     }
     
     if (host != NULL) {
         *host = (char *)strdup(buffer);
     }    
-/*printf("parseUDLregex: host = %s\n", buffer);*/
+/*printf("parseUDL: host = %s\n", buffer);*/
 
 
     /* find port */
     index = 4;
     if (matches[index].rm_so < 0) {
         /* no match for port so use default */
-/*printf("parseUDLregex: no port found, use default\n");*/
         Port = RC_BROADCAST_PORT;
         if (cMsgDebug >= CMSG_DEBUG_WARN) {
             fprintf(stderr, "parseUDLregex: guessing that the name server port is %d\n",
@@ -1318,7 +1448,6 @@ static int parseUDL(const char *UDLR,
         }
     }
     else {
-/*printf("parseUDLregex: found port\n");*/
         buffer[0] = 0;
         len = matches[index].rm_eo - matches[index].rm_so;
         strncat(buffer, udlRemainder+matches[index].rm_so, len);        
@@ -1335,13 +1464,14 @@ static int parseUDL(const char *UDLR,
     if (port != NULL) {
       *port = Port;
     }
-/*printf("parseUDLregex: port = %hu\n", Port );*/
+/*printf("parseUDL: port = %hu\n", Port );*/
 
     /* find junk */
     index++;
     buffer[0] = 0;
     if (matches[index].rm_so < 0) {
         /* no match */
+        len = 0;
         if (junk != NULL) {
             *junk = NULL;
         }
@@ -1353,8 +1483,103 @@ static int parseUDL(const char *UDLR,
         if (junk != NULL) {
             *junk = (char *) strdup(buffer);
         }        
-/*printf("parseUDLregex: remainder = %s, len = %d\n", buffer, len);*/
+/*printf("parseUDL: remainder = %s, len = %d\n", buffer, len);*/
     }
+
+    /* find expid parameter in the junk if it exists*/
+    len = strlen(buffer);
+    while (len > 0) {
+
+        /* look for ?expid=value& or &expid=value& */
+        pattern = "expid=([a-zA-Z0-9_\\-]+)&?";
+
+        /* compile regular expression */
+        cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
+
+        /* find matches */
+        val = strdup(buffer);
+        err = cMsgRegexec(&compiled, val, 2, matches, 0);
+        
+        /* if there's a match ... */
+        if (err == 0) {
+            /* find expid */
+            if ((unsigned int)(matches[1].rm_so) >= 0) {
+               buffer[0] = 0;
+               len = matches[1].rm_eo - matches[1].rm_so;
+               strncat(buffer, val+matches[1].rm_so, len);
+               if (expid != NULL) {
+                 *expid = (char *) strdup(buffer);
+               }        
+/*printf("parseUDL: expid = %s\n", buffer);*/
+            }
+        }
+                
+         /* free up memory */
+        cMsgRegfree(&compiled);
+       
+        /* now look for ?broadcastTO=value& or &broadcastTO=value& */
+        pattern = "broadcastTO=([0-9]+)&?";
+
+        /* compile regular expression */
+        cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
+
+        /* find matches */
+        err = cMsgRegexec(&compiled, val, 2, matches, 0);
+        
+        /* if there's a match ... */
+        if (err == 0) {
+            /* find timeout (in milliseconds) */
+            if ((unsigned int)(matches[1].rm_so) >= 0) {
+               int t;
+               buffer[0] = 0;
+               len = matches[1].rm_eo - matches[1].rm_so;
+               strncat(buffer, val+matches[1].rm_so, len);
+               t = atoi(buffer);
+               if (t < 1) t=0;
+               if (broadcastTO != NULL) {
+                 *broadcastTO = t;
+               }        
+/*printf("parseUDL: broadcast timeout = %d\n", t);*/
+            }
+        }
+        
+        
+        /* free up memory */
+        cMsgRegfree(&compiled);
+       
+        /* now look for ?connectTO=value& or &connectTO=value& */
+        pattern = "connectTO=([0-9]+)&?";
+
+        /* compile regular expression */
+        cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
+
+        /* find matches */
+        err = cMsgRegexec(&compiled, val, 2, matches, 0);
+        
+        /* if there's a match ... */
+        if (err == 0) {
+            /* find timeout (in milliseconds) */
+            if ((unsigned int)(matches[1].rm_so) >= 0) {
+               int t;
+               buffer[0] = 0;
+               len = matches[1].rm_eo - matches[1].rm_so;
+               strncat(buffer, val+matches[1].rm_so, len);
+               t = atoi(buffer);
+               if (t < 1) t=0;
+               if (connectTO != NULL) {
+                 *connectTO = t;
+               }        
+/*printf("parseUDL: connection timeout = %d\n", t);*/
+            }
+        }
+        
+        /* free up memory */
+        cMsgRegfree(&compiled);
+        free(val);
+        
+        break;
+    }
+
 
 
     /* UDL parsed ok */
