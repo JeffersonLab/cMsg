@@ -338,6 +338,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         err_abort(status, "Creating TCP message listening thread");
     }
 
+/*
 printf("Wait for 5 seconds, then cancel pendthread\n");
     waitForThread.tv_sec  = 5;
     waitForThread.tv_nsec = 0;
@@ -346,7 +347,7 @@ printf("Wait for 5 seconds, then cancel pendthread\n");
 printf("Wait for 5 more seconds, then exit\n");
     nanosleep(&waitForThread, NULL);
     exit(-1);
-
+*/
     /*
      * Wait for flag to indicate thread is actually running before
      * continuing on. This thread must be running before we talk to
@@ -1237,9 +1238,6 @@ int cmsg_rc_disconnect(void *domainId) {
 
     /* close sending socket */
     close(domain->sendSocket);
-
-    /* close receiving socket */
-    close(domain->receiveSocket);
 
     /* stop listening and client communication threads */
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
