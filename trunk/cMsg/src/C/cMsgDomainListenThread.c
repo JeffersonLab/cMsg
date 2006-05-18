@@ -73,7 +73,8 @@ static void cleanUpHandler(void *arg) {
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "cMsgClientListeningThread: cancelling mesage receiving threads\n");
   }
-  
+printf("About to execute pthread_cancel on nonexistant thread\n");
+fflush(stdout);  
   pthread_cancel(domain->clientThread[1]);
   
   /* Nornally we could just cancel the thread and if the subscription
@@ -389,9 +390,7 @@ static void *clientThread(void *arg)
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread %d: error reading message\n", localCount);
             }
-            free((void *) message->domain);
-            free((void *) message->receiver);
-            free((void *) message->receiverHost);
+            cMsgFreeMessage((void *) message);
             goto end;
           }
           
@@ -402,6 +401,7 @@ static void *clientThread(void *arg)
               if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                 fprintf(stderr, "clientThread %d: write failure\n", localCount);
               }
+              cMsgFreeMessage((void *) message);
               goto end;
             }
           }       
@@ -419,6 +419,7 @@ static void *clientThread(void *arg)
                 fprintf(stderr, "clientThread %d: too many messages cued up\n", localCount);
               }
             }
+            cMsgFreeMessage((void *) message);
             goto end;
           }
       }
@@ -451,9 +452,7 @@ static void *clientThread(void *arg)
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread %d: error reading message\n", localCount);
             }
-            free((void *) message->domain);
-            free((void *) message->receiver);
-            free((void *) message->receiverHost);
+            cMsgFreeMessage((void *) message);
             goto end;
           }
           
@@ -464,6 +463,7 @@ static void *clientThread(void *arg)
               if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                 fprintf(stderr, "clientThread %d: write failure\n", localCount);
               }
+              cMsgFreeMessage((void *) message);
               goto end;
             }
           }       
@@ -524,6 +524,54 @@ static void *clientThread(void *arg)
       }
       break;
       
+      /* for RC server & RC domains only */
+      case  CMSG_RC_CONNECT:
+      {
+          int status;
+          cMsgMessage_t *message;
+          struct timespec wait;
+          
+/*printf("clientThread %d: Got CMSG_RC_CONNECT message!!!\n", localCount);*/
+
+          message = (cMsgMessage_t *) cMsgCreateMessage();
+          if (message == NULL) {
+            if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+              fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
+            }
+            exit(1);
+          }
+
+          if (cMsgDebug >= CMSG_DEBUG_INFO) {
+            fprintf(stderr, "clientThread %d: RC Server connect received\n", localCount);
+          }
+                    
+          /* read the message */
+          if ( cMsgReadMessage(connfd, buffer, message, &acknowledge) != CMSG_OK) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+              fprintf(stderr, "clientThread %d: error reading message\n", localCount);
+            }
+            cMsgFreeMessage((void *) message);
+            goto end;
+          }
+          
+          /* We need 2 pieces of info from the server: 1) server's host,
+           * 2) server's UDP port. These are in the message and must be
+           * recorded in the domain structure for future use.
+           */
+          domain->sendPort = (unsigned short)message->userInt;
+          domain->sendHost = (char *) strdup(message->senderHost);
+          
+          /* notify "connect" call that it may resume and end now */
+          wait.tv_sec  = 1;
+          wait.tv_nsec = 0;
+          domain->rcConnectComplete = 1;
+          cMsgLatchCountDown(&domain->syncLatch, &wait);
+                    
+          /* now free message */
+          cMsgFreeMessage((void *) message);
+      }
+      break;
+
       default:
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "clientThread %d: given unknown message (%d)\n", localCount, msgId);
@@ -646,6 +694,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   /*------------------------*/
   if ( (tmp = (char *) malloc((size_t) (lengths[1]+1))) == NULL) {
     free((void *) msg->sender);
+    msg->sender = NULL;
     return(CMSG_OUT_OF_MEMORY);    
   }
   memcpy(tmp, pchar, lengths[1]);
@@ -660,6 +709,8 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   if ( (tmp = (char *) malloc((size_t) (lengths[2]+1))) == NULL) {
     free((void *) msg->sender);
     free((void *) msg->senderHost);
+    msg->sender     = NULL;
+    msg->senderHost = NULL;
     return(CMSG_OUT_OF_MEMORY);    
   }
   memcpy(tmp, pchar, lengths[2]);
@@ -675,6 +726,9 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
     free((void *) msg->sender);
     free((void *) msg->senderHost);
     free((void *) msg->subject);
+    msg->sender     = NULL;
+    msg->senderHost = NULL;
+    msg->subject    = NULL;
     return(CMSG_OUT_OF_MEMORY);    
   }
   memcpy(tmp, pchar, lengths[3]);
@@ -691,6 +745,10 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
     free((void *) msg->senderHost);
     free((void *) msg->subject);
     free((void *) msg->type);
+    msg->sender     = NULL;
+    msg->senderHost = NULL;
+    msg->subject    = NULL;
+    msg->type       = NULL;
     return(CMSG_OUT_OF_MEMORY);    
   }
   memcpy(tmp, pchar, lengths[4]);
@@ -709,6 +767,11 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
       free((void *) msg->subject);
       free((void *) msg->type);
       free((void *) msg->creator);
+      msg->sender     = NULL;
+      msg->senderHost = NULL;
+      msg->subject    = NULL;
+      msg->type       = NULL;
+      msg->creator    = NULL;
       return(CMSG_OUT_OF_MEMORY);    
     }
     memcpy(tmp, pchar, lengths[5]);
@@ -729,8 +792,15 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
       free((void *) msg->subject);
       free((void *) msg->type);
       free((void *) msg->creator);
+      msg->sender     = NULL;
+      msg->senderHost = NULL;
+      msg->subject    = NULL;
+      msg->type       = NULL;
+      msg->creator    = NULL;
+      
       if (lengths[5] > 0) {
         free((void *) msg->text);
+        msg->text = NULL;
       }
       return(CMSG_OUT_OF_MEMORY);    
     }
@@ -739,6 +809,23 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "cMsgReadMessage: error reading message 3\n");
       }
+      
+      free((void *) msg->sender);
+      free((void *) msg->senderHost);
+      free((void *) msg->subject);
+      free((void *) msg->type);
+      free((void *) msg->creator);
+      msg->sender     = NULL;
+      msg->senderHost = NULL;
+      msg->subject    = NULL;
+      msg->type       = NULL;
+      msg->creator    = NULL;
+      
+      if (lengths[5] > 0) {
+        free((void *) msg->text);
+        msg->text = NULL;
+      }
+
       return(CMSG_NETWORK_ERROR);
     }
 

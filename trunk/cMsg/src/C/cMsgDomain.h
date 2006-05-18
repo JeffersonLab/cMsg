@@ -128,13 +128,13 @@ typedef struct parsedUDL_t {
  */
 typedef struct cMsgDomainInfo_t {  
   
-  int id;                     /**< Unique id of connection. */ 
+  int id;            /**< Unique id of connection. */ 
   
-  volatile int initComplete;  /**< Boolean telling if imitialization of this structure
-                                    is complete and it is being used. 0 = No, 1 = Yes */
-  volatile int receiveState;  /**< Boolean telling if messages are being delivered to
-                                    callbacks (1) or if they are being igmored (0). */
-  volatile int gotConnection; /**< Boolean telling if connection to cMsg server is good. */
+  int initComplete;  /**< Boolean telling if imitialization of this structure
+                          is complete and it is being used. 0 = No, 1 = Yes */
+  int receiveState;  /**< Boolean telling if messages are being delivered to
+                          callbacks (1) or if they are being igmored (0). */
+  int gotConnection; /**< Boolean telling if connection to cMsg server is good. */
   
   int sendSocket;      /**< File descriptor for TCP socket to send messages/requests on. */
   int receiveSocket;   /**< File descriptor for TCP socket to receive request responses on. */
@@ -170,7 +170,7 @@ typedef struct cMsgDomainInfo_t {
   int implementFailovers;    /**< Boolean telling if failovers are being used. */
   int resubscribeComplete;   /**< Boolean telling if resubscribe is complete in failover process. */
   int killClientThread;      /**< Boolean telling if client thread receiving messages should be killed. */
-  countDownLatch failoverLatch; /**< Latch used to synchronize the failover. */
+  countDownLatch syncLatch; /**< Latch used to synchronize the failover. */
   
   char *msgBuffer;           /**< Buffer used in socket communication to server. */
   int   msgBufferSize;       /**< Size of buffer (in bytes) used in socket communication to server. */
@@ -190,7 +190,15 @@ typedef struct cMsgDomainInfo_t {
   pthread_mutex_t syncSendMutex;  /**< Mutex to ensure thread-safety of syncSends. */
   pthread_mutex_t subscribeMutex; /**< Mutex to ensure thread-safety of (un)subscribes. */
   pthread_cond_t  subscribeCond;  /**< Condition variable used for waiting on clogged callback cue. */
-    
+
+  /*  rc domain stuff  */
+  pthread_mutex_t rcConnectMutex;    /**< Mutex used for rc domain connect. */
+  pthread_cond_t  rcConnectCond;     /**< Condition variable used for rc domain connect. */
+  char            rcConnectComplete; /**< Has a special TCP message been sent from RC
+                                          server to indicate that connection is conplete?
+                                          (1-y, 0-n) */
+  /* ***************** */
+   
   /** Array of structures - each of which contain a subscription. */
   subInfo subscribeInfo[CMSG_MAX_SUBSCRIBE]; 
   /** Array of structures - each of which contain a subscribeAndGet. */
@@ -255,6 +263,9 @@ void  cMsgSubscribeMutexLock(cMsgDomainInfo *domain);
 void  cMsgSubscribeMutexUnlock(cMsgDomainInfo *domain);
 void  cMsgCountDownLatchFree(countDownLatch *latch); 
 void  cMsgCountDownLatchInit(countDownLatch *latch, int count, int reInit);
+void  cMsgLatchReset(countDownLatch *latch, int count, const struct timespec *timeout);
+int   cMsgLatchCountDown(countDownLatch *latch, const struct timespec *timeout);
+int   cMsgLatchAwait(countDownLatch *latch, const struct timespec *timeout);
 
 /* threads */
 void *cMsgClientListeningThread(void *arg);
