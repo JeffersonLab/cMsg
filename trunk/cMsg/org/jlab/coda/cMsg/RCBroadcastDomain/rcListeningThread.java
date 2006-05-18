@@ -131,18 +131,26 @@ public class rcListeningThread extends Thread {
                 String rcClientHost = clientAddress.getCanonicalHostName();
                 int rcClientUdpPort = packet.getPort();   // port to send response packet to
                 int rcClientTcpPort = bytesToInt(buf, 0); // tcp listening port
-                int expidLen        = bytesToInt(buf, 4); // length of expid (# chars)
+                int nameLen         = bytesToInt(buf, 4); // length of client name (# chars)
+                int expidLen        = bytesToInt(buf, 8); // length of expid (# chars)
+
+                // rc client's name
+                String clientName = null;
+                try {
+                    clientName = new String(buf, 12, nameLen, "US-ASCII");
+                }
+                catch (UnsupportedEncodingException e) {}
 
                 // rc client's EXPID
                 String clientExpid = null;
                 try {
-                    clientExpid = new String(buf, 8, expidLen, "US-ASCII");
-//System.out.println("clientHost = " + rcClientHost + ", UDP port = " + rcClientUdpPort +
-//                   ", TCP port = " + rcClientTcpPort +
-//                   ", expid = " + clientExpid);
+                    clientExpid = new String(buf, 12+nameLen, expidLen, "US-ASCII");
                 }
-                catch (UnsupportedEncodingException e) {
-                }
+                catch (UnsupportedEncodingException e) {}
+
+System.out.println("clientHost = " + rcClientHost + ", UDP port = " + rcClientUdpPort +
+                   ", TCP port = " + rcClientTcpPort + ", name = " + clientName +
+                   ", expid = " + clientExpid);
 
                 // Check for conflicting expid's
                 if (!server.expid.equalsIgnoreCase(clientExpid)) {
@@ -154,6 +162,7 @@ public class rcListeningThread extends Thread {
                 cMsgMessageFull msg = new cMsgMessageFull();
                 msg.setSenderHost(rcClientHost);
                 msg.setUserInt(rcClientTcpPort);
+                msg.setSender(clientName);
                 msg.setDomain(domainType);
                 msg.setReceiver(server.getName());
                 msg.setReceiverHost(server.getHost());
