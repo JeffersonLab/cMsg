@@ -91,38 +91,38 @@ cMsgDomainInfo cMsgDomains[MAXDOMAINS_CODA];
 
 
 /* Prototypes of the functions which implement the standard cMsg tasks in the cMsg domain. */
-static int   cmsgd_connect           (const char *myUDL, const char *myName, const char *myDescription,
-                                      const char *UDLremainder,void **domainId);
-static int   cmsgd_send              (void *domainId, void *msg);
-static int   cmsgd_syncSend          (void *domainId, void *msg, int *response);
-static int   cmsgd_flush             (void *domainId);
-static int   cmsgd_subscribe         (void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
-                                      void *userArg, cMsgSubscribeConfig *config, void **handle);
-static int   cmsgd_unsubscribe       (void *domainId, void *handle);
-static int   cmsgd_subscribeAndGet   (void *domainId, const char *subject, const char *type,
-                                      const struct timespec *timeout, void **replyMsg);
-static int   cmsgd_sendAndGet        (void *domainId, void *sendMsg, const struct timespec *timeout,
-                                      void **replyMsg);
-static int   cmsgd_start             (void *domainId);
-static int   cmsgd_stop              (void *domainId);
-static int   cmsgd_disconnect        (void *domainId);
-static int   cmsgd_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
-static int   cmsgd_shutdownClients   (void *domainId, const char *client, int flag);
-static int   cmsgd_shutdownServers   (void *domainId, const char *server, int flag);
+int   cmsg_cmsg_connect           (const char *myUDL, const char *myName, const char *myDescription,
+                                   const char *UDLremainder,void **domainId);
+int   cmsg_cmsg_send              (void *domainId, void *msg);
+int   cmsg_cmsg_syncSend          (void *domainId, void *msg, int *response);
+int   cmsg_cmsg_flush             (void *domainId);
+int   cmsg_cmsg_subscribe         (void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
+                                   void *userArg, cMsgSubscribeConfig *config, void **handle);
+int   cmsg_cmsg_unsubscribe       (void *domainId, void *handle);
+int   cmsg_cmsg_subscribeAndGet   (void *domainId, const char *subject, const char *type,
+                                   const struct timespec *timeout, void **replyMsg);
+int   cmsg_cmsg_sendAndGet        (void *domainId, void *sendMsg, const struct timespec *timeout,
+                                   void **replyMsg);
+int   cmsg_cmsg_start             (void *domainId);
+int   cmsg_cmsg_stop              (void *domainId);
+int   cmsg_cmsg_disconnect        (void *domainId);
+int   cmsg_cmsg_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
+int   cmsg_cmsg_shutdownClients   (void *domainId, const char *client, int flag);
+int   cmsg_cmsg_shutdownServers   (void *domainId, const char *server, int flag);
 
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
-static domainFunctions functions = {cmsgd_connect, cmsgd_send,
-                                    cmsgd_syncSend, cmsgd_flush,
-                                    cmsgd_subscribe, cmsgd_unsubscribe,
-                                    cmsgd_subscribeAndGet, cmsgd_sendAndGet,
-                                    cmsgd_start, cmsgd_stop, cmsgd_disconnect,
-                                    cmsgd_shutdownClients, cmsgd_shutdownServers,
-                                    cmsgd_setShutdownHandler};
+static domainFunctions functions = {cmsg_cmsg_connect, cmsg_cmsg_send,
+                                    cmsg_cmsg_syncSend, cmsg_cmsg_flush,
+                                    cmsg_cmsg_subscribe, cmsg_cmsg_unsubscribe,
+                                    cmsg_cmsg_subscribeAndGet, cmsg_cmsg_sendAndGet,
+                                    cmsg_cmsg_start, cmsg_cmsg_stop, cmsg_cmsg_disconnect,
+                                    cmsg_cmsg_shutdownClients, cmsg_cmsg_shutdownServers,
+                                    cmsg_cmsg_setShutdownHandler};
 
 /* cMsg domain type */
 domainTypeInfo cmsgDomainTypeInfo = {
-  "cMsg",
+  "cmsg",
   &functions
 };
 
@@ -133,9 +133,6 @@ domainTypeInfo cmsgDomainTypeInfo = {
 /* mutexes and read/write locks */
 static void  staticMutexLock(void);
 static void  staticMutexUnlock(void);
-static void  latchReset(countDownLatch *latch, int count, const struct timespec *timeout);
-static int   latchCountDown(countDownLatch *latch, const struct timespec *timeout);
-static int   latchAwait(countDownLatch *latch, const struct timespec *timeout);
 
 /* threads */
 static void *keepAliveThread(void *arg);
@@ -146,18 +143,19 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes);
 static int resubscribe(cMsgDomainInfo *domain, const char *subject, const char *type);
 
 /* misc */
-static int disconnectFromKeepAlive(void *domainId);
-static int cmsgd_connectImpl(int domainId, int failoverIndex);
-static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIndex);
-static int parseUDL(const char *UDL, char **password,
-                              char **host, unsigned short *port,
-                              char **UDLRemainder,
-                              char **subdomainType,
-                              char **UDLsubRemainder);
-static int   unSendAndGet(void *domainId, int id);
-static int   unSubscribeAndGet(void *domainId, const char *subject,
+static void parsedUDLFree(parsedUDL *p);  
+static int  disconnectFromKeepAlive(void *domainId);
+static int  connectImpl(int domainId, int failoverIndex);
+static int  talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIndex);
+static int  parseUDL(const char *UDL, char **password,
+                     char **host, unsigned short *port,
+                     char **UDLRemainder,
+                     char **subdomainType,
+                     char **UDLsubRemainder);
+static int  unSendAndGet(void *domainId, int id);
+static int  unSubscribeAndGet(void *domainId, const char *subject,
                                const char *type, int id);
-static void  defaultShutdownHandler(void *userArg);
+static void defaultShutdownHandler(void *userArg);
 
 #ifdef VXWORKS
 /** Implementation of strdup() to cover vxWorks operating system. */
@@ -245,8 +243,8 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
      * before giving up and returning an error.
      */
     
-    err = latchAwait(&domain->failoverLatch, &wait);
-/* printf("IN failoverSuccessful, latchAwait return = %d\n", err); */
+    err = cMsgLatchAwait(&domain->syncLatch, &wait);
+/* printf("IN failoverSuccessful, cMsgLatchAwait return = %d\n", err); */
     /* if latch reset or timedout, return false */
     if (err < 1) {
       return 0;
@@ -294,7 +292,7 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
  * the connection uniquely and is required as an argument by many other routines.
  *
  * This routine mainly does the UDL parsing. The actual connecting
- * to the name server is done in "cmsgd_connectImpl".
+ * to the name server is done in "connectImpl".
  * 
  * @param myUDL the Universal Domain Locator used to uniquely identify the cMsg
  *        server to connect to
@@ -318,7 +316,7 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
  * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
  *                             or a communication error with either server occurs.
  */   
-static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDescription,
+int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescription,
                          const char *UDLremainder, void **domainId) {
         
   char *p, *udl;
@@ -468,7 +466,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
           return(CMSG_BAD_FORMAT);            
       }
       
-      err = cmsgd_connectImpl(id, 0);
+      err = connectImpl(id, 0);
       if (err != CMSG_OK) {
           cMsgDomainClear(&cMsgDomains[id]);
           staticMutexUnlock();
@@ -494,7 +492,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
 /* printf("\nTrying to connect with UDL = %s\n",
       cMsgDomains[id].failovers[failoverIndex].udl); */
 
-      err = cmsgd_connectImpl(id, failoverIndex);
+      err = connectImpl(id, failoverIndex);
       if (err == CMSG_OK) {
         cMsgDomains[id].failoverIndex = failoverIndex;
         gotConnection = 1;
@@ -517,7 +515,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
   *domainId = (void *)id;
 
   /* install default shutdown handler (exits program) */
-  cmsgd_setShutdownHandler((void *)id, defaultShutdownHandler, NULL);
+  cmsg_cmsg_setShutdownHandler((void *)id, defaultShutdownHandler, NULL);
 
   cMsgDomains[id].gotConnection = 1;
 
@@ -531,7 +529,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
 
 
 /**
- * This routine is called by cmsgd_connect and does the real work of
+ * This routine is called by cmsg_cmsg_connect and does the real work of
  * connecting to the cMsg name server.
  * 
  * @param domainId pointer to integer which gets filled with a unique id referring
@@ -545,7 +543,7 @@ static int cmsgd_connect(const char *myUDL, const char *myName, const char *myDe
  * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
  *                             or a communication error with either server occurs.
  */   
-static int cmsgd_connectImpl(int domainId, int failoverIndex) {
+static int connectImpl(int domainId, int failoverIndex) {
 
   int i, id=-1, err, serverfd, status, hz, num_try, try_max;
   char *portEnvVariable=NULL;
@@ -571,7 +569,7 @@ static int cmsgd_connectImpl(int domainId, int failoverIndex) {
   if ( (portEnvVariable = getenv("CMSG_PORT")) == NULL ) {
     startingPort = CMSG_CLIENT_LISTENING_PORT;
     if (cMsgDebug >= CMSG_DEBUG_WARN) {
-      fprintf(stderr, "cmsgd_connectImpl: cannot find CMSG_PORT env variable, first try port %hu\n", startingPort);
+      fprintf(stderr, "connectImpl: cannot find CMSG_PORT env variable, first try port %hu\n", startingPort);
     }
   }
   else {
@@ -579,7 +577,7 @@ static int cmsgd_connectImpl(int domainId, int failoverIndex) {
     if (i < 1025 || i > 65535) {
       startingPort = CMSG_CLIENT_LISTENING_PORT;
       if (cMsgDebug >= CMSG_DEBUG_WARN) {
-        fprintf(stderr, "cmsgd_connectImpl: CMSG_PORT contains a bad port #, first try port %hu\n", startingPort);
+        fprintf(stderr, "connectImpl: CMSG_PORT contains a bad port #, first try port %hu\n", startingPort);
       }
     }
     else {
@@ -634,7 +632,7 @@ static int cmsgd_connectImpl(int domainId, int failoverIndex) {
   }
   if (num_try > try_max) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cmsgd_connectImpl, cannot start listening thread\n");
+      fprintf(stderr, "connectImpl, cannot start listening thread\n");
     }
     exit(-1);
   }
@@ -643,7 +641,7 @@ static int cmsgd_connectImpl(int domainId, int failoverIndex) {
   free(threadArg);
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_connectImpl: created listening thread\n");
+    fprintf(stderr, "connectImpl: created listening thread\n");
   }
   
   /*---------------------------------------------------------------*/
@@ -660,7 +658,7 @@ static int cmsgd_connectImpl(int domainId, int failoverIndex) {
   }
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_connectImpl: connected to name server\n");
+    fprintf(stderr, "connectImpl: connected to name server\n");
   }
   
   /* get host & port (domain->sendHost,sendPort) to send messages to */
@@ -674,15 +672,15 @@ static int cmsgd_connectImpl(int domainId, int failoverIndex) {
   /* BUGBUG free up memory allocated in parseUDL & no longer needed */
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_connectImpl: got host and port from name server\n");
+    fprintf(stderr, "connectImpl: got host and port from name server\n");
   }
   
   /* done talking to server */
   close(serverfd);
  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_connectImpl: closed name server socket\n");
-    fprintf(stderr, "cmsgd_connectImpl: sendHost = %s, sendPort = %hu\n",
+    fprintf(stderr, "connectImpl: closed name server socket\n");
+    fprintf(stderr, "connectImpl: sendHost = %s, sendPort = %hu\n",
                              domain->sendHost,
                              domain->sendPort);
   }
@@ -696,7 +694,7 @@ static int cmsgd_connectImpl(int domainId, int failoverIndex) {
   }
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_connectImpl: created receiving socket fd = %d\n", domain->receiveSocket);
+    fprintf(stderr, "connectImpl: created receiving socket fd = %d\n", domain->receiveSocket);
   }
     
   /* create keep alive socket and store */
@@ -709,7 +707,7 @@ static int cmsgd_connectImpl(int domainId, int failoverIndex) {
   }
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_connectImpl: created keepalive socket fd = %d\n",domain->keepAliveSocket );
+    fprintf(stderr, "connectImpl: created keepalive socket fd = %d\n",domain->keepAliveSocket );
   }
   
   /* create thread to send periodic keep alives and handle dead server */
@@ -720,7 +718,7 @@ static int cmsgd_connectImpl(int domainId, int failoverIndex) {
   }
      
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_connectImpl: created keep alive thread\n");
+    fprintf(stderr, "connectImpl: created keep alive thread\n");
   }
 
   /* create sending socket and store */
@@ -734,7 +732,7 @@ static int cmsgd_connectImpl(int domainId, int failoverIndex) {
   }
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_connectImpl: created sending socket fd = %d\n", domain->sendSocket);
+    fprintf(stderr, "connectImpl: created sending socket fd = %d\n", domain->sendSocket);
   }
   
   return(CMSG_OK);
@@ -964,7 +962,7 @@ static int reconnect(int domainId, int failoverIndex) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_send(void *domainId, void *vmsg) {
+int cmsg_cmsg_send(void *domainId, void *vmsg) {
   
   int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
@@ -1101,7 +1099,7 @@ static int cmsgd_send(void *domainId, void *vmsg) {
       cMsgSocketMutexUnlock(domain);
       cMsgConnectReadUnlock(domain);
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cmsgd_send: write failure\n");
+        fprintf(stderr, "cmsg_cmsg_send: write failure\n");
       }
       err = CMSG_NETWORK_ERROR;
       break;
@@ -1118,7 +1116,7 @@ static int cmsgd_send(void *domainId, void *vmsg) {
     /* don't wait for resubscribes */
     if (failoverSuccessful(domain, 0)) {
        fd = domain->sendSocket;
-       printf("cmsgd_send: FAILOVER SUCCESSFUL, try send again\n");
+       printf("cmsg_cmsg_send: FAILOVER SUCCESSFUL, try send again\n");
        goto tryagain;
     }  
   }
@@ -1152,7 +1150,7 @@ static int cmsgd_send(void *domainId, void *vmsg) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
+int cmsg_cmsg_syncSend(void *domainId, void *vmsg, int *response) {
   
   int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
@@ -1272,7 +1270,7 @@ static int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
         cMsgSyncSendMutexUnlock(domain);
         cMsgConnectReadUnlock(domain);
         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-          fprintf(stderr, "cmsgd_syncSend: out of memory\n");
+          fprintf(stderr, "cmsg_cmsg_syncSend: out of memory\n");
         }
         return(CMSG_OUT_OF_MEMORY);
       }
@@ -1298,7 +1296,7 @@ static int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
       cMsgSyncSendMutexUnlock(domain);
       cMsgConnectReadUnlock(domain);
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cmsgd_syncSend: write failure\n");
+        fprintf(stderr, "cmsg_cmsg_syncSend: write failure\n");
       }
       err = CMSG_NETWORK_ERROR;
       break;
@@ -1312,7 +1310,7 @@ static int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
       cMsgSyncSendMutexUnlock(domain);
       cMsgConnectReadUnlock(domain);
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cmsgd_syncSend: read failure\n");
+        fprintf(stderr, "cmsg_cmsg_syncSend: read failure\n");
       }
       err = CMSG_NETWORK_ERROR;
       break;
@@ -1328,10 +1326,10 @@ static int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
     /* don't wait for resubscribes */
     if (failoverSuccessful(domain, 0)) {
        fd = domain->sendSocket;
-       printf("cmsgd_syncSend: FAILOVER SUCCESSFUL, try suncSend again\n");
+       printf("cmsg_cmsg_syncSend: FAILOVER SUCCESSFUL, try suncSend again\n");
        goto tryagain;
     }  
-printf("cmsgd_syncSend: FAILOVER NOT successful, quitting, err = %d\n", err);
+printf("cmsg_cmsg_syncSend: FAILOVER NOT successful, quitting, err = %d\n", err);
   }
 
   /* return domain server's reply */  
@@ -1368,7 +1366,7 @@ printf("cmsgd_syncSend: FAILOVER NOT successful, quitting, err = %d\n", err);
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_subscribeAndGet(void *domainId, const char *subject, const char *type,
+int cmsg_cmsg_subscribeAndGet(void *domainId, const char *subject, const char *type,
                            const struct timespec *timeout, void **replyMsg) {
                              
   cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
@@ -1405,7 +1403,7 @@ static int cmsgd_subscribeAndGet(void *domainId, const char *subject, const char
   /*
    * Pick a unique identifier for the subject/type pair, and
    * send it to the domain server & remember it for future use
-   * Mutex protect this operation as many cmsgd_connect calls may
+   * Mutex protect this operation as many cmsg_cmsg_connect calls may
    * operate in parallel on this static variable.
    */
   staticMutexLock();
@@ -1672,7 +1670,7 @@ static int unSubscribeAndGet(void *domainId, const char *subject, const char *ty
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
+int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
                       void **replyMsg) {
   
   cMsgDomainInfo *domain  = &cMsgDomains[(int)domainId];
@@ -1720,7 +1718,7 @@ static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec
   /*
    * Pick a unique identifier for the subject/type pair, and
    * send it to the domain server & remember it for future use
-   * Mutex protect this operation as many cmsgd_connect calls may
+   * Mutex protect this operation as many cmsg_cmsg_connect calls may
    * operate in parallel on this static variable.
    */
   staticMutexLock();
@@ -1835,7 +1833,7 @@ static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec
       info->type    = NULL;
       info->active  = 0;
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cmsgd_sendAndGet: out of memory\n");
+        fprintf(stderr, "cmsg_cmsg_sendAndGet: out of memory\n");
       }
       return(CMSG_OUT_OF_MEMORY);
     }
@@ -1865,7 +1863,7 @@ static int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec
     info->type    = NULL;
     info->active  = 0;
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cmsgd_sendAndGet: write failure\n");
+      fprintf(stderr, "cmsg_cmsg_sendAndGet: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -2010,7 +2008,7 @@ static int unSendAndGet(void *domainId, int id) {
  *
  * @returns CMSG_OK always
  */   
-static int cmsgd_flush(void *domainId) {  
+int cmsg_cmsg_flush(void *domainId) {  
   return(CMSG_OK);
 }
 
@@ -2048,7 +2046,7 @@ static int cmsgd_flush(void *domainId) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
+int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                      void *userArg, cMsgSubscribeConfig *config, void **handle) {
 
   int i, j, iok=0, jok=0, uniqueId, status, err;
@@ -2240,7 +2238,7 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
       /*
        * Pick a unique identifier for the subject/type pair, and
        * send it to the domain server & remember it for future use
-       * Mutex protect this operation as many cmsgd_connect calls may
+       * Mutex protect this operation as many cmsg_cmsg_connect calls may
        * operate in parallel on this static variable.
        */
       staticMutexLock();
@@ -2299,7 +2297,7 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
         domain->subscribeInfo[i].numCallbacks--;
         
         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-          fprintf(stderr, "cmsgd_subscribe: write failure\n");
+          fprintf(stderr, "cmsg_cmsg_subscribe: write failure\n");
         }
         
         err = CMSG_LOST_CONNECTION;
@@ -2324,10 +2322,10 @@ static int cmsgd_subscribe(void *domainId, const char *subject, const char *type
     /* don't wait for resubscribes */
     if (failoverSuccessful(domain, 0)) {
        fd = domain->sendSocket;
-       printf("cmsgd_subscribe: FAILOVER SUCCESSFUL, try subscribe again\n");
+       printf("cmsg_cmsg_subscribe: FAILOVER SUCCESSFUL, try subscribe again\n");
        goto tryagain;
     }  
-printf("cmsgd_subscribe: FAILOVER NOT successful, quitting, err = %d\n", err);
+printf("cmsg_cmsg_subscribe: FAILOVER NOT successful, quitting, err = %d\n", err);
   }
 
   return(err);
@@ -2426,7 +2424,7 @@ static int resubscribe(cMsgDomainInfo *domain, const char *subject, const char *
 
   if (cMsgTcpWritev(fd, iov, 3, 16) == -1) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cmsgd_subscribe: write failure\n");
+      fprintf(stderr, "cmsg_cmsg_subscribe: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -2443,11 +2441,11 @@ static int resubscribe(cMsgDomainInfo *domain, const char *subject, const char *
  * represents a given subject, type, callback, and user argument).
  * This routine is called by the user through
  * cMsgUnSubscribe() given the appropriate UDL. In this domain cMsgFlush()
- * does nothing and does not need to be called for cmsgd_unsubscribe to be
+ * does nothing and does not need to be called for cmsg_cmsg_unsubscribe to be
  * started immediately.
  *
  * @param domainId id of the domain connection
- * @param handle void pointer obtained from cmsgd_subscribe
+ * @param handle void pointer obtained from cmsg_cmsg_subscribe
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if the handle or its subject, type, or callback are null,
@@ -2461,9 +2459,9 @@ static int resubscribe(cMsgDomainInfo *domain, const char *subject, const char *
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-static int cmsgd_unsubscribe(void *domainId, void *handle) {
+int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
 
-  int i, j, status, err;
+  int status, err;
   cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
   int fd = domain->sendSocket;
   struct iovec iov[3];
@@ -2573,7 +2571,7 @@ static int cmsgd_unsubscribe(void *domainId, void *handle) {
         cMsgConnectReadUnlock(domain);
         
         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-          fprintf(stderr, "cmsgd_unsubscribe: write failure\n");
+          fprintf(stderr, "cmsg_cmsg_unsubscribe: write failure\n");
         }
         err = CMSG_NETWORK_ERROR;
         break;
@@ -2632,10 +2630,10 @@ static int cmsgd_unsubscribe(void *domainId, void *handle) {
     /* wait awhile for possible failover && resubscribe is complete */
     if (failoverSuccessful(domain, 1)) {
        fd = domain->sendSocket;
-       printf("cmsgd_unsubscribe: FAILOVER SUCCESSFUL, try unsubscribe again\n");
+       printf("cmsg_cmsg_unsubscribe: FAILOVER SUCCESSFUL, try unsubscribe again\n");
        goto tryagain;
     }  
-printf("cmsgd_unsubscribe: FAILOVER NOT successful, quitting, err = %d\n", err);
+printf("cmsg_cmsg_unsubscribe: FAILOVER NOT successful, quitting, err = %d\n", err);
   }
   
   return(err);
@@ -2654,7 +2652,7 @@ printf("cmsgd_unsubscribe: FAILOVER NOT successful, quitting, err = %d\n", err);
  *
  * @returns CMSG_OK if successful
  */   
-static int cmsgd_start(void *domainId) {
+int cmsg_cmsg_start(void *domainId) {
   
   cMsgDomains[(int)domainId].receiveState = 1;
   return(CMSG_OK);
@@ -2673,7 +2671,7 @@ static int cmsgd_start(void *domainId) {
  *
  * @returns CMSG_OK if successful
  */   
-static int cmsgd_stop(void *domainId) {
+int cmsg_cmsg_stop(void *domainId) {
   
   cMsgDomains[(int)domainId].receiveState = 0;
   return(CMSG_OK);
@@ -2692,7 +2690,7 @@ static int cmsgd_stop(void *domainId) {
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */   
-static int cmsgd_disconnect(void *domainId) {
+int cmsg_cmsg_disconnect(void *domainId) {
   
   int i, j, status, outGoing[2];
   cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
@@ -2713,7 +2711,7 @@ static int cmsgd_disconnect(void *domainId) {
    
   /* stop keep alive thread */
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_disconnect:cancel keep alive thread\n");
+    fprintf(stderr, "cmsg_cmsg_disconnect:cancel keep alive thread\n");
   }
   
   /* don't care if this fails */
@@ -2737,7 +2735,7 @@ static int cmsgd_disconnect(void *domainId) {
     cMsgConnectWriteUnlock(domain);
     */
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cmsgd_disconnect: write failure, but continue\n");
+      fprintf(stderr, "cmsg_cmsg_disconnect: write failure, but continue\n");
     }
     /*return(CMSG_NETWORK_ERROR);*/
   }
@@ -2754,7 +2752,7 @@ static int cmsgd_disconnect(void *domainId) {
 
   /* stop listening and client communication threads */
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsgd_disconnect:cancel listening & client threads\n");
+    fprintf(stderr, "cmsg_cmsg_disconnect:cancel listening & client threads\n");
   }
   
   pthread_cancel(domain->pendThread);
@@ -2776,7 +2774,7 @@ static int cmsgd_disconnect(void *domainId) {
           subscription->quit = 1;
           
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "cmsgd_disconnect:wake up callback thread\n");
+            fprintf(stderr, "cmsg_cmsg_disconnect:wake up callback thread\n");
           }
   
           /* wakeup callback thread */
@@ -2799,7 +2797,7 @@ static int cmsgd_disconnect(void *domainId) {
     
     /* wakeup "get" */      
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "cmsgd_disconnect:wake up a sendAndGet\n");
+      fprintf(stderr, "cmsg_cmsg_disconnect:wake up a sendAndGet\n");
     }
   
     status = pthread_cond_signal(&info->cond);
@@ -2814,6 +2812,9 @@ static int cmsgd_disconnect(void *domainId) {
   /* protect the domain array when freeing up a space */
   staticMutexLock();
   /* free memory (non-NULL items), reset variables*/
+  for (i=0; i < domain->failoverSize; i++) {
+    parsedUDLFree(&domain->failovers[i]);
+  }
   cMsgDomainClear(domain);
   staticMutexUnlock();
   
@@ -2873,7 +2874,7 @@ printf("disconnect: cancelling pend thread\n");
           subscription->quit = 1;
           
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "cmsgd_disconnect:wake up callback thread\n");
+            fprintf(stderr, "cmsg_cmsg_disconnect:wake up callback thread\n");
           }
   
           /* wakeup callback thread */
@@ -2896,7 +2897,7 @@ printf("disconnect: cancelling pend thread\n");
     
     /* wakeup "get" */      
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "cmsgd_disconnect:wake up a sendAndGet\n");
+      fprintf(stderr, "cmsg_cmsg_disconnect:wake up a sendAndGet\n");
     }
   
     status = pthread_cond_signal(&info->cond);
@@ -2913,6 +2914,9 @@ printf("disconnect: cancelling pend thread\n");
   
   /* free memory (non-NULL items), reset variables*/
   /* protect the domain array when freeing up a space */
+  for (i=0; i < domain->failoverSize; i++) {
+    parsedUDLFree(&domain->failovers[i]);
+  }
   staticMutexLock();
   cMsgDomainClear(domain);
   staticMutexUnlock();
@@ -2954,7 +2958,7 @@ static void defaultShutdownHandler(void *userArg) {
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */   
-static int cmsgd_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
+int cmsg_cmsg_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
                                     void *userArg) {
   
   cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
@@ -2985,7 +2989,7 @@ static int cmsgd_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */
-static int cmsgd_shutdownClients(void *domainId, const char *client, int flag) {
+int cmsg_cmsg_shutdownClients(void *domainId, const char *client, int flag) {
   
   int len, cLen, outGoing[4];
   cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
@@ -3030,7 +3034,7 @@ static int cmsgd_shutdownClients(void *domainId, const char *client, int flag) {
     cMsgSocketMutexUnlock(domain);
     cMsgConnectWriteUnlock(domain);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cmsgd_unsubscribe: write failure\n");
+      fprintf(stderr, "cmsg_cmsg_unsubscribe: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -3060,7 +3064,7 @@ static int cmsgd_shutdownClients(void *domainId, const char *client, int flag) {
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */
-static int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
+int cmsg_cmsg_shutdownServers(void *domainId, const char *server, int flag) {
   
   int len, sLen, outGoing[4];
   cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
@@ -3105,7 +3109,7 @@ static int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
     cMsgSocketMutexUnlock(domain);
     cMsgConnectWriteUnlock(domain);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cmsgd_unsubscribe: write failure\n");
+      fprintf(stderr, "cmsg_cmsg_unsubscribe: write failure\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -3458,11 +3462,11 @@ static void *keepAliveThread(void *arg)
             weGotAConnection = 1;
             
             /* wait for up to 1.1 sec for waiters to respond */
-            err = latchCountDown(&domain->failoverLatch, &wait);
+            err = cMsgLatchCountDown(&domain->syncLatch, &wait);
             if (err != 1) {
 /* printf("ka: Problems with reporting back to countdowner\n"); */            
             }
-            latchReset(&domain->failoverLatch, 1, NULL);
+            cMsgLatchReset(&domain->syncLatch, 1, NULL);
         }
     }
 
@@ -3700,7 +3704,7 @@ static int parseUDL(const char *UDL, char **password,
         pattern = "[&\\?]cmsgpassword=([a-zA-Z0-9]+)&?";
 
         /* compile regular expression */
-        err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED);
+        err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
         if (err != 0) {
             break;
         }
@@ -3740,303 +3744,6 @@ static int parseUDL(const char *UDL, char **password,
     return(CMSG_OK);
 }
 
-/*-------------------------------------------------------------------*/
-
-/**
- * This routine waits for the given count down latch to be counted down
- * to 0 before returning. Once the count down is at 0, it notifies the
- * "latchCountDown" caller that it got the message and then returns.
- *
- * @param latch pointer to latch structure
- * @param timeout time to wait for the count down to reach 0 before returning
- *                with a timeout code (0)
- *
- * @returns -1 if the latch is being reset
- * @returns  0 if the count down has not reached 0 before timing out
- * @returns +1 if the count down has reached 0
- */
-static int latchAwait(countDownLatch *latch, const struct timespec *timeout) {
-  int status;
-  struct timespec wait;
-  
-  /* Lock mutex */
-  status = pthread_mutex_lock(&latch->mutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex lock");
-  }
-  
-  /* if latch is being reset, return -1 (error) */
-  if (latch->count < 0) {
-/* printf("    latchAwait: resetting so return -1\n"); */
-    status = pthread_mutex_unlock(&latch->mutex);
-    if (status != 0) {
-      err_abort(status, "Failed mutex unlock");
-    }
-
-    return -1;  
-  }
-  /* if count = 0 already, return 1 (true) */
-  else if (latch->count == 0) {
-/* printf("    latchAwait: count is already 0 so return 1\n"); */
-    status = pthread_mutex_unlock(&latch->mutex);
-    if (status != 0) {
-      err_abort(status, "Failed mutex unlock");
-    }
-    
-    return 1;
-  }
-  
-  /* We're a waiter */
-  latch->waiters++;
-/* printf("    latchAwait: waiters set to %d\n",latch->waiters); */
-  
-  /* wait until count <= 0 */
-  while (latch->count > 0) {
-    /* wait until signaled */
-    if (timeout == NULL) {
-/* printf("    latchAwait: wait forever\n"); */
-      status = pthread_cond_wait(&latch->countCond, &latch->mutex);
-    }
-    /* wait until signaled or timeout */
-    else {
-      cMsgGetAbsoluteTime(timeout, &wait);
-/* printf("    latchAwait: timed wait\n"); */
-      status = pthread_cond_timedwait(&latch->countCond, &latch->mutex, &wait);
-    }
-    
-    /* if we've timed out, return 0 (false) */
-    if (status == ETIMEDOUT) {
-/* printf("    latchAwait: timed out, return 0\n"); */
-      status = pthread_mutex_unlock(&latch->mutex);
-      if (status != 0) {
-        err_abort(status, "Failed mutex unlock");
-      }
-
-      return 0;
-    }
-    else if (status != 0) {
-      err_abort(status, "Failed cond wait");
-    }
-  }
-  
-  /* if latch is being reset, return -1 (error) */
-  if (latch->count < 0) {
-/* printf("    latchAwait: resetting so return -1\n"); */
-    status = pthread_mutex_unlock(&latch->mutex);
-    if (status != 0) {
-      err_abort(status, "Failed mutex unlock");
-    }
-
-    return -1;  
-  }
-  
-  /* if count down reached (count == 0) ... */
-  latch->waiters--;  
-/* printf("    latchAwait: waiters set to %d\n",latch->waiters); */
-
-  /* signal that we're done */
-  status = pthread_cond_broadcast(&latch->notifyCond);
-  if (status != 0) {
-    err_abort(status, "Failed condition broadcast");
-  }
-/* printf("    latchAwait: broadcasted to (notified) latchCountDowner\n"); */
-
-  /* unlock mutex */
-  status = pthread_mutex_unlock(&latch->mutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex unlock");
-  }
-/* printf("    latchAwait: done, return 1\n"); */
-  
-  return 1;
-}
-
- 
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine reduces the count of a count down latch by 1.
- * Once the count down is at 0, it notifies the "latchAwait" callers
- * of the fact and then waits for those callers to notify this routine
- * that they got the message. Once all the callers have done so, this
- * routine returns.
- *
- * @param latch pointer to latch structure
- * @param timeout time to wait for the "latchAwait" callers to respond
- *                before returning with a timeout code (0)
- *
- * @returns -1 if the latch is being reset
- * @returns  0 if the "latchAwait" callers have not responded before timing out
- * @returns +1 if the count down has reached 0 and all waiters have responded
- */
-static int latchCountDown(countDownLatch *latch, const struct timespec *timeout) {
-  int status;
-  struct timespec wait;
-  
-  /* Lock mutex */
-  status = pthread_mutex_lock(&latch->mutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex lock");
-  }
-  
-  /* if latch is being reset, return -1 (false) */
-  if (latch->count < 0) {
-/* printf("latchCountDown: resetting so return -1\n"); */
-    status = pthread_mutex_unlock(&latch->mutex);
-    if (status != 0) {
-      err_abort(status, "Failed mutex unlock");
-    }
-
-    return -1;  
-  }  
-  /* if count = 0 already, return 1 (true) */
-  else if (latch->count == 0) {
-/* printf("latchCountDown: count = 0 so return 1\n"); */
-    status = pthread_mutex_unlock(&latch->mutex);
-    if (status != 0) {
-      err_abort(status, "Failed mutex unlock");
-    }
-    
-    return 1;
-  }
-  
-  /* We're reducing the count */
-  latch->count--;
-/* printf("latchCountDown: count is now %d\n", latch->count); */
-  
-  /* if we've reached 0, signal all waiters to wake up */
-  if (latch->count == 0) {
-/* printf("latchCountDown: count = 0 so broadcast to waiters\n"); */
-    status = pthread_cond_broadcast(&latch->countCond);
-    if (status != 0) {
-      err_abort(status, "Failed condition broadcast");
-    }    
-  }
-    
-  /* wait until all waiters have reported back to us that they're awake */
-  while (latch->waiters > 0) {
-    /* wait until signaled */
-    if (timeout == NULL) {
-/* printf("latchCountDown: wait for ever\n"); */
-      status = pthread_cond_wait(&latch->notifyCond, &latch->mutex);
-    }
-    /* wait until signaled or timeout */
-    else {
-      cMsgGetAbsoluteTime(timeout, &wait);
-/* printf("latchCountDown: timed wait\n"); */
-      status = pthread_cond_timedwait(&latch->notifyCond, &latch->mutex, &wait);
-    }
-    
-    /* if we've timed out, return 0 (false) */
-    if (status == ETIMEDOUT) {
-/* printf("latchCountDown: timed out\n"); */
-      status = pthread_mutex_unlock(&latch->mutex);
-      if (status != 0) {
-        err_abort(status, "Failed mutex unlock");
-      }
-
-      return 0;
-    }
-    else if (status != 0) {
-      err_abort(status, "Failed cond wait");
-    }
-    
-    /* if latch is being reset, return -1 (error) */
-    if (latch->count < 0) {
-/* printf("latchCountDown: resetting so return -1\n"); */
-      status = pthread_mutex_unlock(&latch->mutex);
-      if (status != 0) {
-        err_abort(status, "Failed mutex unlock");
-      }
-
-      return -1;  
-    }  
-
-  }
-    
-  /* unlock mutex */
-  status = pthread_mutex_unlock(&latch->mutex);
-  if (status != 0) {
-    err_abort(status, "await: Failed mutex unlock");
-  }
-/* printf("latchCountDown:done, return 1\n"); */
-  
-  return 1;
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine resets a count down latch to a given count.
- * The latch is disabled, the "latchAwait" and "latchCountDown"
- * callers are awakened, wait some time, and finally the count is reset.
- *
- * @param latch pointer to latch structure
- * @param count number to reset the initial count of the latch to
- * @param timeout time to wait for the "latchAwait" and "latchCountDown" callers
- *                to return errors before going ahead and resetting the count
- */
-static void latchReset(countDownLatch *latch, int count, const struct timespec *timeout) {
-  int status;
-
-  /* Lock mutex */
-  status = pthread_mutex_lock(&latch->mutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex lock");
-  }
-    
-  /* Disable the latch */
-  latch->count = -1;
-/* printf("  latchReset: count set to -1\n"); */
-  
-  /* signal all waiters to wake up */
-  status = pthread_cond_broadcast(&latch->countCond);
-  if (status != 0) {
-    err_abort(status, "Failed condition broadcast");
-  }
-     
-  /* signal all countDowners to wake up */
-  status = pthread_cond_broadcast(&latch->notifyCond);
-  if (status != 0) {
-    err_abort(status, "Failed condition broadcast");
-  }      
-/* printf("  latchReset: broadcasted to count & notify cond vars\n"); */
-        
-  /* unlock mutex */
-  status = pthread_mutex_unlock(&latch->mutex);
-  if (status != 0) {
-    err_abort(status, "await: Failed mutex unlock");
-  }
-  
-  /* wait the given amount for all parties to detect the reset */
-  if (timeout != NULL) {
-/* printf("  latchReset: sleeping\n"); */
-    nanosleep(timeout, NULL);
-  }
-  
-  /* Lock mutex again */
-  status = pthread_mutex_lock(&latch->mutex);
-  if (status != 0) {
-    err_abort(status, "Failed mutex lock");
-  }
-    
-  /* Reset the latch */
-  latch->count = count;
-/* printf("  latchReset: count set to %d\n", count); */
-  
-  /* unlock mutex */
-  status = pthread_mutex_unlock(&latch->mutex);
-  if (status != 0) {
-    err_abort(status, "await: Failed mutex unlock");
-  }
-/* printf("  latchReset: done\n"); */
-
-}
-
- 
 /*-------------------------------------------------------------------*/
 
 /**
