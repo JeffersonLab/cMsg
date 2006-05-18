@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <time.h>
+#include <strings.h>
 
 #include "errors.h"
 #include "cMsgNetwork.h"
@@ -42,17 +43,75 @@ static int counter = 1;
 /* prototypes */
 static void *clientThread(void *arg);
 static void  cleanUpHandler(void *arg);
-static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *acknowledge);
-static int cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage_t *msg);
-static int cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg);
+static int   cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *acknowledge);
+static int   cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage_t *msg);
+static int   cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 
 #ifdef VXWORKS
+
+/** Implementation of strdup for vxWorks. */
 static char *strdup(const char *s1) {
     char *s;    
     if (s1 == NULL) return NULL;    
     if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;    
     return strcpy(s, s1);
 }
+
+/** Implementation of strcasecmp for vxWorks. */
+static int strcasecmp(const char *s1, const char *s2) {
+  int i, len1, len2;
+  
+  /* handle NULL's */
+  if (s1 == NULL && s2 == NULL) {
+    return 0;
+  }
+  else if (s1 == NULL) {
+    return -1;  
+  }
+  else if (s2 == NULL) {
+    return 1;  
+  }
+  
+  len1 = strlen(s1);
+  len2 = strlen(s2);
+  
+  /* handle different lengths */
+  if (len1 < len2) {
+    for (i=0; i<len1; i++) {
+      if (toupper((int) s1[i]) < toupper((int) s2[i])) {
+        return -1;
+      }
+      else if (toupper((int) s1[i]) > toupper((int) s2[i])) {
+         return 1;   
+      }
+    }
+    return -1;
+  }
+  else if (len1 > len2) {
+    for (i=0; i<len2; i++) {
+      if (toupper((int) s1[i]) < toupper((int) s2[i])) {
+        return -1;
+      }
+      else if (toupper((int) s1[i]) > toupper((int) s2[i])) {
+         return 1;   
+      }
+    }
+    return 1;  
+  }
+  
+  /* handle same lengths */
+  for (i=0; i<len1; i++) {
+    if (toupper((int) s1[i]) < toupper((int) s2[i])) {
+      return -1;
+    }
+    else if (toupper((int) s1[i]) > toupper((int) s2[i])) {
+       return 1;   
+    }
+  }
+  
+  return 0;
+}
+
 #endif
 
 
@@ -63,7 +122,8 @@ static char *strdup(const char *s1) {
  *-------------------------------------------------------------------*/
 static void cleanUpHandler(void *arg) {
   struct timespec sTime = {0,500000000};
-  cMsgDomainInfo *domain = (cMsgDomainInfo *) arg;
+  cMsgThreadInfo *threadArg = (cMsgThreadInfo *) arg;
+  cMsgDomainInfo *domain    = threadArg->domain;
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "cMsgClientListeningThread: in cleanup handler\n");
@@ -73,9 +133,10 @@ static void cleanUpHandler(void *arg) {
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "cMsgClientListeningThread: cancelling mesage receiving threads\n");
   }
-printf("About to execute pthread_cancel on nonexistant thread\n");
-fflush(stdout);  
-  pthread_cancel(domain->clientThread[1]);
+  
+  if (strcasecmp(threadArg->domainType, "cmsg") == 0) {
+    pthread_cancel(domain->clientThread[1]);
+  }
   
   /* Nornally we could just cancel the thread and if the subscription
    * mutex were locked, the reinitialization would free it. However,
@@ -144,7 +205,7 @@ void *cMsgClientListeningThread(void *arg)
   
   
   /* install cleanup handler for this thread's cancellation */
-  pthread_cleanup_push(cleanUpHandler, (void *)domain);
+  pthread_cleanup_push(cleanUpHandler, arg);
   
   /* Tell spawning thread that we're up and running */
   threadArg->isRunning = 1;

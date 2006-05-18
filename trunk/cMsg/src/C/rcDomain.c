@@ -327,15 +327,25 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         staticMutexUnlock();
         return(CMSG_OUT_OF_MEMORY);  
     }
-    threadArg->isRunning = 0;
-    threadArg->listenFd  = domain->listenSocket;
-    threadArg->blocking  = CMSG_NONBLOCKING;
-    threadArg->domain    = domain;
+    threadArg->isRunning  = 0;
+    threadArg->listenFd   = domain->listenSocket;
+    threadArg->blocking   = CMSG_NONBLOCKING;
+    threadArg->domain     = domain;
+    threadArg->domainType = strdup("rc");
     status = pthread_create(&domain->pendThread, NULL,
                             cMsgClientListeningThread, (void *) threadArg);
     if (status != 0) {
         err_abort(status, "Creating TCP message listening thread");
     }
+
+printf("Wait for 5 seconds, then cancel pendthread\n");
+    waitForThread.tv_sec  = 5;
+    waitForThread.tv_nsec = 0;
+    nanosleep(&waitForThread, NULL);
+    pthread_cancel(domain->pendThread);
+printf("Wait for 5 more seconds, then exit\n");
+    nanosleep(&waitForThread, NULL);
+    exit(-1);
 
     /*
      * Wait for flag to indicate thread is actually running before
@@ -387,12 +397,14 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     if (domain->sendSocket < 0) {
         cMsgDomainClear(domain);
         staticMutexUnlock();
+        pthread_cancel(domain->pendThread);
         return(CMSG_SOCKET_ERROR);
     }
 
     if ( (err = cMsgStringToNumericIPaddr(serverHost, &servaddr)) != CMSG_OK ) {
         cMsgDomainClear(domain);
         staticMutexUnlock();
+        pthread_cancel(domain->pendThread);
         return(err);
     }
     
@@ -413,6 +425,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     if (expid == NULL) {
         cMsgDomainClear(domain);
         staticMutexUnlock();
+        pthread_cancel(domain->pendThread);
         return(CMSG_ERROR);
     }
     expidLen    = strlen(expid);
@@ -489,6 +502,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
 /* printf("Got no response\n"); */
         cMsgDomainClear(domain);
         staticMutexUnlock();
+        pthread_cancel(domain->pendThread);
         return(CMSG_NETWORK_ERROR);
     }
 /* printf("Got a response, wait for connect to finish\n"); */
@@ -520,6 +534,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
 /* printf("Wait timeout or rcConnectComplete is not 1\n"); */
         cMsgDomainClear(domain);
         staticMutexUnlock();
+        pthread_cancel(domain->pendThread);
         return(CMSG_TIMEOUT);
     }
         
@@ -541,12 +556,14 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     if (domain->sendSocket < 0) {
         cMsgDomainClear(domain);
         staticMutexUnlock();
+        pthread_cancel(domain->pendThread);
         return(CMSG_SOCKET_ERROR);
     }
 
     if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
         cMsgDomainClear(domain);
         staticMutexUnlock();
+        pthread_cancel(domain->pendThread);
         return(err);
     }
 
@@ -555,6 +572,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     if (err < 0) {
         cMsgDomainClear(domain);
         staticMutexUnlock();
+        pthread_cancel(domain->pendThread);
         return(CMSG_SOCKET_ERROR);
     }
    
