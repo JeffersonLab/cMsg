@@ -42,7 +42,7 @@ OBJS =  rwlock.o \
 	cMsgDomainUtil.o \
 	cMsgDomainListenThread.o \
 	cMsgDomain.o \
-	rcDomain.c \
+	rcDomain.o \
 	fileDomain.o
 
 HFILES = cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsg.h cMsgDomain.h rwlock.h errors.h
