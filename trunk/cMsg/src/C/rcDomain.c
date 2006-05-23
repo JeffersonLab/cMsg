@@ -36,6 +36,15 @@
  */  
  
 
+#ifdef VXWORKS
+#include <vxWorks.h>
+#include <sysLib.h>
+#include <sockLib.h>
+#include <hostLib.h>
+#else
+#include <strings.h>
+#endif
+
 #include <stdlib.h>
 #include <time.h>
 #include <ctype.h>
@@ -48,10 +57,6 @@
 #include "regex.h"
 #include "cMsgDomain.h"
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
-
 
 
 /**
@@ -60,8 +65,8 @@
  */
 typedef struct receiverArg_t {
     int sockfd;
-    unsigned short port;
     socklen_t len;
+    unsigned short port;
     struct sockaddr_in clientaddr;
 } receiverArg;
 
@@ -145,6 +150,16 @@ domainTypeInfo rcDomainTypeInfo = {
   "rc",
   &functions
 };
+
+#ifdef VXWORKS
+/** Implementation of strdup() to cover vxWorks operating system. */
+static char *strdup(const char *s1) {
+    char *s;    
+    if (s1 == NULL) return NULL;    
+    if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;    
+    return strcpy(s, s1);
+}
+#endif
 
 
 /*-------------------------------------------------------------------*/
@@ -392,7 +407,7 @@ printf("Wait for 5 more seconds, then exit\n");
      * Talk to runcontrol server
      *-------------------------------------------------------*/
     
-    bzero(&servaddr, sizeof(servaddr));
+    bzero((void *)&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(serverPort);
     
@@ -453,7 +468,7 @@ printf("Wait for 5 more seconds, then exit\n");
     len += expidLen;
     
     /* create a thread which will receive any responses to our broadcast */
-    bzero(&arg.clientaddr, sizeof(arg.clientaddr));
+    bzero((void *)&arg.clientaddr, sizeof(arg.clientaddr));
     arg.len = sizeof(arg.clientaddr);
     arg.port = 0;
     arg.sockfd = domain->sendSocket;
@@ -552,7 +567,7 @@ printf("Wait for 5 more seconds, then exit\n");
      * that the udp socket does not have to connect and disconnect for each
      * message sent.
      */
-    bzero(&servaddr, sizeof(servaddr));
+    bzero((void *)&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(domain->sendPort);
     
@@ -660,7 +675,8 @@ int cmsg_rc_send(void *domainId, void *vmsg) {
     char buffer[1510];
     int err=CMSG_OK, len, lenText, lenSender, lenSubject, lenType, lenByteArray;
     int highInt, lowInt, outGoing[14];
-    long long llTime;
+    /*long long llTime;*/
+    uint64_t llTime;
     struct timespec now;
      
     /* clear array */
@@ -693,7 +709,8 @@ int cmsg_rc_send(void *domainId, void *vmsg) {
     /* time message sent (right now) */
     clock_gettime(CLOCK_REALTIME, &now);
     /* convert to milliseconds */
-    llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);
+    /*llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);*/
+    llTime  = ((uint64_t)now.tv_sec * 1000) + ((uint64_t)now.tv_nsec/1000000);
     highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
     lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
     outGoing[5] = htonl(highInt);
@@ -1375,7 +1392,7 @@ static int parseUDL(const char *UDLR,
                     char **junk) {
 
     int        err, len, bufLength, Port, index;
-    char       *udl, *udlRemainder, *val;
+    char       *udlRemainder, *val;
     char       *buffer;
     const char *pattern = "(([a-zA-Z]+[a-zA-Z0-9\\.\\-]*)|([0-9]+\\.[0-9\\.]+))?:?([0-9]+)?/?(.*)";
     regmatch_t matches[6]; /* we have 6 potential matches: 1 whole, 5 sub */
@@ -1480,7 +1497,6 @@ static int parseUDL(const char *UDLR,
 
     if (Port < 1024 || Port > 65535) {
       if (host != NULL) free((void *) *host);
-      free(udl);
       free(buffer);
       return (CMSG_OUT_OF_RANGE);
     }
