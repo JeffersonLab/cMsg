@@ -22,13 +22,15 @@
 #include <vxWorks.h>
 #include <taskLib.h>
 #include <sockLib.h>
+#include <ctype.h>
+#else
+#include <strings.h>
 #endif
 
 #include <stdio.h>
 #include <errno.h>
 #include <pthread.h>
 #include <time.h>
-#include <strings.h>
 
 #include "errors.h"
 #include "cMsgNetwork.h"
@@ -591,7 +593,6 @@ static void *clientThread(void *arg)
       /* for RC server & RC domains only */
       case  CMSG_RC_CONNECT:
       {
-          int status;
           cMsgMessage_t *message;
           struct timespec wait;
           

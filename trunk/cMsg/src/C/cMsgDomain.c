@@ -322,7 +322,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
   char *p, *udl;
   int failoverUDLCount = 0, failoverIndex=0, viableUDLs = 0;
   int gotConnection = 0;        
-  int i, err, id=-1;
+  int i, err=CMSG_OK, id=-1;
   char temp[CMSG_MAXHOSTNAMELEN];
 
 

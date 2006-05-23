@@ -415,8 +415,8 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
  */
 int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
 {
-  int                 err=0;
 #ifndef VXWORKS
+  int                 err=0;
   int                 status;
   struct in_addr      **pptr;
   struct hostent      *hp;
@@ -437,7 +437,7 @@ int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
 #if defined VXWORKS
 
   addr->sin_addr.s_addr = hostGetByName((char *) ip_address);
-  if ((int)servaddr->sin_addr.s_addr == ERROR) {
+  if ((int)addr->sin_addr.s_addr == ERROR) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cMsgStringToNumericIPaddr: unknown address for host %s\n",ip_address);
     }
@@ -506,7 +506,7 @@ int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
 
   pptr = (struct in_addr **) hp->h_addr_list;
 
-  for ( ; *pptr != NULL; pptr++) {}
+  for ( ; *pptr != NULL; pptr++) {
     memcpy(&addr->sin_addr, *pptr, sizeof(struct in_addr));
     break;
   }

@@ -72,6 +72,9 @@
 #ifdef VXWORKS
 #include <vxWorks.h>
 #include <taskLib.h>
+#include <symLib.h>
+#include <symbol.h>
+#include <sysSymTbl.h>
 #else
 #include <strings.h>
 #include <dlfcn.h>
@@ -975,14 +978,14 @@ static int registerDynamicDomains(char *domainType) {
   char *lowerCase;
   unsigned int i;
   int   index=-1;
+  char  functionName[256];
+  domainFunctions *funcs;
 #ifdef VXWORKS
   char     *pValue;
   SYM_TYPE  pType;
 #else
-  char  functionName[256];
   char  libName[256];
   void *libHandle, *sym;
-  domainFunctions *funcs;
 #endif
       
   /*
@@ -1151,7 +1154,7 @@ static int registerDynamicDomains(char *domainType) {
     free(lowerCase);
     return(CMSG_ERROR);
   }
-  funcs->shutdownClients = (SET_SHUTDOWN_HANDLER_PTR) pValue;
+  funcs->setShutdownHandler = (SET_SHUTDOWN_HANDLER_PTR) pValue;
 
 
 #else 
