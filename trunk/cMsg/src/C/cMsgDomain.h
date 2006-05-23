@@ -57,16 +57,16 @@ typedef struct countDownLatch_t {
 
 /** This structure represents a single subscription's callback. */
 typedef struct subscribeCbInfo_t {
-  int              active;   /**< Boolean telling if this callback is active. */
-  cMsgCallbackFunc *callback; /**< Callback function (or C++ callback class instance) to be called. */
-  void             *userArg;  /**< User argument to be passed to the callback. */
-  cMsgMessage_t    *head;     /**< Head of linked list of messages given to callback. */
-  cMsgMessage_t    *tail;     /**< Tail of linked list of messages given to callback. */
+  int               active;   /**< Boolean telling if this callback is active. */
   int               messages; /**< Number of messages in list. */
   int               threads;  /**< Number of supplemental threads to run callback if
                                *   config allows parallelizing (mustSerialize = 0). */
+  int               quit;     /**< Boolean telling thread to end. */
+  void             *userArg;  /**< User argument to be passed to the callback. */
+  cMsgCallbackFunc *callback; /**< Callback function (or C++ callback class instance) to be called. */
+  cMsgMessage_t    *head;     /**< Head of linked list of messages given to callback. */
+  cMsgMessage_t    *tail;     /**< Tail of linked list of messages given to callback. */
   subscribeConfig   config;   /**< Subscription configuration info. */
-  char              quit;     /**< Boolean telling thread to end. */
   pthread_t         thread;   /**< Thread running callback. */
   pthread_cond_t    cond;     /**< Condition variable callback thread is waiting on. */
   pthread_mutex_t   mutex;    /**< Mutex callback thread is waiting on. */
@@ -96,8 +96,8 @@ typedef struct getInfo_t {
   int  id;       /**< Unique id # corresponding to a unique subject/type pair. */
   int  active;   /**< Boolean telling if this subject/type has an active callback. */
   int  error;    /**< Error code when client woken up with error condition. */
-  char msgIn;    /**< Boolean telling if a message has arrived. (1-y, 0-n) */
-  char quit;     /**< Boolean commanding sendAndGet to end. */
+  int  msgIn;    /**< Boolean telling if a message has arrived. (1-y, 0-n) */
+  int  quit;     /**< Boolean commanding sendAndGet to end. */
   char *subject; /**< Subject of sendAndGet. */
   char *type;    /**< Type of sendAndGet. */
   cMsgMessage_t *msg;      /**< Message to be passed to the caller. */
@@ -146,13 +146,13 @@ typedef struct cMsgDomainInfo_t {
   unsigned short listenPort; /**< Port this program listens on for this domain's TCP connections. */
   
   /* subdomain handler attributes */
-  char hasSend;            /**< Does this subdomain implement a send function? (1-y, 0-n) */
-  char hasSyncSend;        /**< Does this subdomain implement a syncSend function? (1-y, 0-n) */
-  char hasSubscribeAndGet; /**< Does this subdomain implement a subscribeAndGet function? (1-y, 0-n) */
-  char hasSendAndGet;      /**< Does this subdomain implement a sendAndGet function? (1-y, 0-n) */
-  char hasSubscribe;       /**< Does this subdomain implement a subscribe function? (1-y, 0-n) */
-  char hasUnsubscribe;     /**< Does this subdomain implement a unsubscribe function? (1-y, 0-n) */
-  char hasShutdown;        /**< Does this subdomain implement a shutdowm function? (1-y, 0-n) */
+  int hasSend;            /**< Does this subdomain implement a send function? (1-y, 0-n) */
+  int hasSyncSend;        /**< Does this subdomain implement a syncSend function? (1-y, 0-n) */
+  int hasSubscribeAndGet; /**< Does this subdomain implement a subscribeAndGet function? (1-y, 0-n) */
+  int hasSendAndGet;      /**< Does this subdomain implement a sendAndGet function? (1-y, 0-n) */
+  int hasSubscribe;       /**< Does this subdomain implement a subscribe function? (1-y, 0-n) */
+  int hasUnsubscribe;     /**< Does this subdomain implement a unsubscribe function? (1-y, 0-n) */
+  int hasShutdown;        /**< Does this subdomain implement a shutdowm function? (1-y, 0-n) */
 
   char *myHost;       /**< This hostname. */
   char *sendHost;     /**< Host to send messages to. */
@@ -231,7 +231,7 @@ typedef struct cbArg_t {
  * convenience.
  */
 typedef struct cMsgThreadInfo_t {
-  volatile int isRunning; /**< Boolean to indicate thread is running. (1-y, 0-n) */
+  int isRunning; /**< Boolean to indicate thread is running. (1-y, 0-n) */
   int connfd;    /**< Socket connection's file descriptor. */
   int listenFd;  /**< Listening socket file descriptor. */
   int connectionNumber; /**< Number of connection to this listening port (starting at 0). */
