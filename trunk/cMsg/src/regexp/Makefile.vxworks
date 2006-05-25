@@ -7,7 +7,7 @@ TOP_DIR = ../..
 INC_DIR = $(TOP_DIR)/inc
 LIB_DIR = $(TOP_DIR)/lib/vxworks
 BIN_DIR = $(TOP_DIR)/bin/vxworks
-INSTALL = $(TOP_DIR)/install-sh -c
+INSTALL = cp
 
 ifeq ($(ARCH),VXWORKSPPC)
 # vxWorks 5.5
