@@ -38,6 +38,7 @@ int cMsgConsumer(void) {
   char *type    = "TYPE";
   int err, domainId = -1;
   cMsgSubscribeConfig *config;
+  void *unsubHandle;
   
   /* msg rate measuring variables */
   int             period = 5, ignore=4;
@@ -60,7 +61,7 @@ int cMsgConsumer(void) {
   cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
 
   /* subscribe */
-  err = cMsgSubscribe(domainId, subject, type, callback, NULL, config);
+  err = cMsgSubscribe(domainId, subject, type, callback, NULL, config, &unsubHandle);
   if (err != CMSG_OK) {
       printf("cMsgSubscribe: %s\n",cMsgPerror(err));
       exit(1);
