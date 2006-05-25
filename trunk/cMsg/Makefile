@@ -2,46 +2,65 @@
 # cMsg top level Makefile
 #
 #
-# Warning!!
-# cMsg will not compile properly for vxWorks under Linux cross compiler
-#
 
-# operating system we are using
-OSNAME := $(shell uname)
 MAKEFILE = Makefile.unix
 
-ifeq ($(OSNAME),SunOS)
-LIB_DIR = ./lib/SunOS
-BIN_DIR = ./bin/SunOS
-endif
+# operating system, platform, processor bits we are using
+OSNAME   := $(shell uname)
+PLATFORM := $(shell uname -p)
+CMSG_DIR := $(shell pwd)
 
-ifeq ($(OSNAME),Linux)
-LIB_DIR = ./lib/Linux
-BIN_DIR = ./bin/Linux
+# Look to see if the environmental variable CMSG_USE64BITS is defined.
+# If so, then compile everything for 64 bits. Be sure to do a 
+# "make cClean" when switching between 32 & 64 bit compiling.
+ifeq ($(findstring CMSG_USE64BITS, $(shell env | grep CMSG_USE64BITS)), CMSG_USE64BITS) 
+CMSG_BIT_ARCH = 64
+BITS = 64
+else
+CMSG_BIT_ARCH =
+BITS = 32
 endif
 
 # if ARCH is defined, do a vxWorks build
 ifeq ($(ARCH),VXWORKSPPC)
-LIB_DIR = ./lib/vxworks
-BIN_DIR = ./bin/vxworks
 MAKEFILE = Makefile.vxworks
+OSNAME   = vxworks
+PLATFORM =
+CMSG_BIT_ARCH = 
 endif
+
+LIB_DIR = $(CMSG_DIR)/lib/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)
+BIN_DIR = $(CMSG_DIR)/bin/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)
 
 # send this down to lower level makefiles
 export OSNAME
+export PLATFORM
+export LIB_DIR
+export BIN_DIR
+export CMSG_DIR
+export CMSG_BIT_ARCH
 
-all: mkdirs cCode java jarfile
+echoarch:
+	@echo
+	@echo "Make for $(OSNAME) on $(PLATFORM), $(BITS) bits"
+	@echo
+
+all: echoarch mkdirs cCode java jarfile
 
 mkdirs:
 	-mkdir ./lib
 	-mkdir ./bin
 	-mkdir ./inc
+	-mkdir $(CMSG_DIR)/lib/$(OSNAME)
+	-mkdir $(CMSG_DIR)/lib/$(OSNAME)/$(PLATFORM)
 	-mkdir $(LIB_DIR)
+	-mkdir $(CMSG_DIR)/bin/$(OSNAME)
+	-mkdir $(CMSG_DIR)/bin/$(OSNAME)/$(PLATFORM)
 	-mkdir $(BIN_DIR)
 	-mkdir ./doc/doxygen/C
 	-mkdir ./doc/doxygen/CC
 
-cCode:
+cCode: echoarch
 	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) install;
 	cd ./src/C;  $(MAKE) -f $(MAKEFILE) install;
 	cd ./src/CC; $(MAKE) -f $(MAKEFILE) install;

@@ -4,34 +4,42 @@
 # Do not take -DPOSIX_MISTAKE out.
 
 TOP_DIR = ../..
-INC_DIR = $(TOP_DIR)/inc
-INSTALL = $(TOP_DIR)/install-sh -c
+INC_DIR = $(CMSG_DIR)/inc
+INSTALL = $(CMSG_DIR)/install-sh -c
 
-ifndef OSNAME
-OSNAME := $(shell uname)
-endif
+LIBNAM      = libcMsgRegex
+LIB_STATIC  = $(LIBNAM).a
+LIB_DYNAMIC = $(LIBNAM).so
 
 # Linux
 ifeq ($(OSNAME),Linux)
 CC = gcc
-LIB_DIR  = $(TOP_DIR)/lib/Linux
-BIN_DIR  = $(TOP_DIR)/bin/Linux
-AC_FLAGS =
-CFLAGS   = -O3 -fPIC -I./ -DPOSIX_MISTAKE $(AC_FLAGS)
+CFLAGS   = -O3 -fPIC -I./ -DPOSIX_MISTAKE
 SHLIB_LD = g++ -shared
 endif
 
 # Solaris
 ifeq ($(OSNAME),SunOS)
+
 CC = cc
-LIB_DIR  = $(TOP_DIR)/lib/SunOS
-BIN_DIR  = $(TOP_DIR)/bin/SunOS
-AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
-CFLAGS   = -mt -xO5 -KPIC -I. -DPOSIX_MISTAKE $(AC_FLAGS)
+C_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
+LIBS    = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
+
+ifeq ($(CMSG_BIT_ARCH), 64)
+# no static linking on 64 bit solaris
+LIB_STATIC =
+# put -fast flag to left of -xarch=amd64 !!!
+CFLAGS   = -mt -xO5 -xarch=amd64 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
+# for some reason we must handle ucb lib explicitly
+SHLIB_LD = ld -G -L /lib/64 -L /usr/ucblib/amd64
+else
+CFLAGS   = -mt -xO5 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
 SHLIB_LD = ld -G
 endif
 
-REGEX_LIBS = libcMsgRegex.so libcMsgRegex.a
+endif
+
+REGEX_LIBS = $(LIB_STATIC) $(LIB_DYNAMIC)
 HFILES = regex.h
 
 PROGS =

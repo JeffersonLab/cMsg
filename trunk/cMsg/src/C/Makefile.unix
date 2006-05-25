@@ -4,42 +4,44 @@ LD  = ld
 AR  = ar
 RANLIB  = ranlib
 
-TOP_DIR = ../..
-INC_DIR = $(TOP_DIR)/inc
-INSTALL = $(TOP_DIR)/install-sh -c
+INC_DIR = $(CMSG_DIR)/inc
+INSTALL = $(CMSG_DIR)/install-sh -c
 
-ifndef OSNAME
-OSNAME := $(shell uname)
-endif
+LIBNAM      = libcmsg
+LIB_STATIC  = $(LIBNAM).a
+LIB_DYNAMIC = $(LIBNAM).so
 
 # Linux
 ifeq ($(OSNAME),Linux)
 CC = gcc
-LIB_DIR  = $(TOP_DIR)/lib/Linux
-BIN_DIR  = $(TOP_DIR)/bin/Linux
-AC_FLAGS =
-#CFLAGS   = -O3 -fPIC -I. -I$(INC_DIR) $(AC_FLAGS)
-CFLAGS   = -g -fPIC -I. -I$(INC_DIR) $(AC_FLAGS)
+#CFLAGS   = -O3 -fPIC -I. -I$(INC_DIR)
+CFLAGS   = -Wall -fPIC -I. -I$(INC_DIR)
 LIBS     = -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
 SHLIB_LD = g++ -shared
 endif
 
 # Solaris
 ifeq ($(OSNAME),SunOS)
+
 CC = cc
-LIB_DIR  = $(TOP_DIR)/lib/SunOS
-BIN_DIR  = $(TOP_DIR)/bin/SunOS
-AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
+C_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
+LIBS    = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
+
+ifeq ($(CMSG_BIT_ARCH), 64)
+# no static linking on 64 bit solaris
+LIB_STATIC =
+# put -fast flag to left of -xarch=amd64 !!!
+CFLAGS   = -mt -xO5 -xarch=amd64 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
+# for some reason we must handle ucb lib explicitly
+SHLIB_LD = ld -G -L /lib/64 -L /usr/ucblib/amd64
+else
 CFLAGS   = -mt -xO5 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
-CFLAGS   = -mt -xO5 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
-LIBS     = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
 SHLIB_LD = ld -G
 endif
 
-LIBNAM      = libcmsg
-LIB_STATIC  = $(LIBNAM).a
-LIB_DYNAMIC = $(LIBNAM).so
-CMSG_LIBS   = $(LIB_STATIC) $(LIB_DYNAMIC)
+endif
+
+CMSG_LIBS = $(LIB_STATIC) $(LIB_DYNAMIC)
 
 SRC =   rwlock.c \
 	sunConcurrency.c \
@@ -65,7 +67,7 @@ OBJS =  rwlock.o \
 
 HFILES = cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsg.h cMsgDomain.h rwlock.h errors.h
 
-PROGS  = producer consumer getConsumer getResponder shutdowner
+PROGS  = producer consumer getConsumer getResponder shutdowner rcClient
 
 
 all: $(CMSG_LIBS)  $(PROGS)
@@ -124,6 +126,6 @@ clean:
 
 # SUFFIX RULES
 .c:
-	$(CC) -o $* $(CFLAGS) $< -L./ -L$(LIB_DIR) -lcmsg -lcMsgRegex $(LIBS)
+	$(CC) -o $* $(CFLAGS) $< -L./ -L$(LIB_DIR) -L/usr/ucblib/amd64 -lcmsg -lcMsgRegex $(LIBS)
 .c.o:
 	$(CC) -c $(CFLAGS) $<
