@@ -3,10 +3,6 @@
 #
 
 C_DIR   = ../C
-TOP_DIR = ../..
-INC_DIR = $(TOP_DIR)/inc
-LIB_DIR = $(TOP_DIR)/lib/vxworks
-BIN_DIR = $(TOP_DIR)/bin/vxworks
 INSTALL = cp
 
 ifeq ($(ARCH),VXWORKSPPC)

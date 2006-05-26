@@ -5,13 +5,10 @@ AR  = ar
 RANLIB  = ranlib
 
 C_DIR   = ../C
-TOP_DIR = ../..
-INC_DIR = $(TOP_DIR)/inc
-INSTALL = $(TOP_DIR)/install-sh -c
 
-ifndef OSNAME
-OSNAME := $(shell uname)
-endif
+LIBNAMXX      = libcmsgxx
+LIB_STATICXX  = $(LIBNAMXX).a
+LIB_DYNAMICXX = $(LIBNAMXX).so
 
 # Linux
 ifeq ($(OSNAME),Linux)
@@ -27,22 +24,42 @@ LIBS      = -lexpat -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
 SHLIB_LD  = g++ -shared
 endif
 
+
 # Solaris
 ifeq ($(OSNAME),SunOS)
+
 CXX = CC
-LIB_DIR  = $(TOP_DIR)/lib/SunOS
-BIN_DIR  = $(TOP_DIR)/bin/SunOS
 AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
-CFLAGS   = -mt -xO5 -KPIC -I. -I$(C_DIR) -I$(INC_DIR) $(AC_FLAGS)
-LIBS     = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
-SHLIB_LD  = ld -G
+LIBS    = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
+
+# if 64 bit
+ifeq ($(CMSG_BIT_ARCH), 64)
+
+# no static linking on 64 bit solaris
+LIB_STATICXX =
+
+# if SPARC processor
+ifeq ($(PLATFORM), sparc)
+CFLAGS   = -mt -xO5 -xarch=native64 -xcode=pic32 -I. -I$(C_DIR) -I$(INC_DIR) $(AC_FLAGS)
+SHLIB_LD = ld -G -L /lib/64
+# else if AMD processor
+else
+# put -fast flag to left of -xarch=amd64 !!!
+CFLAGS   = -mt -xO5 -xarch=amd64 -KPIC -I. -I$(C_DIR) -I$(INC_DIR) $(AC_FLAGS)
+# for some reason we must handle ucb lib explicitly
+SHLIB_LD = ld -G -L /lib/64 -L /usr/ucblib/amd64
 endif
 
-CFLAGSXX  = $(CFLAGS) -Dcppversion
+# else if 32 bit
+else
+CFLAGS   = -mt -xO5 -KPIC -I. -I$(C_DIR) -I$(INC_DIR) $(AC_FLAGS)
+SHLIB_LD = ld -G
+endif
 
-LIBNAMXX      = libcmsgxx
-LIB_STATICXX  = $(LIBNAMXX).a
-LIB_DYNAMICXX = $(LIBNAMXX).so
+endif
+
+
+CFLAGSXX  = $(CFLAGS) -Dcppversion
 
 CMSG_LIBSXX = $(LIB_STATICXX) $(LIB_DYNAMICXX)
 
