@@ -34,6 +34,10 @@
 extern "C" {
 #endif
 
+#ifdef VXWORKS
+#define uintptr_t int
+#define intptr_t  int
+#endif
 
 /** Major version number. */
 #define CMSG_VERSION_MAJOR 1
