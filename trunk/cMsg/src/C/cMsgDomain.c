@@ -148,7 +148,7 @@ static int  disconnectFromKeepAlive(void *domainId);
 static int  connectImpl(int domainId, int failoverIndex);
 static int  talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIndex);
 static int  parseUDL(const char *UDL, char **password,
-                     char **host, unsigned short *port,
+                     char **host, int *port,
                      char **UDLRemainder,
                      char **subdomainType,
                      char **UDLsubRemainder);
@@ -322,8 +322,10 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
   char *p, *udl;
   int failoverUDLCount = 0, failoverIndex=0, viableUDLs = 0;
   int gotConnection = 0;        
-  int i, err=CMSG_OK, id=-1;
+  int i, err=CMSG_OK;
+  intptr_t id = -1;
   char temp[CMSG_MAXHOSTNAMELEN];
+  cMsgDomainInfo *domain;
 
 
   /* First, grab lock for thread safety. This lock must be held until
@@ -361,29 +363,32 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
     return(CMSG_LIMIT_EXCEEDED);
   }
 
+  /* convenience variable */
+  domain = &cMsgDomains[id];
+
   /* allocate memory for message-sending buffer */
-  cMsgDomains[id].msgBuffer     = (char *) malloc(initialMsgBufferSize);
-  cMsgDomains[id].msgBufferSize = initialMsgBufferSize;
-  if (cMsgDomains[id].msgBuffer == NULL) {
-    cMsgDomainClear(&cMsgDomains[id]);
+  domain->msgBuffer     = (char *) malloc(initialMsgBufferSize);
+  domain->msgBufferSize = initialMsgBufferSize;
+  if (domain->msgBuffer == NULL) {
+    cMsgDomainClear(domain);
     staticMutexUnlock();
     return(CMSG_OUT_OF_MEMORY);
   }
 
   /* reserve this element of the "cMsgDomains" array */
-  cMsgDomains[id].initComplete = 1;
+  domain->initComplete = 1;
 
   /* save ref to self */
-  cMsgDomains[id].id = id;
+  domain->id = id;
 
   /* store our host's name */
   gethostname(temp, CMSG_MAXHOSTNAMELEN);
-  cMsgDomains[id].myHost = (char *) strdup(temp);
+  domain->myHost = (char *) strdup(temp);
 
   /* store names, can be changed until server connection established */
-  cMsgDomains[id].name        = (char *) strdup(myName);
-  cMsgDomains[id].udl         = (char *) strdup(myUDL);
-  cMsgDomains[id].description = (char *) strdup(myDescription);
+  domain->name        = (char *) strdup(myName);
+  domain->udl         = (char *) strdup(myUDL);
+  domain->description = (char *) strdup(myDescription);
 
   /*
    * The UDL may be a semicolon separated list of UDLs, separate them and
@@ -400,16 +405,16 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
   free(udl);
 
   if (failoverUDLCount < 1) {
-    cMsgDomainClear(&cMsgDomains[id]);
+    cMsgDomainClear(domain);
     staticMutexUnlock();
     return(CMSG_BAD_ARGUMENT);        
   }
 
   /* Now that we know how many UDLs there are, allocate array. */
-  cMsgDomains[id].failoverSize = failoverUDLCount;
-  cMsgDomains[id].failovers = (parsedUDL *) calloc(failoverUDLCount, sizeof(parsedUDL));
-  if (cMsgDomains[id].failovers == NULL) {
-    cMsgDomainClear(&cMsgDomains[id]);
+  domain->failoverSize = failoverUDLCount;
+  domain->failovers = (parsedUDL *) calloc(failoverUDLCount, sizeof(parsedUDL));
+  if (domain->failovers == NULL) {
+    cMsgDomainClear(domain);
     staticMutexUnlock();
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -420,22 +425,22 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
   i   = 0;
   while (p != NULL) {
     /* Parse the UDL (Uniform Domain Locator) */
-    if ( (err = parseUDL(p, &cMsgDomains[id].failovers[i].password,
-                            &cMsgDomains[id].failovers[i].nameServerHost,
-                            &cMsgDomains[id].failovers[i].nameServerPort,
-                            &cMsgDomains[id].failovers[i].udlRemainder,
-                            &cMsgDomains[id].failovers[i].subdomain,
-                            &cMsgDomains[id].failovers[i].subRemainder)) != CMSG_OK ) {
+    if ( (err = parseUDL(p, &domain->failovers[i].password,
+                            &domain->failovers[i].nameServerHost,
+                            &domain->failovers[i].nameServerPort,
+                            &domain->failovers[i].udlRemainder,
+                            &domain->failovers[i].subdomain,
+                            &domain->failovers[i].subRemainder)) != CMSG_OK ) {
 
       /* There's been a parsing error, mark as invalid UDL */
-      cMsgDomains[id].failovers[i].valid = 0;
+      domain->failovers[i].valid = 0;
     }
     else {
-      cMsgDomains[id].failovers[i].valid = 1;
+      domain->failovers[i].valid = 1;
       viableUDLs++;
     }
-    cMsgDomains[id].failovers[i].udl = strdup(p);
-/* printf("Found UDL = %s\n", cMsgDomains[id].failovers[i].udl); */
+    domain->failovers[i].udl = strdup(p);
+/* printf("Found UDL = %s\n", domain->failovers[i].udl); */
     p = strtok(NULL, ";");
     i++;
   }
@@ -448,27 +453,27 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
 
   /* If there are no viable UDLs ... */
   if (viableUDLs < 1) {
-      cMsgDomainClear(&cMsgDomains[id]);
+      cMsgDomainClear(domain);
       staticMutexUnlock();
       return(CMSG_BAD_FORMAT);            
   }
   /* Else if there's only 1 viable UDL ... */
   else if (viableUDLs < 2) {
-/* printf("Only 1 UDL = %s\n", cMsgDomains[id].failovers[0].udl); */
+/* printf("Only 1 UDL = %s\n", domain->failovers[0].udl); */
 
       /* Ain't using failovers */
-      cMsgDomains[id].implementFailovers = 0;
+      domain->implementFailovers = 0;
       
       /* connect using that UDL */
-      if (!cMsgDomains[id].failovers[0].valid) {
-          cMsgDomainClear(&cMsgDomains[id]);
+      if (!domain->failovers[0].valid) {
+          cMsgDomainClear(domain);
           staticMutexUnlock();
           return(CMSG_BAD_FORMAT);            
       }
       
       err = connectImpl(id, 0);
       if (err != CMSG_OK) {
-          cMsgDomainClear(&cMsgDomains[id]);
+          cMsgDomainClear(domain);
           staticMutexUnlock();
           return(err);            
       }
@@ -477,24 +482,24 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
     int connectFailures = 0;
 
     /* We're using failovers */
-    cMsgDomains[id].implementFailovers = 1;
+    domain->implementFailovers = 1;
     
     /* Go through the UDL's until one works */
     failoverIndex = -1;
     do {
       /* check to see if UDL valid for cMsg domain */
-      if (!cMsgDomains[id].failovers[++failoverIndex].valid) {
+      if (!domain->failovers[++failoverIndex].valid) {
         connectFailures++;
         continue;
       }
 
       /* connect using that UDL info */
 /* printf("\nTrying to connect with UDL = %s\n",
-      cMsgDomains[id].failovers[failoverIndex].udl); */
+      domain->failovers[failoverIndex].udl); */
 
       err = connectImpl(id, failoverIndex);
       if (err == CMSG_OK) {
-        cMsgDomains[id].failoverIndex = failoverIndex;
+        domain->failoverIndex = failoverIndex;
         gotConnection = 1;
 /* printf("Connected!!\n"); */
         break;
@@ -505,7 +510,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
     } while (connectFailures < failoverUDLCount);
 
     if (!gotConnection) {
-      cMsgDomainClear(&cMsgDomains[id]);
+      cMsgDomainClear(domain);
       staticMutexUnlock();
       return(err);                      
     }        
@@ -517,7 +522,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
   /* install default shutdown handler (exits program) */
   cmsg_cmsg_setShutdownHandler((void *)id, defaultShutdownHandler, NULL);
 
-  cMsgDomains[id].gotConnection = 1;
+  domain->gotConnection = 1;
 
   /* no more mutex protection is necessary */
   staticMutexUnlock();
@@ -545,7 +550,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
  */   
 static int connectImpl(int domainId, int failoverIndex) {
 
-  int i, id=-1, err, serverfd, status, hz, num_try, try_max;
+  int i, err, serverfd, status, hz, num_try, try_max;
   char *portEnvVariable=NULL;
   unsigned short startingPort;
   cMsgThreadInfo *threadArg;
@@ -553,7 +558,6 @@ static int connectImpl(int domainId, int failoverIndex) {
   
   cMsgDomainInfo *domain = &cMsgDomains[domainId];
   
-  id = domainId;    
   /*
    * First find a port on which to receive incoming messages.
    * Do this by trying to open a listening socket at a given
@@ -619,8 +623,8 @@ static int connectImpl(int domainId, int failoverIndex) {
   hz = sysClkRateGet();
 #else
   /* get system clock rate - probably 100 Hz */
-  hz = 100;
   hz = sysconf(_SC_CLK_TCK);
+  if (hz < 0) hz = 100;
 #endif
   /* wait up to WAIT_FOR_THREADS seconds for a thread to start */
   try_max = hz * WAIT_FOR_THREADS;
@@ -651,7 +655,7 @@ static int connectImpl(int domainId, int failoverIndex) {
     
   /* first connect to server host & port */
   if ( (err = cMsgTcpConnect(domain->failovers[failoverIndex].nameServerHost,
-                             domain->failovers[failoverIndex].nameServerPort,
+                             (unsigned short) domain->failovers[failoverIndex].nameServerPort,
                              &serverfd)) != CMSG_OK) {
     /* stop listening & connection threads */
     pthread_cancel(domain->pendThread);
@@ -681,14 +685,14 @@ static int connectImpl(int domainId, int failoverIndex) {
  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "connectImpl: closed name server socket\n");
-    fprintf(stderr, "connectImpl: sendHost = %s, sendPort = %hu\n",
+    fprintf(stderr, "connectImpl: sendHost = %s, sendPort = %d\n",
                              domain->sendHost,
                              domain->sendPort);
   }
   
   /* create receiving socket and store */
   if ( (err = cMsgTcpConnect(domain->sendHost,
-                             domain->sendPort,
+                             (unsigned short) domain->sendPort,
                              &domain->receiveSocket)) != CMSG_OK) {
     pthread_cancel(domain->pendThread);
     return(err);
@@ -700,7 +704,7 @@ static int connectImpl(int domainId, int failoverIndex) {
     
   /* create keep alive socket and store */
   if ( (err = cMsgTcpConnect(domain->sendHost,
-                             domain->sendPort,
+                             (unsigned short) domain->sendPort,
                              &domain->keepAliveSocket)) != CMSG_OK) {
     close(domain->receiveSocket);
     pthread_cancel(domain->pendThread);
@@ -724,7 +728,7 @@ static int connectImpl(int domainId, int failoverIndex) {
 
   /* create sending socket and store */
   if ( (err = cMsgTcpConnect(domain->sendHost,
-                             domain->sendPort,
+                             (unsigned short) domain->sendPort,
                              &domain->sendSocket)) != CMSG_OK) {
     close(domain->keepAliveSocket);
     close(domain->receiveSocket);
@@ -760,14 +764,12 @@ static int connectImpl(int domainId, int failoverIndex) {
  */   
 static int reconnect(int domainId, int failoverIndex) {
 
-  int i, id=-1, err, serverfd, status;
+  int i, err, serverfd, status;
   struct timespec waitForThread = {0,500000000};
   getInfo *info;
   
   cMsgDomainInfo *domain = &cMsgDomains[domainId];
   
-  id = domainId;    
-
   cMsgConnectWriteLock(domain);  
 
   /*--------------------------------------------------------------------*/
@@ -776,7 +778,7 @@ static int reconnect(int domainId, int failoverIndex) {
   /*--------------------------------------------------------------------*/
   /* connect to server host & port */
   if ( (err = cMsgTcpConnect(domain->failovers[failoverIndex].nameServerHost,
-                             domain->failovers[failoverIndex].nameServerPort,
+                             (unsigned short) domain->failovers[failoverIndex].nameServerPort,
                              &serverfd)) != CMSG_OK) {
     cMsgConnectWriteUnlock(domain);
     return(err);
@@ -877,13 +879,13 @@ static int reconnect(int domainId, int failoverIndex) {
  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "reconnect: closed name server socket\n");
-    fprintf(stderr, "reconnect: sendHost = %s, sendPort = %hu\n", domain->sendHost, domain->sendPort);
+    fprintf(stderr, "reconnect: sendHost = %s, sendPort = %d\n", domain->sendHost, domain->sendPort);
   }
 /* printf("reconnect 4\n"); */
   
   /* create receiving socket and store */
   if ( (err = cMsgTcpConnect(domain->sendHost,
-                             domain->sendPort,
+                             (unsigned short) domain->sendPort,
                              &domain->receiveSocket)) != CMSG_OK) {
     cMsgConnectWriteUnlock(domain);
     return(err);
@@ -896,7 +898,7 @@ static int reconnect(int domainId, int failoverIndex) {
 /* printf("reconnect 5\n"); */
   /* create keep alive socket and store */
   if ( (err = cMsgTcpConnect(domain->sendHost,
-                             domain->sendPort,
+                             (unsigned short) domain->sendPort,
                              &domain->keepAliveSocket)) != CMSG_OK) {
     cMsgConnectWriteUnlock(domain);
     close(domain->receiveSocket);
@@ -915,7 +917,7 @@ static int reconnect(int domainId, int failoverIndex) {
 
   /* create sending socket and store */
   if ( (err = cMsgTcpConnect(domain->sendHost,
-                             domain->sendPort,
+                             (unsigned short) domain->sendPort,
                              &domain->sendSocket)) != CMSG_OK) {
     cMsgConnectWriteUnlock(domain);
     close(domain->keepAliveSocket);
@@ -968,10 +970,10 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
   int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
   cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
-  cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
+  cMsgDomainInfo *domain = &cMsgDomains[(intptr_t)domainId];
   int fd = domain->sendSocket;
   char *creator;
-  long long llTime;
+  uint64_t llTime;
   struct timespec now;
   
   if (!domain->hasSend) {
@@ -1026,15 +1028,16 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
     /* time message sent (right now) */
     clock_gettime(CLOCK_REALTIME, &now);
     /* convert to milliseconds */
-    llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);
+    llTime  = ((uint64_t)now.tv_sec * 1000) +
+              ((uint64_t)now.tv_nsec/1000000);
     highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
     lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
     outGoing[7] = htonl(highInt);
     outGoing[8] = htonl(lowInt);
 
     /* user time */
-    llTime  = ((long long)msg->userTime.tv_sec * 1000) +
-              ((long long)msg->userTime.tv_nsec/1000000);
+    llTime  = ((uint64_t)msg->userTime.tv_sec * 1000) +
+              ((uint64_t)msg->userTime.tv_nsec/1000000);
     highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
     lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
     outGoing[9]  = htonl(highInt);
@@ -1066,7 +1069,9 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
           lenCreator + lenText + lenByteArray;
     outGoing[0] = htonl(len);
 
-    /* make send socket communications thread-safe */
+    /* Make send socket communications thread-safe. That
+     * includes protecting the one buffer being used.
+     */
     cMsgSocketMutexLock(domain);
 
     /* allocate more memory for message-sending buffer if necessary */
@@ -1120,6 +1125,9 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
        printf("cmsg_cmsg_send: FAILOVER SUCCESSFUL, try send again\n");
        goto tryagain;
     }  
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      printf("cmsg_cmsg_send: FAILOVER NOT successful, quitting, err = %d\n", err);
+    }
   }
   
   return(err);
@@ -1156,11 +1164,11 @@ int cmsg_cmsg_syncSend(void *domainId, void *vmsg, int *response) {
   int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
   cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
-  cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
+  cMsgDomainInfo *domain = &cMsgDomains[(intptr_t)domainId];
   int fd = domain->sendSocket;
   int fdIn = domain->receiveSocket;
   char *creator;
-  long long llTime;
+  uint64_t llTime;
   struct timespec now;
     
   if (!domain->hasSyncSend) {
@@ -1215,15 +1223,15 @@ int cmsg_cmsg_syncSend(void *domainId, void *vmsg, int *response) {
     /* time message sent (right now) */
     clock_gettime(CLOCK_REALTIME, &now);
     /* convert to milliseconds */
-    llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);
+    llTime  = ((uint64_t)now.tv_sec * 1000) + ((uint64_t)now.tv_nsec/1000000);
     highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
     lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
     outGoing[7] = htonl(highInt);
     outGoing[8] = htonl(lowInt);
 
     /* user time */
-    llTime  = ((long long)msg->userTime.tv_sec * 1000) +
-              ((long long)msg->userTime.tv_nsec/1000000);
+    llTime  = ((uint64_t)msg->userTime.tv_sec * 1000) +
+              ((uint64_t)msg->userTime.tv_nsec/1000000);
     highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
     lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
     outGoing[9]  = htonl(highInt);
@@ -1327,10 +1335,12 @@ int cmsg_cmsg_syncSend(void *domainId, void *vmsg, int *response) {
     /* don't wait for resubscribes */
     if (failoverSuccessful(domain, 0)) {
        fd = domain->sendSocket;
-       printf("cmsg_cmsg_syncSend: FAILOVER SUCCESSFUL, try suncSend again\n");
+/*printf("cmsg_cmsg_syncSend: FAILOVER SUCCESSFUL, try suncSend again\n");*/
        goto tryagain;
     }  
-printf("cmsg_cmsg_syncSend: FAILOVER NOT successful, quitting, err = %d\n", err);
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      printf("cmsg_cmsg_syncSend: FAILOVER NOT successful, quitting, err = %d\n", err);
+    }
   }
 
   /* return domain server's reply */  
@@ -1368,9 +1378,9 @@ printf("cmsg_cmsg_syncSend: FAILOVER NOT successful, quitting, err = %d\n", err)
  *                               by a call to cMsgDisconnect()
  */   
 int cmsg_cmsg_subscribeAndGet(void *domainId, const char *subject, const char *type,
-                           const struct timespec *timeout, void **replyMsg) {
+                              const struct timespec *timeout, void **replyMsg) {
                              
-  cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
+  cMsgDomainInfo *domain = &cMsgDomains[(intptr_t)domainId];
   int i, err, uniqueId, status, len, lenSubject, lenType;
   int gotSpot, fd = domain->sendSocket;
   int outGoing[6];
@@ -1588,7 +1598,7 @@ int cmsg_cmsg_subscribeAndGet(void *domainId, const char *subject, const char *t
 static int unSubscribeAndGet(void *domainId, const char *subject, const char *type, int id) {
   
   int len, outGoing[6], lenSubject, lenType;
-  cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
+  cMsgDomainInfo *domain = &cMsgDomains[(intptr_t)domainId];
   int fd = domain->sendSocket;
   struct iovec iov[3];
 
@@ -1674,7 +1684,7 @@ static int unSubscribeAndGet(void *domainId, const char *subject, const char *ty
 int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
                       void **replyMsg) {
   
-  cMsgDomainInfo *domain  = &cMsgDomains[(int)domainId];
+  cMsgDomainInfo *domain  = &cMsgDomains[(intptr_t)domainId];
   cMsgMessage_t *msg = (cMsgMessage_t *) sendMsg;
   int i, err, uniqueId, status;
   int len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
@@ -1683,7 +1693,7 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *t
   getInfo *info = NULL;
   struct timespec wait;
   char *creator;
-  long long llTime;
+  uint64_t llTime;
   struct timespec now;
   
   if (!domain->hasSendAndGet) {
@@ -1774,15 +1784,16 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *t
   /* time message sent (right now) */
   clock_gettime(CLOCK_REALTIME, &now);
   /* convert to milliseconds */
-  llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);
+  llTime  = ((uint64_t)now.tv_sec * 1000) +
+            ((uint64_t)now.tv_nsec/1000000);
   highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
   lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
   outGoing[6] = htonl(highInt);
   outGoing[7] = htonl(lowInt);
   
   /* user time */
-  llTime  = ((long long)msg->userTime.tv_sec * 1000) +
-            ((long long)msg->userTime.tv_nsec/1000000);
+  llTime  = ((uint64_t)msg->userTime.tv_sec * 1000) +
+            ((uint64_t)msg->userTime.tv_nsec/1000000);
   highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
   lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
   outGoing[8] = htonl(highInt);
@@ -1968,7 +1979,7 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *t
 static int unSendAndGet(void *domainId, int id) {
   
   int outGoing[3];
-  cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
+  cMsgDomainInfo *domain = &cMsgDomains[(intptr_t)domainId];
   int fd = domain->sendSocket;
     
   /* size of info coming - 8 bytes */
@@ -2051,7 +2062,7 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
                      void *userArg, cMsgSubscribeConfig *config, void **handle) {
 
   int i, j, iok=0, jok=0, uniqueId, status, err;
-  cMsgDomainInfo *domain  = &cMsgDomains[(int)domainId];
+  cMsgDomainInfo *domain  = &cMsgDomains[(intptr_t)domainId];
   subscribeConfig *sConfig = (subscribeConfig *) config;
   cbArg *cbarg;
   struct iovec iov[3];
@@ -2141,7 +2152,7 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
               cMsgConnectReadUnlock(domain);
               return(CMSG_OUT_OF_MEMORY);  
             }                        
-            cbarg->domainId = (int) domainId;
+            cbarg->domainId = (uintptr_t) domainId;
             cbarg->subIndex = i;
             cbarg->cbIndex  = j;
             cbarg->domain   = domain;
@@ -2213,7 +2224,7 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
         cMsgConnectReadUnlock(domain);
         return(CMSG_OUT_OF_MEMORY);  
       }                        
-      cbarg->domainId = (int) domainId;
+      cbarg->domainId = (uintptr_t) domainId;
       cbarg->subIndex = i;
       cbarg->cbIndex  = 0;
       cbarg->domain   = domain;
@@ -2326,7 +2337,9 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
        printf("cmsg_cmsg_subscribe: FAILOVER SUCCESSFUL, try subscribe again\n");
        goto tryagain;
     }  
-printf("cmsg_cmsg_subscribe: FAILOVER NOT successful, quitting, err = %d\n", err);
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      printf("cmsg_cmsg_subscribe: FAILOVER NOT successful, quitting, err = %d\n", err);
+    }
   }
 
   return(err);
@@ -2463,7 +2476,7 @@ static int resubscribe(cMsgDomainInfo *domain, const char *subject, const char *
 int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
 
   int status, err;
-  cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
+  cMsgDomainInfo *domain = &cMsgDomains[(intptr_t)domainId];
   int fd = domain->sendSocket;
   struct iovec iov[3];
   cbArg           *cbarg;
@@ -2481,7 +2494,7 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
   
   cbarg = (cbArg *)handle;
   
-  if (cbarg->domainId != (int)domainId  ||
+  if (cbarg->domainId != (uintptr_t)domainId  ||
       cbarg->subIndex < 0 ||
       cbarg->cbIndex  < 0 ||
       cbarg->subIndex >= CMSG_MAX_SUBSCRIBE ||
@@ -2634,7 +2647,9 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
        printf("cmsg_cmsg_unsubscribe: FAILOVER SUCCESSFUL, try unsubscribe again\n");
        goto tryagain;
     }  
-printf("cmsg_cmsg_unsubscribe: FAILOVER NOT successful, quitting, err = %d\n", err);
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      printf("cmsg_cmsg_unsubscirbe: FAILOVER NOT successful, quitting, err = %d\n", err);
+    }
   }
   
   return(err);
@@ -2655,7 +2670,7 @@ printf("cmsg_cmsg_unsubscribe: FAILOVER NOT successful, quitting, err = %d\n", e
  */   
 int cmsg_cmsg_start(void *domainId) {
   
-  cMsgDomains[(int)domainId].receiveState = 1;
+  cMsgDomains[(intptr_t)domainId].receiveState = 1;
   return(CMSG_OK);
 }
 
@@ -2674,7 +2689,7 @@ int cmsg_cmsg_start(void *domainId) {
  */   
 int cmsg_cmsg_stop(void *domainId) {
   
-  cMsgDomains[(int)domainId].receiveState = 0;
+  cMsgDomains[(intptr_t)domainId].receiveState = 0;
   return(CMSG_OK);
 }
 
@@ -2694,7 +2709,7 @@ int cmsg_cmsg_stop(void *domainId) {
 int cmsg_cmsg_disconnect(void *domainId) {
   
   int i, j, status, outGoing[2];
-  cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
+  cMsgDomainInfo *domain = &cMsgDomains[(intptr_t)domainId];
   int fd = domain->sendSocket;
   subscribeCbInfo *subscription;
   getInfo *info;
@@ -2731,14 +2746,9 @@ int cmsg_cmsg_disconnect(void *domainId) {
   
   /* send int */
   if (cMsgTcpWrite(fd, (char*) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
-    /*
-    cMsgSocketMutexUnlock(domain);
-    cMsgConnectWriteUnlock(domain);
-    */
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cmsg_cmsg_disconnect: write failure, but continue\n");
     }
-    /*return(CMSG_NETWORK_ERROR);*/
   }
  
   cMsgSocketMutexUnlock(domain);
@@ -2841,7 +2851,7 @@ int cmsg_cmsg_disconnect(void *domainId) {
 static int disconnectFromKeepAlive(void *domainId) {
   
   int i, j, status;
-  cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
+  cMsgDomainInfo *domain = &cMsgDomains[(intptr_t)domainId];
   subscribeCbInfo *subscription;
   getInfo *info;
 
@@ -2850,7 +2860,6 @@ static int disconnectFromKeepAlive(void *domainId) {
   cMsgConnectWriteLock(domain);
      
   /* stop listening and client communication threads */
-printf("disconnect: cancelling pend thread\n");
   pthread_cancel(domain->pendThread);
    
   /* close sending socket */
@@ -2910,7 +2919,7 @@ printf("disconnect: cancelling pend thread\n");
   /* give the above threads a chance to quit before we reset everytbing */
   sleep(1);
   
-  /* close listening socket */
+  /* do NOT close listening socket */
   /*close(domain->listenSocket);*/
   
   /* free memory (non-NULL items), reset variables*/
@@ -2962,7 +2971,7 @@ static void defaultShutdownHandler(void *userArg) {
 int cmsg_cmsg_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
                                     void *userArg) {
   
-  cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
+  cMsgDomainInfo *domain = &cMsgDomains[(intptr_t)domainId];
 
   if (domain->initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
@@ -2993,7 +3002,7 @@ int cmsg_cmsg_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
 int cmsg_cmsg_shutdownClients(void *domainId, const char *client, int flag) {
   
   int len, cLen, outGoing[4];
-  cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
+  cMsgDomainInfo *domain = &cMsgDomains[(intptr_t)domainId];
   int fd = domain->sendSocket;
   struct iovec iov[2];
 
@@ -3068,7 +3077,7 @@ int cmsg_cmsg_shutdownClients(void *domainId, const char *client, int flag) {
 int cmsg_cmsg_shutdownServers(void *domainId, const char *server, int flag) {
   
   int len, sLen, outGoing[4];
-  cMsgDomainInfo *domain = &cMsgDomains[(int)domainId];
+  cMsgDomainInfo *domain = &cMsgDomains[(intptr_t)domainId];
   int fd = domain->sendSocket;
   struct iovec iov[2];
 
@@ -3154,7 +3163,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIn
   /* minor version number */
   outGoing[2] = htonl(CMSG_VERSION_MINOR);
   /* send my listening port (as an int) to server */
-  outGoing[3] = htonl((int)domain->listenPort);
+  outGoing[3] = htonl(domain->listenPort);
   /* send length of password for connecting to server.*/
   if (pUDL->password == NULL) {
     lengthPassword = outGoing[4] = 0;
@@ -3313,11 +3322,11 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIn
     }
     return(CMSG_NETWORK_ERROR);
   }
-  domain->sendPort = (unsigned short) ntohl(inComing[0]);
+  domain->sendPort = ntohl(inComing[0]);
   lengthHost = ntohl(inComing[1]);
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "talkToNameServer: port = %hu, host len = %d\n",
+    fprintf(stderr, "talkToNameServer: port = %d, host len = %d\n",
               domain->sendPort, lengthHost);
     fprintf(stderr, "talkToNameServer: read host from server\n");
   }
@@ -3513,13 +3522,13 @@ static void parsedUDLFree(parsedUDL *p) {
  * portion of the UDL sent from the next level up" in the API.
  */
 static int parseUDL(const char *UDL, char **password,
-                          char **host, unsigned short *port,
+                          char **host, int *port,
                           char **UDLRemainder,
                           char **subdomainType,
                           char **UDLsubRemainder) {
 
-    int        err, len, bufLength, Port, index;
-    unsigned int i;
+    int        i, err, Port, index;
+    size_t     len, bufLength;
     char       *p, *udl, *udlLowerCase, *udlRemainder, *pswd;
     char       *buffer;
     const char *pattern = "([a-zA-Z0-9\\.\\-]+):?([0-9]+)?/?([a-zA-Z0-9]+)?/?(.*)";  
@@ -3535,7 +3544,8 @@ static int parseUDL(const char *UDL, char **password,
     
     /* make a copy in all lower case */
     udlLowerCase = (char *) strdup(UDL);
-    for (i=0; i<strlen(udlLowerCase); i++) {
+    len = strlen(udlLowerCase);
+    for (i=0; i<len; i++) {
       udlLowerCase[i] = tolower(udlLowerCase[i]);
     }
   
@@ -3600,7 +3610,7 @@ static int parseUDL(const char *UDL, char **password,
     cMsgRegfree(&compiled);
             
     /* find host name */
-    if ((unsigned int)(matches[1].rm_so) < 0) {
+    if (matches[1].rm_so < 0) {
         /* no match for host */
         free(udl);
         free(buffer);
@@ -3724,7 +3734,7 @@ static int parseUDL(const char *UDL, char **password,
         cMsgRegfree(&compiled);
 
         /* find password */
-        if ((unsigned int)(matches[1].rm_so) >= 0) {
+        if (matches[1].rm_so >= 0) {
            buffer[0] = 0;
            len = matches[1].rm_eo - matches[1].rm_so;
            strncat(buffer, pswd+matches[1].rm_so, len);

@@ -84,7 +84,7 @@ typedef struct subscribeInfo_t {
   char *type;          /**< Type of subscription. */
   char *subjectRegexp; /**< Subject of subscription made into regular expression. */
   char *typeRegexp;    /**< Type of subscription made into regular expression. */
-  struct subscribeCbInfo_t cbInfo[CMSG_MAX_CALLBACK]; /**< Array of callbacks. */
+  subscribeCbInfo cbInfo[CMSG_MAX_CALLBACK]; /**< Array of callbacks. */
 } subInfo;
 
 
@@ -111,7 +111,7 @@ typedef struct getInfo_t {
  * into its consituent parts.
  */
 typedef struct parsedUDL_t {
-  unsigned short nameServerPort; /**< port of name server. */
+  int   nameServerPort; /**< port of name server. */
   int   valid;          /**< 1 if valid UDL for the cMsg domain, else 0. */
   char *udl;            /**< whole UDL for name server */
   char *udlRemainder;   /**< domain specific part of the UDL. */
@@ -128,22 +128,20 @@ typedef struct parsedUDL_t {
  */
 typedef struct cMsgDomainInfo_t {  
   
-  int id;            /**< Unique id of connection. */ 
-  
-  int initComplete;  /**< Boolean telling if imitialization of this structure
-                          is complete and it is being used. 0 = No, 1 = Yes */
-  int receiveState;  /**< Boolean telling if messages are being delivered to
-                          callbacks (1) or if they are being igmored (0). */
-  int gotConnection; /**< Boolean telling if connection to cMsg server is good. */
+  uintptr_t id;        /**< Unique id of connection. */ 
+  int initComplete;    /**< Boolean telling if imitialization of this structure
+                            is complete and it is being used. 0 = No, 1 = Yes */
+  int receiveState;    /**< Boolean telling if messages are being delivered to
+                            callbacks (1) or if they are being igmored (0). */
+  int gotConnection;   /**< Boolean telling if connection to cMsg server is good. */
   
   int sendSocket;      /**< File descriptor for TCP socket to send messages/requests on. */
   int receiveSocket;   /**< File descriptor for TCP socket to receive request responses on. */
   int listenSocket;    /**< File descriptor for socket this program listens on for TCP connections. */
   int keepAliveSocket; /**< File descriptor for socket to tell if server is still alive or not. */
 
-  unsigned short sendPort;   /**< Port to send messages to. */
-  unsigned short serverPort; /**< Port cMsg name server listens on. */
-  unsigned short listenPort; /**< Port this program listens on for this domain's TCP connections. */
+  int sendPort;        /**< Port to send messages to. */
+  int listenPort;      /**< Port this program listens on for this domain's TCP connections. */
   
   /* subdomain handler attributes */
   int hasSend;            /**< Does this subdomain implement a send function? (1-y, 0-n) */
@@ -170,7 +168,7 @@ typedef struct cMsgDomainInfo_t {
   int implementFailovers;    /**< Boolean telling if failovers are being used. */
   int resubscribeComplete;   /**< Boolean telling if resubscribe is complete in failover process. */
   int killClientThread;      /**< Boolean telling if client thread receiving messages should be killed. */
-  countDownLatch syncLatch; /**< Latch used to synchronize the failover. */
+  countDownLatch syncLatch;  /**< Latch used to synchronize the failover. */
   
   char *msgBuffer;           /**< Buffer used in socket communication to server. */
   int   msgBufferSize;       /**< Size of buffer (in bytes) used in socket communication to server. */
@@ -217,9 +215,9 @@ typedef struct cMsgDomainInfo_t {
 
 /** This structure (pointer) is passed as an argument to a callback. */
 typedef struct cbArg_t {
-  int domainId;  /**< Domain identifier. */
-  int subIndex;  /**< Index into domain structure's subscription array. */
-  int cbIndex;   /**< Index into subscription structure's callback array. */
+  uintptr_t domainId;  /**< Domain identifier. */
+  int subIndex;        /**< Index into domain structure's subscription array. */
+  int cbIndex;         /**< Index into subscription structure's callback array. */
   cMsgDomainInfo *domain;  /**< Pointer to element of domain structure array. */
 } cbArg;
 

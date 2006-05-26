@@ -84,7 +84,7 @@ typedef int (*UNSUBSCRIBE_PTR) (void *domainId, void *handle);
   
 /** Typedef for a domain's subscribeAndGet function */  
 typedef int (*SUBSCRIBE_AND_GET_PTR) (void *domainId, const char *subject, const char *type,
-                                    const struct timespec *timeout, void **replyMsg);
+                                      const struct timespec *timeout, void **replyMsg);
 
 /** Typedef for a domain's sendAndGet function */  
 typedef int (*SEND_AND_GET_PTR)         (void *domainId, void *sendMsg,
@@ -165,8 +165,8 @@ typedef struct domainTypeInfo_t {
 
 /** This structure contains information about a domain connection. */
 typedef struct cMsgDomain_t {
-  int id;              /**< Index into an array of this domain structure. */
   void *implId;        /**< Pointer set by implementation to identify particular domain connection. */
+  int id;              /**< Index into an array of this domain structure. */
 
   /* other state variables */
   int initComplete;    /**< Is initialization of this structure complete? 0 = No, 1 = Yes */
@@ -195,22 +195,22 @@ typedef struct cMsg_t {
                         * - is response message NULL instead of a message? 3rd bit
                         * - is byte array data big endian? 4th bit
                         */
-  char   *domain;      /**< Domain message is generated in. */
-  char   *creator;     /**< Message was originally created by this user/sender. */
   int     reserved;    /**< Reserved for future use. */
   int     bits;        /**< Stores info in bit form about internal state (true = 1).
                         * - is byte array copied in? 1st bit
                         */
+  char   *domain;      /**< Domain message is generated in. */
+  char   *creator;     /**< Message was originally created by this user/sender. */
   
   /* user-settable quantities */
   char   *subject;             /**< Subject of message. */
   char   *type;                /**< Type of message. */
   char   *text;                /**< Text of message. */
-  int     userInt;             /**< User-defined integer. */
-  struct timespec userTime;    /**< User-defined time. */
   char   *byteArray;           /**< Array of bytes. */
   int     byteArrayLength;     /**< Length (in bytes) of byte array data of interest. */
   int     byteArrayOffset;     /**< Index into byte array to data of interest. */
+  int     userInt;             /**< User-defined integer. */
+  struct timespec userTime;    /**< User-defined time. */
   
 
   /* sender quantities */

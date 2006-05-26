@@ -48,7 +48,6 @@
  * flexible and so adding another domain is relatively easy.
  * </H2><p>
  * <H2>
- * At the moment, cMsg is in beta testing -- version 0.9.
  * There is a User's Guide, API documentation in the form of web pages generated
  * by javadoc and doxygen, and a Developer's Guide. Try it and let us know what
  * you think about it. If you find any bugs, we have a bug-report web page at
@@ -977,7 +976,7 @@ static int registerDynamicDomains(char *domainType) {
 
   char *lowerCase;
   unsigned int i;
-  int   index=-1;
+  int   len, index=-1;
   char  functionName[256];
   domainFunctions *funcs;
 #ifdef VXWORKS
@@ -999,7 +998,8 @@ static int registerDynamicDomains(char *domainType) {
    
   /* First lower the domain name to all lower case letters. */
   lowerCase = (char *) strdup(domainType);
-  for (i=0; i<strlen(lowerCase); i++) {
+  len = strlen(lowerCase);
+  for (i=0; i<len; i++) {
     lowerCase[i] = tolower(lowerCase[i]);
   }
   
@@ -1455,7 +1455,8 @@ static void connectMutexUnlock(void) {
  */   
 static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
 
-    int        err, len, bufLength;
+    int        err;
+    size_t     len, bufLength;
     char       *udl, *buffer;
     const char *pattern = "(cMsg)?:?([a-zA-Z0-9_\\-]+)://(.*)?";  
     regmatch_t matches[4]; /* we have 4 potential matches: 1 whole, 3 sub */
@@ -1563,17 +1564,18 @@ static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
  */   
 static int checkString(const char *s) {
 
-  int i;
+  int i, len;
 
   if (s == NULL) return(CMSG_ERROR);
+  len = strlen(s);
 
   /* check for printable character */
-  for (i=0; i<(int)strlen(s); i++) {
+  for (i=0; i<len; i++) {
     if (isprint((int)s[i]) == 0) return(CMSG_ERROR);
   }
 
   /* check for excluded chars */
-  if (strpbrk(s, excludedChars) != 0) return(CMSG_ERROR);
+  if (strpbrk(s, excludedChars) != NULL) return(CMSG_ERROR);
   
   /* string ok */
   return(CMSG_OK);
@@ -1674,23 +1676,23 @@ int cMsgGetDescription(int domainId, char **description) {
 
 
 /**
- * This routine gets the state of a cMsg connection. If initState gets
+ * This routine gets the state of a cMsg connection. If connectState gets
  * filled with a one, there is a valid connection. Anything else (zero
  * in this case), indicates no connection to a cMsg server.
  *
  * @param domainId id number of the domain connection
- * @param initState integer pointer to be filled in with the connection state
+ * @param connectState integer pointer to be filled in with the connection state
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_DOMAIN_ID if an out-of-range domain id is used
  */   
-int cMsgGetConnectState(int domainId, int *initState) {
+int cMsgGetConnectState(int domainId, int *connectState) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
   if (id < 0 || id >= MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
-  *initState=domains[id].initComplete;
+  *connectState=domains[id].initComplete;
   return(CMSG_OK);
 }
 
@@ -3199,7 +3201,7 @@ int cMsgToString(void *vmsg, char **string) {
   int slen;
   time_t now;
   char nowBuf[32],userTimeBuf[32],senderTimeBuf[32],receiverTimeBuf[32];
-#ifdef VXWORKS
+#ifndef linux
   size_t len=sizeof(nowBuf);
 #endif
 
@@ -3214,12 +3216,17 @@ int cMsgToString(void *vmsg, char **string) {
   ctime_r(&msg->senderTime.tv_sec,senderTimeBuf,&len);      senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
   ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf,&len);  receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
   ctime_r(&msg->userTime.tv_sec,userTimeBuf,&len);          userTimeBuf[strlen(userTimeBuf)-1]='\0';
-#else
+#elif linux
   ctime_r(&now,nowBuf);                               nowBuf[strlen(nowBuf)-1]='\0';
   ctime_r(&msg->senderTime.tv_sec,senderTimeBuf);     senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
   ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf); receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
   ctime_r(&msg->userTime.tv_sec,userTimeBuf);         userTimeBuf[strlen(userTimeBuf)-1]='\0';
-#endif  
+#elif sun
+  ctime_r(&now,nowBuf,len);                               nowBuf[strlen(nowBuf)-1]='\0';
+  ctime_r(&msg->senderTime.tv_sec,senderTimeBuf,len);     senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
+  ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf,len); receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
+  ctime_r(&msg->userTime.tv_sec,userTimeBuf,len);         userTimeBuf[strlen(userTimeBuf)-1]='\0';
+#endif
 
   // get string len
   slen=formatLen;

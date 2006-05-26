@@ -412,7 +412,7 @@ static void *clientThread(void *arg)
       free((void *) buffer);
 
       /* allocate more memory to accomodate larger msg */
-      buffer = (char *) malloc((size_t) (size + 1000));
+      buffer = (char *) malloc(size + 1000);
       if (buffer == NULL) {
         if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
           fprintf(stderr, "clientThread %d: cannot allocate %d amount of memory\n",
@@ -623,7 +623,7 @@ static void *clientThread(void *arg)
            * 2) server's UDP port. These are in the message and must be
            * recorded in the domain structure for future use.
            */
-          domain->sendPort = (unsigned short)message->userInt;
+          domain->sendPort = message->userInt;
           domain->sendHost = (char *) strdup(message->senderHost);
           
           /* notify "connect" call that it may resume and end now */
@@ -680,7 +680,7 @@ static void *clientThread(void *arg)
 /** This routine reads a message sent from the server to the client. */
 static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *acknowledge) {
 
-  long long llTime;
+  uint64_t llTime;
   int  stringLen, lengths[7], inComing[18];
   char *pchar, *tmp;
     
@@ -701,14 +701,14 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
    * Time arrives as the high 32 bits followed by the low 32 bits
    * of a 64 bit integer in units of milliseconds.
    */
-  llTime = (((long long) ntohl(inComing[4])) << 32) |
-           (((long long) ntohl(inComing[5])) & 0x00000000FFFFFFFF);
+  llTime = (((uint64_t) ntohl(inComing[4])) << 32) |
+           (((uint64_t) ntohl(inComing[5])) & 0x00000000FFFFFFFF);
   /* turn long long into struct timespec */
   msg->senderTime.tv_sec  =  llTime/1000;
   msg->senderTime.tv_nsec = (llTime%1000)*1000000;
   
-  llTime = (((long long) ntohl(inComing[6])) << 32) |
-           (((long long) ntohl(inComing[7])) & 0x00000000FFFFFFFF);
+  llTime = (((uint64_t) ntohl(inComing[6])) << 32) |
+           (((uint64_t) ntohl(inComing[7])) & 0x00000000FFFFFFFF);
   msg->userTime.tv_sec  =  llTime/1000;
   msg->userTime.tv_nsec = (llTime%1000)*1000000;
   
@@ -741,7 +741,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   /* read sender string */
   /*--------------------*/
   /* allocate memory for sender string */
-  if ( (tmp = (char *) malloc((size_t) (lengths[0]+1))) == NULL) {
+  if ( (tmp = (char *) malloc(lengths[0]+1)) == NULL) {
     return(CMSG_OUT_OF_MEMORY);    
   }
   /* read sender string into memory */
@@ -757,7 +757,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   /*------------------------*/
   /* read senderHost string */
   /*------------------------*/
-  if ( (tmp = (char *) malloc((size_t) (lengths[1]+1))) == NULL) {
+  if ( (tmp = (char *) malloc(lengths[1]+1)) == NULL) {
     free((void *) msg->sender);
     msg->sender = NULL;
     return(CMSG_OUT_OF_MEMORY);    
@@ -771,7 +771,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   /*---------------------*/
   /* read subject string */
   /*---------------------*/
-  if ( (tmp = (char *) malloc((size_t) (lengths[2]+1))) == NULL) {
+  if ( (tmp = (char *) malloc(lengths[2]+1)) == NULL) {
     free((void *) msg->sender);
     free((void *) msg->senderHost);
     msg->sender     = NULL;
@@ -787,7 +787,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   /*------------------*/
   /* read type string */
   /*------------------*/
-  if ( (tmp = (char *) malloc((size_t) (lengths[3]+1))) == NULL) {
+  if ( (tmp = (char *) malloc(lengths[3]+1)) == NULL) {
     free((void *) msg->sender);
     free((void *) msg->senderHost);
     free((void *) msg->subject);
@@ -805,7 +805,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   /*---------------------*/
   /* read creator string */
   /*---------------------*/
-  if ( (tmp = (char *) malloc((size_t) (lengths[4]+1))) == NULL) {
+  if ( (tmp = (char *) malloc(lengths[4]+1)) == NULL) {
     free((void *) msg->sender);
     free((void *) msg->senderHost);
     free((void *) msg->subject);
@@ -826,7 +826,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   /* read text string */
   /*------------------*/
   if (lengths[5] > 0) {
-    if ( (tmp = (char *) malloc((size_t) (lengths[5]+1))) == NULL) {
+    if ( (tmp = (char *) malloc(lengths[5]+1)) == NULL) {
       free((void *) msg->sender);
       free((void *) msg->senderHost);
       free((void *) msg->subject);
@@ -851,7 +851,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   /*-----------------------------*/
   if (lengths[6] > 0) {
     
-    if ( (tmp = (char *) malloc((size_t) (lengths[6]))) == NULL) {
+    if ( (tmp = (char *) malloc(lengths[6])) == NULL) {
       free((void *) msg->sender);
       free((void *) msg->senderHost);
       free((void *) msg->subject);

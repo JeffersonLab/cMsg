@@ -177,7 +177,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
 /* one is found that is free for listening on. Try 500 port numbers. */
 
 
-int cMsgGetListeningSocket(int blocking, unsigned short startingPort, unsigned short *finalPort, int *fd) {
+int cMsgGetListeningSocket(int blocking, unsigned short startingPort, int *finalPort, int *fd) {
   unsigned short  i, port=startingPort, trylimit=500;
   int listenFd;
   

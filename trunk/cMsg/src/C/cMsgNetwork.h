@@ -100,7 +100,7 @@ extern "C" {
 /* cMsg prototypes */
 extern int   cMsgTcpListen(int blocking, unsigned short port, int *listenFd);
 extern int   cMsgGetListeningSocket(int blocking, unsigned short startingPort,
-                                    unsigned short *finalPort, int *fd);
+                                    int *finalPort, int *fd);
 extern int   cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd);
 extern int   cMsgAccept(int fd, struct sockaddr *sa, socklen_t *salenptr);
 

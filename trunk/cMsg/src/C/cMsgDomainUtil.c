@@ -29,6 +29,10 @@
  * implementations of the cMsg user API.
  */  
  
+#ifdef VXWORKS
+#include <vxWorks.h>
+#endif
+
 #include <stdlib.h>
 #include <time.h>
 #include <ctype.h>
@@ -39,10 +43,6 @@
 #include "cMsgNetwork.h"
 #include "rwlock.h"
 #include "cMsgDomain.h"
-
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
 
 
 /** Excluded characters from subject, type, and description strings. */
@@ -258,17 +258,18 @@ void cMsgSubscribeMutexUnlock(cMsgDomainInfo *domain) {
  */   
 int cMsgCheckString(const char *s) {
 
-  int i;
+  int i, len;
 
   if (s == NULL) return(CMSG_ERROR);
+  len = strlen(s);
 
   /* check for printable character */
-  for (i=0; i<(int)strlen(s); i++) {
+  for (i=0; i<len; i++) {
     if (isprint((int)s[i]) == 0) return(CMSG_ERROR);
   }
 
   /* check for excluded chars */
-  if (strpbrk(s, excludedChars) != 0) return(CMSG_ERROR);
+  if (strpbrk(s, excludedChars) != NULL) return(CMSG_ERROR);
   
   /* string ok */
   return(CMSG_OK);
@@ -395,7 +396,7 @@ static void subscribeInfoInit(subInfo *info, int reInit) {
 void cMsgDomainInit(cMsgDomainInfo *domain, int reInit) {
   int i, status;
  
-  domain->id                  = 0;
+  domain->id                  = 0UL;
 
   domain->initComplete        = 0;
   domain->receiveState        = 0;
@@ -407,7 +408,6 @@ void cMsgDomainInit(cMsgDomainInfo *domain, int reInit) {
   domain->keepAliveSocket     = 0;
   
   domain->sendPort            = 0;
-  domain->serverPort          = 0;
   domain->listenPort          = 0;
   
   domain->hasSend             = 0;

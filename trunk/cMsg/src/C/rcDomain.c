@@ -207,7 +207,8 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     unsigned short serverPort;
     char  *serverHost, *expid, buffer[1024];
     int    err, status, len, expidLen, nameLen;
-    int    i, id = -1, outGoing[3], broadcastTO=0, connectTO=0;
+    int    i, outGoing[3], broadcastTO=0, connectTO=0;
+    intptr_t id = -1;
     char   temp[CMSG_MAXHOSTNAMELEN];
     char  *portEnvVariable=NULL;
     unsigned short startingPort;
@@ -375,7 +376,7 @@ printf("Wait for 5 more seconds, then exit\n");
   #else
     /* get system clock rate - probably 100 Hz */
     hz = 100;
-    hz = sysconf(_SC_CLK_TCK);
+    hz = (int) sysconf(_SC_CLK_TCK);
   #endif
     /* wait up to WAIT_FOR_THREADS seconds for a thread to start */
     try_max = hz * WAIT_FOR_THREADS;
@@ -671,11 +672,10 @@ static void *receiver(void *arg) {
 int cmsg_rc_send(void *domainId, void *vmsg) {  
 
     cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
-    cMsgDomainInfo *domain = &rcDomains[(int)domainId];
+    cMsgDomainInfo *domain = &rcDomains[(uintptr_t)domainId];
     char buffer[1510];
     int err=CMSG_OK, len, lenText, lenSender, lenSubject, lenType, lenByteArray;
     int highInt, lowInt, outGoing[14];
-    /*long long llTime;*/
     uint64_t llTime;
     struct timespec now;
      
@@ -709,16 +709,16 @@ int cmsg_rc_send(void *domainId, void *vmsg) {
     /* time message sent (right now) */
     clock_gettime(CLOCK_REALTIME, &now);
     /* convert to milliseconds */
-    /*llTime  = ((long long)now.tv_sec * 1000) + ((long long)now.tv_nsec/1000000);*/
-    llTime  = ((uint64_t)now.tv_sec * 1000) + ((uint64_t)now.tv_nsec/1000000);
+    llTime  = ((uint64_t)now.tv_sec * 1000) +
+              ((uint64_t)now.tv_nsec/1000000);
     highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
     lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
     outGoing[5] = htonl(highInt);
     outGoing[6] = htonl(lowInt);
 
     /* user time */
-    llTime  = ((long long)msg->userTime.tv_sec * 1000) +
-              ((long long)msg->userTime.tv_nsec/1000000);
+    llTime  = ((uint64_t)msg->userTime.tv_sec * 1000) +
+              ((uint64_t)msg->userTime.tv_nsec/1000000);
     highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
     lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
     outGoing[7] = htonl(highInt);
@@ -746,7 +746,7 @@ int cmsg_rc_send(void *domainId, void *vmsg) {
     /* total length of message (minus first int) is first item sent */
     len = sizeof(outGoing) + lenSubject + lenType +
           lenSender + lenText + lenByteArray;
-    outGoing[0] = htonl(len - sizeof(int));
+    outGoing[0] = htonl((int) (len - sizeof(int)));
 
     if (len > 1500) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -868,10 +868,10 @@ int cmsg_rc_flush(void *domainId) {
  *                               by a call to cMsgDisconnect()
  */   
 int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
-                           void *userArg, cMsgSubscribeConfig *config, void **handle) {
+                      void *userArg, cMsgSubscribeConfig *config, void **handle) {
 
     int i, j, iok=0, jok=0, uniqueId, status, err=CMSG_OK;
-    cMsgDomainInfo *domain  = &rcDomains[(int)domainId];
+    cMsgDomainInfo *domain   = &rcDomains[(uintptr_t)domainId];
     subscribeConfig *sConfig = (subscribeConfig *) config;
     cbArg *cbarg;
 
@@ -950,7 +950,7 @@ int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type, cMs
               cMsgConnectReadUnlock(domain);
               return(CMSG_OUT_OF_MEMORY);  
             }                        
-            cbarg->domainId = (int) domainId;
+            cbarg->domainId = (uintptr_t) domainId;
             cbarg->subIndex = i;
             cbarg->cbIndex  = j;
             cbarg->domain   = domain;
@@ -1020,7 +1020,7 @@ int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type, cMs
         cMsgConnectReadUnlock(domain);
         return(CMSG_OUT_OF_MEMORY);  
       }                        
-      cbarg->domainId = (int) domainId;
+      cbarg->domainId = (uintptr_t) domainId;
       cbarg->subIndex = i;
       cbarg->cbIndex  = 0;
       cbarg->domain   = domain;
@@ -1095,7 +1095,7 @@ int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type, cMs
 int cmsg_rc_unsubscribe(void *domainId, void *handle) {
 
     int status, err=CMSG_OK;
-    cMsgDomainInfo *domain = &rcDomains[(int)domainId];
+    cMsgDomainInfo *domain = &rcDomains[(uintptr_t)domainId];
     cbArg           *cbarg;
     subInfo         *subscriptionInfo;
     subscribeCbInfo *callbackInfo;
@@ -1108,7 +1108,7 @@ int cmsg_rc_unsubscribe(void *domainId, void *handle) {
 
     cbarg = (cbArg *)handle;
 
-    if (cbarg->domainId != (int)domainId  ||
+    if (cbarg->domainId != (uintptr_t)domainId  ||
         cbarg->subIndex < 0 ||
         cbarg->cbIndex  < 0 ||
         cbarg->subIndex >= CMSG_MAX_SUBSCRIBE ||
@@ -1210,7 +1210,7 @@ int cmsg_rc_unsubscribe(void *domainId, void *handle) {
  * @returns CMSG_OK if successful
  */   
 int cmsg_rc_start(void *domainId) {
-  rcDomains[(int)domainId].receiveState = 1;
+  rcDomains[(uintptr_t)domainId].receiveState = 1;
   return(CMSG_OK);
 }
 
@@ -1228,7 +1228,7 @@ int cmsg_rc_start(void *domainId) {
  * @returns CMSG_OK if successful
  */   
 int cmsg_rc_stop(void *domainId) {
-  rcDomains[(int)domainId].receiveState = 0;
+  rcDomains[(uintptr_t)domainId].receiveState = 0;
   return(CMSG_OK);
 }
 
@@ -1247,7 +1247,7 @@ int cmsg_rc_stop(void *domainId) {
  */   
 int cmsg_rc_disconnect(void *domainId) {
 
-    cMsgDomainInfo *domain = &rcDomains[(int)domainId];
+    cMsgDomainInfo *domain = &rcDomains[(uintptr_t)domainId];
     int i, j, status;
     subscribeCbInfo *subscription;
 
@@ -1347,7 +1347,7 @@ static void defaultShutdownHandler(void *userArg) {
 int cmsg_rc_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
                                     void *userArg) {
   
-  cMsgDomainInfo *domain = &rcDomains[(int)domainId];
+  cMsgDomainInfo *domain = &rcDomains[(uintptr_t)domainId];
 
   if (domain->initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
@@ -1391,7 +1391,8 @@ static int parseUDL(const char *UDLR,
                     int  *connectTO,
                     char **junk) {
 
-    int        err, len, bufLength, Port, index;
+    int        err, Port, index;
+    size_t     len, bufLength;
     char       *udlRemainder, *val;
     char       *buffer;
     const char *pattern = "(([a-zA-Z]+[a-zA-Z0-9\\.\\-]*)|([0-9]+\\.[0-9\\.]+))?:?([0-9]+)?/?(.*)";
@@ -1543,7 +1544,7 @@ static int parseUDL(const char *UDLR,
         /* if there's a match ... */
         if (err == 0) {
             /* find expid */
-            if ((unsigned int)(matches[1].rm_so) >= 0) {
+            if (matches[1].rm_so >= 0) {
                buffer[0] = 0;
                len = matches[1].rm_eo - matches[1].rm_so;
                strncat(buffer, val+matches[1].rm_so, len);
@@ -1569,7 +1570,7 @@ static int parseUDL(const char *UDLR,
         /* if there's a match ... */
         if (err == 0) {
             /* find timeout (in milliseconds) */
-            if ((unsigned int)(matches[1].rm_so) >= 0) {
+            if (matches[1].rm_so >= 0) {
                int t;
                buffer[0] = 0;
                len = matches[1].rm_eo - matches[1].rm_so;
@@ -1599,7 +1600,7 @@ static int parseUDL(const char *UDLR,
         /* if there's a match ... */
         if (err == 0) {
             /* find timeout (in milliseconds) */
-            if ((unsigned int)(matches[1].rm_so) >= 0) {
+            if (matches[1].rm_so >= 0) {
                int t;
                buffer[0] = 0;
                len = matches[1].rm_eo - matches[1].rm_so;

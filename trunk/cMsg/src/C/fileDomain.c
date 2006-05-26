@@ -57,15 +57,15 @@ static char *strdup(const char *s1) {
 
 /* Prototypes of the 14 functions which implement the standard cMsg tasks in the cMsg domain. */
 int   cmsg_file_Connect(const char *myUDL, const char *myName, const char *myDescription,
-                         const char *UDLremainder, void **domainId);
+                        const char *UDLremainder, void **domainId);
 int   cmsg_file_Send(void *domainId, void *msg);
 int   cmsg_file_SyncSend(void *domainId, void *msg, int *response);
 int   cmsg_file_Flush(void *domainId);
 int   cmsg_file_Subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
-                           void *userArg, cMsgSubscribeConfig *config, void **handle);
+                          void *userArg, cMsgSubscribeConfig *config, void **handle);
 int   cmsg_file_Unsubscribe(void *domainId, void *handle);
 int   cmsg_file_SubscribeAndGet(void *domainId, const char *subject, const char *type,
-                                 const struct timespec *timeout, void **replyMsg);
+                                const struct timespec *timeout, void **replyMsg);
 int   cmsg_file_SendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
 int   cmsg_file_Start(void *domainId);
 int   cmsg_file_Stop(void *domainId);
@@ -105,7 +105,7 @@ typedef struct {
 
 
 int cmsg_file_Connect(const char *myUDL, const char *myName, const char *myDescription,
-                       const char *UDLremainder, void **domainId) {
+                      const char *UDLremainder, void **domainId) {
 
 
   char *fname;
@@ -115,29 +115,29 @@ int cmsg_file_Connect(const char *myUDL, const char *myName, const char *myDescr
   FILE *f;
 
 
-  // get file name and textOnly attribute from UDLremainder
+  /* get file name and textOnly attribute from UDLremainder */
   if(UDLremainder==NULL)return(CMSG_ERROR);
   c = strchr(UDLremainder,'?');
   if(c==NULL) {
     fname=strdup(UDLremainder);
     textOnly=1;
   } else {
-    int nc = c-UDLremainder+1;
+    size_t nc = c-UDLremainder+1;
     fname=(char*)malloc(nc+1);
     strncpy(fname,UDLremainder,nc);
     fname[nc]='\0';
 
-    // search for textOnly=, case insensitive, 0 is true ???
+    /* search for textOnly=, case insensitive, 0 is true ??? */
     textOnly=1;
   }
 
 
-  // open file
+  /* open file */
   f = fopen(fname,"a");
   if(f==NULL)return(CMSG_ERROR);
 
   
-  // store file domain info
+  /* store file domain info */
   fdi = (fileDomainInfo*)malloc(sizeof(fileDomainInfo));
   fdi->domain   = strdup("file");
   fdi->host     = (char*)malloc(256);
@@ -149,7 +149,7 @@ int cmsg_file_Connect(const char *myUDL, const char *myName, const char *myDescr
   *domainId=(void*)fdi;
 
 
-  // done
+  /* done */
   if(fname!=NULL)free(fname);
   return(CMSG_OK);
 }
@@ -163,29 +163,29 @@ int cmsg_file_Send(void *domainId, void *vmsg) {
   char *s;
   time_t now;
   char nowBuf[32];
-#ifdef VXWORKS
+#ifndef linux
   size_t nowLen=sizeof(nowBuf);
 #endif
   int stat;
-  cMsgMessage_t *msg    = (cMsgMessage_t*)vmsg;
+  cMsgMessage_t  *msg = (cMsgMessage_t*)vmsg;
   fileDomainInfo *fdi = (fileDomainInfo*)domainId;
   
 
-  // set domain
+  /* set domain */
   msg->domain=strdup(fdi->domain);
 
 
-  // check creator
+  /* check creator */
   if(msg->creator==NULL)msg->creator=strdup(fdi->name);
     
 
-  // set sender,senderTime,senderHost
+  /* set sender,senderTime,senderHost */
   msg->sender            = strdup(fdi->name);
   msg->senderHost        = strdup(fdi->host);
   msg->senderTime.tv_sec = time(NULL);
   
 
-  // write msg to file
+  /* write msg to file */
   if(fdi->textOnly!=0) {
     cMsgToString(vmsg,&s);
     stat = fwrite(s,strlen(s),1,fdi->file);
@@ -194,8 +194,10 @@ int cmsg_file_Send(void *domainId, void *vmsg) {
     now=time(NULL);
 #ifdef VXWORKS
     ctime_r(&now,nowBuf,&nowLen);
-#else
+#elif linux
     ctime_r(&now,nowBuf);
+#elif sun
+    ctime_r(&now,nowBuf, nowLen);
 #endif
     nowBuf[strlen(nowBuf)-1]='\0';
     s=(char*)malloc(strlen(nowBuf)+strlen(msg->text)+64);
@@ -205,7 +207,7 @@ int cmsg_file_Send(void *domainId, void *vmsg) {
   }
 
 
-  // done
+  /* done */
   return((stat!=0)?CMSG_OK:CMSG_ERROR);
 }
 
@@ -289,17 +291,17 @@ int cmsg_file_Disconnect(void *domainId) {
   if(domainId==NULL)return(CMSG_ERROR);
   fdi = (fileDomainInfo*)domainId;
 
-  // close file
+  /* close file */
   stat = fclose(fdi->file);
   
-  // clean up
-  if(fdi->domain!=NULL)free(fdi->domain);
-  if(fdi->host!=NULL)free(fdi->host);
-  if(fdi->name!=NULL)free(fdi->name);
-  if(fdi->descr!=NULL)free(fdi->descr);
+  /* clean up */
+  if(fdi->domain!=NULL) free(fdi->domain);
+  if(fdi->host!=NULL)   free(fdi->host);
+  if(fdi->name!=NULL)   free(fdi->name);
+  if(fdi->descr!=NULL)  free(fdi->descr);
   free(fdi);
 
-  // done
+  /* done */
   return((stat==0)?CMSG_OK:CMSG_ERROR);
 }
 
