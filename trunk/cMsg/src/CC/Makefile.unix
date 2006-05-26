@@ -9,12 +9,11 @@ C_DIR   = ../C
 LIBNAMXX      = libcmsgxx
 LIB_STATICXX  = $(LIBNAMXX).a
 LIB_DYNAMICXX = $(LIBNAMXX).so
+CAGATEWAY     = cMsgCAGateway
 
 # Linux
 ifeq ($(OSNAME),Linux)
 CXX = g++
-LIB_DIR   = $(TOP_DIR)/lib/Linux
-BIN_DIR   = $(TOP_DIR)/bin/Linux
 EPICS_DIR = /site/epics/R3.13.4/base/lib/Linux
 EPICS_INC = -I/site/epics/R3.13.4/base/include -I/site/epics/R3.13.4/base/include/os/Linux 
 EPICS_LIB = -lca -lCom -lcas -lgdd -lAs -lDb
@@ -31,6 +30,7 @@ ifeq ($(OSNAME),SunOS)
 CXX = CC
 AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
 LIBS    = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
+CAGATEWAY =
 
 # if 64 bit
 ifeq ($(CMSG_BIT_ARCH), 64)
@@ -78,7 +78,7 @@ HFILES = $(C_DIR)/cMsgNetwork.h \
 HFILESXX = cMsg.hxx \
            epics_server.h
 
-PROGSXX = cMsgCommand cMsgReceive cMsgCAGateway
+PROGSXX = cMsgCommand cMsgReceive $(CAGATEWAY)
 
 
 all: $(CMSG_LIBSXX) $(PROGSXX)
