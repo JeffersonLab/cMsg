@@ -4,6 +4,7 @@
 #
 
 MAKEFILE = Makefile.unix
+INSTALL  = $(CMSG_DIR)/install-sh -c
 
 # operating system, platform, processor bits we are using
 OSNAME   := $(shell uname)
@@ -29,12 +30,15 @@ PLATFORM =
 CMSG_BIT_ARCH = 
 endif
 
+INC_DIR = $(CMSG_DIR)/inc
 LIB_DIR = $(CMSG_DIR)/lib/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)
 BIN_DIR = $(CMSG_DIR)/bin/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)
 
 # send this down to lower level makefiles
+export INSTALL
 export OSNAME
 export PLATFORM
+export INC_DIR
 export LIB_DIR
 export BIN_DIR
 export CMSG_DIR
