@@ -163,7 +163,7 @@ int cmsg_file_Send(void *domainId, void *vmsg) {
   char *s;
   time_t now;
   char nowBuf[32];
-#ifndef linux
+#ifdef VXWORKS
   size_t nowLen=sizeof(nowBuf);
 #endif
   int stat;
@@ -194,10 +194,8 @@ int cmsg_file_Send(void *domainId, void *vmsg) {
     now=time(NULL);
 #ifdef VXWORKS
     ctime_r(&now,nowBuf,&nowLen);
-#elif linux
+#else
     ctime_r(&now,nowBuf);
-#elif sun
-    ctime_r(&now,nowBuf, nowLen);
 #endif
     nowBuf[strlen(nowBuf)-1]='\0';
     s=(char*)malloc(strlen(nowBuf)+strlen(msg->text)+64);
