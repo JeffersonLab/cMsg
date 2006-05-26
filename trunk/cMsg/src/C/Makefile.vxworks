@@ -2,10 +2,6 @@
 # cMsg will not compile properly under Linux cross compiler
 #
 
-TOP_DIR = ../..
-INC_DIR = $(TOP_DIR)/inc
-LIB_DIR = $(TOP_DIR)/lib/vxworks
-BIN_DIR = $(TOP_DIR)/bin/vxworks
 INSTALL = cp
 
 ifeq ($(ARCH),VXWORKSPPC)

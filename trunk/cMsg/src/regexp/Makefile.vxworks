@@ -3,10 +3,6 @@
 # internal assertion checking and some debugging facilities).
 # Do not take -DPOSIX_MISTAKE out.
 
-TOP_DIR = ../..
-INC_DIR = $(TOP_DIR)/inc
-LIB_DIR = $(TOP_DIR)/lib/vxworks
-BIN_DIR = $(TOP_DIR)/bin/vxworks
 INSTALL = cp
 
 ifeq ($(ARCH),VXWORKSPPC)

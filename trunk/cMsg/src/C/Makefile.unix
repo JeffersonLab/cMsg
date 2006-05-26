@@ -4,9 +4,6 @@ LD  = ld
 AR  = ar
 RANLIB  = ranlib
 
-INC_DIR = $(CMSG_DIR)/inc
-INSTALL = $(CMSG_DIR)/install-sh -c
-
 LIBNAM      = libcmsg
 LIB_STATIC  = $(LIBNAM).a
 LIB_DYNAMIC = $(LIBNAM).so
