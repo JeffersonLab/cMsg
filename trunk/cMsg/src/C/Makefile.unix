@@ -27,13 +27,25 @@ CC = cc
 C_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
 LIBS    = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
 
+# if 64 bit
 ifeq ($(CMSG_BIT_ARCH), 64)
+
 # no static linking on 64 bit solaris
 LIB_STATIC =
+
+# if SPARC processor
+ifeq ($(PLATFORM), sparc)
+CFLAGS   = -mt -xO5 -xarch=native64 -xcode=pic32 -I. -I$(INC_DIR) $(AC_FLAGS)
+SHLIB_LD = ld -G -L /lib/64
+# else if AMD processor
+else
 # put -fast flag to left of -xarch=amd64 !!!
 CFLAGS   = -mt -xO5 -xarch=amd64 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
 # for some reason we must handle ucb lib explicitly
 SHLIB_LD = ld -G -L /lib/64 -L /usr/ucblib/amd64
+endif
+
+# else if 32 bit
 else
 CFLAGS   = -mt -xO5 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
 SHLIB_LD = ld -G
