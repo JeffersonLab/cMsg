@@ -102,7 +102,7 @@
 
 /* required includes */
 #include <time.h>
-#include <cMsgConstants.h>
+#include "cMsgConstants.h"
 
 
 /** Subscribe configuration. */
@@ -208,7 +208,7 @@ extern "C" {
   int cMsgGetUDL         (int domainId, char **udl);
   int cMsgGetName        (int domainId, char **name);
   int cMsgGetDescription (int domainId, char **description);
-  int cMsgGetConnectState   (int domainId, int *connected);
+  int cMsgGetConnectState   (int domainId, int *connectState);
   int cMsgGetReceiveState(int domainId, int   *receiveState);
 
   
