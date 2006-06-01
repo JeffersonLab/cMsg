@@ -601,11 +601,13 @@ static int connectImpl(int domainId, int failoverIndex) {
   if (threadArg == NULL) {
       return(CMSG_OUT_OF_MEMORY);  
   }
-  threadArg->isRunning  = 0;
-  threadArg->listenFd   = domain->listenSocket;
-  threadArg->blocking   = CMSG_NONBLOCKING;
-  threadArg->domain     = domain;
-  threadArg->domainType = strdup("cmsg");
+  threadArg->isRunning   = 0;
+  threadArg->thd0started = 0;
+  threadArg->thd1started = 0;
+  threadArg->listenFd    = domain->listenSocket;
+  threadArg->blocking    = CMSG_NONBLOCKING;
+  threadArg->domain      = domain;
+  threadArg->domainType  = strdup("cmsg");
   status = pthread_create(&domain->pendThread, NULL,
                           cMsgClientListeningThread, (void *) threadArg);
   if (status != 0) {

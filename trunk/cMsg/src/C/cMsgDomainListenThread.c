@@ -136,8 +136,10 @@ static void cleanUpHandler(void *arg) {
     fprintf(stderr, "cMsgClientListeningThread: cancelling mesage receiving threads\n");
   }
   
-  if (strcasecmp(threadArg->domainType, "cmsg") == 0) {
-    pthread_cancel(domain->clientThread[1]);
+  if (threadArg->thd1started) {
+    if (strcasecmp(threadArg->domainType, "cmsg") == 0) {
+      pthread_cancel(domain->clientThread[1]);
+    }
   }
   
   /* Nornally we could just cancel the thread and if the subscription
@@ -149,7 +151,9 @@ static void cleanUpHandler(void *arg) {
   domain->killClientThread = 1;
   pthread_cond_signal(&domain->subscribeCond);
   nanosleep(&sTime,NULL);
-  pthread_cancel(domain->clientThread[0]);
+  if (threadArg->thd0started) {
+    pthread_cancel(domain->clientThread[0]);
+  }
   domain->killClientThread = 0;
   
   /* free up arg memory */
@@ -317,6 +321,10 @@ void *cMsgClientListeningThread(void *arg)
     if (status != 0) {
       err_abort(status, "Create client thread");
     }
+    
+    /* Keep track of threads that were started for use by cleanup handler. */
+    if      (index == 0) threadArg->thd0started = 1;
+    else if (index == 1) threadArg->thd1started = 1;
     
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "cMsgClientListeningThread: started thread[%d] = %d\n",index, connectionNumber);

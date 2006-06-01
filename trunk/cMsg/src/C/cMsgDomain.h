@@ -229,11 +229,13 @@ typedef struct cbArg_t {
  * convenience.
  */
 typedef struct cMsgThreadInfo_t {
-  int isRunning; /**< Boolean to indicate thread is running. (1-y, 0-n) */
-  int connfd;    /**< Socket connection's file descriptor. */
-  int listenFd;  /**< Listening socket file descriptor. */
+  int isRunning;  /**< Boolean to indicate client listening thread is running. (1-y, 0-n) */
+  int connfd;     /**< Socket connection's file descriptor. */
+  int listenFd;   /**< Listening socket file descriptor. */
   int connectionNumber; /**< Number of connection to this listening port (starting at 0). */
-  int blocking;  /**< Block in accept (CMSG_BLOCKING) or
+  int thd0started;/**< Boolean to indicate client msg receiving thread is running. (1-y, 0-n) */
+  int thd1started;/**< Boolean to indicate client keepalive receiving thread is running. (1-y, 0-n) */
+  int blocking;   /**< Block in accept (CMSG_BLOCKING) or
                       not (CMSG_NONBLOCKING)? */
   cMsgDomainInfo *domain;  /**< Pointer to element of domain structure array. */
   char *domainType;        /**< String containing domain name (e.g. ca, rc, file). */
