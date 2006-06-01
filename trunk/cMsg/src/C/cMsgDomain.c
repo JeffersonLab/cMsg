@@ -642,8 +642,9 @@ static int connectImpl(int domainId, int failoverIndex) {
     exit(-1);
   }
        
-  /* free mem allocated for the argument passed to listening thread */
-  free(threadArg);
+  /* threadArg is used in cMsgClientListeningThread and its cleanup handler,
+   * so do NOT free its memory!
+   */
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "connectImpl: created listening thread\n");
@@ -2718,7 +2719,6 @@ int cmsg_cmsg_disconnect(void *domainId) {
   
   /* When changing initComplete / connection status, protect it */
   cMsgConnectWriteLock(domain);
-  
   /*
    * If the domain server thread terminates first, our keep alive thread will
    * detect it and call this function. To prevent this, first kill our
@@ -2826,7 +2826,9 @@ int cmsg_cmsg_disconnect(void *domainId) {
   for (i=0; i < domain->failoverSize; i++) {
     parsedUDLFree(&domain->failovers[i]);
   }
-  cMsgDomainClear(domain);
+  
+  /* bug bug, still have write lock */
+  /*cMsgDomainClear(domain);*/
   staticMutexUnlock();
   
   cMsgConnectWriteUnlock(domain);
