@@ -20,7 +20,16 @@ EPICS_LIB = -lca -lCom -lcas -lgdd -lAs -lDb
 AC_FLAGS  =
 CFLAGS    = -O3 -fPIC -I. -I$(C_DIR) -I$(INC_DIR) $(AC_FLAGS) $(EPICS_INC)
 LIBS      = -lexpat -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
-SHLIB_LD  = g++ -shared
+SHLIB_LD  = gcc -shared
+
+# if 32 bit
+ifneq ($(CMSG_BIT_ARCH), 64)
+CFLAGS   = -m32 -O3 -fPIC -I. -I$(C_DIR) -I$(INC_DIR) $(AC_FLAGS) $(EPICS_INC)
+# next line does NOT work for regular 32 bit Linux
+SHLIB_LD = ld -m elf_i386 -shared
+SHLIB_LD = gcc -m32 -shared
+endif
+
 endif
 
 

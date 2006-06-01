@@ -10,8 +10,16 @@ LIB_DYNAMIC = $(LIBNAM).so
 # Linux
 ifeq ($(OSNAME),Linux)
 CC = gcc
-CFLAGS   = -O3 -fPIC -I./ -DPOSIX_MISTAKE
-SHLIB_LD = g++ -shared
+CFLAGS   = -O3 -fpic -I./ -DPOSIX_MISTAKE
+SHLIB_LD = gcc -shared
+
+# if 32 bit
+ifneq ($(CMSG_BIT_ARCH), 64)
+CFLAGS   = -m32 -O3 -fpic -I./ -DPOSIX_MISTAKE
+SHLIB_LD = ld -m elf_i386 -shared
+SHLIB_LD = gcc -m32 -shared
+endif
+
 endif
 
 # Solaris
