@@ -726,7 +726,7 @@ int cMsgLocalByteOrder(int *endian)
     }
   }
   else {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgByteOrder: sizeof(short) = %d\n", sizeof(short));
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgByteOrder: sizeof(short) = %u\n", sizeof(short));
     return(CMSG_ERROR);
   }
 }

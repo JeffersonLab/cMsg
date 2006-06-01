@@ -3360,7 +3360,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIn
 static void *keepAliveThread(void *arg)
 {
     cMsgDomainInfo *domain = (cMsgDomainInfo *) arg;
-    int domainId = domain->id;
+    uintptr_t domainId = domain->id;
     int socket   = domain->keepAliveSocket;
     int outGoing, alive, err;
     
