@@ -2829,8 +2829,8 @@ int cmsg_cmsg_disconnect(void *domainId) {
     parsedUDLFree(&domain->failovers[i]);
   }
   
-  /* bug bug, still have write lock */
-  /*cMsgDomainClear(domain);*/
+  /* Tell cMsg system, this array spot is free */
+  domain->initComplete = 0;
   staticMutexUnlock();
   
   cMsgConnectWriteUnlock(domain);
@@ -2931,8 +2931,10 @@ static int disconnectFromKeepAlive(void *domainId) {
   for (i=0; i < domain->failoverSize; i++) {
     parsedUDLFree(&domain->failovers[i]);
   }
+  
   staticMutexLock();
-  cMsgDomainClear(domain);
+  /* Tell cMsg system, this array spot is free */
+  domain->initComplete = 0;
   staticMutexUnlock();
   
   cMsgConnectWriteUnlock(domain);
