@@ -32,9 +32,10 @@
 
 /******************************************************************/
 static void usage() {
-  printf("Usage:  producer [-s <size> | -b <size>] <UDL>\n");
+  printf("Usage:  producer [-s <size> | -b <size>] -u <UDL>\n");
   printf("                  -s sets the byte size for text data, or\n");
   printf("                  -b sets the byte size for binary data\n");
+  printf("                  -u sets the connection UDL\n");
 }
 
 
@@ -48,11 +49,12 @@ int main(int argc,char **argv) {
   char *text          = "JUNK";
   char *bytes         = NULL;
   char *UDL           = "cMsg:cmsg://aslan:3456/cMsg/test";
-  int   err, debug=1, domainId=-1, msgSize=0, mainloops=200, response;
+  char *p;
+  int   i, j, err, debug=1, domainId=-1, msgSize=0, mainloops=200, response;
   void *msg;
   
   /* msg rate measuring variables */
-  int             dostring=0, count, i, delay=0, loops=20000, ignore=0;
+  int             dostring=1, count, delay=0, loops=20000, ignore=0;
   struct timespec t1, t2, sleeep;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
@@ -60,70 +62,72 @@ int main(int argc,char **argv) {
   sleeep.tv_sec  = 3; /* 3 sec */
   sleeep.tv_nsec = 0;
   
-  if (argc > 4) {
-    usage();
-    return;
-  }
-  
   if (argc > 1) {
-     if (strcmp("-s", argv[1]) == 0) {
-       dostring = 1;
-     }
-     else if (strcmp("-b", argv[1]) == 0) {
-       dostring = 0;
-     }
-     else if (strcmp(argv[1], "-h") == 0) {
-       usage();
-       return;
-     }
-     else {
-       printf("specify -s or -b flag for string or bytearray data\n");
-       exit(1);
-     }
-  }
   
-  if (argc > 2) {
-    if (strcmp(argv[2], "-h") == 0) {
-      usage();
-      return;
+    for (i=1; i<argc; i++) {
+
+       if (strcmp("-s", argv[i]) == 0) {
+         if (argc < i+2) {
+           usage();
+           return;
+         }
+         
+         dostring = 1;
+         
+         msgSize = atoi(argv[++i]);
+         text = p = (char *) malloc((size_t) (msgSize + 1));
+         if (p == NULL) exit(1);
+         printf("using text msg size %d\n", msgSize);
+         for (j=0; j < msgSize; j++) {
+           *p = 'A';
+           p++;
+         }
+         *p = '\0';
+         /*printf("Text = %s\n", text);*/
+         
+       }
+       else if (strcmp("-b", argv[i]) == 0) {
+         if (argc < i+2) {
+           usage();
+           return;
+         }
+         
+         dostring = 0;
+         
+         msgSize = atoi(argv[++i]);
+         if (msgSize < 1) {
+           usage();
+           return;                  
+         }
+         printf("using array msg size %d\n", msgSize);
+         bytes = p = (char *) malloc((size_t) msgSize);
+         if (p == NULL) exit(1);
+         for (i=0; i < msgSize; i++) {
+           *p = i%255;
+           p++;
+         }
+
+       }
+       else if (strcmp(argv[i], "-u") == 0) {
+         if (argc < i+2) {
+           usage();
+           return;
+         }
+         UDL = argv[++i];
+       }
+       else if (strcmp(argv[i], "-h") == 0) {
+         usage();
+         return;
+       }
+       else {
+         usage();
+         return;
+       }
+
     }
     
-    if (dostring) {
-      char *p;
-      msgSize = atoi(argv[2]);
-      text = p = (char *) malloc((size_t) (msgSize + 1));
-      if (p == NULL) exit(1);
-      printf("using text msg size %d\n", msgSize);
-      for (i=0; i < msgSize; i++) {
-        *p = 'A';
-        p++;
-      }
-      *p = '\0';
-      /*printf("Text = %s\n", text);*/
-    }
-    else {
-      char *p;
-      msgSize = atoi(argv[2]);
-      bytes = p = (char *) malloc((size_t) msgSize); /* allocating mem here */
-      if (p == NULL) exit(1);
-      printf("using array msg size %d\n", msgSize);
-      for (i=0; i < msgSize; i++) {
-        *p = i%255;
-        p++;
-      }
-    }
   }
-  else {
-      dostring = 1;
-  }
-  
-  if (argc > 3) {
-    UDL = argv[3];
-    if (strcmp(UDL, "-h") == 0) {
-      usage();
-      return;
-    }
-  }
+ 
   
   if (debug) {
     printf("Running the cMsg producer, \"%s\"\n", myName);
