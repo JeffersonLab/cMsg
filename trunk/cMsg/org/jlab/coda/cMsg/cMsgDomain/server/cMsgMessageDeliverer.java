@@ -60,8 +60,6 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
         createClientConnection(info);
     }
 
-    //-----------------------------------------------------------------------------------
-
     /**
      * Method to deliver a message from a domain server's subdomain handler to a client.
      *
@@ -93,14 +91,13 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
     }
 
     /**
-      * Creates a socket communication channel to a client.
-      * @param info client information object
-      * @throws IOException if socket cannot be created
-      */
+     * Creates a socket communication channel to a client.
+     * @param info client information object
+     * @throws IOException if socket cannot be created
+     */
     public void createClientConnection(cMsgClientInfo info) throws IOException {
         channel = SocketChannel.open(new InetSocketAddress(info.getClientHost(),
                                                            info.getClientPort()));
-System.out.println("Created socket to client for sending messages, " + info.getClientHost() + ":" + info.getClientPort());
         // set socket options
         Socket socket = channel.socket();
         // Set tcpNoDelay so no packets are delayed
@@ -113,7 +110,6 @@ System.out.println("Created socket to client for sending messages, " + info.getC
         in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 2048));
         out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 65536));
     }
-
 
     /**
      * Method to deliver a message to a client.

@@ -302,7 +302,6 @@ public class cMsgDomainServer extends Thread {
 
         while (true) {
             try {
-System.out.println("Trying to open socket on port " + port);
                 listeningSocket.bind(new InetSocketAddress(port));
                 break;
             }

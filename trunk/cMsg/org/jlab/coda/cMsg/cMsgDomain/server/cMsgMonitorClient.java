@@ -85,7 +85,6 @@ public class cMsgMonitorClient extends Thread {
 
             channel = SocketChannel.open(new InetSocketAddress(info.getClientHost(),
                                                                info.getClientPort()));
-System.out.println("Created socket to client for keepalives, " + info.getClientHost() + ":" + info.getClientPort());
             channel.configureBlocking(false);
             // set socket options
             Socket socket = channel.socket();
