@@ -69,16 +69,18 @@ public interface cMsgDomainInterface {
      * and wait for a response from the subdomain handler that got it.
      *
      * @param message message
+     * @param timeout time in milliseconds to wait for a response
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    public int syncSend(cMsgMessage message) throws cMsgException;
+    public int syncSend(cMsgMessage message, int timeout) throws cMsgException;
 
     /**
      * Method to force cMsg client to send pending communications with domain server.
+     * @param timeout time in milliseconds to wait for completion
      * @throws cMsgException
      */
-    public void flush() throws cMsgException;
+    public void flush(int timeout) throws cMsgException;
 
     /**
      * This method is like a one-time subscribe. The server grabs the first incoming

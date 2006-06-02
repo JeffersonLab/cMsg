@@ -129,10 +129,11 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      * and wait for a response from the subdomain handler that got it.
      *
      * @param message message
+     * @param timeout time in milliseconds to wait for a response
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    public int syncSend(cMsgMessage message) throws cMsgException {
+    public int syncSend(cMsgMessage message, int timeout) throws cMsgException {
         throw new cMsgException("syncSend is not implemented");
     }
 
@@ -143,9 +144,10 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
     /**
      * Method to force cMsg client to send pending communications with domain server.
      *
+     * @param timeout time in milliseconds to wait for completion
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public void flush() throws cMsgException {
+    public void flush(int timeout) throws cMsgException {
         throw new cMsgException("flush is not implemented");
     }
 

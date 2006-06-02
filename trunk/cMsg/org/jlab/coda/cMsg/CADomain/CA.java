@@ -298,9 +298,10 @@ public class CA extends cMsgDomainAdapter {
     /**
      * Method to force cMsg client to send pending communications with domain server.
      *
+     * @param timeout time in milliseconds to wait for completion
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public void flush() throws cMsgException {
+    public void flush(int timeout) throws cMsgException {
         try {
             myContext.flushIO();
         } catch (CAException e) {

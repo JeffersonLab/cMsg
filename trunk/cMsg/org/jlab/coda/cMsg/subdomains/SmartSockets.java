@@ -383,7 +383,7 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
         // update subject count for new subscription
         if(subjects.containsKey(subject)) {
-            m = (MyInt)subjects.get(subject);
+            m = subjects.get(subject);
             m.count++;
             subjects.put(subject,m);
         } else {
@@ -414,7 +414,7 @@ public class SmartSockets extends cMsgSubdomainAdapter {
     public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId) {
         try {
             if(callbacks.containsKey(receiverSubscribeId)) {
-                mySrv.removeProcessCb((TipcCb)callbacks.get(receiverSubscribeId));
+                mySrv.removeProcessCb(callbacks.get(receiverSubscribeId));
                 callbacks.remove(receiverSubscribeId);
             }
         } catch (TipcException e) {
@@ -424,7 +424,7 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
         // update subject table
         if(subjects.containsKey(subject)) {
-            MyInt m = (MyInt)subjects.get(subject);
+            MyInt m = subjects.get(subject);
             m.count--;
             if(m.count>=1) {
                 subjects.put(subject,m);

@@ -152,10 +152,11 @@ public class File extends cMsgDomainAdapter {
      * Calls send to write to file.
      *
      * @param message message
+     * @param timeout time in milliseconds to wait for a response
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    public int syncSend(cMsgMessage message) throws cMsgException {
+    public int syncSend(cMsgMessage message, int timeout) throws cMsgException {
         send(message);
         return (0);
     }
@@ -166,8 +167,9 @@ public class File extends cMsgDomainAdapter {
 
     /**
      * Flushes output.
+     * @param timeout time in milliseconds to wait for completion
      */
-    public void flush() {
+    public void flush(int timeout) {
         myPrintHandle.flush();
         return;
     }

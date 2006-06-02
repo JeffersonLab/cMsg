@@ -92,7 +92,7 @@ public class CA extends cMsgSubdomainAdapter {
     private Monitor myMonitor    = null;
     private String mySubscribeType;
     private String mySubscribeSubject;
-    private ArrayList mySubscribeIdList = new ArrayList(10);
+    private ArrayList<Integer> mySubscribeIdList = new ArrayList<Integer>(10);
 
 
     /** misc params. */

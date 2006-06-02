@@ -48,7 +48,7 @@ public class LogFile extends cMsgSubdomainAdapter {
 
 
     /** Hash table to store all client info.  Canonical name is key. */
-    private static HashMap openFiles = new HashMap(100);
+    private static HashMap<String, LogFileObject> openFiles = new HashMap<String, LogFileObject>(100);
 
 
     /** Inner class to hold log file information. */
@@ -169,7 +169,7 @@ public class LogFile extends cMsgSubdomainAdapter {
         // check if file already open
         synchronized (openFiles) {
             if (openFiles.containsKey(myCanonicalName)) {
-                l = (LogFileObject) openFiles.get(myCanonicalName);
+                l = openFiles.get(myCanonicalName);
                 myPrintHandle = l.printHandle;
                 l.count.incrementAndGet();
 
@@ -236,7 +236,7 @@ public class LogFile extends cMsgSubdomainAdapter {
      */
     public void handleClientShutdown() throws cMsgException {
         synchronized (openFiles) {
-            LogFileObject l = (LogFileObject) openFiles.get(myCanonicalName);
+            LogFileObject l = openFiles.get(myCanonicalName);
             if (l.count.decrementAndGet() <= 0) {
                 myPrintHandle.println("</cMsgLogFile>\n");
                 myPrintHandle.println("\n\n\n<!--===========================================================================================-->\n\n\n");

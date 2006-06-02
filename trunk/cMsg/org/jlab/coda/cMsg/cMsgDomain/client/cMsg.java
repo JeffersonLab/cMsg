@@ -621,8 +621,9 @@ public class cMsg extends cMsgDomainAdapter {
     /**
      * Method to force cMsg client to send pending communications with domain server.
      * In the cMsg domain implementation, this method does nothing.
+     * @param timeout ignored in this domain
      */
-    public void flush() {
+    public void flush(int timeout) {
         return;
     }
 
@@ -960,11 +961,12 @@ public class cMsg extends cMsgDomainAdapter {
      * and wait for a response from the subdomain handler that got it.
      *
      * @param message message
+     * @param timeout ignored in this domain
      * @return response from subdomain handler
      * @throws cMsgException if there are communication problems with the server;
      *                       subject and/or type is null
      */
-    public int syncSend(cMsgMessage message) throws cMsgException {
+    public int syncSend(cMsgMessage message, int timeout) throws cMsgException {
 
         if (!hasSyncSend) {
             throw new cMsgException("sync send is not implemented by this subdomain");
@@ -1247,8 +1249,7 @@ public class cMsg extends cMsgDomainAdapter {
      * successfully resubscribed on the new server.
      *
      * @param obj the object "handle" returned from a subscribe call
-     * @throws cMsgException if there are communication problems with the server; subject
-     *                       and/or type is null or blank
+     * @throws cMsgException if there are communication problems with the server; object arg is null
      */
     public void unsubscribe(Object obj)
             throws cMsgException {
@@ -1448,7 +1449,7 @@ public class cMsg extends cMsgDomainAdapter {
      * This method is like a one-time subscribe. The server grabs the first incoming
      * message of the requested subject and type and sends that to the caller.
      *
-     * NOTE: Disconnecting when one thread is in the waiting part of a subscribeAndGEt may cause that
+     * NOTE: Disconnecting when one thread is in the waiting part of a subscribeAndGet may cause that
      * thread to block forever. It is best to always use a timeout with subscribeAndGet so the thread
      * is assured of eventually resuming execution.
      *

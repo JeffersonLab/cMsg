@@ -296,19 +296,21 @@ public class cMsg {
      * and wait for a response from the subdomain handler that got it.
      *
      * @param message message
+     * @param timeout time in milliseconds to wait for a response
      * @return response from subdomain handler
      * @throws cMsgException
      */
-    public int syncSend(cMsgMessage message) throws cMsgException {
-        return connection.syncSend(message);
+    public int syncSend(cMsgMessage message, int timeout) throws cMsgException {
+        return connection.syncSend(message, timeout);
     }
 
     /**
      * Method to force cMsg client to send pending communications with domain server.
+     * @param timeout time in milliseconds to wait for completion
      * @throws cMsgException
      */
-    public void flush() throws cMsgException {
-        connection.flush();
+    public void flush(int timeout) throws cMsgException {
+        connection.flush(timeout);
     }
 
     /**
