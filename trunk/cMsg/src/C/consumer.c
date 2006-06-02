@@ -24,7 +24,7 @@
 #include "cMsg.h"
 #include "errors.h"
 
-int count = 0, domainId = -1, oldInt=-1;
+int count = 0, domainId = -1;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
@@ -34,10 +34,7 @@ static void callback(void *msg, void *arg) {
   struct timespec sleeep;
   
   sleeep.tv_sec  = 0;
-  sleeep.tv_nsec = 10000000; /* 10 millisec */
-  sleeep.tv_sec  = 1;
-  sleeep.tv_nsec = 0;
-  
+  sleeep.tv_nsec = 10000000; /* 10 millisec */  
   
   status = pthread_mutex_lock(&mutex);
   if (status != 0) {
@@ -45,70 +42,37 @@ static void callback(void *msg, void *arg) {
   }
   
   count++;
-  
-  /*nanosleep(&sleeep, NULL);*/
-  
-  /*
-  cMsgGetUserInt(msg, &userInt);
-  if (userInt != oldInt+1)
-    printf("%d -> %d; ", oldInt, userInt);
-  
-  oldInt = userInt;
-  */  
+    
   status = pthread_mutex_unlock(&mutex);
   if (status != 0) {
     err_abort(status, "error releasing mutex");
   }
+  
+  /*nanosleep(&sleeep, NULL);*/
   
   /* user MUST free messages passed to the callback */
   cMsgFreeMessage(msg);
 }
 
 
+
 /******************************************************************/
-static void callback2(void *msg, void *arg) {
-    
-    /* Create a response to the incoming message */
-    void *sendMsg = cMsgCreateMessage();
-    if (sendMsg == NULL) {
-        /* user MUST free messages passed to the callback */
-        cMsgFreeMessage(msg);
-        return;
-    }
-    
-    cMsgSetSubject(sendMsg, "RESPONDING");
-    cMsgSetType(sendMsg,"TO MESSAGE");
-    cMsgSetText(sendMsg,"responder's text");
-    cMsgSend(domainId, sendMsg);
-    cMsgFlush(domainId);
-    
-    /*
-     * By default, subscriptions run callbacks serially. 
-     * If that is not the case, global data (like "count")
-     * must be mutex protected.
-     */
-    count++;
-    
-    /* user MUST free messages passed to the callback */
-    cMsgFreeMessage(msg);
-    /* user MUST free messages created in this callback */
-    cMsgFreeMessage(sendMsg);
+static void usage() {
+  printf("Usage:  consumer <name> <UDL>\n");
 }
 
 
 /******************************************************************/
 int main(int argc,char **argv) {
 
-  char *myName   = "C Consumer";
+  char *myName        = "consumer";
   char *myDescription = "C consumer";
-  char *subject = "SUBJECT";
-  char *type    = "TYPE";
-  char *UDL     = "cMsg:cMsg://phecda:3456/cMsg/test";
-  /*char *UDL     = "cMsg://blah.jlab.org/;cMsg:cMsg://aslan:3456/cMsg/test/stuff?blah=blah&cmsgpassword=charlie&junk=junk"; */
+  char *subject       = "SUBJECT";
+  char *type          = "TYPE";
+  char *UDL           = "cMsg:cMsg://aslan/cMsg/test";
   int   err, debug = 1;
   cMsgSubscribeConfig *config;
   void *unSubHandle;
-  int toggle = 2;
   
   /* msg rate measuring variables */
   int             period = 5, ignore=0;
@@ -117,10 +81,23 @@ int main(int argc,char **argv) {
 
   if (argc > 1) {
     myName = argv[1];
+    if (strcmp(myName, "-h") == 0) {
+      usage();
+      return;
+    }
   }
   
   if (argc > 2) {
     UDL = argv[2];
+    if (strcmp(UDL, "-h") == 0) {
+      usage();
+      return;
+    }
+  }
+  
+  if (argc > 3) {
+    usage();
+    return;
   }
   
   if (debug) {
@@ -136,6 +113,7 @@ int main(int argc,char **argv) {
       }
       exit(1);
   }
+    printf("  past connect\n");
   
   /* start receiving messages */
   cMsgReceiveStart(domainId);
@@ -176,15 +154,6 @@ int main(int argc,char **argv) {
       else {
           ignore--;
       }
-      
-      /* test unsubscribe */
-      if (toggle++%2 == 0) {
-          cMsgUnSubscribe(domainId, unSubHandle);
-      }
-      else {
-          cMsgSubscribe(domainId, subject, type, callback, NULL, config, &unSubHandle);
-      }
-      
   }
 
   return(0);

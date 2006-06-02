@@ -21,6 +21,7 @@
 #endif
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -29,27 +30,40 @@
 #include "cMsg.h"
 
 
+/******************************************************************/
+static void usage() {
+  printf("Usage:  producer [-s <size> | -b <size>] <UDL>\n");
+  printf("                  -s sets the byte size for text data, or\n");
+  printf("                  -b sets the byte size for binary data\n");
+}
+
+
+/******************************************************************/
 int main(int argc,char **argv) {  
 
-  char *myName = "C Producer";
+  char *myName        = "producer";
   char *myDescription = "C producer";
-  char *subject = "SUBJECT";
-  char *type    = "TYPE";
-  char *text    = "JUNK";
-  char *bytes   = NULL;
-  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test;cMsg:cMsg://aslan:3457/cMsg/test";
+  char *subject       = "SUBJECT";
+  char *type          = "TYPE";
+  char *text          = "JUNK";
+  char *bytes         = NULL;
+  char *UDL           = "cMsg:cmsg://aslan:3456/cMsg/test";
   int   err, debug=1, domainId=-1, msgSize=0, mainloops=200, response;
   void *msg;
   
   /* msg rate measuring variables */
-  int             dostring=0, count, i, delay=1, loops=200, ignore=0;
+  int             dostring=0, count, i, delay=0, loops=20000, ignore=0;
   struct timespec t1, t2, sleeep;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
   
-  sleeep.tv_sec  = 0;
-  sleeep.tv_nsec = 10000000; /* 10 millisec */
+  sleeep.tv_sec  = 3; /* 3 sec */
+  sleeep.tv_nsec = 0;
   
+  if (argc > 4) {
+    usage();
+    return;
+  }
   
   if (argc > 1) {
      if (strcmp("-s", argv[1]) == 0) {
@@ -58,6 +72,10 @@ int main(int argc,char **argv) {
      else if (strcmp("-b", argv[1]) == 0) {
        dostring = 0;
      }
+     else if (strcmp(argv[1], "-h") == 0) {
+       usage();
+       return;
+     }
      else {
        printf("specify -s or -b flag for string or bytearray data\n");
        exit(1);
@@ -65,6 +83,11 @@ int main(int argc,char **argv) {
   }
   
   if (argc > 2) {
+    if (strcmp(argv[2], "-h") == 0) {
+      usage();
+      return;
+    }
+    
     if (dostring) {
       char *p;
       msgSize = atoi(argv[2]);
@@ -91,8 +114,15 @@ int main(int argc,char **argv) {
     }
   }
   else {
-      printf("using no text or byte array\n");
       dostring = 1;
+  }
+  
+  if (argc > 3) {
+    UDL = argv[3];
+    if (strcmp(UDL, "-h") == 0) {
+      usage();
+      return;
+    }
   }
   
   if (debug) {
@@ -115,17 +145,15 @@ int main(int argc,char **argv) {
   cMsgSetType(msg, type);       /* allocating mem here */
   
   if (dostring) {
-    printf("setting text to %s\n", text);
+    printf("  try setting text to %s\n", text);
     cMsgSetText(msg, text);
   }
   else {
-    printf("setting byte array\n");
+    printf("  setting byte array\n");
     cMsgSetByteArrayAndLimits(msg, bytes, 0, msgSize);
   }
-  
-  
+   
   while (mainloops-- > 0) {
-  /*while (1) {*/
       count = 0;
       
       /* read time for rate calculations */
@@ -133,14 +161,14 @@ int main(int argc,char **argv) {
 
       for (i=0; i < loops; i++) {
           /* send msg */
-          /* err = cMsgSyncSend(domainId, msg, &response); */
+          /* err = cMsgSyncSend(domainId, msg, NULL, &response); */
           err = cMsgSend(domainId, msg);
           if (err != CMSG_OK) {
             printf("cMsgSend: err = %d, %s\n",err, cMsgPerror(err));
             fflush(stdout);
             goto end;
           }
-          cMsgFlush(domainId);
+          cMsgFlush(domainId, NULL);
           count++;
           
           if (delay != 0) {

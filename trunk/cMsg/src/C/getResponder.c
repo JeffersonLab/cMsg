@@ -48,7 +48,7 @@ void mycallback(void *msg, void *arg) {
     cMsgSetText(sendMsg,"responder's text");
     
     cMsgSend(domainId, sendMsg);
-    cMsgFlush(domainId);
+    cMsgFlush(domainId, NULL);
     
     /*
      * By default, subscriptions run callbacks serially. 
