@@ -65,6 +65,14 @@ public class cMsgCallbackThread extends Thread {
     }
 
     /**
+     * Gets the callback object.
+     * @return user callback object
+     */
+    public cMsgCallbackInterface getCallback() {
+        return callback;
+    }
+
+    /**
      * Gets the user argument.
      * @return user argument object
      */
@@ -138,7 +146,7 @@ public class cMsgCallbackThread extends Thread {
      * @param callback callback to be run when message arrives
      * @param arg user-supplied argument for callback
      */
-    cMsgCallbackThread(cMsgCallbackInterface callback, Object arg) {
+    public cMsgCallbackThread(cMsgCallbackInterface callback, Object arg) {
         this.callback = callback;
         this.arg      = arg;
         messageCue    = new LinkedBlockingQueue<cMsgMessageFull>(callback.getMaximumCueSize());

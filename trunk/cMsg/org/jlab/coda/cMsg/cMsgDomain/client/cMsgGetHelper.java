@@ -74,6 +74,7 @@ public class cMsgGetHelper {
         errorCode = cMsgConstants.ok;
     }
 
+
     /**
      * Constructor used in subscribeAndGet.
      * @param subject subject of subscription
@@ -98,6 +99,46 @@ public class cMsgGetHelper {
         }
     }
 
+
+    /**
+     * Returns the message object.
+     * @return the message object.
+     */
+    public cMsgMessageFull getMessage() {
+        return message;
+    }
+
+    /**
+     * Sets the messge object;
+     * @param message the message object
+     */
+    public void setMessage(cMsgMessageFull message) {
+        this.message = message;
+    }
+
+    /**
+     * Returns true if the "subscribeAndGet" or "sendAndGet" call timed out.
+     * @return true if the "subscribeAndGet" or "sendAndGet" call timed out.
+     */
+    public boolean isTimedOut() {
+        return timedOut;
+    }
+
+    /**
+     * Set boolean telling whether he "subscribeAndGet" or "sendAndGet" call timed out or not.
+     * @param timedOut boolean telling whether he "subscribeAndGet" or "sendAndGet" call timed out or not.
+     */
+    public void setTimedOut(boolean timedOut) {
+        this.timedOut = timedOut;
+    }
+
+    /**
+     * Gets the error code from when a "subscribeAndGet" or "sendAndGet" is woken up by an error condition.
+     * @return error code
+     */
+    public int getErrorCode() {
+        return errorCode;
+    }
 
     /**
      * Returns true if there are * or ? characters in subject.
