@@ -225,8 +225,8 @@ public:
   virtual void disconnect(void);
   virtual void send(cMsgMessage &msg) throw(cMsgException);
   virtual void send(cMsgMessage *msg) throw(cMsgException);
-  virtual int  syncSend(cMsgMessage &msg) throw(cMsgException);
-  virtual int  syncSend(cMsgMessage *msg) throw(cMsgException);
+  virtual int  syncSend(cMsgMessage &msg, const struct timespec *timeout) throw(cMsgException);
+  virtual int  syncSend(cMsgMessage *msg, const struct timespec *timeout) throw(cMsgException);
   virtual void *subscribe(const string &subject, const string &type, cMsgCallbackAdapter *cba, void *userArg)
     throw(cMsgException);
   virtual void *subscribe(const string &subject, const string &type, cMsgCallbackAdapter &cba, void *userArg)
@@ -238,7 +238,7 @@ public:
     throw(cMsgException);
   virtual cMsgMessage *subscribeAndGet(const string &subject, const string &type, const struct timespec &timeout)
     throw(cMsgException);
-  virtual void flush(void) throw(cMsgException);
+  virtual void flush(const struct timespec *timeout) throw(cMsgException);
   virtual void start(void) throw(cMsgException);
   virtual void stop(void) throw(cMsgException);
   virtual string getUDL(void) const;

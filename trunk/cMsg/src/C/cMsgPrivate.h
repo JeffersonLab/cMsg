@@ -76,7 +76,8 @@ typedef int (*CONNECT_PTR)     (const char *udl, const char *name, const char *d
 typedef int (*SEND_PTR)        (void *domainId, void *msg);
 
 /** Typedef for a domain's syncSend function */  
-typedef int (*SYNCSEND_PTR)    (void *domainId, void *msg, int *response);
+typedef int (*SYNCSEND_PTR)    (void *domainId, void *msg, const struct timespec *timeout,
+                                int *response);
 
 /** Typedef for a domain's subscribe function */  
 typedef int (*SUBSCRIBE_PTR)   (void *domainId, const char *subject, const char *type,
@@ -94,7 +95,10 @@ typedef int (*SUBSCRIBE_AND_GET_PTR) (void *domainId, const char *subject, const
 typedef int (*SEND_AND_GET_PTR)         (void *domainId, void *sendMsg,
                                          const struct timespec *timeout, void **replyMsg);
 
-/** Typedef for a domain's flush, start, stop, and disconnect functions */  
+/** Typedef for a domain's flush function */  
+typedef int (*FLUSH_PTR)                (void *domainId, const struct timespec *timeout);
+
+/** Typedef for a domain's start, stop, and disconnect functions */  
 typedef int (*FUNC_PTR)                 (void *domainId);
 
 /** Typedef for a domain's shutdownClients and shutdownServers functions */  
@@ -119,7 +123,7 @@ typedef struct domainFunctions_t {
   SYNCSEND_PTR syncSend;
   
   /** This function sends any pending (queued up) communication with the server. */
-  FUNC_PTR flush;
+  FLUSH_PTR flush;
   
   /** This function subscribes to messages of the given subject and type. */
   SUBSCRIBE_PTR subscribe;

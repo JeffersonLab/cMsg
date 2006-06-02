@@ -94,8 +94,8 @@ cMsgDomainInfo cMsgDomains[MAXDOMAINS_CODA];
 int   cmsg_cmsg_connect           (const char *myUDL, const char *myName, const char *myDescription,
                                    const char *UDLremainder,void **domainId);
 int   cmsg_cmsg_send              (void *domainId, void *msg);
-int   cmsg_cmsg_syncSend          (void *domainId, void *msg, int *response);
-int   cmsg_cmsg_flush             (void *domainId);
+int   cmsg_cmsg_syncSend          (void *domainId, void *msg, const struct timespec *timeout, int *response);
+int   cmsg_cmsg_flush             (void *domainId, const struct timespec *timeout);
 int   cmsg_cmsg_subscribe         (void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                                    void *userArg, cMsgSubscribeConfig *config, void **handle);
 int   cmsg_cmsg_unsubscribe       (void *domainId, void *handle);
@@ -1149,6 +1149,7 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
  *
  * @param domainId id of the domain connection
  * @param vmsg pointer to a message structure
+ * @param timeout amount of time to wait for the response
  * @param response integer pointer that gets filled with the server's response
  *
  * @returns CMSG_OK if successful
@@ -1162,7 +1163,7 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-int cmsg_cmsg_syncSend(void *domainId, void *vmsg, int *response) {
+int cmsg_cmsg_syncSend(void *domainId, void *vmsg, const struct timespec *timeout, int *response) {
   
   int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int highInt, lowInt, outGoing[16];
@@ -2020,10 +2021,11 @@ static int unSendAndGet(void *domainId, int id) {
  * nothing.
  *
  * @param domainId id of the domain connection
+ * @param timeout amount of time to wait for completion
  *
  * @returns CMSG_OK always
  */   
-int cmsg_cmsg_flush(void *domainId) {  
+int cmsg_cmsg_flush(void *domainId, const struct timespec *timeout) {  
   return(CMSG_OK);
 }
 

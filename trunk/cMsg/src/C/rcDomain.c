@@ -118,8 +118,8 @@ int   cmsg_rc_connect(const char *myUDL, const char *myName,
                       const char *myDescription,
                       const char *UDLremainder, void **domainId);
 int   cmsg_rc_send(void *domainId, void *msg);
-int   cmsg_rc_syncSend(void *domainId, void *msg, int *response);
-int   cmsg_rc_flush(void *domainId);
+int   cmsg_rc_syncSend(void *domainId, void *msg, const struct timespec *timeout, int *response);
+int   cmsg_rc_flush(void *domainId, const struct timespec *timeout);
 int   cmsg_rc_subscribe(void *domainId, const char *subject, const char *type,
                         cMsgCallbackFunc *callback, void *userArg,
                         cMsgSubscribeConfig *config, void **handle);
@@ -803,7 +803,7 @@ int cmsg_rc_send(void *domainId, void *vmsg) {
 
 
 /** syncSend is not implemented in the rc domain. */
-int cmsg_rc_syncSend(void *domainId, void *vmsg, int *response) {
+int cmsg_rc_syncSend(void *domainId, void *vmsg, const struct timespec *timeout, int *response) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -832,7 +832,7 @@ int cmsg_rc_sendAndGet(void *domainId, void *sendMsg, const struct timespec *tim
 
 
 /** flush does nothing in the rc domain. */
-int cmsg_rc_flush(void *domainId) {  
+int cmsg_rc_flush(void *domainId, const struct timespec *timeout) {  
   return(CMSG_OK);
 }
 

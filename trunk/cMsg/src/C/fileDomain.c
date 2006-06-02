@@ -59,8 +59,8 @@ static char *strdup(const char *s1) {
 int   cmsg_file_Connect(const char *myUDL, const char *myName, const char *myDescription,
                         const char *UDLremainder, void **domainId);
 int   cmsg_file_Send(void *domainId, void *msg);
-int   cmsg_file_SyncSend(void *domainId, void *msg, int *response);
-int   cmsg_file_Flush(void *domainId);
+int   cmsg_file_SyncSend(void *domainId, void *msg, const struct timespec *timeout, int *response);
+int   cmsg_file_Flush(void *domainId, const struct timespec *timeout);
 int   cmsg_file_Subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                           void *userArg, cMsgSubscribeConfig *config, void **handle);
 int   cmsg_file_Unsubscribe(void *domainId, void *handle);
@@ -213,7 +213,7 @@ int cmsg_file_Send(void *domainId, void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_SyncSend(void *domainId, void *vmsg, int *response) {
+int cmsg_file_SyncSend(void *domainId, void *vmsg, const struct timespec *timeout, int *response) {
   *response=0;
   return(cmsg_file_Send(domainId,vmsg));
 }
@@ -240,7 +240,7 @@ int cmsg_file_SendAndGet(void *domainId, void *sendMsg, const struct timespec *t
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_Flush(void *domainId) {  
+int cmsg_file_Flush(void *domainId, const struct timespec *timeout) {  
   return(CMSG_OK);
 }
 

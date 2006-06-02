@@ -124,8 +124,8 @@ extern "C" {
   int 	cMsgConnect           (const char *myUDL, const char *myName, const char *myDescription,
                                int *domainId);
   int 	cMsgSend              (int domainId, void *msg);
-  int   cMsgSyncSend          (int domainId, void *msg, int *response);
-  int 	cMsgFlush             (int domainId);
+  int   cMsgSyncSend          (int domainId, void *msg, const struct timespec *timeout, int *response);
+  int 	cMsgFlush             (int domainId, const struct timespec *timeout);
   int 	cMsgSubscribe         (int domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                                void *userArg, cMsgSubscribeConfig *config, void **handle);
   int 	cMsgUnSubscribe       (int domainId, void *handle);

@@ -396,7 +396,8 @@ int cMsgSend(int domainId, void *msg) {
  *
  * @param domainId id number of the domain connection
  * @param msg pointer to a message structure
- * @param response integer pointer that gets filled with the server's response
+ * @param timeout amount of time to wait for the response
+ * @param response integer pointer that gets filled with the response
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
@@ -404,14 +405,14 @@ int cMsgSend(int domainId, void *msg) {
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSyncSend
  */   
-int cMsgSyncSend(int domainId, void *msg, int *response) {
+int cMsgSyncSend(int domainId, void *msg, const struct timespec *timeout, int *response) {
   
   int id = domainId - DOMAIN_ID_OFFSET;
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);  
 
   /* dispatch to function registered for this domain type */
-  return(domains[id].functions->syncSend(domains[id].implId, msg, response));
+  return(domains[id].functions->syncSend(domains[id].implId, msg, timeout, response));
 }
 
 
@@ -425,20 +426,21 @@ int cMsgSyncSend(int domainId, void *msg, int *response) {
  * communications are sent immediately upon calling any function.
  *
  * @param domainId id number of the domain connection
+ * @param timeout amount of time to wait for completion
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_NOT_INITIALIZED if the connection to the domain was never opened/initialized
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgFlush
  */   
-int cMsgFlush(int domainId) {
+int cMsgFlush(int domainId, const struct timespec *timeout) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);  
 
   /* dispatch to function registered for this domain type */
-  return(domains[id].functions->flush(domains[id].implId));
+  return(domains[id].functions->flush(domains[id].implId, timeout));
 }
 
 
@@ -1064,7 +1066,7 @@ static int registerDynamicDomains(char *domainType) {
     free(lowerCase);
     return(CMSG_ERROR);
   }
-  funcs->flush = (FUNC_PTR) pValue;
+  funcs->flush = (FLUSH_PTR) pValue;
   
   /* get "subscribe" function from global symbol table */
   sprintf(functionName, "cmsg_%s_subscribe", lowerCase);
@@ -1213,7 +1215,7 @@ static int registerDynamicDomains(char *domainType) {
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
-  funcs->flush = (FUNC_PTR) sym;
+  funcs->flush = (FLUSH_PTR) sym;
 
   /* get "subscribe" function */
   sprintf(functionName, "cmsg_%s_subscribe", lowerCase);

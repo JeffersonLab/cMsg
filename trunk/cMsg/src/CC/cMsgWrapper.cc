@@ -1038,12 +1038,12 @@ void cMsg::send(cMsgMessage *msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-int cMsg::syncSend(cMsgMessage &msg) throw(cMsgException) {
+int cMsg::syncSend(cMsgMessage &msg, const struct timespec *timeout) throw(cMsgException) {
     
   int response;
 
   int stat;
-  if((stat=cMsgSyncSend(myDomainId,msg.myMsgPointer,&response))!=CMSG_OK) {
+  if((stat=cMsgSyncSend(myDomainId,msg.myMsgPointer,timeout,&response))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
   return(response);
@@ -1053,8 +1053,8 @@ int cMsg::syncSend(cMsgMessage &msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-int cMsg::syncSend(cMsgMessage *msg) throw(cMsgException) {
-  return(cMsg::syncSend(*msg));
+int cMsg::syncSend(cMsgMessage *msg, const struct timespec *timeout) throw(cMsgException) {
+  return(cMsg::syncSend(*msg, timeout));
 }
 
 
@@ -1189,10 +1189,10 @@ cMsgMessage *cMsg::subscribeAndGet(const string &subject, const string &type, co
 //-----------------------------------------------------------------------------
 
 
-void cMsg::flush(void) throw(cMsgException) {
+void cMsg::flush(const struct timespec *timeout) throw(cMsgException) {
     
   int stat;
-  if((stat=cMsgFlush(myDomainId))!=CMSG_OK) {
+  if((stat=cMsgFlush(myDomainId, timeout))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
 }
