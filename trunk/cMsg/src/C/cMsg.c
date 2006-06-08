@@ -375,6 +375,8 @@ int cMsgSend(int domainId, void *msg) {
   
   int id = domainId - DOMAIN_ID_OFFSET;
   
+  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
 
   /* dispatch to function registered for this domain type */
@@ -409,6 +411,8 @@ int cMsgSyncSend(int domainId, void *msg, const struct timespec *timeout, int *r
   
   int id = domainId - DOMAIN_ID_OFFSET;
   
+  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);  
 
   /* dispatch to function registered for this domain type */
@@ -437,6 +441,8 @@ int cMsgFlush(int domainId, const struct timespec *timeout) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
+  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);  
 
   /* dispatch to function registered for this domain type */
@@ -475,6 +481,8 @@ int cMsgSubscribe(int domainId, const char *subject, const char *type, cMsgCallb
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
+  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
   /* dispatch to function registered for this domain type */
@@ -502,6 +510,8 @@ int cMsgUnSubscribe(int domainId, void *handle) {
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
+  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
 
   /* dispatch to function registered for this domain type */
@@ -536,6 +546,8 @@ int cMsgSendAndGet(int domainId, void *sendMsg, const struct timespec *timeout, 
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
+  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
     
   return(domains[id].functions->sendAndGet(domains[id].implId, sendMsg, timeout, replyMsg));
@@ -566,6 +578,8 @@ int cMsgSubscribeAndGet(int domainId, const char *subject, const char *type,
 
   int id = domainId - DOMAIN_ID_OFFSET;
 
+  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
   return(domains[id].functions->subscribeAndGet(domains[id].implId, subject, type,
@@ -590,6 +604,8 @@ int cMsgReceiveStart(int domainId) {
   int id = domainId - DOMAIN_ID_OFFSET;
   int err;
 
+  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
   if ( (err = domains[id].functions->start(domains[id].implId)) != CMSG_OK) {
@@ -620,6 +636,8 @@ int cMsgReceiveStop(int domainId) {
   int id = domainId - DOMAIN_ID_OFFSET;
   int err;
 
+  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
 
   if ( (err = domains[id].functions->stop(domains[id].implId)) != CMSG_OK) {
@@ -648,6 +666,8 @@ int cMsgDisconnect(int domainId) {
   int id = domainId - DOMAIN_ID_OFFSET;
   int err;
 
+  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
   connectMutexLock();
@@ -683,6 +703,8 @@ int cMsgSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, void *use
   
   int id = domainId - DOMAIN_ID_OFFSET;
   
+  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
     
   return(domains[id].functions->setShutdownHandler(domains[id].implId, handler, userArg));
@@ -708,6 +730,8 @@ int cMsgShutdownClients(int domainId, const char *client, int flag) {
   
   int id = domainId - DOMAIN_ID_OFFSET;
 
+  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   if (flag != 0 && flag!= CMSG_SHUTDOWN_INCLUDE_ME) return(CMSG_BAD_ARGUMENT);
     
@@ -735,6 +759,8 @@ int cMsgShutdownServers(int domainId, const char *server, int flag) {
   
   int id = domainId - DOMAIN_ID_OFFSET;
 
+  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   if (flag != 0 && flag!= CMSG_SHUTDOWN_INCLUDE_ME) return(CMSG_BAD_ARGUMENT);
     
