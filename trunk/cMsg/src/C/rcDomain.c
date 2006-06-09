@@ -224,6 +224,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     struct sockaddr_in servaddr;
     int numLoops;
     int gotResponse = 0;
+    const int on=1;
         
        
     /* clear array */
@@ -418,6 +419,15 @@ printf("Wait for 5 more seconds, then exit\n");
     /* create UDP socket */
     domain->sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (domain->sendSocket < 0) {
+        cMsgDomainClear(domain);
+        staticMutexUnlock();
+        pthread_cancel(domain->pendThread);
+        return(CMSG_SOCKET_ERROR);
+    }
+
+    /* turn broadcasting on */
+    err = setsockopt(domain->sendSocket, SOL_SOCKET, SO_BROADCAST, (char*) &on, sizeof(on));
+    if (err < 0) {
         cMsgDomainClear(domain);
         staticMutexUnlock();
         pthread_cancel(domain->pendThread);
@@ -1421,9 +1431,6 @@ printf("parseUDL: udl remainder = %s\n", udlRemainder);
     /* RC domain UDL is of the form:
      *        cMsg:rc://<host>:<port>/?expid=<expid>&broadcastTO=<timeout>&connectTO=<timeout>
      *
-     * where we ignore <junk>. But this routine is only passed:
-     *       <host>:<port>:/<junk>
-     * 
      * Remember that for this domain:
      * 1) port is optional with a default of RC_BROADCAST_PORT (6543)
      * 2) host is optional with a default of 255.255.255.255 (broadcast)
