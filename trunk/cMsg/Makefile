@@ -44,12 +44,14 @@ export BIN_DIR
 export CMSG_DIR
 export CMSG_BIT_ARCH
 
+all: echoarch mkdirs cCode java jarfile
+
+
 echoarch:
 	@echo
 	@echo "Make for $(OSNAME) on $(PLATFORM), $(BITS) bits"
 	@echo
 
-all: echoarch mkdirs cCode java jarfile
 
 mkdirs:
 	-mkdir ./lib

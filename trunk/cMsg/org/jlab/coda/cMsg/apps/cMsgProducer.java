@@ -36,7 +36,7 @@ public class cMsgProducer {
     char[]  textChars;
     int     textSize;
     boolean sendText;
-    
+
     byte[]  binArray;
     int     binSize;
     boolean sendBinary;
