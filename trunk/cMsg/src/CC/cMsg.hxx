@@ -216,13 +216,14 @@ private:
   string myUDL;
   string myName;
   string myDescr;
+  bool initialized;
 
 
 public:
   cMsg(const string &UDL, const string &name, const string &descr);
   virtual ~cMsg(void);
   virtual void connect() throw(cMsgException);
-  virtual void disconnect(void);
+  virtual void disconnect(void) throw(cMsgException);
   virtual void send(cMsgMessage &msg) throw(cMsgException);
   virtual void send(cMsgMessage *msg) throw(cMsgException);
   virtual int  syncSend(cMsgMessage &msg, const struct timespec *timeout) throw(cMsgException);

@@ -60,31 +60,37 @@ main(int argc, char **argv) {
 
   // connect to cMsg server
   cMsg c(udl,name,description);
-  c.connect();
 
-
-  // create and fill message
-  cMsgMessage m;
-  m.setSubject(subject);
-  m.setType(type);
-  m.setUserInt(userInt);
-  m.setText(text);
-    
-    
-  // send message
   try {
-    c.send(m);
+    c.connect();
+    
+    
+  // create and fill message
+    cMsgMessage m;
+    m.setSubject(subject);
+    m.setType(type);
+    m.setUserInt(userInt);
+    m.setText(text);
+    
+    
+    // send message
+    try {
+      c.send(m);
+    } catch (cMsgException e) {
+      cerr << endl << "  ?unable to send message" << endl << endl;
+    }
+    
+    
+    // allow some time for message to be transferred before disconnecting
+    usleep(sleepTime);
+    
+
   } catch (cMsgException e) {
-    cerr << endl << "  ?unable to send message" << endl << endl;
+    cerr << endl << e.toString() << endl << endl;
   }
-
-
-  // allow some time for message to be transferred before disconnecting
-  usleep(sleepTime);
-
-
+  
+  
   // done
-  c.disconnect();
   exit(0);
 }
 
@@ -97,7 +103,7 @@ void decodeCommandLine(int argc, char **argv) {
 
   const char *help = 
     "\nusage:\n\n   cMsgCommand [-u udl] [-n name] [-d description] [-sleep sleepTime]\n"
-    "         [-s subject] [-type type] [-i userInt] [-text text]\n\n";
+    "              [-s subject] [-type type] [-i userInt] [-text text]\n\n";
   
   
 

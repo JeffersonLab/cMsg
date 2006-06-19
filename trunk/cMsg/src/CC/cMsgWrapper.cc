@@ -980,10 +980,8 @@ int cMsgCallbackAdapter::getMessagesPerThread(void) {
 //-----------------------------------------------------------------------------
 
 
-cMsg::cMsg(const string &UDL, const string &name, const string &descr) {
-  myUDL=UDL;
-  myName=name;
-  myDescr=descr;
+cMsg::cMsg(const string &UDL, const string &name, const string &descr) 
+  : myUDL(UDL), myName(name), myDescr(descr), initialized(false) {
 }
 
 
@@ -1000,17 +998,25 @@ cMsg::~cMsg(void) {
 
 void cMsg::connect(void) throw(cMsgException) {
 
+  if(initialized)throw(cMsgException(cMsgPerror(CMSG_ALREADY_INIT),CMSG_ALREADY_INIT));
+
+
   int stat;
   if((stat=cMsgConnect(myUDL.c_str(),myName.c_str(),myDescr.c_str(),&myDomainId))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
+  initialized=true;
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-void cMsg::disconnect(void) {
+void cMsg::disconnect(void) throw(cMsgException) {
+
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+
   cMsgDisconnect(myDomainId);
 }
 
@@ -1020,6 +1026,9 @@ void cMsg::disconnect(void) {
 
 void cMsg::send(cMsgMessage &msg) throw(cMsgException) {
     
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+
   int stat;
   if((stat=cMsgSend(myDomainId,msg.myMsgPointer))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
@@ -1040,6 +1049,9 @@ void cMsg::send(cMsgMessage *msg) throw(cMsgException) {
 
 int cMsg::syncSend(cMsgMessage &msg, const struct timespec *timeout) throw(cMsgException) {
     
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+
   int response;
 
   int stat;
@@ -1063,9 +1075,11 @@ int cMsg::syncSend(cMsgMessage *msg, const struct timespec *timeout) throw(cMsgE
 
 void *cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAdapter *cba, void *userArg) throw(cMsgException) {
     
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+
   int stat;
   void *handle;
-
 
   // check if this is a duplicate subscription
   if(subscriptionExists(myDomainId,subject,type,cba,userArg))
@@ -1122,6 +1136,9 @@ void *cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAda
 
 void cMsg::unsubscribe(void *handle) throw(cMsgException) {
 
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+
   int stat;
 
 
@@ -1144,6 +1161,9 @@ void cMsg::unsubscribe(void *handle) throw(cMsgException) {
 
 cMsgMessage *cMsg::sendAndGet(cMsgMessage &sendMsg, const struct timespec &timeout) throw(cMsgException) {
     
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+
   void *replyPtr;
 
   int stat;
@@ -1160,6 +1180,9 @@ cMsgMessage *cMsg::sendAndGet(cMsgMessage &sendMsg, const struct timespec &timeo
 
 cMsgMessage *cMsg::sendAndGet(cMsgMessage *sendMsg, const struct timespec &timeout) throw(cMsgException) {
 
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+
   void *replyPtr;
 
   int stat;
@@ -1174,6 +1197,9 @@ cMsgMessage *cMsg::sendAndGet(cMsgMessage *sendMsg, const struct timespec &timeo
 
 
 cMsgMessage *cMsg::subscribeAndGet(const string &subject, const string &type, const struct timespec &timeout) throw(cMsgException) {
+
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
 
   void *replyPtr;
 
@@ -1191,6 +1217,9 @@ cMsgMessage *cMsg::subscribeAndGet(const string &subject, const string &type, co
 
 void cMsg::flush(const struct timespec *timeout) throw(cMsgException) {
     
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+
   int stat;
   if((stat=cMsgFlush(myDomainId, timeout))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
@@ -1203,6 +1232,9 @@ void cMsg::flush(const struct timespec *timeout) throw(cMsgException) {
 
 void cMsg::start(void) throw(cMsgException) {
 
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+
   int stat;
   if((stat=cMsgReceiveStart(myDomainId))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
@@ -1214,6 +1246,9 @@ void cMsg::start(void) throw(cMsgException) {
 
 
 void cMsg::stop(void) throw(cMsgException) {
+
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
 
   int stat;
   if((stat=cMsgReceiveStop(myDomainId))!=CMSG_OK) {
@@ -1251,6 +1286,9 @@ string cMsg::getUDL(void) const{
 
 bool cMsg::isConnected(void) const {
 
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+
   int stat,connected;
   if((stat=cMsgGetConnectState(myDomainId,&connected))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
@@ -1263,6 +1301,9 @@ bool cMsg::isConnected(void) const {
 
 
 bool cMsg::isReceiving(void) const {
+
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
 
   int stat,receiving;
   if((stat=cMsgGetReceiveState(myDomainId,&receiving))!=CMSG_OK) {
@@ -1277,6 +1318,9 @@ bool cMsg::isReceiving(void) const {
 
 void cMsg::setShutdownHandler(cMsgShutdownHandler *handler, void* userArg) throw(cMsgException) {
 
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+
   int stat;
   if((stat=cMsgSetShutdownHandler(myDomainId,handler,userArg))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
@@ -1289,6 +1333,9 @@ void cMsg::setShutdownHandler(cMsgShutdownHandler *handler, void* userArg) throw
 
 void cMsg::shutdownClients(string &client, int flag) throw(cMsgException) {
 
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+
   int stat;
   if((stat=cMsgShutdownClients(myDomainId,client.c_str(),flag))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
@@ -1300,6 +1347,9 @@ void cMsg::shutdownClients(string &client, int flag) throw(cMsgException) {
 
 
 void cMsg::shutdownServers(string &server, int flag) throw(cMsgException) {
+
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
 
   int stat;
   if((stat=cMsgShutdownServers(myDomainId,server.c_str(),flag))!=CMSG_OK) {

@@ -35,7 +35,7 @@
 
 
 
-/* Prototypes of the 14 functions which implement the standard cMsg tasks in the cMsg domain. */
+/* Prototypes of the 14 functions which implement the standard cMsg tasks. */
 int   cmsgd_connect(const char *myUDL, const char *myName, const char *myDescription,
               const char *UDLremainder, void **domainId);
 int   cmsgd_send(void *domainId, void *msg);
