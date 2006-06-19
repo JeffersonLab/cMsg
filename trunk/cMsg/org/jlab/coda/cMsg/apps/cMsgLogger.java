@@ -47,7 +47,7 @@ public class cMsgLogger {
 
 
     /** Universal Domain Locator and cMsg system object. */
-    private static String UDL = "cMsg:cMsg://ollie/cMsg";
+    private static String UDL = "cMsg:cMsg://aslan/cMsg";
     private static cMsg cmsg  = null;
 
 

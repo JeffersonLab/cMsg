@@ -157,7 +157,7 @@ public class cMsgGetResponder {
                 sendMsg.setType("TO MESSAGE");
                 sendMsg.setText("responder's text");
                 coda.send(sendMsg);
-                coda.flush();
+                coda.flush(0);
                 count++;
             }
             catch (cMsgException e) {

@@ -28,7 +28,7 @@ import java.util.Arrays;
 public class cMsgProducer {
     String  name = "producer";
     String  description = "java producer";
-    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
+    String  UDL = "cMsg:cMsg://phecda:3456/cMsg/test";
     String  subject = "SUBJECT";
     String  type = "TYPE";
 
@@ -205,7 +205,6 @@ public class cMsgProducer {
         // variables to track message rate
         double freq=0., freqAvg=0.;
         long t1, t2, deltaT, totalT=0, totalC=0, count=50000, ignore=0;
-        int counter=0;
 
         // delay between messages
         //if (delay != 0) count = count/(20 + delay);
@@ -215,7 +214,7 @@ public class cMsgProducer {
             for (int i = 0; i < count; i++) {
                 coda.send(msg);
                 //int a = coda.syncSend(msg);
-                coda.flush();
+                coda.flush(0);
                 // delay between messages sent
                 if (delay != 0) {
                     try {Thread.sleep(delay);}

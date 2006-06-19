@@ -218,7 +218,12 @@ public class cMsgGetConsumer {
                     }
                 }
                 catch (TimeoutException e) {
-                    System.out.println("Timeout in sendAndGet");
+                    if (send) {
+                        System.out.println("Timeout in sendAndGet");
+                    }
+                    else {
+                        System.out.println("Timeout in subscribeAndGet");
+                    }
                     continue;
                 }
                 if (msg == null) {

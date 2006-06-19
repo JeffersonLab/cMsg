@@ -304,7 +304,7 @@ public class cMsgQueue {
                 try {
                     cmsg.send(response);
                     if(broadcast) cmsg.send(response);  // send second copy
-                    cmsg.flush();
+                    cmsg.flush(0);
                 } catch (cMsgException e) {
                 }
             }

@@ -25,7 +25,7 @@ public class cMsgConsumer {
 
     String  name = "consumer";
     String  description = "java consumer";
-    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
+    String  UDL = "cMsg:cMsg://phecda:3456/cMsg/test";
     String  subject = "SUBJECT";
     String  type = "TYPE";
     boolean debug;
@@ -146,6 +146,8 @@ public class cMsgConsumer {
          *                   message.
          */
         public void callback(cMsgMessage msg, Object userObject) {
+//            try {Thread.sleep(1000);}
+//            catch (InterruptedException e) {}
             count++;
         }
 
@@ -177,12 +179,13 @@ public class cMsgConsumer {
 
         // subscribe to subject/type
         cMsgCallbackInterface cb = new myCallback();
-        coda.subscribe(subject, type, cb, null);
+        Object unsub = coda.subscribe(subject, type, cb, null);
 
         // variables to track incoming message rate
         double freq=0., freqAvg=0.;
         long   totalT=0, totalC=0, period = 5000; // millisec
 
+        int toggle = 2;
         while (true) {
             count = 0;
 
@@ -201,9 +204,26 @@ public class cMsgConsumer {
                                    doubleToString(freqAvg, 1) + " Hz");
             }
 
+            /*
+            if (toggle++%2 == 0) {
+                coda.unsubscribe(unsub);
+            }
+            else {
+                unsub = coda.subscribe(subject, type, cb, null);
+            }
+            */
+
             if (!coda.isConnected()) {
-                System.out.println("No longer connected to domain server, quitting");
-                System.exit(-1);
+                // wait 2 seconds for failover before declaring us dead-in-the-water
+                try {
+                    Thread.sleep(2000);
+                }
+                catch (InterruptedException e) {
+                }
+                if (!coda.isConnected()) {
+                    System.out.println("No longer connected to domain server, quitting");
+                    System.exit(-1);
+                }
             }
         }
     }
