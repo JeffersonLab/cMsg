@@ -78,7 +78,7 @@ static bool subscriptionExists(int domainId, const string &subject, const string
 
   // search list for matching subscription
   pthread_mutex_lock(&subscrMutex);
-  for(int i=0; i<subscrVec.size(); i++) {
+  for(int i=0; i<(int)subscrVec.size(); i++) {
     if( (subscrVec[i]->domainId   == domainId) &&
         (subscrVec[i]->subject    == subject) &&
         (subscrVec[i]->type       == type) &&

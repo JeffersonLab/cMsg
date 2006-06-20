@@ -155,7 +155,7 @@ int cMsgProducer(void) {
             fflush(stdout);
             goto end;
           }
-          cMsgFlush(domainId);
+          cMsgFlush(domainId,NULL);
           count++;
           
           if (delay != 0) {
@@ -186,7 +186,7 @@ int cMsgProducer(void) {
             fflush(stdout);
             goto end;
           }
-          cMsgFlush(domainId);
+          cMsgFlush(domainId,NULL);
           count++;
           
           if (delay != 0) {
