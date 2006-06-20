@@ -1159,7 +1159,7 @@ void cMsg::unsubscribe(void *handle) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-cMsgMessage *cMsg::sendAndGet(cMsgMessage &sendMsg, const struct timespec &timeout) throw(cMsgException) {
+cMsgMessage *cMsg::sendAndGet(cMsgMessage &sendMsg, const struct timespec *timeout) throw(cMsgException) {
     
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
 
@@ -1167,7 +1167,7 @@ cMsgMessage *cMsg::sendAndGet(cMsgMessage &sendMsg, const struct timespec &timeo
   void *replyPtr;
 
   int stat;
-  if((stat=cMsgSendAndGet(myDomainId,sendMsg.myMsgPointer,&timeout,&replyPtr))!=CMSG_OK) {
+  if((stat=cMsgSendAndGet(myDomainId,sendMsg.myMsgPointer,timeout,&replyPtr))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
 
@@ -1178,7 +1178,7 @@ cMsgMessage *cMsg::sendAndGet(cMsgMessage &sendMsg, const struct timespec &timeo
 //-----------------------------------------------------------------------------
 
 
-cMsgMessage *cMsg::sendAndGet(cMsgMessage *sendMsg, const struct timespec &timeout) throw(cMsgException) {
+cMsgMessage *cMsg::sendAndGet(cMsgMessage *sendMsg, const struct timespec *timeout) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
 
@@ -1186,7 +1186,7 @@ cMsgMessage *cMsg::sendAndGet(cMsgMessage *sendMsg, const struct timespec &timeo
   void *replyPtr;
 
   int stat;
-  if((stat=cMsgSendAndGet(myDomainId,sendMsg->myMsgPointer,&timeout,&replyPtr))!=CMSG_OK) {
+  if((stat=cMsgSendAndGet(myDomainId,sendMsg->myMsgPointer,timeout,&replyPtr))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
 
@@ -1196,7 +1196,7 @@ cMsgMessage *cMsg::sendAndGet(cMsgMessage *sendMsg, const struct timespec &timeo
 //-----------------------------------------------------------------------------
 
 
-cMsgMessage *cMsg::subscribeAndGet(const string &subject, const string &type, const struct timespec &timeout) throw(cMsgException) {
+cMsgMessage *cMsg::subscribeAndGet(const string &subject, const string &type, const struct timespec *timeout) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
 
@@ -1204,7 +1204,7 @@ cMsgMessage *cMsg::subscribeAndGet(const string &subject, const string &type, co
   void *replyPtr;
 
   int stat;
-  if((stat=cMsgSubscribeAndGet(myDomainId,subject.c_str(),type.c_str(),&timeout,&replyPtr))!=CMSG_OK) {
+  if((stat=cMsgSubscribeAndGet(myDomainId,subject.c_str(),type.c_str(),timeout,&replyPtr))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
 
