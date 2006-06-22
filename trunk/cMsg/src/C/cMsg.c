@@ -104,9 +104,9 @@ static int oneTimeInitialized = 0;
 /** Pthread mutex serializing calls to cMsgConnect() and cMsgDisconnect(). */
 static pthread_mutex_t connectMutex = PTHREAD_MUTEX_INITIALIZER;
 /** Store references to different domains and their cMsg implementations. */
-static domainTypeInfo dTypeInfo[MAX_DOMAINS];
+static domainTypeInfo dTypeInfo[CMSG_MAX_DOMAINS];
 /** Store information about each domain connected to. */
-static cMsgDomain domains[MAX_DOMAINS];
+static cMsgDomain domains[CMSG_MAX_DOMAINS];
 /** Excluded characters from subject, type, and description strings. */
 static const char *excludedChars = "`\'\"";
 
@@ -267,8 +267,8 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
   if (!oneTimeInitialized) {
 
     /* clear arrays */
-    for (i=0; i<MAX_DOMAIN_TYPES; i++) dTypeInfo[i].type = NULL;
-    for (i=0; i<MAX_DOMAINS; i++) domainInit(&domains[i]);
+    for (i=0; i<CMSG_MAX_DOMAIN_TYPES; i++) dTypeInfo[i].type = NULL;
+    for (i=0; i<CMSG_MAX_DOMAINS; i++) domainInit(&domains[i]);
 
     /* register domain types */
     if ( (err = registerPermanentDomains()) != CMSG_OK ) {
@@ -290,7 +290,7 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
   
 
   /* find the first available place in the "domains" array */
-  for (i=0; i<MAX_DOMAINS; i++) {
+  for (i=0; i<CMSG_MAX_DOMAINS; i++) {
     if (domains[i].initComplete > 0) {
       continue;
     }
@@ -320,7 +320,7 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
 
   /* if such a domain type exists, store pointer to functions */
   domains[id].functions = NULL;
-  for (i=0; i<MAX_DOMAIN_TYPES; i++) {
+  for (i=0; i<CMSG_MAX_DOMAIN_TYPES; i++) {
     if (dTypeInfo[i].type != NULL) {
       if (strcasecmp(dTypeInfo[i].type, domains[id].type) == 0) {
 	domains[id].functions = dTypeInfo[i].functions;
@@ -342,7 +342,7 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
   }  
   
   domains[id].implId = implId;
-  *domainId = id + DOMAIN_ID_OFFSET;
+  *domainId = id + CMSG_DOMAIN_ID_OFFSET;
   
   connectMutexUnlock();
   
@@ -373,9 +373,9 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
  */   
 int cMsgSend(int domainId, void *msg) {
   
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
   
-  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  if (id < 0 || id > CMSG_MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
 
@@ -409,9 +409,9 @@ int cMsgSend(int domainId, void *msg) {
  */   
 int cMsgSyncSend(int domainId, void *msg, const struct timespec *timeout, int *response) {
   
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
   
-  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  if (id < 0 || id > CMSG_MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);  
 
@@ -439,9 +439,9 @@ int cMsgSyncSend(int domainId, void *msg, const struct timespec *timeout, int *r
  */   
 int cMsgFlush(int domainId, const struct timespec *timeout) {
 
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
 
-  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  if (id < 0 || id > CMSG_MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);  
 
@@ -479,9 +479,9 @@ int cMsgFlush(int domainId, const struct timespec *timeout) {
 int cMsgSubscribe(int domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                   void *userArg, cMsgSubscribeConfig *config, void **handle) {
 
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
 
-  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  if (id < 0 || id > CMSG_MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
@@ -508,9 +508,9 @@ int cMsgSubscribe(int domainId, const char *subject, const char *type, cMsgCallb
  */   
 int cMsgUnSubscribe(int domainId, void *handle) {
 
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
 
-  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  if (id < 0 || id > CMSG_MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
 
@@ -544,9 +544,9 @@ int cMsgUnSubscribe(int domainId, void *handle) {
  */   
 int cMsgSendAndGet(int domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg) {
 
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
 
-  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  if (id < 0 || id > CMSG_MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
     
@@ -576,9 +576,9 @@ int cMsgSendAndGet(int domainId, void *sendMsg, const struct timespec *timeout, 
 int cMsgSubscribeAndGet(int domainId, const char *subject, const char *type,
                         const struct timespec *timeout, void **replyMsg) {
 
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
 
-  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  if (id < 0 || id > CMSG_MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
@@ -601,10 +601,10 @@ int cMsgSubscribeAndGet(int domainId, const char *subject, const char *type,
  */   
 int cMsgReceiveStart(int domainId) {
 
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
   int err;
 
-  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  if (id < 0 || id > CMSG_MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
@@ -633,10 +633,10 @@ int cMsgReceiveStart(int domainId) {
  */   
 int cMsgReceiveStop(int domainId) {
 
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
   int err;
 
-  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  if (id < 0 || id > CMSG_MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
 
@@ -663,10 +663,10 @@ int cMsgReceiveStop(int domainId) {
  */   
 int cMsgDisconnect(int domainId) {
   
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
   int err;
 
-  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  if (id < 0 || id > CMSG_MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   
@@ -701,9 +701,9 @@ int cMsgDisconnect(int domainId) {
  */   
 int cMsgSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, void *userArg) {
   
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
   
-  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  if (id < 0 || id > CMSG_MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
     
@@ -728,9 +728,9 @@ int cMsgSetShutdownHandler(int domainId, cMsgShutdownHandler *handler, void *use
  */
 int cMsgShutdownClients(int domainId, const char *client, int flag) {
   
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
 
-  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  if (id < 0 || id > CMSG_MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   if (flag != 0 && flag!= CMSG_SHUTDOWN_INCLUDE_ME) return(CMSG_BAD_ARGUMENT);
@@ -757,9 +757,9 @@ int cMsgShutdownClients(int domainId, const char *client, int flag) {
  */
 int cMsgShutdownServers(int domainId, const char *server, int flag) {
   
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
 
-  if (id < 0 || id > MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
+  if (id < 0 || id > CMSG_MAX_DOMAINS-1) return(CMSG_BAD_ARGUMENT);
   
   if (domains[id].initComplete != 1) return(CMSG_NOT_INITIALIZED);
   if (flag != 0 && flag!= CMSG_SHUTDOWN_INCLUDE_ME) return(CMSG_BAD_ARGUMENT);
@@ -1032,7 +1032,7 @@ static int registerDynamicDomains(char *domainType) {
   }
   
   /* Check to see if it's been loaded already */
-  for (i=0; i < MAX_DOMAINS; i++) {
+  for (i=0; i < CMSG_MAX_DOMAINS; i++) {
     if (dTypeInfo[i].type == NULL) {
         if (index < 0) {
             index = i;
@@ -1628,9 +1628,9 @@ static int checkString(const char *s) {
  */   
 int cMsgGetUDL(int domainId, char **udl) {
 
-  int id  = domainId - DOMAIN_ID_OFFSET;
+  int id  = domainId - CMSG_DOMAIN_ID_OFFSET;
 
-  if (id < 0 || id >= MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= CMSG_MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
   if (domains[id].udl == NULL) {
     *udl = NULL;
@@ -1657,9 +1657,9 @@ int cMsgGetUDL(int domainId, char **udl) {
  */   
 int cMsgGetName(int domainId, char **name) {
 
-  int id  = domainId - DOMAIN_ID_OFFSET;
+  int id  = domainId - CMSG_DOMAIN_ID_OFFSET;
 
-  if (id < 0 || id >= MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= CMSG_MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
   if (domains[id].name == NULL) {
     *name = NULL;
@@ -1686,9 +1686,9 @@ int cMsgGetName(int domainId, char **name) {
  */   
 int cMsgGetDescription(int domainId, char **description) {
 
-  int id  = domainId - DOMAIN_ID_OFFSET;
+  int id  = domainId - CMSG_DOMAIN_ID_OFFSET;
 
-  if (id < 0 || id >= MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= CMSG_MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
   if (domains[id].description == NULL) {
     *description = NULL;
@@ -1716,9 +1716,9 @@ int cMsgGetDescription(int domainId, char **description) {
  */   
 int cMsgGetConnectState(int domainId, int *connectState) {
 
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
 
-  if (id < 0 || id >= MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= CMSG_MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
   *connectState=domains[id].initComplete;
   return(CMSG_OK);
@@ -1742,9 +1742,9 @@ int cMsgGetConnectState(int domainId, int *connectState) {
  */   
 int cMsgGetReceiveState(int domainId, int *receiveState) {
 
-  int id = domainId - DOMAIN_ID_OFFSET;
+  int id = domainId - CMSG_DOMAIN_ID_OFFSET;
 
-  if (id < 0 || id >= MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
+  if (id < 0 || id >= CMSG_MAX_DOMAINS) return(CMSG_BAD_DOMAIN_ID);
 
   *receiveState=domains[id].receiveState;
   return(CMSG_OK);

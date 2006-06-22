@@ -37,7 +37,7 @@ extern "C" {
 #endif
 
 #ifdef VXWORKS
-#define uintptr_t int
+#define uintptr_t unsigned int
 #define intptr_t  int
 #endif
 
@@ -47,11 +47,11 @@ extern "C" {
 #define CMSG_VERSION_MINOR 0
 
 /** The maximum number domain types that a client can connect to. */
-#define MAX_DOMAIN_TYPES    10
+#define CMSG_MAX_DOMAIN_TYPES   10
 /** The maximum number connections that a client can make. */
-#define MAX_DOMAINS       100
+#define CMSG_MAX_DOMAINS       100
 /** The user's domain id is an index into the #domains array, offset by this amount. */
-#define DOMAIN_ID_OFFSET 100
+#define CMSG_DOMAIN_ID_OFFSET 100
 
 /** Is message a sendAndGet request? -- is stored in 1st bit. */
 #define CMSG_IS_GET_REQUEST       0x1
