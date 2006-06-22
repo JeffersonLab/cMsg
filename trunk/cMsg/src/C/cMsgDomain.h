@@ -25,6 +25,7 @@
 #ifndef __cMsgDomain_h
 #define __cMsgDomain_h
 
+#include <inttypes.h>
 #include "cMsgPrivate.h"
 #include "rwlock.h"
 
@@ -33,7 +34,7 @@ extern "C" {
 #endif
 
 /** Maximum number of subscriptions per client connection. */
-#define CMSG_MAX_SUBSCRIBE 100
+#define CMSG_MAX_SUBSCRIBE 40
 /** Maximum number of simultaneous subscribeAndGets per client connection. */
 #define CMSG_MAX_SUBSCRIBE_AND_GET 20
 /** Maximum number of simultaneous sendAndGets per client connection. */

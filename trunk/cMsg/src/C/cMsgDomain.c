@@ -69,7 +69,7 @@
 
 /* built-in limits */
 /** Maximum number of domains for each client to connect to at once. */
-#define MAXDOMAINS_CODA  10
+#define MAX_DOMAINS  30
 /** Number of seconds to wait for cMsgClientListeningThread threads to start. */
 #define WAIT_FOR_THREADS 10
 
@@ -87,7 +87,7 @@ static int subjectTypeId = 1;
 static int initialMsgBufferSize = 15000;
 
 /** Store information about each cMsg domain connected to. */
-cMsgDomainInfo cMsgDomains[MAXDOMAINS_CODA];
+cMsgDomainInfo cMsgDomains[MAX_DOMAINS];
 
 
 /* Prototypes of the functions which implement the standard cMsg tasks in the cMsg domain. */
@@ -338,7 +338,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
   /* do one time initialization */
   if (!oneTimeInitialized) {
     /* clear domain arrays */
-    for (i=0; i<MAXDOMAINS_CODA; i++) {
+    for (i=0; i<MAX_DOMAINS; i++) {
       cMsgDomainInit(&cMsgDomains[i], 0);
     }
 
@@ -347,7 +347,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
 
 
   /* find the first available place in the "cMsgDomains" array */
-  for (i=0; i<MAXDOMAINS_CODA; i++) {
+  for (i=0; i<MAX_DOMAINS; i++) {
     if (cMsgDomains[i].initComplete > 0) {
       continue;
     }
