@@ -102,7 +102,9 @@
 
 /* required includes */
 #include <time.h>
+#ifndef _cMsgConstants_h
 #include "cMsgConstants.h"
+#endif
 
 
 /** Subscribe configuration. */

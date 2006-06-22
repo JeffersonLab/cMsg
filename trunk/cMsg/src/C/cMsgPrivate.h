@@ -27,7 +27,9 @@
 #ifndef __cMsgPrivate_h
 #define __cMsgPrivate_h
 
+#ifndef _cMsg_h
 #include "cMsg.h"
+#endif
 
 
 #ifdef	__cplusplus
@@ -62,6 +64,15 @@ extern "C" {
 
 /** Is byte array copied in? -- is stored in 1st bit. */
 #define CMSG_BYTE_ARRAY_IS_COPIED 0x1
+
+/** Get high 32 bits of 64 bit int. */
+#define CMSG_HIGHINT(i) ((int)(((i) >> 32) & 0x00000000FFFFFFFF))
+/** Get low 32 bits of 64 bit int. */
+#define CMSG_LOWINT(i)  ((int)((i) & 0x00000000FFFFFFFF))
+/** Create unsigned 64 bit int out of 2, 32 bit ints. */
+#define CMSG_64BIT_UINT(hi,lo) (((uint64_t)(hi) << 32) | ((uint64_t)(lo) & 0x00000000FFFFFFFF))
+/** Create signed 64 bit int out of 2, 32 bit ints. */
+#define CMSG_64BIT_INT(hi,lo)   (((int64_t)(hi) << 32) | ((int64_t)(lo)  & 0x00000000FFFFFFFF))
 
 /** Debug level. */
 extern int cMsgDebug;

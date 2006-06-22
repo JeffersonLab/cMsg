@@ -59,34 +59,34 @@ endif
 
 CMSG_LIBS = $(LIB_STATIC) $(LIB_DYNAMIC)
 
-SRC =   rwlock.c \
-	sunConcurrency.c \
+SRC =   sunConcurrency.c \
+	rwlock.c \
 	cMsgMatching.c \
 	cMsgNetwork.c \
 	cMsg.c \
+	fileDomain.c \
 	cMsgDomainUtil.c \
 	cMsgDomainListenThread.c \
 	cMsgDomain.c \
-	rcDomain.c \
-	fileDomain.c
+	rcDomain.c
 
-OBJS =  rwlock.o \
-	sunConcurrency.o \
+OBJS =  sunConcurrency.o \
+	rwlock.o \
 	cMsgMatching.o \
 	cMsgNetwork.o \
 	cMsg.o \
+	fileDomain.o \
 	cMsgDomainUtil.o \
 	cMsgDomainListenThread.o \
 	cMsgDomain.o \
-	rcDomain.o \
-	fileDomain.o
+	rcDomain.o
 
-HFILES = cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsg.h cMsgDomain.h rwlock.h errors.h
+HFILES = rwlock.h errors.h cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsg.h cMsgDomain.h rcDomain.h
 
-PROGS  = producer consumer getConsumer getResponder shutdowner
+PROGS  = producer consumer getConsumer getResponder shutdowner rcClient
 
 
-all: $(CMSG_LIBS)  $(PROGS)
+all: $(CMSG_LIBS) $(PROGS)
 
 install: all install-lib install-inc install-bin
 

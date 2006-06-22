@@ -19,29 +19,29 @@ CMSG_LIB = cMsgLib.o
 PROGS = vxproducer.o \
 	vxconsumer.o
 
-SRC =   rwlock.c \
-	sunConcurrency.c \
+SRC =   sunConcurrency.c \
+	rwlock.c \
 	cMsgMatching.c \
 	cMsgNetwork.c \
 	cMsg.c \
+	fileDomain.c \
 	cMsgDomainUtil.c \
 	cMsgDomainListenThread.c \
 	cMsgDomain.c \
-	rcDomain.c \
-	fileDomain.c
+	rcDomain.c
 
-OBJS =  rwlock.o \
-	sunConcurrency.o \
+OBJS =  sunConcurrency.o \
+	rwlock.o \
 	cMsgMatching.o \
 	cMsgNetwork.o \
 	cMsg.o \
+	fileDomain.o \
 	cMsgDomainUtil.o \
 	cMsgDomainListenThread.o \
 	cMsgDomain.o \
-	rcDomain.o \
-	fileDomain.o
+	rcDomain.o
 
-HFILES = cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsg.h cMsgDomain.h rwlock.h errors.h
+HFILES = rwlock.h errors.h cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsg.h cMsgDomain.h rcDomain.h
 
 all: echoarch $(OBJS) $(CMSG_LIB) $(PROGS)
 
