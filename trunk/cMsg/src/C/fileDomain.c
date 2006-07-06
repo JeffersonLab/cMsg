@@ -69,7 +69,7 @@ int   cmsg_file_SubscribeAndGet(void *domainId, const char *subject, const char 
 int   cmsg_file_SendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
 int   cmsg_file_Start(void *domainId);
 int   cmsg_file_Stop(void *domainId);
-int   cmsg_file_Disconnect(void *domainId);
+int   cmsg_file_Disconnect(void **domainId);
 int   cmsg_file_ShutdownClients(void *domainId, const char *client, int flag);
 int   cmsg_file_ShutdownServers(void *domainId, const char *server, int flag);
 int   cmsg_file_SetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
@@ -281,13 +281,14 @@ int cmsg_file_Stop(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_Disconnect(void *domainId) {
+int cmsg_file_Disconnect(void **domainId) {
 
   int stat;
   fileDomainInfo *fdi;
 
   if(domainId==NULL)return(CMSG_ERROR);
-  fdi = (fileDomainInfo*)domainId;
+  if(*domainId==NULL)return(CMSG_ERROR);
+  fdi = (fileDomainInfo*) (*domainId);
 
   /* close file */
   stat = fclose(fdi->file);

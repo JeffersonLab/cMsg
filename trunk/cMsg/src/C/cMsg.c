@@ -280,7 +280,6 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
   }
   
 
-  /* find the first available place in the "domains" array */
   /* allocate struct to hold connection info */
   domain = (cMsgDomain *) malloc(sizeof(cMsgDomain));
   if (domain == NULL) {
@@ -1097,7 +1096,7 @@ static int registerDynamicDomains(char *domainType) {
     free(lowerCase);
     return(CMSG_ERROR);
   }
-  funcs->start = (FUNC_PTR) pValue;
+  funcs->start = (START_STOP_PTR) pValue;
   
   /* get "stop" function from global symbol table */
   sprintf(functionName, "cmsg_%s_stop", lowerCase);
@@ -1106,7 +1105,7 @@ static int registerDynamicDomains(char *domainType) {
     free(lowerCase);
     return(CMSG_ERROR);
   }
-  funcs->stop = (FUNC_PTR) pValue;
+  funcs->stop = (START_STOP_PTR) pValue;
   
   /* get "disconnect" function from global symbol table */
   sprintf(functionName, "cmsg_%s_disconnect", lowerCase);
@@ -1115,7 +1114,7 @@ static int registerDynamicDomains(char *domainType) {
     free(lowerCase);
     return(CMSG_ERROR);
   }
-  funcs->disconnect = (FUNC_PTR) pValue;
+  funcs->disconnect = (DISCONNECT_PTR) pValue;
     
   /* get "shutdownClients" function from global symbol table */
   sprintf(functionName, "cmsg_%s_shutdownClients", lowerCase);
@@ -1256,7 +1255,7 @@ static int registerDynamicDomains(char *domainType) {
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
-  funcs->start = (FUNC_PTR) sym;
+  funcs->start = (START_STOP_PTR) sym;
 
   /* get "stop" function */
   sprintf(functionName, "cmsg_%s_stop", lowerCase);
@@ -1267,7 +1266,7 @@ static int registerDynamicDomains(char *domainType) {
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
-  funcs->stop = (FUNC_PTR) sym;
+  funcs->stop = (START_STOP_PTR) sym;
 
   /* get "disconnect" function */
   sprintf(functionName, "cmsg_%s_disconnect", lowerCase);
@@ -1278,7 +1277,7 @@ static int registerDynamicDomains(char *domainType) {
     dlclose(libHandle);
     return(CMSG_ERROR);
   }
-  funcs->disconnect = (FUNC_PTR) sym;
+  funcs->disconnect = (DISCONNECT_PTR) sym;
 
   /* get "shutdownClients" function */
   sprintf(functionName, "cmsg_%s_shutdownClients", lowerCase);

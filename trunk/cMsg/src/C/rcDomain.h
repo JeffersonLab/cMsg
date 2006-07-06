@@ -39,13 +39,11 @@ extern "C" {
  */
 typedef struct rcDomain_t {  
   
-  int id;                     /**< Unique id of connection. */ 
+  void *id;            /**< Unique id of connection. */ 
   
-  volatile int initComplete;  /**< Boolean telling if imitialization of this structure
-                                    is complete and it is being used. 0 = No, 1 = Yes */
-  volatile int receiveState;  /**< Boolean telling if messages are being delivered to
+  int receiveState;    /**< Boolean telling if messages are being delivered to
                                     callbacks (1) or if they are being igmored (0). */
-  volatile int gotConnection; /**< Boolean telling if connection to rc server is good. */
+  int gotConnection;   /**< Boolean telling if connection to rc server is good. */
   
   int sendSocket;      /**< File descriptor for UDP socket to send messages on. */
   int receiveSocket;   /**< File descriptor for TCP socket to receive responses on. */

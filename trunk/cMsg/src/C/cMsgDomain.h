@@ -129,9 +129,6 @@ typedef struct parsedUDL_t {
  */
 typedef struct cMsgDomainInfo_t {  
   
-  uintptr_t id;        /**< Unique id of connection. */ 
-  int initComplete;    /**< Boolean telling if imitialization of this structure
-                            is complete and it is being used. 0 = No, 1 = Yes */
   int receiveState;    /**< Boolean telling if messages are being delivered to
                             callbacks (1) or if they are being igmored (0). */
   int gotConnection;   /**< Boolean telling if connection to cMsg server is good. */
@@ -277,6 +274,7 @@ void *cMsgSupplementalThread(void *arg);
 /* initialization and freeing */
 void  cMsgDomainInit(cMsgDomainInfo *domain, int reInit);
 void  cMsgDomainClear(cMsgDomainInfo *domain);
+void  cMsgDomainFree(cMsgDomainInfo *domain);
 
 /* misc */
 int   cMsgCheckString(const char *s);

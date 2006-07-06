@@ -105,8 +105,11 @@ typedef int (*SEND_AND_GET_PTR)         (void *domainId, void *sendMsg,
 /** Typedef for a domain's flush function */  
 typedef int (*FLUSH_PTR)                (void *domainId, const struct timespec *timeout);
 
-/** Typedef for a domain's start, stop, and disconnect functions */  
-typedef int (*FUNC_PTR)                 (void *domainId);
+/** Typedef for a domain's start & stop functions */  
+typedef int (*START_STOP_PTR)           (void *domainId);
+
+/** Typedef for a domain's disconnect functions */  
+typedef int (*DISCONNECT_PTR)           (void **domainId);
 
 /** Typedef for a domain's shutdownClients and shutdownServers functions */  
 typedef int (*SHUTDOWN_PTR)             (void *domainId, const char *client, int flag);
@@ -151,13 +154,13 @@ typedef struct domainFunctions_t {
   SEND_AND_GET_PTR sendAndGet;
   
   /** This function enables the receiving of messages and delivery to callbacks. */
-  FUNC_PTR start;
+  START_STOP_PTR start;
   
   /** This function disables the receiving of messages and delivery to callbacks. */
-  FUNC_PTR stop;
+  START_STOP_PTR stop;
   
   /** This function disconnects the client from its cMsg server. */
-  FUNC_PTR disconnect;
+  DISCONNECT_PTR disconnect;
   
   /** This function shuts down the given clients. */
   SHUTDOWN_PTR shutdownClients;

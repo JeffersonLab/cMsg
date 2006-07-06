@@ -49,7 +49,6 @@
 static const char *excludedChars = "`\'\"";
 
 /* local prototypes */
-static void  domainFree(cMsgDomainInfo *domain); 
 static void  getInfoInit(getInfo *info, int reInit);
 static void  subscribeInfoInit(subInfo *info, int reInit);
 static void  getInfoFree(getInfo *info);
@@ -396,9 +395,6 @@ static void subscribeInfoInit(subInfo *info, int reInit) {
 void cMsgDomainInit(cMsgDomainInfo *domain, int reInit) {
   int i, status;
  
-  domain->id                  = 0UL;
-
-  domain->initComplete        = 0;
   domain->receiveState        = 0;
   domain->gotConnection       = 0;
       
@@ -588,31 +584,31 @@ static void getInfoFree(getInfo *info) {
  * This routine frees memory allocated for the structure used to hold
  * connection-to-a-domain information.
  */
-static void domainFree(cMsgDomainInfo *domain) {  
+void cMsgDomainFree(cMsgDomainInfo *domain) {  
   int i;
 #ifdef sun
   int status;
 #endif
   
-  if (domain->myHost           != NULL) free(domain->myHost);
-  if (domain->sendHost         != NULL) free(domain->sendHost);
-  if (domain->serverHost       != NULL) free(domain->serverHost);
-  if (domain->name             != NULL) free(domain->name);
-  if (domain->udl              != NULL) free(domain->udl);
-  if (domain->description      != NULL) free(domain->description);
-  if (domain->password         != NULL) free(domain->password);
-  if (domain->msgBuffer        != NULL) free(domain->msgBuffer);
-  if (domain->msgInBuffer[0]   != NULL) free(domain->msgInBuffer[0]);
-  if (domain->msgInBuffer[1]   != NULL) free(domain->msgInBuffer[1]);
+  if (domain->myHost         != NULL) {free(domain->myHost);         domain->myHost         = NULL;}
+  if (domain->sendHost       != NULL) {free(domain->sendHost);       domain->sendHost       = NULL;}
+  if (domain->serverHost     != NULL) {free(domain->serverHost);     domain->serverHost     = NULL;}
+  if (domain->name           != NULL) {free(domain->name);           domain->name           = NULL;}
+  if (domain->udl            != NULL) {free(domain->udl);            domain->udl            = NULL;}
+  if (domain->description    != NULL) {free(domain->description);    domain->description    = NULL;}
+  if (domain->password       != NULL) {free(domain->password);       domain->password       = NULL;}
+  if (domain->msgBuffer      != NULL) {free(domain->msgBuffer);      domain->msgBuffer      = NULL;}
+  if (domain->msgInBuffer[0] != NULL) {free(domain->msgInBuffer[0]); domain->msgInBuffer[0] = NULL;}
+  if (domain->msgInBuffer[1] != NULL) {free(domain->msgInBuffer[1]); domain->msgInBuffer[1] = NULL;}
   
   if (domain->failovers        != NULL) {
     for (i=0; i<domain->failoverSize; i++) {       
-       if (domain->failovers[i].udl            != NULL) free(domain->failovers[i].udl);
-       if (domain->failovers[i].udlRemainder   != NULL) free(domain->failovers[i].udlRemainder);
-       if (domain->failovers[i].subdomain      != NULL) free(domain->failovers[i].subdomain);
-       if (domain->failovers[i].subRemainder   != NULL) free(domain->failovers[i].subRemainder);
-       if (domain->failovers[i].password       != NULL) free(domain->failovers[i].password);
-       if (domain->failovers[i].nameServerHost != NULL) free(domain->failovers[i].nameServerHost);    
+       if (domain->failovers[i].udl            != NULL) {free(domain->failovers[i].udl);            domain->failovers[i].udl            = NULL;}
+       if (domain->failovers[i].udlRemainder   != NULL) {free(domain->failovers[i].udlRemainder);   domain->failovers[i].udlRemainder   = NULL;}
+       if (domain->failovers[i].subdomain      != NULL) {free(domain->failovers[i].subdomain);      domain->failovers[i].subdomain      = NULL;}
+       if (domain->failovers[i].subRemainder   != NULL) {free(domain->failovers[i].subRemainder);   domain->failovers[i].subRemainder   = NULL;}
+       if (domain->failovers[i].password       != NULL) {free(domain->failovers[i].password);       domain->failovers[i].password       = NULL;}
+       if (domain->failovers[i].nameServerHost != NULL) {free(domain->failovers[i].nameServerHost); domain->failovers[i].nameServerHost = NULL;}
     }
     free(domain->failovers);
   }
@@ -621,37 +617,37 @@ static void domainFree(cMsgDomainInfo *domain) {
   /* cannot destroy mutexes in vxworks & Linux(?) */
   status = pthread_mutex_destroy(&domain->socketMutex);
   if (status != 0) {
-    err_abort(status, "domainFree:destroying socket mutex");
+    err_abort(status, "cMsgDomainFree:destroying socket mutex");
   }
   
   status = pthread_mutex_destroy(&domain->syncSendMutex);
   if (status != 0) {
-    err_abort(status, "domainFree:destroying sync send mutex");
+    err_abort(status, "cMsgDomainFree:destroying sync send mutex");
   }
   
   status = pthread_mutex_destroy(&domain->subscribeMutex);
   if (status != 0) {
-    err_abort(status, "domainFree:destroying subscribe mutex");
+    err_abort(status, "cMsgDomainFree:destroying subscribe mutex");
   }
   
   status = pthread_cond_destroy (&domain->subscribeCond);
   if (status != 0) {
-    err_abort(status, "domainFree:destroying cond var");
+    err_abort(status, "cMsgDomainFree:destroying cond var");
   }
     
   status = pthread_mutex_destroy(&domain->rcConnectMutex);
   if (status != 0) {
-    err_abort(status, "domainFree:destroying rc connect mutex");
+    err_abort(status, "cMsgDomainFree:destroying rc connect mutex");
   }
   
   status = pthread_cond_destroy (&domain->rcConnectCond);
   if (status != 0) {
-    err_abort(status, "domainFree:destroying rc connect cond var");
+    err_abort(status, "cMsgDomainFree:destroying rc connect cond var");
   }
     
   status = rwl_destroy (&domain->connectLock);
   if (status != 0) {
-    err_abort(status, "domainFree:destroying connect read/write lock");
+    err_abort(status, "cMsgDomainFree:destroying connect read/write lock");
   }
     
 #endif
@@ -680,7 +676,7 @@ static void domainFree(cMsgDomainInfo *domain) {
  * connection-to-a-domain information.
  */
 void cMsgDomainClear(cMsgDomainInfo *domain) {
-  domainFree(domain);
+  cMsgDomainFree(domain);
   cMsgDomainInit(domain, 1);
 }
 
