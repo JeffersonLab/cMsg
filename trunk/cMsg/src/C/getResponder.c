@@ -27,7 +27,8 @@
 
 #include "cMsg.h"
 
-int count = 0, domainId=-1;
+int count = 0;
+void *domainId;
  
 void mycallback(void *msg, void *arg) {
     struct timespec wait;

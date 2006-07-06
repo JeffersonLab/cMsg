@@ -36,8 +36,8 @@ int main(int argc,char **argv) {
   char *text    = "TEXT";
   char *bytes   = NULL;
   char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
-  int   err, debug=1, domainId = -1, msgSize=0;
-  void *msg, *replyMsg;
+  int   err, debug=1, msgSize=0;
+  void *msg, *replyMsg, *domainId;
   
   /* msg rate measuring variables */
   int             dostring=1, count, i, delay=0, loops=5000;
@@ -183,7 +183,7 @@ int main(int argc,char **argv) {
   
   end:
   
-  err = cMsgDisconnect(domainId);
+  err = cMsgDisconnect(&domainId);
   if (err != CMSG_OK) {
       if (debug) {
           printf("%s\n",cMsgPerror(err));

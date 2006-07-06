@@ -31,7 +31,8 @@ static void shutdownHandler(void *arg) {
 int main(int argc,char **argv) {  
   char *myName = "shutdowner";
   char *myDescription = "C shutdowner";
-  int err, debug=1, domainId = -1;
+  int err, debug=1;
+  void *domainId;
     
   if (argc > 1) {
     myName = argv[1];

@@ -24,7 +24,8 @@
 #include "cMsg.h"
 #include "errors.h"
 
-int count = 0, domainId = -1, oldInt=-1;
+int count = 0, oldInt=-1;
+void *domainId;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
@@ -186,7 +187,7 @@ int main(int argc,char **argv) {
       */
   }
 printf("rcClient try disconnect\n");
-  cMsgDisconnect(domainId);
+  cMsgDisconnect(&domainId);
 printf("rcClient done disconnect\n");
 
   return(0);

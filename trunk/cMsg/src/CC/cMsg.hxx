@@ -212,7 +212,7 @@ class cMsg {
    */
 
 private:
-  int myDomainId;
+  void  *myDomainId;
   string myUDL;
   string myName;
   string myDescr;

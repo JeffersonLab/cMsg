@@ -47,11 +47,7 @@ extern "C" {
 #define CMSG_VERSION_MINOR 0
 
 /** The maximum number domain types that a client can connect to. */
-#define CMSG_MAX_DOMAIN_TYPES   10
-/** The maximum number connections that a client can make. */
-#define CMSG_MAX_DOMAINS       100
-/** The user's domain id is an index into the #domains array, offset by this amount. */
-#define CMSG_DOMAIN_ID_OFFSET 100
+#define CMSG_MAX_DOMAIN_TYPES   20
 
 /** Is message a sendAndGet request? -- is stored in 1st bit. */
 #define CMSG_IS_GET_REQUEST       0x1
@@ -185,10 +181,9 @@ typedef struct domainTypeInfo_t {
 /** This structure contains information about a domain connection. */
 typedef struct cMsgDomain_t {
   void *implId;        /**< Pointer set by implementation to identify particular domain connection. */
-  int id;              /**< Index into an array of this domain structure. */
 
   /* other state variables */
-  int initComplete;    /**< Is initialization of this structure complete? 0 = No, 1 = Yes */
+  int connected;       /**< Is there a valid connection? 0 = No, 1 = Yes */
   int receiveState;    /**< Is connection receiving callback messages? 0 = No, 1 = Yes */
   
   char *type;          /**< Domain type (eg cMsg, CA, SmartSockets, File, etc). */

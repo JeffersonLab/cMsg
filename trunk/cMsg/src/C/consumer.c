@@ -22,9 +22,11 @@
 #include <pthread.h>
 
 #include "cMsg.h"
+#include "cMsgDomain.h"
 #include "errors.h"
 
-int count = 0, domainId = -1;
+int count = 0;
+void *domainId;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
@@ -69,7 +71,7 @@ int main(int argc,char **argv) {
   char *myDescription = "C consumer";
   char *subject       = "SUBJECT";
   char *type          = "TYPE";
-  char *UDL           = "cMsg:cMsg://aslan/cMsg/test";
+  char *UDL           = "cMsg:cMsg://localhost/cMsg/test";
   int   err, debug = 1;
   cMsgSubscribeConfig *config;
   void *unSubHandle;
@@ -78,12 +80,12 @@ int main(int argc,char **argv) {
   int             period = 5, ignore=0;
   double          freq, freqAvg=0., totalT=0.;
   long long       totalC=0;
-
+  
   if (argc > 1) {
     myName = argv[1];
     if (strcmp(myName, "-h") == 0) {
       usage();
-      return;
+      return(-1);
     }
   }
   
@@ -91,13 +93,13 @@ int main(int argc,char **argv) {
     UDL = argv[2];
     if (strcmp(UDL, "-h") == 0) {
       usage();
-      return;
+      return(-1);
     }
   }
   
   if (argc > 3) {
     usage();
-    return;
+    return(-1);
   }
   
   if (debug) {

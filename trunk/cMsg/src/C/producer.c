@@ -48,10 +48,10 @@ int main(int argc,char **argv) {
   char *type          = "TYPE";
   char *text          = "JUNK";
   char *bytes         = NULL;
-  char *UDL           = "cMsg:cmsg://aslan:3456/cMsg/test";
+  char *UDL           = "cMsg:cmsg://localhost:3456/cMsg/test";
   char *p;
-  int   i, j, err, debug=1, domainId=-1, msgSize=0, mainloops=200, response;
-  void *msg;
+  int   i, j, err, debug=1, msgSize=0, mainloops=200, response;
+  void *msg, *domainId;
   
   /* msg rate measuring variables */
   int             dostring=1, count, delay=0, loops=20000, ignore=0;
@@ -69,7 +69,7 @@ int main(int argc,char **argv) {
        if (strcmp("-s", argv[i]) == 0) {
          if (argc < i+2) {
            usage();
-           return;
+           return(-1);
          }
          
          dostring = 1;
@@ -89,7 +89,7 @@ int main(int argc,char **argv) {
        else if (strcmp("-b", argv[i]) == 0) {
          if (argc < i+2) {
            usage();
-           return;
+           return(-1);
          }
          
          dostring = 0;
@@ -97,7 +97,7 @@ int main(int argc,char **argv) {
          msgSize = atoi(argv[++i]);
          if (msgSize < 1) {
            usage();
-           return;                  
+           return(-1);
          }
          printf("using array msg size %d\n", msgSize);
          bytes = p = (char *) malloc((size_t) msgSize);
@@ -111,17 +111,17 @@ int main(int argc,char **argv) {
        else if (strcmp(argv[i], "-u") == 0) {
          if (argc < i+2) {
            usage();
-           return;
+           return(-1);
          }
          UDL = argv[++i];
        }
        else if (strcmp(argv[i], "-h") == 0) {
          usage();
-         return;
+         return(-1);
        }
        else {
          usage();
-         return;
+         return(-1);
        }
 
     }
@@ -199,7 +199,7 @@ int main(int argc,char **argv) {
   end:
   
   cMsgFreeMessage(msg);
-  err = cMsgDisconnect(domainId);
+  err = cMsgDisconnect(&domainId);
   if (err != CMSG_OK) {
       if (debug) {
           printf("err = %d, %s\n",err, cMsgPerror(err));

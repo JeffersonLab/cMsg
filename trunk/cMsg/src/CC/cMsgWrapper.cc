@@ -44,11 +44,11 @@ typedef struct {
 
 // holds local subscription info
 typedef struct {
-  int domainId;
+  void  *domainId;
+  void  *handle;
   string subject;
   string type;
   dispatcherStruct *d;
-  void *handle;
 } subscrStruct;
 
 
@@ -70,7 +70,7 @@ static void callbackDispatcher(void *msg, void *userArg) {
 //-----------------------------------------------------------------------------
 
 
-static bool subscriptionExists(int domainId, const string &subject, const string &type, 
+static bool subscriptionExists(void *domainId, const string &subject, const string &type, 
                                cMsgCallbackAdapter *cba, void *userArg) {
 
   bool itExists = false;
@@ -100,7 +100,7 @@ static bool subscriptionExists(int domainId, const string &subject, const string
 //-----------------------------------------------------------------------------
 
 
-static void addSubscription(int domainId, const string &subject, const string &type,
+static void addSubscription(void *domainId, const string &subject, const string &type,
                             dispatcherStruct *d, void *handle) {
 
   subscrStruct *s = new subscrStruct();
@@ -122,7 +122,7 @@ static void addSubscription(int domainId, const string &subject, const string &t
 //-----------------------------------------------------------------------------
 
 
-static bool deleteSubscription(int domainId, void *handle) {
+static bool deleteSubscription(void *domainId, void *handle) {
 
   bool deleted = false;
   vector<subscrStruct*>::iterator iter;
@@ -1017,7 +1017,7 @@ void cMsg::disconnect(void) throw(cMsgException) {
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
 
 
-  cMsgDisconnect(myDomainId);
+  cMsgDisconnect(&myDomainId);
 }
 
 
