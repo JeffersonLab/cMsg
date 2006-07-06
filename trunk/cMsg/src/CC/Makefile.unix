@@ -77,13 +77,13 @@ SRCXX =	cMsgWrapper.cc
 OBJSXX = cMsgWrapper.o
 
 
-HFILES = $(C_DIR)/cMsgNetwork.h \
+HFILES = $(C_DIR)/rwlock.h \
+	 $(C_DIR)/errors.h \
+	 $(C_DIR)/cMsgNetwork.h \
 	 $(C_DIR)/cMsgPrivate.h \
 	 $(C_DIR)/cMsg.h \
-	 $(C_DIR)/cMsgDomain.h \
-	 $(C_DIR)/rwlock.h \
-	 $(C_DIR)/errors.h
-
+	 $(C_DIR)/cMsgDomain.h
+	 
 HFILESXX = cMsg.hxx \
            epics_server.h
 
