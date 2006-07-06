@@ -2940,8 +2940,6 @@ static void defaultShutdownHandler(void *userArg) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if the id is null
- * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
- *                               since cMsgConnect() was never called
  */   
 int cmsg_cmsg_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
                                  void *userArg) {
