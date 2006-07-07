@@ -51,11 +51,11 @@ int main(int argc,char **argv) {
   char *type    = "TYPE";
   char *UDL     = "cMsG:DUmmY://34aslan:3456/cMsg/test";
   char *UDL2    = "dummy://$blech:2345/";
-  int   err, debug = 1;
+  int   err, debug = 1, response;
   cMsgSubscribeConfig *config;
-  int domainId, domainId2, response;
-  void *msg;
-  
+  void *domainId, *domainId2, *msg;
+  void *unSubHandle;
+ 
   printf("Running the Dummy consumer, \"%s\"\n", myName);
 
   /* connect to cMsg server */
@@ -87,23 +87,23 @@ int main(int argc,char **argv) {
   /* start receiving messages */
   cMsgReceiveStart(domainId);
   cMsgReceiveStop(domainId);
-  cMsgFlush(domainId);
+  cMsgFlush(domainId, 0);
   
   /* set the subscribe configuration */
   config = cMsgSubscribeConfigCreate();
   cMsgSetDebugLevel(CMSG_DEBUG_INFO);
   
   /* subscribe */
-  cMsgSubscribe(domainId, subject, type, callback, NULL, config);
+  cMsgSubscribe(domainId, subject, type, callback, NULL, config, &unSubHandle);
    
   /* unsubscribe */
-  cMsgUnSubscribe(domainId, subject, type, callback, NULL);
+  cMsgUnSubscribe(domainId, unSubHandle);
   
   /* send */
   cMsgSend(domainId, msg);
   
   /* syncSend */
-  cMsgSyncSend(domainId, msg, &response);
+  cMsgSyncSend(domainId, msg, NULL, &response);
   
   /* subAndGet */
   cMsgSubscribeAndGet(domainId, subject, type, NULL, &msg);
@@ -121,7 +121,7 @@ int main(int argc,char **argv) {
   cMsgShutdownServers(domainId, "shutdowner", CMSG_SHUTDOWN_INCLUDE_ME);
  
   /* disconnect */
-  cMsgDisconnect(domainId);
+  cMsgDisconnect(&domainId);
   
   return(0);
 }

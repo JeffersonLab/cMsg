@@ -42,7 +42,7 @@ extern "C" {
 #endif
 
 /** Major version number. */
-#define CMSG_VERSION_MAJOR 1
+#define CMSG_VERSION_MAJOR 2
 /** Minor version number. */
 #define CMSG_VERSION_MINOR 0
 

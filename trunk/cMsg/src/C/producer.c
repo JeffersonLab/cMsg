@@ -50,7 +50,7 @@ int main(int argc,char **argv) {
   char *bytes         = NULL;
   char *UDL           = "cMsg:cmsg://localhost:3456/cMsg/test";
   char *p;
-  int   i, j, err, debug=1, msgSize=0, mainloops=200, response;
+  int   i, j, err, debug=1, msgSize=0, mainloops=20, response;
   void *msg, *domainId;
   
   /* msg rate measuring variables */
@@ -197,8 +197,9 @@ int main(int argc,char **argv) {
   } 
   
   end:
-  
-  cMsgFreeMessage(msg);
+printf("producer: will free msg\n");  
+  cMsgFreeMessage(&msg);
+printf("producer: will disconnect\n");  
   err = cMsgDisconnect(&domainId);
   if (err != CMSG_OK) {
       if (debug) {

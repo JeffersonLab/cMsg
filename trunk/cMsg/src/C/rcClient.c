@@ -63,7 +63,7 @@ static void callback(void *msg, void *arg) {
   }
   
   /* user MUST free messages passed to the callback */
-  cMsgFreeMessage(msg);
+  cMsgFreeMessage(&msg);
 }
 
 

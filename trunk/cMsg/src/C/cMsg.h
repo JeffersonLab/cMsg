@@ -144,7 +144,7 @@ extern "C" {
   
   
   /* message access functions */
-  int    cMsgFreeMessage          (void *msg);
+  int    cMsgFreeMessage          (void **msg);
   void  *cMsgCreateMessage        (void);
   void  *cMsgCreateNewMessage     (void *vmsg);
   void  *cMsgCopyMessage          (void *msg);

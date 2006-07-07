@@ -53,6 +53,7 @@ static void  getInfoInit(getInfo *info, int reInit);
 static void  subscribeInfoInit(subInfo *info, int reInit);
 static void  getInfoFree(getInfo *info);
 static void  subscribeInfoFree(subInfo *info);
+static void  parsedUDLFree(parsedUDL *p);  
 
 /*-------------------------------------------------------------------*/
 
@@ -571,11 +572,24 @@ static void getInfoFree(getInfo *info) {
     }
     
     if (info->msg != NULL) {
-      cMsgFreeMessage(info->msg);
+      cMsgFreeMessage((void **) &info->msg);
     }
-
 }
 
+
+/*-------------------------------------------------------------------*/
+/**
+ * This routine frees allocated memory in a structure used to hold
+ * parsed UDL information.
+ */
+static void parsedUDLFree(parsedUDL *p) {  
+       if (p->udl            != NULL) {free(p->udl);            p->udl            = NULL;}
+       if (p->udlRemainder   != NULL) {free(p->udlRemainder);   p->udlRemainder   = NULL;}
+       if (p->subdomain      != NULL) {free(p->subdomain);      p->subdomain      = NULL;}
+       if (p->subRemainder   != NULL) {free(p->subRemainder);   p->subRemainder   = NULL;}
+       if (p->password       != NULL) {free(p->password);       p->password       = NULL;}
+       if (p->nameServerHost != NULL) {free(p->nameServerHost); p->nameServerHost = NULL;}   
+}
 
 /*-------------------------------------------------------------------*/
 
@@ -589,7 +603,6 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
 #ifdef sun
   int status;
 #endif
-  
   if (domain->myHost         != NULL) {free(domain->myHost);         domain->myHost         = NULL;}
   if (domain->sendHost       != NULL) {free(domain->sendHost);       domain->sendHost       = NULL;}
   if (domain->serverHost     != NULL) {free(domain->serverHost);     domain->serverHost     = NULL;}
@@ -601,14 +614,9 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
   if (domain->msgInBuffer[0] != NULL) {free(domain->msgInBuffer[0]); domain->msgInBuffer[0] = NULL;}
   if (domain->msgInBuffer[1] != NULL) {free(domain->msgInBuffer[1]); domain->msgInBuffer[1] = NULL;}
   
-  if (domain->failovers        != NULL) {
+  if (domain->failovers != NULL) {
     for (i=0; i<domain->failoverSize; i++) {       
-       if (domain->failovers[i].udl            != NULL) {free(domain->failovers[i].udl);            domain->failovers[i].udl            = NULL;}
-       if (domain->failovers[i].udlRemainder   != NULL) {free(domain->failovers[i].udlRemainder);   domain->failovers[i].udlRemainder   = NULL;}
-       if (domain->failovers[i].subdomain      != NULL) {free(domain->failovers[i].subdomain);      domain->failovers[i].subdomain      = NULL;}
-       if (domain->failovers[i].subRemainder   != NULL) {free(domain->failovers[i].subRemainder);   domain->failovers[i].subRemainder   = NULL;}
-       if (domain->failovers[i].password       != NULL) {free(domain->failovers[i].password);       domain->failovers[i].password       = NULL;}
-       if (domain->failovers[i].nameServerHost != NULL) {free(domain->failovers[i].nameServerHost); domain->failovers[i].nameServerHost = NULL;}
+      parsedUDLFree(&domain->failovers[i]);
     }
     free(domain->failovers);
   }
@@ -1130,7 +1138,7 @@ void *cMsgCallbackThread(void *arg)
           msg = cback->head; /* get first message in linked list */
           while (msg != NULL) {
             nextMsg = msg->next;
-            cMsgFreeMessage(msg);
+            cMsgFreeMessage((void **) &msg);
             msg = nextMsg;
           }
           
@@ -1184,7 +1192,7 @@ void *cMsgCallbackThread(void *arg)
           msg = cback->head; /* get first message in linked list */
           while (msg != NULL) {
             nextMsg = msg->next;
-            cMsgFreeMessage(msg);
+            cMsgFreeMessage((void **) &msg);
             msg = nextMsg;
           }
           
@@ -1311,7 +1319,7 @@ void *cMsgSupplementalThread(void *arg)
           msg = cback->head; /* get first message in linked list */
           while (msg != NULL) {
             nextMsg = msg->next;
-            cMsgFreeMessage(msg);
+            cMsgFreeMessage((void **) &msg);
             msg = nextMsg;
           }
           
@@ -1376,7 +1384,7 @@ void *cMsgSupplementalThread(void *arg)
           msg = cback->head; /* get first message in linked list */
           while (msg != NULL) {
             nextMsg = msg->next;
-            cMsgFreeMessage(msg);
+            cMsgFreeMessage((void **) &msg);
             msg = nextMsg;
           }
           

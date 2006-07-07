@@ -37,8 +37,8 @@ int cMsgProducer(void) {
   char *text    = "TEXT";
   char *bytes   = NULL;
   char *UDL     = "cMsg:cMsg://phecda:3456/cMsg/test";
-  int   err, debug=1, domainId=-1, msgSize=0, counter=0;
-  void *msg;
+  int   err, debug=1, msgSize=0, counter=0;
+  void *msg, *domainId;
   
   /* msg rate measuring variables */
   int             dostring=1, count, i, delay=1, loops=5, ignore=0, numTimes=5;
@@ -211,7 +211,7 @@ int cMsgProducer(void) {
 
   end:
   
-  err = cMsgDisconnect(domainId);
+  err = cMsgDisconnect(&domainId);
   if (err != CMSG_OK) {
       if (debug) {
           printf("%s\n",cMsgPerror(err));

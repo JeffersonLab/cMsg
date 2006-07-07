@@ -101,7 +101,7 @@ typedef struct getInfo_t {
   int  quit;     /**< Boolean commanding sendAndGet to end. */
   char *subject; /**< Subject of sendAndGet. */
   char *type;    /**< Type of sendAndGet. */
-  cMsgMessage_t *msg;      /**< Message to be passed to the caller. */
+  cMsgMessage_t *msg;    /**< Message to be passed to the caller. */
   pthread_cond_t  cond;  /**< Condition variable sendAndGet thread is waiting on. */
   pthread_mutex_t mutex; /**< Mutex sendAndGet thread is waiting on. */
 } getInfo;

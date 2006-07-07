@@ -135,7 +135,6 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes);
 static int resubscribe(cMsgDomainInfo *domain, const char *subject, const char *type);
 
 /* misc */
-static void parsedUDLFree(parsedUDL *p);  
 static int  disconnectFromKeepAlive(void **domainId);
 static int  connectImpl(cMsgDomainInfo *domain, int failoverIndex);
 static int  talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIndex);
@@ -316,7 +315,6 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
   char temp[CMSG_MAXHOSTNAMELEN];
   cMsgDomainInfo *domain;
 
-
   /* allocate struct to hold connection info */
   domain = (cMsgDomainInfo *) malloc(sizeof(cMsgDomainInfo));
   if (domain == NULL) {
@@ -355,6 +353,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
     p = strtok(NULL, ";");
   }
   free(udl);
+/*printf("Found %d UDLs\n", failoverUDLCount);*/
 
   if (failoverUDLCount < 1) {
     cMsgDomainFree(domain);
@@ -392,7 +391,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
       viableUDLs++;
     }
     domain->failovers[i].udl = strdup(p);
-/* printf("Found UDL = %s\n", domain->failovers[i].udl); */
+/*printf("Found UDL = %s\n", domain->failovers[i].udl);*/
     p = strtok(NULL, ";");
     i++;
   }
@@ -411,7 +410,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
   }
   /* Else if there's only 1 viable UDL ... */
   else if (viableUDLs < 2) {
-/* printf("Only 1 UDL = %s\n", domain->failovers[0].udl); */
+/*printf("Only 1 UDL = %s\n", domain->failovers[0].udl);*/
 
       /* Ain't using failovers */
       domain->implementFailovers = 0;
@@ -2786,18 +2785,13 @@ int cmsg_cmsg_disconnect(void **domainId) {
   /* give the above threads a chance to quit before we reset everytbing */
   sleep(1);
   
-  /* free memory (non-NULL items), reset variables*/
-  for (i=0; i < domain->failoverSize; i++) {
-    parsedUDLFree(&domain->failovers[i]);
-  }
-  
+  cMsgConnectWriteUnlock(domain);
+    
   /* Clean up memory */
   cMsgDomainFree(domain);
   free(domain);
   *domainId = NULL;
   
-  cMsgConnectWriteUnlock(domain);
-
   return(CMSG_OK);
 }
 
@@ -2893,13 +2887,7 @@ static int disconnectFromKeepAlive(void **domainId) {
   
   /* do NOT close listening socket */
   /*close(domain->listenSocket);*/
-  
-  /* free memory (non-NULL items), reset variables*/
-  /* protect the domain array when freeing up a space */
-  for (i=0; i < domain->failoverSize; i++) {
-    parsedUDLFree(&domain->failovers[i]);
-  }
-  
+    
   /* Clean up memory */
   cMsgDomainFree(domain);
   free(domain);
@@ -3480,21 +3468,6 @@ static void *keepAliveThread(void *arg)
 /*   miscellaneous local functions                                   */
 /*-------------------------------------------------------------------*/
 
-
-/**
- * This routine frees allocated memory in a structure used to hold
- * parsed UDL information.
- */
-static void parsedUDLFree(parsedUDL *p) {  
-       if (p->udl            != NULL) free(p->udl);
-       if (p->udlRemainder   != NULL) free(p->udlRemainder);
-       if (p->subdomain      != NULL) free(p->subdomain);
-       if (p->subRemainder   != NULL) free(p->subRemainder);
-       if (p->password       != NULL) free(p->password);
-       if (p->nameServerHost != NULL) free(p->nameServerHost);    
-}
-
-/*-------------------------------------------------------------------*/
 
 /**
  * This routine parses, using regular expressions, the cMsg domain

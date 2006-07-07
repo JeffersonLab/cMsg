@@ -464,7 +464,7 @@ static void *clientThread(void *arg)
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread %d: error reading message\n", localCount);
             }
-            cMsgFreeMessage((void *) message);
+            cMsgFreeMessage((void **) &message);
             goto end;
           }
           
@@ -475,7 +475,7 @@ static void *clientThread(void *arg)
               if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                 fprintf(stderr, "clientThread %d: write failure\n", localCount);
               }
-              cMsgFreeMessage((void *) message);
+              cMsgFreeMessage((void **) &message);
               goto end;
             }
           }       
@@ -493,7 +493,7 @@ static void *clientThread(void *arg)
                 fprintf(stderr, "clientThread %d: too many messages cued up\n", localCount);
               }
             }
-            cMsgFreeMessage((void *) message);
+            cMsgFreeMessage((void **) &message);
             goto end;
           }
       }
@@ -526,7 +526,7 @@ static void *clientThread(void *arg)
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread %d: error reading message\n", localCount);
             }
-            cMsgFreeMessage((void *) message);
+            cMsgFreeMessage((void **) &message);
             goto end;
           }
           
@@ -537,7 +537,7 @@ static void *clientThread(void *arg)
               if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                 fprintf(stderr, "clientThread %d: write failure\n", localCount);
               }
-              cMsgFreeMessage((void *) message);
+              cMsgFreeMessage((void **) &message);
               goto end;
             }
           }       
@@ -623,7 +623,7 @@ static void *clientThread(void *arg)
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread %d: error reading message\n", localCount);
             }
-            cMsgFreeMessage((void *) message);
+            cMsgFreeMessage((void **) &message);
             goto end;
           }
           
@@ -641,7 +641,7 @@ static void *clientThread(void *arg)
           cMsgLatchCountDown(&domain->syncLatch, &wait);
                     
           /* now free message */
-          cMsgFreeMessage((void *) message);
+          cMsgFreeMessage((void **) &message);
       }
       break;
 
@@ -960,7 +960,7 @@ static int cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
   }
   
   if (!delivered) {
-    cMsgFreeMessage((void *)msg);
+    cMsgFreeMessage((void **) &msg);
   }
   
   return (CMSG_OK);
@@ -1033,7 +1033,7 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "cMsgRunCallbacks: all callbacks have been stopped\n");
     }
-    cMsgFreeMessage((void *)msg);
+    cMsgFreeMessage((void **) &msg);
     return (CMSG_OK);
   }
    
@@ -1091,7 +1091,7 @@ fprintf(stderr, "cMsgRunCallbacks: will grab mutex, %p\n", &cback->mutex); */
               for (k=0; k < cback->config.skipSize; k++) {
                 oldHead = cback->head;
                 cback->head = cback->head->next;
-                cMsgFreeMessage(oldHead);
+                cMsgFreeMessage((void **)&oldHead);
                 cback->messages--;
                 if (cback->head == NULL) break;
               }
@@ -1122,7 +1122,7 @@ fprintf(stderr, "cMsgRunCallbacks: will grab mutex, %p\n", &cback->mutex); */
                   /* Check to see if server died and this thread is being killed. */
                   if (domain->killClientThread == 1) {
                     cMsgSubscribeMutexUnlock(domain);
-                    cMsgFreeMessage((void *)message);
+                    cMsgFreeMessage((void **) &message);
 /* fprintf(stderr, "cMsgRunCallbacks: told to die GRACEFULLY so return error\n"); */
                     return(CMSG_SERVER_DIED);
                   }
@@ -1140,7 +1140,7 @@ fprintf(stderr, "cMsgRunCallbacks: will grab mutex, %p\n", &cback->mutex); */
                    */
                   if (cback->active == 0) {
 	            /* if there is no callback anymore, dump message, look at next callback */
-                    cMsgFreeMessage((void *)message);
+                    cMsgFreeMessage((void **) &message);
                     goToNextCallback = 1;                     
 /* fprintf(stderr, "cMsgRunCallbacks: unsubscribe during pthread_cond_wait\n"); */
                     break;                      
@@ -1216,7 +1216,7 @@ printf("cMsgRunCallbacks: will UNLOCK mutex\n"); */
   cMsgSubscribeMutexUnlock(domain);
   
   /* Need to free up msg allocated by client's listening thread */
-  cMsgFreeMessage((void *)msg);
+  cMsgFreeMessage((void **) &msg);
   
   return (CMSG_OK);
 }

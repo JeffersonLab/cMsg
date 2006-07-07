@@ -93,7 +93,7 @@ static void callback(void *msg, void *arg) {
 pthread_mutex_lock(&mutex);
   count++;
 pthread_mutex_unlock(&mutex);
-  cMsgFreeMessage(msg);
+  cMsgFreeMessage(&msg);
 }
 
 
@@ -142,7 +142,7 @@ int cMsgGetConsumer(void) {
             else {
                 count++;
                 if (getMsg != NULL) {
-                  cMsgFreeMessage(getMsg);
+                  cMsgFreeMessage(&getMsg);
                 }
             }
         }

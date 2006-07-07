@@ -321,7 +321,7 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
   }  
   
   domain->connected = 1;
-  *domainId = domain->implId;
+  *domainId = (void *)domain;
   
   return CMSG_OK;
 }
@@ -568,6 +568,7 @@ int cMsgReceiveStart(void *domainId) {
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
   if (!domain->connected) return(CMSG_LOST_CONNECTION);
   
+printf("cMsgReceiveStart, id = %p, implId = %p\n", domain, domain->implId);
   if ( (err = domain->functions->start(domain->implId)) != CMSG_OK) {
     return err;
   }
@@ -639,7 +640,7 @@ int cMsgDisconnect(void **domainId) {
     
   domain->connected = 0;
   
-  if ( (err = domain->functions->disconnect(domain->implId)) != CMSG_OK) {
+  if ( (err = domain->functions->disconnect(&domain->implId)) != CMSG_OK) {
     return err;
   }
   
@@ -1357,11 +1358,11 @@ static void domainInit(cMsgDomain *domain) {
  * @param domain pointer to structure holding domain info
  */   
 static void domainFree(cMsgDomain *domain) {  
-  if (domain->type         != NULL) free(domain->type);
-  if (domain->name         != NULL) free(domain->name);
-  if (domain->udl          != NULL) free(domain->udl);
-  if (domain->description  != NULL) free(domain->description);
-  if (domain->UDLremainder != NULL) free(domain->UDLremainder);
+  if (domain->type         != NULL) {free(domain->type);         domain->type         = NULL;}
+  if (domain->name         != NULL) {free(domain->name);         domain->name         = NULL;}
+  if (domain->udl          != NULL) {free(domain->udl);          domain->udl          = NULL;}
+  if (domain->description  != NULL) {free(domain->description);  domain->description  = NULL;}
+  if (domain->UDLremainder != NULL) {free(domain->UDLremainder); domain->UDLremainder = NULL;}
 }
 
 
@@ -1759,26 +1760,26 @@ static void initMessage(cMsgMessage_t *msg) {
  * The cMsg client must call this routine on any messages created to avoid
  * memory leaks.
  *
- * @param vmsg pointer to message structure being freed
+ * @param vmsg address of pointer to message structure being freed
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if msg is NULL
  */   
-int cMsgFreeMessage(void *vmsg) {
+int cMsgFreeMessage(void **vmsg) {
 
-  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+  cMsgMessage_t *msg = (cMsgMessage_t *) (*vmsg);
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  
-  if (msg->domain       != NULL) free(msg->domain);
-  if (msg->creator      != NULL) free(msg->creator);
-  if (msg->subject      != NULL) free(msg->subject);
-  if (msg->type         != NULL) free(msg->type);
-  if (msg->text         != NULL) free(msg->text);
-  if (msg->sender       != NULL) free(msg->sender);
-  if (msg->senderHost   != NULL) free(msg->senderHost);
-  if (msg->receiver     != NULL) free(msg->receiver);
-  if (msg->receiverHost != NULL) free(msg->receiverHost);
+   
+  if (msg->domain       != NULL) {free(msg->domain);       msg->domain       = NULL;}
+  if (msg->creator      != NULL) {free(msg->creator);      msg->creator      = NULL;}
+  if (msg->subject      != NULL) {free(msg->subject);      msg->subject      = NULL;}
+  if (msg->type         != NULL) {free(msg->type);         msg->type         = NULL;}
+  if (msg->text         != NULL) {free(msg->text);         msg->text         = NULL;}
+  if (msg->sender       != NULL) {free(msg->sender);       msg->sender       = NULL;}
+  if (msg->senderHost   != NULL) {free(msg->senderHost);   msg->senderHost   = NULL;}
+  if (msg->receiver     != NULL) {free(msg->receiver);     msg->receiver     = NULL;}
+  if (msg->receiverHost != NULL) {free(msg->receiverHost); msg->receiverHost = NULL;}
 
   /* only free byte array if it was copied into the msg */
   if ((msg->byteArray != NULL) && ((msg->bits & CMSG_BYTE_ARRAY_IS_COPIED) > 0)) {
@@ -1786,6 +1787,7 @@ int cMsgFreeMessage(void *vmsg) {
   }
   
   free(msg);
+  *vmsg = NULL;
 
   return(CMSG_OK);
 }
@@ -2042,15 +2044,15 @@ void cMsgInitMessage(void *vmsg) {
     
     if (msg == NULL) return;
     
-    if (msg->domain       != NULL) free(msg->domain);
-    if (msg->creator      != NULL) free(msg->creator);
-    if (msg->subject      != NULL) free(msg->subject);
-    if (msg->type         != NULL) free(msg->type);
-    if (msg->text         != NULL) free(msg->text);
-    if (msg->sender       != NULL) free(msg->sender);
-    if (msg->senderHost   != NULL) free(msg->senderHost);
-    if (msg->receiver     != NULL) free(msg->receiver);
-    if (msg->receiverHost != NULL) free(msg->receiverHost);
+    if (msg->domain       != NULL) {free(msg->domain);       msg->domain       = NULL;}
+    if (msg->creator      != NULL) {free(msg->creator);      msg->creator      = NULL;}
+    if (msg->subject      != NULL) {free(msg->subject);      msg->subject      = NULL;}
+    if (msg->type         != NULL) {free(msg->type);         msg->type         = NULL;}
+    if (msg->text         != NULL) {free(msg->text);         msg->text         = NULL;}
+    if (msg->sender       != NULL) {free(msg->sender);       msg->sender       = NULL;}
+    if (msg->senderHost   != NULL) {free(msg->senderHost);   msg->senderHost   = NULL;}
+    if (msg->receiver     != NULL) {free(msg->receiver);     msg->receiver     = NULL;}
+    if (msg->receiverHost != NULL) {free(msg->receiverHost); msg->receiverHost = NULL;}
     
     /* only free byte array if it was copied into the msg */
     if ((msg->byteArray != NULL) && ((msg->bits & CMSG_BYTE_ARRAY_IS_COPIED) > 0)) {

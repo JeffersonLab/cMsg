@@ -40,7 +40,7 @@ void mycallback(void *msg, void *arg) {
      * sendMsg will be NULL.
      */
     if (sendMsg == NULL) {
-        cMsgFreeMessage(msg);
+        cMsgFreeMessage(&msg);
         return;
     }
     /*sleep(1);*/
@@ -59,9 +59,9 @@ void mycallback(void *msg, void *arg) {
     count++;
     
     /* user MUST free messages passed to the callback */
-    cMsgFreeMessage(msg);
+    cMsgFreeMessage(&msg);
     /* user MUST free messages created in this callback */
-    cMsgFreeMessage(sendMsg);
+    cMsgFreeMessage(&sendMsg);
 }
 
 

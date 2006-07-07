@@ -161,7 +161,7 @@ int main(int argc,char **argv) {
                   free(subject);
                   free(type);
               }
-              cMsgFreeMessage(replyMsg);
+              cMsgFreeMessage(&replyMsg);
               count++;
           }
           

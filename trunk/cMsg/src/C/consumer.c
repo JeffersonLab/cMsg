@@ -53,7 +53,7 @@ static void callback(void *msg, void *arg) {
   /*nanosleep(&sleeep, NULL);*/
   
   /* user MUST free messages passed to the callback */
-  cMsgFreeMessage(msg);
+  cMsgFreeMessage(&msg);
 }
 
 
@@ -115,7 +115,7 @@ int main(int argc,char **argv) {
       }
       exit(1);
   }
-    printf("  past connect\n");
+  printf("  past connect, id = %p\n", domainId);
   
   /* start receiving messages */
   cMsgReceiveStart(domainId);
