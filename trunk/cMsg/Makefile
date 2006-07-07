@@ -8,7 +8,7 @@ INSTALL  = $(CMSG_DIR)/install-sh -c
 
 # operating system, platform, processor bits we are using
 OSNAME   := $(shell uname)
-PLATFORM := $(shell uname -p)
+PLATFORM := $(shell uname -m)
 CMSG_DIR := $(shell pwd)
 
 # Look to see if the environmental variable CMSG_USE64BITS is defined.
