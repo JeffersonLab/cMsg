@@ -35,7 +35,7 @@ int main(int argc,char **argv) {
   char *type    = "TYPE";
   char *text    = "TEXT";
   char *bytes   = NULL;
-  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
+  char *UDL     = "cMsg:cMsg://localhost:3456/cMsg/test";
   int   err, debug=1, msgSize=0;
   void *msg, *replyMsg, *domainId;
   

@@ -72,7 +72,7 @@ int main(int argc,char **argv) {
   char *myDescription = "C getresponder";
   char *subject = "SUBJECT";
   char *type    = "TYPE";
-  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
+  char *UDL     = "cMsg:cMsg://localhost:3456/cMsg/test";
   int   err, debug = 1, loops=0;
   cMsgSubscribeConfig *config;
   void *unSubHandle;
