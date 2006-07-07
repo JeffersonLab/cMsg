@@ -2686,7 +2686,6 @@ int cmsg_cmsg_disconnect(void **domainId) {
     
   fd = domain->sendSocket;
     
-  /* When changing initComplete / connection status, protect it */
   cMsgConnectWriteLock(domain);
   
   domain->gotConnection = 0;
@@ -2822,7 +2821,6 @@ static int disconnectFromKeepAlive(void **domainId) {
   domain = (cMsgDomainInfo *) (*domainId);
   if (domain == NULL) return(CMSG_BAD_ARGUMENT);
       
-  /* When changing initComplete / connection status, protect it */
   cMsgConnectWriteLock(domain);
      
   /* stop listening and client communication threads */

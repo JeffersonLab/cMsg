@@ -86,9 +86,9 @@ void cMsgMutexUnlock(pthread_mutex_t *mutex) {
 
 /**
  * This routine locks the read lock used to allow simultaneous
- * execution of cmsgd_send, cmsgd_syncSend, cmsgd_subscribe, cmsgd_unsubscribe,
- * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
- * execution of those routines with cmsgd_disconnect.
+ * execution of send, syncSend, subscribe, unsubscribe,
+ * sendAndGet, and subscribeAndGet, but NOT allow simultaneous
+ * execution of those routines with disconnect.
  */
 void cMsgConnectReadLock(cMsgDomainInfo *domain) {
 
@@ -104,9 +104,9 @@ void cMsgConnectReadLock(cMsgDomainInfo *domain) {
 
 /**
  * This routine unlocks the read lock used to allow simultaneous
- * execution of cmsgd_send, cmsgd_syncSend, cmsgd_subscribe, cmsgd_unsubscribe,
- * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
- * execution of those routines with cmsgd_disconnect.
+ * execution of send, syncSend, subscribe, unsubscribe,
+ * sendAndGet, and subscribeAndGet, but NOT allow simultaneous
+ * execution of those routines with disconnect.
  */
 void cMsgConnectReadUnlock(cMsgDomainInfo *domain) {
 
@@ -122,9 +122,9 @@ void cMsgConnectReadUnlock(cMsgDomainInfo *domain) {
 
 /**
  * This routine locks the write lock used to allow simultaneous
- * execution of cmsgd_send, cmsgd_syncSend, cmsgd_subscribe, cmsgd_unsubscribe,
- * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
- * execution of those routines with cmsgd_disconnect.
+ * execution of send, syncSend, subscribe, unsubscribe,
+ * sendAndGet, and subscribeAndGet, but NOT allow simultaneous
+ * execution of those routines with disconnect.
  */
 void cMsgConnectWriteLock(cMsgDomainInfo *domain) {
 
@@ -140,9 +140,9 @@ void cMsgConnectWriteLock(cMsgDomainInfo *domain) {
 
 /**
  * This routine unlocks the write lock used to allow simultaneous
- * execution of cmsgd_send, cmsgd_syncSend, cmsgd_subscribe, cmsgd_unsubscribe,
- * cmsgd_sendAndGet, and cmsgd_subscribeAndGet, but NOT allow simultaneous
- * execution of those routines with cmsgd_disconnect.
+ * execution of send, syncSend, subscribe, unsubscribe,
+ * sendAndGet, and subscribeAndGet, but NOT allow simultaneous
+ * execution of those routines with disconnect.
  */
 void cMsgConnectWriteUnlock(cMsgDomainInfo *domain) {
 
@@ -188,7 +188,7 @@ void cMsgSocketMutexUnlock(cMsgDomainInfo *domain) {
 /*-------------------------------------------------------------------*/
 
 
-/** This routine locks the pthread mutex used to serialize cmsgd_syncSend calls. */
+/** This routine locks the pthread mutex used to serialize syncSend calls. */
 void cMsgSyncSendMutexLock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_lock(&domain->syncSendMutex);
@@ -201,7 +201,7 @@ void cMsgSyncSendMutexLock(cMsgDomainInfo *domain) {
 /*-------------------------------------------------------------------*/
 
 
-/** This routine unlocks the pthread mutex used to serialize cmsgd_syncSend calls. */
+/** This routine unlocks the pthread mutex used to serialize syncSend calls. */
 void cMsgSyncSendMutexUnlock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_unlock(&domain->syncSendMutex);
@@ -216,7 +216,7 @@ void cMsgSyncSendMutexUnlock(cMsgDomainInfo *domain) {
 
 /**
  * This routine locks the pthread mutex used to serialize
- * cmsgd_subscribe and cmsgd_unsubscribe calls.
+ * subscribe and unsubscribe calls.
  */
 void cMsgSubscribeMutexLock(cMsgDomainInfo *domain) {
 
@@ -232,7 +232,7 @@ void cMsgSubscribeMutexLock(cMsgDomainInfo *domain) {
 
 /**
  * This routine unlocks the pthread mutex used to serialize
- * cmsgd_subscribe and cmsgd_unsubscribe calls.
+ * subscribe and unsubscribe calls.
  */
 void cMsgSubscribeMutexUnlock(cMsgDomainInfo *domain) {
 
