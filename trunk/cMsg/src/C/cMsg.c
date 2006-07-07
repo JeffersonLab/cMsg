@@ -568,7 +568,6 @@ int cMsgReceiveStart(void *domainId) {
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
   if (!domain->connected) return(CMSG_LOST_CONNECTION);
   
-printf("cMsgReceiveStart, id = %p, implId = %p\n", domain, domain->implId);
   if ( (err = domain->functions->start(domain->implId)) != CMSG_OK) {
     return err;
   }

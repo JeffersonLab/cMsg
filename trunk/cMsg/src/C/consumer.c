@@ -115,7 +115,6 @@ int main(int argc,char **argv) {
       }
       exit(1);
   }
-  printf("  past connect, id = %p\n", domainId);
   
   /* start receiving messages */
   cMsgReceiveStart(domainId);
