@@ -31,8 +31,8 @@ CMSG_BIT_ARCH =
 endif
 
 INC_DIR = $(CMSG_DIR)/inc
-LIB_DIR = $(CMSG_DIR)/lib/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)
-BIN_DIR = $(CMSG_DIR)/bin/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)
+LIB_DIR = $(CMSG_DIR)/arch/$(OSNAME)/$(PLATFORM)/lib/$(CMSG_BIT_ARCH)
+BIN_DIR = $(CMSG_DIR)/arch/$(OSNAME)/$(PLATFORM)/bin/$(CMSG_BIT_ARCH)
 
 # send this down to lower level makefiles
 export INSTALL
@@ -52,16 +52,14 @@ echoarch:
 	@echo "Make for $(OSNAME) on $(PLATFORM), $(BITS) bits"
 	@echo
 
-
 mkdirs:
-	-mkdir ./lib
-	-mkdir ./bin
 	-mkdir ./inc
-	-mkdir $(CMSG_DIR)/lib/$(OSNAME)
-	-mkdir $(CMSG_DIR)/lib/$(OSNAME)/$(PLATFORM)
+	-mkdir ./arch
+	-mkdir ./arch/$(OSNAME)
+	-mkdir ./arch/$(OSNAME)/$(PLATFORM)
+	-mkdir ./arch/$(OSNAME)/$(PLATFORM)/lib
+	-mkdir ./arch/$(OSNAME)/$(PLATFORM)/bin
 	-mkdir $(LIB_DIR)
-	-mkdir $(CMSG_DIR)/bin/$(OSNAME)
-	-mkdir $(CMSG_DIR)/bin/$(OSNAME)/$(PLATFORM)
 	-mkdir $(BIN_DIR)
 	-mkdir ./doc/doxygen/C
 	-mkdir ./doc/doxygen/CC
