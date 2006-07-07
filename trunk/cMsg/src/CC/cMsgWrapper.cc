@@ -263,7 +263,7 @@ cMsgMessage::cMsgMessage(void *msgPointer) throw(cMsgException) {
 cMsgMessage::~cMsgMessage(void) {
 
   if(myMsgPointer==NULL)return;
-  cMsgFreeMessage(myMsgPointer);
+  cMsgFreeMessage(&myMsgPointer);
 }
 
 
