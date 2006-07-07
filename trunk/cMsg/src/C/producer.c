@@ -50,7 +50,7 @@ int main(int argc,char **argv) {
   char *bytes         = NULL;
   char *UDL           = "cMsg:cmsg://localhost:3456/cMsg/test";
   char *p;
-  int   i, j, err, debug=1, msgSize=0, mainloops=20, response;
+  int   i, j, err, debug=1, msgSize=0, mainloops=200, response;
   void *msg, *domainId;
   
   /* msg rate measuring variables */
