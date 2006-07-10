@@ -25,7 +25,10 @@
 #ifndef __cMsgDomain_h
 #define __cMsgDomain_h
 
+#ifndef VXWORKS
 #include <inttypes.h>
+#endif
+
 #include "cMsgPrivate.h"
 #include "rwlock.h"
 
