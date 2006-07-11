@@ -88,7 +88,9 @@ cCode: echoarch mkdirs
 
 tarfile:
 ###	make clean
-	$(RM) cMsg-1.0.tar.gz; tar cvX tarexclude -f cMsg-1.0.tar.gz -z .
+	$(RM) cMsg-1.0.tar.gz;
+	cd ..; tar cvX ./cMsg/tarexclude -f cMsg-1.0.tar.gz -z ./cMsg
+	-mv ../cMsg-1.0.tar.gz .
 
 jarfile:
 	jar cf jar/cMsg-1.0.jar `find org/ -type f | grep -v SCCS | grep -v CVS | grep class`
