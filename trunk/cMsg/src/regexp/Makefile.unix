@@ -93,6 +93,7 @@ copyObjectFiles:
 
 saveObjectFiles:
 	-cp *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
+	-$(RM) *.o
 
 install: all install-lib install-inc
 
