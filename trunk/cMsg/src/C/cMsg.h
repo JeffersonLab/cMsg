@@ -144,11 +144,11 @@ extern "C" {
   
   
   /* message access functions */
-  int    cMsgFreeMessage          (void **msg);
+  int    cMsgFreeMessage          (void **vmsg);
   void  *cMsgCreateMessage        (void);
   void  *cMsgCreateNewMessage     (void *vmsg);
-  void  *cMsgCopyMessage          (void *msg);
-  void   cMsgInitMessage          (void *msg);
+  void  *cMsgCopyMessage          (void *vmsg);
+  void   cMsgInitMessage          (void *vmsg);
   void  *cMsgCreateResponseMessage(void *vmsg);
   void  *cMsgCreateNullResponseMessage(void *vmsg);
   
