@@ -1,3 +1,7 @@
+#
+# cMsg vxworks makefile for regexp code
+#
+
 # You probably want to take -DREDEBUG out of CFLAGS, and put something like
 # -O in, *after* testing (-DREDEBUG strengthens testing by enabling a lot of
 # internal assertion checking and some debugging facilities).
@@ -21,7 +25,7 @@ HFILES = regex.h
 # Internal stuff, should not need changing.
 OBJS = regcomp.o regexec.o regerror.o regfree.o
 
-all: echoarch $(REGEX_LIB)
+all: copyObjectFiles $(REGEX_LIB) saveObjectFiles
 
 $(REGEX_LIB): $(OBJS)
 	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
@@ -42,12 +46,14 @@ regcomp.o:	cclass.h cname.h regcomp.ih
 regexec.o:	engine.c engine.ih
 regerror.o:	regerror.ih
 
-echoarch:
-	@echo
-	@echo "Make for $(ARCH) on $(OSNAME)"
-	@echo        
-       
-install: echoarch install-lib install-inc
+copyObjectFiles:
+	-$(RM) *.o
+	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
+
+saveObjectFiles:
+	-cp *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
+
+install: all install-lib install-inc
 
 install-lib: $(REGEX_LIB)
 	@echo "Installing regular expression libraries in $(LIB_DIR)"

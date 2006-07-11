@@ -22,19 +22,22 @@ CMSG_BIT_ARCH =
 BITS = 32
 endif
 
+MESSAGE = "Make for $(OSNAME) on $(PLATFORM), $(BITS) bits"
+
 # if ARCH is defined, do a vxWorks build
 ifeq ($(ARCH),VXWORKSPPC)
 MAKEFILE = Makefile.vxworks
 OSNAME   = vxworks
+MESSAGE  = "Make for $(OSNAME) on $(shell uname), 32 bits"
 PLATFORM =
 CMSG_BIT_ARCH = 
 endif
 
 INC_DIR = $(CMSG_DIR)/inc
-LIB_DIR = $(CMSG_DIR)/arch/$(OSNAME)/$(PLATFORM)/lib/$(CMSG_BIT_ARCH)
-BIN_DIR = $(CMSG_DIR)/arch/$(OSNAME)/$(PLATFORM)/bin/$(CMSG_BIT_ARCH)
+LIB_DIR = $(CMSG_DIR)/arch/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/lib
+BIN_DIR = $(CMSG_DIR)/arch/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/bin
 
-# send this down to lower level makefiles
+# send these definitions down to lower level makefiles
 export INSTALL
 export OSNAME
 export PLATFORM
@@ -44,53 +47,63 @@ export BIN_DIR
 export CMSG_DIR
 export CMSG_BIT_ARCH
 
+# needed directories
+DIRS =  ./inc \
+	./doc/doxygen/C \
+	./doc/doxygen/CC \
+	./arch \
+	./arch/$(OSNAME) \
+	./arch/$(OSNAME)/$(PLATFORM) \
+	./arch/$(OSNAME)/$(PLATFORM)/lib \
+	./arch/$(OSNAME)/$(PLATFORM)/bin \
+	./src/C/.$(OSNAME) \
+	./src/C/.$(OSNAME)/$(PLATFORM) \
+	./src/C/.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH) \
+	./src/CC/.$(OSNAME) \
+	./src/CC/.$(OSNAME)/$(PLATFORM) \
+	./src/CC/.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH) \
+	./src/regexp/.$(OSNAME) \
+	./src/regexp/.$(OSNAME)/$(PLATFORM) \
+	./src/regexp/.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH) \
+	$(LIB_DIR) \
+	$(BIN_DIR)
+
 all: echoarch mkdirs cCode java jarfile
 
 
 echoarch:
 	@echo
-	@echo "Make for $(OSNAME) on $(PLATFORM), $(BITS) bits"
+	@echo $(MESSAGE)
 	@echo
 
-mkdirs:
-	-mkdir ./inc
-	-mkdir ./arch
-	-mkdir ./arch/$(OSNAME)
-	-mkdir ./arch/$(OSNAME)/$(PLATFORM)
-	-mkdir ./arch/$(OSNAME)/$(PLATFORM)/lib
-	-mkdir ./arch/$(OSNAME)/$(PLATFORM)/bin
-	-mkdir $(LIB_DIR)
-	-mkdir $(BIN_DIR)
-	-mkdir ./doc/doxygen/C
-	-mkdir ./doc/doxygen/CC
+mkdirs: mkinstalldirs
+	@echo "Creating directories"
+	./mkinstalldirs $(DIRS)
+	@echo
 
-cCode: echoarch
+cCode: echoarch mkdirs
 	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) install;
-	cd ./src/C;  $(MAKE) -f $(MAKEFILE) install;
-	cd ./src/CC; $(MAKE) -f $(MAKEFILE) install;
-
+	cd ./src/C;       $(MAKE) -f $(MAKEFILE) install;
+	cd ./src/CC;      $(MAKE) -f $(MAKEFILE) install;
 
 tarfile:
 ###	make clean
 	$(RM) cMsg-1.0.tar.gz; tar cvX tarexclude -f cMsg-1.0.tar.gz -z .
 
-
 jarfile:
 	jar cf jar/cMsg-1.0.jar `find org/ -type f | grep -v SCCS | grep -v CVS | grep class`
 
-
 java:
-	cd ./org/jlab/coda/cMsg; $(MAKE);
+	cd ./org/jlab/coda/cMsg;                    $(MAKE);
 	cd ./org/jlab/coda/cMsg/cMsgDomain/client;  $(MAKE);
 	cd ./org/jlab/coda/cMsg/cMsgDomain/server;  $(MAKE);
-	cd ./org/jlab/coda/cMsg/subdomains;  $(MAKE);
-	cd ./org/jlab/coda/cMsg/apps;  $(MAKE);
-	cd ./org/jlab/coda/cMsg/FileDomain;  $(MAKE);
-	cd ./org/jlab/coda/cMsg/CADomain;  $(MAKE);
-	cd ./org/jlab/coda/cMsg/RCServerDomain;  $(MAKE);
+	cd ./org/jlab/coda/cMsg/subdomains;         $(MAKE);
+	cd ./org/jlab/coda/cMsg/apps;               $(MAKE);
+	cd ./org/jlab/coda/cMsg/FileDomain;         $(MAKE);
+	cd ./org/jlab/coda/cMsg/CADomain;           $(MAKE);
+	cd ./org/jlab/coda/cMsg/RCServerDomain;     $(MAKE);
 	cd ./org/jlab/coda/cMsg/RCBroadcastDomain;  $(MAKE);
 	cd ./;
-
 
 doc:  javadoc doxygen
 
@@ -100,8 +113,6 @@ javadoc:
 doxygen:
 	doxygen ./doc/doxygen/DoxyfileC
 	doxygen ./doc/doxygen/DoxyfileCC
-
-
 
 clean: cClean jClean tarClean jarClean
 
@@ -113,17 +124,17 @@ bClean:
 cClean: 
 	-$(RM) -f core *~ *.o *.so *.a *.class
 	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) clean;
-	cd ./src/C;  $(MAKE) -f $(MAKEFILE) clean;
-	cd ./src/CC; $(MAKE) -f $(MAKEFILE) clean;
+	cd ./src/C;       $(MAKE) -f $(MAKEFILE) clean;
+	cd ./src/CC;      $(MAKE) -f $(MAKEFILE) clean;
 
 jClean: 
-	cd ./org/jlab/coda/cMsg;             $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg;                    $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/cMsgDomain/client;  $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/cMsgDomain/server;  $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/subdomains;  $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/apps;        $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/FileDomain;  $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/CADomain;    $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg/subdomains;         $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg/apps;               $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg/FileDomain;         $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg/CADomain;           $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/RCServerDomain;     $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/RCBroadcastDomain;  $(MAKE) clean;
 
@@ -132,7 +143,6 @@ tarClean:
 
 jarClean:
 	-$(RM) jar/cMsg*.jar
-
 
 
 # SUFFIX RULES

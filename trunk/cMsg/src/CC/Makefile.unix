@@ -1,5 +1,7 @@
 #
+# cMsg unix makefile for C++ code
 #
+
 LD  = ld
 AR  = ar
 RANLIB  = ranlib
@@ -48,7 +50,7 @@ ifeq ($(CMSG_BIT_ARCH), 64)
 LIB_STATICXX =
 
 # if SPARC processor
-ifeq ($(PLATFORM), sparc)
+ifeq ($(PLATFORM), sun4u)
 CFLAGS   = -mt -xO5 -xarch=native64 -xcode=pic32 -I. -I$(C_DIR) -I$(INC_DIR) $(AC_FLAGS)
 SHLIB_LD = ld -G -L /lib/64
 # else if AMD processor
@@ -90,7 +92,14 @@ HFILESXX = cMsg.hxx \
 PROGSXX = cMsgCommand cMsgReceive $(CAGATEWAY)
 
 
-all: $(CMSG_LIBSXX) $(PROGSXX)
+all: copyObjectFiles $(CMSG_LIBSXX) $(PROGSXX) saveObjectFiles
+
+copyObjectFiles:
+	-$(RM) *.o
+	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
+
+saveObjectFiles:
+	-cp *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
 
 install: all install-lib install-inc install-bin
 

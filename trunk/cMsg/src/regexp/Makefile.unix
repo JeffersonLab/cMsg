@@ -1,3 +1,7 @@
+#
+# cMsg unix makefile for regexp code
+#
+
 # You probably want to take -DREDEBUG out of CFLAGS, and put something like
 # -O in, *after* testing (-DREDEBUG strengthens testing by enabling a lot of
 # internal assertion checking and some debugging facilities).
@@ -36,7 +40,7 @@ ifeq ($(CMSG_BIT_ARCH), 64)
 LIB_STATIC =
 
 # if SPARC processor
-ifeq ($(PLATFORM), sparc)
+ifeq ($(PLATFORM), sun4u)
 CFLAGS   = -mt -xO5 -xarch=native64 -xcode=pic32 -I. -I$(INC_DIR) $(AC_FLAGS)
 SHLIB_LD = ld -G -L /lib/64
 # else if AMD processor
@@ -63,7 +67,7 @@ PROGS =
 # Internal stuff, should not need changing.
 OBJPRODN=regcomp.o regexec.o regerror.o regfree.o
 
-default: solib lib $(PROGS)
+all: copyObjectFiles solib lib $(PROGS) saveObjectFiles
 
 lib:	$(OBJPRODN)
 	rm -f libcMsgRegex.a
@@ -83,7 +87,14 @@ regcomp.o:	cclass.h cname.h regcomp.ih
 regexec.o:	engine.c engine.ih
 regerror.o:	regerror.ih
        
-install: solib lib install-lib install-inc
+copyObjectFiles:
+	-$(RM) *.o
+	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
+
+saveObjectFiles:
+	-cp *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
+
+install: all install-lib install-inc
 
 install-lib: $(REGEX_LIBS)
 	@echo "Installing regular expression libraries in $(LIB_DIR)"

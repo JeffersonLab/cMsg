@@ -1,5 +1,5 @@
-
-# cMsg will not compile properly under Linux cross compiler
+#
+# cMsg vxworks makefile for C code
 #
 
 INSTALL = cp
@@ -43,24 +43,26 @@ OBJS =  sunConcurrency.o \
 
 HFILES = rwlock.h errors.h cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsg.h cMsgDomain.h rcDomain.h
 
-all: echoarch $(OBJS) $(CMSG_LIB) $(PROGS)
+all: copyObjectFiles $(OBJS) $(CMSG_LIB) $(PROGS) saveObjectFiles
 
 $(CMSG_LIB): $(OBJS)
 	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
 	${RM} $(OBJS)
-
-echoarch:
-	@echo
-	@echo "Make for $(ARCH) on $(OSNAME)"
-	@echo
         
 # file dependencies
-$(OBJS) : $(HFILES)
+$(OBJS) : $(HFILES) $(SRC)
 
 %.o : %.c
 	$(CC) -c $(CFLAGS) $(INCS) -o $@ $<
 
-install: echoarch install-lib install-inc install-bin
+copyObjectFiles:
+	-$(RM) *.o
+	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
+
+saveObjectFiles:
+	-cp *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
+
+install: all install-lib install-inc install-bin
 
 install-lib: $(CMSG_LIB)
 	@echo "Installing regular expression libraries in $(LIB_DIR)"
@@ -85,4 +87,4 @@ install-bin: $(PROGS)
 
 
 clean:
-	rm -f core *~ *.o $(CMSG_LIB)
+	-rm -f core *~ *.o $(CMSG_LIB)

@@ -1,5 +1,7 @@
 #
+# cMsg unix makefile for C code
 #
+
 LD  = ld
 AR  = ar
 RANLIB  = ranlib
@@ -38,7 +40,7 @@ ifeq ($(CMSG_BIT_ARCH), 64)
 LIB_STATIC =
 
 # if SPARC processor
-ifeq ($(PLATFORM), sparc)
+ifeq ($(PLATFORM), sun4u)
 CFLAGS   = -mt -xO5 -xarch=native64 -xcode=pic32 -I. -I$(INC_DIR) $(AC_FLAGS)
 SHLIB_LD = ld -G -L /lib/64
 # else if AMD processor
@@ -86,7 +88,14 @@ HFILES = rwlock.h errors.h cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsg.h cM
 PROGS  = producer consumer getConsumer getResponder shutdowner rcClient
 
 
-all: $(CMSG_LIBS) $(PROGS)
+all: copyObjectFiles $(CMSG_LIBS) $(PROGS) saveObjectFiles
+
+copyObjectFiles:
+	-$(RM) *.o
+	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
+
+saveObjectFiles:
+	-cp *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
 
 install: all install-lib install-inc install-bin
 
@@ -122,7 +131,8 @@ $(LIB_DYNAMIC): $(OBJS)
 # file dependencies
 $(OBJS)   : $(HFILES) $(SRC)
 
-# dummy stuff for example on how to create domain
+# Dummy stuff for example on how to create domain.
+# In this directory, do "make -f Makefile.unix dummydomain".
 LIB_DUMMY = libcmsgDUMMY.so
 
 dummydomain: $(LIB_DUMMY) dummy
@@ -138,6 +148,7 @@ dummy : dummy.c
 # Clean up
 clean: 
 	rm -f core *~ *.o *.so *.a *.class $(PROGS)
+	rm ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o
 
 
 # SUFFIX RULES

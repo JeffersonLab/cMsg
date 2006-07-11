@@ -1,5 +1,5 @@
-
-# cMsg will not compile properly under Linux cross compiler
+#
+# cMsg vxworks makefile for C++ code
 #
 
 C_DIR   = ../C
@@ -35,24 +35,26 @@ HFILES = $(C_DIR)/cMsgNetwork.h \
 
 HFILESXX = cMsg.hxx
 
-all: echoarch $(OBJS) $(CMSG_LIBSXX)
+all: copyObjectFiles $(OBJS) $(CMSG_LIBSXX) saveObjectFiles
 
 $(CMSG_LIBSXX): $(SRCXX)
 	$(CXX) -c $(CFLAGSXX) $(INCS) $(SRCXX)
 	${LD} -o $@ $(OBJSXX)
 
-echoarch:
-	@echo
-	@echo "Make for $(ARCH) on $(OSNAME)"
-	@echo
-        
 # file dependencies
 $(OBJSXX) : $(HFILESXX) $(SRCXX)
 
 %.o : %.cc
 	$(CXX) -c $(CFLAGSXX) $(INCS) -o $@ $<
 
-install: echoarch install-lib install-inc
+copyObjectFiles:
+	-$(RM) *.o
+	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
+
+saveObjectFiles:
+	-cp *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
+
+install: all install-lib install-inc
 
 install-lib: $(CMSG_LIB) $(CMSG_LIBSXX)
 	@echo "Installing vxWorks C++ libraries in $(LIB_DIR)"
@@ -77,4 +79,4 @@ install-bin: $(PROGSXX)
 
 
 clean:
-	rm -f core *~ *.o $(CMSG_LIBSXX)
+	-rm -f core *~ *.o $(CMSG_LIBSXX)
