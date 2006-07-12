@@ -72,7 +72,7 @@ endif
 
 CFLAGSXX  = $(CFLAGS) -Dcppversion
 
-CMSG_LIBSXX = $(LIB_STATICXX) $(LIB_DYNAMICXX)
+CMSG_LIBSXX = $(LIB_DYNAMICXX) $(LIB_STATICXX)
 
 SRCXX =	cMsgWrapper.cc
 
@@ -92,15 +92,15 @@ HFILESXX = cMsg.hxx \
 PROGSXX = cMsgCommand cMsgReceive $(CAGATEWAY)
 
 
-all: copyObjectFiles $(CMSG_LIBSXX) $(PROGSXX) saveObjectFiles
+all: copyFiles $(CMSG_LIBSXX) $(PROGSXX) saveFiles
 
-copyObjectFiles:
-	-$(RM) *.o
-	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
+copyFiles:
+	-rm -f *.o *.so *.a $(PROGSXX)
+	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/* .;
 
-saveObjectFiles:
-	-cp *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
-	-$(RM) *.o
+saveFiles:
+	-cp *.o $(PROGSXX) $(CMSG_LIBSXX) ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
+	-rm -f *.o
 
 install: all install-lib install-inc install-bin
 
@@ -139,7 +139,8 @@ $(LIB_DYNAMICXX): $(OBJSXX)
 $(OBJSXX) : $(HFILES) $(HFILESXX) $(SRCXX)
 
 clean: 
-	rm -f core *~ *.o *.so *.a *.class $(PROGSXX)
+	-rm -f core *~ *.o *.so *.a *.class $(PROGSXX)
+	-rm -f ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*
 
 
 cMsgCAGateway: cMsgCAGateway.cc epics_server.cc

@@ -43,11 +43,10 @@ OBJS =  sunConcurrency.o \
 
 HFILES = rwlock.h errors.h cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsg.h cMsgDomain.h rcDomain.h
 
-all: copyObjectFiles $(OBJS) $(CMSG_LIB) $(PROGS) saveObjectFiles
+all: copyFiles $(OBJS) $(CMSG_LIB) $(PROGS) saveFiles
 
 $(CMSG_LIB): $(OBJS)
 	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
-	${RM} $(OBJS)
         
 # file dependencies
 $(OBJS) : $(HFILES) $(SRC)
@@ -55,13 +54,13 @@ $(OBJS) : $(HFILES) $(SRC)
 %.o : %.c
 	$(CC) -c $(CFLAGS) $(INCS) -o $@ $<
 
-copyObjectFiles:
-	-$(RM) *.o
-	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
+copyFiles:
+	-rm -f *.o *.so *.a
+	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/* .;
 
-saveObjectFiles:
+saveFiles:
 	-cp *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
-	-$(RM) *.o
+	-rm -f $(OBJS)
 
 install: all install-lib install-inc install-bin
 
@@ -88,4 +87,5 @@ install-bin: $(PROGS)
 
 
 clean:
-	-rm -f core *~ *.o $(CMSG_LIB)
+	-rm -f core *~ *.o
+	-rm -f ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*

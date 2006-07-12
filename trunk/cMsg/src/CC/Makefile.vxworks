@@ -35,7 +35,7 @@ HFILES = $(C_DIR)/cMsgNetwork.h \
 
 HFILESXX = cMsg.hxx
 
-all: copyObjectFiles $(OBJS) $(CMSG_LIBSXX) saveObjectFiles
+all: copyFiles $(OBJS) $(CMSG_LIBSXX) saveFiles
 
 $(CMSG_LIBSXX): $(SRCXX)
 	$(CXX) -c $(CFLAGSXX) $(INCS) $(SRCXX)
@@ -47,13 +47,13 @@ $(OBJSXX) : $(HFILESXX) $(SRCXX)
 %.o : %.cc
 	$(CXX) -c $(CFLAGSXX) $(INCS) -o $@ $<
 
-copyObjectFiles:
-	-$(RM) *.o
-	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
+copyFiles:
+	-rm -f *.o *.so *.a
+	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/* .;
 
-saveObjectFiles:
+saveFiles:
 	-cp *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
-	-$(RM) *.o
+	-rm -f $(OBJSXX)
 
 install: all install-lib install-inc
 
@@ -80,4 +80,5 @@ install-bin: $(PROGSXX)
 
 
 clean:
-	-rm -f core *~ *.o $(CMSG_LIBSXX)
+	-rm -f core *~ *.o
+	-rm -f ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*

@@ -59,7 +59,7 @@ endif
 
 endif
 
-CMSG_LIBS = $(LIB_STATIC) $(LIB_DYNAMIC)
+CMSG_LIBS = $(LIB_DYNAMIC) $(LIB_STATIC)
 
 SRC =   sunConcurrency.c \
 	rwlock.c \
@@ -88,15 +88,15 @@ HFILES = rwlock.h errors.h cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsg.h cM
 PROGS  = producer consumer getConsumer getResponder shutdowner rcClient
 
 
-all: copyObjectFiles $(CMSG_LIBS) $(PROGS) saveObjectFiles
+all: copyFiles $(CMSG_LIBS) $(PROGS) saveFiles
 
-copyObjectFiles:
-	-$(RM) *.o
-	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
+copyFiles:
+	-rm -f *.o *.so *.a $(PROGS)
+	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/* .;
 
-saveObjectFiles:
-	-cp *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
-	-$(RM) *.o
+saveFiles:
+	-cp *.o $(PROGS) $(CMSG_LIBS) ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
+	-rm -f *.o
 
 install: all install-lib install-inc install-bin
 
@@ -148,8 +148,8 @@ dummy : dummy.c
 
 # Clean up
 clean: 
-	rm -f core *~ *.o *.so *.a *.class $(PROGS)
-	rm ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o
+	-rm -f core *~ *.o *.so *.a *.class $(PROGS)
+	-rm -f ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*
 
 
 # SUFFIX RULES

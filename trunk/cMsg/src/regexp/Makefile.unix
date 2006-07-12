@@ -59,7 +59,7 @@ endif
 
 endif
 
-REGEX_LIBS = $(LIB_STATIC) $(LIB_DYNAMIC)
+REGEX_LIBS = $(LIB_DYNAMIC) $(LIB_STATIC)
 HFILES = regex.h
 
 PROGS =
@@ -67,7 +67,7 @@ PROGS =
 # Internal stuff, should not need changing.
 OBJPRODN=regcomp.o regexec.o regerror.o regfree.o
 
-all: copyObjectFiles solib lib $(PROGS) saveObjectFiles
+all: copyFiles solib lib $(PROGS) saveFiles
 
 lib:	$(OBJPRODN)
 	rm -f libcMsgRegex.a
@@ -87,13 +87,13 @@ regcomp.o:	cclass.h cname.h regcomp.ih
 regexec.o:	engine.c engine.ih
 regerror.o:	regerror.ih
        
-copyObjectFiles:
-	-$(RM) *.o
-	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
+copyFiles:
+	-rm -f *.o *.so *.a *.ih
+	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/* .;
 
-saveObjectFiles:
-	-cp *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
-	-$(RM) *.o
+saveFiles:
+	-cp *.o *.ih $(REGEX_LIBS) ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
+	-rm -f *.o *.ih
 
 install: all install-lib install-inc
 
@@ -119,5 +119,6 @@ tidy:
 	rm -f junk* core core.* *.core dtr *.tmp lint
 
 clean:	tidy
-	rm -f *.o *.s *.ih re libcMsgRegex.a libcMsgRegex.so
+	-rm -f *.o *.s *.ih re libcMsgRegex.a libcMsgRegex.so
+	-rm -f ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*
         

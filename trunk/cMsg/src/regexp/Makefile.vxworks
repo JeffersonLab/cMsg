@@ -25,7 +25,7 @@ HFILES = regex.h
 # Internal stuff, should not need changing.
 OBJS = regcomp.o regexec.o regerror.o regfree.o
 
-all: copyObjectFiles $(REGEX_LIB) saveObjectFiles
+all: copyFiles $(REGEX_LIB) saveFiles
 
 $(REGEX_LIB): $(OBJS)
 	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
@@ -46,13 +46,13 @@ regcomp.o:	cclass.h cname.h regcomp.ih
 regexec.o:	engine.c engine.ih
 regerror.o:	regerror.ih
 
-copyObjectFiles:
-	-$(RM) *.o
+copyFiles:
+	-rm -f *.o *.so *.a *.ih
 	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
 
-saveObjectFiles:
-	-cp *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
-	-$(RM) *.o
+saveFiles:
+	-cp *.o  *.ih ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
+	-rm -f $(OBJS) *.ih
 
 install: all install-lib install-inc
 
@@ -78,6 +78,7 @@ tidy:
 	rm -f junk* core core.* *.core dtr *.tmp lint
 
 clean:	tidy
-	rm -f *.o *.s *.ih re libRegex
+	-rm -f *.o *.s *.ih re
+	-rm -f ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*
         
 
