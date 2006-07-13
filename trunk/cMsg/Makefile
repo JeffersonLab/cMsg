@@ -1,12 +1,18 @@
 #
 # cMsg top level Makefile
 #
+#     Set the env var CMSG_INSTALL to the directory in which
+#     you want the libs, executables,and docs placed. If not
+#     set this defaults to this (top cMsg) directory.
+#
+#     Set the env var CMSG_USE64BITS if you want to compile
+#     64 bit libs and executables and are running on a 64
+#     bit machine.
 #
 
 MAKEFILE = Makefile.unix
-INSTALL  = $(CMSG_DIR)/install-sh -c
 
-# operating system, platform, processor bits we are using
+# operating system, platform, # of processor bits we are using
 OSNAME   := $(shell uname)
 PLATFORM := $(shell uname -m)
 CMSG_DIR := $(shell pwd)
@@ -22,6 +28,14 @@ CMSG_BIT_ARCH =
 BITS = 32
 endif
 
+# Define the installation directory.
+# By default use the cMsg directory,
+# else we the directory specified in the
+# CMSG_INSTALL environmental variable.
+ifneq ($(findstring CMSG_INSTALL, $(shell env | grep CMSG_INSTALL)), CMSG_INSTALL) 
+CMSG_INSTALL = $(CMSG_DIR)
+endif
+
 MESSAGE = "Make for $(OSNAME) on $(PLATFORM), $(BITS) bits"
 
 # if ARCH is defined, do a vxWorks build
@@ -33,12 +47,11 @@ PLATFORM =
 CMSG_BIT_ARCH = 
 endif
 
-INC_DIR = $(CMSG_DIR)/inc
-LIB_DIR = $(CMSG_DIR)/arch/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/lib
-BIN_DIR = $(CMSG_DIR)/arch/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/bin
+INC_DIR = $(CMSG_INSTALL)/inc
+LIB_DIR = $(CMSG_INSTALL)/arch/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/lib
+BIN_DIR = $(CMSG_INSTALL)/arch/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/bin
 
 # send these definitions down to lower level makefiles
-export INSTALL
 export OSNAME
 export PLATFORM
 export INC_DIR
@@ -48,14 +61,17 @@ export CMSG_DIR
 export CMSG_BIT_ARCH
 
 # needed directories
-DIRS =  ./inc \
-	./doc/doxygen/C \
-	./doc/doxygen/CC \
-	./arch \
-	./arch/$(OSNAME) \
-	./arch/$(OSNAME)/$(PLATFORM) \
-	./arch/$(OSNAME)/$(PLATFORM)/lib \
-	./arch/$(OSNAME)/$(PLATFORM)/bin \
+DIRS =  $(INC_DIR) \
+	$(CMSG_INSTALL)/doc \
+	$(CMSG_INSTALL)/doc/doxygen \
+	$(CMSG_INSTALL)/doc/doxygen/C \
+	$(CMSG_INSTALL)/doc/doxygen/CC \
+	$(CMSG_INSTALL)/arch \
+	$(CMSG_INSTALL)/arch/$(OSNAME) \
+	$(CMSG_INSTALL)/arch/$(OSNAME)/$(PLATFORM) \
+	$(CMSG_INSTALL)/arch/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH) \
+	$(LIB_DIR) \
+	$(BIN_DIR) \
 	./src/C/.$(OSNAME) \
 	./src/C/.$(OSNAME)/$(PLATFORM) \
 	./src/C/.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH) \
@@ -64,12 +80,9 @@ DIRS =  ./inc \
 	./src/CC/.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH) \
 	./src/regexp/.$(OSNAME) \
 	./src/regexp/.$(OSNAME)/$(PLATFORM) \
-	./src/regexp/.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH) \
-	$(LIB_DIR) \
-	$(BIN_DIR)
+	./src/regexp/.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)
 
 all: echoarch mkdirs cCode java jarfile
-
 
 echoarch:
 	@echo
@@ -105,16 +118,17 @@ java:
 	cd ./org/jlab/coda/cMsg/CADomain;           $(MAKE);
 	cd ./org/jlab/coda/cMsg/RCServerDomain;     $(MAKE);
 	cd ./org/jlab/coda/cMsg/RCBroadcastDomain;  $(MAKE);
-	cd ./;
 
 doc:  javadoc doxygen
 
 javadoc:
-	javadoc -package -d doc/javadoc org.jlab.coda.cMsg
+	javadoc -package -d $(CMSG_INSTALL)/doc/javadoc org.jlab.coda.cMsg
 
 doxygen:
-	doxygen ./doc/doxygen/DoxyfileC
-	doxygen ./doc/doxygen/DoxyfileCC
+	@echo installing documentation in $(CMSG_INSTALL)
+	@echo
+	export CMSG_INSTALL=$(CMSG_INSTALL) ; doxygen ./doc/doxygen/DoxyfileC
+	export CMSG_INSTALL=$(CMSG_INSTALL) ; doxygen ./doc/doxygen/DoxyfileCC
 
 clean: cClean jClean tarClean jarClean
 
