@@ -2,9 +2,8 @@
 # cMsg unix makefile for C code
 #
 
-LD  = ld
-AR  = ar
-RANLIB  = ranlib
+AR     = ar
+RANLIB = ranlib
 
 LIBNAM      = libcmsg
 LIB_STATIC  = $(LIBNAM).a
