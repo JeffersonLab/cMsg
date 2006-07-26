@@ -223,7 +223,7 @@ public class RCServer extends cMsgDomainAdapter {
      * @throws IOException if socket cannot be created
      */
     public void createTCPClientConnection(String clientHost, int clientPort) throws IOException {
-        Socket socket = new Socket(clientHost, clientPort);
+        socket = new Socket(clientHost, clientPort);
         // Set tcpNoDelay so no packets are delayed
         socket.setTcpNoDelay(true);
         // set buffer size
