@@ -316,11 +316,11 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
   cMsgDomainInfo *domain;
 
   /* allocate struct to hold connection info */
-  domain = (cMsgDomainInfo *) malloc(sizeof(cMsgDomainInfo));
+  domain = (cMsgDomainInfo *) calloc(1, sizeof(cMsgDomainInfo));
   if (domain == NULL) {
     return(CMSG_OUT_OF_MEMORY);  
   }
-  cMsgDomainInit(domain, 0);  
+  cMsgDomainInit(domain);  
 
   /* allocate memory for message-sending buffer */
   domain->msgBuffer     = (char *) malloc(initialMsgBufferSize);
