@@ -36,7 +36,7 @@ int cMsgProducer(void) {
   char *type    = "TYPE";
   char *text    = "TEXT";
   char *bytes   = NULL;
-  char *UDL     = "cMsg:cMsg://phecda:3456/cMsg/test";
+  char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/test";
   int   err, debug=1, msgSize=0, counter=0;
   void *msg, *domainId;
   
