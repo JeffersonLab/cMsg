@@ -257,8 +257,9 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
   if (!oneTimeInitialized) {
 
     /* clear array */
-    for (i=0; i<CMSG_MAX_DOMAIN_TYPES; i++) dTypeInfo[i].type = NULL;
-/*    for (i=0; i<CMSG_MAX_DOMAINS; i++) domainInit(&domains[i]);*/
+    for (i=0; i<CMSG_MAX_DOMAIN_TYPES; i++) {
+        dTypeInfo[i].type = NULL;
+    }
 
     /* register domain types */
     if ( (err = registerPermanentDomains()) != CMSG_OK ) {
