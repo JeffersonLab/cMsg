@@ -49,8 +49,8 @@
 static const char *excludedChars = "`\'\"";
 
 /* local prototypes */
-static void  getInfoInit(getInfo *info, int reInit);
-static void  subscribeInfoInit(subInfo *info, int reInit);
+static void  getInfoInit(getInfo *info);
+static void  subscribeInfoInit(subInfo *info);
 static void  getInfoFree(getInfo *info);
 static void  subscribeInfoFree(subInfo *info);
 static void  parsedUDLFree(parsedUDL *p);  
@@ -309,7 +309,7 @@ int cMsgGetAbsoluteTime(const struct timespec *deltaTime, struct timespec *absTi
  * This routine initializes the structure used to handle a get - 
  * either a sendAndGet or a subscribeAndGet.
  */
-static void getInfoInit(getInfo *info, int reInit) {
+static void getInfoInit(getInfo *info) {
     int status;
     
     info->id      = 0;
@@ -321,11 +321,6 @@ static void getInfoInit(getInfo *info, int reInit) {
     info->subject = NULL;    
     info->msg     = NULL;
     
-#ifdef VXWORKS
-    /* vxworks only lets us initialize mutexes and cond vars once */
-    if (reInit) return;
-#endif
-
     status = pthread_cond_init(&info->cond, NULL);
     if (status != 0) {
       err_abort(status, "getInfoInit:initializing condition var");
@@ -341,7 +336,7 @@ static void getInfoInit(getInfo *info, int reInit) {
 
 
 /** This routine initializes the structure used to handle a subscribe. */
-static void subscribeInfoInit(subInfo *info, int reInit) {
+static void subscribeInfoInit(subInfo *info) {
     int j, status;
     
     info->id            = 0;
@@ -369,11 +364,6 @@ static void subscribeInfoInit(subInfo *info, int reInit) {
       info->cbInfo[j].config.maxThreads    = 100;
       info->cbInfo[j].config.msgsPerThread = 150;
       
-#ifdef VXWORKS
-      /* vxworks only lets us initialize mutexes and cond vars once */
-      if (reInit) continue;
-#endif
-
       status = pthread_cond_init (&info->cbInfo[j].cond,  NULL);
       if (status != 0) {
         err_abort(status, "subscribeInfoInit:initializing condition var");
@@ -393,7 +383,7 @@ static void subscribeInfoInit(subInfo *info, int reInit) {
  * This routine initializes the structure used to hold connection-to-
  * a-domain information.
  */
-void cMsgDomainInit(cMsgDomainInfo *domain, int reInit) {
+void cMsgDomainInit(cMsgDomainInfo *domain) {
   int i, status;
  
   domain->receiveState        = 0;
@@ -442,24 +432,19 @@ void cMsgDomainInit(cMsgDomainInfo *domain, int reInit) {
   domain->msgInBuffer[0]      = NULL;
   domain->msgInBuffer[1]      = NULL;
         
-  cMsgCountDownLatchInit(&domain->syncLatch, 1, reInit);
+  cMsgCountDownLatchInit(&domain->syncLatch, 1);
 
   for (i=0; i<CMSG_MAX_SUBSCRIBE; i++) {
-    subscribeInfoInit(&domain->subscribeInfo[i], reInit);
+    subscribeInfoInit(&domain->subscribeInfo[i]);
   }
   
   for (i=0; i<CMSG_MAX_SUBSCRIBE_AND_GET; i++) {
-    getInfoInit(&domain->subscribeAndGetInfo[i], reInit);
+    getInfoInit(&domain->subscribeAndGetInfo[i]);
   }
   
   for (i=0; i<CMSG_MAX_SEND_AND_GET; i++) {
-    getInfoInit(&domain->sendAndGetInfo[i], reInit);
+    getInfoInit(&domain->sendAndGetInfo[i]);
   }
-
-#ifdef VXWORKS
-  /* vxworks only lets us initialize mutexes and cond vars once */
-  if (reInit) return;
-#endif
 
   status = rwl_init(&domain->connectLock);
   if (status != 0) {
@@ -685,7 +670,7 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
  */
 void cMsgDomainClear(cMsgDomainInfo *domain) {
   cMsgDomainFree(domain);
-  cMsgDomainInit(domain, 1);
+  cMsgDomainInit(domain);
 }
 
  
@@ -694,17 +679,12 @@ void cMsgDomainClear(cMsgDomainInfo *domain) {
 /**
  * This routine initializes the structure used to implement a countdown latch.
  */
-void cMsgCountDownLatchInit(countDownLatch *latch, int count, int reInit) {
+void cMsgCountDownLatchInit(countDownLatch *latch, int count) {
     int status;
     
     latch->count   = count;
     latch->waiters = 0;
     
-#ifdef VXWORKS
-    /* vxworks only lets us initialize mutexes and cond vars once */
-    if (reInit) return;
-#endif
-
     status = pthread_mutex_init(&latch->mutex, NULL);
     if (status != 0) {
       err_abort(status, "countDownLatchInit:initializing mutex");

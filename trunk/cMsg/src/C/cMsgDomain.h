@@ -264,7 +264,7 @@ void  cMsgSyncSendMutexUnlock(cMsgDomainInfo *domain);
 void  cMsgSubscribeMutexLock(cMsgDomainInfo *domain);
 void  cMsgSubscribeMutexUnlock(cMsgDomainInfo *domain);
 void  cMsgCountDownLatchFree(countDownLatch *latch); 
-void  cMsgCountDownLatchInit(countDownLatch *latch, int count, int reInit);
+void  cMsgCountDownLatchInit(countDownLatch *latch, int count);
 void  cMsgLatchReset(countDownLatch *latch, int count, const struct timespec *timeout);
 int   cMsgLatchCountDown(countDownLatch *latch, const struct timespec *timeout);
 int   cMsgLatchAwait(countDownLatch *latch, const struct timespec *timeout);
@@ -275,7 +275,7 @@ void *cMsgCallbackThread(void *arg);
 void *cMsgSupplementalThread(void *arg);
 
 /* initialization and freeing */
-void  cMsgDomainInit(cMsgDomainInfo *domain, int reInit);
+void  cMsgDomainInit(cMsgDomainInfo *domain);
 void  cMsgDomainClear(cMsgDomainInfo *domain);
 void  cMsgDomainFree(cMsgDomainInfo *domain);
 

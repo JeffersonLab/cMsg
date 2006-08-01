@@ -230,7 +230,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     if (domain == NULL) {
       return(CMSG_OUT_OF_MEMORY);  
     }
-    cMsgDomainInit(domain, 0);  
+    cMsgDomainInit(domain);  
 
     /* allocate memory for message-sending buffer */
     domain->msgBuffer     = (char *) malloc(initialMsgBufferSize);
