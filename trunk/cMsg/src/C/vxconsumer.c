@@ -36,7 +36,8 @@ int cMsgConsumer(void) {
   char *myDescription = "trial run";
   char *subject = "SUBJECT";
   char *type    = "TYPE";
-  int err, domainId = -1;
+  int   err, loops=5;
+  void *domainId;
   cMsgSubscribeConfig *config;
   void *unsubHandle;
   
@@ -67,7 +68,7 @@ int cMsgConsumer(void) {
       exit(1);
   }
        
-  while (1) {
+  while (loops-- > 0) {
       count = 0;
       
       /* wait for messages */
@@ -104,8 +105,8 @@ int cMsgGetConsumer(void) {
     char *UDL     = "cMsg:cMsg://aslan:3456/cMsg/vx";
     char *myName  = "VX-getconsumer";
     char *myDescription = "trial run";
-    int   i, err, domainId = -1;
-    void  *msg, *getMsg;
+    int   i, err;
+    void *domainId, *msg, *getMsg;
     
     /* msg rate measuring variables */
     int             count, loops=1000, ignore=5;
