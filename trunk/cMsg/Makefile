@@ -47,7 +47,7 @@ PLATFORM =
 CMSG_BIT_ARCH = 
 endif
 
-INC_DIR = $(CMSG_INSTALL)/inc
+INC_DIR = $(CMSG_INSTALL)/common/inc
 LIB_DIR = $(CMSG_INSTALL)/arch/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/lib
 BIN_DIR = $(CMSG_INSTALL)/arch/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/bin
 
@@ -61,8 +61,13 @@ export CMSG_DIR
 export CMSG_BIT_ARCH
 
 # needed directories
-DIRS =  $(INC_DIR) \
+DIRS =  $(CMSG_INSTALL)/common \
+	$(CMSG_INSTALL)/common/jar \
+	$(CMSG_INSTALL)/common/tar \
 	$(CMSG_INSTALL)/doc \
+	$(CMSG_INSTALL)/doc/users_guide \
+	$(CMSG_INSTALL)/doc/developers_guide \
+	$(CMSG_INSTALL)/doc/javadoc \
 	$(CMSG_INSTALL)/doc/doxygen \
 	$(CMSG_INSTALL)/doc/doxygen/C \
 	$(CMSG_INSTALL)/doc/doxygen/CC \
@@ -70,6 +75,7 @@ DIRS =  $(INC_DIR) \
 	$(CMSG_INSTALL)/arch/$(OSNAME) \
 	$(CMSG_INSTALL)/arch/$(OSNAME)/$(PLATFORM) \
 	$(CMSG_INSTALL)/arch/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH) \
+	$(INC_DIR) \
 	$(LIB_DIR) \
 	$(BIN_DIR) \
 	./src/C/.$(OSNAME) \
@@ -81,6 +87,12 @@ DIRS =  $(INC_DIR) \
 	./src/regexp/.$(OSNAME) \
 	./src/regexp/.$(OSNAME)/$(PLATFORM) \
 	./src/regexp/.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)
+
+# for improved performance declare that none of these targets
+# produce files of that name (.PHONY)
+
+.PHONY : all echoarch mkdirs cCode tarfile jarfile java doc doxygen
+.PHONY : clean distClean bClean cClean jClean tarClean jarClean
 
 all: echoarch mkdirs cCode java jarfile
 
@@ -100,13 +112,14 @@ cCode: echoarch mkdirs
 	cd ./src/CC;      $(MAKE) -f $(MAKEFILE) install;
 
 tarfile:
-###	make clean
-	$(RM) cMsg-1.0.tar.gz;
-	cd ..; tar cvX ./cMsg/tarexclude -f cMsg-1.0.tar.gz -z ./cMsg
-	-mv ../cMsg-1.0.tar.gz .
+	-$(RM) -f common/tar/cMsg-1.0.tar.gz;
+	cd ..; tar cvX ./cMsg/common/tar/tarexclude -f cMsg-1.0.tar.gz -z ./cMsg
+	-mv ../cMsg-1.0.tar.gz  common/tar/.
+	-cp -p common/tar/cMsg-1.0.tar.gz  $(CMSG_INSTALL)/common/tar/.
 
 jarfile:
-	jar cf jar/cMsg-1.0.jar `find org/ -type f | grep -v SCCS | grep -v CVS | grep class`
+	jar cf common/jar/cMsg-1.0.jar `find org/ -type f | grep -v SCCS | grep -v CVS | grep class`
+	-cp -p common/jar/*.jar $(CMSG_INSTALL)/common/jar/.
 
 java:
 	cd ./org/jlab/coda/cMsg;                    $(MAKE);
@@ -119,13 +132,17 @@ java:
 	cd ./org/jlab/coda/cMsg/RCServerDomain;     $(MAKE);
 	cd ./org/jlab/coda/cMsg/RCBroadcastDomain;  $(MAKE);
 
-doc:  javadoc doxygen
+doc:  javadoc doxygen wordfiles
+
+wordfiles:
+	-cp -p doc/developers_guide/*.doc  $(CMSG_INSTALL)/doc/developers_guide/.
+	-cp -p doc/users_guide/*.doc       $(CMSG_INSTALL)/doc/users_guide/.
 
 javadoc:
 	javadoc -package -d $(CMSG_INSTALL)/doc/javadoc org.jlab.coda.cMsg
 
 doxygen:
-	@echo installing documentation in $(CMSG_INSTALL)
+	@echo installing doxygen documentation in $(CMSG_INSTALL)
 	@echo
 	export CMSG_INSTALL=$(CMSG_INSTALL) ; doxygen ./doc/doxygen/DoxyfileC
 	export CMSG_INSTALL=$(CMSG_INSTALL) ; doxygen ./doc/doxygen/DoxyfileCC
@@ -155,15 +172,7 @@ jClean:
 	cd ./org/jlab/coda/cMsg/RCBroadcastDomain;  $(MAKE) clean;
 
 tarClean:
-	-$(RM) *.tar.gz
+	-$(RM) common/tar/cMsg-1.0.tar.gz
 
 jarClean:
-	-$(RM) jar/cMsg*.jar
-
-
-# SUFFIX RULES
-
-.SUFFIXES: .java .class
-
-.java.class:
-	java $< $(JAVAC_FLAGS)
+	-$(RM) common/jar/cMsg-1.0.jar
