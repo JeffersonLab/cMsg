@@ -242,8 +242,6 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
       
   /* parse the UDL - Uniform Domain Locator */
   if ( (err = parseUDL(myUDL, &domainType, &UDLremainder)) != CMSG_OK ) {
-    /* there's been a parsing error */
-    connectMutexUnlock();
     return(err);
   }  
 
