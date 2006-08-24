@@ -226,7 +226,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     }
 
     /* allocate struct to hold connection info */
-    domain = (cMsgDomainInfo *) malloc(sizeof(cMsgDomainInfo));
+    domain = (cMsgDomainInfo *) calloc(1, sizeof(cMsgDomainInfo));
     if (domain == NULL) {
       return(CMSG_OUT_OF_MEMORY);  
     }
