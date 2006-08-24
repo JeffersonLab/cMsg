@@ -280,7 +280,7 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
   
 
   /* allocate struct to hold connection info */
-  domain = (cMsgDomain *) malloc(sizeof(cMsgDomain));
+  domain = (cMsgDomain *) calloc(1, sizeof(cMsgDomain));
   if (domain == NULL) {
     connectMutexUnlock();
     return(CMSG_OUT_OF_MEMORY);  
