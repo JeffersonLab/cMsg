@@ -282,7 +282,6 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
   /* allocate struct to hold connection info */
   domain = (cMsgDomain *) calloc(1, sizeof(cMsgDomain));
   if (domain == NULL) {
-    connectMutexUnlock();
     return(CMSG_OUT_OF_MEMORY);  
   }
   domainInit(domain);  
@@ -315,7 +314,6 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
   if (err != CMSG_OK) {
     domainFree(domain);
     free(domain);
-    connectMutexUnlock();
     return err;
   }  
   
