@@ -472,11 +472,20 @@ printf("Sending tcp port = %d, expid = %s to port = %hu on host %s\n",
 
         cMsgGetAbsoluteTime(&wait, &time);
         
+        status = pthread_mutex_lock(&mutex);
+        if (status != 0) {
+            err_abort(status, "pthread_mutex_lock");
+        }
+        
         status = pthread_cond_timedwait(&cond, &mutex, &time);
         if (status == ETIMEDOUT) {
             /* go forever if broadcastTO == 0 */
             if (broadcastTO > 0) {       
                 numLoops--;
+            }
+            status = pthread_mutex_unlock(&mutex);
+            if (status != 0) {
+                err_abort(status, "pthread_mutex_lock");
             }
             continue;
         }
@@ -484,6 +493,11 @@ printf("Sending tcp port = %d, expid = %s to port = %hu on host %s\n",
             err_abort(status, "pthread_cond_timedwait");
         }
         
+        status = pthread_mutex_unlock(&mutex);
+        if (status != 0) {
+            err_abort(status, "pthread_mutex_lock");
+        }
+
         gotResponse = 1;
     }
 
