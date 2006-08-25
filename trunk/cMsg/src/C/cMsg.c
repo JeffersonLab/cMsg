@@ -806,8 +806,8 @@ char *cMsgPerror(int error) {
     break;
 
   case CMSG_SOCKET_ERROR:
-    sprintf(temp, "CMSG_NETWORK_ERROR:  error setting socket options\n");
-    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_NETWORK_ERROR:  error setting socket options\n");
+    sprintf(temp, "CMSG_SOCKET_ERROR:  error setting socket options\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_SOCKET_ERROR:  error setting socket options\n");
     break;
 
   case CMSG_PEND_ERROR:
