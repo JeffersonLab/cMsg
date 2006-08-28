@@ -416,12 +416,11 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
  */
 int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
 {
-  int isDottedDecimal=0;
+  int err=0, isDottedDecimal=0;
   const char *pattern = "([0-9]+\\.[0-9\\.]+)";
   regmatch_t matches[2]; /* we have 2 potential matches: 1 whole, 1 sub */
   regex_t    compiled;
 #ifndef VXWORKS
-  int                 err=0;
   int                 status;
   struct in_addr      **pptr;
   struct hostent      *hp;
@@ -463,15 +462,22 @@ int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
 #if defined VXWORKS
 
   if (isDottedDecimal) {
-    addr->sin_addr.s_addr = (int) inet_addr((char *) ip_address);
+    err = addr->sin_addr.s_addr = (int) inet_addr((char *) ip_address);
+    /* If ip_address = 255.255.255.255, then err = -1 (= ERROR)
+     * no matter what. There's no way to check for an error in this
+     * case so assume things are OK.
+     */
+    if (strcmp("255.255.255.255", ip_address) == 0) {
+      err = 0;
+    }
     /* free up memory */
     cMsgRegfree(&compiled);
   }
   else {
-    addr->sin_addr.s_addr = hostGetByName((char *) ip_address);
+    err = addr->sin_addr.s_addr = hostGetByName((char *) ip_address);
   }
   
-  if ((int)addr->sin_addr.s_addr == ERROR) {
+  if (err == ERROR) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cMsgStringToNumericIPaddr: unknown address for host %s\n",ip_address);
     }
