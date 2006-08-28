@@ -410,11 +410,16 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
  * @param addr pointer to struct holding the binary numeric value of the host
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if internal logic error
  * @returns CMSG_BAD_ARGUMENT if ip_address is null
  * @returns CMSG_NETWORK_ERROR if the numeric address could not be obtained
  */
 int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
 {
+  int isDottedDecimal=0;
+  const char *pattern = "([0-9]+\\.[0-9\\.]+)";
+  regmatch_t matches[2]; /* we have 2 potential matches: 1 whole, 1 sub */
+  regex_t    compiled;
 #ifndef VXWORKS
   int                 err=0;
   int                 status;
@@ -429,14 +434,43 @@ int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
 #endif
 
   if (ip_address == NULL) {
-     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: null argument\n");
-     return(CMSG_BAD_ARGUMENT);
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgStringToNumericIPaddr: null argument\n");
+    return(CMSG_BAD_ARGUMENT);
   }
   	
+  /*
+   * Check to see if ip_address is in dotted-decimal form. If so, use different
+   * routines to process that address than if it were a name.
+   */
+
+  /* compile regular expression */
+  err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED);
+  if (err != 0) {
+     return(CMSG_ERROR);
+  }
+
+  /* find matches */
+  err = cMsgRegexec(&compiled, ip_address, 2, matches, 0);
+  if (err != 0) {
+    /* no match so not in dotted-decimal form */
+    cMsgRegfree(&compiled);
+  }
+  else {
+    isDottedDecimal = 1;
+  }
+
 
 #if defined VXWORKS
 
-  addr->sin_addr.s_addr = hostGetByName((char *) ip_address);
+  if (isDottedDecimal) {
+    addr->sin_addr.s_addr = (int) inet_addr((char *) ip_address);
+    /* free up memory */
+    cMsgRegfree(&compiled);
+  }
+  else {
+    addr->sin_addr.s_addr = hostGetByName((char *) ip_address);
+  }
+  
   if ((int)addr->sin_addr.s_addr == ERROR) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cMsgStringToNumericIPaddr: unknown address for host %s\n",ip_address);
@@ -445,29 +479,8 @@ int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
   }
 
 #else
-  /*
-   * Check to see if ip_address is in dotted-decimal form. If so, use inet_pton,
-   * else we must do something more complicated.
-   */
-  while(1) {
-    const char *pattern = "([0-9]+\\.[0-9\\.]+)";
-    regmatch_t matches[2]; /* we have 2 potential matches: 1 whole, 1 sub */
-    regex_t    compiled;
 
-    /* compile regular expression */
-    err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED);
-    if (err != 0) {
-      break;
-    }
-
-    /* find matches */
-    err = cMsgRegexec(&compiled, ip_address, 2, matches, 0);
-    if (err != 0) {
-      /* no match so not in dotted-decimal form */
-      cMsgRegfree(&compiled);
-      break;
-    }
-
+  if (isDottedDecimal) {
     if (inet_pton(AF_INET, ip_address, &addr->sin_addr) < 1) {
       cMsgRegfree(&compiled);
       return(CMSG_NETWORK_ERROR);
@@ -498,7 +511,7 @@ int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
     if (result != NULL) free(result);
     free(buff);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errnop));
+      fprintf(stderr, "cMsgStringToNumericIPaddr: hostname error - %s\n", cMsgHstrerror(h_errnop));
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -522,7 +535,7 @@ int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
  * http://curl.haxx.se/mail/lib-2003-10/0201.html
  * http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6369541
  
- * Sooo, let's us the non-reentrant version and simply protect
+ * Sooo, let's use the non-reentrant version and simply protect
  * with our own mutex.
  */
  
@@ -538,7 +551,7 @@ int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
       err_abort(status, "Unlock gethostbyname Mutex");
     }
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errnop));
+      fprintf(stderr, "cMsgStringToNumericIPaddr: hostname error - %s\n", cMsgHstrerror(h_errnop));
     }
     return(CMSG_NETWORK_ERROR);
   }
