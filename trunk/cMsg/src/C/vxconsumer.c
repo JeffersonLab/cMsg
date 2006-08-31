@@ -42,7 +42,7 @@ int cMsgConsumer(void) {
   void *unsubHandle;
   
   /* msg rate measuring variables */
-  int             period = 5, ignore=4;
+  int             period = 5, ignore=0;
   double          freq, freqAvg=0., totalT=0.;
   long long       totalC=0;
   
@@ -86,6 +86,8 @@ int cMsgConsumer(void) {
           ignore--;
       } 
   }
+  
+  cMsgDisconnect(&domainId);
 
   return(0);
 }
