@@ -60,15 +60,18 @@
 
 
 /**
- * Structure for arg to be passed to receiver thread.
- * Allows data to flow back and forth with receiver thread.
+ * Structure for arg to be passed to receiver/broadcast threads.
+ * Allows data to flow back and forth with these threads.
  */
-typedef struct receiverArg_t {
+typedef struct thdArg_t {
     int sockfd;
     socklen_t len;
     unsigned short port;
-    struct sockaddr_in clientaddr;
-} receiverArg;
+    struct sockaddr_in addr;
+    struct sockaddr_in *paddr;
+    int   bufferLen;
+    char *buffer;
+} thdArg;
 
 /* built-in limits */
 /** Number of seconds to wait for cMsgClientListeningThread threads to start. */
@@ -99,7 +102,8 @@ static pthread_cond_t cond   = PTHREAD_COND_INITIALIZER;
 /* Local prototypes */
 static void  staticMutexLock(void);
 static void  staticMutexUnlock(void);
-static void *receiver(void *arg);
+static void *receiverThd(void *arg);
+static void *broadcastThd(void *arg);
 static void  defaultShutdownHandler(void *userArg);
 static int   parseUDL(const char *UDLR, char **host,
                       unsigned short *port, char **expid,
@@ -206,12 +210,12 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     int    hz, num_try, try_max;
     struct timespec waitForThread;
     
-    pthread_t thread;
-    receiverArg arg;
+    pthread_t rThread, bThread;
+    thdArg    rArg,    bArg;
     
     struct timespec wait, time;
-    struct sockaddr_in servaddr;
-    int numLoops, gotResponse = 0;
+    struct sockaddr_in servaddr, addr;
+    int    gotResponse=0;
     const int on=1;
         
        
@@ -280,9 +284,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
             startingPort = i;
         }
     }
-    
-printf("connect: create listening socket on port %d\n", domain->listenPort );
- 
+     
     /* get listening port and socket for this application */
     if ( (err = cMsgGetListeningSocket(CMSG_BLOCKING,
                                        startingPort,
@@ -292,6 +294,8 @@ printf("connect: create listening socket on port %d\n", domain->listenPort );
         free(domain);
         return(err);
     }
+
+printf("connect: create listening socket on port %d\n", domain->listenPort );
 
     /* launch pend thread and start listening on receive socket */
     threadArg = (cMsgThreadInfo *) malloc(sizeof(cMsgThreadInfo));
@@ -368,7 +372,7 @@ printf("Wait for 5 more seconds, then exit\n");
     
     bzero((void *)&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(serverPort);
+    servaddr.sin_port   = htons(serverPort);
     
     /* create UDP socket */
     domain->sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -417,7 +421,7 @@ printf("Wait for 5 more seconds, then exit\n");
     }
     nameLen  = strlen(myName);
     expidLen = strlen(expid);
-printf("Sending tcp port = %d, expid = %s to port = %hu on host %s\n",
+printf("Sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
         ((int) domain->listenPort), expid, serverPort, serverHost);
     
     /* tcp port */
@@ -434,15 +438,27 @@ printf("Sending tcp port = %d, expid = %s to port = %hu on host %s\n",
     len += nameLen;
     memcpy(buffer+len, (const void *)expid, expidLen);
     len += expidLen;
+        
+    /* create and start a thread which will receive any responses to our broadcast */
+    bzero((void *)&rArg.addr, sizeof(rArg.addr));
+    rArg.len             = (socklen_t) sizeof(rArg.addr);
+    rArg.port            = 0;
+    rArg.sockfd          = domain->sendSocket;
+    rArg.addr.sin_family = AF_INET;
     
-    /* create a thread which will receive any responses to our broadcast */
-    bzero((void *)&arg.clientaddr, sizeof(arg.clientaddr));
-    arg.len = sizeof(arg.clientaddr);
-    arg.port = 0;
-    arg.sockfd = domain->sendSocket;
-    arg.clientaddr.sin_family = AF_INET;
+    status = pthread_create(&rThread, NULL, receiverThd, (void *)(&rArg));
+    if (status != 0) {
+        err_abort(status, "Creating keep alive thread");
+    }
     
-    status = pthread_create(&thread, NULL, receiver, (void *)(&arg) );
+    /* create and start a thread which will broadcast every second */
+    bArg.len       = (socklen_t) sizeof(servaddr);
+    bArg.sockfd    = domain->sendSocket;
+    bArg.paddr     = &servaddr;
+    bArg.buffer    = buffer;
+    bArg.bufferLen = len;
+    
+    status = pthread_create(&bThread, NULL, broadcastThd, (void *)(&bArg));
     if (status != 0) {
         err_abort(status, "Creating keep alive thread");
     }
@@ -451,64 +467,66 @@ printf("Sending tcp port = %d, expid = %s to port = %hu on host %s\n",
      * The default wait or the wait if broadcastTO is set to 0, is forever.
      * Round things to the nearest second since we're only broadcasting a
      * message every second anyway.
-     */
-    wait.tv_sec  = 1; /* broadcast every second */
-    wait.tv_nsec = 0;
-    
+     */    
     if (broadcastTO > 0) {
- printf("Wait %d seconds for broadcast to be answered\n", broadcastTO); 
-        numLoops = broadcastTO;
-    }
-    else {
- printf("Wait forever for broadcast to be answered\n"); 
-        numLoops = 1;    
-    }
-    
-    while (!gotResponse && numLoops > 0) {
-        /* send UDP packet to rc server */
- printf("Send broadcast to RC Broadcast server\n"); 
-        sendto(domain->sendSocket, (void *)buffer, len, 0, (SA *) &servaddr,
-               sizeof(servaddr));
-
+        wait.tv_sec  = broadcastTO;
+        wait.tv_nsec = 0;
         cMsgGetAbsoluteTime(&wait, &time);
         
         status = pthread_mutex_lock(&mutex);
         if (status != 0) {
             err_abort(status, "pthread_mutex_lock");
         }
-        
+ 
+printf("Wait %d seconds for broadcast to be answered\n", broadcastTO); 
         status = pthread_cond_timedwait(&cond, &mutex, &time);
         if (status == ETIMEDOUT) {
-            /* go forever if broadcastTO == 0 */
-            if (broadcastTO > 0) {       
-                numLoops--;
-            }
-            status = pthread_mutex_unlock(&mutex);
-            if (status != 0) {
-                err_abort(status, "pthread_mutex_lock");
-            }
-            continue;
+          /* stop receiving thread */
+          pthread_cancel(rThread);
         }
         else if (status != 0) {
             err_abort(status, "pthread_cond_timedwait");
+        }
+        else {
+            gotResponse = 1;
         }
         
         status = pthread_mutex_unlock(&mutex);
         if (status != 0) {
             err_abort(status, "pthread_mutex_lock");
         }
-
-        gotResponse = 1;
     }
-
+    else {
+        status = pthread_mutex_lock(&mutex);
+        if (status != 0) {
+            err_abort(status, "pthread_mutex_lock");
+        }
+ 
+printf("Wait forever for broadcast to be answered\n"); 
+        status = pthread_cond_wait(&cond, &mutex);
+        if (status != 0) {
+            err_abort(status, "pthread_cond_timedwait");
+        }
+        gotResponse = 1;
+        
+        status = pthread_mutex_unlock(&mutex);
+        if (status != 0) {
+            err_abort(status, "pthread_mutex_lock");
+        }
+    }
+    
+    /* stop broadcasting thread */
+    pthread_cancel(bThread);
+    
     if (!gotResponse) {
- printf("Got no response\n"); 
+printf("Got no response\n"); 
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
         return(CMSG_NETWORK_ERROR);
     }
- printf("Got a response, wait for connect to finish\n"); 
+    
+printf("Got a response, now wait for connect to finish\n"); 
 
     /* Wait for a special message to come in to the TCP listening thread.
      * The message will contain the host and UDP port of the destination
@@ -525,16 +543,16 @@ printf("Sending tcp port = %d, expid = %s to port = %hu on host %s\n",
     cMsgMutexLock(&domain->rcConnectMutex);
     
     if (connectTO > 0) {
-/* printf("Wait for connect to finish in %d seconds\n", connectTO); */
+/*printf("Wait for connect to finish in %d seconds\n", connectTO);*/
         status = cMsgLatchAwait(&domain->syncLatch, &wait);
     }
     else {
-/* printf("Wait FOREVER for connect to finish\n"); */
+/*printf("Wait FOREVER for connect to finish\n");*/
         status = cMsgLatchAwait(&domain->syncLatch, NULL);
     }
 
     if (status < 1 || !domain->rcConnectComplete) {
-/* printf("Wait timeout or rcConnectComplete is not 1\n"); */
+/*printf("Wait timeout or rcConnectComplete is not 1\n");*/
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
@@ -549,9 +567,9 @@ printf("Sending tcp port = %d, expid = %s to port = %hu on host %s\n",
      * that the udp socket does not have to connect and disconnect for each
      * message sent.
      */
-    bzero((void *)&servaddr, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(domain->sendPort);
+    bzero((void *)&addr, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port   = htons(domain->sendPort);
     
     /* create new UDP socket for sends */
     close(domain->sendSocket); /* close old socket */
@@ -563,15 +581,15 @@ printf("Sending tcp port = %d, expid = %s to port = %hu on host %s\n",
         return(CMSG_SOCKET_ERROR);
     }
 
-    if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
+    if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
         return(err);
     }
 
-/*printf("try UDP connection to port = %hu\n", ntohs(servaddr.sin_port));*/
-    err = connect(domain->sendSocket, (SA *)&servaddr, sizeof(servaddr));
+/*printf("try UDP connection to port = %hu\n", ntohs(addr.sin_port));*/
+    err = connect(domain->sendSocket, (SA *)&addr, sizeof(addr));
     if (err < 0) {
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
@@ -596,18 +614,52 @@ printf("Sending tcp port = %d, expid = %s to port = %hu on host %s\n",
  * This routine starts a thread to receive a return UDP packet from
  * the server due to our initial uni/broadcast.
  */
-static void *receiver(void *arg) {
+static void *receiverThd(void *arg) {
 
-    receiverArg *threadArg = (receiverArg *) arg;
+    thdArg *threadArg = (thdArg *) arg;
     char buf[1024];
     
     /* ignore error as it will be caught later */   
     recvfrom(threadArg->sockfd, (void *)buf, 1024, 0,
-             (SA *) &threadArg->clientaddr, &(threadArg->len));
+             (SA *) &threadArg->addr, &(threadArg->len));
    
     /* Tell main thread we are done. */
     pthread_cond_signal(&cond);
     
+    pthread_exit(NULL);
+    return NULL;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine starts a thread to broadcast a UDP packet to the server
+ * every second.
+ */
+static void *broadcastThd(void *arg) {
+
+    thdArg *threadArg = (thdArg *) arg;
+    struct timespec wait = {0, 100000000}; /* 0.1 sec */
+    
+    /* A slight delay here will help the main thread (calling connect)
+     * to be already waiting for a response from the server when we
+     * broadcast to the server here (prompting that response). This
+     * will help insure no responses will be lost.
+     */
+    nanosleep(&wait, NULL);
+    
+    while (1) {
+
+printf("Send broadcast to RC Broadcast server\n"); 
+      sendto(threadArg->sockfd, (void *)threadArg->buffer, threadArg->bufferLen, 0,
+             (SA *) threadArg->paddr, threadArg->len);
+      
+      
+      sleep(1);
+    }
+    
+    pthread_exit(NULL);
     return NULL;
 }
 
