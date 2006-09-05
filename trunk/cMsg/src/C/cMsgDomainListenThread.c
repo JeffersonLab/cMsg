@@ -209,9 +209,7 @@ void *cMsgClientListeningThread(void *arg)
   }
   
   /* enable pthread cancellation at deferred points like pthread_testcancel */
-  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
-  pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &type);
-  
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
   
   /* install cleanup handler for this thread's cancellation */
   pthread_cleanup_push(cleanUpHandler, arg);
