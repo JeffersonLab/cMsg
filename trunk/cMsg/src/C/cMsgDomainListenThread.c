@@ -179,7 +179,7 @@ void *cMsgClientListeningThread(void *arg)
   int             blocking  = threadArg->blocking;
   cMsgDomainInfo *domain    = threadArg->domain;
   int             err, status, connectionNumber=0;
-  int             state, type, index=0;
+  int             state, index=0;
   const int       on=1;
   fd_set          readSet;
   struct timeval  timeout;
