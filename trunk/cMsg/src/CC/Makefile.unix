@@ -13,6 +13,9 @@ LIB_STATICXX  = $(LIBNAMXX).a
 LIB_DYNAMICXX = $(LIBNAMXX).so
 CAGATEWAY     = cMsgCAGateway
 
+# for all POSIX systems _REENTRANT makes libc functions reentrant
+AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
+
 # Linux
 ifeq ($(OSNAME),Linux)
 CXX = g++
@@ -20,13 +23,13 @@ EPICS_DIR = /site/epics/R3.13.4/base/lib/Linux
 EPICS_INC = -I/site/epics/R3.13.4/base/include -I/site/epics/R3.13.4/base/include/os/Linux 
 EPICS_LIB = -lca -lCom -lcas -lgdd -lAs -lDb
 AC_FLAGS  =
-CFLAGS    = -O3 -fPIC -I. -I$(C_DIR) -I$(INC_DIR) $(AC_FLAGS) $(EPICS_INC)
+CFLAGS    = -O3 -fPIC -I. -I$(C_DIR) -I$(INC_DIR) $(AC_FLAGS) $(EPICS_INC) $(AC_FLAGS)
 LIBS      = -lexpat -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
 SHLIB_LD  = gcc -shared
 
 # if 32 bit
 ifneq ($(CMSG_BIT_ARCH), 64)
-CFLAGS   = -m32 -O3 -fPIC -I. -I$(C_DIR) -I$(INC_DIR) $(AC_FLAGS) $(EPICS_INC)
+CFLAGS   = -m32 -O3 -fPIC -I. -I$(C_DIR) -I$(INC_DIR) $(AC_FLAGS) $(EPICS_INC) $(AC_FLAGS)
 # next line does NOT work for regular 32 bit Linux
 SHLIB_LD = ld -m elf_i386 -shared
 SHLIB_LD = gcc -m32 -shared
@@ -38,9 +41,8 @@ endif
 # Solaris
 ifeq ($(OSNAME),SunOS)
 
-CXX = CC
-AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
-LIBS    = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
+CXX  = CC
+LIBS = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
 CAGATEWAY =
 
 # if 64 bit
@@ -96,10 +98,10 @@ all: copyFiles $(CMSG_LIBSXX) $(PROGSXX) saveFiles
 
 copyFiles:
 	-rm -f *.o *.so *.a $(PROGSXX)
-	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/* .;
+	-cp -p ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/* .;
 
 saveFiles:
-	-cp *.o $(PROGSXX) $(CMSG_LIBSXX) ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
+	-cp -p *.o $(PROGSXX) $(CMSG_LIBSXX) ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
 	-rm -f *.o
 
 install: all install-lib install-inc install-bin

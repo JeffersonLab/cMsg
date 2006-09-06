@@ -49,10 +49,10 @@ $(OBJSXX) : $(HFILESXX) $(SRCXX)
 
 copyFiles:
 	-rm -f *.o *.so *.a
-	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/* .;
+	-cp -p ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/* .;
 
 saveFiles:
-	-cp *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
+	-cp -p *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
 	-rm -f $(OBJSXX)
 
 install: all install-lib install-inc
