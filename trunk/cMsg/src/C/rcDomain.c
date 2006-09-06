@@ -900,6 +900,7 @@ int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type, cMs
     cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
     subscribeConfig *sConfig = (subscribeConfig *) config;
     cbArg *cbarg;
+    pthread_attr_t threadAttribute;
 
     /* check args */  
     if (domain == NULL) {
@@ -985,14 +986,24 @@ int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type, cMs
               *handle = (void *)cbarg;
             }
 
+            /* init thread attributes */
+            pthread_attr_init(&threadAttribute);
+            
+            /* if stack size of this thread is set, include in attribute */
+            if (domain->subscribeInfo[i].cbInfo[j].config.stackSize > 0) {
+              pthread_attr_setstacksize(&threadAttribute,
+                     domain->subscribeInfo[i].cbInfo[j].config.stackSize);
+            }
+
             /* start callback thread now */
             status = pthread_create(&domain->subscribeInfo[i].cbInfo[j].thread,
-                                    NULL, cMsgCallbackThread, (void *) cbarg);
+                                    &threadAttribute, cMsgCallbackThread, (void *)cbarg);
             if (status != 0) {
               err_abort(status, "Creating callback thread");
             }
 
             /* release allocated memory */
+            pthread_attr_destroy(&threadAttribute);
             if (config == NULL) {
               cMsgSubscribeConfigDestroy((cMsgSubscribeConfig *) sConfig);
             }
@@ -1055,14 +1066,24 @@ int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type, cMs
         *handle = (void *)cbarg;
       }
 
+      /* init thread attributes */
+      pthread_attr_init(&threadAttribute);
+
+      /* if stack size of this thread is set, include in attribute */
+      if (domain->subscribeInfo[i].cbInfo[0].config.stackSize > 0) {
+        pthread_attr_setstacksize(&threadAttribute,
+               domain->subscribeInfo[i].cbInfo[0].config.stackSize);
+      }
+
       /* start callback thread now */
       status = pthread_create(&domain->subscribeInfo[i].cbInfo[0].thread,
-                              NULL, cMsgCallbackThread, (void *) cbarg);                              
+                              &threadAttribute, cMsgCallbackThread, (void *)cbarg);
       if (status != 0) {
         err_abort(status, "Creating callback thread");
       }
 
       /* release allocated memory */
+      pthread_attr_destroy(&threadAttribute);
       if (config == NULL) {
         cMsgSubscribeConfigDestroy((cMsgSubscribeConfig *) sConfig);
       }

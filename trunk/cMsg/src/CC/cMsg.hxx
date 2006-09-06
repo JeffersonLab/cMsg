@@ -167,6 +167,7 @@ public:
   virtual int getSkipSize(void) = 0;
   virtual int getMaxThreads(void) = 0;
   virtual int getMessagesPerThread(void) = 0;
+  virtual size_t getStackSize(void) = 0;
 };
 
 
@@ -193,6 +194,7 @@ public:
   virtual int getSkipSize(void);
   virtual int getMaxThreads(void);
   virtual int getMessagesPerThread(void);
+  virtual size_t getStackSize(void);
 };
 
 

@@ -3603,3 +3603,51 @@ int cMsgSubscribeGetMessagesPerThread(cMsgSubscribeConfig *config, int *mpt) {
 }
 
 /*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine sets the stack size in bytes of the subscription thread.
+ * By default the stack size is unspecified. 
+ *
+ * @param config pointer to configuration
+ * @param size stack size in bytes of subscription thread
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NOT_INITIALIZED if configuration was not initialized
+ * @returns CMSG_BAD_ARGUMENT if configuration is NULL or size < 1 byte
+ */   
+int cMsgSubscribeSetStackSize(cMsgSubscribeConfig *config, size_t size) {
+  subscribeConfig *sc = (subscribeConfig *) config;
+  
+  if (sc->init != 1) {
+    return CMSG_NOT_INITIALIZED;
+  }
+   
+  if (config == NULL || size < 1)  {
+    return CMSG_BAD_ARGUMENT;
+  }
+  
+  sc->stackSize = size;
+  return CMSG_OK;
+}
+
+/**
+ * This routine gets the stack size in bytes of the subscription thread.
+ * By default the stack size is unspecified (returns 0).
+ *
+ * @param config pointer to configuration
+ * @param mpt integer pointer to be filled with the maximum number of
+ *            unprocessed messages per thread before starting another thread
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ */   
+int cMsgSubscribeGetStackSize(cMsgSubscribeConfig *config, size_t *size) {
+  subscribeConfig *sc = (subscribeConfig *) config;    
+
+  if (config == NULL) return(CMSG_BAD_ARGUMENT);
+  *size = sc->stackSize;
+  return(CMSG_OK);
+}
+
+/*-------------------------------------------------------------------*/

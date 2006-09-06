@@ -236,6 +236,9 @@ extern "C" {
   int cMsgSubscribeSetMessagesPerThread(cMsgSubscribeConfig *config, int  mpt);
   int cMsgSubscribeGetMessagesPerThread(cMsgSubscribeConfig *config, int *mpt);
 
+  int cMsgSubscribeSetStackSize        (cMsgSubscribeConfig *config, size_t size);
+  int cMsgSubscribeGetStackSize        (cMsgSubscribeConfig *config, size_t *size);
+
 
   /* for debugging */
   int cMsgSetDebugLevel(int level);

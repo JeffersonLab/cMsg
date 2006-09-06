@@ -274,18 +274,20 @@ enum responseMsgId {
 
 /** This structure contains parameters used to control subscription callback behavior. */
 typedef struct subscribeConfig_t {
-  int  init;          /**< If structure was initialized, init = 1. */
-  int  maySkip;       /**< May skip messages if too many are piling up in cue (if = 1). */
-  int  mustSerialize; /**< Messages must be processed in order received (if = 1),
-                           else messages may be processed by parallel threads. */
-  int  maxCueSize;    /**< Maximum number of messages to cue for callback. */
-  int  skipSize;      /**< Maximum number of messages to skip over (delete) from the 
-                           cue for a callback when the cue size has reached it limit
-                           (if maySkip = 1) . */
-  int  maxThreads;    /**< Maximum number of supplemental threads to use for running
-                           the callback if mustSerialize is 0 (off). */
-  int  msgsPerThread; /**< Enough supplemental threads are started so that there are
-                           at most this many unprocessed messages for each thread. */
+  int    init;          /**< If structure was initialized, init = 1. */
+  int    maySkip;       /**< May skip messages if too many are piling up in cue (if = 1). */
+  int    mustSerialize; /**< Messages must be processed in order received (if = 1),
+                             else messages may be processed by parallel threads. */
+  int    maxCueSize;    /**< Maximum number of messages to cue for callback. */
+  int    skipSize;      /**< Maximum number of messages to skip over (delete) from the 
+                             cue for a callback when the cue size has reached it limit
+                             (if maySkip = 1) . */
+  int    maxThreads;    /**< Maximum number of supplemental threads to use for running
+                             the callback if mustSerialize is 0 (off). */
+  int    msgsPerThread; /**< Enough supplemental threads are started so that there are
+                             at most this many unprocessed messages for each thread. */
+  size_t stackSize;     /**< Stack size in bytes of subscription thread. By default 
+                             this is left unspecified (0). */
 } subscribeConfig;
 
 

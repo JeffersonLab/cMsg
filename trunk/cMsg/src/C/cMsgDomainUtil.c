@@ -363,6 +363,7 @@ static void subscribeInfoInit(subInfo *info) {
       info->cbInfo[j].config.skipSize      = 20;
       info->cbInfo[j].config.maxThreads    = 100;
       info->cbInfo[j].config.msgsPerThread = 150;
+      info->cbInfo[j].config.stackSize     = 0;
       
       status = pthread_cond_init (&info->cbInfo[j].cond,  NULL);
       if (status != 0) {

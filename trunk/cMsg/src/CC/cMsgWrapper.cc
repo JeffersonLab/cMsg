@@ -976,6 +976,14 @@ int cMsgCallbackAdapter::getMessagesPerThread(void) {
 
 
 //-----------------------------------------------------------------------------
+
+
+size_t cMsgCallbackAdapter::getStackSize(void) {
+  return((size_t)0);
+}
+
+
+//-----------------------------------------------------------------------------
 //  cMsg methods
 //-----------------------------------------------------------------------------
 
@@ -1095,6 +1103,7 @@ void *cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAda
   cMsgSubscribeSetMustSerialize(myConfig,     (cba->mustSerializeMessages())?1:0);
   cMsgSubscribeSetMaxThreads(myConfig,        cba->getMaxThreads());
   cMsgSubscribeSetMessagesPerThread(myConfig, cba->getMessagesPerThread());
+  cMsgSubscribeSetStackSize(myConfig,         cba->getStackSize());
 
 
   // create and fill dispatcher struct
