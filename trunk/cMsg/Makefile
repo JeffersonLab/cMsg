@@ -129,6 +129,7 @@ java:
 	cd ./org/jlab/coda/cMsg/apps;               $(MAKE);
 	cd ./org/jlab/coda/cMsg/FileDomain;         $(MAKE);
 	cd ./org/jlab/coda/cMsg/CADomain;           $(MAKE);
+	cd ./org/jlab/coda/cMsg/RCDomain;           $(MAKE);
 	cd ./org/jlab/coda/cMsg/RCServerDomain;     $(MAKE);
 	cd ./org/jlab/coda/cMsg/RCBroadcastDomain;  $(MAKE);
 
@@ -168,6 +169,7 @@ jClean:
 	cd ./org/jlab/coda/cMsg/apps;               $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/FileDomain;         $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/CADomain;           $(MAKE) clean;
+	cd ./org/jlab/coda/cMsg/RCDomain;           $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/RCServerDomain;     $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/RCBroadcastDomain;  $(MAKE) clean;
 
