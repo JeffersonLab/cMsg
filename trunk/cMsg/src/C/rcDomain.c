@@ -681,9 +681,9 @@ printf("Send broadcast to RC Broadcast server\n");
  *   <li>info</li>
  *   <li>sender time</li>
  *   <li>user time</li>
+ *   <li>sender</li>
  *   <li>subject</li>
  *   <li>type</li>
- *   <li>creator</li>
  *   <li>text</li>
  *   <li>byte array</li>
  * </ol>

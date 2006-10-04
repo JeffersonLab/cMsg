@@ -199,6 +199,60 @@ public class RCServer extends cMsgDomainAdapter {
 
 
     /**
+      * Method to reconnect to the rc client from this server after this server dies
+      * and resurrects while the client still remains.
+      *
+      * @throws cMsgException if there are problems parsing the UDL or
+      *                       communication problems with the client
+      */
+     public void reconnect() throws cMsgException {
+
+         try {
+             parseUDL(UDLremainder);
+         }
+         catch (UnknownHostException e) {
+             e.printStackTrace();
+         }
+
+         // cannot run this simultaneously with any other public method
+         connectLock.lock();
+
+         try {
+             if (connected) return;
+
+             try {
+                 // Create an object to deliver messages to the RC client.
+                 createTCPClientConnection(rcClientHost, rcClientPort);
+
+                 // Create a UDP socket for accepting messages from the RC client.
+                 createUDPClientConnection();
+
+                 // Start listening for udp packets
+                 listener = new rcListeningThread(this, receiveSocket);
+                 listener.start();
+
+                 // Send a special message giving our host & udp port.
+                 cMsgMessageFull msg = new cMsgMessageFull();
+                 msg.setSenderHost(InetAddress.getLocalHost().getCanonicalHostName());
+                 msg.setUserInt(localUdpPort);
+                 deliverMessage(msg, cMsgConstants.msgRcReconnect);
+
+                 connected = true;
+             }
+             catch (IOException e) {
+                 throw new cMsgException(e.getMessage());
+             }
+
+         }
+         finally {
+             connectLock.unlock();
+         }
+
+         return;
+     }
+
+
+    /**
      * Method to close the connection to the rc client. This method results in this object
      * becoming functionally useless.
      */

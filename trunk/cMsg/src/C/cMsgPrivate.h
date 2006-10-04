@@ -268,7 +268,8 @@ enum responseMsgId {
   CMSG_GET_RESPONSE         = 20, /**< SendAndGet response. */
   CMSG_SUBSCRIBE_RESPONSE,        /**< Subscribe response. */
   CMSG_SERVER_GET_RESPONSE,       /**< Respose to server's "sendAndGet" request. */
-  CMSG_RC_CONNECT                 /**< Respond to RC server's "connect" request. */
+  CMSG_RC_CONNECT,                /**< Respond to RC server's "connect" request. */
+  CMSG_RC_RECONNECT               /**< Respond to RC server's "reconnect" request. */
 };
 
 

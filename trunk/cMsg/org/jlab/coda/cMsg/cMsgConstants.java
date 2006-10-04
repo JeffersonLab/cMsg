@@ -151,6 +151,8 @@ public class cMsgConstants {
     public static final int    msgServerGetResponse        =  22;
     /** Respond to a runcontrol server's "connect" request. */
     public static final int    msgRcConnect                =  23;
+    /** Respond to a runcontrol server's "reconnect" request. */
+    public static final int    msgRcReconnect              =  24;
 
     // Codes sent by a server's "client" connection to another server
     // in the cMsg subdomain only

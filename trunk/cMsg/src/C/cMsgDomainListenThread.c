@@ -305,7 +305,19 @@ void *cMsgClientListeningThread(void *arg)
       continue;
     }
     
-     /* create thread to deal with client */
+     /* send periodic (every 2 hrs.) signal to see if socket's other end is alive */
+    err = setsockopt(pinfo->connfd, SOL_SOCKET, SO_KEEPALIVE, (char*) &on, sizeof(on));
+    if (err < 0) {
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+        fprintf(stderr, "cMsgClientListeningThread: error setting socket to SO_KEEPALIVE\n");
+      }
+      close(pinfo->connfd);
+      free(pinfo);
+      continue;
+    }
+
+
+    /* create thread to deal with client */
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "cMsgClientListeningThread: accepting client connection\n");
     }
@@ -349,7 +361,7 @@ static void *clientThread(void *arg)
   int  inComing[2];
   int  err, ok, size, msgId, connfd, connectionNumber, localCount=0;
   cMsgThreadInfo *info;
-  int  con, bufSize, index;
+  int  con, bufSize, index, otherIndex;
   char *buffer;
   int acknowledge = 0;
   cMsgDomainInfo *domain;
@@ -641,6 +653,48 @@ static void *clientThread(void *arg)
           /* now free message */
           cMsgFreeMessage((void **) &message);
       }
+      break;
+
+      /* for RC server & RC domains only */
+      case  CMSG_RC_RECONNECT:
+      {
+          cMsgMessage_t *message;
+          struct timespec wait;
+          
+/*printf("clientThread %d: Got CMSG_RC_CONNECT message!!!\n", localCount);*/
+
+          message = (cMsgMessage_t *) cMsgCreateMessage();
+          if (message == NULL) {
+            if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+              fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
+            }
+            exit(1);
+          }
+
+          if (cMsgDebug >= CMSG_DEBUG_INFO) {
+            fprintf(stderr, "clientThread %d: RC Server connect received\n", localCount);
+          }
+                    
+          /* read the message - nothing of value in it */
+          if ( cMsgReadMessage(connfd, buffer, message, &acknowledge) != CMSG_OK) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+              fprintf(stderr, "clientThread %d: error reading message\n", localCount);
+            }
+            cMsgFreeMessage((void **) &message);
+            goto end;
+          }
+                              
+          /* now free message */
+          cMsgFreeMessage((void **) &message);
+          
+          /* kill other thread waiting to read from the (dead) rc server */
+          otherIndex = (index == 1) ? 0 : 1;
+          pthread_cancel(domain->clientThread[otherIndex]);
+          /* release memory */
+          free((void*)(domain->msgInBuffer[otherIndex]));
+          /* don't want to free the memory again */
+          domain->msgInBuffer[otherIndex] = NULL;
+       }
       break;
 
       default:
