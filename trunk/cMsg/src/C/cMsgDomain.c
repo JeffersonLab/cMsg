@@ -2124,6 +2124,15 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
             /* init thread attributes */
             pthread_attr_init(&threadAttribute);
             
+#ifdef VXWORKS
+            /* Make 30k bytes the default stack size in vxworks (instead
+             * of the normal 20k) since people have been running out of
+             * stack memory.
+             */
+            if (domain->subscribeInfo[i].cbInfo[j].config.stackSize == 0) {
+              pthread_attr_setstacksize(&threadAttribute, 30000);
+            }
+#endif
             /* if stack size of this thread is set, include in attribute */
             if (domain->subscribeInfo[i].cbInfo[j].config.stackSize > 0) {
               pthread_attr_setstacksize(&threadAttribute,
@@ -2205,6 +2214,16 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
 
       /* init thread attributes */
       pthread_attr_init(&threadAttribute);
+
+#ifdef VXWORKS
+      /* Make 30k bytes the default stack size in vxworks (instead
+       * of the normal 20k) since people have been running out of
+       * stack memory.
+       */
+      if (domain->subscribeInfo[i].cbInfo[0].config.stackSize == 0) {
+        pthread_attr_setstacksize(&threadAttribute, 30000);
+      }
+#endif
 
       /* if stack size of this thread is set, include in attribute */
       if (domain->subscribeInfo[i].cbInfo[0].config.stackSize > 0) {
