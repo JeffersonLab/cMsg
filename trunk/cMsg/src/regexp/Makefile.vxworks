@@ -48,10 +48,10 @@ regerror.o:	regerror.ih
 
 copyFiles:
 	-rm -f *.o *.so *.a *.ih
-	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
+	-cp -p ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
 
 saveFiles:
-	-cp *.o  *.ih ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
+	-cp -p *.o  *.ih ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
 	-rm -f $(OBJS) *.ih
 
 install: all install-lib install-inc

@@ -11,15 +11,18 @@ LIBNAM      = libcMsgRegex
 LIB_STATIC  = $(LIBNAM).a
 LIB_DYNAMIC = $(LIBNAM).so
 
+# for all POSIX systems _REENTRANT makes libc functions reentrant
+AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
+
 # Linux
 ifeq ($(OSNAME),Linux)
 CC = gcc
-CFLAGS   = -O3 -fpic -I./ -DPOSIX_MISTAKE
+CFLAGS   = -O3 -fpic -I./ -DPOSIX_MISTAKE $(AC_FLAGS)
 SHLIB_LD = gcc -shared
 
 # if 32 bit
 ifneq ($(CMSG_BIT_ARCH), 64)
-CFLAGS   = -m32 -O3 -fpic -I./ -DPOSIX_MISTAKE
+CFLAGS   = -m32 -O3 -fpic -I./ -DPOSIX_MISTAKE $(AC_FLAGS)
 SHLIB_LD = ld -m elf_i386 -shared
 SHLIB_LD = gcc -m32 -shared
 endif
@@ -29,9 +32,8 @@ endif
 # Solaris
 ifeq ($(OSNAME),SunOS)
 
-CC = cc
-AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
-LIBS     = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
+CC   = cc
+LIBS = -lm -lposix4 -lpthread -lsocket -lnsl -lresolv -ldl
 
 # if 64 bit
 ifeq ($(CMSG_BIT_ARCH), 64)
@@ -89,10 +91,10 @@ regerror.o:	regerror.ih
        
 copyFiles:
 	-rm -f *.o *.so *.a *.ih
-	-cp ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/* .;
+	-cp -p ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/* .;
 
 saveFiles:
-	-cp *.o *.ih $(REGEX_LIBS) ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
+	-cp -p *.o *.ih $(REGEX_LIBS) ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
 	-rm -f *.o *.ih
 
 install: all install-lib install-inc
