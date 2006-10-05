@@ -47,7 +47,7 @@ SHLIB_LD = ld -G -L /lib/64
 # else if AMD processor
 else
 # put -fast flag to left of -xarch=amd64 !!!
-CFLAGS   = -mt -xO5 -xarch=amd64 -KPIC -I. -I$(INC_DIR) $(AC_FLAGS)
+CFLAGS   = -mt -xO5 -xarch=amd64 -xcode=pic32 -I. -I$(INC_DIR) $(AC_FLAGS)
 # for some reason we must handle ucb lib explicitly
 SHLIB_LD = ld -G -L /lib/64 -L /usr/ucblib/amd64
 endif
