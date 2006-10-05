@@ -2130,7 +2130,7 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
              * stack memory.
              */
             if (domain->subscribeInfo[i].cbInfo[j].config.stackSize == 0) {
-              pthread_attr_setstacksize(&threadAttribute, 30000);
+              pthread_attr_setstacksize(&threadAttribute, CMSG_VX_DEFAULT_STACK_SIZE);
             }
 #endif
             /* if stack size of this thread is set, include in attribute */
@@ -2221,7 +2221,7 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
        * stack memory.
        */
       if (domain->subscribeInfo[i].cbInfo[0].config.stackSize == 0) {
-        pthread_attr_setstacksize(&threadAttribute, 30000);
+        pthread_attr_setstacksize(&threadAttribute, CMSG_VX_DEFAULT_STACK_SIZE);
       }
 #endif
 

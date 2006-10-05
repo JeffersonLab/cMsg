@@ -46,6 +46,9 @@ extern "C" {
 /** Minor version number. */
 #define CMSG_VERSION_MINOR 0
 
+/** Default vxworks stack size for subscription threads. */
+#define CMSG_VX_DEFAULT_STACK_SIZE 30000
+
 /** The maximum number domain types that a client can connect to. */
 #define CMSG_MAX_DOMAIN_TYPES   20
 
