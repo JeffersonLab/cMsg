@@ -37,7 +37,7 @@
 
 // stores callback dispatching info
 typedef struct {
-  cMsgCallbackAdapter *cba;
+  cMsgCallback *cb;
   void *userArg;
 } dispatcherStruct;
 
@@ -63,7 +63,7 @@ static pthread_mutex_t subscrMutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void callbackDispatcher(void *msg, void *userArg) {
   dispatcherStruct *ds = (dispatcherStruct*)userArg;
-  ds->cba->callback(new cMsgMessage(msg),ds->userArg);
+  ds->cb->callback(new cMsgMessage(msg),ds->userArg);
 }
 
 
@@ -71,7 +71,7 @@ static void callbackDispatcher(void *msg, void *userArg) {
 
 
 static bool subscriptionExists(void *domainId, const string &subject, const string &type, 
-                               cMsgCallbackAdapter *cba, void *userArg) {
+                               cMsgCallback *cb, void *userArg) {
 
   bool itExists = false;
 
@@ -82,7 +82,7 @@ static bool subscriptionExists(void *domainId, const string &subject, const stri
     if( (subscrVec[i]->domainId   == domainId) &&
         (subscrVec[i]->subject    == subject) &&
         (subscrVec[i]->type       == type) &&
-        (subscrVec[i]->d->cba     == cba) &&
+        (subscrVec[i]->d->cb      == cb) &&
         (subscrVec[i]->d->userArg == userArg)
         ) {
       itExists=true;
@@ -928,58 +928,146 @@ string cMsgMessage::toString(void) const throw(cMsgException) {
 
 
 //-----------------------------------------------------------------------------
-// cMsgCallbackAdapter methods
+// cMsgSubscriptionConfig methods
 //-----------------------------------------------------------------------------
 
 
-bool cMsgCallbackAdapter::maySkipMessages(void) {
-  return(false);
-}
-
-//-----------------------------------------------------------------------------
-
-
-bool cMsgCallbackAdapter::mustSerializeMessages(void) {
-  return(true);
-}
-
-//-----------------------------------------------------------------------------
-
-
-int cMsgCallbackAdapter::getMaxCueSize(void) {
-  return(1000);
+cMsgSubscriptionConfig::cMsgSubscriptionConfig(void) {
+  config = cMsgSubscribeConfigCreate();
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-int cMsgCallbackAdapter::getSkipSize(void) {
-  return(200);
+cMsgSubscriptionConfig::~cMsgSubscriptionConfig(void) {
+  cMsgSubscribeConfigDestroy(config);
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-int cMsgCallbackAdapter::getMaxThreads(void) {
-  return(100);
+int cMsgSubscriptionConfig::getMaxCueSize(void) {
+  int size;
+  cMsgSubscribeGetMaxCueSize(config,&size);
+  return(size);
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-int cMsgCallbackAdapter::getMessagesPerThread(void) {
-  return(50);
+void cMsgSubscriptionConfig::setMaxCueSize(int size) {
+  cMsgSubscribeSetMaxCueSize(config,size);
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-size_t cMsgCallbackAdapter::getStackSize(void) {
-  return((size_t)0);
+int cMsgSubscriptionConfig::getSkipSize(void) {
+  int size;
+  cMsgSubscribeGetSkipSize(config,&size);
+  return(size);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+void cMsgSubscriptionConfig::setSkipSize(int size) {
+  cMsgSubscribeSetSkipSize(config,size);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+bool cMsgSubscriptionConfig::getMaySkip(void) {
+  int maySkip;
+  cMsgSubscribeGetMaySkip(config,&maySkip);
+  return((maySkip==0)?false:true);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+void cMsgSubscriptionConfig::setMaySkip(bool maySkip) {
+  cMsgSubscribeSetMaySkip(config,(maySkip)?1:0);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+bool cMsgSubscriptionConfig::getMustSerialize(void) {
+  int maySerialize;
+  cMsgSubscribeGetMustSerialize(config,&maySerialize);
+  return((maySerialize==0)?false:true);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+void cMsgSubscriptionConfig::setMustSerialize(bool mustSerialize) {
+  cMsgSubscribeSetMustSerialize(config,(mustSerialize)?1:0);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+int cMsgSubscriptionConfig::getMaxThreads(void) {
+  int max;
+  cMsgSubscribeGetMaxThreads(config,&max);
+  return(max);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+void cMsgSubscriptionConfig::setMaxThreads(int max) {
+  cMsgSubscribeSetMaxThreads(config,max);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+int cMsgSubscriptionConfig::getMessagesPerThread(void) {
+  int mpt;
+  cMsgSubscribeGetMessagesPerThread(config,&mpt);
+  return(mpt);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+void cMsgSubscriptionConfig::setMessagesPerThread(int mpt) {
+  cMsgSubscribeSetMessagesPerThread(config,mpt);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+size_t cMsgSubscriptionConfig::getStackSize(void) {
+  size_t size;
+  cMsgSubscribeGetStackSize(config,&size);
+  return(size);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+void cMsgSubscriptionConfig::setStackSize(size_t size) {
+  cMsgSubscribeSetStackSize(config,size);
 }
 
 
@@ -988,7 +1076,7 @@ size_t cMsgCallbackAdapter::getStackSize(void) {
 //-----------------------------------------------------------------------------
 
 
-cMsg::cMsg(const string &UDL, const string &name, const string &descr) 
+cMsg::cMsg(const string &UDL, const string &name, const string &descr)
   : myUDL(UDL), myName(name), myDescr(descr), initialized(false) {
 }
 
@@ -1081,7 +1169,8 @@ int cMsg::syncSend(cMsgMessage *msg, const struct timespec *timeout) throw(cMsgE
 //-----------------------------------------------------------------------------
 
 
-void *cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAdapter *cba, void *userArg) throw(cMsgException) {
+void *cMsg::subscribe(const string &subject, const string &type, cMsgCallback *cb, void *userArg,
+                      const cMsgSubscriptionConfig *cfg) throw(cMsgException) {
     
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
 
@@ -1089,35 +1178,24 @@ void *cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAda
   int stat;
   void *handle;
 
+
   // check if this is a duplicate subscription
-  if(subscriptionExists(myDomainId,subject,type,cba,userArg))
+  if(subscriptionExists(myDomainId,subject,type,cb,userArg))
     throw(cMsgException(cMsgPerror(CMSG_ALREADY_EXISTS),CMSG_ALREADY_EXISTS));
-
-
-  // create and fill config
-  cMsgSubscribeConfig *myConfig = cMsgSubscribeConfigCreate();
-
-  cMsgSubscribeSetMaxCueSize(myConfig,        cba->getMaxCueSize());
-  cMsgSubscribeSetSkipSize(myConfig,          cba->getSkipSize());
-  cMsgSubscribeSetMaySkip(myConfig,           (cba->maySkipMessages())?1:0);
-  cMsgSubscribeSetMustSerialize(myConfig,     (cba->mustSerializeMessages())?1:0);
-  cMsgSubscribeSetMaxThreads(myConfig,        cba->getMaxThreads());
-  cMsgSubscribeSetMessagesPerThread(myConfig, cba->getMessagesPerThread());
-  cMsgSubscribeSetStackSize(myConfig,         cba->getStackSize());
 
 
   // create and fill dispatcher struct
   dispatcherStruct *d = new dispatcherStruct();
-  d->cba=cba;
+  d->cb=cb;
   d->userArg=userArg;
 
 
   // subscribe and get handle
-  stat=cMsgSubscribe(myDomainId,subject.c_str(),type.c_str(),callbackDispatcher,(void*)d,myConfig,&handle);
-
-
-  // destroy config
-  cMsgSubscribeConfigDestroy(myConfig);
+  if(cfg==NULL) {
+    stat=cMsgSubscribe(myDomainId,subject.c_str(),type.c_str(),callbackDispatcher,(void*)d,NULL,&handle);
+  } else {
+    stat=cMsgSubscribe(myDomainId,subject.c_str(),type.c_str(),callbackDispatcher,(void*)d,cfg->config,&handle);
+  }
 
 
   // check if subscription accepted
@@ -1135,8 +1213,9 @@ void *cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAda
 //-----------------------------------------------------------------------------
 
 
-void *cMsg::subscribe(const string &subject, const string &type, cMsgCallbackAdapter &cba, void *userArg) throw(cMsgException) {
-  return(cMsg::subscribe(subject, type, &cba, userArg));
+void *cMsg::subscribe(const string &subject, const string &type, cMsgCallback &cb, void *userArg,
+                      const cMsgSubscriptionConfig *cfg) throw(cMsgException) {
+  return(cMsg::subscribe(subject, type, &cb, userArg, cfg));
 }
 
 

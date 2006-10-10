@@ -30,7 +30,7 @@ static int userInt;
 
 
 // misc parameters
-static int sleepTime = 1000;  // units are micro-sec
+static int sleepTime = 10000;  // units are micro-sec
 
 
 // prototypes
@@ -91,7 +91,7 @@ main(int argc, char **argv) {
   
   
   // done
-  exit(0);
+  c.disconnect();
 }
 
 

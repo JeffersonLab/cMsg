@@ -138,7 +138,7 @@ public:
 class cMsgCallback {
 
   /**
-   * Pure virtual base class for needed for c interface.
+   * Subscription callback
    *
    * @version 1.0
    */
@@ -152,49 +152,39 @@ public:
 //-----------------------------------------------------------------------------
 
 
-class cMsgCallbackInterface:public cMsgCallback {
+class cMsgSubscriptionConfig {
+
 
   /**
-   * Pure virtual class for specifying subscription options.
+   * Holds cMsgSubscribeConfig struct
    *
    * @version 1.0
    */
 
-public:
-  virtual bool maySkipMessages(void) = 0;
-  virtual bool mustSerializeMessages(void) = 0;
-  virtual int getMaxCueSize(void) = 0;
-  virtual int getSkipSize(void) = 0;
-  virtual int getMaxThreads(void) = 0;
-  virtual int getMessagesPerThread(void) = 0;
-  virtual size_t getStackSize(void) = 0;
-};
-
-
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-
-
-class cMsgCallbackAdapter:public cMsgCallbackInterface {
-
-  /**
-   * Concrete class implements default cMsgCallbackInterface methods and 
-   *  sets default parameters.
-   *
-   * Users can override as desired.
-   *
-   * @version 1.0
-   */
 
 public:
-  virtual void callback(cMsgMessage *msg, void *userObject) = 0;
-  virtual bool maySkipMessages(void);
-  virtual bool mustSerializeMessages(void);
+  cMsgSubscribeConfig *config;
+
+
+public:
+  cMsgSubscriptionConfig(void);
+  virtual ~cMsgSubscriptionConfig(void);
+
   virtual int getMaxCueSize(void);
+  virtual void setMaxCueSize(int size);
   virtual int getSkipSize(void);
+  virtual void setSkipSize(int size);
+  virtual bool getMaySkip(void);
+  virtual void setMaySkip(bool maySkip);
+  virtual bool getMustSerialize(void);
+  virtual void setMustSerialize(bool mustSerialize);
   virtual int getMaxThreads(void);
+  virtual void setMaxThreads(int max);
   virtual int getMessagesPerThread(void);
+  virtual void setMessagesPerThread(int mpt);
   virtual size_t getStackSize(void);
+  virtual void setStackSize(size_t size);
+
 };
 
 
@@ -230,10 +220,10 @@ public:
   virtual void send(cMsgMessage *msg) throw(cMsgException);
   virtual int  syncSend(cMsgMessage &msg, const struct timespec *timeout = NULL) throw(cMsgException);
   virtual int  syncSend(cMsgMessage *msg, const struct timespec *timeout = NULL) throw(cMsgException);
-  virtual void *subscribe(const string &subject, const string &type, cMsgCallbackAdapter *cba, void *userArg)
-    throw(cMsgException);
-  virtual void *subscribe(const string &subject, const string &type, cMsgCallbackAdapter &cba, void *userArg)
-    throw(cMsgException);
+  virtual void *subscribe(const string &subject, const string &type, cMsgCallback *cb, void *userArg, 
+                          const cMsgSubscriptionConfig *cfg = NULL) throw(cMsgException);
+  virtual void *subscribe(const string &subject, const string &type, cMsgCallback &cb, void *userArg,
+                          const cMsgSubscriptionConfig *cfg = NULL) throw(cMsgException);
   virtual void unsubscribe(void *handle) throw(cMsgException);
   virtual cMsgMessage *sendAndGet(cMsgMessage &sendMsg, const struct timespec *timeout = NULL) 
     throw(cMsgException);
