@@ -96,7 +96,7 @@ void startElement(void *userData, const char *xmlname, const char **atts);
 
 
 // cMsg callback class
-class myCallbackObject:public cMsgCallbackAdapter {
+class myCallbackObject:public cMsgCallback {
   
   void callback(cMsgMessage *msg, void* userObject) {
 
