@@ -93,11 +93,6 @@ public class rcListeningThread extends Thread {
     }
 
 
-    /**
-     * Class to handle a socket connection to the server of which
-     * there are 2. One connections handles the server's keepAlive
-     * requests of the server. The other handles everything else.
-     */
     /** This method is executed as a thread. */
     public void run() {
 
@@ -165,7 +160,7 @@ public class rcListeningThread extends Thread {
     }
 
     /**
-     * This method reads an incoming message from the server.
+     * This method reads an incoming message from the client.
      *
      * @return message read from channel
      * @throws IOException if socket read or write error
@@ -194,15 +189,15 @@ public class rcListeningThread extends Thread {
         index += 8;
 
         // String lengths
-        int lengthSender = bytesToInt(buf, index);
+        int lengthSender  = bytesToInt(buf, index);
         index += 4;
         int lengthSubject = bytesToInt(buf, index);
         index += 4;
-        int lengthType = bytesToInt(buf, index);
+        int lengthType    = bytesToInt(buf, index);
         index += 4;
-        int lengthText = bytesToInt(buf, index);
+        int lengthText    = bytesToInt(buf, index);
         index += 4;
-        int lengthBinary = bytesToInt(buf, index);
+        int lengthBinary  = bytesToInt(buf, index);
         index += 4;
 
         // read sender

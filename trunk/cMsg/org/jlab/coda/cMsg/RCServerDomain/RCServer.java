@@ -42,6 +42,8 @@ import java.io.*;
  * @version 1.0
  */
 public class RCServer extends cMsgDomainAdapter {
+    /** Client's name. */
+    String clientName;
 
     /** Runcontrol client's TCP listening port obtained from UDL. */
     int rcClientPort;
@@ -63,6 +65,9 @@ public class RCServer extends cMsgDomainAdapter {
 
     /** Buffered data output stream associated with {@link #socket}. */
     private DataOutputStream out;
+
+    /** Buffered data input stream associated with {@link #socket}. */
+    private DataInputStream in;
 
     /**
      * This lock is for controlling access to the methods of this class.
@@ -109,6 +114,14 @@ public class RCServer extends cMsgDomainAdapter {
      * object.
      */
     ConcurrentHashMap<Integer,cMsgGetHelper> subscribeAndGets;
+
+    /**
+     * Gets the name of the client connected to (which returns its name in the connect() method).
+     * @return name of connected client
+     */
+    public String getClientName() {
+        return clientName;
+    }
 
 
     /** Constructor. */
@@ -181,7 +194,7 @@ public class RCServer extends cMsgDomainAdapter {
                 cMsgMessageFull msg = new cMsgMessageFull();
                 msg.setSenderHost(InetAddress.getLocalHost().getCanonicalHostName());
                 msg.setUserInt(localUdpPort);
-                deliverMessage(msg, cMsgConstants.msgRcConnect);
+                deliverMessage(msg, cMsgConstants.msgRcConnect, true);
 
                 connected = true;
             }
@@ -196,60 +209,6 @@ public class RCServer extends cMsgDomainAdapter {
 
         return;
     }
-
-
-    /**
-      * Method to reconnect to the rc client from this server after this server dies
-      * and resurrects while the client still remains.
-      *
-      * @throws cMsgException if there are problems parsing the UDL or
-      *                       communication problems with the client
-      */
-     public void reconnect() throws cMsgException {
-
-         try {
-             parseUDL(UDLremainder);
-         }
-         catch (UnknownHostException e) {
-             e.printStackTrace();
-         }
-
-         // cannot run this simultaneously with any other public method
-         connectLock.lock();
-
-         try {
-             if (connected) return;
-
-             try {
-                 // Create an object to deliver messages to the RC client.
-                 createTCPClientConnection(rcClientHost, rcClientPort);
-
-                 // Create a UDP socket for accepting messages from the RC client.
-                 createUDPClientConnection();
-
-                 // Start listening for udp packets
-                 listener = new rcListeningThread(this, receiveSocket);
-                 listener.start();
-
-                 // Send a special message giving our host & udp port.
-                 cMsgMessageFull msg = new cMsgMessageFull();
-                 msg.setSenderHost(InetAddress.getLocalHost().getCanonicalHostName());
-                 msg.setUserInt(localUdpPort);
-                 deliverMessage(msg, cMsgConstants.msgRcReconnect);
-
-                 connected = true;
-             }
-             catch (IOException e) {
-                 throw new cMsgException(e.getMessage());
-             }
-
-         }
-         finally {
-             connectLock.unlock();
-         }
-
-         return;
-     }
 
 
     /**
@@ -284,6 +243,7 @@ public class RCServer extends cMsgDomainAdapter {
         socket.setSendBufferSize(65535);
 
         // create buffered communication stream for efficiency
+        in  = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
         out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
     }
 
@@ -456,7 +416,7 @@ public class RCServer extends cMsgDomainAdapter {
             if (!connected) {
                 throw new cMsgException("not connected to server");
             }
-            deliverMessage(message, cMsgConstants.msgSubscribeResponse);
+            deliverMessage(message, cMsgConstants.msgSubscribeResponse, false);
         }
         catch (IOException e) {
             throw new cMsgException(e.getMessage());
@@ -477,9 +437,10 @@ public class RCServer extends cMsgDomainAdapter {
      *
      * @param msg message to be sent
      * @param msgType type of message to be sent
+     * @param getResponse true if response expected, else false
      * @throws IOException if the message cannot be sent over the channel
      */
-    private void deliverMessage(cMsgMessage msg, int msgType) throws IOException {
+    private void deliverMessage(cMsgMessage msg, int msgType, boolean getResponse) throws IOException {
 
         int[] len = new int[6];
 
@@ -546,6 +507,21 @@ public class RCServer extends cMsgDomainAdapter {
             e.printStackTrace();
         }
         out.flush();
+
+        if (getResponse) {
+            int lengthClientName = in.readInt();
+
+            // string bytes expected
+            int stringBytesToRead = lengthClientName;
+
+            // read all string bytes
+            byte[] bytes = new byte[stringBytesToRead];
+            in.readFully(bytes, 0, stringBytesToRead);
+
+            // read subject
+            clientName = new String(bytes, 0, lengthClientName, "US-ASCII");
+//System.out.println("client name = " + clientName);
+        }
 
         return;
     }
