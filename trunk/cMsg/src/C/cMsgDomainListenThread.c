@@ -131,13 +131,12 @@ static void cleanUpHandler(void *arg) {
     fprintf(stderr, "cMsgClientListeningThread: in cleanup handler\n");
   }
 
-  /* cancel threads, ignore errors */
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cMsgClientListeningThread: cancelling mesage receiving threads\n");
-  }
-  
+  /* cancel threads, ignore errors */  
   if (threadArg->thd1started) {
     if (strcasecmp(threadArg->domainType, "cmsg") == 0) {
+      if (cMsgDebug >= CMSG_DEBUG_INFO) {
+        fprintf(stderr, "cMsgClientListeningThread: cancelling mesage receiving thread[1]\n");
+      }
       pthread_cancel(domain->clientThread[1]);
     }
   }
@@ -152,6 +151,9 @@ static void cleanUpHandler(void *arg) {
   pthread_cond_signal(&domain->subscribeCond);
   nanosleep(&sTime,NULL);
   if (threadArg->thd0started) {
+    if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "cMsgClientListeningThread: cancelling mesage receiving thread[0]\n");
+    }
     pthread_cancel(domain->clientThread[0]);
   }
   domain->killClientThread = 0;
@@ -365,6 +367,7 @@ static void *clientThread(void *arg)
   char *buffer;
   int acknowledge = 0;
   cMsgDomainInfo *domain;
+  struct timespec wait;
 
   
   info             = (cMsgThreadInfo *) arg;
@@ -383,7 +386,7 @@ static void *clientThread(void *arg)
 
   localCount = counter++;
       
-  buffer = (char *) malloc(65536);
+  buffer = (char *) calloc(65536,1);
   if (buffer == NULL) {
       if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
         fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
@@ -391,6 +394,10 @@ static void *clientThread(void *arg)
       exit(1);
   }
   bufSize = 65536;
+  if (domain->msgInBuffer[index] != NULL) {
+/*printf("clientThread %d OOPS @ start: freeing domain->msgInBuffer[%d]\n", localCount, index);*/
+    free((void*)(domain->msgInBuffer[index]));
+  }
   domain->msgInBuffer[index] = buffer;
 
   /*--------------------------------------*/
@@ -457,11 +464,11 @@ static void *clientThread(void *arg)
             }
             exit(1);
           }
-/*
+
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
             fprintf(stderr, "clientThread %d: subscribe response received\n", localCount);
           }
-*/          
+          
           /* fill in known message fields */
           message->next         = NULL;
           message->domain       = (char *) strdup("cMsg");
@@ -612,10 +619,9 @@ static void *clientThread(void *arg)
       case  CMSG_RC_CONNECT:
       {
           cMsgMessage_t *message;
-          struct timespec wait;
+          int len, netLenName, lenName;
           
 /*printf("clientThread %d: Got CMSG_RC_CONNECT message!!!\n", localCount);*/
-
           message = (cMsgMessage_t *) cMsgCreateMessage();
           if (message == NULL) {
             if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
@@ -644,57 +650,55 @@ static void *clientThread(void *arg)
           domain->sendPort = message->userInt;
           domain->sendHost = (char *) strdup(message->senderHost);
           
-          /* notify "connect" call that it may resume and end now */
-          wait.tv_sec  = 1;
-          wait.tv_nsec = 0;
-          domain->rcConnectComplete = 1;
-          cMsgLatchCountDown(&domain->syncLatch, &wait);
-                    
+          /* First look to see if we are already connected.
+           * If so, then the server must have died, been resurrected,
+           * and is trying to RE-establish the connection.
+           * If not, this is a first time connection which should
+           * go ahead and complete the standard connection procedure.
+           */
+          if (domain->gotConnection == 0) {
+/*printf("clientThread %d: try to connect for first time\n", localCount);*/
+            /* notify "connect" call that it may resume and end now */
+            wait.tv_sec  = 1;
+            wait.tv_nsec = 0;
+            domain->rcConnectComplete = 1;
+            cMsgLatchCountDown(&domain->syncLatch, &wait);
+          }
+          else {
+/*printf("clientThread %d: try to reconnect\n", localCount);*/
+            /* kill other thread waiting to read from the (dead) rc server */
+            otherIndex = (index == 1) ? 0 : 1;
+            pthread_cancel(domain->clientThread[otherIndex]);
+            /* release memory */
+            free((void*)(domain->msgInBuffer[otherIndex]));
+            domain->msgInBuffer[otherIndex] = NULL;
+          }
+          
           /* now free message */
           cMsgFreeMessage((void **) &message);
-      }
-      break;
-
-      /* for RC server & RC domains only */
-      case  CMSG_RC_RECONNECT:
-      {
-          cMsgMessage_t *message;
-          struct timespec wait;
           
-/*printf("clientThread %d: Got CMSG_RC_CONNECT message!!!\n", localCount);*/
-
-          message = (cMsgMessage_t *) cMsgCreateMessage();
-          if (message == NULL) {
-            if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-              fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
-            }
-            exit(1);
-          }
-
-          if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "clientThread %d: RC Server connect received\n", localCount);
-          }
-                    
-          /* read the message - nothing of value in it */
-          if ( cMsgReadMessage(connfd, buffer, message, &acknowledge) != CMSG_OK) {
+          /* Send back a response - the name of this client */
+          lenName = strlen(domain->name); /* length of client's name */
+          netLenName = htonl(lenName);    /* length of client's name in net byte order */
+          len = sizeof(netLenName);       /* length of int */
+          buffer = malloc(len+lenName);   /* create buffer */
+          if (buffer == NULL) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread %d: error reading message\n", localCount);
+              fprintf(stderr, "clientThread %d: out of memory\n", localCount);
             }
-            cMsgFreeMessage((void **) &message);
             goto end;
           }
-                              
-          /* now free message */
-          cMsgFreeMessage((void **) &message);
+          memcpy(buffer,     (void *)(&netLenName), len);     /* write name len into buffer */
+          memcpy(buffer+len, (void *)domain->name,  lenName); /* write name into buffer */
+          len += lenName;
           
-          /* kill other thread waiting to read from the (dead) rc server */
-          otherIndex = (index == 1) ? 0 : 1;
-          pthread_cancel(domain->clientThread[otherIndex]);
-          /* release memory */
-          free((void*)(domain->msgInBuffer[otherIndex]));
-          /* don't want to free the memory again */
-          domain->msgInBuffer[otherIndex] = NULL;
-       }
+          if (cMsgTcpWrite(connfd, buffer, len) != len) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+              fprintf(stderr, "clientThread %d: write failure\n", localCount);
+            }
+            goto end;
+          }
+      }
       break;
 
       default:
@@ -789,11 +793,11 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   
   if (cMsgTcpRead(connfd, buffer, stringLen) != stringLen) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgReadMessage: error reading message 2\n");
+      fprintf(stderr, "cMsgReadMessage: error reading message\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
-  
+
   /* init pointer */
   pchar = buffer;
 
@@ -812,7 +816,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   msg->sender = tmp;
   /* go to next string */
   pchar += lengths[0];
-  /*printf("sender = %s\n", tmp);*/
+  /* printf("sender = %s\n", tmp); */
       
   /*------------------------*/
   /* read senderHost string */
@@ -826,7 +830,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   tmp[lengths[1]] = 0;
   msg->senderHost = tmp;
   pchar += lengths[1];
-  /*printf("senderHost = %s\n", tmp);*/
+  /* printf("senderHost = %s\n", tmp); */
   
   /*---------------------*/
   /* read subject string */
@@ -842,7 +846,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   tmp[lengths[2]] = 0;
   msg->subject = tmp;
   pchar += lengths[2];  
-  /*printf("subject = %s\n", tmp);*/
+  /* printf("subject = %s\n", tmp); */
   
   /*------------------*/
   /* read type string */
@@ -860,7 +864,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   tmp[lengths[3]] = 0;
   msg->type = tmp;
   pchar += lengths[3];    
-  /*printf("type = %s\n", tmp);*/
+  /* printf("type = %s\n", tmp); */
   
   /*---------------------*/
   /* read creator string */
@@ -880,7 +884,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   tmp[lengths[4]] = 0;
   msg->creator = tmp;
   pchar += lengths[4];    
-  /*printf("creator = %s\n", tmp);*/
+  /* printf("creator = %s\n", tmp); */
     
   /*------------------*/
   /* read text string */
@@ -903,7 +907,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
     tmp[lengths[5]] = 0;
     msg->text = tmp;
     pchar += lengths[5];    
-    /*printf("text = %s\n", tmp);*/
+    /* printf("text = %s\n", tmp); */
   }
   
   /*-----------------------------*/
@@ -966,8 +970,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
     */
             
   }
-  
-      
+        
   return(CMSG_OK);
 }
 
