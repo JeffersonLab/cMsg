@@ -186,9 +186,9 @@ int main(int argc,char **argv) {
       }
       */
   }
-printf("rcClient try disconnect\n");
+/*printf("rcClient try disconnect\n");*/
   cMsgDisconnect(&domainId);
-printf("rcClient done disconnect\n");
+/*printf("rcClient done disconnect\n");*/
 
   return(0);
 }

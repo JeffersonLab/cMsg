@@ -295,7 +295,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         return(err);
     }
 
-printf("connect: create listening socket on port %d\n", domain->listenPort );
+/*printf("connect: create listening socket on port %d\n", domain->listenPort );*/
 
     /* launch pend thread and start listening on receive socket */
     threadArg = (cMsgThreadInfo *) malloc(sizeof(cMsgThreadInfo));
@@ -309,7 +309,7 @@ printf("connect: create listening socket on port %d\n", domain->listenPort );
     threadArg->blocking   = CMSG_NONBLOCKING;
     threadArg->domain     = domain;
     threadArg->domainType = strdup("rc");
-printf("connect: start pend thread\n");
+/*printf("connect: start pend thread\n");*/
     status = pthread_create(&domain->pendThread, NULL,
                             cMsgClientListeningThread, (void *) threadArg);
     if (status != 0) {
@@ -421,8 +421,8 @@ printf("Wait for 5 more seconds, then exit\n");
     }
     nameLen  = strlen(myName);
     expidLen = strlen(expid);
-printf("Sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
-        ((int) domain->listenPort), expid, serverPort, serverHost);
+/*printf("Sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
+        ((int) domain->listenPort), expid, serverPort, serverHost);*/
     
     /* tcp port */
     outGoing[0] = htonl((int) domain->listenPort);
@@ -478,7 +478,7 @@ printf("Sending info (listening tcp port = %d, expid = %s) to server on port = %
             err_abort(status, "pthread_mutex_lock");
         }
  
-printf("Wait %d seconds for broadcast to be answered\n", broadcastTO); 
+/*printf("Wait %d seconds for broadcast to be answered\n", broadcastTO);*/
         status = pthread_cond_timedwait(&cond, &mutex, &time);
         if (status == ETIMEDOUT) {
           /* stop receiving thread */
@@ -502,7 +502,7 @@ printf("Wait %d seconds for broadcast to be answered\n", broadcastTO);
             err_abort(status, "pthread_mutex_lock");
         }
  
-printf("Wait forever for broadcast to be answered\n"); 
+/* printf("Wait forever for broadcast to be answered\n"); */ 
         status = pthread_cond_wait(&cond, &mutex);
         if (status != 0) {
             err_abort(status, "pthread_cond_timedwait");
@@ -519,14 +519,14 @@ printf("Wait forever for broadcast to be answered\n");
     pthread_cancel(bThread);
     
     if (!gotResponse) {
-printf("Got no response\n"); 
+/* printf("Got no response\n"); */ 
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
         return(CMSG_NETWORK_ERROR);
     }
     
-printf("Got a response, now wait for connect to finish\n"); 
+/* printf("Got a response, now wait for connect to finish\n"); */ 
 
     /* Wait for a special message to come in to the TCP listening thread.
      * The message will contain the host and UDP port of the destination
@@ -651,7 +651,7 @@ static void *broadcastThd(void *arg) {
     
     while (1) {
 
-printf("Send broadcast to RC Broadcast server\n"); 
+/*printf("Send broadcast to RC Broadcast server\n");*/
       sendto(threadArg->sockfd, (void *)threadArg->buffer, threadArg->bufferLen, 0,
              (SA *) threadArg->paddr, threadArg->len);
       
@@ -1463,7 +1463,7 @@ static int parseUDL(const char *UDLR,
     
     /* make a copy */        
     udlRemainder = (char *) strdup(UDLR);
-printf("parseUDL: udl remainder = %s\n", udlRemainder);
+/* printf("parseUDL: udl remainder = %s\n", udlRemainder); */
  
     /* make a big enough buffer to construct various strings, 256 chars minimum */
     len       = strlen(udlRemainder) + 1;
@@ -1531,7 +1531,7 @@ printf("parseUDL: udl remainder = %s\n", udlRemainder);
     if (host != NULL) {
         *host = (char *)strdup(buffer);
     }    
-printf("parseUDL: host = %s\n", buffer);
+/* printf("parseUDL: host = %s\n", buffer); */
 
 
     /* find port */
@@ -1560,7 +1560,7 @@ printf("parseUDL: host = %s\n", buffer);
     if (port != NULL) {
       *port = Port;
     }
-printf("parseUDL: port = %hu\n", Port );
+/* printf("parseUDL: port = %hu\n", Port ); */
 
     /* find junk */
     index++;
@@ -1579,7 +1579,7 @@ printf("parseUDL: port = %hu\n", Port );
         if (junk != NULL) {
             *junk = (char *) strdup(buffer);
         }        
-printf("parseUDL: remainder = %s, len = %d\n", buffer, len);
+/* printf("parseUDL: remainder = %s, len = %d\n", buffer, len); */
     }
 
     /* find expid parameter in the junk if it exists*/
@@ -1606,7 +1606,7 @@ printf("parseUDL: remainder = %s, len = %d\n", buffer, len);
                if (expid != NULL) {
                  *expid = (char *) strdup(buffer);
                }        
-printf("parseUDL: expid = %s\n", buffer);
+/* printf("parseUDL: expid = %s\n", buffer); */
             }
         }
                 
@@ -1635,7 +1635,7 @@ printf("parseUDL: expid = %s\n", buffer);
                if (broadcastTO != NULL) {
                  *broadcastTO = t;
                }        
-printf("parseUDL: broadcast timeout = %d\n", t);
+/* printf("parseUDL: broadcast timeout = %d\n", t); */
             }
         }
         
@@ -1665,7 +1665,7 @@ printf("parseUDL: broadcast timeout = %d\n", t);
                if (connectTO != NULL) {
                  *connectTO = t;
                }        
-printf("parseUDL: connection timeout = %d\n", t);
+/* printf("parseUDL: connection timeout = %d\n", t); */
             }
         }
         
@@ -1679,7 +1679,7 @@ printf("parseUDL: connection timeout = %d\n", t);
 
 
     /* UDL parsed ok */
-printf("DONE PARSING UDL\n");
+/* printf("DONE PARSING UDL\n"); */
     free(buffer);
     return(CMSG_OK);
 }
