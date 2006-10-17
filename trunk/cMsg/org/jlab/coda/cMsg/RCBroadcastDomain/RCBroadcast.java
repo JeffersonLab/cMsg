@@ -179,7 +179,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
         if (udlRemainder == null) {
             throw new cMsgException("invalid UDL");
         }
-
+        System.out.println("parser given " + udlRemainder);
         // RC Broadcast domain UDL is of the form:
         //       cMsg:rcb://<udpPort>?expid=<expid>
         //
@@ -203,7 +203,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
             remainder = matcher.group(2);
 
             if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("\nparseUDL: " +
+                System.out.println("\nparseUDL: " +
                                "\n  port = " + udlPort +
                                "\n  junk = " + remainder);
             }
@@ -346,7 +346,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
                         cbThread = new cMsgCallbackThread(cb, userObj);
                         sub.addCallback(cbThread);
                         unsubscriptions.put(cbThread, sub);
-                        return (Object) cbThread;
+                        return cbThread;
                     }
                 }
 
@@ -368,7 +368,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
             notConnectLock.unlock();
         }
 
-        return (Object) cbThread;
+        return cbThread;
     }
 
 
