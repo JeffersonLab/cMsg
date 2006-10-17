@@ -120,9 +120,8 @@ public class rcListeningThread extends Thread {
             while (true) {
                 if (killThread) { return; }
 
-//System.out.println("Listen for broadcasts");
                 broadcastSocket.receive(packet);
-//System.out.println("RECEIVED BROADCAST PACKET !!!");
+System.out.println("RECEIVED BROADCAST PACKET !!!");
 
                 if (killThread) { return; }
 
@@ -154,7 +153,7 @@ System.out.println("clientHost = " + rcClientHost + ", UDP port = " + rcClientUd
 
                 // Check for conflicting expid's
                 if (!server.expid.equalsIgnoreCase(clientExpid)) {
-//System.out.println("Conflicting EXPID's, ignoring");
+System.out.println("Conflicting EXPID's, ignoring");
                     continue;
                 }
 
