@@ -42,8 +42,6 @@ import java.io.*;
  * @version 1.0
  */
 public class RCServer extends cMsgDomainAdapter {
-    /** Client's name. */
-    String clientName;
 
     /** Runcontrol client's TCP listening port obtained from UDL. */
     int rcClientPort;
@@ -114,14 +112,6 @@ public class RCServer extends cMsgDomainAdapter {
      * object.
      */
     ConcurrentHashMap<Integer,cMsgGetHelper> subscribeAndGets;
-
-    /**
-     * Gets the name of the client connected to (which returns its name in the connect() method).
-     * @return name of connected client
-     */
-    public String getClientName() {
-        return clientName;
-    }
 
 
     /** Constructor. */
@@ -519,8 +509,8 @@ public class RCServer extends cMsgDomainAdapter {
             in.readFully(bytes, 0, stringBytesToRead);
 
             // read subject
-            clientName = new String(bytes, 0, lengthClientName, "US-ASCII");
-//System.out.println("client name = " + clientName);
+            name = new String(bytes, 0, lengthClientName, "US-ASCII");
+//System.out.println("client name = " + name);
         }
 
         return;
@@ -598,7 +588,7 @@ public class RCServer extends cMsgDomainAdapter {
                         cbThread = new cMsgCallbackThread(cb, userObj);
                         sub.addCallback(cbThread);
                         unsubscriptions.put(cbThread, sub);
-                        return (Object) cbThread;
+                        return cbThread;
                     }
                 }
 
@@ -624,7 +614,7 @@ public class RCServer extends cMsgDomainAdapter {
             notConnectLock.unlock();
         }
 
-        return (Object) cbThread;
+        return cbThread;
     }
 
 
