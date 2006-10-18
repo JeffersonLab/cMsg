@@ -10,7 +10,8 @@ INSTALL  = $(TOPDIR)/install-sh -c
 JAVAC_FLAGS = -classpath $(TOPDIR)
 
 JAVA_OBJS = \
-	RunControl.class
+	RunControl.class \
+	rcListeningThread.class
 
 all: $(JAVA_OBJS)
 
