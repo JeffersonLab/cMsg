@@ -20,7 +20,8 @@ JAVA_OBJS = \
 	cMsgProducer.class \
 	cMsgGetResponder.class \
 	cMsgAlarmServer.class \
-	cMsgShutdowner.class
+	cMsgShutdowner.class \
+	rcClient.class
 
 all: $(JAVA_OBJS)
 
