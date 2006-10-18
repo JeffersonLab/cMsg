@@ -17,13 +17,23 @@
 package org.jlab.coda.cMsg.RCDomain;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgDomain.client.cMsgClientListeningThread;
+import org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread;
+import org.jlab.coda.cMsg.cMsgDomain.client.cMsgGetHelper;
 
 import java.io.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.Set;
+import java.util.Date;
+import java.util.Collections;
+import java.util.HashSet;
 import java.net.*;
 import java.nio.channels.ServerSocketChannel;
 
@@ -44,7 +54,7 @@ public class RunControl extends cMsgDomainAdapter {
      ServerSocketChannel serverChannel;
 
     /** Thread listening for TCP connections and responding to RC domain server commands. */
-    cMsgClientListeningThread listeningThread;
+    rcListeningThread listeningThread;
 
     /** Name of local host. */
     String localHost;
@@ -77,6 +87,24 @@ public class RunControl extends cMsgDomainAdapter {
     DatagramSocket udpSocket;
 
     /**
+     * Collection of all of this client's message subscriptions which are
+     * {@link cMsgSubscription} objects. This set is synchronized. A client is either
+     * a regular client or a bridge but not both. That means it does not matter that
+     * a bridge client will add namespace data to the stored subscription but a regular
+     * client will not.
+     */
+    public Set<cMsgSubscription> subscriptions;
+
+    /**
+     * HashMap of all of this client's callback threads (keys) and their associated
+     * subscriptions (values). The cMsgCallbackThread object of a new subscription
+     * is returned (as an Object) as the unsubscribe handle. When this object is
+     * passed as the single argument of an unsubscribe, a quick lookup of the
+     * subscription is done using this hashmap.
+     */
+    private ConcurrentHashMap<Object, cMsgSubscription> unsubscriptions;
+
+    /**
      * This lock is for controlling access to the methods of this class.
      * It is inherently more flexible than synchronizing code. The {@link #connect}
      * and {@link #disconnect} methods of this object cannot be called simultaneously
@@ -91,33 +119,32 @@ public class RunControl extends cMsgDomainAdapter {
     /** Lock for calling methods other than {@link #connect} or {@link #disconnect}. */
     Lock notConnectLock = methodLock.readLock();
 
-    /** Boolean telling if there has been a response to the initial UDP broadcast. */
-    volatile boolean noResponse = true;
+    /** Lock to ensure {@link #subscribe} and {@link #unsubscribe} calls are sequential. */
+    Lock subscribeLock = new ReentrantLock();
+
+    /** Lock to ensure that methods using the socket, write in sequence. */
+    Lock socketLock = new ReentrantLock();
+
+    /** Used to create unique id numbers associated with a specific message subject/type pair. */
+    AtomicInteger uniqueId;
+
+    /** Signal to coordinate the broadcasting and waiting for responses. */
+    CountDownLatch broadcastResponse = new CountDownLatch(1);
+
+    /** Signal to coordinate the finishing of the 3-leg connect method. */
+    CountDownLatch connectCompletion = new CountDownLatch(1);
 
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugInfo;
-
-
-    /**
-     * Converts 4 bytes of a byte array into an integer.
-     *
-     * @param b byte array
-     * @param off offset into the byte array (0 = start at first element)
-     * @return integer value
-     */
-    private static final int bytesToInt(byte[] b, int off) {
-      int result = ((b[off]  &0xff) << 24) |
-                   ((b[off+1]&0xff) << 16) |
-                   ((b[off+2]&0xff) <<  8) |
-                    (b[off+3]&0xff);
-      return result;
-    }
+    int debug = cMsgConstants.debugError;
 
 
 
     /** Constructor. */
     public RunControl() throws cMsgException {
         domain = "RC";
+        subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
+        uniqueId         = new AtomicInteger();
+        unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
 
         try {
             localHost = InetAddress.getLocalHost().getCanonicalHostName();
@@ -195,14 +222,14 @@ public class RunControl extends cMsgDomainAdapter {
             }
 
             // launch thread and start listening on receive socket
- //           listeningThread = new cMsgClientListeningThread(this, serverChannel);
- //           listeningThread.start();
+            listeningThread = new rcListeningThread(this, serverChannel);
+            listeningThread.start();
 
             // Wait for indication thread is actually running before
             // continuing on. This thread must be running before we talk to
             // the name server since the server tries to communicate with
             // the listening thread.
-            /*
+
             synchronized (listeningThread) {
                 if (!listeningThread.isAlive()) {
                     try {
@@ -213,8 +240,6 @@ public class RunControl extends cMsgDomainAdapter {
                     }
                 }
             }
-            */
-
 
             //-------------------------------------------------------
             // broadcast on local subnet to find RunControl server
@@ -226,10 +251,9 @@ public class RunControl extends cMsgDomainAdapter {
             DataOutputStream out = new DataOutputStream(baos);
 
             try {
-                // Put EXPID (experiment id string) into byte array.
-                // The host and port are automatically sent by UDP
-                // to the recipient.
-                out.writeInt(6666); // port
+                // Put our TCP listening port, our name, and
+                // the EXPID (experiment id string) into byte array.
+                out.writeInt(port);
                 out.writeInt(name.length());
                 out.writeInt(expid.length());
                 try {
@@ -262,35 +286,63 @@ public class RunControl extends cMsgDomainAdapter {
             BroadcastReceiver receiver = new BroadcastReceiver();
             receiver.start();
 
-            int numLoops = 5;
-            try {
-                while (noResponse && numLoops > 0) {
-                    // broadcast
-                    udpSocket.send(udpPacket);
-System.out.println("Sent out broadcast");
+            // create a thread which will send our broadcast
+            Broadcaster sender = new Broadcaster(udpPacket);
+            sender.start();
 
-                    // wait with 2 sec timeout
-                    synchronized (udpSocket) {
-                        try {
-System.out.println("Will wait 2 sec for response");
-                            udpSocket.wait(2000);
-System.out.println("wait for response timed out");
-                        }
-                        catch (InterruptedException e) {}
+            // wait up to broadcast timeout seconds
+            boolean response = false;
+            if (broadcastTimeout > 0) {
+                try {
+                    if (broadcastResponse.await(broadcastTimeout, TimeUnit.MILLISECONDS)) {
+                        response = true;
                     }
-                    numLoops--;
                 }
+                catch (InterruptedException e) {}
             }
-            catch (IOException e) {
+            // wait forever
+            else {
+                try { broadcastResponse.await(); response = true;}
+                catch (InterruptedException e) {}
             }
 
-            if (noResponse) {
-System.out.println("Got no response");
+            sender.interrupt();
+
+            if (!response) {
                 throw new cMsgException("No response to UDP broadcast received");
             }
-            else {
-System.out.println("Got a response!");
+//            else {
+//System.out.println("Got a response!");
+//            }
+
+            // Now that we got a response from the RC Broadcast server,
+            // wait for that server to pass its info on to the RC server
+            // which should complete this connect by sending a "connect"
+            // message to our listening thread.
+
+            // wait up to connect timeout seconds
+            boolean completed = false;
+            if (connectTimeout > 0) {
+                try {
+                    if (connectCompletion.await(connectTimeout, TimeUnit.MILLISECONDS)) {
+                        completed = true;
+                    }
+                }
+                catch (InterruptedException e) {}
             }
+            // wait forever
+            else {
+                try { connectCompletion.await(); completed = true;}
+                catch (InterruptedException e) {}
+            }
+
+            if (!completed) {
+//System.out.println("Did NOT complete the connection");
+                throw new cMsgException("No connect from the RC server received");
+            }
+//            else {
+//System.out.println("Completed the connection!");
+//            }
 
             // Create a UDP "connection". This means security check is done only once
             // and communication with any other host/port is not allowed.
@@ -350,12 +402,12 @@ System.out.println("Got a response!");
             // remainder
             remainder = matcher.group(3);
 
-           // if (debug >= cMsgConstants.debugInfo) {
+            if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("\nparseUDL: " +
                                    "\n  host      = " + udlHost +
                                    "\n  port      = " + udlPort +
                                    "\n  remainder = " + remainder);
-           // }
+            }
         }
         else {
             throw new cMsgException("invalid UDL");
@@ -394,10 +446,10 @@ System.out.println("Got a response!");
                 try { rcServerBroadcastAddress = InetAddress.getByName(udlHost); }
                 catch (UnknownHostException e) {}
             }
-            System.out.println("WIll unicast");
+//System.out.println("Will unicast to host " + udlHost);
         }
         else {
-            System.out.println("WIll broadcast");
+//System.out.println("Will broadcast to 255.255.255.25");
             try {rcServerBroadcastAddress = InetAddress.getByName("255.255.255.255"); }
             catch (UnknownHostException e) {}
         }
@@ -422,6 +474,7 @@ System.out.println("Got a response!");
         if (rcServerBroadcastPort < 1024 || rcServerBroadcastPort > 65535) {
             throw new cMsgException("parseUDL: illegal port number");
         }
+//System.out.println("Port = " + rcServerBroadcastPort);
 
         // if no remaining UDL to parse, return
         if (remainder == null) {
@@ -433,14 +486,14 @@ System.out.println("Got a response!");
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
             expid = matcher.group(1);
-System.out.println("parsed expid = " + expid);
+//System.out.println("parsed expid = " + expid);
         }
         else {
             expid = System.getenv("EXPID");
             if (expid == null) {
              throw new cMsgException("Experiment ID is unknown");
             }
-System.out.println("env expid = " + expid);
+//System.out.println("env expid = " + expid);
         }
 
         // now look for ?broadcastTO=value& or &broadcastTO=value&
@@ -449,7 +502,7 @@ System.out.println("env expid = " + expid);
         if (matcher.find()) {
             try {
                 broadcastTimeout = 1000 * Integer.parseInt(matcher.group(1));
-System.out.println("broadcast TO = " + broadcastTimeout);
+//System.out.println("broadcast TO = " + broadcastTimeout);
             }
             catch (NumberFormatException e) {
                 // ignore error and keep value of 0
@@ -462,7 +515,7 @@ System.out.println("broadcast TO = " + broadcastTimeout);
         if (matcher.find()) {
             try {
                 connectTimeout = 1000 * Integer.parseInt(matcher.group(1));
-System.out.println("broadcast TO = " + connectTimeout);
+//System.out.println("broadcast TO = " + connectTimeout);
             }
             catch (NumberFormatException e) {
                 // ignore error and keep value of 0
@@ -470,19 +523,146 @@ System.out.println("broadcast TO = " + connectTimeout);
         }
 
     }
-
+    
 
     /**
-     * Method to close the connection to the codaComponent. This method results in this object
+     * Method to close the connection to the domain server. This method results in this object
      * becoming functionally useless.
      */
     public void disconnect() {
-        // cannot run this simultaneously with connect or send
+        // cannot run this simultaneously with any other public method
         connectLock.lock();
-        connected = false;
-        udpSocket.close();
-        connectLock.unlock();
+
+        try {
+            connected = false;
+            udpSocket.close();
+
+            // stop listening and client communication thread & close channel
+            listeningThread.killThread();
+
+            // stop all callback threads
+            synchronized (subscriptions) {
+                for (cMsgSubscription sub : subscriptions) {
+                    // run through all callbacks
+                    for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
+                        // Tell the callback thread(s) to wakeup and die
+                        cbThread.dieNow();
+                    }
+                }
+            }
+
+            // empty all hash tables
+            subscriptions.clear();
+            unsubscriptions.clear();
+        }
+        finally {
+            connectLock.unlock();
+        }
     }
+
+
+        /**
+         * Method to send a message to the domain server for further distribution.
+         *
+         * @param message message to send
+         * @throws cMsgException if there are communication problems with the server;
+         *                       subject and/or type is null
+         */
+        public void send(final cMsgMessage message) throws cMsgException {
+
+            String subject = message.getSubject();
+            String type    = message.getType();
+            String text    = message.getText();
+
+            // check message fields first
+            if (subject == null || type == null) {
+                throw new cMsgException("message subject and/or type is null");
+            }
+
+            if (text == null) {
+                text = "";
+            }
+
+            // creator (this sender's name:nsHost:nsPort (?) if msg created here)
+            String msgCreator = message.getCreator();
+            if (msgCreator == null) msgCreator = name;
+
+            int binaryLength = message.getByteArrayLength();
+
+            try {
+                // cannot run this simultaneously with connect, reconnect, or disconnect
+                notConnectLock.lock();
+                // protect communicatons over socket
+                socketLock.lock();
+                try {
+                    if (!connected) {
+                        throw new IOException("not connected to server");
+                    }
+
+                    // length not including first int
+                    int totalLength = (4 * 15) + subject.length() + type.length() +
+                            msgCreator.length() + text.length() + binaryLength;
+
+                    // create byte array for sending message
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream(totalLength);
+                    DataOutputStream out = new DataOutputStream(baos);
+
+                    // total length of msg (not including this int) is 1st item
+                    out.writeInt(totalLength);
+                    out.writeInt(cMsgConstants.msgSendRequest);
+                    out.writeInt(0); // reserved for future use
+                    out.writeInt(message.getUserInt());
+                    out.writeInt(message.getSysMsgId());
+                    out.writeInt(message.getSenderToken());
+                    out.writeInt(message.getInfo());
+
+                    long now = new Date().getTime();
+                    // send the time in milliseconds as 2, 32 bit integers
+                    out.writeInt((int) (now >>> 32)); // higher 32 bits
+                    out.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
+                    out.writeInt((int) (message.getUserTime().getTime() >>> 32));
+                    out.writeInt((int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL));
+
+                    out.writeInt(subject.length());
+                    out.writeInt(type.length());
+                    out.writeInt(msgCreator.length());
+                    out.writeInt(text.length());
+                    out.writeInt(binaryLength);
+
+                    // write strings & byte array
+                    try {
+                        out.write(subject.getBytes("US-ASCII"));
+                        out.write(type.getBytes("US-ASCII"));
+                        out.write(msgCreator.getBytes("US-ASCII"));
+                        out.write(text.getBytes("US-ASCII"));
+                        if (binaryLength > 0) {
+                            out.write(message.getByteArray(),
+                                      message.getByteArrayOffset(),
+                                      binaryLength);
+                        }
+                    }
+                    catch (UnsupportedEncodingException e) {
+                    }
+
+                    out.flush();
+                    out.close();
+
+                    // create packet to send from the byte array
+                    byte[] buf = baos.toByteArray();
+                    udpSocket.send(new DatagramPacket(buf, buf.length, rcServerAddress, rcServerPort));
+                }
+                finally {
+                    socketLock.unlock();
+                    notConnectLock.unlock();
+                }
+            }
+            catch (IOException e) {
+                if (debug >= cMsgConstants.debugError) {
+                    System.out.println("send: " + e.getMessage());
+                }
+                throw new cMsgException(e.getMessage());
+            }
+        }
 
 
     /**
@@ -493,7 +673,7 @@ System.out.println("broadcast TO = " + connectTimeout);
      * @throws cMsgException if there are communication problems with the server;
      *                       text is null or blank
      */
-    public void send(cMsgMessage message) throws cMsgException {
+    public void send2(cMsgMessage message) throws cMsgException {
 
         String text = message.getText();
         int textLen = text.length();
@@ -534,7 +714,7 @@ System.out.println("broadcast TO = " + connectTimeout);
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
-                    System.out.println("send: " + e);
+                    System.out.println("send: " + e.getMessage());
                 }
                 throw new cMsgException(e.getMessage());
             }
@@ -546,15 +726,200 @@ System.out.println("broadcast TO = " + connectTimeout);
     }
 
 
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to subscribe to receive messages of a subject and type from the domain server.
+     * The combination of arguments must be unique. In other words, only 1 subscription is
+     * allowed for a given set of subject, type, callback, and userObj.
+     *
+     * Note about the server failing and an IOException being thrown. All existing
+     * subscriptions are resubscribed on the new failover server by the keepAlive thread.
+     * However, this routine will recover from an IO error during the subscribe itself
+     * if the failover is successful.
+     *
+     * @param subject message subject
+     * @param type    message type
+     * @param cb      callback object whose single method is called upon receiving a message
+     *                of subject and type
+     * @param userObj any user-supplied object to be given to the callback method as an argument
+     * @return handle object to be used for unsubscribing
+     * @throws cMsgException if the callback, subject and/or type is null or blank;
+     *                       an identical subscription already exists; there are
+     *                       communication problems with the server
+     */
+    public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+            throws cMsgException {
+
+        // check args first
+        if (subject == null || type == null || cb == null) {
+            throw new cMsgException("subject, type or callback argument is null");
+        }
+        else if (subject.length() < 1 || type.length() < 1) {
+            throw new cMsgException("subject or type is blank string");
+        }
+
+        cMsgCallbackThread cbThread = null;
+
+        cMsgSubscription newSub = null;
+
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
+        // cannot run this simultaneously with unsubscribe
+        // or itself (iterate over same hashtable)
+        subscribeLock.lock();
+
+        try {
+            if (!connected) {
+                throw new cMsgException("not connected to server");
+            }
+
+            // add to callback list if subscription to same subject/type exists
+
+            int id = 0;
+
+            // client listening thread may be interating thru subscriptions concurrently
+            // and we may change set structure
+            synchronized (subscriptions) {
+
+                // for each subscription ...
+                for (cMsgSubscription sub : subscriptions) {
+                    // If subscription to subject & type exist already, keep track of it locally
+                    // and don't bother the server since any matching message will be delivered
+                    // to this client anyway.
+                    if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
+                        // Only add another callback if the callback/userObj
+                        // combination does NOT already exist. In other words,
+                        // a callback/argument pair must be unique for a single
+                        // subscription. Otherwise it is impossible to unsubscribe.
+
+                        // for each callback listed ...
+                        for (cMsgCallbackThread cbt : sub.getCallbacks()) {
+                            // if callback and user arg already exist, reject the subscription
+                            if ((cbt.getCallback() == cb) && (cbt.getArg() == userObj)) {
+                                throw new cMsgException("subscription already exists");
+                            }
+                        }
+
+                        // add to existing set of callbacks
+                        cbThread = new cMsgCallbackThread(cb, userObj);
+                        sub.addCallback(cbThread);
+                        unsubscriptions.put(cbThread, sub);
+                        return cbThread;
+                    }
+                }
+
+                // If we're here, the subscription to that subject & type does not exist yet.
+                // We need to create it.
+
+                // First generate a unique id for the receiveSubscribeId field. This info
+                // allows us to unsubscribe.
+                id = uniqueId.getAndIncrement();
+
+                // add a new subscription & callback
+                cbThread = new cMsgCallbackThread(cb, userObj);
+                newSub = new cMsgSubscription(subject, type, id, cbThread);
+                unsubscriptions.put(cbThread, newSub);
+
+                // client listening thread may be interating thru subscriptions concurrently
+                // and we're changing the set structure
+                subscriptions.add(newSub);
+            }
+        }
+        finally {
+            subscribeLock.unlock();
+            notConnectLock.unlock();
+        }
+
+        return cbThread;
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to unsubscribe a previous subscription to receive messages of a subject and type
+     * from the domain server.
+     *
+     * Note about the server failing and an IOException being thrown. To have "unsubscribe" make
+     * sense on the failover server, we must wait until all existing subscriptions have been
+     * successfully resubscribed on the new server.
+     *
+     * @param obj the object "handle" returned from a subscribe call
+     * @throws cMsgException if there are communication problems with the server; object arg is null
+     */
+    public void unsubscribe(Object obj)
+            throws cMsgException {
+
+        // check arg first
+        if (obj == null) {
+            throw new cMsgException("argument is null");
+        }
+
+        // unsubscriptions is concurrent hashmap so this is OK
+        cMsgSubscription sub = unsubscriptions.remove(obj);
+        // already unsubscribed
+        if (sub == null) {
+            return;
+        }
+        cMsgCallbackThread cbThread = (cMsgCallbackThread) obj;
+
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
+        // cannot run this simultaneously with subscribe
+        // or itself (iterate over same hashtable)
+        subscribeLock.lock();
+
+        try {
+            if (!connected) {
+                throw new cMsgException("not connected to server");
+            }
+
+            // If there are still callbacks left,
+            // don't unsubscribe for this subject/type
+            if (sub.numberOfCallbacks() > 1) {
+                // kill callback thread
+                cbThread.dieNow();
+                // remove this callback from the set
+                synchronized (subscriptions) {
+                    sub.getCallbacks().remove(cbThread);
+                }
+                return;
+            }
+
+            // Delete stuff from hashes & kill threads
+            cbThread.dieNow();
+            synchronized (subscriptions) {
+                sub.getCallbacks().remove(cbThread);
+                subscriptions.remove(sub);
+            }
+        }
+        finally {
+            subscribeLock.unlock();
+            notConnectLock.unlock();
+        }
+    }
+
+
 
     /**
      * This class gets any response to our UDP broadcast. A response will
-     * stop the broadcast and give some host & port of where to direct
-     * future UDP packets.
+     * stop the broadcast and tell us to wait for the completion of the
+     * connect call by the RC server (not RC Broadcast server).
      */
     class BroadcastReceiver extends Thread {
 
         public void run() {
+
+            /* A slight delay here will help the main thread (calling connect)
+             * to be already waiting for a response from the server when we
+             * broadcast to the server here (prompting that response). This
+             * will help insure no responses will be lost.
+             */
+            try { Thread.sleep(200); }
+            catch (InterruptedException e) {}
 
             byte[] buf = new byte[1024];
             DatagramPacket packet = new DatagramPacket(buf, 1024);
@@ -565,19 +930,50 @@ System.out.println("broadcast TO = " + connectTimeout);
             catch (IOException e) {
             }
 
-            // pick apart byte array received
-            rcServerPort = packet.getPort();  // port to send future udp packets to
-System.out.println("Got rc broadcast server port = " + rcServerPort);
+            broadcastResponse.countDown();
+        }
+    }
 
-            // host to send future udp packets to
-            rcServerAddress = packet.getAddress();
-System.out.println("Got rc broadcast server host = " + rcServerAddress.getCanonicalHostName());
 
-            noResponse = false;
+    /**
+     * This class defines a thread to broadcast a UDP packet to the
+     * RC Broadcast server every second.
+     */
+    class Broadcaster extends Thread {
 
-            // notify waiter that we have a response
-            synchronized (udpSocket) {
-                udpSocket.notify();
+        DatagramPacket packet;
+
+        Broadcaster(DatagramPacket udpPacket) {
+            packet = udpPacket;
+        }
+
+
+        public void run() {
+
+            try {
+                /* A slight delay here will help the main thread (calling connect)
+                * to be already waiting for a response from the server when we
+                * broadcast to the server here (prompting that response). This
+                * will help insure no responses will be lost.
+                */
+                Thread.sleep(100);
+
+                while (true) {
+
+                    try {
+//System.out.println("Send broadcast packet to RC Broadcast server");
+                        udpSocket.send(packet);
+                    }
+                    catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    Thread.sleep(1000);
+                }
+            }
+            catch (InterruptedException e) {
+                // time to quit
+ //System.out.println("Interrupted sender");
             }
         }
     }
