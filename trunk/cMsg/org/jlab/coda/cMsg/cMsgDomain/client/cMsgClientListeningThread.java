@@ -28,10 +28,15 @@ import java.util.*;
 import java.net.Socket;
 
 /**
+ * <p>
  * This class implements a cMsg client's thread which listens for
  * communications from the domain server. The server sends it keep alives,
  * messages to which the client has subscribed, and other directives.
- *
+ * </p><p>
+ * Note that the class org.jlab.cMsg.RCDomain.rcListeningThread is largely
+ * the same as this one. If there are any changes made here the identical
+ * changes should be made there as well.
+ * </p>
  * @author Carl Timmer
  * @version 1.0
  */
@@ -71,7 +76,7 @@ public class cMsgClientListeningThread extends Thread {
      * Constructor for regular clients.
      *
      * @param myClient cMsg client that created this object
-     * @param channel suggested port on which to starting listening for connections
+     * @param channel socket for listening for connections
      */
     public cMsgClientListeningThread(cMsg myClient, ServerSocketChannel channel) {
 
