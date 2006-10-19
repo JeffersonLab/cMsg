@@ -46,6 +46,9 @@ public class RCServer extends cMsgDomainAdapter {
     /** Runcontrol client's TCP listening port obtained from UDL. */
     int rcClientPort;
 
+    /** Runcontrol client's name returned from the connect message. */
+    String rcClientName;
+
     /** Runcontrol client's host obtained from UDL. */
     String rcClientHost;
 
@@ -112,6 +115,16 @@ public class RCServer extends cMsgDomainAdapter {
      * object.
      */
     ConcurrentHashMap<Integer,cMsgGetHelper> subscribeAndGets;
+
+
+    /**
+     * Returns a string back to the top level API user indicating the name
+     * of the client that this server is communicating with.
+     * @return name of client
+     */
+    public String getString() {
+        return rcClientName;
+    }
 
 
     /** Constructor. */
@@ -509,7 +522,7 @@ public class RCServer extends cMsgDomainAdapter {
             in.readFully(bytes, 0, stringBytesToRead);
 
             // read subject
-            name = new String(bytes, 0, lengthClientName, "US-ASCII");
+            rcClientName = new String(bytes, 0, lengthClientName, "US-ASCII");
 //System.out.println("client name = " + name);
         }
 

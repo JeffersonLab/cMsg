@@ -487,6 +487,14 @@ public class cMsg {
     }
 
     /**
+     * Get a string that the implementation class wants to return up to the top (this) level API.
+     * @return a string
+     */
+    public String getString() {
+        return connection.getString();
+    }
+
+    /**
      * Method telling whether callbacks are activated or not. The
      * start and stop methods activate and deactivate the callbacks.
      * @return true if callbacks are activated, false if they are not

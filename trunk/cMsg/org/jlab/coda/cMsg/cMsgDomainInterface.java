@@ -248,6 +248,12 @@ public interface cMsgDomainInterface {
     public String getHost();
 
     /**
+     * Get a string that the implementing class wants to send back to the user.
+     * @return a string
+     */
+    public String getString();
+
+    /**
      * Method telling whether callbacks are activated or not. The
      * start and stop methods activate and deactivate the callbacks.
      * @return true if callbacks are activated, false if they are not

@@ -47,7 +47,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
     /** Domain being connected to. */
     protected String  domain;
 
-    /** Name of this client. Must be unique in the domain. */
+    /** Name of this client. */
     protected String  name;
 
     /** Description of the client. */
@@ -414,6 +414,17 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      */
     public String getHost() {return(host);}
 
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Get a string that the implementing class wants to send back to the user.
+     * @return a string
+     */
+    public String getString() {
+        return null;
+    }
 
 //-----------------------------------------------------------------------------
 
