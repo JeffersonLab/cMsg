@@ -85,15 +85,15 @@ static int initialMsgBufferSize = 15000;
 /* Prototypes of the functions which implement the standard cMsg tasks in the cMsg domain. */
 int   cmsg_cmsg_connect           (const char *myUDL, const char *myName, const char *myDescription,
                                    const char *UDLremainder,void **domainId);
-int   cmsg_cmsg_send              (void *domainId, void *msg);
-int   cmsg_cmsg_syncSend          (void *domainId, void *msg, const struct timespec *timeout, int *response);
+int   cmsg_cmsg_send              (void *domainId, const void *msg);
+int   cmsg_cmsg_syncSend          (void *domainId, const void *msg, const struct timespec *timeout, int *response);
 int   cmsg_cmsg_flush             (void *domainId, const struct timespec *timeout);
 int   cmsg_cmsg_subscribe         (void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                                    void *userArg, cMsgSubscribeConfig *config, void **handle);
 int   cmsg_cmsg_unsubscribe       (void *domainId, void *handle);
 int   cmsg_cmsg_subscribeAndGet   (void *domainId, const char *subject, const char *type,
                                    const struct timespec *timeout, void **replyMsg);
-int   cmsg_cmsg_sendAndGet        (void *domainId, void *sendMsg, const struct timespec *timeout,
+int   cmsg_cmsg_sendAndGet        (void *domainId, const void *sendMsg, const struct timespec *timeout,
                                    void **replyMsg);
 int   cmsg_cmsg_start             (void *domainId);
 int   cmsg_cmsg_stop              (void *domainId);
@@ -909,7 +909,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-int cmsg_cmsg_send(void *domainId, void *vmsg) {
+int cmsg_cmsg_send(void *domainId, const void *vmsg) {
   
   int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int fd, highInt, lowInt, outGoing[16];
@@ -1104,7 +1104,7 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-int cmsg_cmsg_syncSend(void *domainId, void *vmsg, const struct timespec *timeout, int *response) {
+int cmsg_cmsg_syncSend(void *domainId, const void *vmsg, const struct timespec *timeout, int *response) {
   
   int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int fd, fdIn, highInt, lowInt, outGoing[16];
@@ -1631,7 +1631,7 @@ static int unSubscribeAndGet(void *domainId, const char *subject, const char *ty
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
+int cmsg_cmsg_sendAndGet(void *domainId, const void *sendMsg, const struct timespec *timeout,
                       void **replyMsg) {
   
   cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;

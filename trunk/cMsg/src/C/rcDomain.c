@@ -113,8 +113,8 @@ static int   parseUDL(const char *UDLR, char **host,
 int   cmsg_rc_connect           (const char *myUDL, const char *myName,
                                  const char *myDescription,
                                  const char *UDLremainder, void **domainId);
-int   cmsg_rc_send              (void *domainId, void *msg);
-int   cmsg_rc_syncSend          (void *domainId, void *msg, const struct timespec *timeout, int *response);
+int   cmsg_rc_send              (void *domainId, const void *msg);
+int   cmsg_rc_syncSend          (void *domainId, const void *msg, const struct timespec *timeout, int *response);
 int   cmsg_rc_flush             (void *domainId, const struct timespec *timeout);
 int   cmsg_rc_subscribe         (void *domainId, const char *subject, const char *type,
                                  cMsgCallbackFunc *callback, void *userArg,
@@ -122,7 +122,7 @@ int   cmsg_rc_subscribe         (void *domainId, const char *subject, const char
 int   cmsg_rc_unsubscribe       (void *domainId, void *handle);
 int   cmsg_rc_subscribeAndGet   (void *domainId, const char *subject, const char *type,
                                  const struct timespec *timeout, void **replyMsg);
-int   cmsg_rc_sendAndGet        (void *domainId, void *sendMsg,
+int   cmsg_rc_sendAndGet        (void *domainId, const void *sendMsg,
                                  const struct timespec *timeout, void **replyMsg);
 int   cmsg_rc_start             (void *domainId);
 int   cmsg_rc_stop              (void *domainId);
@@ -697,7 +697,7 @@ static void *broadcastThd(void *arg) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-int cmsg_rc_send(void *domainId, void *vmsg) {  
+int cmsg_rc_send(void *domainId, const void *vmsg) {  
 
     cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
     cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
@@ -831,7 +831,7 @@ int cmsg_rc_send(void *domainId, void *vmsg) {
 
 
 /** syncSend is not implemented in the rc domain. */
-int cmsg_rc_syncSend(void *domainId, void *vmsg, const struct timespec *timeout, int *response) {
+int cmsg_rc_syncSend(void *domainId, const void *vmsg, const struct timespec *timeout, int *response) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -850,7 +850,7 @@ int cmsg_rc_subscribeAndGet(void *domainId, const char *subject, const char *typ
 
 
 /** sendAndGet is not implemented in the rc domain. */
-int cmsg_rc_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
+int cmsg_rc_sendAndGet(void *domainId, const void *sendMsg, const struct timespec *timeout,
                             void **replyMsg) {
   return(CMSG_NOT_IMPLEMENTED);
 }

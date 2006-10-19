@@ -125,13 +125,13 @@ extern "C" {
   /* basic functions */
   int 	cMsgConnect           (const char *myUDL, const char *myName, const char *myDescription,
                                void **domainId);
-  int 	cMsgSend              (void *domainId, void *msg);
-  int   cMsgSyncSend          (void *domainId, void *msg, const struct timespec *timeout, int *response);
+  int 	cMsgSend              (void *domainId, const void *msg);
+  int   cMsgSyncSend          (void *domainId, const void *msg, const struct timespec *timeout, int *response);
   int 	cMsgFlush             (void *domainId, const struct timespec *timeout);
   int 	cMsgSubscribe         (void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                                void *userArg, cMsgSubscribeConfig *config, void **handle);
   int 	cMsgUnSubscribe       (void *domainId, void *handle);
-  int   cMsgSendAndGet        (void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
+  int   cMsgSendAndGet        (void *domainId, const void *sendMsg, const struct timespec *timeout, void **replyMsg);
   int   cMsgSubscribeAndGet   (void *domainId, const char *subject, const char *type,
                                const struct timespec *timeout, void **replyMsg);
   int 	cMsgReceiveStart      (void *domainId);
@@ -203,7 +203,7 @@ extern "C" {
   int    cMsgSetByteArrayAndLimits(void *vmsg, char *array, int offset, int length);
   int    cMsgCopyByteArray        (void *vmsg, char *array, int offset, int length);
 
-  int    cMsgToString             (void *vmsg, char **string);
+  int    cMsgToString             (const void *vmsg, char **string);
 
 
   /* system and domain info access functions */

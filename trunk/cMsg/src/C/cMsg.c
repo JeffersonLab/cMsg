@@ -345,7 +345,7 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSend
  */   
-int cMsgSend(void *domainId, void *msg) {
+int cMsgSend(void *domainId, const void *msg) {
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
@@ -378,7 +378,7 @@ int cMsgSend(void *domainId, void *msg) {
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSyncSend
  */   
-int cMsgSyncSend(void *domainId, void *msg, const struct timespec *timeout, int *response) {
+int cMsgSyncSend(void *domainId, const void *msg, const struct timespec *timeout, int *response) {
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
@@ -501,7 +501,7 @@ int cMsgUnSubscribe(void *domainId, void *handle) {
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSendAndGet
  */   
-int cMsgSendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg) {
+int cMsgSendAndGet(void *domainId, const void *sendMsg, const struct timespec *timeout, void **replyMsg) {
     
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
@@ -3139,7 +3139,7 @@ int cMsgGetReceiverTime(void *vmsg, struct timespec *receiverTime) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgToString(void *vmsg, char **string) {
+int cMsgToString(const void *vmsg, char **string) {
 
   char *format =
     "<cMsgMessage date=\"%s\"\n"

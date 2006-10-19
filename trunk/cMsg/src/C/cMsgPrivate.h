@@ -83,10 +83,10 @@ typedef int (*CONNECT_PTR)     (const char *udl, const char *name, const char *d
                                 const char *UDLremainder, void **domainId); 
                                   
 /** Typedef for a domain's send function */  
-typedef int (*SEND_PTR)        (void *domainId, void *msg);
+typedef int (*SEND_PTR)        (void *domainId, const void *msg);
 
 /** Typedef for a domain's syncSend function */  
-typedef int (*SYNCSEND_PTR)    (void *domainId, void *msg, const struct timespec *timeout,
+typedef int (*SYNCSEND_PTR)    (void *domainId, const void *msg, const struct timespec *timeout,
                                 int *response);
 
 /** Typedef for a domain's subscribe function */  
@@ -102,7 +102,7 @@ typedef int (*SUBSCRIBE_AND_GET_PTR) (void *domainId, const char *subject, const
                                       const struct timespec *timeout, void **replyMsg);
 
 /** Typedef for a domain's sendAndGet function */  
-typedef int (*SEND_AND_GET_PTR)         (void *domainId, void *sendMsg,
+typedef int (*SEND_AND_GET_PTR)         (void *domainId, const void *sendMsg,
                                          const struct timespec *timeout, void **replyMsg);
 
 /** Typedef for a domain's flush function */  
