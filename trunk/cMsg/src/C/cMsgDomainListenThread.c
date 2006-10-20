@@ -657,7 +657,7 @@ static void *clientThread(void *arg)
            * go ahead and complete the standard connection procedure.
            */
           if (domain->gotConnection == 0) {
-/*printf("clientThread %d: try to connect for first time\n", localCount);*/
+printf("clientThread %d: try to connect for first time\n", localCount);
             /* notify "connect" call that it may resume and end now */
             wait.tv_sec  = 1;
             wait.tv_nsec = 0;
@@ -665,14 +665,50 @@ static void *clientThread(void *arg)
             cMsgLatchCountDown(&domain->syncLatch, &wait);
           }
           else {
-/*printf("clientThread %d: try to reconnect\n", localCount);*/
+printf("clientThread %d: try to reconnect\n", localCount);
             /* kill other thread waiting to read from the (dead) rc server */
+            /*
             otherIndex = (index == 1) ? 0 : 1;
             pthread_cancel(domain->clientThread[otherIndex]);
-            /* release memory */
             free((void*)(domain->msgInBuffer[otherIndex]));
             domain->msgInBuffer[otherIndex] = NULL;
-          }
+            */
+            
+            
+            /* Recreate broken udp socket between client and server 
+             * so client can communicate with server. */
+              /*
+             * Create a new UDP "connection". This means all subsequent sends are to
+             * be done with the "send" and not the "sendto" function. The benefit is 
+             * that the udp socket does not have to connect and disconnect for each
+             * message sent.
+             */
+            struct sockaddr_in addr;
+            bzero((void *)&addr, sizeof(addr));
+            addr.sin_family = AF_INET;
+            addr.sin_port   = htons(domain->sendPort);
+
+            /* create new UDP socket for sends */
+            close(domain->sendSocket); /* close old socket */
+printf("clientThread %d: try recreating UDP socket for writing to server\n", localCount);
+            domain->sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
+            if (domain->sendSocket < 0) {
+                printf("Error trying to recreate rc client's UDP send socket\n");
+                goto end;
+            }
+
+            if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
+                printf("Error trying to recreate rc client's UDP send socket\n");
+                goto end;
+            }
+
+printf("clientThread %d: try recreating UDP connection to port = %hu\n", localCount, ntohs(addr.sin_port));
+            err = connect(domain->sendSocket, (SA *)&addr, sizeof(addr));
+            if (err < 0) {
+                printf("Error trying to recreate rc client's UDP send connection\n");
+                goto end;
+            }
+        }
           
           /* now free message */
           cMsgFreeMessage((void **) &message);
@@ -723,7 +759,8 @@ static void *clientThread(void *arg)
     sun_setconcurrency(con - 1);
     
     /* release memory */
-    free((void*)buffer);
+printf("clientThread %d: exiting thread to server, free buffer\n", localCount);
+    free((void*)domain->msgInBuffer[index]);
     
     /* don't want to free the memory again */
     domain->msgInBuffer[index] = NULL;

@@ -96,7 +96,7 @@ int main(int argc,char **argv) {
   int   err, debug = 1;
   cMsgSubscribeConfig *config;
   void *unSubHandle, *msg;
-  int toggle = 2, loops = 3;
+  int toggle = 2, loops = 10;
   
   /* msg rate measuring variables */
   int             period = 2, ignore=0;
@@ -158,7 +158,8 @@ int main(int argc,char **argv) {
       err = cMsgSend(domainId, msg);
       if (err != CMSG_OK) {
           printf("ERROR in sending message!!\n");
-          exit(-1);
+          sleep(1);
+          continue;
       }
       
       /* wait for messages */
