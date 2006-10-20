@@ -284,6 +284,8 @@ void *cMsgClientListeningThread(void *arg)
     pinfo->connectionNumber = connectionNumber;
     /* wait for connection to client */
     pinfo->connfd = err = cMsgAccept(listenFd, (SA *) &cliaddr, &len);
+    /* pass on whether we're "rc" or "cmsg" domain */
+    pinfo->domainType = (char *)strdup(threadArg->domainType);
     /* ignore errors due to client shutting down the connection before
      * it can be established on this end. (EWOULDBLOCK, ECONNABORTED,
      * EPROTO) 
@@ -364,7 +366,7 @@ static void *clientThread(void *arg)
   int  err, ok, size, msgId, connfd, connectionNumber, localCount=0;
   cMsgThreadInfo *info;
   int  con, bufSize, index, otherIndex;
-  char *buffer;
+  char *buffer, *domainType;
   int acknowledge = 0;
   cMsgDomainInfo *domain;
   struct timespec wait;
@@ -375,6 +377,7 @@ static void *clientThread(void *arg)
   connectionNumber = info->connectionNumber;
   domain           = info->domain;
   index            = connectionNumber%2;
+  domainType       = info->domainType;
   free(arg);
 
   /* increase concurrency for this thread */
@@ -471,7 +474,7 @@ static void *clientThread(void *arg)
           
           /* fill in known message fields */
           message->next         = NULL;
-          message->domain       = (char *) strdup("cMsg");
+          message->domain       = (char *) strdup(domainType);
           clock_gettime(CLOCK_REALTIME, &message->receiverTime);
           message->receiver     = (char *) strdup(domain->name);
           message->receiverHost = (char *) strdup(domain->myHost);
@@ -533,7 +536,7 @@ static void *clientThread(void *arg)
           
           /* fill in known message fields */
           message->next         = NULL;
-          message->domain       = (char *) strdup("cMsg");
+          message->domain       = (char *) strdup(domainType);
           clock_gettime(CLOCK_REALTIME, &message->receiverTime);
           message->receiver     = (char *) strdup(domain->name);
           message->receiverHost = (char *) strdup(domain->myHost);
@@ -761,6 +764,7 @@ printf("clientThread %d: try recreating UDP connection to port = %hu\n", localCo
     /* release memory */
 printf("clientThread %d: exiting thread to server, free buffer\n", localCount);
     free((void*)domain->msgInBuffer[index]);
+    free(domainType);
     
     /* don't want to free the memory again */
     domain->msgInBuffer[index] = NULL;
@@ -842,97 +846,122 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   /* read sender string */
   /*--------------------*/
   /* allocate memory for sender string */
-  if ( (tmp = (char *) malloc(lengths[0]+1)) == NULL) {
-    return(CMSG_OUT_OF_MEMORY);    
+  if (lengths[0] > 0) {
+    if ( (tmp = (char *) malloc(lengths[0]+1)) == NULL) {
+      return(CMSG_OUT_OF_MEMORY);    
+    }
+    /* read sender string into memory */
+    memcpy(tmp, pchar, lengths[0]);
+    /* add null terminator to string */
+    tmp[lengths[0]] = 0;
+    /* store string in msg structure */
+    msg->sender = tmp;
+    /* go to next string */
+    pchar += lengths[0];
+    /* printf("sender = %s\n", tmp); */
   }
-  /* read sender string into memory */
-  memcpy(tmp, pchar, lengths[0]);
-  /* add null terminator to string */
-  tmp[lengths[0]] = 0;
-  /* store string in msg structure */
-  msg->sender = tmp;
-  /* go to next string */
-  pchar += lengths[0];
-  /* printf("sender = %s\n", tmp); */
+  else {
+    msg->sender = NULL;
+  }
       
   /*------------------------*/
   /* read senderHost string */
   /*------------------------*/
-  if ( (tmp = (char *) malloc(lengths[1]+1)) == NULL) {
-    free((void *) msg->sender);
-    msg->sender = NULL;
-    return(CMSG_OUT_OF_MEMORY);    
+  if (lengths[1] > 0) {
+    if ( (tmp = (char *) malloc(lengths[1]+1)) == NULL) {
+      if (msg->sender != NULL) free((void *) msg->sender);
+      msg->sender = NULL;
+      return(CMSG_OUT_OF_MEMORY);    
+    }
+    memcpy(tmp, pchar, lengths[1]);
+    tmp[lengths[1]] = 0;
+    msg->senderHost = tmp;
+    pchar += lengths[1];
+    /* printf("senderHost = %s\n", tmp); */
   }
-  memcpy(tmp, pchar, lengths[1]);
-  tmp[lengths[1]] = 0;
-  msg->senderHost = tmp;
-  pchar += lengths[1];
-  /* printf("senderHost = %s\n", tmp); */
+  else {
+    msg->senderHost = NULL;
+  }
   
   /*---------------------*/
   /* read subject string */
   /*---------------------*/
-  if ( (tmp = (char *) malloc(lengths[2]+1)) == NULL) {
-    free((void *) msg->sender);
-    free((void *) msg->senderHost);
-    msg->sender     = NULL;
-    msg->senderHost = NULL;
-    return(CMSG_OUT_OF_MEMORY);    
+  if (lengths[2] > 0) {
+    if ( (tmp = (char *) malloc(lengths[2]+1)) == NULL) {
+      if (msg->sender != NULL)     free((void *) msg->sender);
+      if (msg->senderHost != NULL) free((void *) msg->senderHost);
+      msg->sender     = NULL;
+      msg->senderHost = NULL;
+      return(CMSG_OUT_OF_MEMORY);    
+    }
+    memcpy(tmp, pchar, lengths[2]);
+    tmp[lengths[2]] = 0;
+    msg->subject = tmp;
+    pchar += lengths[2];  
+    /* printf("subject = %s\n", tmp); */
   }
-  memcpy(tmp, pchar, lengths[2]);
-  tmp[lengths[2]] = 0;
-  msg->subject = tmp;
-  pchar += lengths[2];  
-  /* printf("subject = %s\n", tmp); */
+  else {
+    msg->subject = NULL;
+  }
   
   /*------------------*/
   /* read type string */
   /*------------------*/
-  if ( (tmp = (char *) malloc(lengths[3]+1)) == NULL) {
-    free((void *) msg->sender);
-    free((void *) msg->senderHost);
-    free((void *) msg->subject);
-    msg->sender     = NULL;
-    msg->senderHost = NULL;
-    msg->subject    = NULL;
-    return(CMSG_OUT_OF_MEMORY);    
+  if (lengths[3] > 0) {
+    if ( (tmp = (char *) malloc(lengths[3]+1)) == NULL) {
+      if (msg->sender != NULL)     free((void *) msg->sender);
+      if (msg->senderHost != NULL) free((void *) msg->senderHost);
+      if (msg->subject != NULL)    free((void *) msg->subject);
+      msg->sender     = NULL;
+      msg->senderHost = NULL;
+      msg->subject    = NULL;
+      return(CMSG_OUT_OF_MEMORY);    
+    }
+    memcpy(tmp, pchar, lengths[3]);
+    tmp[lengths[3]] = 0;
+    msg->type = tmp;
+    pchar += lengths[3];    
+    /* printf("type = %s\n", tmp); */
   }
-  memcpy(tmp, pchar, lengths[3]);
-  tmp[lengths[3]] = 0;
-  msg->type = tmp;
-  pchar += lengths[3];    
-  /* printf("type = %s\n", tmp); */
+  else {
+    msg->type = NULL;
+  }
   
   /*---------------------*/
   /* read creator string */
   /*---------------------*/
-  if ( (tmp = (char *) malloc(lengths[4]+1)) == NULL) {
-    free((void *) msg->sender);
-    free((void *) msg->senderHost);
-    free((void *) msg->subject);
-    free((void *) msg->type);
-    msg->sender     = NULL;
-    msg->senderHost = NULL;
-    msg->subject    = NULL;
-    msg->type       = NULL;
-    return(CMSG_OUT_OF_MEMORY);    
+  if (lengths[4] > 0) {
+    if ( (tmp = (char *) malloc(lengths[4]+1)) == NULL) {
+      if (msg->sender != NULL)     free((void *) msg->sender);
+      if (msg->senderHost != NULL) free((void *) msg->senderHost);
+      if (msg->subject != NULL)    free((void *) msg->subject);
+      if (msg->type != NULL)       free((void *) msg->type);
+      msg->sender     = NULL;
+      msg->senderHost = NULL;
+      msg->subject    = NULL;
+      msg->type       = NULL;
+      return(CMSG_OUT_OF_MEMORY);    
+    }
+    memcpy(tmp, pchar, lengths[4]);
+    tmp[lengths[4]] = 0;
+    msg->creator = tmp;
+    pchar += lengths[4];    
+    /* printf("creator = %s\n", tmp); */
   }
-  memcpy(tmp, pchar, lengths[4]);
-  tmp[lengths[4]] = 0;
-  msg->creator = tmp;
-  pchar += lengths[4];    
-  /* printf("creator = %s\n", tmp); */
+  else {
+    msg->creator = NULL;
+  }
     
   /*------------------*/
   /* read text string */
   /*------------------*/
   if (lengths[5] > 0) {
     if ( (tmp = (char *) malloc(lengths[5]+1)) == NULL) {
-      free((void *) msg->sender);
-      free((void *) msg->senderHost);
-      free((void *) msg->subject);
-      free((void *) msg->type);
-      free((void *) msg->creator);
+      if (msg->sender != NULL)     free((void *) msg->sender);
+      if (msg->senderHost != NULL) free((void *) msg->senderHost);
+      if (msg->subject != NULL)    free((void *) msg->subject);
+      if (msg->type != NULL)       free((void *) msg->type);
+      if (msg->creator != NULL)    free((void *) msg->creator);
       msg->sender     = NULL;
       msg->senderHost = NULL;
       msg->subject    = NULL;
@@ -946,6 +975,9 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
     pchar += lengths[5];    
     /* printf("text = %s\n", tmp); */
   }
+  else {
+    msg->text = NULL;
+  }
   
   /*-----------------------------*/
   /* read binary into byte array */
@@ -953,21 +985,18 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   if (lengths[6] > 0) {
     
     if ( (tmp = (char *) malloc(lengths[6])) == NULL) {
-      free((void *) msg->sender);
-      free((void *) msg->senderHost);
-      free((void *) msg->subject);
-      free((void *) msg->type);
-      free((void *) msg->creator);
+      if (msg->sender != NULL)     free((void *) msg->sender);
+      if (msg->senderHost != NULL) free((void *) msg->senderHost);
+      if (msg->subject != NULL)    free((void *) msg->subject);
+      if (msg->type != NULL)       free((void *) msg->type);
+      if (msg->creator != NULL)    free((void *) msg->creator);
+      if (msg->text != NULL)       free((void *) msg->text);
       msg->sender     = NULL;
       msg->senderHost = NULL;
       msg->subject    = NULL;
       msg->type       = NULL;
       msg->creator    = NULL;
-      
-      if (lengths[5] > 0) {
-        free((void *) msg->text);
-        msg->text = NULL;
-      }
+      msg->text       = NULL;
       return(CMSG_OUT_OF_MEMORY);    
     }
     
@@ -975,23 +1004,18 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "cMsgReadMessage: error reading message 3\n");
       }
-      
-      free((void *) msg->sender);
-      free((void *) msg->senderHost);
-      free((void *) msg->subject);
-      free((void *) msg->type);
-      free((void *) msg->creator);
+      if (msg->sender != NULL)     free((void *) msg->sender);
+      if (msg->senderHost != NULL) free((void *) msg->senderHost);
+      if (msg->subject != NULL)    free((void *) msg->subject);
+      if (msg->type != NULL)       free((void *) msg->type);
+      if (msg->creator != NULL)    free((void *) msg->creator);
+      if (msg->text != NULL)       free((void *) msg->text);
       msg->sender     = NULL;
       msg->senderHost = NULL;
       msg->subject    = NULL;
       msg->type       = NULL;
       msg->creator    = NULL;
-      
-      if (lengths[5] > 0) {
-        free((void *) msg->text);
-        msg->text = NULL;
-      }
-
+      msg->text       = NULL;      
       return(CMSG_NETWORK_ERROR);
     }
 
