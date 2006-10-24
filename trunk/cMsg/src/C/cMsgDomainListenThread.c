@@ -131,7 +131,7 @@ static void cleanUpHandler(void *arg) {
     fprintf(stderr, "cMsgClientListeningThread: in cleanup handler\n");
   }
 
-  /* cancel threads, ignore errors */  
+  /* cancel thread that gets keepalives (cmsg domain), ignore errors */  
   if (threadArg->thd1started) {
     if (strcasecmp(threadArg->domainType, "cmsg") == 0) {
       if (cMsgDebug >= CMSG_DEBUG_INFO) {
@@ -282,10 +282,10 @@ void *cMsgClientListeningThread(void *arg)
     pinfo->domain = domain;
     /* set values to pass on to thread */
     pinfo->connectionNumber = connectionNumber;
-    /* wait for connection to client */
-    pinfo->connfd = err = cMsgAccept(listenFd, (SA *) &cliaddr, &len);
     /* pass on whether we're "rc" or "cmsg" domain */
     pinfo->domainType = (char *)strdup(threadArg->domainType);
+    /* wait for connection to client */
+    pinfo->connfd = err = cMsgAccept(listenFd, (SA *) &cliaddr, &len);
     /* ignore errors due to client shutting down the connection before
      * it can be established on this end. (EWOULDBLOCK, ECONNABORTED,
      * EPROTO) 
@@ -294,6 +294,7 @@ void *cMsgClientListeningThread(void *arg)
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "cMsgClientListeningThread: error accepting client connection\n");
       }
+      free(pinfo->domainType);
       free(pinfo);
       continue;
     }
@@ -305,6 +306,7 @@ void *cMsgClientListeningThread(void *arg)
           fprintf(stderr, "cMsgClientListeningThread: error setting socket to TCP_NODELAY\n");
       }
       close(pinfo->connfd);
+      free(pinfo->domainType);
       free(pinfo);
       continue;
     }
@@ -316,10 +318,10 @@ void *cMsgClientListeningThread(void *arg)
         fprintf(stderr, "cMsgClientListeningThread: error setting socket to SO_KEEPALIVE\n");
       }
       close(pinfo->connfd);
+      free(pinfo->domainType);
       free(pinfo);
       continue;
     }
-
 
     /* create thread to deal with client */
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
@@ -337,8 +339,18 @@ void *cMsgClientListeningThread(void *arg)
     }
     
     /* Keep track of threads that were started for use by cleanup handler. */
-    if      (index == 0) threadArg->thd0started = 1;
-    else if (index == 1) threadArg->thd1started = 1;
+    if (index == 0) {
+        threadArg->thd0started = 1;
+        if (strcasecmp(threadArg->domainType, "rc") == 0) {
+            threadArg->thd1started = 0;
+        }
+    }
+    else if (index == 1) {
+        threadArg->thd1started = 1;
+        if (strcasecmp(threadArg->domainType, "rc") == 0) {
+            threadArg->thd0started = 0;
+        }
+    }
     
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "cMsgClientListeningThread: started thread[%d] = %d\n",index, connectionNumber);
@@ -364,10 +376,10 @@ static void *clientThread(void *arg)
 {
   int  inComing[2];
   int  err, ok, size, msgId, connfd, connectionNumber, localCount=0;
+  int  con, index, otherIndex, acknowledge = 0;
+  size_t bufSize;
   cMsgThreadInfo *info;
-  int  con, bufSize, index, otherIndex;
-  char *buffer, *domainType;
-  int acknowledge = 0;
+  char *buffer, *returnBuf, *domainType;
   cMsgDomainInfo *domain;
   struct timespec wait;
 
@@ -389,14 +401,14 @@ static void *clientThread(void *arg)
 
   localCount = counter++;
       
-  buffer = (char *) calloc(65536,1);
+  bufSize = 65536;
+  buffer  = (char *) calloc(bufSize,1);
   if (buffer == NULL) {
       if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
         fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
       }
       exit(1);
   }
-  bufSize = 65536;
   if (domain->msgInBuffer[index] != NULL) {
 /*printf("clientThread %d OOPS @ start: freeing domain->msgInBuffer[%d]\n", localCount, index);*/
     free((void*)(domain->msgInBuffer[index]));
@@ -440,15 +452,15 @@ static void *clientThread(void *arg)
       free((void *) buffer);
 
       /* allocate more memory to accomodate larger msg */
-      buffer = (char *) malloc(size + 1000);
+      bufSize = size + 1000;
+      buffer  = (char *) calloc(bufSize,1);
       if (buffer == NULL) {
         if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
           fprintf(stderr, "clientThread %d: cannot allocate %d amount of memory\n",
-                  localCount, size);
+                  localCount, bufSize);
         }
         goto end;
       }
-      bufSize = size + 1000;
       domain->msgInBuffer[index] = buffer;
     }
         
@@ -473,11 +485,17 @@ static void *clientThread(void *arg)
           }
           
           /* fill in known message fields */
-          message->next         = NULL;
-          message->domain       = (char *) strdup(domainType);
+          message->next = NULL;
           clock_gettime(CLOCK_REALTIME, &message->receiverTime);
-          message->receiver     = (char *) strdup(domain->name);
-          message->receiverHost = (char *) strdup(domain->myHost);
+          if (domainType != NULL) {
+              message->domain  = (char *) strdup(domainType);
+          }
+          if (domain->name != NULL) {
+              message->receiver = (char *) strdup(domain->name);
+          }
+          if (domain->myHost != NULL) {
+              message->receiverHost = (char *) strdup(domain->myHost);
+          }
           
           /* read the message */
           if ( cMsgReadMessage(connfd, buffer, message, &acknowledge) != CMSG_OK) {
@@ -535,12 +553,18 @@ static void *clientThread(void *arg)
           }
           
           /* fill in known message fields */
-          message->next         = NULL;
-          message->domain       = (char *) strdup(domainType);
+          message->next = NULL;
           clock_gettime(CLOCK_REALTIME, &message->receiverTime);
-          message->receiver     = (char *) strdup(domain->name);
-          message->receiverHost = (char *) strdup(domain->myHost);
-          
+          if (domainType != NULL) {
+              message->domain  = (char *) strdup(domainType);
+          }
+          if (domain->name != NULL) {
+              message->receiver = (char *) strdup(domain->name);
+          }
+          if (domain->myHost != NULL) {
+              message->receiverHost = (char *) strdup(domain->myHost);
+          }
+         
           /* read the message */
           if ( cMsgReadMessage(connfd, buffer, message, &acknowledge) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -651,7 +675,9 @@ static void *clientThread(void *arg)
            * recorded in the domain structure for future use.
            */
           domain->sendPort = message->userInt;
-          domain->sendHost = (char *) strdup(message->senderHost);
+          if (message->senderHost != NULL) {
+              domain->sendHost = (char *) strdup(message->senderHost);
+          }
           
           /* First look to see if we are already connected.
            * If so, then the server must have died, been resurrected,
@@ -669,18 +695,18 @@ printf("clientThread %d: try to connect for first time\n", localCount);
           }
           else {
 printf("clientThread %d: try to reconnect\n", localCount);
-            /* kill other thread waiting to read from the (dead) rc server */
             /*
-            otherIndex = (index == 1) ? 0 : 1;
-            pthread_cancel(domain->clientThread[otherIndex]);
-            free((void*)(domain->msgInBuffer[otherIndex]));
-            domain->msgInBuffer[otherIndex] = NULL;
-            */
-            
+             * Other thread waiting to read from the (dead) rc server
+             * will automatically die because it will try to read from
+             * dead socket and go to error handling at the end of this
+             * function.
+             */            
             
             /* Recreate broken udp socket between client and server 
-             * so client can communicate with server. */
-              /*
+             * so client can communicate with server.
+             */
+             
+            /*
              * Create a new UDP "connection". This means all subsequent sends are to
              * be done with the "send" and not the "sendto" function. The benefit is 
              * that the udp socket does not have to connect and disconnect for each
@@ -696,11 +722,13 @@ printf("clientThread %d: try to reconnect\n", localCount);
 printf("clientThread %d: try recreating UDP socket for writing to server\n", localCount);
             domain->sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
             if (domain->sendSocket < 0) {
+                cMsgFreeMessage((void **) &message);
                 printf("Error trying to recreate rc client's UDP send socket\n");
                 goto end;
             }
 
             if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
+                cMsgFreeMessage((void **) &message);
                 printf("Error trying to recreate rc client's UDP send socket\n");
                 goto end;
             }
@@ -708,35 +736,38 @@ printf("clientThread %d: try recreating UDP socket for writing to server\n", loc
 printf("clientThread %d: try recreating UDP connection to port = %hu\n", localCount, ntohs(addr.sin_port));
             err = connect(domain->sendSocket, (SA *)&addr, sizeof(addr));
             if (err < 0) {
+                cMsgFreeMessage((void **) &message);
                 printf("Error trying to recreate rc client's UDP send connection\n");
                 goto end;
             }
         }
           
           /* now free message */
-          cMsgFreeMessage((void **) &message);
-          
-          /* Send back a response - the name of this client */
-          lenName = strlen(domain->name); /* length of client's name */
-          netLenName = htonl(lenName);    /* length of client's name in net byte order */
-          len = sizeof(netLenName);       /* length of int */
-          buffer = malloc(len+lenName);   /* create buffer */
-          if (buffer == NULL) {
-            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread %d: out of memory\n", localCount);
-            }
-            goto end;
+        cMsgFreeMessage((void **) &message);
+
+        /* Send back a response - the name of this client */
+        lenName    = strlen(domain->name);  /* length of client's name */
+        netLenName = htonl(lenName);        /* length of client's name in net byte order */
+        len        = sizeof(netLenName);    /* length of int */
+        returnBuf  = malloc(len+lenName);   /* create buffer */
+        if (returnBuf == NULL) {
+          if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+            fprintf(stderr, "clientThread %d: out of memory\n", localCount);
           }
-          memcpy(buffer,     (void *)(&netLenName), len);     /* write name len into buffer */
-          memcpy(buffer+len, (void *)domain->name,  lenName); /* write name into buffer */
-          len += lenName;
-          
-          if (cMsgTcpWrite(connfd, buffer, len) != len) {
-            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread %d: write failure\n", localCount);
-            }
-            goto end;
+          goto end;
+        }
+        memcpy(returnBuf,     (void *)(&netLenName), len);     /* write name len into buffer */
+        memcpy(returnBuf+len, (void *)domain->name,  lenName); /* write name into buffer */
+        len += lenName;
+
+        if (cMsgTcpWrite(connfd, returnBuf, len) != len) {
+          if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+            fprintf(stderr, "clientThread %d: write failure\n", localCount);
           }
+          free(returnBuf);
+          goto end;
+        }
+        free(returnBuf);
       }
       break;
 
