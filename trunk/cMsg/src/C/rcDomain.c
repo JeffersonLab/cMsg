@@ -304,11 +304,13 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         free(domain);
         return(CMSG_OUT_OF_MEMORY);  
     }
-    threadArg->isRunning  = 0;
-    threadArg->listenFd   = domain->listenSocket;
-    threadArg->blocking   = CMSG_NONBLOCKING;
-    threadArg->domain     = domain;
-    threadArg->domainType = strdup("rc");
+    threadArg->isRunning   = 0;
+    threadArg->thd0started = 0;
+    threadArg->thd1started = 0;
+    threadArg->listenFd    = domain->listenSocket;
+    threadArg->blocking    = CMSG_NONBLOCKING;
+    threadArg->domain      = domain;
+    threadArg->domainType  = strdup("rc");
 /*printf("connect: start pend thread\n");*/
     status = pthread_create(&domain->pendThread, NULL,
                             cMsgClientListeningThread, (void *) threadArg);
