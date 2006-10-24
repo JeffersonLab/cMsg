@@ -202,7 +202,6 @@ public class RCServer extends cMsgDomainAdapter {
                 connected = true;
             }
             catch (IOException e) {
-                e.printStackTrace();
                 throw new cMsgException("cannot connect, IO error", e);
             }
 
@@ -491,15 +490,7 @@ public class RCServer extends cMsgDomainAdapter {
         out.writeInt(len[5]);
         out.writeInt(binLength);
         out.writeInt(0); // never acknowledge in rctcp domain
-System.out.println("RCServer, deliverMsg: lengths:");
- System.out.println("                    : " + len[2]+ ", " + len[3] + ", " + len[5]);
- System.out.println("                    : " + len[0]+ ", " + len[1] + ", " + len[4]);
-        System.out.println("subject = " + msg.getSubject());
-        System.out.println("type = " + msg.getType());
-        System.out.println("text = " + msg.getText());
-        System.out.println("sender = " + msg.getSender());
-        System.out.println("senderhost = " + msg.getSenderHost());
-        System.out.println("creator = " + msg.getCreator());
+
         // write strings
         try {
             if (msg.getSender()     != null) out.write(msg.getSender().getBytes("US-ASCII"));
