@@ -239,7 +239,7 @@ typedef struct cMsgThreadInfo_t {
   int blocking;   /**< Block in accept (CMSG_BLOCKING) or
                       not (CMSG_NONBLOCKING)? */
   cMsgDomainInfo *domain;  /**< Pointer to element of domain structure array. */
-  char *domainType;        /**< String containing domain name (e.g. ca, rc, file). */
+  char *domainType;        /**< String containing domain name (e.g. cmsg, rc, file). */
 } cMsgThreadInfo;
 
 
