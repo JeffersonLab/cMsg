@@ -267,6 +267,7 @@ public class rcListeningThread extends Thread {
                             if (client.isConnected()) {
 //System.out.print("client already connected, kill thd ");
                                 // kill other thread waiting to read from the (dead) rc server
+                                /*
                                 for (ClientHandler h : handlerThreads) {
                                     if (h == this) continue;
 //System.out.println(h);
@@ -274,6 +275,12 @@ public class rcListeningThread extends Thread {
                                     try {h.channel.close();}
                                     catch (IOException e) {}
                                 }
+                                */
+
+                                // Reestablish the broken socket.
+                                // Create a UDP "connection". This means security check is done only once
+                                // and communication with any other host/port is not allowed.
+                                client.udpSocket.connect(client.rcServerAddress, client.rcServerPort);
                             }
                             else {
 //System.out.println("client not connect yet");
