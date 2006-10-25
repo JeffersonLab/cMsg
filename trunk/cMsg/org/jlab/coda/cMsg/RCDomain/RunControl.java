@@ -600,8 +600,8 @@ public class RunControl extends cMsgDomainAdapter {
                     }
 
                     // length not including first int
-                    int totalLength = (4 * 15) + subject.length() + type.length() +
-                            msgCreator.length() + text.length() + binaryLength;
+                    int totalLength = (4 * 13) + name.length() + subject.length() +
+                            type.length() + text.length() + binaryLength;
 
                     // create byte array for sending message
                     ByteArrayOutputStream baos = new ByteArrayOutputStream(totalLength);
@@ -609,11 +609,9 @@ public class RunControl extends cMsgDomainAdapter {
 
                     // total length of msg (not including this int) is 1st item
                     out.writeInt(totalLength);
-                    out.writeInt(cMsgConstants.msgSendRequest);
-                    out.writeInt(0); // reserved for future use
+                    out.writeInt(cMsgConstants.msgSubscribeResponse);
+                    out.writeInt(cMsgConstants.version);
                     out.writeInt(message.getUserInt());
-                    out.writeInt(message.getSysMsgId());
-                    out.writeInt(message.getSenderToken());
                     out.writeInt(message.getInfo());
 
                     long now = new Date().getTime();
@@ -623,17 +621,17 @@ public class RunControl extends cMsgDomainAdapter {
                     out.writeInt((int) (message.getUserTime().getTime() >>> 32));
                     out.writeInt((int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL));
 
+                    out.writeInt(name.length());
                     out.writeInt(subject.length());
                     out.writeInt(type.length());
-                    out.writeInt(msgCreator.length());
                     out.writeInt(text.length());
                     out.writeInt(binaryLength);
 
                     // write strings & byte array
                     try {
+                        out.write(name.getBytes("US-ASCII"));
                         out.write(subject.getBytes("US-ASCII"));
                         out.write(type.getBytes("US-ASCII"));
-                        out.write(msgCreator.getBytes("US-ASCII"));
                         out.write(text.getBytes("US-ASCII"));
                         if (binaryLength > 0) {
                             out.write(message.getByteArray(),
@@ -663,67 +661,6 @@ public class RunControl extends cMsgDomainAdapter {
                 throw new cMsgException(e.getMessage());
             }
         }
-
-
-    /**
-     * Method to send a message/command to the codaComponent. The command is sent as a
-     * string in the message's text field.
-     *
-     * @param message message to send
-     * @throws cMsgException if there are communication problems with the server;
-     *                       text is null or blank
-     */
-    public void send2(cMsgMessage message) throws cMsgException {
-
-        String text = message.getText();
-        int textLen = text.length();
-
-        // check message fields first
-        if (text == null || text.length() < 1) {
-            throw new cMsgException("send: need to send a command in text field of message");
-        }
-
-        // cannot run this simultaneously with connect or disconnect
-        notConnectLock.lock();
-
-        try {
-            if (!connected) {
-                throw new cMsgException("not connected to server");
-            }
-
-            // create byte array for sending message
-            ByteArrayOutputStream baos = new ByteArrayOutputStream(textLen + 100);
-            DataOutputStream out = new DataOutputStream(baos);
-
-            try {
-                // put flag and message text into byte array
-                out.writeInt(1);    // some flag
-                out.writeInt(textLen);
-                try {
-                    out.write(text.getBytes("US-ASCII"));
-                    out.writeChar(0);  // ending null
-                }
-                catch (UnsupportedEncodingException e) {
-                }
-                out.flush();
-                out.close();
-
-                // create packet to send from the byte array
-                byte[] buf = baos.toByteArray();
-                udpSocket.send(new DatagramPacket(buf, buf.length, rcServerAddress, rcServerPort));
-            }
-            catch (IOException e) {
-                if (debug >= cMsgConstants.debugError) {
-                    System.out.println("send: " + e.getMessage());
-                }
-                throw new cMsgException(e.getMessage());
-            }
-        }
-        finally {
-            notConnectLock.unlock();
-        }
-
-    }
 
 
 //-----------------------------------------------------------------------------
