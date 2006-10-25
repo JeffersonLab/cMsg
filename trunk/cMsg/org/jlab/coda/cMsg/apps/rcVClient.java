@@ -11,12 +11,12 @@ public class rcVClient {
     String[] args;
     String   myName;
     String   state = "unknown";
-    boolean  shouldRun;
+    boolean  shouldRun = true;
 
 
     public static void main(String[] args) throws cMsgException {
-         rcVClient client = new rcVClient(args);
-         client.run();
+        rcVClient client = new rcVClient(args);
+        client.run();
     }
 
     /** Constructor. */
@@ -83,6 +83,7 @@ public class rcVClient {
             msg.setType("status");
 
             s = mg.getText();
+            System.out.println("Incoming msg's text = " + s);
 
             if (s == null){
                 System.out.println("NULL TEXT in callback");
@@ -93,7 +94,7 @@ public class rcVClient {
               ss = "sta:" + myName + " preprestarted";
               state = "preprestarted";
             }
-            else if(s.equalsIgnoreCase("prestart")){
+            else if(s.contains("prestart")) {
                 ss = "sta:" + myName + " paused";
                 state = "paused";
             }
@@ -106,7 +107,7 @@ public class rcVClient {
                 state = "predownloaded";
                 //shouldrun = 1;
             }
-            else if(s.equalsIgnoreCase("download")){
+            else if(s.contains("download")) {
                 ss = "sta:" + myName + " downloaded";
                 state = "downloaded";
             }
@@ -158,9 +159,6 @@ public class rcVClient {
                 return;
             }
 
-            System.out.println("<<<<<<< sending message = " + ss + "  to subject = " + myName +
-                    " type = status\n");
-
             // send udp msgs to rc server
             if (ss == null) {
                 System.out.println("null udp message in callback");
@@ -168,6 +166,9 @@ public class rcVClient {
             }
             msg.setText(ss);
             try {
+                System.out.println("<<<<<<< sending message = " + ss + "  to subject = " + myName +
+                        " type = status\n");
+
                 cmsg.send(msg);
             }
             catch (cMsgException e) {
@@ -239,7 +240,12 @@ public class rcVClient {
                  text = "sta:" + myName + " " + state + " " + rcCount + " " +
                          eventRate + " " + numLong + " " + dataRate;
                  msg.setText(text);
-                 cmsg.send(msg);
+                 try {
+                     cmsg.send(msg);
+                 }
+                 catch (cMsgException e) {
+                     System.out.println("Failed in send of statistics to server");
+                 }
              }
              try {Thread.sleep(1000); }  catch (InterruptedException e) {}
          }
