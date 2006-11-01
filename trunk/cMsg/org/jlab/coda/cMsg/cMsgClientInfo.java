@@ -111,12 +111,6 @@ public class cMsgClientInfo {
      */
     public String getName() {return name;}
 
-    /**
-     * Sets client's name.
-     * @param name client's name
-     */
-    public void setName(String name) {this.name = name;}
-
     //-----------------------------------------------------------------------------------
 
     /**
@@ -124,12 +118,6 @@ public class cMsgClientInfo {
      * @return client's description
      */
     public String getDescription() {return description;}
-
-    /**
-     * Sets client's description.
-     * @param description client's description
-     */
-    public void setDescription(String description) {this.description = description;}
 
     //-----------------------------------------------------------------------------------
 
@@ -139,12 +127,6 @@ public class cMsgClientInfo {
      */
     public String getUDL() {return UDL;}
 
-    /**
-     * Sets client's UDL.
-     * @param UDL client's UDL
-     */
-    public void setUDL(String UDL) {this.UDL = UDL;}
-
     //-----------------------------------------------------------------------------------
 
     /**
@@ -153,12 +135,6 @@ public class cMsgClientInfo {
      */
     public String getUDLremainder() {return UDLremainder;}
 
-    /**
-     * Sets remainder of the UDL the client used to connect to the domain server.
-     * @param UDLremainder emainder of the UDL the client used to connect to the domain server
-     */
-    public void setUDLremainder(String UDLremainder) {this.UDLremainder = UDLremainder;}
-
     //-----------------------------------------------------------------------------------
 
     /**
@@ -166,12 +142,6 @@ public class cMsgClientInfo {
      * @return subdomain client is using
      */
     public String getSubdomain() {return subdomain;}
-
-    /**
-     * Sets subdomain client is using.
-     * @param subdomain subdomain client is using
-     */
-    public void setSubdomain(String subdomain) {this.subdomain = subdomain;}
 
     //-----------------------------------------------------------------------------------
 
@@ -195,12 +165,6 @@ public class cMsgClientInfo {
      */
     public String getClientHost() {return clientHost;}
 
-    /**
-     * Sets host client is runnng on.
-     * @param clientHost host client is runnng on
-     */
-    public void setClientHost(String clientHost) {this.clientHost = clientHost;}
-
     //-----------------------------------------------------------------------------------
 
     /**
@@ -208,12 +172,6 @@ public class cMsgClientInfo {
      * @return TCP port client is listening on
      */
     public int getClientPort() {return clientPort;}
-
-    /**
-     * Sets TCP port client is listening on.
-     * @param clientPort TCP port client is listening on
-     */
-    public void setClientPort(int clientPort) {this.clientPort = clientPort;}
 
     //-----------------------------------------------------------------------------------
 
@@ -258,13 +216,6 @@ public class cMsgClientInfo {
      */
     public int getServerPort() {return serverPort;}
 
-    /**
-     * Sets the TCP port the connecting name server (client of this server)
-     * is listening on.
-     * @param serverPort TCP port connecting name server is listening on
-     */
-    public void setServerPort(int serverPort) {this.serverPort = serverPort;}
-
     //-----------------------------------------------------------------------------------
 
     /**
@@ -273,14 +224,6 @@ public class cMsgClientInfo {
      */
     public boolean isServer() {
         return isServer;
-    }
-
-    /**
-     * Sets whether this client is a cMsg server or not.
-     * @param server if true, client is a cMsg server
-     */
-    public void setServer(boolean server) {
-        isServer = server;
     }
 
     //-----------------------------------------------------------------------------------
