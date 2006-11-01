@@ -25,7 +25,7 @@ public class cMsgConsumer {
 
     String  name = "consumer";
     String  description = "java consumer";
-    String  UDL = "cMsg:cMsg://phecda:3456/cMsg/test";
+    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
     String  subject = "SUBJECT";
     String  type = "TYPE";
     boolean debug;

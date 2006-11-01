@@ -28,7 +28,7 @@ import java.util.Arrays;
 public class cMsgProducer {
     String  name = "producer";
     String  description = "java producer";
-    String  UDL = "cMsg:cMsg://phecda:3456/cMsg/test";
+    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
     String  subject = "SUBJECT";
     String  type = "TYPE";
 
@@ -207,7 +207,7 @@ public class cMsgProducer {
         long t1, t2, deltaT, totalT=0, totalC=0, count=50000, ignore=0;
 
         // delay between messages
-        //if (delay != 0) count = count/(20 + delay);
+        //if (delay != 0) rcCount = rcCount/(20 + delay);
 
         while (true) {
             t1 = System.currentTimeMillis();
