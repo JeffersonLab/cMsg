@@ -379,6 +379,19 @@ public class cMsg {
     }
 
     /**
+     * This method is a synchronous call to receive a message containing monitoring data
+     * which describes the state of the cMsg domain the user is connected to.
+     *
+     * @param  command directive for monitoring process
+     * @return response message containing monitoring information
+     * @throws cMsgException
+     */
+    public cMsgMessage monitor(String command)
+            throws cMsgException {
+        return connection.monitor(command);
+    }
+
+    /**
      * Method to start or activate the subscription callbacks.
      */
     public void start() {
@@ -437,7 +450,7 @@ public class cMsg {
         return connection.getShutdownHandler();
     }
 
-    /**
+        /**
      * Get the name of the domain connected to.
      * @return domain name
      */
