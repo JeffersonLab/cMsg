@@ -25,7 +25,7 @@ import java.util.HashMap;
 /**
  * Class to store the record of a server client's subscription to a particular message
  * subject, type, and namespace. It also stores a record of all subscribeAndGet
- * calls to the same subject, type, and namespace. Used by the cMsgComainServer class.
+ * calls to the same subject, type, and namespace. Used by the cMsgDomainServer class.
  *
  * @author Carl Timmer
  * @version 1.0
