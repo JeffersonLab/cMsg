@@ -137,10 +137,11 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             out.writeInt(msgType);
             // want an acknowledgment?
             out.writeInt(acknowledge ? 1 : 0);
+            out.flush();
         }
         else {
             // write 20 ints
-//System.out.println("deliverer: Message actually being sent");
+//System.out.println("deliverer: Normal message actually being sent");
             int len1 = msg.getSender().length();
             int len2 = msg.getSenderHost().length();
             int len3 = msg.getSubject().length();
