@@ -237,6 +237,23 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
+     * This method is a synchronous call to receive a message containing monitoring data
+     * which describes the state of the cMsg domain the user is connected to.
+     *
+     * @param  command directive for monitoring process
+     * @return response message containing monitoring information
+     * @throws cMsgException
+     */
+    public cMsgMessage monitor(String command)
+            throws cMsgException {
+        throw new cMsgException("monitor is not implemented");
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
      * Method to start or activate the subscription callbacks.
      */
     public void start() {
