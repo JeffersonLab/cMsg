@@ -38,7 +38,7 @@ import org.jlab.coda.cMsg.cMsgNotifier;
 public class cMsgDomainServer extends Thread {
 
     /** Type of domain this is. */
-    private static String domainType = "cMsg";
+    static String domainType = "cMsg";
 
     /** Maximum number of temporary trequest-handling hreads allowed per client connection. */
     private int tempThreadsMax = 10;
@@ -82,7 +82,7 @@ public class cMsgDomainServer extends Thread {
     private cMsgSubdomainInterface subdomainHandler;
 
     /** Reference to cMsg subdomain handler object if appropriate. */
-    private org.jlab.coda.cMsg.subdomains.cMsg cMsgSubdomainHandler;
+    org.jlab.coda.cMsg.subdomains.cMsg cMsgSubdomainHandler;
 
     /**
      * Thread-safe queue to hold cMsgHolder objects of
@@ -156,6 +156,17 @@ public class cMsgDomainServer extends Thread {
 
     /** Hashtable of all sendAndGetter objects of this client. */
     private ConcurrentHashMap<Integer, cMsgServerSendAndGetter> sendAndGetters;
+
+    ////// For statistics/monitoring //////
+    /** String which contains the monitor data of this particular domain server (xml format). */
+    String dsMonitorXML;
+
+    /** Time in millisec that client connected. */
+    long birthday;
+
+    /** Number of commands sent from client to server. */
+    long sends, syncSends, sendAndGets, subscribeAndGets, subscribes, unsubscribes;
+    //////////////////////////////////////
 
     /** Kill main thread if true. */
     private volatile boolean killMainThread;
@@ -497,6 +508,9 @@ public class cMsgDomainServer extends Thread {
         try { serverChannel.close(); }
         catch (IOException e) {};
 
+        // remove from name server's hash table
+        nameServer.domainServers.remove(this);
+
 //System.out.println("\nDomain Server: EXITING SHUTDOWN\n");
     }
 
@@ -573,6 +587,8 @@ public class cMsgDomainServer extends Thread {
                         // The 3rd connection is for a client request handling thread
                         else if (connectionNumber == 3) {
                             clientHandlerThread = new ClientHandler(channel);
+                            // record when client connected
+                            birthday = (new Date()).getTime();
                         }
 
                         connectionNumber++;
@@ -641,8 +657,16 @@ public class cMsgDomainServer extends Thread {
                     if (msgId != cMsgConstants.msgKeepAlive) {
                         throw new cMsgException("Wrong request, expecting keep alive but got " + msgId);
                     }
-                    // send ok back as acknowledgment
-                    out.writeInt(cMsgConstants.ok);
+
+                    // send xml monitoring string back as acknowledgment to server client
+                    if (info.isServer() && nameServer.nsMonitorXML != null) {
+                        out.writeInt(nameServer.nsMonitorXML.length());
+                        out.write(nameServer.nsMonitorXML.getBytes("US-ASCII"));
+                    }
+                    // send ok back as acknowledgment to regular client
+                    else {
+                        out.writeInt(cMsgConstants.ok);
+                    }
                     out.flush();
                     subdomainHandler.handleKeepAlive();
                 }
@@ -795,6 +819,10 @@ public class cMsgDomainServer extends Thread {
                             requestType = SUBSCRIBE;
                             break;
 
+                        case cMsgConstants.msgMonitorRequest: // client requesting monitor data
+                            sendMonitorData(nameServer.fullMonitorXML);
+                            break;
+
                         case cMsgConstants.msgDisconnectRequest: // client disconnecting
                             // need to shutdown this domain server
                             if (calledShutdown.compareAndSet(false, true)) {
@@ -837,7 +865,7 @@ public class cMsgDomainServer extends Thread {
 
                         case cMsgConstants.msgServerSendClientNames: // in cMsg subdomain send back all local client names
 //System.out.println(">>    DS: got request to send client names");
-                            sendClientNames(cMsgSubdomainHandler.getClientNames());
+                            sendClientNamesAndNamespaces(cMsgSubdomainHandler.getClientNamesAndNamespaces());
                             break;
 
                         default:
@@ -1005,12 +1033,12 @@ public class cMsgDomainServer extends Thread {
 
 
         /**
-         * This method returns a list of local client names to the client (remote server).
+         * This method returns a list of local client names and namespaces to the client (remote server).
          *
-         * @param names array of names of local clients
+         * @param names array of names and namespaces of local clients
          * @throws IOException If socket read or write error
          */
-        private void sendClientNames(String[] names) throws IOException {
+        private void sendClientNamesAndNamespaces(String[] names) throws IOException {
             // send number of items to come
             backToClient.writeInt(names.length);
 
@@ -1024,6 +1052,31 @@ public class cMsgDomainServer extends Thread {
                 for (int i=0; i < names.length; i++) {
                     backToClient.write(names[i].getBytes("US-ASCII"));
                 }
+            }
+            catch (UnsupportedEncodingException e) {}
+
+            backToClient.flush();
+        }
+
+
+        /**
+         * This method returns a monitoring data to the client.
+         *
+         * @param xml data string in xml format
+         * @throws IOException If socket read or write error
+         */
+        private void sendMonitorData(String xml) throws IOException {
+            // send the time in milliseconds as 2, 32 bit integers
+            long now = new Date().getTime();
+            backToClient.writeInt((int) (now >>> 32)); // higher 32 bits
+            backToClient.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
+
+            // send length of xml string to come
+            backToClient.writeInt(xml.length());
+
+            // send xml string
+            try {
+                backToClient.write(xml.getBytes("US-ASCII"));
             }
             catch (UnsupportedEncodingException e) {}
 
@@ -1278,7 +1331,7 @@ public class cMsgDomainServer extends Thread {
             // read client
             String client = new String(bytes, 0, lengthClient, "US-ASCII");
 
-            return new cMsgHolder(client, (flag == 1 ? true : false));
+            return new cMsgHolder(client, (flag == 1));
         }
 
 
@@ -1486,6 +1539,7 @@ public class cMsgDomainServer extends Thread {
                     switch (holder.request) {
 
                         case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
+                            subscribes++;
                             subdomainHandler.handleSubscribeRequest(holder.subject,
                                                                     holder.type,
                                                                     holder.id);
@@ -1496,6 +1550,7 @@ public class cMsgDomainServer extends Thread {
                             break;
 
                         case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
+                            unsubscribes++;
                             subdomainHandler.handleUnsubscribeRequest(holder.subject,
                                                                       holder.type,
                                                                       holder.id);
@@ -1749,15 +1804,18 @@ public class cMsgDomainServer extends Thread {
                     switch (holder.request) {
 
                         case cMsgConstants.msgSendRequest: // receiving a message
+                            sends++;
                             subdomainHandler.handleSendRequest(holder.message);
                             break;
 
                         case cMsgConstants.msgSyncSendRequest: // receiving a message
+                            syncSends++;
                             answer = subdomainHandler.handleSyncSendRequest(holder.message);
                             sendIntReply(answer);
                             break;
 
                         case cMsgConstants.msgSendAndGetRequest: // sending a message to a responder
+                            sendAndGets++;
 //System.out.println("Domain Server: got msgSendAndGetRequest from client, ns = " + holder.namespace);
                             // If not cMsg subdomain just call subdomain handler.
                             if (cMsgSubdomainHandler == null) {
@@ -1776,6 +1834,7 @@ public class cMsgDomainServer extends Thread {
                             break;
 
                         case cMsgConstants.msgSubscribeAndGetRequest: // getting 1 message of subject & type
+                            subscribeAndGets++;
                             // if not cMsg subdomain, just call subdomain handler
                             if (cMsgSubdomainHandler == null) {
 //System.out.println("Domain Server: call regular sub&Get");

@@ -28,6 +28,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.text.DateFormat;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgNetworkConstants;
@@ -62,15 +63,12 @@ public class cMsgNameServer extends Thread {
     private ServerSocketChannel serverChannel;
 
     /**
-     * Keep all domain server objects in a weak hashmap (if the
-     * only reference to the server object is in this hashmap,
-     * it is still garbage collected). Thus, the only domain servers
-     * left in the hashmap will be those still active. This map
-     * will then be used to call the active domain servers'
+     * Set of all active domain server objects. This set
+     * will be used to call the active domain servers'
      * handleServerShutdown methods when this name server is being
-     * shutdown.
+     * shutdown or also when creating monitoring data strings.
      */
-    private WeakHashMap<cMsgDomainServer, Void> domainServers;
+    HashSet<cMsgDomainServer> domainServers;
 
     /** Level of debug output for this class. */
     private int debug;
@@ -102,6 +100,12 @@ public class cMsgNameServer extends Thread {
      * end these threads nicely during a shutdown.
      */
     private ArrayList<ClientHandler> handlerThreads;
+
+    /** String which contains the entire monitor data of the server cloud (xml format). */
+    String fullMonitorXML;
+
+    /** String which contains the monitor data of this particular name server (xml format). */
+    String nsMonitorXML;
 
     /**
      * Password that clients need to match before being allowed to connect.
@@ -177,7 +181,7 @@ public class cMsgNameServer extends Thread {
      * and to ensure that clients are added to servers one-at-a-time as well.
      * This is used only in the cMsg subdomain.
      */
-    public ReentrantLock cloudLock = new ReentrantLock();
+    private ReentrantLock cloudLock = new ReentrantLock();
 
     /**
      * This method locks a lock used in adding servers to the server cloud and in adding
@@ -273,7 +277,7 @@ public class cMsgNameServer extends Thread {
     public cMsgNameServer(int port, boolean timeOrdered, boolean standAlone,
                           String clientPassword, String cloudPassword, int debug) {
 
-        domainServers  = new WeakHashMap<cMsgDomainServer, Void>(20);
+        domainServers  = new HashSet<cMsgDomainServer>(20);
         handlerThreads = new ArrayList<ClientHandler>(10);
 
         this.debug          = debug;
@@ -383,7 +387,7 @@ public class cMsgNameServer extends Thread {
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage: java [-Dport=<listening port>]\n"+
-                             "            [-D<subdomainName=<className>]\n" +
+                             "            [-DsubdomainName=<className>]\n" +
                              "            [-Dserver=<hostname:serverport>]\n" +
                              "            [-Ddebug=<level>]\n" +
                              "            [-Dtimeorder]\n" +
@@ -393,8 +397,8 @@ public class cMsgNameServer extends Thread {
         System.out.println("       listening port is the TCP port this server listens on");
         System.out.println("       subdomainName  is the name of a subdomain and className is the");
         System.out.println("                      name of the java class used to implement the subdomain");
-        System.out.println("       hostname       is the name of another host on which a cMsg server");
-        System.out.println("                      is running whose cMsg subdomain you want to join");
+        System.out.println("       server         hostname is the name of another host on which a cMsg");
+        System.out.println("                      server is running whose cMsg subdomain you want to join");
         System.out.println("                      and serverport is that server's port");
         System.out.println("       debug level has acceptable values of:");
         System.out.println("               info   for full output");
@@ -555,6 +559,10 @@ public class cMsgNameServer extends Thread {
             // allow client connections
             allowConnectionsSignal.countDown();
         }
+
+        // Start thread to gather monitor info
+        monitorDataThread thd = new monitorDataThread();
+        thd.start();
     }
 
 
@@ -564,11 +572,9 @@ public class cMsgNameServer extends Thread {
      * before the garbage collector is run.
      */
     public void finalize() throws cMsgException {
-        cMsgDomainServer server;
-        for (Iterator i = domainServers.keySet().iterator(); i.hasNext(); ) {
-            server = (cMsgDomainServer)i.next();
-        }
-//System.out.println("\n>> NS: FINALIZE NAME SERVER!!!\n");
+      //  for (cMsgDomainServer server : domainServers.keySet()) {
+      //  }
+      //System.out.println("\n>> NS: FINALIZE NAME SERVER!!!\n");
     }
 
 
@@ -584,9 +590,7 @@ public class cMsgNameServer extends Thread {
         setKillAllThreads(true);
 
         // Shutdown all domain servers
-        cMsgDomainServer server = null;
-        for (Iterator i = domainServers.keySet().iterator(); i.hasNext(); ) {
-            server = (cMsgDomainServer)i.next();
+        for (cMsgDomainServer server : domainServers) {
             // need to shutdown this domain server
             if (server.calledShutdown.compareAndSet(false, true)) {
 //System.out.println("DS shutdown to be run by NameServer");
@@ -955,7 +959,7 @@ public class cMsgNameServer extends Thread {
             server.setDaemon(true);
             server.start();
             // store ref to this domain server
-            domainServers.put(server, null);
+            domainServers.add(server);
 
             return subdomainHandler;
         }
@@ -1008,7 +1012,7 @@ public class cMsgNameServer extends Thread {
             server.setDaemon(true);
             server.start();
             // store ref to this domain server
-            domainServers.put(server, null);
+            domainServers.add(server);
 
             return subdomainHandler;
         }
@@ -1191,23 +1195,25 @@ public class cMsgNameServer extends Thread {
 
 
                     try {
-                        // Get the list of client names from each connected server
-                        // and compare to the name of the client trying to connect
-                        // to this server. Only accept a unique name, else reject it.
+                        // Get the list of client names and namespaces from each connected server
+                        // and compare to the name/namespace of the client trying to connect to
+                        // this server. Only accept a unique name/namespace combo, else reject it.
                         String[] nameList;
                         for (cMsgServerBridge bridge : bridges.values()) {
-//System.out.println(">> NS: try to get client names for " + bridge.server);
-                            nameList = bridge.getClientNames();
-                            for (String clientName : nameList) {
-//System.out.println(">> NS: got client name of " + clientName);
-                                if (info.getName().equals(clientName)) {
+                            nameList = bridge.getClientNamesAndNamespaces();
+                            String name,ns;
+                            for (int i=0; i < nameList.length; i+=2) {
+                                name = nameList[i];
+                                ns   = nameList[i+1];
+                                if (name.equals(info.getName()) &&
+                                        ns.equals(cMsgSubdomainHandler.getNamespace())) {
 //System.out.println(">> NS: THIS MATCHES NAME OF CONNECTING CLIENT");
                                     cMsgException e = new cMsgException("client already exists");
                                     e.setReturnCode(cMsgConstants.errorAlreadyExists);
                                     throw e;
                                 }
                             }
-//System.out.println(">> NS: client names for " + bridge.server + " is " + nameList);
+
                         }
 
                         // FINALLY, REGISTER CLIENT!!!
@@ -1706,4 +1712,151 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
 
     }
 
+
+    /** Class to gather all monitor data into 1 place. */
+    private class monitorDataThread extends Thread {
+
+        /** This method is executed as a thread. */
+        public void run() {
+
+            DateFormat dateFormat = DateFormat.getDateTimeInstance(DateFormat.FULL,DateFormat.FULL);
+
+            while (true) {
+                if (killAllThreads) {
+                    break;
+                }
+
+                StringBuffer xml = new StringBuffer(1000);
+
+                // Gather all the xml monitor data into 1 place for final
+                // distribution to clients asking for it in XML format.
+                xml.append("  <server name=\"");
+                xml.append(serverName);
+                xml.append("\">\n");
+                String indent1 = "      ";
+                String indent2 = "        ";
+
+                for (cMsgDomainServer ds : domainServers) {
+                    // Skip other servers' bridges to us,
+                    // they're not real clients.
+                    if (ds.info.isServer()) {
+                        //System.out.println("Skipping other server's bridge client");
+                        continue;
+                    }
+                    xml.append("    <client name=\"");
+                    xml.append(ds.info.getName());
+                    xml.append("\">\n");
+
+                    // time created
+                    xml.append(indent1);
+                    xml.append("<timeConnected>");
+                    xml.append(dateFormat.format(ds.birthday));
+                    xml.append("</timeConnected>\n");
+
+                    // subdomain
+                    String sd = ds.info.getSubdomain();
+                    if (sd != null) {
+                        xml.append(indent1);
+                        xml.append("<subdomain>");
+                        xml.append(sd);
+                        xml.append("</subdomain>\n");
+                    }
+
+                    // namespace
+                    String ns = ds.info.getNamespace();
+                    if (ns != null) {
+                        xml.append(indent1);
+                        xml.append("<namespace>");
+                        xml.append(ns);
+                        xml.append("</namespace>\n");
+                    }
+
+                    // list subscriptions (cmsg subdomain only)
+                    if (sd != null && sd.equalsIgnoreCase("cmsg")) {
+                        for (cMsgServerSubscribeInfo si : subscriptions) {
+                            if (si.info == ds.info) {
+                                xml.append(indent1);
+                                xml.append("<subscription subject=\"");
+                                xml.append(si.subject);
+                                xml.append("\" type=\"");
+                                xml.append(si.type);
+                                xml.append("\" /subscription>\n");
+                            }
+                        }
+                    }
+
+                    // # of sends, etc.
+                    if (ds.sends > 0) {
+                        xml.append(indent1);
+                        xml.append("<sends>");
+                        xml.append(ds.sends);
+                        xml.append("</sends>\n");
+                    }
+                    if (ds.syncSends > 0) {
+                        xml.append(indent1);
+                        xml.append("<syncSends>");
+                        xml.append(ds.syncSends);
+                        xml.append("</syncSends>\n");
+                    }
+                    if (ds.sendAndGets > 0) {
+                        xml.append(indent1);
+                        xml.append("<sendAndGets>");
+                        xml.append(ds.sendAndGets);
+                        xml.append("</sendAndGets>\n");
+                    }
+                    if (ds.subscribeAndGets > 0) {
+                        xml.append(indent1);
+                        xml.append("<subscribeAndGets>");
+                        xml.append(ds.subscribeAndGets);
+                        xml.append("</subscribeAndGets>\n");
+                    }
+                    if (ds.subscribes > 0) {
+                        xml.append(indent1);
+                        xml.append("<subscribes>");
+                        xml.append(ds.subscribes);
+                        xml.append("</subscribes>\n");
+                    }
+                    if (ds.unsubscribes > 0) {
+                        xml.append(indent1);
+                        xml.append("<unsubscribes>");
+                        xml.append(ds.unsubscribes);
+                        xml.append("</unsubscribes>\n");
+                    }
+
+                    xml.append("    </client>\n");
+                }
+                xml.append("  </server>\n\n");
+
+                // store this as an xml string describing local server only
+                nsMonitorXML = xml.toString();
+
+                xml.insert(0,"<cMsgMonitorData domain=\"cmsg\">\n");
+                xml.insert(0, "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n\n");
+
+                // allow no changes to "bridges" while iterating
+                synchronized (bridges) {
+                    // foreach bridge ...
+                    for (cMsgServerBridge b : bridges.values()) {
+                        xml.append(b.client.monitorXML);
+                    }
+                }
+                xml.append("</cMsgMonitorData>\n");
+
+                // store this as an xml string describing all monitor data
+                fullMonitorXML = xml.toString();
+
+                if (killAllThreads) {
+                    break;
+                }
+
+                try { Thread.sleep(2000); }
+                catch (InterruptedException e) { }
+            }
+
+        }
+    }
+
+
 }
+
+
