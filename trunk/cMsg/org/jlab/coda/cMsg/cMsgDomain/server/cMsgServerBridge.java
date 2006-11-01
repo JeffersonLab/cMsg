@@ -252,8 +252,8 @@ public class cMsgServerBridge {
 
    /**
     * This method gets the cloud status of the server this server is
-    * connected to. Possible values are {@link cMsgNameServer.INCLOUD},
-    * {@link cMsgNameServer.NONCLOUD}, or{@link cMsgNameServer.BECOMINGCLOUD}.
+    * connected to. Possible values are {@link cMsgNameServer#INCLOUD},
+    * {@link cMsgNameServer#NONCLOUD}, or{@link cMsgNameServer#BECOMINGCLOUD}.
     *
     * @return cloud status
     */
@@ -264,8 +264,8 @@ public class cMsgServerBridge {
 
     /**
      * This method locally sets the cloud status of the server this server is
-     * connected to through this bridge. Possible values are {@link cMsgNameServer.INCLOUD},
-     * {@link cMsgNameServer.NONCLOUD}, or{@link cMsgNameServer.BECOMINGCLOUD}.
+     * connected to through this bridge. Possible values are {@link cMsgNameServer#INCLOUD},
+     * {@link cMsgNameServer#NONCLOUD}, or{@link cMsgNameServer#BECOMINGCLOUD}.
      *
      * @param cloudStatus cloud status of the server this is a bridge to
      */
@@ -345,8 +345,8 @@ public class cMsgServerBridge {
      * @return array of client names
      * @throws IOException if communication error with server
      */
-    String[] getClientNames() throws IOException {
-        return client.getClientNames();
+    String[] getClientNamesAndNamespaces() throws IOException {
+        return client.getClientNamesAndNamespaces();
     }
 
 

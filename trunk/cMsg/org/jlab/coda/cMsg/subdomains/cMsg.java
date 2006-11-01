@@ -47,8 +47,16 @@ public class cMsg extends cMsgSubdomainAdapter {
             new ConcurrentHashMap<String,cMsgClientInfo>(100);
 
     /** HashMap to store regular clients. Name is key and cMsgClientInfo is value. */
-    static private ConcurrentHashMap<String,cMsgClientInfo> clients =
+    static private ConcurrentHashMap<String,cMsgClientInfo> clientsOrig =
             new ConcurrentHashMap<String,cMsgClientInfo>(100);
+
+    /**
+     * This is a set to store regular clients as cMsgClientInfo objects. This is not done by
+     * having a HashMap where the client name is the key since client names themselves
+     * are not unique - only the name/namespace combination is unique.
+     */
+    static private Set<cMsgClientInfo> clients =
+            Collections.synchronizedSet(new HashSet<cMsgClientInfo>(100));
 
     /**
      * HashMap to store sendAndGets in progress. sysMsgId of get msg is key,
@@ -152,6 +160,18 @@ public class cMsg extends cMsgSubdomainAdapter {
     /** No-arg constructor. */
     public cMsg() {}
 
+    /**
+     * Getter for namespace. This is needed in the registration process for the
+     * client. Since it is the subdomain handler object which parses out the namespace
+     * and the client/namespace combo must be unique, the registration process must
+     * query the subdomain handler what the client's namespace would be if it's accepted
+     * as a client.
+     *
+     * @return namespace of client
+     */
+    public String getNamespace() {
+        return namespace;
+    }
 
     /**
      * This lock must be locked before a client registration in the cMsg subdomain
@@ -183,8 +203,27 @@ public class cMsg extends cMsgSubdomainAdapter {
     public String[] getClientNames() {
         String[] s = new String[clients.size()];
         int i=0;
-        for (String q : clients.keySet()) {
-            s[i++] = q;
+        synchronized (clients) {
+            for (cMsgClientInfo ci : clients) {
+                s[i++] = ci.getName();
+            }
+        }
+        return s;
+    }
+
+
+    /**
+     * This method gets the names and namespaces of all clients in the cMsg subdomain.
+     * @return  an array of names and namespaces of all clients in the cMsg subdomain
+     */
+    public String[] getClientNamesAndNamespaces() {
+        String[] s = new String[2*clients.size()];
+        int i=0;
+        synchronized (clients) {
+            for (cMsgClientInfo ci : clients) {
+                s[i++] = ci.getName();
+                s[i++] = ci.getNamespace();
+            }
         }
         return s;
     }
@@ -320,7 +359,13 @@ public class cMsg extends cMsgSubdomainAdapter {
      * @return true if client registered, false otherwise
      */
     public boolean isRegistered(String name) {
-        if (clients.containsKey(name)) return true;
+        synchronized (clients) {
+            for (cMsgClientInfo ci : clients) {
+                if ( name.equals(ci.getName()) ) {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
@@ -339,18 +384,23 @@ public class cMsg extends cMsgSubdomainAdapter {
             throw e;
         }
 
-        String clientName = info.getName();
-        cMsgClientInfo ci = clients.putIfAbsent(clientName, info);
-
-        // Check to see if name was taken already.
-        // If ci is not null, this key already existed.
-        if (ci != null) {
-            cMsgException e = new cMsgException("client already exists");
-            e.setReturnCode(cMsgConstants.errorAlreadyExists);
-            throw e;
+        synchronized (clients) {
+            for (cMsgClientInfo ci : clients) {
+                if ( info.getName().equals(ci.getName()) ) {
+//System.out.println("Already a client by the name of " + info.getName());
+                    // There already is a client by this name.
+                    // Check to see if the namespace is the same as well.
+                    if (namespace.equals(ci.getNamespace())) {
+                        cMsgException e = new cMsgException("client already exists");
+                        e.setReturnCode(cMsgConstants.errorAlreadyExists);
+                        throw e;
+                    }
+                }
+            }
+            clients.add(info);
         }
 
-        this.name   = clientName;
+        this.name   = info.getName();
         this.myInfo = info;
 
         // this client is registered in this namespace
@@ -1219,14 +1269,14 @@ public class cMsg extends cMsgSubdomainAdapter {
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                       or socket properties cannot be set
      */
-    public void handleShutdownClientsRequest(String client, boolean includeMe) throws cMsgException {
+    public void handleShutdownClientsRequestOrig(String client, boolean includeMe) throws cMsgException {
 
 //System.out.println("dHandler: try to kill client " + client);
         // Match all clients that need to be shutdown.
         // Scan through all clients.
         cMsgClientInfo info;
 
-        for (String clientName : clients.keySet()) {
+        for (String clientName : clientsOrig.keySet()) {
             // Do not shutdown client sending this command, unless told to with flag "includeMe"
             if ( !includeMe && clientName.equals(name) ) {
 //System.out.println("  dHandler: skip client " + clientName);
@@ -1236,7 +1286,46 @@ public class cMsg extends cMsgSubdomainAdapter {
             if (cMsgMessageMatcher.matches(client, clientName, true)) {
                 try {
 //System.out.println("  dHandler: deliver shutdown message to client " + clientName);
-                    info = clients.get(clientName);
+                    info = clientsOrig.get(clientName);
+                    info.getDeliverer().deliverMessage(null, cMsgConstants.msgShutdownClients);
+                }
+                catch (IOException e) {
+                    if (debug >= cMsgConstants.debugError) {
+                        System.out.println("dHandler: cannot tell client " + name + " to shutdown");
+                    }
+                }
+            }
+        }
+
+        // match all servers that need to be shutdown (not implemented yet)
+    }
+
+
+
+    /**
+     * Method to handle request to shutdown clients sent by client.
+     *
+     * @param client client(s) to be shutdown
+     * @param includeMe   if true, this client may be shutdown too
+     * @throws cMsgException if a channel to the client is closed, cannot be created,
+     *                       or socket properties cannot be set
+     */
+    public void handleShutdownClientsRequest(String client, boolean includeMe) throws cMsgException {
+
+//System.out.println("dHandler: try to kill client " + client);
+        // Match all clients that need to be shutdown.
+        // Scan through all clients.
+        for (cMsgClientInfo info : clients) {
+            // Do not shutdown client sending this command, unless told to with flag "includeMe"
+            String clientName = info.getName();
+            if ( !includeMe && clientName.equals(name) ) {
+//System.out.println("  dHandler: skip client " + clientName);
+                continue;
+            }
+
+            if (cMsgMessageMatcher.matches(client, clientName, true)) {
+                try {
+//System.out.println("  dHandler: deliver shutdown message to client " + clientName);
                     info.getDeliverer().deliverMessage(null, cMsgConstants.msgShutdownClients);
                 }
                 catch (IOException e) {
@@ -1273,7 +1362,7 @@ public class cMsg extends cMsgSubdomainAdapter {
             System.out.println("dHandler: SHUTDOWN client " + name);
         }
 
-        clients.remove(name);
+        clients.remove(myInfo);
         servers.remove(name);
 
         // Scan through list of name/senderToken value pairs.

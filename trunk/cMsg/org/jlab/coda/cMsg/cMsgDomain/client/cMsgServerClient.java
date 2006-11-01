@@ -1280,16 +1280,15 @@ ex.printStackTrace();
 
 
     /**
-     * This method gets the names of all the local clients (not servers)
+     * This method gets the names and namespaces of all the local clients (not servers)
      * of another cMsg domain server.
      *
-     * @return array of client names
+     * @return array of client names and namespaces
      * @throws IOException if communication error with server
      */
-    public String[] getClientNames() throws IOException {
+    public String[] getClientNamesAndNamespaces() throws IOException {
 
         String[] names;
-//System.out.println("        << CL: getClientNames");
 
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
@@ -1306,7 +1305,6 @@ ex.printStackTrace();
                 // total length of msg (not including this int) is 1st item
                 domainOut.writeInt(4);
                 domainOut.writeInt(cMsgConstants.msgServerSendClientNames);
-//System.out.println("        << CL: wrote len of command and command");
             }
             finally {
                 socketLock.unlock();
@@ -1315,33 +1313,27 @@ ex.printStackTrace();
             domainOut.flush(); // no need to be protected by socketLock
 
             int offset = 0;
-            int stringBytesToRead=0;
+            int stringBytesToRead = 0;
 
-            // read how many names are coming
-//System.out.println("        << CL: try to read in number of clients");
-            int numberOfClients = domainIn.readInt();
-//System.out.println("        << CL: number of clients = " + numberOfClients);
+            // read how many strings are coming
+            int numberOfStrings = domainIn.readInt();
 
-            int[] lengths = new int[numberOfClients];
-            names = new String[numberOfClients];
+            int[] lengths = new int[numberOfStrings];
+            names = new String[numberOfStrings];
 
             // read lengths of all names being sent
-            for (int i=0; i < numberOfClients; i++) {
+            for (int i=0; i < numberOfStrings; i++) {
                 lengths[i] = domainIn.readInt();
                 stringBytesToRead += lengths[i];
             }
 
             // read all string bytes
             byte[] bytes = new byte[stringBytesToRead];
-//System.out.println("        << CL: try to read #bytes = " + stringBytesToRead);
             domainIn.readFully(bytes, 0, stringBytesToRead);
 
             // change bytes to strings
-            String clientName;
-            for (int i=0; i < numberOfClients; i++) {
-                clientName = new String(bytes, offset, lengths[i], "US-ASCII");
-//System.out.println("        << CL: client name = " + clientName);
-                names[i] = clientName;
+            for (int i=0; i < numberOfStrings; i++) {
+                names[i] = new String(bytes, offset, lengths[i], "US-ASCII");
                 offset += lengths[i];
             }
         }
@@ -1350,7 +1342,6 @@ ex.printStackTrace();
             notConnectLock.unlock();
         }
 
-//System.out.println("        << CL: return");
         return names;
     }
 
