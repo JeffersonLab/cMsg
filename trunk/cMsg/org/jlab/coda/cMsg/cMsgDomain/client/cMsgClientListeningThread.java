@@ -260,11 +260,11 @@ public class cMsgClientListeningThread extends Thread {
 
                     // read first int -- total size in bytes
                     int size = in.readInt();
-                    //System.out.println(" size = " + size + ", id = " + id);
+                    //System.out.println(" size = " + size);
 
                     // read client's request
                     int msgId = in.readInt();
-                    //System.out.println(" msgId = " + msgId + ", id = " + id);
+                    //System.out.println(" msgId = " + msgId);
 
                     cMsgMessageFull msg;
 
@@ -311,7 +311,7 @@ public class cMsgClientListeningThread extends Thread {
 
                         case cMsgConstants.msgKeepAlive: // server ckecking to see if this client is still alive
                             if (debug >= cMsgConstants.debugInfo) {
-//System.out.println("    handleClient: got keep alive from server");
+                                System.out.println("handleClient: got keep alive from server");
                             }
                             // send ok back as acknowledgment
                             out.writeInt(cMsgConstants.ok);
@@ -319,13 +319,13 @@ public class cMsgClientListeningThread extends Thread {
                             break;
 
                         case cMsgConstants.msgShutdownClients: // server told this client to shutdown
-                            if (debug >= cMsgConstants.debugInfo) {
+                     //       if (debug >= cMsgConstants.debugInfo) {
                                 System.out.println("handleClient: got shutdown from server");
-                            }
+                     //       }
 
                             // If server wants an acknowledgment, send one back.
                             // Do this BEFORE running shutdown.
-                            acknowledge = in.readInt() == 1 ? true : false;
+                            acknowledge = in.readInt() == 1;
                             if (acknowledge) {
                                 // send ok back as acknowledgment
                                 out.writeInt(cMsgConstants.ok);
@@ -333,14 +333,15 @@ public class cMsgClientListeningThread extends Thread {
                             }
 
                             if (client.getShutdownHandler() != null) {
+//System.out.println("handleClient: run client's shutdown handlerr");
                                 client.getShutdownHandler().handleShutdown();
                             }
                             break;
 
                         default:
-                            if (debug >= cMsgConstants.debugWarn) {
+                         //   if (debug >= cMsgConstants.debugWarn) {
                                 System.out.println("handleClient: can't understand server message = " + msgId);
-                            }
+                         //   }
                             break;
                     }
                 }
@@ -355,7 +356,7 @@ public class cMsgClientListeningThread extends Thread {
                 // We're here if there is an IO error.
                 // Disconnect the client (kill listening (this) thread and keepAlive thread).
                 try {
-System.out.println("handleClient: close server to client socket, port = " + channel.socket().getLocalPort());
+//System.out.println("handleClient: close server to client socket, port = " + channel.socket().getLocalPort());
                     channel.close();
                     //client.disconnect();   // cannot run this due to possible reconnects to failover servers
                 }

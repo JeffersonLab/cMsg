@@ -68,7 +68,7 @@ public class cMsgGetHelper {
     boolean wildCardsInType;
 
 
-    /** Constructor used in sendndGet. */
+    /** Constructor used in sendAndGet. */
     public cMsgGetHelper() {
         timedOut  = true;
         errorCode = cMsgConstants.ok;
