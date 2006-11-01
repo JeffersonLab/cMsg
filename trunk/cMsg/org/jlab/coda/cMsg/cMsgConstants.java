@@ -139,6 +139,8 @@ public class cMsgConstants {
     public static final int    msgSendAndGetRequest            = 11;
     /** Remove "sendAndGet" request. */
     public static final int    msgUnSendAndGetRequest          = 12;
+    /** Send "monitor" request. */
+    public static final int    msgMonitorRequest               = 13;
 
     // Codes sent by the server to a client over the
     // network to specify a particular response.
