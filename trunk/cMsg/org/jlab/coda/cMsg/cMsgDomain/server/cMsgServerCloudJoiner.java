@@ -194,7 +194,7 @@ public class cMsgServerCloudJoiner extends Thread {
         boolean gotCloudLock  = false;
         boolean amInCloud     = false;
         cMsgServerBridge firstLockBridge = null;
-        int maxNumberOfTrys=3, numberOfTrys=0, backOffFactor = 2;
+        int maxNumberOfTrys=3, numberOfTrys=0;
         LinkedList<cMsgServerBridge> lockedBridges = new LinkedList<cMsgServerBridge>();
 
 //System.out.println("    << JR: About to grab all cloudlocks");
