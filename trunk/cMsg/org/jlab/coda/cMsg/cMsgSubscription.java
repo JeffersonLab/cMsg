@@ -23,7 +23,9 @@ import java.util.regex.Pattern;
 
 /**
  * Class to store a client's subscription to a particular message subject and type.
- * Used by both the cMsg domain API and cMsg subdomain handler objects.
+ * Used by both the cMsg domain API and cMsg subdomain handler objects. Once the
+ * domain server object is created, the only set method called is setNamespace.
+ * Thus, this object is for all intents and purposes immutable during its lifetime.
  *
  * @author Carl Timmer
  * @version 1.0
