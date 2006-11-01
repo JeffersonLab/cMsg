@@ -122,6 +122,12 @@ public class cMsg extends cMsgDomainAdapter {
     /** Channel for checking to see that the domain server is still alive. */
     SocketChannel keepAliveChannel;
 
+    /** String containing monitor data received from a cMsg server as a keep alive response. */
+    public String monitorXML;
+
+    /** Time in milliseconds between sending keep alives. */
+    final int sleepTime = 1000;
+
     /** Thread listening for TCP connections and responding to domain server commands. */
     cMsgClientListeningThread listeningThread;
 
@@ -218,7 +224,7 @@ public class cMsg extends cMsgDomainAdapter {
     boolean hasShutdown;
 
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugInfo;
+    int debug = cMsgConstants.debugError;
 
 //-----------------------------------------------------------------------------
 
@@ -235,6 +241,7 @@ public class cMsg extends cMsgDomainAdapter {
         sendAndGets      = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
         uniqueId         = new AtomicInteger();
         unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
+        failovers        = new ArrayList<ParsedUDL>(10);
 
         // store our host's name
         try {
@@ -333,7 +340,8 @@ public class cMsg extends cMsgDomainAdapter {
         }
 
         // parse the list of UDLs and store them
-        failovers = new ArrayList<ParsedUDL>(failoverUDLs.length);
+        if (failoverUDLs.length > 10)
+            failovers = new ArrayList<ParsedUDL>(failoverUDLs.length);
         ParsedUDL p;
         int viableUDLs = 0;
         for (String udl : failoverUDLs) {
@@ -1820,7 +1828,68 @@ public class cMsg extends cMsgDomainAdapter {
             socketLock.unlock();
         }
     }
+    
 
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * This method is a synchronous call to receive a message containing monitoring data
+     * which describes the state of the cMsg domain the user is connected to.
+     *
+     * @param  command directive for monitoring process
+     * @return response message containing monitoring information
+     * @throws cMsgException
+     */
+    public cMsgMessage monitor(String command)
+            throws cMsgException {
+
+        cMsgMessageFull msg = new cMsgMessageFull();
+
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
+        // cannot run this simultaneously with itself since it receives communication
+        // back from the server
+        returnCommunicationLock.lock();
+
+        try {
+            if (!connected) {
+                throw new cMsgException("not connected to server");
+            }
+
+            socketLock.lock();
+            try {
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4);
+                domainOut.writeInt(cMsgConstants.msgMonitorRequest);
+            }
+            finally {
+                socketLock.unlock();
+            }
+             // no need to be protected by socketLock, this is protected by returnCommunicationLock
+            domainOut.flush();
+
+            // time message was sent
+            long time = ((long) domainIn.readInt() << 32) | ((long) domainIn.readInt() & 0x00000000FFFFFFFFL);
+            msg.setSenderTime(new Date(time));
+            // read all text string bytes
+            int lengthText = domainIn.readInt();
+            byte[] bytes   = new byte[lengthText];
+            domainIn.readFully(bytes, 0, lengthText);
+            msg.setText(new String(bytes, 0, lengthText, "US-ASCII"));
+            //System.out.println("text = " + msg.getText());
+            return msg;
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
+        }
+        // release lock 'cause we can't block connect/disconnect forever
+        finally {
+            returnCommunicationLock.unlock();
+            notConnectLock.unlock();
+        }
+    }
+    
 
 //-----------------------------------------------------------------------------
 
@@ -2034,13 +2103,13 @@ public class cMsg extends cMsgDomainAdapter {
 
         in.readFully(buf,0,7);
 
-        hasSend            = (buf[0] == (byte)1) ? true : false;
-        hasSyncSend        = (buf[1] == (byte)1) ? true : false;
-        hasSubscribeAndGet = (buf[2] == (byte)1) ? true : false;
-        hasSendAndGet      = (buf[3] == (byte)1) ? true : false;
-        hasSubscribe       = (buf[4] == (byte)1) ? true : false;
-        hasUnsubscribe     = (buf[5] == (byte)1) ? true : false;
-        hasShutdown        = (buf[6] == (byte)1) ? true : false;
+        hasSend            = (buf[0] == (byte)1);
+        hasSyncSend        = (buf[1] == (byte)1);
+        hasSubscribeAndGet = (buf[2] == (byte)1);
+        hasSendAndGet      = (buf[3] == (byte)1);
+        hasSubscribe       = (buf[4] == (byte)1);
+        hasUnsubscribe     = (buf[5] == (byte)1);
+        hasShutdown        = (buf[6] == (byte)1);
 
         // Read port & length of host name.
         domainServerPort = in.readInt();
@@ -2378,15 +2447,21 @@ public class cMsg extends cMsgDomainAdapter {
                             }
 
                             // send keep alive command
-                            //out.writeInt(4);
+                            // out.writeInt(4);
                             out.writeInt(cMsgConstants.msgKeepAlive);
                             out.flush();
 
                             // read response -  1 int
-                            in.readInt();
+                            int len = in.readInt();
+                            if (len != cMsgConstants.ok && len > 0) {
+                                // read all monitor data string
+                                byte[] bytes = new byte[len];
+                                in.readFully(bytes, 0, len);
+                                monitorXML = new String(bytes, 0, len, "US-ASCII");
+                            }
 
                             // sleep for 1 second and try again
-                            Thread.sleep(1000);
+                            Thread.sleep(sleepTime);
                         }
                         catch (InterruptedException e) {
                             System.out.println("Interrupted Client during sleep");
