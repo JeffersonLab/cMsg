@@ -56,33 +56,35 @@ static char *strdup(const char *s1) {
 
 
 /* Prototypes of the 14 functions which implement the standard cMsg tasks in the cMsg domain. */
-int   cmsg_file_Connect(const char *myUDL, const char *myName, const char *myDescription,
+int   cmsg_file_connect(const char *myUDL, const char *myName, const char *myDescription,
                         const char *UDLremainder, void **domainId);
-int   cmsg_file_Send(void *domainId, const void *msg);
-int   cmsg_file_SyncSend(void *domainId, const void *msg, const struct timespec *timeout, int *response);
-int   cmsg_file_Flush(void *domainId, const struct timespec *timeout);
-int   cmsg_file_Subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
+int   cmsg_file_send(void *domainId, const void *msg);
+int   cmsg_file_syncSend(void *domainId, const void *msg, const struct timespec *timeout, int *response);
+int   cmsg_file_flush(void *domainId, const struct timespec *timeout);
+int   cmsg_file_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                           void *userArg, cMsgSubscribeConfig *config, void **handle);
-int   cmsg_file_Unsubscribe(void *domainId, void *handle);
-int   cmsg_file_SubscribeAndGet(void *domainId, const char *subject, const char *type,
+int   cmsg_file_unsubscribe(void *domainId, void *handle);
+int   cmsg_file_subscribeAndGet(void *domainId, const char *subject, const char *type,
                                 const struct timespec *timeout, void **replyMsg);
-int   cmsg_file_SendAndGet(void *domainId, const void *sendMsg, const struct timespec *timeout, void **replyMsg);
-int   cmsg_file_Start(void *domainId);
-int   cmsg_file_Stop(void *domainId);
-int   cmsg_file_Disconnect(void **domainId);
-int   cmsg_file_ShutdownClients(void *domainId, const char *client, int flag);
-int   cmsg_file_ShutdownServers(void *domainId, const char *server, int flag);
-int   cmsg_file_SetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
+int   cmsg_file_sendAndGet(void *domainId, const void *sendMsg, const struct timespec *timeout, void **replyMsg);
+int   cmsg_file_monitor(void *domainId, const char *command, void **replyMsg);
+int   cmsg_file_start(void *domainId);
+int   cmsg_file_stop(void *domainId);
+int   cmsg_file_disconnect(void **domainId);
+int   cmsg_file_shutdownClients(void *domainId, const char *client, int flag);
+int   cmsg_file_shutdownServers(void *domainId, const char *server, int flag);
+int   cmsg_file_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
 
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
-static domainFunctions functions = { cmsg_file_Connect, cmsg_file_Send,
-                                     cmsg_file_SyncSend, cmsg_file_Flush,
-                                     cmsg_file_Subscribe, cmsg_file_Unsubscribe,
-                                     cmsg_file_SubscribeAndGet, cmsg_file_SendAndGet,
-                                     cmsg_file_Start, cmsg_file_Stop, cmsg_file_Disconnect,
-                                     cmsg_file_ShutdownClients, cmsg_file_ShutdownServers,
-                                     cmsg_file_SetShutdownHandler
+static domainFunctions functions = { cmsg_file_connect, cmsg_file_send,
+                                     cmsg_file_syncSend, cmsg_file_flush,
+                                     cmsg_file_subscribe, cmsg_file_unsubscribe,
+                                     cmsg_file_subscribeAndGet, cmsg_file_sendAndGet,
+                                     cmsg_file_monitor, cmsg_file_start,
+                                     cmsg_file_stop, cmsg_file_disconnect,
+                                     cmsg_file_shutdownClients, cmsg_file_shutdownServers,
+                                     cmsg_file_setShutdownHandler
 };
 
 
@@ -104,7 +106,7 @@ typedef struct {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_Connect(const char *myUDL, const char *myName, const char *myDescription,
+int cmsg_file_connect(const char *myUDL, const char *myName, const char *myDescription,
                       const char *UDLremainder, void **domainId) {
 
 
@@ -158,7 +160,7 @@ int cmsg_file_Connect(const char *myUDL, const char *myName, const char *myDescr
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_Send(void *domainId, const void *vmsg) {
+int cmsg_file_send(void *domainId, const void *vmsg) {
 
   char *s;
   time_t now;
@@ -213,16 +215,16 @@ int cmsg_file_Send(void *domainId, const void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_SyncSend(void *domainId, const void *vmsg, const struct timespec *timeout, int *response) {
+int cmsg_file_syncSend(void *domainId, const void *vmsg, const struct timespec *timeout, int *response) {
   *response=0;
-  return(cmsg_file_Send(domainId,vmsg));
+  return(cmsg_file_send(domainId,vmsg));
 }
 
 
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_SubscribeAndGet(void *domainId, const char *subject, const char *type,
+int cmsg_file_subscribeAndGet(void *domainId, const char *subject, const char *type,
                            const struct timespec *timeout, void **replyMsg) {
   return(CMSG_NOT_IMPLEMENTED);
 }
@@ -231,8 +233,18 @@ int cmsg_file_SubscribeAndGet(void *domainId, const char *subject, const char *t
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_SendAndGet(void *domainId, const void *sendMsg, const struct timespec *timeout,
+int cmsg_file_sendAndGet(void *domainId, const void *sendMsg, const struct timespec *timeout,
                       void **replyMsg) {
+  return(CMSG_NOT_IMPLEMENTED);
+}
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * The monitor function is not implemented in the rc domain.
+ */   
+int cmsg_file_monitor(void *domainId, const char *command, void **replyMsg) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -240,7 +252,7 @@ int cmsg_file_SendAndGet(void *domainId, const void *sendMsg, const struct times
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_Flush(void *domainId, const struct timespec *timeout) {  
+int cmsg_file_flush(void *domainId, const struct timespec *timeout) {  
   return(CMSG_OK);
 }
 
@@ -248,7 +260,7 @@ int cmsg_file_Flush(void *domainId, const struct timespec *timeout) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_Subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
+int cmsg_file_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                      void *userArg, cMsgSubscribeConfig *config, void **handle) {
   return(CMSG_NOT_IMPLEMENTED);
 }
@@ -257,7 +269,7 @@ int cmsg_file_Subscribe(void *domainId, const char *subject, const char *type, c
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_Unsubscribe(void *domainId, void *handle) {
+int cmsg_file_unsubscribe(void *domainId, void *handle) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -265,7 +277,7 @@ int cmsg_file_Unsubscribe(void *domainId, void *handle) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_Start(void *domainId) {
+int cmsg_file_start(void *domainId) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -273,7 +285,7 @@ int cmsg_file_Start(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_Stop(void *domainId) {
+int cmsg_file_stop(void *domainId) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -281,7 +293,7 @@ int cmsg_file_Stop(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_Disconnect(void **domainId) {
+int cmsg_file_disconnect(void **domainId) {
 
   int stat;
   fileDomainInfo *fdi;
@@ -310,7 +322,7 @@ int cmsg_file_Disconnect(void **domainId) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_SetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg) {
+int cmsg_file_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -318,7 +330,7 @@ int cmsg_file_SetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, v
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_ShutdownClients(void *domainId, const char *client, int flag) {
+int cmsg_file_shutdownClients(void *domainId, const char *client, int flag) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -326,7 +338,7 @@ int cmsg_file_ShutdownClients(void *domainId, const char *client, int flag) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_ShutdownServers(void *domainId, const char *server, int flag) {
+int cmsg_file_shutdownServers(void *domainId, const char *server, int flag) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
