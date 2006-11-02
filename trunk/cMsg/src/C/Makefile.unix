@@ -86,7 +86,7 @@ OBJS =  sunConcurrency.o \
 
 HFILES = rwlock.h errors.h cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsg.h cMsgDomain.h rcDomain.h
 
-PROGS  = producer consumer getConsumer getResponder shutdowner rcClient
+PROGS  = producer consumer getConsumer getResponder shutdowner rcClient monitor
 
 
 all: copyFiles $(CMSG_LIBS) $(PROGS) saveFiles
