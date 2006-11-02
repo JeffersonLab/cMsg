@@ -124,6 +124,7 @@ int   cmsg_rc_subscribeAndGet   (void *domainId, const char *subject, const char
                                  const struct timespec *timeout, void **replyMsg);
 int   cmsg_rc_sendAndGet        (void *domainId, const void *sendMsg,
                                  const struct timespec *timeout, void **replyMsg);
+int   cmsg_rc_monitor           (void *domainId, const char *command, void **replyMsg);
 int   cmsg_rc_start             (void *domainId);
 int   cmsg_rc_stop              (void *domainId);
 int   cmsg_rc_disconnect        (void **domainId);
@@ -136,7 +137,8 @@ static domainFunctions functions = {cmsg_rc_connect, cmsg_rc_send,
                                     cmsg_rc_syncSend, cmsg_rc_flush,
                                     cmsg_rc_subscribe, cmsg_rc_unsubscribe,
                                     cmsg_rc_subscribeAndGet, cmsg_rc_sendAndGet,
-                                    cmsg_rc_start, cmsg_rc_stop, cmsg_rc_disconnect,
+                                    cmsg_rc_monitor, cmsg_rc_start,
+                                    cmsg_rc_stop, cmsg_rc_disconnect,
                                     cmsg_rc_shutdownClients, cmsg_rc_shutdownServers,
                                     cmsg_rc_setShutdownHandler};
 
@@ -1241,6 +1243,17 @@ int cmsg_rc_unsubscribe(void *domainId, void *handle) {
     cMsgConnectReadUnlock(domain);
 
     return(err);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * The monitor function is not implemented in the rc domain.
+ */   
+int cmsg_rc_monitor(void *domainId, const char *command, void **replyMsg) {
+  return(CMSG_NOT_IMPLEMENTED);
 }
 
 

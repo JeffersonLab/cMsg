@@ -546,6 +546,35 @@ int cMsgSubscribeAndGet(void *domainId, const char *subject, const char *type,
 
 
 /**
+ * This method is a synchronous call to receive a message containing monitoring
+ * data which describes the state of the cMsg domain the user is connected to.
+ * The time is data was sent can be obtained by calling cMsgGetSenderTime.
+ * The monitoring data in xml format can be obtained by calling cMsgGetText.
+ *
+ * @param domainId id of the domain connection
+ * @param command string to monitor data collecting routine
+ * @param replyMsg message received from the domain containing monitor data
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_LOST_CONNECTION if no longer connected to domain
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgSendAndGet
+ */   
+int cMsgMonitor(void *domainId, const char *command, void **replyMsg) {
+    
+  cMsgDomain *domain = (cMsgDomain *) domainId;
+  
+  if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
+  if (!domain->connected) return(CMSG_LOST_CONNECTION);
+  return(domain->functions->monitor(domain->implId, command, replyMsg));
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
  * This routine enables the receiving of messages and delivery to callbacks.
  * The receiving of messages is disabled by default and must be explicitly enabled.
  *

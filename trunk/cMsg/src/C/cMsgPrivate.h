@@ -105,6 +105,9 @@ typedef int (*SUBSCRIBE_AND_GET_PTR) (void *domainId, const char *subject, const
 typedef int (*SEND_AND_GET_PTR)         (void *domainId, const void *sendMsg,
                                          const struct timespec *timeout, void **replyMsg);
 
+/** Typedef for a domain's monitor function */  
+typedef int (*MONITOR_PTR)              (void *domainId, const char *command, void **replyMsg);
+
 /** Typedef for a domain's flush function */  
 typedef int (*FLUSH_PTR)                (void *domainId, const struct timespec *timeout);
 
@@ -155,6 +158,12 @@ typedef struct domainFunctions_t {
    * an initial message to that responder.
    */
   SEND_AND_GET_PTR sendAndGet;
+  
+  /**
+   * This function synchronously gets one message with domain specific monitoring
+   * data.
+   */
+  MONITOR_PTR monitor;
   
   /** This function enables the receiving of messages and delivery to callbacks. */
   START_STOP_PTR start;
@@ -262,7 +271,8 @@ enum requestMsgId {
   CMSG_SUBSCRIBE_AND_GET_REQUEST,    /**< SubscribeAndGet request. */
   CMSG_UNSUBSCRIBE_AND_GET_REQUEST,  /**< UnSubscribeAndGet request. */
   CMSG_SEND_AND_GET_REQUEST,         /**< SendAndGet request. */
-  CMSG_UN_SEND_AND_GET_REQUEST       /**< UnSendAndGet request. */
+  CMSG_UN_SEND_AND_GET_REQUEST,      /**< UnSendAndGet request. */
+  CMSG_MONITOR_REQUEST               /**< Monitor request. */
 };
 
 

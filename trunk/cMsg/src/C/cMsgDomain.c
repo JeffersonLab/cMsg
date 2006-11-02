@@ -95,6 +95,7 @@ int   cmsg_cmsg_subscribeAndGet   (void *domainId, const char *subject, const ch
                                    const struct timespec *timeout, void **replyMsg);
 int   cmsg_cmsg_sendAndGet        (void *domainId, const void *sendMsg, const struct timespec *timeout,
                                    void **replyMsg);
+int   cmsg_cmsg_monitor           (void *domainId, const char *command,  void **replyMsg);
 int   cmsg_cmsg_start             (void *domainId);
 int   cmsg_cmsg_stop              (void *domainId);
 int   cmsg_cmsg_disconnect        (void **domainId);
@@ -108,7 +109,8 @@ static domainFunctions functions = {cmsg_cmsg_connect, cmsg_cmsg_send,
                                     cmsg_cmsg_syncSend, cmsg_cmsg_flush,
                                     cmsg_cmsg_subscribe, cmsg_cmsg_unsubscribe,
                                     cmsg_cmsg_subscribeAndGet, cmsg_cmsg_sendAndGet,
-                                    cmsg_cmsg_start, cmsg_cmsg_stop, cmsg_cmsg_disconnect,
+                                    cmsg_cmsg_monitor, cmsg_cmsg_start,
+                                    cmsg_cmsg_stop, cmsg_cmsg_disconnect,
                                     cmsg_cmsg_shutdownClients, cmsg_cmsg_shutdownServers,
                                     cmsg_cmsg_setShutdownHandler};
 
@@ -165,7 +167,7 @@ static char *strdup(const char *s1) {
  * This routine restores subscriptions to a new server which replaced a crashed server
  * during failover.
  *
- * @param domainId id of the domain connection
+ * @param domain id of the domain connection
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server
@@ -212,6 +214,10 @@ static int restoreSubscriptions(cMsgDomainInfo *domain)  {
  * This routine waits a while for a possible failover to a new cMsg server 
  * before attempting to complete an interrupted command to the server or
  * before returning an error.
+ *
+ * @param domain id of the domain connection
+ * @param waitForResubscribe 1 if waiting for all subscriptions to be
+ *                           reinstated before returning, else 0
  *
  * @returns 1 if there is a connection to a cMsg server in 3 seconds or 0 if not 
  */
@@ -1962,6 +1968,151 @@ static int unSendAndGet(void *domainId, int id) {
   cMsgSocketMutexUnlock(domain);
 
   return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This method is a synchronous call to receive a message containing monitoring
+ * data which describes the state of the cMsg domain the user is connected to.
+ * The time is data was sent can be obtained by calling cMsgGetSenderTime.
+ * The monitoring data in xml format can be obtained by calling cMsgGetText.
+ *
+ * @param domainId id of the domain connection
+ * @param command string to monitor data collecting routine
+ * @param replyMsg message received from the domain containing monitor data
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_LOST_CONNECTION if no longer connected to domain
+ * @returns CMSG_OUT_OF_MEMORY if no memory available
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgSMonitor
+ */   
+int cmsg_cmsg_monitor(void *domainId, const char *command, void **replyMsg) {
+    
+  int err, len;
+  int fd, fdIn, highInt, lowInt, outGoing[2], inComing[3];
+  cMsgMessage_t *msg;
+  cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+  uint64_t llTime;
+  struct timespec now;
+  
+    
+  if (domain == NULL) {
+    return(CMSG_BAD_ARGUMENT);
+  }
+  
+  fd   = domain->sendSocket;
+  fdIn = domain->receiveSocket;
+   
+  /* check args */
+  if (replyMsg == NULL) return(CMSG_BAD_ARGUMENT);  
+    
+  tryagain:
+  while (1) {
+    err = CMSG_OK;
+
+    /* Cannot run this while connecting/disconnecting */
+    cMsgConnectReadLock(domain);
+
+    if (domain->gotConnection != 1) {
+      cMsgConnectReadUnlock(domain);
+      err = CMSG_LOST_CONNECTION;
+      break;
+    }
+
+    outGoing[0] = htonl(4); /* sending one int */
+    /* message id (in network byte order) to domain server */
+    outGoing[1] = htonl(CMSG_MONITOR_REQUEST);
+
+    /* make monitor be synchronous 'cause we need a reply */
+    cMsgSyncSendMutexLock(domain);
+
+    /* make send socket communications thread-safe */
+    cMsgSocketMutexLock(domain);
+
+    /* send data over socket */
+    if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
+      cMsgSocketMutexUnlock(domain);
+      cMsgSyncSendMutexUnlock(domain);
+      cMsgConnectReadUnlock(domain);
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+        fprintf(stderr, "cmsg_cmsg_monitor: write failure\n");
+      }
+      err = CMSG_NETWORK_ERROR;
+      break;
+    }
+
+    /* done protecting outgoing communications */
+    cMsgSocketMutexUnlock(domain);
+
+    /* now read reply */
+    if (cMsgTcpRead(fdIn, (void *) inComing, sizeof(inComing)) != sizeof(inComing)) {
+      cMsgSyncSendMutexUnlock(domain);
+      cMsgConnectReadUnlock(domain);
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+        fprintf(stderr, "cmsg_cmsg_monitor: read failure\n");
+      }
+      err = CMSG_NETWORK_ERROR;
+      break;
+    }
+    
+    msg = (cMsgMessage_t *) cMsgCreateMessage();
+
+    /*
+     * Time arrives as the high 32 bits followed by the low 32 bits
+     * of a 64 bit integer in units of milliseconds.
+     */
+    llTime = (((uint64_t) ntohl(inComing[0])) << 32) |
+             (((uint64_t) ntohl(inComing[1])) & 0x00000000FFFFFFFF);
+    /* turn long long into struct timespec */
+    msg->senderTime.tv_sec  =  llTime/1000;
+    msg->senderTime.tv_nsec = (llTime%1000)*1000000;
+    
+    len = ntohl(inComing[2]);
+    
+    if ( (msg->text = (char *) calloc(len+1,1)) == NULL ) {
+      cMsgSyncSendMutexUnlock(domain);
+      cMsgConnectReadUnlock(domain);
+      err = CMSG_OUT_OF_MEMORY;
+      break;    
+    }
+
+    if (cMsgTcpRead(fdIn, (void *)msg->text, len) != len) {
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+        fprintf(stderr, "cmsg_cmsg_monitor: error read failure\n");
+      }
+      cMsgSyncSendMutexUnlock(domain);
+      cMsgConnectReadUnlock(domain);
+      err = CMSG_NETWORK_ERROR;
+      break;    
+    }
+    
+    *replyMsg = msg;
+    
+    cMsgSyncSendMutexUnlock(domain);
+    cMsgConnectReadUnlock(domain);
+    break;
+  }
+  
+  
+  if (err!= CMSG_OK) {
+    /* don't wait for resubscribes */
+    if (failoverSuccessful(domain, 0)) {
+       fd = domain->sendSocket;
+/*printf("cmsg_cmsg_monitor: FAILOVER SUCCESSFUL, try suncSend again\n");*/
+       goto tryagain;
+    }  
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      printf("cmsg_cmsg_monitor: FAILOVER NOT successful, quitting, err = %d\n", err);
+    }
+  }
+
+  /* return error code */  
+  return(err);  
 }
 
 
