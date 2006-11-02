@@ -272,8 +272,8 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
 
 #if defined VXWORKS
 
-  servaddr.sin_addr.s_addr = hostGetByName((char *) ip_address);
-  if ((int)servaddr.sin_addr.s_addr == ERROR) {
+  err = cMsgStringToNumericIPaddr(ip_address, &servaddr);
+  if (err != CMSG_OK || err == ERROR) {
     close(sockfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: unknown server address for host %s\n",ip_address);
     return(CMSG_NETWORK_ERROR);
