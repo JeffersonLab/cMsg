@@ -694,7 +694,7 @@ printf("clientThread %d: try to connect for first time\n", localCount);
             cMsgLatchCountDown(&domain->syncLatch, &wait);
           }
           else {
-printf("clientThread %d: try to reconnect\n", localCount);
+//printf("clientThread %d: try to reconnect\n", localCount);
             /*
              * Other thread waiting to read from the (dead) rc server
              * will automatically die because it will try to read from
