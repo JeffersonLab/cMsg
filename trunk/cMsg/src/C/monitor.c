@@ -25,7 +25,7 @@ int main(int argc,char **argv) {
   char *myName = "monie";
   char *myDescription = "C-monitor";
   char *text;
-  int err, debug=1,loops=5;
+  int err, debug=1,loops=10;
   void *domainId;
   void *msg;
     
@@ -44,7 +44,7 @@ int main(int argc,char **argv) {
       exit(1);
   }
   
-  while(loops>0) {
+  while(loops-->0) {
     err = cMsgMonitor(domainId, "junk", &msg);
     if (err != CMSG_OK) {
       printf("cMsgMonitor: %s\n",cMsgPerror(err));
