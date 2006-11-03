@@ -242,6 +242,7 @@ public:
   virtual void setShutdownHandler(cMsgShutdownHandler *handler, void* userArg) throw(cMsgException);
   virtual void shutdownClients(string &client, int flag) throw(cMsgException);
   virtual void shutdownServers(string &server, int flag) throw(cMsgException);
+  virtual cMsgMessage *monitor(string &monString) throw(cMsgException);
 };
 
 

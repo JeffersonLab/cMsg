@@ -91,7 +91,7 @@ HFILES = $(C_DIR)/rwlock.h \
 HFILESXX = cMsg.hxx \
            epics_server.h
 
-PROGSXX = cMsgCommand cMsgReceive $(CAGATEWAY)
+PROGSXX = cMsgCommand cMsgReceive cMsgMonitor $(CAGATEWAY)
 
 
 all: copyFiles $(CMSG_LIBSXX) $(PROGSXX) saveFiles

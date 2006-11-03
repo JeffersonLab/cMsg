@@ -1,4 +1,7 @@
 // to do
+//   const args in C api?
+//   smart pointers?
+//   monitoring and control api functions
 //   word doc, doxygen doc
 
 
@@ -1443,6 +1446,26 @@ void cMsg::shutdownServers(string &server, int flag) throw(cMsgException) {
   if((stat=cMsgShutdownServers(myDomainId,server.c_str(),flag))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+cMsgMessage *cMsg::monitor(string &monString) throw(cMsgException) {
+
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+  void *m = cMsgCreateMessage();
+  if(m==NULL)throw(cMsgException("?cMsgMessage constructor...unable to create message",CMSG_ERROR));
+
+  int stat;
+  if((stat=cMsgMonitor(myDomainId,monString.c_str(),&m))!=CMSG_OK) {
+    cMsgFreeMessage(&m);
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+
+  return(new cMsgMessage(m));
 }
 
 
