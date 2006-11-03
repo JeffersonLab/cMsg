@@ -19,6 +19,7 @@ package org.jlab.coda.cMsg.cMsgDomain.client;
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgCallbackInterface;
 import org.jlab.coda.cMsg.cMsgException;
+import org.jlab.coda.cMsg.cMsgCueSizeInterface;
 
 import java.util.ArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -30,7 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * The thread is self-starting and waits to execute the callback.
  * All it needs is a notify.
  */
-public class cMsgCallbackThread extends Thread {
+public class cMsgCallbackThread extends Thread implements cMsgCueSizeInterface {
     /** List of messages to be passed to the callback. */
     private LinkedBlockingQueue<cMsgMessageFull> messageCue;
 
@@ -62,6 +63,14 @@ public class cMsgCallbackThread extends Thread {
         //System.out.println("CallbackThd: Will interrupt callback thread");
         this.interrupt();
         //System.out.println("CallbackThd: Interrupted callback thread");
+    }
+
+    /**
+     * Gets the number of messages in the cue.
+     * @return number of messages in the cue
+     */
+    public int getCueSize() {
+        return messageCue.size();
     }
 
     /**

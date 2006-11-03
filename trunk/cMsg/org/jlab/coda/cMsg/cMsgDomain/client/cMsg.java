@@ -1167,6 +1167,7 @@ public class cMsg extends cMsgDomainAdapter {
 
                                 // add to existing set of callbacks
                                 cbThread = new cMsgCallbackThread(cb, userObj);
+                                cb.setCueSizeObject(cbThread);
                                 sub.addCallback(cbThread);
                                 unsubscriptions.put(cbThread, sub);
                                 return (Object)cbThread;
@@ -1182,6 +1183,7 @@ public class cMsg extends cMsgDomainAdapter {
 
                         // add a new subscription & callback
                         cbThread = new cMsgCallbackThread(cb, userObj);
+                        cb.setCueSizeObject(cbThread);
                         newSub   = new cMsgSubscription(subject, type, id, cbThread);
                         unsubscriptions.put(cbThread, newSub);
 

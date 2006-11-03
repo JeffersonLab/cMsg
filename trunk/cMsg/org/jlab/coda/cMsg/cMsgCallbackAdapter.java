@@ -22,6 +22,10 @@ package org.jlab.coda.cMsg;
  * implementing the full interface.
  */
 public class cMsgCallbackAdapter implements cMsgCallbackInterface {
+
+    /** Object which will allow access to the cue size information. */
+    protected cMsgCueSizeInterface cueSizeObject;
+
     /**
      * Callback method definition.
      *
@@ -32,6 +36,14 @@ public class cMsgCallbackAdapter implements cMsgCallbackInterface {
      */
     public void callback(cMsgMessage msg, Object userObject) {
         return;
+    }
+
+    /**
+     * Sets the object which will allow access to the cue size information.
+     * @param cueSizeObject object allowing access to the cue size information
+     */
+    public void setCueSizeObject(cMsgCueSizeInterface cueSizeObject) {
+        this.cueSizeObject = cueSizeObject;
     }
 
     /**
@@ -88,4 +100,15 @@ public class cMsgCallbackAdapter implements cMsgCallbackInterface {
         return 50;
     }
 
+    /**
+      * Method to get the number of messages in the cue for a callback.
+      * @return number of messages in the cue for a callback or -1 if no
+      *         data is available
+      */
+    public int getCueSize() {
+        if (cueSizeObject != null) {
+            return cueSizeObject.getCueSize();
+        }
+        return -1;
+    }
 }
