@@ -134,6 +134,7 @@ extern "C" {
   int   cMsgSendAndGet        (void *domainId, const void *sendMsg, const struct timespec *timeout, void **replyMsg);
   int   cMsgSubscribeAndGet   (void *domainId, const char *subject, const char *type,
                                const struct timespec *timeout, void **replyMsg);
+  int   cMsgMonitor           (void *domainId, const char *command, void **replyMsg);
   int 	cMsgReceiveStart      (void *domainId);
   int 	cMsgReceiveStop       (void *domainId);
   int 	cMsgDisconnect        (void **domainId);
