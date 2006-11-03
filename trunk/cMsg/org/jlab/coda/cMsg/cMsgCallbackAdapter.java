@@ -101,10 +101,15 @@ public class cMsgCallbackAdapter implements cMsgCallbackInterface {
     }
 
     /**
-      * Method to get the number of messages in the cue for a callback.
-      * @return number of messages in the cue for a callback or -1 if no
-      *         data is available
-      */
+     * Method to get the number of messages in the cue for a callback.
+     * WARNING: This is only meaningful if the {@link #mustSerializeMessages}
+     * method returns true, in other words if the callback is run in only one
+     * thread. And it is only meaningful if the callback object is used in only
+     * one subscription (otherwise the cue size returned is that of the last
+     * subscription made).
+     * @return number of messages in the cue for a callback or -1 if no
+     *         data is available
+     */
     public int getCueSize() {
         if (cueSizeObject != null) {
             return cueSizeObject.getCueSize();
