@@ -121,7 +121,7 @@ public class cMsgQueue {
         /**
          *  Queues message to file or database.
          */
-        public void callback(cMsgMessage msg, Object userObject) {
+        public void callback(cMsgMessage msg, Object userObject, cMsgCallbackArgument arg) {
 
             // do not queue sendAndGet() traffic
             if(msg.isGetRequest()) return;
@@ -194,7 +194,7 @@ public class cMsgQueue {
          *  Retrieves oldest entry in file or database queue and returns as getResponse.
          *  If broadcast==true then also broadcasts the message via send.
          */
-        public void callback(cMsgMessage msg, Object userObject) {
+        public void callback(cMsgMessage msg, Object userObject, cMsgCallbackArgument arg) {
 
 
             // only handle sendAndGet() requests

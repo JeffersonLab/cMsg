@@ -226,8 +226,9 @@ public class cMsgEnterpriseTester extends Thread {
          * @param userObject object passed as an argument which was set when the
          *                   client orginally subscribed to a subject and type of
          *                   message.
+         * @param arg object passed to callback describing callback environment
          */
-        public void callback(cMsgMessage msg, Object userObject) {
+        public void callback(cMsgMessage msg, Object userObject, cMsgCallbackArgument arg) {
             count++;
             Thread.yield();
 //System.out.print(" " + msg.getUserInt());

@@ -18,6 +18,7 @@ package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgCallbackInterface;
+import org.jlab.coda.cMsg.cMsgCallbackArgument;
 
 import java.util.ArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -62,6 +63,15 @@ public class cMsgCallbackThread extends Thread {
         this.interrupt();
         //System.out.println("CallbackThd: Interrupted callback thread");
     }
+
+    class myCbArg implements cMsgCallbackArgument {
+        public int getCueSize() {
+            return messageCue.size();
+        }
+    }
+
+    myCbArg callbackArg = new myCbArg();
+
 
     /**
      * Gets the number of messages in the cue.
@@ -142,7 +152,7 @@ public class cMsgCallbackThread extends Thread {
                 }
 
                 // run callback with copied msg so multiple callbacks don't clobber each other
-                callback.callback(message.copy(), arg);
+                callback.callback(message.copy(), arg, callbackArg);
             }
         }
     }
@@ -260,7 +270,7 @@ public class cMsgCallbackThread extends Thread {
             }
 
             // run callback with copied msg so multiple callbacks don't clobber each other
-            callback.callback(message.copy(), arg);
+            callback.callback(message.copy(), arg, callbackArg);
         }
     }
 }

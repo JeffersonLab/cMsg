@@ -106,8 +106,9 @@ public class cMsgLogger {
          *
          * @param msg cMsg message
          * @param userObject object given by user to callback as argument.
+         * @param arg object passed to callback describing callback environment
          */
-        public void callback(cMsgMessage msg, Object userObject) {
+        public void callback(cMsgMessage msg, Object userObject, cMsgCallbackArgument arg) {
 
             count++;
 
