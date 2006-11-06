@@ -27,7 +27,7 @@ package org.jlab.coda.cMsg;
  * @author Carl Timmer
  * @version 1.0
  */
-public interface cMsgCallbackInterface extends cMsgCueSizeInterface {
+public interface cMsgCallbackInterface {
     /**
      * Callback method definition.
      *
@@ -37,12 +37,6 @@ public interface cMsgCallbackInterface extends cMsgCueSizeInterface {
      *                   message.
      */
     public void callback(cMsgMessage msg, Object userObject);
-
-    /**
-     * Sets the object which will allow access to the cue size information.
-     * @param cueSizeObject object allowing access to the cue size information
-     */
-    public void setCueSizeObject(cMsgCueSizeInterface cueSizeObject);
 
     /**
      * Method telling whether messages may be skipped or not.
