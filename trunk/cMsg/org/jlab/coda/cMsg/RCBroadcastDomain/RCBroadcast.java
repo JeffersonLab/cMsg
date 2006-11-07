@@ -93,7 +93,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
 
 
     public RCBroadcast() throws cMsgException {
-
+        domain = "rcb";
         subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
         subscribeAndGets = Collections.synchronizedSet(new HashSet<cMsgGetHelper>(20));
         unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
@@ -343,7 +343,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
                         }
 
                         // add to existing set of callbacks
-                        cbThread = new cMsgCallbackThread(cb, userObj);
+                        cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
                         sub.addCallback(cbThread);
                         unsubscriptions.put(cbThread, sub);
                         return cbThread;
@@ -354,7 +354,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
                 // We need to create and register it.
 
                 // add a new subscription & callback
-                cbThread = new cMsgCallbackThread(cb, userObj);
+                cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
                 newSub = new cMsgSubscription(subject, type, 0, cbThread);
                 unsubscriptions.put(cbThread, newSub);
 

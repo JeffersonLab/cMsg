@@ -129,7 +129,7 @@ public class RCServer extends cMsgDomainAdapter {
 
     /** Constructor. */
     public RCServer() throws cMsgException {
-
+        domain = "rcs";
         subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
         subscribeAndGets = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
         unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
@@ -598,7 +598,7 @@ public class RCServer extends cMsgDomainAdapter {
                         }
 
                         // add to existing set of callbacks
-                        cbThread = new cMsgCallbackThread(cb, userObj);
+                        cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
                         sub.addCallback(cbThread);
                         unsubscriptions.put(cbThread, sub);
                         return cbThread;
@@ -613,7 +613,7 @@ public class RCServer extends cMsgDomainAdapter {
                 id = uniqueId.getAndIncrement();
 
                 // add a new subscription & callback
-                cbThread = new cMsgCallbackThread(cb, userObj);
+                cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
                 newSub = new cMsgSubscription(subject, type, id, cbThread);
                 unsubscriptions.put(cbThread, newSub);
 

@@ -144,13 +144,12 @@ public class cMsgConsumer {
          * @param userObject object passed as an argument which was set when the
          *                   client orginally subscribed to a subject and type of
          *                   message.
-         * @param arg object passed to callback describing callback environment
          */
-        public void callback(cMsgMessage msg, Object userObject, cMsgCallbackArgument arg) {
+        public void callback(cMsgMessage msg, Object userObject) {
 //            try {Thread.sleep(10);}
 //            catch (InterruptedException e) {}
 
-//System.out.println("Cue size = " + arg.getCueSize());
+//System.out.println("Cue size = " + msg.getContext().getCueSize());
             count++;
         }
 

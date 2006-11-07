@@ -614,7 +614,7 @@ ex.printStackTrace();
                             }
 
                             // add to existing set of callbacks
-                            sub.addCallback(new cMsgCallbackThread(cb, userObj));
+                            sub.addCallback(new cMsgCallbackThread(cb, userObj, domain, subject, type));
                             return;
                         }
                     }
@@ -627,7 +627,7 @@ ex.printStackTrace();
                     id = uniqueId.getAndIncrement();
 
                     // add a new subscription & callback
-                    cbThread = new cMsgCallbackThread(cb, userObj);
+                    cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
                     newSub   = new cMsgSubscription(subject, type, id, cbThread);
 
 

@@ -67,7 +67,7 @@ public class cMsgSendAndGetCallbackThread implements Callable {
              message = messageCue.take();
 
              // only callback gets message so don't bother to copy it
-             callback.callback(message, arg, null);
+             callback.callback(message, arg);
 
              // end this thread after running callback
              return Boolean.TRUE;

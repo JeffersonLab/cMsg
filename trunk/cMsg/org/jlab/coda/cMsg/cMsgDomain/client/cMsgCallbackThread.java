@@ -18,7 +18,7 @@ package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgCallbackInterface;
-import org.jlab.coda.cMsg.cMsgCallbackArgument;
+import org.jlab.coda.cMsg.cMsgCallbackContext;
 
 import java.util.ArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -31,6 +31,15 @@ import java.util.concurrent.atomic.AtomicInteger;
  * All it needs is a notify.
  */
 public class cMsgCallbackThread extends Thread {
+    /** Subscription's domain. */
+    String domain;
+
+    /** Subscription's subject. */
+    String subject;
+
+    /** Subscription's type. */
+    String type;
+
     /** List of messages to be passed to the callback. */
     private LinkedBlockingQueue<cMsgMessageFull> messageCue;
 
@@ -64,14 +73,19 @@ public class cMsgCallbackThread extends Thread {
         //System.out.println("CallbackThd: Interrupted callback thread");
     }
 
-    class myCbArg implements cMsgCallbackArgument {
-        public int getCueSize() {
-            return messageCue.size();
-        }
+    /**
+     * Class to return info on callback's running environment to the callback.
+     * In this case we tell callback the cue size.
+     */
+    private class myContext implements cMsgCallbackContext {
+        public String getDomain()  { return domain; }
+        public String getSubject() { return subject; }
+        public String getType()    { return type; }
+        public int getCueSize()    { return messageCue.size(); }
     }
 
-    myCbArg callbackArg = new myCbArg();
-
+    /** Object that tells callback user the context info including the cue size. */
+    private myContext context;
 
     /**
      * Gets the number of messages in the cue.
@@ -142,6 +156,7 @@ public class cMsgCallbackThread extends Thread {
 
                     try {
                         message = messageCue.poll(200, TimeUnit.MILLISECONDS);
+                        message.setContext(context);
                     }
                     catch (InterruptedException e) {
                     }
@@ -152,23 +167,32 @@ public class cMsgCallbackThread extends Thread {
                 }
 
                 // run callback with copied msg so multiple callbacks don't clobber each other
-                callback.callback(message.copy(), arg, callbackArg);
+                callback.callback(message.copy(), arg);
             }
         }
     }
 
 
     /**
-     * Constructor used to pass an arbitrary argument to callback method.
+     * Constructor.
+     *
      * @param callback callback to be run when message arrives
      * @param arg user-supplied argument for callback
+     * @param domain
+     * @param subject
+     * @param type
      */
-    public cMsgCallbackThread(cMsgCallbackInterface callback, Object arg) {
+    public cMsgCallbackThread(cMsgCallbackInterface callback, Object arg,
+                              String domain, String subject, String type) {
         this.callback = callback;
         this.arg      = arg;
+        this.domain   = domain;
+        this.subject  = subject;
+        this.type     = type;
         messageCue    = new LinkedBlockingQueue<cMsgMessageFull>(callback.getMaximumCueSize());
         dumpList      = new ArrayList<cMsgMessageFull>(callback.getSkipSize());
         count         = 1;
+        context       = new myContext();
 
         start();
     }
@@ -259,7 +283,10 @@ public class cMsgCallbackThread extends Thread {
                 // because of a bug in Java 1.5 of a memory for a timeout in
                 // a LinkedBlockingQueue.
                 // BUGBUG
-                try { message = messageCue.take(); }
+                try {
+                    message = messageCue.take();
+                    message.setContext(context);
+                }
                 catch (InterruptedException e) {
                     //System.out.println("CallbackThd: Interrupted a messageCue take");
                 }
@@ -270,7 +297,7 @@ public class cMsgCallbackThread extends Thread {
             }
 
             // run callback with copied msg so multiple callbacks don't clobber each other
-            callback.callback(message.copy(), arg, callbackArg);
+            callback.callback(message.copy(), arg);
         }
     }
 }

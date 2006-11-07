@@ -26,9 +26,8 @@ public class rcClient {
          * @param userObject object passed as an argument which was set when the
          *                   client orginally subscribed to a subject and type of
          *                   message.
-         * @param arg object passed to callback describing callback environment
          */
-        public void callback(cMsgMessage msg, Object userObject, cMsgCallbackArgument arg) {
+        public void callback(cMsgMessage msg, Object userObject) {
             System.out.println("Count = " + count++);
         }
      }

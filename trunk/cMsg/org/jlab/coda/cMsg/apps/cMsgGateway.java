@@ -78,7 +78,7 @@ public class cMsgGateway {
     /** callbacks for cross-posting. */
     static class cb1 extends cMsgCallbackAdapter {
 
-        public void callback(cMsgMessage msg, Object userObject, cMsgCallbackArgument arg) {
+        public void callback(cMsgMessage msg, Object userObject) {
 
             count1++;
 
@@ -104,7 +104,7 @@ public class cMsgGateway {
 
     static class cb2 extends cMsgCallbackAdapter {
 
-        public void callback(cMsgMessage msg, Object userObject, cMsgCallbackArgument arg) {
+        public void callback(cMsgMessage msg, Object userObject) {
 
             count2++;
 

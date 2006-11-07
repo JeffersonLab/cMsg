@@ -1166,7 +1166,7 @@ public class cMsg extends cMsgDomainAdapter {
                                 }
 
                                 // add to existing set of callbacks
-                                cbThread = new cMsgCallbackThread(cb, userObj);
+                                cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
                                 sub.addCallback(cbThread);
                                 unsubscriptions.put(cbThread, sub);
                                 return (Object)cbThread;
@@ -1181,7 +1181,7 @@ public class cMsg extends cMsgDomainAdapter {
                         id = uniqueId.getAndIncrement();
 
                         // add a new subscription & callback
-                        cbThread = new cMsgCallbackThread(cb, userObj);
+                        cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
                         newSub   = new cMsgSubscription(subject, type, id, cbThread);
                         unsubscriptions.put(cbThread, newSub);
 

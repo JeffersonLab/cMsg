@@ -422,4 +422,17 @@ public class cMsgMessageFull extends cMsgMessage {
         this.receiverSubscribeId = receiverSubscribeId;
     }
 
+    // context quantities
+
+    /**
+     * Sets the object containing information about the context of the
+     * callback receiving this message.
+     * 
+     * @param context object containing information about the context of the
+     *                callback receiving this message
+     */
+    public void setContext(cMsgCallbackContext context) {
+        this.context = context;
+    }
+
 }

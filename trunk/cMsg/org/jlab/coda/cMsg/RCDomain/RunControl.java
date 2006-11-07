@@ -141,7 +141,7 @@ public class RunControl extends cMsgDomainAdapter {
 
     /** Constructor. */
     public RunControl() throws cMsgException {
-        domain = "RC";
+        domain = "rc";
         subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
         uniqueId         = new AtomicInteger();
         unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
@@ -740,7 +740,7 @@ public class RunControl extends cMsgDomainAdapter {
                         }
 
                         // add to existing set of callbacks
-                        cbThread = new cMsgCallbackThread(cb, userObj);
+                        cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
                         sub.addCallback(cbThread);
                         unsubscriptions.put(cbThread, sub);
                         return cbThread;
@@ -755,7 +755,7 @@ public class RunControl extends cMsgDomainAdapter {
                 id = uniqueId.getAndIncrement();
 
                 // add a new subscription & callback
-                cbThread = new cMsgCallbackThread(cb, userObj);
+                cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
                 newSub = new cMsgSubscription(subject, type, id, cbThread);
                 unsubscriptions.put(cbThread, newSub);
 

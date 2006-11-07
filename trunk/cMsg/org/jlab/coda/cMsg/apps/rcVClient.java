@@ -30,7 +30,7 @@ public class rcVClient {
      */
     class myCallback1 extends cMsgCallbackAdapter {
 
-        public void callback(cMsgMessage mg, Object userObject, cMsgCallbackArgument arg) {
+        public void callback(cMsgMessage mg, Object userObject) {
             String text=null;
 
             System.out.println(">>>>>> in the monitorTransaction");
@@ -64,7 +64,7 @@ public class rcVClient {
      */
     class myCallback2 extends cMsgCallbackAdapter {
 
-         public void callback(cMsgMessage mg, Object userObject, cMsgCallbackArgument arg) {
+         public void callback(cMsgMessage mg, Object userObject) {
             String s=null,ss=null;
             cMsgMessage msg;
 
