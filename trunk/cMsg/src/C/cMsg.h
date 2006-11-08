@@ -149,7 +149,7 @@ extern "C" {
   void  *cMsgCreateMessage        (void);
   void  *cMsgCreateNewMessage     (void *vmsg);
   void  *cMsgCopyMessage          (void *vmsg);
-  void   cMsgInitMessage          (void *vmsg);
+  int    cMsgInitMessage          (void *vmsg);
   void  *cMsgCreateResponseMessage(void *vmsg);
   void  *cMsgCreateNullResponseMessage(void *vmsg);
   
@@ -203,6 +203,12 @@ extern "C" {
   
   int    cMsgSetByteArrayAndLimits(void *vmsg, char *array, int offset, int length);
   int    cMsgCopyByteArray        (void *vmsg, char *array, int offset, int length);
+  
+  int    cMsgGetSubscriptionDomain (void *vmsg, char **domain);
+  int    cMsgGetSubscriptionSubject(void *vmsg, char **subject);
+  int    cMsgGetSubscriptionType   (void *vmsg, char **type);
+  int    cMsgGetSubscriptionUDL    (void *vmsg, char **udl);
+  int    cMsgGetSubscriptionCueSize(void *vmsg, int   *size);
 
   int    cMsgToString             (const void *vmsg, char **string);
 

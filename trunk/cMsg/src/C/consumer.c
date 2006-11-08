@@ -32,24 +32,27 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /******************************************************************/
 static void callback(void *msg, void *arg) {
-  int status, userInt;
+  int status, userInt, cueSize;
   struct timespec sleeep;
-  
+
   sleeep.tv_sec  = 0;
   sleeep.tv_nsec = 10000000; /* 10 millisec */  
-  
+
+
   status = pthread_mutex_lock(&mutex);
   if (status != 0) {
     err_abort(status, "error grabbing mutex");
   }
-  
+  /*
+  cMsgGetSubscriptionCueSize(msg, &cueSize);
+  printf("%d\n",cueSize);
+  */
   count++;
-    
+
   status = pthread_mutex_unlock(&mutex);
   if (status != 0) {
     err_abort(status, "error releasing mutex");
   }
-  
   /*nanosleep(&sleeep, NULL);*/
   
   /* user MUST free messages passed to the callback */
@@ -121,7 +124,7 @@ int main(int argc,char **argv) {
   
   /* set the subscribe configuration */
   config = cMsgSubscribeConfigCreate();
-  cMsgSubscribeSetMaxCueSize(config, 100);
+  cMsgSubscribeSetMaxCueSize(config, 10000);
   cMsgSubscribeSetSkipSize(config, 20);
   cMsgSubscribeSetMaySkip(config,0);
   cMsgSubscribeSetMustSerialize(config, 1);

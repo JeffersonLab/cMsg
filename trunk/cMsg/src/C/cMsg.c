@@ -128,6 +128,7 @@ static int   parseUDL(const char *UDL, char **domainType, char **UDLremainder);
 static void  connectMutexLock(void);
 static void  connectMutexUnlock(void);
 static void  initMessage(cMsgMessage_t *msg);
+static int   freeMessage(void *vmsg);
 
 #ifdef VXWORKS
 
@@ -1772,6 +1773,8 @@ static void initMessage(cMsgMessage_t *msg) {
     msg->receiverTime.tv_sec  = 0;
     msg->receiverTime.tv_nsec = 0;
     msg->receiverSubscribeId  = 0;
+    
+    msg->context = NULL;
 
     return;
   }
@@ -1781,19 +1784,17 @@ static void initMessage(cMsgMessage_t *msg) {
 
 
 /**
- * This routine frees the memory allocated in the creation of a message.
- * The cMsg client must call this routine on any messages created to avoid
- * memory leaks.
+ * This routine frees the memory of the components of a message,
+ * but not the message itself.
  *
  * @param vmsg address of pointer to message structure being freed
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if msg is NULL
  */   
-int cMsgFreeMessage(void **vmsg) {
+static int freeMessage(void *vmsg) {
 
-  cMsgMessage_t *msg = (cMsgMessage_t *) (*vmsg);
-
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
    
   if (msg->domain       != NULL) {free(msg->domain);       msg->domain       = NULL;}
@@ -1811,6 +1812,30 @@ int cMsgFreeMessage(void **vmsg) {
     free(msg->byteArray);
   }
   
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine frees the memory allocated in the creation of a message.
+ * The cMsg client must call this routine on any messages created to avoid
+ * memory leaks.
+ *
+ * @param vmsg address of pointer to message structure being freed
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if msg is NULL
+ */   
+int cMsgFreeMessage(void **vmsg) {
+  int err;
+  cMsgMessage_t *msg = (cMsgMessage_t *) (*vmsg);
+
+  if ( (err = freeMessage(msg)) != CMSG_OK) {
+    return err;
+  }
   free(msg);
   *vmsg = NULL;
 
@@ -1843,7 +1868,7 @@ int cMsgFreeMessage(void **vmsg) {
     }
     
     /* create a message structure */
-    if ((newMsg = (cMsgMessage_t *)malloc(sizeof(cMsgMessage_t))) == NULL) {
+    if ((newMsg = (cMsgMessage_t *)calloc(1, sizeof(cMsgMessage_t))) == NULL) {
       return NULL;
     }
     
@@ -2063,28 +2088,19 @@ int cMsgFreeMessage(void **vmsg) {
  * state.
  *
  * @param vmsg pointer to message structure being initialized
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if msg is NULL
  */   
-void cMsgInitMessage(void *vmsg) {
+int cMsgInitMessage(void *vmsg) {
+    int err;
     cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
-    
-    if (msg == NULL) return;
-    
-    if (msg->domain       != NULL) {free(msg->domain);       msg->domain       = NULL;}
-    if (msg->creator      != NULL) {free(msg->creator);      msg->creator      = NULL;}
-    if (msg->subject      != NULL) {free(msg->subject);      msg->subject      = NULL;}
-    if (msg->type         != NULL) {free(msg->type);         msg->type         = NULL;}
-    if (msg->text         != NULL) {free(msg->text);         msg->text         = NULL;}
-    if (msg->sender       != NULL) {free(msg->sender);       msg->sender       = NULL;}
-    if (msg->senderHost   != NULL) {free(msg->senderHost);   msg->senderHost   = NULL;}
-    if (msg->receiver     != NULL) {free(msg->receiver);     msg->receiver     = NULL;}
-    if (msg->receiverHost != NULL) {free(msg->receiverHost); msg->receiverHost = NULL;}
-    
-    /* only free byte array if it was copied into the msg */
-    if ((msg->byteArray != NULL) && ((msg->bits & CMSG_BYTE_ARRAY_IS_COPIED) > 0)) {
-        free(msg->byteArray);
+
+    if ( (err = freeMessage(msg)) != CMSG_OK) {
+      return err;
     }
     
     initMessage(msg);
+    return(CMSG_OK);
   }
 
 
@@ -3205,7 +3221,7 @@ int cMsgToString(const void *vmsg, char **string) {
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
 
 
-  // get times in ascii and remove newlines
+  /* get times in ascii and remove newlines */
   now=time(NULL);
 #ifdef VXWORKS
   ctime_r(&now,nowBuf,&len);                                nowBuf[strlen(nowBuf)-1]='\0';
@@ -3219,7 +3235,7 @@ int cMsgToString(const void *vmsg, char **string) {
   ctime_r(&msg->userTime.tv_sec,userTimeBuf);         userTimeBuf[strlen(userTimeBuf)-1]='\0';
 #endif
 
-  // get string len
+  /* get string len */
   slen=formatLen;
   if(msg->domain!=NULL)        slen+=strlen(msg->domain);
   if(msg->creator!=NULL)       slen+=strlen(msg->creator);
@@ -3230,10 +3246,10 @@ int cMsgToString(const void *vmsg, char **string) {
   if(msg->subject!=NULL)       slen+=strlen(msg->subject);
   if(msg->type!=NULL)          slen+=strlen(msg->type);
   if(msg->text!=NULL)          slen+=strlen(msg->text);
-  slen+=1024;   // to account for everything else
+  slen+=1024;   /* to account for everything else */
 
 
-  // allocate and fill buffer
+  /* allocate and fill buffer */
   buffer=(char*)malloc(slen);
   sprintf(buffer,format,
           nowBuf,msg->version,msg->domain,
@@ -3246,12 +3262,179 @@ int cMsgToString(const void *vmsg, char **string) {
           msg->subject,msg->type,msg->text);
 
 
-  // hand newly allocated buffer off to user
+  /* hand newly allocated buffer off to user */
   *string=buffer;
 
-
-  // done
   return (CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+/*   message context accessor functions                              */
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine gets the domain a subscription is running in and is valid
+ * only when used in a callback on the message given in the callback
+ * argument.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param vmsg pointer to message
+ * @param domain pointer to pointer which gets filled with a subscription's domain
+ *                or NULL if no information is available
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message or message context is NULL
+ */   
+int cMsgGetSubscriptionDomain(void *vmsg, char **domain) {
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+  
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->context == NULL ) {
+    *domain = NULL;
+  }
+  else if (msg->context->domain == NULL) {
+    *domain = NULL;
+  }
+  else {
+    *domain = (char *) (strdup(msg->context->domain));
+  }
+  return(CMSG_OK);
+}
+
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine gets the subject a subscription is using and is valid
+ * only when used in a callback on the message given in the callback
+ * argument.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param vmsg pointer to message
+ * @param subject pointer to pointer which gets filled with a subscription's subject
+ *                or NULL if no information is available
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetSubscriptionSubject(void *vmsg, char **subject) {
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+  
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->context == NULL ) {
+    *subject = NULL;
+  }
+  else if (msg->context->subject == NULL) {
+    *subject = NULL;
+  }
+  else {
+    *subject = (char *) (strdup(msg->context->subject));
+  }
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine gets the type a subscription is using and is valid
+ * only when used in a callback on the message given in the callback
+ * argument.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param vmsg pointer to message
+ * @param type pointer to pointer which gets filled with a subscription's type
+ *                or NULL if no information is available
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message or message context is NULL
+ */   
+int cMsgGetSubscriptionType(void *vmsg, char **type) {
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+  
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->context == NULL ) {
+    *type = NULL;
+  }
+  else if (msg->context->type == NULL) {
+    *type = NULL;
+  }
+  else {
+    *type = (char *) (strdup(msg->context->type));
+  }
+  return(CMSG_OK);
+}
+
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine gets the udl of a subscription's connection and is valid
+ * only when used in a callback on the message given in the callback
+ * argument.
+ * If succesful, this routine will have memory allocated and assigned to
+ * the dereferenced char ** argument. This memory must be freed eventually.
+ *
+ * @param vmsg pointer to message
+ * @param udl pointer to pointer which gets filled with the udl of a subscription's
+ *            connection or NULL if no information is available
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message or message context is NULL
+ */   
+int cMsgGetSubscriptionUDL(void *vmsg, char **udl) {
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+  
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->context == NULL ) {
+    *udl = NULL;
+  }
+  else if (msg->context->udl == NULL) {
+    *udl = NULL;
+  }
+  else {
+    *udl = (char *) (strdup(msg->context->udl));
+  }
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine gets the cue size of a callback and is valid
+ * only when used in a callback on the message given in the callback
+ * argument.
+ *
+ * @param vmsg pointer to message
+ * @param size pointer which gets filled with a callback's cue size
+ *             or -1 if no information is available
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message or message context is NULL
+ */   
+int cMsgGetSubscriptionCueSize(void *vmsg, int *size) {
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+  
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->context == NULL ) {
+    *size = -1;
+  }
+  else if (msg->context->cueSize == NULL) {
+    *size = -1;
+  }
+  else {
+    *size = (*(msg->context->cueSize));
+  }
+  return(CMSG_OK);
 }
 
 

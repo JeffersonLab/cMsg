@@ -1043,11 +1043,14 @@ void *cMsgCallbackThread(void *arg)
     int subIndex = cbarg->subIndex;
     int cbIndex  = cbarg->cbIndex;
     cMsgDomainInfo *domain = cbarg->domain;
-    subscribeCbInfo *cback  = &domain->subscribeInfo[subIndex].cbInfo[cbIndex];
+    subInfo *sub           = &domain->subscribeInfo[subIndex];
+    subscribeCbInfo *cback = &domain->subscribeInfo[subIndex].cbInfo[cbIndex];
     int i, status, need, threadsAdded, maxToAdd, wantToAdd;
     int numMsgs, numThreads;
     cMsgMessage_t *msg, *nextMsg;
     pthread_t thd;
+    cMsgCallbackContext *context;
+    
     /* time_t now, t; *//* for printing msg cue size periodically */
     
     /* increase concurrency for this thread for early Solaris */
@@ -1057,6 +1060,19 @@ void *cMsgCallbackThread(void *arg)
     
     /* for printing msg cue size periodically */
     /* now = time(NULL); */
+    
+    /* define the context struct */
+    context = (cMsgCallbackContext *) calloc(1, sizeof(cMsgCallbackContext));
+    if (context == NULL) {
+        printf("Out of memory in cMsgCallbackThread\n");
+        exit(-1);
+    }
+    context->domain  = (char *) strdup("cMsg");
+    context->subject = (char *) strdup(sub->subject);
+    context->type    = (char *) strdup(sub->type);
+    context->udl     = (char *) strdup(domain->udl);
+    context->cueSize = &cback->messages; /* pointer to cueSize info allows it
+                                            to always be up-to-date in callback */
         
     /* release system resources when thread finishes */
     pthread_detach(pthread_self());
@@ -1231,11 +1247,19 @@ void *cMsgCallbackThread(void *arg)
  */      
 
       /* run callback */
+      msg->context = context;
       cback->callback(msg, cback->userArg);
       
     } /* while(1) */
     
   end:
+    
+    /* free context */
+    free(context->domain);
+    free(context->subject);
+    free(context->type);
+    free(context->udl);
+    free(context);
     
     /* don't free arg as it is used for the unsubscribe handle */
     /*free(arg);*/     
