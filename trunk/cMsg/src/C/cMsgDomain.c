@@ -2074,7 +2074,7 @@ int cmsg_cmsg_monitor(void *domainId, const char *command, void **replyMsg) {
     
     len = ntohl(inComing[2]);
     
-    if ( (msg->text = (char *) calloc(len+1,1)) == NULL ) {
+    if ( (msg->text = (char *) calloc(1, len+1)) == NULL ) {
       cMsgSyncSendMutexUnlock(domain);
       cMsgConnectReadUnlock(domain);
       err = CMSG_OUT_OF_MEMORY;
@@ -2758,9 +2758,6 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
       
     } /* if gotta notify server */
     
-    /* free mem */
-    free(cbarg);
-    
     /* one less callback */
     subscriptionInfo->numCallbacks--;
 
@@ -2785,6 +2782,9 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
     cMsgSubscribeMutexUnlock(domain);
     cMsgConnectReadUnlock(domain);
   
+    /* free mem */
+    free(cbarg);
+    
     break;
     
   } /* while(1) */

@@ -402,7 +402,7 @@ static void *clientThread(void *arg)
   localCount = counter++;
       
   bufSize = 65536;
-  buffer  = (char *) calloc(bufSize,1);
+  buffer  = (char *) calloc(1, bufSize);
   if (buffer == NULL) {
       if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
         fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
@@ -453,7 +453,7 @@ static void *clientThread(void *arg)
 
       /* allocate more memory to accomodate larger msg */
       bufSize = size + 1000;
-      buffer  = (char *) calloc(bufSize,1);
+      buffer  = (char *) calloc(1, bufSize);
       if (buffer == NULL) {
         if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
           fprintf(stderr, "clientThread %d: cannot allocate %d amount of memory\n",
