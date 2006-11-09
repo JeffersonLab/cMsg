@@ -94,12 +94,14 @@ public class cMsg {
 
         // Do something special if the domain is configFile.
         // Read the file and use that as the real UDL.
+        boolean reconstruct = false;
         while (domain.equalsIgnoreCase("configFile")) {
             try {
                 // read file (remainder of UDL)
                 String newUDL = readConfigFile(UDLremainder);
                 parseUDL(newUDL);
                 listUDLs[0] = newUDL;
+                reconstruct = true;
             }
             catch (IOException e) {
                 e.printStackTrace();
@@ -108,7 +110,7 @@ public class cMsg {
         }
 
         // reconstruct the list of UDLs
-        if (listUDLs.length > 1) {
+        if (reconstruct) {
             for (int i=0; i < listUDLs.length; i++) {
                 if (i==0) {
                     UDL = listUDLs[i];
