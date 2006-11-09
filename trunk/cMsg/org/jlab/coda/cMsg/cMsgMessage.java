@@ -29,6 +29,7 @@ import java.util.*;
 
 /**
  * This class implements a message in the cMsg messaging system.
+ * Be warned that accessor methods can return null objects.
  *
  * @author Elliott Wolin
  * @author Carl Timmer
@@ -160,6 +161,18 @@ public class cMsgMessage implements Cloneable {
     /** Object giving info about environment running callback with this message. */
     cMsgCallbackContext context;
 
+    /**
+     * Cloning this object does not pass on the context and
+     * copies the byte array.
+     * @return a cMsgMessage object which is a copy of this message
+     * @throws CloneNotSupportedException
+     */
+    protected Object clone() throws CloneNotSupportedException {
+        Object o = super.clone();
+        ((cMsgMessage) o).context = null;
+        ((cMsgMessage) o).bytes = ((cMsgMessage) o).bytes.clone();
+        return o;
+    }
 
 
     /** The constructor for a blank message. */
@@ -202,7 +215,6 @@ public class cMsgMessage implements Cloneable {
         cMsgMessage msg = null;
         try {
             msg = (cMsgMessage) this.clone();
-            msg.bytes = (byte[]) this.bytes.clone();
         }
         catch (CloneNotSupportedException e) {
         }
