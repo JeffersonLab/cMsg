@@ -21,10 +21,7 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.Iterator;
 import java.util.concurrent.TimeoutException;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 
 /**
  * This class is instantiated by a client in order to connect to a cMsg server.
@@ -97,9 +94,11 @@ public class cMsg {
         int loops = 0;
         boolean reconstruct = false;
         while (domain.equalsIgnoreCase("configFile")) {
+//System.out.println("in configFile domain");
             try {
                 // read file (remainder of UDL)
                 String newUDL = readConfigFile(UDLremainder);
+//System.out.println("newUDL = " + newUDL);
                 parseUDL(newUDL);
                 listUDLs[0] = newUDL;
                 reconstruct = true;
@@ -164,14 +163,16 @@ public class cMsg {
         if (!file.canRead()) {
             throw new cMsgException("specified file in UDL cannot be read");
         }
-        String s = null;
-        FileReader reader = new FileReader(file);
-
-        if (reader.ready()) {
-            char[] buf = new char[1000];
-            reader.read(buf);
-            s = (new String(buf)).trim();
+        String s = "";
+        BufferedReader reader = new BufferedReader(new FileReader(file));
+        while (reader.ready() && s.length() < 1) {
+            // readLine is a bit quirky :
+            // it returns the content of a line MINUS the newline.
+            // it returns null only for the END of the stream.
+            // it returns an empty String if two newlines appear in a row.
+            s = reader.readLine().trim();
 //System.out.println("Read this string from file: " + s);
+            if (s == null) break;
         }
         return s;
     }
