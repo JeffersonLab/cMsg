@@ -94,6 +94,7 @@ public class cMsg {
 
         // Do something special if the domain is configFile.
         // Read the file and use that as the real UDL.
+        int loops = 0;
         boolean reconstruct = false;
         while (domain.equalsIgnoreCase("configFile")) {
             try {
@@ -106,6 +107,9 @@ public class cMsg {
             catch (IOException e) {
                 e.printStackTrace();
                 throw new cMsgException("Cannot read UDL in file", e);
+            }
+            if (loops++ > 20) {
+                throw new cMsgException("Circular UDL references");
             }
         }
 

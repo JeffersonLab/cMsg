@@ -280,14 +280,17 @@ static int readConfigFile(char *fileName, char **newUDL) {
  *        to this connection.
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if regular expression compilation fails during UDL parsing
+ *                     or circular UDL references
  * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
+ * @returns CMSG_BAD_FORMAT if the UDL is formatted incorrectly
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgConnect
  */   
 int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription, void **domainId) {
 
-  int i, err, reconstruct=0;
+  int i, loops=0, err, reconstruct=0;
   size_t len;
   char *pchar, udl[1000], *domainType, *UDLremainder, *newUDL=NULL;
   cMsgDomain *domain;
@@ -341,6 +344,14 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
      
     myUDL = newUDL;
     reconstruct = 1;
+    
+    /* check for circular references */
+    if (loops++ > 20) {
+      free(newUDL);
+      free(domainType);
+      free(UDLremainder);
+      return(CMSG_ERROR);
+    }
   }
   
   /* reconstruct the UDL if necessary */
