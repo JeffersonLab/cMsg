@@ -119,6 +119,7 @@ extern domainTypeInfo   rcDomainTypeInfo;
 
 
 /* local prototypes */
+static int   readConfigFile(char *fileName, char **newUDL);
 static int   checkString(const char *s);
 static int   registerPermanentDomains();
 static int   registerDynamicDomains(char *domainType);
@@ -197,6 +198,63 @@ static int strcasecmp(const char *s1, const char *s2) {
 
 #endif
 
+/*-------------------------------------------------------------------*/
+
+/**
+ * Routine to read a configuration file and return the cMsg UDL stored there.
+ * @param fileName name of file to be read
+ * @param newUDL pointer to char pointer that gets filled with the UDL
+ *               contained in config file, NULL if none
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if not successful reading file
+ * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
+ */
+static int readConfigFile(char *fileName, char **newUDL) {
+#define MAX_STR_LEN 1000
+    int i,j;
+    FILE *fp;
+    char str[MAX_STR_LEN], *pchar;
+    
+    if (fileName == NULL) return(CMSG_BAD_ARGUMENT);
+    
+    if ( (fp = fopen(fileName,"r")) == NULL) {
+        return(CMSG_ERROR);
+    }
+    
+    if ( fgets(str, MAX_STR_LEN, fp) == NULL) {
+        return(CMSG_ERROR);
+    }
+    
+    /* Remove white space at beginning and end. */
+    i = 0;
+    pchar = str;
+    while (isspace(str[i])) {
+      pchar++;
+      i++; 
+    }
+    
+    for (j=0; j<MAX_STR_LEN-i; j++) {
+      if (isspace(pchar[j])) {
+          pchar[j] = '\0';
+          break;
+      }
+    }
+ 
+    fclose(fp);
+    
+    if (strlen(str) < 1) {
+      *newUDL = NULL;
+    }
+    else {
+ printf("read configFile, UDL = %s\n", pchar);
+     *newUDL = (char *) (strdup(pchar));
+    }
+    
+    return(CMSG_OK);
+}
+
 
 
 /*-------------------------------------------------------------------*/
@@ -229,8 +287,9 @@ static int strcasecmp(const char *s1, const char *s2) {
  */   
 int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription, void **domainId) {
 
-  int i, err;
-  char *domainType, *UDLremainder;
+  int i, err, reconstruct=0;
+  size_t len;
+  char *pchar, udl[1000], *domainType, *UDLremainder, *newUDL=NULL;
   cMsgDomain *domain;
   
   /* check args */
@@ -240,12 +299,56 @@ int cMsgConnect(const char *myUDL, const char *myName, const char *myDescription
        (domainId                   == NULL   ))  {
     return(CMSG_BAD_ARGUMENT);
   }
-      
-  /* parse the UDL - Uniform Domain Locator */
-  if ( (err = parseUDL(myUDL, &domainType, &UDLremainder)) != CMSG_OK ) {
-    return(err);
-  }  
-
+  
+  /* the UDL may be a semicolon separated list.
+   * Look at the first one if that's the case.
+   */
+  if ( (pchar = strchr(myUDL,';')) != NULL) {
+    len = strlen(myUDL) - strlen(pchar);
+    strncpy(udl, myUDL, len);
+    udl[len] = '\0';
+/*printf("The first udl = %s, parse that\n", udl);*/
+    /* parse the UDL - Uniform Domain Locator */
+    if ( (err = parseUDL(udl, &domainType, &UDLremainder)) != CMSG_OK ) {
+      return(err);
+    } 
+  }
+  else {
+    /* parse the UDL - Uniform Domain Locator */
+    if ( (err = parseUDL(myUDL, &domainType, &UDLremainder)) != CMSG_OK ) {
+      return(err);
+    }
+  }
+   
+  /* Do something special if the domain is configFile.
+   * Read the file and use that as the real UDL.
+   */
+  while (strcasecmp(domainType,"configFile") == 0) {
+/*printf("in configFile domain\n");*/
+    /* read file (remainder of UDL) */
+    if (newUDL != NULL) free(newUDL);
+    if ( (err = readConfigFile(UDLremainder, &newUDL)) != CMSG_OK ) {
+      return(err);      
+    }
+    
+    /* free strings before we overwrite */
+    free(domainType);
+    free(UDLremainder);
+    
+    if ( (err = parseUDL(newUDL, &domainType, &UDLremainder)) != CMSG_OK ) {
+      return(err);
+    }
+     
+    myUDL = newUDL;
+    reconstruct = 1;
+  }
+  
+  /* reconstruct the UDL if necessary */
+  if (reconstruct && (pchar != NULL)) {
+    sprintf(udl,"%s%s\n", newUDL, pchar);
+/*printf("Reconstructed udl = %s\n", udl);*/
+    myUDL = udl;
+  }
 
   /* First, grab mutex for thread safety. This mutex must be held until
    * the initialization is completely finished.
