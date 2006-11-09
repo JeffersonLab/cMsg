@@ -21,6 +21,10 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.Iterator;
 import java.util.concurrent.TimeoutException;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 
 /**
  * This class is instantiated by a client in order to connect to a cMsg server.
@@ -60,24 +64,67 @@ public class cMsg {
     /**
      * Constructor which automatically tries to connect to the name server specified.
      *
-     * @param UDL Uniform Domain Locator which specifies the server to connect to
+     * @param UDL semicolon separated list of Uniform Domain Locators - each of which specifies
+     *            a server to connect to
      * @param name name of this client which must be unique in this domain
      * @param description description of this client
-     * @throws cMsgException if domain in not implemented; there are problems communicating
-     *                       with the name/domain server; or name contains colon
+     * @throws cMsgException if domain in not implemented;
+     *                          there are problems communicating with the name/domain server;
+     *                          name contains colon;
+     *                          the UDL is invalid;
+     *                          the UDL contains an unreadable file;
+     *                          any of the arguments are null
      */
     public cMsg(String UDL, String name, String description) throws cMsgException {
-        this.UDL = UDL;
-        this.name = name;
-        this.description = description;
+
+        if (UDL == null || name == null || description == null) {
+            throw new cMsgException("a cMsg constructor argument is null");
+        }
 
         // do not allow colons in the name string
         if (name.contains(":")) {
             throw new cMsgException("invalid name - contains \":\"");    
         }
 
-        // parse the UDL - Uniform Domain Locator
-        parseUDL(UDL);
+        // If the UDL is a semicolon separated list of UDLs, separate them.
+        String listUDLs[] = UDL.split(";");
+
+        // parse the UDL - Uniform Domain Locator - for the first UDL in the list
+        parseUDL(listUDLs[0]);
+
+        // Do something special if the domain is configFile.
+        // Read the file and use that as the real UDL.
+        while (domain.equalsIgnoreCase("configFile")) {
+            try {
+                // read file (remainder of UDL)
+                String newUDL = readConfigFile(UDLremainder);
+                parseUDL(newUDL);
+                listUDLs[0] = newUDL;
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+                throw new cMsgException("Cannot read UDL in file", e);
+            }
+        }
+
+        // reconstruct the list of UDLs
+        if (listUDLs.length > 1) {
+            for (int i=0; i < listUDLs.length; i++) {
+                if (i==0) {
+                    UDL = listUDLs[i];
+                }
+                else {
+                    UDL += listUDLs[i];
+                }
+                if (i < listUDLs.length - 1) {
+                    UDL += ";";
+                }
+            }
+        }
+
+        this.UDL = UDL;
+        this.name = name;
+        this.description = description;
 
         // create real connection object to server of specific domain
         connection = createDomainConnection();
@@ -93,6 +140,34 @@ public class cMsg {
         connection.setDescription(description);
         // Pass in the UDL remainder
         connection.setUDLRemainder(UDLremainder);
+    }
+
+    
+    /**
+     * Method to read a configuration file and return the cMsg UDL stored there.
+     * @param fileName name of file to be read
+     * @return UDL contained in config file, null if none
+     * @throws IOException if file IO problem
+     * @throws cMsgException if file does not exist or cannot be read
+     */
+    private String readConfigFile(String fileName) throws IOException, cMsgException {
+        File file = new File(fileName);
+        if (!file.exists()) {
+            throw new cMsgException("specified file in UDL does NOT exist");
+        }
+        if (!file.canRead()) {
+            throw new cMsgException("specified file in UDL cannot be read");
+        }
+        String s = null;
+        FileReader reader = new FileReader(file);
+
+        if (reader.ready()) {
+            char[] buf = new char[1000];
+            reader.read(buf);
+            s = (new String(buf)).trim();
+//System.out.println("Read this string from file: " + s);
+        }
+        return s;
     }
 
 
@@ -134,12 +209,12 @@ public class cMsg {
             throw new cMsgException("invalid UDL");
         }
 
-        if (debug >= cMsgConstants.debugInfo) {
+      //  if (debug >= cMsgConstants.debugInfo) {
            System.out.println("\nparseUDL: " +
                               "\n  space     = " + s0 +
                               "\n  domain    = " + s1 +
                               "\n  remainder = " + s2);
-        }
+      //  }
 
         // need domain
         if (s1 == null) {
