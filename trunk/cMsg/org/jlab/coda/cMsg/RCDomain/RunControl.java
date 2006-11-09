@@ -172,7 +172,7 @@ public class RunControl extends cMsgDomainAdapter {
 
             // read env variable for starting port number
             try {
-                String env = System.getenv("CMSG_CLIENT_PORT");
+                String env = System.getenv("CMSG_RC_CLIENT_PORT");
                 if (env != null) {
                     startingPort = Integer.parseInt(env);
                 }
@@ -182,7 +182,7 @@ public class RunControl extends cMsgDomainAdapter {
 
             // port #'s < 1024 are reserved
             if (startingPort < 1024) {
-                startingPort = cMsgNetworkConstants.clientServerStartingPort;
+                startingPort = cMsgNetworkConstants.rcClientPort;
             }
 
             // At this point, find a port to bind to. If that isn't possible, throw

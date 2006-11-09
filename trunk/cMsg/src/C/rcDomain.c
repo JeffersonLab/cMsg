@@ -264,12 +264,12 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
      * 
      * But before that, define a port number from which to start looking.
      * If CMSG_PORT is defined, it's the starting port number.
-     * If CMSG_PORT is NOT defind, start at CMSG_CLIENT_LISTENING_PORT (2345).
+     * If CMSG_PORT is NOT defind, start at CMSG_RC_CLIENT_LISTENING_PORT (6543).
      *-------------------------------------------------------------------------*/
     
     /* pick starting port number */
-    if ( (portEnvVariable = getenv("CMSG_PORT")) == NULL ) {
-        startingPort = CMSG_CLIENT_LISTENING_PORT;
+    if ( (portEnvVariable = getenv("CMSG_RC_CLIENT_PORT")) == NULL ) {
+        startingPort = CMSG_RC_CLIENT_LISTENING_PORT;
         if (cMsgDebug >= CMSG_DEBUG_WARN) {
             fprintf(stderr, "cmsg_rc_connectImpl: cannot find CMSG_PORT env variable, first try port %hu\n", startingPort);
         }
@@ -277,7 +277,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     else {
         i = atoi(portEnvVariable);
         if (i < 1025 || i > 65535) {
-            startingPort = CMSG_CLIENT_LISTENING_PORT;
+            startingPort = CMSG_RC_CLIENT_LISTENING_PORT;
             if (cMsgDebug >= CMSG_DEBUG_WARN) {
                 fprintf(stderr, "cmsg_rc_connect: CMSG_PORT contains a bad port #, first try port %hu\n", startingPort);
             }

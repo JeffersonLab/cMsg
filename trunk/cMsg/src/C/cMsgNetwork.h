@@ -83,8 +83,10 @@ extern "C" {
  */
 #define CMSG_MAXHOSTNAMELEN 256
 
-/** TCP port at which a client starts looking for an unused listening port. */
+/** TCP port at which a cMsg domain client starts looking for an unused listening port. */
 #define CMSG_CLIENT_LISTENING_PORT 2345
+/** TCP port at which a rc domain client starts looking for an unused listening port. */
+#define CMSG_RC_CLIENT_LISTENING_PORT 6543
 /** TCP port at which a name server starts looking for an unused listening port. */
 #define CMSG_NAME_SERVER_STARTING_PORT 3456;
 /** TCP port at which a domain server starts looking for an unused listening port. */
