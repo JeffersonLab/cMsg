@@ -470,13 +470,16 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             // create byte array for broadcast
-            ByteArrayOutputStream baos = new ByteArrayOutputStream(128);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);
             DataOutputStream out = new DataOutputStream(baos);
 
             try {
                 // Write an int describing our message type:
                 // broadcast is from cMsg domain client
                 out.writeInt(cMsgNetworkConstants.cMsgDomainBroadcast);
+                out.writeInt(password.length());
+                try {out.write(password.getBytes("US-ASCII"));}
+                catch (UnsupportedEncodingException e) { }
                 out.flush();
                 out.close();
 
