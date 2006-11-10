@@ -181,7 +181,7 @@ public class cMsgServerClient extends cMsg {
                 serverChannel = ServerSocketChannel.open();
             }
             catch (IOException ex) {
-ex.printStackTrace();
+                ex.printStackTrace();
                 throw new cMsgException("connect: cannot open a listening socket");
             }
 
