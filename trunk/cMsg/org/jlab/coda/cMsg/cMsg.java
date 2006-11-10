@@ -216,12 +216,12 @@ public class cMsg {
             throw new cMsgException("invalid UDL");
         }
 
-      //  if (debug >= cMsgConstants.debugInfo) {
+        if (debug >= cMsgConstants.debugInfo) {
            System.out.println("\nparseUDL: " +
                               "\n  space     = " + s0 +
                               "\n  domain    = " + s1 +
                               "\n  remainder = " + s2);
-      //  }
+        }
 
         // need domain
         if (s1 == null) {
