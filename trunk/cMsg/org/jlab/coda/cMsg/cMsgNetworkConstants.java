@@ -40,5 +40,12 @@ public class cMsgNetworkConstants {
     public static final int    rcBroadcastPort = 6543;
     /** TCP port at which a RunControl server assumes a client is waiting for connections on. */
     public static final int    rcClientPort = 6543;
+    /** UDP port at which a cMsg name server listens for broadcasts. */
+    public static final int    nameServerBroadcastPort = 7654;
+
+    /** First int to send in UDP broadcast to server if cMsg domain. */
+    public static final int    cMsgDomainBroadcast = 1;
+    /** First int to send in UDP broadcast to server if RC domain. */
+    public static final int    rcDomainBroadcast = 2;
 
 }

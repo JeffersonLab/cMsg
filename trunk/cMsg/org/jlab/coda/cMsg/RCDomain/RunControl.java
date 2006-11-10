@@ -62,7 +62,7 @@ public class RunControl extends cMsgDomainAdapter {
     /** Coda experiment id under which this is running. */
     String expid;
 
-    /** Timeout in seconds to wait for server to respond to broadcasts. */
+    /** Timeout in milliseconds to wait for server to respond to broadcasts. */
     int broadcastTimeout;
 
     /**
@@ -253,6 +253,7 @@ public class RunControl extends cMsgDomainAdapter {
             try {
                 // Put our TCP listening port, our name, and
                 // the EXPID (experiment id string) into byte array.
+                out.writeInt(cMsgNetworkConstants.rcDomainBroadcast); // broadcast is from rc domain client
                 out.writeInt(port);
                 out.writeInt(name.length());
                 out.writeInt(expid.length());

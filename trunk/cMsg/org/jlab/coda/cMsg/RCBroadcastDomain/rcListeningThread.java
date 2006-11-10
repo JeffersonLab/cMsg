@@ -129,21 +129,28 @@ System.out.println("RECEIVED BROADCAST PACKET !!!");
                 InetAddress clientAddress = packet.getAddress();
                 String rcClientHost = clientAddress.getCanonicalHostName();
                 int rcClientUdpPort = packet.getPort();   // port to send response packet to
-                int rcClientTcpPort = bytesToInt(buf, 0); // tcp listening port
-                int nameLen         = bytesToInt(buf, 4); // length of client name (# chars)
-                int expidLen        = bytesToInt(buf, 8); // length of expid (# chars)
+                int msgType         = bytesToInt(buf, 0); // what type of broadcast is this ?
+
+                // ignore broadcasts from unknown sources
+                if (msgType != cMsgNetworkConstants.rcDomainBroadcast) {
+                    continue;
+                }
+
+                int rcClientTcpPort = bytesToInt(buf, 4); // tcp listening port
+                int nameLen         = bytesToInt(buf, 8); // length of client name (# chars)
+                int expidLen        = bytesToInt(buf, 12); // length of expid (# chars)
 
                 // rc client's name
                 String clientName = null;
                 try {
-                    clientName = new String(buf, 12, nameLen, "US-ASCII");
+                    clientName = new String(buf, 16, nameLen, "US-ASCII");
                 }
                 catch (UnsupportedEncodingException e) {}
 
                 // rc client's EXPID
                 String clientExpid = null;
                 try {
-                    clientExpid = new String(buf, 12+nameLen, expidLen, "US-ASCII");
+                    clientExpid = new String(buf, 16+nameLen, expidLen, "US-ASCII");
                 }
                 catch (UnsupportedEncodingException e) {}
 

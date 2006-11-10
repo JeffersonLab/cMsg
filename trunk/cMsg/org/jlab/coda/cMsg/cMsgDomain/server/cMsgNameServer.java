@@ -51,6 +51,9 @@ public class cMsgNameServer extends Thread {
     /** This server's TCP listening port number. */
     private int port;
 
+    /** This server's UDP listening port number for receiving broadcasts. */
+    private int broadcastPort;
+
     /**
      * This is the time ordering property of the server.
      * If this is true, then all non-(un)subscribe commands sent to it
@@ -61,6 +64,15 @@ public class cMsgNameServer extends Thread {
 
     /** Server channel (contains socket). */
     private ServerSocketChannel serverChannel;
+
+    /** UDP socket on which to read broadcast packets sent from cMsg clients. */
+    private DatagramSocket broadcastSocket;
+
+    /** Thread which receives client broadcasts. */
+    private cMsgBroadcastListeningThread broadcastThread;
+
+    /** Thread which gathers monitor information about this server and clients. */
+    private monitorDataThread monitorThread;
 
     /**
      * Set of all active domain server objects. This set
@@ -274,7 +286,7 @@ public class cMsgNameServer extends Thread {
      * @param cloudPassword
      * @param debug
      */
-    public cMsgNameServer(int port, boolean timeOrdered, boolean standAlone,
+    public cMsgNameServer(int port, int udpPort, boolean timeOrdered, boolean standAlone,
                           String clientPassword, String cloudPassword, int debug) {
 
         domainServers  = new HashSet<cMsgDomainServer>(20);
@@ -295,7 +307,7 @@ public class cMsgNameServer extends Thread {
                 }
             }
             catch (NumberFormatException ex) {
-                System.out.println("\nBad port number specified in CMSG_PORT env variable\n");
+                System.out.println("Bad port number specified in CMSG_PORT env variable");
                 ex.printStackTrace();
                 System.exit(-1);
             }
@@ -307,6 +319,31 @@ public class cMsgNameServer extends Thread {
 
         // port #'s < 1024 are reserved
         if (port < 1024) {
+            System.out.println("Port number must be > 1023");
+            System.exit(-1);
+        }
+
+        // read env variable for starting (desired) UDP port number
+        if (udpPort < 1) {
+            try {
+                String env = System.getenv("CMSG_BROADCAST_PORT");
+                if (env != null) {
+                    udpPort = Integer.parseInt(env);
+                }
+            }
+            catch (NumberFormatException ex) {
+                System.out.println("Bad port number specified in CMSG_BROADCAST_PORT env variable");
+                ex.printStackTrace();
+                System.exit(-1);
+            }
+        }
+
+        if (udpPort < 1) {
+            udpPort = cMsgNetworkConstants.nameServerBroadcastPort;
+        }
+
+        // port #'s < 1024 are reserved
+        if (udpPort < 1024) {
             System.out.println("\nPort number must be > 1023");
             System.exit(-1);
         }
@@ -317,7 +354,7 @@ public class cMsgNameServer extends Thread {
             serverChannel = ServerSocketChannel.open();
         }
         catch (IOException ex) {
-            System.out.println("\nExiting Server: cannot open a listening socket\n");
+            System.out.println("Exiting Server: cannot open a listening socket");
             ex.printStackTrace();
             System.exit(-1);
         }
@@ -328,12 +365,26 @@ public class cMsgNameServer extends Thread {
             listeningSocket.bind(new InetSocketAddress(port));
         }
         catch (IOException ex) {
-            System.out.println("\nPort number " + port + " in use.\n");
+            System.out.println("TCP port number " + port + " in use.");
             ex.printStackTrace();
             System.exit(-1);
         }
 
         this.port = port;
+
+        // Create a UDP socket for accepting broadcasts from cMsg clients
+        try {
+//System.out.println("Creating UDP broadcast listening socket at port " + udpPort);
+            // create socket to receive at all interfaces
+            broadcastSocket = new DatagramSocket(udpPort);
+            broadcastSocket.setReceiveBufferSize(2048);
+        }
+        catch (SocketException e) {
+            System.out.println("UDP port number " + udpPort + " in use.");
+            e.printStackTrace();
+            System.exit(-1);
+        }
+        broadcastPort = udpPort;
 
         // record our own name
 
@@ -343,8 +394,6 @@ public class cMsgNameServer extends Thread {
         catch (UnknownHostException e) {
         }
         serverName = serverName + ":" + port;
-
-
     }
 
 
@@ -386,7 +435,8 @@ public class cMsgNameServer extends Thread {
 
     /** Method to print out correct program command line usage. */
     private static void usage() {
-        System.out.println("\nUsage: java [-Dport=<listening port>]\n"+
+        System.out.println("\nUsage: java [-Dport=<tcp listening port>]\n"+
+                             "            [-Dudp=<udp listening port>]\n" +
                              "            [-DsubdomainName=<className>]\n" +
                              "            [-Dserver=<hostname:serverport>]\n" +
                              "            [-Ddebug=<level>]\n" +
@@ -394,7 +444,8 @@ public class cMsgNameServer extends Thread {
                              "            [-Dstandalone]\n" +
                              "            [-Dpassword=<password>]\n" +
                              "            [-Dcloudpassword=<password>]  cMsgNameServer\n");
-        System.out.println("       listening port is the TCP port this server listens on");
+        System.out.println("       port is the TCP port this server listens on");
+        System.out.println("       udp  is the UDP port this server listens on for broadcasts");
         System.out.println("       subdomainName  is the name of a subdomain and className is the");
         System.out.println("                      name of the java class used to implement the subdomain");
         System.out.println("       server         hostname is the name of another host on which a cMsg");
@@ -440,7 +491,7 @@ public class cMsgNameServer extends Thread {
     public static void main(String[] args) {
 
         int debug = cMsgConstants.debugNone;
-        int port = 0;
+        int port = 0, udpPort = 0;
         boolean timeOrdered   = false;
         boolean standAlone    = false;
         String serverToJoin   = null;
@@ -465,6 +516,17 @@ public class cMsgNameServer extends Thread {
             if (s.equalsIgnoreCase("port")) {
                 try {
                     port = Integer.parseInt(System.getProperty(s));
+                }
+                catch (NumberFormatException e) {
+                    System.out.println("\nBad port number specified");
+                    usage();
+                    e.printStackTrace();
+                    System.exit(-1);
+                }
+            }
+            if (s.equalsIgnoreCase("udp")) {
+                try {
+                    udpPort = Integer.parseInt(System.getProperty(s));
                 }
                 catch (NumberFormatException e) {
                     System.out.println("\nBad port number specified");
@@ -519,7 +581,7 @@ public class cMsgNameServer extends Thread {
         }
 
         // create server object
-        cMsgNameServer server = new cMsgNameServer(port, timeOrdered, standAlone,
+        cMsgNameServer server = new cMsgNameServer(port, udpPort, timeOrdered, standAlone,
                                                    clientPassword, cloudPassword, debug);
 
         // start server
@@ -560,9 +622,13 @@ public class cMsgNameServer extends Thread {
             allowConnectionsSignal.countDown();
         }
 
+        // start UDP listening thread
+        broadcastThread = new cMsgBroadcastListeningThread(port, broadcastSocket);
+        broadcastThread.start();
+
         // Start thread to gather monitor info
-        monitorDataThread thd = new monitorDataThread();
-        thd.start();
+        monitorThread = new monitorDataThread();
+        monitorThread.start();
     }
 
 
@@ -588,6 +654,9 @@ public class cMsgNameServer extends Thread {
 
         // Shutdown this object's listening thread
         setKillAllThreads(true);
+
+        // Shutdown UDP listening thread
+        broadcastThread.killThread();
 
         // Shutdown all domain servers
         for (cMsgDomainServer server : domainServers) {

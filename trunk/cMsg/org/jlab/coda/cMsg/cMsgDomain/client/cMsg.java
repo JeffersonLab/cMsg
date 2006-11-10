@@ -29,6 +29,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CountDownLatch;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -94,6 +96,21 @@ public class cMsg extends cMsgDomainAdapter {
 
     /** Port number from which to start looking for a suitable listening port. */
     int startingPort;
+
+    /** Socket over which to UDP broadcast and receive UDP packets. */
+    DatagramSocket udpSocket;
+
+    /**
+     * True if the host given by the UDL is \"broadcast\" or \"255.255.255.255\".
+     * In this case we must broadcast to find the server. Else false.
+     */
+    boolean mustBroadcast;
+
+    /** Signal to coordinate the broadcasting and waiting for responses. */
+    CountDownLatch broadcastResponse;
+
+    /** Timeout in milliseconds to wait for server to respond to broadcasts. */
+    int broadcastTimeout;
 
     /** Server channel (contains socket). */
     ServerSocketChannel serverChannel;
@@ -229,6 +246,24 @@ public class cMsg extends cMsgDomainAdapter {
 //-----------------------------------------------------------------------------
 
     /**
+     * Converts 4 bytes of a byte array into an integer.
+     *
+     * @param b   byte array
+     * @param off offset into the byte array (0 = start at first element)
+     * @return integer value
+     */
+    private static final int bytesToInt(byte[] b, int off) {
+        int result = ((b[off] & 0xff) << 24)     |
+                     ((b[off + 1] & 0xff) << 16) |
+                     ((b[off + 2] & 0xff) << 8)  |
+                      (b[off + 3] & 0xff);
+        return result;
+    }
+
+
+//-----------------------------------------------------------------------------
+
+    /**
      * Constructor which does NOT automatically try to connect to the name server specified.
      *
      * @throws cMsgException if local host name cannot be found
@@ -309,7 +344,7 @@ public class cMsg extends cMsgDomainAdapter {
     /**
      * Method to connect to the domain server from this client.
      * This method handles multiple UDLs,
-     * but passes off the real work to {@link #connectImpl}.
+     * but passes off the real work to {@link #connectDirect}.
      *
      * @throws cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server(s)
@@ -327,7 +362,10 @@ public class cMsg extends cMsgDomainAdapter {
             // store locally
             p.copyToLocal();
             // connect using that UDL
-            connectImpl();
+            if (mustBroadcast) {
+                connectWithBroadcast();
+            }
+            connectDirect();
             return;
         }
 
@@ -383,7 +421,10 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             try {
-                connectImpl();
+                if (mustBroadcast) {
+                    connectWithBroadcast();
+                }
+                connectDirect();
                 return;
             }
             catch (cMsgException e) {
@@ -400,13 +441,195 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
+     * Method to broadcast in order to find the domain server from this client.
+     * Once the server is found and returns its host and port, a direct connection
+     * can be made.
+     *
+     * @throws cMsgException if there are problems parsing the UDL or
+     *                       communication problems with the server
+     */
+    private void connectWithBroadcast() throws cMsgException {
+        // Need a new latch for each go round - one shot deal
+        broadcastResponse = new CountDownLatch(1);
+
+        // cannot run this simultaneously with any other public method
+        connectLock.lock();
+        try {
+            if (connected) return;
+
+            //-------------------------------------------------------
+            // broadcast on local subnet to find cMsg server
+            //-------------------------------------------------------
+            DatagramPacket udpPacket;
+            InetAddress broadcastAddr = null;
+            try {
+                broadcastAddr = InetAddress.getByName("255.255.255.255");
+            }
+            catch (UnknownHostException e) {
+                e.printStackTrace();
+            }
+
+            // create byte array for broadcast
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(128);
+            DataOutputStream out = new DataOutputStream(baos);
+
+            try {
+                // Write an int describing our message type:
+                // broadcast is from cMsg domain client
+                out.writeInt(cMsgNetworkConstants.cMsgDomainBroadcast);
+                out.flush();
+                out.close();
+
+                // create socket to receive at anonymous port & all interfaces
+                udpSocket = new DatagramSocket();
+                udpSocket.setReceiveBufferSize(1024);
+
+                // create broadcast packet from the byte array
+                byte[] buf = baos.toByteArray();
+                udpPacket = new DatagramPacket(buf, buf.length, broadcastAddr, nameServerPort);
+            }
+            catch (IOException e) {
+                throw new cMsgException("Cannot create broadcast packet", e);
+            }
+
+            // create a thread which will receive any responses to our broadcast
+            BroadcastReceiver receiver = new BroadcastReceiver();
+            receiver.start();
+
+            // create a thread which will send our broadcast
+            Broadcaster sender = new Broadcaster(udpPacket);
+            sender.start();
+
+            // wait up to broadcast timeout
+            boolean response = false;
+            if (broadcastTimeout > 0) {
+                try {
+                    if (broadcastResponse.await(broadcastTimeout, TimeUnit.MILLISECONDS)) {
+                        response = true;
+                    }
+                }
+                catch (InterruptedException e) {}
+            }
+            // wait forever
+            else {
+                try { broadcastResponse.await(); response = true;}
+                catch (InterruptedException e) {}
+            }
+
+            sender.interrupt();
+
+            if (!response) {
+                throw new cMsgException("No response to UDP broadcast received");
+            }
+
+//System.out.println("Got a response!, broadcast part finished ...");
+        }
+        finally {
+            connectLock.unlock();
+        }
+
+        return;
+    }
+
+//-----------------------------------------------------------------------------
+
+    /**
+     * This class gets any response to our UDP broadcast.
+     */
+    class BroadcastReceiver extends Thread {
+
+        public void run() {
+
+            /* A slight delay here will help the main thread (calling connect)
+             * to be already waiting for a response from the server when we
+             * broadcast to the server here (prompting that response). This
+             * will help insure no responses will be lost.
+             */
+            try { Thread.sleep(200); }
+            catch (InterruptedException e) {}
+
+            byte[] buf = new byte[1024];
+            DatagramPacket packet = new DatagramPacket(buf, 1024);
+
+            try {
+                udpSocket.receive(packet);
+
+//System.out.println("RECEIVED BROADCAST RESPONSE PACKET !!!");
+
+                // pick apart byte array received
+                nameServerPort = bytesToInt(buf, 0); // port to do a direct connection to
+                int hostLength = bytesToInt(buf, 4); // host to do a direct connection to
+
+                // cMsg server host
+                String host = null;
+                try {
+                    nameServerHost = new String(buf, 8, hostLength, "US-ASCII");
+                }
+                catch (UnsupportedEncodingException e) {}
+//System.out.println("Got port = " + nameServerPort + ", host = " + nameServerHost);
+            }
+            catch (IOException e) {
+            }
+
+            broadcastResponse.countDown();
+        }
+    }
+
+//-----------------------------------------------------------------------------
+
+    /**
+     * This class defines a thread to broadcast a UDP packet to the
+     * cMsg name server every second.
+     */
+    class Broadcaster extends Thread {
+
+        DatagramPacket packet;
+
+        Broadcaster(DatagramPacket udpPacket) {
+            packet = udpPacket;
+        }
+
+
+        public void run() {
+
+            try {
+                /* A slight delay here will help the main thread (calling connect)
+                * to be already waiting for a response from the server when we
+                * broadcast to the server here (prompting that response). This
+                * will help insure no responses will be lost.
+                */
+                Thread.sleep(100);
+
+                while (true) {
+
+                    try {
+//System.out.println("Send broadcast packet to RC Broadcast server");
+                        udpSocket.send(packet);
+                    }
+                    catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    Thread.sleep(1000);
+                }
+            }
+            catch (InterruptedException e) {
+                // time to quit
+ //System.out.println("Interrupted sender");
+            }
+        }
+    }
+
+//-----------------------------------------------------------------------------
+
+
+    /**
      * Method to make the actual connection to the domain server from this client.
      *
      * @throws cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server
      */
-    private void connectImpl() throws cMsgException {
-
+    private void connectDirect() throws cMsgException {
         // UDL has already been parsed and stored in this object's members
         creator = name + ":" + nameServerHost + ":" + nameServerPort;
 
@@ -2224,8 +2447,13 @@ public class cMsg extends cMsgDomainAdapter {
             udlSubdomain = "cMsg";
         }
 
+        boolean mustBroadcast = false;
+        if (udlHost.equalsIgnoreCase("broadcast") || udlHost.equals("255.255.255.255")) {
+            mustBroadcast = true;
+//System.out.println("set mustBroadcast to true (locally in parse method)");
+        }
         // if the host is "localhost", find the actual, fully qualified  host name
-        if (udlHost.equalsIgnoreCase("localhost")) {
+        else if (udlHost.equalsIgnoreCase("localhost")) {
             try {udlHost = InetAddress.getLocalHost().getCanonicalHostName();}
             catch (UnknownHostException e) {}
 
@@ -2244,14 +2472,24 @@ public class cMsg extends cMsgDomainAdapter {
         if (udlPort != null && udlPort.length() > 0) {
             try {udlPortInt = Integer.parseInt(udlPort);}
             catch (NumberFormatException e) {
-                udlPortInt = cMsgNetworkConstants.nameServerStartingPort;
+                if (mustBroadcast) {
+                    udlPortInt = cMsgNetworkConstants.nameServerBroadcastPort;
+                }
+                else {
+                    udlPortInt = cMsgNetworkConstants.nameServerStartingPort;
+                }
                 if (debug >= cMsgConstants.debugWarn) {
                     System.out.println("parseUDL: non-integer port, guessing server port is " + udlPortInt);
                 }
             }
         }
         else {
-            udlPortInt = cMsgNetworkConstants.nameServerStartingPort;
+            if (mustBroadcast) {
+                udlPortInt = cMsgNetworkConstants.nameServerBroadcastPort;
+            }
+            else {
+                udlPortInt = cMsgNetworkConstants.nameServerStartingPort;
+            }
             if (debug >= cMsgConstants.debugWarn) {
                 System.out.println("parseUDL: guessing name server port is " + udlPortInt);
             }
@@ -2266,9 +2504,23 @@ public class cMsg extends cMsgDomainAdapter {
             udlSubRemainder = "";
         }
 
+        // now look for ?broadcastTO=value& or &broadcastTO=value&
+        int timeout=0;
+        pattern = Pattern.compile("[\\?&]broadcastTO=([0-9]+)");
+        matcher = pattern.matcher(udlSubRemainder);
+        if (matcher.find()) {
+            try {
+                timeout = 1000 * Integer.parseInt(matcher.group(1));
+//System.out.println("broadcast TO = " + broadcastTimeout);
+            }
+            catch (NumberFormatException e) {
+                // ignore error and keep value of 0
+            }
+        }
+
         // store results in a class
         return new ParsedUDL(udl, udlRemainder, udlSubdomain, udlSubRemainder,
-                             pswd, udlHost, udlPortInt);
+                             pswd, udlHost, udlPortInt, timeout, mustBroadcast);
     }
 
 
@@ -2306,6 +2558,8 @@ public class cMsg extends cMsgDomainAdapter {
         String  password;
         String  nameServerHost;
         int     nameServerPort;
+        int     broadcastTimeout;
+        boolean mustBroadcast;
         boolean valid;
 
         /** Constructor. */
@@ -2315,45 +2569,56 @@ public class cMsg extends cMsgDomainAdapter {
         }
 
         /** Constructor. */
-        ParsedUDL(String s1, String s2, String s3, String s4, String s5, String s6, int i) {
-            UDL            = s1;
-            UDLremainder   = s2;
-            subdomain      = s3;
-            subRemainder   = s4;
-            password       = s5;
-            nameServerHost = s6;
-            nameServerPort = i;
-            valid          = true;
+        ParsedUDL(String s1, String s2, String s3, String s4, String s5, String s6,
+                  int p, int to, boolean b) {
+            UDL              = s1;
+            UDLremainder     = s2;
+            subdomain        = s3;
+            subRemainder     = s4;
+            password         = s5;
+            nameServerHost   = s6;
+            nameServerPort   = p;
+            broadcastTimeout = to;
+            mustBroadcast    = b;
+            valid            = true;
         }
 
         /** Take all of this object's parameters and copy to this client's members. */
         void copyToLocal() {
-            cMsg.this.UDL            = UDL;
-            cMsg.this.UDLremainder   = UDLremainder;
-            cMsg.this.subdomain      = subdomain;
-            cMsg.this.subRemainder   = subRemainder;
-            cMsg.this.password       = password;
-            cMsg.this.nameServerHost = nameServerHost;
-            cMsg.this.nameServerPort = nameServerPort;
-            System.out.println("Copy from stored parsed UDL to local :");
-            System.out.println("  UDL            = "  + UDL);
-            System.out.println("  UDLremainder   = "  + UDLremainder);
-            System.out.println("  subdomain      = "  + subdomain);
-            System.out.println("  subRemainder   = "  + subRemainder);
-            System.out.println("  password       = "  + password);
-            System.out.println("  nameServerHost = "  + nameServerHost);
-            System.out.println("  nameServerPort = "  + nameServerPort);
+            cMsg.this.UDL              = UDL;
+            cMsg.this.UDLremainder     = UDLremainder;
+            cMsg.this.subdomain        = subdomain;
+            cMsg.this.subRemainder     = subRemainder;
+            cMsg.this.password         = password;
+            cMsg.this.nameServerHost   = nameServerHost;
+            cMsg.this.nameServerPort   = nameServerPort;
+            cMsg.this.broadcastTimeout = broadcastTimeout;
+            cMsg.this.mustBroadcast    = mustBroadcast;
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("Copy from stored parsed UDL to local :");
+                System.out.println("  UDL              = " + UDL);
+                System.out.println("  UDLremainder     = " + UDLremainder);
+                System.out.println("  subdomain        = " + subdomain);
+                System.out.println("  subRemainder     = " + subRemainder);
+                System.out.println("  password         = " + password);
+                System.out.println("  nameServerHost   = " + nameServerHost);
+                System.out.println("  nameServerPort   = " + nameServerPort);
+                System.out.println("  broadcastTimeout = " + broadcastTimeout);
+                System.out.println("  mustBroadcast    = " + mustBroadcast);
+            }
         }
 
         /** Clear this client's members. */
         void clearLocal() {
-            cMsg.this.UDL            = null;
-            cMsg.this.UDLremainder   = null;
-            cMsg.this.subdomain      = null;
-            cMsg.this.subRemainder   = null;
-            cMsg.this.password       = null;
-            cMsg.this.nameServerHost = null;
-            cMsg.this.nameServerPort = 0;
+            cMsg.this.UDL              = null;
+            cMsg.this.UDLremainder     = null;
+            cMsg.this.subdomain        = null;
+            cMsg.this.subRemainder     = null;
+            cMsg.this.password         = null;
+            cMsg.this.nameServerHost   = null;
+            cMsg.this.nameServerPort   = 0;
+            cMsg.this.broadcastTimeout = 0;
+            cMsg.this.mustBroadcast    = false;
         }
     }
 
