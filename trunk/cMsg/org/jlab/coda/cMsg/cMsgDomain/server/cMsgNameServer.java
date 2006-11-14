@@ -623,7 +623,7 @@ public class cMsgNameServer extends Thread {
         }
 
         // start UDP listening thread
-        broadcastThread = new cMsgBroadcastListeningThread(port, broadcastSocket, clientPassword);
+        broadcastThread = new cMsgBroadcastListeningThread(port, broadcastSocket, clientPassword, debug);
         broadcastThread.start();
 
         // Start thread to gather monitor info
