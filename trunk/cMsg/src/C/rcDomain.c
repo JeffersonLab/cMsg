@@ -203,7 +203,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     unsigned short serverPort;
     char  *serverHost, *expid=NULL, buffer[1024];
     int    err, status, len, expidLen, nameLen;
-    int    i, outGoing[3], broadcastTO=0, connectTO=0;
+    int    i, outGoing[4], broadcastTO=0, connectTO=0;
     char   temp[CMSG_MAXHOSTNAMELEN];
     char  *portEnvVariable=NULL;
     unsigned short startingPort;
@@ -264,12 +264,12 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
      * 
      * But before that, define a port number from which to start looking.
      * If CMSG_PORT is defined, it's the starting port number.
-     * If CMSG_PORT is NOT defind, start at CMSG_RC_CLIENT_LISTENING_PORT (6543).
+     * If CMSG_PORT is NOT defind, start at RC_CLIENT_LISTENING_PORT (6543).
      *-------------------------------------------------------------------------*/
     
     /* pick starting port number */
     if ( (portEnvVariable = getenv("CMSG_RC_CLIENT_PORT")) == NULL ) {
-        startingPort = CMSG_RC_CLIENT_LISTENING_PORT;
+        startingPort = RC_CLIENT_LISTENING_PORT;
         if (cMsgDebug >= CMSG_DEBUG_WARN) {
             fprintf(stderr, "cmsg_rc_connectImpl: cannot find CMSG_PORT env variable, first try port %hu\n", startingPort);
         }
@@ -277,7 +277,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     else {
         i = atoi(portEnvVariable);
         if (i < 1025 || i > 65535) {
-            startingPort = CMSG_RC_CLIENT_LISTENING_PORT;
+            startingPort = RC_CLIENT_LISTENING_PORT;
             if (cMsgDebug >= CMSG_DEBUG_WARN) {
                 fprintf(stderr, "cmsg_rc_connect: CMSG_PORT contains a bad port #, first try port %hu\n", startingPort);
             }
@@ -428,12 +428,14 @@ printf("Wait for 5 more seconds, then exit\n");
 /*printf("Sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
         ((int) domain->listenPort), expid, serverPort, serverHost);*/
     
+    /* type of broadcast */
+    outGoing[0] = htonl(RC_DOMAIN_BROADCAST);
     /* tcp port */
-    outGoing[0] = htonl((int) domain->listenPort);
+    outGoing[1] = htonl((int) domain->listenPort);
     /* length of "myName" string */
-    outGoing[1] = htonl(nameLen);
+    outGoing[2] = htonl(nameLen);
     /* length of "expid" string */
-    outGoing[2] = htonl(expidLen);
+    outGoing[3] = htonl(expidLen);
 
     /* copy data into a single buffer */
     memcpy(buffer, (void *)outGoing, sizeof(outGoing));
@@ -452,7 +454,7 @@ printf("Wait for 5 more seconds, then exit\n");
     
     status = pthread_create(&rThread, NULL, receiverThd, (void *)(&rArg));
     if (status != 0) {
-        err_abort(status, "Creating keep alive thread");
+        err_abort(status, "Creating broadcast response receiving thread");
     }
     
     /* create and start a thread which will broadcast every second */
@@ -464,7 +466,7 @@ printf("Wait for 5 more seconds, then exit\n");
     
     status = pthread_create(&bThread, NULL, broadcastThd, (void *)(&bArg));
     if (status != 0) {
-        err_abort(status, "Creating keep alive thread");
+        err_abort(status, "Creating broadcast sending thread");
     }
     
     /* Wait for a response. If broadcastTO is given in the UDL, use that.
