@@ -77,12 +77,14 @@ public class cMsgBroadcastListeningThread extends Thread {
      *
      * @param port cMsg name server's main tcp listening port
      * @param socket udp socket on which to receive broadcasts from cMsg clients
+     * @param password cMsg server's client password
+     * @param debug cMsg server's debug level
      */
-    public cMsgBroadcastListeningThread(int port, DatagramSocket socket, String password) {
+    public cMsgBroadcastListeningThread(int port, DatagramSocket socket, String password, int debug) {
         broadcastSocket = socket;
         serverTcpPort   = port;
         serverPassword  = password;
-        debug = cMsgConstants.debugInfo;
+        this.debug      = debug;
         // die if no more non-daemon thds running
         setDaemon(true);
     }
@@ -142,7 +144,7 @@ public class cMsgBroadcastListeningThread extends Thread {
                 int msgType       = bytesToInt(buf, 0); // what type of broadcast is this ?
                 int passwordLen   = bytesToInt(buf, 4); // what type of broadcast is this ?
                 // password
-                String pswd = "";
+                String pswd = null;
                 if (passwordLen > 0) {
                     try { pswd = new String(buf, 8, passwordLen, "US-ASCII"); }
                     catch (UnsupportedEncodingException e) {}
@@ -151,9 +153,20 @@ public class cMsgBroadcastListeningThread extends Thread {
                 // Compare sent password with name server's password.
                 // Reject mismatches.
                 if (serverPassword != null) {
-                    if (!pswd.equals(serverPassword)) {
-System.out.println("REJECTING PASSWORD server's (" + serverPassword +
-                   ") does not match client's (" + pswd + ")");
+                    if (pswd == null || !serverPassword.equals(pswd)) {
+                        if (debug >= cMsgConstants.debugInfo) {
+                            System.out.println("REJECTING PASSWORD server's (" + serverPassword +
+                            ") does not match client's (" + pswd + ")");
+                        }
+                        continue;
+                    }
+                }
+                else {
+                    if (pswd != null) {
+                        if (debug >= cMsgConstants.debugInfo) {
+                            System.out.println("REJECTING PASSWORD server's (" + serverPassword +
+                            ") does not match client's (" + pswd + ")");
+                        }
                         continue;
                     }
                 }
