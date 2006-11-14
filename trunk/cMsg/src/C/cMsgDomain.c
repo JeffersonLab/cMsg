@@ -67,6 +67,21 @@
 
 
 
+/**
+ * Structure for arg to be passed to receiver/broadcast threads.
+ * Allows data to flow back and forth with these threads.
+ */
+typedef struct thdArg_t {
+    int sockfd;
+    socklen_t len;
+    int port;
+    struct sockaddr_in addr;
+    struct sockaddr_in *paddr;
+    int   bufferLen;
+    char *buffer;
+} thdArg;
+
+
 /* built-in limits */
 /** Number of seconds to wait for cMsgClientListeningThread threads to start. */
 #define WAIT_FOR_THREADS 10
@@ -81,6 +96,11 @@ static int subjectTypeId = 1;
 /** Size of buffer in bytes for sending messages. */
 static int initialMsgBufferSize = 15000;
 
+/** Mutex for waiting for broadcast response.*/
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+/** Condition variable for waiting for broadcast response.*/
+static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 
 /* Prototypes of the functions which implement the standard cMsg tasks in the cMsg domain. */
 int   cmsg_cmsg_connect           (const char *myUDL, const char *myName, const char *myDescription,
@@ -138,17 +158,23 @@ static int resubscribe(cMsgDomainInfo *domain, const char *subject, const char *
 
 /* misc */
 static int  disconnectFromKeepAlive(void **domainId);
-static int  connectImpl(cMsgDomainInfo *domain, int failoverIndex);
+static int  connectDirect(cMsgDomainInfo *domain, int failoverIndex);
 static int  talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIndex);
 static int  parseUDL(const char *UDL, char **password,
                      char **host, int *port,
                      char **UDLRemainder,
                      char **subdomainType,
-                     char **UDLsubRemainder);
+                     char **UDLsubRemainder,
+                     int   *mustBroadcast,
+                     int   *broadcastTimout);
 static int  unSendAndGet(void *domainId, int id);
 static int  unSubscribeAndGet(void *domainId, const char *subject,
                                const char *type, int id);
-static void defaultShutdownHandler(void *userArg);
+static void  defaultShutdownHandler(void *userArg);
+static void *receiverThd(void *arg);
+static void *broadcastThd(void *arg);
+static int   connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
+                                char **host, int *port);
 
 #ifdef VXWORKS
 /** Implementation of strdup() to cover vxWorks operating system. */
@@ -289,7 +315,7 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
  * the connection uniquely and is required as an argument by many other routines.
  *
  * This routine mainly does the UDL parsing. The actual connecting
- * to the name server is done in "connectImpl".
+ * to the name server is done in "connectDirect".
  * 
  * @param myUDL the Universal Domain Locator used to uniquely identify the cMsg
  *        server to connect to
@@ -312,7 +338,7 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
  *                             or a communication error with either server occurs.
  */   
 int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescription,
-                         const char *UDLremainder, void **domainId) {
+                      const char *UDLremainder, void **domainId) {
         
   char *p, *udl;
   int failoverUDLCount = 0, failoverIndex=0, viableUDLs = 0;
@@ -387,7 +413,9 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
                             &domain->failovers[i].nameServerPort,
                             &domain->failovers[i].udlRemainder,
                             &domain->failovers[i].subdomain,
-                            &domain->failovers[i].subRemainder)) != CMSG_OK ) {
+                            &domain->failovers[i].subRemainder,
+                            &domain->failovers[i].mustBroadcast,
+                            &domain->failovers[i].timeout)) != CMSG_OK ) {
 
       /* There's been a parsing error, mark as invalid UDL */
       domain->failovers[i].valid = 0;
@@ -428,7 +456,14 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
           return(CMSG_BAD_FORMAT);            
       }
       
-      err = connectImpl(domain, 0);
+      if (domain->failovers[0].mustBroadcast == 1) {
+        free(domain->failovers[0].nameServerHost);
+        connectWithBroadcast(domain, 0,
+                             &domain->failovers[0].nameServerHost,
+                             &domain->failovers[0].nameServerPort);     
+      }
+      
+      err = connectDirect(domain, 0);
       if (err != CMSG_OK) {
           cMsgDomainFree(domain);
           free(domain);
@@ -453,8 +488,14 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
       /* connect using that UDL info */
 /* printf("\nTrying to connect with UDL = %s\n",
       domain->failovers[failoverIndex].udl); */
+      if (domain->failovers[failoverIndex].mustBroadcast == 1) {
+        free(domain->failovers[failoverIndex].nameServerHost);
+        connectWithBroadcast(domain, failoverIndex,
+                             &domain->failovers[failoverIndex].nameServerHost,
+                             &domain->failovers[failoverIndex].nameServerPort);     
+      }
 
-      err = connectImpl(domain, failoverIndex);
+      err = connectDirect(domain, failoverIndex);
       if (err == CMSG_OK) {
         domain->failoverIndex = failoverIndex;
         gotConnection = 1;
@@ -488,6 +529,249 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
 
 
 /**
+ * Method to broadcast in order to find the domain server from this client.
+ * Once the server is found and returns its host and port, a direct connection
+ * can be made.
+ *
+ */
+static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
+                                char **host, int *port) {    
+    char   buffer[1024];
+    int    err, status, len, passwordLen, sockfd;
+    int    outGoing[2], broadcastTO=0, gotResponse=0;
+    const int on=1;
+    
+    pthread_t rThread, bThread;
+    thdArg    rArg,    bArg;
+    
+    struct timespec wait, time;
+    struct sockaddr_in servaddr;
+     
+    /*------------------------
+    * Talk to cMsg server
+    *------------------------*/
+    
+    /* create UDP socket */
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd < 0) {
+        return(CMSG_SOCKET_ERROR);
+    }
+
+    /* turn broadcasting on */
+    err = setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (char*) &on, sizeof(on));
+    if (err < 0) {
+        return(CMSG_SOCKET_ERROR);
+    }
+    
+    /* send packet to broadcast address */
+    if ( (err = cMsgStringToNumericIPaddr("255.255.255.255", &servaddr)) != CMSG_OK ) {
+        return(err);
+    }
+    
+    /*
+     * We send 2 items explicitly:
+     *   1) int describing action to be done
+     *   2) password
+     * The host we're sending from gets sent for free
+     * as does the UDP port we're sending from.
+     */
+    passwordLen = 0;
+    if (domain->failovers[failoverIndex].password != NULL) {
+        passwordLen = strlen(domain->failovers[failoverIndex].password);
+    }
+    /* type of broadcast */
+    outGoing[0] = htonl(CMSG_DOMAIN_BROADCAST);
+    /* length of "password" string */
+    outGoing[1] = htonl(passwordLen);
+
+    /* copy data into a single buffer */
+    memcpy(buffer, (void *)outGoing, sizeof(outGoing));
+    len = sizeof(outGoing);
+    if (passwordLen > 0) {
+        memcpy(buffer+len, (const void *)domain->failovers[failoverIndex].password, passwordLen);
+        len += passwordLen;
+    }
+        
+    /* create and start a thread which will receive any responses to our broadcast */
+    bzero((void *)&rArg.addr, sizeof(rArg.addr));
+    rArg.len             = (socklen_t) sizeof(rArg.addr);
+    rArg.port            = 0;
+    rArg.sockfd          = sockfd;
+    rArg.addr.sin_family = AF_INET;
+    
+    status = pthread_create(&rThread, NULL, receiverThd, (void *)(&rArg));
+    if (status != 0) {
+        err_abort(status, "Creating broadcast response receiving thread");
+    }
+    
+    /* create and start a thread which will broadcast every second */
+    bzero((void *)&servaddr, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_port   = htons((unsigned short) (domain->failovers[failoverIndex].nameServerPort));
+    
+    bArg.len       = (socklen_t) sizeof(servaddr);
+    bArg.sockfd    = sockfd;
+    bArg.paddr     = &servaddr;
+    bArg.buffer    = buffer;
+    bArg.bufferLen = len;
+    
+    status = pthread_create(&bThread, NULL, broadcastThd, (void *)(&bArg));
+    if (status != 0) {
+        err_abort(status, "Creating broadcast sending thread");
+    }
+    
+    /* Wait for a response. If broadcastTO is given in the UDL, that is used.
+     * The default wait or the wait if broadcastTO is set to 0, is forever.
+     * Round things to the nearest second since we're only broadcasting a
+     * message every second anyway.
+     */
+    broadcastTO = domain->failovers[failoverIndex].timeout;
+    if (broadcastTO > 0) {
+        wait.tv_sec  = broadcastTO;
+        wait.tv_nsec = 0;
+        cMsgGetAbsoluteTime(&wait, &time);
+        
+        status = pthread_mutex_lock(&mutex);
+        if (status != 0) {
+            err_abort(status, "pthread_mutex_lock");
+        }
+ 
+/*printf("Wait %d seconds for broadcast to be answered\n", broadcastTO);*/
+        status = pthread_cond_timedwait(&cond, &mutex, &time);
+        if (status == ETIMEDOUT) {
+          /* stop receiving thread */
+          pthread_cancel(rThread);
+        }
+        else if (status != 0) {
+            err_abort(status, "pthread_cond_timedwait");
+        }
+        else {
+            gotResponse = 1;
+            if (host != NULL) {
+                *host = rArg.buffer;
+            }
+            if (port != NULL) {
+                *port = rArg.port;
+            }
+/*printf("Response received, host = %s, port = %hu\n", rArg.buffer, rArg.port);*/
+        }
+        
+        status = pthread_mutex_unlock(&mutex);
+        if (status != 0) {
+            err_abort(status, "pthread_mutex_lock");
+        }
+    }
+    else {
+        status = pthread_mutex_lock(&mutex);
+        if (status != 0) {
+            err_abort(status, "pthread_mutex_lock");
+        }
+ 
+/*printf("Wait forever for broadcast to be answered\n");*/
+        status = pthread_cond_wait(&cond, &mutex);
+        if (status != 0) {
+            err_abort(status, "pthread_cond_timedwait");
+        }
+        gotResponse = 1;
+        
+        if (host != NULL) {
+            *host = rArg.buffer;
+        }
+        if (port != NULL) {
+            *port = rArg.port;
+        }
+/*printf("Response received, host = %s, port = %hu\n", rArg.buffer, rArg.port);*/
+
+        status = pthread_mutex_unlock(&mutex);
+        if (status != 0) {
+            err_abort(status, "pthread_mutex_lock");
+        }
+    }
+    
+    /* stop broadcasting thread */
+    pthread_cancel(bThread);
+    
+    if (!gotResponse) {
+/*printf("Got no response\n");*/
+        return(CMSG_TIMEOUT);
+    }
+
+    return(CMSG_OK);
+}
+
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine starts a thread to receive a return UDP packet from
+ * the server due to our initial broadcast.
+ */
+static void *receiverThd(void *arg) {
+    int port, len;
+    thdArg *threadArg = (thdArg *) arg;
+    char buf[1024], *pchar, *host;
+    
+    /* zero buffer */
+    pchar = memset(buf,0,1024);
+    
+    /* ignore error as it will be caught later */   
+    recvfrom(threadArg->sockfd, (void *)buf, 1024, 0,
+             (SA *) &threadArg->addr, &(threadArg->len));
+             
+    /* The server is sending back its 1) port, 2) host name length, 3) host name */
+    memcpy(&port, pchar, sizeof(int));
+    pchar += sizeof(int);
+    /* skip over len since not needed */
+    /* memcpy(&len, pchar, sizeof(int));*/
+    pchar += sizeof(int);
+    /* send info back to caling function */
+    threadArg->buffer = strdup(pchar);
+    threadArg->port   = ntohl(port);
+/*printf("Receiver thread: host = %s, port = %d\n", pchar, threadArg->port);*/   
+    /* Tell main thread we are done. */
+    pthread_cond_signal(&cond);
+    
+    pthread_exit(NULL);
+    return NULL;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine starts a thread to broadcast a UDP packet to the server
+ * every second in order to connect.
+ */
+static void *broadcastThd(void *arg) {
+
+    thdArg *threadArg = (thdArg *) arg;
+    struct timespec wait = {0, 100000000}; /* 0.1 sec */
+    
+    /* A slight delay here will help the main thread (calling connect)
+     * to be already waiting for a response from the server when we
+     * broadcast to the server here (prompting that response). This
+     * will help insure no responses will be lost.
+     */
+    nanosleep(&wait, NULL);
+    
+    while (1) {
+
+/*printf("Send broadcast to cMsg server\n");*/
+      sendto(threadArg->sockfd, (void *)threadArg->buffer, threadArg->bufferLen, 0,
+             (SA *) threadArg->paddr, threadArg->len);
+      
+      
+      sleep(1);
+    }
+    
+    pthread_exit(NULL);
+    return NULL;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
  * This routine is called by cmsg_cmsg_connect and does the real work of
  * connecting to the cMsg name server.
  * 
@@ -501,7 +785,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
  * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
  *                             or a communication error with either server occurs.
  */   
-static int connectImpl(cMsgDomainInfo *domain, int failoverIndex) {
+static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
 
   int i, err, serverfd, status, hz, num_try, try_max;
   char *portEnvVariable=NULL;
@@ -524,7 +808,7 @@ static int connectImpl(cMsgDomainInfo *domain, int failoverIndex) {
   if ( (portEnvVariable = getenv("CMSG_PORT")) == NULL ) {
     startingPort = CMSG_CLIENT_LISTENING_PORT;
     if (cMsgDebug >= CMSG_DEBUG_WARN) {
-      fprintf(stderr, "connectImpl: cannot find CMSG_PORT env variable, first try port %hu\n", startingPort);
+      fprintf(stderr, "connectDirect: cannot find CMSG_PORT env variable, first try port %hu\n", startingPort);
     }
   }
   else {
@@ -532,7 +816,7 @@ static int connectImpl(cMsgDomainInfo *domain, int failoverIndex) {
     if (i < 1025 || i > 65535) {
       startingPort = CMSG_CLIENT_LISTENING_PORT;
       if (cMsgDebug >= CMSG_DEBUG_WARN) {
-        fprintf(stderr, "connectImpl: CMSG_PORT contains a bad port #, first try port %hu\n", startingPort);
+        fprintf(stderr, "connectDirect: CMSG_PORT contains a bad port #, first try port %hu\n", startingPort);
       }
     }
     else {
@@ -590,7 +874,7 @@ static int connectImpl(cMsgDomainInfo *domain, int failoverIndex) {
   }
   if (num_try > try_max) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "connectImpl, cannot start listening thread\n");
+      fprintf(stderr, "connectDirect, cannot start listening thread\n");
     }
     exit(-1);
   }
@@ -600,7 +884,7 @@ static int connectImpl(cMsgDomainInfo *domain, int failoverIndex) {
    */
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectImpl: created listening thread\n");
+    fprintf(stderr, "connectDirect: created listening thread\n");
   }
   
   /*---------------------------------------------------------------*/
@@ -617,7 +901,7 @@ static int connectImpl(cMsgDomainInfo *domain, int failoverIndex) {
   }
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectImpl: connected to name server\n");
+    fprintf(stderr, "connectDirect: connected to name server\n");
   }
   
   /* get host & port (domain->sendHost,sendPort) to send messages to */
@@ -631,15 +915,15 @@ static int connectImpl(cMsgDomainInfo *domain, int failoverIndex) {
   /* BUGBUG free up memory allocated in parseUDL & no longer needed */
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectImpl: got host and port from name server\n");
+    fprintf(stderr, "connectDirect: got host and port from name server\n");
   }
   
   /* done talking to server */
   close(serverfd);
  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectImpl: closed name server socket\n");
-    fprintf(stderr, "connectImpl: sendHost = %s, sendPort = %d\n",
+    fprintf(stderr, "connectDirect: closed name server socket\n");
+    fprintf(stderr, "connectDirect: sendHost = %s, sendPort = %d\n",
                              domain->sendHost,
                              domain->sendPort);
   }
@@ -653,7 +937,7 @@ static int connectImpl(cMsgDomainInfo *domain, int failoverIndex) {
   }
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectImpl: created receiving socket fd = %d\n", domain->receiveSocket);
+    fprintf(stderr, "connectDirect: created receiving socket fd = %d\n", domain->receiveSocket);
   }
     
   /* create keep alive socket and store */
@@ -666,7 +950,7 @@ static int connectImpl(cMsgDomainInfo *domain, int failoverIndex) {
   }
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectImpl: created keepalive socket fd = %d\n",domain->keepAliveSocket );
+    fprintf(stderr, "connectDirect: created keepalive socket fd = %d\n",domain->keepAliveSocket );
   }
   
   /* create thread to send periodic keep alives and handle dead server */
@@ -677,7 +961,7 @@ static int connectImpl(cMsgDomainInfo *domain, int failoverIndex) {
   }
      
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectImpl: created keep alive thread\n");
+    fprintf(stderr, "connectDirect: created keep alive thread\n");
   }
 
   /* create sending socket and store */
@@ -691,7 +975,7 @@ static int connectImpl(cMsgDomainInfo *domain, int failoverIndex) {
   }
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectImpl: created sending socket fd = %d\n", domain->sendSocket);
+    fprintf(stderr, "connectDirect: created sending socket fd = %d\n", domain->sendSocket);
   }
   
   return(CMSG_OK);
@@ -3666,11 +3950,14 @@ static int parseUDL(const char *UDL, char **password,
                           char **host, int *port,
                           char **UDLRemainder,
                           char **subdomainType,
-                          char **UDLsubRemainder) {
+                          char **UDLsubRemainder,
+                          int   *broadcast,
+                          int   *timeout) {
 
     int        i, err, Port, index;
+    int        mustBroadcast = 0;
     size_t     len, bufLength;
-    char       *p, *udl, *udlLowerCase, *udlRemainder, *pswd;
+    char       *p, *udl, *udlLowerCase, *udlRemainder, *remain;
     char       *buffer;
     const char *pattern = "([a-zA-Z0-9\\.\\-]+):?([0-9]+)?/?([a-zA-Z0-9]+)?/?(.*)";  
     regmatch_t matches[5]; /* we have 5 potential matches: 1 whole, 4 sub */
@@ -3762,8 +4049,13 @@ static int parseUDL(const char *UDL, char **password,
        len = matches[1].rm_eo - matches[1].rm_so;
        strncat(buffer, udlRemainder+matches[1].rm_so, len);
                 
+        if (strcasecmp(buffer, "broadcast") == 0 ||
+            strcmp(buffer, "255.255.255.255") == 0) {
+            mustBroadcast = 1;
+/*System.out.println("set mustBroadcast to true (locally in parse method)");*/
+        }
         /* if the host is "localhost", find the actual host name */
-        if (strcmp(buffer, "localhost") == 0) {
+        else if (strcasecmp(buffer, "localhost") == 0) {
 /* printf("parseUDL: host = localhost\n"); */
             /* get canonical local host name */
             if (cMsgLocalHost(buffer, bufLength) != CMSG_OK) {
@@ -3777,14 +4069,23 @@ static int parseUDL(const char *UDL, char **password,
         if (host != NULL) {
             *host = (char *)strdup(buffer);
         }
+        if (broadcast != NULL) {
+            *broadcast = mustBroadcast;        
+        }
     }
-/* printf("parseUDL: host = %s\n", buffer); */
+printf("parseUDL: host = %s\n", buffer);
+printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
 
 
     /* find port */
     if (matches[2].rm_so < 0) {
         /* no match for port so use default */
-        Port = CMSG_NAME_SERVER_STARTING_PORT;
+        if (mustBroadcast == 1) {
+            Port = CMSG_NAME_SERVER_BROADCAST_PORT;
+        }
+        else {
+            Port = CMSG_NAME_SERVER_STARTING_PORT;
+        }
         if (cMsgDebug >= CMSG_DEBUG_WARN) {
             fprintf(stderr, "parseUDL: guessing that the name server port is %d\n",
                    Port);
@@ -3807,7 +4108,7 @@ static int parseUDL(const char *UDL, char **password,
     if (port != NULL) {
       *port = Port;
     }
-/* printf("parseUDL: port = %hu\n", Port ); */
+printf("parseUDL: port = %hu\n", Port );
 
 
     /* find subdomain */
@@ -3849,9 +4150,10 @@ static int parseUDL(const char *UDL, char **password,
     }
 
 
-    /* find cmsgpassword parameter if it exists*/
+    /* find optional parameters */
     len = strlen(buffer);
     while (len > 0) {
+        /* find cmsgpassword parameter if it exists*/
         /* look for ?cmsgpassword=value& or &cmsgpassword=value& */
         pattern = "[&\\?]cmsgpassword=([a-zA-Z0-9]+)&?";
 
@@ -3860,32 +4162,58 @@ static int parseUDL(const char *UDL, char **password,
         if (err != 0) {
             break;
         }
-
+        
+        /* this is the udl remainder in which we look */
+        remain = strdup(buffer);
+        
         /* find matches */
-        pswd = strdup(buffer);
-        err = cMsgRegexec(&compiled, pswd, 2, matches, 0);
+        err = cMsgRegexec(&compiled, remain, 2, matches, 0);
+        /* if match */
+        if (err == 0) {
+          /* find password */
+          if (matches[1].rm_so >= 0) {
+             buffer[0] = 0;
+             len = matches[1].rm_eo - matches[1].rm_so;
+             strncat(buffer, remain+matches[1].rm_so, len);
+             if (password != NULL) {
+               *password = (char *) strdup(buffer);
+             }        
+  /* printf("parseUDL: password = %s\n", buffer); */
+          }
+        }
+        
+        /* free up memory */
+        cMsgRegfree(&compiled);
+       
+        /* find broadcast timeout parameter if it exists */
+        /* look for ?broadcastTO=value& or &broadcastTO=value& */
+        pattern = "[&\\?]broadcastTO=([0-9]+)?";
+
+        /* compile regular expression */
+        err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
         if (err != 0) {
-            /* no match */
-            cMsgRegfree(&compiled);
-            free(pswd);
             break;
         }
 
-        /* free up memory */
-        cMsgRegfree(&compiled);
-
-        /* find password */
-        if (matches[1].rm_so >= 0) {
-           buffer[0] = 0;
-           len = matches[1].rm_eo - matches[1].rm_so;
-           strncat(buffer, pswd+matches[1].rm_so, len);
-           if (password != NULL) {
-             *password = (char *) strdup(buffer);
-           }        
-/* printf("parseUDL: password = %s\n", buffer); */
+        /* find matches */
+        err = cMsgRegexec(&compiled, remain, 2, matches, 0);
+        /* if match */
+        if (err == 0) {
+          /* find timeout */
+          if (matches[1].rm_so >= 0) {
+             buffer[0] = 0;
+             len = matches[1].rm_eo - matches[1].rm_so;
+             strncat(buffer, remain+matches[1].rm_so, len);
+             if (timeout != NULL) {
+               *timeout = atoi(buffer);
+             }        
+  /* printf("parseUDL: timeout = %d seconds\n", atoi(buffer)); */
+          }
         }
         
-        free(pswd);
+        /* free up memory */
+        cMsgRegfree(&compiled);
+        free(remain);
         break;
     }
 

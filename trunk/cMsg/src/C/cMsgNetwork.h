@@ -85,15 +85,22 @@ extern "C" {
 
 /** TCP port at which a cMsg domain client starts looking for an unused listening port. */
 #define CMSG_CLIENT_LISTENING_PORT 2345
-/** TCP port at which a rc domain client starts looking for an unused listening port. */
-#define CMSG_RC_CLIENT_LISTENING_PORT 6543
 /** TCP port at which a name server starts looking for an unused listening port. */
-#define CMSG_NAME_SERVER_STARTING_PORT 3456;
+#define CMSG_NAME_SERVER_STARTING_PORT 3456
+/** TCP port at which a name server looking for UDP broadcasts. */
+#define CMSG_NAME_SERVER_BROADCAST_PORT 7654
 /** TCP port at which a domain server starts looking for an unused listening port. */
-#define CMSG_DOMAIN_SERVER_STARTING_PORT 4567;
+#define CMSG_DOMAIN_SERVER_STARTING_PORT 4567
 
-/** UDP port at which a RC client looks for its server. */
-#define RC_BROADCAST_PORT 6543;
+/** First int to send in UDP broadcast to server if cMsg domain. */
+#define CMSG_DOMAIN_BROADCAST 1
+/** First int to send in UDP broadcast to server if RC domain. */
+#define RC_DOMAIN_BROADCAST 2
+
+/** TCP port at which a rc domain client starts looking for an unused listening port. */
+#define RC_CLIENT_LISTENING_PORT 6543
+/** UDP port at which a rc domain client looks for its server. */
+#define RC_BROADCAST_PORT 6543
 
 /* socket and/or thread blocking options */
 #define CMSG_BLOCKING    0
