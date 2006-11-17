@@ -159,18 +159,20 @@ public class cMsgMessage implements Cloneable {
     // context information when passing msg to callback
 
     /** Object giving info about environment running callback with this message. */
-    cMsgCallbackContext context;
+    cMsgMessageContext context = new cMsgMessageContextDefault();
 
     /**
      * Cloning this object does not pass on the context and
-     * copies the byte array.
+     * copies the byte array if it exists.
      * @return a cMsgMessage object which is a copy of this message
      * @throws CloneNotSupportedException
      */
     protected Object clone() throws CloneNotSupportedException {
         Object o = super.clone();
         ((cMsgMessage) o).context = null;
-        ((cMsgMessage) o).bytes = ((cMsgMessage) o).bytes.clone();
+        if (bytes != null) {
+            ((cMsgMessage) o).bytes = (byte[]) bytes.clone();
+        }
         return o;
     }
 
@@ -793,7 +795,7 @@ public class cMsgMessage implements Cloneable {
      * @return object containing information about the context of the
      *         callback receiving this message
      */
-    public cMsgCallbackContext getContext() {
+    public cMsgMessageContext getContext() {
         return context;
     }
 

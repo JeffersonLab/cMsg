@@ -27,25 +27,27 @@ import java.lang.*;
  */
 public class cMsgClientInfo {
     /** Client's name. */
-    private String name;
+    private String  name;
     /** Client supplied description. */
-    private String description;
+    private String  description;
     /** Client supplied UDL. */
-    private String UDL;
+    private String  UDL;
     /** Remainder from client's UDL. */
-    private String UDLremainder;
+    private String  UDLremainder;
     /** Subdomain client wishes to use. */
-    private String subdomain;
+    private String  subdomain;
     /** cMsg subdomain namespace client is using. */
-    private String namespace;
+    private String  namespace;
     /** Client's host. */
-    private String clientHost;
+    private String  clientHost;
     /** Client's port. */
-    private int    clientPort;
+    private int     clientPort;
     /** Domain server's host. */
-    private String domainHost;
-    /** Domain server's port. */
-    private int    domainPort;
+    private String  domainHost;
+    /** Domain server's TCP port. */
+    private int     domainPort;
+    /** Domain server's UDP port. */
+    private int     domainUdpPort;
 
     /** Is this client another cMsg server? */
     boolean isServer;
@@ -200,6 +202,22 @@ public class cMsgClientInfo {
      * @param domainPort TCP port domain server is listening on
      */
     public void setDomainPort(int domainPort) {this.domainPort = domainPort;}
+
+    //-----------------------------------------------------------------------------------
+
+    /**
+     * Gets UDP port domain server is listening on.
+     * Meaningful only if client is sending by UDP.
+     * @return UDP port domain server is listening on
+     */
+    public int getDomainUdpPort() {return domainUdpPort;}
+
+    /**
+     * Sets UDP port domain server is listening on.
+     * Meaningful only if client is sending by UDP.
+     * @param domainUdpPort TCP port domain server is listening on
+     */
+    public void setDomainUdpPort(int domainUdpPort) {this.domainUdpPort = domainUdpPort;}
 
     //-----------------------------------------------------------------------------------
 
