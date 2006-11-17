@@ -122,6 +122,7 @@ jarfile:
 	-cp -p common/jar/*.jar $(CMSG_INSTALL)/common/jar/.
 
 java:
+	cd ./org/jlab/coda/cMsg;                    $(MAKE);
 	cd ./org/jlab/coda/cMsg/cMsgDomain/client;  $(MAKE);
 	cd ./org/jlab/coda/cMsg/cMsgDomain/server;  $(MAKE);
 	cd ./org/jlab/coda/cMsg/subdomains;         $(MAKE);
@@ -161,6 +162,7 @@ cClean:
 	cd ./src/CC;      $(MAKE) -f $(MAKEFILE) clean;
 
 jClean: 
+	cd ./org/jlab/coda/cMsg;                    $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/cMsgDomain/client;  $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/cMsgDomain/server;  $(MAKE) clean;
 	cd ./org/jlab/coda/cMsg/subdomains;         $(MAKE) clean;
