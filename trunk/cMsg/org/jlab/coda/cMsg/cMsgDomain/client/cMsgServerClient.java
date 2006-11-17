@@ -572,7 +572,7 @@ public class cMsgServerClient extends cMsg {
 
                 // add to callback list if subscription to same subject/type exists
 
-                int id = 0;
+                int id;
 
                 // client listening thread may be interating thru subscriptions concurrently
                 // and we may change set structure
@@ -721,7 +721,6 @@ public class cMsgServerClient extends cMsg {
             }
 
             boolean foundMatch = false;
-            cMsgSubscription sub;
             int id = 0;
 
             // client listening thread may be interating thru subscriptions concurrently
@@ -729,8 +728,7 @@ public class cMsgServerClient extends cMsg {
             synchronized (subscriptions) {
 
                 // for each subscription ...
-                for (Iterator iter = subscriptions.iterator(); iter.hasNext();) {
-                    sub = (cMsgSubscription) iter.next();
+                for (cMsgSubscription sub : subscriptions) {
                     // If subscription to subject, type & namespace exist already, we may be
                     // able to take care of it locally and not bother the server.
                     // The clients who call unsubscribe will never call serverUnsubscribe and
@@ -741,8 +739,7 @@ public class cMsgServerClient extends cMsg {
                             sub.getNamespace().equals(namespace)) {
 
                         // for each callback listed ...
-                        for (Iterator iter2 = sub.getCallbacks().iterator(); iter2.hasNext();) {
-                            cMsgCallbackThread cbt = (cMsgCallbackThread) iter2.next();
+                        for (cMsgCallbackThread cbt : sub.getCallbacks()) {
                             if ((cbt.callback == cb) && (cbt.getArg() == userObj)) {
                                 // Found our cb & userArg pair to get rid of.
                                 // However, don't kill the thread and remove it from
