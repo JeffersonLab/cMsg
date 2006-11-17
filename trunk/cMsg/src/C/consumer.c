@@ -75,6 +75,7 @@ int main(int argc,char **argv) {
   char *subject       = "SUBJECT";
   char *type          = "TYPE";
   char *UDL           = "cMsg:cMsg://localhost/cMsg/test";
+  /* char *UDL           = "cMsg:cMsg://broadcast/cMsg/test"; */
   int   err, debug = 1;
   cMsgSubscribeConfig *config;
   void *unSubHandle;
