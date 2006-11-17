@@ -193,6 +193,8 @@ public class cMsgProducer {
         cMsgMessage msg = new cMsgMessage();
         msg.setSubject(subject);
         msg.setType(type);
+        // set for UDP send
+        //msg.getContext().setReliableSend(false);
         if (sendText) {
           System.out.println("Sending text\n");
           msg.setText(text);
