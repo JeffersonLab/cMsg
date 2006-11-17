@@ -599,7 +599,7 @@ public class cMsgNameServer extends Thread {
     public void startServer(String serverToJoin) {
         // start this server
         start();
-
+System.out.println("startServer; IN");
         // Create a bridge to another server (if specified) which
         // will also generate a connection to this server from that
         // server in response.
@@ -629,18 +629,7 @@ public class cMsgNameServer extends Thread {
         // Start thread to gather monitor info
         monitorThread = new monitorDataThread();
         monitorThread.start();
-    }
-
-
-    /**
-     * Method to be run when this server is unreachable and all its threads are killed.
-     * Finalize methods are run after an object has become unreachable and
-     * before the garbage collector is run.
-     */
-    public void finalize() throws cMsgException {
-      //  for (cMsgDomainServer server : domainServers.keySet()) {
-      //  }
-      //System.out.println("\n>> NS: FINALIZE NAME SERVER!!!\n");
+System.out.println("startServer; Done");
     }
 
 
@@ -689,7 +678,7 @@ public class cMsgNameServer extends Thread {
             throws cMsgException {
 
         // Object to handle clients' inputs
-        cMsgSubdomainInterface clientHandler = null;
+        cMsgSubdomainInterface clientHandler;
 
         String clientHandlerClass = null;
 
@@ -890,6 +879,7 @@ public class cMsgNameServer extends Thread {
           * ints the same. That way the server can reliably check for mismatched versions.
           */
          public void run() {
+System.out.println("clientHandler; IN");
 
             try {
                 // buffered communication streams for efficiency
@@ -1115,7 +1105,7 @@ public class cMsgNameServer extends Thread {
                 return;
             }
 
-            int     grabLockTries = 0;
+            int     grabLockTries;
             boolean gotCloudLock  = false;
             boolean gotRegistrationLock = false;
             boolean registrationSuccessful = false;
@@ -1210,14 +1200,11 @@ public class cMsgNameServer extends Thread {
                                 // else if cannot lock remote server, try next one
                                 else {
 //System.out.println(">> NS: CANNOT Lock it, so skip it");
-                                    continue;
                                 }
                             }
                             // We're here if lock or unlock fails in its communication with server.
                             // If we cannot talk to the server, it's probably dead.
-                            catch (IOException e) {
-                                continue;
-                            }
+                            catch (IOException e) { }
                         }
 
                         //System.out.println(">> NS: FAILED TO LOCKED IT!!");
@@ -1292,7 +1279,7 @@ public class cMsgNameServer extends Thread {
                         // release the locks
                         for (cMsgServerBridge b : bridges.values()) {
                             try {b.registrationUnlock();}
-                            catch (IOException e) {continue;}
+                            catch (IOException e) {}
                         }
                         cMsgSubdomainHandler.registrationUnlock();
                         cloudUnlock();
@@ -1308,7 +1295,7 @@ public class cMsgNameServer extends Thread {
                     // release the locks
                     for (cMsgServerBridge b : bridges.values()) {
                         try {b.registrationUnlock();}
-                        catch (IOException e) {continue;}
+                        catch (IOException e) {}
                     }
 
                     if (gotRegistrationLock) {
@@ -1336,6 +1323,7 @@ public class cMsgNameServer extends Thread {
          * @throws IOException if problems with socket communication
          */
         private void handleClient() throws IOException {
+System.out.println("handleClient: IN");
             // listening port of client
             int clientListeningPort = in.readInt();
             // length of password
@@ -1359,6 +1347,7 @@ public class cMsgNameServer extends Thread {
             int bytesToRead = lengthPassword + lengthDomainType + lengthSubdomainType +
                               lengthUDLRemainder + lengthHost + lengthName + lengthUDL +
                               lengthDescription;
+System.out.println("handleClient: bytesToRead = " + bytesToRead);
             int offset = 0;
 
             // read all string bytes
@@ -1442,6 +1431,7 @@ public class cMsgNameServer extends Thread {
                 out.flush();
                 return;
             }
+System.out.println("handleClient: 1");
 
             // if the client does not provide the correct password if required, return an error
             if (clientPassword != null) {
@@ -1474,6 +1464,7 @@ public class cMsgNameServer extends Thread {
                     return;
                 }
             }
+System.out.println("handleClient: 2");
 
             // Try to register this client. If the cMsg system already has a
             // client by this name, it will fail.
@@ -1505,6 +1496,7 @@ public class cMsgNameServer extends Thread {
 
                 // send cMsg domain host & port contact info back to client
                 out.writeInt(info.getDomainPort());
+                out.writeInt(info.getDomainUdpPort());
                 out.writeInt(info.getDomainHost().length());
                 try {
                     out.write(info.getDomainHost().getBytes("US-ASCII"));
@@ -1526,6 +1518,7 @@ public class cMsgNameServer extends Thread {
                 }
                 out.flush();
             }
+System.out.println("handleClient: end");
         }
 
 
@@ -1544,7 +1537,7 @@ public class cMsgNameServer extends Thread {
             // Can be INCLOUD, NONCLOUD, or BECOMINGCLOUD.
             byte connectingCloudStatus = in.readByte();
             // Is connecting server originating connection or is this a reciprocal one?
-            boolean isReciprocalConnection = in.readByte() == 0? true : false;
+            boolean isReciprocalConnection = in.readByte() == 0;
             // listening port of name server that client is a part of
             int nameServerListeningPort = in.readInt();
             // length of server client's host name
@@ -1584,7 +1577,7 @@ public class cMsgNameServer extends Thread {
 
             try {
 
-                cMsgClientInfo info = null;
+                cMsgClientInfo info;
 
                 try {
                     // First, check to see if password matches.
@@ -1733,7 +1726,7 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                     }
                 }
                 catch (cMsgException e) {
-                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                    e.printStackTrace();
                 }
 
                 // If I'm in the cloud, send a list of cMsg servers I'm already connected to.
@@ -1803,7 +1796,6 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                 xml.append(serverName);
                 xml.append("\">\n");
                 String indent1 = "      ";
-                String indent2 = "        ";
 
                 for (cMsgDomainServer ds : domainServers) {
                     // Skip other servers' bridges to us,

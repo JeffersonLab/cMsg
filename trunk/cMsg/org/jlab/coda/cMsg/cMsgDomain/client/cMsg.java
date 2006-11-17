@@ -66,14 +66,11 @@ public class cMsg extends cMsgDomainAdapter {
     /** List of parsed UDL objects - one for each failover UDL. */
     private ArrayList<ParsedUDL> failovers;
 
-    /** An array of UDLs given by user to failover to if connection to server fails. */
-    private String failoverUDLs[];
-
     /** Number of failures to connect to the given array of UDLs. */
     private int connectFailures;
 
     /**
-     * Index into the {@link #failoverUDLs} array corressponding to the UDL
+     * Index into the {@link #failovers} list corressponding to the UDL
      * currently being used.
      */
     private byte failoverIndex;
@@ -97,8 +94,14 @@ public class cMsg extends cMsgDomainAdapter {
     /** Port number from which to start looking for a suitable listening port. */
     int startingPort;
 
-    /** Socket over which to UDP broadcast and receive UDP packets. */
+    /** Socket over which to UDP broadcast and receive response packets from server. */
     DatagramSocket udpSocket;
+
+    /** Socket over which to send messges with UDP. */
+    DatagramSocket sendUdpSocket;
+
+    /** Packet in which to send messages with UDP. */
+    DatagramPacket sendUdpPacket;
 
     /**
      * True if the host given by the UDL is \"broadcast\" or \"255.255.255.255\".
@@ -124,8 +127,11 @@ public class cMsg extends cMsgDomainAdapter {
     /** Domain server's host. */
     String domainServerHost;
 
-    /** Domain server's port. */
+    /** Domain server's TCP port. */
     int domainServerPort;
+
+    /** Domain server's UDP port for udp client sends. */
+    int domainServerUdpPort;
 
     /** Channel for talking to domain server. */
     SocketChannel domainOutChannel;
@@ -353,7 +359,8 @@ public class cMsg extends cMsgDomainAdapter {
 
         // If the UDL is a semicolon separated list of UDLs, separate them and
         // store them for future use in failovers.
-        failoverUDLs = UDL.split(";");
+        /** An array of UDLs given by user to failover to if connection to server fails. */
+        String[] failoverUDLs = UDL.split(";");
 
         // If there's only 1 UDL ...
         if (failoverUDLs.length < 2) {
@@ -564,7 +571,6 @@ public class cMsg extends cMsgDomainAdapter {
                 int hostLength = bytesToInt(buf, 4); // host to do a direct connection to
 
                 // cMsg server host
-                String host = null;
                 try {
                     nameServerHost = new String(buf, 8, hostLength, "US-ASCII");
                 }
@@ -839,6 +845,30 @@ public class cMsg extends cMsgDomainAdapter {
                 throw new cMsgException("connect: cannot create channel to domain server");
             }
 
+            // create udp socket to send messages on
+            try {
+                sendUdpSocket = new DatagramSocket();
+                InetAddress addr = InetAddress.getByName(domainServerHost);
+                // connect for speed and to keep out unwanted packets
+                sendUdpSocket.connect(addr, domainServerUdpPort);
+                sendUdpSocket.setSendBufferSize(65535);
+                sendUdpPacket = new DatagramPacket(new byte[0], 0, addr, domainServerUdpPort);
+                // System.out.println("udp socket connected to host = " + domainServerHost +
+                // " and port = " + domainServerUdpPort);
+            }
+            catch (UnknownHostException e) {
+                if (debug >= cMsgConstants.debugError) {
+                    e.printStackTrace();
+                }
+                throw new cMsgException("connect: cannot create udp socket to domain server");
+            }
+            catch (SocketException e) {
+                if (debug >= cMsgConstants.debugError) {
+                    e.printStackTrace();
+                }
+                throw new cMsgException("connect: cannot create udp socket to domain server");
+            }
+
             connected = true;
         }
         finally {
@@ -983,7 +1013,7 @@ public class cMsg extends cMsgDomainAdapter {
             listeningThread.killClientHandlerThreads();
 
             // connect & talk to cMsg name server to check if name is unique
-            SocketChannel channel = null;
+            SocketChannel channel;
             try {
                 channel = SocketChannel.open(new InetSocketAddress(nameServerHost, nameServerPort));
                 // set socket options
@@ -1069,6 +1099,30 @@ public class cMsg extends cMsgDomainAdapter {
                 throw new cMsgException("reconnect: cannot create channel to domain server");
             }
 
+            // create udp socket to send messages on
+                try {
+                    sendUdpSocket = new DatagramSocket();
+                    InetAddress addr = InetAddress.getByName(domainServerHost);
+                    // connect for speed and to keep out unwanted packets
+                    sendUdpSocket.connect(addr, domainServerUdpPort);
+                    sendUdpSocket.setSendBufferSize(65535);
+                    sendUdpPacket = new DatagramPacket(new byte[0], 0, addr, domainServerUdpPort);
+                    // System.out.println("udp socket connected to host = " + domainServerHost +
+                    // " and port = " + domainServerUdpPort);
+                }
+                catch (UnknownHostException e) {
+                    if (debug >= cMsgConstants.debugError) {
+                        e.printStackTrace();
+                    }
+                    throw new cMsgException("reconnect: cannot create udp socket to domain server");
+                }
+                catch (SocketException e) {
+                    if (debug >= cMsgConstants.debugError) {
+                        e.printStackTrace();
+                    }
+                    throw new cMsgException("reconnect: cannot create udp socket to domain server");
+                }
+
             connected = true;
         }
         finally {
@@ -1087,12 +1141,18 @@ public class cMsg extends cMsgDomainAdapter {
      *
      * @param message message to send
      * @throws cMsgException if there are communication problems with the server;
-     *                       subject and/or type is null
+     *                       subject and/or type is null; message is too big for
+     *                       UDP packet size if doing UDP send
      */
     public void send(cMsgMessage message) throws cMsgException {
 
         if (!hasSend) {
             throw new cMsgException("send is not implemented by this subdomain");
+        }
+
+        if (!message.getContext().getReliableSend()) {
+            udpSend(message);
+            return;
         }
 
         String subject = message.getSubject();
@@ -1115,71 +1175,184 @@ public class cMsg extends cMsgDomainAdapter {
         int binaryLength = message.getByteArrayLength();
 
         // go here to try the send again
-        tryagain:
         while (true) {
 
+            // cannot run this simultaneously with connect, reconnect, or disconnect
+            notConnectLock.lock();
+            // protect communicatons over socket
+            socketLock.lock();
+
             try {
-                // cannot run this simultaneously with connect, reconnect, or disconnect
-                notConnectLock.lock();
-                // protect communicatons over socket
-                socketLock.lock();
+                if (!connected) {
+                    throw new IOException("not connected to server");
+                }
+
+                // total length of msg (not including this int) is 1st item
+                domainOut.writeInt(4 * 15 + subject.length() + type.length() + msgCreator.length() +
+                        text.length() + binaryLength);
+                domainOut.writeInt(cMsgConstants.msgSendRequest);
+                domainOut.writeInt(0); // reserved for future use
+                domainOut.writeInt(message.getUserInt());
+                domainOut.writeInt(message.getSysMsgId());
+                domainOut.writeInt(message.getSenderToken());
+                domainOut.writeInt(message.getInfo());
+
+                long now = new Date().getTime();
+                // send the time in milliseconds as 2, 32 bit integers
+                domainOut.writeInt((int) (now >>> 32)); // higher 32 bits
+                domainOut.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
+                domainOut.writeInt((int) (message.getUserTime().getTime() >>> 32));
+                domainOut.writeInt((int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL));
+
+                domainOut.writeInt(subject.length());
+                domainOut.writeInt(type.length());
+                domainOut.writeInt(msgCreator.length());
+                domainOut.writeInt(text.length());
+                domainOut.writeInt(binaryLength);
+
+                // write strings & byte array
                 try {
-                    if (!connected) {
-                        throw new IOException("not connected to server");
+                    domainOut.write(subject.getBytes("US-ASCII"));
+                    domainOut.write(type.getBytes("US-ASCII"));
+                    domainOut.write(msgCreator.getBytes("US-ASCII"));
+                    domainOut.write(text.getBytes("US-ASCII"));
+                    if (binaryLength > 0) {
+                        domainOut.write(message.getByteArray(),
+                                        message.getByteArrayOffset(),
+                                        binaryLength);
                     }
-
-                    // total length of msg (not including this int) is 1st item
-                    domainOut.writeInt(4 * 15 + subject.length() + type.length() + msgCreator.length() +
-                                       text.length() + binaryLength);
-                    domainOut.writeInt(cMsgConstants.msgSendRequest);
-                    domainOut.writeInt(0); // reserved for future use
-                    domainOut.writeInt(message.getUserInt());
-                    domainOut.writeInt(message.getSysMsgId());
-                    domainOut.writeInt(message.getSenderToken());
-                    domainOut.writeInt(message.getInfo());
-
-                    long now = new Date().getTime();
-                    // send the time in milliseconds as 2, 32 bit integers
-                    domainOut.writeInt((int) (now >>> 32)); // higher 32 bits
-                    domainOut.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
-                    domainOut.writeInt((int) (message.getUserTime().getTime() >>> 32));
-                    domainOut.writeInt((int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL));
-
-                    domainOut.writeInt(subject.length());
-                    domainOut.writeInt(type.length());
-                    domainOut.writeInt(msgCreator.length());
-                    domainOut.writeInt(text.length());
-                    domainOut.writeInt(binaryLength);
-
-                    // write strings & byte array
-                    try {
-                        domainOut.write(subject.getBytes("US-ASCII"));
-                        domainOut.write(type.getBytes("US-ASCII"));
-                        domainOut.write(msgCreator.getBytes("US-ASCII"));
-                        domainOut.write(text.getBytes("US-ASCII"));
-                        if (binaryLength > 0) {
-                            domainOut.write(message.getByteArray(),
-                                            message.getByteArrayOffset(),
-                                            binaryLength);
-                        }
-                    }
-                    catch (UnsupportedEncodingException e) {
-                    }
-
-                    domainOut.flush();
                 }
-                finally {
-                    socketLock.unlock();
-                    notConnectLock.unlock();
+                catch (UnsupportedEncodingException e) {
                 }
+
+                domainOut.flush();
 
             }
             catch (IOException e) {
                 // wait awhile for possible failover
                 if (failoverSuccessful(false)) {
-                    continue tryagain;
+                    continue;
                 }
                 throw new cMsgException(e.getMessage());
+
+            }
+            finally {
+                socketLock.unlock();
+                notConnectLock.unlock();
+            }
+
+            break;
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to send a message to the domain server over UDP for further distribution.
+     *
+     * @param message message to send
+     * @throws cMsgException if there are communication problems with the server;
+     *                       subject and/or type is null; message is too big for
+     *                       UDP packet size if doing UDP send
+     */
+    private void udpSend(cMsgMessage message) throws cMsgException {
+
+        String subject = message.getSubject();
+        String type    = message.getType();
+        String text    = message.getText();
+
+        // check message fields first
+        if (subject == null || type == null) {
+            throw new cMsgException("message subject and/or type is null");
+        }
+
+        if (text == null) {
+            text = "";
+        }
+
+        // creator (this sender's name:nsHost:nsPort if msg created here)
+        String msgCreator = message.getCreator();
+        if (msgCreator == null) msgCreator = creator;
+
+        int binaryLength = message.getByteArrayLength();
+
+        // total length of msg (not including first int which is this size)
+        int totalLength = 4*15 + subject.length() + type.length() + msgCreator.length() +
+                                 text.length() + binaryLength;
+        if (totalLength > 8192) {
+            throw new cMsgException("Too big a message for UDP to send");
+        }
+
+        // create byte array for broadcast
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(8192);
+        DataOutputStream out = new DataOutputStream(baos);
+
+        // go here to try the send again
+        while (true) {
+            // cannot run this simultaneously with connect, reconnect, or disconnect
+            notConnectLock.lock();
+
+            try {
+                out.writeInt(totalLength); // total length of msg (not including this int)
+                out.writeInt(cMsgConstants.msgSendRequest);
+                out.writeInt(0); // reserved for future use
+                out.writeInt(message.getUserInt());
+                out.writeInt(message.getSysMsgId());
+                out.writeInt(message.getSenderToken());
+                out.writeInt(message.getInfo());
+
+                long now = new Date().getTime();
+                // send the time in milliseconds as 2, 32 bit integers
+                out.writeInt((int) (now >>> 32)); // higher 32 bits
+                out.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
+                out.writeInt((int) (message.getUserTime().getTime() >>> 32));
+                out.writeInt((int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL));
+
+                out.writeInt(subject.length());
+                out.writeInt(type.length());
+                out.writeInt(msgCreator.length());
+                out.writeInt(text.length());
+                out.writeInt(binaryLength);
+
+                // write strings & byte array
+                try {
+                    out.write(subject.getBytes("US-ASCII"));
+                    out.write(type.getBytes("US-ASCII"));
+                    out.write(msgCreator.getBytes("US-ASCII"));
+                    out.write(text.getBytes("US-ASCII"));
+                    if (binaryLength > 0) {
+                        out.write(message.getByteArray(),
+                                  message.getByteArrayOffset(),
+                                  binaryLength);
+                    }
+                }
+                catch (UnsupportedEncodingException e) {
+                }
+                out.flush();
+
+                // send message packet from the byte array
+                byte[] buf = baos.toByteArray();
+
+                synchronized (sendUdpPacket) {
+                    // setData is synchronized on the packet.
+                    sendUdpPacket.setData(buf, 0, buf.length);
+                    // send in synchronized internally on the packet object.
+                    // Because we only use one packet object for this client,
+                    // all udp sends are synchronized.
+                    sendUdpSocket.send(sendUdpPacket);
+                }
+            }
+            catch (IOException e) {
+                // wait awhile for possible failover
+                if (failoverSuccessful(false)) {
+                    continue;
+                }
+                throw new cMsgException("Cannot create or send message packet", e);
+            }
+            finally {
+                notConnectLock.unlock();
             }
 
             break;
@@ -1226,80 +1399,77 @@ public class cMsg extends cMsgDomainAdapter {
         int binaryLength = message.getByteArrayLength();
 
         // go here to try the syncSend again
-        tryagain:
         while (true) {
 
+            // cannot run this simultaneously with connect, reconenct, or disconnect
+            notConnectLock.lock();
+            // cannot run this simultaneously with itself since it receives communication
+            // back from the server
+            returnCommunicationLock.lock();
+
             try {
-                // cannot run this simultaneously with connect, reconenct, or disconnect
-                notConnectLock.lock();
-                // cannot run this simultaneously with itself since it receives communication
-                // back from the server
-                returnCommunicationLock.lock();
+
+                if (!connected) {
+                    throw new IOException("not connected to server");
+                }
+
+                socketLock.lock();
                 try {
+                    // total length of msg (not including this int) is 1st item
+                    domainOut.writeInt(4 * 15 + subject.length() + type.length() + msgCreator.length() +
+                            text.length() + binaryLength);
+                    domainOut.writeInt(cMsgConstants.msgSyncSendRequest);
+                    domainOut.writeInt(0); // reserved for future use
+                    domainOut.writeInt(message.getUserInt());
+                    domainOut.writeInt(message.getSysMsgId());
+                    domainOut.writeInt(message.getSenderToken());
+                    domainOut.writeInt(message.getInfo());
 
-                    if (!connected) {
-                        throw new IOException("not connected to server");
-                    }
+                    long now = new Date().getTime();
+                    // send the time in milliseconds as 2, 32 bit integers
+                    domainOut.writeInt((int) (now >>> 32)); // higher 32 bits
+                    domainOut.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
+                    domainOut.writeInt((int) (message.getUserTime().getTime() >>> 32));
+                    domainOut.writeInt((int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL));
 
-                    socketLock.lock();
+                    domainOut.writeInt(subject.length());
+                    domainOut.writeInt(type.length());
+                    domainOut.writeInt(msgCreator.length());
+                    domainOut.writeInt(text.length());
+                    domainOut.writeInt(binaryLength);
+
+                    // write strings & byte array
                     try {
-                        // total length of msg (not including this int) is 1st item
-                        domainOut.writeInt(4 * 15 + subject.length() + type.length() + msgCreator.length() +
-                                           text.length() + binaryLength);
-                        domainOut.writeInt(cMsgConstants.msgSyncSendRequest);
-                        domainOut.writeInt(0); // reserved for future use
-                        domainOut.writeInt(message.getUserInt());
-                        domainOut.writeInt(message.getSysMsgId());
-                        domainOut.writeInt(message.getSenderToken());
-                        domainOut.writeInt(message.getInfo());
-
-                        long now = new Date().getTime();
-                        // send the time in milliseconds as 2, 32 bit integers
-                        domainOut.writeInt((int) (now >>> 32)); // higher 32 bits
-                        domainOut.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
-                        domainOut.writeInt((int) (message.getUserTime().getTime() >>> 32));
-                        domainOut.writeInt((int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL));
-
-                        domainOut.writeInt(subject.length());
-                        domainOut.writeInt(type.length());
-                        domainOut.writeInt(msgCreator.length());
-                        domainOut.writeInt(text.length());
-                        domainOut.writeInt(binaryLength);
-
-                        // write strings & byte array
-                        try {
-                            domainOut.write(subject.getBytes("US-ASCII"));
-                            domainOut.write(type.getBytes("US-ASCII"));
-                            domainOut.write(msgCreator.getBytes("US-ASCII"));
-                            domainOut.write(text.getBytes("US-ASCII"));
-                            if (binaryLength > 0) {
-                                domainOut.write(message.getByteArray(),
-                                                message.getByteArrayOffset(),
-                                                binaryLength);
-                            }
-                        }
-                        catch (UnsupportedEncodingException e) {
+                        domainOut.write(subject.getBytes("US-ASCII"));
+                        domainOut.write(type.getBytes("US-ASCII"));
+                        domainOut.write(msgCreator.getBytes("US-ASCII"));
+                        domainOut.write(text.getBytes("US-ASCII"));
+                        if (binaryLength > 0) {
+                            domainOut.write(message.getByteArray(),
+                                            message.getByteArrayOffset(),
+                                            binaryLength);
                         }
                     }
-                    finally {
-                        socketLock.unlock();
+                    catch (UnsupportedEncodingException e) {
                     }
-
-                    domainOut.flush(); // no need to be protected by socketLock
-                    int response = domainIn.readInt(); // this is protected by returnCommunicationLock
-                    return response;
                 }
                 finally {
-                    returnCommunicationLock.unlock();
-                    notConnectLock.unlock();
+                    socketLock.unlock();
                 }
+
+                domainOut.flush(); // no need to be protected by socketLock
+                return domainIn.readInt();  // this is protected by returnCommunicationLock
             }
             catch (IOException e) {
                 // wait awhile for possible failover
                 if (failoverSuccessful(false)) {
-                    continue tryagain;
+                    continue;
                 }
                 throw new cMsgException(e.getMessage());
+            }
+            finally {
+                returnCommunicationLock.unlock();
+                notConnectLock.unlock();
             }
         }
     }
@@ -1346,105 +1516,98 @@ public class cMsg extends cMsgDomainAdapter {
         cMsgCallbackThread cbThread = null;
 
         // go here to try the subscribe again
-        tryagain:
         while (true) {
 
-            boolean addedHashEntry  = false;
+            boolean addedHashEntry = false;
             cMsgSubscription newSub = null;
 
-            try {
-                // cannot run this simultaneously with connect or disconnect
-                notConnectLock.lock();
-                // cannot run this simultaneously with unsubscribe (get wrong order at server)
-                // or itself (iterate over same hashtable)
-                subscribeLock.lock();
+            // cannot run this simultaneously with connect or disconnect
+            notConnectLock.lock();
+            // cannot run this simultaneously with unsubscribe (get wrong order at server)
+            // or itself (iterate over same hashtable)
+            subscribeLock.lock();
 
-                try {
-                    if (!connected) {
-                        throw new cMsgException("not connected to server");
+            try {
+                if (!connected) {
+                    throw new cMsgException("not connected to server");
+                }
+
+                // add to callback list if subscription to same subject/type exists
+
+                int id;
+
+                // client listening thread may be interating thru subscriptions concurrently
+                // and we may change set structure
+                synchronized (subscriptions) {
+
+                    // for each subscription ...
+                    for (cMsgSubscription sub : subscriptions) {
+                        // If subscription to subject & type exist already, keep track of it locally
+                        // and don't bother the server since any matching message will be delivered
+                        // to this client anyway.
+                        if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
+                            // Only add another callback if the callback/userObj
+                            // combination does NOT already exist. In other words,
+                            // a callback/argument pair must be unique for a single
+                            // subscription. Otherwise it is impossible to unsubscribe.
+
+                            // for each callback listed ...
+                            for (cMsgCallbackThread cbt : sub.getCallbacks()) {
+                                // if callback and user arg already exist, reject the subscription
+                                if ((cbt.callback == cb) && (cbt.getArg() == userObj)) {
+                                    throw new cMsgException("subscription already exists");
+                                }
+                            }
+
+                            // add to existing set of callbacks
+                            cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
+                            sub.addCallback(cbThread);
+                            unsubscriptions.put(cbThread, sub);
+                            return cbThread;
+                        }
                     }
 
-                    // add to callback list if subscription to same subject/type exists
+                    // If we're here, the subscription to that subject & type does not exist yet.
+                    // We need to create it and register it with the domain server.
 
-                    int id = 0;
+                    // First generate a unique id for the receiveSubscribeId field. This info
+                    // allows us to unsubscribe.
+                    id = uniqueId.getAndIncrement();
+
+                    // add a new subscription & callback
+                    cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
+                    newSub = new cMsgSubscription(subject, type, id, cbThread);
+                    unsubscriptions.put(cbThread, newSub);
 
                     // client listening thread may be interating thru subscriptions concurrently
-                    // and we may change set structure
-                    synchronized (subscriptions) {
+                    // and we're changing the set structure
+                    subscriptions.add(newSub);
+                    addedHashEntry = true;
+                }
 
-                        // for each subscription ...
-                        for (cMsgSubscription sub : subscriptions) {
-                            // If subscription to subject & type exist already, keep track of it locally
-                            // and don't bother the server since any matching message will be delivered
-                            // to this client anyway.
-                            if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
-                                // Only add another callback if the callback/userObj
-                                // combination does NOT already exist. In other words,
-                                // a callback/argument pair must be unique for a single
-                                // subscription. Otherwise it is impossible to unsubscribe.
+                socketLock.lock();
+                try {
+                    // total length of msg (not including this int) is 1st item
+                    domainOut.writeInt(5 * 4 + subject.length() + type.length());
+                    domainOut.writeInt(cMsgConstants.msgSubscribeRequest);
+                    domainOut.writeInt(id); // reserved for future use
+                    domainOut.writeInt(subject.length());
+                    domainOut.writeInt(type.length());
+                    domainOut.writeInt(0); // namespace length (we don't send this from
+                    // regular client only from "server" client)
 
-                                // for each callback listed ...
-                                for (cMsgCallbackThread cbt : sub.getCallbacks()) {
-                                    // if callback and user arg already exist, reject the subscription
-                                    if ((cbt.callback == cb) && (cbt.getArg() == userObj)) {
-                                        throw new cMsgException("subscription already exists");
-                                    }
-                                }
-
-                                // add to existing set of callbacks
-                                cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
-                                sub.addCallback(cbThread);
-                                unsubscriptions.put(cbThread, sub);
-                                return (Object)cbThread;
-                            }
-                        }
-
-                        // If we're here, the subscription to that subject & type does not exist yet.
-                        // We need to create it and register it with the domain server.
-
-                        // First generate a unique id for the receiveSubscribeId field. This info
-                        // allows us to unsubscribe.
-                        id = uniqueId.getAndIncrement();
-
-                        // add a new subscription & callback
-                        cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
-                        newSub   = new cMsgSubscription(subject, type, id, cbThread);
-                        unsubscriptions.put(cbThread, newSub);
-
-                        // client listening thread may be interating thru subscriptions concurrently
-                        // and we're changing the set structure
-                        subscriptions.add(newSub);
-                        addedHashEntry = true;
-                    }
-
-                    socketLock.lock();
+                    // write strings & byte array
                     try {
-                        // total length of msg (not including this int) is 1st item
-                        domainOut.writeInt(5 * 4 + subject.length() + type.length());
-                        domainOut.writeInt(cMsgConstants.msgSubscribeRequest);
-                        domainOut.writeInt(id); // reserved for future use
-                        domainOut.writeInt(subject.length());
-                        domainOut.writeInt(type.length());
-                        domainOut.writeInt(0); // namespace length (we don't send this from
-                        // regular client only from "server" client)
-
-                        // write strings & byte array
-                        try {
-                            domainOut.write(subject.getBytes("US-ASCII"));
-                            domainOut.write(type.getBytes("US-ASCII"));
-                        }
-                        catch (UnsupportedEncodingException e) {
-                        }
-
-                        domainOut.flush();
+                        domainOut.write(subject.getBytes("US-ASCII"));
+                        domainOut.write(type.getBytes("US-ASCII"));
                     }
-                    finally {
-                        socketLock.unlock();
+                    catch (UnsupportedEncodingException e) {
                     }
+
+                    domainOut.flush();
                 }
                 finally {
-                    subscribeLock.unlock();
-                    notConnectLock.unlock();
+                    socketLock.unlock();
                 }
             }
             catch (IOException e) {
@@ -1458,16 +1621,20 @@ public class cMsg extends cMsgDomainAdapter {
 
                 // wait awhile for possible failover
                 if (failoverSuccessful(false)) {
-                    continue tryagain;
+                    continue;
                 }
 
                 throw new cMsgException(e.getMessage());
+            }
+            finally {
+                subscribeLock.unlock();
+                notConnectLock.unlock();
             }
 
             break;
         }
 
-        return (Object)cbThread;
+        return cbThread;
     }
 
 
@@ -1505,80 +1672,78 @@ public class cMsg extends cMsgDomainAdapter {
         cMsgCallbackThread cbThread = (cMsgCallbackThread) obj;
 
         // go here to try the unsubscribe again
-        tryagain:
         while (true) {
 
+            // cannot run this simultaneously with connect or disconnect
+            notConnectLock.lock();
+            // cannot run this simultaneously with subscribe (get wrong order at server)
+            // or itself (iterate over same hashtable)
+            subscribeLock.lock();
+
             try {
-                // cannot run this simultaneously with connect or disconnect
-                notConnectLock.lock();
-                // cannot run this simultaneously with subscribe (get wrong order at server)
-                // or itself (iterate over same hashtable)
-                subscribeLock.lock();
+                if (!connected) {
+                    throw new cMsgException("not connected to server");
+                }
 
-                try {
-                    if (!connected) {
-                        throw new cMsgException("not connected to server");
-                    }
-
-                    // If there are still callbacks left,
-                    // don't unsubscribe for this subject/type
-                    if (sub.numberOfCallbacks() > 1) {
-                        // kill callback thread
-                        cbThread.dieNow();
-                        // remove this callback from the set
-                        synchronized (subscriptions) {
-                            sub.getCallbacks().remove(cbThread);
-                        }
-                        return;
-                    }
-
-                    // Get rid of the whole subscription - notify the domain server
-                    String subject = sub.getSubject();
-                    String type    = sub.getType();
-
-                    socketLock.lock();
-                    try {
-                        // total length of msg (not including this int) is 1st item
-                        domainOut.writeInt(5 * 4 + subject.length() + type.length());
-                        domainOut.writeInt(cMsgConstants.msgUnsubscribeRequest);
-                        domainOut.writeInt(sub.getId()); // reserved for future use
-                        domainOut.writeInt(subject.length());
-                        domainOut.writeInt(type.length());
-                        domainOut.writeInt(0); // no namespace being sent
-
-                        // write strings & byte array
-                        try {
-                            domainOut.write(subject.getBytes("US-ASCII"));
-                            domainOut.write(type.getBytes("US-ASCII"));
-                        }
-                        catch (UnsupportedEncodingException e) {}
-                        domainOut.flush();
-                    }
-                    finally {
-                        socketLock.unlock();
-                    }
-
-                    // Now that we've communicated with the server,
-                    // delete stuff from hashes & kill threads -
-                    // basically, do the unsubscribe now.
+                // If there are still callbacks left,
+                // don't unsubscribe for this subject/type
+                if (sub.numberOfCallbacks() > 1) {
+                    // kill callback thread
                     cbThread.dieNow();
+                    // remove this callback from the set
                     synchronized (subscriptions) {
                         sub.getCallbacks().remove(cbThread);
-                        subscriptions.remove(sub);
                     }
+                    return;
+                }
+
+                // Get rid of the whole subscription - notify the domain server
+                String subject = sub.getSubject();
+                String type = sub.getType();
+
+                socketLock.lock();
+                try {
+                    // total length of msg (not including this int) is 1st item
+                    domainOut.writeInt(5 * 4 + subject.length() + type.length());
+                    domainOut.writeInt(cMsgConstants.msgUnsubscribeRequest);
+                    domainOut.writeInt(sub.getId()); // reserved for future use
+                    domainOut.writeInt(subject.length());
+                    domainOut.writeInt(type.length());
+                    domainOut.writeInt(0); // no namespace being sent
+
+                    // write strings & byte array
+                    try {
+                        domainOut.write(subject.getBytes("US-ASCII"));
+                        domainOut.write(type.getBytes("US-ASCII"));
+                    }
+                    catch (UnsupportedEncodingException e) {
+                    }
+                    domainOut.flush();
                 }
                 finally {
-                    subscribeLock.unlock();
-                    notConnectLock.unlock();
+                    socketLock.unlock();
+                }
+
+                // Now that we've communicated with the server,
+                // delete stuff from hashes & kill threads -
+                // basically, do the unsubscribe now.
+                cbThread.dieNow();
+                synchronized (subscriptions) {
+                    sub.getCallbacks().remove(cbThread);
+                    subscriptions.remove(sub);
                 }
             }
             catch (IOException e) {
                 // wait awhile for possible failover && resubscribe is complete
                 if (failoverSuccessful(true)) {
-                    continue tryagain;
+                    continue;
                 }
 
                 throw new cMsgException(e.getMessage());
+            }
+            finally {
+                subscribeLock.unlock();
+                notConnectLock.unlock();
             }
 
             break;
@@ -1618,7 +1783,7 @@ public class cMsg extends cMsgDomainAdapter {
 
             // add to callback list if subscription to same subject/type exists
 
-            int id = 0;
+            int id;
             boolean gotSub = false;
 
             // if an unsubscribe has been done, forget about resubscribing
@@ -1795,8 +1960,7 @@ public class cMsg extends cMsgDomainAdapter {
             throw new TimeoutException();
         }
         else if (helper.errorCode != cMsgConstants.ok) {
-            cMsgException ex = new cMsgException("server died", helper.errorCode);
-            throw ex;
+            throw new cMsgException("server died", helper.errorCode);
         }
 
         // If msg is received, server has removed subscription from his records.
@@ -2007,8 +2171,7 @@ public class cMsg extends cMsgDomainAdapter {
             throw new TimeoutException();
         }
         else if (helper.errorCode != cMsgConstants.ok) {
-            cMsgException ex = new cMsgException("server died", helper.errorCode);
-            throw ex;
+            throw new cMsgException("server died", helper.errorCode);
         }
 
         // If msg arrived (may be null), server has removed subscription from his records.
@@ -2337,9 +2500,10 @@ public class cMsg extends cMsgDomainAdapter {
         hasUnsubscribe     = (buf[5] == (byte)1);
         hasShutdown        = (buf[6] == (byte)1);
 
-        // Read port & length of host name.
-        domainServerPort = in.readInt();
-        int hostLength   = in.readInt();
+        // Read ports & length of host name.
+        domainServerPort    = in.readInt();
+        domainServerUdpPort = in.readInt();
+        int hostLength      = in.readInt();
 
         // read host name
         if (hostLength > buf.length) {
@@ -2347,6 +2511,8 @@ public class cMsg extends cMsgDomainAdapter {
         }
         in.readFully(buf, 0, hostLength);
         domainServerHost = new String(buf, 0, hostLength, "US-ASCII");
+        System.out.println("talkToNameServerFromClient: domain server host = " + domainServerHost +
+                           ", udp port = " + domainServerUdpPort);
 
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("        << CL: domain server host = " + domainServerHost +
@@ -2393,7 +2559,7 @@ public class cMsg extends cMsgDomainAdapter {
         Pattern pattern = Pattern.compile("([\\w\\.\\-]+):?(\\d+)?/?(\\w+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
-        String udlHost=null, udlPort=null, udlSubdomain=null, udlSubRemainder=null;
+        String udlHost, udlPort, udlSubdomain, udlSubRemainder;
 
         if (matcher.find()) {
             // host
@@ -2471,7 +2637,7 @@ public class cMsg extends cMsgDomainAdapter {
         }
 
         // get name server port or guess if it's not given
-        int udlPortInt=-1;
+        int udlPortInt;
         if (udlPort != null && udlPort.length() > 0) {
             try {udlPortInt = Integer.parseInt(udlPort);}
             catch (NumberFormatException e) {
@@ -2507,7 +2673,7 @@ public class cMsg extends cMsgDomainAdapter {
             udlSubRemainder = "";
         }
 
-        // now look for ?broadcastTO=value& or &broadcastTO=value&
+        // look for ?broadcastTO=value& or &broadcastTO=value&
         int timeout=0;
         pattern = Pattern.compile("[\\?&]broadcastTO=([0-9]+)");
         matcher = pattern.matcher(udlSubRemainder);
@@ -2573,16 +2739,16 @@ public class cMsg extends cMsgDomainAdapter {
 
         /** Constructor. */
         ParsedUDL(String s1, String s2, String s3, String s4, String s5, String s6,
-                  int p, int to, boolean b) {
+                  int i1, int i2, boolean b1) {
             UDL              = s1;
             UDLremainder     = s2;
             subdomain        = s3;
             subRemainder     = s4;
             password         = s5;
             nameServerHost   = s6;
-            nameServerPort   = p;
-            broadcastTimeout = to;
-            mustBroadcast    = b;
+            nameServerPort   = i1;
+            broadcastTimeout = i2;
+            mustBroadcast    = b1;
             valid            = true;
         }
 
@@ -2770,6 +2936,9 @@ public class cMsg extends cMsgDomainAdapter {
                     try {
                         // connect with another server
 //System.out.println("\nTrying to REconnect with UDL = " + p.UDL);
+                        if (mustBroadcast) {
+                            connectWithBroadcast();
+                        }
                         reconnect();
 
                         // restore subscriptions on the new server

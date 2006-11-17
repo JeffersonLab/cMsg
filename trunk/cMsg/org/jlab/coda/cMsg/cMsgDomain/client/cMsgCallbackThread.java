@@ -18,7 +18,8 @@ package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgCallbackInterface;
-import org.jlab.coda.cMsg.cMsgCallbackContext;
+import org.jlab.coda.cMsg.cMsgMessageContext;
+import org.jlab.coda.cMsg.cMsgMessageContextDefault;
 
 import java.util.ArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -77,7 +78,7 @@ public class cMsgCallbackThread extends Thread {
      * Class to return info on callback's running environment to the callback.
      * In this case we tell callback the cue size.
      */
-    private class myContext implements cMsgCallbackContext {
+    private class myContext extends cMsgMessageContextDefault {
         public String getDomain()  { return domain; }
         public String getSubject() { return subject; }
         public String getType()    { return type; }

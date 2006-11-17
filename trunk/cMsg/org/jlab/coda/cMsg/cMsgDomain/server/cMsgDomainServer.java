@@ -53,12 +53,6 @@ public class cMsgDomainServer extends Thread {
      */
     private int permanentCommandHandlingThreads = 3;
 
-    /** Port number listening on. */
-    private int port;
-
-    /** Host this is running on. */
-    private String host;
-
     /** Reference back to object that created this object. */
     private cMsgNameServer nameServer;
 
@@ -74,6 +68,9 @@ public class cMsgDomainServer extends Thread {
 
     /** Server channel (contains socket). */
     private ServerSocketChannel serverChannel;
+
+    /** Socket to receive UDP sends from the client. */
+    DatagramSocket udptSocket;
 
     /** Output stream from this server back to client. */
     private DataOutputStream backToClient;
@@ -136,6 +133,13 @@ public class cMsgDomainServer extends Thread {
      */
     private KeepAliveHandler keepAliveThread;
 
+    /**
+     * The UdpSendHandler thread reads all incoming UDP sends which are placed
+     * in the appropriate cue for action by RequestThreads.
+     * This reference is used to end this thread nicley during a shutdown.
+     */
+    private UdpSendHandler udpHandlerThread;
+
     /** Current number of temporary, normal, request-handling threads. */
     private AtomicInteger tempThreads = new AtomicInteger();
 
@@ -196,11 +200,27 @@ public class cMsgDomainServer extends Thread {
      *
      * @param timeOrdered set to true if timeordering of commands is desired
      */
-    public void setTimeOrdered(boolean timeOrdered) {
-        if (timeOrdered == true) {
+    final public void setTimeOrdered(boolean timeOrdered) {
+        if (timeOrdered) {
             permanentCommandHandlingThreads = 1;
             tempThreadsMax = 0;
         }
+    }
+
+
+    /**
+     * Converts 4 bytes of a byte array into an integer.
+     *
+     * @param b   byte array
+     * @param off offset into the byte array (0 = start at first element)
+     * @return integer value
+     */
+    private static final int bytesToInt(byte[] b, int off) {
+        int result = ((b[off] & 0xff) << 24)     |
+                     ((b[off + 1] & 0xff) << 16) |
+                     ((b[off + 2] & 0xff) << 8)  |
+                      (b[off + 3] & 0xff);
+        return result;
     }
 
 
@@ -257,7 +277,7 @@ public class cMsgDomainServer extends Thread {
         }
 
         // Port number to listen on
-        port = startingPort;
+        int port  = startingPort;
         this.info = info;
         this.nameServer = nameServer;
 
@@ -288,7 +308,7 @@ public class cMsgDomainServer extends Thread {
         // Start a thread pool for sendAndGet handling.
 
         // Run up to 10 threads with no queue. Wait 1 min before terminating
-        // extra (more than 3) unused threads. Overflow tasks spawn independent
+        // extra (more than 5) unused threads. Overflow tasks spawn independent
         // threads.
         sendAndGetThreadPool =
                 new ThreadPoolExecutor(5, 10, 60L, TimeUnit.SECONDS,
@@ -325,15 +345,33 @@ public class cMsgDomainServer extends Thread {
                 }
                 else {
                     ex.printStackTrace();
-                    cMsgException e = new cMsgException("Exiting Server: cannot find port to listen on");
+                    cMsgException e = new cMsgException("Exiting Server: cannot find TCP port to listen on");
                     e.setReturnCode(cMsgConstants.errorSocket);
                     throw e;
                 }
             }
         }
 
-        // fill in info members
+        // For the client wants to do sends with udp, create a thread which listens on a udp port
+        try {
+            // Create socket to receive at all interfaces
+            udptSocket = new DatagramSocket();
+            udptSocket.setReceiveBufferSize(65535);
+        }
+        catch (SocketException ex) {
+            ex.printStackTrace();
+            cMsgException e = new cMsgException("Exiting Server: cannot find UDP port or create socket to listen on");
+            e.setReturnCode(cMsgConstants.errorSocket);
+            throw e;
+        }
+        // This will make its way back to client in connect call
+        info.setDomainUdpPort(udptSocket.getLocalPort());
+
+        // Fill in info members so this data can be sent back
+        // to the client that is still in its connect call
         info.setDomainPort(port);
+        /** Host this is running on. */
+        String host = null;
         try {
             host = InetAddress.getLocalHost().getCanonicalHostName();
         }
@@ -361,6 +399,8 @@ public class cMsgDomainServer extends Thread {
      * before the garbage collector is run;
      */
     public void finalize() throws cMsgException {
+        try { super.finalize();}
+        catch (Throwable throwable) { }
         if (calledSubdomainShutdown.compareAndSet(false,true)) {
             subdomainHandler.handleClientShutdown();
         }
@@ -393,6 +433,12 @@ public class cMsgDomainServer extends Thread {
         clientHandlerThread.interrupt();
         try {clientHandlerThread.channel.close();}
         catch (IOException e) {}
+
+        // stop thread that gets client sends over udp
+        if (udpHandlerThread != null) {
+            udpHandlerThread.interrupt();
+            udptSocket.close();
+        }
 
         // give threads a chance to shutdown
         try { Thread.sleep(10); }
@@ -457,7 +503,7 @@ public class cMsgDomainServer extends Thread {
                 }
 
                 // remove this client's subscriptions
-                cMsgServerSubscribeInfo sub = null;
+                cMsgServerSubscribeInfo sub;
                 for (Iterator it = nameServer.subscriptions.iterator(); it.hasNext();) {
                     sub = (cMsgServerSubscribeInfo) it.next();
                     if (sub.info == info) {
@@ -587,6 +633,10 @@ public class cMsgDomainServer extends Thread {
                         // The 3rd connection is for a client request handling thread
                         else if (connectionNumber == 3) {
                             clientHandlerThread = new ClientHandler(channel);
+
+                            // start up thread to receive client sends over UDP
+                            udpHandlerThread = new UdpSendHandler();
+
                             // record when client connected
                             birthday = (new Date()).getTime();
                         }
@@ -617,20 +667,12 @@ public class cMsgDomainServer extends Thread {
         /** Socket communication channel. */
         private SocketChannel channel;
 
-        /** Input stream from client socket. */
-        private DataInputStream  in;
-
-        /** Output stream from client socket. */
-        private DataOutputStream out;
-
-
         /** Constructor. */
         KeepAliveHandler(SocketChannel channel) {
             this.channel = channel;
 
             // die if no more non-daemon thds running
             setDaemon(true);
-
             start();
         }
 
@@ -644,8 +686,8 @@ public class cMsgDomainServer extends Thread {
 
             try {
 
-                in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 65536));
-                out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 2048));
+                DataInputStream  in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 65536));
+                DataOutputStream out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 2048));
 
                 while (true) {
                     if (Thread.currentThread().isInterrupted()) {
@@ -690,6 +732,165 @@ public class cMsgDomainServer extends Thread {
             }
         }
     }
+
+
+    /**
+     * Class to handle all client sends over UDP.
+     */
+    private class UdpSendHandler extends Thread {
+
+         /** Allocate byte array once (used for reading in data) for efficiency's sake. */
+        byte[] buf = new byte[8192];
+
+        /** Index into buffer of received UDP packet. */
+        int bufIndex;
+
+        /** Constructor. */
+        UdpSendHandler() {
+            // Permanent worker threads are already started up on the regular cue
+            // by the ClientHandler thread. All we do is put sends on that cue.
+
+            // die if no more non-daemon thds running
+            setDaemon(true);
+
+            start();
+        }
+
+        /**
+         * This method handles all communication between a cMsg user who has
+         * connected to a domain and this server for that domain.
+         */
+        public void run() {
+
+            // create a packet to be written into
+            DatagramPacket packet = new DatagramPacket(buf, 8192);
+
+            // listen for broadcasts and interpret packets
+            try {
+                while (true) {
+                    if (killSpawnedThreads) return;
+                    packet.setLength(8192);
+                    udptSocket.receive(packet);
+//System.out.println("RECEIVED SEND AS UDP PACKET !!!");
+                    // connect for speed and to keep out unwanted packets
+                    if (!udptSocket.isConnected()) {
+                        udptSocket.connect(packet.getAddress(), packet.getPort());
+                    }
+
+                    if (killSpawnedThreads) return;
+
+                    // pick apart byte array received
+                    bufIndex = 0;
+                    // skip first int which is size of data to come;
+                    int msgId = bytesToInt(buf, bufIndex += 4);
+
+                    if (msgId != cMsgConstants.msgSendRequest) {
+                        // problems
+                        if (debug >= cMsgConstants.debugWarn) {
+                            System.out.println("dServer udpSendHandler: can't understand your message " + info.getName());
+                        }
+                        if (calledShutdown.compareAndSet(false, true)) {
+//System.out.println("SHUTDOWN TO BE RUN due to unknown command being received");
+                            shutdown();
+                        }
+                        return;
+                    }
+
+                    cMsgHolder holder = readSendInfo();
+                    holder.request = msgId;
+                    try { requestCue.put(holder); }
+                    catch (InterruptedException e) { }
+
+                    // if the cue is almost full, add temp threads to handle the load
+                    if (requestCue.remainingCapacity() < 10 && tempThreads.get() < tempThreadsMax) {
+                        new RequestCueThread();
+                    }
+                }
+            }
+            catch (IOException e) {
+                if (debug >= cMsgConstants.debugError) {
+                    System.out.println("dServer udpSendHandler: I/O ERROR in domain server, udp receiver");
+                    System.out.println("dServer udpSendHandler: close broadcast socket, port = " + udptSocket.getLocalPort());
+                }
+
+                // We're here if there is an IO error. Close socket and kill this thread.
+                udptSocket.close();
+            }
+        }
+
+
+        /**
+         * This method reads an incoming cMsgMessageFull from a client doing a send.
+         *
+         * @return object holding message read from UDP packet
+         * @throws IOException if socket read or write error
+         */
+        private cMsgHolder readSendInfo() throws IOException {
+
+            // create a message
+            cMsgMessageFull msg = new cMsgMessageFull();
+
+            // pick apart byte array received
+            bufIndex += 4; // skip for future use
+            msg.setUserInt(bytesToInt(buf, bufIndex+=4));
+            msg.setSysMsgId(bytesToInt(buf, bufIndex+=4));
+            msg.setSenderToken(bytesToInt(buf, bufIndex+=4));
+            msg.setInfo(bytesToInt(buf, bufIndex+=4));
+
+            // time message was sent = 2 ints (hightest byte first)
+            // in milliseconds since midnight GMT, Jan 1, 1970
+            long time = ((long) (bytesToInt(buf, bufIndex+=4)) << 32) |
+                        ((long) (bytesToInt(buf, bufIndex+=4)) & 0x00000000FFFFFFFFL);
+            msg.setSenderTime(new Date(time));
+
+            // user time
+            time = ((long) (bytesToInt(buf, bufIndex+=4)) << 32) |
+                   ((long) (bytesToInt(buf, bufIndex+=4)) & 0x00000000FFFFFFFFL);
+            msg.setUserTime(new Date(time));
+
+            int lengthSubject = bytesToInt(buf, bufIndex+=4);
+            int lengthType    = bytesToInt(buf, bufIndex+=4);
+            int lengthCreator = bytesToInt(buf, bufIndex+=4);
+            int lengthText    = bytesToInt(buf, bufIndex+=4);
+            int lengthBinary  = bytesToInt(buf, bufIndex+=4);
+
+            // read subject
+            msg.setSubject(new String(buf, bufIndex += 4, lengthSubject, "US-ASCII"));
+            //System.out.println("sub = " + msg.getSubject());
+
+            // read type
+            msg.setType(new String(buf, bufIndex += lengthSubject, lengthType, "US-ASCII"));
+            //System.out.println("type = " + msg.getType());
+
+            // read creator
+            msg.setCreator(new String(buf, bufIndex += lengthType, lengthCreator, "US-ASCII"));
+            //System.out.println("creator = " + msg.getCreator());
+
+            // read text
+            msg.setText(new String(buf, bufIndex += lengthCreator, lengthText, "US-ASCII"));
+            //System.out.println("text = " + msg.getText());
+
+            if (lengthBinary > 0) {
+                try {msg.setByteArray(buf, bufIndex += lengthText, lengthBinary);}
+                catch (cMsgException e) {}
+            }
+
+            // fill in message object's members
+            msg.setVersion(cMsgConstants.version);
+            msg.setDomain(domainType);
+            msg.setReceiver("cMsg domain server");
+            msg.setReceiverHost(info.getDomainHost());
+            msg.setReceiverTime(new Date()); // current time
+            msg.setSender(info.getName());
+            msg.setSenderHost(info.getClientHost());
+
+            return new cMsgHolder(msg);
+        }
+
+
+    }
+
+
 
 
     /**
@@ -740,8 +941,8 @@ public class cMsgDomainServer extends Thread {
          * connected to a domain and this server for that domain.
          */
         public void run() {
-            int size, msgId=0, requestType=NORMAL;
-            cMsgHolder holder = null;
+            int msgId, requestType;
+            cMsgHolder holder;
             // for printing out request cue size periodically
             //Date now, t;
             //now = new Date();
@@ -754,8 +955,8 @@ public class cMsgDomainServer extends Thread {
                 while (true) {
                     if (killSpawnedThreads) return;
 
-                    // read first int
-                    size = in.readInt();
+                    // size of coming data is first int
+                    in.readInt();
 //System.out.println("DS Read in size = " + size);
 
                     // read client's request
@@ -961,7 +1162,7 @@ public class cMsgDomainServer extends Thread {
                 }
                 // if bridge can't be found, try alternate name first
                 else {
-                    String alternateName = null;
+                    String alternateName;
                     String name = info.getName();
                     String sPort = name.substring(name.lastIndexOf(":") + 1);
                     int index = name.indexOf(".");
@@ -1043,14 +1244,14 @@ public class cMsgDomainServer extends Thread {
             backToClient.writeInt(names.length);
 
             // send lengths of strings
-            for (int i=0; i < names.length; i++) {
-                backToClient.writeInt(names[i].length());
+            for (String s : names) {
+                backToClient.writeInt(s.length());
             }
 
             // send strings
             try {
-                for (int i=0; i < names.length; i++) {
-                    backToClient.write(names[i].getBytes("US-ASCII"));
+                for (String s : names) {
+                    backToClient.write(s.getBytes("US-ASCII"));
                 }
             }
             catch (UnsupportedEncodingException e) {}
@@ -1319,14 +1520,11 @@ public class cMsgDomainServer extends Thread {
             int flag         = in.readInt();
             int lengthClient = in.readInt();
 
-            // bytes expected
-            int bytesToRead = lengthClient;
-
             // read all string bytes
-            if (bytesToRead > bytes.length) {
-              bytes = new byte[bytesToRead];
+            if (lengthClient > bytes.length) {
+              bytes = new byte[lengthClient];
             }
-            in.readFully(bytes, 0, bytesToRead);
+            in.readFully(bytes, 0, lengthClient);
 
             // read client
             String client = new String(bytes, 0, lengthClient, "US-ASCII");
@@ -1715,7 +1913,7 @@ public class cMsgDomainServer extends Thread {
                     }
                 }
                 // get rid of this subscription if no more subscribers left
-                if (sub.numberOfSubscribers() < 1) {
+                if (sub != null && sub.numberOfSubscribers() < 1) {
 //System.out.println("    DS: removing sub object for subscribe");
                     nameServer.subscriptions.remove(sub);
                 }
@@ -1908,8 +2106,8 @@ public class cMsgDomainServer extends Thread {
                 return;
             }
 
-            cMsgCallbackAdapter cb = null;
-            cMsgNotifier notifier  = null;
+            cMsgCallbackAdapter cb;
+            cMsgNotifier notifier;
             holder.namespace = info.getNamespace();
 
             // We're in cMsg domain server cloud, so take care of connected server issues.
@@ -2121,7 +2319,7 @@ public class cMsgDomainServer extends Thread {
                     }
                 }
                 // get rid of this subscription if no more subscribers left
-                if (sub.numberOfSubscribers() < 1) {
+                if (sub != null && sub.numberOfSubscribers() < 1) {
 //System.out.println("    DS: removing sub object for sub&Get");
                     nameServer.subscriptions.remove(sub);
                 }
