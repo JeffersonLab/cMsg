@@ -112,7 +112,7 @@ public class CA extends cMsgDomainAdapter {
         }
     }
 
-
+    
     /** for dispatching callbacks */
     private class DispatchCB extends Thread {
 
