@@ -213,18 +213,22 @@ typedef struct cMsgDomain_t {
 } cMsgDomain;
 
 
-/** This structure contains information about a callback's context. */
-typedef struct cMsgCallbackContext_t {
+/**
+ * This structure contains information about a message's context
+ * including the callback context and the sending context.
+ */
+typedef struct cMsgMessageContext_t {
+  /* callback context stuff */
   char *domain;   /**< Subscription's domain (eg cMsg, CA, rc, File, etc). */
   char *subject;  /**< Subscription's subject. */
   char *type;     /**< Subscription's type. */
   char *udl;      /**< UDL of connection. */
   int  *cueSize;  /**< Callback's cue size. */
-    
-  /** Pointer to a structure containing domain specific data about callback's context. */
-  void *domainSpecificContext;
   
-} cMsgCallbackContext;
+  /* sending context stuff */  
+  int udpSend;    /**< if true (non-zero) use udp to send, else use TCP */
+  
+} cMsgMessageContext;
 
 
 /** This structure holds a message. */
@@ -268,8 +272,7 @@ typedef struct cMsg_t {
   int     receiverSubscribeId; /**< Unique id used by system in subscribes and subscribeAndGets. */  
 
   /* context */
-  cMsgCallbackContext *context;/**< Pointer to struct with info about context of callback
-                                    receiving this message. */
+  cMsgMessageContext context; /**< struct with info about context of this message. */
   
   struct cMsg_t *next; /**< For using messages in a linked list. */
 } cMsgMessage_t;

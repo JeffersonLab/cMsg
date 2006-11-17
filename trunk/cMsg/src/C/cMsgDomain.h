@@ -139,11 +139,13 @@ typedef struct cMsgDomainInfo_t {
   int gotConnection;   /**< Boolean telling if connection to cMsg server is good. */
   
   int sendSocket;      /**< File descriptor for TCP socket to send messages/requests on. */
+  int sendUdpSocket;   /**< File descriptor for UDP socket to send messages on. */
   int receiveSocket;   /**< File descriptor for TCP socket to receive request responses on. */
   int listenSocket;    /**< File descriptor for socket this program listens on for TCP connections. */
   int keepAliveSocket; /**< File descriptor for socket to tell if server is still alive or not. */
 
   int sendPort;        /**< Port to send messages to. */
+  int sendUdpPort;     /**< Port to send messages to with UDP protocol. */
   int listenPort;      /**< Port this program listens on for this domain's TCP connections. */
   
   /* subdomain handler attributes */

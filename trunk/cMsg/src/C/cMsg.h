@@ -203,13 +203,15 @@ extern "C" {
   
   int    cMsgSetByteArrayAndLimits(void *vmsg, char *array, int offset, int length);
   int    cMsgCopyByteArray        (void *vmsg, char *array, int offset, int length);
-  
+  /* message context stuff */
   int    cMsgGetSubscriptionDomain (void *vmsg, char **domain);
   int    cMsgGetSubscriptionSubject(void *vmsg, char **subject);
   int    cMsgGetSubscriptionType   (void *vmsg, char **type);
   int    cMsgGetSubscriptionUDL    (void *vmsg, char **udl);
   int    cMsgGetSubscriptionCueSize(void *vmsg, int   *size);
-
+  int    cMsgSetReliableSend       (void *vmsg, int boolean);
+  int    cMsgGetReliableSend       (void *vmsg, int *boolean);
+  /* ******************** */
   int    cMsgToString             (const void *vmsg, char **string);
 
 

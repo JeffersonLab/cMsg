@@ -391,11 +391,13 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
   domain->gotConnection       = 0;
       
   domain->sendSocket          = 0;
+  domain->sendUdpSocket       = 0;
   domain->receiveSocket       = 0;
   domain->listenSocket        = 0;
   domain->keepAliveSocket     = 0;
   
   domain->sendPort            = 0;
+  domain->sendUdpPort         = 0;
   domain->listenPort          = 0;
   
   domain->hasSend             = 0;
@@ -1049,7 +1051,6 @@ void *cMsgCallbackThread(void *arg)
     int numMsgs, numThreads;
     cMsgMessage_t *msg, *nextMsg;
     pthread_t thd;
-    cMsgCallbackContext *context;
     
     /* time_t now, t; *//* for printing msg cue size periodically */
     
@@ -1061,19 +1062,6 @@ void *cMsgCallbackThread(void *arg)
     /* for printing msg cue size periodically */
     /* now = time(NULL); */
     
-    /* define the context struct */
-    context = (cMsgCallbackContext *) calloc(1, sizeof(cMsgCallbackContext));
-    if (context == NULL) {
-        printf("Out of memory in cMsgCallbackThread\n");
-        exit(-1);
-    }
-    context->domain  = (char *) strdup("cMsg");
-    context->subject = (char *) strdup(sub->subject);
-    context->type    = (char *) strdup(sub->type);
-    context->udl     = (char *) strdup(domain->udl);
-    context->cueSize = &cback->messages; /* pointer to cueSize info allows it
-                                            to always be up-to-date in callback */
-        
     /* release system resources when thread finishes */
     pthread_detach(pthread_self());
 
@@ -1247,20 +1235,18 @@ void *cMsgCallbackThread(void *arg)
  */      
 
       /* run callback */
-      msg->context = context;
+      msg->context.domain  = (char *) strdup("cMsg");
+      msg->context.subject = (char *) strdup(sub->subject);
+      msg->context.type    = (char *) strdup(sub->type);
+      msg->context.udl     = (char *) strdup(domain->udl);
+      msg->context.cueSize = &cback->messages; /* pointer to cueSize info allows it
+                                                  to always be up-to-date in callback */
       cback->callback(msg, cback->userArg);
       
     } /* while(1) */
     
   end:
-    
-    /* free context */
-    free(context->domain);
-    free(context->subject);
-    free(context->type);
-    free(context->udl);
-    free(context);
-    
+        
     /* don't free arg as it is used for the unsubscribe handle */
     /*free(arg);*/     
     sun_setconcurrency(con);
@@ -1287,7 +1273,8 @@ void *cMsgSupplementalThread(void *arg)
     int subIndex = cbarg->subIndex;
     int cbIndex  = cbarg->cbIndex;
     cMsgDomainInfo *domain = cbarg->domain;
-    subscribeCbInfo *cback  = &domain->subscribeInfo[subIndex].cbInfo[cbIndex];
+    subInfo *sub           = &domain->subscribeInfo[subIndex];
+    subscribeCbInfo *cback = &domain->subscribeInfo[subIndex].cbInfo[cbIndex];
     int status, empty;
     cMsgMessage_t *msg, *nextMsg;
     struct timespec wait, timeout;
@@ -1435,6 +1422,12 @@ void *cMsgSupplementalThread(void *arg)
       }
 
       /* run callback */
+      msg->context.domain  = (char *) strdup("cMsg");
+      msg->context.subject = (char *) strdup(sub->subject);
+      msg->context.type    = (char *) strdup(sub->type);
+      msg->context.udl     = (char *) strdup(domain->udl);
+      msg->context.cueSize = &cback->messages; /* pointer to cueSize info allows it
+                                                  to always be up-to-date in callback */
       cback->callback(msg, cback->userArg);
       
     }

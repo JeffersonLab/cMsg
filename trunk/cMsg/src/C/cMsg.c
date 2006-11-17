@@ -1847,10 +1847,10 @@ static void initMessage(cMsgMessage_t *msg) {
     int endian;
     if (msg == NULL) return;
     
-    msg->version      = CMSG_VERSION_MAJOR;
-    msg->sysMsgId     = 0;
-    msg->bits         = 0;
-    msg->info         = 0;
+    msg->version  = CMSG_VERSION_MAJOR;
+    msg->sysMsgId = 0;
+    msg->bits     = 0;
+    msg->info     = 0;
     
     /* default is local endian */
     if (cMsgLocalByteOrder(&endian) == CMSG_OK) {
@@ -1862,12 +1862,12 @@ static void initMessage(cMsgMessage_t *msg) {
         }
     }
     
-    msg->domain       = NULL;
-    msg->creator      = NULL;
-    msg->subject      = NULL;
-    msg->type         = NULL;
-    msg->text         = NULL;
-    msg->byteArray    = NULL;
+    msg->domain    = NULL;
+    msg->creator   = NULL;
+    msg->subject   = NULL;
+    msg->type      = NULL;
+    msg->text      = NULL;
+    msg->byteArray = NULL;
     
     msg->byteArrayOffset  = 0;
     msg->byteArrayLength  = 0;
@@ -1888,7 +1888,12 @@ static void initMessage(cMsgMessage_t *msg) {
     msg->receiverTime.tv_nsec = 0;
     msg->receiverSubscribeId  = 0;
     
-    msg->context = NULL;
+    msg->context.domain  = NULL;
+    msg->context.subject = NULL;
+    msg->context.type    = NULL;
+    msg->context.udl     = NULL;
+    msg->context.cueSize = NULL;
+    msg->context.udpSend = 0;
 
     return;
   }
@@ -1920,6 +1925,12 @@ static int freeMessage(void *vmsg) {
   if (msg->senderHost   != NULL) {free(msg->senderHost);   msg->senderHost   = NULL;}
   if (msg->receiver     != NULL) {free(msg->receiver);     msg->receiver     = NULL;}
   if (msg->receiverHost != NULL) {free(msg->receiverHost); msg->receiverHost = NULL;}
+  
+  if (msg->context.domain  != NULL) {free(msg->context.domain);  msg->context.domain  = NULL;}
+  if (msg->context.subject != NULL) {free(msg->context.subject); msg->context.subject = NULL;}
+  if (msg->context.type    != NULL) {free(msg->context.type);    msg->context.type    = NULL;}
+  if (msg->context.udl     != NULL) {free(msg->context.udl);     msg->context.udl     = NULL;}
+  if (msg->context.cueSize != NULL) {                            msg->context.cueSize = NULL;}
 
   /* only free byte array if it was copied into the msg */
   if ((msg->byteArray != NULL) && ((msg->bits & CMSG_BYTE_ARRAY_IS_COPIED) > 0)) {
@@ -3407,14 +3418,11 @@ int cMsgGetSubscriptionDomain(void *vmsg, char **domain) {
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  if (msg->context == NULL ) {
-    *domain = NULL;
-  }
-  else if (msg->context->domain == NULL) {
+  if (msg->context.domain == NULL) {
     *domain = NULL;
   }
   else {
-    *domain = (char *) (strdup(msg->context->domain));
+    *domain = (char *) (strdup(msg->context.domain));
   }
   return(CMSG_OK);
 }
@@ -3440,14 +3448,11 @@ int cMsgGetSubscriptionSubject(void *vmsg, char **subject) {
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  if (msg->context == NULL ) {
-    *subject = NULL;
-  }
-  else if (msg->context->subject == NULL) {
+  if (msg->context.subject == NULL) {
     *subject = NULL;
   }
   else {
-    *subject = (char *) (strdup(msg->context->subject));
+    *subject = (char *) (strdup(msg->context.subject));
   }
   return(CMSG_OK);
 }
@@ -3474,14 +3479,11 @@ int cMsgGetSubscriptionType(void *vmsg, char **type) {
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  if (msg->context == NULL ) {
-    *type = NULL;
-  }
-  else if (msg->context->type == NULL) {
+  if (msg->context.type == NULL) {
     *type = NULL;
   }
   else {
-    *type = (char *) (strdup(msg->context->type));
+    *type = (char *) (strdup(msg->context.type));
   }
   return(CMSG_OK);
 }
@@ -3507,14 +3509,11 @@ int cMsgGetSubscriptionUDL(void *vmsg, char **udl) {
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  if (msg->context == NULL ) {
-    *udl = NULL;
-  }
-  else if (msg->context->udl == NULL) {
+  if (msg->context.udl == NULL) {
     *udl = NULL;
   }
   else {
-    *udl = (char *) (strdup(msg->context->udl));
+    *udl = (char *) (strdup(msg->context.udl));
   }
   return(CMSG_OK);
 }
@@ -3539,18 +3538,57 @@ int cMsgGetSubscriptionCueSize(void *vmsg, int *size) {
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  if (msg->context == NULL ) {
-    *size = -1;
-  }
-  else if (msg->context->cueSize == NULL) {
+  if (msg->context.cueSize == NULL) {
     *size = -1;
   }
   else {
-    *size = (*(msg->context->cueSize));
+    *size = (*(msg->context.cueSize));
   }
   return(CMSG_OK);
 }
 
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine sets whether the send will be reliable (default, TCP)
+ * or will be allowed to be unreliable (UDP).
+ *
+ * @param vmsg pointer to message
+ * @param boolean 0 if false (use UDP), anything else true (use TCP)
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgSetReliableSend(void *vmsg, int boolean) {
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  msg->context.udpSend = boolean == 0 ? 1 : 0;
+
+  return(CMSG_OK);
+}
+
+/**
+ * This routine gets whether the send will be reliable (default, TCP)
+ * or will be allowed to be unreliable (UDP).
+ *
+ * @param vmsg pointer to message
+ * @param boolean int pointer to be filled with 1 if true (TCP), else
+ *                0 (UDP)
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ */   
+int cMsgGetReliableSend(void *vmsg, int *boolean) {
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  *boolean = msg->context.udpSend == 1 ? 0 : 1;
+  return (CMSG_OK);
+}
 
 /*-------------------------------------------------------------------*/
 /*   subscribe config functions                                      */
