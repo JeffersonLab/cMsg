@@ -147,6 +147,7 @@ int main(int argc,char **argv) {
   msg = cMsgCreateMessage();    /* allocating mem here */
   cMsgSetSubject(msg, subject); /* allocating mem here */
   cMsgSetType(msg, type);       /* allocating mem here */
+ /* cMsgSetReliableSend(msg, 0);*/
   
   if (dostring) {
     printf("  try setting text to %s\n", text);
