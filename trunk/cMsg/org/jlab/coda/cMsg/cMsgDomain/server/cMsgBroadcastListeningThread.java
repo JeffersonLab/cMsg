@@ -142,7 +142,7 @@ public class cMsgBroadcastListeningThread extends Thread {
                 InetAddress clientAddress = packet.getAddress();
                 int clientUdpPort = packet.getPort();   // port to send response packet to
                 int msgType       = bytesToInt(buf, 0); // what type of broadcast is this ?
-                int passwordLen   = bytesToInt(buf, 4); // what type of broadcast is this ?
+                int passwordLen   = bytesToInt(buf, 4); // password length
                 // password
                 String pswd = null;
                 if (passwordLen > 0) {
@@ -198,8 +198,7 @@ public class cMsgBroadcastListeningThread extends Thread {
                 System.out.println("cMsgBroadcastListenThread: close broadcast socket, port = " + broadcastSocket.getLocalPort());
             }
 
-            // We're here if there is an IO error.
-            // Disconnect the server (kill this thread).
+            // We're here if there is an IO error. Close socket and kill this thread.
             broadcastSocket.close();
         }
 
