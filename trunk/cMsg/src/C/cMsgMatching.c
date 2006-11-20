@@ -74,9 +74,15 @@ char *cMsgStringEscape(const char *s) {
 
     /* First a quick test. Are there any chars in s that need escaping/replacing? */
     c = strpbrk(s, escapeChars);
-    /* Nothing there so return. */
+    /* Nothing there so just add ^ in front and $ on end and return. */
     if (c == NULL) {
-        return (char *)strdup(s);
+        len = strlen(s);
+        sub = (char *) calloc(1, len + 3);
+        if (sub == NULL) return NULL;
+        sub[0] = '^';
+        strcat(sub, s);
+        sub[len+1] = '$';
+        return (char *)strdup(sub);
     }
 
     /* There are chars that need to be escaped and/or chars
@@ -93,12 +99,11 @@ char *cMsgStringEscape(const char *s) {
      * string + 2 for beginning ^ and ending $ + 1 for ending null.
      */
     len = strlen(s);
-    sub = (char *) malloc(4*len + 3);
+    sub = (char *) calloc(1, 4*len + 3);
     if (sub == NULL) return NULL;
 
     /* init strings */
     sub[0] = '^';
-    sub[1] = '\0';
     catString[1] = '\0';
 
     for (i=0; i < len; i++) {
@@ -118,7 +123,6 @@ char *cMsgStringEscape(const char *s) {
     /* add "$" to end */
     len = strlen(sub);
     sub[len] = '$';
-    sub[len+1] = '\0';
     
     return sub;
 }
