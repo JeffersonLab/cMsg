@@ -402,7 +402,7 @@ public class cMsgClientListeningThread extends Thread {
             int lengthCreator = in.readInt();
             int lengthText = in.readInt();
             int lengthBinary = in.readInt();
-            acknowledge = in.readInt() == 1 ? true : false;
+            acknowledge = in.readInt() == 1;
 
             // bytes expected
             int stringBytesToRead = lengthSender + lengthSenderHost + lengthSubject +
