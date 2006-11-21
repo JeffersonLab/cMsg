@@ -740,7 +740,7 @@ public class cMsgDomainServer extends Thread {
     private class UdpSendHandler extends Thread {
 
          /** Allocate byte array once (used for reading in data) for efficiency's sake. */
-        byte[] buf = new byte[8192];
+        byte[] buf = new byte[cMsgNetworkConstants.biggestUdpPacketSize];
 
         /** Index into buffer of received UDP packet. */
         int bufIndex;
@@ -763,13 +763,13 @@ public class cMsgDomainServer extends Thread {
         public void run() {
 
             // create a packet to be written into
-            DatagramPacket packet = new DatagramPacket(buf, 8192);
+            DatagramPacket packet = new DatagramPacket(buf, cMsgNetworkConstants.biggestUdpPacketSize);
 
             // listen for broadcasts and interpret packets
             try {
                 while (true) {
                     if (killSpawnedThreads) return;
-                    packet.setLength(8192);
+                    packet.setLength(cMsgNetworkConstants.biggestUdpPacketSize);
                     udptSocket.receive(packet);
 //System.out.println("RECEIVED SEND AS UDP PACKET !!!");
                     // connect for speed and to keep out unwanted packets

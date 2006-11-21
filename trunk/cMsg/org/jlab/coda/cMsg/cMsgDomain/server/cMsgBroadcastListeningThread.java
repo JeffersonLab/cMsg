@@ -133,8 +133,11 @@ public class cMsgBroadcastListeningThread extends Thread {
             while (true) {
                 if (killThread) { return; }
 
+                packet.setLength(1024);
                 broadcastSocket.receive(packet);
-//System.out.println("RECEIVED CMSG DOMAIN BROADCAST PACKET !!!");
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("RECEIVED CMSG DOMAIN BROADCAST PACKET !!!");
+                }
 
                 if (killThread) { return; }
 
