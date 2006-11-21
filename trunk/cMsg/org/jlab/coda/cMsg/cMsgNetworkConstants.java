@@ -38,6 +38,8 @@ public class cMsgNetworkConstants {
     public static final int    tcpServerPort = 5432;
     /** UDP port at which a RunControl server listens for broadcasts. */
     public static final int    rcBroadcastPort = 6543;
+    /** TCP port at which a RunControl server listens for a client connection on. */
+    public static final int    rcServerPort = 6543;
     /** TCP port at which a RunControl server assumes a client is waiting for connections on. */
     public static final int    rcClientPort = 6543;
     /** UDP port at which a cMsg name server listens for broadcasts. */
@@ -47,5 +49,8 @@ public class cMsgNetworkConstants {
     public static final int    cMsgDomainBroadcast = 1;
     /** First int to send in UDP broadcast to server if RC domain. */
     public static final int    rcDomainBroadcast = 2;
+
+    /** The biggest single UDP packet size is 2^16 - IP 64 byte header - 8 byte UDP header. */
+    public static final int    biggestUdpPacketSize = 65463;
 
 }
