@@ -87,6 +87,7 @@ main(int argc, char **argv) {
 
   } catch (cMsgException e) {
     cerr << endl << e.toString() << endl << endl;
+    exit(EXIT_FAILURE);
   }
   
   
