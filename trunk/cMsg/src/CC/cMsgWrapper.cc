@@ -1,4 +1,5 @@
 // to do
+//   subscribe must lock list until done
 //   const args in C api?
 //   smart pointers?
 //   monitoring and control api functions

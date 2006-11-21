@@ -143,6 +143,7 @@ class cMsgCallback {
    * @version 1.0
    */
 
+
 public:
   virtual void callback(cMsgMessage *msg, void *userObject) = 0;
 };
@@ -243,6 +244,21 @@ public:
   virtual void shutdownClients(string &client, int flag) throw(cMsgException);
   virtual void shutdownServers(string &server, int flag) throw(cMsgException);
   virtual cMsgMessage *monitor(string &monString) throw(cMsgException);
+};
+
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+
+// allows a cMsg callback to dispatch to a member function
+template <class T> class cMsgDispatcher : public cMsgCallback {
+private:
+  T *t;
+  void (T::*mfp)(cMsgMessage *msg, void* userArg);
+public:
+  cMsgDispatcher(T *t, void (T::*mfp)(cMsgMessage *msg, void* userArg)) throw(cMsgException*) : t(t), mfp(mfp) {}
+  void callback(cMsgMessage *msg, void* userArg) throw(cMsgException) { (t->*mfp)(msg,userArg); }
 };
 
 
