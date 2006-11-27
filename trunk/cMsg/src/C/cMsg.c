@@ -134,7 +134,7 @@ static int   freeMessage(void *vmsg);
 #ifdef VXWORKS
 
 /** Implementation of strdup for vxWorks. */
-static char *strdup(const char *s1) {
+char *strdup(const char *s1) {
     char *s;    
     if (s1 == NULL) return NULL;    
     if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;    
@@ -142,7 +142,7 @@ static char *strdup(const char *s1) {
 }
 
 /** Implementation of strcasecmp for vxWorks. */
-static int strcasecmp(const char *s1, const char *s2) {
+int strcasecmp(const char *s1, const char *s2) {
   int i, len1, len2;
   
   /* handle NULL's */
