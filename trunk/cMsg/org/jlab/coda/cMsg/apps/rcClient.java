@@ -60,11 +60,43 @@ public class rcClient {
          // enable message reception
          cmsg.start();
 
-         // subscribe to subject/type
+         // subscribe to subject/type to receive from RC Server
          cMsgCallbackInterface cb = new myCallback();
          Object unsub = cmsg.subscribe("rcSubject", "rcType", cb, null);
 
-         try {Thread.sleep(8000); }
+         // send stuff to RC Server
+         cMsgMessage msg = new cMsgMessage();
+         msg.setSubject("subby");
+         msg.setType("typey");
+         msg.setText("Send with TCP");
+         int loops=5;
+         while (loops-->0) {
+             cmsg.send(msg);
+         }
+
+         msg.setText("Send with UDP");
+         msg.getContext().setReliableSend(false);
+         loops=5;
+         while (loops-->0) {
+             cmsg.send(msg);
+         }
+
+         try {Thread.sleep(5000); }
+         catch (InterruptedException e) {}
+
+         loops=5;
+         while (loops-->0) {
+             cmsg.send(msg);
+         }
+
+         msg.setText("Send with TCP");
+         msg.getContext().setReliableSend(true);
+         loops=5;
+         while (loops-->0) {
+             cmsg.send(msg);
+         }
+
+         try {Thread.sleep(10000); }
          catch (InterruptedException e) {}
 
          cmsg.stop();

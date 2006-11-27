@@ -96,7 +96,7 @@ int main(int argc,char **argv) {
   int   err, debug = 1;
   cMsgSubscribeConfig *config;
   void *unSubHandle, *msg;
-  int toggle = 2, loops = 10;
+  int toggle = 2, loops = 5;
   
   /* msg rate measuring variables */
   int             period = 2, ignore=0;
@@ -130,12 +130,6 @@ int main(int argc,char **argv) {
   
   /* set the subscribe configuration */
   config = cMsgSubscribeConfigCreate();
-  cMsgSubscribeSetMaxCueSize(config, 100);
-  cMsgSubscribeSetSkipSize(config, 20);
-  cMsgSubscribeSetMaySkip(config,0);
-  cMsgSubscribeSetMustSerialize(config, 1);
-  cMsgSubscribeSetMaxThreads(config, 10);
-  cMsgSubscribeSetMessagesPerThread(config, 150);
   cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
   
   /* subscribe */
@@ -150,43 +144,54 @@ int main(int argc,char **argv) {
   msg = cMsgCreateMessage();
   cMsgSetSubject(msg, "subby");
   cMsgSetType(msg, "typey");
+  cMsgSetText(msg, "send with TCP");
+  cMsgSetReliableSend(msg, 1);
     
-  while (loops-- > 0) {
-      count = 0;
-      
-      /* send udp msgs to rc server */
+  while (loops-- > 0) {      
+      /* send msgs to rc server */
       err = cMsgSend(domainId, msg);
       if (err != CMSG_OK) {
           printf("ERROR in sending message!!\n");
-          sleep(1);
           continue;
       }
-      
-      /* wait for messages */
-      sleep(period);
-      
-      /* calculate rate */
-      if (!ignore) {
-          totalT += period;
-          totalC += count;
-          freq    = (double)count/period;
-          freqAvg = totalC/totalT;
-          printf("count = %d, %9.1f Hz, %9.1f Hz Avg.\n", count, freq, freqAvg);
-      }
-      else {
-          ignore--;
-      }
-      
-      /* test unsubscribe */
-      /*
-      if (toggle++%2 == 0) {
-          cMsgUnSubscribe(domainId, unSubHandle);
-      }
-      else {
-          cMsgSubscribe(domainId, subject, type, callback, NULL, config, &unSubHandle);
-      }
-      */
   }
+    
+  sleep(1);
+  cMsgSetText(msg, "send with UDP");
+  cMsgSetReliableSend(msg, 0);
+  loops=5;
+  while (loops-- > 0) {      
+      err = cMsgSend(domainId, msg);
+      if (err != CMSG_OK) {
+          printf("ERROR in sending message!!\n");
+          continue;
+      }
+  }
+  
+  sleep(5);
+ 
+  loops=5;
+  while (loops-- > 0) {      
+      err = cMsgSend(domainId, msg);
+      if (err != CMSG_OK) {
+          printf("ERROR in sending message!!\n");
+          continue;
+      }
+  }
+  
+  
+  cMsgSetText(msg, "send with TCP");
+  cMsgSetReliableSend(msg, 1);
+  loops=5;
+  while (loops-- > 0) {      
+      err = cMsgSend(domainId, msg);
+      if (err != CMSG_OK) {
+          printf("ERROR in sending message!!\n");
+          continue;
+      }
+  }
+  
+  
 /*printf("rcClient try disconnect\n");*/
   cMsgDisconnect(&domainId);
 /*printf("rcClient done disconnect\n");*/
