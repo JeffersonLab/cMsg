@@ -31,7 +31,9 @@ public class RCBroadcastServer {
 
     class rcCallback extends cMsgCallbackAdapter {
         public void callback(cMsgMessage msg, Object userObject) {
-            System.out.println("RAN CALLBACK, count = " + count++);
+            count++;
+            String s = (String) userObject;
+            System.out.println("RAN CALLBACK, msg text = " + msg.getText() + ", for " + s);
         }
     }
 
@@ -69,6 +71,7 @@ public class RCBroadcastServer {
         cmsg.start();
 
         BroadcastCallback cb = new BroadcastCallback();
+        // subject and type are ignored in this domain
         cmsg.subscribe("sub", "type", cb, null);
 
         // wait for incoming message from rc client
@@ -109,27 +112,27 @@ public class RCBroadcastServer {
         server1.start();
 
         rcCallback cb2 = new rcCallback();
-        server1.subscribe("subby", "typey", cb2, null);
+        Object unsub = server1.subscribe("subby", "typey", cb2, "1st sub");
 
         int loops = 5;
         while(loops-- > 0) {
+            //System.out.println("Send command to rc client");
             server1.send(msg);
             try {Thread.sleep(500);}
             catch (InterruptedException e) {}
         }
+        server1.unsubscribe(unsub);
 
+
+        // test reconnect feature
         System.out.println("Now wait 2 seconds and connect again");
         try {Thread.sleep(2000);}
         catch (InterruptedException e) {}
 
-        // test reconnect feature
         cMsg server2 = new cMsg(rcsUDL, "rc server", "udp trial");
         server2.connect();
-
-        // enable message reception
         server2.start();
-
-        server2.subscribe("subby", "typey", cb2, null);
+        server2.subscribe("subby", "typey", cb2, "2nd sub");
 
         loops = 5;
         while(loops-- > 0) {
@@ -137,7 +140,7 @@ public class RCBroadcastServer {
             try {Thread.sleep(500);}
             catch (InterruptedException e) {}
         }
-
+        
 
     }
 
