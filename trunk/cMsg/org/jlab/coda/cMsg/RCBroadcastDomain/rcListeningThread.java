@@ -82,7 +82,6 @@ public class rcListeningThread extends Thread {
 
     /**
      * Constructor.
-     *
      * @param server rc server that created this object
      * @param port udp port on which to receive transmissions from rc clients
      */
@@ -112,16 +111,18 @@ public class rcListeningThread extends Thread {
         }
 
         // create a packet to be written into
-        byte[] buf = new byte[1024];
-        DatagramPacket packet = new DatagramPacket(buf, 1024);
+        byte[] buf = new byte[2048];
+        DatagramPacket packet = new DatagramPacket(buf, 2048);
 
         // listen for broadcasts and interpret packets
         try {
             while (true) {
                 if (killThread) { return; }
-
+                packet.setLength(2048);
                 broadcastSocket.receive(packet);
-System.out.println("RECEIVED BROADCAST PACKET !!!");
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("RECEIVED BROADCAST PACKET !!!");
+                }
 
                 if (killThread) { return; }
 
@@ -154,13 +155,17 @@ System.out.println("RECEIVED BROADCAST PACKET !!!");
                 }
                 catch (UnsupportedEncodingException e) {}
 
-System.out.println("clientHost = " + rcClientHost + ", UDP port = " + rcClientUdpPort +
-                   ", TCP port = " + rcClientTcpPort + ", name = " + clientName +
-                   ", expid = " + clientExpid);
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("clientHost = " + rcClientHost + ", UDP port = " + rcClientUdpPort +
+                        ", TCP port = " + rcClientTcpPort + ", name = " + clientName +
+                        ", expid = " + clientExpid);
+                }
 
                 // Check for conflicting expid's
                 if (!server.expid.equalsIgnoreCase(clientExpid)) {
-System.out.println("Conflicting EXPID's, ignoring");
+                    if (debug >= cMsgConstants.debugInfo) {
+                        System.out.println("Conflicting EXPID's, ignoring");
+                    }
                     continue;
                 }
 

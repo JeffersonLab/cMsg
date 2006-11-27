@@ -194,7 +194,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
         Pattern pattern = Pattern.compile("(\\d+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
-        String udlPort = null, remainder = null;
+        String udlPort, remainder;
 
         if (matcher.find()) {
             // port
@@ -307,7 +307,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
         type    = "t";
 
         cMsgCallbackThread cbThread = null;
-        cMsgSubscription newSub = null;
+        cMsgSubscription newSub;
 
         try {
             // cannot run this simultaneously with connect or disconnect
