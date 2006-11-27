@@ -11,7 +11,8 @@ JAVAC_FLAGS = -classpath $(TOPDIR)
 
 JAVA_OBJS = \
 	RCServer.class \
-	rcListeningThread.class
+	rcTcpListeningThread.class \
+	rcUdpListeningThread.class
 
 all: $(JAVA_OBJS)
 

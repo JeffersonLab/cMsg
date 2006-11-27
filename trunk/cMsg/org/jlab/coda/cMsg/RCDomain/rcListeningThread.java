@@ -12,8 +12,7 @@ import java.util.Iterator;
 import java.util.Date;
 import java.util.Set;
 import java.io.*;
-import java.net.Socket;
-import java.net.InetAddress;
+import java.net.*;
 
 /**
  * This class implements a runcontrol client's thread which listens for
@@ -25,7 +24,7 @@ import java.net.InetAddress;
 public class rcListeningThread extends Thread {
 
     /** Type of domain this is. */
-    private String domainType = "cMsg";
+    private String domainType = "rc";
 
     /** cMsg client that created this object. */
     private RunControl client;
@@ -258,29 +257,28 @@ public class rcListeningThread extends Thread {
                             // read the message
                             msg = readIncomingMessage();
 
-                            // We need 2 pieces of info from the server: 1) server's host,
-                            // 2) server's UDP port. These are in the message and must be
-                            // recorded in the client for future use.
-                            client.rcServerPort = msg.getUserInt();
+                            // We need 3 pieces of info from the server: 1) server's host,
+                            // 2) server's UDP port, 3) server's TCP port. These are in the
+                            // message and must be recorded in the client for future use.
                             client.rcServerAddress = InetAddress.getByName(msg.getSenderHost());
+                            String[] ports = msg.getText().split(":");
+                            client.rcUdpServerPort = Integer.parseInt(ports[0]);
+                            client.rcTcpServerPort = Integer.parseInt(ports[1]);
 
                             if (client.isConnected()) {
-//System.out.print("client already connected, kill thd ");
-                                // kill other thread waiting to read from the (dead) rc server
-                                /*
-                                for (ClientHandler h : handlerThreads) {
-                                    if (h == this) continue;
-//System.out.println(h);
-                                    h.interrupt();
-                                    try {h.channel.close();}
-                                    catch (IOException e) {}
-                                }
-                                */
-
                                 // Reestablish the broken socket.
                                 // Create a UDP "connection". This means security check is done only once
                                 // and communication with any other host/port is not allowed.
-                                client.udpSocket.connect(client.rcServerAddress, client.rcServerPort);
+                                client.udpSocket.connect(client.rcServerAddress, client.rcUdpServerPort);
+                                client.sendUdpPacket = new DatagramPacket(new byte[0], 0,
+                                                                          client.rcServerAddress, client.rcUdpServerPort);
+
+                                // create a TCP connection to the RC Server
+                                client.tcpSocket = new Socket(client.rcServerAddress, client.rcTcpServerPort);
+                                client.tcpSocket.setTcpNoDelay(true);
+                                client.tcpSocket.setSendBufferSize(65535);
+                                client.domainOut = new DataOutputStream(
+                                        new BufferedOutputStream(client.tcpSocket.getOutputStream(), 65536));
                             }
                             else {
 //System.out.println("client not connect yet");
@@ -308,7 +306,7 @@ public class rcListeningThread extends Thread {
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
-                    System.out.println("handleClient: I/O ERROR in cMsg client");
+                    System.out.println("handleClient: I/O ERROR in RC client");
                 }
 
                 // We're here if there is an IO error.
@@ -358,7 +356,7 @@ public class rcListeningThread extends Thread {
             int lengthCreator = in.readInt();
             int lengthText = in.readInt();
             int lengthBinary = in.readInt();
-            acknowledge = in.readInt() == 1 ? true : false;
+            acknowledge = in.readInt() == 1;
 
             // bytes expected
             int stringBytesToRead = lengthSender + lengthSenderHost + lengthSubject +

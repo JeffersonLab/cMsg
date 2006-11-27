@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.net.*;
 import java.io.*;
+import java.nio.channels.ServerSocketChannel;
 
 /**
  * This class implements the runcontrol server (rcs) domain.
@@ -58,11 +59,20 @@ public class RCServer extends cMsgDomainAdapter {
     /** UDP port on which to receive messages from the rc client. */
     int localUdpPort;
 
+    /** TCP port on which to receive messages from the rc client. */
+    int localTcpPort;
+
+    /** Thread that listens for TCP packets sent to this server. */
+    rcTcpListeningThread tcpListener;
+
     /** Thread that listens for UDP packets sent to this server. */
-    rcListeningThread listener;
+    rcUdpListeningThread udpListener;
 
     /** TCP socket over which to send rc commands to runcontrol client. */
     Socket socket;
+
+    /** TCP channel on which to listen for connections from runcontrol clients. */
+    ServerSocketChannel serverChannel;
 
     /** Buffered data output stream associated with {@link #socket}. */
     private DataOutputStream out;
@@ -164,8 +174,9 @@ public class RCServer extends cMsgDomainAdapter {
     /**
      * Method to connect to the rc client from this server.
      *
-     * @throws cMsgException if there are problems parsing the UDL or
-     *                       communication problems with the client
+     * @throws cMsgException if there are problems parsing the UDL,
+     *                       communication problems with the client,
+     *                       or cannot start up a TCP listening thread
      */
     public void connect() throws cMsgException {
 
@@ -186,17 +197,54 @@ public class RCServer extends cMsgDomainAdapter {
                 // Create an object to deliver messages to the RC client.
                 createTCPClientConnection(rcClientHost, rcClientPort);
 
+                // Create a TCP channel for accepting messages from the RC client.
+                createTCPServerChannel();
+
                 // Create a UDP socket for accepting messages from the RC client.
-                createUDPClientConnection();
+                createUDPClientSocket();
+
+                // Start listening for tcp connections
+                tcpListener = new rcTcpListeningThread(this, serverChannel);
+                tcpListener.start();
 
                 // Start listening for udp packets
-                listener = new rcListeningThread(this, receiveSocket);
-                listener.start();
+                udpListener = new rcUdpListeningThread(this, receiveSocket);
+                udpListener.start();
+
+                // Wait for indication listener threads are actually running before
+                // continuing on. These thread must be running before we talk to
+                // the client since the client tries to communicate with these
+                // listening threads.
+                synchronized (tcpListener) {
+                    if (!tcpListener.isAlive()) {
+                        try {
+                            tcpListener.wait();
+                        }
+                        catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+
+                // Wait for indication listener threads are actually running before
+                // continuing on. These thread must be running before we talk to
+                // the client since the client tries to communicate with these
+                // listening threads.
+                synchronized (udpListener) {
+                    if (!udpListener.isAlive()) {
+                        try {
+                            udpListener.wait();
+                        }
+                        catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
 
                 // Send a special message giving our host & udp port.
                 cMsgMessageFull msg = new cMsgMessageFull();
                 msg.setSenderHost(InetAddress.getLocalHost().getCanonicalHostName());
-                msg.setUserInt(localUdpPort);
+                msg.setText(localUdpPort+":"+localTcpPort);
                 deliverMessage(msg, cMsgConstants.msgRcConnect, true);
 
                 connected = true;
@@ -223,7 +271,8 @@ public class RCServer extends cMsgDomainAdapter {
         connectLock.lock();
 
         connected = false;
-        listener.killThread();
+        udpListener.killThread();
+        tcpListener.killThread();
         try { socket.close(); }
         catch (IOException e) {}
 
@@ -252,24 +301,65 @@ public class RCServer extends cMsgDomainAdapter {
 
 
     /**
-     * Creates a UDP socket to a runcontrol client.
+     * Creates a TCP listening socket for a runcontrol client to connect to.
      *
      * @throws IOException if socket cannot be created
      */
-    public void createUDPClientConnection() throws IOException {
+    public void createTCPServerChannel() throws IOException, cMsgException {
+
+        serverChannel = ServerSocketChannel.open();
+        ServerSocket listeningSocket = serverChannel.socket();
+        listeningSocket.setReuseAddress(true);
+
+        // start here looking for a port
+        localTcpPort = cMsgNetworkConstants.rcServerPort;
+
+        // At this point, find a port to bind to. If that isn't possible, throw
+        // an exception.
+        while (true) {
+            try {
+                listeningSocket.bind(new InetSocketAddress(localTcpPort));
+                break;
+            }
+            catch (IOException ex) {
+                // try another port by adding one
+                if (localTcpPort < 65535) {
+                    localTcpPort++;
+                    try { Thread.sleep(100);  }
+                    catch (InterruptedException e) {}
+                }
+                else {
+                    // close channel
+                    try { serverChannel.close(); }
+                    catch (IOException e) { }
+
+                    ex.printStackTrace();
+                    throw new cMsgException("connect: cannot find port to listen on", ex);
+                }
+            }
+        }
+    }
+
+
+    /**
+     * Creates a UDP receiving socket for a runcontrol client.
+     *
+     * @throws IOException if socket cannot be created
+     */
+    public void createUDPClientSocket() throws IOException {
         // Create a socket to listen for udp packets.
         // First try the port given in the UDL (if any).
         if (localUdpPort > 0) {
             try {
                 receiveSocket = new DatagramSocket(localUdpPort);
-//System.out.println("Listening on port " + localUdpPort);
+//System.out.println("Listening on UDP port " + localUdpPort);
                 return;
             }
             catch (SocketException e) {}
         }
         receiveSocket = new DatagramSocket();
         localUdpPort  = receiveSocket.getLocalPort();
-//System.out.println("Listening on port " + localUdpPort);
+//System.out.println("Listening on UDP port " + localUdpPort);
     }
 
 
@@ -301,7 +391,7 @@ public class RCServer extends cMsgDomainAdapter {
         Pattern pattern = Pattern.compile("((?:[a-zA-Z]+[\\w\\.\\-]*)|(?:[\\d]+\\.[\\d\\.]+)):?(\\d+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
-        String udlHost=null, udlPort=null, remainder=null, udpPort=null;
+        String udlHost, udlPort, remainder, udpPort=null;
 
         if (matcher.find()) {
             // host
@@ -514,12 +604,9 @@ public class RCServer extends cMsgDomainAdapter {
         if (getResponse) {
             int lengthClientName = in.readInt();
 
-            // string bytes expected
-            int stringBytesToRead = lengthClientName;
-
             // read all string bytes
-            byte[] bytes = new byte[stringBytesToRead];
-            in.readFully(bytes, 0, stringBytesToRead);
+            byte[] bytes = new byte[lengthClientName];
+            in.readFully(bytes, 0, lengthClientName);
 
             // read subject
             rcClientName = new String(bytes, 0, lengthClientName, "US-ASCII");
@@ -560,7 +647,7 @@ public class RCServer extends cMsgDomainAdapter {
         }
 
         cMsgCallbackThread cbThread = null;
-        cMsgSubscription newSub = null;
+        cMsgSubscription newSub;
 
         try {
             // cannot run this simultaneously with connect or disconnect
@@ -574,7 +661,7 @@ public class RCServer extends cMsgDomainAdapter {
 
             // add to callback list if subscription to same subject/type exists
 
-            int id = 0;
+            int id;
 
             // client listening thread may be interating thru subscriptions concurrently
             // and we may change set structure
