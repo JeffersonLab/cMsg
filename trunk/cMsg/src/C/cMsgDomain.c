@@ -1004,6 +1004,16 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
   servaddr.sin_family = AF_INET;
   servaddr.sin_port   = htons(domain->sendUdpPort);
 
+  if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
+    close(domain->keepAliveSocket);
+    close(domain->receiveSocket);
+    close(domain->sendSocket);
+    close(domain->sendUdpSocket);
+    pthread_cancel(domain->pendThread);
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgUdpConnect: host name error\n");
+    return(CMSG_SOCKET_ERROR);
+  }
+
   err = connect(domain->sendUdpSocket, (SA *) &servaddr, (socklen_t) sizeof(servaddr));
   if (err < 0) {
     close(domain->keepAliveSocket);
@@ -1402,7 +1412,7 @@ int cmsg_cmsg_send(void *domainId, const void *vmsg) {
     /* allocate more memory for message-sending buffer if necessary */
     if (domain->msgBufferSize < (int)(len+sizeof(int))) {
       free(domain->msgBuffer);
-      domain->msgBufferSize = len + 1004; /* give us 1kB extra */
+      domain->msgBufferSize = len + 1024; /* give us 1kB extra */
       domain->msgBuffer = (char *) malloc(domain->msgBufferSize);
       if (domain->msgBuffer == NULL) {
         cMsgSocketMutexUnlock(domain);
