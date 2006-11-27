@@ -100,6 +100,7 @@ static pthread_cond_t cond   = PTHREAD_COND_INITIALIZER;
 
 
 /* Local prototypes */
+static int   udpSend(void *domainId, const void *vmsg);
 static void  staticMutexLock(void);
 static void  staticMutexUnlock(void);
 static void *receiverThd(void *arg);
@@ -218,7 +219,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     struct timespec wait, time;
     struct sockaddr_in servaddr, addr;
     int    gotResponse=0;
-    const int on=1;
+    const int on=1, size=CMSG_SOCKBUFSIZE; /* bytes */
         
        
     /* clear array */
@@ -567,6 +568,16 @@ printf("Wait for 5 more seconds, then exit\n");
         
     cMsgMutexUnlock(&domain->rcConnectMutex);
 
+    /* create TCP sending socket and store */
+    if ( (err = cMsgTcpConnect(domain->sendHost,
+                               (unsigned short) domain->sendPort,
+                               &domain->sendSocket)) != CMSG_OK) {
+        pthread_cancel(domain->pendThread);
+        cMsgDomainFree(domain);
+        free(domain);
+        return(err);
+     }
+
     /*
      * Create a new UDP "connection". This means all subsequent sends are to
      * be done with the "send" and not the "sendto" function. The benefit is 
@@ -575,28 +586,47 @@ printf("Wait for 5 more seconds, then exit\n");
      */
     bzero((void *)&addr, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_port   = htons(domain->sendPort);
+    addr.sin_port   = htons(domain->sendUdpPort);
     
     /* create new UDP socket for sends */
-    close(domain->sendSocket); /* close old socket */
-    domain->sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (domain->sendSocket < 0) {
+    close(domain->sendUdpSocket); /* close old UDP socket */
+    domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
+domain->sendUdpSocket, domain->sendUdpPort);
+    if (domain->sendUdpSocket < 0) {
+        close(domain->sendSocket);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
         return(CMSG_SOCKET_ERROR);
     }
 
+    /* set send buffer size */
+    err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
+    if (err < 0) {
+        close(domain->sendUdpSocket);
+        close(domain->sendSocket);
+        pthread_cancel(domain->pendThread);
+        cMsgDomainFree(domain);
+        free(domain);
+        return(CMSG_SOCKET_ERROR);
+    }
+
+
     if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
+        close(domain->sendUdpSocket);
+        close(domain->sendSocket);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
         return(err);
     }
 
-/*printf("try UDP connection to port = %hu\n", ntohs(addr.sin_port));*/
-    err = connect(domain->sendSocket, (SA *)&addr, sizeof(addr));
+printf("try UDP connection to port = %hu\n", ntohs(addr.sin_port));
+    err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
     if (err < 0) {
+        close(domain->sendUdpSocket);
+        close(domain->sendSocket);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
@@ -703,133 +733,165 @@ static void *broadcastThd(void *arg) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-int cmsg_rc_send(void *domainId, const void *vmsg) {  
-
-    cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
-    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
-    char buffer[1510];
-    int err=CMSG_OK, len, lenText, lenSender, lenSubject, lenType, lenByteArray;
-    int highInt, lowInt, outGoing[14];
-    uint64_t llTime;
-    struct timespec now;
-     
-    if (domain == NULL) {
-      return(CMSG_BAD_ARGUMENT);
-    }
+int cmsg_rc_send(void *domainId, const void *vmsg) {
   
-    /* clear array */
-    bzero(buffer, 1510);
-        
-    /* check args */
-    if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-    
-    if ( (cMsgCheckString(msg->subject) != CMSG_OK ) ||
-         (cMsgCheckString(msg->type)    != CMSG_OK )    ) {
-      return(CMSG_BAD_ARGUMENT);
+  cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
+  cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+  int err=CMSG_OK, len, lenSender, lenSubject, lenType, lenText, lenByteArray;
+  int fd, highInt, lowInt, outGoing[14];
+  ssize_t sendLen;
+  uint64_t llTime;
+  struct timespec now;
+
+  
+  if (domain == NULL) {
+    return(CMSG_BAD_ARGUMENT);
+  }
+      
+  /* check args */
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  if ( (cMsgCheckString(msg->subject) != CMSG_OK ) ||
+       (cMsgCheckString(msg->type)    != CMSG_OK )    ) {
+    return(CMSG_BAD_ARGUMENT);
+  }
+  
+  if (msg->text == NULL) {
+    lenText = 0;
+  }
+  else {
+    lenText = strlen(msg->text);
+  }
+
+  if (!msg->context.udpSend) {
+    fd = domain->sendSocket;  
+  }
+  else {
+    fd = domain->sendUdpSocket;
+  }
+      
+
+  /* message id (in network byte order) to domain server */
+  outGoing[1] = htonl(CMSG_SUBSCRIBE_RESPONSE);
+  /* reserved for future use */
+  outGoing[2] = htonl(CMSG_VERSION_MAJOR);
+  /* user int */
+  outGoing[3] = htonl(msg->userInt);
+  /* bit info */
+  outGoing[4] = htonl(msg->info);
+
+  /* time message sent (right now) */
+  clock_gettime(CLOCK_REALTIME, &now);
+  /* convert to milliseconds */
+  llTime  = ((uint64_t)now.tv_sec * 1000) +
+            ((uint64_t)now.tv_nsec/1000000);
+  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  outGoing[5] = htonl(highInt);
+  outGoing[6] = htonl(lowInt);
+
+  /* user time */
+  llTime  = ((uint64_t)msg->userTime.tv_sec * 1000) +
+            ((uint64_t)msg->userTime.tv_nsec/1000000);
+  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  outGoing[7] = htonl(highInt);
+  outGoing[8] = htonl(lowInt);
+
+  /* length of "sender" string */
+  lenSender   = strlen(domain->name);
+  outGoing[9] = htonl(lenSender);
+
+  /* length of "subject" string */
+  lenSubject   = strlen(msg->subject);
+  outGoing[10] = htonl(lenSubject);
+
+  /* length of "type" string */
+  lenType      = strlen(msg->type);
+  outGoing[11] = htonl(lenType);
+
+  /* length of "text" string */
+  outGoing[12] = htonl(lenText);
+
+  /* length of byte array */
+  lenByteArray = msg->byteArrayLength;
+  outGoing[13] = htonl(lenByteArray);
+
+  /* total length of message (minus first int) is first item sent */
+  len = sizeof(outGoing) + lenSubject + lenType +
+        lenSender + lenText + lenByteArray;
+  outGoing[0] = htonl((int) (len - sizeof(int)));
+
+  if (len > BIGGEST_UDP_PACKET_SIZE) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cmsg_rc_send: packet size too big\n");
     }
+    return(CMSG_LIMIT_EXCEEDED);
+  }
 
-    if (msg->text == NULL) {
-      lenText = 0;
-    }
-    else {
-      lenText = strlen(msg->text);
-    }
-    
-    /* message id (in network byte order) to domain server */
-    outGoing[1] = htonl(CMSG_SUBSCRIBE_RESPONSE);
-    /* cMsg major version */
-    outGoing[2] = htonl(CMSG_VERSION_MAJOR);
-    /* user int */
-    outGoing[3] = htonl(msg->userInt);
-    /* bit info */
-    outGoing[4] = htonl(msg->info);
+  /* Cannot run this while connecting/disconnecting */
+  cMsgConnectReadLock(domain);
 
-    /* time message sent (right now) */
-    clock_gettime(CLOCK_REALTIME, &now);
-    /* convert to milliseconds */
-    llTime  = ((uint64_t)now.tv_sec * 1000) +
-              ((uint64_t)now.tv_nsec/1000000);
-    highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
-    lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
-    outGoing[5] = htonl(highInt);
-    outGoing[6] = htonl(lowInt);
-
-    /* user time */
-    llTime  = ((uint64_t)msg->userTime.tv_sec * 1000) +
-              ((uint64_t)msg->userTime.tv_nsec/1000000);
-    highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
-    lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
-    outGoing[7] = htonl(highInt);
-    outGoing[8] = htonl(lowInt);
-
-    /* length of "sender" string */
-    lenSender   = strlen(domain->name);
-    outGoing[9] = htonl(lenSender);
-    
-    /* length of "subject" string */
-    lenSubject  = strlen(msg->subject);
-    outGoing[10] = htonl(lenSubject);
-    
-    /* length of "type" string */
-    lenType      = strlen(msg->type);
-    outGoing[11] = htonl(lenType);
-
-    /* length of "text" string */
-    outGoing[12] = htonl(lenText);
-
-    /* length of byte array */
-    lenByteArray = msg->byteArrayLength;
-    outGoing[13] = htonl(lenByteArray);
-
-    /* total length of message (minus first int) is first item sent */
-    len = sizeof(outGoing) + lenSubject + lenType +
-          lenSender + lenText + lenByteArray;
-    outGoing[0] = htonl((int) (len - sizeof(int)));
-
-    if (len > 1500) {
-      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cmsg_rc_send: may NOT write > 1 packet (1500 bytes)\n");
-      }
-      return(CMSG_LIMIT_EXCEEDED);
-    }
-
-    /* copy data into a single static buffer */
-    memcpy(buffer,     (void *)outGoing, sizeof(outGoing));
-    len = sizeof(outGoing);
-    memcpy(buffer+len, (void *)domain->name, lenSender);
-    len += lenSender;
-    memcpy(buffer+len, (void *)msg->subject, lenSubject);
-    len += lenSubject;
-    memcpy(buffer+len, (void *)msg->type, lenType);
-    len += lenType;
-    memcpy(buffer+len, (void *)msg->text, lenText);
-    len += lenText;
-    memcpy(buffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
-    len += lenByteArray;   
-
-    /* Cannot run this while connecting/disconnecting */
-    cMsgConnectReadLock(domain);
-    
-    if (domain->gotConnection != 1) {
-      cMsgConnectReadUnlock(domain);
-      return(CMSG_LOST_CONNECTION);
-    }
-
-    /* Send data over (connected) socket. No mutex protection
-     * needed here since "write" is atomic and only sends a
-     * single packet.
-     */
-    if (cMsgTcpWrite(domain->sendSocket, (void *) buffer, len) != len) {
-      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cmsg_rc_send: write failure\n");
-      }
-      err = CMSG_NETWORK_ERROR;
-    }
-     
-    /* done protecting communications */
+  if (domain->gotConnection != 1) {
     cMsgConnectReadUnlock(domain);
-    
-    return(err);
+    return(CMSG_LOST_CONNECTION);
+  }
+
+  /* Make send socket communications thread-safe. That
+   * includes protecting the one buffer being used.
+   */
+  cMsgSocketMutexLock(domain);
+
+  /* allocate more memory for message-sending buffer if necessary */
+  if (domain->msgBufferSize < len) {
+    free(domain->msgBuffer);
+    domain->msgBufferSize = len + 1024; /* give us 1kB extra */
+    domain->msgBuffer = (char *) malloc(domain->msgBufferSize);
+    if (domain->msgBuffer == NULL) {
+      cMsgSocketMutexUnlock(domain);
+      cMsgConnectReadUnlock(domain);
+      return(CMSG_OUT_OF_MEMORY);
+    }
+  }
+
+  /* copy data into a single static buffer */
+  memcpy(domain->msgBuffer, (void *)outGoing, sizeof(outGoing));
+  len = sizeof(outGoing);
+  memcpy(domain->msgBuffer+len, (void *)domain->name, lenSender);
+  len += lenSender;
+  memcpy(domain->msgBuffer+len, (void *)msg->subject, lenSubject);
+  len += lenSubject;
+  memcpy(domain->msgBuffer+len, (void *)msg->type, lenType);
+  len += lenType;
+  memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
+  len += lenText;
+  memcpy(domain->msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
+  len += lenByteArray;   
+
+  if (!msg->context.udpSend) {
+printf("cmsg_rc_send: TCP, fd = %d\n", fd);
+   /* send data over TCP socket */
+    sendLen = cMsgTcpWrite(fd, (void *) domain->msgBuffer, len);
+  }
+  else {
+printf("cmsg_rc_send: UDP, fd = %d\n", fd);
+    /* send data over UDP socket */
+    sendLen = send(fd, (void *) domain->msgBuffer, len, 0);      
+  }
+  if (sendLen != len) {
+    cMsgSocketMutexUnlock(domain);
+    cMsgConnectReadUnlock(domain);
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cmsg_rc_send: write failure\n");
+    }
+    err = CMSG_NETWORK_ERROR;
+  }
+
+  /* done protecting communications */
+  cMsgSocketMutexUnlock(domain);
+  cMsgConnectReadUnlock(domain);
+  
+  return(err);
 }
 
 

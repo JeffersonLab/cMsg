@@ -647,6 +647,7 @@ static void *clientThread(void *arg)
       {
           cMsgMessage_t *message;
           int len, netLenName, lenName;
+          char *pchar;
           
 /*printf("clientThread %d: Got CMSG_RC_CONNECT message!!!\n", localCount);*/
           message = (cMsgMessage_t *) cMsgCreateMessage();
@@ -670,14 +671,25 @@ static void *clientThread(void *arg)
             goto end;
           }
           
-          /* We need 2 pieces of info from the server: 1) server's host,
-           * 2) server's UDP port. These are in the message and must be
-           * recorded in the domain structure for future use.
+          /* We need 3 pieces of info from the server: 1) server's host,
+           * 2) server's UDP port, 3) server's TCP port. These are in the
+           * message and must be recorded in the domain structure for future use.
            */
-          domain->sendPort = message->userInt;
+          pchar = strtok(message->text, ":");
+          if (pchar != NULL) {
+            domain->sendUdpPort = atoi(pchar);
+          }
+          
+          pchar = strtok('\0', ":"); 
+          if (pchar != NULL) {
+            domain->sendPort = atoi(pchar);
+          }
+          
           if (message->senderHost != NULL) {
               domain->sendHost = (char *) strdup(message->senderHost);
           }
+printf("clientThread %d: connecting, tcp port = %d, udp port = %d, senderHost = %s\n",
+localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
           
           /* First look to see if we are already connected.
            * If so, then the server must have died, been resurrected,
@@ -694,7 +706,7 @@ printf("clientThread %d: try to connect for first time\n", localCount);
             cMsgLatchCountDown(&domain->syncLatch, &wait);
           }
           else {
-//printf("clientThread %d: try to reconnect\n", localCount);
+printf("clientThread %d: try to reconnect\n", localCount);
             /*
              * Other thread waiting to read from the (dead) rc server
              * will automatically die because it will try to read from
@@ -706,7 +718,7 @@ printf("clientThread %d: try to connect for first time\n", localCount);
              * so client can communicate with server.
              */
              
-            /*
+           /*
              * Create a new UDP "connection". This means all subsequent sends are to
              * be done with the "send" and not the "sendto" function. The benefit is 
              * that the udp socket does not have to connect and disconnect for each
@@ -715,17 +727,27 @@ printf("clientThread %d: try to connect for first time\n", localCount);
             struct sockaddr_in addr;
             bzero((void *)&addr, sizeof(addr));
             addr.sin_family = AF_INET;
-            addr.sin_port   = htons(domain->sendPort);
+            addr.sin_port   = htons(domain->sendUdpPort);
 
             /* create new UDP socket for sends */
-            close(domain->sendSocket); /* close old socket */
-printf("clientThread %d: try recreating UDP socket for writing to server\n", localCount);
-            domain->sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
-            if (domain->sendSocket < 0) {
+            close(domain->sendUdpSocket); /* close old UDP socket */
+            domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
+       domain->sendUdpSocket, domain->sendUdpPort);
+            if (domain->sendUdpSocket < 0) {
                 cMsgFreeMessage((void **) &message);
                 printf("Error trying to recreate rc client's UDP send socket\n");
                 goto end;
             }
+
+            /* set send buffer size */
+            err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
+            if (err < 0) {
+                cMsgFreeMessage((void **) &message);
+                printf("Error trying to recreate rc client's UDP send socket\n");
+                goto end;
+            }
+
 
             if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
                 cMsgFreeMessage((void **) &message);
@@ -733,11 +755,20 @@ printf("clientThread %d: try recreating UDP socket for writing to server\n", loc
                 goto end;
             }
 
-printf("clientThread %d: try recreating UDP connection to port = %hu\n", localCount, ntohs(addr.sin_port));
-            err = connect(domain->sendSocket, (SA *)&addr, sizeof(addr));
+        printf("try UDP connection to port = %hu\n", ntohs(addr.sin_port));
+            err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
             if (err < 0) {
                 cMsgFreeMessage((void **) &message);
-                printf("Error trying to recreate rc client's UDP send connection\n");
+                printf("Error trying to recreate rc client's UDP send socket\n");
+                goto end;
+            }
+
+            /* create TCP sending socket and store */
+            if ( (err = cMsgTcpConnect(domain->sendHost,
+                                       (unsigned short) domain->sendPort,
+                                       &domain->sendSocket)) != CMSG_OK) {
+                cMsgFreeMessage((void **) &message);
+                printf("Error trying to recreate rc client's TCP send socket\n");
                 goto end;
             }
         }
@@ -768,7 +799,8 @@ printf("clientThread %d: try recreating UDP connection to port = %hu\n", localCo
           goto end;
         }
         free(returnBuf);
-      }
+ printf("clientThread %d: done connecting\n", localCount);
+     }
       break;
 
       default:

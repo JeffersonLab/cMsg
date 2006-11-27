@@ -102,6 +102,9 @@ extern "C" {
 /** UDP port at which a rc domain client looks for its server. */
 #define RC_BROADCAST_PORT 6543
 
+/** The biggest single UDP packet size is 2^16 - IP 64 byte header - 8 byte UDP header. */
+#define BIGGEST_UDP_PACKET_SIZE 65463
+
 /* socket and/or thread blocking options */
 #define CMSG_BLOCKING    0
 #define CMSG_NONBLOCKING 1
