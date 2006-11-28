@@ -175,17 +175,6 @@ static void *broadcastThd(void *arg);
 static int   connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
                                   char **host, int *port);
 
-#ifdef VXWORKS
-/** Implementation of strdup() to cover vxWorks operating system. */
-static char *strdup(const char *s1) {
-    char *s;    
-    if (s1 == NULL) return NULL;    
-    if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;    
-    return strcpy(s, s1);
-}
-#endif
-
-
 
 /*-------------------------------------------------------------------*/
 /**
@@ -706,9 +695,9 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
  * the server due to our initial broadcast.
  */
 static void *receiverThd(void *arg) {
-    int port, len;
+    int port;
     thdArg *threadArg = (thdArg *) arg;
-    char buf[1024], *pchar, *host;
+    char buf[1024], *pchar;
     
     /* zero buffer */
     pchar = memset(buf,0,1024);
@@ -2383,11 +2372,10 @@ static int unSendAndGet(void *domainId, int id) {
 int cmsg_cmsg_monitor(void *domainId, const char *command, void **replyMsg) {
     
   int err, len;
-  int fd, fdIn, highInt, lowInt, outGoing[2], inComing[3];
+  int fd, fdIn, outGoing[2], inComing[3];
   cMsgMessage_t *msg;
   cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
   uint64_t llTime;
-  struct timespec now;
   
     
   if (domain == NULL) {
@@ -4068,7 +4056,7 @@ static int parseUDL(const char *UDL, char **password,
                           int   *timeout) {
 
     int        i, err, Port, index;
-    int        mustBroadcast = 0, udpSend = 0;
+    int        mustBroadcast = 0;
     size_t     len, bufLength;
     char       *p, *udl, *udlLowerCase, *udlRemainder, *remain;
     char       *buffer;
@@ -4186,9 +4174,10 @@ static int parseUDL(const char *UDL, char **password,
             *broadcast = mustBroadcast;        
         }
     }
+    /*
 printf("parseUDL: host = %s\n", buffer);
 printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
-
+*/
 
     /* find port */
     if (matches[2].rm_so < 0) {
@@ -4221,7 +4210,7 @@ printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
     if (port != NULL) {
       *port = Port;
     }
-printf("parseUDL: port = %hu\n", Port );
+/*printf("parseUDL: port = %hu\n", Port );*/
 
 
     /* find subdomain */

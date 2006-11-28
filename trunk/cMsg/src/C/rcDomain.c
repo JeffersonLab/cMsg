@@ -103,7 +103,6 @@ static pthread_cond_t cond   = PTHREAD_COND_INITIALIZER;
 
 
 /* Local prototypes */
-static int   udpSend(void *domainId, const void *vmsg);
 static void  staticMutexLock(void);
 static void  staticMutexUnlock(void);
 static void *receiverThd(void *arg);
@@ -151,17 +150,6 @@ domainTypeInfo rcDomainTypeInfo = {
   "rc",
   &functions
 };
-
-#ifdef VXWORKS
-/** Implementation of strdup() to cover vxWorks operating system. */
-static char *strdup(const char *s1) {
-    char *s;    
-    if (s1 == NULL) return NULL;    
-    if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;    
-    return strcpy(s, s1);
-}
-#endif
-
 
 /*-------------------------------------------------------------------*/
 

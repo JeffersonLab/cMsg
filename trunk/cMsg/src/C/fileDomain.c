@@ -35,6 +35,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "cMsgPrivate.h"
@@ -42,17 +43,8 @@
 #include "cMsgNetwork.h"
 #include "rwlock.h"
 
-
-
-/** Implementation of strdup() to cover vxWorks operating system. */
 #ifdef VXWORKS
 #include <vxWorks.h>
-static char *strdup(const char *s1) {
-    char *s;    
-    if (s1 == NULL) return NULL;    
-    if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;    
-    return strcpy(s, s1);
-}
 #endif
 
 

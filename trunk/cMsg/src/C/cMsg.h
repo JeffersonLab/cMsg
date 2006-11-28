@@ -122,6 +122,12 @@ extern "C" {
 #endif
 
 
+#ifdef VXWORKS
+  char *strdup(const char *s1);
+  int   strcasecmp(const char *s1, const char *s2);
+#endif
+
+
   /* basic functions */
   int 	cMsgConnect           (const char *myUDL, const char *myName, const char *myDescription,
                                void **domainId);

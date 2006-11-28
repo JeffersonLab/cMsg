@@ -49,73 +49,6 @@ static int   cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *
 static int   cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static int   cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 
-#ifdef VXWORKS
-
-/** Implementation of strdup for vxWorks. */
-static char *strdup(const char *s1) {
-    char *s;    
-    if (s1 == NULL) return NULL;    
-    if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;    
-    return strcpy(s, s1);
-}
-
-/** Implementation of strcasecmp for vxWorks. */
-static int strcasecmp(const char *s1, const char *s2) {
-  int i, len1, len2;
-  
-  /* handle NULL's */
-  if (s1 == NULL && s2 == NULL) {
-    return 0;
-  }
-  else if (s1 == NULL) {
-    return -1;  
-  }
-  else if (s2 == NULL) {
-    return 1;  
-  }
-  
-  len1 = strlen(s1);
-  len2 = strlen(s2);
-  
-  /* handle different lengths */
-  if (len1 < len2) {
-    for (i=0; i<len1; i++) {
-      if (toupper((int) s1[i]) < toupper((int) s2[i])) {
-        return -1;
-      }
-      else if (toupper((int) s1[i]) > toupper((int) s2[i])) {
-         return 1;   
-      }
-    }
-    return -1;
-  }
-  else if (len1 > len2) {
-    for (i=0; i<len2; i++) {
-      if (toupper((int) s1[i]) < toupper((int) s2[i])) {
-        return -1;
-      }
-      else if (toupper((int) s1[i]) > toupper((int) s2[i])) {
-         return 1;   
-      }
-    }
-    return 1;  
-  }
-  
-  /* handle same lengths */
-  for (i=0; i<len1; i++) {
-    if (toupper((int) s1[i]) < toupper((int) s2[i])) {
-      return -1;
-    }
-    else if (toupper((int) s1[i]) > toupper((int) s2[i])) {
-       return 1;   
-    }
-  }
-  
-  return 0;
-}
-
-#endif
-
 
 /*-------------------------------------------------------------------*
  * The listening thread needs a pthread cancellation cleanup handler.
@@ -376,7 +309,7 @@ static void *clientThread(void *arg)
 {
   int  inComing[2];
   int  err, ok, size, msgId, connfd, connectionNumber, localCount=0;
-  int  con, index, otherIndex, acknowledge = 0;
+  int  con, index, acknowledge = 0;
   size_t bufSize;
   cMsgThreadInfo *info;
   char *buffer, *returnBuf, *domainType;
@@ -688,9 +621,10 @@ static void *clientThread(void *arg)
           if (message->senderHost != NULL) {
               domain->sendHost = (char *) strdup(message->senderHost);
           }
+          /*
 printf("clientThread %d: connecting, tcp port = %d, udp port = %d, senderHost = %s\n",
 localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
-          
+*/          
           /* First look to see if we are already connected.
            * If so, then the server must have died, been resurrected,
            * and is trying to RE-establish the connection.
@@ -698,7 +632,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
            * go ahead and complete the standard connection procedure.
            */
           if (domain->gotConnection == 0) {
-printf("clientThread %d: try to connect for first time\n", localCount);
+/*printf("clientThread %d: try to connect for first time\n", localCount);*/
             /* notify "connect" call that it may resume and end now */
             wait.tv_sec  = 1;
             wait.tv_nsec = 0;
@@ -706,7 +640,6 @@ printf("clientThread %d: try to connect for first time\n", localCount);
             cMsgLatchCountDown(&domain->syncLatch, &wait);
           }
           else {
-printf("clientThread %d: try to reconnect\n", localCount);
             /*
              * Other thread waiting to read from the (dead) rc server
              * will automatically die because it will try to read from
@@ -728,12 +661,13 @@ printf("clientThread %d: try to reconnect\n", localCount);
             bzero((void *)&addr, sizeof(addr));
             addr.sin_family = AF_INET;
             addr.sin_port   = htons(domain->sendUdpPort);
+/*printf("clientThread %d: try to reconnect\n", localCount);*/
 
             /* create new UDP socket for sends */
             close(domain->sendUdpSocket); /* close old UDP socket */
             domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
-printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
-       domain->sendUdpSocket, domain->sendUdpPort);
+/* printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
+       domain->sendUdpSocket, domain->sendUdpPort); */
             if (domain->sendUdpSocket < 0) {
                 cMsgFreeMessage((void **) &message);
                 printf("Error trying to recreate rc client's UDP send socket\n");
@@ -755,7 +689,7 @@ printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
                 goto end;
             }
 
-        printf("try UDP connection to port = %hu\n", ntohs(addr.sin_port));
+/*printf("try UDP connection to port = %hu\n", ntohs(addr.sin_port));*/
             err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
             if (err < 0) {
                 cMsgFreeMessage((void **) &message);
@@ -799,7 +733,6 @@ printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
           goto end;
         }
         free(returnBuf);
- printf("clientThread %d: done connecting\n", localCount);
      }
       break;
 
@@ -825,7 +758,7 @@ printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
     sun_setconcurrency(con - 1);
     
     /* release memory */
-printf("clientThread %d: exiting thread to server, free buffer\n", localCount);
+/*printf("clientThread %d: exiting thread to server, free buffer\n", localCount);*/
     free((void*)domain->msgInBuffer[index]);
     free(domainType);
     
