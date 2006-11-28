@@ -61,7 +61,6 @@
 #include "cMsgPrivate.h"
 #include "cMsg.h"
 #include "cMsgDomain.h"
-#include "errors.h"
 #include "rwlock.h"
 #include "regex.h"
 
@@ -602,7 +601,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
     
     status = pthread_create(&rThread, NULL, receiverThd, (void *)(&rArg));
     if (status != 0) {
-        err_abort(status, "Creating broadcast response receiving thread");
+        cmsg_err_abort(status, "Creating broadcast response receiving thread");
     }
     
     /* create and start a thread which will broadcast every second */
@@ -618,7 +617,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
     
     status = pthread_create(&bThread, NULL, broadcastThd, (void *)(&bArg));
     if (status != 0) {
-        err_abort(status, "Creating broadcast sending thread");
+        cmsg_err_abort(status, "Creating broadcast sending thread");
     }
     
     /* Wait for a response. If broadcastTO is given in the UDL, that is used.
@@ -634,7 +633,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
         
         status = pthread_mutex_lock(&mutex);
         if (status != 0) {
-            err_abort(status, "pthread_mutex_lock");
+            cmsg_err_abort(status, "pthread_mutex_lock");
         }
  
 /*printf("Wait %d seconds for broadcast to be answered\n", broadcastTO);*/
@@ -644,7 +643,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
           pthread_cancel(rThread);
         }
         else if (status != 0) {
-            err_abort(status, "pthread_cond_timedwait");
+            cmsg_err_abort(status, "pthread_cond_timedwait");
         }
         else {
             gotResponse = 1;
@@ -659,19 +658,19 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
         
         status = pthread_mutex_unlock(&mutex);
         if (status != 0) {
-            err_abort(status, "pthread_mutex_lock");
+            cmsg_err_abort(status, "pthread_mutex_lock");
         }
     }
     else {
         status = pthread_mutex_lock(&mutex);
         if (status != 0) {
-            err_abort(status, "pthread_mutex_lock");
+            cmsg_err_abort(status, "pthread_mutex_lock");
         }
  
 /*printf("Wait forever for broadcast to be answered\n");*/
         status = pthread_cond_wait(&cond, &mutex);
         if (status != 0) {
-            err_abort(status, "pthread_cond_timedwait");
+            cmsg_err_abort(status, "pthread_cond_timedwait");
         }
         gotResponse = 1;
         
@@ -685,7 +684,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
 
         status = pthread_mutex_unlock(&mutex);
         if (status != 0) {
-            err_abort(status, "pthread_mutex_lock");
+            cmsg_err_abort(status, "pthread_mutex_lock");
         }
     }
     
@@ -849,7 +848,7 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
   status = pthread_create(&domain->pendThread, NULL,
                           cMsgClientListeningThread, (void *) threadArg);
   if (status != 0) {
-    err_abort(status, "Creating message listening thread");
+    cmsg_err_abort(status, "Creating message listening thread");
   }
   
   /*
@@ -960,7 +959,7 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
   status = pthread_create(&domain->keepAliveThread, NULL,
                           keepAliveThread, (void *)domain);
   if (status != 0) {
-    err_abort(status, "Creating keep alive thread");
+    cmsg_err_abort(status, "Creating keep alive thread");
   }
      
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
@@ -1092,7 +1091,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
       /* wakeup the sendAndGet */
       status = pthread_cond_signal(&info->cond);
       if (status != 0) {
-        err_abort(status, "Failed get condition signal");
+        cmsg_err_abort(status, "Failed get condition signal");
       }
   }
 
@@ -1114,7 +1113,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
       /* wakeup the subscribeAndGet */      
       status = pthread_cond_signal(&info->cond);
       if (status != 0) {
-        err_abort(status, "Failed get condition signal");
+        cmsg_err_abort(status, "Failed get condition signal");
       }
       
   }           
@@ -1135,7 +1134,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   domain->killClientThread = 1;
   status = pthread_cond_signal(&domain->subscribeCond);
   if (status != 0) {
-    err_abort(status, "Failed callback condition signal");
+    cmsg_err_abort(status, "Failed callback condition signal");
   }
   nanosleep(&waitForThread, NULL);
   pthread_cancel(domain->clientThread[0]);
@@ -1849,7 +1848,7 @@ int cmsg_cmsg_subscribeAndGet(void *domainId, const char *subject, const char *t
   /* lock mutex */
   status = pthread_mutex_lock(&info->mutex);
   if (status != 0) {
-    err_abort(status, "Failed callback mutex lock");
+    cmsg_err_abort(status, "Failed callback mutex lock");
   }
 
   /* wait while there is no message */
@@ -1868,7 +1867,7 @@ int cmsg_cmsg_subscribeAndGet(void *domainId, const char *subject, const char *t
       break;
     }
     else if (status != 0) {
-      err_abort(status, "Failed callback cond wait");
+      cmsg_err_abort(status, "Failed callback cond wait");
     }
 
     /* quit if commanded to */
@@ -1880,7 +1879,7 @@ int cmsg_cmsg_subscribeAndGet(void *domainId, const char *subject, const char *t
   /* unlock mutex */
   status = pthread_mutex_unlock(&info->mutex);
   if (status != 0) {
-    err_abort(status, "Failed callback mutex unlock");
+    cmsg_err_abort(status, "Failed callback mutex unlock");
   }
 
   /* If we timed out, tell server to forget the get. */
@@ -2237,7 +2236,7 @@ int cmsg_cmsg_sendAndGet(void *domainId, const void *sendMsg, const struct times
   /* lock mutex */
   status = pthread_mutex_lock(&info->mutex);
   if (status != 0) {
-    err_abort(status, "Failed callback mutex lock");
+    cmsg_err_abort(status, "Failed callback mutex lock");
   }
 
   /* wait while there is no message */
@@ -2256,7 +2255,7 @@ int cmsg_cmsg_sendAndGet(void *domainId, const void *sendMsg, const struct times
       break;
     }
     else if (status != 0) {
-      err_abort(status, "Failed callback cond wait");
+      cmsg_err_abort(status, "Failed callback cond wait");
     }
 
     /* quit if commanded to */
@@ -2268,7 +2267,7 @@ int cmsg_cmsg_sendAndGet(void *domainId, const void *sendMsg, const struct times
   /* unlock mutex */
   status = pthread_mutex_unlock(&info->mutex);
   if (status != 0) {
-    err_abort(status, "Failed callback mutex unlock");
+    cmsg_err_abort(status, "Failed callback mutex unlock");
   }
 
   /* If we timed out, tell server to forget the get. */
@@ -2684,7 +2683,7 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
             status = pthread_create(&domain->subscribeInfo[i].cbInfo[j].thread,
                                     &threadAttribute, cMsgCallbackThread, (void *)cbarg);
             if (status != 0) {
-              err_abort(status, "Creating callback thread");
+              cmsg_err_abort(status, "Creating callback thread");
             }
 
             /* release allocated memory */
@@ -2776,7 +2775,7 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
       status = pthread_create(&domain->subscribeInfo[i].cbInfo[0].thread,
                               &threadAttribute, cMsgCallbackThread, (void *)cbarg);
       if (status != 0) {
-        err_abort(status, "Creating callback thread");
+        cmsg_err_abort(status, "Creating callback thread");
       }
 
       /* release allocated memory */
@@ -3157,7 +3156,7 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
     /* wakeup callback thread */
     status = pthread_cond_broadcast(&callbackInfo->cond);
     if (status != 0) {
-      err_abort(status, "Failed callback condition signal");
+      cmsg_err_abort(status, "Failed callback condition signal");
     }
     
     /*
@@ -3336,7 +3335,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
           /* wakeup callback thread */
           status = pthread_cond_broadcast(&subscription->cond);
           if (status != 0) {
-            err_abort(status, "Failed callback condition signal");
+            cmsg_err_abort(status, "Failed callback condition signal");
           }
 	}
       }
@@ -3358,7 +3357,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
   
     status = pthread_cond_signal(&info->cond);
     if (status != 0) {
-      err_abort(status, "Failed get condition signal");
+      cmsg_err_abort(status, "Failed get condition signal");
     }    
   }
   
@@ -3435,7 +3434,7 @@ static int disconnectFromKeepAlive(void **domainId) {
           /* wakeup callback thread */
           status = pthread_cond_broadcast(&subscription->cond);
           if (status != 0) {
-            err_abort(status, "Failed callback condition signal");
+            cmsg_err_abort(status, "Failed callback condition signal");
           }
 	}
       }
@@ -3457,7 +3456,7 @@ static int disconnectFromKeepAlive(void **domainId) {
   
     status = pthread_cond_signal(&info->cond);
     if (status != 0) {
-      err_abort(status, "Failed get condition signal");
+      cmsg_err_abort(status, "Failed get condition signal");
     }    
   }
   
@@ -4348,7 +4347,7 @@ static void staticMutexLock(void) {
 
   int status = pthread_mutex_lock(&generalMutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex lock");
+    cmsg_err_abort(status, "Failed mutex lock");
   }
 }
 
@@ -4363,7 +4362,7 @@ static void staticMutexUnlock(void) {
 
   int status = pthread_mutex_unlock(&generalMutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex unlock");
+    cmsg_err_abort(status, "Failed mutex unlock");
   }
 }
 

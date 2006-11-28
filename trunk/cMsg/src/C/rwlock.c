@@ -22,9 +22,9 @@
  * for write access, and returns EBUSY instead of blocking.
  */
 #include <pthread.h>
-#include "errors.h"
 #include "rwlock.h"
 
+#include <errno.h>
 
 
 /*

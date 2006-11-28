@@ -45,11 +45,14 @@
 #include <strings.h>
 #endif
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
 #include <time.h>
 #include <ctype.h>
 
-#include "errors.h"
 #include "cMsgPrivate.h"
 #include "cMsg.h"
 #include "cMsgNetwork.h"
@@ -318,7 +321,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     status = pthread_create(&domain->pendThread, NULL,
                             cMsgClientListeningThread, (void *) threadArg);
     if (status != 0) {
-        err_abort(status, "Creating TCP message listening thread");
+        cmsg_err_abort(status, "Creating TCP message listening thread");
     }
 
 /*
@@ -455,7 +458,7 @@ printf("Wait for 5 more seconds, then exit\n");
     
     status = pthread_create(&rThread, NULL, receiverThd, (void *)(&rArg));
     if (status != 0) {
-        err_abort(status, "Creating broadcast response receiving thread");
+        cmsg_err_abort(status, "Creating broadcast response receiving thread");
     }
     
     /* create and start a thread which will broadcast every second */
@@ -467,7 +470,7 @@ printf("Wait for 5 more seconds, then exit\n");
     
     status = pthread_create(&bThread, NULL, broadcastThd, (void *)(&bArg));
     if (status != 0) {
-        err_abort(status, "Creating broadcast sending thread");
+        cmsg_err_abort(status, "Creating broadcast sending thread");
     }
     
     /* Wait for a response. If broadcastTO is given in the UDL, use that.
@@ -482,7 +485,7 @@ printf("Wait for 5 more seconds, then exit\n");
         
         status = pthread_mutex_lock(&mutex);
         if (status != 0) {
-            err_abort(status, "pthread_mutex_lock");
+            cmsg_err_abort(status, "pthread_mutex_lock");
         }
  
 /*printf("Wait %d seconds for broadcast to be answered\n", broadcastTO);*/
@@ -492,7 +495,7 @@ printf("Wait for 5 more seconds, then exit\n");
           pthread_cancel(rThread);
         }
         else if (status != 0) {
-            err_abort(status, "pthread_cond_timedwait");
+            cmsg_err_abort(status, "pthread_cond_timedwait");
         }
         else {
             gotResponse = 1;
@@ -500,25 +503,25 @@ printf("Wait for 5 more seconds, then exit\n");
         
         status = pthread_mutex_unlock(&mutex);
         if (status != 0) {
-            err_abort(status, "pthread_mutex_lock");
+            cmsg_err_abort(status, "pthread_mutex_lock");
         }
     }
     else {
         status = pthread_mutex_lock(&mutex);
         if (status != 0) {
-            err_abort(status, "pthread_mutex_lock");
+            cmsg_err_abort(status, "pthread_mutex_lock");
         }
  
 /* printf("Wait forever for broadcast to be answered\n"); */ 
         status = pthread_cond_wait(&cond, &mutex);
         if (status != 0) {
-            err_abort(status, "pthread_cond_timedwait");
+            cmsg_err_abort(status, "pthread_cond_timedwait");
         }
         gotResponse = 1;
         
         status = pthread_mutex_unlock(&mutex);
         if (status != 0) {
-            err_abort(status, "pthread_mutex_lock");
+            cmsg_err_abort(status, "pthread_mutex_lock");
         }
     }
     
@@ -1067,7 +1070,7 @@ int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type, cMs
             status = pthread_create(&domain->subscribeInfo[i].cbInfo[j].thread,
                                     &threadAttribute, cMsgCallbackThread, (void *)cbarg);
             if (status != 0) {
-              err_abort(status, "Creating callback thread");
+              cmsg_err_abort(status, "Creating callback thread");
             }
 
             /* release allocated memory */
@@ -1147,7 +1150,7 @@ int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type, cMs
       status = pthread_create(&domain->subscribeInfo[i].cbInfo[0].thread,
                               &threadAttribute, cMsgCallbackThread, (void *)cbarg);
       if (status != 0) {
-        err_abort(status, "Creating callback thread");
+        cmsg_err_abort(status, "Creating callback thread");
       }
 
       /* release allocated memory */
@@ -1291,7 +1294,7 @@ int cmsg_rc_unsubscribe(void *domainId, void *handle) {
     /* wakeup callback thread */
     status = pthread_cond_broadcast(&callbackInfo->cond);
     if (status != 0) {
-      err_abort(status, "Failed callback condition signal");
+      cmsg_err_abort(status, "Failed callback condition signal");
     }
     
     /*
@@ -1428,7 +1431,7 @@ int cmsg_rc_disconnect(void **domainId) {
             /* wakeup callback thread */
             status = pthread_cond_broadcast(&subscription->cond);
             if (status != 0) {
-              err_abort(status, "Failed callback condition signal");
+              cmsg_err_abort(status, "Failed callback condition signal");
             }
 	  }
         }
@@ -1776,7 +1779,7 @@ static void staticMutexLock(void) {
 
   int status = pthread_mutex_lock(&generalMutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex lock");
+    cmsg_err_abort(status, "Failed mutex lock");
   }
 }
 
@@ -1791,6 +1794,6 @@ static void staticMutexUnlock(void) {
 
   int status = pthread_mutex_unlock(&generalMutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex unlock");
+    cmsg_err_abort(status, "Failed mutex unlock");
   }
 }

@@ -23,7 +23,6 @@
 
 #include "cMsg.h"
 #include "cMsgDomain.h"
-#include "errors.h"
 
 int count = 0;
 void *domainId;
@@ -32,27 +31,21 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /******************************************************************/
 static void callback(void *msg, void *arg) {
-  int status, userInt, cueSize;
+  int userInt, cueSize;
   struct timespec sleeep;
 
   sleeep.tv_sec  = 0;
   sleeep.tv_nsec = 10000000; /* 10 millisec */  
 
 
-  status = pthread_mutex_lock(&mutex);
-  if (status != 0) {
-    err_abort(status, "error grabbing mutex");
-  }
+  pthread_mutex_lock(&mutex);
   /*
   cMsgGetSubscriptionCueSize(msg, &cueSize);
   printf("%d\n",cueSize);
   */
   count++;
 
-  status = pthread_mutex_unlock(&mutex);
-  if (status != 0) {
-    err_abort(status, "error releasing mutex");
-  }
+  pthread_mutex_unlock(&mutex);
   /*nanosleep(&sleeep, NULL);*/
   
   /* user MUST free messages passed to the callback */

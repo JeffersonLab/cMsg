@@ -33,10 +33,12 @@
  *
  *----------------------------------------------------------------------------*/
 
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "cMsgPrivate.h"
 #include "cMsg.h"
-#include "errors.h"
 #include "cMsgNetwork.h"
 #include "rwlock.h"
 

@@ -56,7 +56,6 @@
 #include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
 #include "cMsg.h"
-#include "errors.h"
 #include "regex.h"
 
 /* set the debug level here */
@@ -349,13 +348,13 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
   /* make gethostbyname thread-safe */
   status = pthread_mutex_lock(&getHostByNameMutex);
   if (status != 0) {
-    err_abort(status, "Lock gethostbyname Mutex");
+    cmsg_err_abort(status, "Lock gethostbyname Mutex");
   }
    
   if ((hp = gethostbyname(ip_address)) == NULL) {
     status = pthread_mutex_unlock(&getHostByNameMutex);
     if (status != 0) {
-      err_abort(status, "Unlock gethostbyname Mutex");
+      cmsg_err_abort(status, "Unlock gethostbyname Mutex");
     }
     close(sockfd);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: hostname error - %s\n", cMsgHstrerror(h_errnop));
@@ -380,7 +379,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
    
   status = pthread_mutex_unlock(&getHostByNameMutex);
   if (status != 0) {
-    err_abort(status, "Unlock gethostbyname Mutex");
+    cmsg_err_abort(status, "Unlock gethostbyname Mutex");
   }
     
 #else
@@ -548,13 +547,13 @@ int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
   /* make gethostbyname thread-safe */
   status = pthread_mutex_lock(&getHostByNameMutex);
   if (status != 0) {
-    err_abort(status, "Lock gethostbyname Mutex");
+    cmsg_err_abort(status, "Lock gethostbyname Mutex");
   }
    
   if ((hp = gethostbyname(ip_address)) == NULL) {
     status = pthread_mutex_unlock(&getHostByNameMutex);
     if (status != 0) {
-      err_abort(status, "Unlock gethostbyname Mutex");
+      cmsg_err_abort(status, "Unlock gethostbyname Mutex");
     }
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cMsgStringToNumericIPaddr: hostname error - %s\n", cMsgHstrerror(h_errnop));
@@ -571,7 +570,7 @@ int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
    
   status = pthread_mutex_unlock(&getHostByNameMutex);
   if (status != 0) {
-    err_abort(status, "Unlock gethostbyname Mutex");
+    cmsg_err_abort(status, "Unlock gethostbyname Mutex");
   }
     
 #else
@@ -809,13 +808,13 @@ int cMsgLocalHost(char *host, int length)
   /* make gethostbyname thread-safe */
   status = pthread_mutex_lock(&getHostByNameMutex);
   if (status != 0) {
-    err_abort(status, "Lock gethostbyname Mutex");
+    cmsg_err_abort(status, "Lock gethostbyname Mutex");
   }   
 
   if ( (hptr = gethostbyname(myname.nodename)) == NULL) {
     status = pthread_mutex_unlock(&getHostByNameMutex);
     if (status != 0) {
-      err_abort(status, "Unlock gethostbyname Mutex");
+      cmsg_err_abort(status, "Unlock gethostbyname Mutex");
     }
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalHost: cannot find hostname\n");
     return(CMSG_ERROR);
@@ -827,7 +826,7 @@ int cMsgLocalHost(char *host, int length)
   
   status = pthread_mutex_unlock(&getHostByNameMutex);
   if (status != 0) {
-    err_abort(status, "Unlock gethostbyname Mutex");
+    cmsg_err_abort(status, "Unlock gethostbyname Mutex");
   }
 
   return(CMSG_OK);
@@ -884,13 +883,13 @@ int cMsgLocalAddress(char *address, int length)
   /* make gethostbyname thread-safe */
   status = pthread_mutex_lock(&getHostByNameMutex);
   if (status != 0) {
-    err_abort(status, "Lock gethostbyname Mutex");
+    cmsg_err_abort(status, "Lock gethostbyname Mutex");
   }   
 
   if ( (hptr = gethostbyname(myname.nodename)) == NULL) {
     status = pthread_mutex_unlock(&getHostByNameMutex);
     if (status != 0) {
-      err_abort(status, "Unlock gethostbyname Mutex");
+      cmsg_err_abort(status, "Unlock gethostbyname Mutex");
     }
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgLocalAddress: cannot find hostname\n");
     return(CMSG_ERROR);
@@ -904,7 +903,7 @@ int cMsgLocalAddress(char *address, int length)
   if (val == NULL) {
     status = pthread_mutex_unlock(&getHostByNameMutex);
     if (status != 0) {
-      err_abort(status, "Unlock gethostbyname Mutex");
+      cmsg_err_abort(status, "Unlock gethostbyname Mutex");
     }
     return(CMSG_ERROR);
   }
@@ -913,7 +912,7 @@ int cMsgLocalAddress(char *address, int length)
 
   status = pthread_mutex_unlock(&getHostByNameMutex);
   if (status != 0) {
-    err_abort(status, "Unlock gethostbyname Mutex");
+    cmsg_err_abort(status, "Unlock gethostbyname Mutex");
   }
   
   return(CMSG_OK);

@@ -22,7 +22,7 @@
 #include <pthread.h>
 
 #include "cMsg.h"
-#include "errors.h"
+#include "cMsgDomain.h"
 
 int count = 0, oldInt=-1;
 void *domainId;
@@ -31,7 +31,7 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /******************************************************************/
 static void callback(void *msg, void *arg) {
-  int status, userInt;
+  int userInt;
   struct timespec sleeep;
   
   sleeep.tv_sec  = 0;
@@ -40,10 +40,7 @@ static void callback(void *msg, void *arg) {
   sleeep.tv_nsec = 0;
   
   
-  status = pthread_mutex_lock(&mutex);
-  if (status != 0) {
-    err_abort(status, "error grabbing mutex");
-  }
+  pthread_mutex_lock(&mutex);
   
   count++;
   /*printf("Running callback, count = %d\n", count);*/
@@ -57,10 +54,7 @@ static void callback(void *msg, void *arg) {
   
   oldInt = userInt;
   */  
-  status = pthread_mutex_unlock(&mutex);
-  if (status != 0) {
-    err_abort(status, "error releasing mutex");
-  }
+  pthread_mutex_unlock(&mutex);
   
   /* user MUST free messages passed to the callback */
   cMsgFreeMessage(&msg);

@@ -29,10 +29,10 @@
 
 #include <stdio.h>
 #include <errno.h>
+#include <string.h>
 #include <pthread.h>
 #include <time.h>
 
-#include "errors.h"
 #include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
 #include "cMsg.h"
@@ -204,10 +204,10 @@ void *cMsgClientListeningThread(void *arg)
     
   /* get thread attribute ready */
   if ( (status = pthread_attr_init(&attr)) != 0) {
-    err_abort(status, "Init thread attribute");
+    cmsg_err_abort(status, "Init thread attribute");
   }
   if ( (status = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) != 0) {
-    err_abort(status, "Set thread state detached");
+    cmsg_err_abort(status, "Set thread state detached");
   }
   
   /* enable pthread cancellation at deferred points like pthread_testcancel */
@@ -335,7 +335,7 @@ void *cMsgClientListeningThread(void *arg)
      */
     status = pthread_create(&domain->clientThread[index], &attr, clientThread, (void *) pinfo);
     if (status != 0) {
-      err_abort(status, "Create client thread");
+      cmsg_err_abort(status, "Create client thread");
     }
     
     /* Keep track of threads that were started for use by cleanup handler. */
@@ -1129,7 +1129,7 @@ static int cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
       /* wakeup "get" */      
       status = pthread_cond_signal(&info->cond);
       if (status != 0) {
-        err_abort(status, "Failed get condition signal");
+        cmsg_err_abort(status, "Failed get condition signal");
       }
       
       /* only 1 receiver gets this message */
@@ -1200,7 +1200,7 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
       /* wakeup "get" */      
       status = pthread_cond_signal(&info->cond);
       if (status != 0) {
-        err_abort(status, "Failed get condition signal");
+        cmsg_err_abort(status, "Failed get condition signal");
       }
       
     }
@@ -1334,7 +1334,7 @@ fprintf(stderr, "cMsgRunCallbacks: will grab mutex, %p\n", &cback->mutex); */
                   }
                   /* else if error */
                   else if (status != 0) {
-                    err_abort(status, "Failed callback cond wait");
+                    cmsg_err_abort(status, "Failed callback cond wait");
                   }
                   /* else woken up 'cause msg taken off cue */
                   else {
@@ -1385,7 +1385,7 @@ printf("cMsgRunCallbacks: will UNLOCK mutex\n"); */
         /* wakeup callback thread */
         status = pthread_cond_broadcast(&cback->cond);
         if (status != 0) {
-          err_abort(status, "Failed callback condition signal");
+          cmsg_err_abort(status, "Failed callback condition signal");
         }
 
       } /* search callback list */

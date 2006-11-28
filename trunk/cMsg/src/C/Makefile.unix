@@ -84,7 +84,7 @@ OBJS =  sunConcurrency.o \
 	cMsgDomain.o \
 	rcDomain.o
 
-HFILES = rwlock.h errors.h cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsg.h cMsgDomain.h rcDomain.h
+HFILES = rwlock.h cMsgNetwork.h cMsgPrivate.h cMsgConstants.h cMsg.h cMsgDomain.h rcDomain.h
 
 PROGS  = producer consumer getConsumer getResponder shutdowner rcClient monitor
 

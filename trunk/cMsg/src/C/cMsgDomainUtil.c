@@ -33,11 +33,12 @@
 #include <vxWorks.h>
 #endif
 
+#include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <ctype.h>
 
-#include "errors.h"
 #include "cMsgPrivate.h"
 #include "cMsg.h"
 #include "cMsgNetwork.h"
@@ -63,7 +64,7 @@ void cMsgMutexLock(pthread_mutex_t *mutex) {
 
   int status = pthread_mutex_lock(mutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex lock");
+    cmsg_err_abort(status, "Failed mutex lock");
   }
 }
 
@@ -76,7 +77,7 @@ void cMsgMutexUnlock(pthread_mutex_t *mutex) {
 
   int status = pthread_mutex_unlock(mutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex unlock");
+    cmsg_err_abort(status, "Failed mutex unlock");
   }
 }
 
@@ -94,7 +95,7 @@ void cMsgConnectReadLock(cMsgDomainInfo *domain) {
 
   int status = rwl_readlock(&domain->connectLock);
   if (status != 0) {
-    err_abort(status, "Failed read lock");
+    cmsg_err_abort(status, "Failed read lock");
   }
 }
 
@@ -112,7 +113,7 @@ void cMsgConnectReadUnlock(cMsgDomainInfo *domain) {
 
   int status = rwl_readunlock(&domain->connectLock);
   if (status != 0) {
-    err_abort(status, "Failed read unlock");
+    cmsg_err_abort(status, "Failed read unlock");
   }
 }
 
@@ -130,7 +131,7 @@ void cMsgConnectWriteLock(cMsgDomainInfo *domain) {
 
   int status = rwl_writelock(&domain->connectLock);
   if (status != 0) {
-    err_abort(status, "Failed read lock");
+    cmsg_err_abort(status, "Failed read lock");
   }
 }
 
@@ -148,7 +149,7 @@ void cMsgConnectWriteUnlock(cMsgDomainInfo *domain) {
 
   int status = rwl_writeunlock(&domain->connectLock);
   if (status != 0) {
-    err_abort(status, "Failed read unlock");
+    cmsg_err_abort(status, "Failed read unlock");
   }
 }
 
@@ -164,7 +165,7 @@ void cMsgSocketMutexLock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_lock(&domain->socketMutex);
   if (status != 0) {
-    err_abort(status, "Failed socket mutex lock");
+    cmsg_err_abort(status, "Failed socket mutex lock");
   }
 }
 
@@ -180,7 +181,7 @@ void cMsgSocketMutexUnlock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_unlock(&domain->socketMutex);
   if (status != 0) {
-    err_abort(status, "Failed socket mutex unlock");
+    cmsg_err_abort(status, "Failed socket mutex unlock");
   }
 }
 
@@ -193,7 +194,7 @@ void cMsgSyncSendMutexLock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_lock(&domain->syncSendMutex);
   if (status != 0) {
-    err_abort(status, "Failed syncSend mutex lock");
+    cmsg_err_abort(status, "Failed syncSend mutex lock");
   }
 }
 
@@ -206,7 +207,7 @@ void cMsgSyncSendMutexUnlock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_unlock(&domain->syncSendMutex);
   if (status != 0) {
-    err_abort(status, "Failed syncSend mutex unlock");
+    cmsg_err_abort(status, "Failed syncSend mutex unlock");
   }
 }
 
@@ -222,7 +223,7 @@ void cMsgSubscribeMutexLock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_lock(&domain->subscribeMutex);
   if (status != 0) {
-    err_abort(status, "Failed subscribe mutex lock");
+    cmsg_err_abort(status, "Failed subscribe mutex lock");
   }
 }
 
@@ -238,7 +239,7 @@ void cMsgSubscribeMutexUnlock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_unlock(&domain->subscribeMutex);
   if (status != 0) {
-    err_abort(status, "Failed subscribe mutex unlock");
+    cmsg_err_abort(status, "Failed subscribe mutex unlock");
   }
 }
 
@@ -323,11 +324,11 @@ static void getInfoInit(getInfo *info) {
     
     status = pthread_cond_init(&info->cond, NULL);
     if (status != 0) {
-      err_abort(status, "getInfoInit:initializing condition var");
+      cmsg_err_abort(status, "getInfoInit:initializing condition var");
     }
     status = pthread_mutex_init(&info->mutex, NULL);
     if (status != 0) {
-      err_abort(status, "getInfoInit:initializing mutex");
+      cmsg_err_abort(status, "getInfoInit:initializing mutex");
     }
 }
 
@@ -367,12 +368,12 @@ static void subscribeInfoInit(subInfo *info) {
       
       status = pthread_cond_init (&info->cbInfo[j].cond,  NULL);
       if (status != 0) {
-        err_abort(status, "subscribeInfoInit:initializing condition var");
+        cmsg_err_abort(status, "subscribeInfoInit:initializing condition var");
       }
       
       status = pthread_mutex_init(&info->cbInfo[j].mutex, NULL);
       if (status != 0) {
-        err_abort(status, "subscribeInfoInit:initializing mutex");
+        cmsg_err_abort(status, "subscribeInfoInit:initializing mutex");
       }
     }
 }
@@ -451,37 +452,37 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
 
   status = rwl_init(&domain->connectLock);
   if (status != 0) {
-    err_abort(status, "cMsgDomainInit:initializing connect read/write lock");
+    cmsg_err_abort(status, "cMsgDomainInit:initializing connect read/write lock");
   }
   
   status = pthread_mutex_init(&domain->socketMutex, NULL);
   if (status != 0) {
-    err_abort(status, "cMsgDomainInit:initializing socket mutex");
+    cmsg_err_abort(status, "cMsgDomainInit:initializing socket mutex");
   }
   
   status = pthread_mutex_init(&domain->syncSendMutex, NULL);
   if (status != 0) {
-    err_abort(status, "cMsgDomainInit:initializing sync send mutex");
+    cmsg_err_abort(status, "cMsgDomainInit:initializing sync send mutex");
   }
   
   status = pthread_mutex_init(&domain->subscribeMutex, NULL);
   if (status != 0) {
-    err_abort(status, "cMsgDomainInit:initializing subscribe mutex");
+    cmsg_err_abort(status, "cMsgDomainInit:initializing subscribe mutex");
   }
   
   status = pthread_cond_init (&domain->subscribeCond,  NULL);
   if (status != 0) {
-    err_abort(status, "cMsgDomainInit:initializing condition var");
+    cmsg_err_abort(status, "cMsgDomainInit:initializing condition var");
   }
       
   status = pthread_mutex_init(&domain->rcConnectMutex, NULL);
   if (status != 0) {
-    err_abort(status, "cMsgDomainInit:initializing rc connect mutex");
+    cmsg_err_abort(status, "cMsgDomainInit:initializing rc connect mutex");
   }
   
   status = pthread_cond_init (&domain->rcConnectCond,  NULL);
   if (status != 0) {
-    err_abort(status, "cMsgDomainInit:initializing rc connect condition var");
+    cmsg_err_abort(status, "cMsgDomainInit:initializing rc connect condition var");
   }
       
 }
@@ -502,12 +503,12 @@ static void subscribeInfoFree(subInfo *info) {
     for (j=0; j<CMSG_MAX_CALLBACK; j++) {
       status = pthread_cond_destroy (&info->cbInfo[j].cond);
       if (status != 0) {
-        err_abort(status, "subscribeInfoFree:destroying cond var");
+        cmsg_err_abort(status, "subscribeInfoFree:destroying cond var");
       }
   
       status = pthread_mutex_destroy(&info->cbInfo[j].mutex);
       if (status != 0) {
-        err_abort(status, "subscribeInfoFree:destroying mutex");
+        cmsg_err_abort(status, "subscribeInfoFree:destroying mutex");
       }
   
     }
@@ -542,12 +543,12 @@ static void getInfoFree(getInfo *info) {
     
     status = pthread_cond_destroy (&info->cond);
     if (status != 0) {
-      err_abort(status, "getInfoFree:destroying cond var");
+      cmsg_err_abort(status, "getInfoFree:destroying cond var");
     }
     
     status = pthread_mutex_destroy(&info->mutex);
     if (status != 0) {
-      err_abort(status, "getInfoFree:destroying cond var");
+      cmsg_err_abort(status, "getInfoFree:destroying cond var");
     }
 #endif
     
@@ -613,37 +614,37 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
   /* cannot destroy mutexes in vxworks & Linux(?) */
   status = pthread_mutex_destroy(&domain->socketMutex);
   if (status != 0) {
-    err_abort(status, "cMsgDomainFree:destroying socket mutex");
+    cmsg_err_abort(status, "cMsgDomainFree:destroying socket mutex");
   }
   
   status = pthread_mutex_destroy(&domain->syncSendMutex);
   if (status != 0) {
-    err_abort(status, "cMsgDomainFree:destroying sync send mutex");
+    cmsg_err_abort(status, "cMsgDomainFree:destroying sync send mutex");
   }
   
   status = pthread_mutex_destroy(&domain->subscribeMutex);
   if (status != 0) {
-    err_abort(status, "cMsgDomainFree:destroying subscribe mutex");
+    cmsg_err_abort(status, "cMsgDomainFree:destroying subscribe mutex");
   }
   
   status = pthread_cond_destroy (&domain->subscribeCond);
   if (status != 0) {
-    err_abort(status, "cMsgDomainFree:destroying cond var");
+    cmsg_err_abort(status, "cMsgDomainFree:destroying cond var");
   }
     
   status = pthread_mutex_destroy(&domain->rcConnectMutex);
   if (status != 0) {
-    err_abort(status, "cMsgDomainFree:destroying rc connect mutex");
+    cmsg_err_abort(status, "cMsgDomainFree:destroying rc connect mutex");
   }
   
   status = pthread_cond_destroy (&domain->rcConnectCond);
   if (status != 0) {
-    err_abort(status, "cMsgDomainFree:destroying rc connect cond var");
+    cmsg_err_abort(status, "cMsgDomainFree:destroying rc connect cond var");
   }
     
   status = rwl_destroy (&domain->connectLock);
   if (status != 0) {
-    err_abort(status, "cMsgDomainFree:destroying connect read/write lock");
+    cmsg_err_abort(status, "cMsgDomainFree:destroying connect read/write lock");
   }
     
 #endif
@@ -690,17 +691,17 @@ void cMsgCountDownLatchInit(countDownLatch *latch, int count) {
     
     status = pthread_mutex_init(&latch->mutex, NULL);
     if (status != 0) {
-      err_abort(status, "countDownLatchInit:initializing mutex");
+      cmsg_err_abort(status, "countDownLatchInit:initializing mutex");
     }
         
     status = pthread_cond_init(&latch->countCond, NULL);
     if (status != 0) {
-      err_abort(status, "countDownLatchInit:initializing condition var");
+      cmsg_err_abort(status, "countDownLatchInit:initializing condition var");
     } 
        
     status = pthread_cond_init(&latch->notifyCond, NULL);
     if (status != 0) {
-      err_abort(status, "countDownLatchInit:initializing condition var");
+      cmsg_err_abort(status, "countDownLatchInit:initializing condition var");
     }    
 }
 
@@ -719,17 +720,17 @@ void cMsgCountDownLatchFree(countDownLatch *latch) {
     
     status = pthread_mutex_destroy(&latch->mutex);
     if (status != 0) {
-      err_abort(status, "countDownLatchFree:destroying cond var");
+      cmsg_err_abort(status, "countDownLatchFree:destroying cond var");
     }
     
     status = pthread_cond_destroy (&latch->countCond);
     if (status != 0) {
-      err_abort(status, "countDownLatchFree:destroying cond var");
+      cmsg_err_abort(status, "countDownLatchFree:destroying cond var");
     }
     
     status = pthread_cond_destroy (&latch->notifyCond);
     if (status != 0) {
-      err_abort(status, "countDownLatchFree:destroying cond var");
+      cmsg_err_abort(status, "countDownLatchFree:destroying cond var");
     }
     
 #endif   
@@ -759,7 +760,7 @@ int cMsgLatchAwait(countDownLatch *latch, const struct timespec *timeout) {
   /* Lock mutex */
   status = pthread_mutex_lock(&latch->mutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex lock");
+    cmsg_err_abort(status, "Failed mutex lock");
   }
   
   /* if latch is being reset, return -1 (error) */
@@ -767,7 +768,7 @@ int cMsgLatchAwait(countDownLatch *latch, const struct timespec *timeout) {
 /* printf("    cMsgLatchAwait: resetting so return -1\n"); */
     status = pthread_mutex_unlock(&latch->mutex);
     if (status != 0) {
-      err_abort(status, "Failed mutex unlock");
+      cmsg_err_abort(status, "Failed mutex unlock");
     }
 
     return -1;  
@@ -777,7 +778,7 @@ int cMsgLatchAwait(countDownLatch *latch, const struct timespec *timeout) {
 /* printf("    cMsgLatchAwait: count is already 0 so return 1\n"); */
     status = pthread_mutex_unlock(&latch->mutex);
     if (status != 0) {
-      err_abort(status, "Failed mutex unlock");
+      cmsg_err_abort(status, "Failed mutex unlock");
     }
     
     return 1;
@@ -806,13 +807,13 @@ int cMsgLatchAwait(countDownLatch *latch, const struct timespec *timeout) {
 /* printf("    cMsgLatchAwait: timed out, return 0\n"); */
       status = pthread_mutex_unlock(&latch->mutex);
       if (status != 0) {
-        err_abort(status, "Failed mutex unlock");
+        cmsg_err_abort(status, "Failed mutex unlock");
       }
 
       return 0;
     }
     else if (status != 0) {
-      err_abort(status, "Failed cond wait");
+      cmsg_err_abort(status, "Failed cond wait");
     }
   }
   
@@ -821,7 +822,7 @@ int cMsgLatchAwait(countDownLatch *latch, const struct timespec *timeout) {
 /* printf("    cMsgLatchAwait: resetting so return -1\n"); */
     status = pthread_mutex_unlock(&latch->mutex);
     if (status != 0) {
-      err_abort(status, "Failed mutex unlock");
+      cmsg_err_abort(status, "Failed mutex unlock");
     }
 
     return -1;  
@@ -834,14 +835,14 @@ int cMsgLatchAwait(countDownLatch *latch, const struct timespec *timeout) {
   /* signal that we're done */
   status = pthread_cond_broadcast(&latch->notifyCond);
   if (status != 0) {
-    err_abort(status, "Failed condition broadcast");
+    cmsg_err_abort(status, "Failed condition broadcast");
   }
 /* printf("    cMsgLatchAwait: broadcasted to (notified) cMsgLatchCountDowner\n"); */
 
   /* unlock mutex */
   status = pthread_mutex_unlock(&latch->mutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex unlock");
+    cmsg_err_abort(status, "Failed mutex unlock");
   }
 /* printf("    cMsgLatchAwait: done, return 1\n"); */
   
@@ -874,7 +875,7 @@ int cMsgLatchCountDown(countDownLatch *latch, const struct timespec *timeout) {
   /* Lock mutex */
   status = pthread_mutex_lock(&latch->mutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex lock");
+    cmsg_err_abort(status, "Failed mutex lock");
   }
   
   /* if latch is being reset, return -1 (false) */
@@ -882,7 +883,7 @@ int cMsgLatchCountDown(countDownLatch *latch, const struct timespec *timeout) {
 /* printf("cMsgLatchCountDown: resetting so return -1\n"); */
     status = pthread_mutex_unlock(&latch->mutex);
     if (status != 0) {
-      err_abort(status, "Failed mutex unlock");
+      cmsg_err_abort(status, "Failed mutex unlock");
     }
 
     return -1;  
@@ -892,7 +893,7 @@ int cMsgLatchCountDown(countDownLatch *latch, const struct timespec *timeout) {
 /* printf("cMsgLatchCountDown: count = 0 so return 1\n"); */
     status = pthread_mutex_unlock(&latch->mutex);
     if (status != 0) {
-      err_abort(status, "Failed mutex unlock");
+      cmsg_err_abort(status, "Failed mutex unlock");
     }
     
     return 1;
@@ -907,7 +908,7 @@ int cMsgLatchCountDown(countDownLatch *latch, const struct timespec *timeout) {
 /* printf("cMsgLatchCountDown: count = 0 so broadcast to waiters\n"); */
     status = pthread_cond_broadcast(&latch->countCond);
     if (status != 0) {
-      err_abort(status, "Failed condition broadcast");
+      cmsg_err_abort(status, "Failed condition broadcast");
     }    
   }
     
@@ -930,13 +931,13 @@ int cMsgLatchCountDown(countDownLatch *latch, const struct timespec *timeout) {
 /* printf("cMsgLatchCountDown: timed out\n"); */
       status = pthread_mutex_unlock(&latch->mutex);
       if (status != 0) {
-        err_abort(status, "Failed mutex unlock");
+        cmsg_err_abort(status, "Failed mutex unlock");
       }
 
       return 0;
     }
     else if (status != 0) {
-      err_abort(status, "Failed cond wait");
+      cmsg_err_abort(status, "Failed cond wait");
     }
     
     /* if latch is being reset, return -1 (error) */
@@ -944,7 +945,7 @@ int cMsgLatchCountDown(countDownLatch *latch, const struct timespec *timeout) {
 /* printf("cMsgLatchCountDown: resetting so return -1\n"); */
       status = pthread_mutex_unlock(&latch->mutex);
       if (status != 0) {
-        err_abort(status, "Failed mutex unlock");
+        cmsg_err_abort(status, "Failed mutex unlock");
       }
 
       return -1;  
@@ -955,7 +956,7 @@ int cMsgLatchCountDown(countDownLatch *latch, const struct timespec *timeout) {
   /* unlock mutex */
   status = pthread_mutex_unlock(&latch->mutex);
   if (status != 0) {
-    err_abort(status, "await: Failed mutex unlock");
+    cmsg_err_abort(status, "await: Failed mutex unlock");
   }
 /* printf("cMsgLatchCountDown:done, return 1\n"); */
   
@@ -982,7 +983,7 @@ void cMsgLatchReset(countDownLatch *latch, int count, const struct timespec *tim
   /* Lock mutex */
   status = pthread_mutex_lock(&latch->mutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex lock");
+    cmsg_err_abort(status, "Failed mutex lock");
   }
     
   /* Disable the latch */
@@ -992,20 +993,20 @@ void cMsgLatchReset(countDownLatch *latch, int count, const struct timespec *tim
   /* signal all waiters to wake up */
   status = pthread_cond_broadcast(&latch->countCond);
   if (status != 0) {
-    err_abort(status, "Failed condition broadcast");
+    cmsg_err_abort(status, "Failed condition broadcast");
   }
      
   /* signal all countDowners to wake up */
   status = pthread_cond_broadcast(&latch->notifyCond);
   if (status != 0) {
-    err_abort(status, "Failed condition broadcast");
+    cmsg_err_abort(status, "Failed condition broadcast");
   }      
 /* printf("  cMsgLatchReset: broadcasted to count & notify cond vars\n"); */
         
   /* unlock mutex */
   status = pthread_mutex_unlock(&latch->mutex);
   if (status != 0) {
-    err_abort(status, "await: Failed mutex unlock");
+    cmsg_err_abort(status, "await: Failed mutex unlock");
   }
   
   /* wait the given amount for all parties to detect the reset */
@@ -1017,7 +1018,7 @@ void cMsgLatchReset(countDownLatch *latch, int count, const struct timespec *tim
   /* Lock mutex again */
   status = pthread_mutex_lock(&latch->mutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex lock");
+    cmsg_err_abort(status, "Failed mutex lock");
   }
     
   /* Reset the latch */
@@ -1027,7 +1028,7 @@ void cMsgLatchReset(countDownLatch *latch, int count, const struct timespec *tim
   /* unlock mutex */
   status = pthread_mutex_unlock(&latch->mutex);
   if (status != 0) {
-    err_abort(status, "await: Failed mutex unlock");
+    cmsg_err_abort(status, "await: Failed mutex unlock");
   }
 /* printf("  cMsgLatchReset: done\n"); */
 
@@ -1099,7 +1100,7 @@ void *cMsgCallbackThread(void *arg)
           for (i=0; i < threadsAdded; i++) {
             status = pthread_create(&thd, NULL, cMsgSupplementalThread, arg);
             if (status != 0) {
-              err_abort(status, "Creating supplemental callback thread");
+              cmsg_err_abort(status, "Creating supplemental callback thread");
             }
           }
         }
@@ -1138,7 +1139,7 @@ void *cMsgCallbackThread(void *arg)
            */
           status = pthread_cond_signal(&domain->subscribeCond);
           if (status != 0) {
-            err_abort(status, "Failed callback condition signal");
+            cmsg_err_abort(status, "Failed callback condition signal");
           }
           
 /* printf(" CALLBACK THREAD: told to quit\n"); */
@@ -1160,7 +1161,7 @@ void *cMsgCallbackThread(void *arg)
 /* fprintf(stderr, "  CALLBACK THREAD: cond wait, release mutex\n"); */
         status = pthread_cond_wait(&cback->cond, &cback->mutex);
         if (status != 0) {
-          err_abort(status, "Failed callback cond wait");
+          cmsg_err_abort(status, "Failed callback cond wait");
         }
 /* fprintf(stderr, "  CALLBACK THREAD woke up, grabbed mutex\n", cback->quit); */
         
@@ -1192,7 +1193,7 @@ void *cMsgCallbackThread(void *arg)
            */
           status = pthread_cond_signal(&domain->subscribeCond);
           if (status != 0) {
-            err_abort(status, "Failed callback condition signal");
+            cmsg_err_abort(status, "Failed callback condition signal");
           }
           
 /* printf(" CALLBACK THREAD: told to quit\n"); */
@@ -1223,7 +1224,7 @@ void *cMsgCallbackThread(void *arg)
 /* fprintf(stderr, "  CALLBACK THREAD: wake up cMsgRunCallbacks thread\n"); */
       status = pthread_cond_signal(&domain->subscribeCond);
       if (status != 0) {
-        err_abort(status, "Failed callback condition signal");
+        cmsg_err_abort(status, "Failed callback condition signal");
       }
 
       /* print out number of messages in cue */      
@@ -1326,7 +1327,7 @@ void *cMsgSupplementalThread(void *arg)
            */
           status = pthread_cond_signal(&domain->subscribeCond);
           if (status != 0) {
-            err_abort(status, "Failed callback condition signal");
+            cmsg_err_abort(status, "Failed callback condition signal");
           }
           
           goto end;
@@ -1360,7 +1361,7 @@ void *cMsgSupplementalThread(void *arg)
 
         }
         else if (status != 0) {
-          err_abort(status, "Failed callback cond wait");
+          cmsg_err_abort(status, "Failed callback cond wait");
         }
         
         /* quit if commanded to */
@@ -1391,7 +1392,7 @@ void *cMsgSupplementalThread(void *arg)
            */
           status = pthread_cond_signal(&domain->subscribeCond);
           if (status != 0) {
-            err_abort(status, "Failed callback condition signal");
+            cmsg_err_abort(status, "Failed callback condition signal");
           }
           
           goto end;
@@ -1418,7 +1419,7 @@ void *cMsgSupplementalThread(void *arg)
       /* wakeup cMsgRunCallbacks thread if trying to add item to full cue */
       status = pthread_cond_signal(&domain->subscribeCond);
       if (status != 0) {
-        err_abort(status, "Failed callback condition signal");
+        cmsg_err_abort(status, "Failed callback condition signal");
       }
 
       /* run callback */

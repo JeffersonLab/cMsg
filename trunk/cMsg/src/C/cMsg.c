@@ -85,7 +85,6 @@
 #include <ctype.h>
 
 /* package includes */
-#include "errors.h"
 #include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
 #include "cMsg.h"
@@ -1518,7 +1517,7 @@ static void domainFree(cMsgDomain *domain) {
 static void connectMutexLock(void) {
   int status = pthread_mutex_lock(&connectMutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex lock");
+    cmsg_err_abort(status, "Failed mutex lock");
   }
 }
 
@@ -1533,7 +1532,7 @@ static void connectMutexLock(void) {
 static void connectMutexUnlock(void) {
   int status = pthread_mutex_unlock(&connectMutex);
   if (status != 0) {
-    err_abort(status, "Failed mutex unlock");
+    cmsg_err_abort(status, "Failed mutex unlock");
   }
 }
 
