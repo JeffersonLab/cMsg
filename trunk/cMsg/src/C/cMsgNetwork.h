@@ -24,6 +24,7 @@
 #ifdef VXWORKS
 #include <ioLib.h>       /* writev */
 #include <inetLib.h>     /* htonl stuff */
+#include <sockLib.h>
 #else
 #include <sys/uio.h>     /* writev */
 #include <arpa/inet.h>	 /* htonl stuff */
