@@ -648,6 +648,9 @@ static void *receiverThd(void *arg) {
     thdArg *threadArg = (thdArg *) arg;
     char buf[1024];
     
+    /* release resources when done */
+    pthread_detach(pthread_self());
+    
     /* ignore error as it will be caught later */   
     recvfrom(threadArg->sockfd, (void *)buf, 1024, 0,
              (SA *) &threadArg->addr, &(threadArg->len));
@@ -670,6 +673,9 @@ static void *broadcastThd(void *arg) {
 
     thdArg *threadArg = (thdArg *) arg;
     struct timespec wait = {0, 100000000}; /* 0.1 sec */
+    
+    /* release resources when done */
+    pthread_detach(pthread_self());
     
     /* A slight delay here will help the main thread (calling connect)
      * to be already waiting for a response from the server when we
