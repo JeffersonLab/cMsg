@@ -580,7 +580,9 @@ printf("Wait for 5 more seconds, then exit\n");
     addr.sin_port   = htons(domain->sendUdpPort);
     
     /* create new UDP socket for sends */
-    close(domain->sendUdpSocket); /* close old UDP socket */
+    if (domain->sendUdpSocket > -1) {
+        close(domain->sendUdpSocket); /* close old UDP socket */
+    }
     domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 /*
 printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
@@ -878,8 +880,6 @@ int cmsg_rc_send(void *domainId, const void *vmsg) {
     sendLen = send(fd, (void *) domain->msgBuffer, len, 0);      
   }
   if (sendLen != len) {
-    cMsgSocketMutexUnlock(domain);
-    cMsgConnectReadUnlock(domain);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cmsg_rc_send: write failure\n");
     }
