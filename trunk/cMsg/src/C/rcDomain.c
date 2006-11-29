@@ -582,8 +582,10 @@ printf("Wait for 5 more seconds, then exit\n");
     /* create new UDP socket for sends */
     close(domain->sendUdpSocket); /* close old UDP socket */
     domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+/*
 printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
 domain->sendUdpSocket, domain->sendUdpPort);
+*/
     if (domain->sendUdpSocket < 0) {
         close(domain->sendSocket);
         pthread_cancel(domain->pendThread);
@@ -613,7 +615,7 @@ domain->sendUdpSocket, domain->sendUdpPort);
         return(err);
     }
 
-printf("try UDP connection to port = %hu\n", ntohs(addr.sin_port));
+/*printf("try UDP connection to port = %hu\n", ntohs(addr.sin_port));*/
     err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
     if (err < 0) {
         close(domain->sendUdpSocket);
@@ -860,12 +862,12 @@ int cmsg_rc_send(void *domainId, const void *vmsg) {
   len += lenByteArray;   
 
   if (!msg->context.udpSend) {
-printf("cmsg_rc_send: TCP, fd = %d\n", fd);
+/*printf("cmsg_rc_send: TCP, fd = %d\n", fd);*/
    /* send data over TCP socket */
     sendLen = cMsgTcpWrite(fd, (void *) domain->msgBuffer, len);
   }
   else {
-printf("cmsg_rc_send: UDP, fd = %d\n", fd);
+/*printf("cmsg_rc_send: UDP, fd = %d\n", fd);*/
     /* send data over UDP socket */
     sendLen = send(fd, (void *) domain->msgBuffer, len, 0);      
   }
