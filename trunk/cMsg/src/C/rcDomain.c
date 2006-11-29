@@ -210,7 +210,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     struct timespec wait, time;
     struct sockaddr_in servaddr, addr;
     int    gotResponse=0;
-    const int on=1, size=CMSG_SOCKBUFSIZE; /* bytes */
+    const int on=1; /* bytes */
         
        
     /* clear array */
@@ -595,18 +595,6 @@ domain->sendUdpSocket, domain->sendUdpPort);
         free(domain);
         return(CMSG_SOCKET_ERROR);
     }
-
-    /* set send buffer size */
-    err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
-    if (err < 0) {
-        close(domain->sendUdpSocket);
-        close(domain->sendSocket);
-        pthread_cancel(domain->pendThread);
-        cMsgDomainFree(domain);
-        free(domain);
-        return(CMSG_SOCKET_ERROR);
-    }
-
 
     if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
         close(domain->sendUdpSocket);

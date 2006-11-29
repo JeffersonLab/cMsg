@@ -674,15 +674,6 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
                 goto end;
             }
 
-            /* set send buffer size */
-            err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
-            if (err < 0) {
-                cMsgFreeMessage((void **) &message);
-                printf("Error trying to recreate rc client's UDP send socket\n");
-                goto end;
-            }
-
-
             if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
                 cMsgFreeMessage((void **) &message);
                 printf("Error trying to recreate rc client's UDP send socket\n");
