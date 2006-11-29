@@ -398,7 +398,7 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
   domain->keepAliveSocket     = 0;
   
   domain->sendPort            = 0;
-  domain->sendUdpPort         = 0;
+  domain->sendUdpPort         = -1;
   domain->listenPort          = 0;
   
   domain->hasSend             = 0;
