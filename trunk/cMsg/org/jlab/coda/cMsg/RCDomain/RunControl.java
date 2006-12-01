@@ -264,7 +264,7 @@ public class RunControl extends cMsgDomainAdapter {
             try {
                 // Put our TCP listening port, our name, and
                 // the EXPID (experiment id string) into byte array.
-                out.writeInt(cMsgNetworkConstants.rcDomainBroadcast); // broadcast is from rc domain client
+                out.writeInt(cMsgNetworkConstants.rcDomainBroadcastClient); // broadcast is from rc domain client
                 out.writeInt(port);
                 out.writeInt(name.length());
                 out.writeInt(expid.length());
@@ -364,6 +364,7 @@ public class RunControl extends cMsgDomainAdapter {
             // create a TCP connection to the RC Server
             try {
                 tcpSocket = new Socket(rcServerAddress,rcTcpServerPort);
+                //tcpSocket.connect(sockAddr);
                 tcpSocket.setTcpNoDelay(true);
                 tcpSocket.setSendBufferSize(65535);
                 domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(), 65536));

@@ -20,10 +20,7 @@ import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgDomain.client.cMsgGetHelper;
 import org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread;
 
-import java.net.DatagramSocket;
-import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.SocketException;
+import java.net.*;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
@@ -60,7 +57,6 @@ public class rcListeningThread extends Thread {
     void killThread() {
         killThread = true;
         this.interrupt();
-        broadcastSocket.close();
     }
 
 
@@ -79,6 +75,19 @@ public class rcListeningThread extends Thread {
         return result;
     }
 
+    /**
+     * Copies an integer value into 4 bytes of a byte array.
+     * @param intVal integer value
+     * @param b byte array
+     * @param off offset into the byte array
+     */
+    public static final void intToBytes(int intVal, byte[] b, int off) {
+      b[off]   = (byte) ((intVal & 0xff000000) >>> 24);
+      b[off+1] = (byte) ((intVal & 0x00ff0000) >>> 16);
+      b[off+2] = (byte) ((intVal & 0x0000ff00) >>>  8);
+      b[off+3] = (byte)  (intVal & 0x000000ff);
+    }
+
 
     /**
      * Constructor.
@@ -90,11 +99,10 @@ public class rcListeningThread extends Thread {
         // Create a UDP socket for accepting broad/unicasts from the RC client.
         broadcastPort = port;
         try {
-//System.out.println("Creating UDP socket at port " + broadcastPort);
             broadcastSocket = new DatagramSocket(broadcastPort);
         }
         catch (SocketException e) {
-            throw new cMsgException(e.getMessage());
+            throw new cMsgException("Port " + broadcastPort + " is taken", e);
         }
         this.server = server;
         debug = server.debug;
@@ -114,6 +122,12 @@ public class rcListeningThread extends Thread {
         byte[] buf = new byte[2048];
         DatagramPacket packet = new DatagramPacket(buf, 2048);
 
+        // server object is waiting for this thread to start in connect method,
+        // so tell it we've started.
+        synchronized (this) {
+            notifyAll();
+        }
+
         // listen for broadcasts and interpret packets
         try {
             while (true) {
@@ -127,70 +141,120 @@ public class rcListeningThread extends Thread {
                 if (killThread) { return; }
 
                 // pick apart byte array received
-                InetAddress clientAddress = packet.getAddress();
-                String rcClientHost = clientAddress.getCanonicalHostName();
-                int rcClientUdpPort = packet.getPort();   // port to send response packet to
-                int msgType         = bytesToInt(buf, 0); // what type of broadcast is this ?
+                InetAddress broadcasterAddress = packet.getAddress();
+                String broadcasterHost = broadcasterAddress.getCanonicalHostName();
+                int broadcasterUdpPort = packet.getPort();   // port to send response packet to
+                int msgType            = bytesToInt(buf, 0); // what type of broadcast is this ?
 
-                // ignore broadcasts from unknown sources
-                if (msgType != cMsgNetworkConstants.rcDomainBroadcast) {
-                    continue;
+                switch (msgType) {
+                    // broadcasts from rc clients
+                    case cMsgNetworkConstants.rcDomainBroadcastClient:
+                    // broadcasts from rc servers
+                    case cMsgNetworkConstants.rcDomainBroadcastServer:
+                        break;
+                    // kill this server since one already exists on this port/expid
+                    case cMsgNetworkConstants.rcDomainBroadcastKillSelf:
+//System.out.println("I was told to kill myself");
+                        server.respondingHost = broadcasterHost;
+                        server.broadcastResponse.countDown();
+                        return;
+                    // ignore broadcasts from unknown sources
+                    default:
+                        continue;
                 }
 
-                int rcClientTcpPort = bytesToInt(buf, 4); // tcp listening port
-                int nameLen         = bytesToInt(buf, 8); // length of client name (# chars)
-                int expidLen        = bytesToInt(buf, 12); // length of expid (# chars)
+                int broadcasterTcpPort = bytesToInt(buf, 4); // tcp listening port
+                int nameLen            = bytesToInt(buf, 8); // length of broadcaster's name (# chars)
+                int expidLen           = bytesToInt(buf, 12); // length of expid (# chars)
 
-                // rc client's name
-                String clientName = null;
+                // rc broadcaster's name
+                String broadcasterName = null;
                 try {
-                    clientName = new String(buf, 16, nameLen, "US-ASCII");
+                    broadcasterName = new String(buf, 16, nameLen, "US-ASCII");
                 }
                 catch (UnsupportedEncodingException e) {}
 
-                // rc client's EXPID
-                String clientExpid = null;
+                // rc broadcaster's EXPID
+                String broadcasterExpid = null;
                 try {
-                    clientExpid = new String(buf, 16+nameLen, expidLen, "US-ASCII");
+                    broadcasterExpid = new String(buf, 16+nameLen, expidLen, "US-ASCII");
                 }
                 catch (UnsupportedEncodingException e) {}
 
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("clientHost = " + rcClientHost + ", UDP port = " + rcClientUdpPort +
-                        ", TCP port = " + rcClientTcpPort + ", name = " + clientName +
-                        ", expid = " + clientExpid);
+                    System.out.println("broadcaster's host = " + broadcasterHost + ", UDP port = " + broadcasterUdpPort +
+                        ", TCP port = " + broadcasterTcpPort + ", name = " + broadcasterName +
+                        ", expid = " + broadcasterExpid);
                 }
 
                 // Check for conflicting expid's
-                if (!server.expid.equalsIgnoreCase(clientExpid)) {
+                if (!server.expid.equalsIgnoreCase(broadcasterExpid)) {
                     if (debug >= cMsgConstants.debugInfo) {
                         System.out.println("Conflicting EXPID's, ignoring");
                     }
                     continue;
                 }
 
+                // Before sending a reply, check to see if we simply got a packet
+                // from ourself when first connecting. Just ignore our own probing
+                // broadcast.
+                if (InetAddress.getLocalHost().getCanonicalHostName().equals(broadcasterHost) &&
+                        broadcasterUdpPort == server.localTempPort) {
+                    continue;
+                }
+
+
+                // if broadcast from client ...
+                if (msgType == cMsgNetworkConstants.rcDomainBroadcastClient) {
+                    // Send a reply to broad/unicast. This can be a blank packet since
+                    // all we want to communicate is that the client was heard and can
+                    // now stop broadcasting
+                    if (!server.acceptingClients) { continue;}
+
+                    try {
+                        // create packet to respond to broadcast
+                        DatagramPacket pkt = new DatagramPacket(buf, 0, broadcasterAddress, broadcasterUdpPort);
+//System.out.println("Send reponse packet to client");
+                        broadcastSocket.send(pkt);
+                    }
+                    catch (IOException e) {
+                        System.out.println("I/O Error: " + e);
+                    }
+                }
+                // else if broadcast from server ...
+                else {
+                    // Other RCBroadcast servers send "feelers" just trying see if another
+                    // RCBroadcast server is on the same port with the same EXPID. Don't
+                    // send this on as a message to subscriptions.
+                    if (debug >= cMsgConstants.debugInfo) {
+                        System.out.println("Another RCBroadcast server probing this one");
+                    }
+
+                    // if this server was properly started, tell the one probing us to kill itself
+                    if (server.acceptingClients) {
+                        // create packet to respond to broadcast
+                        intToBytes(cMsgNetworkConstants.rcDomainBroadcastKillSelf, buf, 0);
+                        DatagramPacket pkt = new DatagramPacket(buf, 4, broadcasterAddress, server.broadcastPort);
+//System.out.println("Send reponse packet (kill yourself) to server");
+                        broadcastSocket.send(pkt);
+                    }
+                    else {
+//System.out.println("Still starting up but have been probed by starting server. So quit");
+                        server.respondingHost = broadcasterHost;
+                        server.broadcastResponse.countDown();
+                    }
+                    continue;
+                }
+
                 // If expid's match, pass on messgage to subscribes and/or subscribeAndGets
                 cMsgMessageFull msg = new cMsgMessageFull();
-                msg.setSenderHost(rcClientHost);
-                msg.setUserInt(rcClientTcpPort);
-                msg.setSender(clientName);
+                msg.setSenderHost(broadcasterHost);
+                msg.setUserInt(broadcasterTcpPort);
+                msg.setSender(broadcasterName);
                 msg.setDomain(domainType);
                 msg.setReceiver(server.getName());
                 msg.setReceiverHost(server.getHost());
                 msg.setReceiverTime(new Date()); // current time
-
-                // Send a reply to broad/unicast. This can be a blank packet since
-                // all we want to communicate is that the client was heard and can
-                // now stop broadcasting
-                try {
-                    // create packet to respond to broadcast
-                    DatagramPacket pkt = new DatagramPacket(buf, 0, clientAddress, rcClientUdpPort);
-//System.out.println("Send reponse packet");
-                    broadcastSocket.send(pkt);
-                }
-                catch (IOException e) {
-//System.out.println("I/O Error: " + e);
-                }
 
                 // run callbacks for this message
                 runCallbacks(msg);
@@ -202,10 +266,9 @@ public class rcListeningThread extends Thread {
                 System.out.println("rcBroadcastListenThread: I/O ERROR in rc broadcast server");
                 System.out.println("rcBroadcastListenThread: close broadcast socket, port = " + broadcastSocket.getLocalPort());
             }
-
-            // We're here if there is an IO error.
-            // Disconnect the server (kill this thread).
-            broadcastSocket.close();
+        }
+        finally {
+            if (!broadcastSocket.isClosed())  broadcastSocket.close();
         }
 
         return;

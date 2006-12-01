@@ -28,9 +28,15 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CountDownLatch;
 import java.util.Set;
 import java.util.Collections;
 import java.util.HashSet;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.UnsupportedEncodingException;
+import java.io.IOException;
 
 /**
  * This class implements the runcontrol broadcast (rdb) domain.
@@ -43,8 +49,25 @@ public class RCBroadcast extends cMsgDomainAdapter {
     /** This runcontrol broadcast server's UDP listening port obtained from UDL or default value. */
     int broadcastPort;
 
+    /** The local port used temporarily while broadcasting for other RCBroadcast servers. */
+    int localTempPort;
+
+    /** Socket over which to UDP broadcast to and check for other RCBroadcast servers. */
+    DatagramSocket udpSocket;
+
+    /** Signal to coordinate the broadcasting and waiting for responses. */
+    CountDownLatch broadcastResponse = new CountDownLatch(1);
+
+    /** The host of the responding server to initial broadcast probes of the local subnet. */
+    String respondingHost;
+
     /** Runcontrol's experiment id. */
     String expid;
+
+    /** Timeout in milliseconds to wait for server to respond to broadcasts. Default is 1 sec. */
+    int broadcastTimeout = 2000;
+
+    volatile boolean acceptingClients;
 
     /** Thread that listens for UDP broad/unicasts to this server and responds. */
     rcListeningThread listener;
@@ -66,7 +89,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
     Lock subscribeLock = new ReentrantLock();
 
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugNone;
+    int debug = cMsgConstants.debugError;
 
    /**
      * Collection of all of this server's subscriptions which are
@@ -144,7 +167,109 @@ public class RCBroadcast extends cMsgDomainAdapter {
             listener = new rcListeningThread(this, broadcastPort);
             listener.start();
 
+            // Wait for indication listener thread is actually running before
+            // continuing on. This thread must be running before we look to
+            // see what other servers are out there.
+            synchronized (listener) {
+                if (!listener.isAlive()) {
+                    try {
+                        listener.wait();
+                    }
+                    catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+            // First need to check to see if there is another RCBroadcastServer
+            // on this port with this EXPID. If so, abandon ship.
+            //-------------------------------------------------------
+            // broadcast on local subnet to find other servers
+            //-------------------------------------------------------
+            DatagramPacket udpPacket;
+
+            // create byte array for broadcast
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);
+            DataOutputStream out = new DataOutputStream(baos);
+
+            try {
+                // Put our TCP listening port, our name, and
+                // the EXPID (experiment id string) into byte array.
+
+                // this broadcast is from an rc broadcast domain server
+                out.writeInt(cMsgNetworkConstants.rcDomainBroadcastServer);
+                // port is irrelevant
+                out.writeInt(0);
+                out.writeInt(name.length());
+                out.writeInt(expid.length());
+                try {
+                    out.write(name.getBytes("US-ASCII"));
+                    out.write(expid.getBytes("US-ASCII"));
+                }
+                catch (UnsupportedEncodingException e) {
+                }
+                out.flush();
+                out.close();
+
+                // create socket to send broadcasts to other RCBroadcast servers
+                udpSocket = new DatagramSocket();
+                localTempPort = udpSocket.getLocalPort();
+
+                InetAddress rcServerBroadcastAddress=null;
+                try {rcServerBroadcastAddress = InetAddress.getByName("255.255.255.255"); }
+                catch (UnknownHostException e) {}
+
+                // create packet to broadcast from the byte array
+                byte[] buf = baos.toByteArray();
+                udpPacket = new DatagramPacket(buf, buf.length,
+                                               rcServerBroadcastAddress,
+                                               broadcastPort);
+            }
+            catch (IOException e) {
+                if (debug >= cMsgConstants.debugError) {
+                    System.out.println("I/O Error: " + e);
+                }
+                throw new cMsgException(e.getMessage());
+            }
+
+            // create a thread which will send our broadcast
+            Broadcaster sender = new Broadcaster(udpPacket);
+            sender.start();
+
+            // wait up to broadcast timeout seconds
+            boolean response = false;
+            try {
+                if (broadcastResponse.await(broadcastTimeout, TimeUnit.MILLISECONDS)) {
+//System.out.println("Got a response!");
+                    response = true;
+                }
+            }
+            catch (InterruptedException e) { }
+
+            sender.interrupt();
+
+            if (response) {
+//System.out.println("Another RCBroadcast server is running at port "  + broadcastPort +
+//                   " host " + respondingHost + " with EXPID = " + expid);
+                // stop listening thread
+                listener.killThread();
+                try {
+                    Thread.sleep(500);
+                }
+                catch (InterruptedException e) {
+                }
+
+                throw new cMsgException("Another RCBroadcast server is running at port " + broadcastPort +
+                                        " with EXPID = " + expid);
+            }
+//System.out.println("No other RCBroadcast server is running, so start this one up!");
+            acceptingClients = true;
             connected = true;
+
+            // reclaim memory
+            udpSocket = null;
+            broadcastResponse = null;
+
         }
         finally {
             connectLock.unlock();
@@ -179,9 +304,9 @@ public class RCBroadcast extends cMsgDomainAdapter {
         if (udlRemainder == null) {
             throw new cMsgException("invalid UDL");
         }
-        System.out.println("parser given " + udlRemainder);
+
         // RC Broadcast domain UDL is of the form:
-        //       cMsg:rcb://<udpPort>?expid=<expid>
+        //       cMsg:rcb://<udpPort>?expid=<expid>&broadcastTO=<TO>
         //
         // The intial cMsg:rcb:// is stripped off by the top layer API
         //
@@ -243,39 +368,43 @@ public class RCBroadcast extends cMsgDomainAdapter {
             UDLremainder = remainder;
         }
 
-        // Find our experiment id,
-        //   in udl if it exists ...
-        if (remainder != null) {
-            // look for ?key=value& or &key=value& pairs
-            Pattern pat = Pattern.compile("(?:[&\\?](\\w+)=(\\w+)(?=&))");
-            Matcher mat = pat.matcher(remainder + "&");
+        // if no remaining UDL to parse, return
+        if (remainder == null) {
+            return;
+        }
 
-            loop: while (mat.find()) {
-                for (int i = 0; i < mat.groupCount() + 1; i++) {
-                    // if key = expid ...
-                    if (mat.group(i).equalsIgnoreCase("expid")) {
-                        // expid must be value
-                        expid = mat.group(i + 1);
-                        if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("  expid = " + expid);
-                        }
-                        break loop;
-                    }
+        // look for ?expid=value& or &expid=value&
+        pattern = Pattern.compile("[\\?&]expid=([\\w\\-]+)");
+        matcher = pattern.matcher(remainder);
+        if (matcher.find()) {
+            expid = matcher.group(1);
+//System.out.println("parsed expid = " + expid);
+        }
+        else {
+            expid = System.getenv("EXPID");
+            if (expid == null) {
+             throw new cMsgException("Experiment ID is unknown");
+            }
+//System.out.println("env expid = " + expid);
+        }
+
+
+        // now look for ?broadcastTO=value& or &broadcastTO=value&
+        pattern = Pattern.compile("[\\?&]broadcastTO=([0-9]+)");
+        matcher = pattern.matcher(remainder);
+        if (matcher.find()) {
+            try {
+                broadcastTimeout = 1000 * Integer.parseInt(matcher.group(1));
+                if (broadcastTimeout < 1) {
+                    broadcastTimeout = 2000;
                 }
+//System.out.println("broadcast TO = " + broadcastTimeout);
+            }
+            catch (NumberFormatException e) {
+                // ignore error and keep default
             }
         }
 
-        //   try looking in environmental variable EXPID ...
-        if (expid == null) {
-            String exp = System.getenv("EXPID");
-            if (exp != null) {
-                expid = exp;
-            }
-            // no value specified for expid so throw exception
-            else {
-                throw new cMsgException("no value for EXPID given");
-            }
-        }
     }
 
 
@@ -497,5 +626,49 @@ public class RCBroadcast extends cMsgDomainAdapter {
         return helper.getMessage();
     }
 
+
+
+    /**
+     * This class defines a thread to broadcast a UDP packet to the
+     * RC Broadcast server every second.
+     */
+    class Broadcaster extends Thread {
+
+        DatagramPacket packet;
+
+        Broadcaster(DatagramPacket udpPacket) {
+            packet = udpPacket;
+        }
+
+
+        public void run() {
+
+            try {
+                /* A slight delay here will help the main thread (calling connect)
+                * to be already waiting for a response from the server when we
+                * broadcast to the server here (prompting that response). This
+                * will help insure no responses will be lost.
+                */
+                Thread.sleep(100);
+
+                while (true) {
+
+                    try {
+//System.out.println("  Send broadcast packet to RC Broadcast server");
+                        udpSocket.send(packet);
+                    }
+                    catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    Thread.sleep(500);
+                }
+            }
+            catch (InterruptedException e) {
+                // time to quit
+ //System.out.println("Interrupted sender");
+            }
+        }
+    }
 
 }
