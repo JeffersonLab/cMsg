@@ -261,7 +261,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
                 }
 
                 throw new cMsgException("Another RCBroadcast server is running at port " + broadcastPort +
-                                        " with EXPID = " + expid);
+                                        " host " + respondingHost + " with EXPID = " + expid);
             }
 //System.out.println("No other RCBroadcast server is running, so start this one up!");
             acceptingClients = true;
