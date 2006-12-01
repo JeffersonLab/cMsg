@@ -62,10 +62,15 @@ public class RCBroadcastServer {
         // 2) the experiment id is given by the optional parameter expid. If none is
         //    given, the environmental variable EXPID is used. if that is not defined,
         //    an exception is thrown
+
         String UDL = "cMsg:rcb://?expid=carlExp";
 
         cMsg cmsg = new cMsg(UDL, "broadcast listener", "udp trial");
-        cmsg.connect();
+        try {cmsg.connect();}
+        catch (cMsgException e) {
+            System.out.println(e.getMessage());
+            return;
+        }
 
         // enable message reception
         cmsg.start();
@@ -122,6 +127,7 @@ public class RCBroadcastServer {
             catch (InterruptedException e) {}
         }
         server1.unsubscribe(unsub);
+        server1.disconnect();
 
 
         // test reconnect feature
