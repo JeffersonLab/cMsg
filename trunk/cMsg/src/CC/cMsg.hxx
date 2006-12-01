@@ -128,6 +128,13 @@ public:
   virtual cMsgMessage *copy(void) const throw(cMsgException);
   virtual cMsgMessage *nullResponse(void) const throw(cMsgException);
   virtual cMsgMessage *response(void) const throw(cMsgException);
+  virtual string getSubscriptionDomain() const throw(cMsgException);
+  virtual string getSubscriptionSubject() const throw(cMsgException);
+  virtual string getSubscriptionType() const throw(cMsgException);
+  virtual string getSubscriptionUDL() const throw(cMsgException);
+  virtual int    getSubscriptionCueSize(void) const throw(cMsgException);
+  virtual bool   getReliableSend(void) const throw(cMsgException);
+  virtual void   setReliableSend(bool b) throw(cMsgException);
 };
 
 

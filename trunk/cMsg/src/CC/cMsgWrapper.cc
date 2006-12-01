@@ -932,6 +932,140 @@ string cMsgMessage::toString(void) const throw(cMsgException) {
 
 
 //-----------------------------------------------------------------------------
+//   message context accessor functions
+//-----------------------------------------------------------------------------
+
+
+string cMsgMessage::getSubscriptionDomain() const throw(cMsgException) {
+
+  char *s;
+
+  int stat;
+  if((stat=cMsgGetSubscriptionDomain(myMsgPointer,&s))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  };
+
+  if(s==NULL) {
+    return("null");
+  } else {
+    string ss = string(s);
+    free(s);
+    return(ss);
+  }
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+string cMsgMessage::getSubscriptionSubject() const throw(cMsgException) {
+
+  char *s;
+
+  int stat;
+  if((stat=cMsgGetSubscriptionSubject(myMsgPointer,&s))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  };
+
+  if(s==NULL) {
+    return("null");
+  } else {
+    string ss = string(s);
+    free(s);
+    return(ss);
+  }
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+string cMsgMessage::getSubscriptionType() const throw(cMsgException) {
+
+  char *s;
+
+  int stat;
+  if((stat=cMsgGetSubscriptionType(myMsgPointer,&s))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  };
+
+  if(s==NULL) {
+    return("null");
+  } else {
+    string ss = string(s);
+    free(s);
+    return(ss);
+  }
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+string cMsgMessage::getSubscriptionUDL() const throw(cMsgException) {
+
+  char *s;
+
+  int stat;
+  if((stat=cMsgGetSubscriptionUDL(myMsgPointer,&s))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  };
+
+  if(s==NULL) {
+    return("null");
+  } else {
+    string ss = string(s);
+    free(s);
+    return(ss);
+  }
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+int cMsgMessage::getSubscriptionCueSize(void) const throw(cMsgException) {
+
+  int i;
+
+  int stat;
+  if((stat=cMsgGetSubscriptionCueSize(myMsgPointer,&i))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+  return(i);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+bool cMsgMessage::getReliableSend(void) const throw(cMsgException) {
+
+  int i;
+
+  int stat;
+  if((stat=cMsgGetReliableSend(myMsgPointer,&i))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+  return(i == 0 ? false : true);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+void cMsgMessage::setReliableSend(bool b) throw(cMsgException) {
+
+  int i = b ? 1 : 0;
+  
+  int stat;
+  if((stat=cMsgSetReliableSend(myMsgPointer,i))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+}
+
+
+//-----------------------------------------------------------------------------
 // cMsgSubscriptionConfig methods
 //-----------------------------------------------------------------------------
 
