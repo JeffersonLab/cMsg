@@ -327,6 +327,7 @@ enum responseMsgId {
   CMSG_SUBSCRIBE_RESPONSE,        /**< Subscribe response. */
   CMSG_SERVER_GET_RESPONSE,       /**< Respose to server's "sendAndGet" request. */
   CMSG_RC_CONNECT,                /**< Respond to RC server's "connect" request. */
+  CMSG_RC_CONNECT_ABORT           /**< Response by RC Broadcast server to abort an RC client's "connect" request. */
 };
 
 

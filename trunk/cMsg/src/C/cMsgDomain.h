@@ -195,6 +195,7 @@ typedef struct cMsgDomainInfo_t {
   pthread_cond_t  subscribeCond;  /**< Condition variable used for waiting on clogged callback cue. */
 
   /*  rc domain stuff  */
+  int             rcConnectAbort;    /**< Flag used to abort rc client connection to RC Broadcast server. */
   pthread_mutex_t rcConnectMutex;    /**< Mutex used for rc domain connect. */
   pthread_cond_t  rcConnectCond;     /**< Condition variable used for rc domain connect. */
   char            rcConnectComplete; /**< Has a special TCP message been sent from RC

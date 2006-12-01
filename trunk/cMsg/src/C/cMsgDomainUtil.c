@@ -409,6 +409,7 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
   domain->hasUnsubscribe      = 0;
   domain->hasShutdown         = 0;
   
+  domain->rcConnectAbort      = 0;
   domain->rcConnectComplete   = 0;
 
   domain->myHost              = NULL;

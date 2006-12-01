@@ -109,6 +109,8 @@ public class cMsgConstants {
     public static final int    errorWrongPassword      = 23;
     /** Error due to server dying. */
     public static final int    errorServerDied         = 24;
+    /** Error due to aborted procedure. */
+    public static final int    errorAbort              = 25;
 
     // Codes sent by the client over the network to
     // specify a particular request.
@@ -153,6 +155,8 @@ public class cMsgConstants {
     public static final int    msgServerGetResponse        =  22;
     /** Respond to a runcontrol server's "connect" request. */
     public static final int    msgRcConnect                =  23;
+    /** Respond to a runcontrol server's "connect" request. */
+    public static final int    msgRcAbortConnect           =  24;
 
     // Codes sent by a server's "client" connection to another server
     // in the cMsg subdomain only

@@ -576,6 +576,14 @@ static void *clientThread(void *arg)
       break;
       
       /* for RC server & RC domains only */
+      case  CMSG_RC_CONNECT_ABORT:
+      {
+            domain->rcConnectAbort = 1;
+            cMsgLatchCountDown(&domain->syncLatch, &wait);      
+      }
+      break;
+      
+      /* from RC Broadcast server only */
       case  CMSG_RC_CONNECT:
       {
           cMsgMessage_t *message;

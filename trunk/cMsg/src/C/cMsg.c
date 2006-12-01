@@ -1012,6 +1012,11 @@ char *cMsgPerror(int error) {
     if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_SERVER_DIED: server died\n");
     break;
 
+  case CMSG_ABORT:
+    sprintf(temp, "CMSG_ABORT: abort procedure\n");
+    if (cMsgDebug>CMSG_DEBUG_ERROR) printf("CMSG_ABORT: aborted procedure\n");
+    break;
+
   default:
     sprintf(temp, "?cMsgPerror...no such error: %d\n",error);
     if (cMsgDebug>CMSG_DEBUG_ERROR) printf("?cMsgPerror...no such error: %d\n",error);

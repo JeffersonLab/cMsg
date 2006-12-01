@@ -33,10 +33,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.Set;
 import java.util.Collections;
 import java.util.HashSet;
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.UnsupportedEncodingException;
-import java.io.IOException;
+import java.util.Date;
+import java.io.*;
 
 /**
  * This class implements the runcontrol broadcast (rdb) domain.
@@ -54,6 +52,9 @@ public class RCBroadcast extends cMsgDomainAdapter {
 
     /** Socket over which to UDP broadcast to and check for other RCBroadcast servers. */
     DatagramSocket udpSocket;
+
+    /** TCP socket over which to send rc "abandon connect" to runcontrol client. */
+    Socket socket;
 
     /** Signal to coordinate the broadcasting and waiting for responses. */
     CountDownLatch broadcastResponse = new CountDownLatch(1);
@@ -290,6 +291,43 @@ public class RCBroadcast extends cMsgDomainAdapter {
         listener.killThread();
 
         connectLock.unlock();
+    }
+
+
+    /**
+     * Method to send an abort command to the rc client. Fill in the senderHost
+     * with the host and the userInt with the port of the rc client to abort.
+     *
+     * @param message message to send
+     * @throws cMsgException if there are communication problems with the rc client
+     */
+    public void send(cMsgMessage message) throws cMsgException {
+
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
+
+        try {
+            if (!connected) {
+                throw new cMsgException("not connected to server");
+            }
+            socket = new Socket(message.getSenderHost(), message.getUserInt());
+
+            // Set tcpNoDelay so packet not delayed
+            socket.setTcpNoDelay(true);
+
+            DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+
+            out.writeInt(4);
+            out.writeInt(cMsgConstants.msgRcAbortConnect);
+            out.flush();
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage());
+        }
+        finally {
+            notConnectLock.unlock();
+        }
+
     }
 
 

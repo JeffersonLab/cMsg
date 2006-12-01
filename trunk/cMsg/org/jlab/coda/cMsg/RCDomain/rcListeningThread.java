@@ -253,7 +253,15 @@ public class rcListeningThread extends Thread {
 
                             break;
 
-                        case cMsgConstants.msgRcConnect: // server finishing connect loop
+                        // (rc broadcast) server bailing out of connect loop
+                        case cMsgConstants.msgRcAbortConnect:
+//System.out.println("Got ABORT message!!!");
+                            client.abandonConnection = true;
+                            client.connectCompletion.countDown();
+                            break;
+
+                        // (rc) server finishing connect loop
+                        case cMsgConstants.msgRcConnect:
                             // read the message
                             msg = readIncomingMessage();
 

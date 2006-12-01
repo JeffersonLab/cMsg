@@ -180,6 +180,7 @@ domainTypeInfo rcDomainTypeInfo = {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_FORMAT if the UDL is malformed
+ * @returns CMSG_ABORT if RC Broadcast server aborts connection attempt
  * @returns CMSG_OUT_OF_RANGE if the port specified in the UDL is out-of-range
  * @returns CMSG_OUT_OF_MEMORY if the allocating memory for domain id or
  *                             message buffer failed
@@ -549,6 +550,14 @@ printf("Wait for 5 more seconds, then exit\n");
         status = cMsgLatchAwait(&domain->syncLatch, NULL);
     }
 
+    if (domain->rcConnectAbort) {
+/*printf("Told to abort connect by RC Broadcast server\n");*/
+        pthread_cancel(domain->pendThread);
+        cMsgDomainFree(domain);
+        free(domain);
+        return(CMSG_ABORT);
+    }
+    
     if (status < 1 || !domain->rcConnectComplete) {
 /*printf("Wait timeout or rcConnectComplete is not 1\n");*/
         pthread_cancel(domain->pendThread);

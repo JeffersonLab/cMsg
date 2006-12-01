@@ -70,6 +70,9 @@ public class RunControl extends cMsgDomainAdapter {
      */
     int connectTimeout;
 
+    /** Quit a connection in progress if true. */
+    volatile boolean abandonConnection;
+
     /** RunControl server's net address obtained from broadcast resonse. */
     volatile InetAddress rcServerAddress;
 
@@ -346,6 +349,11 @@ public class RunControl extends cMsgDomainAdapter {
             else {
                 try { connectCompletion.await(); completed = true;}
                 catch (InterruptedException e) {}
+            }
+
+            // RC Broadcast server told me to abandon the connection attempt
+            if (abandonConnection) {
+                throw new cMsgException("RC Broadcast server says to quit the connect attempt");
             }
 
             if (!completed) {

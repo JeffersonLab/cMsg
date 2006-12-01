@@ -87,7 +87,8 @@ enum {
   CMSG_NO_CLASS_FOUND,      /**< Java class cannot be found to instantiate subdomain handler. */
   CMSG_DIFFERENT_VERSION,   /**< Client and server are different cMsg versions. */
   CMSG_WRONG_PASSWORD,      /**< Wrong password given. */
-  CMSG_SERVER_DIED          /**< Server died. */
+  CMSG_SERVER_DIED,         /**< Server died. */
+  CMSG_ABORT                /**< Abort effort. */
 };
 
 
