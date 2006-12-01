@@ -45,11 +45,17 @@ public class cMsgNetworkConstants {
     /** UDP port at which a cMsg name server listens for broadcasts. */
     public static final int    nameServerBroadcastPort = 7654;
 
+
     /** First int to send in UDP broadcast to server if cMsg domain. */
     public static final int    cMsgDomainBroadcast = 1;
-    /** First int to send in UDP broadcast to server if RC domain. */
-    public static final int    rcDomainBroadcast = 2;
+    /** First int to send in UDP broadcast to server if RC domain and sender is client. */
+    public static final int    rcDomainBroadcastClient = 2;
+    /** First int to send in UDP broadcast to server if RC domain and sernder is server. */
+    public static final int    rcDomainBroadcastServer = 4;
+    /** Tell RCBroadcast server to kill himself since server at that port & expid already exists. */
+    public static final int    rcDomainBroadcastKillSelf = 8;
 
+    
     /** The biggest single UDP packet size is 2^16 - IP 64 byte header - 8 byte UDP header. */
     public static final int    biggestUdpPacketSize = 65463;
 
