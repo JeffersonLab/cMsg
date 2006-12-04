@@ -1897,7 +1897,7 @@ static void initMessage(cMsgMessage_t *msg) {
     msg->context.type    = NULL;
     msg->context.udl     = NULL;
     msg->context.cueSize = NULL;
-    msg->context.udpSend = 1;
+    msg->context.udpSend = 0;
 
     return;
   }
