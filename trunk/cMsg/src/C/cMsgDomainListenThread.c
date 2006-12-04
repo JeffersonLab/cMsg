@@ -699,7 +699,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
             /* create TCP sending socket and store */
             if ( (err = cMsgTcpConnect(domain->sendHost,
                                        (unsigned short) domain->sendPort,
-                                       &domain->sendSocket)) != CMSG_OK) {
+                                       131072, 0, &domain->sendSocket)) != CMSG_OK) {
                 cMsgFreeMessage((void **) &message);
                 printf("Error trying to recreate rc client's TCP send socket\n");
                 goto end;

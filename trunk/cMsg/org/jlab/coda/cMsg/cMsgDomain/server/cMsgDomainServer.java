@@ -615,11 +615,10 @@ public class cMsgDomainServer extends Thread {
 
                         // set socket options
                         Socket socket = channel.socket();
+//System.out.println("default recv buf = " + socket.getReceiveBufferSize() +
+//                   ", send buf = " + socket.getSendBufferSize());
                         // Set tcpNoDelay so no packets are delayed
                         socket.setTcpNoDelay(true);
-                        // set buffer sizes
-                        socket.setReceiveBufferSize(65535);
-                        socket.setSendBufferSize(65535);
 
                         // The 1st connection is for responses to certain client requests
                         if (connectionNumber == 1) {
@@ -632,6 +631,9 @@ public class cMsgDomainServer extends Thread {
                         }
                         // The 3rd connection is for a client request handling thread
                         else if (connectionNumber == 3) {
+                            // set recv buffer size
+                            socket.setReceiveBufferSize(131072);
+
                             clientHandlerThread = new ClientHandler(channel);
 
                             // start up thread to receive client sends over UDP

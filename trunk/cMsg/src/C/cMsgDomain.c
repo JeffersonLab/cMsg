@@ -781,7 +781,7 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
   unsigned short startingPort;
   cMsgThreadInfo *threadArg;
   struct timespec waitForThread;
-  const int size=CMSG_SOCKBUFSIZE; /* bytes */
+  const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
   struct sockaddr_in  servaddr;
     
   /*
@@ -882,10 +882,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
   /* connect & talk to cMsg name server to check if name is unique */
   /*---------------------------------------------------------------*/
     
-  /* first connect to server host & port */
+  /* first connect to server host & port (default send & rcv buf sizes) */
   if ( (err = cMsgTcpConnect(domain->failovers[failoverIndex].nameServerHost,
                              (unsigned short) domain->failovers[failoverIndex].nameServerPort,
-                             &serverfd)) != CMSG_OK) {
+                             0, 0, &serverfd)) != CMSG_OK) {
     /* stop listening & connection threads */
     pthread_cancel(domain->pendThread);
     return(err);
@@ -919,10 +919,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
                              domain->sendPort);
   }
   
-  /* create receiving socket and store */
+  /* create receiving socket and store (default send & rcv buf sizes) */
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
-                             &domain->receiveSocket)) != CMSG_OK) {
+                              0, 0, &domain->receiveSocket)) != CMSG_OK) {
     pthread_cancel(domain->pendThread);
     return(err);
   }
@@ -931,10 +931,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
     fprintf(stderr, "connectDirect: created receiving socket fd = %d\n", domain->receiveSocket);
   }
     
-  /* create keep alive socket and store */
+  /* create keep alive socket and store (default send & rcv buf sizes) */
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
-                             &domain->keepAliveSocket)) != CMSG_OK) {
+                              0, 0, &domain->keepAliveSocket)) != CMSG_OK) {
     close(domain->receiveSocket);
     pthread_cancel(domain->pendThread);
     return(err);
@@ -955,10 +955,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
     fprintf(stderr, "connectDirect: created keep alive thread\n");
   }
 
-  /* create sending socket and store */
+  /* create sending socket and store (default rcv buf, 128K send buf) */
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
-                             &domain->sendSocket)) != CMSG_OK) {
+                              CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket)) != CMSG_OK) {
     close(domain->keepAliveSocket);
     close(domain->receiveSocket);
     pthread_cancel(domain->pendThread);
@@ -1040,7 +1040,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   int i, err, serverfd, status;
   struct timespec waitForThread = {0,500000000};
   getInfo *info;
-  const int size=CMSG_SOCKBUFSIZE; /* bytes */
+  const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
   struct sockaddr_in  servaddr;
     
   cMsgConnectWriteLock(domain);  
@@ -1052,7 +1052,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   /* connect to server host & port */
   if ( (err = cMsgTcpConnect(domain->failovers[failoverIndex].nameServerHost,
                              (unsigned short) domain->failovers[failoverIndex].nameServerPort,
-                             &serverfd)) != CMSG_OK) {
+                             0, 0, &serverfd)) != CMSG_OK) {
     cMsgConnectWriteUnlock(domain);
     return(err);
   }  
@@ -1159,7 +1159,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   /* create receiving socket and store */
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
-                             &domain->receiveSocket)) != CMSG_OK) {
+                             0, 0, &domain->receiveSocket)) != CMSG_OK) {
     cMsgConnectWriteUnlock(domain);
     return(err);
   }
@@ -1172,7 +1172,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   /* create keep alive socket and store */
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
-                             &domain->keepAliveSocket)) != CMSG_OK) {
+                             0, 0, &domain->keepAliveSocket)) != CMSG_OK) {
     cMsgConnectWriteUnlock(domain);
     close(domain->receiveSocket);
     return(err);
@@ -1191,7 +1191,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   /* create sending socket and store */
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
-                             &domain->sendSocket)) != CMSG_OK) {
+                             CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket)) != CMSG_OK) {
     cMsgConnectWriteUnlock(domain);
     close(domain->keepAliveSocket);
     close(domain->receiveSocket);

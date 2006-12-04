@@ -211,7 +211,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     struct timespec wait, time;
     struct sockaddr_in servaddr, addr;
     int    gotResponse=0;
-    const int on=1; /* bytes */
+    const int on=1, size=CMSG_BIGSOCKBUFSIZE; /* bytes */
         
        
     /* clear array */
@@ -571,7 +571,7 @@ printf("Wait for 5 more seconds, then exit\n");
     /* create TCP sending socket and store */
     if ( (err = cMsgTcpConnect(domain->sendHost,
                                (unsigned short) domain->sendPort,
-                               &domain->sendSocket)) != CMSG_OK) {
+                               CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket)) != CMSG_OK) {
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
@@ -598,6 +598,16 @@ printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
 domain->sendUdpSocket, domain->sendUdpPort);
 */
     if (domain->sendUdpSocket < 0) {
+        close(domain->sendSocket);
+        pthread_cancel(domain->pendThread);
+        cMsgDomainFree(domain);
+        free(domain);
+        return(CMSG_SOCKET_ERROR);
+    }
+
+    /* set send buffer size */
+    err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
+    if (err < 0) {
         close(domain->sendSocket);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);

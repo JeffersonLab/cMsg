@@ -71,10 +71,9 @@ extern "C" {
  * The 6100 board likes 36K buffers if there is no tcpNoDelay,
  * but it likes 22K if the socket is set for no delay.
  */
-#define CMSG_SOCKBUFSIZE    65536
+#define CMSG_BIGSOCKBUFSIZE     65536
 #else
-/*#define CMSG_SOCKBUFSIZE    49640*/  /* multiple of 1460 - ethernet MSS */
-#define CMSG_SOCKBUFSIZE    65536
+#define CMSG_BIGSOCKBUFSIZE    131072
 #endif
 
 #define CMSG_IOV_MAX        16     /* minimum for POSIX systems */
@@ -114,7 +113,8 @@ extern "C" {
 extern int   cMsgTcpListen(int blocking, unsigned short port, int *listenFd);
 extern int   cMsgGetListeningSocket(int blocking, unsigned short startingPort,
                                     int *finalPort, int *fd);
-extern int   cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd);
+extern int   cMsgTcpConnect(const char *ip_address, unsigned short port,
+                            int rcvBufSize, int sendBufSize, int *fd);
 extern int   cMsgAccept(int fd, struct sockaddr *sa, socklen_t *salenptr);
 
 extern int   cMsgTcpRead(int fd, void *vptr, int n);

@@ -74,7 +74,7 @@ static pthread_mutex_t getHostByNameMutex = PTHREAD_MUTEX_INITIALIZER;
 int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
 {
   int                 listenfd, err, val;
-  const int           on=1, size=CMSG_SOCKBUFSIZE /* bytes */;
+  const int           on=1;
   struct sockaddr_in  servaddr;
 
   if (listenFd == NULL) {
@@ -100,23 +100,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
     return(CMSG_SOCKET_ERROR);
   }
-  
-  /* set send buffer size */
-  err = setsockopt(listenfd, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
-  if (err < 0) {
-    close(listenfd);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
-    return(CMSG_SOCKET_ERROR);
-  }
-  
-  /* set receive buffer size */
-  err = setsockopt(listenfd, SOL_SOCKET, SO_RCVBUF, (char*) &size, sizeof(size));
-  if (err < 0) {
-    close(listenfd);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
-    return(CMSG_SOCKET_ERROR);
-  }
-  
+   
   /* reuse this port after program quits */
   err = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (char*) &on, sizeof(on));
   if (err < 0) {
@@ -213,11 +197,20 @@ int cMsgGetListeningSocket(int blocking, unsigned short startingPort, int *final
 
 /*-------------------------------------------------------------------*/
 
-
-int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
+/** 
+ *  (12/4/06)     Default tcp buffer size, bytes
+ *  Platform         send      recv
+ * --------------------------------------------
+ *  Linux java       43690      8192
+ *  Linux 2.4,2.6    87380     16384
+ *  Solaris 10       49152     49152
+ *  
+ */
+int cMsgTcpConnect(const char *ip_address, unsigned short port,
+                   int sendBufSize, int rcvBufSize, int *fd)
 {
   int                 sockfd, err=0;
-  const int           on=1, size=CMSG_SOCKBUFSIZE /* bytes */;
+  const int           on=1;
   struct sockaddr_in  servaddr;
 #ifndef VXWORKS
   int                 status;
@@ -249,20 +242,24 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port, int *fd)
     return(CMSG_SOCKET_ERROR);
   }
   
-  /* set send buffer size */
-  err = setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
-  if (err < 0) {
-    close(sockfd);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
-    return(CMSG_SOCKET_ERROR);
+  /* set send buffer size unless default specified by a value <= 0 */
+  if (sendBufSize > 0) {
+    err = setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (char*) &sendBufSize, sizeof(sendBufSize));
+    if (err < 0) {
+      close(sockfd);
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
+      return(CMSG_SOCKET_ERROR);
+    }
   }
   
-  /* set receive buffer size */
-  err = setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, (char*) &size, sizeof(size));
-  if (err < 0) {
-    close(sockfd);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
-    return(CMSG_SOCKET_ERROR);
+  /* set receive buffer size unless default specified by a value <= 0  */
+  if (rcvBufSize > 0) {
+    err = setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, (char*) &rcvBufSize, sizeof(rcvBufSize));
+    if (err < 0) {
+      close(sockfd);
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: setsockopt error\n");
+      return(CMSG_SOCKET_ERROR);
+    }
   }
 	
   bzero((char*)&servaddr, sizeof(servaddr));

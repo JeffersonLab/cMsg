@@ -822,9 +822,8 @@ System.out.println("startServer; Done");
                         Socket socket = channel.socket();
                         // Set tcpNoDelay so no packets are delayed
                         socket.setTcpNoDelay(true);
-                        // set buffer sizes
+                        // set recv buffer size
                         socket.setReceiveBufferSize(65535);
-                        socket.setSendBufferSize(65535);
 
                         // start up client handling thread & store reference
                         handlerThreads.add(new ClientHandler(channel));
@@ -1788,7 +1787,7 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                     break;
                 }
 
-                StringBuffer xml = new StringBuffer(1000);
+                StringBuilder xml = new StringBuilder(1000);
 
                 // Gather all the xml monitor data into 1 place for final
                 // distribution to clients asking for it in XML format.
