@@ -196,11 +196,11 @@ typedef struct cMsgDomainInfo_t {
 
   /*  rc domain stuff  */
   int             rcConnectAbort;    /**< Flag used to abort rc client connection to RC Broadcast server. */
-  pthread_mutex_t rcConnectMutex;    /**< Mutex used for rc domain connect. */
-  pthread_cond_t  rcConnectCond;     /**< Condition variable used for rc domain connect. */
-  char            rcConnectComplete; /**< Has a special TCP message been sent from RC
+  int             rcConnectComplete; /**< Has a special TCP message been sent from RC
                                           server to indicate that connection is conplete?
                                           (1-y, 0-n) */
+  pthread_mutex_t rcConnectMutex;    /**< Mutex used for rc domain connect. */
+  pthread_cond_t  rcConnectCond;     /**< Condition variable used for rc domain connect. */
   /* ***************** */
    
   /** Array of structures - each of which contain a subscription. */
