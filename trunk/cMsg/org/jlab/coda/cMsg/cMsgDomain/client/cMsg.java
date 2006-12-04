@@ -249,6 +249,11 @@ public class cMsg extends cMsgDomainAdapter {
     /** Level of debug output for this class. */
     int debug = cMsgConstants.debugError;
 
+    // For statistics/monitoring
+
+    /** Number of commands sent from client to server. */
+    long numSends, numSyncSends, numSendAndGets, numSubscribeAndGets, numSubscribes, numUnsubscribes;
+
 //-----------------------------------------------------------------------------
 
     /**
@@ -772,7 +777,6 @@ public class cMsg extends cMsgDomainAdapter {
                 // buffered communication streams for efficiency
                 Socket socket = domainInChannel.socket();
                 socket.setTcpNoDelay(true);
-                socket.setReceiveBufferSize(2048);
                 domainIn = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 2048));
             }
             catch (IOException e) {
@@ -823,8 +827,9 @@ public class cMsg extends cMsgDomainAdapter {
                 // buffered communication streams for efficiency
                 Socket socket = domainOutChannel.socket();
                 socket.setTcpNoDelay(true);
-                socket.setSendBufferSize(65535);
-                domainOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
+                socket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                domainOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(),
+                                                                          cMsgNetworkConstants.bigBufferSize));
             }
             catch (IOException e) {
                 // undo everything we've just done so far
@@ -851,7 +856,7 @@ public class cMsg extends cMsgDomainAdapter {
                 InetAddress addr = InetAddress.getByName(domainServerHost);
                 // connect for speed and to keep out unwanted packets
                 sendUdpSocket.connect(addr, domainServerUdpPort);
-                sendUdpSocket.setSendBufferSize(65535);
+                sendUdpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
                 sendUdpPacket = new DatagramPacket(new byte[0], 0, addr, domainServerUdpPort);
                 // System.out.println("udp socket connected to host = " + domainServerHost +
                 // " and port = " + domainServerUdpPort);
@@ -1057,7 +1062,6 @@ public class cMsg extends cMsgDomainAdapter {
                 // buffered communication streams for efficiency
                 Socket socket = domainInChannel.socket();
                 socket.setTcpNoDelay(true);
-                socket.setReceiveBufferSize(2048);
                 domainIn = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 2048));
             }
             catch (IOException e) {
@@ -1089,8 +1093,9 @@ public class cMsg extends cMsgDomainAdapter {
                 // buffered communication streams for efficiency
                 Socket socket = domainOutChannel.socket();
                 socket.setTcpNoDelay(true);
-                socket.setSendBufferSize(65535);
-                domainOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
+                socket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                domainOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(),
+                                                                          cMsgNetworkConstants.bigBufferSize));
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
@@ -1105,7 +1110,7 @@ public class cMsg extends cMsgDomainAdapter {
                     InetAddress addr = InetAddress.getByName(domainServerHost);
                     // connect for speed and to keep out unwanted packets
                     sendUdpSocket.connect(addr, domainServerUdpPort);
-                    sendUdpSocket.setSendBufferSize(65535);
+                    sendUdpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
                     sendUdpPacket = new DatagramPacket(new byte[0], 0, addr, domainServerUdpPort);
                     // System.out.println("udp socket connected to host = " + domainServerHost +
                     // " and port = " + domainServerUdpPort);

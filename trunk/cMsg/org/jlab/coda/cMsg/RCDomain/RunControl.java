@@ -282,7 +282,6 @@ public class RunControl extends cMsgDomainAdapter {
 
                 // create socket to receive at anonymous port & all interfaces
                 udpSocket = new DatagramSocket();
-                udpSocket.setReceiveBufferSize(2048);
 
                 // create packet to broadcast from the byte array
                 byte[] buf = baos.toByteArray();
@@ -366,6 +365,8 @@ public class RunControl extends cMsgDomainAdapter {
 
             // Create a UDP "connection". This means security check is done only once
             // and communication with any other host/port is not allowed.
+            try { udpSocket.setReceiveBufferSize(cMsgNetworkConstants.bigBufferSize); }
+            catch (SocketException e) {}
             udpSocket.connect(rcServerAddress, rcUdpServerPort);
             sendUdpPacket = new DatagramPacket(new byte[0], 0, rcServerAddress, rcUdpServerPort);
 
@@ -374,8 +375,9 @@ public class RunControl extends cMsgDomainAdapter {
                 tcpSocket = new Socket(rcServerAddress,rcTcpServerPort);
                 //tcpSocket.connect(sockAddr);
                 tcpSocket.setTcpNoDelay(true);
-                tcpSocket.setSendBufferSize(65535);
-                domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(), 65536));
+                tcpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
+                                                                          cMsgNetworkConstants.bigBufferSize));
             }
             catch (IOException e) {
                 throw new cMsgException("Cannot make TCP connection to RC server", e);

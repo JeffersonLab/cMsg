@@ -59,4 +59,7 @@ public class cMsgNetworkConstants {
     /** The biggest single UDP packet size is 2^16 - IP 64 byte header - 8 byte UDP header. */
     public static final int    biggestUdpPacketSize = 65463;
 
+    /** The size (in bytes) of big buffers used to send data from client to server. */
+    public static final int    bigBufferSize = 131072;
+
 }
