@@ -116,6 +116,7 @@ void *cMsgClientListeningThread(void *arg)
   int             err, status, connectionNumber=0;
   int             state, index=0;
   const int       on=1;
+  int             rcvBufSize = CMSG_BIGSOCKBUFSIZE;
   fd_set          readSet;
   struct timeval  timeout;
   struct sockaddr_in cliaddr;
@@ -249,6 +250,18 @@ void *cMsgClientListeningThread(void *arg)
     if (err < 0) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "cMsgClientListeningThread: error setting socket to SO_KEEPALIVE\n");
+      }
+      close(pinfo->connfd);
+      free(pinfo->domainType);
+      free(pinfo);
+      continue;
+    }
+
+    /* set receive buffer size */
+    err = setsockopt(pinfo->connfd, SOL_SOCKET, SO_RCVBUF, (char*) &rcvBufSize, sizeof(rcvBufSize));
+    if (err < 0) {
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+        fprintf(stderr, "cMsgClientListeningThread: error setting socket receiving buffer size\n");
       }
       close(pinfo->connfd);
       free(pinfo->domainType);

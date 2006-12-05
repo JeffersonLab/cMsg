@@ -175,9 +175,8 @@ public class cMsgClientListeningThread extends Thread {
                         Socket socket = channel.socket();
                         // Set tcpNoDelay so no packets are delayed
                         socket.setTcpNoDelay(true);
-                        // set buffer sizes
-                        socket.setReceiveBufferSize(65535);
-                        socket.setSendBufferSize(65535);
+                        // set incoming buffer size
+                        socket.setReceiveBufferSize(cMsgNetworkConstants.bigBufferSize);
 
                         // Start up client handling thread & store reference.
                         // The first of the 2 connections is for message receiving.
