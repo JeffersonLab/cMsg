@@ -237,6 +237,22 @@ public class cMsgUtilities {
               reason = "java class cannot be found";
               break;
 
+          case cMsgConstants.errorDifferentVersion:
+              reason = "error due to being different version";
+              break;
+
+          case cMsgConstants.errorWrongPassword:
+              reason = "error due to wrong password";
+              break
+                      ;
+          case cMsgConstants.errorServerDied:
+              reason = "error due to server dying";
+              break;
+
+          case cMsgConstants.errorAbort:
+              reason = "error due to aborted procedure";
+              break;
+
           default:
               reason = "no such error (" + error + ")";
               if (debug > cMsgConstants.debugError)
