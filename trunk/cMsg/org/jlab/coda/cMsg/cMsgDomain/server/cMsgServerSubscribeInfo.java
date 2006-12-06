@@ -49,7 +49,7 @@ public class cMsgServerSubscribeInfo {
     /** Client which created the subscription/subAndGet. */
     cMsgClientInfo info;
 
-    /** If this is 1, the client did a subscription, else if 0 only subscribeAndGets. */
+    /** If this is 1, the client did a subscription, else if 0 only subAndGets. */
     int subscribed;
 
     /**
@@ -88,7 +88,7 @@ public class cMsgServerSubscribeInfo {
 
     /**
      * Constructor used by cMsgDomainServer object basically for storage of subject, type,
-     * namespace and callbacks for subscribeAndGets.
+     * namespace and callbacks for subAndGets.
      *
      * @param subject subscription subject
      * @param type subscription type
@@ -130,9 +130,9 @@ public class cMsgServerSubscribeInfo {
     }
 
     /**
-     * Is the client subscribed or are there only subscribeAndGets?
+     * Is the client subscribed or are there only subAndGets?
      *
-     * @return true if client has a subscription, false if client only did subscribeAndGets
+     * @return true if client has a subscription, false if client only did subAndGets
      */
     public boolean isSubscribed() {
         if (subscribed > 0) return true;
@@ -148,7 +148,7 @@ public class cMsgServerSubscribeInfo {
      * as the key (receiverSubscribeId which identifies the particular subscribeAndGet call
      * in question), and the value which is the callback object of that subscribeAndGet.
      *
-     * @return hashmap of (id, callback object) key-value pairs of all subscribeAndGets
+     * @return hashmap of (id, callback object) key-value pairs of all subAndGets
      */
     public HashMap<Integer, cMsgCallbackAdapter> getSubAndGetters() {
         return subAndGetters;
@@ -177,9 +177,9 @@ public class cMsgServerSubscribeInfo {
 
     /**
      * Gets the number of subscriptions a client has to a subject, type, namespace combination.
-     * This includes both subscribes and subscribeAndGets.
+     * This includes both subscribes and subAndGets.
      * @return the number of subscriptions a client has to a subject, type, namespace combination
-     *         including subscribes and subscribeAndGets
+     *         including subscribes and subAndGets
      */
     public int numberOfSubscribers() {
         return (subscribed + subAndGetters.size());

@@ -17,7 +17,6 @@
 package org.jlab.coda.cMsg.cMsgDomain.server;
 
 import org.jlab.coda.cMsg.cMsgNotifier;
-import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgCallbackAdapter;
 
 import java.util.Set;
@@ -36,7 +35,7 @@ public class cMsgServerSubscribeAndGetter implements Runnable {
     /**
      * Wait on this object which tells us when a matching message has been sent
      * to a subscribeAndGet so we can notify bridges to cancel their subscriptions
-     * (which are used to implement remote subscribeAndGets).
+     * (which are used to implement remote subAndGets).
      */
     cMsgNotifier notifier;
 

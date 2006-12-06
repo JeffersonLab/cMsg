@@ -102,7 +102,7 @@ public class cMsgServerBridge {
 
     /**
      * This method returns a reference to the one callback needed for
-     * subscribes and subscribeAndGets to propogate messages back to
+     * subscribes and subAndGets to propogate messages back to
      * original client.
      * @return callback object for propogating messages back to original client
      */
