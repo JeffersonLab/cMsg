@@ -44,7 +44,7 @@ public class cMsgMonitorClient extends Thread {
     private cMsgClientInfo info;
 
     /** Domain server object. */
-    private cMsgDomainServer domainServer;
+    private cMsgDomainServer server;
 
     /** Communication channel to client from domain server. */
     private SocketChannel channel;
@@ -72,7 +72,7 @@ public class cMsgMonitorClient extends Thread {
     public cMsgMonitorClient(cMsgClientInfo info, cMsgDomainServer server, int debug) {
         this.info   = info;
         this.debug  = debug;
-        this.domainServer = server;
+        this.server = server;
 
         try {
             // There is a problem with vxWorks clients in that its sockets are
@@ -106,6 +106,40 @@ public class cMsgMonitorClient extends Thread {
         }
     }
 
+
+    private void readResponse() throws IOException {
+
+        // read 1 int of data
+        cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
+        buffer.flip();
+        int size = buffer.getInt();
+//System.out.println("SIZE = " + size);
+
+        // read size bytes of data
+        buffer.position(0).limit(2048);
+        cMsgUtilities.readSocketBytes(buffer, channel, size, debug);
+        buffer.flip();
+
+        server.monData.isJava = buffer.getInt() == 1;
+        server.monData.pendingSubAndGets  = buffer.getInt();
+        server.monData.pendingSendAndGets = buffer.getInt();
+
+        server.monData.clientTcpSends     = buffer.getLong();
+        server.monData.clientUdpSends     = buffer.getLong();
+        server.monData.clientSyncSends    = buffer.getLong();
+        server.monData.clientSendAndGets  = buffer.getLong();
+        server.monData.clientSubAndGets   = buffer.getLong();
+        server.monData.clientSubscribes   = buffer.getLong();
+        server.monData.clientUnsubscribes = buffer.getLong();
+
+        size = buffer.getInt();
+        byte[] buf = new byte[size];
+        buffer.get(buf,0,size);
+        server.monData.monXML = new String(buf, 0, size, "US-ASCII");
+    //    System.out.println("Print XML:\n" + server.monData.monXML);
+    }
+
+
     /** This method is executed as a thread. */
     public void run() {
 
@@ -119,7 +153,7 @@ public class cMsgMonitorClient extends Thread {
 
             try {
                 // check to see if domain server is shutting down and we must die too
-                if (domainServer.killSpawnedThreads) {
+                if (server.killSpawnedThreads) {
                     return;
                 }
 
@@ -149,9 +183,9 @@ public class cMsgMonitorClient extends Thread {
                                            info.getName() + "\n");
                     }
 
-                    if (domainServer.calledShutdown.compareAndSet(false,true)) {
+                    if (server.calledShutdown.compareAndSet(false,true)) {
                         //System.out.println("SHUTDOWN TO BE RUN BY monitor client thd");
-                        domainServer.shutdown();
+                        server.shutdown();
                     }
                     return;
                 }
@@ -167,12 +201,14 @@ public class cMsgMonitorClient extends Thread {
                     if (key.isValid() && key.isReadable()) {
 
                         // read acknowledgment & keep reading until we have 1 int of data
+                        readResponse();
+                        /*
                         cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
                         if (debug >= cMsgConstants.debugInfo) {
                             System.out.println("  cMsgMonitorClient: read keepAlive response for " +
                                                info.getName() + "\n\n");
                         }
-
+                        */
                     }
                     // remove key from selected set since it's been handled
                     it.remove();
@@ -194,9 +230,9 @@ public class cMsgMonitorClient extends Thread {
                                        info.getClientPort() + "\n");
                 }
 
-                if (domainServer.calledShutdown.compareAndSet(false,true)) {
+                if (server.calledShutdown.compareAndSet(false,true)) {
                     //System.out.println("SHUTDOWN TO BE RUN BY monitor client thd");
-                    domainServer.shutdown();
+                    server.shutdown();
                 }
                 return;
             }

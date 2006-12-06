@@ -165,11 +165,23 @@ public class cMsgDomainServer extends Thread {
     /** String which contains the monitor data of this particular domain server (xml format). */
     String dsMonitorXML;
 
-    /** Time in millisec that client connected. */
-    long birthday;
+    /** Convenience class to store all monitoring quantities. */
+    class monitorData {
+        // Quantities measured by the domain server
+        long birthday;
+        long tcpSends, udpSends, syncSends, sendAndGets,
+                subAndGets, subscribes, unsubscribes;
+        // Quantities obtained from the client
+        long clientTcpSends, clientUdpSends, clientSyncSends, clientSendAndGets,
+                clientSubAndGets, clientSubscribes, clientUnsubscribes;
+        boolean isJava;
+        int pendingSendAndGets;
+        int pendingSubAndGets;
+        String monXML;
+    }
 
-    /** Number of commands sent from client to server. */
-    long sends, syncSends, sendAndGets, subscribeAndGets, subscribes, unsubscribes;
+    monitorData monData = new monitorData();
+
     //////////////////////////////////////
 
     /** Kill main thread if true. */
@@ -640,7 +652,7 @@ public class cMsgDomainServer extends Thread {
                             udpHandlerThread = new UdpSendHandler();
 
                             // record when client connected
-                            birthday = (new Date()).getTime();
+                            monData.birthday = (new Date()).getTime();
                         }
 
                         connectionNumber++;
@@ -797,6 +809,8 @@ public class cMsgDomainServer extends Thread {
                         }
                         return;
                     }
+
+                    monData.udpSends++;
 
                     cMsgHolder holder = readSendInfo();
                     holder.request = msgId;
@@ -995,6 +1009,7 @@ public class cMsgDomainServer extends Thread {
                     switch (msgId) {
 
                         case cMsgConstants.msgSendRequest: // client sending msg
+                            monData.tcpSends++;
                         case cMsgConstants.msgSyncSendRequest:
                             holder = readSendInfo();
                             break;
@@ -1739,7 +1754,7 @@ public class cMsgDomainServer extends Thread {
                     switch (holder.request) {
 
                         case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
-                            subscribes++;
+                            monData.subscribes++;
                             subdomainHandler.handleSubscribeRequest(holder.subject,
                                                                     holder.type,
                                                                     holder.id);
@@ -1750,7 +1765,7 @@ public class cMsgDomainServer extends Thread {
                             break;
 
                         case cMsgConstants.msgUnsubscribeRequest: // unsubscribing from a subject & type
-                            unsubscribes++;
+                            monData.unsubscribes++;
                             subdomainHandler.handleUnsubscribeRequest(holder.subject,
                                                                       holder.type,
                                                                       holder.id);
@@ -2004,18 +2019,17 @@ public class cMsgDomainServer extends Thread {
                     switch (holder.request) {
 
                         case cMsgConstants.msgSendRequest: // receiving a message
-                            sends++;
                             subdomainHandler.handleSendRequest(holder.message);
                             break;
 
                         case cMsgConstants.msgSyncSendRequest: // receiving a message
-                            syncSends++;
+                            monData.syncSends++;
                             answer = subdomainHandler.handleSyncSendRequest(holder.message);
                             sendIntReply(answer);
                             break;
 
                         case cMsgConstants.msgSendAndGetRequest: // sending a message to a responder
-                            sendAndGets++;
+                            monData.sendAndGets++;
 //System.out.println("Domain Server: got msgSendAndGetRequest from client, ns = " + holder.namespace);
                             // If not cMsg subdomain just call subdomain handler.
                             if (cMsgSubdomainHandler == null) {
@@ -2034,7 +2048,7 @@ public class cMsgDomainServer extends Thread {
                             break;
 
                         case cMsgConstants.msgSubscribeAndGetRequest: // getting 1 message of subject & type
-                            subscribeAndGets++;
+                            monData.subAndGets++;
                             // if not cMsg subdomain, just call subdomain handler
                             if (cMsgSubdomainHandler == null) {
 //System.out.println("Domain Server: call regular sub&Get");
@@ -2242,7 +2256,7 @@ public class cMsgDomainServer extends Thread {
 
                     // Do a local subscribeAndGet. This associates the notifier
                     // object with the subscription. The call to this method MUST COME
-                    // AFTER the bridges' subscribeAndGets. If not, then there is a race
+                    // AFTER the bridges' subAndGets. If not, then there is a race
                     // condition in which subscribes and unsubscribes get out of order.
 //System.out.println("    DS: call serverSub&GetRequest with id = " + holder.id);
                     cMsgSubdomainHandler.handleServerSubscribeAndGetRequest(holder.subject,

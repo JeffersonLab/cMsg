@@ -86,7 +86,7 @@ public class cMsgNameServer extends Thread {
     private int debug;
 
     /**
-     * Set of all subscriptions (including the subscribeAndGets) of all clients
+     * Set of all subscriptions (including the subAndGets) of all clients
      * on this server. This is mutex protected by {@link #subscribeLock}.
      */
     HashSet<cMsgServerSubscribeInfo> subscriptions =
@@ -1791,7 +1791,7 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
 
                 // Gather all the xml monitor data into 1 place for final
                 // distribution to clients asking for it in XML format.
-                xml.append("  <server name=\"");
+                xml.append("\n  <server name=\"");
                 xml.append(serverName);
                 xml.append("\">\n");
                 String indent1 = "      ";
@@ -1803,14 +1803,14 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                         //System.out.println("Skipping other server's bridge client");
                         continue;
                     }
-                    xml.append("    <client name=\"");
+                    xml.append("\n    <client name=\"");
                     xml.append(ds.info.getName());
                     xml.append("\">\n");
 
                     // time created
                     xml.append(indent1);
                     xml.append("<timeConnected>");
-                    xml.append(dateFormat.format(ds.birthday));
+                    xml.append(dateFormat.format(ds.monData.birthday));
                     xml.append("</timeConnected>\n");
 
                     // subdomain
@@ -1825,67 +1825,111 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                     // namespace
                     String ns = ds.info.getNamespace();
                     if (ns != null) {
+                        // get rid of beginning slash (add by subdomain)
+                        ns = ns.substring(1, ns.length());
                         xml.append(indent1);
                         xml.append("<namespace>");
                         xml.append(ns);
                         xml.append("</namespace>\n");
                     }
 
-                    // list subscriptions (cmsg subdomain only)
+                    // list subscriptions sent from client (cmsg subdomain only)
                     if (sd != null && sd.equalsIgnoreCase("cmsg")) {
-                        for (cMsgServerSubscribeInfo si : subscriptions) {
-                            if (si.info == ds.info) {
-                                xml.append(indent1);
-                                xml.append("<subscription subject=\"");
-                                xml.append(si.subject);
-                                xml.append("\" type=\"");
-                                xml.append(si.type);
-                                xml.append("\" /subscription>\n");
-                            }
+                        xml.append(ds.monData.monXML);
+
+                        // # of sends, etc.
+                        if (ds.monData.clientTcpSends > 0) {
+                            xml.append(indent1);
+                            xml.append("<tcpSends>");
+                            xml.append(ds.monData.clientTcpSends);
+                            xml.append("</tcpSends>\n");
+                        }
+                        if (ds.monData.clientUdpSends > 0) {
+                            xml.append(indent1);
+                            xml.append("<udpSends>");
+                            xml.append(ds.monData.clientUdpSends);
+                            xml.append("</udpSends>\n");
+                        }
+                        if (ds.monData.clientSyncSends > 0) {
+                            xml.append(indent1);
+                            xml.append("<syncSends>");
+                            xml.append(ds.monData.clientSyncSends);
+                            xml.append("</syncSends>\n");
+                        }
+                        if (ds.monData.clientSendAndGets > 0) {
+                            xml.append(indent1);
+                            xml.append("<sendAndGets>");
+                            xml.append(ds.monData.clientSendAndGets);
+                            xml.append("</sendAndGets>\n");
+                        }
+                        if (ds.monData.clientSubAndGets > 0) {
+                            xml.append(indent1);
+                            xml.append("<subscribeAndGets>");
+                            xml.append(ds.monData.clientSubAndGets);
+                            xml.append("</subscribeAndGets>\n");
+                        }
+                        if (ds.monData.clientSubscribes > 0) {
+                            xml.append(indent1);
+                            xml.append("<subscribes>");
+                            xml.append(ds.monData.clientSubscribes);
+                            xml.append("</subscribes>\n");
+                        }
+                        if (ds.monData.clientUnsubscribes > 0) {
+                            xml.append(indent1);
+                            xml.append("<unsubscribes>");
+                            xml.append(ds.monData.clientUnsubscribes);
+                            xml.append("</unsubscribes>\n");
                         }
                     }
+                    else {
 
-                    // # of sends, etc.
-                    if (ds.sends > 0) {
-                        xml.append(indent1);
-                        xml.append("<sends>");
-                        xml.append(ds.sends);
-                        xml.append("</sends>\n");
+                        // # of sends, etc.
+                        if (ds.monData.tcpSends > 0) {
+                            xml.append(indent1);
+                            xml.append("<tcpSends>");
+                            xml.append(ds.monData.tcpSends);
+                            xml.append("</tcpSends>\n");
+                        }
+                        if (ds.monData.udpSends > 0) {
+                            xml.append(indent1);
+                            xml.append("<udpSends>");
+                            xml.append(ds.monData.udpSends);
+                            xml.append("</udpSends>\n");
+                        }
+                        if (ds.monData.syncSends > 0) {
+                            xml.append(indent1);
+                            xml.append("<syncSends>");
+                            xml.append(ds.monData.syncSends);
+                            xml.append("</syncSends>\n");
+                        }
+                        if (ds.monData.sendAndGets > 0) {
+                            xml.append(indent1);
+                            xml.append("<sendAndGets>");
+                            xml.append(ds.monData.sendAndGets);
+                            xml.append("</sendAndGets>\n");
+                        }
+                        if (ds.monData.subAndGets > 0) {
+                            xml.append(indent1);
+                            xml.append("<subscribeAndGets>");
+                            xml.append(ds.monData.subAndGets);
+                            xml.append("</subscribeAndGets>\n");
+                        }
+                        if (ds.monData.subscribes > 0) {
+                            xml.append(indent1);
+                            xml.append("<subscribes>");
+                            xml.append(ds.monData.subscribes);
+                            xml.append("</subscribes>\n");
+                        }
+                        if (ds.monData.unsubscribes > 0) {
+                            xml.append(indent1);
+                            xml.append("<unsubscribes>");
+                            xml.append(ds.monData.unsubscribes);
+                            xml.append("</unsubscribes>\n");
+                        }
                     }
-                    if (ds.syncSends > 0) {
-                        xml.append(indent1);
-                        xml.append("<syncSends>");
-                        xml.append(ds.syncSends);
-                        xml.append("</syncSends>\n");
-                    }
-                    if (ds.sendAndGets > 0) {
-                        xml.append(indent1);
-                        xml.append("<sendAndGets>");
-                        xml.append(ds.sendAndGets);
-                        xml.append("</sendAndGets>\n");
-                    }
-                    if (ds.subscribeAndGets > 0) {
-                        xml.append(indent1);
-                        xml.append("<subscribeAndGets>");
-                        xml.append(ds.subscribeAndGets);
-                        xml.append("</subscribeAndGets>\n");
-                    }
-                    if (ds.subscribes > 0) {
-                        xml.append(indent1);
-                        xml.append("<subscribes>");
-                        xml.append(ds.subscribes);
-                        xml.append("</subscribes>\n");
-                    }
-                    if (ds.unsubscribes > 0) {
-                        xml.append(indent1);
-                        xml.append("<unsubscribes>");
-                        xml.append(ds.unsubscribes);
-                        xml.append("</unsubscribes>\n");
-                    }
-
                     xml.append("    </client>\n");
                 }
-                xml.append("  </server>\n\n");
+                xml.append("\n  </server>\n\n");
 
                 // store this as an xml string describing local server only
                 nsMonitorXML = xml.toString();

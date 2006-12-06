@@ -251,8 +251,9 @@ public class cMsg extends cMsgDomainAdapter {
 
     // For statistics/monitoring
 
-    /** Number of commands sent from client to server. */
-    long numSends, numSyncSends, numSendAndGets, numSubscribeAndGets, numSubscribes, numUnsubscribes;
+    /** Numbers of commands sent from client to server. */
+    long numTcpSends, numUdpSends, numSyncSends, numSendAndGets,
+            numSubscribeAndGets, numSubscribes, numUnsubscribes;
 
 //-----------------------------------------------------------------------------
 
@@ -1231,7 +1232,7 @@ public class cMsg extends cMsgDomainAdapter {
                 }
 
                 domainOut.flush();
-
+                numTcpSends++;
             }
             catch (IOException e) {
                 // wait awhile for possible failover
@@ -1348,6 +1349,7 @@ public class cMsg extends cMsgDomainAdapter {
                     // all udp sends are synchronized.
                     sendUdpSocket.send(sendUdpPacket);
                 }
+                numUdpSends++;
             }
             catch (IOException e) {
                 // wait awhile for possible failover
@@ -1463,6 +1465,7 @@ public class cMsg extends cMsgDomainAdapter {
                 }
 
                 domainOut.flush(); // no need to be protected by socketLock
+                numSyncSends++;
                 return domainIn.readInt();  // this is protected by returnCommunicationLock
             }
             catch (IOException e) {
@@ -1610,6 +1613,7 @@ public class cMsg extends cMsgDomainAdapter {
                     }
 
                     domainOut.flush();
+                    numSubscribes++;
                 }
                 finally {
                     socketLock.unlock();
@@ -1724,6 +1728,7 @@ public class cMsg extends cMsgDomainAdapter {
                     catch (UnsupportedEncodingException e) {
                     }
                     domainOut.flush();
+                    numUnsubscribes++;
                 }
                 finally {
                     socketLock.unlock();
@@ -1924,6 +1929,7 @@ public class cMsg extends cMsgDomainAdapter {
                     domainOut.write(type.getBytes("US-ASCII"));
                 }
                 catch (UnsupportedEncodingException e) {}
+                numSubscribeAndGets++;
             }
             finally {
                 socketLock.unlock();
@@ -2135,6 +2141,7 @@ public class cMsg extends cMsgDomainAdapter {
                     }
                 }
                 catch (UnsupportedEncodingException e) {}
+                numSendAndGets++;
             }
             finally {
                 socketLock.unlock();

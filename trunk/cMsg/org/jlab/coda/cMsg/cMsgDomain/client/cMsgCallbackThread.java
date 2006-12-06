@@ -59,6 +59,9 @@ public class cMsgCallbackThread extends Thread {
     /** Place to temporarily store the returned message from a get. */
     cMsgMessageFull message;
 
+    /** Number of messages passed to the callback. */
+    long msgCount;
+
     /** Number of identical subscriptions made with the same callback and arg. */
     private int count;
 
@@ -168,6 +171,7 @@ public class cMsgCallbackThread extends Thread {
                 }
 
                 // run callback with copied msg so multiple callbacks don't clobber each other
+                msgCount++;
                 callback.callback(message.copy(), arg);
             }
         }
@@ -298,6 +302,7 @@ public class cMsgCallbackThread extends Thread {
             }
 
             // run callback with copied msg so multiple callbacks don't clobber each other
+            msgCount++;
             callback.callback(message.copy(), arg);
         }
     }

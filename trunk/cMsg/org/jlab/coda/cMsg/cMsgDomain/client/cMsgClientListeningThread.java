@@ -312,9 +312,12 @@ public class cMsgClientListeningThread extends Thread {
                             if (debug >= cMsgConstants.debugInfo) {
                                 System.out.println("handleClient: got keep alive from server");
                             }
+
+                            sendMonitorInfo();
+
                             // send ok back as acknowledgment
-                            out.writeInt(cMsgConstants.ok);
-                            out.flush();
+                            //out.writeInt(cMsgConstants.ok);
+                            //out.flush();
                             break;
 
                         case cMsgConstants.msgShutdownClients: // server told this client to shutdown
@@ -364,6 +367,70 @@ public class cMsgClientListeningThread extends Thread {
             }
 
             return;
+        }
+
+
+        /**
+         * This method gathers and sends monitoring data to the server
+         * as a response to the keep alive command.
+         * @throws IOException if communication error
+         */
+        private void sendMonitorInfo() throws IOException {
+
+            String indent1 = "      ";
+            String indent2 = "        ";
+
+            StringBuilder xml = new StringBuilder(2048);
+
+            synchronized (client.subscriptions) {
+
+                // for each subscription of this client ...
+                for (cMsgSubscription sub : client.subscriptions) {
+
+                    xml.append(indent1);
+                    xml.append("<subscription subject=\"");
+                    xml.append(sub.getSubject());
+                    xml.append("\" type=\"");
+                    xml.append(sub.getType());
+                    xml.append(">\n");
+
+                    // run through all callbacks
+                    int num=0;
+                    for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
+                        xml.append(indent2);
+                        xml.append("<callback id=\"");
+                        xml.append(num++);
+                        xml.append("\" received=\"");
+                        xml.append(cbThread.msgCount);
+                        xml.append("\" cueSize=\"");
+                        xml.append(cbThread.getCueSize());
+                        xml.append("\"/>\n");
+                    }
+
+                    xml.append(indent1);
+                    xml.append("</subscription>\n");
+                }
+            }
+
+            int size = xml.length() + 4*4 + 8*7;
+            out.writeInt(size);
+
+            out.writeInt(1); // This is a java client (0 is for C/C++)
+            out.writeInt(client.subscribeAndGets.size()); // pending sub&gets
+            out.writeInt(client.sendAndGets.size());      // pending send&gets
+
+            out.writeLong(client.numTcpSends);
+            out.writeLong(client.numUdpSends);
+            out.writeLong(client.numSyncSends);
+            out.writeLong(client.numSendAndGets);
+            out.writeLong(client.numSubscribeAndGets);
+            out.writeLong(client.numSubscribes);
+            out.writeLong(client.numUnsubscribes);
+
+
+            out.writeInt(xml.length());
+            out.write(xml.toString().getBytes("US-ASCII"));
+            out.flush();
         }
 
 
