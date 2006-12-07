@@ -400,7 +400,7 @@ public class cMsgClientListeningThread extends Thread {
                     xml.append(sub.getSubject());
                     xml.append("\" type=\"");
                     xml.append(sub.getType());
-                    xml.append(">\n");
+                    xml.append("\">\n");
 
                     // run through all callbacks
                     int num=0;

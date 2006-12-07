@@ -832,7 +832,7 @@ static int sendMonitorInfo(cMsgDomainInfo *domain, char *buffer, int connfd) {
     strcat(xml, sub->subject);
     strcat(xml, "\" type=\"");
     strcat(xml, sub->type);
-    strcat(xml, ">\n");
+    strcat(xml, "\">\n");
     
 
     /* search callback list */
