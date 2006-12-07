@@ -582,7 +582,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
     }
         
     /* create and start a thread which will receive any responses to our broadcast */
-    bzero((void *)&rArg.addr, sizeof(rArg.addr));
+    memset((void *)&rArg.addr, 0, sizeof(rArg.addr));
     rArg.len             = (socklen_t) sizeof(rArg.addr);
     rArg.port            = 0;
     rArg.sockfd          = sockfd;
@@ -594,7 +594,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
     }
     
     /* create and start a thread which will broadcast every second */
-    bzero((void *)&servaddr, sizeof(servaddr));
+    memset((void *)&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_port   = htons((unsigned short) (domain->failovers[failoverIndex].nameServerPort));
     
@@ -700,7 +700,7 @@ static void *receiverThd(void *arg) {
     char buf[1024], *pchar;
     
     /* zero buffer */
-    pchar = memset(buf,0,1024);
+    pchar = memset((void *)buf,0,1024);
     
     /* ignore error as it will be caught later */   
     recvfrom(threadArg->sockfd, (void *)buf, 1024, 0,
@@ -988,7 +988,7 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
   }
 
 
-  bzero((char*)&servaddr, sizeof(servaddr));
+  memset((void *)&servaddr, 0, sizeof(servaddr));
   servaddr.sin_family = AF_INET;
   servaddr.sin_port   = htons(domain->sendUdpPort);
 
@@ -1221,7 +1221,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   }
 
 
-  bzero((char*)&servaddr, sizeof(servaddr));
+  memset((void *)&servaddr, 0, sizeof(servaddr));
   servaddr.sin_family = AF_INET;
   servaddr.sin_port   = htons(domain->sendUdpPort);
 
@@ -1426,10 +1426,12 @@ int cmsg_cmsg_send(void *domainId, const void *vmsg) {
     if (!msg->context.udpSend) {
       /* send data over TCP socket */
       sendLen = cMsgTcpWrite(fd, (void *) domain->msgBuffer, len);
+      if (sendLen == len) domain->monData.numTcpSends++;
     }
     else {
       /* send data over UDP socket */
       sendLen = send(fd, (void *)domain->msgBuffer, len, 0);      
+      if (sendLen == len) domain->monData.numUdpSends++;
     }
     if (sendLen != len) {
       cMsgSocketMutexUnlock(domain);
@@ -1656,6 +1658,8 @@ int cmsg_cmsg_syncSend(void *domainId, const void *vmsg, const struct timespec *
       break;
     }
 
+    domain->monData.numSyncSends++;
+    
     cMsgSyncSendMutexUnlock(domain);
     cMsgConnectReadUnlock(domain);
     break;
@@ -1673,6 +1677,8 @@ int cmsg_cmsg_syncSend(void *domainId, const void *vmsg, const struct timespec *
       printf("cmsg_cmsg_syncSend: FAILOVER NOT successful, quitting, err = %d\n", err);
     }
   }
+  
+      
 
   /* return domain server's reply */  
   *response = ntohl(err);  
@@ -1840,6 +1846,9 @@ int cmsg_cmsg_subscribeAndGet(void *domainId, const char *subject, const char *t
     cmsg_err_abort(status, "Failed callback mutex lock");
   }
 
+  domain->monData.subAndGets++;
+  domain->monData.numSubAndGets++;
+
   /* wait while there is no message */
   while (info->msgIn == 0) {
     /* wait until signaled */
@@ -1864,7 +1873,9 @@ int cmsg_cmsg_subscribeAndGet(void *domainId, const char *subject, const char *t
       break;
     }
   }
-
+  
+  domain->monData.subAndGets--;
+  
   /* unlock mutex */
   status = pthread_mutex_unlock(&info->mutex);
   if (status != 0) {
@@ -2228,6 +2239,9 @@ int cmsg_cmsg_sendAndGet(void *domainId, const void *sendMsg, const struct times
     cmsg_err_abort(status, "Failed callback mutex lock");
   }
 
+  domain->monData.sendAndGets++;
+  domain->monData.numSendAndGets++;
+
   /* wait while there is no message */
   while (info->msgIn == 0) {
     /* wait until signaled */
@@ -2252,6 +2266,8 @@ int cmsg_cmsg_sendAndGet(void *domainId, const void *sendMsg, const struct times
       break;
     }
   }
+
+  domain->monData.sendAndGets--;
 
   /* unlock mutex */
   status = pthread_mutex_unlock(&info->mutex);
@@ -2696,6 +2712,7 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
     if ((iok == 1) && (jok == 1)) {
       cMsgSubscribeMutexUnlock(domain);
       cMsgConnectReadUnlock(domain);
+      domain->monData.numSubscribes++;
       return(CMSG_OK);
     }
 
@@ -2842,6 +2859,8 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
         err = CMSG_LOST_CONNECTION;
         break;
       }
+      
+      domain->monData.numSubscribes++;
 
       /* done protecting communications */
       cMsgSocketMutexUnlock(domain);
@@ -3147,6 +3166,8 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
       cmsg_err_abort(status, "Failed callback condition signal");
     }
     
+    domain->monData.numUnsubscribes++;
+
     /*
      * Once this subscription wakes up it sets the array location
      * as inactive/available (callbackInfo->active = 0). Don't do

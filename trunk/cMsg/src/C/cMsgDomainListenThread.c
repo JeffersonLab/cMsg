@@ -48,6 +48,7 @@ static void  cleanUpHandler(void *arg);
 static int   cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *acknowledge);
 static int   cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static int   cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg);
+static int   sendMonitorInfo(cMsgDomainInfo *domain, char *buffer, int connfd);
 
 
 /*-------------------------------------------------------------------*
@@ -277,7 +278,7 @@ void *cMsgClientListeningThread(void *arg)
     /* Connections come 2 at a time. If failing over, may get multiple
      * connections here but always in pairs of 2.
      * The first connection is one to receive messages and the second
-     * reponds to keepAlive inquiries from the server.
+     * responds to keepAlive inquiries from the server.
      */
     status = pthread_create(&domain->clientThread[index], &attr, clientThread, (void *) pinfo);
     if (status != 0) {
@@ -545,14 +546,24 @@ static void *clientThread(void *arg)
           fprintf(stderr, "clientThread %d: keep alive received\n", localCount);
         }
         
-        /* respond with ok */
+        /* respond */
+        err = sendMonitorInfo(domain, buffer, connfd);
+        if (err != CMSG_OK) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+                fprintf(stderr, "clientThread %d: write failure\n", localCount);
+            }
+            goto end;
+        }
+        
+        /*
         alive = htonl(CMSG_OK);
         if (cMsgTcpWrite(connfd, (void *) &alive, sizeof(alive)) != sizeof(alive)) {
           if (cMsgDebug >= CMSG_DEBUG_ERROR) {
             fprintf(stderr, "clientThread %d: write failure\n", localCount);
           }
           goto end;
-        }        
+        }
+        */        
       }
       break;
 
@@ -679,7 +690,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
              * message sent.
              */
             struct sockaddr_in addr;
-            bzero((void *)&addr, sizeof(addr));
+            memset((void *)&addr, 0, sizeof(addr));
             addr.sin_family = AF_INET;
             addr.sin_port   = htons(domain->sendUdpPort);
 /*printf("clientThread %d: try to reconnect\n", localCount);*/
@@ -784,13 +795,119 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
 
 
 /*-------------------------------------------------------------------*/
-
-/*
- * This routine is called by a single thread spawned from the client's
- * listening thread. Since it's called serially, it can safely use
- * arrays declared at the top of the file.
+/**
+ * This routine gathers and sends monitoring data to the server
+ * as a response to the keep alive command.
  */
-/** This routine reads a message sent from the server to the client. */
+static int sendMonitorInfo(cMsgDomainInfo *domain, char *buffer, int connfd) {
+
+  char *indent1 = "      ";
+  char *indent2 = "        ";
+  char xml[8192], *pchar;
+  int i, j, size, len=0, num=0, err=CMSG_OK, outInt[5];
+  uint64_t out64[7];
+  subInfo *sub;
+  subscribeCbInfo *cback;
+  monitorData *monData = &domain->monData;
+  
+  memset((void *) xml, 0, 8192);
+
+  /* Don't want subscriptions added or removed while iterating through them. */
+  cMsgSubscribeMutexLock(domain);
+  
+  /* for each client subscription ... */
+  for (i=0; i<CMSG_MAX_SUBSCRIBE; i++) {
+    
+    /* convenience variable */
+    sub = &domain->subscribeInfo[i];
+    
+    /* if subscription not active, forget about it */
+    if (sub->active != 1) {
+      continue;
+    }
+    
+    /* adding a subscription ... */
+    strcat(xml, indent1);
+    strcat(xml, "<subscription subject=\"");
+    strcat(xml, sub->subject);
+    strcat(xml, "\" type=\"");
+    strcat(xml, sub->type);
+    strcat(xml, ">\n");
+    
+
+    /* search callback list */
+    for (j=0; j<CMSG_MAX_CALLBACK; j++) {
+      
+      /* convenience variable */
+      cback = &domain->subscribeInfo[i].cbInfo[j];
+
+      /* if there is no existing callback, look at next item ... */
+      if (cback->active != 1) {
+        continue;
+      }
+      
+      strcat(xml, indent2);
+      strcat(xml, "<callback id=\"");
+      pchar = xml + strlen(xml);
+      sprintf(pchar, "%d%s%llu%s%d", num++, "\" received=\"",
+                      cback->msgCount, "\" cueSize=\"", cback->messages);
+      strcat(xml, "\"/>\n");
+
+    } /* search callback list */
+      
+    strcat(xml, indent1);
+    strcat(xml, "</subscription>\n");
+      
+  } /* for each cback */
+
+  cMsgSubscribeMutexUnlock(domain);
+
+  /* total number of bytes to send */
+  size = strlen(xml) + sizeof(outInt) - sizeof(int) + sizeof(out64);
+/*
+printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int array = %d, total size = %d\n",
+        strlen(xml), sizeof(outInt), sizeof(out64), size);
+*/
+  outInt[0] = htonl(size);
+  outInt[1] = htonl(strlen(xml));
+  outInt[2] = 0; /* This is a C/C++ client (1 for java) */
+  outInt[3] = htonl(monData->subAndGets);  /* pending sub&gets */
+  outInt[4] = htonl(monData->sendAndGets); /* pending send&gets */
+  
+  out64[0] = hton64(monData->numTcpSends);
+  out64[1] = hton64(monData->numUdpSends);
+  out64[2] = hton64(monData->numSyncSends);
+  out64[3] = hton64(monData->numSendAndGets);
+  out64[4] = hton64(monData->numSubAndGets);
+  out64[5] = hton64(monData->numSubscribes);
+  out64[6] = hton64(monData->numUnsubscribes);
+   
+  memcpy(buffer,     (void *) outInt, sizeof(outInt)); /* write ints into buffer */
+  len = sizeof(outInt);
+  memcpy(buffer+len, (void *) out64,  sizeof(out64));  /* write 64 bit ints into buffer */
+  len += sizeof(out64);
+  memcpy(buffer+len, (void *) xml,    strlen(xml));    /* write xml string into buffer */
+  len += strlen(xml);
+  
+  /* respond with monitor data */
+  if (cMsgTcpWrite(connfd, (void *) buffer, len) != len) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "clientThread: write failure\n");
+    }
+    err = CMSG_NETWORK_ERROR;
+  }
+  
+  return err;      
+}
+
+
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine reads a message sent from the server to the client.
+ * This routine is called by a single thread spawned from the client's
+ * listening thread and is called serially.
+ */
 static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *acknowledge) {
 
   uint64_t llTime;

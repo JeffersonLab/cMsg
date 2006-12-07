@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <ctype.h>
 
@@ -353,6 +354,7 @@ static void subscribeInfoInit(subInfo *info) {
       info->cbInfo[j].threads  = 0;
       info->cbInfo[j].messages = 0;
       info->cbInfo[j].quit     = 0;
+      info->cbInfo[j].msgCount = 0;
       info->cbInfo[j].callback = NULL;
       info->cbInfo[j].userArg  = NULL;
       info->cbInfo[j].head     = NULL;
@@ -436,6 +438,8 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
 
   domain->msgInBuffer[0]      = NULL;
   domain->msgInBuffer[1]      = NULL;
+  
+  memset((void *) &domain->monData, 0, sizeof(monitorData));
         
   cMsgCountDownLatchInit(&domain->syncLatch, 1);
 
@@ -1243,6 +1247,7 @@ void *cMsgCallbackThread(void *arg)
       msg->context.udl     = (char *) strdup(domain->udl);
       msg->context.cueSize = &cback->messages; /* pointer to cueSize info allows it
                                                   to always be up-to-date in callback */
+      cback->msgCount++;
       cback->callback(msg, cback->userArg);
       
     } /* while(1) */
@@ -1430,6 +1435,7 @@ void *cMsgSupplementalThread(void *arg)
       msg->context.udl     = (char *) strdup(domain->udl);
       msg->context.cueSize = &cback->messages; /* pointer to cueSize info allows it
                                                   to always be up-to-date in callback */
+      cback->msgCount++;
       cback->callback(msg, cback->userArg);
       
     }

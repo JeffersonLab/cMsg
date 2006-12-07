@@ -26,6 +26,7 @@
 #include <inetLib.h>     /* htonl stuff */
 #include <sockLib.h>
 #else
+#include <inttypes.h>
 #include <sys/uio.h>     /* writev */
 #include <arpa/inet.h>	 /* htonl stuff */
 #endif
@@ -82,6 +83,63 @@ extern "C" {
  * Make it to be uniform across all platforms.
  */
 #define CMSG_MAXHOSTNAMELEN 256
+
+/* The following is alot of stuff to define 64 bit byte swapping */
+
+/*
+ * Make solaris compatible with Linux. On Solaris,
+ * _BIG_ENDIAN  or  _LITTLE_ENDIAN is defined
+ * depending on the architecture.
+ */
+#ifdef sun
+
+  #define __LITTLE_ENDIAN 1234
+  #define __BIG_ENDIAN    4321
+
+  #if defined(_BIG_ENDIAN)
+    #define __BYTE_ORDER __BIG_ENDIAN
+  #else
+    #define __BYTE_ORDER __LITTLE_ENDIAN
+  #endif
+
+/*
+ * On vxworks, _BIG_ENDIAN = 1234 and _LITTLE_ENDIAN = 4321,
+ * which is a bit backwards. _BYTE_ORDER is also defined.
+ * In types/vxArch.h, these definitions are carefully set
+ * to these reversed values. In other header files such as
+ * netinet/ip.h & tcp.h, the values are normal (ie
+ * _BIG_ENDIAN = 4321). What's this all about?
+ */
+#elif VXWORKS
+
+  #define __LITTLE_ENDIAN 1234
+  #define __BIG_ENDIAN    4321
+
+  #if _BYTE_ORDER == _BIG_ENDIAN
+    #define __BYTE_ORDER __BIG_ENDIAN
+  #else
+    #define __BYTE_ORDER __LITTLE_ENDIAN
+  #endif
+
+#endif
+
+/* Byte swapping for 64 bits. */
+#if __BYTE_ORDER == __BIG_ENDIAN
+#define ntoh64(x) x
+#else
+extern inline uint64_t ntoh64(uint64_t n)
+{
+        uint64_t h;
+        uint64_t tmp = ntohl(n & 0x00000000ffffffff);
+        h = ntohl(n >> 32);
+        h |= tmp << 32;
+        return h;
+}
+#endif
+
+#define hton64(x) ntoh64(x)
+
+
 
 /** TCP port at which a cMsg domain client starts looking for an unused listening port. */
 #define CMSG_CLIENT_LISTENING_PORT 2345

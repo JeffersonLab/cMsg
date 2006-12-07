@@ -58,6 +58,21 @@ typedef struct countDownLatch_t {
   pthread_cond_t  notifyCond;  /**< Condition variable used for caller of "countDown" to wait. */
 } countDownLatch;
 
+/**
+ * This structure is used to store monitoring data for a single connection to server.
+ */
+typedef struct monitorData_t {
+  int subAndGets;           /**< Number of subscribeAndGets currently active. */
+  int sendAndGets;          /**< Number of sendAndGets currently active. */
+  uint64_t numTcpSends;     /**< Number of tcp sends done. */
+  uint64_t numUdpSends;     /**< Number of udp sends done. */
+  uint64_t numSyncSends;    /**< Number of syncSends done. */
+  uint64_t numSubAndGets;   /**< Number of subscribeAndGets done. */
+  uint64_t numSendAndGets;  /**< Number of sendAndGets done. */
+  uint64_t numSubscribes;   /**< Number of subscribes done. */
+  uint64_t numUnsubscribes; /**< Number of unsubscribes done. */
+} monitorData;
+
 
 /** This structure represents a single subscription's callback. */
 typedef struct subscribeCbInfo_t {
@@ -66,6 +81,7 @@ typedef struct subscribeCbInfo_t {
   int               threads;  /**< Number of supplemental threads to run callback if
                                *   config allows parallelizing (mustSerialize = 0). */
   int               quit;     /**< Boolean telling thread to end. */
+  uint64_t          msgCount; /**< Number of messages passed to callback. */
   void             *userArg;  /**< User argument to be passed to the callback. */
   cMsgCallbackFunc *callback; /**< Callback function (or C++ callback class instance) to be called. */
   cMsgMessage_t    *head;     /**< Head of linked list of messages given to callback. */
@@ -202,11 +218,16 @@ typedef struct cMsgDomainInfo_t {
   pthread_mutex_t rcConnectMutex;    /**< Mutex used for rc domain connect. */
   pthread_cond_t  rcConnectCond;     /**< Condition variable used for rc domain connect. */
   /* ***************** */
-   
+  
+  /** Data from monitoring client connection. */
+  monitorData monData;
+  
   /** Array of structures - each of which contain a subscription. */
-  subInfo subscribeInfo[CMSG_MAX_SUBSCRIBE]; 
+  subInfo subscribeInfo[CMSG_MAX_SUBSCRIBE];
+  
   /** Array of structures - each of which contain a subscribeAndGet. */
   getInfo subscribeAndGetInfo[CMSG_MAX_SUBSCRIBE_AND_GET];
+  
   /** Array of structures - each of which contain a sendAndGet. */
   getInfo sendAndGetInfo[CMSG_MAX_SEND_AND_GET];
   
