@@ -14,6 +14,7 @@ public class RCBroadcastServer {
     String name;
     CountDownLatch latch;
     int count;
+    cMsg cmsg;
 
     class BroadcastCallback extends cMsgCallbackAdapter {
          public void callback(cMsgMessage msg, Object userObject) {
@@ -24,6 +25,16 @@ public class RCBroadcastServer {
              System.out.println("RAN CALLBACK, host = " + rcClientHost +
                                 ", port = " + rcClientTcpPort +
                                 ", name = " + name);
+
+             // abort connection
+             /*
+             try {
+                 cmsg.send(msg);
+             }
+             catch (cMsgException e) { }
+             */
+
+             // finish connection
              latch.countDown();
         }
     }
@@ -65,7 +76,7 @@ public class RCBroadcastServer {
 
         String UDL = "cMsg:rcb://?expid=carlExp";
 
-        cMsg cmsg = new cMsg(UDL, "broadcast listener", "udp trial");
+        cmsg = new cMsg(UDL, "broadcast listener", "udp trial");
         try {cmsg.connect();}
         catch (cMsgException e) {
             System.out.println(e.getMessage());
