@@ -215,7 +215,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         
        
     /* clear array */
-    bzero(buffer, 1024);
+    memset((void *)buffer, 0, 1024);
     
     /* parse the UDLRemainder to get the host and port but ignore everything else */
     err = parseUDL(UDLremainder, &serverHost, &serverPort,
@@ -367,7 +367,7 @@ printf("Wait for 5 more seconds, then exit\n");
      * Talk to runcontrol server
      *-------------------------------------------------------*/
     
-    bzero((void *)&servaddr, sizeof(servaddr));
+    memset((void *)&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_port   = htons(serverPort);
     
@@ -439,7 +439,7 @@ printf("Wait for 5 more seconds, then exit\n");
     len += expidLen;
         
     /* create and start a thread which will receive any responses to our broadcast */
-    bzero((void *)&rArg.addr, sizeof(rArg.addr));
+    memset((void *)&rArg.addr, 0, sizeof(rArg.addr));
     rArg.len             = (socklen_t) sizeof(rArg.addr);
     rArg.port            = 0;
     rArg.sockfd          = domain->sendSocket;
@@ -584,7 +584,7 @@ printf("Wait for 5 more seconds, then exit\n");
      * that the udp socket does not have to connect and disconnect for each
      * message sent.
      */
-    bzero((void *)&addr, sizeof(addr));
+    memset((void *)&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port   = htons(domain->sendUdpPort);
     

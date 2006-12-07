@@ -88,7 +88,7 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
     return(CMSG_SOCKET_ERROR);
   }
 
-  bzero((char*)&servaddr, sizeof(servaddr));
+  memset((void *)&servaddr, 0, sizeof(servaddr));
   servaddr.sin_family      = AF_INET;
   servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
   servaddr.sin_port        = htons(port);
@@ -262,7 +262,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port,
     }
   }
 	
-  bzero((char*)&servaddr, sizeof(servaddr));
+  memset((void *)&servaddr, 0, sizeof(servaddr));
   servaddr.sin_family = AF_INET;
   servaddr.sin_port   = htons(port);
 
