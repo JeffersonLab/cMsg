@@ -1571,6 +1571,7 @@ public class cMsg extends cMsgDomainAdapter {
                             cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
                             sub.addCallback(cbThread);
                             unsubscriptions.put(cbThread, sub);
+                            numSubscribes++;
                             return cbThread;
                         }
                     }
@@ -1703,6 +1704,7 @@ public class cMsg extends cMsgDomainAdapter {
                     synchronized (subscriptions) {
                         sub.getCallbacks().remove(cbThread);
                     }
+                    numUnsubscribes++;
                     return;
                 }
 
@@ -2523,8 +2525,8 @@ public class cMsg extends cMsgDomainAdapter {
         }
         in.readFully(buf, 0, hostLength);
         domainServerHost = new String(buf, 0, hostLength, "US-ASCII");
-        System.out.println("talkToNameServerFromClient: domain server host = " + domainServerHost +
-                           ", udp port = " + domainServerUdpPort);
+//        System.out.println("talkToNameServerFromClient: domain server host = " + domainServerHost +
+//                           ", udp port = " + domainServerUdpPort);
 
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("        << CL: domain server host = " + domainServerHost +
