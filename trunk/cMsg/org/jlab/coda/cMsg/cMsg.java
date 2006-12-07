@@ -80,7 +80,7 @@ public class cMsg {
 
         // do not allow colons in the name string
         if (name.contains(":")) {
-            throw new cMsgException("invalid name - contains \":\"");    
+            throw new cMsgException("invalid name - contains \":\"");
         }
 
         // If the UDL is a semicolon separated list of UDLs, separate them.
