@@ -709,7 +709,7 @@ public class cMsgDomainServer extends Thread {
                     }
                     // read client's request
                     msgId = in.readInt();
-// System.out.println("Got keep alive from " + info.getName());
+//System.out.println("Got keep alive from " + info.getName() + ", msgId = " + msgId);
                     if (msgId != cMsgConstants.msgKeepAlive) {
                         throw new cMsgException("Wrong request, expecting keep alive but got " + msgId);
                     }

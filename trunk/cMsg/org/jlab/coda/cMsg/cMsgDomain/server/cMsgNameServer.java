@@ -599,7 +599,7 @@ public class cMsgNameServer extends Thread {
     public void startServer(String serverToJoin) {
         // start this server
         start();
-System.out.println("startServer; IN");
+//System.out.println("startServer; IN");
         // Create a bridge to another server (if specified) which
         // will also generate a connection to this server from that
         // server in response.
@@ -629,7 +629,7 @@ System.out.println("startServer; IN");
         // Start thread to gather monitor info
         monitorThread = new monitorDataThread();
         monitorThread.start();
-System.out.println("startServer; Done");
+//System.out.println("startServer; Done");
     }
 
 
@@ -878,7 +878,7 @@ System.out.println("startServer; Done");
           * ints the same. That way the server can reliably check for mismatched versions.
           */
          public void run() {
-System.out.println("clientHandler; IN");
+//System.out.println("clientHandler; IN");
 
             try {
                 // buffered communication streams for efficiency
@@ -1322,7 +1322,7 @@ System.out.println("clientHandler; IN");
          * @throws IOException if problems with socket communication
          */
         private void handleClient() throws IOException {
-System.out.println("handleClient: IN");
+//System.out.println("handleClient: IN");
             // listening port of client
             int clientListeningPort = in.readInt();
             // length of password
@@ -1346,7 +1346,7 @@ System.out.println("handleClient: IN");
             int bytesToRead = lengthPassword + lengthDomainType + lengthSubdomainType +
                               lengthUDLRemainder + lengthHost + lengthName + lengthUDL +
                               lengthDescription;
-System.out.println("handleClient: bytesToRead = " + bytesToRead);
+//System.out.println("handleClient: bytesToRead = " + bytesToRead);
             int offset = 0;
 
             // read all string bytes
@@ -1430,7 +1430,6 @@ System.out.println("handleClient: bytesToRead = " + bytesToRead);
                 out.flush();
                 return;
             }
-System.out.println("handleClient: 1");
 
             // if the client does not provide the correct password if required, return an error
             if (clientPassword != null) {
@@ -1463,7 +1462,6 @@ System.out.println("handleClient: 1");
                     return;
                 }
             }
-System.out.println("handleClient: 2");
 
             // Try to register this client. If the cMsg system already has a
             // client by this name, it will fail.
@@ -1517,7 +1515,6 @@ System.out.println("handleClient: 2");
                 }
                 out.flush();
             }
-System.out.println("handleClient: end");
         }
 
 
@@ -1834,7 +1831,7 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                     }
 
                     // list subscriptions sent from client (cmsg subdomain only)
-                    if (sd != null && sd.equalsIgnoreCase("cmsg")) {
+                    if (sd != null && sd.equalsIgnoreCase("cmsg") && ds.monData.monXML != null) {
                         xml.append(ds.monData.monXML);
 
                         // # of sends, etc.
