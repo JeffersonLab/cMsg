@@ -414,7 +414,7 @@ public class cMsgClientListeningThread extends Thread {
 
             int size = xml.length() + 4*4 + 8*7;
             out.writeInt(size);
-
+            out.writeInt(xml.length());
             out.writeInt(1); // This is a java client (0 is for C/C++)
             out.writeInt(client.subscribeAndGets.size()); // pending sub&gets
             out.writeInt(client.sendAndGets.size());      // pending send&gets
@@ -427,8 +427,6 @@ public class cMsgClientListeningThread extends Thread {
             out.writeLong(client.numSubscribes);
             out.writeLong(client.numUnsubscribes);
 
-
-            out.writeInt(xml.length());
             out.write(xml.toString().getBytes("US-ASCII"));
             out.flush();
         }
