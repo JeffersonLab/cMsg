@@ -313,7 +313,15 @@ public class cMsgClientListeningThread extends Thread {
                                 System.out.println("handleClient: got keep alive from server");
                             }
 
-                            sendMonitorInfo();
+                            // if we're a server client, don't send all that monitor data
+                            if (serverClient != null) {
+//System.out.println("SERVER CLIENT: don't send monitor data");
+                                out.writeInt(0);
+                                out.flush();
+                            }
+                            else {
+                                sendMonitorInfo();
+                            }
 
                             // send ok back as acknowledgment
                             //out.writeInt(cMsgConstants.ok);
