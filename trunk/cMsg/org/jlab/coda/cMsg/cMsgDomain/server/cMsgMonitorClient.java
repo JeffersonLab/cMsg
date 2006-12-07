@@ -50,7 +50,7 @@ public class cMsgMonitorClient extends Thread {
     private SocketChannel channel;
 
     /** A direct buffer is necessary for nio socket IO. */
-    private ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+    private ByteBuffer buffer = ByteBuffer.allocateDirect(4096);
 
     /** Level of debug output for this class. */
     private int debug;
@@ -113,30 +113,30 @@ public class cMsgMonitorClient extends Thread {
         cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
         buffer.flip();
         int size = buffer.getInt();
-//System.out.println("SIZE = " + size);
 
-        // read size bytes of data
-        buffer.position(0).limit(2048);
-        cMsgUtilities.readSocketBytes(buffer, channel, size, debug);
-        buffer.flip();
+        if (size > 0) {
+            // read size bytes of data
+            buffer.position(0).limit(4096);
+            cMsgUtilities.readSocketBytes(buffer, channel, size, debug);
+            buffer.flip();
+            size = buffer.getInt();
+            server.monData.isJava = buffer.getInt() == 1;
+            server.monData.pendingSubAndGets = buffer.getInt();
+            server.monData.pendingSendAndGets = buffer.getInt();
 
-        server.monData.isJava = buffer.getInt() == 1;
-        server.monData.pendingSubAndGets  = buffer.getInt();
-        server.monData.pendingSendAndGets = buffer.getInt();
+            server.monData.clientTcpSends = buffer.getLong();
+            server.monData.clientUdpSends = buffer.getLong();
+            server.monData.clientSyncSends = buffer.getLong();
+            server.monData.clientSendAndGets  = buffer.getLong();
+            server.monData.clientSubAndGets   = buffer.getLong();
+            server.monData.clientSubscribes   = buffer.getLong();
+            server.monData.clientUnsubscribes = buffer.getLong();
 
-        server.monData.clientTcpSends     = buffer.getLong();
-        server.monData.clientUdpSends     = buffer.getLong();
-        server.monData.clientSyncSends    = buffer.getLong();
-        server.monData.clientSendAndGets  = buffer.getLong();
-        server.monData.clientSubAndGets   = buffer.getLong();
-        server.monData.clientSubscribes   = buffer.getLong();
-        server.monData.clientUnsubscribes = buffer.getLong();
-
-        size = buffer.getInt();
-        byte[] buf = new byte[size];
-        buffer.get(buf,0,size);
-        server.monData.monXML = new String(buf, 0, size, "US-ASCII");
-    //    System.out.println("Print XML:\n" + server.monData.monXML);
+            byte[] buf = new byte[size];
+            buffer.get(buf, 0, size);
+            server.monData.monXML = new String(buf, 0, size, "US-ASCII");
+            //    System.out.println("Print XML:\n" + server.monData.monXML);
+        }
     }
 
 
@@ -200,15 +200,8 @@ public class cMsgMonitorClient extends Thread {
                     // is a readable socket?
                     if (key.isValid() && key.isReadable()) {
 
-                        // read acknowledgment & keep reading until we have 1 int of data
+                        // read response which contains monitoring data
                         readResponse();
-                        /*
-                        cMsgUtilities.readSocketBytes(buffer, channel, 4, debug);
-                        if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("  cMsgMonitorClient: read keepAlive response for " +
-                                               info.getName() + "\n\n");
-                        }
-                        */
                     }
                     // remove key from selected set since it's been handled
                     it.remove();
