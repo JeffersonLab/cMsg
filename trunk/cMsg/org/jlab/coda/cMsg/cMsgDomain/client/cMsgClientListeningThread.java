@@ -396,9 +396,9 @@ public class cMsgClientListeningThread extends Thread {
                 for (cMsgSubscription sub : client.subscriptions) {
 
                     xml.append(indent1);
-                    xml.append("<subscription subject=\"");
+                    xml.append("<subscription  subject=\"");
                     xml.append(sub.getSubject());
-                    xml.append("\" type=\"");
+                    xml.append("\"  type=\"");
                     xml.append(sub.getType());
                     xml.append("\">\n");
 
@@ -406,11 +406,11 @@ public class cMsgClientListeningThread extends Thread {
                     int num=0;
                     for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
                         xml.append(indent2);
-                        xml.append("<callback id=\"");
+                        xml.append("<callback  id=\"");
                         xml.append(num++);
-                        xml.append("\" received=\"");
+                        xml.append("\"  received=\"");
                         xml.append(cbThread.msgCount);
-                        xml.append("\" cueSize=\"");
+                        xml.append("\"  cueSize=\"");
                         xml.append(cbThread.getCueSize());
                         xml.append("\"/>\n");
                     }
