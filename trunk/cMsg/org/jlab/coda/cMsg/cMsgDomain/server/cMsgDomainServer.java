@@ -70,7 +70,7 @@ public class cMsgDomainServer extends Thread {
     private ServerSocketChannel serverChannel;
 
     /** Socket to receive UDP sends from the client. */
-    DatagramSocket udptSocket;
+    DatagramSocket udpSocket;
 
     /** Output stream from this server back to client. */
     private DataOutputStream backToClient;
@@ -367,8 +367,8 @@ public class cMsgDomainServer extends Thread {
         // For the client wants to do sends with udp, create a thread which listens on a udp port
         try {
             // Create socket to receive at all interfaces
-            udptSocket = new DatagramSocket();
-            udptSocket.setReceiveBufferSize(65535);
+            udpSocket = new DatagramSocket();
+            udpSocket.setReceiveBufferSize(65535);
         }
         catch (SocketException ex) {
             ex.printStackTrace();
@@ -377,7 +377,7 @@ public class cMsgDomainServer extends Thread {
             throw e;
         }
         // This will make its way back to client in connect call
-        info.setDomainUdpPort(udptSocket.getLocalPort());
+        info.setDomainUdpPort(udpSocket.getLocalPort());
 
         // Fill in info members so this data can be sent back
         // to the client that is still in its connect call
@@ -449,7 +449,7 @@ public class cMsgDomainServer extends Thread {
         // stop thread that gets client sends over udp
         if (udpHandlerThread != null) {
             udpHandlerThread.interrupt();
-            udptSocket.close();
+            udpSocket.close();
         }
 
         // give threads a chance to shutdown
@@ -784,11 +784,11 @@ public class cMsgDomainServer extends Thread {
                 while (true) {
                     if (killSpawnedThreads) return;
                     packet.setLength(cMsgNetworkConstants.biggestUdpPacketSize);
-                    udptSocket.receive(packet);
+                    udpSocket.receive(packet);
 //System.out.println("RECEIVED SEND AS UDP PACKET !!!");
                     // connect for speed and to keep out unwanted packets
-                    if (!udptSocket.isConnected()) {
-                        udptSocket.connect(packet.getAddress(), packet.getPort());
+                    if (!udpSocket.isConnected()) {
+                        udpSocket.connect(packet.getAddress(), packet.getPort());
                     }
 
                     if (killSpawnedThreads) return;
@@ -826,11 +826,11 @@ public class cMsgDomainServer extends Thread {
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("dServer udpSendHandler: I/O ERROR in domain server, udp receiver");
-                    System.out.println("dServer udpSendHandler: close broadcast socket, port = " + udptSocket.getLocalPort());
+                    System.out.println("dServer udpSendHandler: close broadcast socket, port = " + udpSocket.getLocalPort());
                 }
 
                 // We're here if there is an IO error. Close socket and kill this thread.
-                udptSocket.close();
+                udpSocket.close();
             }
         }
 
