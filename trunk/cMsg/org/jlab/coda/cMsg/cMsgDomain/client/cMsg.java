@@ -22,6 +22,7 @@ import java.io.*;
 import java.net.*;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.channels.UnresolvedAddressException;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.Lock;
@@ -732,6 +733,9 @@ public class cMsg extends cMsgDomainAdapter {
                 // Set tcpNoDelay so no packets are delayed
                 socket.setTcpNoDelay(true);
                 // no need to set buffer sizes
+            }
+            catch (UnresolvedAddressException e) {
+                throw new cMsgException("connect: cannot create channel to name server");
             }
             catch (IOException e) {
                 // undo everything we've just done
@@ -2912,10 +2916,10 @@ public class cMsg extends cMsgDomainAdapter {
                             Thread.sleep(sleepTime);
                         }
                         catch (InterruptedException e) {
-                            System.out.println("Interrupted Client during sleep");
+                            //System.out.println("Interrupted Client during sleep");
                         }
                         catch (InterruptedIOException e) {
-                            System.out.println("Interrupted Client during I/O");
+                            //System.out.println("Interrupted Client during I/O");
                         }
                     }
                 }
