@@ -1788,7 +1788,7 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
 
                 // Gather all the xml monitor data into 1 place for final
                 // distribution to clients asking for it in XML format.
-                xml.append("\n  <server name=\"");
+                xml.append("\n  <server  name=\"");
                 xml.append(serverName);
                 xml.append("\">\n");
                 String indent1 = "      ";
@@ -1800,8 +1800,14 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                         //System.out.println("Skipping other server's bridge client");
                         continue;
                     }
-                    xml.append("\n    <client name=\"");
+
+                    // subdomain
+                    String sd = ds.info.getSubdomain();
+
+                    xml.append("\n    <client  name=\"");
                     xml.append(ds.info.getName());
+                    xml.append("\"  subdomain=\"");
+                    xml.append(sd);
                     xml.append("\">\n");
 
                     // time created
@@ -1809,15 +1815,6 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                     xml.append("<timeConnected>");
                     xml.append(dateFormat.format(ds.monData.birthday));
                     xml.append("</timeConnected>\n");
-
-                    // subdomain
-                    String sd = ds.info.getSubdomain();
-                    if (sd != null) {
-                        xml.append(indent1);
-                        xml.append("<subdomain>");
-                        xml.append(sd);
-                        xml.append("</subdomain>\n");
-                    }
 
                     // namespace
                     String ns = ds.info.getNamespace();
@@ -1832,97 +1829,67 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
 
                     // list subscriptions sent from client (cmsg subdomain only)
                     if (sd != null && sd.equalsIgnoreCase("cmsg") && ds.monData.monXML != null) {
-                        xml.append(ds.monData.monXML);
+                        xml.append(indent1);
+                        xml.append("<sendStats");
 
-                        // # of sends, etc.
-                        if (ds.monData.clientTcpSends > 0) {
-                            xml.append(indent1);
-                            xml.append("<tcpSends>");
-                            xml.append(ds.monData.clientTcpSends);
-                            xml.append("</tcpSends>\n");
-                        }
-                        if (ds.monData.clientUdpSends > 0) {
-                            xml.append(indent1);
-                            xml.append("<udpSends>");
-                            xml.append(ds.monData.clientUdpSends);
-                            xml.append("</udpSends>\n");
-                        }
-                        if (ds.monData.clientSyncSends > 0) {
-                            xml.append(indent1);
-                            xml.append("<syncSends>");
-                            xml.append(ds.monData.clientSyncSends);
-                            xml.append("</syncSends>\n");
-                        }
-                        if (ds.monData.clientSendAndGets > 0) {
-                            xml.append(indent1);
-                            xml.append("<sendAndGets>");
-                            xml.append(ds.monData.clientSendAndGets);
-                            xml.append("</sendAndGets>\n");
-                        }
-                        if (ds.monData.clientSubAndGets > 0) {
-                            xml.append(indent1);
-                            xml.append("<subscribeAndGets>");
-                            xml.append(ds.monData.clientSubAndGets);
-                            xml.append("</subscribeAndGets>\n");
-                        }
-                        if (ds.monData.clientSubscribes > 0) {
-                            xml.append(indent1);
-                            xml.append("<subscribes>");
-                            xml.append(ds.monData.clientSubscribes);
-                            xml.append("</subscribes>\n");
-                        }
-                        if (ds.monData.clientUnsubscribes > 0) {
-                            xml.append(indent1);
-                            xml.append("<unsubscribes>");
-                            xml.append(ds.monData.clientUnsubscribes);
-                            xml.append("</unsubscribes>\n");
-                        }
+                        xml.append("  tcpSends=\"");
+                        xml.append(ds.monData.clientTcpSends);
+
+                        xml.append("\"  udpSends=\"");
+                        xml.append(ds.monData.clientUdpSends);
+
+                        xml.append("\"  syncSends=\"");
+                        xml.append(ds.monData.clientSyncSends);
+
+                        xml.append("\"  sendAndGets=\"");
+                        xml.append(ds.monData.clientSendAndGets);
+                        xml.append("\" />\n");
+                        
+                        xml.append(indent1);
+                        xml.append("<subStats");
+
+                        xml.append("   subscribes=\"");
+                        xml.append(ds.monData.clientSubscribes);
+
+                        xml.append("\"  unsubscribes=\"");
+                        xml.append(ds.monData.clientUnsubscribes);
+
+                        xml.append("\"  subAndGets=\"");
+                        xml.append(ds.monData.clientSubAndGets);
+                        xml.append("\" />\n");
+
+                        // add subscription & callback stuff here (from client)
+                        xml.append(ds.monData.monXML);
                     }
                     else {
+                        xml.append(indent1);
+                        xml.append("<sendStats");
 
-                        // # of sends, etc.
-                        if (ds.monData.tcpSends > 0) {
-                            xml.append(indent1);
-                            xml.append("<tcpSends>");
-                            xml.append(ds.monData.tcpSends);
-                            xml.append("</tcpSends>\n");
-                        }
-                        if (ds.monData.udpSends > 0) {
-                            xml.append(indent1);
-                            xml.append("<udpSends>");
-                            xml.append(ds.monData.udpSends);
-                            xml.append("</udpSends>\n");
-                        }
-                        if (ds.monData.syncSends > 0) {
-                            xml.append(indent1);
-                            xml.append("<syncSends>");
-                            xml.append(ds.monData.syncSends);
-                            xml.append("</syncSends>\n");
-                        }
-                        if (ds.monData.sendAndGets > 0) {
-                            xml.append(indent1);
-                            xml.append("<sendAndGets>");
-                            xml.append(ds.monData.sendAndGets);
-                            xml.append("</sendAndGets>\n");
-                        }
-                        if (ds.monData.subAndGets > 0) {
-                            xml.append(indent1);
-                            xml.append("<subscribeAndGets>");
-                            xml.append(ds.monData.subAndGets);
-                            xml.append("</subscribeAndGets>\n");
-                        }
-                        if (ds.monData.subscribes > 0) {
-                            xml.append(indent1);
-                            xml.append("<subscribes>");
-                            xml.append(ds.monData.subscribes);
-                            xml.append("</subscribes>\n");
-                        }
-                        if (ds.monData.unsubscribes > 0) {
-                            xml.append(indent1);
-                            xml.append("<unsubscribes>");
-                            xml.append(ds.monData.unsubscribes);
-                            xml.append("</unsubscribes>\n");
-                        }
+                        xml.append("  tcpSends=\"");
+                        xml.append(ds.monData.tcpSends);
+
+                        xml.append("\"  udpSends=\"");
+                        xml.append(ds.monData.udpSends);
+
+                        xml.append("\"  syncSends=\"");
+                        xml.append(ds.monData.syncSends);
+
+                        xml.append("\"  sendAndGets=\"");
+                        xml.append(ds.monData.sendAndGets);
+                        xml.append("\" />\n");
+
+                        xml.append(indent1);
+                        xml.append("<subStats");
+
+                        xml.append("  subscribes=\"");
+                        xml.append(ds.monData.subscribes);
+
+                        xml.append("\"  unsubscribes=\"");
+                        xml.append(ds.monData.unsubscribes);
+
+                        xml.append("\"  subAndGets=\"");
+                        xml.append(ds.monData.subAndGets);
+                        xml.append("\" />\n");
                     }
                     xml.append("    </client>\n");
                 }
@@ -1931,8 +1898,9 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                 // store this as an xml string describing local server only
                 nsMonitorXML = xml.toString();
 
-                xml.insert(0,"<cMsgMonitorData domain=\"cmsg\">\n");
-                xml.insert(0, "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n\n");
+                xml.insert(0,"<cMsgMonitorData  domain=\"cmsg\">\n");
+              //  xml.insert(0, "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n\n");
+                xml.insert(0, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\n");
 
                 // allow no changes to "bridges" while iterating
                 synchronized (bridges) {
