@@ -143,14 +143,17 @@ public class Monitor extends JPanel {
                 String udl = (String) comboBox.getSelectedItem();
                 // check to see if this connection exists already
                 if (monitors.containsKey(udl)) {
-                    System.out.println("ALREADY GOT THAT ONE!!!");
                     return;
                 }
                 MonitorPanel p;
                 try { p = new MonitorPanel(udl, Monitor.this); }
                 catch (cMsgException e1) {
-                    System.out.println("Cannot connect to " + udl);
-                    e1.printStackTrace();
+System.out.println("CANNOT connect to " + udl);
+                    JOptionPane.showMessageDialog(new JFrame(),
+                                                  "Cannot connect to " + udl,
+                                                  "Error",
+                                                  JOptionPane.ERROR_MESSAGE);
+                    //e1.printStackTrace();
                     return;
                 }
                 monitors.put(udl, p);

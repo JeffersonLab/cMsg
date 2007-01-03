@@ -84,10 +84,8 @@ public class MonitorPanel extends JPanel {
     /** Should we kill the processor thread? */
     private boolean killThread;
 
-    private final int windowHeight = 460;
-    private final int leftWidth    = 300;
 
-
+    /** Constructor. */
     public MonitorPanel(String udl, Monitor tabbedPane) throws cMsgException {
 
         this.udl = udl;
@@ -130,6 +128,7 @@ public class MonitorPanel extends JPanel {
                 e.printStackTrace();
             }
 
+            // keep track of when we updated last
             long lastUpdate=0, now, diff;
 
             while (true) {
@@ -228,7 +227,6 @@ public class MonitorPanel extends JPanel {
 
         // Build tree view
         JScrollPane treeView = new JScrollPane(tree);
-        treeView.setPreferredSize(new Dimension(leftWidth, windowHeight));
 
         // Add GUI components
         setLayout(new BorderLayout());
