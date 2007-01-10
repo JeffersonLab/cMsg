@@ -11,7 +11,7 @@ JAVAC_FLAGS = -classpath $(TOPDIR)
 
 JAVA_OBJS = \
 	MonitorPanel.class \
-	Montior.class
+	Monitor.class
 
 all: $(JAVA_OBJS)
 
