@@ -19,7 +19,7 @@ package org.jlab.coda.cMsg;
 import java.util.concurrent.TimeoutException;
 
 /**
- * This class provides a very basic (non-functional/dummy) implementation
+ * This class provides a very basic (non-functional, dummy) implementation
  * of the cMsgDomainInterface interface. Its non-getter/setter methods throw a
  * cMsgException saying that the method is not implemented. It is like the
  * swing Adapter classes.
