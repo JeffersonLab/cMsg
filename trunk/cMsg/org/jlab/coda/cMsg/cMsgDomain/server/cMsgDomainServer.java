@@ -57,7 +57,7 @@ public class cMsgDomainServer extends Thread {
     private cMsgNameServer nameServer;
 
     /** Level of debug output. */
-    private int debug = cMsgConstants.debugError;
+    private int debug = cMsgConstants.debugNone;
 
     /**
      * Object containing information about the client this object is connected to.
