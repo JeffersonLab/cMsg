@@ -81,6 +81,7 @@ public class rcTcpListeningThread extends Thread {
     /** Kills ClientHandler threads. */
     void killClientHandlerThreads() {
         // stop thread that get commands/messages over sockets
+        if (handler == null) return;
         handler.interrupt();
         try {handler.channel.close();}
         catch (IOException e) {}
@@ -155,8 +156,6 @@ public class rcTcpListeningThread extends Thread {
                         socket.setSendBufferSize(65535);
 
                         // Start up client handling thread & store reference.
-                        // The first of the 2 connections is for message receiving.
-                        // The second is to respond to keepAlives from the server.
                         handler = new ClientHandler(channel);
 
                         if (debug >= cMsgConstants.debugInfo) {
@@ -183,9 +182,7 @@ public class rcTcpListeningThread extends Thread {
 
 
     /**
-     * Class to handle a socket connection to the client of which
-     * there are 2. One connections handles the server's keepAlive
-     * requests of the client. The other handles everything else.
+     * Class to handle a socket connection to the client.
      */
     private class ClientHandler extends Thread {
         /** Socket channel data is coming in on. */
@@ -212,8 +209,7 @@ public class rcTcpListeningThread extends Thread {
 
 
         /**
-         * This method handles all incoming commands and messages from a domain server to this
-         * cMsg client.
+         * This method handles all incoming messages from an RC cMsg client.
          */
         public void run() {
 
@@ -274,7 +270,7 @@ public class rcTcpListeningThread extends Thread {
 
 
         /**
-         * This method reads an incoming message from the server.
+         * This method reads an incoming message from the RC client.
          *
          * @return message read from channel
          * @throws IOException if socket read or write error
