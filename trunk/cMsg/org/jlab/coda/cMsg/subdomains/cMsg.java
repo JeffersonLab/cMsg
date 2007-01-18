@@ -308,7 +308,7 @@ public class cMsg extends cMsgSubdomainAdapter {
         Pattern pattern = Pattern.compile("^([\\w/]*)\\?*.*");
         Matcher matcher = pattern.matcher(UDLRemainder);
 
-        String s = null;
+        String s;
 
         if (matcher.lookingAt()) {
             s = matcher.group(1);
@@ -559,9 +559,7 @@ public class cMsg extends cMsgSubdomainAdapter {
                 // message delivery in cMsg subdomain is synchronized
                 client.getDeliverer().deliverMessage(message, cMsgConstants.msgSubscribeResponse);
             }
-            catch (IOException e) {
-                continue;
-            }
+            catch (IOException e) { }
         }
     }
 
@@ -604,7 +602,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 
             // If this is the first response to a sendAndGet ...
             if (info != null) {
-                int flag = 0;
+                int flag;
 
                 if (gi.notifier != null) {
 //System.out.println("                          , fire notifier for send&Get response");
@@ -703,9 +701,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 //System.out.println("handleSendRequest(subdh): send msg to client " + client.getName());
                 client.getDeliverer().deliverMessage(message, cMsgConstants.msgSubscribeResponse);
             }
-            catch (IOException e) {
-                continue;
-            }
+            catch (IOException e) { }
         }
     }
 
@@ -1386,7 +1382,7 @@ public class cMsg extends cMsgSubdomainAdapter {
         }
 
         // Remove subscribes and subscribeAndGets
-        cMsgSubscription sub = null;
+        cMsgSubscription sub;
         subscribeLock.lock();
         try {
             for (Iterator it=subscriptions.iterator(); it.hasNext(); ) {
