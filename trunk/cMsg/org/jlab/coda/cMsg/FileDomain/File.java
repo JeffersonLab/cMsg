@@ -79,13 +79,16 @@ public class File extends cMsgDomainAdapter {
      *
      * @throws cMsgException if there are communication problems
      */
-    public void connect() throws cMsgException {
+    synchronized public void connect() throws cMsgException {
+
+        if (connected) return;
 
         parseUDL();
 
         try {
             myPrintHandle = new PrintWriter(new BufferedWriter(new FileWriter(myFileName, true)));
             myPrintHandle.println("<cMsgFile  name=\"" + myFileName + "\"" + "  date=\"" + (new Date()) + "\">\n\n");
+            connected = true;
         }
         catch (IOException e) {
             System.out.println(e);
@@ -104,8 +107,10 @@ public class File extends cMsgDomainAdapter {
      * Closes file.
      *
      */
-    public void disconnect() {
+    synchronized public void disconnect() {
+        if (!connected) return;
 
+        connected = false;
         myPrintHandle.println("\n\n</cMsgFile>\n");
         myPrintHandle.println("\n\n<!--===========================================================================================-->\n\n\n");
         myPrintHandle.close();
@@ -119,9 +124,13 @@ public class File extends cMsgDomainAdapter {
      * Writes to file.
      *
      * @param msg message to send
-     * @throws cMsgException (not thrown)
+     * @throws cMsgException if file is closed (connect was not called, or disconnect was called)
      */
-    public void send(cMsgMessage msg) throws cMsgException {
+    synchronized public void send(cMsgMessage msg) throws cMsgException {
+        if (!connected) {
+            throw new cMsgException("File is closed, Call \"connect\" first");
+        }
+        
         Date now = new Date();
         if (textOnly) {
             myPrintHandle.println(now + ":    " + msg.getText());
@@ -154,7 +163,7 @@ public class File extends cMsgDomainAdapter {
      * @param message message
      * @param timeout time in milliseconds to wait for a response
      * @return response from subdomain handler
-     * @throws cMsgException
+     * @throws cMsgException if file is closed (connect was not called, or disconnect was called)
      */
     public int syncSend(cMsgMessage message, int timeout) throws cMsgException {
         send(message);
@@ -167,9 +176,14 @@ public class File extends cMsgDomainAdapter {
 
     /**
      * Flushes output.
+     * 
      * @param timeout time in milliseconds to wait for completion
+     * @throws cMsgException if file is closed (connect was not called, or disconnect was called)
      */
-    public void flush(int timeout) {
+    synchronized public void flush(int timeout) throws cMsgException {
+        if (!connected) {
+            throw new cMsgException("File is closed, Call \"connect\" first");
+        }
         myPrintHandle.flush();
         return;
     }

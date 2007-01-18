@@ -175,12 +175,13 @@ public class CA extends cMsgDomainAdapter {
      *
      * @throws cMsgException if there are communication problems
      */
-    public void connect() throws cMsgException {
+    synchronized public void connect() throws cMsgException {
 
         Pattern p;
         Matcher m;
         String remainder = null;
 
+        if (connected) return;
 
         domain="CA";
 
@@ -240,6 +241,7 @@ public class CA extends cMsgDomainAdapter {
             throw ce;
         }
 
+        connected = true;
     }
 
 
@@ -252,8 +254,11 @@ public class CA extends cMsgDomainAdapter {
      *
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public void disconnect() throws cMsgException {
+    synchronized public void disconnect() throws cMsgException {
+        if (!connected) return;
+
         try {
+            connected = false;
             myChannel.destroy();
             myContext.flushIO();
             myContext.destroy();
@@ -275,7 +280,10 @@ public class CA extends cMsgDomainAdapter {
      * @param msg message
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public void send(cMsgMessage msg) throws cMsgException {
+    synchronized public void send(cMsgMessage msg) throws cMsgException {
+        if (!connected) {
+            throw new cMsgException("Not connected, Call \"connect\" first");
+        }
 
         try {
             myChannel.put(Double.parseDouble(msg.getText()));
@@ -301,7 +309,11 @@ public class CA extends cMsgDomainAdapter {
      * @param timeout time in milliseconds to wait for completion
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public void flush(int timeout) throws cMsgException {
+    synchronized public void flush(int timeout) throws cMsgException {
+        if (!connected) {
+            throw new cMsgException("Not connected, Call \"connect\" first");
+        }
+
         try {
             myContext.flushIO();
         } catch (CAException e) {
@@ -337,6 +349,7 @@ public class CA extends cMsgDomainAdapter {
      */
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout) throws cMsgException {
 
+
         cMsgMessageFull response = new cMsgMessageFull();
         response.setDomain(domain);
         response.setCreator(myChannelName);
@@ -344,15 +357,30 @@ public class CA extends cMsgDomainAdapter {
         response.setSenderHost(myAddrList);
         response.setSenderTime(new Date());
         response.setReceiver(name);
-        response.setReceiverHost(host) ;
+        response.setReceiverHost(host);
         response.setReceiverTime(new Date());
         response.setSubject(subject);
         response.setType(type);
 
+        DBR dbr = null;
 
-        // get channel data
+        synchronized (this) {
+            if (!connected) {
+                throw new cMsgException("Not connected, Call \"connect\" first");
+            }
+            // get channel data
+            try {
+                dbr = myChannel.get();
+            }
+            catch (CAException e) {
+                response.setText(null);
+                e.printStackTrace();
+                return((cMsgMessage)response);
+            }
+        }
+
+        // Waiting for answer so don't synchronized this
         try {
-            DBR dbr = myChannel.get();
             myContext.pendIO(timeout/1000.0);
             response.setText("" + (((DOUBLE)dbr).getDoubleValue())[0]);
         } catch  (CAException e) {
@@ -381,8 +409,12 @@ public class CA extends cMsgDomainAdapter {
      * @return handle object to be used for unsubscribing
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+    synchronized public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
+
+        if (!connected) {
+            throw new cMsgException("Not connected, Call \"connect\" first");
+        }
 
         SubInfo info = new SubInfo(subject,type,cb,userObj);
 
@@ -419,8 +451,12 @@ public class CA extends cMsgDomainAdapter {
      * @param obj the object "handle" returned from a subscribe call
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public void unsubscribe(Object obj)
+    synchronized public void unsubscribe(Object obj)
             throws cMsgException {
+
+        if (!connected) {
+            throw new cMsgException("Not connected, Call \"connect\" first");
+        }
 
         int cnt=0;
         SubInfo info = (SubInfo)obj;
