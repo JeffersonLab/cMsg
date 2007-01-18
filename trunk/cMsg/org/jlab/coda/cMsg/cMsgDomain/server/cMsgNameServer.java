@@ -75,12 +75,13 @@ public class cMsgNameServer extends Thread {
     private monitorDataThread monitorThread;
 
     /**
-     * Set of all active domain server objects. This set
-     * will be used to call the active domain servers'
+     * Set of all active domain server objects. It is implemented as a HashMap
+     * but that is only to take advantage of the concurrency protection.
+     * The values are all null. This set will be used to call the active domain servers'
      * handleServerShutdown methods when this name server is being
      * shutdown or also when creating monitoring data strings.
      */
-    HashSet<cMsgDomainServer> domainServers;
+    ConcurrentHashMap<cMsgDomainServer,String> domainServers;
 
     /** Level of debug output for this class. */
     private int debug;
@@ -289,7 +290,7 @@ public class cMsgNameServer extends Thread {
     public cMsgNameServer(int port, int udpPort, boolean timeOrdered, boolean standAlone,
                           String clientPassword, String cloudPassword, int debug) {
 
-        domainServers  = new HashSet<cMsgDomainServer>(20);
+        domainServers  = new ConcurrentHashMap<cMsgDomainServer,String>(20);
         handlerThreads = new ArrayList<ClientHandler>(10);
 
         this.debug          = debug;
@@ -648,7 +649,7 @@ public class cMsgNameServer extends Thread {
         broadcastThread.killThread();
 
         // Shutdown all domain servers
-        for (cMsgDomainServer server : domainServers) {
+        for (cMsgDomainServer server : domainServers.keySet()) {
             // need to shutdown this domain server
             if (server.calledShutdown.compareAndSet(false, true)) {
 //System.out.println("DS shutdown to be run by NameServer");
@@ -1017,7 +1018,7 @@ public class cMsgNameServer extends Thread {
             server.setDaemon(true);
             server.start();
             // store ref to this domain server
-            domainServers.add(server);
+            domainServers.put(server, "");
 
             return subdomainHandler;
         }
@@ -1070,7 +1071,7 @@ public class cMsgNameServer extends Thread {
             server.setDaemon(true);
             server.start();
             // store ref to this domain server
-            domainServers.add(server);
+            domainServers.put(server, "");
 
             return subdomainHandler;
         }
@@ -1793,7 +1794,7 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                 xml.append("\">\n");
                 String indent1 = "      ";
 
-                for (cMsgDomainServer ds : domainServers) {
+                for (cMsgDomainServer ds : domainServers.keySet()) {
                     // Skip other servers' bridges to us,
                     // they're not real clients.
                     if (ds.info.isServer()) {
