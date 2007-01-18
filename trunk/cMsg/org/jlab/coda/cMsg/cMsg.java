@@ -19,7 +19,7 @@ package org.jlab.coda.cMsg;
 
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
-import java.util.Iterator;
+import java.util.*;
 import java.util.concurrent.TimeoutException;
 import java.io.*;
 
@@ -54,8 +54,7 @@ public class cMsg {
 
 
     /** Constructor. */
-    private cMsg() {
-    }
+    private cMsg() { }
 
 
     /**
@@ -83,51 +82,7 @@ public class cMsg {
             throw new cMsgException("invalid name - contains \":\"");
         }
 
-        // If the UDL is a semicolon separated list of UDLs, separate them.
-        String listUDLs[] = UDL.split(";");
-
-        // parse the UDL - Uniform Domain Locator - for the first UDL in the list
-        parseUDL(listUDLs[0]);
-
-        // Do something special if the domain is configFile.
-        // Read the file and use that as the real UDL.
-        int loops = 0;
-        boolean reconstruct = false;
-        while (domain.equalsIgnoreCase("configFile")) {
-//System.out.println("in configFile domain");
-            try {
-                // read file (remainder of UDL)
-                String newUDL = readConfigFile(UDLremainder);
-//System.out.println("newUDL = " + newUDL);
-                parseUDL(newUDL);
-                listUDLs[0] = newUDL;
-                reconstruct = true;
-            }
-            catch (IOException e) {
-                e.printStackTrace();
-                throw new cMsgException("Cannot read UDL in file", e);
-            }
-            if (loops++ > 20) {
-                throw new cMsgException("Circular UDL references");
-            }
-        }
-
-        // reconstruct the list of UDLs
-        if (reconstruct) {
-            for (int i=0; i < listUDLs.length; i++) {
-                if (i==0) {
-                    UDL = listUDLs[i];
-                }
-                else {
-                    UDL += listUDLs[i];
-                }
-                if (i < listUDLs.length - 1) {
-                    UDL += ";";
-                }
-            }
-        }
-
-        this.UDL = UDL;
+        this.UDL  = processUDLs(UDL);
         this.name = name;
         this.description = description;
 
@@ -147,9 +102,146 @@ public class cMsg {
         connection.setUDLRemainder(UDLremainder);
     }
 
-    
+
+    /**
+     * This method ensures that: 1) in a semicolon separated list of UDLs, all the domains
+     * are the same, 2) any domain of type "configFile" is expanded before analysis, and
+     * 3) no duplicate UDLs are in the list
+     *
+     * @param clientUDL UDL to be analyzed
+     * @return a list of semicolon separated UDLs where all domains are the same and
+     *         all configFile domain UDLs are expanded
+     * @throws cMsgException if more than one domain is included in the list of UDLs or
+     *                       files given by a configFile domain cannot be read
+     */
+    private String processUDLs(String clientUDL) throws cMsgException {
+
+        // Since the UDL may be a semicolon separated list of UDLs, separate them
+        String udlStrings[]  = clientUDL.split(";");
+
+        // Turn String array into a linked list (array list does not allow
+        // use of the method "remove" for some reason)
+        List<String> l = Arrays.asList(udlStrings);
+        LinkedList<String> udlList = new LinkedList<String>(l);
+
+        // To eliminate duplicate udls, don't compare domains (which are forced to be identical
+        // anyway). Just compare the udl remainders which may be case sensitive and will be
+        // treated as such. Remove any duplicate items by placing them in a set (which does
+        // this automatically). Make it a linked hash set to preserve order.
+        LinkedHashSet<String> udlSet = new LinkedHashSet<String>();
+
+        String udl, domainName=null;
+        String[] parsedUDL;   // first element = domain, second = remainder
+        int startIndex=0;
+        boolean gotDomain = false;
+
+        // One difficulty in implementing a domain in which a file contains the actual UDL
+        // is that there is the possibility for self-referential, infinite loops. In other
+        // words, the first file references to a 2nd file and that references the first, etc.
+        // To avoid such a problem, it is NOT allowed for a configFile UDL to point to a
+        // UDL in which there is another configFile domain UDL.
+
+        topLevel:
+            while(true) {
+                // For each UDL in the list ...
+                for (int i=startIndex; i < udlList.size(); i++) {
+
+                    udl = udlList.get(i);
+//System.out.println("udl = " + udl + ", at position " + i);
+
+                    // Get the domain & remainder from the UDL
+                    parsedUDL = parseUDL(udl);
+
+                    // If NOT configFile domain ...
+                    if (!parsedUDL[0].equalsIgnoreCase("configFile")) {
+                        // Keep track of the valid UDL remainders
+//System.out.println("storing remainder = " + parsedUDL[1]);
+                        udlSet.add(parsedUDL[1]);
+
+                        // Grab the first valid domain and make all other UDLs be the same
+                        if (!gotDomain) {
+                            domainName = parsedUDL[0];
+                            gotDomain = true;
+//System.out.println("Got domain, = " + parsedUDL[0]);
+                        }
+                        else {
+                            if (!domainName.equalsIgnoreCase(parsedUDL[0])) {
+                                throw new cMsgException("All UDLs must belong to the same domain");
+                            }
+                        }
+                    }
+                    // If configFile domain ...
+                    else {
+                        try {
+//System.out.println("reading config file " + parsedUDL[1]);
+
+                            // Read file to obtain actual UDL
+                            String newUDL = readConfigFile(parsedUDL[1]);
+
+                            // Check to see if this string contains a UDL which is in the configFile
+                            // domain. That is NOT allowed in order to avoid infinite loops.
+                            if (newUDL.toLowerCase().contains("configfile://")) {
+                                throw new cMsgException("one configFile domain UDL may NOT reference another");
+                            }
+
+                            // Since the UDL may be a semicolon separated list of UDLs, separate them
+                            String udls[] = newUDL.split(";");
+
+                            // Substitute these new udls for "udl" they're replacing in the original
+                            // list and start the process over again
+//System.out.println("  about to remove item #" + i + " from list " + udlList);
+                            udlList.remove(i);
+                            for (int j = 0; j < udls.length; j++) {
+                                udlList.add(i+j, udls[j]);
+//System.out.println("  adding udl = " + udls[j] + ", at position " + (i+j));
+                            }
+
+                            // skip over udls already done
+                            startIndex = i;
+
+                            continue topLevel;
+                        }
+                        catch (IOException e) {
+                            e.printStackTrace();
+                            throw new cMsgException("Cannot read UDL in file", e);
+                        }
+                    }
+                }
+                break;
+            }
+
+        // Warn user if there are duplicate UDLs in the UDL list that were removed
+        if (udlList.size() != udlSet.size()) {
+            System.out.println("\nWarning: duplicate UDL(s) removed from the UDL list\n");
+        }
+
+        // reconstruct the list of UDLs
+        int i=0;
+        StringBuffer finalUDL = new StringBuffer(500);
+        for (String s : udlSet) {
+            finalUDL.append("cMsg://");
+            finalUDL.append(s);
+            finalUDL.append(";");
+            // pick off first udl remainder
+            if (i++ == 0) {
+                UDLremainder = s;
+            }
+        }
+        // remove the last semicolon
+        finalUDL.deleteCharAt(finalUDL.length() - 1);
+
+        domain = domainName;
+
+//System.out.println("Return processed UDL as " + finalUDL.toString());
+//System.out.println("domain = " + domain + ", and remainder = " + UDLremainder);
+
+        return finalUDL.toString();
+    }
+
+
     /**
      * Method to read a configuration file and return the cMsg UDL stored there.
+     *
      * @param fileName name of file to be read
      * @return UDL contained in config file, null if none
      * @throws IOException if file IO problem
@@ -185,9 +277,11 @@ public class cMsg {
      * where the initial "cMsg" is optional
      *
      * @param UDL Universal Domain Locator
+     * @return array of 2 Strings, the first of which is the domain, the second
+     *         of which is the UDL remainder (everything after the domain://)
      * @throws cMsgException if UDL is null; or no domainType is given in UDL
      */
-    private void parseUDL(String UDL) throws cMsgException {
+    private String[] parseUDL(String UDL) throws cMsgException {
 
         if (UDL == null) {
             throw new cMsgException("invalid UDL");
@@ -202,7 +296,7 @@ public class cMsg {
         Pattern pattern = Pattern.compile("(cMsg)?:?([\\w\\-]+)://(.*)", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(UDL);
 
-        String s0=null, s1=null, s2=null;
+        String s0, s1, s2;
 
         if (matcher.matches()) {
             // cMsg
@@ -227,13 +321,13 @@ public class cMsg {
         if (s1 == null) {
             throw new cMsgException("invalid UDL");
         }
-        domain = s1;
 
         // any remaining UDL is put here
         if (s2 == null) {
             throw new cMsgException("invalid UDL");
         }
-        UDLremainder = s2;
+
+        return new String[] {s1,s2};
     }
 
 
@@ -250,12 +344,12 @@ public class cMsg {
         String domainConnectionClass = null;
 
         /** Object to handle client */
-        cMsgDomainInterface domainConnection = null;
+        cMsgDomainInterface domainConnection;
 
         // First check to see if connection class name was set on the command line.
         // Do this by scanning through all the properties.
-        for (Iterator i = System.getProperties().keySet().iterator(); i.hasNext(); ) {
-            String s = (String) i.next();
+        for (Object obj : System.getProperties().keySet()) {
+            String s = (String) obj;
             if (s.contains(".")) {continue;}
             if (s.equalsIgnoreCase(domain)) {
                 domainConnectionClass = System.getProperty(s);
