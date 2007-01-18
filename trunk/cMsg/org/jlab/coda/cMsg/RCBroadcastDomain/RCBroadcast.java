@@ -286,11 +286,14 @@ public class RCBroadcast extends cMsgDomainAdapter {
     public void disconnect() {
         // cannot run this simultaneously with connect or send
         connectLock.lock();
-
-        connected = false;
-        listener.killThread();
-
-        connectLock.unlock();
+        try {
+            if (!connected) return;
+            connected = false;
+            listener.killThread();
+        }
+        finally {
+            connectLock.unlock();
+        }
     }
 
 
@@ -337,7 +340,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
       * @param udlRemainder partial UDL to parse
       * @throws cMsgException if udlRemainder is null
       */
-    void parseUDL(String udlRemainder) throws cMsgException {
+    private void parseUDL(String udlRemainder) throws cMsgException {
 
         if (udlRemainder == null) {
             throw new cMsgException("invalid UDL");

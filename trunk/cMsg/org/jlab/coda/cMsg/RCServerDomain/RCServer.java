@@ -191,7 +191,10 @@ public class RCServer extends cMsgDomainAdapter {
         connectLock.lock();
 
         try {
-            if (connected) return;
+            if (connected) {
+//System.out.println("Using already established connection with RC client");
+                return;
+            }
 
             try {
                 // Create an object to deliver messages to the RC client.
@@ -270,13 +273,21 @@ public class RCServer extends cMsgDomainAdapter {
         // cannot run this simultaneously with connect or send
         connectLock.lock();
 
-        connected = false;
-        udpListener.killThread();
-        tcpListener.killThread();
-        try { socket.close(); }
-        catch (IOException e) {}
+        try {
+            if (!connected) return;
+            connected = false;
 
-        connectLock.unlock();
+            udpListener.killThread();
+            tcpListener.killThread();
+            try {
+                socket.close();
+            }
+            catch (IOException e) {
+            }
+        }
+        finally {
+            connectLock.unlock();
+        }
     }
 
 
@@ -287,7 +298,7 @@ public class RCServer extends cMsgDomainAdapter {
      * @param  clientPort tcp port client is listening on
      * @throws IOException if socket cannot be created
      */
-    public void createTCPClientConnection(String clientHost, int clientPort) throws IOException {
+    private void createTCPClientConnection(String clientHost, int clientPort) throws IOException {
         socket = new Socket(clientHost, clientPort);
         // Set tcpNoDelay so no packets are delayed
         socket.setTcpNoDelay(true);
@@ -305,7 +316,7 @@ public class RCServer extends cMsgDomainAdapter {
      *
      * @throws IOException if socket cannot be created
      */
-    public void createTCPServerChannel() throws IOException, cMsgException {
+    private void createTCPServerChannel() throws IOException, cMsgException {
 
         serverChannel = ServerSocketChannel.open();
         ServerSocket listeningSocket = serverChannel.socket();
@@ -346,7 +357,7 @@ public class RCServer extends cMsgDomainAdapter {
      *
      * @throws IOException if socket cannot be created
      */
-    public void createUDPClientSocket() throws IOException {
+    private void createUDPClientSocket() throws IOException {
         // Create a socket to listen for udp packets.
         // First try the port given in the UDL (if any).
         if (localUdpPort > 0) {
@@ -369,7 +380,7 @@ public class RCServer extends cMsgDomainAdapter {
      * @param udlRemainder partial UDL to parse
      * @throws cMsgException if udlRemainder is null
      */
-     void parseUDL(String udlRemainder) throws cMsgException, UnknownHostException {
+     private void parseUDL(String udlRemainder) throws cMsgException, UnknownHostException {
 
         if (udlRemainder == null) {
             throw new cMsgException("invalid UDL");

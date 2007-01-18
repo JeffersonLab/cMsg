@@ -248,7 +248,7 @@ public class cMsg extends cMsgDomainAdapter {
     boolean hasShutdown;
 
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugError;
+    int debug = cMsgConstants.debugNone;
 
     // For statistics/monitoring
 
@@ -914,6 +914,10 @@ public class cMsg extends cMsgDomainAdapter {
         connectLock.lock();
 
         try {
+            if (!connected) return;
+
+            connected = false;
+
             // Stop keep alive thread & close channel so when domain server
             // shuts down, we don't detect it's dead and make a fuss.
             //
