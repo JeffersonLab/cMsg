@@ -19,7 +19,7 @@ package org.jlab.coda.cMsg;
 /**
  * The class defines the default context that a message starts with when it's created.
  */
-public class cMsgMessageContextDefault implements cMsgMessageContext {
+public class cMsgMessageContextDefault implements cMsgMessageContextInterface {
 
     boolean reliableSend = true;
 

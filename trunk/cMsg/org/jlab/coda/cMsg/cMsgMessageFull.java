@@ -431,7 +431,7 @@ public class cMsgMessageFull extends cMsgMessage {
      * @param context object containing information about the context of the
      *                callback receiving this message
      */
-    public void setContext(cMsgMessageContext context) {
+    public void setContext(cMsgMessageContextInterface context) {
         this.context = context;
     }
 

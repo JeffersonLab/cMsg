@@ -159,7 +159,7 @@ public class cMsgMessage implements Cloneable {
     // context information when passing msg to callback
 
     /** Object giving info about environment running callback with this message. */
-    cMsgMessageContext context = new cMsgMessageContextDefault();
+    cMsgMessageContextInterface context = new cMsgMessageContextDefault();
 
     /**
      * Cloning this object does not pass on the context and
@@ -795,7 +795,7 @@ public class cMsgMessage implements Cloneable {
      * @return object containing information about the context of the
      *         callback receiving this message
      */
-    public cMsgMessageContext getContext() {
+    public cMsgMessageContextInterface getContext() {
         return context;
     }
 
