@@ -250,8 +250,8 @@ void cMsgSubscribeMutexUnlock(cMsgDomainInfo *domain) {
 
 /**
  * This routine checks a string given as a function argument.
- * It returns an error if it contains an unprintable character or any
- * character from a list of excluded characters (`'").
+ * It returns an error if it is NULL, or contains an unprintable character
+ * or any character from a list of excluded characters (`'").
  *
  * @param s string to check
  *
