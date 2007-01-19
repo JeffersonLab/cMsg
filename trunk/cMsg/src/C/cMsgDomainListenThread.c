@@ -1253,7 +1253,7 @@ static int cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
       continue;
     }
 
-    /* if the subject & type's match, wakeup the "subscribeAndGet */      
+    /* if the subject & type's match, wakeup the "subscribeAndGet */
     if ( (cMsgStringMatches(info->subject, msg->subject) == 1) &&
          (cMsgStringMatches(info->type, msg->type) == 1)) {
 /*
@@ -1306,7 +1306,13 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
       continue;
     }
 
-    /* if the subject & type's match, run callbacks */      
+    /* if the subject & type's match, run callbacks */
+printf("cMsgRunCallbacks: matches?:\n");
+printf("                  SUBJECT = msg (%s), subscription (%s)\n",
+                        msg->subject, domain->subscribeInfo[i].subject);
+printf("                  TYPE    = msg (%s), subscription (%s)\n",
+                        msg->type, domain->subscribeInfo[i].type);
+
     if ( (cMsgRegexpMatches(domain->subscribeInfo[i].subjectRegexp, msg->subject) == 1) &&
          (cMsgRegexpMatches(domain->subscribeInfo[i].typeRegexp, msg->type) == 1)) {
 /*
