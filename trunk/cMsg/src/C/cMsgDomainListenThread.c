@@ -53,7 +53,7 @@ static int   sendMonitorInfo(cMsgDomainInfo *domain, char *buffer, int connfd);
 
 /*-------------------------------------------------------------------*
  * The listening thread needs a pthread cancellation cleanup handler.
- * It will be called when the cMsgClientListeningThread is canceled.
+ * It will be called when the cMsgClientListeningThread is cancelled.
  * It's task is to remove all the client threads.
  *-------------------------------------------------------------------*/
 static void cleanUpHandler(void *arg) {
@@ -89,6 +89,12 @@ static void cleanUpHandler(void *arg) {
       fprintf(stderr, "cMsgClientListeningThread: cancelling mesage receiving thread[0]\n");
     }
     pthread_cancel(domain->clientThread[0]);
+  }
+  if ((strcasecmp(threadArg->domainType, "rc") == 0) && (threadArg->thd1started)) {
+    if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "cMsgClientListeningThread: cancelling mesage receiving thread[1]\n");
+    }
+    pthread_cancel(domain->clientThread[1]);
   }
   domain->killClientThread = 0;
   
@@ -689,6 +695,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
              * that the udp socket does not have to connect and disconnect for each
              * message sent.
              */
+            const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
             struct sockaddr_in addr;
             memset((void *)&addr, 0, sizeof(addr));
             addr.sin_family = AF_INET;
@@ -701,6 +708,14 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
 /* printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
        domain->sendUdpSocket, domain->sendUdpPort); */
             if (domain->sendUdpSocket < 0) {
+                cMsgFreeMessage((void **) &message);
+                printf("Error trying to recreate rc client's UDP send socket\n");
+                goto end;
+            }
+            
+            /* set send buffer size */
+            err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
+            if (err < 0) {
                 cMsgFreeMessage((void **) &message);
                 printf("Error trying to recreate rc client's UDP send socket\n");
                 goto end;
@@ -723,7 +738,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
             /* create TCP sending socket and store */
             if ( (err = cMsgTcpConnect(domain->sendHost,
                                        (unsigned short) domain->sendPort,
-                                       131072, 0, &domain->sendSocket)) != CMSG_OK) {
+                                       CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket)) != CMSG_OK) {
                 cMsgFreeMessage((void **) &message);
                 printf("Error trying to recreate rc client's TCP send socket\n");
                 goto end;
@@ -782,7 +797,9 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
     
     /* release memory */
 /*printf("clientThread %d: exiting thread to server, free buffer\n", localCount);*/
-    free((void*)domain->msgInBuffer[index]);
+    if (domain->msgInBuffer[index] != NULL) {
+        free((void*)domain->msgInBuffer[index]);
+    }
     free(domainType);
     
     /* don't want to free the memory again */
