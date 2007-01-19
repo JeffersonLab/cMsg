@@ -1044,6 +1044,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   }
   else {
     msg->subject = NULL;
+    printf("*****   got subject length = 0\n");
   }
   
   /*------------------*/
@@ -1067,6 +1068,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   }
   else {
     msg->type = NULL;
+    printf("*****   got type length = 0\n");
   }
   
   /*---------------------*/
@@ -1309,9 +1311,9 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
     /* if the subject & type's match, run callbacks */
 printf("cMsgRunCallbacks: matches?:\n");
 printf("                  SUBJECT = msg (%s), subscription (%s)\n",
-                        msg->subject, domain->subscribeInfo[i].subject);
+                        msg->subject, domain->subscribeInfo[i].subjectRegexp);
 printf("                  TYPE    = msg (%s), subscription (%s)\n",
-                        msg->type, domain->subscribeInfo[i].type);
+                        msg->type, domain->subscribeInfo[i].typeRegexp);
 
     if ( (cMsgRegexpMatches(domain->subscribeInfo[i].subjectRegexp, msg->subject) == 1) &&
          (cMsgRegexpMatches(domain->subscribeInfo[i].typeRegexp, msg->type) == 1)) {
