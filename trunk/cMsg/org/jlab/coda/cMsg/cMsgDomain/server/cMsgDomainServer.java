@@ -437,14 +437,18 @@ public class cMsgDomainServer extends Thread {
         catch (InterruptedException e) {}
 
         // stop thread that gets client keep alives over socket
-        keepAliveThread.interrupt();
-        try {keepAliveThread.channel.close();}
-        catch (IOException e) {}
+        if (keepAliveThread != null) {
+            keepAliveThread.interrupt();
+            try {keepAliveThread.channel.close();}
+            catch (IOException e) {}
+        }
 
         // stop thread that gets client commands over socket
-        clientHandlerThread.interrupt();
-        try {clientHandlerThread.channel.close();}
-        catch (IOException e) {}
+        if (clientHandlerThread != null) {
+            clientHandlerThread.interrupt();
+            try {clientHandlerThread.channel.close();}
+            catch (IOException e) {}
+        }
 
         // stop thread that gets client sends over udp
         if (udpHandlerThread != null) {
