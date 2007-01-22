@@ -125,18 +125,12 @@ extern "C" {
 
 /* Byte swapping for 64 bits. */
 #if __BYTE_ORDER == __BIG_ENDIAN
-    #define ntoh64(x) x
+    #define ntoh64(x) (x)
     #define hton64(x) ntoh64(x)
 #else
-    extern inline uint64_t ntoh64(uint64_t n)
-    {
-        uint64_t h;
-        uint64_t tmp = ntohl(n & 0x00000000ffffffff);
-        h = ntohl(n >> 32);
-        h |= tmp << 32;
-        return h;
-    }
-    #define hton64(x) ntoh64(x)
+    extern uint64_t NTOH64(uint64_t n);
+    #define ntoh64(x) NTOH64(x)
+    #define hton64(x) NTOH64(x)
 #endif
 
 

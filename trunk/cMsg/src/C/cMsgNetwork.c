@@ -69,6 +69,20 @@ static pthread_mutex_t getHostByNameMutex = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 /*-------------------------------------------------------------------*/
+/* Byte swapping for 64 bits. */
+/*-------------------------------------------------------------------*/
+
+
+uint64_t NTOH64(uint64_t n) {
+    uint64_t h;
+    uint64_t tmp = ntohl(n & 0x00000000ffffffff);
+    h = ntohl(n >> 32);
+    h |= tmp << 32;
+    return h;
+}
+
+
+/*-------------------------------------------------------------------*/
 
 
 int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
