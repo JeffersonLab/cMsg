@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <strings.h>
 #include <time.h>
 #include <pthread.h>
 
