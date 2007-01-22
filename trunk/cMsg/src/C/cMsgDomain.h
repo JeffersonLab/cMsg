@@ -194,8 +194,6 @@ typedef struct cMsgDomainInfo_t {
   char *msgBuffer;           /**< Buffer used in socket communication to server. */
   int   msgBufferSize;       /**< Size of buffer (in bytes) used in socket communication to server. */
 
-  char *msgInBuffer[2];      /**< Buffers used in socket communication from server. */
-
   pthread_t pendThread;      /**< Listening thread. */
   pthread_t keepAliveThread; /**< Thread sending keep alives to server. */
   pthread_t clientThread[2]; /**< Threads from server connecting to client (created by pendThread). */

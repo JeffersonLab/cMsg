@@ -435,9 +435,6 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
   
   domain->msgBuffer           = NULL;
   domain->msgBufferSize       = 0;
-
-  domain->msgInBuffer[0]      = NULL;
-  domain->msgInBuffer[1]      = NULL;
   
   memset((void *) &domain->monData, 0, sizeof(monitorData));
         
@@ -605,8 +602,6 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
   if (domain->description    != NULL) {free(domain->description);    domain->description    = NULL;}
   if (domain->password       != NULL) {free(domain->password);       domain->password       = NULL;}
   if (domain->msgBuffer      != NULL) {free(domain->msgBuffer);      domain->msgBuffer      = NULL;}
-  if (domain->msgInBuffer[0] != NULL) {free(domain->msgInBuffer[0]); domain->msgInBuffer[0] = NULL;}
-  if (domain->msgInBuffer[1] != NULL) {free(domain->msgInBuffer[1]); domain->msgInBuffer[1] = NULL;}
   
   if (domain->failovers != NULL) {
     for (i=0; i<domain->failoverSize; i++) {       

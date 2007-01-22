@@ -28,8 +28,10 @@
 #endif
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 #include <pthread.h>
 #include <time.h>
 
@@ -45,6 +47,7 @@ static int counter = 1;
 /* prototypes */
 static void *clientThread(void *arg);
 static void  cleanUpHandler(void *arg);
+static void  cleanUpClientHandler(void *arg);
 static int   cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *acknowledge);
 static int   cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static int   cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg);
@@ -105,6 +108,24 @@ static void cleanUpHandler(void *arg) {
 
 
 /*-------------------------------------------------------------------*
+ * A client handling thread needs a pthread cancellation cleanup handler.
+ * This handler will be called when the cMsgClientListeningThread is
+ * cancelled which, in turn, cancels each of the client handling threads. 
+ * It's task is to free memory allocated for the communication buffer.
+ *-------------------------------------------------------------------*/
+static void cleanUpClientHandler(void *arg) {
+  char **pMem = (char **)arg;
+  
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "clientThread: in cleanup handler\n");
+  }
+  
+  if (*pMem != NULL) free(*pMem);
+  free(pMem);
+}
+
+
+/*-------------------------------------------------------------------*
  * cMsgClientListeningThread is a listening thread used by a cMsg client
  * to allow 2 connections from the cMsg server. One connection is for
  * keepalive commands, and the other is for everything else.
@@ -152,7 +173,10 @@ void *cMsgClientListeningThread(void *arg)
   }
   
   /* enable pthread cancellation at deferred points like pthread_testcancel */
-  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
+  status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
+  if (status != 0) {
+    cmsg_err_abort(status, "Enabling client cancelability");
+  }
   
   /* install cleanup handler for this thread's cancellation */
   pthread_cleanup_push(cleanUpHandler, arg);
@@ -329,10 +353,10 @@ static void *clientThread(void *arg)
 {
   int  inComing[2];
   int  err, ok, size, msgId, connfd, connectionNumber, localCount=0;
-  int  con, index, acknowledge = 0;
+  int  status, state, con, index, acknowledge = 0;
   size_t bufSize;
   cMsgThreadInfo *info;
-  char *buffer, *returnBuf, *domainType;
+  char *buffer, *returnBuf, *domainType, **pMem;
   cMsgDomainInfo *domain;
   struct timespec wait;
 
@@ -348,12 +372,28 @@ static void *clientThread(void *arg)
   /* increase concurrency for this thread */
   con = sun_getconcurrency();
   sun_setconcurrency(con + 1);
+  
+  localCount = counter++;
 
   /* release system resources when thread finishes */
   pthread_detach(pthread_self());
 
-  localCount = counter++;
-      
+  /* enable pthread cancellation at deferred points like pthread_testcancel */
+  status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
+  if (status != 0) {
+    cmsg_err_abort(status, "Enabling client cancelability");
+  }
+  
+  /* Create pointer to malloced mem which will hold a pointer. */
+  pMem = (char **) malloc(sizeof(char *));
+  if (pMem == NULL) {
+      if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+        fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
+      }
+      exit(1);
+  }
+
+  /* Create buffer which must be freed upon thread cancellation. */   
   bufSize = 65536;
   buffer  = (char *) calloc(1, bufSize);
   if (buffer == NULL) {
@@ -362,12 +402,13 @@ static void *clientThread(void *arg)
       }
       exit(1);
   }
-  if (domain->msgInBuffer[index] != NULL) {
-/*printf("clientThread %d OOPS @ start: freeing domain->msgInBuffer[%d]\n", localCount, index);*/
-    free((void*)(domain->msgInBuffer[index]));
-  }
-  domain->msgInBuffer[index] = buffer;
-
+  
+  /* Install a cleanup handler for this thread's cancellation. 
+   * Give it a pointer which points to the memory which must
+   * be freed upon cancelling this thread. */
+  *pMem = buffer;
+  pthread_cleanup_push(cleanUpClientHandler, (void *)pMem);
+  
   /*--------------------------------------*/
   /* wait for and process client requests */
   /*--------------------------------------*/
@@ -401,6 +442,13 @@ static void *clientThread(void *arg)
     
     /* make sure we have big enough buffer */
     if (size > bufSize) {
+      
+      /* disable pthread cancellation until pointer is set */
+      status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
+      if (status != 0) {
+        cmsg_err_abort(status, "Disabling client cancelability");
+      }
+      
       /* free previously allocated memory */
       free((void *) buffer);
 
@@ -414,7 +462,13 @@ static void *clientThread(void *arg)
         }
         goto end;
       }
-      domain->msgInBuffer[index] = buffer;
+      *pMem = buffer;
+      
+      /* re-enable pthread cancellation */
+      status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
+      if (status != 0) {
+        cmsg_err_abort(status, "Reenabling client cancelability");
+      }
     }
         
     /* extract command */
@@ -546,7 +600,7 @@ static void *clientThread(void *arg)
 
       case  CMSG_KEEP_ALIVE:
       {
-        int alive;
+        /* int alive; */
         
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "clientThread %d: keep alive received\n", localCount);
@@ -659,6 +713,10 @@ static void *clientThread(void *arg)
           if (message->senderHost != NULL) {
               domain->sendHost = (char *) strdup(message->senderHost);
           }
+          
+          /* now free message */
+          cMsgFreeMessage((void **) &message);
+          
           /*
 printf("clientThread %d: connecting, tcp port = %d, udp port = %d, senderHost = %s\n",
 localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
@@ -708,7 +766,6 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
 /* printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
        domain->sendUdpSocket, domain->sendUdpPort); */
             if (domain->sendUdpSocket < 0) {
-                cMsgFreeMessage((void **) &message);
                 printf("Error trying to recreate rc client's UDP send socket\n");
                 goto end;
             }
@@ -716,13 +773,11 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
             /* set send buffer size */
             err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
             if (err < 0) {
-                cMsgFreeMessage((void **) &message);
                 printf("Error trying to recreate rc client's UDP send socket\n");
                 goto end;
             }
 
             if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
-                cMsgFreeMessage((void **) &message);
                 printf("Error trying to recreate rc client's UDP send socket\n");
                 goto end;
             }
@@ -730,7 +785,6 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
 /*printf("try UDP connection to port = %hu\n", ntohs(addr.sin_port));*/
             err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
             if (err < 0) {
-                cMsgFreeMessage((void **) &message);
                 printf("Error trying to recreate rc client's UDP send socket\n");
                 goto end;
             }
@@ -739,20 +793,16 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
             if ( (err = cMsgTcpConnect(domain->sendHost,
                                        (unsigned short) domain->sendPort,
                                        CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket)) != CMSG_OK) {
-                cMsgFreeMessage((void **) &message);
                 printf("Error trying to recreate rc client's TCP send socket\n");
                 goto end;
             }
         }
           
-          /* now free message */
-        cMsgFreeMessage((void **) &message);
-
         /* Send back a response - the name of this client */
-        lenName    = strlen(domain->name);  /* length of client's name */
-        netLenName = htonl(lenName);        /* length of client's name in net byte order */
-        len        = sizeof(netLenName);    /* length of int */
-        returnBuf  = malloc(len+lenName);   /* create buffer */
+        lenName    = strlen(domain->name);        /* length of client's name */
+        netLenName = htonl(lenName);              /* length of client's name in net byte order */
+        len        = sizeof(netLenName);          /* length of int */
+        returnBuf  = (char *)malloc(len+lenName); /* create buffer */
         if (returnBuf == NULL) {
           if (cMsgDebug >= CMSG_DEBUG_ERROR) {
             fprintf(stderr, "clientThread %d: out of memory\n", localCount);
@@ -796,17 +846,14 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
     sun_setconcurrency(con - 1);
     
     /* release memory */
-/*printf("clientThread %d: exiting thread to server, free buffer\n", localCount);*/
-    if (domain->msgInBuffer[index] != NULL) {
-        free((void*)domain->msgInBuffer[index]);
-    }
     free(domainType);
-    
-    /* don't want to free the memory again */
-    domain->msgInBuffer[index] = NULL;
-  
-    /* quit thread */
+     
+    /* quit thread & calls cleanup handler */
     pthread_exit(NULL);
+    
+    /* on some operating systems (Linux) this call is necessary - calls cleanup handler */
+    pthread_cleanup_pop(1);
+    
     return NULL;
 }
 
