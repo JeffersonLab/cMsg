@@ -67,6 +67,9 @@ static void cleanUpHandler(void *arg) {
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "cMsgClientListeningThread: in cleanup handler\n");
   }
+  
+  /* decrease concurrency as this thread disappears */
+  sun_setconcurrency(sun_getconcurrency() - 1);
 
   /* cancel thread that gets keepalives (cmsg domain), ignore errors */  
   if (threadArg->thd1started) {
@@ -119,6 +122,9 @@ static void cleanUpClientHandler(void *arg) {
     fprintf(stderr, "clientThread: in cleanup handler\n");
   }
   
+  /* decrease concurrency as this thread disappears */
+  sun_setconcurrency(sun_getconcurrency() - 1);
+
   if (pMem == NULL) return;
   if (*pMem != NULL) free(*pMem);
   free(pMem);
@@ -155,9 +161,7 @@ void *cMsgClientListeningThread(void *arg)
   cMsgThreadInfo *pinfo;
       
   /* increase concurrency for this thread for early Solaris */
-  int  con;
-  con = sun_getconcurrency();
-  sun_setconcurrency(con + 1);
+  sun_setconcurrency(sun_getconcurrency() + 1);
 
   /* release system resources when thread finishes */
   pthread_detach(pthread_self());
@@ -245,8 +249,6 @@ void *cMsgClientListeningThread(void *arg)
     
     /* pointer to domain info */
     pinfo->domain = domain;
-    /* set values to pass on to thread */
-    pinfo->connectionNumber = connectionNumber;
     /* pass on whether we're "rc" or "cmsg" domain */
     pinfo->domainType = (char *)strdup(threadArg->domainType);
     /* wait for connection to client */
@@ -305,7 +307,7 @@ void *cMsgClientListeningThread(void *arg)
       fprintf(stderr, "cMsgClientListeningThread: accepting client connection\n");
     }
     
-    /* Connections come 2 at a time. If failing over, may get multiple
+    /* Connections come 2 at a time for cmsg domain. If failing over, may get multiple
      * connections here but always in pairs of 2.
      * The first connection is one to receive messages and the second
      * responds to keepAlive inquiries from the server.
@@ -337,11 +339,12 @@ void *cMsgClientListeningThread(void *arg)
     index = connectionNumber%2;
   }
   
- 
+  /* quit thread & calls cleanup handler */
+  pthread_exit(NULL);
+  
   /* on some operating systems (Linux) this call is necessary - calls cleanup handler */
   pthread_cleanup_pop(1);
   
-  pthread_exit(NULL);
   return NULL;
 }
 
@@ -352,8 +355,8 @@ void *cMsgClientListeningThread(void *arg)
 static void *clientThread(void *arg)
 {
   int  inComing[2];
-  int  err, ok, size, msgId, connfd, connectionNumber, localCount=0;
-  int  status, state, con, index, acknowledge = 0;
+  int  err, ok, size, msgId, connfd, localCount=0;
+  int  status, state, acknowledge = 0;
   size_t bufSize;
   cMsgThreadInfo *info;
   char *buffer, *returnBuf, *domainType, **pMem=NULL;
@@ -363,15 +366,12 @@ static void *clientThread(void *arg)
   
   info             = (cMsgThreadInfo *) arg;
   connfd           = info->connfd;
-  connectionNumber = info->connectionNumber;
   domain           = info->domain;
-  index            = connectionNumber%2;
   domainType       = info->domainType;
   free(arg);
 
   /* increase concurrency for this thread */
-  con = sun_getconcurrency();
-  sun_setconcurrency(con + 1);
+  sun_setconcurrency(sun_getconcurrency() + 1);
   
   localCount = counter++;
 
@@ -461,14 +461,14 @@ static void *clientThread(void *arg)
       /* allocate more memory to accomodate larger msg */
       bufSize = size + 1000;
       buffer  = (char *) calloc(1, bufSize);
+      *pMem   = buffer;
       if (buffer == NULL) {
         if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
           fprintf(stderr, "clientThread %d: cannot allocate %d amount of memory\n",
                   localCount, bufSize);
         }
-        goto end;
+        exit(1);
       }
-      *pMem = buffer;
       
       /* re-enable pthread cancellation */
       status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
@@ -510,27 +510,16 @@ static void *clientThread(void *arg)
               message->receiverHost = (char *) strdup(domain->myHost);
           }
           
-          /* disable pthread cancellation while using buffer */
-          status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
-          if (status != 0) {
-            cmsg_err_abort(status, "Disabling client cancelability");
-          }
-
           /* read the message */
           if ( cMsgReadMessage(connfd, buffer, message, &acknowledge) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread %d: error reading message\n", localCount);
             }
             cMsgFreeMessage((void **) &message);
+printf("clientThread %d: error reading message\n", localCount);
             goto end;
           }
           
-          /* re-enable pthread cancellation */
-          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
-          if (status != 0) {
-            cmsg_err_abort(status, "Reenabling client cancelability");
-          }
-
           /* send back ok */
           if (acknowledge) {
             ok = htonl(CMSG_OK);
@@ -590,12 +579,6 @@ static void *clientThread(void *arg)
               message->receiverHost = (char *) strdup(domain->myHost);
           }
          
-          /* disable pthread cancellation while using buffer */
-          status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
-          if (status != 0) {
-            cmsg_err_abort(status, "Disabling client cancelability");
-          }
-
           /* read the message */
           if ( cMsgReadMessage(connfd, buffer, message, &acknowledge) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -605,12 +588,6 @@ static void *clientThread(void *arg)
             goto end;
           }
           
-          /* re-enable pthread cancellation */
-          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
-          if (status != 0) {
-            cmsg_err_abort(status, "Reenabling client cancelability");
-          }
-
           /* send back ok */
           if (acknowledge) {
             ok = htonl(CMSG_OK);
@@ -677,7 +654,6 @@ static void *clientThread(void *arg)
             goto end;
           }
         }       
-
 
         if (domain->shutdownHandler != NULL) {
           domain->shutdownHandler(domain->shutdownUserArg);
@@ -771,13 +747,10 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
              * will automatically die because it will try to read from
              * dead socket and go to error handling at the end of this
              * function.
-             */            
-            
-            /* Recreate broken udp socket between client and server 
+             *
+             * Recreate broken udp & tcp sockets between client and server 
              * so client can communicate with server.
-             */
-             
-           /*
+             *
              * Create a new UDP "connection". This means all subsequent sends are to
              * be done with the "send" and not the "sendto" function. The benefit is 
              * that the udp socket does not have to connect and disconnect for each
@@ -870,10 +843,6 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
 
     /* we are done with the socket */
     close(connfd);
-
-    /* decrease concurrency as this thread disappears */
-    con = sun_getconcurrency();
-    sun_setconcurrency(con - 1);
     
     /* release memory */
     free(domainType);
@@ -1017,9 +986,8 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
 
   /* swap to local endian */
   msg->version  = ntohl(inComing[0]);  /* major version of cMsg */
-  /* second int is for future use */
+                                       /* second int is for future use */
   msg->userInt  = ntohl(inComing[2]);  /* user int */
-
   msg->info     = ntohl(inComing[3]);  /* get info */
   /*
    * Time arrives as the high 32 bits followed by the low 32 bits
@@ -1117,13 +1085,13 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
     tmp[lengths[2]] = 0;
     msg->subject = tmp;
     pchar += lengths[2];  
-    printf("*****   got subject = %s, len = %d\n", tmp, lengths[2]);
-    if (strcmp(tmp, " ") == 0) printf("subject is one space\n");
-    if (strcmp(tmp, "") == 0) printf("subject is blank\n");
+printf("*****   got subject = %s, len = %d\n", tmp, lengths[2]);
+if (strcmp(tmp, " ") == 0) printf("subject is one space\n");
+if (strcmp(tmp, "") == 0) printf("subject is blank\n");
   }
   else {
     msg->subject = NULL;
-    printf("*****   got subject length %d\n", lengths[2]);
+printf("*****   got subject length %d\n", lengths[2]);
   }
   
   /*------------------*/
@@ -1143,13 +1111,13 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
     tmp[lengths[3]] = 0;
     msg->type = tmp;
     pchar += lengths[3];    
-    printf("*****   got type = %s, len = %d\n", tmp, lengths[3]);
-    if (strcmp(tmp, " ") == 0) printf("type is one space\n");
-    if (strcmp(tmp, "") == 0) printf("type is blank\n");
+printf("*****   got type = %s, len = %d\n", tmp, lengths[3]);
+if (strcmp(tmp, " ") == 0) printf("type is one space\n");
+if (strcmp(tmp, "") == 0) printf("type is blank\n");
   }
   else {
     msg->type = NULL;
-    printf("*****   got type length = %d\n", lengths[3]);
+printf("*****   got type length = %d\n", lengths[3]);
   }
   
   /*---------------------*/
