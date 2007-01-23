@@ -1399,7 +1399,7 @@ int cmsg_rc_disconnect(void **domainId) {
     if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
     domain = (cMsgDomainInfo *) (*domainId);
     if (domain == NULL) return(CMSG_BAD_ARGUMENT);
-printf("***************  DISCONNECT  ****************\n");    
+    
     /* When changing initComplete / connection status, protect it */
     cMsgConnectWriteLock(domain);
 

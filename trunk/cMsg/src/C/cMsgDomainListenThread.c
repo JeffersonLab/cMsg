@@ -516,7 +516,6 @@ static void *clientThread(void *arg)
               fprintf(stderr, "clientThread %d: error reading message\n", localCount);
             }
             cMsgFreeMessage((void **) &message);
-printf("clientThread %d: error reading message\n", localCount);
             goto end;
           }
           
