@@ -552,7 +552,7 @@ public class RCServer extends cMsgDomainAdapter {
      */
     private void deliverMessage(cMsgMessage msg, int msgType, boolean getResponse) throws IOException {
 
-        int[] len = new int[6];
+        int[] len = new int[6]; // int arrays are initialized to 0
 
         if (msg.getSender()     != null) len[0] = msg.getSender().length();
         if (msg.getSenderHost() != null) len[1] = msg.getSenderHost().length();
@@ -596,7 +596,7 @@ public class RCServer extends cMsgDomainAdapter {
         out.writeInt(len[4]);
         out.writeInt(len[5]);
         out.writeInt(binLength);
-        out.writeInt(0); // never acknowledge in rctcp domain
+        out.writeInt(0); // never acknowledge in rc/rcServer domain
 
         // write strings
         try {
