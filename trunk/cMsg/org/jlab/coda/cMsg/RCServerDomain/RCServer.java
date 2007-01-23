@@ -93,6 +93,9 @@ public class RCServer extends cMsgDomainAdapter {
     /** Lock for calling methods other than {@link #connect} or {@link #disconnect}. */
     Lock notConnectLock = methodLock.readLock();
 
+    /** Lock to ensure that methods using the socket, write in sequence. */
+    Lock socketLock = new ReentrantLock();
+
     /** Lock to ensure {@link #subscribe} and {@link #unsubscribe} calls are sequential. */
     Lock subscribeLock = new ReentrantLock();
 
@@ -515,6 +518,8 @@ public class RCServer extends cMsgDomainAdapter {
 
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
+        // protect communicatons over socket for thread safety
+        socketLock.lock();
 
         try {
             if (!connected) {
@@ -526,6 +531,7 @@ public class RCServer extends cMsgDomainAdapter {
             throw new cMsgException(e.getMessage());
         }
         finally {
+            socketLock.unlock();
             notConnectLock.unlock();
         }
 
