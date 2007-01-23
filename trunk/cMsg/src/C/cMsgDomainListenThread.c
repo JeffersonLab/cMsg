@@ -115,11 +115,11 @@ static void cleanUpHandler(void *arg) {
  *-------------------------------------------------------------------*/
 static void cleanUpClientHandler(void *arg) {
   char **pMem = (char **)arg;
-  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "clientThread: in cleanup handler\n");
   }
   
+  if (pMem == NULL) return;
   if (*pMem != NULL) free(*pMem);
   free(pMem);
 }
@@ -356,7 +356,7 @@ static void *clientThread(void *arg)
   int  status, state, con, index, acknowledge = 0;
   size_t bufSize;
   cMsgThreadInfo *info;
-  char *buffer, *returnBuf, *domainType, **pMem;
+  char *buffer, *returnBuf, *domainType, **pMem=NULL;
   cMsgDomainInfo *domain;
   struct timespec wait;
 
@@ -378,10 +378,10 @@ static void *clientThread(void *arg)
   /* release system resources when thread finishes */
   pthread_detach(pthread_self());
 
-  /* enable pthread cancellation at deferred points like pthread_testcancel */
-  status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
+  /* disable pthread cancellation until pointer is set and handler is installed */
+  status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
   if (status != 0) {
-    cmsg_err_abort(status, "Enabling client cancelability");
+    cmsg_err_abort(status, "Disabling client cancelability");
   }
   
   /* Create pointer to malloced mem which will hold a pointer. */
@@ -409,6 +409,12 @@ static void *clientThread(void *arg)
   *pMem = buffer;
   pthread_cleanup_push(cleanUpClientHandler, (void *)pMem);
   
+  /* enable pthread cancellation at deferred points like pthread_testcancel */
+  status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
+  if (status != 0) {
+    cmsg_err_abort(status, "Enabling client cancelability");
+  }
+
   /*--------------------------------------*/
   /* wait for and process client requests */
   /*--------------------------------------*/
@@ -504,6 +510,12 @@ static void *clientThread(void *arg)
               message->receiverHost = (char *) strdup(domain->myHost);
           }
           
+          /* disable pthread cancellation while using buffer */
+          status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
+          if (status != 0) {
+            cmsg_err_abort(status, "Disabling client cancelability");
+          }
+
           /* read the message */
           if ( cMsgReadMessage(connfd, buffer, message, &acknowledge) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -513,6 +525,12 @@ static void *clientThread(void *arg)
             goto end;
           }
           
+          /* re-enable pthread cancellation */
+          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
+          if (status != 0) {
+            cmsg_err_abort(status, "Reenabling client cancelability");
+          }
+
           /* send back ok */
           if (acknowledge) {
             ok = htonl(CMSG_OK);
@@ -572,6 +590,12 @@ static void *clientThread(void *arg)
               message->receiverHost = (char *) strdup(domain->myHost);
           }
          
+          /* disable pthread cancellation while using buffer */
+          status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
+          if (status != 0) {
+            cmsg_err_abort(status, "Disabling client cancelability");
+          }
+
           /* read the message */
           if ( cMsgReadMessage(connfd, buffer, message, &acknowledge) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -581,6 +605,12 @@ static void *clientThread(void *arg)
             goto end;
           }
           
+          /* re-enable pthread cancellation */
+          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
+          if (status != 0) {
+            cmsg_err_abort(status, "Reenabling client cancelability");
+          }
+
           /* send back ok */
           if (acknowledge) {
             ok = htonl(CMSG_OK);
