@@ -18,7 +18,6 @@ package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgCallbackInterface;
-import org.jlab.coda.cMsg.cMsgMessageContext;
 import org.jlab.coda.cMsg.cMsgMessageContextDefault;
 
 import java.util.ArrayList;
