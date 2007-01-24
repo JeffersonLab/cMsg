@@ -784,7 +784,6 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
             /* set send buffer size */
             err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
             if (err < 0) {
-printf("Error trying to recreate rc client's UDP send socket\n");
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                   fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
