@@ -1107,14 +1107,16 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
     memcpy(tmp, pchar, lengths[2]);
     tmp[lengths[2]] = 0;
     msg->subject = tmp;
-    pchar += lengths[2];  
+    pchar += lengths[2];
+/*  
 printf("*****   got subject = %s, len = %d\n", tmp, lengths[2]);
 if (strcmp(tmp, " ") == 0) printf("subject is one space\n");
 if (strcmp(tmp, "") == 0) printf("subject is blank\n");
+*/
   }
   else {
     msg->subject = NULL;
-printf("*****   got subject length %d\n", lengths[2]);
+/*printf("*****   got subject length %d\n", lengths[2]);*/
   }
   
   /*------------------*/
@@ -1133,14 +1135,16 @@ printf("*****   got subject length %d\n", lengths[2]);
     memcpy(tmp, pchar, lengths[3]);
     tmp[lengths[3]] = 0;
     msg->type = tmp;
-    pchar += lengths[3];    
+    pchar += lengths[3];
+/*    
 printf("*****   got type = %s, len = %d\n", tmp, lengths[3]);
 if (strcmp(tmp, " ") == 0) printf("type is one space\n");
 if (strcmp(tmp, "") == 0) printf("type is blank\n");
+*/
   }
   else {
     msg->type = NULL;
-printf("*****   got type length = %d\n", lengths[3]);
+/*printf("*****   got type length = %d\n", lengths[3]);*/
   }
   
   /*---------------------*/
@@ -1381,6 +1385,7 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
     }
 
     /* if the subject & type's match, run callbacks */
+/*
 printf("cMsgRunCallbacks: matches?:\n");
 if (msg->subject == NULL) 
     printf("                  SUBJECT in msg is NULL\n");
@@ -1390,7 +1395,7 @@ if (msg->type == NULL)
     printf("                  TYPE in msg is NULL\n");
 printf("                  TYPE    = msg (%s), subscription (%s)\n",
                         msg->type, domain->subscribeInfo[i].typeRegexp);
-
+*/
     if ( (cMsgRegexpMatches(domain->subscribeInfo[i].subjectRegexp, msg->subject) == 1) &&
          (cMsgRegexpMatches(domain->subscribeInfo[i].typeRegexp, msg->type) == 1)) {
 /*
