@@ -1114,10 +1114,6 @@ int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type, cMs
       domain->subscribeInfo[i].type    = (char *) strdup(type);
       domain->subscribeInfo[i].subjectRegexp = cMsgStringEscape(subject);
       domain->subscribeInfo[i].typeRegexp    = cMsgStringEscape(type);
-printf("subscribe: subject        = %s,       type = %s\n", subject, type);
-printf("subscribe: regexp subject = %s, regexptype = %s\n",
-                    domain->subscribeInfo[i].subjectRegexp,
-                    domain->subscribeInfo[i].typeRegexp);
       domain->subscribeInfo[i].cbInfo[0].active   = 1;
       domain->subscribeInfo[i].cbInfo[0].callback = callback;
       domain->subscribeInfo[i].cbInfo[0].userArg  = userArg;
