@@ -82,7 +82,7 @@ char *cMsgStringEscape(const char *s) {
         sub[0] = '^';
         strcat(sub, s);
         sub[len+1] = '$';
-        return (char *)strdup(sub);
+        return sub;
     }
 
     /* There are chars that need to be escaped and/or chars

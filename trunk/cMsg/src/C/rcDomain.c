@@ -227,7 +227,9 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     /* allocate struct to hold connection info */
     domain = (cMsgDomainInfo *) calloc(1, sizeof(cMsgDomainInfo));
     if (domain == NULL) {
-      return(CMSG_OUT_OF_MEMORY);  
+        free(serverHost);
+        free(expid);
+        return(CMSG_OUT_OF_MEMORY);  
     }
     cMsgDomainInit(domain);  
 
@@ -237,6 +239,8 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     if (domain->msgBuffer == NULL) {
         cMsgDomainFree(domain);
         free(domain);
+        free(serverHost);
+        free(expid);
         return(CMSG_OUT_OF_MEMORY);
     }
 
@@ -287,6 +291,8 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
                                        &domain->listenSocket)) != CMSG_OK) {
         cMsgDomainFree(domain);
         free(domain);
+        free(serverHost);
+        free(expid);
         return(err);
     }
 
@@ -297,6 +303,8 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     if (threadArg == NULL) {
         cMsgDomainFree(domain);
         free(domain);
+        free(serverHost);
+        free(expid);
         return(CMSG_OUT_OF_MEMORY);  
     }
     threadArg->isRunning   = 0;
@@ -377,6 +385,8 @@ printf("Wait for 5 more seconds, then exit\n");
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
+        free(serverHost);
+        free(expid);
         return(CMSG_SOCKET_ERROR);
     }
 
@@ -386,6 +396,8 @@ printf("Wait for 5 more seconds, then exit\n");
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
+        free(serverHost);
+        free(expid);
         return(CMSG_SOCKET_ERROR);
     }
 
@@ -393,6 +405,8 @@ printf("Wait for 5 more seconds, then exit\n");
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
+        free(serverHost);
+        free(expid);
         return(err);
     }
     
@@ -414,12 +428,15 @@ printf("Wait for 5 more seconds, then exit\n");
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
+        free(serverHost);
+        free(expid);
         return(CMSG_ERROR);
     }
-    nameLen  = strlen(myName);
-    expidLen = strlen(expid);
 /*printf("Sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
         ((int) domain->listenPort), expid, serverPort, serverHost);*/
+    
+    nameLen  = strlen(myName);
+    expidLen = strlen(expid);
     
     /* type of broadcast */
     outGoing[0] = htonl(RC_DOMAIN_BROADCAST);
@@ -438,6 +455,9 @@ printf("Wait for 5 more seconds, then exit\n");
     memcpy(buffer+len, (const void *)expid, expidLen);
     len += expidLen;
         
+    free(serverHost);
+    free(expid);
+    
     /* create and start a thread which will receive any responses to our broadcast */
     memset((void *)&rArg.addr, 0, sizeof(rArg.addr));
     rArg.len             = (socklen_t) sizeof(rArg.addr);
@@ -1441,6 +1461,8 @@ int cmsg_rc_disconnect(void **domainId) {
       }
     }
 
+    cMsgConnectWriteUnlock(domain);
+
     /* give the above threads a chance to quit before we reset everytbing */
     sleep(1);
     
@@ -1448,8 +1470,6 @@ int cmsg_rc_disconnect(void **domainId) {
     cMsgDomainFree(domain);
     free(domain);
     *domainId = NULL;
-
-    cMsgConnectWriteUnlock(domain);
 
     return(CMSG_OK);
 }
@@ -1548,6 +1568,9 @@ static int parseUDL(const char *UDLR,
     
     /* make a copy */        
     udlRemainder = (char *) strdup(UDLR);
+    if (udlRemainder == NULL) {
+      return(CMSG_OUT_OF_MEMORY);
+    }
 /* printf("parseUDL: udl remainder = %s\n", udlRemainder); */
  
     /* make a big enough buffer to construct various strings, 256 chars minimum */
@@ -1555,6 +1578,7 @@ static int parseUDL(const char *UDLR,
     bufLength = len < 256 ? 256 : len;    
     buffer    = (char *) malloc(bufLength);
     if (buffer == NULL) {
+      free(udlRemainder);
       return(CMSG_OUT_OF_MEMORY);
     }
     
@@ -1577,6 +1601,7 @@ static int parseUDL(const char *UDLR,
     /* compile regular expression */
     err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED);
     if (err != 0) {
+        free(udlRemainder);
         free(buffer);
         return (CMSG_ERROR);
     }
@@ -1585,6 +1610,7 @@ static int parseUDL(const char *UDLR,
     err = cMsgRegexec(&compiled, udlRemainder, 6, matches, 0);
     if (err != 0) {
         /* no match */
+        free(udlRemainder);
         free(buffer);
         return (CMSG_BAD_FORMAT);
     }
@@ -1765,6 +1791,7 @@ static int parseUDL(const char *UDLR,
 
     /* UDL parsed ok */
 /* printf("DONE PARSING UDL\n"); */
+    free(udlRemainder);
     free(buffer);
     return(CMSG_OK);
 }

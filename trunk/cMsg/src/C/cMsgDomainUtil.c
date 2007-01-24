@@ -516,18 +516,10 @@ static void subscribeInfoFree(subInfo *info) {
     }
 #endif   
     
-    if (info->type != NULL) {
-      free(info->type);
-    }
-    if (info->subject != NULL) {
-      free(info->subject);
-    }
-    if (info->typeRegexp != NULL) {
-      free(info->typeRegexp);
-    }
-    if (info->subjectRegexp != NULL) {
-      free(info->subjectRegexp);
-    }
+    if (info->type != NULL)          {free(info->type);          info->type          = NULL;}
+    if (info->subject != NULL)       {free(info->subject);       info->subject       = NULL;}
+    if (info->typeRegexp != NULL)    {free(info->typeRegexp);    info->typeRegexp    = NULL;}
+    if (info->subjectRegexp != NULL) {free(info->subjectRegexp); info->subjectRegexp = NULL;}
 }
 
 
@@ -554,17 +546,9 @@ static void getInfoFree(getInfo *info) {
     }
 #endif
     
-    if (info->type != NULL) {
-      free(info->type);
-    }
-    
-    if (info->subject != NULL) {
-      free(info->subject);
-    }
-    
-    if (info->msg != NULL) {
-      cMsgFreeMessage((void **) &info->msg);
-    }
+    if (info->type != NULL)    {free(info->type);    info->type    = NULL;}
+    if (info->subject != NULL) {free(info->subject); info->subject = NULL;}
+    if (info->msg != NULL)     {cMsgFreeMessage((void **) &info->msg); info->type = NULL;}
 }
 
 

@@ -53,6 +53,13 @@ static int   cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static int   cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static int   sendMonitorInfo(cMsgDomainInfo *domain, char *buffer, int connfd);
 
+/** Structure for freeing memory in cleanUpClientHandler. */
+typedef struct freeMem_t {
+    char *domainType;
+    char *buffer;
+} freeMem;
+
+
 
 /*-------------------------------------------------------------------*
  * The listening thread needs a pthread cancellation cleanup handler.
@@ -117,7 +124,7 @@ static void cleanUpHandler(void *arg) {
  * It's task is to free memory allocated for the communication buffer.
  *-------------------------------------------------------------------*/
 static void cleanUpClientHandler(void *arg) {
-  char **pMem = (char **)arg;
+  freeMem *pMem = (freeMem *)arg;
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "clientThread: in cleanup handler\n");
   }
@@ -125,8 +132,10 @@ static void cleanUpClientHandler(void *arg) {
   /* decrease concurrency as this thread disappears */
   sun_setconcurrency(sun_getconcurrency() - 1);
 
+  /* release memory */
   if (pMem == NULL) return;
-  if (*pMem != NULL) free(*pMem);
+  if (pMem->buffer     != NULL) free(pMem->buffer);
+  if (pMem->domainType != NULL) free(pMem->domainType);
   free(pMem);
 }
 
@@ -359,15 +368,16 @@ static void *clientThread(void *arg)
   int  status, state, acknowledge = 0;
   size_t bufSize;
   cMsgThreadInfo *info;
-  char *buffer, *returnBuf, *domainType, **pMem=NULL;
+  char *buffer, *returnBuf, *domainType;
+  freeMem *pfreeMem=NULL;
   cMsgDomainInfo *domain;
   struct timespec wait;
 
   
-  info             = (cMsgThreadInfo *) arg;
-  connfd           = info->connfd;
-  domain           = info->domain;
-  domainType       = info->domainType;
+  info       = (cMsgThreadInfo *) arg;
+  connfd     = info->connfd;
+  domain     = info->domain;
+  domainType = info->domainType;
   free(arg);
 
   /* increase concurrency for this thread */
@@ -384,9 +394,9 @@ static void *clientThread(void *arg)
     cmsg_err_abort(status, "Disabling client cancelability");
   }
   
-  /* Create pointer to malloced mem which will hold a pointer. */
-  pMem = (char **) malloc(sizeof(char *));
-  if (pMem == NULL) {
+  /* Create pointer to malloced mem which will hold 2 pointers. */
+  pfreeMem = (freeMem *) malloc(sizeof(freeMem));
+  if (pfreeMem == NULL) {
       if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
         fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
       }
@@ -406,8 +416,9 @@ static void *clientThread(void *arg)
   /* Install a cleanup handler for this thread's cancellation. 
    * Give it a pointer which points to the memory which must
    * be freed upon cancelling this thread. */
-  *pMem = buffer;
-  pthread_cleanup_push(cleanUpClientHandler, (void *)pMem);
+  pfreeMem->buffer = buffer;
+  pfreeMem->domainType = domainType;
+  pthread_cleanup_push(cleanUpClientHandler, (void *)pfreeMem);
   
   /* enable pthread cancellation at deferred points like pthread_testcancel */
   status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
@@ -461,7 +472,7 @@ static void *clientThread(void *arg)
       /* allocate more memory to accomodate larger msg */
       bufSize = size + 1000;
       buffer  = (char *) calloc(1, bufSize);
-      *pMem   = buffer;
+      pfreeMem->buffer = buffer;
       if (buffer == NULL) {
         if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
           fprintf(stderr, "clientThread %d: cannot allocate %d amount of memory\n",
@@ -716,6 +727,7 @@ static void *clientThread(void *arg)
           }
           
           if (message->senderHost != NULL) {
+              if (domain->sendHost != NULL) free(domain->sendHost);
               domain->sendHost = (char *) strdup(message->senderHost);
           }
           
@@ -867,9 +879,6 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
     /* we are done with the socket */
     close(connfd);
     
-    /* release memory */
-    free(domainType);
-     
     /* quit thread & calls cleanup handler */
     pthread_exit(NULL);
     

@@ -135,6 +135,8 @@ int main(int argc,char **argv) {
       exit(1);
   }
   
+  cMsgSubscribeConfigDestroy(config);
+  
   msg = cMsgCreateMessage();
   cMsgSetSubject(msg, "subby");
   cMsgSetType(msg, "typey");
@@ -187,6 +189,8 @@ int main(int argc,char **argv) {
   
   
 /*printf("rcClient try disconnect\n");*/
+  cMsgFreeMessage(&msg);
+  cMsgUnSubscribe(domainId, unSubHandle);
   cMsgDisconnect(&domainId);
 /*printf("rcClient done disconnect\n");*/
 
