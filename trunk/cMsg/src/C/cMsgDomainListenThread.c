@@ -761,33 +761,52 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
             addr.sin_family = AF_INET;
             addr.sin_port   = htons(domain->sendUdpPort);
 /*printf("clientThread %d: try to reconnect\n", localCount);*/
-
+            
+            /*
+             * Don't allow changes to the sockets while communication
+             * may still be going on between this client and the server.
+             */
+            cMsgSocketMutexLock(domain);
+            
             /* create new UDP socket for sends */
             close(domain->sendUdpSocket); /* close old UDP socket */
             domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 /* printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
        domain->sendUdpSocket, domain->sendUdpPort); */
             if (domain->sendUdpSocket < 0) {
-                printf("Error trying to recreate rc client's UDP send socket\n");
+                cMsgSocketMutexUnlock(domain);
+                if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+                  fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
+                }
                 goto end;
             }
             
             /* set send buffer size */
             err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
             if (err < 0) {
-                printf("Error trying to recreate rc client's UDP send socket\n");
+printf("Error trying to recreate rc client's UDP send socket\n");
+                cMsgSocketMutexUnlock(domain);
+                if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+                  fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
+                }
                 goto end;
             }
 
             if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
-                printf("Error trying to recreate rc client's UDP send socket\n");
+                cMsgSocketMutexUnlock(domain);
+                if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+                  fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
+                }
                 goto end;
             }
 
 /*printf("try UDP connection to port = %hu\n", ntohs(addr.sin_port));*/
             err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
             if (err < 0) {
-                printf("Error trying to recreate rc client's UDP send socket\n");
+                cMsgSocketMutexUnlock(domain);
+                if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+                  fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
+                }
                 goto end;
             }
 
@@ -795,9 +814,15 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
             if ( (err = cMsgTcpConnect(domain->sendHost,
                                        (unsigned short) domain->sendPort,
                                        CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket)) != CMSG_OK) {
-                printf("Error trying to recreate rc client's TCP send socket\n");
+                cMsgSocketMutexUnlock(domain);
+                if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+                  fprintf(stderr, "clientThread %d: error recreating rc client's TCP send socket\n", localCount);
+                }
                 goto end;
             }
+            
+            /* Allow socket communications to resume. */
+            cMsgSocketMutexUnlock(domain);
         }
           
         /* Send back a response - the name of this client */
