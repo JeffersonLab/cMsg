@@ -422,6 +422,9 @@ printf("Wait for 5 more seconds, then exit\n");
      */
     if (expid == NULL) {
         expid = getenv("EXPID");
+        if (expid != NULL) {
+            expid = (char *)strdup(expid);
+        }
     }
     /* if expid not defined anywhere, return error */
     if (expid == NULL) {
@@ -429,7 +432,6 @@ printf("Wait for 5 more seconds, then exit\n");
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
-        if (expid != NULL) free(expid);
         return(CMSG_ERROR);
     }
 /*printf("Sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
@@ -1718,7 +1720,7 @@ static int parseUDL(const char *UDLR,
                if (expid != NULL) {
                  *expid = (char *) strdup(buffer);
                }        
-/* printf("parseUDL: expid = %s\n", buffer); */
+/*printf("parseUDL: expid = %s\n", buffer);*/
             }
         }
                 
