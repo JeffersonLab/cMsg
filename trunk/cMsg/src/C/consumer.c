@@ -70,7 +70,7 @@ int main(int argc,char **argv) {
   char *type          = "TYPE";
   char *UDL           = "cMsg:cMsg://localhost/cMsg/test";
   /* char *UDL           = "cMsg:cMsg://broadcast/cMsg/test"; */
-  int   err, debug = 1;
+  int   err, debug = 1, loops=5;
   cMsgSubscribeConfig *config;
   void *unSubHandle;
   
@@ -134,9 +134,11 @@ int main(int argc,char **argv) {
           printf("cMsgSubscribe: %s\n",cMsgPerror(err));
       }
       exit(1);
-  } 
+  }
+   
+  cMsgSubscribeConfigDestroy(config);
     
-  while (1) {
+  while (loops-- > 0) {
       count = 0;
       
       /* wait for messages */
@@ -154,6 +156,9 @@ int main(int argc,char **argv) {
           ignore--;
       }
   }
+  
+  cMsgUnSubscribe(domainId, unSubHandle);
+  cMsgDisconnect(&domainId);
 
   return(0);
 }
