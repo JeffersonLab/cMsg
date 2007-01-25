@@ -15,15 +15,13 @@ AC_FLAGS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
 # Linux
 ifeq ($(OSNAME),Linux)
 CC = gcc
-CFLAGS   = -g -fPIC -I. -I$(INC_DIR) $(AC_FLAGS)
-#CFLAGS   = -O3 -fPIC -I. -I$(INC_DIR) $(AC_FLAGS)
+CFLAGS   = -O3 -fPIC -I. -I$(INC_DIR) $(AC_FLAGS)
 LIBS     = -lieee -lrt -lpthread -lm -lnsl -lresolv -ldl
 SHLIB_LD = gcc -shared
 
 # if 32 bit
 ifneq ($(CMSG_BIT_ARCH), 64)
-CFLAGS   = -g -m32 -fpic -I. -I$(INC_DIR) $(AC_FLAGS)
-#CFLAGS   = -m32 -O3 -fpic -I. -I$(INC_DIR) $(AC_FLAGS)
+CFLAGS   = -m32 -O3 -fpic -I. -I$(INC_DIR) $(AC_FLAGS)
 #SHLIB_LD = ld -m elf_i386 -shared
 SHLIB_LD = gcc -m32 -shared
 endif
