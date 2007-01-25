@@ -67,7 +67,7 @@ typedef struct freeMem_t {
  * It's task is to remove all the client threads.
  *-------------------------------------------------------------------*/
 static void cleanUpHandler(void *arg) {
-  struct timespec sTime = {0,500000000};
+  struct timespec sTime = {0,50000000}; /* 0.05 sec */
   cMsgThreadInfo *threadArg = (cMsgThreadInfo *) arg;
   cMsgDomainInfo *domain    = threadArg->domain;
   
@@ -496,6 +496,14 @@ static void *clientThread(void *arg)
       case CMSG_SUBSCRIBE_RESPONSE:
       {
           cMsgMessage_t *message;
+          
+          /* disable pthread cancellation until message memory is released or
+           * we'll get a mem leak */
+          status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
+          if (status != 0) {
+            cmsg_err_abort(status, "Disabling client cancelability");
+          }
+          
           message = (cMsgMessage_t *) cMsgCreateMessage();
           if (message == NULL) {
             if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
@@ -558,12 +566,26 @@ static void *clientThread(void *arg)
             cMsgFreeMessage((void **) &message);
             goto end;
           }
+          
+          /* re-enable pthread cancellation */
+          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
+          if (status != 0) {
+            cmsg_err_abort(status, "Reenabling client cancelability");
+          }
       }
       break;
 
       case CMSG_GET_RESPONSE:
       {
           cMsgMessage_t *message;
+          
+          /* disable pthread cancellation until message memory is released or
+           * we'll get a mem leak */
+          status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
+          if (status != 0) {
+            cmsg_err_abort(status, "Disabling client cancelability");
+          }
+          
           message = (cMsgMessage_t *) cMsgCreateMessage();
           if (message == NULL) {
             if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
@@ -612,6 +634,12 @@ static void *clientThread(void *arg)
 
           /* wakeup get caller for this message */
           cMsgWakeGet(domain, message);
+          
+          /* re-enable pthread cancellation */
+          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
+          if (status != 0) {
+            cmsg_err_abort(status, "Reenabling client cancelability");
+          }
       }
       break;
 
@@ -691,6 +719,13 @@ static void *clientThread(void *arg)
           char *pchar;
           
 /*printf("clientThread %d: Got CMSG_RC_CONNECT message!!!\n", localCount);*/
+          /* disable pthread cancellation until message memory is released or
+           * we'll get a mem leak */
+          status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
+          if (status != 0) {
+            cmsg_err_abort(status, "Disabling client cancelability");
+          }
+          
           message = (cMsgMessage_t *) cMsgCreateMessage();
           if (message == NULL) {
             if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
@@ -734,6 +769,12 @@ static void *clientThread(void *arg)
           /* now free message */
           cMsgFreeMessage((void **) &message);
           
+          /* re-enable pthread cancellation */
+          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
+          if (status != 0) {
+            cmsg_err_abort(status, "Reenabling client cancelability");
+          }
+
           /*
 printf("clientThread %d: connecting, tcp port = %d, udp port = %d, senderHost = %s\n",
 localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);

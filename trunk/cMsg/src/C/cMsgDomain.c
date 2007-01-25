@@ -3264,17 +3264,17 @@ int cmsg_cmsg_stop(void *domainId) {
  */   
 int cmsg_cmsg_disconnect(void **domainId) {
   
-  int i, j, fd, status, outGoing[2];
+  int i, j, status, outGoing[2];
   cMsgDomainInfo *domain;
   subscribeCbInfo *subscription;
   getInfo *info;
+  struct timespec wait4thds = {0, 100000000}; /* 0.1 sec */
+  
 
   if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
   domain = (cMsgDomainInfo *) (*domainId);
   if (domain == NULL) return(CMSG_BAD_ARGUMENT);
-    
-  fd = domain->sendSocket;
-    
+        
   cMsgConnectWriteLock(domain);
   
   domain->gotConnection = 0;
@@ -3299,14 +3299,13 @@ int cmsg_cmsg_disconnect(void **domainId) {
   cMsgSocketMutexLock(domain);
   
   /* send int */
-  if (cMsgTcpWrite(fd, (char*) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
+  if (cMsgTcpWrite(domain->sendSocket, (char*) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cmsg_cmsg_disconnect: write failure, but continue\n");
     }
   }
  
   cMsgSocketMutexUnlock(domain);
-
   
   /* close sending socket */
   close(domain->sendSocket);
@@ -3371,7 +3370,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
   }
   
   /* give the above threads a chance to quit before we reset everytbing */
-  sleep(1);
+  nanosleep(&wait4thds, NULL);
   
   cMsgConnectWriteUnlock(domain);
     
@@ -3404,6 +3403,7 @@ static int disconnectFromKeepAlive(void **domainId) {
   cMsgDomainInfo *domain;
   subscribeCbInfo *subscription;
   getInfo *info;
+  struct timespec wait4thds = {0,100000000}; /* 0.1 sec */
 
   
   if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
@@ -3412,6 +3412,8 @@ static int disconnectFromKeepAlive(void **domainId) {
       
   cMsgConnectWriteLock(domain);
      
+  domain->gotConnection = 0;
+
   /* stop listening and client communication threads */
   pthread_cancel(domain->pendThread);
    
@@ -3421,7 +3423,6 @@ static int disconnectFromKeepAlive(void **domainId) {
   /* close receiving socket */
   close(domain->receiveSocket);
     
-  
   /* terminate all callback threads */
   for (i=0; i<CMSG_MAX_SUBSCRIBE; i++) {
     /* if there is a subscription ... */
@@ -3470,8 +3471,10 @@ static int disconnectFromKeepAlive(void **domainId) {
   }
   
   /* give the above threads a chance to quit before we reset everytbing */
-  sleep(1);
+  nanosleep(&wait4thds, NULL);
   
+  cMsgConnectWriteUnlock(domain);
+
   /* do NOT close listening socket */
   /*close(domain->listenSocket);*/
     
@@ -3479,8 +3482,6 @@ static int disconnectFromKeepAlive(void **domainId) {
   cMsgDomainFree(domain);
   free(domain);
   *domainId = NULL;
-  
-  cMsgConnectWriteUnlock(domain);
 
   return(CMSG_OK);
 }

@@ -1411,6 +1411,7 @@ int cmsg_rc_disconnect(void **domainId) {
     cMsgDomainInfo *domain;
     int i, j, status;
     subscribeCbInfo *subscription;
+    struct timespec wait4thds = {0, 100000000}; /* 0.1 sec */
 
     if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
     domain = (cMsgDomainInfo *) (*domainId);
@@ -1461,11 +1462,11 @@ int cmsg_rc_disconnect(void **domainId) {
       }
     }
 
+    /* give the above threads a chance to quit before we reset everytbing */
+    nanosleep(&wait4thds, NULL);
+    
     cMsgConnectWriteUnlock(domain);
 
-    /* give the above threads a chance to quit before we reset everytbing */
-    sleep(1);
-    
     /* Clean up memory */
     cMsgDomainFree(domain);
     free(domain);
