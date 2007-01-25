@@ -228,7 +228,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     domain = (cMsgDomainInfo *) calloc(1, sizeof(cMsgDomainInfo));
     if (domain == NULL) {
         free(serverHost);
-        free(expid);
+        if (expid != NULL) free(expid);
         return(CMSG_OUT_OF_MEMORY);  
     }
     cMsgDomainInit(domain);  
@@ -240,7 +240,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
-        free(expid);
+        if (expid != NULL) free(expid);
         return(CMSG_OUT_OF_MEMORY);
     }
 
@@ -292,7 +292,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
-        free(expid);
+        if (expid != NULL) free(expid);
         return(err);
     }
 
@@ -304,7 +304,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
-        free(expid);
+        if (expid != NULL) free(expid);
         return(CMSG_OUT_OF_MEMORY);  
     }
     threadArg->isRunning   = 0;
@@ -386,7 +386,7 @@ printf("Wait for 5 more seconds, then exit\n");
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
-        free(expid);
+        if (expid != NULL) free(expid);
         return(CMSG_SOCKET_ERROR);
     }
 
@@ -397,7 +397,7 @@ printf("Wait for 5 more seconds, then exit\n");
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
-        free(expid);
+        if (expid != NULL) free(expid);
         return(CMSG_SOCKET_ERROR);
     }
 
@@ -406,7 +406,7 @@ printf("Wait for 5 more seconds, then exit\n");
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
-        free(expid);
+        if (expid != NULL) free(expid);
         return(err);
     }
     
@@ -429,7 +429,7 @@ printf("Wait for 5 more seconds, then exit\n");
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
-        free(expid);
+        if (expid != NULL) free(expid);
         return(CMSG_ERROR);
     }
 /*printf("Sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
@@ -456,7 +456,7 @@ printf("Wait for 5 more seconds, then exit\n");
     len += expidLen;
         
     free(serverHost);
-    free(expid);
+    if (expid != NULL) free(expid);
     
     /* create and start a thread which will receive any responses to our broadcast */
     memset((void *)&rArg.addr, 0, sizeof(rArg.addr));
