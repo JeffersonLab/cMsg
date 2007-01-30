@@ -282,12 +282,15 @@ public class rcUdpListeningThread extends Thread {
                 return;
             }
 
+            boolean gotMatch = false;
+
             // set is NOT modified here
             synchronized (set) {
                 // for each subscription of this server ...
                 for (cMsgSubscription sub : set) {
                     // if subject & type of incoming message match those in subscription ...
                     if (cMsgMessageMatcher.matches(msg.getSubject(), msg.getType(), sub)) {
+                        gotMatch = true;
                         // run through all callbacks
                         for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
                             // The callback thread copies the message given
@@ -297,6 +300,27 @@ public class rcUdpListeningThread extends Thread {
                     }
                 }
             }
+
+            // The message was NOT delivered to a regular subscription callback
+            // so deliver it to any default callbacks that maybe registered.
+            if (!gotMatch) {
+                synchronized (set) {
+                    // for each subscription of this server ...
+                    for (cMsgSubscription sub : set) {
+                        // Is this a default subscription?
+                        if (sub.getSubject() == null && sub.getType() == null) {
+                            // run through all callbacks
+                            for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
+                                // The callback thread copies the message given
+                                // to it before it runs the callback method on it.
+                                cbThread.sendMessage(msg);
+                            }
+                        }
+                    }
+                }
+            }
+
+
         }
     }
 

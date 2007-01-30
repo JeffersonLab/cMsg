@@ -638,9 +638,13 @@ public class RCServer extends cMsgDomainAdapter {
 
 
     /**
-     * Method to subscribe to receive messages of a subject and type from the rc client.
+     * This is a method to subscribe to receive messages of a subject and type from the rc client.
      * The combination of arguments must be unique. In other words, only 1 subscription is
      * allowed for a given set of subject, type, callback, and userObj.
+     *
+     * If the subject and type are both null, a "default" subscription is made, meaning any
+     * received messages which do not match any other subscription are given to the default
+     * subscription.
      *
      * @param subject message subject
      * @param type    message type
@@ -648,19 +652,15 @@ public class RCServer extends cMsgDomainAdapter {
      *                of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
      * @return handle object to be used for unsubscribing
-     * @throws cMsgException if the callback, subject and/or type is null or blank;
-     *                       an identical subscription already exists; if not connected
-     *                       to an rc client
+     * @throws cMsgException if the callback is null; an identical subscription already exists;
+     *                       if not connected to an rc client
      */
     public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
 
         // check args first
-        if (subject == null || type == null || cb == null) {
-            throw new cMsgException("subject, type or callback argument is null");
-        }
-        else if (subject.length() < 1 || type.length() < 1) {
-            throw new cMsgException("subject or type is blank string");
+        if (cb == null) {
+            throw new cMsgException("callback argument is null");
         }
 
         cMsgCallbackThread cbThread = null;
@@ -686,8 +686,26 @@ public class RCServer extends cMsgDomainAdapter {
 
                 // for each subscription ...
                 for (cMsgSubscription sub : subscriptions) {
+                    // Check to see if subscription to subject & type exist already
+                    boolean subjectMatches = false, typeMatches = false;
+
+                    // Check for null subject and type in subscription (which denotes default subscription)
+                    if (sub.getSubject() == null) {
+                        if (subject == null) subjectMatches = true;
+                    }
+                    else if (sub.getSubject().equals(subject)) {
+                        subjectMatches = true;
+                    }
+
+                    if (sub.getType() == null) {
+                        if (type == null) typeMatches = true;
+                    }
+                    else if (sub.getType().equals(type)) {
+                        typeMatches = true;
+                    }
+
                     // If subscription to subject & type exist already...
-                    if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
+                    if (subjectMatches && typeMatches)  {
                         // Only add another callback if the callback/userObj
                         // combination does NOT already exist. In other words,
                         // a callback/argument pair must be unique for a single
