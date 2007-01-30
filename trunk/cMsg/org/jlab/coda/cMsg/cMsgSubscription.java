@@ -114,15 +114,19 @@ public class cMsgSubscription {
         this.namespace = namespace;
 
         // we only need to do the regexp stuff if there are wildcards chars in subj or type
-        if ((subject.contains("*") || subject.contains("?"))) {
-            wildCardsInSub = true;
-            subjectRegexp  = cMsgMessageMatcher.escape(subject);
-            subjectPattern = Pattern.compile(subjectRegexp);
+        if (subject != null) {
+            if ((subject.contains("*") || subject.contains("?"))) {
+                wildCardsInSub = true;
+                subjectRegexp = cMsgMessageMatcher.escape(subject);
+                subjectPattern = Pattern.compile(subjectRegexp);
+            }
         }
-        if ((type.contains("*") || type.contains("?"))) {
-            wildCardsInType = true;
-            typeRegexp      = cMsgMessageMatcher.escape(type);
-            typePattern     = Pattern.compile(typeRegexp);
+        if (type != null) {
+            if ((type.contains("*") || type.contains("?"))) {
+                wildCardsInType = true;
+                typeRegexp = cMsgMessageMatcher.escape(type);
+                typePattern = Pattern.compile(typeRegexp);
+            }
         }
 
         notifiers            = new HashSet<cMsgNotifier>(30);
@@ -145,15 +149,19 @@ public class cMsgSubscription {
         this.id = id;
 
         // we only need to do the regexp stuff if there are wildcards chars in subj or type
-        if ((subject.contains("*") || subject.contains("?"))) {
-            wildCardsInSub = true;
-            subjectRegexp  = cMsgMessageMatcher.escape(subject);
-            subjectPattern = Pattern.compile(subjectRegexp);
+        if (subject != null) {
+            if ((subject.contains("*") || subject.contains("?"))) {
+                wildCardsInSub = true;
+                subjectRegexp = cMsgMessageMatcher.escape(subject);
+                subjectPattern = Pattern.compile(subjectRegexp);
+            }
         }
-        if ((type.contains("*") || type.contains("?"))) {
-            wildCardsInType = true;
-            typeRegexp      = cMsgMessageMatcher.escape(type);
-            typePattern     = Pattern.compile(typeRegexp);
+        if (type != null) {
+            if ((type.contains("*") || type.contains("?"))) {
+                wildCardsInType = true;
+                typeRegexp = cMsgMessageMatcher.escape(type);
+                typePattern = Pattern.compile(typeRegexp);
+            }
         }
 
         notifiers            = new HashSet<cMsgNotifier>(30);
