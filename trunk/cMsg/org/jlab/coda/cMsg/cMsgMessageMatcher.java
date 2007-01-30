@@ -137,6 +137,9 @@ public class cMsgMessageMatcher {
         boolean matchSubj = false;
         boolean matchType = false;
 
+        // first check for null subjects/types in subscription
+        if (sub.getSubject() == null || sub.getType() == null) return false;
+
         // if there are no wildcards in the subscription's subject, just use string compare
         if (!sub.areWildCardsInSub()) {
             matchSubj = subject.equals(sub.getSubject());
