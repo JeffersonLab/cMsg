@@ -272,7 +272,6 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
 }
 
 
-
 /*-------------------------------------------------------------------*/
 
 
@@ -508,7 +507,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
 
   /* install default shutdown handler (exits program) */
   cmsg_cmsg_setShutdownHandler((void *)domain, defaultShutdownHandler, NULL);
-
+  
   domain->gotConnection = 1;
 
   return(CMSG_OK);
@@ -834,6 +833,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
   threadArg->blocking    = CMSG_NONBLOCKING;
   threadArg->domain      = domain;
   threadArg->domainType  = strdup("cmsg");
+  
+  /* Block SIGPIPE for this and all spawned threads. */
+  cMsgBlockSignals(domain);
+
   status = pthread_create(&domain->pendThread, NULL,
                           cMsgClientListeningThread, (void *) threadArg);
   if (status != 0) {
@@ -886,6 +889,7 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
   if ( (err = cMsgTcpConnect(domain->failovers[failoverIndex].nameServerHost,
                              (unsigned short) domain->failovers[failoverIndex].nameServerPort,
                              0, 0, &serverfd)) != CMSG_OK) {
+    cMsgRestoreSignals(domain);
     /* stop listening & connection threads */
     pthread_cancel(domain->pendThread);
     return(err);
@@ -898,6 +902,7 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
   /* get host & port (domain->sendHost,sendPort) to send messages to */
   err = talkToNameServer(domain, serverfd, failoverIndex);
   if (err != CMSG_OK) {
+    cMsgRestoreSignals(domain);
     close(serverfd);
     pthread_cancel(domain->pendThread);
     return(err);
@@ -923,6 +928,7 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
                               0, 0, &domain->receiveSocket)) != CMSG_OK) {
+    cMsgRestoreSignals(domain);
     pthread_cancel(domain->pendThread);
     return(err);
   }
@@ -935,6 +941,7 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
                               0, 0, &domain->keepAliveSocket)) != CMSG_OK) {
+    cMsgRestoreSignals(domain);
     close(domain->receiveSocket);
     pthread_cancel(domain->pendThread);
     return(err);
@@ -959,6 +966,7 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
                               CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket)) != CMSG_OK) {
+    cMsgRestoreSignals(domain);
     close(domain->keepAliveSocket);
     close(domain->receiveSocket);
     pthread_cancel(domain->pendThread);
@@ -967,17 +975,19 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
 
   /* create sending UDP socket */
   if ((domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-      close(domain->keepAliveSocket);
-      close(domain->receiveSocket);
-      close(domain->sendSocket);
-      pthread_cancel(domain->pendThread);
-      if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgUdpConnect: socket error, %s\n", strerror(errno));
-      return(CMSG_SOCKET_ERROR);
+    cMsgRestoreSignals(domain);
+    close(domain->keepAliveSocket);
+    close(domain->receiveSocket);
+    close(domain->sendSocket);
+    pthread_cancel(domain->pendThread);
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgUdpConnect: socket error, %s\n", strerror(errno));
+    return(CMSG_SOCKET_ERROR);
   }
 
   /* set send buffer size */
   err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
   if (err < 0) {
+    cMsgRestoreSignals(domain);
     close(domain->keepAliveSocket);
     close(domain->receiveSocket);
     close(domain->sendSocket);
@@ -993,6 +1003,7 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
   servaddr.sin_port   = htons(domain->sendUdpPort);
 
   if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
+    cMsgRestoreSignals(domain);
     close(domain->keepAliveSocket);
     close(domain->receiveSocket);
     close(domain->sendSocket);
@@ -1004,6 +1015,7 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
 
   err = connect(domain->sendUdpSocket, (SA *) &servaddr, (socklen_t) sizeof(servaddr));
   if (err < 0) {
+    cMsgRestoreSignals(domain);
     close(domain->keepAliveSocket);
     close(domain->receiveSocket);
     close(domain->sendSocket);
@@ -3372,6 +3384,9 @@ int cmsg_cmsg_disconnect(void **domainId) {
   /* give the above threads a chance to quit before we reset everytbing */
   nanosleep(&wait4thds, NULL);
   
+  /* Unblock SIGPIPE */
+  cMsgRestoreSignals(domain);
+  
   cMsgConnectWriteUnlock(domain);
     
   /* Clean up memory */
@@ -3473,6 +3488,9 @@ static int disconnectFromKeepAlive(void **domainId) {
   /* give the above threads a chance to quit before we reset everytbing */
   nanosleep(&wait4thds, NULL);
   
+  /* Unblock SIGPIPE */
+  cMsgRestoreSignals(domain);
+
   cMsgConnectWriteUnlock(domain);
 
   /* do NOT close listening socket */
@@ -4111,7 +4129,7 @@ static int parseUDL(const char *UDL, char **password,
     free(udlLowerCase);
     
     udlRemainder = udl + index + 7;
-/* printf("parseUDL: udl remainder = %s\n", udlRemainder); */    
+/* printf("parseUDL: udl remainder = %s\n", udlRemainder); */
     
     if (UDLRemainder != NULL) {
         *UDLRemainder = (char *) strdup(udlRemainder);
@@ -4175,7 +4193,7 @@ static int parseUDL(const char *UDL, char **password,
         if (strcasecmp(buffer, "broadcast") == 0 ||
             strcmp(buffer, "255.255.255.255") == 0) {
             mustBroadcast = 1;
-/*System.out.println("set mustBroadcast to true (locally in parse method)");*/
+/* printf("set mustBroadcast to true (locally in parse method)"); */
         }
         /* if the host is "localhost", find the actual host name */
         else if (strcasecmp(buffer, "localhost") == 0) {
@@ -4196,10 +4214,10 @@ static int parseUDL(const char *UDL, char **password,
             *broadcast = mustBroadcast;        
         }
     }
-    /*
+/*
 printf("parseUDL: host = %s\n", buffer);
 printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
-*/
+ */
 
     /* find port */
     if (matches[2].rm_so < 0) {
@@ -4232,7 +4250,7 @@ printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
     if (port != NULL) {
       *port = Port;
     }
-/*printf("parseUDL: port = %hu\n", Port );*/
+/* printf("parseUDL: port = %hu\n", Port ); */
 
 
     /* find subdomain */
@@ -4302,7 +4320,7 @@ printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
              if (password != NULL) {
                *password = (char *) strdup(buffer);
              }        
-  /* printf("parseUDL: password = %s\n", buffer); */
+/* printf("parseUDL: password = %s\n", buffer); */
           }
         }
         
@@ -4331,7 +4349,7 @@ printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
              if (timeout != NULL) {
                *timeout = atoi(buffer);
              }        
-  /* printf("parseUDL: timeout = %d seconds\n", atoi(buffer)); */
+/* printf("parseUDL: timeout = %d seconds\n", atoi(buffer)); */
           }
         }
         

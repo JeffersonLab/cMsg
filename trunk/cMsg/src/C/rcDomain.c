@@ -295,7 +295,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         if (expid != NULL) free(expid);
         return(err);
     }
-
+    
 /*printf("connect: create listening socket on port %d\n", domain->listenPort );*/
 
     /* launch pend thread and start listening on receive socket */
@@ -314,6 +314,10 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     threadArg->blocking    = CMSG_NONBLOCKING;
     threadArg->domain      = domain;
     threadArg->domainType  = strdup("rc");
+    
+    /* Block SIGPIPE for this and all spawned threads. */
+    cMsgBlockSignals(domain);
+
 /*printf("connect: start pend thread\n");*/
     status = pthread_create(&domain->pendThread, NULL,
                             cMsgClientListeningThread, (void *) threadArg);
@@ -321,16 +325,6 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         cmsg_err_abort(status, "Creating TCP message listening thread");
     }
 
-/*
-printf("Wait for 5 seconds, then cancel pendthread\n");
-    waitForThread.tv_sec  = 5;
-    waitForThread.tv_nsec = 0;
-    nanosleep(&waitForThread, NULL);
-    pthread_cancel(domain->pendThread);
-printf("Wait for 5 more seconds, then exit\n");
-    nanosleep(&waitForThread, NULL);
-    exit(-1);
-*/
     /*
      * Wait for flag to indicate thread is actually running before
      * continuing on. This thread must be running before we talk to
@@ -372,7 +366,7 @@ printf("Wait for 5 more seconds, then exit\n");
     }
 
     /*-------------------------------------------------------
-     * Talk to runcontrol server
+     * Talk to runcontrol broadcast server
      *-------------------------------------------------------*/
     
     memset((void *)&servaddr, 0, sizeof(servaddr));
@@ -382,6 +376,7 @@ printf("Wait for 5 more seconds, then exit\n");
     /* create UDP socket */
     domain->sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (domain->sendSocket < 0) {
+        cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
@@ -393,6 +388,7 @@ printf("Wait for 5 more seconds, then exit\n");
     /* turn broadcasting on */
     err = setsockopt(domain->sendSocket, SOL_SOCKET, SO_BROADCAST, (char*) &on, sizeof(on));
     if (err < 0) {
+        cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
@@ -402,6 +398,7 @@ printf("Wait for 5 more seconds, then exit\n");
     }
 
     if ( (err = cMsgStringToNumericIPaddr(serverHost, &servaddr)) != CMSG_OK ) {
+        cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
@@ -411,8 +408,10 @@ printf("Wait for 5 more seconds, then exit\n");
     }
     
     /*
-     * We send 2 items explicitly:
-     *   1) TCP server port, and
+     * We send 4 items explicitly:
+     *   1) Type of broadcast (rc or cMsg domain),
+     *   1) TCP listening port of this client,
+     *   2) name of this client, &
      *   2) EXPID (experiment id string)
      * The host we're sending from gets sent for free
      * as does the UDP port we're sending from.
@@ -428,6 +427,7 @@ printf("Wait for 5 more seconds, then exit\n");
     }
     /* if expid not defined anywhere, return error */
     if (expid == NULL) {
+        cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
@@ -541,6 +541,7 @@ printf("Wait for 5 more seconds, then exit\n");
     
     if (!gotResponse) {
 /* printf("Got no response\n"); */ 
+        cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
@@ -574,6 +575,7 @@ printf("Wait for 5 more seconds, then exit\n");
 
     if (domain->rcConnectAbort) {
 /*printf("Told to abort connect by RC Broadcast server\n");*/
+        cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
@@ -582,6 +584,7 @@ printf("Wait for 5 more seconds, then exit\n");
     
     if (status < 1 || !domain->rcConnectComplete) {
 /*printf("Wait timeout or rcConnectComplete is not 1\n");*/
+        cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
@@ -594,6 +597,7 @@ printf("Wait for 5 more seconds, then exit\n");
     if ( (err = cMsgTcpConnect(domain->sendHost,
                                (unsigned short) domain->sendPort,
                                CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket)) != CMSG_OK) {
+        cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
@@ -620,6 +624,7 @@ printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
 domain->sendUdpSocket, domain->sendUdpPort);
 */
     if (domain->sendUdpSocket < 0) {
+        cMsgRestoreSignals(domain);
         close(domain->sendSocket);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
@@ -630,6 +635,7 @@ domain->sendUdpSocket, domain->sendUdpPort);
     /* set send buffer size */
     err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
     if (err < 0) {
+        cMsgRestoreSignals(domain);
         close(domain->sendSocket);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
@@ -638,6 +644,7 @@ domain->sendUdpSocket, domain->sendUdpPort);
     }
 
     if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
+        cMsgRestoreSignals(domain);
         close(domain->sendUdpSocket);
         close(domain->sendSocket);
         pthread_cancel(domain->pendThread);
@@ -649,6 +656,7 @@ domain->sendUdpSocket, domain->sendUdpPort);
 /*printf("try UDP connection to port = %hu\n", ntohs(addr.sin_port));*/
     err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
     if (err < 0) {
+        cMsgRestoreSignals(domain);
         close(domain->sendUdpSocket);
         close(domain->sendSocket);
         pthread_cancel(domain->pendThread);
@@ -685,7 +693,7 @@ static void *receiverThd(void *arg) {
     /* ignore error as it will be caught later */   
     recvfrom(threadArg->sockfd, (void *)buf, 1024, 0,
              (SA *) &threadArg->addr, &(threadArg->len));
-   
+/*printf("Broadcast response: len = %d, buf = %s\n",   threadArg->len, buf);*/
     /* Tell main thread we are done. */
     pthread_cond_signal(&cond);
     
@@ -1463,9 +1471,12 @@ int cmsg_rc_disconnect(void **domainId) {
         }
       }
     }
-
+    
     /* give the above threads a chance to quit before we reset everytbing */
     nanosleep(&wait4thds, NULL);
+    
+    /* Unblock SIGPIPE */
+    cMsgRestoreSignals(domain);
     
     cMsgConnectWriteUnlock(domain);
 

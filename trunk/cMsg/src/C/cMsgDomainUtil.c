@@ -39,6 +39,7 @@
 #include <string.h>
 #include <time.h>
 #include <ctype.h>
+#include <signal.h>
 
 #include "cMsgPrivate.h"
 #include "cMsg.h"
@@ -56,6 +57,7 @@ static void  subscribeInfoInit(subInfo *info);
 static void  getInfoFree(getInfo *info);
 static void  subscribeInfoFree(subInfo *info);
 static void  parsedUDLFree(parsedUDL *p);  
+
 
 /*-------------------------------------------------------------------*/
 
@@ -308,6 +310,57 @@ int cMsgGetAbsoluteTime(const struct timespec *deltaTime, struct timespec *absTi
 
 
 /**
+ * This routine blocks the signal SIGPIPE in addition to those already
+ * being blocked and stores the old signal mask in the domain structure
+ * so it can be restored upon disconnect. If this routine fails it's not
+ * critical so ignore errors.
+ *
+ * @param domain pointer to struct of domain information
+ */
+void cMsgBlockSignals(cMsgDomainInfo *domain) {
+    sigset_t signalSet;
+    int status;
+  
+    /*
+     * Block SIGPIPE signal from linux kernel to this and all derived threads
+     * when read or write is interrupted in the middle by the server death.
+     * This may interfere with the caller's handling of signals.
+     */
+    sigemptyset(&signalSet);
+    /* set has only SIGPIPE in it */
+    sigaddset(&signalSet, SIGPIPE);
+    /* Add SIGPIPE to those signals already blocked by this thread,
+     * AND store the old signal mask for later restoration. */
+    if (!domain->maskStored) {
+        status = pthread_sigmask(SIG_BLOCK, &signalSet, &domain->originalMask);
+        if (status == 0) domain->maskStored = 1; 
+    }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine restores the signal mask in effect before connect was called.
+ * If this routine fails it's not critical so ignore errors.
+ *
+ * @param domain pointer to struct of domain information
+ */
+void cMsgRestoreSignals(cMsgDomainInfo *domain) {
+    int status;
+  
+    if (domain->maskStored) {
+        status = pthread_sigmask(SIG_SETMASK, &domain->originalMask, NULL);
+        if (status == 0) domain->maskStored = 0;
+    }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
  * This routine initializes the structure used to handle a get - 
  * either a sendAndGet or a subscribeAndGet.
  */
@@ -435,6 +488,9 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
   
   domain->msgBuffer           = NULL;
   domain->msgBufferSize       = 0;
+  
+  domain->maskStored          = 0;
+  sigemptyset(&domain->originalMask);
   
   memset((void *) &domain->monData, 0, sizeof(monitorData));
         

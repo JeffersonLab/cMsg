@@ -28,6 +28,7 @@
 #ifndef VXWORKS
 #include <inttypes.h>
 #endif
+#include <signal.h>
 
 #include "cMsgPrivate.h"
 #include "rwlock.h"
@@ -233,7 +234,13 @@ typedef struct cMsgDomainInfo_t {
   cMsgShutdownHandler *shutdownHandler;
   
   /** Shutdown handler user argument. */
-  void *shutdownUserArg;  
+  void *shutdownUserArg;
+  
+  /** Store signal mask for restoration after disconnect. */
+  sigset_t originalMask;
+  
+  /** Boolean telling if original mask is being stored. */
+  int maskStored;
  
 } cMsgDomainInfo;
 
@@ -307,6 +314,10 @@ int   cMsgCheckString(const char *s);
 int   cMsgGetAbsoluteTime(const struct timespec *deltaTime, struct timespec *absTime);
 int   sun_setconcurrency(int newLevel);
 int   sun_getconcurrency(void);
+
+/* signals */
+void  cMsgBlockSignals(cMsgDomainInfo *domain);
+void  cMsgRestoreSignals(cMsgDomainInfo *domain);
 
 
 #ifdef	__cplusplus
