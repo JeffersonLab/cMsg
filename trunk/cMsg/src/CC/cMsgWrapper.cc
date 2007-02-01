@@ -1,8 +1,6 @@
 // to do
 //   subscribe must lock list until done
 //   const args in C api?
-//   smart pointers?
-//   monitoring and control api functions
 //   word doc, doxygen doc
 
 
@@ -1329,11 +1327,13 @@ void *cMsg::subscribe(const string &subject, const string &type, cMsgCallback *c
 
 
   // subscribe and get handle
-  if(cfg==NULL) {
-    stat=cMsgSubscribe(myDomainId,subject.c_str(),type.c_str(),callbackDispatcher,(void*)d,NULL,&handle);
-  } else {
-    stat=cMsgSubscribe(myDomainId,subject.c_str(),type.c_str(),callbackDispatcher,(void*)d,cfg->config,&handle);
-  }
+  stat=cMsgSubscribe(myDomainId,
+                     (subject.size()<=0)?NULL:subject.c_str(),
+                     (type.size()<=0)?NULL:type.c_str(),
+                     callbackDispatcher,
+                     (void*)d,
+                     (cfg==NULL)?NULL:(cfg->config),
+                     &handle);
 
 
   // check if subscription accepted
