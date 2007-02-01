@@ -1,7 +1,7 @@
 // to do
 //   subscribe must lock list until done
-//   const args in C api?
 //   word doc, doxygen doc
+//   namespace?
 
 
 
@@ -37,25 +37,28 @@
 //-----------------------------------------------------------------------------
 
 
-// stores callback dispatching info
+/** Used internally, stores callback dispatching info. */
 typedef struct {
-  cMsgCallback *cb;
-  void *userArg;
+  cMsgCallback *cb;      /**<Callback object.*/
+  void *userArg;         /**<User arg.*/
 } dispatcherStruct;
 
 
-// holds local subscription info
+/** Used internally, holds subscription info. */
 typedef struct {
-  void  *domainId;
-  void  *handle;
-  string subject;
-  string type;
-  dispatcherStruct *d;
+  void  *domainId;      /**<Domain ID.*/
+  void  *handle;        /**<Subscription handle.*/
+  string subject;       /**<Subject.*/
+  string type;          /**<Type.*/
+  dispatcherStruct *d;  /**<Pointer to callback dispatcher struct.*/
 } subscrStruct;
 
 
-// vector of current subscriptions and mutex
+/** Used internally, vector of current subscriptions.  */
 static vector<subscrStruct*> subscrVec;
+
+
+/** Used internally, subscription mutex. */
 static pthread_mutex_t subscrMutex = PTHREAD_MUTEX_INITIALIZER;
 
 
@@ -63,6 +66,7 @@ static pthread_mutex_t subscrMutex = PTHREAD_MUTEX_INITIALIZER;
 //-----------------------------------------------------------------------------
 
 
+/** Used internally, C callback dispatches to C++ callback method. */
 static void callbackDispatcher(void *msg, void *userArg) {
   dispatcherStruct *ds = (dispatcherStruct*)userArg;
   ds->cb->callback(new cMsgMessage(msg),ds->userArg);
@@ -72,6 +76,7 @@ static void callbackDispatcher(void *msg, void *userArg) {
 //-----------------------------------------------------------------------------
 
 
+/** Used internally, true if subscription exists. */
 static bool subscriptionExists(void *domainId, const string &subject, const string &type, 
                                cMsgCallback *cb, void *userArg) {
 
@@ -102,6 +107,9 @@ static bool subscriptionExists(void *domainId, const string &subject, const stri
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Used internally, adds subscription to list.
+ */
 static void addSubscription(void *domainId, const string &subject, const string &type,
                             dispatcherStruct *d, void *handle) {
 
@@ -124,6 +132,7 @@ static void addSubscription(void *domainId, const string &subject, const string 
 //-----------------------------------------------------------------------------
 
 
+/** Used internally, removes subscription from list. */
 static bool deleteSubscription(void *domainId, void *handle) {
 
   bool deleted = false;
