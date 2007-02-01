@@ -427,7 +427,7 @@ static int isSameDomain(const char *domain, parsedUDL *list) {
 static void removeDuplicateUDLs(parsedUDL *list) {
   
   int index1=0, index2=0, itemRemoved=0;
-  parsedUDL *pUDL, *pUDL2, *pPrev;
+  parsedUDL *pUDL, *pUDL2, *pPrev=NULL;
 
   if (list == NULL) return;
     
@@ -674,11 +674,10 @@ static int reconstructUDL(char *domainType, parsedUDL *pList, char **UDL) {
 int cMsgConnect(const char *myUDL, const char *myName,
                 const char *myDescription, void **domainId) {
 
-  int i, loops=0, err, listSize, reconstruct, prefixLen, totalLen=0;
-  size_t len;
-  char *pchar, *domainType=NULL, *UDLremainder, *newUDL=NULL, *prefix;
+  int     i, err, listSize;
+  char  *domainType=NULL, *newUDL=NULL;
   cMsgDomain *domain;
-  parsedUDL *pList, *pUDL;
+  parsedUDL  *pList;
   
   /* check args */
   if ( (checkString(myName)        != CMSG_OK) ||
