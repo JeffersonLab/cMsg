@@ -694,29 +694,48 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
  * the server due to our initial broadcast.
  */
 static void *receiverThd(void *arg) {
-    int port;
+    int port, nameLen;
     thdArg *threadArg = (thdArg *) arg;
     char buf[1024], *pchar;
+    ssize_t len;
     
-    /* zero buffer */
-    pchar = memset((void *)buf,0,1024);
-    
-    /* ignore error as it will be caught later */   
-    recvfrom(threadArg->sockfd, (void *)buf, 1024, 0,
-             (SA *) &threadArg->addr, &(threadArg->len));
-             
-    /* The server is sending back its 1) port, 2) host name length, 3) host name */
-    memcpy(&port, pchar, sizeof(int));
-    pchar += sizeof(int);
-    /* skip over len since not needed */
-    /* memcpy(&len, pchar, sizeof(int));*/
-    pchar += sizeof(int);
-    /* send info back to caling function */
-    threadArg->buffer = strdup(pchar);
-    threadArg->port   = ntohl(port);
-/*printf("Receiver thread: host = %s, port = %d\n", pchar, threadArg->port);*/   
-    /* Tell main thread we are done. */
-    pthread_cond_signal(&cond);
+    while (1) {
+        /* zero buffer */
+        pchar = memset((void *)buf,0,1024);
+
+        /* ignore error as it will be caught later */   
+        len = recvfrom(threadArg->sockfd, (void *)buf, 1024, 0,
+                       (SA *) &threadArg->addr, &(threadArg->len));
+/*
+printf("Broadcast response from: %s, on port %hu, with msg len = %hd\n",
+                inet_ntoa(threadArg->addr.sin_addr),
+                ntohs(threadArg->addr.sin_port), len); 
+*/
+        /* server is sending 2 ints + string in java, len > 8 bytes */
+        if (len < 9) continue;
+
+        /* The server is sending back its 1) port, 2) host name length, 3) host name */
+        memcpy(&port, pchar, sizeof(int));
+        port = ntohl(port);
+        pchar += sizeof(int);
+        memcpy(&nameLen, pchar, sizeof(int));
+        nameLen = ntohl(nameLen);
+        pchar += sizeof(int);
+        
+        if ((port < 1024 || port > 65535) || (nameLen != strlen(pchar))) {
+            /* wrong format so ignore */
+/*printf("Broadcast response has wrong format\n");*/
+            continue;
+        }
+        
+        /* send info back to caling function */
+        threadArg->buffer = strdup(pchar);
+        threadArg->port   = port;
+/*printf("Receiver thread: host = %s, port = %d\n", pchar, port);*/
+        /* Tell main thread we are done. */
+        pthread_cond_signal(&cond);
+        break;
+    }
     
     pthread_exit(NULL);
     return NULL;

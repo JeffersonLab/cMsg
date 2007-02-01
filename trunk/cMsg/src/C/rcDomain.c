@@ -685,17 +685,37 @@ domain->sendUdpSocket, domain->sendUdpPort);
 static void *receiverThd(void *arg) {
 
     thdArg *threadArg = (thdArg *) arg;
-    char buf[1024];
+    int    *response;
+    ssize_t len;
     
     /* release resources when done */
     pthread_detach(pthread_self());
     
-    /* ignore error as it will be caught later */   
-    recvfrom(threadArg->sockfd, (void *)buf, 1024, 0,
-             (SA *) &threadArg->addr, &(threadArg->len));
-/*printf("Broadcast response: len = %d, buf = %s\n",   threadArg->len, buf);*/
-    /* Tell main thread we are done. */
-    pthread_cond_signal(&cond);
+    while (1) {
+        /* ignore error as it will be caught later */   
+        len = recvfrom(threadArg->sockfd, (void *)response, 4, 0,
+                       (SA *) &threadArg->addr, &(threadArg->len));
+        
+         /* server is sending int in java, len = 4 bytes, value = 0xc0da */
+         if (len < 4) continue;
+                 
+        *response = ntohl(*response);
+/*
+printf("Broadcast response from: %s, on port %hu, with message %x, msg len = %hd\n",
+                inet_ntoa(threadArg->addr.sin_addr),
+                ntohs(threadArg->addr.sin_port),
+                *response, len);
+*/                 
+        /* make sure the response is from the RCBroadcastServer */
+        if (*response != 0xc0da) {
+            printf("receiverThd: got bogus response to broadcast\n");
+            continue;
+        }
+        
+        /* Tell main thread we are done. */
+        pthread_cond_signal(&cond);
+        break;
+    }
     
     pthread_exit(NULL);
     return NULL;
