@@ -314,6 +314,9 @@ int cMsgGetAbsoluteTime(const struct timespec *deltaTime, struct timespec *absTi
  * being blocked and stores the old signal mask in the domain structure
  * so it can be restored upon disconnect. If this routine fails it's not
  * critical so ignore errors.
+ * In Linux and Solaris 10, the SIGPIPE signal is delivered to the thread
+ * that caused it. In Solaris 9 and earlier the signal is delivered to a
+ * random thread and so may not be blocked in the rc and cMsg domains.
  *
  * @param domain pointer to struct of domain information
  */
