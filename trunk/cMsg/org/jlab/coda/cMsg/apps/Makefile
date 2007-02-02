@@ -23,8 +23,10 @@ JAVA_OBJS = \
 	cMsgMonitor.class \
 	cMsgShutdowner.class \
 	rcClient.class \
+	rcClientReconnect.class \
 	rcVClient.class \
-	RCBroadcastServer.class
+	RCBroadcastServer.class \
+	cMsgTestRcServer.class
 
 all: $(JAVA_OBJS)
 
