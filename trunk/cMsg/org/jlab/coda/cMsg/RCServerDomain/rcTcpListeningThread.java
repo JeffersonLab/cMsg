@@ -214,6 +214,7 @@ public class rcTcpListeningThread extends Thread {
         public void run() {
 
             try {
+                cMsgMessageFull msg;
                 // buffered communication streams for efficiency
                 in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 65536));
 
@@ -234,11 +235,19 @@ public class rcTcpListeningThread extends Thread {
 
                         case cMsgConstants.msgSubscribeResponse: // receiving a message
                             // read the message here
-                            cMsgMessageFull msg = readIncomingMessage();
+                            msg = readIncomingMessage();
 
                             // run callbacks for this message
                             runCallbacks(msg);
 
+                            break;
+
+                        case cMsgConstants.msgGetResponse: // receiving a message for sendAndGet
+                            // read the message
+                            msg = readIncomingMessage();
+                            msg.setGetResponse(true);
+                            // wakeup caller with this message
+                            wakeGets(msg);
                             break;
 
                         default:
@@ -283,6 +292,7 @@ public class rcTcpListeningThread extends Thread {
             msg.setVersion(in.readInt());
             msg.setUserInt(in.readInt());
             msg.setInfo(in.readInt());
+            msg.setSenderToken(in.readInt());
 
             // time message was sent = 2 ints (hightest byte first)
             // in milliseconds since midnight GMT, Jan 1, 1970
@@ -435,6 +445,29 @@ public class rcTcpListeningThread extends Thread {
 
             }
         }
+
+        /**
+         * This method wakes up a thread in a server waiting in the sendAndGet method
+         * and delivers a message to it.
+         *
+         * @param msg incoming message
+         */
+        private void wakeGets(cMsgMessageFull msg) {
+
+            cMsgGetHelper helper = server.sendAndGets.remove(msg.getSenderToken());
+            if (helper == null) {
+                return;
+            }
+            helper.setTimedOut(false);
+            // Do NOT need to copy msg as only 1 receiver gets it
+            helper.setMessage(msg);
+
+            // Tell the sendAndGet-calling thread to wakeup and retrieve the held msg
+            synchronized (helper) {
+                helper.notify();
+            }
+        }
+
 
     }
 

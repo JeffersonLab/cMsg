@@ -106,6 +106,7 @@ public class rcUdpListeningThread extends Thread {
         }
 
         try {
+            cMsgMessageFull msg;
             // read in data packet
             byte[] buf = new byte[cMsgNetworkConstants.biggestUdpPacketSize];
             DatagramPacket pkt = new DatagramPacket(buf, buf.length);
@@ -132,10 +133,19 @@ public class rcUdpListeningThread extends Thread {
 
                     case cMsgConstants.msgSubscribeResponse: // receiving a message
 
-                        cMsgMessageFull msg = readIncomingMessage(buf, 8);
+                        msg = readIncomingMessage(buf, 8);
                         // run callbacks for this message
                         runCallbacks(msg);
 
+                        break;
+
+                    case cMsgConstants.msgGetResponse: // receiving a message for sendAndGet
+                        // read the message
+                        msg = readIncomingMessage(buf, 8);
+                        msg.setGetResponse(true);
+
+                        // wakeup caller with this message
+                        wakeGets(msg);
                         break;
 
                     default:
@@ -177,6 +187,8 @@ public class rcUdpListeningThread extends Thread {
         msg.setUserInt(bytesToInt(buf, index));
         index += 4;
         msg.setInfo(bytesToInt(buf, index));
+        index += 4;
+        msg.setSenderToken(bytesToInt(buf, index));
         index += 4;
 
         // time message was sent = 2 ints (hightest byte first)
@@ -323,6 +335,31 @@ public class rcUdpListeningThread extends Thread {
 
         }
     }
+
+    /**
+     * This method wakes up a thread in a server waiting in the sendAndGet method
+     * and delivers a message to it.
+     *
+     * @param msg incoming message
+     */
+    private void wakeGets(cMsgMessageFull msg) {
+
+        cMsgGetHelper helper = server.sendAndGets.remove(msg.getSenderToken());
+
+        if (helper == null) {
+            return;
+        }
+        helper.setTimedOut(false);
+        // Do NOT need to copy msg as only 1 receiver gets it
+        helper.setMessage(msg);
+
+        // Tell the sendAndGet-calling thread to wakeup and retrieve the held msg
+        synchronized (helper) {
+            helper.notify();
+        }
+    }
+
+
 
 
 }

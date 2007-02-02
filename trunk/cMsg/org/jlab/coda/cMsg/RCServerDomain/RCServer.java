@@ -18,7 +18,7 @@ package org.jlab.coda.cMsg.RCServerDomain;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread;
-import org.jlab.coda.cMsg.cMsgDomain.client.cMsgGetHelper;
+import org.jlab.coda.cMsg.cMsgGetHelper;
 
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
@@ -124,11 +124,16 @@ public class RCServer extends cMsgDomainAdapter {
      * Collection of all of this client's {@link #subscribeAndGet} calls currently in execution.
      * SubscribeAndGets are very similar to subscriptions and can be thought of as
      * one-shot subscriptions.
-     * Key is receiverSubscribeId object, value is {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgGetHelper}
+     * Key is receiverSubscribeId object, value is {@link org.jlab.coda.cMsg.cMsgGetHelper}
      * object.
      */
     ConcurrentHashMap<Integer,cMsgGetHelper> subscribeAndGets;
 
+    /**
+     * Collection of all of this client's {@link #sendAndGet} calls currently in execution.
+     * Key is senderToken object, value is {@link cMsgGetHelper} object.
+     */
+    ConcurrentHashMap<Integer,cMsgGetHelper> sendAndGets;
 
     /**
      * Returns a string back to the top level API user indicating the name
@@ -145,6 +150,7 @@ public class RCServer extends cMsgDomainAdapter {
         domain = "rcs";
         subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
         subscribeAndGets = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
+        sendAndGets      = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
         unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
         uniqueId         = new AtomicInteger();
 
@@ -528,7 +534,7 @@ public class RCServer extends cMsgDomainAdapter {
             deliverMessage(message, cMsgConstants.msgSubscribeResponse, false);
         }
         catch (IOException e) {
-            throw new cMsgException(e.getMessage());
+            throw new cMsgException(e.getMessage(),e);
         }
         finally {
             socketLock.unlock();
@@ -884,9 +890,97 @@ public class RCServer extends cMsgDomainAdapter {
             throw new TimeoutException();
         }
 
-        // If msg is received, server has removed subscription from his records.
-        // Client listening thread has also removed subscription from client's
-        // records (subscribeAndGets HashSet).
+        return helper.getMessage();
+    }
+
+
+
+    /**
+     * The message is sent as it would be in the {@link #send} method except that the
+     * senderToken and creator are set. A marked response can be received from a client
+     * regardless of its subject or type.
+     *
+     * NOTE: Disconnecting when one thread is in the waiting part of a sendAndGet may cause that
+     * thread to block forever. It is best to always use a timeout with sendAndGet so the thread
+     * is assured of eventually resuming execution.
+     *
+     * @param message message sent to client
+     * @param timeout time in milliseconds to wait for a reponse message
+     * @return response message
+     * @throws cMsgException if there are communication problems with the client;
+     *                       subject and/or type is null or blank
+     * @throws TimeoutException if timeout occurs
+     */
+    public cMsgMessage sendAndGet(cMsgMessage message, int timeout)
+            throws cMsgException, TimeoutException {
+
+        String subject = message.getSubject();
+        String type    = message.getType();
+
+        // check args first
+        if (subject == null || type == null) {
+            throw new cMsgException("message subject and/or type is null");
+        }
+        else if (subject.length() < 1 || type.length() < 1) {
+            throw new cMsgException("message subject or type is blank string");
+        }
+
+        int id = 0;
+        cMsgGetHelper helper = null;
+
+        // cannot run this simultaneously with connect or disconnect
+        notConnectLock.lock();
+
+        try {
+            if (!connected) {
+                throw new cMsgException("not connected to rc client");
+            }
+
+            // We're expecting a specific response, so the senderToken is sent back
+            // in the response message, allowing us to run the correct callback.
+            id = uniqueId.getAndIncrement();
+
+            // for get, create cMsgHolder object (not callback thread object)
+            helper = new cMsgGetHelper();
+
+            // track specific get requests
+            sendAndGets.put(id, helper);
+
+            cMsgMessageFull fullMsg = new cMsgMessageFull(message);
+            if (fullMsg.getCreator() == null) fullMsg.setCreator("rcServer");
+            fullMsg.setSenderToken(id);
+            fullMsg.setGetRequest(true);
+            deliverMessage(fullMsg, cMsgConstants.msgSubscribeResponse, false);
+        }
+        catch (IOException e) {
+            throw new cMsgException(e.getMessage(),e);
+        }
+        // release lock 'cause we can't block connect/disconnect forever
+        finally {
+            notConnectLock.unlock();
+        }
+
+        // WAIT for the msg-receiving thread to wake us up
+        try {
+            synchronized (helper) {
+                if (timeout > 0) {
+                    helper.wait(timeout);
+                }
+                else {
+                    helper.wait();
+                }
+            }
+        }
+        catch (InterruptedException e) {
+        }
+
+        // Check the message stored for us in helper.
+        if (helper.isTimedOut()) {
+            // remove the get
+            sendAndGets.remove(id);
+            throw new TimeoutException();
+        }
+
         return helper.getMessage();
     }
 
