@@ -1,3 +1,19 @@
+/*----------------------------------------------------------------------------*
+ *  Copyright (c) 2007        Jefferson Science Associates,                   *
+ *                            Thomas Jefferson National Accelerator Facility  *
+ *                                                                            *
+ *    This software was developed under a United States Government license    *
+ *    described in the NOTICE file included as part of this distribution.     *
+ *                                                                            *
+ *    C. Timmer, 1-Feb-2007, Jefferson Lab                                    *
+ *                                                                            *
+ *     Author: Carl Timmer                                                    *
+ *             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
+ *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
+ *             Fax:   (757) 269-6248             Newport News, VA 23606       *
+ *                                                                            *
+ *----------------------------------------------------------------------------*/
+
 package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
@@ -5,7 +21,7 @@ import org.jlab.coda.cMsg.*;
 import java.util.concurrent.CountDownLatch;
 
 /**
- *
+ * Simulates an rc broadcast server and rc server together. It dies and them comes back.
  */
 public class RCBroadcastServer {
 
@@ -45,6 +61,13 @@ public class RCBroadcastServer {
             count++;
             String s = (String) userObject;
             System.out.println("RAN CALLBACK, msg text = " + msg.getText() + ", for " + s);
+        }
+    }
+
+    class nullCallback extends cMsgCallbackAdapter {
+        public void callback(cMsgMessage msg, Object userObject) {
+            count++;
+            System.out.println("RAN CALLBACK, for NULL subscription");
         }
     }
 
@@ -129,6 +152,9 @@ public class RCBroadcastServer {
 
         rcCallback cb2 = new rcCallback();
         Object unsub = server1.subscribe("subby", "typey", cb2, "1st sub");
+
+        nullCallback nullCb = new nullCallback();
+        Object unsu2 = server1.subscribe(null, null, nullCb, "2nd sub");
 
         int loops = 5;
         while(loops-- > 0) {
