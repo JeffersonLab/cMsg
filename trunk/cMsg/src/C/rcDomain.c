@@ -73,6 +73,7 @@ typedef struct thdArg_t {
     struct sockaddr_in addr;
     struct sockaddr_in *paddr;
     int   bufferLen;
+    char *expid;
     char *buffer;
 } thdArg;
 
@@ -458,12 +459,12 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     len += expidLen;
         
     free(serverHost);
-    if (expid != NULL) free(expid);
     
     /* create and start a thread which will receive any responses to our broadcast */
     memset((void *)&rArg.addr, 0, sizeof(rArg.addr));
     rArg.len             = (socklen_t) sizeof(rArg.addr);
-    rArg.port            = 0;
+    rArg.port            = serverPort;
+    rArg.expid           = expid;
     rArg.sockfd          = domain->sendSocket;
     rArg.addr.sin_family = AF_INET;
     
@@ -538,6 +539,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     
     /* stop broadcasting thread */
     pthread_cancel(bThread);
+    free(expid);
     
     if (!gotResponse) {
 /* printf("Got no response\n"); */ 
@@ -685,7 +687,8 @@ domain->sendUdpSocket, domain->sendUdpPort);
 static void *receiverThd(void *arg) {
 
     thdArg *threadArg = (thdArg *) arg;
-    int    *response;
+    int  ints[4], code, port, len1, len2;
+    char buf[1024], *pbuf, *tmp, *host=NULL, *expid=NULL;
     ssize_t len;
     
     /* release resources when done */
@@ -693,23 +696,73 @@ static void *receiverThd(void *arg) {
     
     while (1) {
         /* ignore error as it will be caught later */   
-        len = recvfrom(threadArg->sockfd, (void *)response, 4, 0,
+        len = recvfrom(threadArg->sockfd, (void *)buf, 1024, 0,
                        (SA *) &threadArg->addr, &(threadArg->len));
         
-         /* server is sending int in java, len = 4 bytes, value = 0xc0da */
-         if (len < 4) continue;
-                 
-        *response = ntohl(*response);
-/*
-printf("Broadcast response from: %s, on port %hu, with message %x, msg len = %hd\n",
+        /* server is sending:
+         *         -> 0xc0da
+         *         -> port server is listening on
+         *         -> length of server's host name
+         *         -> length of server's expid
+         *         -> server's host name
+         *         -> server's expid
+         */
+        if (len < 18) continue;
+        
+        pbuf = buf;
+        memcpy(ints, pbuf, sizeof(ints));
+        pbuf += sizeof(ints);
+
+        code = ntohl(ints[0]);
+        port = ntohl(ints[1]);
+        len1 = ntohl(ints[2]);
+        len2 = ntohl(ints[3]);
+        
+        if (len1 > 0) {
+          if ( (tmp = (char *) malloc(len1+1)) == NULL) {
+            continue;    
+          }
+          /* read host string into memory */
+          memcpy(tmp, pbuf, len1);
+          /* add null terminator to string */
+          tmp[len1] = 0;
+          /* store string */
+          host = tmp;
+          /* go to next string */
+          pbuf += len1;
+/*printf("host = %s\n", host);*/
+        }
+        
+        if (len2 > 0) {
+          if ( (tmp = (char *) malloc(len2+1)) == NULL) {
+            continue;    
+          }
+          memcpy(tmp, pbuf, len2);
+          tmp[len2] = 0;
+          expid = tmp;
+          pbuf += len2;
+/*printf("expid = %s\n", expid);*/
+        }
+
+printf("Broadcast response from: %s, on port %hu, listening port = %d, host = %s, expid = %s\n",
                 inet_ntoa(threadArg->addr.sin_addr),
                 ntohs(threadArg->addr.sin_port),
-                *response, len);
-*/                 
+                port, host, expid);
+                 
         /* make sure the response is from the RCBroadcastServer */
-        if (*response != 0xc0da) {
-            printf("receiverThd: got bogus response to broadcast\n");
+        if (code != 0xc0da) {
+            printf("receiverThd: got bogus secret code response to broadcast\n");
             continue;
+        }
+        else if (port != threadArg->port) {
+            printf("receiverThd: got bogus port response to broadcast\n");
+            continue;
+        }
+        else if (len2 > 0) {
+            if (strcmp(expid, threadArg->expid) != 0) {
+                printf("receiverThd: got bogus expid response to broadcast\n");
+                continue;
+            }
         }
         
         /* Tell main thread we are done. */

@@ -152,6 +152,23 @@ public class RunControl extends cMsgDomainAdapter {
     int debug = cMsgConstants.debugError;
 
 
+    /**
+        * Converts 4 bytes of a byte array into an integer.
+        *
+        * @param b byte array
+        * @param off offset into the byte array (0 = start at first element)
+        * @return integer value
+        */
+       private static final int bytesToInt(byte[] b, int off) {
+         int result = ((b[off]  &0xff) << 24) |
+                      ((b[off+1]&0xff) << 16) |
+                      ((b[off+2]&0xff) <<  8) |
+                       (b[off+3]&0xff);
+         return result;
+       }
+
+
+
 
     /** Constructor. */
     public RunControl() throws cMsgException {
@@ -722,7 +739,7 @@ public class RunControl extends cMsgDomainAdapter {
 
         int msgType = cMsgConstants.msgSubscribeResponse;
         if (message.isGetResponse()) {
-System.out.println("sending get-response with UDP");
+//System.out.println("sending get-response with UDP");
             msgType = cMsgConstants.msgGetResponse;
         }
 
@@ -1004,11 +1021,57 @@ System.out.println("sending get-response with UDP");
 
             byte[] buf = new byte[1024];
             DatagramPacket packet = new DatagramPacket(buf, 1024);
+            int index;
 
-            try {
-                udpSocket.receive(packet);
-            }
-            catch (IOException e) {
+            while (true) {
+                // reset for each round
+                packet.setLength(1024);
+                index = 0;
+
+                try {
+                    udpSocket.receive(packet);
+                    int code = bytesToInt(buf, index);
+                    index += 4;
+                    int port = bytesToInt(buf, index);
+                    index += 4;
+                    int hostLen = bytesToInt(buf, index);
+                    index += 4;
+                    int expidLen = bytesToInt(buf, index);
+                    index += 4;
+//System.out.println("code = " + Integer.toHexString(code) + ", port = " + port);
+
+                    // get host
+                    String host = new String(buf, index, hostLen, "US-ASCII");
+//System.out.println("host = " + host);
+                    index += hostLen;
+
+                    // get expid
+                    String serverExpid = new String(buf, index, expidLen, "US-ASCII");
+//System.out.println("expid = " + serverExpid);
+
+                    /* make sure the response is from the RCBroadcastServer */
+                    if (code != 0xc0da) {
+                        if (debug >= cMsgConstants.debugWarn) {
+                            System.out.println("Broadcast receiver: got bad secret code response to broadcast (" + code + ")");
+                        }
+                        continue;
+                    }
+                    else if (port != rcServerBroadcastPort) {
+                        if (debug >= cMsgConstants.debugWarn) {
+                            System.out.println("Broadcast receiver: got bad port response to broadcast (" + port + ")");
+                        }
+                        continue;
+                    }
+                    else if (!expid.equals(serverExpid)) {
+                        if (debug >= cMsgConstants.debugWarn) {
+                            System.out.println("Broadcast receiver: got bad expid response to broadcast (" + serverExpid + ")");
+                        }
+                        continue;
+                    }
+                }
+                catch (UnsupportedEncodingException e) {continue;}
+                catch (IOException e) {continue;}
+                break;
             }
 
             broadcastResponse.countDown();

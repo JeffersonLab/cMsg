@@ -23,6 +23,8 @@ import org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread;
 import java.net.*;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.util.Date;
 import java.util.Set;
 
@@ -118,9 +120,39 @@ public class rcListeningThread extends Thread {
             System.out.println("Running RC Broadcast Listening Thread");
         }
 
-        // create a packet to be written into
+        // create a packet to be written into from client
         byte[] buf = new byte[2048];
         DatagramPacket packet = new DatagramPacket(buf, 2048);
+
+        // prepare to create a packet to be send back to the client
+        byte[] outBuf = null;
+        DatagramPacket sendPacket  = null;
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);
+        DataOutputStream out       = new DataOutputStream(baos);
+
+        try {
+            // Put our special code, UDP listening port, and host into byte array
+            out.writeInt(0xc0da);
+            out.writeInt(broadcastPort);
+            out.writeInt(server.getHost().length());
+            out.writeInt(server.expid.length());
+            try {
+                out.write(server.getHost().getBytes("US-ASCII"));
+                out.write(server.expid.getBytes("US-ASCII"));
+            }
+            catch (UnsupportedEncodingException e) { }
+            out.flush();
+            out.close();
+
+            // create buffer to broadcast from the byte array
+            outBuf = baos.toByteArray();
+        }
+        catch (IOException e) {
+            if (debug >= cMsgConstants.debugError) {
+                System.out.println("I/O Error: " + e);
+            }
+        }
+
 
         // server object is waiting for this thread to start in connect method,
         // so tell it we've started.
@@ -212,11 +244,9 @@ public class rcListeningThread extends Thread {
                     if (!server.acceptingClients) { continue;}
 
                     try {
-                        // create packet to respond to broadcast
-                        intToBytes(0xc0da, buf, 0);
-                        DatagramPacket pkt = new DatagramPacket(buf, 4, broadcasterAddress, broadcasterUdpPort);
+                        sendPacket = new DatagramPacket(outBuf, outBuf.length, broadcasterAddress, broadcasterUdpPort);
 //System.out.println("Send reponse packet to client");
-                        broadcastSocket.send(pkt);
+                        broadcastSocket.send(sendPacket);
                     }
                     catch (IOException e) {
                         System.out.println("I/O Error: " + e);
