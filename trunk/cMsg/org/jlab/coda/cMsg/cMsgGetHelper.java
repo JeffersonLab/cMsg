@@ -14,18 +14,15 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg.cMsgDomain.client;
-
-import org.jlab.coda.cMsg.cMsgMessageFull;
-import org.jlab.coda.cMsg.cMsgMessageMatcher;
-import org.jlab.coda.cMsg.cMsgConstants;
+package org.jlab.coda.cMsg;
 
 import java.util.regex.Pattern;
 
 /**
- * This class is used to help in implementing a client's {@link cMsg#subscribeAndGet}
- * and {@link cMsg#sendAndGet} methods.
- * An object of this class stores a msg from the server to the method's caller and
+ * This class is used to help in implementing subscribeAndGet and sendAndGet methods.
+ * This is true in the cMsg domain for the client and in the RCBroadcast and RCServer
+ * domains for servers.
+ * An object of this class stores a msg from a sender to the method's caller and
  * is used to synchronize/wait/notify on. It also indicates whether the call timed
  * out or not.
  */
@@ -138,6 +135,14 @@ public class cMsgGetHelper {
      */
     public int getErrorCode() {
         return errorCode;
+    }
+
+    /**
+     * Sets the error code from when a "subscribeAndGet" or "sendAndGet" is woken up by an error condition.
+     * @param errorCode error code
+     */
+    public void setErrorCode(int errorCode) {
+        this.errorCode = errorCode;
     }
 
     /**

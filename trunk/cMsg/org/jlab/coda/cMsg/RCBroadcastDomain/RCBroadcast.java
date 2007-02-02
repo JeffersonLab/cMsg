@@ -17,7 +17,7 @@
 package org.jlab.coda.cMsg.RCBroadcastDomain;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgDomain.client.cMsgGetHelper;
+import org.jlab.coda.cMsg.cMsgGetHelper;
 import org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread;
 
 import java.net.*;
@@ -33,7 +33,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.Set;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Date;
 import java.io.*;
 
 /**
@@ -102,7 +101,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
      * Collection of all of this server's {@link #subscribeAndGet} calls currently in execution.
      * SubscribeAndGets are very similar to subscriptions and can be thought of as
      * one-shot subscriptions. This set is synchronized and contains objects of class
-     * {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgGetHelper}.
+     * {@link org.jlab.coda.cMsg.cMsgGetHelper}.
      */
     Set<cMsgGetHelper> subscribeAndGets;
 

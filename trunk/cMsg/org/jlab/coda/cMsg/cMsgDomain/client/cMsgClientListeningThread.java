@@ -558,8 +558,8 @@ public class cMsgClientListeningThread extends Thread {
                     helper = (cMsgGetHelper) i.next();
                     if (cMsgMessageMatcher.matches(msg.getSubject(), msg.getType(), helper)) {
 
-                        helper.timedOut = false;
-                        helper.message = msg.copy();
+                        helper.setTimedOut(false);
+                        helper.setMessage(msg.copy());
                         // Tell the subscribeAndGet-calling thread to wakeup
                         // and retrieve the held msg
                         synchronized (helper) {
@@ -640,9 +640,9 @@ public class cMsgClientListeningThread extends Thread {
             if (helper == null) {
                 return;
             }
-            helper.timedOut = false;
+            helper.setTimedOut(false);
             // Do NOT need to copy msg as only 1 receiver gets it
-            helper.message = msg;
+            helper.setMessage(msg);
 
             // Tell the sendAndGet-calling thread to wakeup and retrieve the held msg
             synchronized (helper) {

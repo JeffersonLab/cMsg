@@ -963,7 +963,7 @@ public class cMsg extends cMsgDomainAdapter {
 
             // wakeup all subscribeAndGets
             for (cMsgGetHelper helper : subscribeAndGets.values()) {
-                helper.message = null;
+                helper.setMessage(null);
                 synchronized (helper) {
                     helper.notify();
                 }
@@ -971,7 +971,7 @@ public class cMsg extends cMsgDomainAdapter {
 
             // wakeup all sendAndGets
             for (cMsgGetHelper helper : sendAndGets.values()) {
-                helper.message = null;
+                helper.setMessage(null);
                 synchronized (helper) {
                     helper.notify();
                 }
@@ -1007,8 +1007,8 @@ public class cMsg extends cMsgDomainAdapter {
 
             // wakeup all subscribeAndGets - they can't be saved
             for (cMsgGetHelper helper : subscribeAndGets.values()) {
-                helper.message   = null;
-                helper.errorCode = cMsgConstants.errorServerDied;
+                helper.setMessage(null);
+                helper.setErrorCode(cMsgConstants.errorServerDied);
                 synchronized (helper) {
                     helper.notify();
                 }
@@ -1016,8 +1016,8 @@ public class cMsg extends cMsgDomainAdapter {
 
             // wakeup all existing sendAndGets - they can't be saved
             for (cMsgGetHelper helper : sendAndGets.values()) {
-                helper.message   = null;
-                helper.errorCode = cMsgConstants.errorServerDied;
+                helper.setMessage(null);
+                helper.setErrorCode(cMsgConstants.errorServerDied);
                 synchronized (helper) {
                     helper.notify();
                 }
@@ -1974,20 +1974,20 @@ public class cMsg extends cMsgDomainAdapter {
         // Check the message stored for us in helper.
         // If msg is null, we timed out.
         // Tell server to forget the get if necessary.
-        if (helper.timedOut) {
+        if (helper.isTimedOut()) {
             // remove the get from server
             subscribeAndGets.remove(id);
             unSubscribeAndGet(subject, type, id);
             throw new TimeoutException();
         }
-        else if (helper.errorCode != cMsgConstants.ok) {
-            throw new cMsgException("server died", helper.errorCode);
+        else if (helper.getErrorCode() != cMsgConstants.ok) {
+            throw new cMsgException("server died", helper.getErrorCode());
         }
 
         // If msg is received, server has removed subscription from his records.
         // Client listening thread has also removed subscription from client's
         // records (subscribeAndGets HashSet).
-        return helper.message;
+        return helper.getMessage();
     }
 
 
@@ -2186,20 +2186,20 @@ public class cMsg extends cMsgDomainAdapter {
         }
 
         // Tell server to forget the get if necessary.
-        if (helper.timedOut) {
+        if (helper.isTimedOut()) {
             // remove the get from server
             sendAndGets.remove(id);
             unSendAndGet(id);
             throw new TimeoutException();
         }
-        else if (helper.errorCode != cMsgConstants.ok) {
-            throw new cMsgException("server died", helper.errorCode);
+        else if (helper.getErrorCode() != cMsgConstants.ok) {
+            throw new cMsgException("server died", helper.getErrorCode());
         }
 
         // If msg arrived (may be null), server has removed subscription from his records.
         // Client listening thread has also removed subscription from client's
         // records (subscribeAndGets HashSet).
-        return helper.message;
+        return helper.getMessage();
     }
 
 

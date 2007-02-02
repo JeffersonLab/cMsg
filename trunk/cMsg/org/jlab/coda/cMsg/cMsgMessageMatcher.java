@@ -16,7 +16,7 @@
 
 package org.jlab.coda.cMsg;
 
-import org.jlab.coda.cMsg.cMsgDomain.client.cMsgGetHelper;
+import org.jlab.coda.cMsg.cMsgGetHelper;
 
 import java.util.regex.Matcher;
 import java.net.InetAddress;
