@@ -20,6 +20,7 @@ JAVA_OBJS = \
 	cMsgMessageFull.class \
 	cMsgMessageMatcher.class \
 	cMsgConstants.class \
+	cMsgGetHelper.class \
 	cMsgClientInfo.class \
 	cMsgDeliverMessageInterface.class \
 	cMsgMessageContextInterface.class \
