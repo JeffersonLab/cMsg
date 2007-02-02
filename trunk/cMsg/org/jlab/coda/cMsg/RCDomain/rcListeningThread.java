@@ -250,7 +250,6 @@ public class rcListeningThread extends Thread {
 
                             // run callbacks for this message
                             runCallbacks(msg);
-
                             break;
 
                         // (rc broadcast) server bailing out of connect loop
