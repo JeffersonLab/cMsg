@@ -796,7 +796,7 @@ int cmsg_rc_send(void *domainId, const void *vmsg) {
   cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
   cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
   int err=CMSG_OK, len, lenSender, lenSubject, lenType, lenText, lenByteArray;
-  int fd, highInt, lowInt, outGoing[14];
+  int fd, highInt, lowInt, msgType, getResponse, outGoing[15];
   ssize_t sendLen;
   uint64_t llTime;
   struct timespec now;
@@ -827,16 +827,24 @@ int cmsg_rc_send(void *domainId, const void *vmsg) {
   else {
     fd = domain->sendUdpSocket;
   }
-      
+
+  cMsgGetGetResponse(vmsg, &getResponse);
+  msgType = CMSG_SUBSCRIBE_RESPONSE;
+  if (getResponse) {
+/*printf("Sending a GET response with senderToken = %d\n",msg->senderToken);*/
+      msgType = CMSG_GET_RESPONSE;
+  }
 
   /* message id (in network byte order) to domain server */
-  outGoing[1] = htonl(CMSG_SUBSCRIBE_RESPONSE);
+  outGoing[1] = htonl(msgType);
   /* reserved for future use */
   outGoing[2] = htonl(CMSG_VERSION_MAJOR);
   /* user int */
   outGoing[3] = htonl(msg->userInt);
   /* bit info */
   outGoing[4] = htonl(msg->info);
+  /* senderToken */
+  outGoing[5] = htonl(msg->senderToken);
 
   /* time message sent (right now) */
   clock_gettime(CLOCK_REALTIME, &now);
@@ -845,35 +853,35 @@ int cmsg_rc_send(void *domainId, const void *vmsg) {
             ((uint64_t)now.tv_nsec/1000000);
   highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
   lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
-  outGoing[5] = htonl(highInt);
-  outGoing[6] = htonl(lowInt);
+  outGoing[6] = htonl(highInt);
+  outGoing[7] = htonl(lowInt);
 
   /* user time */
   llTime  = ((uint64_t)msg->userTime.tv_sec * 1000) +
             ((uint64_t)msg->userTime.tv_nsec/1000000);
   highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
   lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
-  outGoing[7] = htonl(highInt);
-  outGoing[8] = htonl(lowInt);
+  outGoing[8] = htonl(highInt);
+  outGoing[9] = htonl(lowInt);
 
   /* length of "sender" string */
-  lenSender   = strlen(domain->name);
-  outGoing[9] = htonl(lenSender);
+  lenSender    = strlen(domain->name);
+  outGoing[10] = htonl(lenSender);
 
   /* length of "subject" string */
   lenSubject   = strlen(msg->subject);
-  outGoing[10] = htonl(lenSubject);
+  outGoing[11] = htonl(lenSubject);
 
   /* length of "type" string */
   lenType      = strlen(msg->type);
-  outGoing[11] = htonl(lenType);
+  outGoing[12] = htonl(lenType);
 
   /* length of "text" string */
-  outGoing[12] = htonl(lenText);
+  outGoing[13] = htonl(lenText);
 
   /* length of byte array */
   lenByteArray = msg->byteArrayLength;
-  outGoing[13] = htonl(lenByteArray);
+  outGoing[14] = htonl(lenByteArray);
 
   /* total length of message (minus first int) is first item sent */
   len = sizeof(outGoing) + lenSubject + lenType +

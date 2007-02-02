@@ -623,6 +623,11 @@ public class RunControl extends cMsgDomainAdapter {
                 text = "";
             }
 
+            int msgType = cMsgConstants.msgSubscribeResponse;
+            if (message.isGetResponse()) {
+                msgType = cMsgConstants.msgGetResponse;
+            }
+
             int binaryLength = message.getByteArrayLength();
 
             // cannot run this simultaneously with connect, reconnect, or disconnect
@@ -635,15 +640,16 @@ public class RunControl extends cMsgDomainAdapter {
                 }
 
                 // length not including first int
-                int totalLength = (4 * 13) + name.length() + subject.length() +
+                int totalLength = (4 * 14) + name.length() + subject.length() +
                         type.length() + text.length() + binaryLength;
 
                 // total length of msg (not including this int) is 1st item
                 domainOut.writeInt(totalLength);
-                domainOut.writeInt(cMsgConstants.msgSubscribeResponse);
+                domainOut.writeInt(msgType);
                 domainOut.writeInt(cMsgConstants.version);
                 domainOut.writeInt(message.getUserInt());
                 domainOut.writeInt(message.getInfo());
+                domainOut.writeInt(message.getSenderToken());
 
                 long now = new Date().getTime();
                 // send the time in milliseconds as 2, 32 bit integers
@@ -714,10 +720,16 @@ public class RunControl extends cMsgDomainAdapter {
             text = "";
         }
 
+        int msgType = cMsgConstants.msgSubscribeResponse;
+        if (message.isGetResponse()) {
+System.out.println("sending get-response with UDP");
+            msgType = cMsgConstants.msgGetResponse;
+        }
+
         int binaryLength = message.getByteArrayLength();
 
         // total length of msg (not including first int which is this size)
-        int totalLength = (4 * 13) + name.length() + subject.length() +
+        int totalLength = (4 * 14) + name.length() + subject.length() +
                 type.length() + text.length() + binaryLength;
 
         if (totalLength > 8192) {
@@ -737,10 +749,11 @@ public class RunControl extends cMsgDomainAdapter {
             }
 
             out.writeInt(totalLength); // total length of msg (not including this int)
-            out.writeInt(cMsgConstants.msgSubscribeResponse);
+            out.writeInt(msgType);
             out.writeInt(cMsgConstants.version);
             out.writeInt(message.getUserInt());
             out.writeInt(message.getInfo());
+            out.writeInt(message.getSenderToken());
 
             long now = new Date().getTime();
             // send the time in milliseconds as 2, 32 bit integers
