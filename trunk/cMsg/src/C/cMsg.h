@@ -153,70 +153,70 @@ extern "C" {
   /* message access functions */
   int    cMsgFreeMessage          (void **vmsg);
   void  *cMsgCreateMessage        (void);
-  void  *cMsgCreateNewMessage     (void *vmsg);
-  void  *cMsgCopyMessage          (void *vmsg);
+  void  *cMsgCreateNewMessage     (const void *vmsg);
+  void  *cMsgCopyMessage          (const void *vmsg);
   int    cMsgInitMessage          (void *vmsg);
-  void  *cMsgCreateResponseMessage(void *vmsg);
-  void  *cMsgCreateNullResponseMessage(void *vmsg);
+  void  *cMsgCreateResponseMessage(const void *vmsg);
+  void  *cMsgCreateNullResponseMessage(const void *vmsg);
   
-  int    cMsgGetVersion           (void *vmsg, int *version);
-  int    cMsgGetGetRequest        (void *vmsg, int *getRequest);
+  int    cMsgGetVersion           (const void *vmsg, int *version);
+  int    cMsgGetGetRequest        (const void *vmsg, int *getRequest);
   
-  int    cMsgSetGetResponse       (void *vmsg, int  getReponse);
-  int    cMsgGetGetResponse       (void *vmsg, int *getReponse);
+  int    cMsgSetGetResponse       (      void *vmsg, int  getReponse);
+  int    cMsgGetGetResponse       (const void *vmsg, int *getReponse);
   
-  int    cMsgSetNullGetResponse   (void *vmsg, int  nullGetResponse);
-  int    cMsgGetNullGetResponse   (void *vmsg, int *nullGetResponse);
+  int    cMsgSetNullGetResponse   (      void *vmsg, int  nullGetResponse);
+  int    cMsgGetNullGetResponse   (const void *vmsg, int *nullGetResponse);
     
-  int    cMsgGetDomain            (void *vmsg, char **domain);
-  int    cMsgGetCreator           (void *vmsg, char **creator);
+  int    cMsgGetDomain            (const void *vmsg, char **domain);
+  int    cMsgGetCreator           (const void *vmsg, char **creator);
   
-  int    cMsgSetSubject           (void *vmsg, const char  *subject);
-  int    cMsgGetSubject           (void *vmsg, char **subject);
+  int    cMsgSetSubject           (      void *vmsg, const char  *subject);
+  int    cMsgGetSubject           (const void *vmsg, char **subject);
   
-  int    cMsgSetType              (void *vmsg, const char  *type);
-  int    cMsgGetType              (void *vmsg, char **type);
+  int    cMsgSetType              (      void *vmsg, const char  *type);
+  int    cMsgGetType              (const void *vmsg, char **type);
   
-  int    cMsgSetText              (void *vmsg, const char  *text);
-  int    cMsgGetText              (void *vmsg, char **text);
+  int    cMsgSetText              (      void *vmsg, const char  *text);
+  int    cMsgGetText              (const void *vmsg, char **text);
   
-  int    cMsgSetUserInt           (void *vmsg, int  userInt);
-  int    cMsgGetUserInt           (void *vmsg, int *userInt);
+  int    cMsgSetUserInt           (      void *vmsg, int  userInt);
+  int    cMsgGetUserInt           (const void *vmsg, int *userInt);
   
-  int    cMsgSetUserTime          (void *vmsg, const struct timespec *userTime);
-  int    cMsgGetUserTime          (void *vmsg, struct timespec *userTime);
+  int    cMsgSetUserTime          (      void *vmsg, const struct timespec *userTime);
+  int    cMsgGetUserTime          (const void *vmsg, struct timespec *userTime);
   
-  int    cMsgGetSender            (void *vmsg, char  **sender);
-  int    cMsgGetSenderHost        (void *vmsg, char  **senderHost);
-  int    cMsgGetSenderTime        (void *vmsg, struct timespec *senderTime);
+  int    cMsgGetSender            (const void *vmsg, char  **sender);
+  int    cMsgGetSenderHost        (const void *vmsg, char  **senderHost);
+  int    cMsgGetSenderTime        (const void *vmsg, struct timespec *senderTime);
   
-  int    cMsgGetReceiver          (void *vmsg, char  **receiver);
-  int    cMsgGetReceiverHost      (void *vmsg, char  **receiverHost);
-  int    cMsgGetReceiverTime      (void *vmsg, struct timespec *receiverTime);
+  int    cMsgGetReceiver          (const void *vmsg, char  **receiver);
+  int    cMsgGetReceiverHost      (const void *vmsg, char  **receiverHost);
+  int    cMsgGetReceiverTime      (const void *vmsg, struct timespec *receiverTime);
   
-  int    cMsgSetByteArrayLength   (void *vmsg, int  length);
-  int    cMsgGetByteArrayLength   (void *vmsg, int *length);
+  int    cMsgSetByteArrayLength   (      void *vmsg, int  length);
+  int    cMsgGetByteArrayLength   (const void *vmsg, int *length);
   
-  int    cMsgSetByteArrayOffset   (void *vmsg, int  offset);
-  int    cMsgGetByteArrayOffset   (void *vmsg, int *offset);
+  int    cMsgSetByteArrayOffset   (      void *vmsg, int  offset);
+  int    cMsgGetByteArrayOffset   (const void *vmsg, int *offset);
   
-  int    cMsgSetByteArrayEndian   (void *vmsg, int endian);
-  int    cMsgGetByteArrayEndian   (void *vmsg, int *endian);
-  int    cMsgNeedToSwap           (void *vmsg, int *swap);
+  int    cMsgSetByteArrayEndian   (      void *vmsg, int endian);
+  int    cMsgGetByteArrayEndian   (const void *vmsg, int *endian);
+  int    cMsgNeedToSwap           (const void *vmsg, int *swap);
   
-  int    cMsgSetByteArray         (void *vmsg, char  *array);
-  int    cMsgGetByteArray         (void *vmsg, char **array);
+  int    cMsgSetByteArray         (      void *vmsg, char  *array);
+  int    cMsgGetByteArray         (const void *vmsg, char **array);
   
-  int    cMsgSetByteArrayAndLimits(void *vmsg, char *array, int offset, int length);
-  int    cMsgCopyByteArray        (void *vmsg, char *array, int offset, int length);
+  int    cMsgSetByteArrayAndLimits(      void *vmsg, char *array, int offset, int length);
+  int    cMsgCopyByteArray        (      void *vmsg, char *array, int offset, int length);
   /* message context stuff */
-  int    cMsgGetSubscriptionDomain (void *vmsg, char **domain);
-  int    cMsgGetSubscriptionSubject(void *vmsg, char **subject);
-  int    cMsgGetSubscriptionType   (void *vmsg, char **type);
-  int    cMsgGetSubscriptionUDL    (void *vmsg, char **udl);
-  int    cMsgGetSubscriptionCueSize(void *vmsg, int   *size);
-  int    cMsgSetReliableSend       (void *vmsg, int boolean);
-  int    cMsgGetReliableSend       (void *vmsg, int *boolean);
+  int    cMsgGetSubscriptionDomain (const void *vmsg, char **domain);
+  int    cMsgGetSubscriptionSubject(const void *vmsg, char **subject);
+  int    cMsgGetSubscriptionType   (const void *vmsg, char **type);
+  int    cMsgGetSubscriptionUDL    (const void *vmsg, char **udl);
+  int    cMsgGetSubscriptionCueSize(const void *vmsg, int   *size);
+  int    cMsgSetReliableSend       (      void *vmsg, int boolean);
+  int    cMsgGetReliableSend       (      void *vmsg, int *boolean);
   /* ******************** */
   int    cMsgToString             (const void *vmsg, char **string);
 

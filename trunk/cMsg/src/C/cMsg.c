@@ -2544,7 +2544,7 @@ int cMsgFreeMessage(void **vmsg) {
  * @returns a pointer to the message copy
  * @returns NULL if argument is NULL or no memory available
  */   
-  void *cMsgCopyMessage(void *vmsg) {
+  void *cMsgCopyMessage(const void *vmsg) {
     cMsgMessage_t *newMsg, *msg = (cMsgMessage_t *)vmsg;
     
     if (vmsg == NULL) {
@@ -2823,7 +2823,7 @@ void *cMsgCreateMessage(void) {
  * @returns a pointer to the new message
  * @returns NULL if no memory available or message argument is NULL
  */   
-void *cMsgCreateNewMessage(void *vmsg) {  
+void *cMsgCreateNewMessage(const void *vmsg) {  
     cMsgMessage_t *newMsg;
     
     if (vmsg == NULL) return NULL;  
@@ -2856,7 +2856,7 @@ void *cMsgCreateNewMessage(void *vmsg) {
  * @returns NULL if no memory available, message argument is NULL, or
  *               message argument is not from calling sendAndGet()
  */   
-void *cMsgCreateResponseMessage(void *vmsg) {
+void *cMsgCreateResponseMessage(const void *vmsg) {
     cMsgMessage_t *newMsg;
     cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
     
@@ -2893,7 +2893,7 @@ void *cMsgCreateResponseMessage(void *vmsg) {
  * @returns NULL if no memory available, message argument is NULL, or
  *               message argument is not from calling sendAndGet()
  */   
-void *cMsgCreateNullResponseMessage(void *vmsg) {
+void *cMsgCreateNullResponseMessage(const void *vmsg) {
     cMsgMessage_t *newMsg;
     cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
     
@@ -2926,7 +2926,7 @@ void *cMsgCreateNullResponseMessage(void *vmsg) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetVersion(void *vmsg, int *version) {
+int cMsgGetVersion(const void *vmsg, int *version) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -2975,7 +2975,7 @@ int cMsgSetGetResponse(void *vmsg, int getResponse) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetGetResponse(void *vmsg, int *getResponse) {
+int cMsgGetGetResponse(const void *vmsg, int *getResponse) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3026,7 +3026,7 @@ int cMsgSetNullGetResponse(void *vmsg, int nullGetResponse) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetNullGetResponse(void *vmsg, int *nullGetResponse) {
+int cMsgGetNullGetResponse(const void *vmsg, int *nullGetResponse) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3051,7 +3051,7 @@ int cMsgGetNullGetResponse(void *vmsg, int *nullGetResponse) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetGetRequest(void *vmsg, int *getRequest) {
+int cMsgGetGetRequest(const void *vmsg, int *getRequest) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3079,7 +3079,7 @@ int cMsgGetGetRequest(void *vmsg, int *getRequest) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetDomain(void *vmsg, char **domain) {
+int cMsgGetDomain(const void *vmsg, char **domain) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3111,7 +3111,7 @@ int cMsgGetDomain(void *vmsg, char **domain) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetCreator(void *vmsg, char **creator) {
+int cMsgGetCreator(const void *vmsg, char **creator) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3165,7 +3165,7 @@ int cMsgSetSubject(void *vmsg, const char *subject) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetSubject(void *vmsg, char **subject) {
+int cMsgGetSubject(const void *vmsg, char **subject) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3218,7 +3218,7 @@ int cMsgSetType(void *vmsg, const char *type) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetType(void *vmsg, char **type) {
+int cMsgGetType(const void *vmsg, char **type) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3271,7 +3271,7 @@ int cMsgSetText(void *vmsg, const char *text) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetText(void *vmsg, char **text) {
+int cMsgGetText(const void *vmsg, char **text) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3317,7 +3317,7 @@ int cMsgSetUserInt(void *vmsg, int userInt) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetUserInt(void *vmsg, int *userInt) {
+int cMsgGetUserInt(const void *vmsg, int *userInt) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3359,7 +3359,7 @@ int cMsgSetUserTime(void *vmsg, const struct timespec *userTime) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetUserTime(void *vmsg, struct timespec *userTime) {
+int cMsgGetUserTime(const void *vmsg, struct timespec *userTime) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3401,7 +3401,7 @@ int cMsgSetByteArrayLength(void *vmsg, int length) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetByteArrayLength(void *vmsg, int *length) {
+int cMsgGetByteArrayLength(const void *vmsg, int *length) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3442,7 +3442,7 @@ int cMsgSetByteArrayOffset(void *vmsg, int offset) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetByteArrayOffset(void *vmsg, int *offset) {
+int cMsgGetByteArrayOffset(const void *vmsg, int *offset) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3535,7 +3535,7 @@ int cMsgSetByteArrayEndian(void *vmsg, int endian) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetByteArrayEndian(void *vmsg, int *endian) {
+int cMsgGetByteArrayEndian(const void *vmsg, int *endian) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3563,7 +3563,7 @@ int cMsgGetByteArrayEndian(void *vmsg, int *endian) {
  * @returns CMSG_ERROR if local endianness is unknown
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */
-int cMsgNeedToSwap(void *vmsg, int *swap) {
+int cMsgNeedToSwap(const void *vmsg, int *swap) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   int localEndian, msgEndian;
@@ -3685,7 +3685,7 @@ int cMsgCopyByteArray(void *vmsg, char *array, int offset, int length) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetByteArray(void *vmsg, char **array) {
+int cMsgGetByteArray(const void *vmsg, char **array) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3709,7 +3709,7 @@ int cMsgGetByteArray(void *vmsg, char **array) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetSender(void *vmsg, char **sender) {
+int cMsgGetSender(const void *vmsg, char **sender) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3738,7 +3738,7 @@ int cMsgGetSender(void *vmsg, char **sender) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetSenderHost(void *vmsg, char **senderHost) {
+int cMsgGetSenderHost(const void *vmsg, char **senderHost) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3765,7 +3765,7 @@ int cMsgGetSenderHost(void *vmsg, char **senderHost) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetSenderTime(void *vmsg, struct timespec *senderTime) {
+int cMsgGetSenderTime(const void *vmsg, struct timespec *senderTime) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3789,7 +3789,7 @@ int cMsgGetSenderTime(void *vmsg, struct timespec *senderTime) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetReceiver(void *vmsg, char **receiver) {
+int cMsgGetReceiver(const void *vmsg, char **receiver) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3819,7 +3819,7 @@ int cMsgGetReceiver(void *vmsg, char **receiver) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetReceiverHost(void *vmsg, char **receiverHost) {
+int cMsgGetReceiverHost(const void *vmsg, char **receiverHost) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3846,7 +3846,7 @@ int cMsgGetReceiverHost(void *vmsg, char **receiverHost) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetReceiverTime(void *vmsg, struct timespec *receiverTime) {
+int cMsgGetReceiverTime(const void *vmsg, struct timespec *receiverTime) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3972,7 +3972,7 @@ int cMsgToString(const void *vmsg, char **string) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message or message context is NULL
  */   
-int cMsgGetSubscriptionDomain(void *vmsg, char **domain) {
+int cMsgGetSubscriptionDomain(const void *vmsg, char **domain) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -4002,7 +4002,7 @@ int cMsgGetSubscriptionDomain(void *vmsg, char **domain) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgGetSubscriptionSubject(void *vmsg, char **subject) {
+int cMsgGetSubscriptionSubject(const void *vmsg, char **subject) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -4033,7 +4033,7 @@ int cMsgGetSubscriptionSubject(void *vmsg, char **subject) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message or message context is NULL
  */   
-int cMsgGetSubscriptionType(void *vmsg, char **type) {
+int cMsgGetSubscriptionType(const void *vmsg, char **type) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -4063,7 +4063,7 @@ int cMsgGetSubscriptionType(void *vmsg, char **type) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message or message context is NULL
  */   
-int cMsgGetSubscriptionUDL(void *vmsg, char **udl) {
+int cMsgGetSubscriptionUDL(const void *vmsg, char **udl) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -4092,7 +4092,7 @@ int cMsgGetSubscriptionUDL(void *vmsg, char **udl) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message or message context is NULL
  */   
-int cMsgGetSubscriptionCueSize(void *vmsg, int *size) {
+int cMsgGetSubscriptionCueSize(const void *vmsg, int *size) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
