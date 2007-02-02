@@ -17,7 +17,7 @@
 package org.jlab.coda.cMsg.RCBroadcastDomain;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgDomain.client.cMsgGetHelper;
+import org.jlab.coda.cMsg.cMsgGetHelper;
 import org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread;
 
 import java.net.*;
@@ -206,14 +206,15 @@ public class rcListeningThread extends Thread {
 
                 // if broadcast from client ...
                 if (msgType == cMsgNetworkConstants.rcDomainBroadcastClient) {
-                    // Send a reply to broad/unicast. This can be a blank packet since
-                    // all we want to communicate is that the client was heard and can
-                    // now stop broadcasting
+                    // Send a reply to broad/unicast - some integer so the client can filter
+                    // out any rogue responses. All we want to communicate is that the client
+                    // was heard and can now stop broadcasting.
                     if (!server.acceptingClients) { continue;}
 
                     try {
                         // create packet to respond to broadcast
-                        DatagramPacket pkt = new DatagramPacket(buf, 0, broadcasterAddress, broadcasterUdpPort);
+                        intToBytes(0xc0da, buf, 0);
+                        DatagramPacket pkt = new DatagramPacket(buf, 4, broadcasterAddress, broadcasterUdpPort);
 //System.out.println("Send reponse packet to client");
                         broadcastSocket.send(pkt);
                     }
