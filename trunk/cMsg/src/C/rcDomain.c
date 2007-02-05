@@ -749,12 +749,12 @@ static void *receiverThd(void *arg) {
         else {
             len2 = 0;
         }
-
+/*
 printf("Broadcast response from: %s, on port %hu, listening port = %d, host = %s, expid = %s\n",
                 inet_ntoa(threadArg->addr.sin_addr),
                 ntohs(threadArg->addr.sin_port),
                 port, host, expid);
-                 
+*/                 
         /* make sure the response is from the RCBroadcastServer */
         if (code != 0xc0da) {
             printf("receiverThd: got bogus secret code response to broadcast\n");
