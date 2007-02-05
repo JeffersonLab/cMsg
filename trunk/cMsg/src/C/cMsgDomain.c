@@ -526,7 +526,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
                                 char **host, int *port) {    
     char   buffer[1024];
     int    err, status, len, passwordLen, sockfd;
-    int    outGoing[2], broadcastTO=0, gotResponse=0;
+    int    outGoing[3], broadcastTO=0, gotResponse=0;
     const int on=1;
     
     pthread_t rThread, bThread;
@@ -567,10 +567,12 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
     if (domain->failovers[failoverIndex].password != NULL) {
         passwordLen = strlen(domain->failovers[failoverIndex].password);
     }
+    /* magic int */
+    outGoing[0] = htonl(0xc0da1);
     /* type of broadcast */
-    outGoing[0] = htonl(CMSG_DOMAIN_BROADCAST);
+    outGoing[1] = htonl(CMSG_DOMAIN_BROADCAST);
     /* length of "password" string */
-    outGoing[1] = htonl(passwordLen);
+    outGoing[2] = htonl(passwordLen);
 
     /* copy data into a single buffer */
     memcpy(buffer, (void *)outGoing, sizeof(outGoing));
@@ -724,24 +726,25 @@ printf("Broadcast response from: %s, on port %hu, with msg len = %hd\n",
         memcpy(&nameLen, pchar, sizeof(int));
         nameLen = ntohl(nameLen);
         pchar += sizeof(int);
+/*printf("  magic int = %d, port = %d, len = %d\n", magicInt, port, nameLen);*/
         
-        if ((magicInt != 0xc0da) || 
+        if ((magicInt != 0xc0da1) || 
                 (port < 1024 || port > 65535) ||
                 (nameLen < 0 || nameLen > 1024-12)) {
             /* wrong format so ignore */
-/*printf("Broadcast response has wrong format\n");*/
+/*printf("  Broadcast response has wrong format\n");*/
             continue;
         }
         if (nameLen != strlen(pchar)) {
             /* wrong format so ignore */
-/*printf("Broadcast response has wrong format\n");*/
+/*printf("  Broadcast response has wrong format, bad host name\n");*/
             continue;
         }
         
         /* send info back to caling function */
         threadArg->buffer = strdup(pchar);
         threadArg->port   = port;
-/*printf("Receiver thread: host = %s, port = %d\n", pchar, port);*/
+/*printf("  Receiver thread: host = %s, port = %d\n", pchar, port);*/
         /* Tell main thread we are done. */
         pthread_cond_signal(&cond);
         break;
