@@ -27,7 +27,6 @@ import org.jlab.coda.cMsg.*;
 import java.util.*;
 import java.util.regex.*;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import com.smartsockets.*;
 
@@ -59,10 +58,6 @@ public class SmartSockets extends cMsgSubdomainAdapter {
     private cMsgClientInfo myClientInfo;
 
 
-    /** direct buffer needed for nio socket IO. */
-    private ByteBuffer myBuffer = ByteBuffer.allocateDirect(2048);
-
-
     /** UDL remainder. */
     private String myUDLRemainder = null;
 
@@ -72,12 +67,11 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
 
     /** for smartsockets. */
-    private TipcSrv mySrv     = null;
-    private String myProject;
+    private TipcSrv mySrv = null;
 
 
     /** misc */
-    private boolean done      = false;
+    private boolean done = false;
 
 
     /** smartsockets callback delivers message to client. */
@@ -95,7 +89,7 @@ public class SmartSockets extends cMsgSubdomainAdapter {
                 cmsg.setReceiver(myClientInfo.getName());
                 cmsg.setReceiverHost(myClientInfo.getClientHost());
                 cmsg.setReceiverTime(new Date());
-                cmsg.setReceiverSubscribeId(((Integer)arg).intValue());
+                cmsg.setReceiverSubscribeId((Integer)arg);
 
                 cmsg.setSubject(msg.getDest());
                 cmsg.setType(msg.getType().getName());
@@ -232,6 +226,7 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
 
         // extract project from UDL remainder
+        String myProject;
         if(myUDLRemainder.indexOf("?")>0) {
             Pattern p = Pattern.compile("^(.+?)(\\?)(.*)$");
             Matcher m = p.matcher(myUDLRemainder);
@@ -277,7 +272,7 @@ public class SmartSockets extends cMsgSubdomainAdapter {
     public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
 
         String type = msg.getType();
-        TipcMt mt   = null;
+        TipcMt mt;
 
 
         // form smartsockets message type
@@ -336,8 +331,8 @@ public class SmartSockets extends cMsgSubdomainAdapter {
     public void handleSubscribeRequest(String subject, String type,
                                        int receiverSubscribeId) throws cMsgException {
 
-        TipcMt mt = null;
-        TipcCb cb = null;
+        TipcMt mt;
+        TipcCb cb;
         MyInt m;
 
 
