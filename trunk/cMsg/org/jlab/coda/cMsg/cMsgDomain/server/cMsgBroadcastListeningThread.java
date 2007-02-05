@@ -110,7 +110,8 @@ public class cMsgBroadcastListeningThread extends Thread {
         catch (UnknownHostException e) { }
 
         try {
-            // Put our TCP listening port and our host into byte array
+            // Put our magic int, TCP listening port, and our host into byte array
+            out.writeInt(0xc0da);
             out.writeInt(serverTcpPort);
             out.writeInt(myHost.length());
             try {out.write(myHost.getBytes("US-ASCII"));}

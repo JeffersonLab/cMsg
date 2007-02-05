@@ -568,23 +568,31 @@ public class cMsg extends cMsgDomainAdapter {
             byte[] buf = new byte[1024];
             DatagramPacket packet = new DatagramPacket(buf, 1024);
 
-            try {
-                udpSocket.receive(packet);
+            while (true) {
+                try {
+                    udpSocket.receive(packet);
 
 //System.out.println("RECEIVED BROADCAST RESPONSE PACKET !!!");
+                    // pick apart byte array received
+                    int magicInt   = bytesToInt(buf, 0); // magic password
+                    nameServerPort = bytesToInt(buf, 4); // port to do a direct connection to
+                    int hostLength = bytesToInt(buf, 8); // host to do a direct connection to
 
-                // pick apart byte array received
-                nameServerPort = bytesToInt(buf, 0); // port to do a direct connection to
-                int hostLength = bytesToInt(buf, 4); // host to do a direct connection to
+                    if ( (magicInt != 0xc0da) ||
+                            (nameServerPort < 1024 || nameServerPort > 65535) ||
+                            (hostLength < 0 || hostLength > 1024 - 12)) {
+//System.out.println("Wrong format for broadcast response packet!");
+                        continue;
+                    }
 
-                // cMsg server host
-                try {
-                    nameServerHost = new String(buf, 8, hostLength, "US-ASCII");
-                }
-                catch (UnsupportedEncodingException e) {}
+                    // cMsg server host
+                    try { nameServerHost = new String(buf, 12, hostLength, "US-ASCII"); }
+                    catch (UnsupportedEncodingException e) {}
 //System.out.println("Got port = " + nameServerPort + ", host = " + nameServerHost);
-            }
-            catch (IOException e) {
+                    break;
+                }
+                catch (IOException e) {
+                }
             }
 
             broadcastResponse.countDown();

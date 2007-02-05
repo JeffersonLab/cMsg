@@ -694,7 +694,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
  * the server due to our initial broadcast.
  */
 static void *receiverThd(void *arg) {
-    int port, nameLen;
+    int port, nameLen, magicInt;
     thdArg *threadArg = (thdArg *) arg;
     char buf[1024], *pchar;
     ssize_t len;
@@ -711,10 +711,13 @@ printf("Broadcast response from: %s, on port %hu, with msg len = %hd\n",
                 inet_ntoa(threadArg->addr.sin_addr),
                 ntohs(threadArg->addr.sin_port), len); 
 */
-        /* server is sending 2 ints + string in java, len > 8 bytes */
-        if (len < 9) continue;
+        /* server is sending 3 ints + string in java, len > 13 bytes */
+        if (len < 13) continue;
 
         /* The server is sending back its 1) port, 2) host name length, 3) host name */
+        memcpy(&magicInt, pchar, sizeof(int));
+        magicInt = ntohl(magicInt);
+        pchar += sizeof(int);
         memcpy(&port, pchar, sizeof(int));
         port = ntohl(port);
         pchar += sizeof(int);
@@ -722,7 +725,9 @@ printf("Broadcast response from: %s, on port %hu, with msg len = %hd\n",
         nameLen = ntohl(nameLen);
         pchar += sizeof(int);
         
-        if ((port < 1024 || port > 65535) || (nameLen < 0 || nameLen > 1024-8)) {
+        if ((magicInt != 0xc0da) || 
+                (port < 1024 || port > 65535) ||
+                (nameLen < 0 || nameLen > 1024-12)) {
             /* wrong format so ignore */
 /*printf("Broadcast response has wrong format\n");*/
             continue;
