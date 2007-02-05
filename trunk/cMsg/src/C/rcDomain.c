@@ -746,6 +746,9 @@ static void *receiverThd(void *arg) {
           pbuf += len2;
 /*printf("expid = %s\n", expid);*/
         }
+        else {
+            len2 = 0;
+        }
 
 printf("Broadcast response from: %s, on port %hu, listening port = %d, host = %s, expid = %s\n",
                 inet_ntoa(threadArg->addr.sin_addr),
