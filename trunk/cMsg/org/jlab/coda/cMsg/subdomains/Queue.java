@@ -25,12 +25,9 @@ package org.jlab.coda.cMsg.subdomains;
 import org.jlab.coda.cMsg.*;
 
 import java.net.*;
-import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.sql.*;
-import java.util.*;
 import java.util.regex.*;
-import java.util.Date;
 
 
 
@@ -72,8 +69,6 @@ public class Queue extends cMsgSubdomainAdapter {
     // database access objects
     private String myQueueName        = null;
     private String myTableName        = null;
-    private String myDBType           = null;
-    private String myHost             = null;
     private Connection myCon          = null;
     private Statement myStmt          = null;
     private PreparedStatement myPStmt = null;
@@ -173,24 +168,14 @@ public class Queue extends cMsgSubdomainAdapter {
 
         Pattern p;
         Matcher m;
-        String remainder = null;
-        String sql       = null;
+        String remainder;
 
 
         // db parameters
-        String driver = null;
-        String URL = null;
+        String driver;
+        String URL;
         String account = null;
         String password = null;
-
-
-        // set host
-        try {
-            myHost = InetAddress.getLocalHost().getHostName();
-        } catch (UnknownHostException e) {
-            System.err.println(e);
-            myHost = "unknown";
-        }
 
 
         // set myClientInfo
@@ -282,6 +267,7 @@ public class Queue extends cMsgSubdomainAdapter {
 
 
         // create statement object, get db type, and check if table exists
+        String myDBType;
         boolean tableExists = false;
         myTableName="cMsgQueue_" + myQueueName;
         try {
@@ -322,7 +308,7 @@ public class Queue extends cMsgSubdomainAdapter {
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                       or socket properties cannot be set
      */
-    public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
+    synchronized public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
 
         try {
             int i=1;
@@ -393,7 +379,7 @@ public class Queue extends cMsgSubdomainAdapter {
      *
      * @param message message requesting what sort of message to get
      */
-    public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException {
+    synchronized public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException {
 
         boolean null_response = false;
 
@@ -475,7 +461,7 @@ public class Queue extends cMsgSubdomainAdapter {
      *
      * @throws cMsgException
      */
-    public void handleClientShutdown() throws cMsgException {
+    synchronized public void handleClientShutdown() throws cMsgException {
         try {
             myStmt.close();
             myPStmt.close();
