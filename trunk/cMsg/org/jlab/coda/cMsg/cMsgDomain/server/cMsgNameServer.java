@@ -349,7 +349,7 @@ public class cMsgNameServer extends Thread {
             System.exit(-1);
         }
 
-        // At this point, bind to the port. If that isn't possible, throw
+        // At this point, bind to the TCP listening port. If that isn't possible, throw
         // an exception.
         try {
             serverChannel = ServerSocketChannel.open();
