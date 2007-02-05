@@ -724,6 +724,7 @@ printf("Broadcast response from: %s, on port %hu, with msg len = %hd\n",
         
         if ((port < 1024 || port > 65535) || (nameLen < 0 || nameLen > 1024-8)) {
             /* wrong format so ignore */
+/*printf("Broadcast response has wrong format\n");*/
             continue;
         }
         if (nameLen != strlen(pchar)) {
