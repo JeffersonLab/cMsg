@@ -1041,13 +1041,21 @@ public class RunControl extends cMsgDomainAdapter {
 //System.out.println("code = " + Integer.toHexString(code) + ", port = " + port);
 
                     // get host
-                    String host = new String(buf, index, hostLen, "US-ASCII");
+                    if (hostLen > 0 && hostLen < 1025-16) {
+                        String host = new String(buf, index, hostLen, "US-ASCII");
 //System.out.println("host = " + host);
-                    index += hostLen;
+                        index += hostLen;
+                    }
+                    else {
+                        hostLen = 0;
+                    }
 
                     // get expid
-                    String serverExpid = new String(buf, index, expidLen, "US-ASCII");
+                    String serverExpid = null;
+                    if (expidLen > 0 && expidLen < 1025-16-hostLen) {
+                        serverExpid = new String(buf, index, expidLen, "US-ASCII");
 //System.out.println("expid = " + serverExpid);
+                    }
 
                     /* make sure the response is from the RCBroadcastServer */
                     if (code != 0xc0da) {
