@@ -46,10 +46,6 @@ public class cMsg extends cMsgSubdomainAdapter {
     static private ConcurrentHashMap<String,cMsgClientInfo> servers =
             new ConcurrentHashMap<String,cMsgClientInfo>(100);
 
-    /** HashMap to store regular clients. Name is key and cMsgClientInfo is value. */
-    static private ConcurrentHashMap<String,cMsgClientInfo> clientsOrig =
-            new ConcurrentHashMap<String,cMsgClientInfo>(100);
-
     /**
      * This is a set to store regular clients as cMsgClientInfo objects. This is not done by
      * having a HashMap where the client name is the key since client names themselves
@@ -867,7 +863,7 @@ public class cMsg extends cMsgSubdomainAdapter {
             }
 
             // get rid of this subscription if no more subscribers left
-            if (sub.numberOfSubscribers() < 1) {
+            if (sub != null  &&  sub.numberOfSubscribers() < 1) {
 //System.out.println("  : remove entire subscription");
                 subscriptions.remove(sub);
             }
@@ -908,7 +904,7 @@ public class cMsg extends cMsgSubdomainAdapter {
             }
 
             // get rid of this subscription if no more subscribers left
-            if (sub.numberOfSubscribers() < 1) {
+            if (sub != null  &&  sub.numberOfSubscribers() < 1) {
                 subscriptions.remove(sub);
             }
         }
@@ -1254,46 +1250,6 @@ public class cMsg extends cMsgSubdomainAdapter {
         finally {
             subscribeLock.unlock();
         }
-    }
-
-
-    /**
-     * Method to handle request to shutdown clients sent by client.
-     *
-     * @param client client(s) to be shutdown
-     * @param includeMe   if true, this client may be shutdown too
-     * @throws cMsgException if a channel to the client is closed, cannot be created,
-     *                       or socket properties cannot be set
-     */
-    public void handleShutdownClientsRequestOrig(String client, boolean includeMe) throws cMsgException {
-
-//System.out.println("dHandler: try to kill client " + client);
-        // Match all clients that need to be shutdown.
-        // Scan through all clients.
-        cMsgClientInfo info;
-
-        for (String clientName : clientsOrig.keySet()) {
-            // Do not shutdown client sending this command, unless told to with flag "includeMe"
-            if ( !includeMe && clientName.equals(name) ) {
-//System.out.println("  dHandler: skip client " + clientName);
-                continue;
-            }
-
-            if (cMsgMessageMatcher.matches(client, clientName, true)) {
-                try {
-//System.out.println("  dHandler: deliver shutdown message to client " + clientName);
-                    info = clientsOrig.get(clientName);
-                    info.getDeliverer().deliverMessage(null, cMsgConstants.msgShutdownClients);
-                }
-                catch (IOException e) {
-                    if (debug >= cMsgConstants.debugError) {
-                        System.out.println("dHandler: cannot tell client " + name + " to shutdown");
-                    }
-                }
-            }
-        }
-
-        // match all servers that need to be shutdown (not implemented yet)
     }
 
 
