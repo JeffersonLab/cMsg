@@ -43,7 +43,6 @@ import gov.aps.jca.CAStatus;
 
 import java.util.*;
 import java.util.Date;
-import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.util.regex.*;
 import java.net.*;
@@ -55,6 +54,7 @@ import java.net.*;
 
 /**
  * cMsg subdomain handler for channel access (CA) subdomain.
+ * WARNING: This class may need some thread-safety measures added (Timmer).
  *
  * Executes send/get as CA put/get command.
  *
@@ -78,8 +78,7 @@ public class CA extends cMsgSubdomainAdapter {
     private cMsgDeliverMessageInterface myDeliverer;
 
 
-    /** JCALibrary and context. */
-    private JCALibrary myJCA  = null;
+    /** Context. */
     private Context myContext = null;
 
 
@@ -295,7 +294,7 @@ public class CA extends cMsgSubdomainAdapter {
 
 
         // get JCA library
-        myJCA = JCALibrary.getInstance();
+        JCALibrary myJCA = JCALibrary.getInstance();
 
 
         // parse remainder and set JCA context options

@@ -63,10 +63,6 @@ public class LogFile extends cMsgSubdomainAdapter {
     }
 
 
-    /** File name for this client. */
-    private String myFileName;
-
-
     /** Canonical file name for this client. */
     private String myCanonicalName;
 
@@ -142,6 +138,7 @@ public class LogFile extends cMsgSubdomainAdapter {
 
 
         //  extract file name from UDL remainder
+        String myFileName;
         if (myUDLRemainder.indexOf("?") > 0) {
             Pattern p = Pattern.compile("^(.+?)(\\?)(.*)$");
             Matcher m = p.matcher(myUDLRemainder);

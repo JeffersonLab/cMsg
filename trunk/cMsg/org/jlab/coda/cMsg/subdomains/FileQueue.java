@@ -23,14 +23,10 @@ package org.jlab.coda.cMsg.subdomains;
 
 import org.jlab.coda.cMsg.*;
 
-import java.net.*;
 import java.io.*;
-import java.nio.*;
 import java.nio.channels.*;
 import java.util.*;
-import java.util.concurrent.*;
 import java.util.regex.*;
-import java.util.Date;
 
 
 
@@ -74,14 +70,11 @@ public class FileQueue extends cMsgSubdomainAdapter {
 
 
     // database access objects
-    private String myQueueName          = null;
     private String myQueueNameFull      = null;
     private String myDirectory          = ".";
-    private String myCanonicalDir       = null;
     private String myFileNameBase       = null;
     private String myLoSeqFile          = null;
     private String myHiSeqFile          = null;
-    private String myHost               = null;
 
 
 //-----------------------------------------------------------------------------
@@ -181,20 +174,12 @@ public class FileQueue extends cMsgSubdomainAdapter {
         String remainder = null;
 
 
-        // set host
-        try {
-            myHost = InetAddress.getLocalHost().getHostName();
-        } catch (UnknownHostException e) {
-            System.err.println(e);
-            myHost = "unknown";
-        }
-
-
         // set myClientInfo
         myClientInfo=info;
 
 
         // extract queue name from UDL remainder
+        String myQueueName;
         if(myUDLRemainder.indexOf("?")>0) {
             p = Pattern.compile("^(.+?)(\\?.*)$");
             m = p.matcher(myUDLRemainder);
@@ -220,6 +205,7 @@ public class FileQueue extends cMsgSubdomainAdapter {
 
 
         // get canonical dir name
+        String myCanonicalDir;
         try {
             myCanonicalDir = new File(myDirectory).getCanonicalPath();
         } catch (IOException e) {
