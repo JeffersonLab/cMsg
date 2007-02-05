@@ -47,6 +47,7 @@ using namespace std;
 
 // for cMsg
 #include <cMsg.hxx>
+using namespace cmsg;
 
 
 // for ca 
@@ -64,7 +65,7 @@ using namespace std;
 
 
 // for cMsg
-cMsg *cmsg                  = NULL;
+cMsg *cMsgSys               = NULL;
 static string udl           = "cMsg://ollie:3456/cMsg";
 static string name          = "cMsgCAGateway";
 static string descr         = "cMsg CA Gateway utility";
@@ -210,12 +211,12 @@ main(int argc,char **argv) {
 
 
   // connect to cMsg system
-  cmsg = new cMsg(udl,name,descr);
-  cmsg->connect();
+  cMsgSys = new cMsg(udl,name,descr);
+  cMsgSys->connect();
 
 
   //  subscribe to name/cfgType and set callback for on-the-fly XML configuration
-  cmsg->subscribe(name,cfgType,new myCallbackObject(),(void *)0);
+  cMsgSys->subscribe(name,cfgType,new myCallbackObject(),(void *)0);
 
 
   // set epics server debug flag
@@ -231,7 +232,7 @@ main(int argc,char **argv) {
   
 
   // start processing messages
-  cmsg->start();
+  cMsgSys->start();
 
 
   // CA server loop
@@ -257,7 +258,7 @@ main(int argc,char **argv) {
 
 
   // done...clean up
-  cmsg->disconnect();
+  cMsgSys->disconnect();
   cout << endl << " *** cMsgCAGateway done ***" << endl << endl;
   exit(EXIT_SUCCESS);
 }
@@ -454,7 +455,7 @@ void startElement(void *userData, const char *xmlname, const char **atts) {
     
 
     // subscribe
-    cmsg->subscribe(pvSubject,pvType,new myCallbackObject(),(void *)pvMap[pvName]);
+    cMsgSys->subscribe(pvSubject,pvType,new myCallbackObject(),(void *)pvMap[pvName]);
     
   }
 

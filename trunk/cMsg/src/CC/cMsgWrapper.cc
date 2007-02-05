@@ -1,7 +1,6 @@
 // to do
 //   subscribe must lock list until done
 //   word doc, doxygen doc
-//   namespace?
 
 
 
@@ -29,6 +28,9 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <vector>
+
+using namespace std;
+using namespace cmsg;
 
 
 

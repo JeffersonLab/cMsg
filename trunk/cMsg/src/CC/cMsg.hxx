@@ -20,9 +20,12 @@
 
 
 #include <cMsg.h>
+#include <string>
+
+
+namespace cmsg {
 
 using namespace std;
-#include <string>
 
 
 
@@ -272,6 +275,8 @@ public:
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
+
+} // namespace cMsg
 
 #endif /* _cMsg_hxx */
 

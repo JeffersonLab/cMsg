@@ -15,6 +15,8 @@ using namespace std;
 // for cMsg
 #include <cMsg.hxx>
 
+using namespace cmsg;
+
 
 // connection parameters
 static string udl;
