@@ -111,7 +111,7 @@ public class cMsgBroadcastListeningThread extends Thread {
 
         try {
             // Put our magic int, TCP listening port, and our host into byte array
-            out.writeInt(0xc0da);
+            out.writeInt(0xc0da1);
             out.writeInt(serverTcpPort);
             out.writeInt(myHost.length());
             try {out.write(myHost.getBytes("US-ASCII"));}
@@ -145,12 +145,22 @@ public class cMsgBroadcastListeningThread extends Thread {
                 // pick apart byte array received
                 InetAddress clientAddress = packet.getAddress();
                 int clientUdpPort = packet.getPort();   // port to send response packet to
-                int msgType       = bytesToInt(buf, 0); // what type of broadcast is this ?
-                int passwordLen   = bytesToInt(buf, 4); // password length
+                int magicInt      = bytesToInt(buf, 0); // magic number
+                int msgType       = bytesToInt(buf, 4); // what type of broadcast is this ?
+                int passwordLen   = bytesToInt(buf, 8); // password length
+//System.out.println("magic int = " + Integer.toHexString(magicInt) + ", msgtype = " + msgType + ", len = " + passwordLen);
+
+                // sanity check
+                if (magicInt != 0xc0da1 || msgType != cMsgNetworkConstants.cMsgDomainBroadcast) {
+                    // ignore broadcasts from unknown sources
+//System.out.println("bad magic # or msgtype");
+                    continue;
+                }
+
                 // password
                 String pswd = null;
                 if (passwordLen > 0) {
-                    try { pswd = new String(buf, 8, passwordLen, "US-ASCII"); }
+                    try { pswd = new String(buf, 12, passwordLen, "US-ASCII"); }
                     catch (UnsupportedEncodingException e) {}
                 }
 
@@ -173,11 +183,6 @@ public class cMsgBroadcastListeningThread extends Thread {
                         }
                         continue;
                     }
-                }
-
-                // ignore broadcasts from unknown sources
-                if (msgType != cMsgNetworkConstants.cMsgDomainBroadcast) {
-                    continue;
                 }
 
                 // Send a reply to broadcast. This must contain this name server's

@@ -488,8 +488,9 @@ public class cMsg extends cMsgDomainAdapter {
             DataOutputStream out = new DataOutputStream(baos);
 
             try {
-                // Write an int describing our message type:
-                // broadcast is from cMsg domain client
+                // send our magic int
+                out.writeInt(0xc0da1);
+                // int describing our message type: broadcast is from cMsg domain client
                 out.writeInt(cMsgNetworkConstants.cMsgDomainBroadcast);
                 out.writeInt(password.length());
                 try {out.write(password.getBytes("US-ASCII"));}
@@ -577,18 +578,19 @@ public class cMsg extends cMsgDomainAdapter {
                     int magicInt   = bytesToInt(buf, 0); // magic password
                     nameServerPort = bytesToInt(buf, 4); // port to do a direct connection to
                     int hostLength = bytesToInt(buf, 8); // host to do a direct connection to
+//System.out.println("  magic int = " + Integer.toHexString(magicInt) + ", port = " + nameServerPort + ", len = " + hostLength);
 
-                    if ( (magicInt != 0xc0da) ||
+                    if ( (magicInt != 0xc0da1) ||
                             (nameServerPort < 1024 || nameServerPort > 65535) ||
                             (hostLength < 0 || hostLength > 1024 - 12)) {
-//System.out.println("Wrong format for broadcast response packet!");
+//System.out.println("  Wrong format for broadcast response packet");
                         continue;
                     }
 
                     // cMsg server host
                     try { nameServerHost = new String(buf, 12, hostLength, "US-ASCII"); }
                     catch (UnsupportedEncodingException e) {}
-//System.out.println("Got port = " + nameServerPort + ", host = " + nameServerHost);
+//System.out.println("  Got port = " + nameServerPort + ", host = " + nameServerHost);
                     break;
                 }
                 catch (IOException e) {
