@@ -217,7 +217,7 @@ public class Database extends cMsgSubdomainAdapter {
      * @param msg message from sender.
      * @throws cMsgException
      */
-    public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
+    synchronized public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
 
         String sql = msg.getText();
 
@@ -272,7 +272,7 @@ public class Database extends cMsgSubdomainAdapter {
      *
      * @throws cMsgException
      */
-    public void handleClientShutdown() throws cMsgException {
+    synchronized public void handleClientShutdown() throws cMsgException {
         try {
             myStmt.close();
             myCon.close();
