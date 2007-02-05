@@ -718,7 +718,7 @@ static void *receiverThd(void *arg) {
         len1 = ntohl(ints[2]);
         len2 = ntohl(ints[3]);
         
-        if (len1 > 0) {
+        if (len1 > 0 && len1 < 1025) {
           if ( (tmp = (char *) malloc(len1+1)) == NULL) {
             continue;    
           }
@@ -733,7 +733,7 @@ static void *receiverThd(void *arg) {
 /*printf("host = %s\n", host);*/
         }
         
-        if (len2 > 0) {
+        if (len2 > 0 && len2 < 1025) {
           if ( (tmp = (char *) malloc(len2+1)) == NULL) {
             continue;    
           }
