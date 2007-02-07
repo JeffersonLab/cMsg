@@ -198,7 +198,6 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      * @throws cMsgException
      */
     public void handleKeepAlive() throws cMsgException {
-        return;
     }
 
 
@@ -208,7 +207,6 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      * @throws cMsgException
      */
     public void handleClientShutdown() throws cMsgException {
-        return;
     }
 
 

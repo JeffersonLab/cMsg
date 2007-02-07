@@ -681,7 +681,7 @@ public class cMsgMessage implements Cloneable {
      * </ul>
      *
      * @param endian endianness of the byte array data
-     * @throws cMsgException
+     * @throws cMsgException if argument invalid value
      */
     public void setByteArrayEndian(int endian) throws cMsgException {
         if ((endian != cMsgConstants.endianBig)      &&

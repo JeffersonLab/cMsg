@@ -312,7 +312,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      */
     public void setShutdownHandler(cMsgShutdownHandlerInterface handler) {
         shutdownHandler = handler;
-    };
+    }
 
 
 //-----------------------------------------------------------------------------

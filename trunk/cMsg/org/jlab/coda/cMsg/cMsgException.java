@@ -34,7 +34,7 @@ public class cMsgException extends Exception {
      * Constructs a new exception with the specified message and a return code.
      *
      * @param msg the error message
-     * @param returnCode
+     * @param returnCode send an integer along with the exception
      */ 
     public cMsgException(String msg, int returnCode) {
         super(msg);

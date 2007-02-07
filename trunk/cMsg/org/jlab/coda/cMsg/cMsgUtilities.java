@@ -37,11 +37,10 @@ public class cMsgUtilities {
       * @param buffer   a byte buffer which channel data is read into
       * @param channel  nio socket communication channel
       * @param bytes    minimum number of bytes to read from channel
-      * @param debug    level of debug output
       * @return number of bytes read
       * @throws IOException If channel is closed or cannot be read from
       */
-     static public int readSocketBytesPlain(ByteBuffer buffer, SocketChannel channel, int bytes, int debug)
+     static public int readSocketBytesPlain(ByteBuffer buffer, SocketChannel channel, int bytes)
              throws IOException {
 
          int n, count = 0;
@@ -141,9 +140,10 @@ public class cMsgUtilities {
      *
      * @param error error number
      * @param debug level of debug output
+     * @return error explanation
      */
     static public String printError(int error, int debug) {
-      String reason = null;
+      String reason;
 
       switch (error) {
 

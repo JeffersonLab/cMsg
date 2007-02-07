@@ -615,7 +615,7 @@ public class cMsg {
      */
     public void setShutdownHandler(cMsgShutdownHandlerInterface handler) {
         connection.setShutdownHandler(handler);
-    };
+    }
 
     /**
      * Method to get the shutdown handler of the client.

@@ -16,8 +16,6 @@
 
 package org.jlab.coda.cMsg;
 
-import org.jlab.coda.cMsg.cMsgGetHelper;
-
 import java.util.regex.Matcher;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -60,7 +58,7 @@ public class cMsgMessageMatcher {
      * @param escapeRegexp if true, the regexp argument is escaped, else not
      * @return true if there is a match, false if there is not
      */
-    static final public boolean matches(String regexp, String s, boolean escapeRegexp) {
+    static public boolean matches(String regexp, String s, boolean escapeRegexp) {
         // It's a match if regexp (subscription string) is null
         if (regexp == null) return true;
 
@@ -77,8 +75,7 @@ public class cMsgMessageMatcher {
         }
 
         // Now see if there's a match with the string arg
-        if (s.matches(regexp)) return true;
-        return false;
+        return s.matches(regexp);
     }
 
     /**
@@ -94,9 +91,9 @@ public class cMsgMessageMatcher {
      * @param helper subscription
      * @return true if there is a match of both subject and type, false if there is not
      */
-    static final public boolean matches(String subject, String type, cMsgGetHelper helper) {
-        boolean matchSubj = false;
-        boolean matchType = false;
+    static public boolean matches(String subject, String type, cMsgGetHelper helper) {
+        boolean matchSubj;
+        boolean matchType;
 
         // if there are no wildcards in the helper's subject, just use string compare
         if (!helper.areWildCardsInSub()) {
@@ -133,9 +130,9 @@ public class cMsgMessageMatcher {
      * @param sub subscription
      * @return true if there is a match of both subject and type, false if there is not
      */
-    static final public boolean matches(String subject, String type, cMsgSubscription sub) {
-        boolean matchSubj = false;
-        boolean matchType = false;
+    static public boolean matches(String subject, String type, cMsgSubscription sub) {
+        boolean matchSubj;
+        boolean matchType;
 
         // first check for null subjects/types in subscription
         if (sub.getSubject() == null || sub.getType() == null) return false;
@@ -171,12 +168,12 @@ public class cMsgMessageMatcher {
      * @param s string to be escaped
      * @return escaped string
      */
-    static final public String escape(String s) {
+    static public String escape(String s) {
         if (s == null) return null;
 
         // StringBuilder is a nonsynchronized StringBuffer class.
         StringBuilder buf = new StringBuilder(s);
-        int lastIndex = 0;
+        int lastIndex;
 
         // Check for characters which need to be escaped to prevent
         // special interpretation in regular expressions.
@@ -233,7 +230,7 @@ public class cMsgMessageMatcher {
      * @throws cMsgException if input string is not in the proper form (host:port)
      *                       or the host is unknown
      */
-    static final public String constructServerName(String s) throws cMsgException {
+    static public String constructServerName(String s) throws cMsgException {
 
         // Separate the server name from the server port.
         // First check for ":"
@@ -244,7 +241,7 @@ public class cMsgMessageMatcher {
 
         String sName = s.substring(0, index);
         String sPort = s.substring(index + 1);
-        int port=0;
+        int port;
 
         // translate the port from string to int
         try {
@@ -259,7 +256,7 @@ public class cMsgMessageMatcher {
         }
 
         // See if this host is recognizable. To do that
-        InetAddress address = null;
+        InetAddress address;
         try {
             address = InetAddress.getByName(sName);
         }
