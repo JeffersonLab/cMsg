@@ -3473,8 +3473,8 @@ int cMsgSetByteArrayEndian(void *vmsg, int endian) {
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
     
-  if ((endian != CMSG_ENDIAN_BIG)   || (endian != CMSG_ENDIAN_LITTLE)   ||
-      (endian != CMSG_ENDIAN_LOCAL) || (endian != CMSG_ENDIAN_NOTLOCAL) ||
+  if ((endian != CMSG_ENDIAN_BIG)   && (endian != CMSG_ENDIAN_LITTLE)   &&
+      (endian != CMSG_ENDIAN_LOCAL) && (endian != CMSG_ENDIAN_NOTLOCAL) &&
       (endian != CMSG_ENDIAN_SWITCH)) {
       return(CMSG_BAD_ARGUMENT);
   }
