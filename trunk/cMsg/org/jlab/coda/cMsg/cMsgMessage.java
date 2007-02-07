@@ -171,7 +171,7 @@ public class cMsgMessage implements Cloneable {
         Object o = super.clone();
         ((cMsgMessage) o).context = null;
         if (bytes != null) {
-            ((cMsgMessage) o).bytes = (byte[]) bytes.clone();
+            ((cMsgMessage) o).bytes = bytes.clone();
         }
         return o;
     }
@@ -183,7 +183,11 @@ public class cMsgMessage implements Cloneable {
     }
 
 
-    /** The constructor which copies a given message, EXCEPT for the creator field. */
+    /**
+     * The constructor which copies a given message, EXCEPT for the creator field.
+     *
+     * @param msg message to be copied
+     */
     public cMsgMessage(cMsgMessage msg) {
         sysMsgId            = msg.sysMsgId;
         domain              = msg.domain;
@@ -193,7 +197,7 @@ public class cMsgMessage implements Cloneable {
         subject             = msg.subject;
         type                = msg.type;
         text                = msg.text;
-        bytes               = (byte[]) msg.bytes.clone();
+        bytes               = msg.bytes.clone();
         reserved            = msg.reserved;
         userInt             = msg.userInt;
         userTime            = msg.userTime;
@@ -316,7 +320,7 @@ public class cMsgMessage implements Cloneable {
      * Is this message a response to a "sendAndGet" message?
      * @return true if this message is a response to a "sendAndGet" message.
      */
-    public boolean isGetResponse() {return ((info & isGetResponse) == isGetResponse ? true : false);}
+    public boolean isGetResponse() {return ((info & isGetResponse) == isGetResponse);}
     /**
      * Specify whether this message is a response to a "sendAndGet" message.
      * @param getResponse true if this message is a response to a "sendAndGet" message
@@ -330,7 +334,7 @@ public class cMsgMessage implements Cloneable {
      * Is this message a null response to a "sendAndGet" message?
      * @return true if this message is a null response to a "sendAndGet" message
      */
-    public boolean isNullGetResponse() {return ((info & isNullGetResponse) == isNullGetResponse ? true : false);}
+    public boolean isNullGetResponse() {return ((info & isNullGetResponse) == isNullGetResponse);}
     /**
      * Specify whether this message is a null response to a "sendAndGet" message.
      * @param nullGetResponse true if this message is a null response to a "sendAndGet" message
@@ -344,7 +348,7 @@ public class cMsgMessage implements Cloneable {
      * Is this message a "sendAndGet" request?
      * @return true if this message is a "sendAndGet" request
      */
-    public boolean isGetRequest() {return ((info & isGetRequest) == isGetRequest ? true : false);}
+    public boolean isGetRequest() {return ((info & isGetRequest) == isGetRequest);}
 
 
     /**
@@ -497,7 +501,7 @@ public class cMsgMessage implements Cloneable {
             length = 0;
             return;
         }
-        bytes  = (byte[]) b.clone();
+        bytes  = b.clone();
         offset = 0;
         length = b.length;
     }
@@ -537,9 +541,7 @@ public class cMsgMessage implements Cloneable {
         this.length = length;
         bytes  = new byte[length];
 
-        for (int i=0; i<length; i++) {
-            bytes[i] = b[offset+i];
-        }
+        System.arraycopy(b, offset, bytes, 0, length);
     }
 
     /**
@@ -679,12 +681,13 @@ public class cMsgMessage implements Cloneable {
      * </ul>
      *
      * @param endian endianness of the byte array data
+     * @throws cMsgException
      */
     public void setByteArrayEndian(int endian) throws cMsgException {
-        if ((endian != cMsgConstants.endianBig)      ||
-            (endian != cMsgConstants.endianLittle)   ||
-            (endian != cMsgConstants.endianLocal)    ||
-            (endian != cMsgConstants.endianNotLocal) ||
+        if ((endian != cMsgConstants.endianBig)      &&
+            (endian != cMsgConstants.endianLittle)   &&
+            (endian != cMsgConstants.endianLocal)    &&
+            (endian != cMsgConstants.endianNotLocal) &&
             (endian != cMsgConstants.endianSwitch)) {
             throw new cMsgException("improper endian value");
         }
@@ -712,8 +715,7 @@ public class cMsgMessage implements Cloneable {
      * @return true if byte array is little endian, else false
      */
     public boolean needToSwap() {
-        if ((this.info & isBigEndian) > 1) return false;
-        return true;
+        return (this.info & isBigEndian) <= 1;
     }
 
 
@@ -747,8 +749,10 @@ public class cMsgMessage implements Cloneable {
      * Get sender's token. Used to track asynchronous responses to
      * messages requesting responses from other clients. Irrelevant to the user,
      * used only by the system.
+     *
+     * @return sender's token
      */
-     public int getSenderToken() {return senderToken;}
+    public int getSenderToken() {return senderToken;}
 
 
     /////////////
