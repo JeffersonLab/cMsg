@@ -962,6 +962,7 @@ public class cMsg extends cMsgSubdomainAdapter {
      * @param notifier object used to notify others that a response message has arrived
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                       or socket properties cannot be set
+     * @return the unique id generated for the sendAndGet message to be sent
      */
     public int handleServerSendAndGetRequest(cMsgMessageFull message, String namespace,
                                               cMsgNotifier notifier)
