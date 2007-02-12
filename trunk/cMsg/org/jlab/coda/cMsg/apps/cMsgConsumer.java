@@ -185,7 +185,31 @@ public class cMsgConsumer {
 
         // subscribe to subject/type
         cMsgCallbackInterface cb = new myCallback();
-        Object unsub = coda.subscribe(subject, type, cb, null);
+        Object unsub  = coda.subscribe(subject, type, cb, null);
+
+        // test the monitor program with subs & unsubs
+        /*
+        Object unsub2 = coda.subscribe("blah", "yuck", cb, null);
+        Object unsub3 = coda.subscribe("later1", "gator", cb, null);
+        Object unsub4 = coda.subscribe("later2", "gator", cb, null);
+        Object unsub5 = coda.subscribe("later3", "gator", cb, null);
+        Object unsub6 = coda.subscribe("later4", "gator", cb, null);
+        try {Thread.sleep(4000);}
+        catch (InterruptedException e) {}
+        coda.unsubscribe(unsub6);
+        try {Thread.sleep(4000);}
+        catch (InterruptedException e) {}
+        coda.unsubscribe(unsub5);
+        try {Thread.sleep(4000);}
+        catch (InterruptedException e) {}
+        coda.unsubscribe(unsub4);
+        try {Thread.sleep(4000);}
+        catch (InterruptedException e) {}
+        coda.unsubscribe(unsub3);
+        try {Thread.sleep(4000);}
+        catch (InterruptedException e) {}
+        coda.unsubscribe(unsub2);
+        */
 
         // variables to track incoming message rate
         double freq=0., freqAvg=0.;
