@@ -105,7 +105,8 @@ public class rcClient {
           *    timeout while waiting for the rc server to send a special (tcp)
           *    concluding connect message
           */
-         String UDL = "cMsg:rc://?expid=carlExp&broadcastTO=5&connectTO=5";
+         //String UDL = "cMsg:rc://?expid=carlExp&broadcastTO=5&connectTO=5";
+         String UDL = "cMsg:rc://?expid=carlExp";
 
          cmsg = new cMsg(UDL, "java rc client", "rc trial");
          cmsg.connect();
