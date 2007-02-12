@@ -85,7 +85,12 @@ public class MonitorPanel extends JPanel {
     private boolean killThread;
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param udl UDL to connect to
+     * @param tabbedPane tabbedPane widget in which to display data of connection
+     * @throws cMsgException if a connecton cannot be made to the UDL
+     */
     public MonitorPanel(String udl, Monitor tabbedPane) throws cMsgException {
 
         this.udl = udl;
@@ -161,6 +166,7 @@ public class MonitorPanel extends JPanel {
                 try {
                     // analyze message
                     String xml = msg.getText();
+//System.out.println("msg = \n" + xml);
                     byte[] buf = xml.getBytes("US-ASCII");
                     ByteArrayInputStream bais = new ByteArrayInputStream(buf);
                     document = builder.parse(bais);
@@ -235,7 +241,10 @@ public class MonitorPanel extends JPanel {
     }
 
 
-    /** Create a panel to display widgets controlling data-taking period, pausing, and closing. */
+    /**
+     * Create a panel to display widgets controlling data-taking period, pausing, and closing.
+     * @return the lower panel
+     */
     private JPanel createLowerPanel() {
 
         JPanel panel = new JPanel();
@@ -314,7 +323,6 @@ public class MonitorPanel extends JPanel {
         NodeList clientList, cbList, domList;
         Node serverNode, clientNode, cbNode, domNode;
 
-//System.out.println("Current num of jtree servers = " + serverJtreeNodes);
         // make a copy of the current server names
         Set<String> removeServerNames  = new HashSet<String>(serverMap.keySet());
         Set<String> currentServerNames = new HashSet<String>(10);
@@ -332,7 +340,7 @@ public class MonitorPanel extends JPanel {
 
             // pick out Element type in xml doc (server is only element at this level of dom tree)
             if (!(serverNode.getNodeType() == 1)) {
-//System.out.println("Skipping node name = " + serverNode.getNodeName());
+//System.out.println("Skipping (i=" + i + ") server node = " + serverNode.getNodeName());
                 continue;
             }
 
@@ -340,7 +348,7 @@ public class MonitorPanel extends JPanel {
             el = (Element) serverNode;
             serverName = el.getAttribute("name");
 
-// System.out.println("node name = " + serverNode.getNodeName() + ", name attribute = " + name);
+//System.out.println("node name = " + serverNode.getNodeName() + ", name attribute = " + serverName);
 
             str.append("server = ");
             str.append(serverName);
@@ -369,10 +377,12 @@ public class MonitorPanel extends JPanel {
 
                 clientList = serverNode.getChildNodes();
 
+//System.out.println("Server has " + clientList.getLength() + " children");
                 for (int j = 0; j < clientList.getLength(); j++) {
 
                     clientNode = clientList.item(j);
                     if (!(clientNode.getNodeType() == 1)) {
+//System.out.println("skip over (j=" + j + "), " + clientNode.getNodeName());
                         continue;
                     }
 
@@ -384,7 +394,8 @@ public class MonitorPanel extends JPanel {
                     str.append("client = ");
                     str.append(clientName);
                     fullClientName = clientName + ":" + serverName;
-
+//System.out.println("NOT skipping over (j=" + j + "), " + clientName);
+ 
                     boolean clientJustCreated;
 
                     if (clientMap.containsKey(fullClientName)) {
@@ -503,7 +514,7 @@ public class MonitorPanel extends JPanel {
                         domList = el.getElementsByTagName("subscription");
                         if (domList.getLength() < 1) {
                             // go on to next client ...
-                            break;
+                            continue;
                         }
 
                         for (int n=0; n < domList.getLength(); n++) {
@@ -635,7 +646,6 @@ public class MonitorPanel extends JPanel {
         treeModel.nodeChanged(topNode);
 
         updated = true;
-        return;
     }
 
 
