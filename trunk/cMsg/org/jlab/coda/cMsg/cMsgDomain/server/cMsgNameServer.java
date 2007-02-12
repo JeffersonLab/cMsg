@@ -71,9 +71,6 @@ public class cMsgNameServer extends Thread {
     /** Thread which receives client broadcasts. */
     private cMsgBroadcastListeningThread broadcastThread;
 
-    /** Thread which gathers monitor information about this server and clients. */
-    private monitorDataThread monitorThread;
-
     /**
      * Set of all active domain server objects. It is implemented as a HashMap
      * but that is only to take advantage of the concurrency protection.
@@ -105,7 +102,10 @@ public class cMsgNameServer extends Thread {
      */
     public void setKillAllThreads(boolean b) {killAllThreads = b;}
 
-    /** Gets boolean value specifying whether to kill this and all spawned threads. */
+    /**
+     * Gets boolean value specifying whether to kill this and all spawned threads.
+     * @return boolean value specifying whether to kill this and all spawned threads
+     */
     public boolean getKillAllThreads() {return killAllThreads;}
 
     /**
@@ -245,7 +245,8 @@ public class cMsgNameServer extends Thread {
      * Set the status of the relationship of this server to the cMsg subdomain
      * server cloud. The status may only be one of {@link #INCLOUD}, {@link #NONCLOUD},
      * or {@link #BECOMINGCLOUD}.
-     * @param status
+     * @param status status of the relationship of this server to the cMsg subdomain
+     *               server cloud
      */
     public void setCloudStatus(int status) {
         if ((status != INCLOUD) &&
@@ -278,14 +279,15 @@ public class cMsgNameServer extends Thread {
 
 
     /**
-     * Constructor which reads environmental variables and opens listening socket.
+     * Constructor which reads environmental variables and opens listening sockets.
      *
-     * @param port
-     * @param timeOrdered
-     * @param standAlone
-     * @param clientPassword
-     * @param cloudPassword
-     * @param debug
+     * @param port TCP listening port for communication from clients
+     * @param udpPort UDP listening port for receiving broadcasts from clients
+     * @param timeOrdered if true all client commands are processed in the order received
+     * @param standAlone  if true no other cMsg servers are allowed to attached to this one and form a cloud
+     * @param clientPassword password client needs to provide to connect to this server
+     * @param cloudPassword  password server needs to provide to connect to this server to become part of a cloud
+     * @param debug desired level of debug output
      */
     public cMsgNameServer(int port, int udpPort, boolean timeOrdered, boolean standAlone,
                           String clientPassword, String cloudPassword, int debug) {
@@ -395,42 +397,6 @@ public class cMsgNameServer extends Thread {
         catch (UnknownHostException e) {
         }
         serverName = serverName + ":" + port;
-    }
-
-
-    /**
-     * Find the first occurance of ?cmsgpassword=<password>? in a client-given UDL
-     * (where cmsgpaswword is case insensitive) in order to find the password for
-     * allowing a client to connect to this server. It needs to match this object's
-     * {@link #clientPassword} for a connection to be established. Null is returned
-     * if no password is found.
-     *
-     * @param UDL UDL given by connecting client
-     * @return client's password embedded in UDL
-     */
-    private static String findClientPassword(String UDL) {
-        if (UDL ==  null) return null;
-
-        // I had no luck using regular expression to pull any occurrances of
-        // ?cmsgpassword=<password>? from the UDL.It always seemed to choke on the ?'s.
-
-        // Find the first occurance of cmsgpassword (case insensitive)
-        // in order to find the password for a client to connect to this server.
-        String key = "?cmsgpassword=";
-        int index1 = UDL.toLowerCase().indexOf(key);
-        if (index1 > -1) {
-            index1 += key.length();
-            int index2 = UDL.indexOf("?", index1);
-            if (index2 < 0) {
-                return UDL.substring(index1);
-            }
-            else {
-                return UDL.substring(index1, index2);
-            }
-        }
-
-        // no password given in the UDL
-        return null;
     }
 
 
@@ -628,7 +594,7 @@ public class cMsgNameServer extends Thread {
         broadcastThread.start();
 
         // Start thread to gather monitor info
-        monitorThread = new monitorDataThread();
+        MonitorDataThread monitorThread = new MonitorDataThread();
         monitorThread.start();
 //System.out.println("startServer; Done");
     }
@@ -847,8 +813,6 @@ public class cMsgNameServer extends Thread {
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("\n>> NS: Quitting Name Server");
         }
-
-        return;
     }
 
 
@@ -865,7 +829,10 @@ public class cMsgNameServer extends Thread {
         /** Buffered output communication streams for efficiency. */
         DataOutputStream out;
 
-        /** Constructor. */
+        /**
+         * Constructor.
+         * @param channel socket channel to client
+         */
         ClientHandler(SocketChannel channel) {
             this.channel = channel;
             this.start();
@@ -950,6 +917,8 @@ public class cMsgNameServer extends Thread {
          * java cMsgNameServer -DmySubdomain=myCmsgClientHandlerClass
          *
          * @param info object containing information about the client
+         * @return created subdomain handler object
+         * @throws IOException If a client could not be registered in the cMsg server cloud
          * @throws cMsgException If a domain server could not be started for the client
          */
         synchronized private cMsgSubdomainInterface registerClient(cMsgClientInfo info)
@@ -1030,6 +999,7 @@ public class cMsgNameServer extends Thread {
          * the cMsg subdomain.
          *
          * @param info object containing information about the client
+         * @return created subdomain handler object
          * @throws cMsgException If a domain server could not be started for the client
          */
         synchronized private cMsgSubdomainInterface registerServer(cMsgClientInfo info) throws cMsgException {
@@ -1773,7 +1743,7 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
 
 
     /** Class to gather all monitor data into 1 place. */
-    private class monitorDataThread extends Thread {
+    private class MonitorDataThread extends Thread {
 
         /** This method is executed as a thread. */
         public void run() {
@@ -1784,7 +1754,6 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                 if (killAllThreads) {
                     break;
                 }
-
                 StringBuilder xml = new StringBuilder(1000);
 
                 // Gather all the xml monitor data into 1 place for final
@@ -1795,10 +1764,11 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                 String indent1 = "      ";
 
                 for (cMsgDomainServer ds : domainServers.keySet()) {
+//System.out.println("  ns looking at client " + ds.info.getName());
                     // Skip other servers' bridges to us,
                     // they're not real clients.
                     if (ds.info.isServer()) {
-                        //System.out.println("Skipping other server's bridge client");
+//System.out.println("Skipping other server's bridge client");
                         continue;
                     }
 
@@ -1860,6 +1830,7 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                         xml.append("\" />\n");
 
                         // add subscription & callback stuff here (from client)
+//System.out.println("  ns adding from client: \n" + ds.monData.monXML);
                         xml.append(ds.monData.monXML);
                     }
                     else {
@@ -1914,6 +1885,7 @@ System.out.println(">> NS: PASSWORDS DO NOT MATCH");
 
                 // store this as an xml string describing all monitor data
                 fullMonitorXML = xml.toString();
+//System.out.println("  fullMonitorXML = \n" + fullMonitorXML);
 
                 if (killAllThreads) {
                     break;
