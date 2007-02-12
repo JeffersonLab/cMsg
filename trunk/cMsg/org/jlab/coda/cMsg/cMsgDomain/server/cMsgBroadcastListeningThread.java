@@ -148,7 +148,7 @@ public class cMsgBroadcastListeningThread extends Thread {
                 int magicInt      = bytesToInt(buf, 0); // magic number
                 int msgType       = bytesToInt(buf, 4); // what type of broadcast is this ?
                 int passwordLen   = bytesToInt(buf, 8); // password length
-//System.out.println("magic int = " + Integer.toHexString(magicInt) + ", msgtype = " + msgType + ", len = " + passwordLen);
+//System.out.println("magic int = " + Integer.toHexString(magicInt) + ", msgtype = " + msgType + ", pswd len = " + passwordLen);
 
                 // sanity check
                 if (magicInt != 0xc0da1 || msgType != cMsgNetworkConstants.cMsgDomainBroadcast) {
