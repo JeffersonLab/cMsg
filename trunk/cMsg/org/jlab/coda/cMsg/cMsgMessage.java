@@ -162,14 +162,16 @@ public class cMsgMessage implements Cloneable {
     cMsgMessageContextInterface context = new cMsgMessageContextDefault();
 
     /**
-     * Cloning this object does not pass on the context and
-     * copies the byte array if it exists.
+     * Cloning this object does not pass on the context except for the value
+     * of reliableSend and copies the byte array if it exists.
      * @return a cMsgMessage object which is a copy of this message
      * @throws CloneNotSupportedException
      */
     protected Object clone() throws CloneNotSupportedException {
+        boolean reliableSend = context.getReliableSend();
         Object o = super.clone();
-        ((cMsgMessage) o).context = null;
+        ((cMsgMessage) o).context = new cMsgMessageContextDefault();
+        context.setReliableSend(reliableSend);
         if (bytes != null) {
             ((cMsgMessage) o).bytes = bytes.clone();
         }
