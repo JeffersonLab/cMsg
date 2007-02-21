@@ -277,6 +277,8 @@ public class cMsgCallbackThread extends Thread {
                 }
             }
 
+            // While loop only necessary when calling messageCue.poll.
+            // That call was replaced as it had a mem leak in Java 1.5.
             while (message == null) {
                 // die immediately if commanded to
                 if (dieNow || Thread.currentThread().isInterrupted()) {
