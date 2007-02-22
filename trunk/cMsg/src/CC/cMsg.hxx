@@ -23,41 +23,36 @@
 #include <string>
 
 
+/**
+ * All cMsg symbols reside in the cmsg namespace.  
+ */
 namespace cmsg {
 
 using namespace std;
 
 
-
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
 
+/*
+ * Exception includes description and return code.
+ */
 class cMsgException {
-
-  /**
-   * Most cMsg functions throw a cMsgException, 
-   *   which contains return code and error description string.
-   *
-   * @version 1.0
-   */
-
-
-private:
-  string myDescr;
-  int myReturnCode;
-
 
 public:
   cMsgException(void);
-  cMsgException(const string &c);
-  cMsgException(const string &c, int i);
+  cMsgException(const string &descr);
+  cMsgException(const string &descr, int code);
   cMsgException(const cMsgException &e);
   virtual ~cMsgException(void);
 
-  virtual void setReturnCode(int i);
-  virtual int getReturnCode(void) const;
   virtual string toString(void) const;
+
+
+public:
+  string descr;    /**<Description.*/
+  int returnCode;  /**<Return code.*/
 };
 
 
@@ -65,21 +60,12 @@ public:
 //-----------------------------------------------------------------------------
 
 
+/*
+ * Wrapper for cMsg message class.  
+ */
 class cMsgMessage {
-  
-  /**
-   * Wrapper for cMsg message class.  
-   *
-   * @version 1.0
-   */
 
-
-  // allow cMsg to see myMsgPointer
-  friend class cMsg;
-  
-  
-private:
-  void *myMsgPointer;
+  friend class cMsg;  /**<Allows cMsg to see myMsgPointer.*/
   
   
 public:
@@ -138,6 +124,10 @@ public:
   virtual int    getSubscriptionCueSize(void) const throw(cMsgException);
   virtual bool   getReliableSend(void) const throw(cMsgException);
   virtual void   setReliableSend(bool b) throw(cMsgException);
+
+
+private:
+  void *myMsgPointer;  /**<Pointer to C message structure.*/
 };
 
 
@@ -145,14 +135,10 @@ public:
 //-----------------------------------------------------------------------------
 
 
+/*
+ * Interface defines callback method.
+ */
 class cMsgCallback {
-
-  /**
-   * Subscription callback
-   *
-   * @version 1.0
-   */
-
 
 public:
   virtual void callback(cMsgMessage *msg, void *userObject) = 0;
@@ -163,19 +149,10 @@ public:
 //-----------------------------------------------------------------------------
 
 
+/*
+ * Manages subscriptions configurations.
+ */
 class cMsgSubscriptionConfig {
-
-
-  /**
-   * Holds cMsgSubscribeConfig struct
-   *
-   * @version 1.0
-   */
-
-
-public:
-  cMsgSubscribeConfig *config;
-
 
 public:
   cMsgSubscriptionConfig(void);
@@ -196,6 +173,8 @@ public:
   virtual size_t getStackSize(void);
   virtual void setStackSize(size_t size);
 
+public:
+  cMsgSubscribeConfig *config;   /**<Pointer to subscription config struct.*/
 };
 
 
@@ -203,24 +182,10 @@ public:
 //-----------------------------------------------------------------------------
 
 
+/*
+ * Wraps most cMsg C calls, provides main functionality.
+ */
 class cMsg {
-
-  /**
-   * Main cMsg wrapper class.
-   *
-   * The C++ API is as similar to the Java API as possible, but they are 
-   *   different due to differnces in the two languages.
-   *
-   * @version 1.0
-   */
-
-private:
-  void  *myDomainId;
-  string myUDL;
-  string myName;
-  string myDescr;
-  bool initialized;
-
 
 public:
   cMsg(const string &UDL, const string &name, const string &descr);
@@ -254,6 +219,14 @@ public:
   virtual void shutdownClients(string &client, int flag) throw(cMsgException);
   virtual void shutdownServers(string &server, int flag) throw(cMsgException);
   virtual cMsgMessage *monitor(string &monString) throw(cMsgException);
+
+
+private:
+  void  *myDomainId;    /**<C Domain id.*/
+  string myUDL;         /**<UDL.*/
+  string myName;        /**<Name.*/
+  string myDescr;       /**<Description.*/
+  bool initialized;     /**<True if initialized.*/
 };
 
 
@@ -261,13 +234,17 @@ public:
 //-----------------------------------------------------------------------------
 
 
-// allows a cMsg callback to dispatch to a member function
+/*
+ * Allows a cMsg C callback to dispatch to an object member function, used internally.
+ */ 
 template <class T> class cMsgDispatcher : public cMsgCallback {
 private:
-  T *t;
-  void (T::*mfp)(cMsgMessage *msg, void* userArg);
+  T *t;   /**<Object containing member function.*/
+  void (T::*mfp)(cMsgMessage *msg, void* userArg); /**<Member function.*/
 public:
+  /** Constructor. @param t Object. @param mfp Member function. @param userArg User arg */
   cMsgDispatcher(T *t, void (T::*mfp)(cMsgMessage *msg, void* userArg)) throw(cMsgException*) : t(t), mfp(mfp) {}
+  /** Dispatches to member function. @param msg Message. @param userArg User arg. */
   void callback(cMsgMessage *msg, void* userArg) throw(cMsgException) { (t->*mfp)(msg,userArg); }
 };
 

@@ -1,6 +1,6 @@
 // to do
-//   subscribe must lock list until done
-//   word doc, doxygen doc
+//   word doc
+//   subscribe must lock list until done ?
 
 
 
@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <vector>
+#include <sstream>
 
 using namespace std;
 using namespace cmsg;
@@ -37,6 +38,9 @@ using namespace cmsg;
 //-----------------------------------------------------------------------------
 //  local data and static functions
 //-----------------------------------------------------------------------------
+
+
+namespace cmsg {
 
 
 /** Used internally, stores callback dispatching info. */
@@ -64,11 +68,10 @@ static vector<subscrStruct*> subscrVec;
 static pthread_mutex_t subscrMutex = PTHREAD_MUTEX_INITIALIZER;
 
 
-
 //-----------------------------------------------------------------------------
 
 
-/** Used internally, C callback dispatches to C++ callback method. */
+/** Used internally, C callback dispatches to object member function. */
 static void callbackDispatcher(void *msg, void *userArg) {
   dispatcherStruct *ds = (dispatcherStruct*)userArg;
   ds->cb->callback(new cMsgMessage(msg),ds->userArg);
@@ -78,7 +81,17 @@ static void callbackDispatcher(void *msg, void *userArg) {
 //-----------------------------------------------------------------------------
 
 
-/** Used internally, true if subscription exists. */
+/** 
+ * Used internally, true if subscription exists.
+ *
+ * @param domainId Domain ID
+ * @param subject Subject
+ * @param type Type
+ * @param cb Callback object
+ * @param userArg User arg
+ *
+ * @return True if subscription exists
+ */
 static bool subscriptionExists(void *domainId, const string &subject, const string &type, 
                                cMsgCallback *cb, void *userArg) {
 
@@ -111,6 +124,12 @@ static bool subscriptionExists(void *domainId, const string &subject, const stri
 
 /**
  * Used internally, adds subscription to list.
+ *
+ * @param domainId Domain ID
+ * @param subject Subject
+ * @param type Type
+ * @param d Dispatcher struct
+ * @param handle Handle to subscription in internal list
  */
 static void addSubscription(void *domainId, const string &subject, const string &type,
                             dispatcherStruct *d, void *handle) {
@@ -134,7 +153,14 @@ static void addSubscription(void *domainId, const string &subject, const string 
 //-----------------------------------------------------------------------------
 
 
-/** Used internally, removes subscription from list. */
+/** 
+ * Used internally, removes subscription from list.
+ *
+ * @param domainId Domain ID
+ * @param handle Handle to subscription in internal list
+ *
+ * @return True if subscription deleted
+ */
 static bool deleteSubscription(void *domainId, void *handle) {
 
   bool deleted = false;
@@ -158,8 +184,7 @@ static bool deleteSubscription(void *domainId, void *handle) {
 
 //-----------------------------------------------------------------------------
 
-
-
+} // namespace cmsg
 
 
 
@@ -168,41 +193,52 @@ static bool deleteSubscription(void *domainId, void *handle) {
 //-----------------------------------------------------------------------------
 
 
-cMsgException::cMsgException(void) {
-  myReturnCode=0;
-}
+/**
+ * Empty constructor.
+ */
+cMsgException::cMsgException(void) : returnCode(0), descr("") {}
 
 
 //-----------------------------------------------------------------------------
 
 
-cMsgException::cMsgException(const string &c) {
-  myDescr=c;
-  myReturnCode=0;
-}
+/**
+ * String constructor.
+ *
+ * @param c Description
+ */
+cMsgException::cMsgException(const string &c) : descr(c), returnCode(0) {}
 
 
 //-----------------------------------------------------------------------------
 
 
-cMsgException::cMsgException(const string &c, int i) {
-  myDescr=c;
-  myReturnCode=i;
-}
+/**
+ * String and code constructor.
+ *
+ * @param c Description
+ * @param code Return code
+ */
+cMsgException::cMsgException(const string &c, int code) : descr(c), returnCode(code) {}
 
 
 //-----------------------------------------------------------------------------
 
 
-cMsgException::cMsgException(const cMsgException &e) {
-  myDescr=e.myDescr;
-  myReturnCode=e.myReturnCode;
-}
+/**
+ * Copy constructor.
+ *
+ * @param e Another exception
+ */
+cMsgException::cMsgException(const cMsgException &e) : descr(e.descr),  returnCode(e.returnCode) {}
 
 
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Destructor does nothing.
+ */
 cMsgException::~cMsgException(void) {
 }
 
@@ -210,25 +246,15 @@ cMsgException::~cMsgException(void) {
 //-----------------------------------------------------------------------------
 
 
-void cMsgException::setReturnCode(int i) {
-  myReturnCode=i;
-}
-
-
-//-----------------------------------------------------------------------------
-
-
-int cMsgException::getReturnCode(void) const {
-  return(myReturnCode);
-}
-
-
-//-----------------------------------------------------------------------------
-
-
-
+/**
+ * Gets string represention of exception.
+ *
+ * @return String representing exception
+ */
 string cMsgException::toString(void) const {
-  return(myDescr);
+  stringstream ss;
+  ss << "?cMsgException returnCode = " << returnCode << "    descr = " << descr << ends;
+  return(ss.str());
 }
 
 
@@ -237,6 +263,9 @@ string cMsgException::toString(void) const {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Default constructor creates message.
+ */
 cMsgMessage::cMsgMessage(void) throw(cMsgException) {
     
   myMsgPointer=cMsgCreateMessage();
@@ -249,6 +278,11 @@ cMsgMessage::cMsgMessage(void) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Copy constructor creates message object from another message object.
+ *
+ * @param msg The other message
+ */
 cMsgMessage::cMsgMessage(const cMsgMessage &msg) throw(cMsgException) {
 
   myMsgPointer=cMsgCopyMessage(msg.myMsgPointer);
@@ -261,6 +295,11 @@ cMsgMessage::cMsgMessage(const cMsgMessage &msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Constructor creates message object from C message pointer.
+ *
+ * @param msgPointer  C pointer to message
+ */
 cMsgMessage::cMsgMessage(void *msgPointer) throw(cMsgException) {
 
   myMsgPointer=msgPointer;
@@ -273,16 +312,22 @@ cMsgMessage::cMsgMessage(void *msgPointer) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Destructor frees C message pointer struct.
+ */
 cMsgMessage::~cMsgMessage(void) {
-
-  if(myMsgPointer==NULL)return;
-  cMsgFreeMessage(&myMsgPointer);
+  if(myMsgPointer!=NULL)cMsgFreeMessage(&myMsgPointer);
 }
 
 
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets message subject.
+ *
+ * @return Message subject
+ */
 string cMsgMessage::getSubject(void) const throw(cMsgException) {
 
   char *s;
@@ -305,6 +350,11 @@ string cMsgMessage::getSubject(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets message subject.
+ *
+ * @param subject Message subject
+ */
 void cMsgMessage::setSubject(const string &subject) throw(cMsgException) {
 
   int stat;
@@ -317,6 +367,11 @@ void cMsgMessage::setSubject(const string &subject) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets message type.
+ *
+ * @return Message type
+ */
 string cMsgMessage::getType(void) const throw(cMsgException) {
 
   char *s;
@@ -339,6 +394,11 @@ string cMsgMessage::getType(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets message type.
+ *
+ * @param subject Message type
+ */
 void cMsgMessage::setType(const string &type) throw(cMsgException) {
 
   int stat;
@@ -351,6 +411,11 @@ void cMsgMessage::setType(const string &type) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets message text.
+ *
+ * @return Message text
+ */
 string cMsgMessage::getText(void) const throw(cMsgException) {
 
   char *s;
@@ -373,6 +438,11 @@ string cMsgMessage::getText(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets message text.
+ *
+ * @param subject Message text
+ */
 void cMsgMessage::setText(const string &text) throw(cMsgException) {
 
   int stat;
@@ -385,6 +455,11 @@ void cMsgMessage::setText(const string &text) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets message byte array length.
+ *
+ * @param length Array length in bytes???
+ */
 void cMsgMessage::setByteArrayLength(int length) throw(cMsgException) {
 
   int stat;
@@ -397,6 +472,11 @@ void cMsgMessage::setByteArrayLength(int length) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets message byte array length.
+ *
+ * @return Array length in bytes???
+ */
 int cMsgMessage::getByteArrayLength(void) const throw(cMsgException) {
 
   int i;
@@ -412,6 +492,11 @@ int cMsgMessage::getByteArrayLength(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Specifies offset in byte array.
+ *
+ * @param offset Offset in byte array
+ */
 void cMsgMessage::setByteArrayOffset(int offset) throw(cMsgException) {
 
   int stat;
@@ -424,6 +509,11 @@ void cMsgMessage::setByteArrayOffset(int offset) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets offset in byte array.
+ *
+ * @return Offset in byte array
+ */
 int cMsgMessage::getByteArrayOffset(void) const throw(cMsgException) {
 
   int i;
@@ -439,6 +529,11 @@ int cMsgMessage::getByteArrayOffset(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Specifies byte array.
+ *
+ * @param array Byte array
+ */
 void cMsgMessage::setByteArray(char *array) throw(cMsgException) {
 
   int stat;
@@ -451,6 +546,11 @@ void cMsgMessage::setByteArray(char *array) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets byte array.
+ *
+ * @return Byte array
+ */
 char* cMsgMessage::getByteArray(void) const throw(cMsgException) {
 
   char *p;
@@ -467,6 +567,13 @@ char* cMsgMessage::getByteArray(void) const throw(cMsgException) {
 
 
 
+/**
+ * Specifies byte array, offset and length.
+ *
+ * @param array   Byte array
+ * @param offset  Offset in array
+ * @param length  Array length
+ */
 void cMsgMessage::setByteArrayAndLimits(char *array, int offset, int length) throw(cMsgException) {
 
   int stat;
@@ -479,6 +586,13 @@ void cMsgMessage::setByteArrayAndLimits(char *array, int offset, int length) thr
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Copies byte array.
+ *
+ * @param array   Byte array
+ * @param offset  Offset in array
+ * @param length  Array length
+ */
 void cMsgMessage::copyByteArray(char* array, int offset, int length) throw(cMsgException) {
 
   int stat;
@@ -491,6 +605,11 @@ void cMsgMessage::copyByteArray(char* array, int offset, int length) throw(cMsgE
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets message user int.
+ *
+ * @return User int
+ */
 int cMsgMessage::getUserInt(void) const throw(cMsgException) {
 
   int i;
@@ -506,6 +625,11 @@ int cMsgMessage::getUserInt(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets message user int.
+ *
+ * @param i User int
+ */
 void cMsgMessage::setUserInt(int i) throw(cMsgException) {
 
   int stat;
@@ -518,6 +642,11 @@ void cMsgMessage::setUserInt(int i) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets message user time.
+ *
+ * @return Timespec holding user time
+ */
 struct timespec cMsgMessage::getUserTime(void) const throw(cMsgException) {
 
   struct timespec t;
@@ -533,6 +662,11 @@ struct timespec cMsgMessage::getUserTime(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets message user time.
+ *
+ * @param userTime Timespec holding user time
+ */
 void cMsgMessage::setUserTime(const struct timespec &userTime) throw(cMsgException) {
 
   int stat;
@@ -545,6 +679,11 @@ void cMsgMessage::setUserTime(const struct timespec &userTime) throw(cMsgExcepti
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets cMsg version.
+ *
+ * @return Version
+ */
 int cMsgMessage::getVersion(void) const throw(cMsgException) {
 
   int version;
@@ -560,6 +699,11 @@ int cMsgMessage::getVersion(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Copies a message.
+ *
+ * @return Copy of message
+ */
 cMsgMessage *cMsgMessage::copy(void) const throw(cMsgException) {
 
   void *newPointer = cMsgCopyMessage(myMsgPointer);
@@ -570,7 +714,12 @@ cMsgMessage *cMsgMessage::copy(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessage::getCreator() const throw(cMsgException) {
+/**
+ * Gets message creator.
+ *
+ * @return Creator
+ */
+string cMsgMessage::getCreator(void) const throw(cMsgException) {
 
   char *s;
 
@@ -592,7 +741,12 @@ string cMsgMessage::getCreator() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessage::getDomain() const throw(cMsgException) {
+/**
+ * Gets message domain.
+ *
+ * @return Domain
+ */
+string cMsgMessage::getDomain(void) const throw(cMsgException) {
 
   char *s;
 
@@ -614,7 +768,12 @@ string cMsgMessage::getDomain() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessage::getReceiver() const throw(cMsgException) {
+/**
+ * Gets message receiver.
+ *
+ * @return Receiver
+ */
+string cMsgMessage::getReceiver(void) const throw(cMsgException) {
 
   char *s;
 
@@ -636,7 +795,12 @@ string cMsgMessage::getReceiver() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessage::getReceiverHost() const throw(cMsgException) {
+/**
+ * Gets message receiver host.
+ *
+ * @return Receiver host
+ */
+string cMsgMessage::getReceiverHost(void) const throw(cMsgException) {
 
   char *s;
 
@@ -658,7 +822,12 @@ string cMsgMessage::getReceiverHost() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessage::getSender() const throw(cMsgException) {
+/**
+ * Gets message sender.
+ *
+ * @return Sender
+ */
+string cMsgMessage::getSender(void) const throw(cMsgException) {
 
   char *s;
 
@@ -680,7 +849,12 @@ string cMsgMessage::getSender() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessage::getSenderHost() const throw(cMsgException) {
+/**
+ * Gets message sender host.
+ *
+ * @return Sender host
+ */
+string cMsgMessage::getSenderHost(void) const throw(cMsgException) {
 
   char *s;
 
@@ -702,6 +876,11 @@ string cMsgMessage::getSenderHost() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets message receiver time.
+ *
+ * @return Receiver time
+ */
 struct timespec cMsgMessage::getReceiverTime(void) const throw(cMsgException) {
 
   struct timespec t;
@@ -717,6 +896,11 @@ struct timespec cMsgMessage::getReceiverTime(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets message sender time.
+ *
+ * @return Sender time
+ */
 struct timespec cMsgMessage::getSenderTime(void) const throw(cMsgException) {
 
   struct timespec t;
@@ -732,7 +916,12 @@ struct timespec cMsgMessage::getSenderTime(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-bool cMsgMessage::isGetRequest() const throw(cMsgException) {
+/**
+ * True if message is a get request.
+ *
+ * @return True if get request
+ */
+bool cMsgMessage::isGetRequest(void) const throw(cMsgException) {
   
   int b;
 
@@ -747,7 +936,12 @@ bool cMsgMessage::isGetRequest() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-bool cMsgMessage::isGetResponse() const throw(cMsgException) {
+/**
+ * True if message is a get response.
+ *
+ * @return True if get response
+ */
+bool cMsgMessage::isGetResponse(void) const throw(cMsgException) {
   
   int b;
 
@@ -762,7 +956,12 @@ bool cMsgMessage::isGetResponse() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-bool cMsgMessage::isNullGetResponse() const throw(cMsgException) {
+/**
+ * True if message is a NULL get response.
+ *
+ * @return True if NULL get response
+ */
+bool cMsgMessage::isNullGetResponse(void) const throw(cMsgException) {
   
   int b;
 
@@ -777,7 +976,13 @@ bool cMsgMessage::isNullGetResponse() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets endian-ness of message byte array.
+ *
+ * @return Endian-ness (0=???)
+ */
 int cMsgMessage::getByteArrayEndian(void) const throw(cMsgException) {
+
   int stat,endian;
 
   if((stat=cMsgGetByteArrayEndian(myMsgPointer,&endian))!=CMSG_OK) {
@@ -791,6 +996,11 @@ int cMsgMessage::getByteArrayEndian(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets endian-ness of message byte array.
+ *
+ * @param endian Endian-ness (0=???)
+ */
 void cMsgMessage::setByteArrayEndian(int endian) throw(cMsgException) {
   int stat;
 
@@ -805,6 +1015,11 @@ void cMsgMessage::setByteArrayEndian(int endian) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * True if need to swap byte array.
+ *
+ * @return True if must swap
+ */
 bool cMsgMessage::needToSwap(void) const throw(cMsgException) {
 
   int flag,stat;
@@ -820,6 +1035,11 @@ bool cMsgMessage::needToSwap(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Makes a message a null response message.
+ *
+ * @param msg Message to make a null response
+ */
 void cMsgMessage::makeNullResponse(cMsgMessage &msg) throw(cMsgException) {
 
   cMsgMessage_t *t = (cMsgMessage_t*)myMsgPointer;
@@ -834,6 +1054,11 @@ void cMsgMessage::makeNullResponse(cMsgMessage &msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Makes a message a null response message.
+ *
+ * @param msg Message to make a null response
+ */
 void cMsgMessage::makeNullResponse(cMsgMessage *msg) throw(cMsgException) {
 
   cMsgMessage_t *t = (cMsgMessage_t*)myMsgPointer;
@@ -848,6 +1073,11 @@ void cMsgMessage::makeNullResponse(cMsgMessage *msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Makes a message a response message.
+ *
+ * @param msg Message to make a response
+ */
 void cMsgMessage::makeResponse(cMsgMessage &msg) throw(cMsgException) {
 
   cMsgMessage_t *t = (cMsgMessage_t*)myMsgPointer;
@@ -862,6 +1092,11 @@ void cMsgMessage::makeResponse(cMsgMessage &msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Makes a message a response message.
+ *
+ * @param msg Message to make a response
+ */
 void cMsgMessage::makeResponse(cMsgMessage *msg) throw(cMsgException) {
 
   cMsgMessage_t *t = (cMsgMessage_t*)myMsgPointer;
@@ -876,6 +1111,11 @@ void cMsgMessage::makeResponse(cMsgMessage *msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Creates a null response message.
+ *
+ * @return Null response message
+ */
 cMsgMessage *cMsgMessage::nullResponse(void) const throw(cMsgException) {
 
   void *newMsgPointer;
@@ -890,6 +1130,11 @@ cMsgMessage *cMsgMessage::nullResponse(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Creates a response message.
+ *
+ * @return Response message
+ */
 cMsgMessage *cMsgMessage::response(void) const throw(cMsgException) {
 
   void *newMsgPointer;
@@ -904,6 +1149,11 @@ cMsgMessage *cMsgMessage::response(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Makes message a get response message.
+ *
+ * @param b True to make message a get response message
+ */
 void cMsgMessage::setGetResponse(bool b) throw(cMsgException) {
 
   int stat;
@@ -916,6 +1166,11 @@ void cMsgMessage::setGetResponse(bool b) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Makes message a null response message.
+ *
+ * @param b True to make message a null response message
+ */
 void cMsgMessage::setNullGetResponse(bool b) throw(cMsgException) {
 
   int stat;
@@ -928,6 +1183,11 @@ void cMsgMessage::setNullGetResponse(bool b) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets xml representation of message.
+ *
+ * @return xml representation of message
+ */
 string cMsgMessage::toString(void) const throw(cMsgException) {
 
   char *cs;
@@ -945,7 +1205,12 @@ string cMsgMessage::toString(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessage::getSubscriptionDomain() const throw(cMsgException) {
+/**
+ * Gets subscription domain.
+ *
+ * @return Subscription domain
+ */
+string cMsgMessage::getSubscriptionDomain(void) const throw(cMsgException) {
 
   char *s;
 
@@ -967,7 +1232,12 @@ string cMsgMessage::getSubscriptionDomain() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessage::getSubscriptionSubject() const throw(cMsgException) {
+/**
+ * Gets subscription subject.
+ *
+ * @return Subscription subject
+ */
+string cMsgMessage::getSubscriptionSubject(void) const throw(cMsgException) {
 
   char *s;
 
@@ -989,7 +1259,12 @@ string cMsgMessage::getSubscriptionSubject() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessage::getSubscriptionType() const throw(cMsgException) {
+/**
+ * Gets subscription type.
+ *
+ * @return Subscription type
+ */
+string cMsgMessage::getSubscriptionType(void) const throw(cMsgException) {
 
   char *s;
 
@@ -1011,7 +1286,12 @@ string cMsgMessage::getSubscriptionType() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
-string cMsgMessage::getSubscriptionUDL() const throw(cMsgException) {
+/**
+ * Gets subscription UDL.
+ *
+ * @return Subscription UDL
+ */
+string cMsgMessage::getSubscriptionUDL(void) const throw(cMsgException) {
 
   char *s;
 
@@ -1033,6 +1313,11 @@ string cMsgMessage::getSubscriptionUDL() const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets current subscription cue size.
+ *
+ * @return Current cue size
+ */
 int cMsgMessage::getSubscriptionCueSize(void) const throw(cMsgException) {
 
   int i;
@@ -1048,6 +1333,11 @@ int cMsgMessage::getSubscriptionCueSize(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * True if message sent via reliable send.
+ *
+ * @return True if reliable send used
+ */
 bool cMsgMessage::getReliableSend(void) const throw(cMsgException) {
 
   int i;
@@ -1063,6 +1353,11 @@ bool cMsgMessage::getReliableSend(void) const throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets message reliable send flag.
+ *
+ * @param b True if reliable send should be used
+ */
 void cMsgMessage::setReliableSend(bool b) throw(cMsgException) {
 
   int i = b ? 1 : 0;
@@ -1079,6 +1374,9 @@ void cMsgMessage::setReliableSend(bool b) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Constructor creates empty subscription config.
+ */
 cMsgSubscriptionConfig::cMsgSubscriptionConfig(void) {
   config = cMsgSubscribeConfigCreate();
 }
@@ -1087,6 +1385,9 @@ cMsgSubscriptionConfig::cMsgSubscriptionConfig(void) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Deletes subscription config.
+ */
 cMsgSubscriptionConfig::~cMsgSubscriptionConfig(void) {
   cMsgSubscribeConfigDestroy(config);
 }
@@ -1095,6 +1396,11 @@ cMsgSubscriptionConfig::~cMsgSubscriptionConfig(void) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets max cue size.
+ *
+ * @return Max cue size
+ */
 int cMsgSubscriptionConfig::getMaxCueSize(void) {
   int size;
   cMsgSubscribeGetMaxCueSize(config,&size);
@@ -1105,6 +1411,11 @@ int cMsgSubscriptionConfig::getMaxCueSize(void) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets max cue size.
+ *
+ * @param size Max cue size
+ */
 void cMsgSubscriptionConfig::setMaxCueSize(int size) {
   cMsgSubscribeSetMaxCueSize(config,size);
 }
@@ -1113,6 +1424,11 @@ void cMsgSubscriptionConfig::setMaxCueSize(int size) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets skip size.
+ *
+ * @return Skip size
+ */
 int cMsgSubscriptionConfig::getSkipSize(void) {
   int size;
   cMsgSubscribeGetSkipSize(config,&size);
@@ -1123,6 +1439,11 @@ int cMsgSubscriptionConfig::getSkipSize(void) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets skip size.
+ *
+ * @param size Skip size
+ */
 void cMsgSubscriptionConfig::setSkipSize(int size) {
   cMsgSubscribeSetSkipSize(config,size);
 }
@@ -1131,6 +1452,11 @@ void cMsgSubscriptionConfig::setSkipSize(int size) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * True if may skip messages upon overflow.
+ *
+ * @return True if can skip
+ */
 bool cMsgSubscriptionConfig::getMaySkip(void) {
   int maySkip;
   cMsgSubscribeGetMaySkip(config,&maySkip);
@@ -1141,6 +1467,11 @@ bool cMsgSubscriptionConfig::getMaySkip(void) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets message skip permission.
+ *
+ * @param maySkip True if can skip messages
+ */
 void cMsgSubscriptionConfig::setMaySkip(bool maySkip) {
   cMsgSubscribeSetMaySkip(config,(maySkip)?1:0);
 }
@@ -1149,6 +1480,11 @@ void cMsgSubscriptionConfig::setMaySkip(bool maySkip) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets must serialize flag.
+ *
+ * @return True if must serialize
+ */
 bool cMsgSubscriptionConfig::getMustSerialize(void) {
   int maySerialize;
   cMsgSubscribeGetMustSerialize(config,&maySerialize);
@@ -1159,6 +1495,11 @@ bool cMsgSubscriptionConfig::getMustSerialize(void) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets must serialize flag.
+ *
+ * @param mustSerialize True if must serialize
+ */
 void cMsgSubscriptionConfig::setMustSerialize(bool mustSerialize) {
   cMsgSubscribeSetMustSerialize(config,(mustSerialize)?1:0);
 }
@@ -1167,6 +1508,11 @@ void cMsgSubscriptionConfig::setMustSerialize(bool mustSerialize) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets max callback threads.
+ *
+ * @return Maximum number of threads
+ */
 int cMsgSubscriptionConfig::getMaxThreads(void) {
   int max;
   cMsgSubscribeGetMaxThreads(config,&max);
@@ -1177,6 +1523,11 @@ int cMsgSubscriptionConfig::getMaxThreads(void) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets max callback threads.
+ *
+ * @param max Max callback threads
+ */
 void cMsgSubscriptionConfig::setMaxThreads(int max) {
   cMsgSubscribeSetMaxThreads(config,max);
 }
@@ -1185,6 +1536,11 @@ void cMsgSubscriptionConfig::setMaxThreads(int max) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets max messages per thread.
+ *
+ * @return Max messages per callback thread
+ */
 int cMsgSubscriptionConfig::getMessagesPerThread(void) {
   int mpt;
   cMsgSubscribeGetMessagesPerThread(config,&mpt);
@@ -1195,6 +1551,11 @@ int cMsgSubscriptionConfig::getMessagesPerThread(void) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets max messages per thread.
+ *
+ * @param mpt Max messages per callback thread
+ */
 void cMsgSubscriptionConfig::setMessagesPerThread(int mpt) {
   cMsgSubscribeSetMessagesPerThread(config,mpt);
 }
@@ -1203,6 +1564,11 @@ void cMsgSubscriptionConfig::setMessagesPerThread(int mpt) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets message stack size.
+ *
+ * @return Message stack size
+ */
 size_t cMsgSubscriptionConfig::getStackSize(void) {
   size_t size;
   cMsgSubscribeGetStackSize(config,&size);
@@ -1213,6 +1579,11 @@ size_t cMsgSubscriptionConfig::getStackSize(void) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets message stack size.
+ *
+ * @param size Message stack size
+ */
 void cMsgSubscriptionConfig::setStackSize(size_t size) {
   cMsgSubscribeSetStackSize(config,size);
 }
@@ -1223,6 +1594,13 @@ void cMsgSubscriptionConfig::setStackSize(size_t size) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Constructor for cMsg system object.
+ *
+ * @param UDL Connection UDL
+ * @param name Name
+ * @param descr Description
+ */
 cMsg::cMsg(const string &UDL, const string &name, const string &descr)
   : myUDL(UDL), myName(name), myDescr(descr), initialized(false) {
 }
@@ -1231,6 +1609,9 @@ cMsg::cMsg(const string &UDL, const string &name, const string &descr)
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Destructor disconects from cMsg system.
+ */
 cMsg::~cMsg(void) {
   cMsg::disconnect();
 }
@@ -1239,6 +1620,9 @@ cMsg::~cMsg(void) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Connects to cMsg system.
+ */
 void cMsg::connect(void) throw(cMsgException) {
 
   if(initialized)throw(cMsgException(cMsgPerror(CMSG_ALREADY_INIT),CMSG_ALREADY_INIT));
@@ -1255,6 +1639,9 @@ void cMsg::connect(void) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Disconnects from cMsg system.
+ */
 void cMsg::disconnect(void) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1267,6 +1654,11 @@ void cMsg::disconnect(void) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sends message.
+ *
+ * @param msg Message to send
+ */
 void cMsg::send(cMsgMessage &msg) throw(cMsgException) {
     
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1282,6 +1674,11 @@ void cMsg::send(cMsgMessage &msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sends message.
+ *
+ * @param msg Message to send
+ */
 void cMsg::send(cMsgMessage *msg) throw(cMsgException) {
   cMsg::send(*msg);
 }
@@ -1290,6 +1687,12 @@ void cMsg::send(cMsgMessage *msg) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Synchronously sends message.
+ *
+ * @param msg Message to send
+ * @param timeout Timeout
+ */
 int cMsg::syncSend(cMsgMessage &msg, const struct timespec *timeout) throw(cMsgException) {
     
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1308,6 +1711,12 @@ int cMsg::syncSend(cMsgMessage &msg, const struct timespec *timeout) throw(cMsgE
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Synchronously sends message.
+ *
+ * @param msg Message to send
+ * @param timeout Timeout
+ */
 int cMsg::syncSend(cMsgMessage *msg, const struct timespec *timeout) throw(cMsgException) {
   return(cMsg::syncSend(*msg, timeout));
 }
@@ -1316,6 +1725,16 @@ int cMsg::syncSend(cMsgMessage *msg, const struct timespec *timeout) throw(cMsgE
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Subscribes to subject,type and specifies callback,userArg
+ *
+ * @param subject Subject, can be regex
+ * @param type Type, can be regex
+ * @param cb Callback object to deliver messages to
+ * @param userArg Passed to callback with message
+ *
+ * @return Subscription handle, needed to unsubscribe
+ */
 void *cMsg::subscribe(const string &subject, const string &type, cMsgCallback *cb, void *userArg,
                       const cMsgSubscriptionConfig *cfg) throw(cMsgException) {
     
@@ -1362,6 +1781,16 @@ void *cMsg::subscribe(const string &subject, const string &type, cMsgCallback *c
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Subscribes to subject,type and specifies callback,userArg
+ *
+ * @param subject Subject, can be regex
+ * @param type Type, can be regex
+ * @param cb Callback object to deliver messages to
+ * @param userArg Passed to callback with message
+ *
+ * @return Subscription handle, needed to unsubscribe
+ */
 void *cMsg::subscribe(const string &subject, const string &type, cMsgCallback &cb, void *userArg,
                       const cMsgSubscriptionConfig *cfg) throw(cMsgException) {
   return(cMsg::subscribe(subject, type, &cb, userArg, cfg));
@@ -1371,6 +1800,11 @@ void *cMsg::subscribe(const string &subject, const string &type, cMsgCallback &c
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Unsubscribes.
+ *
+ * @param handle Subscription handle
+ */
 void cMsg::unsubscribe(void *handle) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1396,6 +1830,14 @@ void cMsg::unsubscribe(void *handle) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sends message and gets reply.
+ *
+ * @param msg Message to send
+ * @param timeout Timeout
+ *
+ * @return Reply message
+ */
 cMsgMessage *cMsg::sendAndGet(cMsgMessage &sendMsg, const struct timespec *timeout) throw(cMsgException) {
     
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1415,6 +1857,14 @@ cMsgMessage *cMsg::sendAndGet(cMsgMessage &sendMsg, const struct timespec *timeo
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sends message and gets reply.
+ *
+ * @param msg Message to send
+ * @param timeout Timeout
+ *
+ * @return Reply message
+ */
 cMsgMessage *cMsg::sendAndGet(cMsgMessage *sendMsg, const struct timespec *timeout) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1433,6 +1883,15 @@ cMsgMessage *cMsg::sendAndGet(cMsgMessage *sendMsg, const struct timespec *timeo
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Subscribes to subject/type, returns one matching message, then unsubscribes.
+ *
+ * @param subject Subject, can be regex
+ * @param type Type, can be regex
+ * @param timeout Timeout
+ *
+ * @return Matching message
+ */
 cMsgMessage *cMsg::subscribeAndGet(const string &subject, const string &type, const struct timespec *timeout) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1452,6 +1911,11 @@ cMsgMessage *cMsg::subscribeAndGet(const string &subject, const string &type, co
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Flushes outgoing message queues.
+ *
+ * @param timeout Timeout
+ */
 void cMsg::flush(const struct timespec *timeout) throw(cMsgException) {
     
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1467,6 +1931,9 @@ void cMsg::flush(const struct timespec *timeout) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Enables delivery of messages to callbacks.
+ */
 void cMsg::start(void) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1482,6 +1949,9 @@ void cMsg::start(void) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Disables delivery of messages to callbacks.
+ */
 void cMsg::stop(void) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1497,6 +1967,11 @@ void cMsg::stop(void) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets connection description.
+ *
+ * @return Description
+ */
 string cMsg::getDescription(void) const {
   return(myDescr);
 }
@@ -1505,6 +1980,11 @@ string cMsg::getDescription(void) const {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets connection name.
+ *
+ * @return Name
+ */
 string cMsg::getName(void) const {
   return(myName);
 }
@@ -1513,6 +1993,11 @@ string cMsg::getName(void) const {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Gets connection UDL.
+ *
+ * @return UDL
+ */
 string cMsg::getUDL(void) const{
   return(myUDL);
 }
@@ -1521,6 +2006,11 @@ string cMsg::getUDL(void) const{
 //-----------------------------------------------------------------------------
 
 
+/**
+ * True if connected.
+ *
+ * @return True if connected
+ */
 bool cMsg::isConnected(void) const {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1537,6 +2027,11 @@ bool cMsg::isConnected(void) const {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * True if receiving messages.
+ *
+ * @return True if receiving messages
+ */
 bool cMsg::isReceiving(void) const {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1553,6 +2048,12 @@ bool cMsg::isReceiving(void) const {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Sets shutdown handler.
+ *
+ * @param handler Shutdown handler
+ * @param userArg Arg passed to handler upon shutdown
+ */
 void cMsg::setShutdownHandler(cMsgShutdownHandler *handler, void* userArg) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1568,6 +2069,12 @@ void cMsg::setShutdownHandler(cMsgShutdownHandler *handler, void* userArg) throw
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Shuts down a client.
+ *
+ * @param client The client
+ * @param flag Shutdown flag
+ */
 void cMsg::shutdownClients(string &client, int flag) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1583,6 +2090,12 @@ void cMsg::shutdownClients(string &client, int flag) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Shuts down a server.
+ *
+ * @param server The server
+ * @param flag Shutdown flag
+ */
 void cMsg::shutdownServers(string &server, int flag) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
@@ -1598,6 +2111,13 @@ void cMsg::shutdownServers(string &server, int flag) throw(cMsgException) {
 //-----------------------------------------------------------------------------
 
 
+/**
+ * Returns domain-dependent monitoring information.
+ *
+ * @param monString Monitoring request string
+ *
+ * @return Message containing monitoring information in text field
+ */
 cMsgMessage *cMsg::monitor(string &monString) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
