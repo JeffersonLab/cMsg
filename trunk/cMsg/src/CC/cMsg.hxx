@@ -35,7 +35,7 @@ using namespace std;
 //-----------------------------------------------------------------------------
 
 
-/*
+/**
  * Exception includes description and return code.
  */
 class cMsgException {
@@ -60,7 +60,7 @@ public:
 //-----------------------------------------------------------------------------
 
 
-/*
+/**
  * Wrapper for cMsg message class.  
  */
 class cMsgMessage {
@@ -135,7 +135,7 @@ private:
 //-----------------------------------------------------------------------------
 
 
-/*
+/**
  * Interface defines callback method.
  */
 class cMsgCallback {
@@ -149,7 +149,7 @@ public:
 //-----------------------------------------------------------------------------
 
 
-/*
+/**
  * Manages subscriptions configurations.
  */
 class cMsgSubscriptionConfig {
@@ -182,7 +182,7 @@ public:
 //-----------------------------------------------------------------------------
 
 
-/*
+/**
  * Wraps most cMsg C calls, provides main functionality.
  */
 class cMsg {
@@ -234,15 +234,20 @@ private:
 //-----------------------------------------------------------------------------
 
 
-/*
+/**
  * Allows a cMsg C callback to dispatch to an object member function, used internally.
  */ 
 template <class T> class cMsgDispatcher : public cMsgCallback {
 private:
   T *t;   /**<Object containing member function.*/
   void (T::*mfp)(cMsgMessage *msg, void* userArg); /**<Member function.*/
+
 public:
-  /** Constructor. @param t Object. @param mfp Member function. @param userArg User arg */
+  /** Constructor.
+   *
+   * @param t Object
+   * @param mfp Member function
+   */
   cMsgDispatcher(T *t, void (T::*mfp)(cMsgMessage *msg, void* userArg)) throw(cMsgException*) : t(t), mfp(mfp) {}
   /** Dispatches to member function. @param msg Message. @param userArg User arg. */
   void callback(cMsgMessage *msg, void* userArg) throw(cMsgException) { (t->*mfp)(msg,userArg); }

@@ -397,7 +397,7 @@ string cMsgMessage::getType(void) const throw(cMsgException) {
 /**
  * Sets message type.
  *
- * @param subject Message type
+ * @param type Message type
  */
 void cMsgMessage::setType(const string &type) throw(cMsgException) {
 
@@ -441,7 +441,7 @@ string cMsgMessage::getText(void) const throw(cMsgException) {
 /**
  * Sets message text.
  *
- * @param subject Message text
+ * @param text Message text
  */
 void cMsgMessage::setText(const string &text) throw(cMsgException) {
 
@@ -1732,6 +1732,7 @@ int cMsg::syncSend(cMsgMessage *msg, const struct timespec *timeout) throw(cMsgE
  * @param type Type, can be regex
  * @param cb Callback object to deliver messages to
  * @param userArg Passed to callback with message
+ * @param cfg Subscription config object
  *
  * @return Subscription handle, needed to unsubscribe
  */
@@ -1788,6 +1789,7 @@ void *cMsg::subscribe(const string &subject, const string &type, cMsgCallback *c
  * @param type Type, can be regex
  * @param cb Callback object to deliver messages to
  * @param userArg Passed to callback with message
+ * @param cfg Subscription config object
  *
  * @return Subscription handle, needed to unsubscribe
  */
@@ -1833,7 +1835,7 @@ void cMsg::unsubscribe(void *handle) throw(cMsgException) {
 /**
  * Sends message and gets reply.
  *
- * @param msg Message to send
+ * @param sendMsg Message to send
  * @param timeout Timeout
  *
  * @return Reply message
@@ -1860,7 +1862,7 @@ cMsgMessage *cMsg::sendAndGet(cMsgMessage &sendMsg, const struct timespec *timeo
 /**
  * Sends message and gets reply.
  *
- * @param msg Message to send
+ * @param sendMsg Message to send
  * @param timeout Timeout
  *
  * @return Reply message
