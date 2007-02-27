@@ -14,7 +14,7 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg.cMsgDomain.client;
+package org.jlab.coda.cMsg;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgCallbackInterface;
@@ -97,6 +97,14 @@ public class cMsgCallbackThread extends Thread {
 
     /** Object that tells callback user the context info including the cue size. */
     private myContext context;
+
+    /**
+     * Gets the number of messages passed to the callback.
+     * @return number of messages passed to the callback
+     */
+    public long getMsgCount() {
+        return msgCount;
+    }
 
     /**
      * Gets the number of messages in the cue.
