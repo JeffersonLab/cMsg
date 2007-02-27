@@ -18,7 +18,7 @@ package org.jlab.coda.cMsg.RCBroadcastDomain;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgGetHelper;
-import org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread;
+import org.jlab.coda.cMsg.cMsgCallbackThread;
 
 import java.net.*;
 import java.util.regex.Pattern;

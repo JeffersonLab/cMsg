@@ -409,7 +409,7 @@ public class cMsgClientListeningThread extends Thread {
                         xml.append("<callback  id=\"");
                         xml.append(num++);
                         xml.append("\"  received=\"");
-                        xml.append(cbThread.msgCount);
+                        xml.append(cbThread.getMsgCount());
                         xml.append("\"  cueSize=\"");
                         xml.append(cbThread.getCueSize());
                         xml.append("\"/>\n");

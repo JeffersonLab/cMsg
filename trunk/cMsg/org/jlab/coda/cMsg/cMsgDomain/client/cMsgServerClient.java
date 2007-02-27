@@ -16,16 +16,10 @@
 
 package org.jlab.coda.cMsg.cMsgDomain.client;
 
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgMessage;
-import org.jlab.coda.cMsg.cMsgCallbackInterface;
-import org.jlab.coda.cMsg.cMsgConstants;
-import org.jlab.coda.cMsg.cMsgSubscription;
-import org.jlab.coda.cMsg.cMsgNetworkConstants;
+import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer;
 
 import java.util.Date;
-import java.util.Iterator;
 import java.util.HashSet;
 import java.util.concurrent.*;
 import java.io.*;
@@ -604,7 +598,7 @@ public class cMsgServerClient extends cMsg {
                                 // on other cloud servers. In this case, the client calls the regular
                                 // subscribe which will not allow duplicate subscriptions. Thus, passing
                                 // that on to other servers will also NOT result in duplicate subscriptions.
-                                if ((cbt.callback == cb) && (cbt.getArg() == userObj)) {
+                                if ((cbt.getCallback() == cb) && (cbt.getArg() == userObj)) {
                                     // increment a count which will be decremented during an unsubscribe
 //System.out.println("bridge cli sub: count = " + cbThread.getCount() + " -> " +
 //(cbThread.getCount() + 1));
@@ -740,7 +734,7 @@ public class cMsgServerClient extends cMsg {
 
                         // for each callback listed ...
                         for (cMsgCallbackThread cbt : sub.getCallbacks()) {
-                            if ((cbt.callback == cb) && (cbt.getArg() == userObj)) {
+                            if ((cbt.getCallback() == cb) && (cbt.getArg() == userObj)) {
                                 // Found our cb & userArg pair to get rid of.
                                 // However, don't kill the thread and remove it from
                                 // the callback set until the server is notified or

@@ -16,7 +16,6 @@
 
 package org.jlab.coda.cMsg.RCServerDomain;
 
-import org.jlab.coda.cMsg.cMsgDomain.client.*;
 import org.jlab.coda.cMsg.*;
 
 import java.nio.channels.ServerSocketChannel;
