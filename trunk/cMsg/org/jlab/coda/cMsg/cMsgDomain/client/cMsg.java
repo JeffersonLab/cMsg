@@ -526,12 +526,16 @@ public class cMsg extends cMsgDomainAdapter {
                         response = true;
                     }
                 }
-                catch (InterruptedException e) {}
+                catch (InterruptedException e) {
+                    System.out.println("INTERRUPTING WAIT FOR BROADCAST RESPONSE, (timeout specified)");
+                }
             }
             // wait forever
             else {
                 try { broadcastResponse.await(); response = true;}
-                catch (InterruptedException e) {}
+                catch (InterruptedException e) {
+                    System.out.println("INTERRUPTING WAIT FOR BROADCAST RESPONSE, (timeout NOT specified)");
+                }
             }
 
             sender.interrupt();
@@ -966,7 +970,13 @@ public class cMsg extends cMsgDomainAdapter {
                     // run through all callbacks
                     for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
                         // Tell the callback thread(s) to wakeup and die
-                        cbThread.dieNow();
+                        if (Thread.currentThread() == cbThread) {
+                            //System.out.println("Don't interrupt my own thread!!!");
+                            cbThread.dieNow(false);
+                        }
+                        else {
+                            cbThread.dieNow(true);
+                        }
                     }
                 }
             }
@@ -1644,7 +1654,7 @@ public class cMsg extends cMsgDomainAdapter {
                     // "subscriptions" is synchronized so it's mutex protected
                     subscriptions.remove(newSub);
                     unsubscriptions.remove(cbThread);
-                    cbThread.dieNow();
+                    cbThread.dieNow(true);
                 }
 
                 // wait awhile for possible failover
@@ -1717,7 +1727,13 @@ public class cMsg extends cMsgDomainAdapter {
                 // don't unsubscribe for this subject/type
                 if (sub.numberOfCallbacks() > 1) {
                     // kill callback thread
-                    cbThread.dieNow();
+                    if (Thread.currentThread() == cbThread) {
+                        //System.out.println("Don't interrupt my own thread!!!");
+                        cbThread.dieNow(false);
+                    }
+                    else {
+                        cbThread.dieNow(true);
+                    }
                     // remove this callback from the set
                     synchronized (subscriptions) {
                         sub.getCallbacks().remove(cbThread);
@@ -1757,7 +1773,13 @@ public class cMsg extends cMsgDomainAdapter {
                 // Now that we've communicated with the server,
                 // delete stuff from hashes & kill threads -
                 // basically, do the unsubscribe now.
-                cbThread.dieNow();
+                if (Thread.currentThread() == cbThread) {
+                    //System.out.println("Don't interrupt my own thread!!!");
+                    cbThread.dieNow(false);
+                }
+                else {
+                    cbThread.dieNow(true);
+                }
                 synchronized (subscriptions) {
                     sub.getCallbacks().remove(cbThread);
                     subscriptions.remove(sub);

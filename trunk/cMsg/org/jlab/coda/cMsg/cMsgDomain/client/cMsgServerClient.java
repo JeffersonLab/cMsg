@@ -673,7 +673,7 @@ public class cMsgServerClient extends cMsg {
             if (addedHashEntry) {
                 // "subscriptions" is synchronized so it's mutex protected
                 subscriptions.remove(newSub);
-                cbThread.dieNow();
+                cbThread.dieNow(true);
             }
             throw e;
         }
@@ -769,7 +769,13 @@ public class cMsgServerClient extends cMsg {
                         if (sub.numberOfCallbacks() > 1) {
 //System.out.println("br cli serverUnsubscribe: callbacks > 0");
                             // kill callback thread
-                            cbThread.dieNow();
+                            if (Thread.currentThread() == cbThread) {
+                                //System.out.println("Don't interrupt my own thread!!!");
+                                cbThread.dieNow(false);
+                            }
+                            else {
+                                cbThread.dieNow(true);
+                            }
                             // remove this callback from the set
                             sub.getCallbacks().remove(cbThread);
                             return;
@@ -821,7 +827,13 @@ public class cMsgServerClient extends cMsg {
             // Now that we've communicated with the server,
             // delete stuff from hashes & kill threads -
             // basically, do the unsubscribe now.
-            cbThread.dieNow();
+            if (Thread.currentThread() == cbThread) {
+                //System.out.println("Don't interrupt my own thread!!!");
+                cbThread.dieNow(false);
+            }
+            else {
+                cbThread.dieNow(true);
+            }
             synchronized (subscriptions) {
                 oldSub.getCallbacks().remove(cbThread);
                 subscriptions.remove(oldSub);

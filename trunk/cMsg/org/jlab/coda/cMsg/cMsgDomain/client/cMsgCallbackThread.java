@@ -68,11 +68,19 @@ public class cMsgCallbackThread extends Thread {
     private volatile boolean dieNow;
 
 
-    /** Kills this thread as soon as possible. */
-    public void dieNow() {
+    /**
+     * This method kills this thread as soon as possible. If unsubscribe or disconnect
+     * is called in a callback using the same connection, then the subscribe
+     * or disconnect will interrupt the callback currently calling them.
+     * To avoid this, set the argument to false.
+     *
+     * @param callInterrupt if true interrupt is called on callback thread,
+     *                      else interrupt is not called.
+     */
+    public void dieNow(boolean callInterrupt) {
         dieNow = true;
         //System.out.println("CallbackThd: Will interrupt callback thread");
-        this.interrupt();
+        if (callInterrupt) this.interrupt();
         //System.out.println("CallbackThd: Interrupted callback thread");
     }
 

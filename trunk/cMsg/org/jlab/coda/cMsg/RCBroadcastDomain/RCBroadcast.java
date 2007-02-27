@@ -455,7 +455,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
      * Method to subscribe to receive messages from rc clients. In this domain,
      * subject and type are ignored and set to the preset values of "s" and "t".
      * The combination of arguments must be unique. In other words, only 1 subscription is
-     * allowed for a given set of callback, and userObj.
+     * allowed for a given set of callback and userObj.
      *
      * @param subject ignored and set to "s"
      * @param type ignored and set to "t"
@@ -550,8 +550,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
      * @param obj the object "handle" returned from a subscribe call
      * @throws cMsgException if there is no connection with rc clients; object is null
      */
-    public void unsubscribe(Object obj)
-            throws cMsgException {
+    public void unsubscribe(Object obj) throws cMsgException {
 
         // check arg first
         if (obj == null) {
@@ -578,7 +577,13 @@ public class RCBroadcast extends cMsgDomainAdapter {
             // Delete stuff from hashes & kill threads.
             // If there are still callbacks left,
             // don't unsubscribe for this subject/type.
-            cbThread.dieNow();
+            if (Thread.currentThread() == cbThread) {
+                //System.out.println("Don't interrupt my own thread!!!");
+                cbThread.dieNow(false);
+            }
+            else {
+                cbThread.dieNow(true);
+            }
             synchronized (subscriptions) {
                 sub.getCallbacks().remove(cbThread);
                 if (sub.numberOfCallbacks() < 1) {

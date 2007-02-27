@@ -598,7 +598,13 @@ public class RunControl extends cMsgDomainAdapter {
                     // run through all callbacks
                     for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
                         // Tell the callback thread(s) to wakeup and die
-                        cbThread.dieNow();
+                        if (Thread.currentThread() == cbThread) {
+                            //System.out.println("Don't interrupt my own thread!!!");
+                            cbThread.dieNow(false);
+                        }
+                        else {
+                            cbThread.dieNow(true);
+                        }
                     }
                 }
             }
@@ -979,7 +985,13 @@ public class RunControl extends cMsgDomainAdapter {
             // don't unsubscribe for this subject/type
             if (sub.numberOfCallbacks() > 1) {
                 // kill callback thread
-                cbThread.dieNow();
+                if (Thread.currentThread() == cbThread) {
+                    //System.out.println("Don't interrupt my own thread!!!");
+                    cbThread.dieNow(false);
+                }
+                else {
+                    cbThread.dieNow(true);
+                }
                 // remove this callback from the set
                 synchronized (subscriptions) {
                     sub.getCallbacks().remove(cbThread);
@@ -988,7 +1000,13 @@ public class RunControl extends cMsgDomainAdapter {
             }
 
             // Delete stuff from hashes & kill threads
-            cbThread.dieNow();
+            if (Thread.currentThread() == cbThread) {
+                //System.out.println("Don't interrupt my own thread!!!");
+                cbThread.dieNow(false);
+            }
+            else {
+                cbThread.dieNow(true);
+            }
             synchronized (subscriptions) {
                 sub.getCallbacks().remove(cbThread);
                 subscriptions.remove(sub);
