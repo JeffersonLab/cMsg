@@ -16,7 +16,7 @@
 
 package org.jlab.coda.cMsg;
 
-import org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread;
+import org.jlab.coda.cMsg.cMsgCallbackThread;
 
 import java.util.*;
 import java.util.regex.Pattern;
@@ -73,7 +73,7 @@ public class cMsgSubscription {
 
     /**
      * This set contains all of the callback thread objects
-     * {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgCallbackThread}
+     * {@link cMsgCallbackThread}
      * used on the client side.
      */
     private HashSet<cMsgCallbackThread> callbacks;
