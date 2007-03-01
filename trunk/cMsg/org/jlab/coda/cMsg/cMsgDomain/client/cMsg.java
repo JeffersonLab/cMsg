@@ -1590,7 +1590,7 @@ public class cMsg extends cMsgDomainAdapter {
                             // for each callback listed ...
                             for (cMsgCallbackThread cbt : sub.getCallbacks()) {
                                 // if callback and user arg already exist, reject the subscription
-                                if ((cbt.callback == cb) && (cbt.getArg() == userObj)) {
+                                if ((cbt.getCallback() == cb) && (cbt.getArg() == userObj)) {
                                     throw new cMsgException("subscription already exists");
                                 }
                             }
@@ -1727,13 +1727,7 @@ public class cMsg extends cMsgDomainAdapter {
                 // don't unsubscribe for this subject/type
                 if (sub.numberOfCallbacks() > 1) {
                     // kill callback thread
-                    if (Thread.currentThread() == cbThread) {
-                        //System.out.println("Don't interrupt my own thread!!!");
-                        cbThread.dieNow(false);
-                    }
-                    else {
-                        cbThread.dieNow(true);
-                    }
+                    cbThread.dieNow(false);
                     // remove this callback from the set
                     synchronized (subscriptions) {
                         sub.getCallbacks().remove(cbThread);
@@ -1773,13 +1767,7 @@ public class cMsg extends cMsgDomainAdapter {
                 // Now that we've communicated with the server,
                 // delete stuff from hashes & kill threads -
                 // basically, do the unsubscribe now.
-                if (Thread.currentThread() == cbThread) {
-                    //System.out.println("Don't interrupt my own thread!!!");
-                    cbThread.dieNow(false);
-                }
-                else {
-                    cbThread.dieNow(true);
-                }
+                cbThread.dieNow(false);
                 synchronized (subscriptions) {
                     sub.getCallbacks().remove(cbThread);
                     subscriptions.remove(sub);

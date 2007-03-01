@@ -577,13 +577,8 @@ public class RCBroadcast extends cMsgDomainAdapter {
             // Delete stuff from hashes & kill threads.
             // If there are still callbacks left,
             // don't unsubscribe for this subject/type.
-            if (Thread.currentThread() == cbThread) {
-                //System.out.println("Don't interrupt my own thread!!!");
-                cbThread.dieNow(false);
-            }
-            else {
-                cbThread.dieNow(true);
-            }
+            cbThread.dieNow(false);
+
             synchronized (subscriptions) {
                 sub.getCallbacks().remove(cbThread);
                 if (sub.numberOfCallbacks() < 1) {
