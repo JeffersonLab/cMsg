@@ -31,6 +31,7 @@ JAVA_OBJS = \
 	cMsgSubdomainAdapter.class \
 	cMsgShutdownHandlerInterface.class \
 	cMsgShutdownHandlerDefault.class \
+	cMsgCallbackThread.class \
 	cMsgDomainInterface.class \
 	cMsgDomainAdapter.class \
 	cMsg.class
