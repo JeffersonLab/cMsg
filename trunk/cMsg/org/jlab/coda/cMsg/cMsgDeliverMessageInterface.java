@@ -29,6 +29,11 @@ import java.io.IOException;
 public interface cMsgDeliverMessageInterface {
 
     /**
+     * Method to close all system resources that need closing.
+     */
+    public void close();
+
+    /**
      * Method to deliver a message from a domain server's subdomain handler to a client.
      *
      * @param msg     message to sent to client

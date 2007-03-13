@@ -206,7 +206,8 @@ public class cMsgBroadcastListeningThread extends Thread {
                 System.out.println("cMsgBroadcastListenThread: I/O ERROR in rc broadcast server");
                 System.out.println("cMsgBroadcastListenThread: close broadcast socket, port = " + broadcastSocket.getLocalPort());
             }
-
+        }
+        finally {
             // We're here if there is an IO error. Close socket and kill this thread.
             broadcastSocket.close();
         }

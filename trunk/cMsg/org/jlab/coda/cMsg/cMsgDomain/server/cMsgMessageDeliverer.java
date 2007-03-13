@@ -61,6 +61,20 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
     }
 
     /**
+     * Method to close all streams and sockets.
+     */
+    synchronized public void close() {
+        try {in.close();}
+        catch (IOException e) {}
+
+        try {out.close();}
+        catch (IOException e) {}
+
+        try {channel.close();}
+        catch (IOException e) {}
+    }
+
+    /**
      * Method to deliver a message from a domain server's subdomain handler to a client.
      *
      * @param msg message to sent to client
@@ -95,7 +109,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
      * @param info client information object
      * @throws IOException if socket cannot be created
      */
-    public void createClientConnection(cMsgClientInfo info) throws IOException {
+    synchronized public void createClientConnection(cMsgClientInfo info) throws IOException {
         channel = SocketChannel.open(new InetSocketAddress(info.getClientHost(),
                                                            info.getClientPort()));
         // set socket options
@@ -125,7 +139,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
     private boolean deliverMessageReal(cMsgMessage msg, int msgType, boolean acknowledge)
             throws IOException, cMsgException {
 
-        if (in == null || out == null) {
+        if (in == null || out == null || !channel.isOpen()) {
             throw new cMsgException("Call createClientConnection first to create connection to client");
         }
 

@@ -45,7 +45,8 @@ import org.jlab.coda.cMsg.cMsgNetworkConstants;
  * @version 1.0
  */
 public class cMsgNameServer extends Thread {
-     /** This server's name. */
+
+    /** This server's name. */
     private String serverName;
 
     /** This server's TCP listening port number. */
@@ -740,9 +741,11 @@ public class cMsgNameServer extends Thread {
             System.out.println(">> NS: Running Name Server at " + (new Date()) );
         }
 
+        Selector selector = null;
+
         try {
             // get things ready for a select call
-            Selector selector = Selector.open();
+            selector = Selector.open();
 
             // set nonblocking mode for the listening socket
             serverChannel.configureBlocking(false);
@@ -794,6 +797,7 @@ public class cMsgNameServer extends Thread {
 
                         // start up client handling thread & store reference
                         handlerThreads.add(new ClientHandler(channel));
+//System.out.println("handlerThd size = " + handlerThreads.size());
 
                         if (debug >= cMsgConstants.debugInfo) {
                             System.out.println(">> NS: new connection");
@@ -808,6 +812,13 @@ public class cMsgNameServer extends Thread {
             if (debug >= cMsgConstants.debugError) {
                 //ex.printStackTrace();
             }
+        }
+        finally {
+            try {
+                selector.close();
+                serverChannel.close();
+            }
+            catch (IOException e) {}
         }
 
         if (debug >= cMsgConstants.debugInfo) {
@@ -893,14 +904,11 @@ public class cMsgNameServer extends Thread {
                 }
             }
             finally {
+                handlerThreads.remove(this);
                 // we are done with the channel
-                try {
-                    channel.close();
-                }
-                catch (IOException ex) {
-                }
+                try {channel.close();}
+                catch (IOException ex) {}
             }
-
          }
 
 

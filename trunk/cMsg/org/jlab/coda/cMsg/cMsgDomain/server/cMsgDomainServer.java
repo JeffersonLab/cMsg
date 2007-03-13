@@ -72,6 +72,9 @@ public class cMsgDomainServer extends Thread {
     /** Socket to receive UDP sends from the client. */
     DatagramSocket udpSocket;
 
+    /** Socket channel from this server back to client. */
+    private SocketChannel backToClientChannel;
+
     /** Output stream from this server back to client. */
     private DataOutputStream backToClient;
 
@@ -436,24 +439,38 @@ public class cMsgDomainServer extends Thread {
         try { Thread.sleep(10); }
         catch (InterruptedException e) {}
 
-        // stop thread that gets client keep alives over socket
+        // close the connection server uses to talk back to client
+        if (backToClient != null) {
+            try {
+                backToClient.close();
+                backToClientChannel.close();
+            }
+            catch (IOException e) {}
+        }
+
+        // stop thread that gets client keep alives over socket, close socket
         if (keepAliveThread != null) {
             keepAliveThread.interrupt();
-            try {keepAliveThread.channel.close();}
-            catch (IOException e) {}
         }
 
         // stop thread that gets client commands over socket
         if (clientHandlerThread != null) {
             clientHandlerThread.interrupt();
-            try {clientHandlerThread.channel.close();}
-            catch (IOException e) {}
         }
 
-        // stop thread that gets client sends over udp
+        // stop thread that gets client sends over udp, close socket
         if (udpHandlerThread != null) {
             udpHandlerThread.interrupt();
-            udpSocket.close();
+            // Closing the socket here is necessary to get the socket to wake up -
+            // thus making the thread die.
+            if (!udpSocket.isClosed()) {
+                udpSocket.close();
+            }
+        }
+
+        // close connection from message deliver to client
+        if (info.getDeliverer() != null) {
+            info.getDeliverer().close();
         }
 
         // give threads a chance to shutdown
@@ -470,7 +487,8 @@ public class cMsgDomainServer extends Thread {
             t.interrupt();
         }
 
-        // now shutdown the main thread which shouldn't take more than 1 second
+        // Shutdown the main thread which shouldn't take more than 1 second.
+        // This will close this domain server's listening thread's socket.
         killMainThread = true;
 
         // Unsubscribe bridges from all subscriptions if regular client.
@@ -566,10 +584,6 @@ public class cMsgDomainServer extends Thread {
         subAndGetThreadPool.shutdownNow();
         sendAndGetThreadPool.shutdownNow();
 
-        // close this domain server's listening thread's socket
-        try { serverChannel.close(); }
-        catch (IOException e) {};
-
         // remove from name server's hash table
         nameServer.domainServers.remove(this);
 
@@ -592,9 +606,11 @@ public class cMsgDomainServer extends Thread {
             System.out.println(">>    DS: Running Domain Server");
         }
 
+        Selector selector = null;
+
         try {
             // get things ready for a select call
-            Selector selector = Selector.open();
+            selector = Selector.open();
 
             // set nonblocking mode for the listening socket
             serverChannel.configureBlocking(false);
@@ -603,15 +619,13 @@ public class cMsgDomainServer extends Thread {
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
             while (true) {
-                if (killMainThread) {
-                    return;
-                }
+                if (killMainThread) {return;}
 
                 // 1 second timeout
                 int n = selector.select(1000);
 
                 // first check to see if we've been commanded to die
-                if (killMainThread) return;
+                if (killMainThread) {return;}
 
                 // if no channels (sockets) are ready, listen some more
                 if (n == 0) continue;
@@ -638,6 +652,7 @@ public class cMsgDomainServer extends Thread {
 
                         // The 1st connection is for responses to certain client requests
                         if (connectionNumber == 1) {
+                            backToClientChannel = channel;
                             backToClient = new DataOutputStream(new BufferedOutputStream(
                                                                 channel.socket().getOutputStream(), 2048));
                         }
@@ -673,6 +688,13 @@ public class cMsgDomainServer extends Thread {
         }
         catch (IOException ex) {
         }
+        finally {
+            try {
+                serverChannel.close();
+                selector.close();
+            }
+            catch (IOException e) { }
+        }
 
         return;
     }
@@ -701,11 +723,13 @@ public class cMsgDomainServer extends Thread {
          */
         public void run() {
             int msgId;
+            DataInputStream  in  = null;
+            DataOutputStream out = null;
 
             try {
 
-                DataInputStream  in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 65536));
-                DataOutputStream out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 2048));
+                in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 65536));
+                out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 2048));
 
                 while (true) {
                     if (Thread.currentThread().isInterrupted()) {
@@ -748,6 +772,14 @@ public class cMsgDomainServer extends Thread {
                     ex.printStackTrace();
                 }
             }
+            finally {
+                try {
+                    in.close();
+                    out.close();
+                    channel.close();
+                }
+                catch (IOException e) {}
+            }
         }
     }
 
@@ -772,6 +804,7 @@ public class cMsgDomainServer extends Thread {
             setDaemon(true);
 
             start();
+            //System.out.println("+");
         }
 
         /**
@@ -832,9 +865,13 @@ public class cMsgDomainServer extends Thread {
                     System.out.println("dServer udpSendHandler: I/O ERROR in domain server, udp receiver");
                     System.out.println("dServer udpSendHandler: close broadcast socket, port = " + udpSocket.getLocalPort());
                 }
-
+            }
+            finally {
                 // We're here if there is an IO error. Close socket and kill this thread.
-                udpSocket.close();
+                //System.out.println("-");
+                if (!udpSocket.isClosed()) {
+                     udpSocket.close();
+                }
             }
         }
 
@@ -1141,6 +1178,13 @@ public class cMsgDomainServer extends Thread {
                     System.out.println(">>    DS: command-reading thread's connection to client is dead from IO error");
                     ex.printStackTrace();
                 }
+            }
+            finally {
+                try {
+                    in.close();
+                    channel.close();
+                }
+                catch (IOException e) {}
             }
         }
 
