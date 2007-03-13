@@ -2949,7 +2949,7 @@ public class cMsg extends cMsgDomainAdapter {
                 }
                 catch (IOException e) {
                     connected = false;
-                    e.printStackTrace();
+                    //e.printStackTrace();
                 }
 
                 // if we've reach here, there's an error
