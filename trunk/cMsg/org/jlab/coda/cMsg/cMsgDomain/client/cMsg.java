@@ -749,13 +749,16 @@ public class cMsg extends cMsgDomainAdapter {
                 // no need to set buffer sizes
             }
             catch (UnresolvedAddressException e) {
+                // undo everything we've just done
+                listeningThread.killThread();
+                try {if (channel != null) channel.close();} catch (IOException e1) {}
+
                 throw new cMsgException("connect: cannot create channel to name server", e);
             }
             catch (IOException e) {
                 // undo everything we've just done
                 listeningThread.killThread();
-                try {if (channel != null) channel.close();}
-                catch (IOException e1) {}
+                try {if (channel != null) channel.close();} catch (IOException e1) {}
 
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
@@ -770,8 +773,7 @@ public class cMsg extends cMsgDomainAdapter {
             catch (IOException e) {
                 // undo everything we've just done
                 listeningThread.killThread();
-                try {channel.close();}
-                catch (IOException e1) {}
+                try {channel.close();} catch (IOException e1) {}
 
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
@@ -801,10 +803,8 @@ public class cMsg extends cMsgDomainAdapter {
             catch (IOException e) {
                 // undo everything we've just done
                 listeningThread.killThread();
-                try {channel.close();}
-                catch (IOException e1) {}
-                try {if (domainInChannel != null) domainInChannel.close();}
-                catch (IOException e1) {}
+                try {channel.close();} catch (IOException e1) {}
+                try {if (domainInChannel != null) domainInChannel.close();} catch (IOException e1) {}
 
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
@@ -826,12 +826,9 @@ public class cMsg extends cMsgDomainAdapter {
             catch (IOException e) {
                 // undo everything we've just done so far
                 listeningThread.killThread();
-                try { channel.close(); }
-                catch (IOException e1) {}
-                try { domainInChannel.close(); }
-                catch (IOException e1) {}
-                try { if (keepAliveChannel != null) keepAliveChannel.close(); }
-                catch (IOException e1) {}
+                try { channel.close(); }         catch (IOException e1) {}
+                try { domainInChannel.close(); } catch (IOException e1) {}
+                try { if (keepAliveChannel != null) keepAliveChannel.close(); } catch (IOException e1) {}
                 if (keepAliveThread != null) keepAliveThread.killThread();
 
                 if (debug >= cMsgConstants.debugError) {
@@ -853,15 +850,11 @@ public class cMsg extends cMsgDomainAdapter {
             catch (IOException e) {
                 // undo everything we've just done so far
                 listeningThread.killThread();
-                try { channel.close(); }
-                catch (IOException e1) {}
-                try { domainInChannel.close(); }
-                catch (IOException e1) {}
-                try { keepAliveChannel.close(); }
-                catch (IOException e1) {}
                 keepAliveThread.killThread();
-                try {if (domainOutChannel != null) domainOutChannel.close();}
-                catch (IOException e1) {}
+                try { channel.close(); }          catch (IOException e1) {}
+                try { domainInChannel.close(); }  catch (IOException e1) {}
+                try { keepAliveChannel.close(); } catch (IOException e1) {}
+                try {if (domainOutChannel != null) domainOutChannel.close();} catch (IOException e1) {}
 
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
@@ -882,15 +875,11 @@ public class cMsg extends cMsgDomainAdapter {
             }
             catch (UnknownHostException e) {
                 listeningThread.killThread();
-                try { channel.close(); }
-                catch (IOException e1) {}
-                try { domainInChannel.close(); }
-                catch (IOException e1) {}
-                try { keepAliveChannel.close(); }
-                catch (IOException e1) {}
                 keepAliveThread.killThread();
-                try {domainOutChannel.close();}
-                catch (IOException e1) {}
+                try { channel.close(); } catch (IOException e1) {}
+                try { domainInChannel.close(); } catch (IOException e1) {}
+                try { keepAliveChannel.close(); } catch (IOException e1) {}
+                try {domainOutChannel.close();} catch (IOException e1) {}
                 if (sendUdpSocket != null) sendUdpSocket.close();
 
                 if (debug >= cMsgConstants.debugError) {
@@ -900,15 +889,11 @@ public class cMsg extends cMsgDomainAdapter {
             }
             catch (SocketException e) {
                 listeningThread.killThread();
-                try { channel.close(); }
-                catch (IOException e1) {}
-                try { domainInChannel.close(); }
-                catch (IOException e1) {}
-                try { keepAliveChannel.close(); }
-                catch (IOException e1) {}
                 keepAliveThread.killThread();
-                try {domainOutChannel.close();}
-                catch (IOException e1) {}
+                try { channel.close(); } catch (IOException e1) {}
+                try { domainInChannel.close(); } catch (IOException e1) {}
+                try { keepAliveChannel.close(); } catch (IOException e1) {}
+                try {domainOutChannel.close();} catch (IOException e1) {}
                 if (sendUdpSocket != null) sendUdpSocket.close();
 
                 if (debug >= cMsgConstants.debugError) {
@@ -1079,7 +1064,7 @@ public class cMsg extends cMsgDomainAdapter {
             listeningThread.killClientHandlerThreads();
 
             // connect & talk to cMsg name server to check if name is unique
-            SocketChannel channel;
+            SocketChannel channel = null;
             try {
                 channel = SocketChannel.open(new InetSocketAddress(nameServerHost, nameServerPort));
                 // set socket options
@@ -1088,11 +1073,16 @@ public class cMsg extends cMsgDomainAdapter {
                 socket.setTcpNoDelay(true);
                 // no need to set buffer sizes
             }
+            catch (UnresolvedAddressException e) {
+                try {if (channel != null) channel.close();} catch (IOException e1) {}
+                throw new cMsgException("reconnect: cannot create channel to name server", e);
+            }
             catch (IOException e) {
+                try {if (channel != null) channel.close();} catch (IOException e1) {}
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("reconnect: cannot create channel to name server");
+                throw new cMsgException("reconnect: cannot create channel to name server", e);
             }
 
             // get host & port to send messages & other info from name server
@@ -1100,10 +1090,11 @@ public class cMsg extends cMsgDomainAdapter {
                 talkToNameServerFromClient(channel);
             }
             catch (IOException e) {
+                try {channel.close();} catch (IOException e1) {}
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("reconnect: cannot talk to name server");
+                throw new cMsgException("reconnect: cannot talk to name server", e);
             }
 
             // done talking to server
@@ -1126,10 +1117,13 @@ public class cMsg extends cMsgDomainAdapter {
                 domainIn = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 2048));
             }
             catch (IOException e) {
+                try {channel.close();} catch (IOException e1) {}
+                try {if (domainInChannel != null) domainInChannel.close();} catch (IOException e1) {}
+
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("reconnect: cannot create channel to domain server");
+                throw new cMsgException("reconnect: cannot create channel to domain server", e);
             }
 
             // create keepAlive socket
@@ -1142,10 +1136,14 @@ public class cMsg extends cMsgDomainAdapter {
                 keepAliveThread.changeChannels(keepAliveChannel);
             }
             catch (IOException e) {
+                try { channel.close(); } catch (IOException e1) {}
+                try { domainInChannel.close(); } catch (IOException e1) {}
+                try { if (keepAliveChannel != null) keepAliveChannel.close(); } catch (IOException e1) {}
+
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("reconnect: cannot create keepAlive channel to domain server");
+                throw new cMsgException("reconnect: cannot create keepAlive channel to domain server", e);
             }
 
             // create request sending (to domain) channel (This takes longest so do last)
@@ -1159,35 +1157,52 @@ public class cMsg extends cMsgDomainAdapter {
                                                                           cMsgNetworkConstants.bigBufferSize));
             }
             catch (IOException e) {
+                try { channel.close(); }          catch (IOException e1) {}
+                try { domainInChannel.close(); }  catch (IOException e1) {}
+                try { keepAliveChannel.close(); } catch (IOException e1) {}
+                try {if (domainOutChannel != null) domainOutChannel.close();} catch (IOException e1) {}
+
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("reconnect: cannot create channel to domain server");
+                throw new cMsgException("reconnect: cannot create channel to domain server", e);
             }
 
             // create udp socket to send messages on
-                try {
-                    sendUdpSocket = new DatagramSocket();
-                    InetAddress addr = InetAddress.getByName(domainServerHost);
-                    // connect for speed and to keep out unwanted packets
-                    sendUdpSocket.connect(addr, domainServerUdpPort);
-                    sendUdpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
-                    sendUdpPacket = new DatagramPacket(new byte[0], 0, addr, domainServerUdpPort);
-                    // System.out.println("udp socket connected to host = " + domainServerHost +
-                    // " and port = " + domainServerUdpPort);
+            try {
+                sendUdpSocket = new DatagramSocket();
+                InetAddress addr = InetAddress.getByName(domainServerHost);
+                // connect for speed and to keep out unwanted packets
+                sendUdpSocket.connect(addr, domainServerUdpPort);
+                sendUdpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                sendUdpPacket = new DatagramPacket(new byte[0], 0, addr, domainServerUdpPort);
+                // System.out.println("udp socket connected to host = " + domainServerHost +
+                // " and port = " + domainServerUdpPort);
+            }
+            catch (UnknownHostException e) {
+                try { channel.close(); }          catch (IOException e1) {}
+                try { domainInChannel.close(); }  catch (IOException e1) {}
+                try { keepAliveChannel.close(); } catch (IOException e1) {}
+                try { domainOutChannel.close();}  catch (IOException e1) {}
+                if (sendUdpSocket != null) sendUdpSocket.close();
+
+                if (debug >= cMsgConstants.debugError) {
+                    e.printStackTrace();
                 }
-                catch (UnknownHostException e) {
-                    if (debug >= cMsgConstants.debugError) {
-                        e.printStackTrace();
-                    }
-                    throw new cMsgException("reconnect: cannot create udp socket to domain server");
+                throw new cMsgException("reconnect: cannot create udp socket to domain server", e);
+            }
+            catch (SocketException e) {
+                try { channel.close(); }          catch (IOException e1) {}
+                try { domainInChannel.close(); }  catch (IOException e1) {}
+                try { keepAliveChannel.close(); } catch (IOException e1) {}
+                try { domainOutChannel.close();}  catch (IOException e1) {}
+                if (sendUdpSocket != null) sendUdpSocket.close();
+
+                if (debug >= cMsgConstants.debugError) {
+                    e.printStackTrace();
                 }
-                catch (SocketException e) {
-                    if (debug >= cMsgConstants.debugError) {
-                        e.printStackTrace();
-                    }
-                    throw new cMsgException("reconnect: cannot create udp socket to domain server");
-                }
+                throw new cMsgException("reconnect: cannot create udp socket to domain server", e);
+            }
 
             connected = true;
         }
