@@ -236,8 +236,7 @@ public class cMsgServerClient extends cMsg {
             catch (IOException e) {
                 // undo everything we've just done
                 listeningThread.killThread();
-                try {if (channel != null) channel.close();}
-                catch (IOException e1) {}
+                try {if (channel != null) channel.close();} catch (IOException e1) {}
 
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
@@ -258,8 +257,7 @@ public class cMsgServerClient extends cMsg {
             catch (IOException e) {
                 // undo everything we've just done
                 listeningThread.killThread();
-                try {channel.close();}
-                catch (IOException e1) {}
+                try {channel.close();} catch (IOException e1) {}
 
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
@@ -290,10 +288,8 @@ public class cMsgServerClient extends cMsg {
             catch (IOException e) {
                 // undo everything we've just done
                 listeningThread.killThread();
-                try {channel.close();}
-                catch (IOException e1) {}
-                try {if (domainInChannel != null) domainInChannel.close();}
-                catch (IOException e1) {}
+                try {channel.close();} catch (IOException e1) {}
+                try {if (domainInChannel != null) domainInChannel.close();} catch (IOException e1) {}
 
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
@@ -315,12 +311,9 @@ public class cMsgServerClient extends cMsg {
             catch (IOException e) {
                 // undo everything we've just done so far
                 listeningThread.killThread();
-                try { channel.close(); }
-                catch (IOException e1) {}
-                try { domainInChannel.close(); }
-                catch (IOException e1) {}
-                try { if (keepAliveChannel != null) keepAliveChannel.close(); }
-                catch (IOException e1) {}
+                try { channel.close(); }         catch (IOException e1) {}
+                try { domainInChannel.close(); } catch (IOException e1) {}
+                try { if (keepAliveChannel != null) keepAliveChannel.close(); } catch (IOException e1) {}
                 if (keepAliveThread != null) keepAliveThread.killThread();
 
                 if (debug >= cMsgConstants.debugError) {
@@ -341,15 +334,11 @@ public class cMsgServerClient extends cMsg {
             catch (IOException e) {
                 // undo everything we've just done so far
                 listeningThread.killThread();
-                try { channel.close(); }
-                catch (IOException e1) {}
-                try { domainInChannel.close(); }
-                catch (IOException e1) {}
-                try { keepAliveChannel.close(); }
-                catch (IOException e1) {}
                 keepAliveThread.killThread();
-                try {if (domainOutChannel != null) domainOutChannel.close();}
-                catch (IOException e1) {}
+                try { channel.close(); }          catch (IOException e1) {}
+                try { domainInChannel.close(); }  catch (IOException e1) {}
+                try { keepAliveChannel.close(); } catch (IOException e1) {}
+                try {if (domainOutChannel != null) domainOutChannel.close();} catch (IOException e1) {}
 
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
