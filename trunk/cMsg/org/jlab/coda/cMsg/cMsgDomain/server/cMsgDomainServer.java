@@ -619,13 +619,13 @@ public class cMsgDomainServer extends Thread {
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
             while (true) {
-                if (killMainThread) {System.out.println("told to die");return;}
+                if (killMainThread) return;
 
                 // 1 second timeout
                 int n = selector.select(1000);
 
                 // first check to see if we've been commanded to die
-                if (killMainThread) {System.out.println("tolld to die");return;}
+                if (killMainThread) return;
 
                 // if no channels (sockets) are ready, listen some more
                 if (n == 0) continue;
@@ -645,8 +645,6 @@ public class cMsgDomainServer extends Thread {
 
                         // set socket options
                         Socket socket = channel.socket();
-//System.out.println("default recv buf = " + socket.getReceiveBufferSize() +
-//                   ", send buf = " + socket.getSendBufferSize());
                         // Set tcpNoDelay so no packets are delayed
                         socket.setTcpNoDelay(true);
 
@@ -1079,7 +1077,6 @@ public class cMsgDomainServer extends Thread {
 
                         case cMsgConstants.msgDisconnectRequest: // client disconnecting
                             // need to shutdown this domain server
-System.out.println("SHUTDOWN requested by client");
                             if (calledShutdown.compareAndSet(false, true)) {
 //System.out.println("SHUTDOWN TO BE RUN BY msgDisconnectRequest");
                                 shutdown();
