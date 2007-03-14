@@ -119,9 +119,11 @@ public class cMsgClientListeningThread extends Thread {
             System.out.println("Running Client Listening Thread");
         }
 
+        Selector selector = null;
+
         try {
             // get things ready for a select call
-            Selector selector = Selector.open();
+            selector = Selector.open();
 
             // set nonblocking mode for the listening socket
             serverChannel.configureBlocking(false);
@@ -142,21 +144,11 @@ public class cMsgClientListeningThread extends Thread {
                 // if no channels (sockets) are ready, listen some more
                 if (n == 0) {
                     // but first check to see if we've been commanded to die
-                    if (killThread) {
-                        serverChannel.close();
-                        selector.close();
-                        killClientHandlerThreads();
-                        return;
-                    }
+                    if (killThread) return;
                     continue;
                 }
 
-                if (killThread) {
-                    serverChannel.close();
-                    selector.close();
-                    killClientHandlerThreads();
-                    return;
-                }
+                if (killThread) return;
 
                 // get an iterator of selected keys (ready sockets)
                 Iterator it = selector.selectedKeys().iterator();
@@ -196,6 +188,11 @@ public class cMsgClientListeningThread extends Thread {
             if (debug >= cMsgConstants.debugError) {
                 ex.printStackTrace();
             }
+        }
+        finally {
+            try {serverChannel.close();} catch (IOException ex) {}
+            try {if (selector != null) selector.close();} catch (IOException ex) {}
+            killClientHandlerThreads();
         }
 
         if (debug >= cMsgConstants.debugInfo) {
@@ -329,9 +326,9 @@ public class cMsgClientListeningThread extends Thread {
                             break;
 
                         case cMsgConstants.msgShutdownClients: // server told this client to shutdown
-                     //       if (debug >= cMsgConstants.debugInfo) {
+                            if (debug >= cMsgConstants.debugInfo) {
                                 System.out.println("handleClient: got shutdown from server");
-                     //       }
+                            }
 
                             // If server wants an acknowledgment, send one back.
                             // Do this BEFORE running shutdown.
@@ -349,9 +346,9 @@ public class cMsgClientListeningThread extends Thread {
                             break;
 
                         default:
-                         //   if (debug >= cMsgConstants.debugWarn) {
+                            if (debug >= cMsgConstants.debugWarn) {
                                 System.out.println("handleClient: can't understand server message = " + msgId);
-                         //   }
+                            }
                             break;
                     }
                 }
@@ -362,16 +359,13 @@ public class cMsgClientListeningThread extends Thread {
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("handleClient: I/O ERROR in cMsg client");
                 }
-
+            }
+            finally {
                 // We're here if there is an IO error.
-                // Disconnect the client (kill listening (this) thread and keepAlive thread).
-                try {
-//System.out.println("handleClient: close server to client socket, port = " + channel.socket().getLocalPort());
-                    channel.close();
-                    //client.disconnect();   // cannot run this due to possible reconnects to failover servers
-                }
-                catch (IOException e1) {
-                }
+                // Disconnect the client (kill listening (this) thread and keepAlive thread)
+                try {in.close();}      catch (IOException e1) {}
+                try {out.close();}     catch (IOException e1) {}
+                try {channel.close();} catch (IOException e1) {}
             }
 
             return;
