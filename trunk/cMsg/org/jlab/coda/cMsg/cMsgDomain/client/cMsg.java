@@ -749,7 +749,7 @@ public class cMsg extends cMsgDomainAdapter {
                 // no need to set buffer sizes
             }
             catch (UnresolvedAddressException e) {
-                throw new cMsgException("connect: cannot create channel to name server");
+                throw new cMsgException("connect: cannot create channel to name server", e);
             }
             catch (IOException e) {
                 // undo everything we've just done
@@ -760,7 +760,7 @@ public class cMsg extends cMsgDomainAdapter {
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("connect: cannot create channel to name server");
+                throw new cMsgException("connect: cannot create channel to name server", e);
             }
 
             // get host & port to send messages & other info from name server
@@ -776,7 +776,7 @@ public class cMsg extends cMsgDomainAdapter {
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("connect: cannot talk to name server");
+                throw new cMsgException("connect: cannot talk to name server", e);
             }
 
             // done talking to server
@@ -809,7 +809,7 @@ public class cMsg extends cMsgDomainAdapter {
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("connect: cannot create channel to domain server");
+                throw new cMsgException("connect: cannot create channel to domain server", e);
             }
 
             // create keepAlive socket
@@ -837,7 +837,7 @@ public class cMsg extends cMsgDomainAdapter {
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("connect: cannot create keepAlive channel to domain server");
+                throw new cMsgException("connect: cannot create keepAlive channel to domain server", e);
             }
 
             // create request sending (to domain) channel (This takes longest so do last)
@@ -866,7 +866,7 @@ public class cMsg extends cMsgDomainAdapter {
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("connect: cannot create channel to domain server");
+                throw new cMsgException("connect: cannot create channel to domain server", e);
             }
 
             // create udp socket to send messages on
@@ -881,16 +881,40 @@ public class cMsg extends cMsgDomainAdapter {
                 // " and port = " + domainServerUdpPort);
             }
             catch (UnknownHostException e) {
+                listeningThread.killThread();
+                try { channel.close(); }
+                catch (IOException e1) {}
+                try { domainInChannel.close(); }
+                catch (IOException e1) {}
+                try { keepAliveChannel.close(); }
+                catch (IOException e1) {}
+                keepAliveThread.killThread();
+                try {domainOutChannel.close();}
+                catch (IOException e1) {}
+                if (sendUdpSocket != null) sendUdpSocket.close();
+
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("connect: cannot create udp socket to domain server");
+                throw new cMsgException("connect: cannot create udp socket to domain server", e);
             }
             catch (SocketException e) {
+                listeningThread.killThread();
+                try { channel.close(); }
+                catch (IOException e1) {}
+                try { domainInChannel.close(); }
+                catch (IOException e1) {}
+                try { keepAliveChannel.close(); }
+                catch (IOException e1) {}
+                keepAliveThread.killThread();
+                try {domainOutChannel.close();}
+                catch (IOException e1) {}
+                if (sendUdpSocket != null) sendUdpSocket.close();
+
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("connect: cannot create udp socket to domain server");
+                throw new cMsgException("connect: cannot create udp socket to domain server", e);
             }
 
             connected = true;
@@ -956,6 +980,14 @@ public class cMsg extends cMsgDomainAdapter {
             finally {
                 socketLock.unlock();
             }
+
+            // close all our streams and sockets
+            try {domainIn.close();}                  catch (IOException e) {}
+            try {domainOut.close();}                 catch (IOException e) {}
+            try {domainInChannel.close();}           catch (IOException e) {}
+            try {domainOutChannel.close();}          catch (IOException e) {}
+            try {keepAliveChannel.socket().close();} catch (IOException e) {}
+            sendUdpSocket.close();
 
             // give server a chance to shutdown
             try { Thread.sleep(100); }
@@ -3006,11 +3038,7 @@ public class cMsg extends cMsgDomainAdapter {
                 }
             }
 
-            // close communication channel
-            try { channel.close(); }
-            catch (IOException e) { }
-
-            // disconnect
+            // disconnect (sockets closed here)
             disconnect();
         }
 
