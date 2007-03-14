@@ -619,13 +619,13 @@ public class cMsgDomainServer extends Thread {
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
             while (true) {
-                if (killMainThread) {return;}
+                if (killMainThread) {System.out.println("told to die");return;}
 
                 // 1 second timeout
                 int n = selector.select(1000);
 
                 // first check to see if we've been commanded to die
-                if (killMainThread) {return;}
+                if (killMainThread) {System.out.println("tolld to die");return;}
 
                 // if no channels (sockets) are ready, listen some more
                 if (n == 0) continue;
@@ -687,13 +687,11 @@ public class cMsgDomainServer extends Thread {
             }
         }
         catch (IOException ex) {
+            ex.printStackTrace();
         }
         finally {
-            try {
-                serverChannel.close();
-                selector.close();
-            }
-            catch (IOException e) { }
+            try {serverChannel.close();} catch (IOException e) { }
+            try {selector.close();}      catch (IOException e) { }
         }
 
         return;
@@ -773,12 +771,9 @@ public class cMsgDomainServer extends Thread {
                 }
             }
             finally {
-                try {
-                    in.close();
-                    out.close();
-                    channel.close();
-                }
-                catch (IOException e) {}
+                    try {if (in  != null)  in.close();} catch (IOException e) {}
+                    try {if (out != null) out.close();} catch (IOException e) {}
+                    try {channel.close();}              catch (IOException e) {}
             }
         }
     }
@@ -1084,6 +1079,7 @@ public class cMsgDomainServer extends Thread {
 
                         case cMsgConstants.msgDisconnectRequest: // client disconnecting
                             // need to shutdown this domain server
+System.out.println("SHUTDOWN requested by client");
                             if (calledShutdown.compareAndSet(false, true)) {
 //System.out.println("SHUTDOWN TO BE RUN BY msgDisconnectRequest");
                                 shutdown();
@@ -1180,11 +1176,8 @@ public class cMsgDomainServer extends Thread {
                 }
             }
             finally {
-                try {
-                    in.close();
-                    channel.close();
-                }
-                catch (IOException e) {}
+                try {in.close();}      catch (IOException e) {}
+                try {channel.close();} catch (IOException e) {}
             }
         }
 
