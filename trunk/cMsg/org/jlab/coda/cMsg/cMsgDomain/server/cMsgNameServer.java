@@ -814,11 +814,8 @@ public class cMsgNameServer extends Thread {
             }
         }
         finally {
-            try {
-                selector.close();
-                serverChannel.close();
-            }
-            catch (IOException e) {}
+            try {serverChannel.close();} catch (IOException e) {}
+            try {selector.close();}      catch (IOException e) {}
         }
 
         if (debug >= cMsgConstants.debugInfo) {
@@ -906,8 +903,9 @@ public class cMsgNameServer extends Thread {
             finally {
                 handlerThreads.remove(this);
                 // we are done with the channel
-                try {channel.close();}
-                catch (IOException ex) {}
+                try {in.close();}      catch (IOException ex) {}
+                try {out.close();}     catch (IOException ex) {}
+                try {channel.close();} catch (IOException ex) {}
             }
          }
 
@@ -1556,10 +1554,10 @@ public class cMsgNameServer extends Thread {
 
                 try {
                     // First, check to see if password matches.
-System.out.println("local cloudpassword = " + cloudPassword +
-                   ", given password = " + password);
+//System.out.println("local cloudpassword = " + cloudPassword +
+//                   ", given password = " + password);
                     if (cloudPassword != null && !cloudPassword.equals(password)) {
-System.out.println(">> NS: PASSWORDS DO NOT MATCH");
+//System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                         cMsgException ex = new cMsgException("wrong password - connection refused");
                         ex.setReturnCode(cMsgConstants.errorWrongPassword);
                         throw ex;
