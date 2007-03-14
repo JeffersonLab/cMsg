@@ -143,15 +143,16 @@ public class cMsgMonitorClient extends Thread {
     /** This method is executed as a thread. */
     public void run() {
 
-        while (true) {
-            // get ready to write
-            buffer.clear();
+        try {
 
-            // write 2 ints
-            buffer.putInt(4); // # bytes to follow
-            buffer.putInt(cMsgConstants.msgKeepAlive);
+            while (true) {
+                // get ready to write
+                buffer.clear();
 
-            try {
+                // write 2 ints
+                buffer.putInt(4); // # bytes to follow
+                buffer.putInt(cMsgConstants.msgKeepAlive);
+
                 // check to see if domain server is shutting down and we must die too
                 if (server.killSpawnedThreads) {
                     return;
@@ -164,7 +165,7 @@ public class cMsgMonitorClient extends Thread {
                 }
                 if (debug >= cMsgConstants.debugInfo) {
                     System.out.println("cMsgMonitorClient: wrote keepAlive to " +
-                                       info.getName());
+                            info.getName());
                 }
 
                 // wait 2 seconds for client to answer keepalive
@@ -174,10 +175,10 @@ public class cMsgMonitorClient extends Thread {
                 if (n == 0) {
                     if (debug >= cMsgConstants.debugError) {
                         System.out.println("cMsgMonitorClient: 1 CANNOT COMMUNICATE with " +
-                                           info.getName() + "\n");
+                                info.getName() + "\n");
                     }
 
-                    if (server.calledShutdown.compareAndSet(false,true)) {
+                    if (server.calledShutdown.compareAndSet(false, true)) {
                         //System.out.println("SHUTDOWN TO BE RUN BY monitor client thd");
                         server.shutdown();
                     }
@@ -201,34 +202,29 @@ public class cMsgMonitorClient extends Thread {
                     it.remove();
                 }
 
+                // check every 2 seconds
+                try {Thread.sleep(2000);}
+                catch (InterruptedException e) {}
             }
-            catch (IOException e) {
-                // client has died, time to bail.
-                if (debug >= cMsgConstants.debugError) {
-                    System.out.println("cMsgMonitorClient: 2 CANNOT COMMUNICATE with client " +
-                                       info.getName() + ":" +
-                                       info.getClientHost() + ":" +
-                                       info.getClientPort() + "\n");
-                }
-
-                if (server.calledShutdown.compareAndSet(false,true)) {
-                    //System.out.println("SHUTDOWN TO BE RUN BY monitor client thd");
-                    server.shutdown();
-                }
-                return;
-            }
-            finally {
-                try {
-                    channel.close();
-                    selector.close();
-                }
-                catch (IOException ex) {}
-            }
-
-            try {Thread.sleep(2000);}
-            catch (InterruptedException e) {}
         }
+        catch (IOException e) {
+            if (debug >= cMsgConstants.debugError) {
+                System.out.println("cMsgMonitorClient: 2 CANNOT COMMUNICATE with client " +
+                        info.getName() + ":" +
+                        info.getClientHost() + ":" +
+                        info.getClientPort() + "\n");
+            }
 
+            if (server.calledShutdown.compareAndSet(false, true)) {
+                //System.out.println("SHUTDOWN TO BE RUN BY monitor client thd");
+                server.shutdown();
+            }
+        }
+        finally {
+            // client has died, time to bail.
+            try {channel.close();}  catch (IOException ex) {}
+            try {selector.close();} catch (IOException ex) {}
+        }
     }
 
 }
