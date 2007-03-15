@@ -181,8 +181,11 @@ public class rcListeningThread extends Thread {
                 switch (msgType) {
                     // broadcasts from rc clients
                     case cMsgNetworkConstants.rcDomainBroadcastClient:
+//System.out.println("Client wants to connect");
+                        break;
                     // broadcasts from rc servers
                     case cMsgNetworkConstants.rcDomainBroadcastServer:
+//System.out.println("Server wants to connect");
                         break;
                     // kill this server since one already exists on this port/expid
                     case cMsgNetworkConstants.rcDomainBroadcastKillSelf:
@@ -192,6 +195,7 @@ public class rcListeningThread extends Thread {
                         return;
                     // ignore broadcasts from unknown sources
                     default:
+//System.out.println("Unknown command");
                         continue;
                 }
 
@@ -230,18 +234,22 @@ public class rcListeningThread extends Thread {
                 // Before sending a reply, check to see if we simply got a packet
                 // from ourself when first connecting. Just ignore our own probing
                 // broadcast.
-                if (InetAddress.getLocalHost().getCanonicalHostName().equals(broadcasterHost) &&
+                if (!server.acceptingClients &&
+                        InetAddress.getLocalHost().getCanonicalHostName().equals(broadcasterHost) &&
                         broadcasterUdpPort == server.localTempPort) {
+//System.out.println("Ignore our own probing broadcast");
                     continue;
                 }
-
 
                 // if broadcast from client ...
                 if (msgType == cMsgNetworkConstants.rcDomainBroadcastClient) {
                     // Send a reply to broad/unicast - some integer so the client can filter
                     // out any rogue responses. All we want to communicate is that the client
                     // was heard and can now stop broadcasting.
-                    if (!server.acceptingClients) { continue;}
+                    if (!server.acceptingClients) {
+//System.out.println("Server is not accepting clients right now, ignore broadcast");
+                        continue;
+                    }
 
                     try {
                         sendPacket = new DatagramPacket(outBuf, outBuf.length, broadcasterAddress, broadcasterUdpPort);
@@ -276,6 +284,7 @@ public class rcListeningThread extends Thread {
                     }
                     continue;
                 }
+//System.out.println("Pass msg on to subscriptions");
 
                 // If expid's match, pass on messgage to subscribes and/or subscribeAndGets
                 cMsgMessageFull msg = new cMsgMessageFull();
