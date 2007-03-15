@@ -264,11 +264,16 @@ public class RCBroadcast extends cMsgDomainAdapter {
                                         " host " + respondingHost + " with EXPID = " + expid);
             }
 //System.out.println("No other RCBroadcast server is running, so start this one up!");
+            acceptingClients = true;
+
+            // Releasing the socket after above line diminishes the chance that
+            // a client on the same host will grab that port and be filtered
+            // out as being this same server's broadcast.
             udpSocket.close();
+
             // reclaim memory
             broadcastResponse = null;
 
-            acceptingClients = true;
             connected = true;
         }
         finally {
