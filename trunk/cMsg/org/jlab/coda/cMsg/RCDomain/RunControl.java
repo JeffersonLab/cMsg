@@ -223,7 +223,7 @@ public class RunControl extends cMsgDomainAdapter {
             }
             catch (IOException ex) {
                 ex.printStackTrace();
-                throw new cMsgException("connect: cannot open a listening socket");
+                throw new cMsgException("connect: cannot open a listening socket", ex);
             }
 
             port = startingPort;
@@ -247,7 +247,7 @@ public class RunControl extends cMsgDomainAdapter {
                         catch (IOException e) { }
 
                         ex.printStackTrace();
-                        throw new cMsgException("connect: cannot find port to listen on");
+                        throw new cMsgException("connect: cannot find port to listen on", ex);
                     }
                 }
             }
@@ -305,12 +305,18 @@ public class RunControl extends cMsgDomainAdapter {
                 udpPacket = new DatagramPacket(buf, buf.length,
                                                rcServerBroadcastAddress,
                                                rcServerBroadcastPort);
+                baos.close();
             }
             catch (IOException e) {
+                listeningThread.killThread();
+                try { out.close();} catch (IOException e1) {}
+                try {baos.close();} catch (IOException e1) {}
+                if (udpSocket != null) udpSocket.close();
+
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("I/O Error: " + e);
                 }
-                throw new cMsgException(e.getMessage());
+                throw new cMsgException(e.getMessage(), e);
             }
 
             // create a thread which will receive any responses to our broadcast
@@ -397,6 +403,11 @@ public class RunControl extends cMsgDomainAdapter {
                                                                           cMsgNetworkConstants.bigBufferSize));
             }
             catch (IOException e) {
+                listeningThread.killThread();
+                udpSocket.close();
+                if (domainOut != null) try {domainOut.close();}  catch (IOException e1) {}
+                if (tcpSocket != null) try {tcpSocket.close();}  catch (IOException e1) {}
+
                 throw new cMsgException("Cannot make TCP connection to RC server", e);
             }
 
@@ -586,8 +597,13 @@ public class RunControl extends cMsgDomainAdapter {
         connectLock.lock();
 
         try {
+
+            if (!connected) return;
+
             connected = false;
             udpSocket.close();
+            try {tcpSocket.close();} catch (IOException e) {}
+            try {domainOut.close();} catch (IOException e) {}
 
             // stop listening and client communication thread & close channel
             listeningThread.killThread();

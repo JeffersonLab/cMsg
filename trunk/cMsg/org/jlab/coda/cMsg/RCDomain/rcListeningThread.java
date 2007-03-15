@@ -85,9 +85,11 @@ public class rcListeningThread extends Thread {
             System.out.println("Running RC Client Listening Thread");
         }
 
+        Selector selector = null;
+
         try {
             // get things ready for a select call
-            Selector selector = Selector.open();
+            selector = Selector.open();
 
             // set nonblocking mode for the listening socket
             serverChannel.configureBlocking(false);
@@ -109,18 +111,12 @@ public class rcListeningThread extends Thread {
                 if (n == 0) {
                     // but first check to see if we've been commanded to die
                     if (killThread) {
-                        serverChannel.close();
-                        selector.close();
-                        killClientHandlerThreads();
                         return;
                     }
                     continue;
                 }
 
                 if (killThread) {
-                    serverChannel.close();
-                    selector.close();
-                    killClientHandlerThreads();
                     return;
                 }
 
@@ -163,6 +159,11 @@ public class rcListeningThread extends Thread {
             if (debug >= cMsgConstants.debugError) {
                 ex.printStackTrace();
             }
+        }
+        finally {
+            try {serverChannel.close();} catch (IOException ex) {}
+            try {selector.close();} catch (IOException ex) {}
+            killClientHandlerThreads();
         }
 
         if (debug >= cMsgConstants.debugInfo) {
@@ -314,14 +315,14 @@ public class rcListeningThread extends Thread {
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("handleClient: I/O ERROR in RC client");
                 }
-
+            }
+            finally {
                 // We're here if there is an IO error.
                 // Disconnect the client (kill listening (this) thread).
-                try {
-                    channel.close();
-                }
-                catch (IOException e1) {
-                }
+                handlerThreads.remove(this);
+                try {in.close();}      catch (IOException e1) {}
+                try {out.close();}     catch (IOException e1) {}
+                try {channel.close();} catch (IOException e1) {}                
             }
 
             return;
