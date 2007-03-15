@@ -61,7 +61,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
     /** Runcontrol's experiment id. */
     String expid;
 
-    /** Timeout in milliseconds to wait for server to respond to broadcasts. Default is 1 sec. */
+    /** Timeout in milliseconds to wait for server to respond to broadcasts. Default is 2 sec. */
     int broadcastTimeout = 2000;
 
     volatile boolean acceptingClients;
@@ -123,7 +123,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
             host = InetAddress.getLocalHost().getCanonicalHostName();
         }
         catch (UnknownHostException e) {
-            throw new cMsgException("cMsg: cannot find host name");
+            throw new cMsgException("cMsg: cannot find host name", e);
         }
 
         class myShutdownHandler implements cMsgShutdownHandlerInterface {
