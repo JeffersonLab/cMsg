@@ -117,12 +117,12 @@ public class rcUdpListeningThread extends Thread {
                     return;
                 }
 
-                if (killThread) { return; }
+                if (killThread) return;
                 // enable the packet to receive all the data
                 pkt.setLength(cMsgNetworkConstants.biggestUdpPacketSize);
                 receiveSocket.receive(pkt);
 //System.out.println("RECEIVED UDP PACKET!!!");
-                if (killThread) { return; }
+                if (killThread) return;
 
                 // read incoming message
                 int len   = bytesToInt(buf, 0);
@@ -161,7 +161,8 @@ public class rcUdpListeningThread extends Thread {
                 System.out.println("rcUdpListenThread: I/O ERROR in rc server");
                 System.out.println("rcUdpListenThread: close server socket, port = " + receiveSocket.getLocalPort());
             }
-
+        }
+        finally {
             // We're here if there is an IO error.
             // Disconnect the server (kill this thread).
             receiveSocket.close();

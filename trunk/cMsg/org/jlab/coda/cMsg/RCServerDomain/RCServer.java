@@ -262,6 +262,8 @@ public class RCServer extends cMsgDomainAdapter {
                 connected = true;
             }
             catch (IOException e) {
+                if (tcpListener != null) tcpListener.killThread();
+                if (udpListener != null) udpListener.killThread();
                 throw new cMsgException("cannot connect, IO error", e);
             }
 
@@ -288,11 +290,10 @@ public class RCServer extends cMsgDomainAdapter {
 
             udpListener.killThread();
             tcpListener.killThread();
-            try {
-                socket.close();
-            }
-            catch (IOException e) {
-            }
+            if (in != null)     try {in.close();}     catch (IOException e) {}
+            if (out != null)    try {out.close();}    catch (IOException e) {}
+            if (socket != null) try {socket.close();} catch (IOException e) {}
+            if (receiveSocket != null) receiveSocket.close();
         }
         finally {
             connectLock.unlock();
@@ -308,15 +309,23 @@ public class RCServer extends cMsgDomainAdapter {
      * @throws IOException if socket cannot be created
      */
     private void createTCPClientConnection(String clientHost, int clientPort) throws IOException {
-        socket = new Socket(clientHost, clientPort);
-        // Set tcpNoDelay so no packets are delayed
-        socket.setTcpNoDelay(true);
-        // set buffer size
-        socket.setSendBufferSize(65535);
+        try {
+            socket = new Socket(clientHost, clientPort);
+            // Set tcpNoDelay so no packets are delayed
+            socket.setTcpNoDelay(true);
+            // set buffer size
+            socket.setSendBufferSize(65535);
 
-        // create buffered communication stream for efficiency
-        in  = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-        out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
+            // create buffered communication stream for efficiency
+            in  = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+            out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
+        }
+        catch (IOException e) {
+            if (in != null) try {in.close();} catch (IOException e1) {}
+            if (out != null) try {out.close();} catch (IOException e1) {}
+            if (socket != null) try {socket.close();} catch (IOException e1) {}
+            throw e;
+        }
     }
 
 
@@ -327,9 +336,17 @@ public class RCServer extends cMsgDomainAdapter {
      */
     private void createTCPServerChannel() throws IOException, cMsgException {
 
-        serverChannel = ServerSocketChannel.open();
-        ServerSocket listeningSocket = serverChannel.socket();
-        listeningSocket.setReuseAddress(true);
+        ServerSocket listeningSocket;
+        try {
+            serverChannel = ServerSocketChannel.open();
+            listeningSocket = serverChannel.socket();
+            listeningSocket.setReuseAddress(true);
+        }
+        catch (IOException e) {
+            // close channel
+            try { serverChannel.close(); } catch (IOException e1) { }
+            throw e;
+        }
 
         // start here looking for a port
         localTcpPort = cMsgNetworkConstants.rcServerPort;
@@ -350,8 +367,7 @@ public class RCServer extends cMsgDomainAdapter {
                 }
                 else {
                     // close channel
-                    try { serverChannel.close(); }
-                    catch (IOException e) { }
+                    try { serverChannel.close(); } catch (IOException e) { }
 
                     ex.printStackTrace();
                     throw new cMsgException("connect: cannot find port to listen on", ex);
@@ -367,19 +383,26 @@ public class RCServer extends cMsgDomainAdapter {
      * @throws IOException if socket cannot be created
      */
     private void createUDPClientSocket() throws IOException {
-        // Create a socket to listen for udp packets.
-        // First try the port given in the UDL (if any).
-        if (localUdpPort > 0) {
-            try {
-                receiveSocket = new DatagramSocket(localUdpPort);
+
+        try {
+            // Create a socket to listen for udp packets.
+            // First try the port given in the UDL (if any).
+            if (localUdpPort > 0) {
+                try {
+                    receiveSocket = new DatagramSocket(localUdpPort);
 //System.out.println("Listening on UDP port " + localUdpPort);
-                return;
+                    return;
+                }
+                catch (SocketException e) {}
             }
-            catch (SocketException e) {}
-        }
-        receiveSocket = new DatagramSocket();
-        localUdpPort  = receiveSocket.getLocalPort();
+            receiveSocket = new DatagramSocket();
+            localUdpPort  = receiveSocket.getLocalPort();
 //System.out.println("Listening on UDP port " + localUdpPort);
+        }
+        catch (SocketException e) {
+            if (receiveSocket != null) receiveSocket.close();
+            throw e;
+        }
     }
 
 

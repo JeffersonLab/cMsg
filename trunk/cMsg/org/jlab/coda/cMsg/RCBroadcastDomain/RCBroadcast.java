@@ -52,9 +52,6 @@ public class RCBroadcast extends cMsgDomainAdapter {
     /** Socket over which to UDP broadcast to and check for other RCBroadcast servers. */
     DatagramSocket udpSocket;
 
-    /** TCP socket over which to send rc "abandon connect" to runcontrol client. */
-    Socket socket;
-
     /** Signal to coordinate the broadcasting and waiting for responses. */
     CountDownLatch broadcastResponse = new CountDownLatch(1);
 
@@ -224,8 +221,14 @@ public class RCBroadcast extends cMsgDomainAdapter {
                 udpPacket = new DatagramPacket(buf, buf.length,
                                                rcServerBroadcastAddress,
                                                broadcastPort);
+                baos.close();
             }
             catch (IOException e) {
+                listener.killThread();
+                try { out.close();} catch (IOException e1) {}
+                try {baos.close();} catch (IOException e1) {}
+                if (udpSocket != null) udpSocket.close();
+
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("I/O Error: " + e);
                 }
@@ -253,23 +256,20 @@ public class RCBroadcast extends cMsgDomainAdapter {
 //                   " host " + respondingHost + " with EXPID = " + expid);
                 // stop listening thread
                 listener.killThread();
-                try {
-                    Thread.sleep(500);
-                }
-                catch (InterruptedException e) {
-                }
+                udpSocket.close();
+                try {Thread.sleep(500);}
+                catch (InterruptedException e) {}
 
                 throw new cMsgException("Another RCBroadcast server is running at port " + broadcastPort +
                                         " host " + respondingHost + " with EXPID = " + expid);
             }
 //System.out.println("No other RCBroadcast server is running, so start this one up!");
-            acceptingClients = true;
-            connected = true;
-
+            udpSocket.close();
             // reclaim memory
-            udpSocket = null;
             broadcastResponse = null;
 
+            acceptingClients = true;
+            connected = true;
         }
         finally {
             connectLock.unlock();
@@ -308,23 +308,29 @@ public class RCBroadcast extends cMsgDomainAdapter {
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
 
+        Socket socket = null;
+        DataOutputStream out = null;
+
         try {
             if (!connected) {
                 throw new cMsgException("not connected to server");
             }
             socket = new Socket(message.getSenderHost(), message.getUserInt());
-
             // Set tcpNoDelay so packet not delayed
             socket.setTcpNoDelay(true);
 
-            DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-
+            out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
             out.writeInt(4);
             out.writeInt(cMsgConstants.msgRcAbortConnect);
             out.flush();
+
+            out.close();
+            socket.close();
         }
         catch (IOException e) {
-            throw new cMsgException(e.getMessage());
+            if (out != null) try {out.close();} catch (IOException e1) {}
+            if (socket != null) try {socket.close();} catch (IOException e1) {}
+            throw new cMsgException(e.getMessage(), e);
         }
         finally {
             notConnectLock.unlock();

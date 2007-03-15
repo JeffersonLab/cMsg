@@ -146,13 +146,13 @@ public class rcListeningThread extends Thread {
 
             // create buffer to broadcast from the byte array
             outBuf = baos.toByteArray();
+            baos.close();
         }
         catch (IOException e) {
             if (debug >= cMsgConstants.debugError) {
                 System.out.println("I/O Error: " + e);
             }
         }
-
 
         // server object is waiting for this thread to start in connect method,
         // so tell it we've started.
