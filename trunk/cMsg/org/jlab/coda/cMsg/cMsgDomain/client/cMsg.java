@@ -507,6 +507,9 @@ public class cMsg extends cMsgDomainAdapter {
                 udpPacket = new DatagramPacket(buf, buf.length, broadcastAddr, nameServerPort);
             }
             catch (IOException e) {
+                try { out.close();} catch (IOException e1) {}
+                try {baos.close();} catch (IOException e1) {}
+                if (udpSocket != null) udpSocket.close();
                 throw new cMsgException("Cannot create broadcast packet", e);
             }
 
