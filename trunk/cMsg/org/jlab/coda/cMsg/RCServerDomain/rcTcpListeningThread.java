@@ -27,6 +27,8 @@ import java.util.Date;
 import java.util.Set;
 import java.io.*;
 import java.net.Socket;
+import java.net.ServerSocket;
+import java.net.InetSocketAddress;
 
 /**
  * This class implements a thread to listen to runcontrol clients in the
@@ -39,6 +41,9 @@ public class rcTcpListeningThread extends Thread {
 
     /** cMsg server that created this object. */
     private RCServer server;
+
+    /** Tcp server listening port. */
+    int port;
 
     /** Server channel (contains socket). */
     private ServerSocketChannel serverChannel;
@@ -61,16 +66,24 @@ public class rcTcpListeningThread extends Thread {
 
 
     /**
+     * Get the TCP listening port of this server.
+     * @return TCP listening port of this server
+     */
+    public int getPort() {
+        return port;
+    }
+
+
+    /**
      * Constructor for regular clients.
      *
      * @param server RC server that created this object
-     * @param channel socket for listening for connections
      */
-    public rcTcpListeningThread(RCServer server, ServerSocketChannel channel) {
+    public rcTcpListeningThread(RCServer server) throws cMsgException {
 
         this.server = server;
-        serverChannel = channel;
         debug = server.debug;
+        createTCPServerChannel();
         // die if no more non-daemon thds running
         setDaemon(true);
     }
@@ -83,6 +96,56 @@ public class rcTcpListeningThread extends Thread {
         if (handler == null) return;
         handler.interrupt();
         try {handler.channel.close();} catch (IOException e) {}
+    }
+
+
+    /**
+     * Creates a TCP listening socket for a runcontrol client to connect to.
+     *
+     * @throws cMsgException if socket cannot be created or cannot bind to a port
+     */
+    private void createTCPServerChannel() throws cMsgException {
+
+        ServerSocket listeningSocket;
+        try {
+            serverChannel = ServerSocketChannel.open();
+            listeningSocket = serverChannel.socket();
+            listeningSocket.setReuseAddress(true);
+        }
+        catch (IOException e) {
+            // close channel
+            if (serverChannel != null) try { serverChannel.close(); } catch (IOException e1) { }
+            throw new cMsgException("connect: cannot create server socket", e);
+        }
+
+        // start here looking for a port
+        port = cMsgNetworkConstants.rcServerPort;
+
+        // At this point, find a port to bind to. If that isn't possible, throw
+        // an exception.
+        while (true) {
+            try {
+//System.out.println("Bind TCP socket to " + port);
+                listeningSocket.bind(new InetSocketAddress(port));
+                break;
+            }
+            catch (IOException ex) {
+                // try another port by adding one
+                if (port < 65535) {
+                    port++;
+                    try { Thread.sleep(100);  }
+                    catch (InterruptedException e) {}
+                }
+                else {
+                    // close channel
+                    try { serverChannel.close(); } catch (IOException e) { }
+                    port = 0;
+                    ex.printStackTrace();
+                    throw new cMsgException("connect: cannot find port to listen on", ex);
+                }
+            }
+        }
+//System.out.println("TCP on " + port);
     }
 
 
@@ -163,6 +226,7 @@ public class rcTcpListeningThread extends Thread {
             }
         }
         finally {
+//System.out.println("close socket\n");
             try {serverChannel.close();} catch (IOException ex) {}
             try {selector.close();}      catch (IOException ex) {}
             killClientHandlerThreads();

@@ -92,6 +92,9 @@ public class RunControl extends cMsgDomainAdapter {
     DatagramPacket sendUdpPacket;
 
     /** Socket over which to UDP broadcast to and receive UDP packets from the RCBroadcast server. */
+    DatagramSocket broadcastUdpSocket;
+
+    /** Socket over which to end messages to the RC server over UDP. */
     DatagramSocket udpSocket;
 
     /** Socket over which to send messages to the RC server over TCP. */
@@ -143,13 +146,13 @@ public class RunControl extends cMsgDomainAdapter {
     AtomicInteger uniqueId;
 
     /** Signal to coordinate the broadcasting and waiting for responses. */
-    CountDownLatch broadcastResponse = new CountDownLatch(1);
+    CountDownLatch broadcastResponse;
 
     /** Signal to coordinate the finishing of the 3-leg connect method. */
-    CountDownLatch connectCompletion = new CountDownLatch(1);
+    CountDownLatch connectCompletion;
 
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugError;
+    int debug = cMsgConstants.debugNone;
 
 
     /**
@@ -200,6 +203,11 @@ public class RunControl extends cMsgDomainAdapter {
 
         try {
             if (connected) return;
+//System.out.println("Connecting");
+
+            // set the latches
+            broadcastResponse = new CountDownLatch(1);
+            connectCompletion = new CountDownLatch(1);
 
             // read env variable for starting port number
             try {
@@ -298,7 +306,7 @@ public class RunControl extends cMsgDomainAdapter {
                 out.close();
 
                 // create socket to receive at anonymous port & all interfaces
-                udpSocket = new DatagramSocket();
+                broadcastUdpSocket = new DatagramSocket();
 
                 // create packet to broadcast from the byte array
                 byte[] buf = baos.toByteArray();
@@ -311,7 +319,7 @@ public class RunControl extends cMsgDomainAdapter {
                 listeningThread.killThread();
                 try { out.close();} catch (IOException e1) {}
                 try {baos.close();} catch (IOException e1) {}
-                if (udpSocket != null) udpSocket.close();
+                if (broadcastUdpSocket != null) broadcastUdpSocket.close();
 
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("I/O Error: " + e);
@@ -343,14 +351,15 @@ public class RunControl extends cMsgDomainAdapter {
                 catch (InterruptedException e) {}
             }
 
+            broadcastUdpSocket.close();
             sender.interrupt();
 
             if (!response) {
                 throw new cMsgException("No response to UDP broadcast received");
             }
-//            else {
+            else {
 //System.out.println("Got a response!");
-//            }
+            }
 
             // Now that we got a response from the RC Broadcast server,
             // wait for that server to pass its info on to the RC server
@@ -379,17 +388,25 @@ public class RunControl extends cMsgDomainAdapter {
             }
 
             if (!completed) {
-//System.out.println("Did NOT complete the connection");
+//System.out.println("connect: Did NOT complete the connection");
                 throw new cMsgException("No connect from the RC server received");
             }
-//            else {
-//System.out.println("Completed the connection!");
-//            }
+            else {
+//System.out.println("connect: Completed the connection!");
+            }
 
             // Create a UDP "connection". This means security check is done only once
             // and communication with any other host/port is not allowed.
-            try { udpSocket.setReceiveBufferSize(cMsgNetworkConstants.bigBufferSize); }
-            catch (SocketException e) {}
+            // create socket to receive at anonymous port & all interfaces
+            try {
+                udpSocket = new DatagramSocket();
+                udpSocket.setReceiveBufferSize(cMsgNetworkConstants.bigBufferSize);
+            }
+            catch (SocketException e) {
+                listeningThread.killThread();
+                if (udpSocket != null) udpSocket.close();
+                e.printStackTrace();
+            }
             udpSocket.connect(rcServerAddress, rcUdpServerPort);
             sendUdpPacket = new DatagramPacket(new byte[0], 0, rcServerAddress, rcUdpServerPort);
 
@@ -601,6 +618,7 @@ public class RunControl extends cMsgDomainAdapter {
             if (!connected) return;
 
             connected = false;
+            broadcastUdpSocket.close();
             udpSocket.close();
             try {tcpSocket.close();} catch (IOException e) {}
             try {domainOut.close();} catch (IOException e) {}
@@ -1051,7 +1069,8 @@ public class RunControl extends cMsgDomainAdapter {
                 index = 0;
 
                 try {
-                    udpSocket.receive(packet);
+                    broadcastUdpSocket.receive(packet);
+//System.out.println("received broadcast packet");
                     int code = bytesToInt(buf, index);
                     index += 4;
                     int port = bytesToInt(buf, index);
@@ -1100,7 +1119,10 @@ public class RunControl extends cMsgDomainAdapter {
                     }
                 }
                 catch (UnsupportedEncodingException e) {continue;}
-                catch (IOException e) {continue;}
+                catch (IOException e) {
+//System.out.println("Got IOException in broadcast receive, exiting");
+                    return;
+                }
                 break;
             }
 
@@ -1136,7 +1158,7 @@ public class RunControl extends cMsgDomainAdapter {
 
                     try {
 //System.out.println("Send broadcast packet to RC Broadcast server");
-                        udpSocket.send(packet);
+                        broadcastUdpSocket.send(packet);
                     }
                     catch (IOException e) {
                         e.printStackTrace();
@@ -1147,7 +1169,7 @@ public class RunControl extends cMsgDomainAdapter {
             }
             catch (InterruptedException e) {
                 // time to quit
- //System.out.println("Interrupted sender");
+//System.out.println("Interrupted sender");
             }
         }
     }

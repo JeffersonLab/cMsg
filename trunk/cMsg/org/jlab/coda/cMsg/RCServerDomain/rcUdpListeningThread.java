@@ -25,6 +25,7 @@ import java.util.Set;
 import java.io.*;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.SocketException;
 
 /**
  * This class implements a thread to listen to runcontrol clients in the
@@ -37,6 +38,9 @@ public class rcUdpListeningThread extends Thread {
 
     /** Type of domain this is. */
     private String domainType = "rcs";
+
+    /** Port on which to accept UDP communications. */
+    int port;
 
     /** cMsg server that created this object. */
     private RCServer server;
@@ -60,6 +64,15 @@ public class rcUdpListeningThread extends Thread {
 
 
     /**
+     * Get the UDP listening port of this server.
+     * @return UDP listening port of this server
+     */
+    public int getPort() {
+        return port;
+    }
+
+
+    /**
         * Converts 4 bytes of a byte array into an integer.
         *
         * @param b byte array
@@ -79,16 +92,46 @@ public class rcUdpListeningThread extends Thread {
      * Constructor for regular clients.
      *
      * @param server RC server that created this object
-     * @param socket udp socket on which to receive transmission from rc client
      */
-    public rcUdpListeningThread(RCServer server, DatagramSocket socket) {
+    public rcUdpListeningThread(RCServer server) throws IOException {
 
         this.server = server;
-        receiveSocket = socket;
         debug = server.debug;
+        createUDPClientSocket();
         // die if no more non-daemon thds running
         setDaemon(true);
     }
+
+
+    /**
+      * Creates a UDP receiving socket for a runcontrol client.
+      *
+      * @throws IOException if socket cannot be created
+      */
+     private void createUDPClientSocket() throws IOException {
+
+         try {
+             // Create a socket to listen for udp packets.
+             // First try the port given in the UDL (if any).
+             if (port > 0) {
+                 try {
+                     receiveSocket = new DatagramSocket(port);
+//System.out.println("Listening on UDP port " + port);
+                     return;
+                 }
+                 catch (SocketException e) {}
+             }
+             receiveSocket = new DatagramSocket();
+             port = receiveSocket.getLocalPort();
+             receiveSocket.setReuseAddress(true);
+//System.out.println("Listening on UDP port " + port);
+         }
+         catch (SocketException e) {
+             if (receiveSocket != null) receiveSocket.close();
+             throw e;
+         }
+//System.out.println("UDP on " + port);
+     }
 
 
     /** This method is executed as a thread. */

@@ -34,7 +34,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.net.*;
 import java.io.*;
-import java.nio.channels.ServerSocketChannel;
 
 /**
  * This class implements the runcontrol server (rcs) domain.
@@ -53,9 +52,6 @@ public class RCServer extends cMsgDomainAdapter {
     /** Runcontrol client's host obtained from UDL. */
     String rcClientHost;
 
-    /** UDP socket to receive messages from the rc client. */
-    DatagramSocket receiveSocket;
-
     /** UDP port on which to receive messages from the rc client. */
     int localUdpPort;
 
@@ -70,9 +66,6 @@ public class RCServer extends cMsgDomainAdapter {
 
     /** TCP socket over which to send rc commands to runcontrol client. */
     Socket socket;
-
-    /** TCP channel on which to listen for connections from runcontrol clients. */
-    ServerSocketChannel serverChannel;
 
     /** Buffered data output stream associated with {@link #socket}. */
     private DataOutputStream out;
@@ -209,18 +202,12 @@ public class RCServer extends cMsgDomainAdapter {
                 // Create an object to deliver messages to the RC client.
                 createTCPClientConnection(rcClientHost, rcClientPort);
 
-                // Create a TCP channel for accepting messages from the RC client.
-                createTCPServerChannel();
-
-                // Create a UDP socket for accepting messages from the RC client.
-                createUDPClientSocket();
-
                 // Start listening for tcp connections
-                tcpListener = new rcTcpListeningThread(this, serverChannel);
+                tcpListener = new rcTcpListeningThread(this);
                 tcpListener.start();
 
                 // Start listening for udp packets
-                udpListener = new rcUdpListeningThread(this, receiveSocket);
+                udpListener = new rcUdpListeningThread(this);
                 udpListener.start();
 
                 // Wait for indication listener threads are actually running before
@@ -237,6 +224,8 @@ public class RCServer extends cMsgDomainAdapter {
                         }
                     }
                 }
+                // Get the port selected for listening on
+                localTcpPort = tcpListener.getPort();
 
                 // Wait for indication listener threads are actually running before
                 // continuing on. These thread must be running before we talk to
@@ -252,6 +241,8 @@ public class RCServer extends cMsgDomainAdapter {
                         }
                     }
                 }
+                // Get the port selected for communicating on
+                localUdpPort = udpListener.getPort();
 
                 // Send a special message giving our host & udp port.
                 cMsgMessageFull msg = new cMsgMessageFull();
@@ -293,7 +284,6 @@ public class RCServer extends cMsgDomainAdapter {
             if (in != null)     try {in.close();}     catch (IOException e) {}
             if (out != null)    try {out.close();}    catch (IOException e) {}
             if (socket != null) try {socket.close();} catch (IOException e) {}
-            if (receiveSocket != null) receiveSocket.close();
         }
         finally {
             connectLock.unlock();
@@ -324,83 +314,6 @@ public class RCServer extends cMsgDomainAdapter {
             if (in != null) try {in.close();} catch (IOException e1) {}
             if (out != null) try {out.close();} catch (IOException e1) {}
             if (socket != null) try {socket.close();} catch (IOException e1) {}
-            throw e;
-        }
-    }
-
-
-    /**
-     * Creates a TCP listening socket for a runcontrol client to connect to.
-     *
-     * @throws IOException if socket cannot be created
-     */
-    private void createTCPServerChannel() throws IOException, cMsgException {
-
-        ServerSocket listeningSocket;
-        try {
-            serverChannel = ServerSocketChannel.open();
-            listeningSocket = serverChannel.socket();
-            listeningSocket.setReuseAddress(true);
-        }
-        catch (IOException e) {
-            // close channel
-            try { serverChannel.close(); } catch (IOException e1) { }
-            throw e;
-        }
-
-        // start here looking for a port
-        localTcpPort = cMsgNetworkConstants.rcServerPort;
-
-        // At this point, find a port to bind to. If that isn't possible, throw
-        // an exception.
-        while (true) {
-            try {
-                listeningSocket.bind(new InetSocketAddress(localTcpPort));
-                break;
-            }
-            catch (IOException ex) {
-                // try another port by adding one
-                if (localTcpPort < 65535) {
-                    localTcpPort++;
-                    try { Thread.sleep(100);  }
-                    catch (InterruptedException e) {}
-                }
-                else {
-                    // close channel
-                    try { serverChannel.close(); } catch (IOException e) { }
-
-                    ex.printStackTrace();
-                    throw new cMsgException("connect: cannot find port to listen on", ex);
-                }
-            }
-        }
-    }
-
-
-    /**
-     * Creates a UDP receiving socket for a runcontrol client.
-     *
-     * @throws IOException if socket cannot be created
-     */
-    private void createUDPClientSocket() throws IOException {
-
-        try {
-            // Create a socket to listen for udp packets.
-            // First try the port given in the UDL (if any).
-            if (localUdpPort > 0) {
-                try {
-                    receiveSocket = new DatagramSocket(localUdpPort);
-//System.out.println("Listening on UDP port " + localUdpPort);
-                    return;
-                }
-                catch (SocketException e) {}
-            }
-            receiveSocket = new DatagramSocket();
-            localUdpPort  = receiveSocket.getLocalPort();
-//System.out.println("Listening on UDP port " + localUdpPort);
-        }
-        catch (SocketException e) {
-            if (receiveSocket != null) receiveSocket.close();
             throw e;
         }
     }
