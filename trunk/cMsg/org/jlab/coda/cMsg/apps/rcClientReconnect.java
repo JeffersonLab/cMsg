@@ -44,7 +44,7 @@ public class rcClientReconnect {
          *                   message.
          */
         public void callback(cMsgMessage msg, Object userObject) {
-            System.out.println("Count = " + count++);
+            System.out.println("Got msg " + msg.getUserInt() + " from server");
         }
      }
 
@@ -86,6 +86,8 @@ public class rcClientReconnect {
          msg.setType("typey");
          msg.setText("Send with TCP");
 
+         try {Thread.sleep(1000); }
+         catch (InterruptedException e) {}
 
          int loops=5;
          while (loops-->0) {
@@ -93,26 +95,28 @@ public class rcClientReconnect {
          }
 
          msg.setText("Send with UDP");
+         msg.setSubject("junk");
+         msg.setType("junk");
          msg.getContext().setReliableSend(false);
          loops=5;
          while (loops-->0) {
              cmsg.send(msg);
          }
 
-         try {Thread.sleep(5000); }
+         try {Thread.sleep(7000); }
          catch (InterruptedException e) {}
 
-         cMsgMessage msg2 = new cMsgMessage();
          msg.setSubject("blah");
          msg.setType("yech");
-         msg.setText("Send with TCP");
 
          loops=5;
          while (loops-->0) {
-             cmsg.send(msg2);
+             cmsg.send(msg);
          }
 
          msg.setText("Send with TCP");
+         msg.setSubject("subby");
+         msg.setType("typey");
          msg.getContext().setReliableSend(true);
          loops=5;
          while (loops-->0) {
