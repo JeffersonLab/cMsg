@@ -1012,7 +1012,7 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
     close(domain->receiveSocket);
     close(domain->sendSocket);
     pthread_cancel(domain->pendThread);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgUdpConnect: socket error, %s\n", strerror(errno));
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "connectDirect: socket error, %s\n", strerror(errno));
     return(CMSG_SOCKET_ERROR);
   }
 
@@ -1025,10 +1025,9 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
     close(domain->sendSocket);
     close(domain->sendUdpSocket);
     pthread_cancel(domain->pendThread);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgUdpConnect: setsockopt error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "connectDirect: setsockopt error\n");
     return(CMSG_SOCKET_ERROR);
   }
-
 
   memset((void *)&servaddr, 0, sizeof(servaddr));
   servaddr.sin_family = AF_INET;
@@ -1041,7 +1040,7 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
     close(domain->sendSocket);
     close(domain->sendUdpSocket);
     pthread_cancel(domain->pendThread);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgUdpConnect: host name error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "connectDirect: host name error\n");
     return(CMSG_SOCKET_ERROR);
   }
 
@@ -1053,10 +1052,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
     close(domain->sendSocket);
     close(domain->sendUdpSocket);
     pthread_cancel(domain->pendThread);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgUdpConnect: UDP connect error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "connectDirect: UDP connect error\n");
     return(CMSG_SOCKET_ERROR);
   }
- 
+
   return(CMSG_OK);
 }
 
@@ -1196,9 +1195,10 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "reconnect: closed name server socket\n");
-    fprintf(stderr, "reconnect: sendHost = %s, sendPort = %d\n", domain->sendHost, domain->sendPort);
+    fprintf(stderr, "reconnect: sendHost = %s, sendPort = %d\n",
+                            domain->sendHost,
+                            domain->sendPort);
   }
-/* printf("reconnect 4\n"); */
   
   /* create receiving socket and store */
   if ( (err = cMsgTcpConnect(domain->sendHost,
@@ -1212,7 +1212,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
     fprintf(stderr, "reconnect: created receiving socket fd = %d\n", domain->receiveSocket);
   }
     
-/* printf("reconnect 5\n"); */
   /* create keep alive socket and store */
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
@@ -1225,7 +1224,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "reconnect: created keepalive socket fd = %d\n",domain->keepAliveSocket );
   }
-/* printf("reconnect 6\n"); */
   
   /* Do not create another keepalive thread as we already got one.
    * But we gotta use the new socket as the old socket is to the
@@ -1247,8 +1245,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
       close(domain->keepAliveSocket);
       close(domain->receiveSocket);
       close(domain->sendSocket);
-      pthread_cancel(domain->pendThread);
-      if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgUdpConnect: socket error, %s\n", strerror(errno));
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "reconnect: socket error, %s\n", strerror(errno));
       return(CMSG_SOCKET_ERROR);
   }
 
@@ -1259,15 +1256,23 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
     close(domain->receiveSocket);
     close(domain->sendSocket);
     close(domain->sendUdpSocket);
-    pthread_cancel(domain->pendThread);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgUdpConnect: setsockopt error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "reconnect: setsockopt error\n");
     return(CMSG_SOCKET_ERROR);
   }
-
 
   memset((void *)&servaddr, 0, sizeof(servaddr));
   servaddr.sin_family = AF_INET;
   servaddr.sin_port   = htons(domain->sendUdpPort);
+
+  if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
+    cMsgRestoreSignals(domain);
+    close(domain->keepAliveSocket);
+    close(domain->receiveSocket);
+    close(domain->sendSocket);
+    close(domain->sendUdpSocket);
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "reconnect: host name error\n");
+    return(CMSG_SOCKET_ERROR);
+  }
 
   err = connect(domain->sendUdpSocket, (SA *) &servaddr, (socklen_t) sizeof(servaddr));
   if (err < 0) {
@@ -1275,8 +1280,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
     close(domain->receiveSocket);
     close(domain->sendSocket);
     close(domain->sendUdpSocket);
-    pthread_cancel(domain->pendThread);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgUdpConnect: UDP connect error\n");
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "reconnect: UDP connect error\n");
     return(CMSG_SOCKET_ERROR);
   }
   
@@ -3351,8 +3355,11 @@ int cmsg_cmsg_disconnect(void **domainId) {
  
   cMsgSocketMutexUnlock(domain);
   
-  /* close sending socket */
+  /* close TCP sending socket */
   close(domain->sendSocket);
+
+  /* close UDP sending socket */
+  close(domain->sendUdpSocket);
 
   /* close receiving socket */
   close(domain->receiveSocket);
