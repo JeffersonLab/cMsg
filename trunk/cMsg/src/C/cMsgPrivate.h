@@ -65,6 +65,10 @@ extern "C" {
     abort (); \
     } while (0)
 
+#define cmsg_err(text) do { \
+    fprintf (stderr, "%s at \"%s\":%d\n", text, __FILE__, __LINE__); \
+    } while (0)
+
 /** Major version number. */
 #define CMSG_VERSION_MAJOR 1
 /** Minor version number. */
