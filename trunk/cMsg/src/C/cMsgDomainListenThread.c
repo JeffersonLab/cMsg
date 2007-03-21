@@ -53,10 +53,11 @@ static int   cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static int   cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static int   sendMonitorInfo(cMsgDomainInfo *domain, char *buffer, int connfd);
 
-/** Structure for freeing memory in cleanUpClientHandler. */
+/** Structure for freeing memory and closing socket in cleanUpClientHandler. */
 typedef struct freeMem_t {
     char *domainType;
     char *buffer;
+    int   fd;
 } freeMem;
 
 
@@ -131,6 +132,9 @@ static void cleanUpClientHandler(void *arg) {
   
   /* decrease concurrency as this thread disappears */
   sun_setconcurrency(sun_getconcurrency() - 1);
+  
+  /* close socket */
+  close(pMem->fd);
 
   /* release memory */
   if (pMem == NULL) return;
@@ -164,7 +168,6 @@ void *cMsgClientListeningThread(void *arg)
   struct timeval  timeout;
   struct sockaddr_in cliaddr;
   socklen_t	  addrlen, len;
-  pthread_attr_t  attr;
   
   /* pointer to information to be passed to threads */
   cMsgThreadInfo *pinfo;
@@ -176,15 +179,7 @@ void *cMsgClientListeningThread(void *arg)
   pthread_detach(pthread_self());
 
   addrlen = sizeof(cliaddr);
-    
-  /* get thread attribute ready */
-  if ( (status = pthread_attr_init(&attr)) != 0) {
-    cmsg_err_abort(status, "Init thread attribute");
-  }
-  if ( (status = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) != 0) {
-    cmsg_err_abort(status, "Set thread state detached");
-  }
-  
+      
   /* enable pthread cancellation at deferred points like pthread_testcancel */
   status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
   if (status != 0) {
@@ -315,13 +310,13 @@ void *cMsgClientListeningThread(void *arg)
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "cMsgClientListeningThread: accepting client connection\n");
     }
-    
+
     /* Connections come 2 at a time for cmsg domain. If failing over, may get multiple
      * connections here but always in pairs of 2.
      * The first connection is one to receive messages and the second
      * responds to keepAlive inquiries from the server.
      */
-    status = pthread_create(&domain->clientThread[index], &attr, clientThread, (void *) pinfo);
+    status = pthread_create(&domain->clientThread[index], NULL, clientThread, (void *) pinfo);
     if (status != 0) {
       cmsg_err_abort(status, "Create client thread");
     }
@@ -347,9 +342,6 @@ void *cMsgClientListeningThread(void *arg)
     connectionNumber++;
     index = connectionNumber%2;
   }
-  
-  /* quit thread & calls cleanup handler */
-  pthread_exit(NULL);
   
   /* on some operating systems (Linux) this call is necessary - calls cleanup handler */
   pthread_cleanup_pop(1);
@@ -389,6 +381,7 @@ static void *clientThread(void *arg)
   pthread_detach(pthread_self());
 
   /* disable pthread cancellation until pointer is set and handler is installed */
+  
   status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
   if (status != 0) {
     cmsg_err_abort(status, "Disabling client cancelability");
@@ -418,14 +411,16 @@ static void *clientThread(void *arg)
    * be freed upon cancelling this thread. */
   pfreeMem->buffer = buffer;
   pfreeMem->domainType = domainType;
+  pfreeMem->fd = connfd;
   pthread_cleanup_push(cleanUpClientHandler, (void *)pfreeMem);
   
   /* enable pthread cancellation at deferred points like pthread_testcancel */
+  
   status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
   if (status != 0) {
     cmsg_err_abort(status, "Enabling client cancelability");
   }
-
+  
   /*--------------------------------------*/
   /* wait for and process client requests */
   /*--------------------------------------*/
@@ -461,6 +456,7 @@ static void *clientThread(void *arg)
     if (size > bufSize) {
       
       /* disable pthread cancellation until pointer is set */
+      
       status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
       if (status != 0) {
         cmsg_err_abort(status, "Disabling client cancelability");
@@ -482,6 +478,7 @@ static void *clientThread(void *arg)
       }
       
       /* re-enable pthread cancellation */
+      
       status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
       if (status != 0) {
         cmsg_err_abort(status, "Reenabling client cancelability");
@@ -645,8 +642,7 @@ static void *clientThread(void *arg)
 
       case  CMSG_KEEP_ALIVE:
       {
-        /* int alive; */
-        
+        /* int alive; */        
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "clientThread %d: keep alive received\n", localCount);
         }
@@ -775,7 +771,7 @@ static void *clientThread(void *arg)
             cmsg_err_abort(status, "Reenabling client cancelability");
           }
 
-          /*
+/*
 printf("clientThread %d: connecting, tcp port = %d, udp port = %d, senderHost = %s\n",
 localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
 */          
@@ -915,14 +911,8 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
   /* we only end up down here if there's an error or a shutdown */
   end:
     /* client has quit or crashed, therefore clean up */
-    /* fprintf(stderr, "clientThread %d: error, client's receiving connection to server broken\n", localCount); */
-
-    /* we are done with the socket */
-    close(connfd);
-    
-    /* quit thread & calls cleanup handler */
-    pthread_exit(NULL);
-    
+    /* fprintf(stderr, "clientThread %d: error, client's receiving connection to server broken\n", localCount);*/
+       
     /* on some operating systems (Linux) this call is necessary - calls cleanup handler */
     pthread_cleanup_pop(1);
     
