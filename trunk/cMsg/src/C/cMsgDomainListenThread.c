@@ -912,7 +912,8 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
   end:
     /* client has quit or crashed, therefore clean up */
     /* fprintf(stderr, "clientThread %d: error, client's receiving connection to server broken\n", localCount);*/
-       
+   
+    
     /* on some operating systems (Linux) this call is necessary - calls cleanup handler */
     pthread_cleanup_pop(1);
     
