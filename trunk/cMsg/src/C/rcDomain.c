@@ -389,6 +389,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     /* turn broadcasting on */
     err = setsockopt(domain->sendSocket, SOL_SOCKET, SO_BROADCAST, (char*) &on, sizeof(on));
     if (err < 0) {
+        close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
@@ -399,6 +400,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     }
 
     if ( (err = cMsgStringToNumericIPaddr(serverHost, &servaddr)) != CMSG_OK ) {
+        close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
@@ -428,6 +430,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     }
     /* if expid not defined anywhere, return error */
     if (expid == NULL) {
+        close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
@@ -543,6 +546,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     
     if (!gotResponse) {
 /* printf("Got no response\n"); */ 
+        close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
@@ -577,6 +581,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
 
     if (domain->rcConnectAbort) {
 /*printf("Told to abort connect by RC Broadcast server\n");*/
+        close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
@@ -586,6 +591,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     
     if (status < 1 || !domain->rcConnectComplete) {
 /*printf("Wait timeout or rcConnectComplete is not 1\n");*/
+        close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
@@ -593,6 +599,8 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         return(CMSG_TIMEOUT);
     }
         
+    close(domain->sendSocket);
+
     cMsgMutexUnlock(&domain->rcConnectMutex);
 
     /* create TCP sending socket and store */
@@ -621,10 +629,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         close(domain->sendUdpSocket); /* close old UDP socket */
     }
     domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
-/*
-printf("cmsg_rc_connect: udp socket = %d, port = %d\n",
-domain->sendUdpSocket, domain->sendUdpPort);
-*/
+
     if (domain->sendUdpSocket < 0) {
         cMsgRestoreSignals(domain);
         close(domain->sendSocket);
@@ -1519,8 +1524,11 @@ int cmsg_rc_disconnect(void **domainId) {
 
     domain->gotConnection = 0;
 
-    /* close sending socket */
+    /* close TCP sending socket */
     close(domain->sendSocket);
+
+    /* close UDP sending socket */
+    close(domain->sendUdpSocket);
 
     /* stop listening and client communication threads */
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
