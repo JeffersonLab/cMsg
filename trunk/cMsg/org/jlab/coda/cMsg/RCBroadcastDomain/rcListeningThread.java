@@ -167,7 +167,7 @@ public class rcListeningThread extends Thread {
                 packet.setLength(2048);
                 broadcastSocket.receive(packet);
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("RECEIVED BROADCAST PACKET !!!");
+                    System.out.println("RECEIVED RC DOMAIN BROADCAST PACKET !!!");
                 }
 
                 if (killThread) { return; }
@@ -243,8 +243,9 @@ public class rcListeningThread extends Thread {
 
                 // if broadcast from client ...
                 if (msgType == cMsgNetworkConstants.rcDomainBroadcastClient) {
-                    // Send a reply to broad/unicast - some integer so the client can filter
-                    // out any rogue responses. All we want to communicate is that the client
+                    // Send a reply to broad/unicast - some integer, our broadcast port, host,
+                    // and expid so the client can filter out any rogue responses.
+                    // All we want to communicate is that the client
                     // was heard and can now stop broadcasting.
                     if (!server.acceptingClients) {
 //System.out.println("Server is not accepting clients right now, ignore broadcast");
@@ -285,6 +286,9 @@ public class rcListeningThread extends Thread {
                     continue;
                 }
 //System.out.println("Pass msg on to subscriptions");
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("Client " + broadcasterName + " is now connected");
+                }
 
                 // If expid's match, pass on messgage to subscribes and/or subscribeAndGets
                 cMsgMessageFull msg = new cMsgMessageFull();
