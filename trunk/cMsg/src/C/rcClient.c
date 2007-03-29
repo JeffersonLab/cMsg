@@ -152,7 +152,6 @@ int main(int argc,char **argv) {
       }
   }
     
-  sleep(1);
   cMsgSetText(msg, "send with UDP");
   cMsgSetReliableSend(msg, 0);
   loops=5;
@@ -164,8 +163,11 @@ int main(int argc,char **argv) {
       }
   }
   
-  sleep(5);
+  sleep(7);
  
+  cMsgSetSubject(msg, "blah");
+  cMsgSetType(msg, "yech");
+
   loops=5;
   while (loops-- > 0) {      
       err = cMsgSend(domainId, msg);
@@ -177,6 +179,8 @@ int main(int argc,char **argv) {
   
   
   cMsgSetText(msg, "send with TCP");
+  cMsgSetSubject(msg, "subby");
+  cMsgSetType(msg, "typey");
   cMsgSetReliableSend(msg, 1);
   loops=5;
   while (loops-- > 0) {      
@@ -186,8 +190,7 @@ int main(int argc,char **argv) {
           continue;
       }
   }
-  
-  
+    
 /*printf("rcClient try disconnect\n");*/
   cMsgFreeMessage(&msg);
   cMsgUnSubscribe(domainId, unSubHandle);
