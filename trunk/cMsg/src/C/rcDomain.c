@@ -700,6 +700,9 @@ static void *receiverThd(void *arg) {
     pthread_detach(pthread_self());
     
     while (1) {
+        /* zero buffer */
+        memset((void *)buf,0,1024);
+
         /* ignore error as it will be caught later */   
         len = recvfrom(threadArg->sockfd, (void *)buf, 1024, 0,
                        (SA *) &threadArg->addr, &(threadArg->len));
