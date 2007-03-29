@@ -474,8 +474,8 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
       }
 
       /* connect using that UDL info */
-/* printf("\nTrying to connect with UDL = %s\n",
-      domain->failovers[failoverIndex].udl); */
+/*printf("\nTrying to connect with UDL = %s\n",
+      domain->failovers[failoverIndex].udl);*/
       if (domain->failovers[failoverIndex].mustBroadcast == 1) {
         free(domain->failovers[failoverIndex].nameServerHost);
         connectWithBroadcast(domain, failoverIndex,
@@ -487,7 +487,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
       if (err == CMSG_OK) {
         domain->failoverIndex = failoverIndex;
         gotConnection = 1;
-/* printf("Connected!!\n"); */
+/*printf("Connected!!\n");*/
         break;
       }
 
@@ -539,20 +539,27 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
     * Talk to cMsg server
     *------------------------*/
     
-    /* create UDP socket */
+    /* create UDP socket for broadcasting */
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
         return(CMSG_SOCKET_ERROR);
     }
+/*printf("+udp broad %d\n", sockfd);*/
 
     /* turn broadcasting on */
     err = setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (char*) &on, sizeof(on));
     if (err < 0) {
+        close(sockfd);
         return(CMSG_SOCKET_ERROR);
     }
-    
+       
+    memset((void *)&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+/*printf("Broadcast thd uses port %hu\n", ((uint16_t)domain->failovers[failoverIndex].nameServerPort));*/
+    servaddr.sin_port   = htons((uint16_t) (domain->failovers[failoverIndex].nameServerPort));
     /* send packet to broadcast address */
     if ( (err = cMsgStringToNumericIPaddr("255.255.255.255", &servaddr)) != CMSG_OK ) {
+        close(sockfd);
         return(err);
     }
     
@@ -595,10 +602,6 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
     }
     
     /* create and start a thread which will broadcast every second */
-    memset((void *)&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_port   = htons((unsigned short) (domain->failovers[failoverIndex].nameServerPort));
-    
     bArg.len       = (socklen_t) sizeof(servaddr);
     bArg.sockfd    = sockfd;
     bArg.paddr     = &servaddr;
@@ -681,6 +684,9 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
     /* stop broadcasting thread */
     pthread_cancel(bThread);
     
+/*printf("-udp broad %d\n", sockfd);*/
+    close(sockfd);
+    
     if (!gotResponse) {
 /*printf("Got no response\n");*/
         return(CMSG_TIMEOUT);
@@ -700,6 +706,9 @@ static void *receiverThd(void *arg) {
     thdArg *threadArg = (thdArg *) arg;
     char buf[1024], *pchar;
     ssize_t len;
+    
+    /* release resources when done */
+    pthread_detach(pthread_self());
     
     while (1) {
         /* zero buffer */
@@ -726,7 +735,7 @@ printf("Broadcast response from: %s, on port %hu, with msg len = %hd\n",
         memcpy(&nameLen, pchar, sizeof(int));
         nameLen = ntohl(nameLen);
         pchar += sizeof(int);
-/*printf("  magic int = %d, port = %d, len = %d\n", magicInt, port, nameLen);*/
+/*printf("  magic int = 0x%x, port = %d, len = %d\n", magicInt, port, nameLen);*/
         
         if ((magicInt != 0xc0da1) || 
                 (port < 1024 || port > 65535) ||
@@ -741,7 +750,7 @@ printf("Broadcast response from: %s, on port %hu, with msg len = %hd\n",
             continue;
         }
         
-        /* send info back to caling function */
+        /* send info back to calling function */
         threadArg->buffer = strdup(pchar);
         threadArg->port   = port;
 /*printf("  Receiver thread: host = %s, port = %d\n", pchar, port);*/
@@ -766,6 +775,9 @@ static void *broadcastThd(void *arg) {
     thdArg *threadArg = (thdArg *) arg;
     struct timespec wait = {0, 100000000}; /* 0.1 sec */
     
+    /* release resources when done */
+    pthread_detach(pthread_self());
+    
     /* A slight delay here will help the main thread (calling connect)
      * to be already waiting for a response from the server when we
      * broadcast to the server here (prompting that response). This
@@ -774,11 +786,9 @@ static void *broadcastThd(void *arg) {
     nanosleep(&wait, NULL);
     
     while (1) {
-
-/*printf("Send broadcast to cMsg server\n");*/
+/*printf("Send broadcast to cMsg server on socket %d\n", threadArg->sockfd);*/
       sendto(threadArg->sockfd, (void *)threadArg->buffer, threadArg->bufferLen, 0,
              (SA *) threadArg->paddr, threadArg->len);
-      
       
       sleep(1);
     }
