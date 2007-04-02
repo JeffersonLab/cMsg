@@ -438,9 +438,11 @@ static void *clientThread(void *arg)
     retry:
     
     if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
+      /*
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "clientThread %d: error reading command\n", localCount);
       }
+      */
       /* if there's a timeout, try again */
       if (errno == EWOULDBLOCK || errno == EAGAIN) {
         /* test to see if someone wants to shutdown this thread */
