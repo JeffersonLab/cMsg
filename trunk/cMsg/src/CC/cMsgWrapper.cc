@@ -239,7 +239,7 @@ cMsgException::cMsgException(const cMsgException &e) : descr(e.descr),  returnCo
 /**
  * Destructor does nothing.
  */
-cMsgException::~cMsgException(void) {
+cMsgException::~cMsgException(void) throw() {
 }
 
 
@@ -251,10 +251,23 @@ cMsgException::~cMsgException(void) {
  *
  * @return String representing exception
  */
-string cMsgException::toString(void) const {
+string cMsgException::toString(void) const throw() {
   stringstream ss;
   ss << "?cMsgException returnCode = " << returnCode << "    descr = " << descr << ends;
   return(ss.str());
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+/**
+ * Gets char* represention of exception.
+ *
+ * @return char* representing exception
+ */
+const char *cMsgException::what(void) const throw() {
+  return(toString().c_str());
 }
 
 

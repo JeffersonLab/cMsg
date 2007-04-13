@@ -21,6 +21,7 @@
 
 #include <cMsg.h>
 #include <string>
+#include <exception>
 
 
 /**
@@ -38,16 +39,17 @@ using namespace std;
 /**
  * Exception includes description and return code.
  */
-class cMsgException {
+class cMsgException : public exception {
 
 public:
   cMsgException(void);
   cMsgException(const string &descr);
   cMsgException(const string &descr, int code);
   cMsgException(const cMsgException &e);
-  virtual ~cMsgException(void);
+  virtual ~cMsgException(void) throw();
 
-  virtual string toString(void) const;
+  virtual string toString(void) const throw();
+  virtual const char *what(void) const throw();
 
 
 public:
