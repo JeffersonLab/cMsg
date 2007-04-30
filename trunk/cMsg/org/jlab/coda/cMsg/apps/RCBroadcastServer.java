@@ -39,6 +39,7 @@ public class RCBroadcastServer {
 
              //RcServerReconnectThread rcserver  = new RcServerReconnectThread(host, port);
              ConnectDisconnectThread rcserver2 = new ConnectDisconnectThread(host, port);
+             //RcServerThread rcserver2 = new RcServerThread(host, port);
              rcserver2.start();
         }
     }
@@ -85,7 +86,7 @@ public class RCBroadcastServer {
         //    given, the environmental variable EXPID is used. if that is not defined,
         //    an exception is thrown
 
-        String UDL = "cMsg:rcb://?expid=carlExp";
+        String UDL = "cMsg:rcb://33444?expid=carlExp";
 
         cMsg cmsg = new cMsg(UDL, "broadcast listener", "udp trial");
         try {cmsg.connect();}
@@ -100,6 +101,37 @@ public class RCBroadcastServer {
         BroadcastCallback cb = new BroadcastCallback();
         // subject and type are ignored in this domain
         cmsg.subscribe("sub", "type", cb, null);
+
+    }
+
+    /**
+     * Class for handling client which does endless connects and disconnects.
+     */
+    class RcServerThread extends Thread{
+
+        String rcClientHost;
+        int rcClientTcpPort;
+
+        RcServerThread(String host, int port) {
+            rcClientHost = host;
+            rcClientTcpPort = port;
+        }
+
+        public void run() {
+            try {
+                String rcsUDL = "cMsg:rcs://" + rcClientHost + ":" + rcClientTcpPort;
+
+                cMsg server = new cMsg(rcsUDL, "rc server", "connect trial");
+//System.out.println("connect");
+                server.connect();
+                try {Thread.sleep(1000);}
+                catch (InterruptedException e) {}
+                server.disconnect();
+            }
+            catch (cMsgException e) {
+                e.printStackTrace();
+            }
+        }
 
     }
 
