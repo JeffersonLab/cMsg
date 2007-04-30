@@ -378,10 +378,10 @@ public class cMsgNameServer extends Thread {
 
         // Create a UDP socket for accepting broadcasts from cMsg clients
         try {
-//System.out.println("Creating UDP broadcast listening socket at port " + udpPort);
             // create socket to receive at all interfaces
             broadcastSocket = new DatagramSocket(udpPort);
             broadcastSocket.setReceiveBufferSize(65535);
+//System.out.println("Created UDP broadcast listening socket at port " + udpPort);
         }
         catch (SocketException e) {
             System.out.println("UDP port number " + udpPort + " in use.");
@@ -591,6 +591,7 @@ public class cMsgNameServer extends Thread {
         }
 
         // start UDP listening thread
+//System.out.println("Start Broadcast thd on port " );
         broadcastThread = new cMsgBroadcastListeningThread(port, broadcastSocket, clientPassword, debug);
         broadcastThread.start();
 

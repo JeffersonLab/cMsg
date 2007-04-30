@@ -2647,6 +2647,7 @@ public class cMsg extends cMsgDomainAdapter {
         //    if subdomainType is not cMsg, it is required
         // 4) remainder is past on to the subdomain plug-in
         // 5) client's password is in tag=value part of UDL as cmsgpassword=<password>
+        // 6) broadcast timeout is in tag=value part of UDL as broadcastTO=<time out in seconds>
 
         Pattern pattern = Pattern.compile("([\\w\\.\\-]+):?(\\d+)?/?(\\w+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
