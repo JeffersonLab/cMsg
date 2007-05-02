@@ -180,6 +180,7 @@ domainTypeInfo rcDomainTypeInfo = {
  *        to this connection.
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if the EXPID is not defined
  * @returns CMSG_BAD_FORMAT if the UDL is malformed
  * @returns CMSG_ABORT if RC Broadcast server aborts connection attempt
  * @returns CMSG_OUT_OF_RANGE if the port specified in the UDL is out-of-range
@@ -224,12 +225,27 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     if (err != CMSG_OK) {
         return(err);
     }
+    
+    /*
+     * The EXPID is obtained from the UDL, but if it's not defined there
+     * then use the environmental variable EXPID 's value.
+     */
+    if (expid == NULL) {
+        expid = getenv("EXPID");
+        if (expid != NULL) {
+            expid = (char *)strdup(expid);
+        }
+        else {
+            /* if expid not defined anywhere, return error */
+            return(CMSG_ERROR);
+        }
+    }
 
     /* allocate struct to hold connection info */
     domain = (cMsgDomainInfo *) calloc(1, sizeof(cMsgDomainInfo));
     if (domain == NULL) {
         free(serverHost);
-        if (expid != NULL) free(expid);
+        free(expid);
         return(CMSG_OUT_OF_MEMORY);  
     }
     cMsgDomainInit(domain);  
@@ -241,7 +257,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
-        if (expid != NULL) free(expid);
+        free(expid);
         return(CMSG_OUT_OF_MEMORY);
     }
 
@@ -293,7 +309,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
-        if (expid != NULL) free(expid);
+        free(expid);
         return(err);
     }
     
@@ -305,7 +321,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
-        if (expid != NULL) free(expid);
+        free(expid);
         return(CMSG_OUT_OF_MEMORY);  
     }
     threadArg->isRunning   = 0;
@@ -382,7 +398,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
-        if (expid != NULL) free(expid);
+        free(expid);
         return(CMSG_SOCKET_ERROR);
     }
 
@@ -395,7 +411,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
-        if (expid != NULL) free(expid);
+        free(expid);
         return(CMSG_SOCKET_ERROR);
     }
 
@@ -406,7 +422,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
-        if (expid != NULL) free(expid);
+        free(expid);
         return(err);
     }
     
@@ -418,26 +434,8 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
      *   2) EXPID (experiment id string)
      * The host we're sending from gets sent for free
      * as does the UDP port we're sending from.
-     * The EXPID is obtained from the UDL, but if it's
-     * not defined there then use the environmental
-     * variable value.
      */
-    if (expid == NULL) {
-        expid = getenv("EXPID");
-        if (expid != NULL) {
-            expid = (char *)strdup(expid);
-        }
-    }
-    /* if expid not defined anywhere, return error */
-    if (expid == NULL) {
-        close(domain->sendSocket);
-        cMsgRestoreSignals(domain);
-        pthread_cancel(domain->pendThread);
-        cMsgDomainFree(domain);
-        free(domain);
-        free(serverHost);
-        return(CMSG_ERROR);
-    }
+
 /*printf("Sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
         ((int) domain->listenPort), expid, serverPort, serverHost);*/
     
