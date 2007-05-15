@@ -79,6 +79,8 @@ int main(int argc,char **argv) {
   double          freq, freqAvg=0., totalT=0.;
   long long       totalC=0;
   
+
+  
   if (argc > 1) {
     myName = argv[1];
     if (strcmp(myName, "-h") == 0) {
