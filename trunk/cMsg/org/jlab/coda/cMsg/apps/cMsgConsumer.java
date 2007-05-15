@@ -18,6 +18,7 @@ package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
 
+
 /**
  * An example class which creates a cMsg message consumer.
  */
@@ -187,35 +188,10 @@ public class cMsgConsumer {
         cMsgCallbackInterface cb = new myCallback();
         Object unsub  = coda.subscribe(subject, type, cb, null);
 
-        // test the monitor program with subs & unsubs
-        /*
-        Object unsub2 = coda.subscribe("blah", "yuck", cb, null);
-        Object unsub3 = coda.subscribe("later1", "gator", cb, null);
-        Object unsub4 = coda.subscribe("later2", "gator", cb, null);
-        Object unsub5 = coda.subscribe("later3", "gator", cb, null);
-        Object unsub6 = coda.subscribe("later4", "gator", cb, null);
-        try {Thread.sleep(4000);}
-        catch (InterruptedException e) {}
-        coda.unsubscribe(unsub6);
-        try {Thread.sleep(4000);}
-        catch (InterruptedException e) {}
-        coda.unsubscribe(unsub5);
-        try {Thread.sleep(4000);}
-        catch (InterruptedException e) {}
-        coda.unsubscribe(unsub4);
-        try {Thread.sleep(4000);}
-        catch (InterruptedException e) {}
-        coda.unsubscribe(unsub3);
-        try {Thread.sleep(4000);}
-        catch (InterruptedException e) {}
-        coda.unsubscribe(unsub2);
-        */
-
         // variables to track incoming message rate
         double freq=0., freqAvg=0.;
         long   totalT=0, totalC=0, period = 5000; // millisec
 
-        int toggle = 2;
         while (true) {
             count = 0;
 
@@ -233,15 +209,6 @@ public class cMsgConsumer {
                                    doubleToString(freq, 1) + " Hz, Avg = " +
                                    doubleToString(freqAvg, 1) + " Hz");
             }
-
-            /*
-            if (toggle++%2 == 0) {
-                coda.unsubscribe(unsub);
-            }
-            else {
-                unsub = coda.subscribe(subject, type, cb, null);
-            }
-            */
 
             if (!coda.isConnected()) {
                 // wait 2 seconds for failover before declaring us dead-in-the-water
