@@ -196,7 +196,7 @@ static bool deleteSubscription(void *domainId, void *handle) {
 /**
  * Empty constructor.
  */
-cMsgException::cMsgException(void) : returnCode(0), descr("") {}
+cMsgException::cMsgException(void) : descr(""), returnCode(0) {}
 
 
 //-----------------------------------------------------------------------------
