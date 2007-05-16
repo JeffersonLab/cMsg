@@ -388,22 +388,36 @@ public class RCBroadcast extends cMsgDomainAdapter {
             throw new cMsgException("invalid UDL");
         }
 
-        // get broadcast port or use default if it's not given
+        // get broadcast port or use env var or default if it's not given
         if (udlPort != null && udlPort.length() > 0) {
             try {
                 broadcastPort = Integer.parseInt(udlPort);
             }
             catch (NumberFormatException e) {
-                broadcastPort = cMsgNetworkConstants.rcBroadcastPort;
                 if (debug >= cMsgConstants.debugWarn) {
-                    System.out.println("parseUDL: non-integer port, using broadcast port = " + broadcastPort);
+                    System.out.println("parseUDL: non-integer port specified in UDL = " + udlPort);
                 }
             }
         }
-        else {
+
+        // next, try the environmental variable RC_BROADCAST_PORT
+        if (broadcastPort < 1) {
+            try {
+                String env = System.getenv("RC_BROADCAST_PORT");
+                if (env != null) {
+                    broadcastPort = Integer.parseInt(env);
+                }
+            }
+            catch (NumberFormatException ex) {
+                System.out.println("parseUDL: bad port number specified in CMSG_BROADCAST_PORT env variable");
+            }
+        }
+
+        // use default as last resort
+        if (broadcastPort < 1) {
             broadcastPort = cMsgNetworkConstants.rcBroadcastPort;
             if (debug >= cMsgConstants.debugWarn) {
-                System.out.println("parseUDL: using broadcast port = " + broadcastPort);
+                System.out.println("parseUDL: using default broadcast port = " + broadcastPort);
             }
         }
 
