@@ -2090,7 +2090,7 @@ void cMsg::setShutdownHandler(cMsgShutdownHandler *handler, void* userArg) throw
  * @param client The client
  * @param flag Shutdown flag
  */
-void cMsg::shutdownClients(string &client, int flag) throw(cMsgException) {
+void cMsg::shutdownClients(const string &client, int flag) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
 
@@ -2111,7 +2111,7 @@ void cMsg::shutdownClients(string &client, int flag) throw(cMsgException) {
  * @param server The server
  * @param flag Shutdown flag
  */
-void cMsg::shutdownServers(string &server, int flag) throw(cMsgException) {
+void cMsg::shutdownServers(const string &server, int flag) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
 
@@ -2133,7 +2133,7 @@ void cMsg::shutdownServers(string &server, int flag) throw(cMsgException) {
  *
  * @return Message containing monitoring information in text field
  */
-cMsgMessage *cMsg::monitor(string &monString) throw(cMsgException) {
+cMsgMessage *cMsg::monitor(const string &monString) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
 
