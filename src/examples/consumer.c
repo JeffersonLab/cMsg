@@ -32,12 +32,14 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /******************************************************************/
 static void callback(void *msg, void *arg) {
-  int userInt, cueSize;
+  /*
+  int cueSize;
   struct timespec sleeep;
 
   sleeep.tv_sec  = 0;
-  sleeep.tv_nsec = 10000000; /* 10 millisec */  
-
+  sleeep.tv_nsec = 10000000;
+  */
+  
 
   pthread_mutex_lock(&mutex);
   /*

@@ -31,14 +31,13 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /******************************************************************/
 static void callback(void *msg, void *arg) {
+  /*
   int userInt;
   struct timespec sleeep;
   
-  sleeep.tv_sec  = 0;
-  sleeep.tv_nsec = 10000000; /* 10 millisec */
   sleeep.tv_sec  = 1;
   sleeep.tv_nsec = 0;
-  
+  */ 
   
   pthread_mutex_lock(&mutex);
   
@@ -90,12 +89,8 @@ int main(int argc,char **argv) {
   int   err, debug = 1;
   cMsgSubscribeConfig *config;
   void *unSubHandle, *msg;
-  int toggle = 2, loops = 5;
+  int  loops = 5;
   
-  /* msg rate measuring variables */
-  int             period = 2, ignore=0;
-  double          freq, freqAvg=0., totalT=0.;
-  long long       totalC=0;
 
   if (argc > 1) {
     myName = argv[1];
