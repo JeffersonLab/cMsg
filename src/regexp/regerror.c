@@ -7,7 +7,7 @@
 #include <regex.h>
 
 #include "utils.h"
-#include "regerror.ih"
+#include "regerror.h"
 
 /*
  = #define	REG_OKAY	 0

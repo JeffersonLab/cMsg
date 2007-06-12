@@ -45,7 +45,7 @@ struct match {
 	states empty;		/* empty set of states */
 };
 
-#include "engine.ih"
+#include "engine.h"
 
 #ifdef REDEBUG
 #define	SP(t, s, c)	print(m, t, s, c, stdout)

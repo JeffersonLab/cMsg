@@ -30,7 +30,7 @@ struct parse {
 	sopno pend[NPAREN];	/* -> ) ([0] unused) */
 };
 
-#include "regcomp.ih"
+#include "regcomp.h"
 
 static char nuls[10];		/* place to point scanner in event of error */
 
