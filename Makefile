@@ -80,6 +80,9 @@ java:
 
 doc:
 	ant javadoc;
+	doxygen doc/doxygen/DoxyfileC
+	doxygen doc/doxygen/DoxyfileCC
+	cd doc; $(MAKE) -f $(MAKEFILE);
 
 tar:
 	-$(RM) tar/cMsg-1.0.tar.gz;
