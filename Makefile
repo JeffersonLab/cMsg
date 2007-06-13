@@ -83,4 +83,4 @@ doc:
 
 tar:
 	-$(RM) tar/cMsg-1.0.tar.gz;
-	tar -X tar/tarexclude -C .. -c -z -f tar/cMsg-1.0.tar.gz et
+	tar -X tar/tarexclude -C .. -c -z -f tar/cMsg-1.0.tar.gz cMsg
