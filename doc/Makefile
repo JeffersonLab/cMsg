@@ -17,7 +17,7 @@ include $(BMS_HOME)/Makefile.common
 # At this point, "make doc" has already been done one level above
 # and so all we have to do is copy things to its final resting place.
 
-all: install
+all: doc install
 
 install:
 	@mkdir -p $(INSTALL_DIR)/doc/cMsg
