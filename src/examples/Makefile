@@ -17,6 +17,9 @@ PACKAGES = cMsg
 # only here for print out
 MODULE_NAME = cmsg
 
+# set optimization level
+OPTIMIZE = 3
+
 CFLAGS   += -I../libsrc -I../libsrc++
 CXXFLAGS += -I../libsrc -I../libsrc++
 
