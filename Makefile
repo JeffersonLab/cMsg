@@ -3,6 +3,8 @@
 #
 
 MAKEFILE = Makefile
+# define TOPLEVEL for use in making doxygen docs
+TOPLEVEL = .
 
 .PHONY : all src env mkdirs install uninstall relink clean distClean execClean java tar doc
 
@@ -80,8 +82,8 @@ java:
 
 doc:
 	ant javadoc;
-	doxygen doc/doxygen/DoxyfileC
-	doxygen doc/doxygen/DoxyfileCC
+	export TOPLEVEL=$(TOPLEVEL); doxygen doc/doxygen/DoxyfileC
+	export TOPLEVEL=$(TOPLEVEL); doxygen doc/doxygen/DoxyfileCC
 	cd doc; $(MAKE) -f $(MAKEFILE);
 
 tar:
