@@ -1,84 +1,39 @@
+
+# cMsg regexp library
 #
-# cMsg vxworks makefile for regexp code
-#
 
-# You probably want to take -DREDEBUG out of CFLAGS, and put something like
-# -O in, *after* testing (-DREDEBUG strengthens testing by enabling a lot of
-# internal assertion checking and some debugging facilities).
-# Do not take -DPOSIX_MISTAKE out.
+OS   = vxworks
+ARCH = ppc
 
-INSTALL = cp
-
-ifeq ($(ARCH),VXWORKSPPC)
-# vxWorks 5.5
-INCDIR = /site/vxworks/5.5/ppc/target/h
-CC     = ccppc
-LD     = ldppc -r
-DEFS   = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
-INCS   = -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -I./ -I$(INCDIR)
-CFLAGS = -O3 $(DEFS) -DPOSIX_MISTAKE 
+ifndef BMS_HOME
+  $(error "Need to define BMS_HOME")
 endif
 
-REGEX_LIB = libRegex.o
-HFILES = regex.h
+# Setting TOPLEVEL tells Makefile.common where to find Makefile.local
+# and to include it if make is run from this dir or the top-level package
+# directory.
+TOPLEVEL = ../..
 
-# Internal stuff, should not need changing.
-OBJS = regcomp.o regexec.o regerror.o regfree.o
+MODULE_NAME = cmsgRegex
 
-all: copyFiles $(REGEX_LIB) saveFiles
+# set optimization level
+OPTIMIZE = 3
 
-$(REGEX_LIB): $(OBJS)
-	${LD} -o $@ $(OBJS) $(VXWORKS_LIBS)
+# filter this out of the regular libraries
+NO_OBJS = engine.o
 
-# arrangements to build forward-reference header files
-%.ih : %.c
-	sh ./mkh -p $< >$@
+# if you don't want either of these libs, comment out the definition(s)
+#MAKE_SHARED_LIB = make_me_please
+MAKE_STATIC_LIB = make_me_please
 
-%.o : %.c
-	$(CC) -c $(CFLAGS) $(INCS) -o $@ $<
-	@echo
-	@echo "Made " $*
-	@echo
+# Things common to all builds live in Makefile.common
+include $(BMS_HOME)/Makefile.common
 
-# dependencies
-$(OBJS):	utils.h regex.h regex2.h
-regcomp.o:	cclass.h cname.h regcomp.ih
-regexec.o:	engine.c engine.ih
-regerror.o:	regerror.ih
+# Things common to building libraries live in Makefile.libs
+include $(BMS_HOME)/Makefile.libs
 
-copyFiles:
-	-rm -f *.o *.so *.a *.ih
-	-cp -p ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*.o .;
+CFLAGS += -DPOSIX_MISTAKE
 
-saveFiles:
-	-cp -p *.o  *.ih ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
-	-rm -f $(OBJS) *.ih
-
-install: all install-lib install-inc
-
-install-lib: $(REGEX_LIB)
-	@echo "Installing regular expression libraries in $(LIB_DIR)"
-	@for i in $(REGEX_LIB); do \
-	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
-           done;
-
-install-inc: $(HFILES)
-	@echo "Installing includes in $(INC_DIR)"
-	@for i in $(HFILES); do \
-	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(INC_DIR)/$$i; \
-           done;
-
-# various forms of cleanup
-purge:
-	rm -f *.o
-
-tidy:
-	rm -f junk* core core.* *.core dtr *.tmp lint
-
-clean:	tidy
-	-rm -f *.o *.s *.ih re
-	-rm -f ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*
-        
-
+# Older version of GNU (vx 5.5) needs a different rule to make dependencies.
+%.d : %.c
+	@$(DCC) $(CFLAGS) $< > $(DEP_DIR)/$(basename $@).d
