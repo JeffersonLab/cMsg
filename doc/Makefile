@@ -26,5 +26,6 @@ install:
 	cp -rp javadoc    $(INSTALL_DIR)/doc/cMsg
 
 doc:
+	cd $(TOPLEVEL); ant javadoc;
 	export TOPLEVEL=$(TOPLEVEL) ; doxygen doxygen/DoxyfileC
 	export TOPLEVEL=$(TOPLEVEL) ; doxygen doxygen/DoxyfileCC
