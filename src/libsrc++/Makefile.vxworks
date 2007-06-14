@@ -1,83 +1,39 @@
 #
-# cMsg vxworks makefile for C++ code
+# cMsg C++ library
 #
 
-C_DIR   = ../C
-INSTALL = cp
 
-ifeq ($(ARCH),VXWORKSPPC)
-# vxWorks 5.5
-INCDIR=/site/vxworks/5.5/ppc/target/h
-CXX = g++ppc
-LD = ldppc -r
-DEFS = -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -DVXWORKSPPC
-INCS = -Wall -fno-for-scope -fno-builtin -fvolatile -fstrength-reduce  -mlongcall -I. -I$(C_DIR) -I$(INC_DIR) -I$(INCDIR)
-CFLAGS = -O3 $(DEFS) 
+OS   = vxworks
+ARCH = ppc
+
+ifndef BMS_HOME
+  $(error "Need to define BMS_HOME")
 endif
 
-CFLAGSXX = $(CFLAGS) -Dcppversion
+# Setting TOPLEVEL tells Makefile.common where to find Makefile.local
+# and to include it if make is run from this dir or the top-level package
+# directory.
+TOPLEVEL = ../..
 
-CMSG_LIBSXX = cMsgLibxx.o
+MODULE_NAME = cmsgxx
 
-PROGSXX =
+# set optimization level
+OPTIMIZE = 3
 
-SRCXX =	cMsgWrapper.cc
+CFLAGS   += -I../libsrc
+CXXFLAGS += -I../libsrc
 
-OBJSXX = cMsgWrapper.o
+# if you don't want either of these libs, comment out the definition(s)
+#MAKE_SHARED_LIB = make_me_please
+MAKE_STATIC_LIB = make_me_please
 
+# Things common to all builds live in Makefile.common
+include $(BMS_HOME)/Makefile.common
 
-HFILES = $(C_DIR)/cMsgNetwork.h \
-	 $(C_DIR)/cMsgPrivate.h \
-	 $(C_DIR)/cMsg.h \
-	 $(C_DIR)/cMsgDomain.h \
-	 $(C_DIR)/rwlock.h
+# Things common to building libraries live in Makefile.libs
+include $(BMS_HOME)/Makefile.libs
 
-HFILESXX = cMsg.hxx
+# Older version of GNU (vx 5.5) needs a different rule to make dependencies.
+%.d : %.cc
+	@$(DCC) $(CFLAGS) $< > $(DEP_DIR)/$(basename $@).d
 
-all: copyFiles $(OBJS) $(CMSG_LIBSXX) saveFiles
-
-$(CMSG_LIBSXX): $(SRCXX)
-	$(CXX) -c $(CFLAGSXX) $(INCS) $(SRCXX)
-	${LD} -o $@ $(OBJSXX)
-
-# file dependencies
-$(OBJSXX) : $(HFILESXX) $(SRCXX)
-
-%.o : %.cc
-	$(CXX) -c $(CFLAGSXX) $(INCS) -o $@ $<
-
-copyFiles:
-	-rm -f *.o *.so *.a
-	-cp -p ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/* .;
-
-saveFiles:
-	-cp -p *.o ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/.;
-	-rm -f $(OBJSXX)
-
-install: all install-lib install-inc
-
-install-lib: $(CMSG_LIB) $(CMSG_LIBSXX)
-	@echo "Installing vxWorks C++ libraries in $(LIB_DIR)"
-	@for i in $(CMSG_LIBSXX); do \
-	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(LIB_DIR)/$$i; \
-	 done;
-
-install-inc: $(HFILESXX)
-	@echo "Installing includes in $(INC_DIR)"
-	@for i in $(HFILESXX); do \
-	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(INC_DIR)/$$i; \
-	 done;
-
-install-bin: $(PROGSXX)
-	@echo "Installing C++ executables in $(BIN_DIR)"
-	@for i in $(PROGSXX); do \
-	   echo "  installing $$i"; \
-	   $(INSTALL) $$i $(BIN_DIR)/$$i; \
-	done;
-
-
-clean:
-	-rm -f core *~ *.o
-	-rm -f ./.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/*
