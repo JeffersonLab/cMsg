@@ -21,9 +21,9 @@ all: install
 
 install:
 	@mkdir -p $(INSTALL_DIR)/doc/cMsg
+	cp -rp javadoc    $(INSTALL_DIR)/doc/cMsg
 	cp -rp doxygen/C  $(INSTALL_DIR)/doc/cMsg
 	cp -rp doxygen/CC $(INSTALL_DIR)/doc/cMsg
-	cp -rp javadoc    $(INSTALL_DIR)/doc/cMsg
 
 doc:
 	cd $(TOPLEVEL); ant javadoc;
