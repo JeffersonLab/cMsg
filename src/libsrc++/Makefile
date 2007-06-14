@@ -19,7 +19,6 @@ OPTIMIZE = 3
 CFLAGS   += -I../libsrc
 CXXFLAGS += -I../libsrc
 
-
 # if you don't want either of these libs, comment out the definition(s)
 MAKE_SHARED_LIB = make_me_please
 #MAKE_STATIC_LIB = make_me_please
