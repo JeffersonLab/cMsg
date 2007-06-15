@@ -1,0 +1,9 @@
+#
+# cMsg exesrc dir
+# This is a dummy makefile that does nothing
+#
+
+OS   = vxworks
+ARCH = ppc
+
+all:
