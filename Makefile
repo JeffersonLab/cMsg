@@ -3,6 +3,14 @@
 #
 
 MAKEFILE = Makefile
+
+# if using vxworks, use different set of the lowest level makefiles
+ifeq ($(OS), vxworks)
+  ifdef ARCH
+    MAKEFILE = Makefile.$(OS)-$(ARCH)
+  endif
+endif
+
 # define TOPLEVEL for use in making doxygen docs
 TOPLEVEL = .
 
