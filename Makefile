@@ -8,6 +8,8 @@ MAKEFILE = Makefile
 ifeq ($(OS), vxworks)
   ifdef ARCH
     MAKEFILE = Makefile.$(OS)-$(ARCH)
+  else
+    $(error "Need to define ARCH if using OS = vxworks")
   endif
 endif
 
