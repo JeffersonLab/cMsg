@@ -16,79 +16,37 @@ endif
 # define TOPLEVEL for use in making doxygen docs
 TOPLEVEL = .
 
-.PHONY : all src env mkdirs install uninstall relink clean distClean execClean java tar doc
+# list directories in which there are makefiles to be run (relative to this one)
+SRC_DIRS = src/regexp src/libsrc src/libsrc++ src/execsrc src/examples
+
+# targets for which we run lower-level makefiles
+TARGETS = all env mkdirs install uninstall relink clean distClean execClean
+
+# declaring a target phony skips the implicit rule search and saves time
+.PHONY : java doc tar help $(TARGETS)
 
 
-all: src
+first: all
 
-src:
-	cd src/regexp;   $(MAKE) -f $(MAKEFILE);
-	cd src/libsrc;   $(MAKE) -f $(MAKEFILE);
-	cd src/libsrc++; $(MAKE) -f $(MAKEFILE);
-	cd src/execsrc;  $(MAKE) -f $(MAKEFILE);
-	cd src/examples; $(MAKE) -f $(MAKEFILE);
-
-env:
-	cd src/regexp;   $(MAKE) -f $(MAKEFILE) env;
-	cd src/libsrc;   $(MAKE) -f $(MAKEFILE) env;
-	cd src/libsrc++; $(MAKE) -f $(MAKEFILE) env;
-	cd src/execsrc;  $(MAKE) -f $(MAKEFILE) env;
-	cd src/examples; $(MAKE) -f $(MAKEFILE) env;
-
-mkdirs:
-	cd src/regexp;   $(MAKE) -f $(MAKEFILE) mkdirs;
-	cd src/libsrc;   $(MAKE) -f $(MAKEFILE) mkdirs;
-	cd src/libsrc++; $(MAKE) -f $(MAKEFILE) mkdirs;
-	cd src/execsrc;  $(MAKE) -f $(MAKEFILE) mkdirs;
-	cd src/examples; $(MAKE) -f $(MAKEFILE) mkdirs;
-	ant prepare;
-
-install:
-	cd src/regexp;   $(MAKE) -f $(MAKEFILE) install;
-	cd src/libsrc;   $(MAKE) -f $(MAKEFILE) install;
-	cd src/libsrc++; $(MAKE) -f $(MAKEFILE) install;
-	cd src/execsrc;  $(MAKE) -f $(MAKEFILE) install;
-	cd src/examples; $(MAKE) -f $(MAKEFILE) install;
-
-uninstall: 
-	cd src/regexp;   $(MAKE) -f $(MAKEFILE) uninstall;
-	cd src/libsrc;   $(MAKE) -f $(MAKEFILE) uninstall;
-	cd src/libsrc++; $(MAKE) -f $(MAKEFILE) uninstall;
-	cd src/execsrc;  $(MAKE) -f $(MAKEFILE) uninstall;
-	cd src/examples; $(MAKE) -f $(MAKEFILE) uninstall;
-
-relink:
-	cd src/regexp;   $(MAKE) -f $(MAKEFILE) relink;
-	cd src/libsrc;   $(MAKE) -f $(MAKEFILE) relink;
-	cd src/libsrc++; $(MAKE) -f $(MAKEFILE) relink;
-	cd src/execsrc;  $(MAKE) -f $(MAKEFILE) relink;
-	cd src/examples; $(MAKE) -f $(MAKEFILE) relink;
-
-clean:
-	cd src/regexp;   $(MAKE) -f $(MAKEFILE) clean;
-	cd src/libsrc;   $(MAKE) -f $(MAKEFILE) clean;
-	cd src/libsrc++; $(MAKE) -f $(MAKEFILE) clean;
-	cd src/execsrc;  $(MAKE) -f $(MAKEFILE) clean;
-	cd src/examples; $(MAKE) -f $(MAKEFILE) clean;
-	ant clean;
-
-distClean:
-	cd src/regexp;   $(MAKE) -f $(MAKEFILE) distClean;
-	cd src/libsrc;   $(MAKE) -f $(MAKEFILE) distClean;
-	cd src/libsrc++; $(MAKE) -f $(MAKEFILE) distClean;
-	cd src/execsrc;  $(MAKE) -f $(MAKEFILE) distClean;
-	cd src/examples; $(MAKE) -f $(MAKEFILE) distClean;
-	ant cleanall;
-
-execClean:
-	cd src/regexp;   $(MAKE) -f $(MAKEFILE) execClean;
-	cd src/libsrc;   $(MAKE) -f $(MAKEFILE) execClean;
-	cd src/libsrc++; $(MAKE) -f $(MAKEFILE) execClean;
-	cd src/execsrc;  $(MAKE) -f $(MAKEFILE) execClean;
-	cd src/examples; $(MAKE) -f $(MAKEFILE) execClean;
+help:
+	@echo "make [option]"
+	@echo "      env       - list env variables"
+	@echo "      mkdirs    - make necessary directories for C,C++"
+	@echo "      install   - install all headers and compiled files for C,C++"
+	@echo "      uninstall - uninstall all headers and compiled files for C,C++"
+	@echo "      relink    - delete libs and executables, and relink object files"
+	@echo "      clean     - delete all exec, library, object, and dependency files"
+	@echo "      distClean - clean and remove hidden OS directory"
+	@echo "      execClean - delete all exec and library files"
 
 java:
 	ant;
+
+javaClean:
+	ant clean;
+
+javaDistClean:
+	ant cleanall;
 
 doc:
 	ant javadoc;
@@ -99,3 +57,9 @@ doc:
 tar:
 	-$(RM) tar/cMsg-1.0.tar.gz;
 	tar -X tar/tarexclude -C .. -c -z -f tar/cMsg-1.0.tar.gz cMsg
+
+# Use the same rule for each of these targets
+$(TARGETS):
+	@for i in $(SRC_DIRS); do \
+	   $(MAKE) -C $$i -f $(MAKEFILE) $@; \
+	done;
