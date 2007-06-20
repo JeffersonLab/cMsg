@@ -2,12 +2,12 @@
 # cMsg C library
 #
 
-OS   = vxworks
-ARCH = ppc
-
 ifndef BMS_HOME
   $(error "Need to define BMS_HOME")
 endif
+
+OS   = vxworks
+ARCH = ppc
 
 # Setting TOPLEVEL tells Makefile.common where to find Makefile.local
 # and to include it if make is run from this dir or the top-level package
@@ -47,8 +47,3 @@ include $(BMS_HOME)/Makefile.bin
 
 # don't link against libs for vxworks
 MISC_LIBS =
-
-# Older version of GNU (vx 5.5) needs a different rule to make dependencies.
-%.d : %.c
-	@$(DCC) $(CFLAGS) $< > $(DEP_DIR)/$(basename $@).d
-

@@ -3,7 +3,8 @@
 # This is a dummy makefile that does nothing
 #
 
-OS   = vxworks
-ARCH = ppc
+dummy:
+	@echo "No vxworks stuff in directory $(shell pwd)"
 
-all:
+%:
+	@echo "No vxworks stuff in directory $(shell pwd)"
