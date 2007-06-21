@@ -61,7 +61,7 @@ class myCallbackObject : public cMsgCallback {
 //-----------------------------------------------------------------------------
 
 
-main(int argc, char **argv) {
+int main(int argc, char **argv) {
 
 
   // set defaults
@@ -95,12 +95,12 @@ main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-    
-    
   // wait forever for messages
   while(true) {
     sleep(1);
   }
+  
+  return(EXIT_SUCCESS);
 
 }
 

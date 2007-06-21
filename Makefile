@@ -1,182 +1,62 @@
 #
 # cMsg top level Makefile
 #
-#     Set the env var CMSG_INSTALL to the directory in which
-#     you want the libs, executables,and docs placed. If not
-#     set this defaults to this (top cMsg) directory.
-#
-#     Set the env var CMSG_USE64BITS if you want to compile
-#     64 bit libs and executables and are running on a 64
-#     bit machine.
-#
 
-MAKEFILE = Makefile.unix
+MAKEFILE = Makefile
 
-# operating system, platform, # of processor bits we are using
-OSNAME   := $(shell uname)
-PLATFORM := $(shell uname -m)
-CMSG_DIR := $(shell pwd)
-
-# Look to see if the environmental variable CMSG_USE64BITS is defined.
-# If so, then compile everything for 64 bits. Be sure to do a 
-# "make cClean" when switching between 32 & 64 bit compiling.
-ifeq ($(findstring CMSG_USE64BITS, $(shell env | grep CMSG_USE64BITS)), CMSG_USE64BITS) 
-CMSG_BIT_ARCH = 64
-BITS = 64
-else
-CMSG_BIT_ARCH =
-BITS = 32
+# if using vxworks, use different set of the lowest level makefiles
+ifeq ($(OS), vxworks)
+  ifdef ARCH
+    MAKEFILE = Makefile.$(OS)-$(ARCH)
+  else
+    $(error "Need to define ARCH if using OS = vxworks")
+  endif
 endif
 
-# Define the installation directory.
-# By default use the cMsg directory,
-# else we the directory specified in the
-# CMSG_INSTALL environmental variable.
-ifneq ($(findstring CMSG_INSTALL, $(shell env | grep CMSG_INSTALL)), CMSG_INSTALL) 
-CMSG_INSTALL = $(CMSG_DIR)
-endif
+# define TOPLEVEL for use in making doxygen docs
+TOPLEVEL = .
 
-MESSAGE = "Make for $(OSNAME) on $(PLATFORM), $(BITS) bits"
+# list directories in which there are makefiles to be run (relative to this one)
+SRC_DIRS = src/regexp src/libsrc src/libsrc++ src/execsrc src/examples
 
-# if ARCH is defined, do a vxWorks build
-ifeq ($(ARCH),VXWORKSPPC)
-MAKEFILE = Makefile.vxworks
-OSNAME   = vxworks
-MESSAGE  = "Make for $(OSNAME) on $(shell uname), 32 bits"
-PLATFORM =
-CMSG_BIT_ARCH = 
-endif
+# declaring a target phony skips the implicit rule search and saves time
+.PHONY : first help java javaClean javaDistClean doc tar
 
-INC_DIR = $(CMSG_INSTALL)/common/inc
-LIB_DIR = $(CMSG_INSTALL)/arch/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/lib
-BIN_DIR = $(CMSG_INSTALL)/arch/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)/bin
 
-# send these definitions down to lower level makefiles
-export OSNAME
-export PLATFORM
-export INC_DIR
-export LIB_DIR
-export BIN_DIR
-export CMSG_DIR
-export CMSG_BIT_ARCH
+first: all
 
-# needed directories
-DIRS =  $(CMSG_INSTALL)/common \
-	$(CMSG_INSTALL)/common/jar \
-	$(CMSG_INSTALL)/common/tar \
-	$(CMSG_INSTALL)/doc \
-	$(CMSG_INSTALL)/doc/users_guide \
-	$(CMSG_INSTALL)/doc/developers_guide \
-	$(CMSG_INSTALL)/doc/javadoc \
-	$(CMSG_INSTALL)/doc/doxygen \
-	$(CMSG_INSTALL)/doc/doxygen/C \
-	$(CMSG_INSTALL)/doc/doxygen/CC \
-	$(CMSG_INSTALL)/arch \
-	$(CMSG_INSTALL)/arch/$(OSNAME) \
-	$(CMSG_INSTALL)/arch/$(OSNAME)/$(PLATFORM) \
-	$(CMSG_INSTALL)/arch/$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH) \
-	$(INC_DIR) \
-	$(LIB_DIR) \
-	$(BIN_DIR) \
-	./src/C/.$(OSNAME) \
-	./src/C/.$(OSNAME)/$(PLATFORM) \
-	./src/C/.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH) \
-	./src/CC/.$(OSNAME) \
-	./src/CC/.$(OSNAME)/$(PLATFORM) \
-	./src/CC/.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH) \
-	./src/regexp/.$(OSNAME) \
-	./src/regexp/.$(OSNAME)/$(PLATFORM) \
-	./src/regexp/.$(OSNAME)/$(PLATFORM)/$(CMSG_BIT_ARCH)
-
-# for improved performance declare that none of these targets
-# produce files of that name (.PHONY)
-
-.PHONY : all echoarch mkdirs cCode tarfile jarfile java doc doxygen
-.PHONY : clean distClean bClean cClean jClean tarClean jarClean
-
-all: echoarch mkdirs cCode java jarfile
-
-echoarch:
-	@echo
-	@echo $(MESSAGE)
-	@echo
-
-mkdirs: mkinstalldirs
-	@echo "Creating directories"
-	./mkinstalldirs $(DIRS)
-	@echo
-
-cCode: echoarch mkdirs
-	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) install;
-	cd ./src/C;       $(MAKE) -f $(MAKEFILE) install;
-	cd ./src/CC;      $(MAKE) -f $(MAKEFILE) install;
-
-tarfile:
-	-$(RM) -f common/tar/cMsg-1.0.tar.gz;
-	cd ..; tar cvX ./cMsg/common/tar/tarexclude -f cMsg-1.0.tar.gz -z ./cMsg
-	-mv ../cMsg-1.0.tar.gz  common/tar/.
-	-cp -p common/tar/cMsg-1.0.tar.gz  $(CMSG_INSTALL)/common/tar/.
-
-jarfile:
-	jar cf common/jar/cMsg-1.0.jar `find org/ -type f | grep -v SCCS | grep -v CVS | grep class`
-	-cp -p common/jar/*.jar $(CMSG_INSTALL)/common/jar/.
+help:
+	@echo "make [option]"
+	@echo "      env       - list env variables"
+	@echo "      mkdirs    - make necessary directories for C,C++"
+	@echo "      install   - install all headers and compiled files for C,C++"
+	@echo "      uninstall - uninstall all headers and compiled files for C,C++"
+	@echo "      relink    - delete libs and executables, and relink object files"
+	@echo "      clean     - delete all exec, library, object, and dependency files"
+	@echo "      distClean - clean and remove hidden OS directory"
+	@echo "      execClean - delete all exec and library files"
 
 java:
-	cd ./org/jlab/coda/cMsg;                    $(MAKE);
-	cd ./org/jlab/coda/cMsg/cMsgDomain/client;  $(MAKE);
-	cd ./org/jlab/coda/cMsg/cMsgDomain/server;  $(MAKE);
-	cd ./org/jlab/coda/cMsg/cMsgDomain/cMsgMonitor;  $(MAKE);
-	cd ./org/jlab/coda/cMsg/subdomains;         $(MAKE);
-	cd ./org/jlab/coda/cMsg/apps;               $(MAKE);
-	cd ./org/jlab/coda/cMsg/FileDomain;         $(MAKE);
-	cd ./org/jlab/coda/cMsg/CADomain;           $(MAKE);
-	cd ./org/jlab/coda/cMsg/RCDomain;           $(MAKE);
-	cd ./org/jlab/coda/cMsg/RCServerDomain;     $(MAKE);
-	cd ./org/jlab/coda/cMsg/RCBroadcastDomain;  $(MAKE);
+	ant;
 
-doc:  javadoc doxygen wordfiles
+javaClean:
+	ant clean;
 
-wordfiles:
-	-cp -p doc/developers_guide/*.doc  $(CMSG_INSTALL)/doc/developers_guide/.
-	-cp -p doc/users_guide/*.doc       $(CMSG_INSTALL)/doc/users_guide/.
+javaDistClean:
+	ant cleanall;
 
-javadoc:
-	javadoc -package -d $(CMSG_INSTALL)/doc/javadoc org.jlab.coda.cMsg
+doc:
+	ant javadoc;
+	export TOPLEVEL=$(TOPLEVEL); doxygen doc/doxygen/DoxyfileC
+	export TOPLEVEL=$(TOPLEVEL); doxygen doc/doxygen/DoxyfileCC
+	cd doc; $(MAKE) -f $(MAKEFILE);
 
-doxygen:
-	@echo installing doxygen documentation in $(CMSG_INSTALL)
-	@echo
-	export CMSG_INSTALL=$(CMSG_INSTALL) ; doxygen ./doc/doxygen/DoxyfileC
-	export CMSG_INSTALL=$(CMSG_INSTALL) ; doxygen ./doc/doxygen/DoxyfileCC
+tar:
+	-$(RM) tar/cMsg-1.0.tar.gz;
+	tar -X tar/tarexclude -C .. -c -z -f tar/cMsg-1.0.tar.gz cMsg
 
-clean: cClean jClean tarClean jarClean
-
-distClean: clean bClean
-
-bClean:
-	-$(RM) -f $(LIB_DIR)/* $(BIN_DIR)/*
-
-cClean: 
-	-$(RM) -f core *~ *.o *.so *.a *.class
-	cd ./src/regexp;  $(MAKE) -f $(MAKEFILE) clean;
-	cd ./src/C;       $(MAKE) -f $(MAKEFILE) clean;
-	cd ./src/CC;      $(MAKE) -f $(MAKEFILE) clean;
-
-jClean: 
-	cd ./org/jlab/coda/cMsg;                    $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/cMsgDomain/client;  $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/cMsgDomain/server;  $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/cMsgDomain/cMsgMonitor;  $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/subdomains;         $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/apps;               $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/FileDomain;         $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/CADomain;           $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/RCDomain;           $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/RCServerDomain;     $(MAKE) clean;
-	cd ./org/jlab/coda/cMsg/RCBroadcastDomain;  $(MAKE) clean;
-
-tarClean:
-	-$(RM) common/tar/cMsg-1.0.tar.gz
-
-jarClean:
-	-$(RM) common/jar/cMsg-1.0.jar
+# Use this pattern rule for all other targets
+%:
+	@for i in $(SRC_DIRS); do \
+	   $(MAKE) -C $$i -f $(MAKEFILE) $@; \
+	done;

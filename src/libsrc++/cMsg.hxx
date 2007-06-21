@@ -234,30 +234,8 @@ private:
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-
-
-/**
- * Allows a cMsg C callback to dispatch to an object member function, used internally.
- */ 
-template <class T> class cMsgDispatcher : public cMsgCallback {
-private:
-  T *t;   /**<Object containing member function.*/
-  void (T::*mfp)(cMsgMessage *msg, void* userArg); /**<Member function.*/
-
-public:
-  /** Constructor.
-   *
-   * @param t Object
-   * @param mfp Member function
-   */
-  cMsgDispatcher(T *t, void (T::*mfp)(cMsgMessage *msg, void* userArg)) throw(cMsgException*) : t(t), mfp(mfp) {}
-  /** Dispatches to member function. @param msg Message. @param userArg User arg. */
-  void callback(cMsgMessage *msg, void* userArg) throw(cMsgException) { (t->*mfp)(msg,userArg); }
-};
-
-
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
+// private templates that should not be in doxygen doc
+#include <cMsgPrivate.hxx>
 
 
 } // namespace cMsg

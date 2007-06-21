@@ -18,43 +18,38 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <strings.h>
 #include <time.h>
 #include <pthread.h>
 
 #include "cMsg.h"
 #include "cMsgDomain.h"
 
-int count = 0, oldInt=-1;
+int count = 0;
 void *domainId;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 /******************************************************************/
 static void callback(void *msg, void *arg) {
-  int userInt;
-  struct timespec sleeep;
-  
-  sleeep.tv_sec  = 0;
-  sleeep.tv_nsec = 10000000; /* 10 millisec */
-  sleeep.tv_sec  = 1;
-  sleeep.tv_nsec = 0;
-  
-  
-  pthread_mutex_lock(&mutex);
-  
-  count++;
-  /*printf("Running callback, count = %d\n", count);*/
-  
-  /*nanosleep(&sleeep, NULL);*/
-  
   /*
-  cMsgGetUserInt(msg, &userInt);
-  if (userInt != oldInt+1)
-    printf("%d -> %d; ", oldInt, userInt);
+  int cueSize;
+  struct timespec sleeep;
+
+  sleeep.tv_sec  = 0;
+  sleeep.tv_nsec = 10000000;
+  */
   
-  oldInt = userInt;
-  */  
+
+  pthread_mutex_lock(&mutex);
+  /*
+  cMsgGetSubscriptionCueSize(msg, &cueSize);
+  printf("%d\n",cueSize);
+  */
+  count++;
+
   pthread_mutex_unlock(&mutex);
+  /*nanosleep(&sleeep, NULL);*/
   
   /* user MUST free messages passed to the callback */
   cMsgFreeMessage(&msg);
@@ -63,50 +58,54 @@ static void callback(void *msg, void *arg) {
 
 
 /******************************************************************/
+static void usage() {
+  printf("Usage:  consumer <name> <UDL>\n");
+}
+
+
+/******************************************************************/
 int main(int argc,char **argv) {
 
-  char *myName   = "Coda component name";
-  char *myDescription = "RC test";
-  char *subject = "rcSubject";
-  char *type    = "rcType";
-  
-    /* RC domain UDL is of the form:
-     *        cMsg:rc://<host>:<port>/?expid=<expid>&broadcastTO=<timeout>&connectTO=<timeout>
-     *
-     * Remember that for this domain:
-     * 1) port is optional with a default of RC_BROADCAST_PORT (6543)
-     * 2) host is optional with a default of 255.255.255.255 (broadcast)
-     *    and may be "localhost" or in dotted decimal form
-     * 3) the experiment id or expid is optional, it is taken from the
-     *    environmental variable EXPID
-     * 4) broadcastTO is the time to wait in seconds before connect returns a
-     *    timeout when a rc broadcast server does not answer 
-     * 5) connectTO is the time to wait in seconds before connect returns a
-     *    timeout while waiting for the rc server to send a special (tcp)
-     *    concluding connect message
-     */
-  char *UDL     = "cMsg:rc://?expid=carlExp";
-  
-  int   err, debug = 1;
+  char *myName        = "consumer";
+  char *myDescription = "C consumer";
+  char *subject       = "SUBJECT";
+  char *type          = "TYPE";
+  char *UDL           = "cMsg:cMsg://localhost/cMsg/test";
+  /* char *UDL           = "cMsg:cMsg://broadcast/cMsg/test"; */
+  int   err, debug = 1, loops=5;
   cMsgSubscribeConfig *config;
-  void *unSubHandle, *msg;
-  int toggle = 2, loops = 5;
+  void *unSubHandle;
   
   /* msg rate measuring variables */
-  int             period = 2, ignore=0;
+  int             period = 5, ignore=0;
   double          freq, freqAvg=0., totalT=0.;
   long long       totalC=0;
+  
 
+  
   if (argc > 1) {
     myName = argv[1];
+    if (strcmp(myName, "-h") == 0) {
+      usage();
+      return(-1);
+    }
   }
   
   if (argc > 2) {
     UDL = argv[2];
+    if (strcmp(UDL, "-h") == 0) {
+      usage();
+      return(-1);
+    }
+  }
+  
+  if (argc > 3) {
+    usage();
+    return(-1);
   }
   
   if (debug) {
-    printf("Running the cMsg client, \"%s\"\n", myName);
+    printf("Running the cMsg consumer, \"%s\"\n", myName);
     printf("  connecting to, %s\n", UDL);
   }
 
@@ -124,6 +123,12 @@ int main(int argc,char **argv) {
   
   /* set the subscribe configuration */
   config = cMsgSubscribeConfigCreate();
+  cMsgSubscribeSetMaxCueSize(config, 10000);
+  cMsgSubscribeSetSkipSize(config, 20);
+  cMsgSubscribeSetMaySkip(config,0);
+  cMsgSubscribeSetMustSerialize(config, 1);
+  cMsgSubscribeSetMaxThreads(config, 290);
+  cMsgSubscribeSetMessagesPerThread(config, 150);
   cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
   
   /* subscribe */
@@ -134,68 +139,30 @@ int main(int argc,char **argv) {
       }
       exit(1);
   }
-  
+   
   cMsgSubscribeConfigDestroy(config);
-  
-  msg = cMsgCreateMessage();
-  cMsgSetSubject(msg, "subby");
-  cMsgSetType(msg, "typey");
-  cMsgSetText(msg, "send with TCP");
-  cMsgSetReliableSend(msg, 1);
     
-  while (loops-- > 0) {      
-      /* send msgs to rc server */
-      err = cMsgSend(domainId, msg);
-      if (err != CMSG_OK) {
-          printf("ERROR in sending message!!\n");
-          continue;
+  while (loops-- > 0) {
+      count = 0;
+      
+      /* wait for messages */
+      sleep(period);
+      
+      /* calculate rate */
+      if (!ignore) {
+          totalT += period;
+          totalC += count;
+          freq    = (double)count/period;
+          freqAvg = totalC/totalT;
+          printf("count = %d, %9.1f Hz, %9.1f Hz Avg.\n", count, freq, freqAvg);
       }
-  }
-    
-  cMsgSetText(msg, "send with UDP");
-  cMsgSetReliableSend(msg, 0);
-  loops=5;
-  while (loops-- > 0) {      
-      err = cMsgSend(domainId, msg);
-      if (err != CMSG_OK) {
-          printf("ERROR in sending message!!\n");
-          continue;
-      }
-  }
-  
-  sleep(7);
- 
-  cMsgSetSubject(msg, "blah");
-  cMsgSetType(msg, "yech");
-
-  loops=5;
-  while (loops-- > 0) {      
-      err = cMsgSend(domainId, msg);
-      if (err != CMSG_OK) {
-          printf("ERROR in sending message!!\n");
-          continue;
+      else {
+          ignore--;
       }
   }
   
-  
-  cMsgSetText(msg, "send with TCP");
-  cMsgSetSubject(msg, "subby");
-  cMsgSetType(msg, "typey");
-  cMsgSetReliableSend(msg, 1);
-  loops=5;
-  while (loops-- > 0) {      
-      err = cMsgSend(domainId, msg);
-      if (err != CMSG_OK) {
-          printf("ERROR in sending message!!\n");
-          continue;
-      }
-  }
-    
-/*printf("rcClient try disconnect\n");*/
-  cMsgFreeMessage(&msg);
   cMsgUnSubscribe(domainId, unSubHandle);
   cMsgDisconnect(&domainId);
-/*printf("rcClient done disconnect\n");*/
 
   return(0);
 }
