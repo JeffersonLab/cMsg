@@ -2260,11 +2260,11 @@ static int checkString(const char *s) {
 
 /**
  * This routine gets the UDL used to establish a cMsg connection.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * system structure. The user may NOT write to this memory location!
  *
  * @param domainId id of the domain connection
- * @param udl pointer to pointer which gets filled with the UDL
+ * @param udl pointer to pointer filled with the UDL
  *
  * @returns CMSG_BAD_ARGUMENT if domainId is NULL
  * @returns CMSG_OK if successful
@@ -2279,7 +2279,7 @@ int cMsgGetUDL(void *domainId, char **udl) {
     *udl = NULL;
   }
   else {
-    *udl = (char *) (strdup(domain->udl));
+    *udl = domain->udl;
   }
   return(CMSG_OK);
 }
@@ -2289,11 +2289,11 @@ int cMsgGetUDL(void *domainId, char **udl) {
 
 /**
  * This routine gets the client name used in a cMsg connection.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * system structure. The user may NOT write to this memory location!
  *
  * @param domainId id of the domain connection
- * @param name pointer to pointer which gets filled with the name
+ * @param name pointer to pointer filled with the name
  *
  * @returns CMSG_BAD_ARGUMENT if domainId is NULL
  * @returns CMSG_OK if successful
@@ -2308,7 +2308,7 @@ int cMsgGetName(void *domainId, char **name) {
     *name = NULL;
   }
   else {
-    *name = (char *) (strdup(domain->name));
+    *name = domain->name;
   }
   return(CMSG_OK);
 }
@@ -2318,11 +2318,11 @@ int cMsgGetName(void *domainId, char **name) {
 
 /**
  * This routine gets the client description used in a cMsg connection.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * system structure. The user may NOT write to this memory location!
  *
  * @param domainId id of the domain connection
- * @param description pointer to pointer which gets filled with the description
+ * @param description pointer to pointer filled with the description
  *
  * @returns CMSG_BAD_ARGUMENT if domainId is NULL
  * @returns CMSG_OK if successful
@@ -2337,7 +2337,7 @@ int cMsgGetDescription(void *domainId, char **description) {
     *description = NULL;
   }
   else {
-    *description = (char *) (strdup(domain->description));
+    *description = domain->description;
   }
   return(CMSG_OK);
 }
@@ -2814,11 +2814,11 @@ void *cMsgCreateMessage(void) {
 
 
 /**
- * This routine creates a new, initialized message with the creator
+ * This routine copies the given message and sets the creator
  * field set to null. Memory is allocated with this
  * function and can be freed by cMsgFreeMessage().
  *
- * @param vmsg pointer to message from which creator field is taken
+ * @param vmsg pointer to message being copied
  *
  * @returns a pointer to the new message
  * @returns NULL if no memory available or message argument is NULL
@@ -3069,12 +3069,11 @@ int cMsgGetGetRequest(const void *vmsg, int *getRequest) {
  * is not set. In the cMsg domain, the cMsg server sets this field
  * when it receives a client's sent message.
  * Messages received from the server will have this field set.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * message structure. The user may NOT write to this memory location!
  *
  * @param vmsg pointer to message
- * @param domain pointer to pointer which gets filled with a message's 
- *               cMsg domain
+ * @param domain pointer to pointer filled with message's cMsg domain
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -3088,7 +3087,7 @@ int cMsgGetDomain(const void *vmsg, char **domain) {
     *domain = NULL;
   }
   else {
-    *domain = (char *) (strdup(msg->domain));
+    *domain = msg->domain;
   }
   return(CMSG_OK);
 }
@@ -3101,12 +3100,11 @@ int cMsgGetDomain(const void *vmsg, char **domain) {
  * message is sent, on the server it's creator field is set to the sender.
  * Once set, this value never changes. On the client, this field never gets
  * set. Messages received from the server will have this field set.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * message structure. The user may NOT write to this memory location!
  *
  * @param vmsg pointer to message
- * @param creator pointer to pointer which gets filled with a message's 
- *               creator
+ * @param creator pointer to pointer filled with message's creator
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -3120,7 +3118,7 @@ int cMsgGetCreator(const void *vmsg, char **creator) {
     *creator = NULL;
   }
   else {
-    *creator = (char *) (strdup(msg->creator));
+    *creator = msg->creator;
   }
   return(CMSG_OK);
 }
@@ -3155,12 +3153,11 @@ int cMsgSetSubject(void *vmsg, const char *subject) {
 
 /**
  * This routine gets the subject of a message.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * message structure. The user may NOT write to this memory location!
  *
  * @param vmsg pointer to message
- * @param subject pointer to pointer which gets filled with a message's 
- *                subject
+ * @param subject pointer to pointer filled with message's subject
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -3174,7 +3171,7 @@ int cMsgGetSubject(const void *vmsg, char **subject) {
     *subject = NULL;
   }
   else {
-    *subject = (char *) (strdup(msg->subject));
+    *subject = msg->subject;
   }
   return(CMSG_OK);
 }
@@ -3209,11 +3206,11 @@ int cMsgSetType(void *vmsg, const char *type) {
 
 /**
  * This routine gets the type of a message.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * message structure. The user may NOT write to this memory location!
  *
  * @param vmsg pointer to message
- * @param type pointer to pointer which gets filled with a message's type
+ * @param type pointer to pointer filled with message's type
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -3227,7 +3224,7 @@ int cMsgGetType(const void *vmsg, char **type) {
     *type = NULL;
   }
   else {
-    *type = (char *) (strdup(msg->type));
+    *type = msg->type;
   }
   return(CMSG_OK);
 }
@@ -3262,11 +3259,11 @@ int cMsgSetText(void *vmsg, const char *text) {
 
 /**
  * This routine gets the text of a message.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * message structure. The user may NOT write to this memory location!
  *
  * @param vmsg pointer to message
- * @param text pointer to pointer which gets filled with a message's text
+ * @param text pointer to pointer filled with a message's text
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -3280,7 +3277,7 @@ int cMsgGetText(const void *vmsg, char **text) {
     *text = NULL;
   }
   else {
-    *text = (char *) (strdup(msg->text));
+    *text = msg->text;
   }
   return(CMSG_OK);
 }
@@ -3699,12 +3696,11 @@ int cMsgGetByteArray(const void *vmsg, char **array) {
 
 /**
  * This routine gets the sender of a message.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * message structure. The user may NOT write to this memory location!
  *
  * @param vmsg pointer to message
- * @param sender pointer to pointer which gets filled with a message's 
- *               sender
+ * @param sender pointer to pointer filled with message's sender
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -3718,7 +3714,7 @@ int cMsgGetSender(const void *vmsg, char **sender) {
     *sender = NULL;
   }
   else {
-    *sender = (char *) (strdup(msg->sender));
+    *sender = msg->sender;
   }
   return(CMSG_OK);
 }
@@ -3728,12 +3724,11 @@ int cMsgGetSender(const void *vmsg, char **sender) {
 
 /**
  * This routine gets the host of the sender of a message.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * message structure. The user may NOT write to this memory location!
  *
  * @param vmsg pointer to message
- * @param senderHost pointer to pointer which gets filled with the host of
- *                   the sender of a message
+ * @param senderHost pointer to pointer filled with host of the message sender
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -3747,7 +3742,7 @@ int cMsgGetSenderHost(const void *vmsg, char **senderHost) {
     *senderHost = NULL;
   }
   else {
-    *senderHost = (char *) (strdup(msg->senderHost));
+    *senderHost = msg->senderHost;
   }
   return(CMSG_OK);
 }
@@ -3779,12 +3774,11 @@ int cMsgGetSenderTime(const void *vmsg, struct timespec *senderTime) {
 
 /**
  * This routine gets the receiver of a message.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * message structure. The user may NOT write to this memory location!
  *
  * @param vmsg pointer to message
- * @param receiver pointer to pointer which gets filled with a message's 
- *                 receiver
+ * @param receiver pointer to pointer filled with message's receiver
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -3798,7 +3792,7 @@ int cMsgGetReceiver(const void *vmsg, char **receiver) {
     *receiver = NULL;
   }
   else {
-    *receiver = (char *) (strdup(msg->receiver));
+    *receiver = msg->receiver;
   }
   return(CMSG_OK);
 }
@@ -3809,12 +3803,11 @@ int cMsgGetReceiver(const void *vmsg, char **receiver) {
 /**
  * This routine gets the host of the receiver of a message. This field
  * is NULL for a newly created message.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * message structure. The user may NOT write to this memory location!
  *
  * @param vmsg pointer to message
- * @param receiverHost pointer to pointer which gets filled with the host of
- *                     the receiver of a message
+ * @param receiverHost pointer to pointer filled with host of the message receiver
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -3828,7 +3821,7 @@ int cMsgGetReceiverHost(const void *vmsg, char **receiverHost) {
     *receiverHost = NULL;
   }
   else {
-    *receiverHost = (char *) (strdup(msg->receiverHost));
+    *receiverHost = msg->receiverHost;
   }
   return(CMSG_OK);
 }
@@ -3962,11 +3955,11 @@ int cMsgToString(const void *vmsg, char **string) {
  * This routine gets the domain a subscription is running in and is valid
  * only when used in a callback on the message given in the callback
  * argument.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * message structure. The user may NOT write to this memory location!
  *
  * @param vmsg pointer to message
- * @param domain pointer to pointer which gets filled with a subscription's domain
+ * @param domain pointer to pointer filled with a subscription's domain
  *                or NULL if no information is available
  *
  * @returns CMSG_OK if successful
@@ -3981,7 +3974,7 @@ int cMsgGetSubscriptionDomain(const void *vmsg, char **domain) {
     *domain = NULL;
   }
   else {
-    *domain = (char *) (strdup(msg->context.domain));
+    *domain = msg->context.domain;
   }
   return(CMSG_OK);
 }
@@ -3992,11 +3985,11 @@ int cMsgGetSubscriptionDomain(const void *vmsg, char **domain) {
  * This routine gets the subject a subscription is using and is valid
  * only when used in a callback on the message given in the callback
  * argument.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * message structure. The user may NOT write to this memory location!
  *
  * @param vmsg pointer to message
- * @param subject pointer to pointer which gets filled with a subscription's subject
+ * @param subject pointer to pointer filled with a subscription's subject
  *                or NULL if no information is available
  *
  * @returns CMSG_OK if successful
@@ -4011,7 +4004,7 @@ int cMsgGetSubscriptionSubject(const void *vmsg, char **subject) {
     *subject = NULL;
   }
   else {
-    *subject = (char *) (strdup(msg->context.subject));
+    *subject = msg->context.subject;
   }
   return(CMSG_OK);
 }
@@ -4023,11 +4016,11 @@ int cMsgGetSubscriptionSubject(const void *vmsg, char **subject) {
  * This routine gets the type a subscription is using and is valid
  * only when used in a callback on the message given in the callback
  * argument.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * message structure. The user may NOT write to this memory location!
  *
  * @param vmsg pointer to message
- * @param type pointer to pointer which gets filled with a subscription's type
+ * @param type pointer to pointer filled with a subscription's type
  *                or NULL if no information is available
  *
  * @returns CMSG_OK if successful
@@ -4042,7 +4035,7 @@ int cMsgGetSubscriptionType(const void *vmsg, char **type) {
     *type = NULL;
   }
   else {
-    *type = (char *) (strdup(msg->context.type));
+    *type = msg->context.type;
   }
   return(CMSG_OK);
 }
@@ -4053,11 +4046,11 @@ int cMsgGetSubscriptionType(const void *vmsg, char **type) {
  * This routine gets the udl of a subscription's connection and is valid
  * only when used in a callback on the message given in the callback
  * argument.
- * If succesful, this routine will have memory allocated and assigned to
- * the dereferenced char ** argument. This memory must be freed eventually.
+ * If successful, this routine will return a pointer to char inside the
+ * message structure. The user may NOT write to this memory location!
  *
  * @param vmsg pointer to message
- * @param udl pointer to pointer which gets filled with the udl of a subscription's
+ * @param udl pointer to pointer filled with the udl of a subscription's
  *            connection or NULL if no information is available
  *
  * @returns CMSG_OK if successful
@@ -4072,7 +4065,7 @@ int cMsgGetSubscriptionUDL(const void *vmsg, char **udl) {
     *udl = NULL;
   }
   else {
-    *udl = (char *) (strdup(msg->context.udl));
+    *udl = msg->context.udl;
   }
   return(CMSG_OK);
 }
