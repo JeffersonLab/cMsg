@@ -397,9 +397,7 @@ string cMsgMessage::getType(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    string ss = string(s);
-    free(s);
-    return(ss);
+    return(string(s));
   }
 }
   
@@ -441,9 +439,7 @@ string cMsgMessage::getText(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    string ss = string(s);
-    free(s);
-    return(ss);
+    return(string(s));
   }
 }
 
@@ -744,9 +740,7 @@ string cMsgMessage::getCreator(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    string ss = string(s);
-    free(s);
-    return(ss);
+    return(string(s));
   }
 }
 
@@ -771,9 +765,7 @@ string cMsgMessage::getDomain(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    string ss = string(s);
-    free(s);
-    return(ss);
+    return(string(s));
   }
 }
 
@@ -798,9 +790,7 @@ string cMsgMessage::getReceiver(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    string ss = string(s);
-    free(s);
-    return(ss);
+    return(string(s));
   }
 }
 
@@ -825,9 +815,7 @@ string cMsgMessage::getReceiverHost(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    string ss = string(s);
-    free(s);
-    return(ss);
+    return(string(s));
   }
 }
 
@@ -852,9 +840,7 @@ string cMsgMessage::getSender(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    string ss = string(s);
-    free(s);
-    return(ss);
+    return(string(s));
   }
 }
 
@@ -879,9 +865,7 @@ string cMsgMessage::getSenderHost(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    string ss = string(s);
-    free(s);
-    return(ss);
+    return(string(s));
   }
 }
 
@@ -1235,9 +1219,7 @@ string cMsgMessage::getSubscriptionDomain(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    string ss = string(s);
-    free(s);
-    return(ss);
+    return(string(s));
   }
 }
 
@@ -1262,9 +1244,7 @@ string cMsgMessage::getSubscriptionSubject(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    string ss = string(s);
-    free(s);
-    return(ss);
+    return(string(s));
   }
 }
 
@@ -1289,9 +1269,7 @@ string cMsgMessage::getSubscriptionType(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    string ss = string(s);
-    free(s);
-    return(ss);
+    return(string(s));
   }
 }
 
@@ -1316,9 +1294,7 @@ string cMsgMessage::getSubscriptionUDL(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    string ss = string(s);
-    free(s);
-    return(ss);
+    return(string(s));
   }
 }
 
