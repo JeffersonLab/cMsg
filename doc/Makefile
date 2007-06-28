@@ -20,10 +20,12 @@ include $(BMS_HOME)/Makefile.common
 all: doc install
 
 install:
-	@mkdir -p $(INSTALL_DIR)/doc/cMsg
-	cp -rp javadoc    $(INSTALL_DIR)/doc/cMsg
-	cp -rp doxygen/C  $(INSTALL_DIR)/doc/cMsg
-	cp -rp doxygen/CC $(INSTALL_DIR)/doc/cMsg
+	@mkdir -p $(INSTALL_DIR)/doc/cMsg/doxygen/C/html
+	@mkdir -p $(INSTALL_DIR)/doc/cMsg/doxygen/CC/html
+	@mkdir -p $(INSTALL_DIR)/doc/cMsg/javadoc
+	cp -rp javadoc         $(INSTALL_DIR)/doc/cMsg
+	cp -rp doxygen/C/html  $(INSTALL_DIR)/doc/cMsg/doxygen/C
+	cp -rp doxygen/CC/html $(INSTALL_DIR)/doc/cMsg/doxygen/CC
 
 doc:
 	cd $(TOPLEVEL); ant javadoc;
