@@ -23,22 +23,37 @@
 
 
 /**
- * Allows a cMsg C callback to dispatch to an object member function, used internally.
+ * This class provides a cMsg C callback method that dispatchs to a member function of another object, used internally.
+ * 
+ * This object extends cMsgCallback and thus has a callback method.  
+ * It further stores a pointer to another object and to a member function of the object.
+ * That member function is invoked by the callback method of this object.
  */ 
 template <class T> class cMsgDispatcher : public cMsgCallback {
+
 private:
-  T *t;   /**<Object containing member function.*/
-  void (T::*mfp)(cMsgMessage *msg, void* userArg); /**<Member function.*/
+  T *t;   /**<Pointer to object containing member function.*/
+  void (T::*mfp)(cMsgMessage *msg, void* userArg); /**<Pointer to the member function.*/
 
 public:
-  /** Constructor.
+  /**
+   * Constructor stores object pointer and member function pointer.
    *
-   * @param t Object
-   * @param mfp Member function
+   * @param t Object pointer
+   * @param mfp Member function pointer
    */
   cMsgDispatcher(T *t, void (T::*mfp)(cMsgMessage *msg, void* userArg)) throw(cMsgException*) : t(t), mfp(mfp) {}
-  /** Dispatches to member function. @param msg Message. @param userArg User arg. */
-  void callback(cMsgMessage *msg, void* userArg) throw(cMsgException) { (t->*mfp)(msg,userArg); }
+
+
+  /** Callback method dispatches to member function. 
+   *
+   * @param msg Message. 
+   * @param userArg User arg.
+   */
+  void callback(cMsgMessage *msg, void* userArg) throw(cMsgException) {
+    (t->*mfp)(msg,userArg);
+  }
+
 };
 
 
