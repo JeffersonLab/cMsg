@@ -157,9 +157,6 @@ int main(int argc,char **argv) {
                   cMsgGetSubject(replyMsg, &subject);
                   cMsgGetType(replyMsg, &type);
                   printf(" GOT A MESSAGE: subject = %s, type = %s\n", subject, type);
-                  /* be sure to free strings */
-                  free(subject);
-                  free(type);
               }
               cMsgFreeMessage(&replyMsg);
               count++;
