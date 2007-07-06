@@ -1,5 +1,10 @@
 //  general purpose cMsg logger
 
+// still to do:
+//   compound payload
+
+
+
 
 /*----------------------------------------------------------------------------*
 *  Copyright (c) 2004        Southeastern Universities Research Association, *
@@ -85,12 +90,17 @@ public class cMsgLogger {
 
     /** url not null to log to database. */
     private static String url              = null;
-    private static String table            = "cMsgLog";
+    private static String table            = "cMsgLogger";
     private static String driver           = "com.mysql.jdbc.Driver";
     private static String account          = "";
     private static String password         = "";
     private static Connection con          = null;
     private static PreparedStatement pStmt = null;
+
+
+    // max size for text and byte array fields, in kB
+    private static int maxText        = 50;
+    private static int maxByteArray   = 50;
 
 
     // misc
@@ -159,6 +169,7 @@ public class cMsgLogger {
 
                     pStmt.setInt(i++,       (msg.isGetRequest()?1:0));
                     pStmt.setInt(i++,       (msg.isGetResponse()?1:0));
+                    pStmt.setInt(i++,       (msg.isNullGetResponse()?1:0));
 
                     pStmt.setString(i++,    msg.getCreator());
                     pStmt.setString(i++,    msg.getSender());
@@ -176,9 +187,32 @@ public class cMsgLogger {
 
                     pStmt.setString(i++,    msg.getSubject());
                     pStmt.setString(i++,    msg.getType());
-                    pStmt.setString(i++,    msg.getText());
+
+                    // impose max size for text field
+                    String t = msg.getText();
+                    if(t.length()<=maxText*1024) {
+                        pStmt.setString(i++, t);
+                    } else {
+                        pStmt.setString(i++, t.substring(0,maxText*1024));
+                        System.out.println("?text field too long (" + t.length() + "), truncating to " + maxText + "kB");
+                    }
+
+                    pStmt.setInt(i++,       msg.getByteArrayEndian());
+
+                    // impose max size for byte array field
+                    byte[] b = msg.getByteArray();
+                    if(b.length<=maxByteArray*1024) {
+                        pStmt.setObject(i++, b);
+                    } else {
+                        byte[] bb = new byte[maxByteArray*1024];
+                        for(int j=0; j<maxByteArray*1024; j++) bb[j]=b[j];
+                        pStmt.setObject(i++, bb);
+                        System.out.println("?byte array field too long (" + b.length + "), truncating to " + maxByteArray + "kB");
+                    }
+
 
                     pStmt.execute();
+
                 } catch (SQLException e) {
                     System.err.println("?sql error in callback\n" + e);
                     System.exit(-1);
@@ -276,13 +310,18 @@ public class cMsgLogger {
                 DatabaseMetaData dbmeta = con.getMetaData();
                 ResultSet dbrs = dbmeta.getTables(null,null,table,new String [] {"TABLE"});
                 if((!dbrs.next())||(!dbrs.getString(3).equalsIgnoreCase(table))) {
+                    // get database type to determine type for byte array
+
+
                     String sql="create table " + table + " (" +
                         "version int, domain varchar(255), sysMsgId int," +
-                        "getRequest int, getResponse int, creator varchar(128)," +
+                        "getRequest int, getResponse int, isNullGetResponse int, creator varchar(128)," +
                         "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
                         "userInt int, userTime datetime," +
                         "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
-                        "subject  varchar(255), type varchar(128), text text)";
+                        "subject  varchar(255), type varchar(128), text text," +
+                        "byteArrayEndian int, byteArray " + getBlobName(dbmeta) +
+                        ")";
                     con.createStatement().executeUpdate(sql);
                 }
             } catch (SQLException e) {
@@ -294,13 +333,14 @@ public class cMsgLogger {
             try {
                 String sql = "insert into " + table + " (" +
                     "version,domain,sysMsgId," +
-                    "getRequest,getResponse,creator" +
+                    "getRequest,getResponse,isNullGetResponse,creator" +
                     "sender,senderHost,senderTime,senderToken," +
                     "userInt,userTime," +
                     "receiver,receiverHost,receiverTime,receiverSubscribeId," +
-                    "subject,type,text" +
+                    "subject,type,text," +
+                    "byteArrayEndian,byteArray" +
                     ") values (" +
-                    "?,?,?," + "?,?," + "?,?,?,?," + "?,?," + "?,?,?,?," + "?,?,?" + ")";
+                    "?,?,?," + "?,?,?,?" + "?,?,?,?," + "?,?," + "?,?,?,?," + "?,?,?" +"?,?" +  ")";
                 pStmt = con.prepareStatement(sql);
             } catch (SQLException e) {
                 System.err.println("?unable to prepare statement\n" + e);
@@ -346,6 +386,32 @@ public class cMsgLogger {
 //-----------------------------------------------------------------------------
 
 
+    static String getBlobName(DatabaseMetaData dbmeta) {
+
+        String type;
+
+        try {
+            type = dbmeta.getDatabaseProductName();
+            if(type.equalsIgnoreCase("mysql")) {
+                return("blob");
+            } else if(type.equalsIgnoreCase("oracle")) {
+                return("blob");
+            } else if(type.equalsIgnoreCase("postgresql")) {
+                return("bytea");
+            } else {
+                System.out.println("?getBlobName...unknown database type " + type + ", trying blob");
+                return("blob");
+            }
+        } catch (Exception e) {
+            System.out.println("?getBlobName...unable to get database product name, trying blob");
+            return("blob");
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to decode the command line used to start this application.
      * @param args command line arguments
@@ -356,6 +422,7 @@ public class cMsgLogger {
             "   java cMsgLogger [-name name] [-descr description] [-udl domain] [-subject subject] [-type type]\n" +
             "                   [-screen] [-file filename] [-verbose] [-header] [-wide]\n" +
             "                   [-url url] [-table table] [-driver driver] [-account account] [-pwd password]\n" +
+            "                   [-maxText maxText] [-maxByteArray maxByteArray]\n" +
             "                   [-debug]\n\n";
 
 
@@ -436,6 +503,16 @@ public class cMsgLogger {
             }
             else if (args[i].equalsIgnoreCase("-wide")) {
                 wide = true;
+
+            }
+            else if (args[i].equalsIgnoreCase("-maxText")) {
+                maxText = Integer.parseInt(args[i+1]);
+                i++;
+
+            }
+            else if (args[i].equalsIgnoreCase("-maxByteArray")) {
+                maxByteArray = Integer.parseInt(args[i+1]);
+                i++;
 
             }
             else if (args[i].equalsIgnoreCase("-debug")) {
