@@ -309,6 +309,8 @@ typedef struct cMsg_t {
                           * - is message a response to a sendAndGet request? 2nd bit
                           * - is response message NULL instead of a message? 3rd bit
                           * - is byte array data big endian? 4th bit
+                          * - has message been sent over the wire? 5th bit
+                          * - message have compound payload? 6th bit
                           */
   int     reserved;      /**< Reserved for future use. */
   int     bits;          /**< Stores info in bit form about internal state (true = 1).
