@@ -2266,14 +2266,14 @@ static int checkString(const char *s) {
  * @param domainId id of the domain connection
  * @param udl pointer to pointer filled with the UDL
  *
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  * @returns CMSG_OK if successful
  */   
 int cMsgGetUDL(void *domainId, char **udl) {
 
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
-  if (domain == NULL) return(CMSG_BAD_ARGUMENT);
+  if (domain == NULL || udl == NULL) return(CMSG_BAD_ARGUMENT);
   
   if (domain->udl == NULL) {
     *udl = NULL;
@@ -2295,14 +2295,14 @@ int cMsgGetUDL(void *domainId, char **udl) {
  * @param domainId id of the domain connection
  * @param name pointer to pointer filled with the name
  *
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  * @returns CMSG_OK if successful
  */   
 int cMsgGetName(void *domainId, char **name) {
 
   cMsgDomain *domain = (cMsgDomain *) domainId;
 
-  if (domain == NULL) return(CMSG_BAD_ARGUMENT);
+  if (domain == NULL || name == NULL) return(CMSG_BAD_ARGUMENT);
   
   if (domain->name == NULL) {
     *name = NULL;
@@ -2324,14 +2324,14 @@ int cMsgGetName(void *domainId, char **name) {
  * @param domainId id of the domain connection
  * @param description pointer to pointer filled with the description
  *
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  * @returns CMSG_OK if successful
  */   
 int cMsgGetDescription(void *domainId, char **description) {
 
   cMsgDomain *domain = (cMsgDomain *) domainId;
 
-  if (domain == NULL) return(CMSG_BAD_ARGUMENT);
+  if (domain == NULL || description == NULL) return(CMSG_BAD_ARGUMENT);
   
   if (domain->description == NULL) {
     *description = NULL;
@@ -2354,14 +2354,14 @@ int cMsgGetDescription(void *domainId, char **description) {
  * @param domainId id of the domain connection
  * @param connectState integer pointer to be filled in with the connection state
  *
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  * @returns CMSG_OK if successful
  */   
 int cMsgGetConnectState(void *domainId, int *connectState) {
 
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
-  if (domain == NULL) return(CMSG_BAD_ARGUMENT);
+  if (domain == NULL || connectState == NULL) return(CMSG_BAD_ARGUMENT);
   *connectState = domain->connected;
   return(CMSG_OK);
 }
@@ -2379,14 +2379,14 @@ int cMsgGetConnectState(void *domainId, int *connectState) {
  * @param domainId id of the domain connection
  * @param receiveState integer pointer to be filled in with the receive state
  *
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  * @returns CMSG_OK if successful
  */   
 int cMsgGetReceiveState(void *domainId, int *receiveState) {
 
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
-  if (domain == NULL) return(CMSG_BAD_ARGUMENT);
+  if (domain == NULL || receiveState == NULL) return(CMSG_BAD_ARGUMENT);
   *receiveState = domain->receiveState;
   return(CMSG_OK);
 }
@@ -2962,13 +2962,13 @@ int cMsgHasBeenSent(const void *vmsg, int *hasBeenSent) {
  * @param version integer pointer to be filled in with cMsg major version
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetVersion(const void *vmsg, int *version) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || version == NULL) return(CMSG_BAD_ARGUMENT);
   *version = msg->version;
   return (CMSG_OK);
 }
@@ -3011,13 +3011,13 @@ int cMsgSetGetResponse(void *vmsg, int getResponse) {
  *                    is a response to a sendAndGet and 0 otherwise
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetGetResponse(const void *vmsg, int *getResponse) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || getResponse == NULL) return(CMSG_BAD_ARGUMENT);
   *getResponse = (msg->info & CMSG_IS_GET_RESPONSE) == CMSG_IS_GET_RESPONSE ? 1 : 0;
   return(CMSG_OK);
 }
@@ -3062,13 +3062,13 @@ int cMsgSetNullGetResponse(void *vmsg, int nullGetResponse) {
  *                        is a NULL response to a sendAndGet and 0 otherwise
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetNullGetResponse(const void *vmsg, int *nullGetResponse) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || nullGetResponse == NULL) return(CMSG_BAD_ARGUMENT);
   *nullGetResponse = (msg->info & CMSG_IS_NULL_GET_RESPONSE) == CMSG_IS_NULL_GET_RESPONSE ? 1 : 0;
   return(CMSG_OK);
 }
@@ -3087,13 +3087,13 @@ int cMsgGetNullGetResponse(const void *vmsg, int *nullGetResponse) {
  *                   sent by a sendAndGet and 0 otherwise
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetGetRequest(const void *vmsg, int *getRequest) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || getRequest == NULL) return(CMSG_BAD_ARGUMENT);
   *getRequest = (msg->info & CMSG_IS_GET_REQUEST) == CMSG_IS_GET_REQUEST ? 1 : 0;
   return(CMSG_OK);
 }
@@ -3114,13 +3114,13 @@ int cMsgGetGetRequest(const void *vmsg, int *getRequest) {
  * @param domain pointer to pointer filled with message's cMsg domain
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetDomain(const void *vmsg, char **domain) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || domain == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->domain == NULL) {
     *domain = NULL;
   }
@@ -3145,13 +3145,13 @@ int cMsgGetDomain(const void *vmsg, char **domain) {
  * @param creator pointer to pointer filled with message's creator
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetCreator(const void *vmsg, char **creator) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || creator == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->creator == NULL) {
     *creator = NULL;
   }
@@ -3198,13 +3198,13 @@ int cMsgSetSubject(void *vmsg, const char *subject) {
  * @param subject pointer to pointer filled with message's subject
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetSubject(const void *vmsg, char **subject) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || subject == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->subject == NULL) {
     *subject = NULL;
   }
@@ -3251,13 +3251,13 @@ int cMsgSetType(void *vmsg, const char *type) {
  * @param type pointer to pointer filled with message's type
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetType(const void *vmsg, char **type) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || type == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->type == NULL) {
     *type = NULL;
   }
@@ -3304,13 +3304,13 @@ int cMsgSetText(void *vmsg, const char *text) {
  * @param text pointer to pointer filled with a message's text
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetText(const void *vmsg, char **text) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || text == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->text == NULL) {
     *text = NULL;
   }
@@ -3350,13 +3350,13 @@ int cMsgSetUserInt(void *vmsg, int userInt) {
  * @param userInt integer pointer to be filled with message's user-defined integer
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetUserInt(const void *vmsg, int *userInt) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || userInt == NULL) return(CMSG_BAD_ARGUMENT);
   *userInt = msg->userInt;
   return (CMSG_OK);
 }
@@ -3392,13 +3392,13 @@ int cMsgSetUserTime(void *vmsg, const struct timespec *userTime) {
  * @param userTime time_t pointer to be filled with message's user-defined time
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetUserTime(const void *vmsg, struct timespec *userTime) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || userTime == NULL) return(CMSG_BAD_ARGUMENT);
   *userTime = msg->userTime;
   return (CMSG_OK);
 }
@@ -3434,13 +3434,13 @@ int cMsgSetByteArrayLength(void *vmsg, int length) {
  * @param length int pointer to be filled with byte array length
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetByteArrayLength(const void *vmsg, int *length) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || length == NULL) return(CMSG_BAD_ARGUMENT);
   *length = msg->byteArrayLength;
   return (CMSG_OK);
 }
@@ -3475,13 +3475,13 @@ int cMsgSetByteArrayOffset(void *vmsg, int offset) {
  * @param offset int pointer to be filled with byte array offset
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetByteArrayOffset(const void *vmsg, int *offset) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || offset == NULL) return(CMSG_BAD_ARGUMENT);
   *offset = msg->byteArrayOffset;
   return (CMSG_OK);
 }
@@ -3568,13 +3568,13 @@ int cMsgSetByteArrayEndian(void *vmsg, int endian) {
  * @param endian int pointer to be filled with byte array data endianness
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetByteArrayEndian(const void *vmsg, int *endian) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || endian == NULL) return(CMSG_BAD_ARGUMENT);
   
   if ((msg->info & CMSG_IS_BIG_ENDIAN) > 1) {
       *endian = CMSG_ENDIAN_BIG;
@@ -3596,14 +3596,14 @@ int cMsgGetByteArrayEndian(const void *vmsg, int *endian) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if local endianness is unknown
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */
 int cMsgNeedToSwap(const void *vmsg, int *swap) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   int localEndian, msgEndian;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || swap == NULL) return(CMSG_BAD_ARGUMENT);
   
   /* find local host's byte order */ 
   if (cMsgLocalByteOrder(&localEndian) != CMSG_OK) return CMSG_ERROR;
@@ -3688,14 +3688,14 @@ int cMsgSetByteArrayAndLimits(void *vmsg, char *array, int offset, int length) {
  * @param array byte array
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL or length is negative
+ * @returns CMSG_BAD_ARGUMENT if message or array is NULL, or length is negative
  */   
 int cMsgCopyByteArray(void *vmsg, char *array, int offset, int length) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (length < 0)  return(CMSG_BAD_ARGUMENT);
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || array == NULL) return(CMSG_BAD_ARGUMENT);
   
   msg->byteArray = (char *) malloc(msg->byteArrayLength);
   if (msg->byteArray == NULL) {
@@ -3718,13 +3718,13 @@ int cMsgCopyByteArray(void *vmsg, char *array, int offset, int length) {
  * @param array pointer to be filled with byte array
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetByteArray(const void *vmsg, char **array) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || array == NULL) return(CMSG_BAD_ARGUMENT);
   *array = msg->byteArray;
   return (CMSG_OK);
 }
@@ -3741,13 +3741,13 @@ int cMsgGetByteArray(const void *vmsg, char **array) {
  * @param sender pointer to pointer filled with message's sender
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetSender(const void *vmsg, char **sender) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || sender == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->sender == NULL) {
     *sender = NULL;
   }
@@ -3769,13 +3769,13 @@ int cMsgGetSender(const void *vmsg, char **sender) {
  * @param senderHost pointer to pointer filled with host of the message sender
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetSenderHost(const void *vmsg, char **senderHost) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || senderHost == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->senderHost == NULL) {
     *senderHost = NULL;
   }
@@ -3796,13 +3796,13 @@ int cMsgGetSenderHost(const void *vmsg, char **senderHost) {
  * @param senderTime pointer to be filled with time message was last sent
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetSenderTime(const void *vmsg, struct timespec *senderTime) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || senderTime == NULL) return(CMSG_BAD_ARGUMENT);
   *senderTime = msg->senderTime;
   return (CMSG_OK);
 }
@@ -3819,13 +3819,13 @@ int cMsgGetSenderTime(const void *vmsg, struct timespec *senderTime) {
  * @param receiver pointer to pointer filled with message's receiver
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetReceiver(const void *vmsg, char **receiver) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || receiver == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->receiver == NULL) {
     *receiver = NULL;
   }
@@ -3848,13 +3848,13 @@ int cMsgGetReceiver(const void *vmsg, char **receiver) {
  * @param receiverHost pointer to pointer filled with host of the message receiver
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetReceiverHost(const void *vmsg, char **receiverHost) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || receiverHost == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->receiverHost == NULL) {
     *receiverHost = NULL;
   }
@@ -3875,13 +3875,13 @@ int cMsgGetReceiverHost(const void *vmsg, char **receiverHost) {
  * @param receiverTime pointer to be filled with time message was received
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetReceiverTime(const void *vmsg, struct timespec *receiverTime) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || receiverTime == NULL) return(CMSG_BAD_ARGUMENT);
   *receiverTime = msg->receiverTime;
   return (CMSG_OK);
 }
@@ -4250,13 +4250,13 @@ int cMsgToString(const void *vmsg, char **string) {
  *                or NULL if no information is available
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or message context is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetSubscriptionDomain(const void *vmsg, char **domain) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || domain == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->context.domain == NULL) {
     *domain = NULL;
   }
@@ -4280,13 +4280,13 @@ int cMsgGetSubscriptionDomain(const void *vmsg, char **domain) {
  *                or NULL if no information is available
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetSubscriptionSubject(const void *vmsg, char **subject) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || subject == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->context.subject == NULL) {
     *subject = NULL;
   }
@@ -4311,13 +4311,13 @@ int cMsgGetSubscriptionSubject(const void *vmsg, char **subject) {
  *                or NULL if no information is available
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or message context is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetSubscriptionType(const void *vmsg, char **type) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || type == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->context.type == NULL) {
     *type = NULL;
   }
@@ -4341,13 +4341,13 @@ int cMsgGetSubscriptionType(const void *vmsg, char **type) {
  *            connection or NULL if no information is available
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or message context is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetSubscriptionUDL(const void *vmsg, char **udl) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || udl == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->context.udl == NULL) {
     *udl = NULL;
   }
@@ -4370,13 +4370,13 @@ int cMsgGetSubscriptionUDL(const void *vmsg, char **udl) {
  *             or -1 if no information is available
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or message context is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetSubscriptionCueSize(const void *vmsg, int *size) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || size == NULL) return(CMSG_BAD_ARGUMENT);
   if (msg->context.cueSize == NULL) {
     *size = -1;
   }
@@ -4418,13 +4418,13 @@ int cMsgSetReliableSend(void *vmsg, int boolean) {
  *                0 (UDP)
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetReliableSend(void *vmsg, int *boolean) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || boolean == NULL) return(CMSG_BAD_ARGUMENT);
   *boolean = msg->context.udpSend == 1 ? 0 : 1;
   return (CMSG_OK);
 }
@@ -4541,12 +4541,12 @@ int cMsgSubscribeSetMaxCueSize(cMsgSubscribeConfig *config, int size) {
  *             cue size
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgSubscribeGetMaxCueSize(cMsgSubscribeConfig *config, int *size) {
   subscribeConfig *sc = (subscribeConfig *) config;   
   
-  if (config == NULL) return(CMSG_BAD_ARGUMENT);
+  if (config == NULL || size == NULL) return(CMSG_BAD_ARGUMENT);
   *size = sc->maxCueSize;
   return(CMSG_OK);
 }
@@ -4591,12 +4591,12 @@ int cMsgSubscribeSetSkipSize(cMsgSubscribeConfig *config, int size) {
  *             to skip (delete)
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgSubscribeGetSkipSize(cMsgSubscribeConfig *config, int *size) {
   subscribeConfig *sc = (subscribeConfig *) config;    
 
-  if (config == NULL) return(CMSG_BAD_ARGUMENT);
+  if (config == NULL || size == NULL) return(CMSG_BAD_ARGUMENT);
   *size = sc->skipSize;
   return(CMSG_OK);
 }
@@ -4642,12 +4642,12 @@ int cMsgSubscribeSetMaySkip(cMsgSubscribeConfig *config, int maySkip) {
  *                be skipped (deleted), or anything else otherwise
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgSubscribeGetMaySkip(cMsgSubscribeConfig *config, int *maySkip) {
   subscribeConfig *sc = (subscribeConfig *) config;    
 
-  if (config == NULL) return(CMSG_BAD_ARGUMENT);
+  if (config == NULL || maySkip == NULL) return(CMSG_BAD_ARGUMENT);
   *maySkip = sc->maySkip;
   return(CMSG_OK);
 }
@@ -4693,12 +4693,12 @@ int cMsgSubscribeSetMustSerialize(cMsgSubscribeConfig *config, int serialize) {
  *                  parallelized, or anything else if callback must be serialized
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgSubscribeGetMustSerialize(cMsgSubscribeConfig *config, int *serialize) {
   subscribeConfig *sc = (subscribeConfig *) config;
 
-  if (config == NULL) return(CMSG_BAD_ARGUMENT);
+  if (config == NULL || serialize == NULL) return(CMSG_BAD_ARGUMENT);
   *serialize = sc->mustSerialize;
   return(CMSG_OK);
 }
@@ -4744,12 +4744,12 @@ int cMsgSubscribeSetMaxThreads(cMsgSubscribeConfig *config, int threads) {
  *                of threads a parallelized subscribe's callback can run at once
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgSubscribeGetMaxThreads(cMsgSubscribeConfig *config, int *threads) {
   subscribeConfig *sc = (subscribeConfig *) config;    
 
-  if (config == NULL) return(CMSG_BAD_ARGUMENT);
+  if (config == NULL || threads == NULL) return(CMSG_BAD_ARGUMENT);
   *threads = sc->maxThreads;
   return(CMSG_OK);
 }
@@ -4795,12 +4795,12 @@ int cMsgSubscribeSetMessagesPerThread(cMsgSubscribeConfig *config, int mpt) {
  *            unprocessed messages per thread before starting another thread
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgSubscribeGetMessagesPerThread(cMsgSubscribeConfig *config, int *mpt) {
   subscribeConfig *sc = (subscribeConfig *) config;    
 
-  if (config == NULL) return(CMSG_BAD_ARGUMENT);
+  if (config == NULL || mpt == NULL) return(CMSG_BAD_ARGUMENT);
   *mpt = sc->msgsPerThread;
   return(CMSG_OK);
 }
@@ -4843,12 +4843,12 @@ int cMsgSubscribeSetStackSize(cMsgSubscribeConfig *config, size_t size) {
  *            unprocessed messages per thread before starting another thread
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if configuration is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgSubscribeGetStackSize(cMsgSubscribeConfig *config, size_t *size) {
   subscribeConfig *sc = (subscribeConfig *) config;    
 
-  if (config == NULL) return(CMSG_BAD_ARGUMENT);
+  if (config == NULL || size == NULL) return(CMSG_BAD_ARGUMENT);
   *size = sc->stackSize;
   return(CMSG_OK);
 }
