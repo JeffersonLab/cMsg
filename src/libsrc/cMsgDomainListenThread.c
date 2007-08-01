@@ -1055,7 +1055,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
                                        /* second int is for future use */
   msg->userInt  = ntohl(inComing[2]);  /* user int */
   msg->info     = ntohl(inComing[3]);  /* get info */
-  msg->info | CMSG_WAS_SENT;           /* mark message as having been sent over the wire */
+  msg->info    |= CMSG_WAS_SENT;       /* mark message as having been sent over the wire */
   cMsgHasPayload(msg, &hasPayload);    /* does message have compound payload? */
   
   /*
