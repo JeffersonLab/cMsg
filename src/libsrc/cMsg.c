@@ -2931,6 +2931,30 @@ void *cMsgCreateNullResponseMessage(const void *vmsg) {
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
+
+/**
+ * This routine returns whether a message has been sent over the wire or not. 
+ *
+ * @param vmsg pointer to message
+ * @param hasPayload pointer which gets filled with 1 if msg has been sent, else 0
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
+ */   
+int cMsgHasBeenSent(const void *vmsg, int *hasBeenSent) {
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+  
+  if (msg == NULL || hasBeenSent == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  *hasBeenSent = ((msg->info & CMSG_WAS_SENT) == CMSG_WAS_SENT) ? 1 : 0;
+
+  return(CMSG_OK);
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+
 /**
  * This routine gets the cMsg major version number of a message.
  *

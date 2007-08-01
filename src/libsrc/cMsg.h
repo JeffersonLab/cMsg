@@ -159,6 +159,7 @@ extern "C" {
   int    cMsgInitMessage          (void *vmsg);
   void  *cMsgCreateResponseMessage(const void *vmsg);
   void  *cMsgCreateNullResponseMessage(const void *vmsg);
+  int    cMsgHasBeenSent          (const void *vmsg, int *hasBeenSent);
   
   int    cMsgGetVersion           (const void *vmsg, int *version);
   int    cMsgGetGetRequest        (const void *vmsg, int *getRequest);
