@@ -305,14 +305,14 @@ static void setPayload(cMsgMessage_t *msg, int hasPayload) {
  * @param hasPayload pointer which gets filled with 1 if msg has compound payload, else 0
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if vmsg is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgHasPayload(const void *vmsg, int *hasPayload) {
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || hasPayload == NULL) return(CMSG_BAD_ARGUMENT);
   
-  *hasPayload = ((msg->info | CMSG_HAS_PAYLOAD) > 0) ? 1 : 0;
+  *hasPayload = ((msg->info & CMSG_HAS_PAYLOAD) == CMSG_HAS_PAYLOAD) ? 1 : 0;
 
   return(CMSG_OK);
 }
