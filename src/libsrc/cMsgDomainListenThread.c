@@ -1040,7 +1040,7 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
 static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *acknowledge) {
 
   uint64_t llTime;
-  int  stringLen, lengths[7], inComing[18];
+  int  hasPayload, stringLen, lengths[7], inComing[18];
   char *pchar, *tmp;
     
   if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
@@ -1055,6 +1055,8 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
                                        /* second int is for future use */
   msg->userInt  = ntohl(inComing[2]);  /* user int */
   msg->info     = ntohl(inComing[3]);  /* get info */
+  cMsgHasPayload(msg, &hasPayload);    /* does message have compound payload? */
+  
   /*
    * Time arrives as the high 32 bits followed by the low 32 bits
    * of a 64 bit integer in units of milliseconds.
@@ -1208,35 +1210,41 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
     memcpy(tmp, pchar, lengths[4]);
     tmp[lengths[4]] = 0;
     msg->creator = tmp;
-    pchar += lengths[4];    
+    pchar += lengths[4];
     /* printf("creator = %s\n", tmp); */
   }
   else {
     msg->creator = NULL;
   }
     
-  /*------------------*/
-  /* read text string */
-  /*------------------*/
+  /*--------------------------------------------------*/
+  /* read text string & compound payload if it exists */
+  /*--------------------------------------------------*/
   if (lengths[5] > 0) {
-    if ( (tmp = (char *) malloc(lengths[5]+1)) == NULL) {
-      if (msg->sender != NULL)     free((void *) msg->sender);
-      if (msg->senderHost != NULL) free((void *) msg->senderHost);
-      if (msg->subject != NULL)    free((void *) msg->subject);
-      if (msg->type != NULL)       free((void *) msg->type);
-      if (msg->creator != NULL)    free((void *) msg->creator);
-      msg->sender     = NULL;
-      msg->senderHost = NULL;
-      msg->subject    = NULL;
-      msg->type       = NULL;
-      msg->creator    = NULL;
-      return(CMSG_OUT_OF_MEMORY);    
+    if (!hasPayload) {
+      if ( (tmp = (char *) malloc(lengths[5]+1)) == NULL) {
+        if (msg->sender != NULL)     free((void *) msg->sender);
+        if (msg->senderHost != NULL) free((void *) msg->senderHost);
+        if (msg->subject != NULL)    free((void *) msg->subject);
+        if (msg->type != NULL)       free((void *) msg->type);
+        if (msg->creator != NULL)    free((void *) msg->creator);
+        msg->sender     = NULL;
+        msg->senderHost = NULL;
+        msg->subject    = NULL;
+        msg->type       = NULL;
+        msg->creator    = NULL;
+        return(CMSG_OUT_OF_MEMORY);    
+      }
+    
+      memcpy(tmp, pchar, lengths[5]);
+      tmp[lengths[5]] = 0;
+      msg->text = tmp;
+      /* printf("text = %s\n", tmp); */
     }
-    memcpy(tmp, pchar, lengths[5]);
-    tmp[lengths[5]] = 0;
-    msg->text = tmp;
-    pchar += lengths[5];    
-    /* printf("text = %s\n", tmp); */
+    else {
+      cMsgSetAllFieldsFromText(msg, pchar);
+    }
+    pchar += lengths[5];
   }
   else {
     msg->text = NULL;

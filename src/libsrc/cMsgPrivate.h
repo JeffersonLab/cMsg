@@ -80,6 +80,7 @@ extern "C" {
 /** The maximum number domain types that a client can connect to. */
 #define CMSG_MAX_DOMAIN_TYPES   20
 
+/* Access to information stored in the "info" member of the message structure */
 /** Is message a sendAndGet request? -- is stored in 1st bit. */
 #define CMSG_IS_GET_REQUEST       0x1
 /** Is message a response to a sendAndGet? -- is stored in 2nd bit. */
@@ -88,6 +89,10 @@ extern "C" {
 #define CMSG_IS_NULL_GET_RESPONSE 0x4
 /** Is the byte array in big endian form? -- is stored in 4th bit. */
 #define CMSG_IS_BIG_ENDIAN 0x8
+/** Has the message been sent over the wire? -- is stored in 5th bit. */
+#define CMSG_WAS_SENT 0x10
+/** Does the message have a compound payload? -- is stored in 6th bit. */
+#define CMSG_HAS_PAYLOAD 0x20
 
 /** Is byte array copied in? -- is stored in 1st bit. */
 #define CMSG_BYTE_ARRAY_IS_COPIED 0x1
@@ -259,23 +264,60 @@ typedef struct cMsgMessageContext_t {
 } cMsgMessageContext;
 
 
+/** 
+ * This structure holds a single string, its length,
+ * and a pointer to the next struct. Used in compound payloads.
+ */
+typedef struct singleStringItem_t {
+    int    length;                   /**< Length in bytes of ASCII string contained (not including null terminator). */
+    char  *string;                   /**< ASCII string. */
+    struct singleStringItem_t *next; /**< Pointer to next item in linked list. */
+} singleStringItem;
+
+
+/** 
+ * This structure is used to form a compound payload.
+ * It is an item that represents a number, or a string, or an array of either.
+ * It is designed to allowing the mnarshalling of its string(s) and/or number(s)
+ * to a simple format text string. This format allows easy unmarshalling of the
+ * text back into its constituent parts.
+ */
+typedef struct payloadItem_t {
+    int    type;     /**< Type of number or string stored in this item. */
+    int    count;    /**< Number of items in array if array, else 1. */
+    int    length;   /**< Length of text in chars. */
+
+    char  *text;     /**< String containing name, type, count, and values for wire protocol. */
+    char  *name;     /**< Name of this item. */
+    void  *next;     /**< Next item in linked list. */
+
+    /* Pointer to array payload item */
+    void  *array;     /**< Array of any item or single string. */
+    /* Value of single numeric payload item */
+    int64_t  val;    /**< An integer value of any type stored here since 64 bits in length. */
+    double  dval;    /**< A double or float stored here since 64 bits in length. */
+} payloadItem;
+
+
 /** This structure holds a message. */
 typedef struct cMsg_t {
   /* general quantities */
-  int     version;     /**< Major version of cMsg. */
-  int     sysMsgId;    /**< Unique id set by system to track sendAndGet's. */
-  int     info;        /**< Stores information in bit form (true = 1).
-                        * - is message a sendAndGet request? 1st bit
-                        * - is message a response to a sendAndGet request? 2nd bit
-                        * - is response message NULL instead of a message? 3rd bit
-                        * - is byte array data big endian? 4th bit
-                        */
-  int     reserved;    /**< Reserved for future use. */
-  int     bits;        /**< Stores info in bit form about internal state (true = 1).
-                        * - is byte array copied in? 1st bit
-                        */
-  char   *domain;      /**< Domain message is generated in. */
-  char   *creator;     /**< Message was originally created by this user/sender. */
+  int     version;       /**< Major version of cMsg. */
+  int     sysMsgId;      /**< Unique id set by system to track sendAndGet's. */
+  int     info;          /**< Stores information in bit form (true = 1).
+                          * - is message a sendAndGet request? 1st bit
+                          * - is message a response to a sendAndGet request? 2nd bit
+                          * - is response message NULL instead of a message? 3rd bit
+                          * - is byte array data big endian? 4th bit
+                          */
+  int     reserved;      /**< Reserved for future use. */
+  int     bits;          /**< Stores info in bit form about internal state (true = 1).
+                          * - is byte array copied in? 1st bit
+                          */
+  char   *domain;        /**< Domain message is generated in. */
+  char   *creator;       /**< Message was originally created by this user/sender. */
+  payloadItem  *payload; /**< First compound payload item. */
+  payloadItem  *marker;  /**< Current compound payload item. */
   
   /* user-settable quantities */
   char   *subject;             /**< Subject of message. */
@@ -352,6 +394,10 @@ typedef struct subscribeConfig_t {
   size_t stackSize;     /**< Stack size in bytes of subscription thread. By default 
                              this is left unspecified (0). */
 } subscribeConfig;
+
+/* private prototype used in multiple files */
+void   cMsgPayloadFree(void *vmsg); 
+void   cMsgPayloadClear(void *vmsg); 
 
 
 #ifdef	__cplusplus

@@ -1333,6 +1333,249 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
 int cmsg_cmsg_send(void *domainId, const void *vmsg) {
   
   int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
+  int fd, hasPayload, highInt, lowInt, outGoing[16];
+  ssize_t sendLen;
+  cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
+  cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+  char *creator, *payloadText=NULL;
+  uint64_t llTime;
+  struct timespec now;
+
+  
+  if (domain == NULL) {
+    return(CMSG_BAD_ARGUMENT);
+  }
+    
+  if (!domain->hasSend) {
+    return(CMSG_NOT_IMPLEMENTED);
+  }
+  
+  /* check args */
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  if ( (cMsgCheckString(msg->subject) != CMSG_OK ) ||
+       (cMsgCheckString(msg->type)    != CMSG_OK )    ) {
+    return(CMSG_BAD_ARGUMENT);
+  }
+  
+  if (!msg->context.udpSend) {
+    fd = domain->sendSocket;  
+  }
+  else {
+    fd = domain->sendUdpSocket;
+  }
+  
+  tryagain:
+  while (1) {
+    err = CMSG_OK;
+    
+    /* Cannot run this while connecting/disconnecting */
+    cMsgConnectReadLock(domain);
+
+    if (domain->gotConnection != 1) {
+      cMsgConnectReadUnlock(domain);
+      err = CMSG_LOST_CONNECTION;
+      break;
+    }
+    
+    /* TEXT STUFF: length of "text" string, include payload (if any) as text */
+    cMsgHasPayload(vmsg, &hasPayload);
+    if (!hasPayload) {
+      if (msg->text == NULL) {
+        lenText = 0;
+      }
+      else {
+        lenText = strlen(msg->text);
+      }
+    }
+    else {
+      /* this returns not only payload but incorporates text as well */
+      payloadText = cMsgGetPayloadText(vmsg);
+      if (payloadText == NULL) {
+        return(CMSG_OUT_OF_MEMORY);
+      }
+      lenText = strlen(payloadText);
+    }
+
+    /* message id (in network byte order) to domain server */
+    outGoing[1] = htonl(CMSG_SEND_REQUEST);
+    /* reserved for future use */
+    outGoing[2] = 0;
+    /* user int */
+    outGoing[3] = htonl(msg->userInt);
+    /* system msg id */
+    outGoing[4] = htonl(msg->sysMsgId);
+    /* sender token */
+    outGoing[5] = htonl(msg->senderToken);
+    /* bit info */
+    outGoing[6] = htonl(msg->info);
+
+    /* time message sent (right now) */
+    clock_gettime(CLOCK_REALTIME, &now);
+    /* convert to milliseconds */
+    llTime  = ((uint64_t)now.tv_sec * 1000) +
+              ((uint64_t)now.tv_nsec/1000000);
+    highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+    lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+    outGoing[7] = htonl(highInt);
+    outGoing[8] = htonl(lowInt);
+
+    /* user time */
+    llTime  = ((uint64_t)msg->userTime.tv_sec * 1000) +
+              ((uint64_t)msg->userTime.tv_nsec/1000000);
+    highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
+    lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+    outGoing[9]  = htonl(highInt);
+    outGoing[10] = htonl(lowInt);
+
+    /* length of "subject" string */
+    lenSubject   = strlen(msg->subject);
+    outGoing[11] = htonl(lenSubject);
+    /* length of "type" string */
+    lenType      = strlen(msg->type);
+    outGoing[12] = htonl(lenType);
+
+    /* send creator (this sender's name if msg created here) */
+    creator = msg->creator;
+    if (creator == NULL) creator = domain->name;
+    /* length of "creator" string */
+    lenCreator   = strlen(creator);
+    outGoing[13] = htonl(lenCreator);
+
+    /* length of "text" string, include payload (if any) as text here */
+    outGoing[14] = htonl(lenText);
+
+    /* length of byte array */
+    lenByteArray = msg->byteArrayLength;
+    outGoing[15] = htonl(lenByteArray);
+
+    /* total length of message (minus first int) is first item sent */
+    len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType +
+          lenCreator + lenText + lenByteArray;
+    outGoing[0] = htonl(len);
+
+    if (msg->context.udpSend && len > 8192) {
+      cMsgConnectReadUnlock(domain);
+      if (hasPayload) free(payloadText);
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+        printf("cmsg_cmsg_send: messges is too big for UDP packet\n");
+      }
+      return(CMSG_OUT_OF_RANGE);
+    }
+
+    /* Make send socket communications thread-safe. That
+     * includes protecting the one buffer being used.
+     */
+    cMsgSocketMutexLock(domain);
+
+    /* allocate more memory for message-sending buffer if necessary */
+    if (domain->msgBufferSize < (int)(len+sizeof(int))) {
+      free(domain->msgBuffer);
+      domain->msgBufferSize = len + 1024; /* give us 1kB extra */
+      domain->msgBuffer = (char *) malloc(domain->msgBufferSize);
+      if (domain->msgBuffer == NULL) {
+        cMsgSocketMutexUnlock(domain);
+        cMsgConnectReadUnlock(domain);
+        if (hasPayload) free(payloadText);
+        return(CMSG_OUT_OF_MEMORY);
+      }
+    }
+
+    /* copy data into a single static buffer */
+    memcpy(domain->msgBuffer, (void *)outGoing, sizeof(outGoing));
+    len = sizeof(outGoing);
+    memcpy(domain->msgBuffer+len, (void *)msg->subject, lenSubject);
+    len += lenSubject;
+    memcpy(domain->msgBuffer+len, (void *)msg->type, lenType);
+    len += lenType;
+    memcpy(domain->msgBuffer+len, (void *)creator, lenCreator);
+    len += lenCreator;
+    if (!hasPayload) {
+      memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
+    }
+    else {
+      memcpy(domain->msgBuffer+len, (void *)payloadText, lenText);
+      free(payloadText);
+    }
+    len += lenText;
+    memcpy(domain->msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
+    len += lenByteArray;   
+    
+    if (!msg->context.udpSend) {
+      /* send data over TCP socket */
+      sendLen = cMsgTcpWrite(fd, (void *) domain->msgBuffer, len);
+      if (sendLen == len) domain->monData.numTcpSends++;
+    }
+    else {
+      /* send data over UDP socket */
+      sendLen = send(fd, (void *)domain->msgBuffer, len, 0);      
+      if (sendLen == len) domain->monData.numUdpSends++;
+    }
+    if (sendLen != len) {
+      cMsgSocketMutexUnlock(domain);
+      cMsgConnectReadUnlock(domain);
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+        fprintf(stderr, "cmsg_cmsg_send: write failure\n");
+      }
+      err = CMSG_NETWORK_ERROR;
+      break;
+    }
+
+    /* done protecting communications */
+    cMsgSocketMutexUnlock(domain);
+    cMsgConnectReadUnlock(domain);
+    break;
+
+  }
+  
+  if (err!= CMSG_OK) {
+    /* don't wait for resubscribes */
+    if (failoverSuccessful(domain, 0)) {
+       fd = domain->sendSocket;
+       printf("cmsg_cmsg_send: FAILOVER SUCCESSFUL, try send again\n");
+       goto tryagain;
+    }  
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      printf("cmsg_cmsg_send: FAILOVER NOT successful, quitting, err = %d\n", err);
+    }
+  }
+  
+  return(err);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine sends a msg to the specified cMsg domain server. It is called
+ * by the user through cMsgSend() given the appropriate UDL. It is asynchronous
+ * and should rarely block. It will only block if the TCP protocol is used and
+ * the cMsg domain server has
+ * reached it maximum number of request-handling threads and each of those threads
+ * has a cue which is completely full. In this domain cMsgFlush() does nothing and
+ * does not need to be called for the message to be sent immediately.<p>
+ *
+ * This version of this routine uses writev to write all data in one write call.
+ * Another version was tried with many writes (one for ints and one for each
+ * string), but the performance died sharply.
+ *
+ * @param domainId id of the domain connection
+ * @param vmsg pointer to a message structure
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the id or message argument is null or has null subject or type
+ * @returns CMSG_OUT_OF_RANGE  if the message is too large to be sent by UDP
+ * @returns CMSG_OUT_OF_MEMORY if the allocating memory for message buffer failed
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement sending
+ *                               messages
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
+ *                               by a call to cMsgDisconnect()
+ */   
+int cmsg_cmsg_sendOrig(void *domainId, const void *vmsg) {
+  
+  int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int fd, highInt, lowInt, outGoing[16];
   ssize_t sendLen;
   cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;

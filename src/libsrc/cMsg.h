@@ -105,6 +105,7 @@
 #ifndef _cMsgConstants_h
 #include "cMsgConstants.h"
 #endif
+#include <inttypes.h>
 
 
 /** Subscribe configuration. */
@@ -217,8 +218,88 @@ extern "C" {
   int    cMsgGetSubscriptionCueSize(const void *vmsg, int   *size);
   int    cMsgSetReliableSend       (      void *vmsg, int boolean);
   int    cMsgGetReliableSend       (      void *vmsg, int *boolean);
-  /* ******************** */
-  int    cMsgToString             (const void *vmsg, char **string);
+  /*  misc. */
+  int    cMsgToString              (const void *vmsg, char **string);
+  
+  /* compound payload stuff - 63 user routines */
+  
+  void   cMsgPayloadPrintout         (      void *vmsg);
+  int    cMsgSetPayloadFromText      (      void *vmsg, const char *text);
+  int    cMsgSetSystemFieldsFromText (      void *vmsg, const char *text);
+  int    cMsgSetAllFieldsFromText    (      void *vmsg, const char *text);
+  int    cMsgHasPayload              (const void *vmsg, int *hasPayload);
+  char  *cMsgGetPayloadText          (const void *vmsg);
+  int    cMsgCopyPayload             (const void *vmsgFrom, void *vmsgTo);
+  const char *cMsgGetFieldDescription(const void *vmsg);
+  
+  int    cMsgGoToFieldName           (      void *vmsg, const char *name);
+  int    cMsgGoToField               (      void *vmsg, int  place);
+  int    cMsgGetFieldPosition        (const void *vmsg, int *place);
+  int    cMsgNextField               (      void *vmsg);
+  int    cMsgHasNextField            (const void *vmsg);
+  int    cMsgFirstField              (      void *vmsg);
+  int    cMsgRemoveFieldName         (      void *vmsg, const char *name);
+  int    cMsgRemoveField             (      void *vmsg, int place);
+  int    cMsgMoveFieldName           (      void *vmsg, const char *name, int placeTo);
+  int    cMsgMoveField               (      void *vmsg, int placeFrom, int placeTo);
+
+  char *cMsgGetFieldName             (const void *vmsg);
+  char *cMsgGetFieldText             (const void *vmsg);
+  int    cMsgGetFieldType            (const void *vmsg, int *type);
+  int    cMsgGetFieldCount           (const void *vmsg, int *count);
+
+  int    cMsgGetString               (const void *vmsg, char **val);
+  int    cMsgGetStringArray          (const void *vmsg, char **array[], int *len);
+  
+  int    cMsgGetFloat                (const void *vmsg, float  *val);
+  int    cMsgGetFloatArray           (const void *vmsg, float  **vals, int *len);
+  int    cMsgGetDouble               (const void *vmsg, double *val);
+  int    cMsgGetDoubleArray          (const void *vmsg, double **vals, int *len);
+  
+  int    cMsgGetInt8                 (const void *vmsg, int8_t   *val);
+  int    cMsgGetInt16                (const void *vmsg, int16_t  *val);
+  int    cMsgGetInt32                (const void *vmsg, int32_t  *val);
+  int    cMsgGetInt64                (const void *vmsg, int64_t  *val);
+  int    cMsgGetUint8                (const void *vmsg, uint8_t  *val);
+  int    cMsgGetUint16               (const void *vmsg, uint16_t *val);
+  int    cMsgGetUint32               (const void *vmsg, uint32_t *val);
+  int    cMsgGetUint64               (const void *vmsg, uint64_t *val);
+  
+  int    cMsgGetInt8Array            (const void *vmsg, int8_t   **vals, int *len);
+  int    cMsgGetInt16Array           (const void *vmsg, int16_t  **vals, int *len);
+  int    cMsgGetInt32Array           (const void *vmsg, int32_t  **vals, int *len);
+  int    cMsgGetInt64Array           (const void *vmsg, int64_t  **vals, int *len);
+  int    cMsgGetUint8Array           (const void *vmsg, uint8_t  **vals, int *len);
+  int    cMsgGetUint16Array          (const void *vmsg, uint16_t **vals, int *len);
+  int    cMsgGetUint32Array          (const void *vmsg, uint32_t **vals, int *len);
+  int    cMsgGetUint64Array          (const void *vmsg, uint64_t **vals, int *len);
+
+  int    cMsgAddInt8                 (      void *vmsg, const char *name, int8_t   val, int place);
+  int    cMsgAddInt16                (      void *vmsg, const char *name, int16_t  val, int place);
+  int    cMsgAddInt32                (      void *vmsg, const char *name, int32_t  val, int place);
+  int    cMsgAddInt64                (      void *vmsg, const char *name, int64_t  val, int place);
+  int    cMsgAddUint8                (      void *vmsg, const char *name, uint8_t  val, int place);
+  int    cMsgAddUint16               (      void *vmsg, const char *name, uint16_t val, int place);
+  int    cMsgAddUint32               (      void *vmsg, const char *name, uint32_t val, int place);
+  int    cMsgAddUint64               (      void *vmsg, const char *name, uint64_t val, int place);
+
+  int    cMsgAddInt8Array            (      void *vmsg, const char *name, const int8_t   vals[], int len, int place);
+  int    cMsgAddInt16Array           (      void *vmsg, const char *name, const int16_t  vals[], int len, int place);
+  int    cMsgAddInt32Array           (      void *vmsg, const char *name, const int32_t  vals[], int len, int place);
+  int    cMsgAddInt64Array           (      void *vmsg, const char *name, const int64_t  vals[], int len, int place);
+  int    cMsgAddUint8Array           (      void *vmsg, const char *name, const uint8_t  vals[], int len, int place);
+  int    cMsgAddUint16Array          (      void *vmsg, const char *name, const uint16_t vals[], int len, int place);
+  int    cMsgAddUint32Array          (      void *vmsg, const char *name, const uint32_t vals[], int len, int place);
+  int    cMsgAddUint64Array          (      void *vmsg, const char *name, const uint64_t vals[], int len, int place);
+
+  int    cMsgAddString               (      void *vmsg, const char *name, const char *val, int place);
+  int    cMsgAddStringArray          (      void *vmsg, const char *name, const char *vals[], int len, int place);
+
+  int    cMsgAddFloat                (      void *vmsg, const char *name, float  val, int place);
+  int    cMsgAddDouble               (      void *vmsg, const char *name, double val, int place);
+  int    cMsgAddFloatArray           (      void *vmsg, const char *name, const float vals[],  int len, int place);
+  int    cMsgAddDoubleArray          (      void *vmsg, const char *name, const double vals[], int len, int place);
+
 
 
   /* system and domain info access functions */

@@ -92,5 +92,42 @@ enum {
 };
 
 
+/** End of payload. */
+#define CMSG_CP_END -999
+/** After payload item marker. */
+#define CMSG_CP_MARKER -888
+/** Payload item after marker. */
+#define CMSG_CP_NEXT -777
+
+/** Type codes for compound payloads.
+ *  Make these all 2 digits for ease in net protocol.
+ */
+enum {
+  CMSG_CP_STR    = 10, /**< String. */
+  CMSG_CP_FLT,         /**< 4 byte float. */
+  CMSG_CP_DBL,         /**< 8 byte float. */
+  CMSG_CP_INT8,        /**<  8 bit int. */
+  CMSG_CP_INT16,       /**< 16 bit int. */
+  CMSG_CP_INT32,       /**< 32 bit int. */
+  CMSG_CP_INT64,       /**< 64 bit int. */
+  CMSG_CP_UINT8,       /**< unsigned  8 bit int. */
+  CMSG_CP_UINT16,      /**< unsigned 16 bit int. */
+  CMSG_CP_UINT32,      /**< unsigned 32 bit int. */
+  CMSG_CP_UINT64,      /**< unsigned 64 bit int. */
+
+  CMSG_CP_STR_A,       /**< String array. */
+  CMSG_CP_FLT_A,       /**< 4 byte float array. */
+  CMSG_CP_DBL_A,       /**< 8 byte float array. */
+  CMSG_CP_INT8_A,      /**<  8 bit int array. */
+  CMSG_CP_INT16_A,     /**< 16 bit int array. */
+  CMSG_CP_INT32_A,     /**< 32 bit int array. */
+  CMSG_CP_INT64_A,     /**< 64 bit int array. */
+  CMSG_CP_UINT8_A,     /**< unsigned  8 bit int array. */
+  CMSG_CP_UINT16_A,    /**< unsigned 16 bit int array. */
+  CMSG_CP_UINT32_A,    /**< unsigned 32 bit int array. */
+  CMSG_CP_UINT64_A     /**< unsigned 64 bit int array. */
+};
+
+
 
 #endif /* _cMsgConstants_h */
