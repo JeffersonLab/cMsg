@@ -198,15 +198,18 @@ public class cMsgLogger {
 
                     pStmt.setInt(i++, msg.getByteArrayEndian());
                     byte[] b = msg.getByteArray();
-                    if(b.length<=maxByteArray*1024) {
-                        pStmt.setObject(i++, b);
+                    if(b!=null) {
+                        if(b.length<=maxByteArray*1024) {
+                            pStmt.setObject(i++, b);
+                        } else {
+                            byte[] bb = new byte[maxByteArray*1024];
+                            for(int j=0; j<maxByteArray*1024; j++) bb[j]=b[j];
+                            pStmt.setObject(i++, bb);
+                            System.out.println("?byte array field too long (" + b.length + "), truncating to " + maxByteArray + "kB");
+                        }
                     } else {
-                        byte[] bb = new byte[maxByteArray*1024];
-                        for(int j=0; j<maxByteArray*1024; j++) bb[j]=b[j];
-                        pStmt.setObject(i++, bb);
-                        System.out.println("?byte array field too long (" + b.length + "), truncating to " + maxByteArray + "kB");
+                        pStmt.setObject(i++,null);
                     }
-
 
                     pStmt.execute();
 
@@ -307,9 +310,6 @@ public class cMsgLogger {
                 DatabaseMetaData dbmeta = con.getMetaData();
                 ResultSet dbrs = dbmeta.getTables(null,null,table,new String [] {"TABLE"});
                 if((!dbrs.next())||(!dbrs.getString(3).equalsIgnoreCase(table))) {
-                    // get database type to determine type for byte array
-
-
                     String sql="create table " + table + " (" +
                         "version int, domain varchar(255), sysMsgId int," +
                         "getRequest int, getResponse int, isNullGetResponse int, creator varchar(128)," +
@@ -330,7 +330,7 @@ public class cMsgLogger {
             try {
                 String sql = "insert into " + table + " (" +
                     "version,domain,sysMsgId," +
-                    "getRequest,getResponse,isNullGetResponse,creator" +
+                    "getRequest,getResponse,isNullGetResponse,creator," +
                     "sender,senderHost,senderTime,senderToken," +
                     "userInt,userTime," +
                     "receiver,receiverHost,receiverTime,receiverSubscribeId," +
