@@ -224,6 +224,7 @@ extern "C" {
   
   /* compound payload stuff - 63 user routines */
   
+  void   cMsgPayloadClear            (void *vmsg);
   void   cMsgPayloadPrintout         (      void *vmsg);
   int    cMsgSetPayloadFromText      (      void *vmsg, const char *text);
   int    cMsgSetSystemFieldsFromText (      void *vmsg, const char *text);
