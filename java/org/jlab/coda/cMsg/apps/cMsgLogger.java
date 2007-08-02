@@ -170,8 +170,8 @@ public class cMsgLogger {
                     pStmt.setInt(i++,       (msg.isGetRequest()?1:0));
                     pStmt.setInt(i++,       (msg.isGetResponse()?1:0));
                     pStmt.setInt(i++,       (msg.isNullGetResponse()?1:0));
-
                     pStmt.setString(i++,    msg.getCreator());
+
                     pStmt.setString(i++,    msg.getSender());
                     pStmt.setString(i++,    msg.getSenderHost());
                     pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getSenderTime().getTime()));
@@ -187,8 +187,6 @@ public class cMsgLogger {
 
                     pStmt.setString(i++,    msg.getSubject());
                     pStmt.setString(i++,    msg.getType());
-
-                    // impose max size for text field
                     String t = msg.getText();
                     if(t.length()<=maxText*1024) {
                         pStmt.setString(i++, t);
@@ -197,9 +195,8 @@ public class cMsgLogger {
                         System.out.println("?text field too long (" + t.length() + "), truncating to " + maxText + "kB");
                     }
 
-                    pStmt.setInt(i++,       msg.getByteArrayEndian());
 
-                    // impose max size for byte array field
+                    pStmt.setInt(i++, msg.getByteArrayEndian());
                     byte[] b = msg.getByteArray();
                     if(b.length<=maxByteArray*1024) {
                         pStmt.setObject(i++, b);
@@ -340,7 +337,7 @@ public class cMsgLogger {
                     "subject,type,text," +
                     "byteArrayEndian,byteArray" +
                     ") values (" +
-                    "?,?,?," + "?,?,?,?" + "?,?,?,?," + "?,?," + "?,?,?,?," + "?,?,?" +"?,?" +  ")";
+                    "?,?,?" + ",?,?,?,?" + ",?,?,?,?" + ",?,?" + ",?,?,?,?" + ",?,?,?" +",?,?" +  ")";
                 pStmt = con.prepareStatement(sql);
             } catch (SQLException e) {
                 System.err.println("?unable to prepare statement\n" + e);
