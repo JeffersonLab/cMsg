@@ -2112,13 +2112,13 @@ int cMsgSetAllFieldsFromText(void *vmsg, const char *text) {
  * @param type pointer that gets filled with type
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or marker is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg or marker is NULL
  */   
 int cMsgGetFieldType(const void *vmsg, int *type) {
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   grabMutex();
-  if (msg == NULL || msg->marker == NULL) {
+  if (msg == NULL || msg->marker == NULL || type == NULL) {
     releaseMutex();
     return(CMSG_BAD_ARGUMENT);
   }
@@ -2138,13 +2138,13 @@ int cMsgGetFieldType(const void *vmsg, int *type) {
  * @param type pointer that gets filled with count
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or marker is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg or marker is NULL
  */   
 int cMsgGetFieldCount(const void *vmsg, int *count) {
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   grabMutex();
-  if (msg == NULL || msg->marker == NULL) {
+  if (msg == NULL || msg->marker == NULL || count == NULL) {
     releaseMutex();
     return(CMSG_BAD_ARGUMENT);
   }
@@ -2201,7 +2201,7 @@ static int getReal(const void *vmsg, int type, double *val) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetFloat(const void *vmsg, float *val) {
   int err;
@@ -2226,7 +2226,7 @@ int cMsgGetFloat(const void *vmsg, float *val) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetDouble(const void *vmsg, double *val) {
   return getReal(vmsg, CMSG_CP_DBL, val);
@@ -2247,13 +2247,13 @@ int cMsgGetDouble(const void *vmsg, double *val) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is not array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if message, val, or len is NULL
  */   
 static int getArray(const void *vmsg, int type, void **vals, int *len) {
   payloadItem *item;  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL || vals == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || vals == NULL || len == NULL) return(CMSG_BAD_ARGUMENT);
   
   grabMutex();
   
@@ -2285,7 +2285,7 @@ static int getArray(const void *vmsg, int type, void **vals, int *len) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is not array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetFloatArray(const void *vmsg, float **vals, int *len) {
   int   err;
@@ -2312,7 +2312,7 @@ int cMsgGetFloatArray(const void *vmsg, float **vals, int *len) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is not array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetDoubleArray(const void *vmsg, double **vals, int *len) {
   int   err;
@@ -2373,7 +2373,7 @@ static int getInt(const void *vmsg, int type, int64_t *val) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetInt8(const void *vmsg, int8_t *val) {
   int err;
@@ -2398,7 +2398,7 @@ int cMsgGetInt8(const void *vmsg, int8_t *val) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetInt16(const void *vmsg, int16_t *val) {
   int err;
@@ -2423,7 +2423,7 @@ int cMsgGetInt16(const void *vmsg, int16_t *val) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetInt32(const void *vmsg, int32_t *val) {
   int err;
@@ -2448,7 +2448,7 @@ int cMsgGetInt32(const void *vmsg, int32_t *val) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetInt64(const void *vmsg, int64_t *val) {  
   return getInt(vmsg, CMSG_CP_INT64, val);
@@ -2466,7 +2466,7 @@ int cMsgGetInt64(const void *vmsg, int64_t *val) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetUint8(const void *vmsg, uint8_t *val) {
   int err;
@@ -2491,7 +2491,7 @@ int cMsgGetUint8(const void *vmsg, uint8_t *val) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetUint16(const void *vmsg, uint16_t *val) {
   int err;
@@ -2516,7 +2516,7 @@ int cMsgGetUint16(const void *vmsg, uint16_t *val) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetUint32(const void *vmsg, uint32_t *val) {
   int err;
@@ -2541,7 +2541,7 @@ int cMsgGetUint32(const void *vmsg, uint32_t *val) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetUint64(const void *vmsg, uint64_t *val) {
   int err;
@@ -2568,7 +2568,7 @@ int cMsgGetUint64(const void *vmsg, uint64_t *val) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is not array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetInt8Array(const void *vmsg, int8_t **vals, int *len) {
   int   err;
@@ -2595,7 +2595,7 @@ int cMsgGetInt8Array(const void *vmsg, int8_t **vals, int *len) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is not array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetInt16Array(const void *vmsg, int16_t **vals, int *len) {
   int   err;
@@ -2622,7 +2622,7 @@ int cMsgGetInt16Array(const void *vmsg, int16_t **vals, int *len) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is not array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetInt32Array(const void *vmsg, int32_t **vals, int *len) {
   int   err;
@@ -2649,7 +2649,7 @@ int cMsgGetInt32Array(const void *vmsg, int32_t **vals, int *len) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is not array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetInt64Array(const void *vmsg, int64_t **vals, int *len) {
   int   err;
@@ -2676,7 +2676,7 @@ int cMsgGetInt64Array(const void *vmsg, int64_t **vals, int *len) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is not array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetUint8Array(const void *vmsg, uint8_t **vals, int *len) {
   int   err;
@@ -2703,7 +2703,7 @@ int cMsgGetUint8Array(const void *vmsg, uint8_t **vals, int *len) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is not array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetUint16Array(const void *vmsg, uint16_t **vals, int *len) {
   int   err;
@@ -2730,7 +2730,7 @@ int cMsgGetUint16Array(const void *vmsg, uint16_t **vals, int *len) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is not array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetUint32Array(const void *vmsg, uint32_t **vals, int *len) {
   int   err;
@@ -2757,7 +2757,7 @@ int cMsgGetUint32Array(const void *vmsg, uint32_t **vals, int *len) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is not array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetUint64Array(const void *vmsg, uint64_t **vals, int *len) {
   int   err;
@@ -2782,7 +2782,7 @@ int cMsgGetUint64Array(const void *vmsg, uint64_t **vals, int *len) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is array
- * @returns CMSG_BAD_ARGUMENT if message or val is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetString(const void *vmsg, char **val) {
   payloadItem *item;  
@@ -2819,7 +2819,7 @@ int cMsgGetString(const void *vmsg, char **val) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if no current field, field is not right type, or field is not array
- * @returns CMSG_BAD_ARGUMENT if message or array is NULL
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgGetStringArray(const void *vmsg, char **array[], int *len) {
   payloadItem *item;  
@@ -3510,7 +3510,7 @@ int cMsgAddUint64(void *vmsg, const char *name, uint64_t val, int place) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if array cannot be placed at the desired location
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or place < 0 and
+ * @returns CMSG_BAD_ARGUMENT if message, vals or name is NULL, or place < 0 and
  *                            place != CMSG_CP_END and place != CMSG_CP_MARKER
  * @returns CMSG_OUT_OF_MEMORY if no more memory
  * @returns CMSG_BAD_FORMAT if name is not properly formed
@@ -3738,7 +3738,7 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if array cannot be placed at the desired location
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or place < 0 and
+ * @returns CMSG_BAD_ARGUMENT if message, vals or name is NULL, or place < 0 and
  *                            place != CMSG_CP_END and place != CMSG_CP_MARKER
  * @returns CMSG_OUT_OF_MEMORY if no more memory
  * @returns CMSG_BAD_FORMAT if name is not properly formed
@@ -3765,7 +3765,7 @@ int cMsgAddInt8Array(void *vmsg, const char *name, const int8_t vals[], int len,
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if array cannot be placed at the desired location
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or place < 0 and
+ * @returns CMSG_BAD_ARGUMENT if message, vals or name is NULL, or place < 0 and
  *                            place != CMSG_CP_END and place != CMSG_CP_MARKER
  * @returns CMSG_OUT_OF_MEMORY if no more memory
  * @returns CMSG_BAD_FORMAT if name is not properly formed
@@ -3792,7 +3792,7 @@ int cMsgAddInt16Array(void *vmsg, const char *name, const int16_t vals[], int le
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if array cannot be placed at the desired location
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or place < 0 and
+ * @returns CMSG_BAD_ARGUMENT if message, vals or name is NULL, or place < 0 and
  *                            place != CMSG_CP_END and place != CMSG_CP_MARKER
  * @returns CMSG_OUT_OF_MEMORY if no more memory
  * @returns CMSG_BAD_FORMAT if name is not properly formed
@@ -3819,7 +3819,7 @@ int cMsgAddInt32Array(void *vmsg, const char *name, const int32_t vals[], int le
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if array cannot be placed at the desired location
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or place < 0 and
+ * @returns CMSG_BAD_ARGUMENT if message, vals or name is NULL, or place < 0 and
  *                            place != CMSG_CP_END and place != CMSG_CP_MARKER
  * @returns CMSG_OUT_OF_MEMORY if no more memory
  * @returns CMSG_BAD_FORMAT if name is not properly formed
@@ -3846,7 +3846,7 @@ int cMsgAddInt64Array(void *vmsg, const char *name, const int64_t vals[], int le
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if array cannot be placed at the desired location
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or place < 0 and
+ * @returns CMSG_BAD_ARGUMENT if message, vals or name is NULL, or place < 0 and
  *                            place != CMSG_CP_END and place != CMSG_CP_MARKER
  * @returns CMSG_OUT_OF_MEMORY if no more memory
  * @returns CMSG_BAD_FORMAT if name is not properly formed
@@ -3873,7 +3873,7 @@ int cMsgAddUint8Array(void *vmsg, const char *name, const uint8_t vals[], int le
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if array cannot be placed at the desired location
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or place < 0 and
+ * @returns CMSG_BAD_ARGUMENT if message, vals or name is NULL, or place < 0 and
  *                            place != CMSG_CP_END and place != CMSG_CP_MARKER
  * @returns CMSG_OUT_OF_MEMORY if no more memory
  * @returns CMSG_BAD_FORMAT if name is not properly formed
@@ -3900,7 +3900,7 @@ int cMsgAddUint16Array(void *vmsg, const char *name, const uint16_t vals[], int 
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if array cannot be placed at the desired location
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or place < 0 and
+ * @returns CMSG_BAD_ARGUMENT if message, vals or name is NULL, or place < 0 and
  *                            place != CMSG_CP_END and place != CMSG_CP_MARKER
  * @returns CMSG_OUT_OF_MEMORY if no more memory
  * @returns CMSG_BAD_FORMAT if name is not properly formed
@@ -3927,7 +3927,7 @@ int cMsgAddUint32Array(void *vmsg, const char *name, const uint32_t vals[], int 
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if array cannot be placed at the desired location
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or place < 0 and
+ * @returns CMSG_BAD_ARGUMENT if message, vals or name is NULL, or place < 0 and
  *                            place != CMSG_CP_END and place != CMSG_CP_MARKER
  * @returns CMSG_OUT_OF_MEMORY if no more memory
  * @returns CMSG_BAD_FORMAT if name is not properly formed
@@ -3955,7 +3955,7 @@ int cMsgAddUint64Array(void *vmsg, const char *name, const uint64_t vals[], int 
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if string cannot be placed at the desired location
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or place < 0 and
+ * @returns CMSG_BAD_ARGUMENT if message, val or name is NULL, or place < 0 and
  *                            place != CMSG_CP_END and place != CMSG_CP_MARKER
  * @returns CMSG_OUT_OF_MEMORY if no more memory
  * @returns CMSG_BAD_FORMAT if name is not properly formed
@@ -4043,7 +4043,7 @@ static int addString(void *vmsg, const char *name, const char *val, int place, i
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if string cannot be placed at the desired location
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or place < 0 and
+ * @returns CMSG_BAD_ARGUMENT if message, val or name is NULL, or place < 0 and
  *                            place != CMSG_CP_END and place != CMSG_CP_MARKER
  * @returns CMSG_OUT_OF_MEMORY if no more memory
  * @returns CMSG_BAD_FORMAT if name is not properly formed
@@ -4072,7 +4072,7 @@ int cMsgAddString(void *vmsg, const char *name, const char *val, int place) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if array cannot be placed at the desired location
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or place < 0 and
+ * @returns CMSG_BAD_ARGUMENT if message, vals or name is NULL, or place < 0 and
  *                            place != CMSG_CP_END and place != CMSG_CP_MARKER
  * @returns CMSG_OUT_OF_MEMORY if no more memory
  * @returns CMSG_BAD_FORMAT if name is not properly formed
@@ -4172,7 +4172,7 @@ static int addStringArray(void *vmsg, const char *name, const char *vals[], int 
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if array cannot be placed at the desired location
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or place < 0 and
+ * @returns CMSG_BAD_ARGUMENT if message, vals or name is NULL, or place < 0 and
  *                            place != CMSG_CP_END and place != CMSG_CP_MARKER
  * @returns CMSG_OUT_OF_MEMORY if no more memory
  * @returns CMSG_BAD_FORMAT if name is not properly formed
