@@ -322,43 +322,12 @@ int cMsgHasPayload(const void *vmsg, int *hasPayload) {
 
 
 /**
- * This routine frees the allocated memory of the given message's entire payload.
- *
- * @param vmsg pointer to message
- */   
-void cMsgPayloadFree(void *vmsg) {  
-  payloadItem *item, *next;
-  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
-  
-  grabMutex();
-  
-  if (msg == NULL || msg->payload == NULL)  {
-    releaseMutex();
-    return;
-  }
-  
-  item = msg->payload;
-  while (item != NULL) {
-    next = item->next;
-    payloadItemFree(item);
-    free(item);
-    item = next;
-  }
-  
-  releaseMutex();
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
  * This routine frees the allocated memory of the given message's entire payload
  * and then initializes the payload components of the message. 
  *
  * @param vmsg pointer to message
  */   
-void cMsgPayloadClear(void *vmsg) {  
+void cMsgPayloadClear(void *vmsg) {
   payloadItem *item, *next;
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -378,6 +347,9 @@ void cMsgPayloadClear(void *vmsg) {
   }
   msg->payload = NULL;
   msg->marker  = NULL;
+  
+  /* write that we no longer have a payload */
+  setPayload(msg, 0);
   
   releaseMutex();
 }
