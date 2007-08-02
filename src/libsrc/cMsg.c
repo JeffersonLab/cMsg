@@ -2941,7 +2941,7 @@ void *cMsgCreateNullResponseMessage(const void *vmsg) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgHasBeenSent(const void *vmsg, int *hasBeenSent) {
+int cMsgWasSent(const void *vmsg, int *hasBeenSent) {
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
   if (msg == NULL || hasBeenSent == NULL) return(CMSG_BAD_ARGUMENT);
