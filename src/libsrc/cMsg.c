@@ -2828,9 +2828,9 @@ void *cMsgCreateMessage(void) {
 
 
 /**
- * This routine copies the given message and sets the creator
- * field set to null. Memory is allocated with this
- * function and can be freed by cMsgFreeMessage().
+ * This routine copies the given message, sets the creator
+ * field to null, and is marked as NOT having been sent.
+ * Memory is allocated with this function and can be freed by cMsgFreeMessage().
  *
  * @param vmsg pointer to message being copied
  *
@@ -2850,6 +2850,8 @@ void *cMsgCreateNewMessage(const void *vmsg) {
         free(newMsg->creator);
         newMsg->creator = NULL;
     }
+    
+    mewMsg->info = newMsg->info & ~CMSG_WAS_SENT;
     
     return (void *)newMsg;
 }
