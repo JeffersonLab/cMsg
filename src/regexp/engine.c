@@ -822,7 +822,7 @@ register states aft;		/* states already known reachable after */
 	register sopno pc;
 	register onestate here;		/* note, macros know this name */
 	register sopno look;
-	register long i;
+	register int i;
 
 	for (pc = start, INIT(here, pc); pc != stop; pc++, INC(here)) {
 		s = g->strip[pc];
@@ -977,7 +977,7 @@ sopno stopst;
 
 	printf("%s %s-", title, pchar(*start));
 	printf("%s ", pchar(*stop));
-	printf("%ld-%ld\n", (long)startst, (long)stopst);
+	printf("%d-%d\n", (int)startst, (int)stopst);
 }
 
 #ifndef PCHARDONE
