@@ -2851,7 +2851,7 @@ void *cMsgCreateNewMessage(const void *vmsg) {
         newMsg->creator = NULL;
     }
     
-    mewMsg->info = newMsg->info & ~CMSG_WAS_SENT;
+    newMsg->info = newMsg->info & ~CMSG_WAS_SENT;
     
     return (void *)newMsg;
 }
