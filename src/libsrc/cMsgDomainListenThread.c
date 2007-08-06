@@ -49,8 +49,8 @@ static void *clientThread(void *arg);
 static void  cleanUpHandler(void *arg);
 static void  cleanUpClientHandler(void *arg);
 static int   cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *acknowledge);
-static int   cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage_t *msg);
-static int   cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg);
+static int   cMsgRunCallbacks(cMsgDomainInfo *domain, void *msg);
+static int   cMsgWakeGet(cMsgDomainInfo *domain, void *msg);
 static int   sendMonitorInfo(cMsgDomainInfo *domain, char *buffer, int connfd);
 
 /** Structure for freeing memory and closing socket in cleanUpClientHandler. */
@@ -494,6 +494,7 @@ static void *clientThread(void *arg)
 
       case CMSG_SUBSCRIBE_RESPONSE:
       {
+          void *msg;
           cMsgMessage_t *message;
           
           /* disable pthread cancellation until message memory is released or
@@ -503,7 +504,8 @@ static void *clientThread(void *arg)
             cmsg_err_abort(status, "Disabling client cancelability");
           }
           
-          message = (cMsgMessage_t *) cMsgCreateMessage();
+          msg = cMsgCreateMessage();
+          message = (cMsgMessage_t *) msg;
           if (message == NULL) {
             if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
               fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
@@ -533,7 +535,7 @@ static void *clientThread(void *arg)
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread %d: error reading message\n", localCount);
             }
-            cMsgFreeMessage((void **) &message);
+            cMsgFreeMessage(&msg);
             goto end;
           }
           
@@ -544,13 +546,13 @@ static void *clientThread(void *arg)
               if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                 fprintf(stderr, "clientThread %d: write failure\n", localCount);
               }
-              cMsgFreeMessage((void **) &message);
+              cMsgFreeMessage(&msg);
               goto end;
             }
           }       
 
           /* run callbacks for this message */
-          err = cMsgRunCallbacks(domain, message);
+          err = cMsgRunCallbacks(domain, msg);
           if (err != CMSG_OK) {
             if (err == CMSG_OUT_OF_MEMORY) {
               if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -562,7 +564,7 @@ static void *clientThread(void *arg)
                 fprintf(stderr, "clientThread %d: too many messages cued up\n", localCount);
               }
             }
-            cMsgFreeMessage((void **) &message);
+            cMsgFreeMessage(&msg);
             goto end;
           }
           
@@ -576,6 +578,7 @@ static void *clientThread(void *arg)
 
       case CMSG_GET_RESPONSE:
       {
+          void *msg;
           cMsgMessage_t *message;
           
           /* disable pthread cancellation until message memory is released or
@@ -585,7 +588,8 @@ static void *clientThread(void *arg)
             cmsg_err_abort(status, "Disabling client cancelability");
           }
           
-          message = (cMsgMessage_t *) cMsgCreateMessage();
+          msg = cMsgCreateMessage();
+          message = (cMsgMessage_t *) msg;
           if (message == NULL) {
             if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
               fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
@@ -615,7 +619,7 @@ static void *clientThread(void *arg)
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread %d: error reading message\n", localCount);
             }
-            cMsgFreeMessage((void **) &message);
+            cMsgFreeMessage(&msg);
             goto end;
           }
           
@@ -626,13 +630,13 @@ static void *clientThread(void *arg)
               if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                 fprintf(stderr, "clientThread %d: write failure\n", localCount);
               }
-              cMsgFreeMessage((void **) &message);
+              cMsgFreeMessage(&msg);
               goto end;
             }
           }       
 
           /* wakeup get caller for this message */
-          cMsgWakeGet(domain, message);
+          cMsgWakeGet(domain, msg);
           
           /* re-enable pthread cancellation */
           status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
@@ -712,6 +716,7 @@ static void *clientThread(void *arg)
       /* from RC Broadcast server only */
       case  CMSG_RC_CONNECT:
       {
+          void *msg;
           cMsgMessage_t *message;
           int len, netLenName, lenName;
           char *pchar;
@@ -724,7 +729,8 @@ static void *clientThread(void *arg)
             cmsg_err_abort(status, "Disabling client cancelability");
           }
           
-          message = (cMsgMessage_t *) cMsgCreateMessage();
+          msg = cMsgCreateMessage();
+          message = (cMsgMessage_t *) msg;
           if (message == NULL) {
             if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
               fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
@@ -741,7 +747,7 @@ static void *clientThread(void *arg)
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread %d: error reading message\n", localCount);
             }
-            cMsgFreeMessage((void **) &message);
+            cMsgFreeMessage(&msg);
             goto end;
           }
           
@@ -765,7 +771,7 @@ static void *clientThread(void *arg)
           }
           
           /* now free message */
-          cMsgFreeMessage((void **) &message);
+          cMsgFreeMessage(&msg);
           
           /* re-enable pthread cancellation */
           status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
@@ -1314,10 +1320,11 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
  * This routine wakes up the appropriate sendAndGet
  * when a message arrives from the server. 
  */
-static int cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
+static int cMsgWakeGet(cMsgDomainInfo *domain, void *message) {
 
   int i, status, delivered=0;
-  getInfo *info;  
+  getInfo *info;
+  cMsgMessage_t *msg = (cMsgMessage_t *)message;
    
   /* find the right get */
   for (i=0; i<CMSG_MAX_SEND_AND_GET; i++) {
@@ -1348,7 +1355,7 @@ static int cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
   }
   
   if (!delivered) {
-    cMsgFreeMessage((void **) &msg);
+    cMsgFreeMessage(&message);
   }
   
   return (CMSG_OK);
@@ -1361,13 +1368,14 @@ static int cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
  * This routine runs all the appropriate subscribe and subscribeAndGet
  * callbacks when a message arrives from the server. 
  */
-static int cMsgRunCallbacks(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
+static int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
 
   int i, j, k, status, goToNextCallback;
   subscribeCbInfo *cback;
   getInfo *info;
-  cMsgMessage_t *message, *oldHead;
+  cMsgMessage_t *message, *oldHead, *msg = (cMsgMessage_t *)msgArg;
   struct timespec wait, timeout;
+  void *p;
     
 
   /* wait 60 sec between warning messages for a full cue */
@@ -1421,7 +1429,7 @@ printf("                  TYPE    = msg (%s), subscription (%s)\n",
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "cMsgRunCallbacks: all callbacks have been stopped\n");
     }
-    cMsgFreeMessage((void **) &msg);
+    cMsgFreeMessage(&msgArg);
     return (CMSG_OK);
   }
    
@@ -1490,7 +1498,8 @@ fprintf(stderr, "cMsgRunCallbacks: will grab mutex, %p\n", &cback->mutex); */
               for (k=0; k < cback->config.skipSize; k++) {
                 oldHead = cback->head;
                 cback->head = cback->head->next;
-                cMsgFreeMessage((void **)&oldHead);
+                p = (void *)oldHead; /* get rid of compiler warnings */
+                cMsgFreeMessage(&p);
                 cback->messages--;
                 if (cback->head == NULL) break;
               }
@@ -1521,7 +1530,8 @@ fprintf(stderr, "cMsgRunCallbacks: will grab mutex, %p\n", &cback->mutex); */
                   /* Check to see if server died and this thread is being killed. */
                   if (domain->killClientThread == 1) {
                     cMsgSubscribeMutexUnlock(domain);
-                    cMsgFreeMessage((void **) &message);
+                    p = (void *)message; /* get rid of compiler warnings */
+                    cMsgFreeMessage(&p);
 /* fprintf(stderr, "cMsgRunCallbacks: told to die GRACEFULLY so return error\n"); */
                     return(CMSG_SERVER_DIED);
                   }
@@ -1539,7 +1549,8 @@ fprintf(stderr, "cMsgRunCallbacks: will grab mutex, %p\n", &cback->mutex); */
                    */
                   if (cback->active == 0) {
 	            /* if there is no callback anymore, dump message, look at next callback */
-                    cMsgFreeMessage((void **) &message);
+                    p = (void *)message; /* get rid of compiler warnings */
+                    cMsgFreeMessage(&p);
                     goToNextCallback = 1;                     
 /* fprintf(stderr, "cMsgRunCallbacks: unsubscribe during pthread_cond_wait\n"); */
                     break;                      
@@ -1615,7 +1626,7 @@ printf("cMsgRunCallbacks: will UNLOCK mutex\n"); */
   cMsgSubscribeMutexUnlock(domain);
   
   /* Need to free up msg allocated by client's listening thread */
-  cMsgFreeMessage((void **) &msg);
+  cMsgFreeMessage(&msgArg);
   
   return (CMSG_OK);
 }
