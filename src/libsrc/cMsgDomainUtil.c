@@ -1095,6 +1095,7 @@ void *cMsgCallbackThread(void *arg)
     int numMsgs, numThreads;
     cMsgMessage_t *msg, *nextMsg;
     pthread_t thd;
+    void *p;
     
     /* time_t now, t; *//* for printing msg cue size periodically */
     
@@ -1167,7 +1168,8 @@ void *cMsgCallbackThread(void *arg)
           msg = cback->head; /* get first message in linked list */
           while (msg != NULL) {
             nextMsg = msg->next;
-            cMsgFreeMessage((void **) &msg);
+            p = (void *)msg; /* get rid of compiler warnings */
+            cMsgFreeMessage(&p);
             msg = nextMsg;
           }
           
@@ -1221,7 +1223,8 @@ void *cMsgCallbackThread(void *arg)
           msg = cback->head; /* get first message in linked list */
           while (msg != NULL) {
             nextMsg = msg->next;
-            cMsgFreeMessage((void **) &msg);
+            p = (void *)msg; /* get rid of compiler warnings */
+            cMsgFreeMessage(&p);
             msg = nextMsg;
           }
           
@@ -1323,6 +1326,7 @@ void *cMsgSupplementalThread(void *arg)
     int status, empty;
     cMsgMessage_t *msg, *nextMsg;
     struct timespec wait, timeout;
+    void *p;
     
     /* increase concurrency for this thread for early Solaris */
     int  con;
@@ -1356,7 +1360,8 @@ void *cMsgSupplementalThread(void *arg)
           msg = cback->head; /* get first message in linked list */
           while (msg != NULL) {
             nextMsg = msg->next;
-            cMsgFreeMessage((void **) &msg);
+            p = (void *)msg; /* get rid of compiler warnings */
+            cMsgFreeMessage(&p);
             msg = nextMsg;
           }
           
@@ -1421,7 +1426,8 @@ void *cMsgSupplementalThread(void *arg)
           msg = cback->head; /* get first message in linked list */
           while (msg != NULL) {
             nextMsg = msg->next;
-            cMsgFreeMessage((void **) &msg);
+            p = (void *)msg; /* get rid of compiler warnings */
+            cMsgFreeMessage(&p);
             msg = nextMsg;
           }
           
