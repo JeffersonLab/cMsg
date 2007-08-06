@@ -4235,6 +4235,7 @@ static void *keepAliveThread(void *arg)
     int connectFailures = 0;
     int weGotAConnection = 1; /* true */
     struct timespec wait;
+    void *p;
     
     /* increase concurrency for this thread for early Solaris */
     int  con;
@@ -4362,7 +4363,8 @@ static void *keepAliveThread(void *arg)
     }
     
 /* printf("\n\n\nka: DISCONNECTING \n\n\n"); */            
-    disconnectFromKeepAlive((void **) &domain);
+    p = (void *)domain; /* get rid of compiler warnings */
+    disconnectFromKeepAlive(&p);
     
     sun_setconcurrency(con);
     
