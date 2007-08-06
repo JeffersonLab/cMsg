@@ -3952,7 +3952,7 @@ int cMsgToString(const void *vmsg, char **string) {
   time_t now;
   char nowBuf[32],userTimeBuf[32],senderTimeBuf[32],receiverTimeBuf[32];
 #ifdef VXWORKS
-  size_t len=sizeof(nowBuf);
+  size_t vxlen=sizeof(nowBuf);
 #endif
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
@@ -3961,10 +3961,10 @@ int cMsgToString(const void *vmsg, char **string) {
   /* get times in ascii and remove newlines */
   now=time(NULL);
 #ifdef VXWORKS
-  ctime_r(&now,nowBuf,&len);                                nowBuf[strlen(nowBuf)-1]='\0';
-  ctime_r(&msg->senderTime.tv_sec,senderTimeBuf,&len);      senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
-  ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf,&len);  receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
-  ctime_r(&msg->userTime.tv_sec,userTimeBuf,&len);          userTimeBuf[strlen(userTimeBuf)-1]='\0';
+  ctime_r(&now,nowBuf,&vxlen);                                nowBuf[strlen(nowBuf)-1]='\0';
+  ctime_r(&msg->senderTime.tv_sec,senderTimeBuf,&vxlen);      senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
+  ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf,&vxlen);  receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
+  ctime_r(&msg->userTime.tv_sec,userTimeBuf,&vxlen);          userTimeBuf[strlen(userTimeBuf)-1]='\0';
 #else
   ctime_r(&now,nowBuf);                               nowBuf[strlen(nowBuf)-1]='\0';
   ctime_r(&msg->senderTime.tv_sec,senderTimeBuf);     senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
