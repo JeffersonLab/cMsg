@@ -105,8 +105,9 @@
 #ifndef _cMsgConstants_h
 #include "cMsgConstants.h"
 #endif
+#ifndef VXWORKS
 #include <inttypes.h>
-
+#endif
 
 /** Subscribe configuration. */
 typedef void *cMsgSubscribeConfig;
@@ -229,8 +230,8 @@ extern "C" {
   int    cMsgSetPayloadFromText      (      void *vmsg, const char *text);
   int    cMsgSetSystemFieldsFromText (      void *vmsg, const char *text);
   int    cMsgSetAllFieldsFromText    (      void *vmsg, const char *text);
-  int    cMsgHasPayload              (const void *vmsg, int *hasPayload);
   char  *cMsgGetPayloadText          (const void *vmsg);
+  int    cMsgHasPayload              (const void *vmsg, int *hasPayload);
   int    cMsgCopyPayload             (const void *vmsgFrom, void *vmsgTo);
   const char *cMsgGetFieldDescription(const void *vmsg);
   
