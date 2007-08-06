@@ -14,6 +14,10 @@ using namespace std;
 
 // for cMsg
 #include <cMsg.hxx>
+#ifndef VXWORKS
+#include <strings.h> // for strncasecmp
+#endif
+
 using namespace cmsg;
 
 
