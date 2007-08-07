@@ -198,6 +198,42 @@ int strcasecmp(const char *s1, const char *s2) {
   return 0;
 }
 
+/** Implementation of strncasecmp for vxWorks. */
+int strncasecmp(const char *s1, const char *s2, size_t n) {
+  int i, len1, len2;
+  
+  /* handle NULL's */
+  if (s1 == NULL && s2 == NULL) {
+    return 0;
+  }
+  else if (s1 == NULL) {
+    return -1;  
+  }
+  else if (s2 == NULL) {
+    return 1;  
+  }
+  
+  len1 = strlen(s1);
+  len2 = strlen(s2);
+    
+  /* handle short lengths */
+  if (len1 < n || len2 < n) {
+    return strcasecmp(s1, s2);
+  }  
+   
+  /* both lengths >= n, but compare only n chars */
+  for (i=0; i<n; i++) {
+    if (toupper((int) s1[i]) < toupper((int) s2[i])) {
+      return -1;
+    }
+    else if (toupper((int) s1[i]) > toupper((int) s2[i])) {
+       return 1;   
+    }
+  }
+  
+  return 0;
+}
+
 #endif
 
 /*-------------------------------------------------------------------*/
