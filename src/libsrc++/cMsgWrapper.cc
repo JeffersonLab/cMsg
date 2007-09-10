@@ -343,7 +343,7 @@ cMsgMessage::~cMsgMessage(void) {
  */
 string cMsgMessage::getSubject(void) const throw(cMsgException) {
 
-  char *s;
+  const char *s;
 
   int stat;
   if((stat=cMsgGetSubject(myMsgPointer,&s))!=CMSG_OK) {
@@ -353,9 +353,7 @@ string cMsgMessage::getSubject(void) const throw(cMsgException) {
   if(s==NULL) {
     return("null");
   } else {
-    string ss = string(s);
-    free(s);
-    return(ss);
+    return(string(s));
   }
 }
 
