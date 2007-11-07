@@ -183,7 +183,7 @@ int cmsg_file_send(void *domainId, const void *vmsg) {
 
   /* write msg to file */
   if(fdi->textOnly!=0) {
-    cMsgToString(vmsg,&s);
+    cMsgToString(vmsg,&s, 0);
     stat = fwrite(s,strlen(s),1,fdi->file);
     free(s);
   } else {

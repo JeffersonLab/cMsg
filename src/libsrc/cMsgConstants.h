@@ -93,11 +93,11 @@ enum {
 
 
 /** End of payload. */
-#define CMSG_CP_END -999
+#define CMSG_CP_END 99999999
 /** After payload item marker. */
-#define CMSG_CP_MARKER -888
+#define CMSG_CP_MARKER 99998888
 /** Payload item after marker. */
-#define CMSG_CP_NEXT -777
+#define CMSG_CP_NEXT 99997777
 
 /** Type codes for compound payloads.
  *  Make these all 2 digits for ease in net protocol.
@@ -114,6 +114,8 @@ enum {
   CMSG_CP_UINT16,      /**< unsigned 16 bit int. */
   CMSG_CP_UINT32,      /**< unsigned 32 bit int. */
   CMSG_CP_UINT64,      /**< unsigned 64 bit int. */
+  CMSG_CP_MSG,         /**< cMsg message. */
+  CMSG_CP_BIN,         /**< binary. */
 
   CMSG_CP_STR_A,       /**< String array. */
   CMSG_CP_FLT_A,       /**< 4 byte float array. */
@@ -125,7 +127,8 @@ enum {
   CMSG_CP_UINT8_A,     /**< unsigned  8 bit int array. */
   CMSG_CP_UINT16_A,    /**< unsigned 16 bit int array. */
   CMSG_CP_UINT32_A,    /**< unsigned 32 bit int array. */
-  CMSG_CP_UINT64_A     /**< unsigned 64 bit int array. */
+  CMSG_CP_UINT64_A,    /**< unsigned 64 bit int array. */
+  CMSG_CP_MSG_A        /**< cMsg message array. */
 };
 
 

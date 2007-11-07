@@ -130,6 +130,8 @@ static void  connectMutexLock(void);
 static void  connectMutexUnlock(void);
 static void  initMessage(cMsgMessage_t *msg);
 static int   freeMessage(void *vmsg);
+static int   messageStringSize(const void *vmsg, int level, int binary);
+static int   cMsgToString2(void *vmsg, char **string, int level, int binary);
 
 
 
@@ -2777,7 +2779,7 @@ int cMsgFreeMessage(void **vmsg) {
     /* copy over binary data */
     /*-----------------------*/
     
-    /* copy byte array */
+   /* copy byte array */
     if (msg->byteArray != NULL) {
       /* if byte array was copied into msg, copy it again */
       if ((msg->bits & CMSG_BYTE_ARRAY_IS_COPIED) > 0) {
@@ -3154,7 +3156,7 @@ int cMsgGetGetRequest(const void *vmsg, int *getRequest) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgGetDomain(const void *vmsg, char **domain) {
+int cMsgGetDomain(const void *vmsg, const char **domain) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3185,7 +3187,7 @@ int cMsgGetDomain(const void *vmsg, char **domain) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgGetCreator(const void *vmsg, char **creator) {
+int cMsgGetCreator(const void *vmsg, const char **creator) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3238,7 +3240,7 @@ int cMsgSetSubject(void *vmsg, const char *subject) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgGetSubject(const void *vmsg, char **subject) {
+int cMsgGetSubject(const void *vmsg, const char **subject) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3291,7 +3293,7 @@ int cMsgSetType(void *vmsg, const char *type) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgGetType(const void *vmsg, char **type) {
+int cMsgGetType(const void *vmsg, const char **type) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3344,7 +3346,7 @@ int cMsgSetText(void *vmsg, const char *text) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgGetText(const void *vmsg, char **text) {
+int cMsgGetText(const void *vmsg, const char **text) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3781,7 +3783,7 @@ int cMsgGetByteArray(const void *vmsg, char **array) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgGetSender(const void *vmsg, char **sender) {
+int cMsgGetSender(const void *vmsg, const char **sender) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3809,7 +3811,7 @@ int cMsgGetSender(const void *vmsg, char **sender) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgGetSenderHost(const void *vmsg, char **senderHost) {
+int cMsgGetSenderHost(const void *vmsg, const char **senderHost) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3859,7 +3861,7 @@ int cMsgGetSenderTime(const void *vmsg, struct timespec *senderTime) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgGetReceiver(const void *vmsg, char **receiver) {
+int cMsgGetReceiver(const void *vmsg, const char **receiver) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3888,7 +3890,7 @@ int cMsgGetReceiver(const void *vmsg, char **receiver) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgGetReceiverHost(const void *vmsg, char **receiverHost) {
+int cMsgGetReceiverHost(const void *vmsg, const char **receiverHost) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -3924,7 +3926,160 @@ int cMsgGetReceiverTime(const void *vmsg, struct timespec *receiverTime) {
   return (CMSG_OK);
 }
 
+/*-------------------------------------------------------------------
+ * Format strings used to create the XML representation of a message
+ *-------------------------------------------------------------------*/
+
+static char *format1 =
+    "%s<cMsgMessage date=\"%s\"\n"
+    "%s     version         = \"%d\"\n"
+    "%s     domain          = \"%s\"\n"
+    "%s     getRequest      = \"%s\"\n"
+    "%s     getResponse     = \"%s\"\n"
+    "%s     nullGetResponse = \"%s\"\n"
+    "%s     creator         = \"%s\"\n"
+    "%s     sender          = \"%s\"\n"
+    "%s     senderHost      = \"%s\"\n"
+    "%s     senderTime      = \"%s\"\n"
+    "%s     userInt         = \"%d\"\n"
+    "%s     userTime        = \"%s\"\n"
+    "%s     receiver        = \"%s\"\n"
+    "%s     receiverHost    = \"%s\"\n"
+    "%s     receiverTime    = \"%s\"\n"
+    "%s     subject         = \"%s\"\n"
+    "%s     type            = \"%s\">\n"
+    "%s     <text>\n"
+    "<![CDATA[%s]]>\n"
+    "%s     </text>\n"
+    "%s     <binary endian=\"%s\">\n"
+    "<![CDATA[%s]]>\n"
+    "%s     </binary>\n"
+    "%s     <payload>\n"
+    "%n";
+    
+static char *format1a =
+    "%s<cMsgMessage date=\"%s\"\n"
+    "%s     version         = \"%d\"\n"
+    "%s     domain          = \"%s\"\n"
+    "%s     getRequest      = \"%s\"\n"
+    "%s     getResponse     = \"%s\"\n"
+    "%s     nullGetResponse = \"%s\"\n"
+    "%s     creator         = \"%s\"\n"
+    "%s     sender          = \"%s\"\n"
+    "%s     senderHost      = \"%s\"\n"
+    "%s     senderTime      = \"%s\"\n"
+    "%s     userInt         = \"%d\"\n"
+    "%s     userTime        = \"%s\"\n"
+    "%s     receiver        = \"%s\"\n"
+    "%s     receiverHost    = \"%s\"\n"
+    "%s     receiverTime    = \"%s\"\n"
+    "%s     subject         = \"%s\"\n"
+    "%s     type            = \"%s\">\n"
+    "%s     <text>\n"
+    "<![CDATA[%s]]>\n"
+    "%s     </text>\n"
+    "%s     <binary endian=\"%s\">\n"
+    "<![CDATA[%n";
+    
+static char *format1b =
+    "]]>\n"
+    "%s     </binary>\n"
+    "%s     <payload>\n"
+    "%n";
+    
+static char *format2 =
+    "%s     </payload>\n"
+    "%s</cMsgMessage>\n%n";
+      
+static char *stringInArrayFormat = "%s               <string> <![CDATA[%s]]> </string>\n%n";
+static char *singleStringFormat  = "%s          <string name=\"%s\"> <![CDATA[%s]]> </string>\n%n";
+static char *binaryFormat        = "%s          <binary name=\"%s\" endian=\"%s\"> <![CDATA[%s]]> </binary>\n%n";
+static char *binaryFormata       = "%s          <binary name=\"%s\" endian=\"%s\"> <![CDATA[%n";
+static char *binaryFormatb       = "]]> </binary>\n%n";
+
 /*-------------------------------------------------------------------*/
+/**
+ * This routine calculate the amount of memory in bytes needed to hold the
+ * message in a printable string. There is always
+ * a danger that the message could be changed in another thread as it is being
+ * transformed into XML. Since nothing is mutex protected here, that may lead
+ * to segmentation faults.
+ *
+ * @param vmsg pointer to message
+ * @param level the level of indent (0 = none)
+ * @param binary includes binary as ASCII if true, else binary is ignored
+ *
+ * @returns number of bytes if successful
+ * @returns -1 if error
+ */   
+static int messageStringSize(const void *vmsg, int level, int binary) {
+  payloadItem *item;
+  int slen, len;
+  int payloadLen=0;        /* the whole payload length in chars */
+  int formatItemStrLen=50 +   level*10; /* Max XML chars surrounding single string item minus fields */
+  int formatItemBinLen=60 +   level*10; /* Max XML chars surrounding binary item minus fields */
+  int formatItemNumLen=68 + 2*level*10; /* Max XML chars surrounding numeric item/array minus fields */
+  int formatLen = strlen(format1) + strlen(format2) + 23*level*10;
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+  if (msg == NULL) return(-1);
+  
+  /* get string len */
+  slen=formatLen;
+  if(msg->domain!=NULL)        slen += strlen(msg->domain);
+  if(msg->creator!=NULL)       slen += strlen(msg->creator);
+  if(msg->sender!=NULL)        slen += strlen(msg->sender);
+  if(msg->senderHost!=NULL)    slen += strlen(msg->senderHost);
+  if(msg->receiver!=NULL)      slen += strlen(msg->receiver);
+  if(msg->receiverHost!=NULL)  slen += strlen(msg->receiverHost);
+  if(msg->subject!=NULL)       slen += strlen(msg->subject);
+  if(msg->type!=NULL)          slen += strlen(msg->type);
+  if(msg->text!=NULL)          slen += strlen(msg->text);
+  
+  if(binary && msg->byteArray != NULL && msg->byteArrayLength > 0) {
+    slen += cMsg_b64_encode_len(msg->byteArray + msg->byteArrayOffset, msg->byteArrayLength);
+  }
+  
+  /* calculate payload length */
+  item = msg->payload;
+  while (item != NULL) {
+    
+    /* add length of XML surrounding each element */
+    if (item->type == CMSG_CP_STR) {
+      payloadLen += item->length + formatItemStrLen;
+    }
+    else if (item->type == CMSG_CP_STR_A) {
+      payloadLen += item->length + formatItemNumLen + formatItemStrLen * item->count;
+    }
+    else if (item->type == CMSG_CP_BIN) {
+      if (binary) {
+        /* this has already been converted into text and size is at most item->length */
+        payloadLen += item->length + formatItemBinLen;
+      }
+    }
+    else if (item->type == CMSG_CP_MSG) {
+      len = messageStringSize(item->array, level+1, binary);
+/*printf("messageStringSize: level %d msg size = %d\n",level+1,len);*/
+      if (len < 0) return(len);
+      payloadLen += len;
+    }
+    /* if numbers or arrays of numbers ... */
+    else {
+      /* XML + (indent) * (# rows of 5 numbers each) */
+      payloadLen += item->length + formatItemNumLen + (15 + level*10)*(item->count/5 + 1);
+      /* extra spaces in int8 and int16 for nice looking printout */
+      if (item->type == CMSG_CP_INT8_A || item->type == CMSG_CP_UINT8_A) payloadLen += 2*item->count;
+      else if (item->type == CMSG_CP_INT16_A || item->type == CMSG_CP_UINT16_A) payloadLen += 4*item->count;
+    }
+    item = item->next;
+  }
+  /* 1k account for everything else */
+/*printf("messageStringSize: level %d, slen = %d, payload len = %d, total len = %d \n",
+                   level, slen, payloadLen, slen + payloadLen + 1024);*/
+  slen += payloadLen + 1024;
+  return(slen);
+}
+
 /*-------------------------------------------------------------------*/
 
 
@@ -3935,7 +4090,12 @@ int cMsgGetReceiverTime(const void *vmsg, struct timespec *receiverTime) {
  * to segmentation faults.
  *
  * @param vmsg pointer to message
- * @param string is pointer to char* that will hold the malloc'd string
+ * @param string is pointer to char* that will hold the malloc'd string if level = 0,
+ *               otherwise this arg is the pointer to a pointer into an existing buffer
+ *               which gets filled and which will change the pointer and return it as
+ *               the end of its additions (for recursive messaging)
+ * @param level the level of indent or recursive messaging (0 = none)
+ * @param binary includes binary as ASCII if true (!=0), else binary is ignored
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if internal payload parsing error,
@@ -3943,48 +4103,10 @@ int cMsgGetReceiverTime(const void *vmsg, struct timespec *receiverTime) {
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  */   
-int cMsgToString(const void *vmsg, char **string) {
+static int cMsgToString2(void *vmsg, char **string, int level, int binary) {
 
-  payloadItem *item;
-  int j, ok, place, type, slen, len, count;
-  int payloadLen=0;        /* the whole payload length in chars */
-  int formatItemStrLen=50; /* Max XML chars surrounding single string item */
-  int formatItemNumLen=68; /* Max XML chars surrounding numeric item/array */
-    
-  char *format1 =
-    "<cMsgMessage date=\"%s\"\n"
-    "     version         = \"%d\"\n"
-    "     domain          = \"%s\"\n"
-    "     getRequest      = \"%s\"\n"
-    "     getResponse     = \"%s\"\n"
-    "     nullGetResponse = \"%s\"\n"
-    "     creator         = \"%s\"\n"
-    "     sender          = \"%s\"\n"
-    "     senderHost      = \"%s\"\n"
-    "     senderTime      = \"%s\"\n"
-    "     userInt         = \"%d\"\n"
-    "     userTime        = \"%s\"\n"
-    "     receiver        = \"%s\"\n"
-    "     receiverHost    = \"%s\"\n"
-    "     receiverTime    = \"%s\"\n"
-    "     subject         = \"%s\"\n"
-    "     type            = \"%s\">\n"
-    "     <text>\n"
-    "<![CDATA[%s]]>\n"
-    "     </text>\n"
-    "     <payload>\n"
-    "%n";
-    
-  char *format2 =
-    "     </payload>\n"
-    "</cMsgMessage>\n\n";
-      
-  char *stringInArrayFormat = "               <string> <![CDATA[%s]]> </string>\n%n";
-  char *singleStringFormat  = "          <string name=\"%s\"> <![CDATA[%s]]> </string>\n%n";
-    
-  int formatLen = strlen(format1) + strlen(format2);
-
-  char *buffer, *pchar, *name;
+  int j, ok, place, type, slen, len, count;  
+  char *buffer=NULL, *pchar, *name, *indent;
   time_t now;
   char nowBuf[32],userTimeBuf[32],senderTimeBuf[32],receiverTimeBuf[32];
 #ifdef VXWORKS
@@ -4008,56 +4130,72 @@ int cMsgToString(const void *vmsg, char **string) {
   ctime_r(&msg->userTime.tv_sec,userTimeBuf);         userTimeBuf[strlen(userTimeBuf)-1]='\0';
 #endif
 
-  /* get string len */
-  slen=formatLen;
-  if(msg->domain!=NULL)        slen+=strlen(msg->domain);
-  if(msg->creator!=NULL)       slen+=strlen(msg->creator);
-  if(msg->sender!=NULL)        slen+=strlen(msg->sender);
-  if(msg->senderHost!=NULL)    slen+=strlen(msg->senderHost);
-  if(msg->receiver!=NULL)      slen+=strlen(msg->receiver);
-  if(msg->receiverHost!=NULL)  slen+=strlen(msg->receiverHost);
-  if(msg->subject!=NULL)       slen+=strlen(msg->subject);
-  if(msg->type!=NULL)          slen+=strlen(msg->type);
-  if(msg->text!=NULL)          slen+=strlen(msg->text);
-  
-  /* calculate payload length */
-  item = msg->payload;
-  while (item != NULL) {
-    /* # chars in strings/numbers */
-    payloadLen += item->length;
-    /* add length of XML surrounding each element */
-    if (item->type == CMSG_CP_STR) {
-      payloadLen += formatItemStrLen;
+  /* Allocate and zero buffer if first level only. */
+  if (level < 1) {
+    /* get string len */
+    slen= messageStringSize(vmsg, level, binary);
+/*printf("cMsgToString2: length of buffer needed = %d\n", slen);*/
+    pchar = buffer = (char*)calloc(1, slen);
+    if (buffer == NULL) {
+      if (level > 0) free(indent);
+      return(CMSG_OUT_OF_MEMORY);
     }
-    else if (item->type == CMSG_CP_STR_A) {
-      payloadLen += formatItemNumLen + formatItemStrLen * item->count;
-    }
-    else {
-       /* XML + (indent * # rows of 5 numbers each) */
-      payloadLen += formatItemNumLen + 15*(item->count/5 + 1);
-      /* extra spaces in int8 and int16 for nice looking printout */
-      if (item->type == CMSG_CP_INT8_A || item->type == CMSG_CP_UINT8_A) payloadLen += 2*item->count;
-      else if (item->type == CMSG_CP_INT16_A || item->type == CMSG_CP_UINT16_A) payloadLen += 4*item->count;
-    }
-    item = item->next;
+    indent = "";
   }
-  /* 1k account for everything else */
-  slen += payloadLen + 1024;
+  /* Otherwise use an existing buffer. */
+  else {
+    pchar = *string;
+    buffer = pchar;
+    
+    /* Create the indent since a message may contain a message, etc. */
+    indent = (char *)malloc(level*10+1);
+    for (j=0; j<level*10; j++) {
+      indent[j] = '\040'; /* ASCII space = char #32 (40 octal) */
+    }
+    indent[level*10] = '\0';
+  }
 
-  /* allocate and zero buffer */
-  pchar = buffer = (char*)calloc(1, slen);
-  if (buffer == NULL) return(CMSG_OUT_OF_MEMORY);
-  
   /* fill buffer with everything except payload and ending XML */
-  sprintf(buffer,format1,
-          nowBuf,msg->version,msg->domain,
-          ((msg->info & CMSG_IS_GET_REQUEST)!=0)?"true":"false",
-          ((msg->info & CMSG_IS_GET_RESPONSE)!=0)?"true":"false",
-          ((msg->info & CMSG_IS_NULL_GET_RESPONSE)!=0)?"true":"false",
-          msg->creator,msg->sender,msg->senderHost,senderTimeBuf,
-          msg->userInt,userTimeBuf,
-          msg->receiver,msg->receiverHost,receiverTimeBuf,
-          msg->subject,msg->type,msg->text, &len);
+  if (binary && msg->byteArray != NULL && msg->byteArrayLength > 0) {
+    int   endian;
+    char *endianTxt;
+    
+    cMsgGetByteArrayEndian(vmsg, &endian);
+    if (endian == CMSG_ENDIAN_BIG) endianTxt = "big";
+    else endianTxt = "little";
+    
+    sprintf(pchar, format1a,
+            indent, nowBuf, indent, msg->version, indent, msg->domain,
+            indent, ((msg->info & CMSG_IS_GET_REQUEST)!=0)?"true":"false",
+            indent, ((msg->info & CMSG_IS_GET_RESPONSE)!=0)?"true":"false",
+            indent, ((msg->info & CMSG_IS_NULL_GET_RESPONSE)!=0)?"true":"false",
+            indent, msg->creator, indent, msg->sender,
+            indent, msg->senderHost, indent, senderTimeBuf,
+            indent, msg->userInt, indent, userTimeBuf,
+            indent, msg->receiver,indent, msg->receiverHost, indent, receiverTimeBuf,
+            indent, msg->subject, indent, msg->type, indent, msg->text, indent,
+            indent, endianTxt, &len);
+    pchar += len;
+    
+    count = cMsg_b64_encode(msg->byteArray + msg->byteArrayOffset, msg->byteArrayLength, pchar);
+    pchar += count;
+    
+    sprintf(pchar, format1b, indent, indent, &len);
+    pchar += len;    
+  }
+  else {
+    sprintf(pchar, format1,
+            indent, nowBuf, indent, msg->version, indent, msg->domain,
+            indent, ((msg->info & CMSG_IS_GET_REQUEST)!=0)?"true":"false",
+            indent, ((msg->info & CMSG_IS_GET_RESPONSE)!=0)?"true":"false",
+            indent, ((msg->info & CMSG_IS_NULL_GET_RESPONSE)!=0)?"true":"false",
+            indent, msg->creator, indent, msg->sender,
+            indent, msg->senderHost, indent, senderTimeBuf,
+            indent, msg->userInt, indent, userTimeBuf,
+            indent, msg->receiver,indent, msg->receiverHost, indent, receiverTimeBuf,
+            indent, msg->subject, indent, msg->type, indent, msg->text, indent,
+            indent, "big", NULL, indent, indent, &len);  
+  }
   
   pchar += len;
   
@@ -4065,193 +4203,243 @@ int cMsgToString(const void *vmsg, char **string) {
   ok = cMsgFirstField(msg);
   if (!ok) {
     /* no payload so finish up and return */
-    sprintf(pchar, "          (null)\n%n", &len);
+    sprintf(pchar, "%s          (null)\n%n", indent, &len);
     pchar += len;
-    sprintf(pchar, format2);
+    sprintf(pchar, format2, indent, indent, &len);
+    pchar += len;
     /* hand newly allocated buffer off to user */
-    *string = buffer;
+    if (level < 1) {
+      *string = buffer;
+    }
+    /* or else hand pointer into the old buffer back to caller */
+    else  {
+       free(indent);
+      *string = pchar;
+    }
     return(CMSG_OK);
   }
   
   /* remember marker */
   ok = cMsgGetFieldPosition(msg, &place);
   if (ok != CMSG_OK) {
-    free(buffer);
+    if (level < 1) free(buffer); else free(indent);
     printf("Internal error in message handling.\n");
     return(CMSG_ERROR);
   }
 
   do {
     ok = cMsgGetFieldType(msg, &type);
-    if (ok != CMSG_OK) {free(buffer); return(CMSG_ERROR);}
+    if(ok!=CMSG_OK) {if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
         
     name = cMsgGetFieldName(vmsg);
-    if (name == NULL) {free(buffer); return(CMSG_ERROR);}
+    if (name == NULL) {if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
     
     switch (type) {
       case CMSG_CP_INT8:
-        {int8_t i;   ok=cMsgGetInt8(msg, &i);     if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar, "          <int8 name=\"%s\">\n%n", name, &len); pchar+=len;
-         sprintf(pchar, "               %d\n          </int8>\n%n", i, &len); pchar+=len;
+        {int8_t i; ok=cMsgGetInt8(msg, &i); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar, "%s          <int8 name=\"%s\">\n%n", indent, name, &len); pchar+=len;
+         sprintf(pchar, "%s               %d\n%s          </int8>\n%n", indent, i, indent, &len); pchar+=len;
         } break;
       case CMSG_CP_INT16:
-        {int16_t i;   ok=cMsgGetInt16(msg, &i);   if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar, "          <int16 name=\"%s\">\n%n", name, &len); pchar+=len;
-         sprintf(pchar, "               %hd\n          </int16>\n%n", i, &len); pchar+=len;
+        {int16_t i; ok=cMsgGetInt16(msg, &i); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar, "%s          <int16 name=\"%s\">\n%n", indent, name, &len); pchar+=len;
+         sprintf(pchar, "%s               %hd\n%s          </int16>\n%n", indent, i, indent, &len); pchar+=len;
         } break;
       case CMSG_CP_INT32:
-        {int32_t i;   ok=cMsgGetInt32(msg, &i);   if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar, "          <int32 name=\"%s\">\n%n", name, &len); pchar+=len;
-         sprintf(pchar, "               %d\n          </int32>\n%n", i, &len); pchar+=len;
+        {int32_t i; ok=cMsgGetInt32(msg, &i); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar, "%s          <int32 name=\"%s\">\n%n", indent, name, &len); pchar+=len;
+         sprintf(pchar, "%s               %d\n%s          </int32>\n%n", indent, i, indent, &len); pchar+=len;
         } break;
       case CMSG_CP_INT64:
-        {int64_t i;   ok=cMsgGetInt64(msg, &i);   if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar, "          <int64 name=\"%s\">\n%n", name, &len); pchar+=len;
-         sprintf(pchar, "               %lld\n          </int64>\n%n", i, &len); pchar+=len;
+        {int64_t i; ok=cMsgGetInt64(msg, &i); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar, "%s          <int64 name=\"%s\">\n%n", indent, name, &len); pchar+=len;
+         sprintf(pchar, "%s               %lld\n%s          </int64>\n%n", indent, i, indent, &len); pchar+=len;
         } break;
       case CMSG_CP_UINT8:
-        {uint8_t i;   ok=cMsgGetUint8(msg, &i);   if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar, "          <uint8 name=\"%s\">\n%n", name, &len); pchar+=len;
-         sprintf(pchar, "               %u\n          </uint8>\n%n", i, &len); pchar+=len;
+        {uint8_t i; ok=cMsgGetUint8(msg, &i); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar, "%s          <uint8 name=\"%s\">\n%n", indent, name, &len); pchar+=len;
+         sprintf(pchar, "%s               %u\n%s          </uint8>\n%n", indent, i, indent, &len); pchar+=len;
         } break;
       case CMSG_CP_UINT16:
-        {uint16_t i;   ok=cMsgGetUint16(msg, &i); if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar, "          <uint16 name=\"%s\">\n%n", name, &len); pchar+=len;
-         sprintf(pchar, "               %hu\n          </uint16>\n%n", i, &len); pchar+=len;
+        {uint16_t i; ok=cMsgGetUint16(msg, &i); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar, "%s          <uint16 name=\"%s\">\n%n", indent, name, &len); pchar+=len;
+         sprintf(pchar, "%s               %hu\n%s          </uint16>\n%n", indent, i, indent, &len); pchar+=len;
         } break;
       case CMSG_CP_UINT32:
-        {uint32_t i;   ok=cMsgGetUint32(msg, &i);  if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar, "          <uint32 name=\"%s\">\n%n", name, &len); pchar+=len;
-         sprintf(pchar, "               %u\n          </uint32>\n%n", i, &len); pchar+=len;
+        {uint32_t i; ok=cMsgGetUint32(msg, &i); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar, "%s          <uint32 name=\"%s\">\n%n", indent, name, &len); pchar+=len;
+         sprintf(pchar, "%s               %u\n%s          </uint32>\n%n", indent, i, indent, &len); pchar+=len;
         } break;
       case CMSG_CP_UINT64:
-        {uint64_t i;   ok=cMsgGetUint64(msg, &i);  if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar, "          <uint64 name=\"%s\">\n%n", name, &len); pchar+=len;
-         sprintf(pchar, "               %llu\n          </uint64>\n%n", i, &len); pchar+=len;
+        {uint64_t i; ok=cMsgGetUint64(msg, &i); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar, "%s          <uint64 name=\"%s\">\n%n", indent, name, &len); pchar+=len;
+         sprintf(pchar, "%s               %llu\n%s          </uint64>\n%n", indent, i, indent, &len); pchar+=len;
         } break;
       case CMSG_CP_DBL:
-        {double d;   ok=cMsgGetDouble(msg, &d);  if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar, "          <double name=\"%s\">\n%n", name, &len); pchar+=len;
-         sprintf(pchar, "               %.16lg\n          </double>\n%n", d, &len); pchar+=len;
+        {double d; ok=cMsgGetDouble(msg, &d); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar, "%s          <double name=\"%s\">\n%n", indent, name, &len); pchar+=len;
+         sprintf(pchar, "%s               %.16lg\n%s          </double>\n%n", indent, d, indent, &len); pchar+=len;
         } break;
       case CMSG_CP_FLT:
-        {float f;   ok=cMsgGetFloat(msg, &f);  if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar, "          <float name=\"%s\">\n%n", name, &len); pchar+=len;
-         sprintf(pchar, "               %.7g\n          </float>\n%n", f, &len); pchar+=len;
+        {float f; ok=cMsgGetFloat(msg, &f); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar, "%s          <float name=\"%s\">\n%n", indent, name, &len); pchar+=len;
+         sprintf(pchar, "%s               %.7g\n%s          </float>\n%n", indent, f, indent, &len); pchar+=len;
         } break;
       case CMSG_CP_STR:
-        {char *s;   ok=cMsgGetString(msg, &s);  if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar, singleStringFormat, name, s, &len); pchar+=len;
+        {char *s; ok=cMsgGetString(msg, &s); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar, singleStringFormat, indent, name, s, &len); pchar+=len;
+        } break;
+        
+      case CMSG_CP_BIN:
+        {char *s; size_t sz; int endian; char *endianTxt;
+         if (!binary) break;
+         ok=cMsgGetBinary(msg, &s, &sz, &endian);
+         if(ok!=CMSG_OK) {if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         if (endian == CMSG_ENDIAN_BIG) endianTxt = "big";
+         else endianTxt = "little";
+         sprintf(pchar, binaryFormata, indent, name, endianTxt, &len); pchar+=len;
+         count = cMsg_b64_encode(s, sz, pchar);
+         pchar += count;
+         sprintf(pchar, binaryFormatb, &len); pchar+=len;                
+        } break;
+        
+      case CMSG_CP_MSG:
+        {void *m; ok=cMsgGetMessage(msg, &m);    if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         ok = cMsgToString2(m, &pchar, level+1, binary); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
         } break;
          
       /* arrays */
       case CMSG_CP_INT8_A:
-        {int8_t *i; ok=cMsgGetInt8Array(msg, &i, &count); if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar,"          <int8_array name=\"%s\" count=\"%d\">\n%n", name, count, &len); pchar+=len;
+        {const int8_t *i; ok=cMsgGetInt8Array(msg, &i, &count); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar,"%s          <int8_array name=\"%s\" count=\"%d\">\n%n", indent, name, count, &len); pchar+=len;
          for(j=0;j<count;j++) {
-            if (j%5 == 0) {sprintf(pchar, "               %4d%n", i[j], &len); pchar+=len;}
+            if (j%5 == 0) {sprintf(pchar, "%s               %4d%n", indent, i[j], &len); pchar+=len;}
             else          {sprintf(pchar, " %4d%n", i[j], &len); pchar+=len;}
             if (j%5==4 || j==count-1) {sprintf(pchar, "\n"); pchar++;}
          }
-         sprintf(pchar, "          </int8_array>\n%n", &len); pchar+=len;
+         sprintf(pchar, "%s          </int8_array>\n%n", indent, &len); pchar+=len;
         } break;
       case CMSG_CP_INT16_A:
-        {int16_t *i; ok=cMsgGetInt16Array(msg, &i, &count); if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar,"          <int16_array name=\"%s\" count=\"%d\">\n%n", name, count, &len); pchar+=len;
+        {const int16_t *i; ok=cMsgGetInt16Array(msg, &i, &count); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar,"%s          <int16_array name=\"%s\" count=\"%d\">\n%n", indent, name, count, &len); pchar+=len;
          for(j=0;j<count;j++) {
-            if (j%5 == 0) {sprintf(pchar, "               %6hd%n", i[j], &len); pchar+=len;}
+            if (j%5 == 0) {sprintf(pchar, "%s               %6hd%n", indent, i[j], &len); pchar+=len;}
             else          {sprintf(pchar, " %6hd%n", i[j], &len); pchar+=len;}
             if (j%5==4 || j==count-1) {sprintf(pchar, "\n"); pchar++;}
          }
-         sprintf(pchar, "          </int16_array>\n%n", &len); pchar+=len;
+         sprintf(pchar, "%s          </int16_array>\n%n", indent, &len); pchar+=len;
         } break;
       case CMSG_CP_INT32_A:
-        {int32_t *i; ok=cMsgGetInt32Array(msg, &i, &count); if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar,"          <int32_array name=\"%s\" count=\"%d\">\n%n", name, count, &len); pchar+=len;
+        {const int32_t *i; ok=cMsgGetInt32Array(msg, &i, &count); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar,"%s          <int32_array name=\"%s\" count=\"%d\">\n%n", indent, name, count, &len); pchar+=len;
          for(j=0;j<count;j++) {
-            if (j%5 == 0) {sprintf(pchar, "               %d%n", i[j], &len); pchar+=len;}
+            if (j%5 == 0) {sprintf(pchar, "%s               %d%n", indent, i[j], &len); pchar+=len;}
             else          {sprintf(pchar, " %d%n", i[j], &len); pchar+=len;}
             if (j%5==4 || j==count-1) {sprintf(pchar, "\n"); pchar++;}
          }
-         sprintf(pchar, "          </int32_array>\n%n", &len); pchar+=len;
+         sprintf(pchar, "%s          </int32_array>\n%n", indent, &len); pchar+=len;
         } break;
       case CMSG_CP_INT64_A:
-        {int64_t *i; ok=cMsgGetInt64Array(msg, &i, &count); if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar,"          <int64_array name=\"%s\" count=\"%d\">\n%n", name, count, &len); pchar+=len;
+        {const int64_t *i; ok=cMsgGetInt64Array(msg, &i, &count); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar,"%s          <int64_array name=\"%s\" count=\"%d\">\n%n", indent, name, count, &len); pchar+=len;
          for(j=0;j<count;j++) {
-            if (j%5 == 0) {sprintf(pchar, "               %lld%n", i[j], &len); pchar+=len;}
+            if (j%5 == 0) {sprintf(pchar, "%s               %lld%n", indent, i[j], &len); pchar+=len;}
             else          {sprintf(pchar, " %lld%n", i[j], &len); pchar+=len;}
             if (j%5==4 || j==count-1) {sprintf(pchar, "\n"); pchar++;}
          }
-         sprintf(pchar, "          </int64_array>\n%n", &len); pchar+=len;
+         sprintf(pchar, "%s          </int64_array>\n%n", indent, &len); pchar+=len;
         } break;
       case CMSG_CP_UINT8_A:
-        {uint8_t *i; ok=cMsgGetUint8Array(msg, &i, &count); if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar,"          <uint8_array name=\"%s\" count=\"%d\">\n%n", name, count, &len); pchar+=len;
+        {const uint8_t *i; ok=cMsgGetUint8Array(msg, &i, &count); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar,"%s          <uint8_array name=\"%s\" count=\"%d\">\n%n", indent, name, count, &len); pchar+=len;
          for(j=0;j<count;j++) {
-            if (j%5 == 0) {sprintf(pchar, "               %u%n", i[j], &len); pchar+=len;}
+            if (j%5 == 0) {sprintf(pchar, "%s               %u%n", indent, i[j], &len); pchar+=len;}
             else          {sprintf(pchar, " %u%n", i[j], &len); pchar+=len;}
             if (j%5==4 || j==count-1) {sprintf(pchar, "\n"); pchar++;}
          }
-         sprintf(pchar, "          </uint8_array>\n%n", &len); pchar+=len;
+         sprintf(pchar, "%s          </uint8_array>\n%n", indent, &len); pchar+=len;
         } break;
       case CMSG_CP_UINT16_A:
-        {uint16_t *i; ok=cMsgGetUint16Array(msg, &i, &count); if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar,"          <uint16_array name=\"%s\" count=\"%d\">\n%n", name, count, &len); pchar+=len;
+        {const uint16_t *i; ok=cMsgGetUint16Array(msg, &i, &count); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar,"%s          <uint16_array name=\"%s\" count=\"%d\">\n%n", indent, name, count, &len); pchar+=len;
          for(j=0;j<count;j++) {
-            if (j%5 == 0) {sprintf(pchar, "               %hu%n", i[j], &len); pchar+=len;}
+            if (j%5 == 0) {sprintf(pchar, "%s               %hu%n", indent, i[j], &len); pchar+=len;}
             else          {sprintf(pchar, " %hu%n", i[j], &len); pchar+=len;}
             if (j%5==4 || j==count-1) {sprintf(pchar, "\n"); pchar++;}
          }
-         sprintf(pchar, "          </uint16_array>\n%n", &len); pchar+=len;
+         sprintf(pchar, "%s          </uint16_array>\n%n", indent, &len); pchar+=len;
         } break;
       case CMSG_CP_UINT32_A:
-        {uint32_t *i; ok=cMsgGetUint32Array(msg, &i, &count); if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar,"          <uint32_array name=\"%s\" count=\"%d\">\n%n", name, count, &len); pchar+=len;
+        {const uint32_t *i; ok=cMsgGetUint32Array(msg, &i, &count); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar,"%s          <uint32_array name=\"%s\" count=\"%d\">\n%n", indent, name, count, &len); pchar+=len;
          for(j=0;j<count;j++) {
-            if (j%5 == 0) {sprintf(pchar, "               %u%n", i[j], &len); pchar+=len;}
+            if (j%5 == 0) {sprintf(pchar, "%s               %u%n", indent, i[j], &len); pchar+=len;}
             else          {sprintf(pchar, " %u%n", i[j], &len); pchar+=len;}
             if (j%5==4 || j==count-1) {sprintf(pchar, "\n"); pchar++;}
          }
-         sprintf(pchar, "          </uint32_array>\n%n", &len); pchar+=len;
+         sprintf(pchar, "%s          </uint32_array>\n%n", indent, &len); pchar+=len;
         } break;
       case CMSG_CP_UINT64_A:
-        {uint64_t *i; ok=cMsgGetUint64Array(msg, &i, &count); if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar,"          <uint64_array name=\"%s\" count=\"%d\">\n%n", name, count, &len); pchar+=len;
+        {const uint64_t *i; ok=cMsgGetUint64Array(msg, &i, &count); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar,"%s          <uint64_array name=\"%s\" count=\"%d\">\n%n", indent, name, count, &len); pchar+=len;
          for(j=0;j<count;j++) {
-            if (j%5 == 0) {sprintf(pchar, "               %llu%n", i[j], &len); pchar+=len;}
+            if (j%5 == 0) {sprintf(pchar, "%s               %llu%n", indent, i[j], &len); pchar+=len;}
             else          {sprintf(pchar, " %llu%n", i[j], &len); pchar+=len;}
             if (j%5==4 || j==count-1) {sprintf(pchar, "\n"); pchar++;}
          }
-         sprintf(pchar, "          </uint64_array>\n%n", &len); pchar+=len;
+         sprintf(pchar, "%s          </uint64_array>\n%n", indent, &len); pchar+=len;
         } break;
       case CMSG_CP_DBL_A:
-        {double *d; ok=cMsgGetDoubleArray(msg, &d, &count); if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar,"          <double_array name=\"%s\" count=\"%d\">\n%n", name, count, &len); pchar+=len;
+        {const double *d; ok=cMsgGetDoubleArray(msg, &d, &count); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar,"%s          <double_array name=\"%s\" count=\"%d\">\n%n", indent, name, count, &len); pchar+=len;
          for(j=0;j<count;j++) {
-            if (j%5 == 0) {sprintf(pchar, "               %.16lg%n", d[j], &len); pchar+=len;}
+            if (j%5 == 0) {sprintf(pchar, "%s               %.16lg%n", indent, d[j], &len); pchar+=len;}
             else          {sprintf(pchar, " %.16lg%n", d[j], &len); pchar+=len;}
             if (j%5==4 || j==count-1) {sprintf(pchar, "\n"); pchar++;}
          }
-         sprintf(pchar, "          </double_array>\n%n", &len); pchar+=len;
+         sprintf(pchar, "%s          </double_array>\n%n", indent, &len); pchar+=len;
         } break;
       case CMSG_CP_FLT_A:
-        {float *f; ok=cMsgGetFloatArray(msg, &f, &count); if(ok!=CMSG_OK) {free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar,"          <float_array name=\"%s\" count=\"%d\">\n%n", name, count, &len); pchar+=len;
+        {const float *f; ok=cMsgGetFloatArray(msg, &f, &count); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar,"%s          <float_array name=\"%s\" count=\"%d\">\n%n", indent, name, count, &len); pchar+=len;
          for(j=0;j<count;j++) {
-            if (j%5 == 0) {sprintf(pchar, "               %.7g%n", f[j], &len); pchar+=len;}
+            if (j%5 == 0) {sprintf(pchar, "%s               %.7g%n", indent, f[j], &len); pchar+=len;}
             else          {sprintf(pchar, " %.7g%n", f[j], &len); pchar+=len;}
             if (j%5==4 || j==count-1) {sprintf(pchar, "\n"); pchar++;}
          }
-         sprintf(pchar, "          </float_array>\n%n", &len); pchar+=len;
+         sprintf(pchar, "%s          </float_array>\n%n", indent, &len); pchar+=len;
         } break;
       case CMSG_CP_STR_A:
-        {char **s; ok=cMsgGetStringArray(msg, &s, &count);     if(ok!=CMSG_OK) {printf("***5***\n");free(buffer);return(CMSG_ERROR);}
-         sprintf(pchar,"          <string_array name=\"%s\" count=\"%d\">\n%n", name, count, &len); pchar+=len;
+        {const char **s; ok=cMsgGetStringArray(msg, &s, &count); if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar,"%s          <string_array name=\"%s\" count=\"%d\">\n%n", indent, name, count, &len); pchar+=len;
          for(j=0;j<count;j++) {
-            sprintf(pchar, stringInArrayFormat, s[j], &len); pchar+=len;
+            sprintf(pchar, stringInArrayFormat, indent, s[j], &len); pchar+=len;
          }
-         sprintf(pchar, "          </string_array>\n%n", &len); pchar+=len;
+         sprintf(pchar, "%s          </string_array>\n%n", indent, &len); pchar+=len;
         } break;
     }
             
@@ -4259,15 +4447,48 @@ int cMsgToString(const void *vmsg, char **string) {
     
   /*   </payload> */
   /* </cMsgMessage> */
-  sprintf(pchar, format2);
+  sprintf(pchar, format2, indent, indent, &len);
+  pchar += len;
 
   /* restore marker */
   cMsgGoToField(msg, place);
 
   /* hand newly allocated buffer off to user */
-  *string = buffer;
+  if (level < 1) {
+    *string = buffer;
+  }
+  /* or else hand pointer into the old buffer back to caller */
+  else  {
+    free(indent);
+    *string = pchar;
+  }
 
   return (CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine converts the message to a printable string. There is always
+ * a danger that the message could be changed in another thread as it is being
+ * transformed into XML. Since nothing is mutex protected here, that may lead
+ * to segmentation faults.
+ *
+ * @param vmsg pointer to message
+ * @param string is pointer to char* that will hold the malloc'd string
+ * @param binary includes binary as ASCII if true, else binary is ignored
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if internal payload parsing error,
+ *                     or cannot get a payload item's type or count
+ * @returns CMSG_BAD_ARGUMENT if message is NULL
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
+ */   
+int cMsgToString(void *vmsg, char **string, int binary) {
+  return cMsgToString2(vmsg, string, 0, binary);
 }
 
 
@@ -4290,7 +4511,7 @@ int cMsgToString(const void *vmsg, char **string) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgGetSubscriptionDomain(const void *vmsg, char **domain) {
+int cMsgGetSubscriptionDomain(const void *vmsg, const char **domain) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -4320,7 +4541,7 @@ int cMsgGetSubscriptionDomain(const void *vmsg, char **domain) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgGetSubscriptionSubject(const void *vmsg, char **subject) {
+int cMsgGetSubscriptionSubject(const void *vmsg, const char **subject) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -4351,7 +4572,7 @@ int cMsgGetSubscriptionSubject(const void *vmsg, char **subject) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgGetSubscriptionType(const void *vmsg, char **type) {
+int cMsgGetSubscriptionType(const void *vmsg, const char **type) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -4381,7 +4602,7 @@ int cMsgGetSubscriptionType(const void *vmsg, char **type) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgGetSubscriptionUDL(const void *vmsg, char **udl) {
+int cMsgGetSubscriptionUDL(const void *vmsg, const char **udl) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   

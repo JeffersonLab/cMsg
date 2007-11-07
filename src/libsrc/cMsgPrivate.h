@@ -277,22 +277,28 @@ typedef struct singleStringItem_t {
 
 /** 
  * This structure is used to form a compound payload.
- * It is an item that represents a number, or a string, or an array of either.
+ * It is an item that represents a number, a string, an array of either,
+ * binary data, or another cMsg message.
  * It is designed to allowing the mnarshalling of its string(s) and/or number(s)
  * to a simple format text string. This format allows easy unmarshalling of the
  * text back into its constituent parts.
  */
 typedef struct payloadItem_t {
-    int    type;     /**< Type of number or string stored in this item. */
+    int    type;     /**< Type of item (number, bin, string, msg) stored in this item. */
     int    count;    /**< Number of items in array if array, else 1. */
     int    length;   /**< Length of text in chars. */
+    int    noHeaderLen; /**< Length of text in chars without header (first) line. */
+    int    endian;   /**< Endian value (CMSG_ENDIAN_BIG/LITTLE) if item is binary. */
 
-    char  *text;     /**< String containing name, type, count, and values for wire protocol. */
+    char  *text;     /**< String representation for this item, containing name,
+                      * - type, count, length, values, etc for wire protocol. */
     char  *name;     /**< Name of this item. */
     void  *next;     /**< Next item in linked list. */
 
+    /* Pointer for general storage */
+    void  *pointer;  /**< General use pointer (used for C++ vector). */
     /* Pointer to array payload item */
-    void  *array;     /**< Array of any item or single string. */
+    void  *array;    /**< Array of any item, single string, message, or binary data. */
     /* Value of single numeric payload item */
     int64_t  val;    /**< An integer value of any type stored here since 64 bits in length. */
     double  dval;    /**< A double or float stored here since 64 bits in length. */
@@ -310,7 +316,7 @@ typedef struct cMsg_t {
                           * - is response message NULL instead of a message? 3rd bit
                           * - is byte array data big endian? 4th bit
                           * - has message been sent over the wire? 5th bit
-                          * - message have compound payload? 6th bit
+                          * - message has compound payload? 6th bit
                           */
   int     reserved;      /**< Reserved for future use. */
   int     bits;          /**< Stores info in bit form about internal state (true = 1).
@@ -398,8 +404,14 @@ typedef struct subscribeConfig_t {
 } subscribeConfig;
 
 /* private prototype used in multiple files */
-void   cMsgPayloadFree(void *vmsg); 
-void   cMsgPayloadClear(void *vmsg); 
+         int cMsgSetFieldPointer    (const void *vmsg, void *p);
+         int cMsgGetFieldPointer    (const void *vmsg, void **p);
+unsigned int cMsg_b64_encode        (const char *src, unsigned int len, char *dst);
+         int cMsg_b64_decode        (const char *src, unsigned int len, char *dst);
+unsigned int cMsg_b64_encode_len    (const char *src, unsigned int srclen);
+unsigned int cMsg_b64_decode_len    (const char *src, unsigned int srclen);
+unsigned int cMsg_b64_encode_len_est(const char *src, unsigned int srclen);
+unsigned int cMsg_b64_decode_len_est(const char *src, unsigned int srclen);
 
 
 #ifdef	__cplusplus

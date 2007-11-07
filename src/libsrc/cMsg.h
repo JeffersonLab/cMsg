@@ -172,17 +172,17 @@ extern "C" {
   int    cMsgSetNullGetResponse   (      void *vmsg, int  nullGetResponse);
   int    cMsgGetNullGetResponse   (const void *vmsg, int *nullGetResponse);
     
-  int    cMsgGetDomain            (const void *vmsg, char **domain);
-  int    cMsgGetCreator           (const void *vmsg, char **creator);
+  int    cMsgGetDomain            (const void *vmsg, const char **domain);
+  int    cMsgGetCreator           (const void *vmsg, const char **creator);
   
   int    cMsgSetSubject           (      void *vmsg, const char  *subject);
-  int    cMsgGetSubject           (const void *vmsg, char **subject);
+  int    cMsgGetSubject           (const void *vmsg, const char **subject);
   
   int    cMsgSetType              (      void *vmsg, const char  *type);
-  int    cMsgGetType              (const void *vmsg, char **type);
+  int    cMsgGetType              (const void *vmsg, const char **type);
   
   int    cMsgSetText              (      void *vmsg, const char  *text);
-  int    cMsgGetText              (const void *vmsg, char **text);
+  int    cMsgGetText              (const void *vmsg, const char **text);
   
   int    cMsgSetUserInt           (      void *vmsg, int  userInt);
   int    cMsgGetUserInt           (const void *vmsg, int *userInt);
@@ -190,12 +190,12 @@ extern "C" {
   int    cMsgSetUserTime          (      void *vmsg, const struct timespec *userTime);
   int    cMsgGetUserTime          (const void *vmsg, struct timespec *userTime);
   
-  int    cMsgGetSender            (const void *vmsg, char  **sender);
-  int    cMsgGetSenderHost        (const void *vmsg, char  **senderHost);
+  int    cMsgGetSender            (const void *vmsg, const char  **sender);
+  int    cMsgGetSenderHost        (const void *vmsg, const char  **senderHost);
   int    cMsgGetSenderTime        (const void *vmsg, struct timespec *senderTime);
   
-  int    cMsgGetReceiver          (const void *vmsg, char  **receiver);
-  int    cMsgGetReceiverHost      (const void *vmsg, char  **receiverHost);
+  int    cMsgGetReceiver          (const void *vmsg, const char  **receiver);
+  int    cMsgGetReceiverHost      (const void *vmsg, const char  **receiverHost);
   int    cMsgGetReceiverTime      (const void *vmsg, struct timespec *receiverTime);
   
   int    cMsgSetByteArrayLength   (      void *vmsg, int  length);
@@ -214,15 +214,15 @@ extern "C" {
   int    cMsgSetByteArrayAndLimits(      void *vmsg, char *array, int offset, int length);
   int    cMsgCopyByteArray        (      void *vmsg, char *array, int offset, int length);
   /* message context stuff */
-  int    cMsgGetSubscriptionDomain (const void *vmsg, char **domain);
-  int    cMsgGetSubscriptionSubject(const void *vmsg, char **subject);
-  int    cMsgGetSubscriptionType   (const void *vmsg, char **type);
-  int    cMsgGetSubscriptionUDL    (const void *vmsg, char **udl);
+  int    cMsgGetSubscriptionDomain (const void *vmsg, const char **domain);
+  int    cMsgGetSubscriptionSubject(const void *vmsg, const char **subject);
+  int    cMsgGetSubscriptionType   (const void *vmsg, const char **type);
+  int    cMsgGetSubscriptionUDL    (const void *vmsg, const char **udl);
   int    cMsgGetSubscriptionCueSize(const void *vmsg, int   *size);
   int    cMsgSetReliableSend       (      void *vmsg, int boolean);
   int    cMsgGetReliableSend       (      void *vmsg, int *boolean);
   /*  misc. */
-  int    cMsgToString              (const void *vmsg, char **string);
+  int    cMsgToString              (      void *vmsg, char **string, int binary);
   
   /* compound payload stuff - 63 user routines */
   
@@ -231,19 +231,21 @@ extern "C" {
   int    cMsgSetPayloadFromText      (      void *vmsg, const char *text);
   int    cMsgSetSystemFieldsFromText (      void *vmsg, const char *text);
   int    cMsgSetAllFieldsFromText    (      void *vmsg, const char *text);
-  char  *cMsgGetPayloadText          (const void *vmsg);
+ /* char  *cMsgGetPayloadText          (const void *vmsg);*/
+  int    cMsgGetPayloadText          (const void *vmsg, char **buf, char *dst, size_t size, size_t *length);
+  int    cMsgGetPayloadTextLength    (const void *vmsg);
   int    cMsgHasPayload              (const void *vmsg, int *hasPayload);
   int    cMsgCopyPayload             (const void *vmsgFrom, void *vmsgTo);
   const char *cMsgGetFieldDescription(const void *vmsg);
   
   int    cMsgGoToFieldName           (      void *vmsg, const char *name);
-  int    cMsgGoToField               (      void *vmsg, int  place);
-  int    cMsgGetFieldPosition        (const void *vmsg, int *place);
+  int    cMsgGoToField               (      void *vmsg, int  position);
+  int    cMsgGetFieldPosition        (const void *vmsg, int *position);
   int    cMsgNextField               (      void *vmsg);
   int    cMsgHasNextField            (const void *vmsg);
   int    cMsgFirstField              (      void *vmsg);
   int    cMsgRemoveFieldName         (      void *vmsg, const char *name);
-  int    cMsgRemoveField             (      void *vmsg, int place);
+  int    cMsgRemoveField             (      void *vmsg, int position);
   int    cMsgMoveFieldName           (      void *vmsg, const char *name, int placeTo);
   int    cMsgMoveField               (      void *vmsg, int placeFrom, int placeTo);
 
@@ -252,13 +254,16 @@ extern "C" {
   int    cMsgGetFieldType            (const void *vmsg, int *type);
   int    cMsgGetFieldCount           (const void *vmsg, int *count);
 
+  int    cMsgGetBinary               (const void *vmsg, char **val, size_t *len, int *endian);
+  int    cMsgGetMessage              (const void *vmsg, void **val);
+  
   int    cMsgGetString               (const void *vmsg, char **val);
-  int    cMsgGetStringArray          (const void *vmsg, char **array[], int *len);
+  int    cMsgGetStringArray          (const void *vmsg, const char ***array, size_t *len);
   
   int    cMsgGetFloat                (const void *vmsg, float  *val);
-  int    cMsgGetFloatArray           (const void *vmsg, float  **vals, int *len);
+  int    cMsgGetFloatArray           (const void *vmsg, const float  **vals, size_t *len);
   int    cMsgGetDouble               (const void *vmsg, double *val);
-  int    cMsgGetDoubleArray          (const void *vmsg, double **vals, int *len);
+  int    cMsgGetDoubleArray          (const void *vmsg, const double **vals, size_t *len);
   
   int    cMsgGetInt8                 (const void *vmsg, int8_t   *val);
   int    cMsgGetInt16                (const void *vmsg, int16_t  *val);
@@ -269,14 +274,14 @@ extern "C" {
   int    cMsgGetUint32               (const void *vmsg, uint32_t *val);
   int    cMsgGetUint64               (const void *vmsg, uint64_t *val);
   
-  int    cMsgGetInt8Array            (const void *vmsg, int8_t   **vals, int *len);
-  int    cMsgGetInt16Array           (const void *vmsg, int16_t  **vals, int *len);
-  int    cMsgGetInt32Array           (const void *vmsg, int32_t  **vals, int *len);
-  int    cMsgGetInt64Array           (const void *vmsg, int64_t  **vals, int *len);
-  int    cMsgGetUint8Array           (const void *vmsg, uint8_t  **vals, int *len);
-  int    cMsgGetUint16Array          (const void *vmsg, uint16_t **vals, int *len);
-  int    cMsgGetUint32Array          (const void *vmsg, uint32_t **vals, int *len);
-  int    cMsgGetUint64Array          (const void *vmsg, uint64_t **vals, int *len);
+  int    cMsgGetInt8Array            (const void *vmsg, const int8_t   **vals, size_t *len);
+  int    cMsgGetInt16Array           (const void *vmsg, const int16_t  **vals, size_t *len);
+  int    cMsgGetInt32Array           (const void *vmsg, const int32_t  **vals, size_t *len);
+  int    cMsgGetInt64Array           (const void *vmsg, const int64_t  **vals, size_t *len);
+  int    cMsgGetUint8Array           (const void *vmsg, const uint8_t  **vals, size_t *len);
+  int    cMsgGetUint16Array          (const void *vmsg, const uint16_t **vals, size_t *len);
+  int    cMsgGetUint32Array          (const void *vmsg, const uint32_t **vals, size_t *len);
+  int    cMsgGetUint64Array          (const void *vmsg, const uint64_t **vals, size_t *len);
 
   int    cMsgAddInt8                 (      void *vmsg, const char *name, int8_t   val, int place);
   int    cMsgAddInt16                (      void *vmsg, const char *name, int16_t  val, int place);
@@ -297,12 +302,15 @@ extern "C" {
   int    cMsgAddUint64Array          (      void *vmsg, const char *name, const uint64_t vals[], int len, int place);
 
   int    cMsgAddString               (      void *vmsg, const char *name, const char *val, int place);
-  int    cMsgAddStringArray          (      void *vmsg, const char *name, const char *vals[], int len, int place);
+  int    cMsgAddStringArray          (      void *vmsg, const char *name, const char **vals, int len, int place);
 
   int    cMsgAddFloat                (      void *vmsg, const char *name, float  val, int place);
   int    cMsgAddDouble               (      void *vmsg, const char *name, double val, int place);
   int    cMsgAddFloatArray           (      void *vmsg, const char *name, const float vals[],  int len, int place);
   int    cMsgAddDoubleArray          (      void *vmsg, const char *name, const double vals[], int len, int place);
+
+  int    cMsgAddBinary               (      void *vmsg, const char *name, const char *src, size_t size, int place, int endian);
+  int    cMsgAddMessage              (      void *vmsg, char *name, const void *vmessage, int place);
 
 
 

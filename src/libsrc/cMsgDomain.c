@@ -1321,6 +1321,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
  * @param vmsg pointer to a message structure
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if message's payload changed while sending
  * @returns CMSG_BAD_ARGUMENT if the id or message argument is null or has null subject or type
  * @returns CMSG_OUT_OF_RANGE  if the message is too large to be sent by UDP
  * @returns CMSG_OUT_OF_MEMORY if the allocating memory for message buffer failed
@@ -1332,12 +1333,12 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
  */   
 int cmsg_cmsg_send(void *domainId, const void *vmsg) {
   
-  int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
+  int err, ok, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
   int fd, hasPayload, highInt, lowInt, outGoing[16];
   ssize_t sendLen;
   cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
   cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
-  char *creator, *payloadText=NULL;
+  char *creator;
   uint64_t llTime;
   struct timespec now;
 
@@ -1378,7 +1379,7 @@ int cmsg_cmsg_send(void *domainId, const void *vmsg) {
       break;
     }
     
-    /* TEXT STUFF: length of "text" string, include payload (if any) as text */
+    /* length of "text" string, include payload (if any) as text */
     cMsgHasPayload(vmsg, &hasPayload);
     if (!hasPayload) {
       if (msg->text == NULL) {
@@ -1389,12 +1390,7 @@ int cmsg_cmsg_send(void *domainId, const void *vmsg) {
       }
     }
     else {
-      /* this returns not only payload but incorporates text as well */
-      payloadText = cMsgGetPayloadText(vmsg);
-      if (payloadText == NULL) {
-        return(CMSG_OUT_OF_MEMORY);
-      }
-      lenText = strlen(payloadText);
+      lenText = cMsgGetPayloadTextLength(vmsg);
     }
 
     /* message id (in network byte order) to domain server */
@@ -1456,7 +1452,6 @@ int cmsg_cmsg_send(void *domainId, const void *vmsg) {
 
     if (msg->context.udpSend && len > 8192) {
       cMsgConnectReadUnlock(domain);
-      if (hasPayload) free(payloadText);
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         printf("cmsg_cmsg_send: messges is too big for UDP packet\n");
       }
@@ -1476,7 +1471,6 @@ int cmsg_cmsg_send(void *domainId, const void *vmsg) {
       if (domain->msgBuffer == NULL) {
         cMsgSocketMutexUnlock(domain);
         cMsgConnectReadUnlock(domain);
-        if (hasPayload) free(payloadText);
         return(CMSG_OUT_OF_MEMORY);
       }
     }
@@ -1494,8 +1488,15 @@ int cmsg_cmsg_send(void *domainId, const void *vmsg) {
       memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
     }
     else {
-      memcpy(domain->msgBuffer+len, (void *)payloadText, lenText);
-      free(payloadText);
+      size_t bufLen;
+      /* this returns not only payload but incorporates text as well */
+      ok = cMsgGetPayloadText(vmsg, NULL, domain->msgBuffer+len, lenText, &bufLen);
+      if (ok != CMSG_OK || bufLen != lenText) {
+        /* payload changed while trying to send it, so abandon ship ... */
+        cMsgSocketMutexUnlock(domain);
+        cMsgConnectReadUnlock(domain);
+        return(CMSG_ERROR);
+      }
     }
     len += lenText;
     memcpy(domain->msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
