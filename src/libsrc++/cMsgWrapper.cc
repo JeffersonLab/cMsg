@@ -385,7 +385,7 @@ void cMsgMessage::setSubject(const string &subject) throw(cMsgException) {
  */
 string cMsgMessage::getType(void) const throw(cMsgException) {
 
-  char *s;
+  const char *s;
 
   int stat;
   if((stat=cMsgGetType(myMsgPointer,&s))!=CMSG_OK) {
@@ -427,7 +427,7 @@ void cMsgMessage::setType(const string &type) throw(cMsgException) {
  */
 string cMsgMessage::getText(void) const throw(cMsgException) {
 
-  char *s;
+  const char *s;
 
   int stat;
   if((stat=cMsgGetText(myMsgPointer,&s))!=CMSG_OK) {
@@ -728,7 +728,7 @@ cMsgMessage *cMsgMessage::copy(void) const throw(cMsgException) {
  */
 string cMsgMessage::getCreator(void) const throw(cMsgException) {
 
-  char *s;
+  const char *s;
 
   int stat;
   if((stat=cMsgGetCreator(myMsgPointer,&s))!=CMSG_OK) {
@@ -753,7 +753,7 @@ string cMsgMessage::getCreator(void) const throw(cMsgException) {
  */
 string cMsgMessage::getDomain(void) const throw(cMsgException) {
 
-  char *s;
+  const char *s;
 
   int stat;
   if((stat=cMsgGetDomain(myMsgPointer,&s))!=CMSG_OK) {
@@ -778,7 +778,7 @@ string cMsgMessage::getDomain(void) const throw(cMsgException) {
  */
 string cMsgMessage::getReceiver(void) const throw(cMsgException) {
 
-  char *s;
+  const char *s;
 
   int stat;
   if((stat=cMsgGetReceiver(myMsgPointer,&s))!=CMSG_OK) {
@@ -803,7 +803,7 @@ string cMsgMessage::getReceiver(void) const throw(cMsgException) {
  */
 string cMsgMessage::getReceiverHost(void) const throw(cMsgException) {
 
-  char *s;
+  const char *s;
 
   int stat;
   if((stat=cMsgGetReceiverHost(myMsgPointer,&s))!=CMSG_OK) {
@@ -828,7 +828,7 @@ string cMsgMessage::getReceiverHost(void) const throw(cMsgException) {
  */
 string cMsgMessage::getSender(void) const throw(cMsgException) {
 
-  char *s;
+  const char *s;
 
   int stat;
   if((stat=cMsgGetSender(myMsgPointer,&s))!=CMSG_OK) {
@@ -853,7 +853,7 @@ string cMsgMessage::getSender(void) const throw(cMsgException) {
  */
 string cMsgMessage::getSenderHost(void) const throw(cMsgException) {
 
-  char *s;
+  const char *s;
 
   int stat;
   if((stat=cMsgGetSenderHost(myMsgPointer,&s))!=CMSG_OK) {
@@ -1187,7 +1187,7 @@ string cMsgMessage::toString(void) const throw(cMsgException) {
 
   char *cs;
 
-  cMsgToString(myMsgPointer,&cs);
+  cMsgToString(myMsgPointer,&cs,1);
   string s(cs);
   free(cs);
   return(s);
@@ -1207,7 +1207,7 @@ string cMsgMessage::toString(void) const throw(cMsgException) {
  */
 string cMsgMessage::getSubscriptionDomain(void) const throw(cMsgException) {
 
-  char *s;
+  const char *s;
 
   int stat;
   if((stat=cMsgGetSubscriptionDomain(myMsgPointer,&s))!=CMSG_OK) {
@@ -1232,7 +1232,7 @@ string cMsgMessage::getSubscriptionDomain(void) const throw(cMsgException) {
  */
 string cMsgMessage::getSubscriptionSubject(void) const throw(cMsgException) {
 
-  char *s;
+  const char *s;
 
   int stat;
   if((stat=cMsgGetSubscriptionSubject(myMsgPointer,&s))!=CMSG_OK) {
@@ -1257,7 +1257,7 @@ string cMsgMessage::getSubscriptionSubject(void) const throw(cMsgException) {
  */
 string cMsgMessage::getSubscriptionType(void) const throw(cMsgException) {
 
-  char *s;
+  const char *s;
 
   int stat;
   if((stat=cMsgGetSubscriptionType(myMsgPointer,&s))!=CMSG_OK) {
@@ -1282,7 +1282,7 @@ string cMsgMessage::getSubscriptionType(void) const throw(cMsgException) {
  */
 string cMsgMessage::getSubscriptionUDL(void) const throw(cMsgException) {
 
-  char *s;
+  const char *s;
 
   int stat;
   if((stat=cMsgGetSubscriptionUDL(myMsgPointer,&s))!=CMSG_OK) {
