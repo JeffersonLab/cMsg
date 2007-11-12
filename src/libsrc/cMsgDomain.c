@@ -934,6 +934,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
     cMsgRestoreSignals(domain);
     /* stop listening & connection threads */
     pthread_cancel(domain->pendThread);
+    /* Wait until the threads are really dead, cause on return from this function,
+     * domain gets freed immediately and will cause seg fault if cleanup still
+     * going on. */
+    pthread_join(domain->pendThread, NULL);
     return(err);
   }
   
@@ -947,6 +951,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
     cMsgRestoreSignals(domain);
     close(serverfd);
     pthread_cancel(domain->pendThread);
+    /* Wait until the threads are really dead, cause on return from this function,
+     * domain gets freed immediately and will cause seg fault if cleanup still
+     * going on. */
+    pthread_join(domain->pendThread, NULL);
     return(err);
   }
   
@@ -972,6 +980,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
                               0, 0, &domain->receiveSocket)) != CMSG_OK) {
     cMsgRestoreSignals(domain);
     pthread_cancel(domain->pendThread);
+    /* Wait until the threads are really dead, cause on return from this function,
+     * domain gets freed immediately and will cause seg fault if cleanup still
+     * going on. */
+    pthread_join(domain->pendThread, NULL);
     return(err);
   }
 
@@ -986,6 +998,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
     cMsgRestoreSignals(domain);
     close(domain->receiveSocket);
     pthread_cancel(domain->pendThread);
+    /* Wait until the threads are really dead, cause on return from this function,
+     * domain gets freed immediately and will cause seg fault if cleanup still
+     * going on. */
+    pthread_join(domain->pendThread, NULL);
     return(err);
   }
   
@@ -1012,6 +1028,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
     close(domain->keepAliveSocket);
     close(domain->receiveSocket);
     pthread_cancel(domain->pendThread);
+    /* Wait until the threads are really dead, cause on return from this function,
+     * domain gets freed immediately and will cause seg fault if cleanup still
+     * going on. */
+    pthread_join(domain->pendThread, NULL);
     return(err);
   }
 
@@ -1022,6 +1042,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
     close(domain->receiveSocket);
     close(domain->sendSocket);
     pthread_cancel(domain->pendThread);
+    /* Wait until the threads are really dead, cause on return from this function,
+     * domain gets freed immediately and will cause seg fault if cleanup still
+     * going on. */
+    pthread_join(domain->pendThread, NULL);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "connectDirect: socket error, %s\n", strerror(errno));
     return(CMSG_SOCKET_ERROR);
   }
@@ -1035,6 +1059,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
     close(domain->sendSocket);
     close(domain->sendUdpSocket);
     pthread_cancel(domain->pendThread);
+    /* Wait until the threads are really dead, cause on return from this function,
+     * domain gets freed immediately and will cause seg fault if cleanup still
+     * going on. */
+    pthread_join(domain->pendThread, NULL);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "connectDirect: setsockopt error\n");
     return(CMSG_SOCKET_ERROR);
   }
@@ -1050,6 +1078,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
     close(domain->sendSocket);
     close(domain->sendUdpSocket);
     pthread_cancel(domain->pendThread);
+    /* Wait until the threads are really dead, cause on return from this function,
+     * domain gets freed immediately and will cause seg fault if cleanup still
+     * going on. */
+    pthread_join(domain->pendThread, NULL);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "connectDirect: host name error\n");
     return(CMSG_SOCKET_ERROR);
   }
@@ -1062,6 +1094,10 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
     close(domain->sendSocket);
     close(domain->sendUdpSocket);
     pthread_cancel(domain->pendThread);
+    /* Wait until the threads are really dead, cause on return from this function,
+     * domain gets freed immediately and will cause seg fault if cleanup still
+     * going on. */
+    pthread_join(domain->pendThread, NULL);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "connectDirect: UDP connect error\n");
     return(CMSG_SOCKET_ERROR);
   }
