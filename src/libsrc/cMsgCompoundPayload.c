@@ -164,6 +164,8 @@ static const char *excludedChars = " \t\n`\'\"";
   static int initialized = 0;
   static pthread_mutex_t mutex_recursive;
   static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+#elif Darwin
+  static pthread_mutex_t mutex_recursive = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 /** Routine to grab the pthread mutex used to protect payload linked list. */

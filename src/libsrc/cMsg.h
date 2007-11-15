@@ -105,6 +105,7 @@
 #ifndef _cMsgConstants_h
 #include "cMsgConstants.h"
 #endif
+
 #ifndef VXWORKS
 #include <inttypes.h>
 #endif
@@ -123,6 +124,10 @@ typedef void (cMsgCallbackFunc) (void *msg, void *userArg);
 extern "C" {
 #endif
 
+#ifdef Darwin
+#define CLOCK_REALTIME 0
+void clock_gettime(int dummy, struct timespec *t1);
+#endif
 
 #ifdef VXWORKS
   char *strdup(const char *s1);

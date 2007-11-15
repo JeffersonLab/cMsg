@@ -4728,3 +4728,10 @@ static void staticMutexUnlock(void) {
 
 
 /*-------------------------------------------------------------------*/
+
+#ifdef Darwin
+void clock_gettime(int dummy, struct timespec *t1) {
+	gettimeofday( &t1 , 0 );
+}
+
+#endif
