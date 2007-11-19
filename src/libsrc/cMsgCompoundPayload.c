@@ -150,6 +150,44 @@ static void releaseMutex(void);
 static payloadItem *copyPayloadItem(const payloadItem *from);
 static void cMsgPayloadPrintout2(void *msg, int level);
 
+ /** Map the value of a byte (first index) to the hex string value it represents. */
+static char toASCII[256][3] =
+{"00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "0a", "0b", "0c", "0d", "0e", "0f",
+ "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "1a", "1b", "1c", "1d", "1e", "1f",
+ "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "2a", "2b", "2c", "2d", "2e", "2f",
+ "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "3a", "3b", "3c", "3d", "3e", "3f",
+ "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "4a", "4b", "4c", "4d", "4e", "4f",
+ "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "5a", "5b", "5c", "5d", "5e", "5f",
+ "60", "61", "62", "63", "64", "65", "66", "67", "68", "69", "6a", "6b", "6c", "6d", "6e", "6f",
+ "70", "71", "72", "73", "74", "75", "76", "77", "78", "79", "7a", "7b", "7c", "7d", "7e", "7f",
+ "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "8a", "8b", "8c", "8d", "8e", "8f",
+ "90", "91", "92", "93", "94", "95", "96", "97", "98", "99", "9a", "9b", "9c", "9d", "9e", "9f",
+ "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "aa", "ab", "ac", "ad", "ae", "af",
+ "b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "ba", "bb", "bc", "bd", "be", "bf",
+ "c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "ca", "cb", "cc", "cd", "ce", "cf",
+ "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "da", "db", "dc", "dd", "de", "df",
+ "e0", "e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8", "e9", "ea", "eb", "ec", "ed", "ee", "ef",
+ "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "fa", "fb", "fc", "fd", "fe", "ff"};
+ 
+ /**
+  * Map the value of an ascii character (index) to the numerical
+  * value it represents. The only characters of interest are 0-9,a-f
+  * for converting hex strings back to numbers.
+  */
+ static char toByte[103] =
+ { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /*  0-9  */
+   -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 10-19 */
+   -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 20-29 */
+   -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 30-39 */
+   -1, -1, -1, -1, -1, -1, -1, -1,  0,  1,  /* 40-49 */
+    2,  3,  4,  5,  6,  7,  8,  9, -1, -1,  /* 50-59 */
+   -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 60-69 */
+   -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 70-79 */
+   -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 80-89 */
+   -1, -1, -1, -1, -1, -1, -1, 10, 11, 12,  /* 90-99 */
+   13, 14, 15}; /* 100-102 */
+  
+
 /*-------------------------------------------------------------------*/
 
 /** Excluded characters from name strings. */
@@ -219,7 +257,7 @@ static void releaseMutex(void) {
  * it contains an unprintable character or any character from a list of
  * excluded characters. All names starting with "cmsg", independent of case,
  * are reserved for use by the cMsg system itself. Names may not be
- * longer than 1024 characters (including null terminator).
+ * longer than CMSG_PAYLOAD_NAME_LEN characters (including null terminator).
  *
  * @param s string to check
  * @param isSystem if true, allows names starting with "cmsg", else not
@@ -1575,14 +1613,23 @@ if(debug) printf("  int16[%d] = %hd, numDigits(%hd) = %d, t = %p\n", j, val16, v
       else if (type == CMSG_CP_INT32_A) {
         /* array in which to store numbers */
         int32_t val32, myArray[count];
+        char byte;
 
         tt = t;
         for (j=0; j<count; j++) {
+          val32  = ((toByte[*tt]<<4 & 0xf0) | (toByte[*(tt+1)] & 0xf)) << 24; tt+=2;
+          val32 |= ((toByte[*tt]<<4 & 0xf0) | (toByte[*(tt+1)] & 0xf)) << 16; tt+=2;
+          val32 |= ((toByte[*tt]<<4 & 0xf0) | (toByte[*(tt+1)] & 0xf)) <<  8; tt+=2;
+          val32 |= ((toByte[*tt]<<4 & 0xf0) | (toByte[*(tt+1)] & 0xf))      ; tt+=3;
+          myArray[j] = val32;
+if(debug) printf("  int32[%d] = %d, t = %p\n", j, val32, tt-9);
+          
           /* read next int */
+          /*
           sscanf(tt, "%d%n", &val32, &numChars);
 if(debug) printf("  int32[%d] = %d, numDigits(%d) = %d, t = %p\n", j, val32, val32, numChars, tt);
-          tt += numChars + 1; /* go forward # of chars in number + space */
-          myArray[j] = val32;
+          tt += numChars + 1;*/ /* go forward # of chars in number + space */
+          /*myArray[j] = val32;*/
         }
         
         if (isSystem) {
@@ -3930,7 +3977,7 @@ static int addReal(void *vmsg, const char *name, double val, int type, int place
    * the network for this item. */
    
   /* length of string to contain all data */
-  textLen = numLen + 2; /* 1 newline, 1 null terminator */
+  textLen = numLen + 1; /* 1 newline */
   item->noHeaderLen = textLen;
   
   totalLen = strlen(name) +
@@ -3938,7 +3985,7 @@ static int addReal(void *vmsg, const char *name, double val, int type, int place
              numDigits(item->count, 0) +
              1 + /* isSystem */
              numDigits(textLen, 0) +
-             5+ /* 4 spaces, 1 newline */
+             6 + /* 4 spaces, 1 newline, 1 null terminator */
              textLen;
   
   item->text = (char *) calloc(1, totalLen);
@@ -4093,7 +4140,7 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
   }
    
   /* length of string to contain all data */
-  textLen = valLen + len + 1; /* len-1 spaces, 1 newline, 1 null terminator */
+  textLen = valLen + len; /* len-1 spaces, 1 newline */
   item->noHeaderLen = textLen;
   
   totalLen = strlen(name) +
@@ -4101,7 +4148,7 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
              numDigits(item->count, 0) +
              1 + /* isSystem */
              numDigits(textLen, 0) +
-             5 + /* 4 spaces, 1 newline */
+             6 + /* 4 spaces, 1 newline, 1 null terminator */
              textLen;
 
   s = item->text = (char *) calloc(1, totalLen);
@@ -4269,7 +4316,7 @@ static int addInt(void *vmsg, const char *name, int64_t val, int type, int posit
   /* Create string to hold all data to be transferred over
    * the network for this item. */
    
-  textLen = 2; /* 1 newline, 1 null terminator */
+  textLen = 1; /* 1 newline */
   if (type == CMSG_CP_UINT64) {
     textLen += numDigits(val, 1);
   }
@@ -4283,7 +4330,7 @@ static int addInt(void *vmsg, const char *name, int64_t val, int type, int posit
              numDigits(item->count, 0) +
              1 + /* isSystem */
              numDigits(textLen, 0) +
-             5 + /* 4 spaces, 1 newline */
+             6 + /* 4 spaces, 1 newline, 1 terminator */
              textLen;
 
   item->text = (char *) calloc(1, totalLen);
@@ -4565,7 +4612,7 @@ int cMsgAddUint64(void *vmsg, const char *name, uint64_t val, int place) {
  * @returns CMSG_BAD_FORMAT if name is not properly formed
  * @returns CMSG_ALREADY_EXISTS if name is being used already
  */   
-static int addIntArray(void *vmsg, const char *name, const int *vals,
+static int addIntArrayOrig(void *vmsg, const char *name, const int *vals,
                        int type, int len, int place, int isSystem) {
   payloadItem *item;
   int i, ok, cLen, totalLen, valLen=0, textLen=0;
@@ -4631,7 +4678,7 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
             {uint64_t *p = (uint64_t *)vals; for (i=0; i<len; i++) valLen += numDigits(p[i], 1);}
   }
    
-  textLen  = valLen + len + 1; /* len-1 spaces, 1 newline, 1 null terminator */
+  textLen  = valLen + len; /* len-1 spaces, 1 newline */
   item->noHeaderLen = textLen;
   
   totalLen = strlen(name) +
@@ -4639,7 +4686,7 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
              numDigits(item->count, 0) +
              1 + /* isSystem */
              numDigits(textLen, 0) +
-             5 + /* 4 spaces, 1 newline */
+             6 + /* 4 spaces, 1 newline, 1 null terminator */
              textLen;
 
   s = item->text = (char *) calloc(1, totalLen);
@@ -4696,6 +4743,261 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
             array = calloc(len, sizeof(int32_t));
             if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
             for (i=0; i<len; i++) ((int32_t *)array)[i] = ((int32_t *)vals)[i];
+            break;
+            
+      case CMSG_CP_INT64_A:
+            for (i=0; i<len; i++) {
+              if (i < len-1) {
+                sprintf(s, "%lld %n", ((int64_t *)vals)[i], &cLen);
+              } else {
+                sprintf(s, "%lld\n%n", ((int64_t *)vals)[i], &cLen);
+              }
+              s += cLen;
+            }
+            /* Store the values */
+            array = calloc(len, sizeof(int64_t));
+            if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+            for (i=0; i<len; i++) ((int64_t *)array)[i] = ((int64_t *)vals)[i];
+            break;
+            
+      case CMSG_CP_UINT8_A:
+            for (i=0; i<len; i++) {
+              if (i < len-1) {
+                sprintf(s, "%d %n", ((uint8_t *)vals)[i], &cLen);
+              } else {
+                sprintf(s, "%d\n%n", ((uint8_t *)vals)[i], &cLen);
+              }
+              s += cLen;
+            }
+            /* Store the values */
+            array = calloc(len, sizeof(uint8_t));
+            if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+            for (i=0; i<len; i++) ((uint8_t *)array)[i] = ((uint8_t *)vals)[i];
+            break;
+            
+      case CMSG_CP_UINT16_A:
+            for (i=0; i<len; i++) {
+              if (i < len-1) {
+                sprintf(s, "%hu %n", ((uint16_t *)vals)[i], &cLen);
+              } else {
+                sprintf(s, "%hu\n%n", ((uint16_t *)vals)[i], &cLen);
+              }
+              s += cLen;
+            }
+            /* Store the values */
+            array = calloc(len, sizeof(uint16_t));
+            if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+            for (i=0; i<len; i++)((uint16_t *)array)[i] = ((uint16_t *)vals)[i];
+            break;
+            
+      case CMSG_CP_UINT32_A:
+            for (i=0; i<len; i++) {
+              if (i < len-1) {
+                sprintf(s, "%u %n", ((uint32_t *)vals)[i], &cLen);
+              } else {
+                sprintf(s, "%u\n%n", ((uint32_t *)vals)[i], &cLen);
+              }
+              s += cLen;
+            }
+            /* Store the values */
+            array = calloc(len, sizeof(uint32_t));
+            if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+            for (i=0; i<len; i++) ((uint32_t *)array)[i] = ((uint32_t *)vals)[i];
+            break;
+            
+      case CMSG_CP_UINT64_A:
+            for (i=0; i<len; i++) {
+              if (i < len-1) {
+                sprintf(s, "%llu %n", ((uint64_t *)vals)[i], &cLen);
+              } else {
+                sprintf(s, "%llu\n%n", ((uint64_t *)vals)[i], &cLen);
+              }
+              s += cLen;
+            }
+            /* Store the values */
+            array = calloc(len, sizeof(uint64_t));
+            if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+            for (i=0; i<len; i++) ((uint64_t *)array)[i] = ((uint64_t *)vals)[i];
+  }
+   
+  item->array = (void *)array;
+  item->length = strlen(item->text);
+  
+  ok = insertItem(msg, item, place);
+  if (!ok) {
+    payloadItemFree(item);
+    free(item);
+    return(CMSG_ERROR);  
+  }
+  
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine adds any kind of int array field to the compound payload of a message.
+ * Used internally with control over adding fields with names starting with "cmsg".
+ *
+ * @param vmsg pointer to message
+ * @param name name of field to add
+ * @param vals array of ints to add
+ * @param type type of int array to add (CMSG_CP_INT32_A, etc)
+ * @param len number of ints from array to add
+ * @param place place of field in payload item order (0 = first), 
+ *              CMSG_CP_END if placed at the end, or
+ *              CMSG_CP_MARKER if placed after marker
+ * @param isSystem if = 1 allows using names starting with "cmsg", else not
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if array cannot be placed at the desired location
+ * @returns CMSG_BAD_ARGUMENT if message, vals or name is NULL, or place < 0 and
+ *                            place != CMSG_CP_END and place != CMSG_CP_MARKER
+ * @returns CMSG_OUT_OF_MEMORY if no more memory
+ * @returns CMSG_BAD_FORMAT if name is not properly formed
+ * @returns CMSG_ALREADY_EXISTS if name is being used already
+ */   
+static int addIntArray(void *vmsg, const char *name, const int *vals,
+                       int type, int len, int place, int isSystem) {
+  payloadItem *item;
+  int i, j, byte,  ok, cLen, totalLen, valLen=0, textLen=0;
+  void *array=NULL;
+  char *s;
+  
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+
+  if (msg == NULL || name == NULL || vals == NULL) return(CMSG_BAD_ARGUMENT);
+  if (place < 0 &&
+      place != CMSG_CP_END &&
+      place != CMSG_CP_MARKER)                     return(CMSG_BAD_ARGUMENT);
+  if (!goodFieldName(name, isSystem))              return(CMSG_BAD_FORMAT);
+  if (nameExists(vmsg, name))                      return(CMSG_ALREADY_EXISTS);
+  
+  if (type != CMSG_CP_INT8_A   && type != CMSG_CP_INT16_A  &&
+      type != CMSG_CP_INT32_A  && type != CMSG_CP_INT64_A  &&
+      type != CMSG_CP_UINT8_A  && type != CMSG_CP_UINT16_A &&
+      type != CMSG_CP_UINT32_A && type != CMSG_CP_UINT64_A)  {
+      return(CMSG_BAD_ARGUMENT);
+  }
+  if (isSystem) isSystem = 1;
+  
+  /* payload item */
+  item = (payloadItem *) calloc(1, sizeof(payloadItem));
+  if (item == NULL) return(CMSG_OUT_OF_MEMORY);
+  payloadItemInit(item);
+  
+  item->name = strdup(name);
+  if (item->name == NULL) {
+    free(item);
+    return(CMSG_OUT_OF_MEMORY);
+  }
+  item->type  = type;
+  item->count = len;
+  
+  /* Create string to hold all data to be transferred over
+   * the network for this item. */
+         
+  switch (type) {
+      case CMSG_CP_INT8_A:
+      case CMSG_CP_UINT8_A:
+            {valLen += 2*len;}
+            break;
+      case CMSG_CP_INT16_A:
+      case CMSG_CP_UINT16_A:
+            {valLen += 4*len;}
+            break;
+      case CMSG_CP_INT32_A:
+      case CMSG_CP_UINT32_A:
+            {valLen += 8*len;}
+            break;
+      case CMSG_CP_INT64_A:
+      case CMSG_CP_UINT64_A:
+            {valLen += 16*len;}
+  }
+   
+  textLen  = valLen + len; /* len-1 spaces, 1 newline */
+  item->noHeaderLen = textLen;
+  
+  totalLen = strlen(name) +
+             2 + /* 2 digit type */
+             numDigits(item->count, 0) +
+             1 + /* isSystem */
+             numDigits(textLen, 0) +
+             6 + /* 4 spaces, 1 newline, 1 null terminator */
+             textLen;
+
+  s = item->text = (char *) calloc(1, totalLen);
+  if (item->text == NULL) {
+    payloadItemFree(item);
+    free(item);
+    return(CMSG_OUT_OF_MEMORY);
+  }
+  
+  sprintf(s, "%s %d %d %d %d\n%n", name, item->type, item->count, isSystem, textLen, &cLen);
+  s += cLen;
+      
+  switch (type) {
+      case CMSG_CP_INT8_A:
+            for (i=0; i<len; i++) {
+              if (i < len-1) {
+                sprintf(s, "%d %n", ((int8_t *)vals)[i], &cLen);
+              } else {
+                sprintf(s, "%d\n%n", ((int8_t *)vals)[i], &cLen);
+              }
+              s += cLen;
+            }
+            /* Store the values */
+            array = calloc(len, sizeof(int8_t));
+            if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+            for (i=0; i<len; i++) ((int8_t *)array)[i] = ((int8_t *)vals)[i];
+            break;
+           
+      case CMSG_CP_INT16_A:
+            for (i=0; i<len; i++) {
+              if (i < len-1) {
+                sprintf(s, "%hd %n", ((int16_t *)vals)[i], &cLen);
+              } else {
+                sprintf(s, "%hd\n%n", ((int16_t *)vals)[i], &cLen);
+              }
+              s += cLen;
+            }
+            /* Store the values */
+            array = calloc(len, sizeof(int16_t));
+            if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+            /*for (i=0; i<len; i++) ((int16_t *)array)[i] = ((int16_t *)vals)[i];*/
+            /* STUPID !!, do memcpy */
+            memcpy(array, vals, len*sizeof(int16_t));
+            break;
+            
+      case CMSG_CP_INT32_A:
+            for (i=0; i<len; i++) {
+                j = ((int32_t *)vals)[i];
+                byte = j>>24 & 0xff;
+                *s++ = toASCII[byte][0];
+                *s++ = toASCII[byte][1];
+                byte = j>>16 & 0xff;
+                *s++ = toASCII[byte][0];
+                *s++ = toASCII[byte][1];
+                byte = j>>8 & 0xff;
+                *s++ = toASCII[byte][0];
+                *s++ = toASCII[byte][1];
+                byte = j & 0xff;
+                *s++ = toASCII[byte][0];
+                *s++ = toASCII[byte][1];
+              if (i < len-1) {
+                *s++ = ' ';
+              } else {
+                *s++ = '\n';
+              }
+            }
+            /* Store the values */
+            array = calloc(len, sizeof(int32_t));
+            if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+            /*for (i=0; i<len; i++) ((int32_t *)array)[i] = ((int32_t *)vals)[i];*/
+            /* STUPID !!, do memcpy */
+            memcpy(array, vals, len*sizeof(int32_t));
             break;
             
       case CMSG_CP_INT64_A:
@@ -5310,7 +5612,7 @@ int cMsgAddStringArray(void *vmsg, const char *name, const char **vals, int len,
  */   
 static int addMessage(void *vmsg, char *name, const void *vmessage, int place, int isSystem) {
   char *s;
-  int ok, len, binLen=0, count=0;
+  int ok, len, binLen=0, count=0, endian;
   int textLen=0, totalLen=0, length[12], numChars;
   payloadItem *item, *pItem;  
   cMsgMessage_t *msg     = (cMsgMessage_t *)vmsg;
@@ -5465,7 +5767,7 @@ static int addMessage(void *vmsg, char *name, const void *vmessage, int place, i
   if (message->byteArray != NULL) {
     /* find size of text-encoded binary data (exact) */
     binLen = cMsg_b64_encode_len(message->byteArray + message->byteArrayOffset, message->byteArrayLength);
-    length[11] = binLen + numDigits(binLen, 0) + 2 /* 2 newlines */;
+    length[11] = binLen + numDigits(binLen, 0) + 4 /* 1 endian, 1 space, 2 newlines */;
     
     textLen += strlen("cMsgBinary") + 2 + numDigits(message->byteArrayLength, 0) + 1 +
                numDigits(length[11], 0) + length[11] + 5; /* 4 spaces, 1 newline */
@@ -5509,49 +5811,49 @@ static int addMessage(void *vmsg, char *name, const void *vmessage, int place, i
   
   /* add message's domain member as string */
   if (message->domain != NULL) {
-    sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgDomain", CMSG_CP_STR, isSystem, length[0],
-                                             strlen(message->domain), message->domain, &len);
+    sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgDomain", CMSG_CP_STR, length[0],
+                                            strlen(message->domain), message->domain, &len);
     s += len;
   }
   
   /* add message's subject member as string */
   if (message->subject != NULL) {
-    sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgSubject", CMSG_CP_STR, isSystem, length[1],
+    sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSubject", CMSG_CP_STR, length[1],
                                             strlen(message->subject), message->subject, &len);
     s += len;
   }
   
   /* add message's type member as string */
   if (message->type != NULL) {
-    sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgType", CMSG_CP_STR, isSystem, length[2],
-                                             strlen(message->type), message->type, &len);
+    sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgType", CMSG_CP_STR, length[2],
+                                            strlen(message->type), message->type, &len);
     s += len;
   }
   
   /* add message's text member as string */
   if (message->text != NULL) {
-    sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgText", CMSG_CP_STR, isSystem, length[3],
+    sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgText", CMSG_CP_STR, length[3],
                                             strlen(message->text), message->text, &len);
     s += len;
   }
 
   /* add message's creator member as string */
   if (message->creator != NULL) {
-    sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgCreator", CMSG_CP_STR, isSystem, length[4],
+    sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgCreator", CMSG_CP_STR, length[4],
                                             strlen(message->creator), message->creator, &len);
     s += len;
   }
 
   /* add message's sender member as string */
   if (message->sender != NULL) {
-    sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgSender", CMSG_CP_STR, isSystem, length[5],
+    sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSender", CMSG_CP_STR, length[5],
                                              strlen(message->sender), message->sender, &len);
     s += len;
   }
 
   /* add message's senderHost member as string */
   if (message->senderHost != NULL) {
-    sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgSenderHost", CMSG_CP_STR, isSystem, length[6],
+    sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSenderHost", CMSG_CP_STR, length[6],
                                             strlen(message->senderHost), message->senderHost, &len);
     s += len;
   }
@@ -5571,14 +5873,14 @@ static int addMessage(void *vmsg, char *name, const void *vmessage, int place, i
   }
 
   /* next write 5 ints */
-  sprintf(s, "%s %d 5 %d %d\n%n", "cMsgInts", CMSG_CP_INT32_A, isSystem, length[9], &len);
+  sprintf(s, "%s %d 5 1 %d\n%n", "cMsgInts", CMSG_CP_INT32_A, length[9], &len);
   s+= len;
   sprintf(s, "%d %d %d %d %d\n%n", message->version, message->info, message->reserved,
                                    message->byteArrayLength, message->userInt, &len);
   s+= len;
 
   /* next write 6 64-bit ints */
-  sprintf(s, "%s %d 6 %d %d\n%n", "cMsgTimes", CMSG_CP_INT64_A, isSystem, length[10], &len);
+  sprintf(s, "%s %d 6 1 %d\n%n", "cMsgTimes", CMSG_CP_INT64_A, length[10], &len);
   s+= len;
   sprintf(s, "%ld %ld %ld %ld %ld %ld\n%n", message->userTime.tv_sec, message->userTime.tv_nsec,
                                             message->senderTime.tv_sec, message->senderTime.tv_nsec,
@@ -5587,12 +5889,13 @@ static int addMessage(void *vmsg, char *name, const void *vmessage, int place, i
   
   if (message->byteArray != NULL) {
     /* write first line and stop */
-    sprintf(s, "%s %d %d %d %d\n%n", "cMsgBinary", CMSG_CP_BIN, message->byteArrayLength,
-                                     isSystem, length[11], &len);
+    sprintf(s, "%s %d %d 1 %d\n%n", "cMsgBinary", CMSG_CP_BIN, message->byteArrayLength,
+                                     length[11], &len);
     s+= len;
     
     /* write the length */
-    sprintf(s, "%u\n%n", length[11], &len);
+    cMsgGetByteArrayEndian(vmessage, &endian);
+    sprintf(s, "%u %d\n%n", length[11], endian, &len);
     s+= len;
 
     /* write the binary-encoded text */
