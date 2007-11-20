@@ -127,7 +127,7 @@ static int  addBinaryFromString(void *vmsg, const char *name, const char *val, i
                                 int length, int place, int isSystem, int endian);
 static int  addInt(void *vmsg, const char *name, int64_t val, int type, int place, int isSystem);
 static int  addIntArray(void *vmsg, const char *name, const int *vals,
-                       int type, int len, int place, int isSystem);
+                        int type, int len, int place, int isSystem, int copy);
 static int  addString(void *vmsg, const char *name, const char *val, int place, int isSystem, int copy);
 static int  addStringArray(void *vmsg, const char *name, const char **vals,
                            int len, int place, int isSystem, int copy);
@@ -1502,24 +1502,6 @@ if(debug) printf("read dbl/flt as %.16lg\n", dbl);
           tt = t;
           for (j=0; j<count; j++) {
             /* convert from 16 chars (representing hex) to double */
-            /*
-            int64 = (((int64_t)toByte[*tt]     <<60 & 0xf000000000000000L) |
-                     ((int64_t)toByte[*(tt+1)] <<56 & 0x0f00000000000000L) |
-                     ((int64_t)toByte[*(tt+2)] <<52 & 0x00f0000000000000L) |
-                     ((int64_t)toByte[*(tt+3)] <<48 & 0x000f000000000000L) |
-                     ((int64_t)toByte[*(tt+4)] <<44 & 0x0000f00000000000L) |
-                     ((int64_t)toByte[*(tt+5)] <<40 & 0x00000f0000000000L) |
-                     ((int64_t)toByte[*(tt+6)] <<36 & 0x000000f000000000L) |
-                     ((int64_t)toByte[*(tt+7)] <<32 & 0x0000000f00000000L) |
-                     ((int64_t)toByte[*(tt+8)] <<28 & 0x00000000f0000000L) |
-                     ((int64_t)toByte[*(tt+9)] <<24 & 0x000000000f000000L) |
-                     ((int64_t)toByte[*(tt+10)]<<20 & 0x0000000000f00000L) |
-                     ((int64_t)toByte[*(tt+11)]<<16 & 0x00000000000f0000L) |
-                     ((int64_t)toByte[*(tt+12)]<<12 & 0x000000000000f000L) |
-                     ((int64_t)toByte[*(tt+13)]<<8  & 0x0000000000000f00L) |
-                     ((int64_t)toByte[*(tt+14)]<<4  & 0x00000000000000f0L) |
-                     ((int64_t)toByte[*(tt+15)]     & 0x000000000000000fL));
-            */
             int64 = (((int64_t)toByte[*tt]     <<60) |
                      ((int64_t)toByte[*(tt+1)] <<56) |
                      ((int64_t)toByte[*(tt+2)] <<52) |
@@ -1533,9 +1515,9 @@ if(debug) printf("read dbl/flt as %.16lg\n", dbl);
                      ((int64_t)toByte[*(tt+10)]<<20) |
                      ((int64_t)toByte[*(tt+11)]<<16) |
                      ((int64_t)toByte[*(tt+12)]<<12) |
-                     ((int64_t)toByte[*(tt+13)]<<8) |
-                     ((int64_t)toByte[*(tt+14)]<<4) |
-                     ((int64_t)toByte[*(tt+15)]));
+                     ((int64_t)toByte[*(tt+13)]<<8)  |
+                     ((int64_t)toByte[*(tt+14)]<<4)  |
+                     ((int64_t)toByte[*(tt+15)]   ));
             myArray[j] = *((double *)(&int64));
             tt+=17;
 if(debug) printf("  double[%d] = %.16lg, t = %p\n", j, myArray[j], tt-17);
@@ -1558,10 +1540,14 @@ if(debug) printf("  double[%d] = %.16lg, t = %p\n", j, myArray[j], tt-17);
           tt = t;
           for (j=0; j<count; j++) {
             /* convert from 8 chars (representing hex) to float */
-            int32 = ((toByte[*tt]    <<28 & 0xf0000000) | (toByte[*(tt+1)]<<24 & 0x0f000000) |
-                     (toByte[*(tt+2)]<<20 & 0x00f00000) | (toByte[*(tt+3)]<<16 & 0x000f0000) |
-                     (toByte[*(tt+4)]<<12 & 0x0000f000) | (toByte[*(tt+5)]<<8  & 0x00000f00) |
-                     (toByte[*(tt+6)]<<4  & 0x000000f0) | (toByte[*(tt+7)]     & 0x0000000f));
+            int32 = ((toByte[*tt]    <<28) |
+                     (toByte[*(tt+1)]<<24) |
+                     (toByte[*(tt+2)]<<20) |
+                     (toByte[*(tt+3)]<<16) |
+                     (toByte[*(tt+4)]<<12) |
+                     (toByte[*(tt+5)]<<8 ) |
+                     (toByte[*(tt+6)]<<4 ) |
+                     (toByte[*(tt+7)]    ));
             myArray[j] = *((float *)(&int32));
             tt+=9;
 if(debug) printf("  float[%d] = %.7g, t = %p\n", j, myArray[j], tt-9);
@@ -4926,6 +4912,8 @@ static int addIntArrayOrig(void *vmsg, const char *name, const int *vals,
  *              CMSG_CP_END if placed at the end, or
  *              CMSG_CP_MARKER if placed after marker
  * @param isSystem if = 1 allows using names starting with "cmsg", else not
+ * @param copy if true, copy the array in "vals", else record the pointer and assume ownership
+ *
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if array cannot be placed at the desired location
@@ -4936,7 +4924,7 @@ static int addIntArrayOrig(void *vmsg, const char *name, const int *vals,
  * @returns CMSG_ALREADY_EXISTS if name is being used already
  */   
 static int addIntArray(void *vmsg, const char *name, const int *vals,
-                       int type, int len, int place, int isSystem) {
+                       int type, int len, int place, int isSystem, int copy) {
   payloadItem *item;
   int       j32, i, byte,  ok, cLen, totalLen, valLen=0, textLen=0;
   char  *s, j8;
