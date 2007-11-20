@@ -133,7 +133,7 @@ static int  addStringArray(void *vmsg, const char *name, const char **vals,
                            int len, int place, int isSystem, int copy);
 static int  addReal(void *vmsg, const char *name, double val, int type, int place, int isSystem);
 static int  addRealArray(void *vmsg, const char *name, const double *vals,
-                         int type, int len, int place, int isSystem);
+                         int type, int len, int place, int isSystem, int copy);
 
 static int  getInt(const void *vmsg, int type, int64_t *val);
 static int  getReal(const void *vmsg, int type, double *val);
@@ -1213,12 +1213,11 @@ static int moveItem(cMsgMessage_t *msg, const char *name, int placeFrom, int pla
  */   
 static int setFieldsFromText(void *vmsg, const char *text, int flag, char **ptr) {
   char *s, *t, *tt, *pmsgTxt, name[CMSG_PAYLOAD_NAME_LEN+1];
-  int i, j, err, len, type, count, fields, ignore;
-  int totalLen, isSystem, msgTxtLen, numChars, debug=0;
+  int i, j, int32, err, len, type, count, fields, ignore;
+  int totalLen, isSystem, msgTxtLen, debug=0;
   int64_t   int64;
   uint64_t uint64;
   double   dbl;
-  float    flt;
   
   /* payloadItem *item, *prev; */
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
@@ -1496,33 +1495,54 @@ if(debug) printf("read dbl/flt as %.16lg\n", dbl);
 
       /* double array */
       else if (type == CMSG_CP_DBL_A) {          
-          double *pDbl, myArray[count];
+          double *myArray;
+          myArray = (double *)malloc(count*sizeof(double));
+          if (myArray == NULL) return(CMSG_OUT_OF_MEMORY);
 
           tt = t;
           for (j=0; j<count; j++) {
-             int64 =     (((int64_t)toByte[*tt]     <<60 & 0xf000000000000000L) |
-                          ((int64_t)toByte[*(tt+1)] <<56 & 0x0f00000000000000L) |
-                          ((int64_t)toByte[*(tt+2)] <<52 & 0x00f0000000000000L) |
-                          ((int64_t)toByte[*(tt+3)] <<48 & 0x000f000000000000L) |
-                          ((int64_t)toByte[*(tt+4)] <<44 & 0x0000f00000000000L) |
-                          ((int64_t)toByte[*(tt+5)] <<40 & 0x00000f0000000000L) |
-                          ((int64_t)toByte[*(tt+6)] <<36 & 0x000000f000000000L) |
-                          ((int64_t)toByte[*(tt+7)] <<32 & 0x0000000f00000000L) |
-                          ((int64_t)toByte[*(tt+8)] <<28 & 0x00000000f0000000L) |
-                          ((int64_t)toByte[*(tt+9)] <<24 & 0x000000000f000000L) |
-                          ((int64_t)toByte[*(tt+10)]<<20 & 0x0000000000f00000L) |
-                          ((int64_t)toByte[*(tt+11)]<<16 & 0x00000000000f0000L) |
-                          ((int64_t)toByte[*(tt+12)]<<12 & 0x000000000000f000L) |
-                          ((int64_t)toByte[*(tt+13)]<<8  & 0x0000000000000f00L) |
-                          ((int64_t)toByte[*(tt+14)]<<4  & 0x00000000000000f0L) |
-                          ((int64_t)toByte[*(tt+15)]     & 0x000000000000000fL));
-            memcpy((void *)(&myArray[j]), (const void *)(&int64), sizeof(double));
+            /* convert from 16 chars (representing hex) to double */
+            /*
+            int64 = (((int64_t)toByte[*tt]     <<60 & 0xf000000000000000L) |
+                     ((int64_t)toByte[*(tt+1)] <<56 & 0x0f00000000000000L) |
+                     ((int64_t)toByte[*(tt+2)] <<52 & 0x00f0000000000000L) |
+                     ((int64_t)toByte[*(tt+3)] <<48 & 0x000f000000000000L) |
+                     ((int64_t)toByte[*(tt+4)] <<44 & 0x0000f00000000000L) |
+                     ((int64_t)toByte[*(tt+5)] <<40 & 0x00000f0000000000L) |
+                     ((int64_t)toByte[*(tt+6)] <<36 & 0x000000f000000000L) |
+                     ((int64_t)toByte[*(tt+7)] <<32 & 0x0000000f00000000L) |
+                     ((int64_t)toByte[*(tt+8)] <<28 & 0x00000000f0000000L) |
+                     ((int64_t)toByte[*(tt+9)] <<24 & 0x000000000f000000L) |
+                     ((int64_t)toByte[*(tt+10)]<<20 & 0x0000000000f00000L) |
+                     ((int64_t)toByte[*(tt+11)]<<16 & 0x00000000000f0000L) |
+                     ((int64_t)toByte[*(tt+12)]<<12 & 0x000000000000f000L) |
+                     ((int64_t)toByte[*(tt+13)]<<8  & 0x0000000000000f00L) |
+                     ((int64_t)toByte[*(tt+14)]<<4  & 0x00000000000000f0L) |
+                     ((int64_t)toByte[*(tt+15)]     & 0x000000000000000fL));
+            */
+            int64 = (((int64_t)toByte[*tt]     <<60) |
+                     ((int64_t)toByte[*(tt+1)] <<56) |
+                     ((int64_t)toByte[*(tt+2)] <<52) |
+                     ((int64_t)toByte[*(tt+3)] <<48) |
+                     ((int64_t)toByte[*(tt+4)] <<44) |
+                     ((int64_t)toByte[*(tt+5)] <<40) |
+                     ((int64_t)toByte[*(tt+6)] <<36) |
+                     ((int64_t)toByte[*(tt+7)] <<32) |
+                     ((int64_t)toByte[*(tt+8)] <<28) |
+                     ((int64_t)toByte[*(tt+9)] <<24) |
+                     ((int64_t)toByte[*(tt+10)]<<20) |
+                     ((int64_t)toByte[*(tt+11)]<<16) |
+                     ((int64_t)toByte[*(tt+12)]<<12) |
+                     ((int64_t)toByte[*(tt+13)]<<8) |
+                     ((int64_t)toByte[*(tt+14)]<<4) |
+                     ((int64_t)toByte[*(tt+15)]));
+            myArray[j] = *((double *)(&int64));
             tt+=17;
 if(debug) printf("  double[%d] = %.16lg, t = %p\n", j, myArray[j], tt-17);
           }
           
           /* add array to payload */
-          err = addRealArray(vmsg, name, myArray, type, count, CMSG_CP_MARKER, 1); 
+          err = addRealArray(vmsg, name, myArray, type, count, CMSG_CP_MARKER, 1, 0); 
           if (err != CMSG_OK) {
             if (err == CMSG_BAD_ARGUMENT) err = CMSG_BAD_FORMAT;
             return(err);
@@ -1531,20 +1551,24 @@ if(debug) printf("  double[%d] = %.16lg, t = %p\n", j, myArray[j], tt-17);
 
       /* float array */
       else if (type == CMSG_CP_FLT_A) {          
-          float myArray[count];
+          float *myArray;
+          myArray = (float *)malloc(count*sizeof(float));
+          if (myArray == NULL) return(CMSG_OUT_OF_MEMORY);
 
           tt = t;
           for (j=0; j<count; j++) {
-            myArray[j] = (float)((toByte[*tt]    <<28 & 0xf0000000) | (toByte[*(tt+1)]<<24 & 0x0f000000) |
-                          (toByte[*(tt+2)]<<20 & 0x00f00000) | (toByte[*(tt+3)]<<16 & 0x000f0000) |
-                          (toByte[*(tt+4)]<<12 & 0x0000f000) | (toByte[*(tt+5)]<<8  & 0x00000f00) |
-                          (toByte[*(tt+6)]<<4  & 0x000000f0) | (toByte[*(tt+7)]     & 0x0000000f));
+            /* convert from 8 chars (representing hex) to float */
+            int32 = ((toByte[*tt]    <<28 & 0xf0000000) | (toByte[*(tt+1)]<<24 & 0x0f000000) |
+                     (toByte[*(tt+2)]<<20 & 0x00f00000) | (toByte[*(tt+3)]<<16 & 0x000f0000) |
+                     (toByte[*(tt+4)]<<12 & 0x0000f000) | (toByte[*(tt+5)]<<8  & 0x00000f00) |
+                     (toByte[*(tt+6)]<<4  & 0x000000f0) | (toByte[*(tt+7)]     & 0x0000000f));
+            myArray[j] = *((float *)(&int32));
             tt+=9;
 if(debug) printf("  float[%d] = %.7g, t = %p\n", j, myArray[j], tt-9);
           }
 
           /* add array to payload */
-          err = addRealArray(vmsg, name, (double *)myArray, type, count, CMSG_CP_MARKER, 1); 
+          err = addRealArray(vmsg, name, (double *)myArray, type, count, CMSG_CP_MARKER, 1, 0); 
           if (err != CMSG_OK) {
             if (err == CMSG_BAD_ARGUMENT) err = CMSG_BAD_FORMAT;
             return(err);
@@ -4096,6 +4120,7 @@ int cMsgAddDouble(void *vmsg, const char *name, double val, int place) {
  *              CMSG_CP_END if placed at the end, or
  *              CMSG_CP_MARKER if placed after marker
  * @param isSystem if = 1 allows using names starting with "cmsg", else not
+ * @param copy if true, copy the array in "vals", else record the pointer and assume ownership
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if array cannot be placed at the desired location
@@ -4106,14 +4131,13 @@ int cMsgAddDouble(void *vmsg, const char *name, double val, int place) {
  * @returns CMSG_ALREADY_EXISTS if name is being used already
  */   
 static int addRealArray(void *vmsg, const char *name, const double *vals,
-                        int type, int len, int place, int isSystem) {
+                        int type, int len, int place, int isSystem, int copy) {
   payloadItem *item;
   int i, ok, byte, cLen, totalLen, valLen=0, textLen=0;
   void *array;
-  char *s, *tt;
-  int32_t j32;
+  char *s;
+  uint32_t j32;
   uint64_t j64;
-  double dval;
   
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -4172,15 +4196,15 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
   
   if (type == CMSG_CP_FLT_A) {
     for (i=0; i<len; i++) {
-        j32 = ((int32_t *)vals)[i];
+        j32 = ((uint32_t *)vals)[i];
         byte = j32>>24 & 0xff;
-        memcpy((void *)s, (const void *)toASCII[byte],2); s += 2;
+        *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
         byte = j32>>16 & 0xff;
-        memcpy((void *)s, (const void *)toASCII[byte],2); s += 2;
+        *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
         byte = j32>>8 & 0xff;
-        memcpy((void *)s, (const void *)toASCII[byte],2); s += 2;
+        *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
         byte = j32 & 0xff;
-        memcpy((void *)s, (const void *)toASCII[byte],2); s += 2;
+        *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
       if (i < len-1) {
         *s++ = ' ';
       } else {
@@ -4188,63 +4212,53 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
       }
     }
     /* Store the values */
-    array = calloc(len, sizeof(float));
-    if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
-    memcpy(array, vals, len*sizeof(float));
+    if (copy) {
+      array = calloc(len, sizeof(float));
+      if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+      memcpy(array, vals, len*sizeof(float));
+      item->array = (void *)array;
+    }
+    else {
+      item->array = (void *)vals;
+    }
   }
   else {
     for (i=0; i<len; i++) {
         j64 = ((uint64_t *)vals)[i];
-/*printf("store double as int = %lld\n", j64); tt = s;*/
         byte = j64>>56 & 0xffL;
-        memcpy((void *)s, (const void *)toASCII[byte],2); s += 2;
+        *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
         byte = j64>>48 & 0xffL;
-        memcpy((void *)s, (const void *)toASCII[byte],2); s += 2;
+        *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
         byte = j64>>40 & 0xffL;
-        memcpy((void *)s, (const void *)toASCII[byte],2); s += 2;
+        *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
         byte = j64>>32 & 0xffL;
-        memcpy((void *)s, (const void *)toASCII[byte],2); s += 2;
+        *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
         byte = j64>>24 & 0xffL;
-        memcpy((void *)s, (const void *)toASCII[byte],2); s += 2;
+        *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
         byte = j64>>16 & 0xffL;
-        memcpy((void *)s, (const void *)toASCII[byte],2); s += 2;
+        *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
         byte = j64>>8 & 0xffL;
-        memcpy((void *)s, (const void *)toASCII[byte],2); s += 2;
+        *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
         byte = j64 & 0xffL;
-        memcpy((void *)s, (const void *)toASCII[byte],2); s += 2;
+        *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
       if (i < len-1) {
         *s++ = ' ';
       } else {
         *s++ = '\n';
       }
-      /*
-      j64 =    (((int64_t)toByte[*tt]     <<60 & 0xf000000000000000L) |
-                ((int64_t)toByte[*(tt+1)] <<56 & 0x0f00000000000000L) |
-                ((int64_t)toByte[*(tt+2)] <<52 & 0x00f0000000000000L) |
-                ((int64_t)toByte[*(tt+3)] <<48 & 0x000f000000000000L) |
-                ((int64_t)toByte[*(tt+4)] <<44 & 0x0000f00000000000L) |
-                ((int64_t)toByte[*(tt+5)] <<40 & 0x00000f0000000000L) |
-                ((int64_t)toByte[*(tt+6)] <<36 & 0x000000f000000000L) |
-                ((int64_t)toByte[*(tt+7)] <<32 & 0x0000000f00000000L) |
-                ((int64_t)toByte[*(tt+8)] <<28 & 0x00000000f0000000L) |
-                ((int64_t)toByte[*(tt+9)] <<24 & 0x000000000f000000L) |
-                ((int64_t)toByte[*(tt+10)]<<20 & 0x0000000000f00000L) |
-                ((int64_t)toByte[*(tt+11)]<<16 & 0x00000000000f0000L) |
-                ((int64_t)toByte[*(tt+12)]<<12 & 0x000000000000f000L) |
-                ((int64_t)toByte[*(tt+13)]<<8  & 0x0000000000000f00L) |
-                ((int64_t)toByte[*(tt+14)]<<4  & 0x00000000000000f0L) |
-                ((int64_t)toByte[*(tt+15)]     & 0x000000000000000fL));
-      memcpy((void *)(&dval), (const void *)(&j64), sizeof(double));
-printf("restore double from int = %e\n", dval);
-*/             
     }
               
     /* Store the values */
-    array = calloc(len, sizeof(double));
-    if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
-    memcpy(array, vals, len*sizeof(double));
+    if (copy) {
+      array = calloc(len, sizeof(double));
+      if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+      memcpy(array, vals, len*sizeof(double));
+      item->array = (void *)array;
+    }
+    else {
+      item->array = (void *)vals;
+    }
   }
-  item->array  = (void *)array;
   item->length = strlen(item->text);
 /*printf("Double array txt =\n%s\n", item->text);*/
   ok = insertItem(msg, item, place);
@@ -4266,7 +4280,7 @@ printf("restore double from int = %e\n", dval);
  *
  * @param vmsg pointer to message
  * @param name name of field to add
- * @param vals array of floats to add
+ * @param vals array of floats to add (copy)
  * @param len number of floats from array to add
  * @param place place of field in payload item order (0 = first), 
  *              CMSG_CP_END if placed at the end, or
@@ -4281,7 +4295,7 @@ printf("restore double from int = %e\n", dval);
  * @returns CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddFloatArray(void *vmsg, const char *name, const float vals[], int len, int place) {
-   return addRealArray(vmsg, name, (double *)vals, CMSG_CP_FLT_A, len, place, 0); 
+   return addRealArray(vmsg, name, (double *)vals, CMSG_CP_FLT_A, len, place, 0, 1); 
 }
 
 
@@ -4293,7 +4307,7 @@ int cMsgAddFloatArray(void *vmsg, const char *name, const float vals[], int len,
  *
  * @param vmsg pointer to message
  * @param name name of field to add
- * @param vals array of doubles to add
+ * @param vals array of doubles to add (copy)
  * @param len number of doubles from array to add
  * @param place place of field in payload item order (0 = first), 
  *              CMSG_CP_END if placed at the end, or
@@ -4308,7 +4322,7 @@ int cMsgAddFloatArray(void *vmsg, const char *name, const float vals[], int len,
  * @returns CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddDoubleArray(void *vmsg, const char *name, const double vals[], int len, int place) {
-   return addRealArray(vmsg, name, vals, CMSG_CP_DBL_A, len, place, 0); 
+   return addRealArray(vmsg, name, vals, CMSG_CP_DBL_A, len, place, 0, 1); 
 }
 
 
@@ -4924,9 +4938,9 @@ static int addIntArrayOrig(void *vmsg, const char *name, const int *vals,
 static int addIntArray(void *vmsg, const char *name, const int *vals,
                        int type, int len, int place, int isSystem) {
   payloadItem *item;
-  int      j32, i, byte,  ok, cLen, totalLen, valLen=0, textLen=0;
-  char *s, *tt, j8;
-  short    j16;
+  int       j32, i, byte,  ok, cLen, totalLen, valLen=0, textLen=0;
+  char  *s, j8;
+  short     j16;
   uint64_t  j64;
   void *array=NULL;
   
