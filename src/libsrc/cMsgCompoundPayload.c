@@ -1593,17 +1593,19 @@ if(debug) printf("read int as %llu\n", uint64);
       /* 8-bit, unsigned int array */
       else if (type == CMSG_CP_UINT8_A) {
         /* array in which to store numbers */
-        uint8_t myArray[count];
+        uint8_t *myArray;
+        myArray = (uint8_t *)malloc(count*sizeof(uint8_t));
+        if (myArray == NULL) return(CMSG_OUT_OF_MEMORY);
 
         tt = t;
         for (j=0; j<count; j++) {
-          myArray[j] = ((toByte[*(tt)]<<4 & 0xf0) | (toByte[*(tt+1)] & 0xf));
+          myArray[j] = ((toByte[*(tt)]<<4) | (toByte[*(tt+1)]));
           tt+=3;
 if(debug) printf("  uint8[%d] = %d, t = %p\n", j, (int)myArray[j], tt);
         }
 
         /* add array to payload */
-        err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1); 
+        err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1, 0); 
         if (err != CMSG_OK) {
           if (err == CMSG_BAD_ARGUMENT) err = CMSG_BAD_FORMAT;
           return(err);
@@ -1612,17 +1614,19 @@ if(debug) printf("  uint8[%d] = %d, t = %p\n", j, (int)myArray[j], tt);
 
       /* 8-bit, signed int array */
       else if (type == CMSG_CP_INT8_A) {
-        int8_t myArray[count];
+        int8_t *myArray;
+        myArray = (int8_t *)malloc(count*sizeof(int8_t));
+        if (myArray == NULL) return(CMSG_OUT_OF_MEMORY);
 
         tt = t;
         for (j=0; j<count; j++) {
-          myArray[j] = ((toByte[*(tt)]<<4 & 0xf0) | (toByte[*(tt+1)] & 0xf));
+          myArray[j] = ((toByte[*(tt)]<<4) | (toByte[*(tt+1)]));
           tt+=3;
 if(debug) printf("  int8[%d] = %d, t = %p\n", j, (int)myArray[j], tt);
         }
 
         /* add array to payload */
-        err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1); 
+        err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1, 0); 
         if (err != CMSG_OK) {
           if (err == CMSG_BAD_ARGUMENT) err = CMSG_BAD_FORMAT;
           return(err);
@@ -1632,17 +1636,21 @@ if(debug) printf("  int8[%d] = %d, t = %p\n", j, (int)myArray[j], tt);
       /* 16-bit, unsigned int array */
       else if (type == CMSG_CP_UINT16_A) {
         /* array in which to store numbers */
-        uint16_t myArray[count];
+        uint16_t *myArray;
+        myArray = (uint16_t *)malloc(count*sizeof(uint16_t));
+        if (myArray == NULL) return(CMSG_OUT_OF_MEMORY);
 
         tt = t;
         for (j=0; j<count; j++) {
-          myArray[j] = ((toByte[*(tt)]  <<12 & 0xf000) | (toByte[*(tt+1)]<<8  & 0x0f00) |
-                        (toByte[*(tt+2)]<<4  & 0x00f0) | (toByte[*(tt+3)]     & 0x000f));
+          myArray[j] = ((toByte[*(tt)]  <<12) |
+                        (toByte[*(tt+1)]<<8 ) |
+                        (toByte[*(tt+2)]<<4 ) |
+                        (toByte[*(tt+3)]    ));
           tt+=5;
 if(debug) printf("  uint16[%d] = %hu, t = %p\n", j, myArray[j], tt-5);
        }
 
-        err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1); 
+        err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1, 0); 
         if (err != CMSG_OK) {
           if (err == CMSG_BAD_ARGUMENT) err = CMSG_BAD_FORMAT;
           return(err);
@@ -1651,17 +1659,21 @@ if(debug) printf("  uint16[%d] = %hu, t = %p\n", j, myArray[j], tt-5);
 
       /* 16-bit, signed int array */
       else if (type == CMSG_CP_INT16_A) {
-        int16_t myArray[count];
+        int16_t *myArray;
+        myArray = (int16_t *)malloc(count*sizeof(int16_t));
+        if (myArray == NULL) return(CMSG_OUT_OF_MEMORY);
 
         tt = t;
         for (j=0; j<count; j++) {
-          myArray[j] = ((toByte[*(tt)]  <<12 & 0xf000) | (toByte[*(tt+1)]<<8  & 0x0f00) |
-                        (toByte[*(tt+2)]<<4  & 0x00f0) | (toByte[*(tt+3)]     & 0x000f));
+          myArray[j] = ((toByte[*(tt)]  <<12) |
+                        (toByte[*(tt+1)]<<8 ) |
+                        (toByte[*(tt+2)]<<4 ) |
+                        (toByte[*(tt+3)]    ));
           tt+=5;
 if(debug) printf("  int16[%d] = %hd, t = %p\n", j, myArray[j], tt-5);
         }
 
-        err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1); 
+        err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1, 0); 
         if (err != CMSG_OK) {
           if (err == CMSG_BAD_ARGUMENT) err = CMSG_BAD_FORMAT;
           return(err);
@@ -1671,20 +1683,26 @@ if(debug) printf("  int16[%d] = %hd, t = %p\n", j, myArray[j], tt-5);
       /* 32-bit, unsigned int array */
       else if (type == CMSG_CP_UINT32_A) {
         /* array in which to store numbers */
-        uint32_t myArray[count];
+        uint32_t *myArray;
+        myArray = (uint32_t *)malloc(count*sizeof(uint32_t));
+        if (myArray == NULL) return(CMSG_OUT_OF_MEMORY);
 
         tt = t;
         for (j=0; j<count; j++) {
-          myArray[j] = ((toByte[*tt]    <<28 & 0xf0000000) | (toByte[*(tt+1)]<<24 & 0x0f000000) |
-                        (toByte[*(tt+2)]<<20 & 0x00f00000) | (toByte[*(tt+3)]<<16 & 0x000f0000) |
-                        (toByte[*(tt+4)]<<12 & 0x0000f000) | (toByte[*(tt+5)]<<8  & 0x00000f00) |
-                        (toByte[*(tt+6)]<<4  & 0x000000f0) | (toByte[*(tt+7)]     & 0x0000000f));
+          myArray[j] = ((toByte[*tt]    <<28) |
+                        (toByte[*(tt+1)]<<24) |
+                        (toByte[*(tt+2)]<<20) |
+                        (toByte[*(tt+3)]<<16) |
+                        (toByte[*(tt+4)]<<12) |
+                        (toByte[*(tt+5)]<<8 ) |
+                        (toByte[*(tt+6)]<<4 ) |
+                        (toByte[*(tt+7)]    ));
           tt+=9;
 if(debug) printf("  int32[%d] = %u, t = %p\n", j, myArray[j], tt-9);
         }
 
         /* add array to payload */
-        err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1); 
+        err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1, 0); 
         if (err != CMSG_OK) {
           if (err == CMSG_BAD_ARGUMENT) err = CMSG_BAD_FORMAT;
           return(err);
@@ -1693,21 +1711,21 @@ if(debug) printf("  int32[%d] = %u, t = %p\n", j, myArray[j], tt-9);
 
       /* 32-bit, signed int array */
       else if (type == CMSG_CP_INT32_A) {
-        int32_t myArray[count];
+        int32_t *myArray;
+        myArray = (int32_t *)malloc(count*sizeof(int32_t));
+        if (myArray == NULL) return(CMSG_OUT_OF_MEMORY);
 
         tt = t;
         for (j=0; j<count; j++) {
-          myArray[j] = ((toByte[*tt]    <<28 & 0xf0000000) | (toByte[*(tt+1)]<<24 & 0x0f000000) |
-                        (toByte[*(tt+2)]<<20 & 0x00f00000) | (toByte[*(tt+3)]<<16 & 0x000f0000) |
-                        (toByte[*(tt+4)]<<12 & 0x0000f000) | (toByte[*(tt+5)]<<8  & 0x00000f00) |
-                        (toByte[*(tt+6)]<<4  & 0x000000f0) | (toByte[*(tt+7)]     & 0x0000000f));
+          myArray[j] = ((toByte[*tt]    <<28) |
+                        (toByte[*(tt+1)]<<24) |
+                        (toByte[*(tt+2)]<<20) |
+                        (toByte[*(tt+3)]<<16) |
+                        (toByte[*(tt+4)]<<12) |
+                        (toByte[*(tt+5)]<<8 ) |
+                        (toByte[*(tt+6)]<<4 ) |
+                        (toByte[*(tt+7)]    ));
           tt+=9;
-          /*
-          val32  = ((toByte[*tt]<<4 & 0xf0) | (toByte[*(tt+1)] & 0xf)) << 24; tt+=2;
-          val32 |= ((toByte[*tt]<<4 & 0xf0) | (toByte[*(tt+1)] & 0xf)) << 16; tt+=2;
-          val32 |= ((toByte[*tt]<<4 & 0xf0) | (toByte[*(tt+1)] & 0xf)) <<  8; tt+=2;
-          val32 |= ((toByte[*tt]<<4 & 0xf0) | (toByte[*(tt+1)] & 0xf))      ; tt+=3;
-          */
 if(debug) printf("  int32[%d] = %d, t = %p\n", j, myArray[j], tt-9);
         }
         
@@ -1725,7 +1743,7 @@ if(debug) printf("  int32[%d] = %d, t = %p\n", j, myArray[j], tt-9);
         }
         else {
           /* add array to payload */
-          err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1); 
+          err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1, 0); 
           if (err != CMSG_OK) {
             if (err == CMSG_BAD_ARGUMENT) err = CMSG_BAD_FORMAT;
             return(err);
@@ -1736,26 +1754,28 @@ if(debug) printf("  int32[%d] = %d, t = %p\n", j, myArray[j], tt-9);
       /* 64-bit, signed int array */
       else if (type == CMSG_CP_INT64_A) {
         /* array in which to store numbers */
-        int64_t myArray[count];
+        int64_t *myArray;
+        myArray = (int64_t *)malloc(count*sizeof(int64_t));
+        if (myArray == NULL) return(CMSG_OUT_OF_MEMORY);
 
         tt = t;
         for (j=0; j<count; j++) {
-          myArray[j] = (((int64_t)toByte[*tt]     <<60 & 0xf000000000000000L) |
-                        ((int64_t)toByte[*(tt+1)] <<56 & 0x0f00000000000000L) |
-                        ((int64_t)toByte[*(tt+2)] <<52 & 0x00f0000000000000L) |
-                        ((int64_t)toByte[*(tt+3)] <<48 & 0x000f000000000000L) |
-                        ((int64_t)toByte[*(tt+4)] <<44 & 0x0000f00000000000L) |
-                        ((int64_t)toByte[*(tt+5)] <<40 & 0x00000f0000000000L) |
-                        ((int64_t)toByte[*(tt+6)] <<36 & 0x000000f000000000L) |
-                        ((int64_t)toByte[*(tt+7)] <<32 & 0x0000000f00000000L) |
-                        ((int64_t)toByte[*(tt+8)] <<28 & 0x00000000f0000000L) |
-                        ((int64_t)toByte[*(tt+9)] <<24 & 0x000000000f000000L) |
-                        ((int64_t)toByte[*(tt+10)]<<20 & 0x0000000000f00000L) |
-                        ((int64_t)toByte[*(tt+11)]<<16 & 0x00000000000f0000L) |
-                        ((int64_t)toByte[*(tt+12)]<<12 & 0x000000000000f000L) |
-                        ((int64_t)toByte[*(tt+13)]<<8  & 0x0000000000000f00L) |
-                        ((int64_t)toByte[*(tt+14)]<<4  & 0x00000000000000f0L) |
-                        ((int64_t)toByte[*(tt+15)]     & 0x000000000000000fL));
+          myArray[j] = (((int64_t)toByte[*tt]     <<60) |
+                        ((int64_t)toByte[*(tt+1)] <<56) |
+                        ((int64_t)toByte[*(tt+2)] <<52) |
+                        ((int64_t)toByte[*(tt+3)] <<48) |
+                        ((int64_t)toByte[*(tt+4)] <<44) |
+                        ((int64_t)toByte[*(tt+5)] <<40) |
+                        ((int64_t)toByte[*(tt+6)] <<36) |
+                        ((int64_t)toByte[*(tt+7)] <<32) |
+                        ((int64_t)toByte[*(tt+8)] <<28) |
+                        ((int64_t)toByte[*(tt+9)] <<24) |
+                        ((int64_t)toByte[*(tt+10)]<<20) |
+                        ((int64_t)toByte[*(tt+11)]<<16) |
+                        ((int64_t)toByte[*(tt+12)]<<12) |
+                        ((int64_t)toByte[*(tt+13)]<<8)  |
+                        ((int64_t)toByte[*(tt+14)]<<4)  |
+                        ((int64_t)toByte[*(tt+15)]   ));
           tt+=17;
 if(debug) printf("  int64[%d] = %lld, t = %p\n", j, myArray[j], tt-17);
         }
@@ -1775,7 +1795,7 @@ if(debug) printf("  int64[%d] = %lld, t = %p\n", j, myArray[j], tt-17);
         }
         else {
           /* add array to payload */
-          err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1); 
+          err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1, 0); 
           if (err != CMSG_OK) {
             if (err == CMSG_BAD_ARGUMENT) err = CMSG_BAD_FORMAT;
             return(err);
@@ -1786,32 +1806,34 @@ if(debug) printf("  int64[%d] = %lld, t = %p\n", j, myArray[j], tt-17);
       /* 64-bit, unsigned int array */
       else if (type == CMSG_CP_UINT64_A) {
         /* array in which to store numbers */
-        uint64_t myArray[count];
+        uint64_t *myArray;
+        myArray = (uint64_t *)malloc(count*sizeof(uint64_t));
+        if (myArray == NULL) return(CMSG_OUT_OF_MEMORY);
 
         tt = t;
         for (j=0; j<count; j++) {
-          myArray[j] = (((uint64_t)toByte[*tt]     <<60 & 0xf000000000000000L) |
-                        ((uint64_t)toByte[*(tt+1)] <<56 & 0x0f00000000000000L) |
-                        ((uint64_t)toByte[*(tt+2)] <<52 & 0x00f0000000000000L) |
-                        ((uint64_t)toByte[*(tt+3)] <<48 & 0x000f000000000000L) |
-                        ((uint64_t)toByte[*(tt+4)] <<44 & 0x0000f00000000000L) |
-                        ((uint64_t)toByte[*(tt+5)] <<40 & 0x00000f0000000000L) |
-                        ((uint64_t)toByte[*(tt+6)] <<36 & 0x000000f000000000L) |
-                        ((uint64_t)toByte[*(tt+7)] <<32 & 0x0000000f00000000L) |
-                        ((uint64_t)toByte[*(tt+8)] <<28 & 0x00000000f0000000L) |
-                        ((uint64_t)toByte[*(tt+9)] <<24 & 0x000000000f000000L) |
-                        ((uint64_t)toByte[*(tt+10)]<<20 & 0x0000000000f00000L) |
-                        ((uint64_t)toByte[*(tt+11)]<<16 & 0x00000000000f0000L) |
-                        ((uint64_t)toByte[*(tt+12)]<<12 & 0x000000000000f000L) |
-                        ((uint64_t)toByte[*(tt+13)]<<8  & 0x0000000000000f00L) |
-                        ((uint64_t)toByte[*(tt+14)]<<4  & 0x00000000000000f0L) |
-                        ((uint64_t)toByte[*(tt+15)]     & 0x000000000000000fL));
+          myArray[j] = (((uint64_t)toByte[*tt]     <<60) |
+                        ((uint64_t)toByte[*(tt+1)] <<56) |
+                        ((uint64_t)toByte[*(tt+2)] <<52) |
+                        ((uint64_t)toByte[*(tt+3)] <<48) |
+                        ((uint64_t)toByte[*(tt+4)] <<44) |
+                        ((uint64_t)toByte[*(tt+5)] <<40) |
+                        ((uint64_t)toByte[*(tt+6)] <<36) |
+                        ((uint64_t)toByte[*(tt+7)] <<32) |
+                        ((uint64_t)toByte[*(tt+8)] <<28) |
+                        ((uint64_t)toByte[*(tt+9)] <<24) |
+                        ((uint64_t)toByte[*(tt+10)]<<20) |
+                        ((uint64_t)toByte[*(tt+11)]<<16) |
+                        ((uint64_t)toByte[*(tt+12)]<<12) |
+                        ((uint64_t)toByte[*(tt+13)]<<8)  |
+                        ((uint64_t)toByte[*(tt+14)]<<4)  |
+                        ((uint64_t)toByte[*(tt+15)]   ));
           tt+=17;
 if(debug) printf("  int64[%d] = %llu, t = %p\n", j, myArray[j], tt-17);
         }
 
         /* add array to payload */
-        err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1); 
+        err = addIntArray(vmsg, name, (const int *)myArray, type, count, CMSG_CP_MARKER, 1, 0); 
         if (err != CMSG_OK) {
           if (err == CMSG_BAD_ARGUMENT) err = CMSG_BAD_FORMAT;
           return(err);
@@ -5123,7 +5145,7 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
  *
  * @param vmsg pointer to message
  * @param name name of field to add
- * @param vals array of 8-bit, signed ints to add
+ * @param vals array of 8-bit, signed ints to add (copy)
  * @param len number of ints from array to add
  * @param place place of field in payload item order (0 = first), 
  *              CMSG_CP_END if placed at the end, or
@@ -5138,7 +5160,7 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
  * @returns CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddInt8Array(void *vmsg, const char *name, const int8_t vals[], int len, int place) {
-   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_INT8_A, len, place, 0); 
+   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_INT8_A, len, place, 0, 1); 
 }
 
 
@@ -5150,7 +5172,7 @@ int cMsgAddInt8Array(void *vmsg, const char *name, const int8_t vals[], int len,
  *
  * @param vmsg pointer to message
  * @param name name of field to add
- * @param vals array of 16-bit, signed ints to add
+ * @param vals array of 16-bit, signed ints to add (copy)
  * @param len number of ints from array to add
  * @param place place of field in payload item order (0 = first), 
  *              CMSG_CP_END if placed at the end, or
@@ -5165,7 +5187,7 @@ int cMsgAddInt8Array(void *vmsg, const char *name, const int8_t vals[], int len,
  * @returns CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddInt16Array(void *vmsg, const char *name, const int16_t vals[], int len, int place) {
-   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_INT16_A, len, place, 0); 
+   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_INT16_A, len, place, 0, 1); 
 }
 
 
@@ -5177,7 +5199,7 @@ int cMsgAddInt16Array(void *vmsg, const char *name, const int16_t vals[], int le
  *
  * @param vmsg pointer to message
  * @param name name of field to add
- * @param vals array of 32-bit, signed ints to add
+ * @param vals array of 32-bit, signed ints to add (copy)
  * @param len number of ints from array to add
  * @param place place of field in payload item order (0 = first), 
  *              CMSG_CP_END if placed at the end, or
@@ -5192,7 +5214,7 @@ int cMsgAddInt16Array(void *vmsg, const char *name, const int16_t vals[], int le
  * @returns CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddInt32Array(void *vmsg, const char *name, const int32_t vals[], int len, int place) {
-   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_INT32_A, len, place, 0); 
+   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_INT32_A, len, place, 0, 1); 
 }
 
 
@@ -5204,7 +5226,7 @@ int cMsgAddInt32Array(void *vmsg, const char *name, const int32_t vals[], int le
  *
  * @param vmsg pointer to message
  * @param name name of field to add
- * @param vals array of 364-bit, signed ints to add
+ * @param vals array of 64-bit, signed ints to add (copy)
  * @param len number of ints from array to add
  * @param place place of field in payload item order (0 = first), 
  *              CMSG_CP_END if placed at the end, or
@@ -5219,7 +5241,7 @@ int cMsgAddInt32Array(void *vmsg, const char *name, const int32_t vals[], int le
  * @returns CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddInt64Array(void *vmsg, const char *name, const int64_t vals[], int len, int place) {
-   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_INT64_A, len, place, 0); 
+   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_INT64_A, len, place, 0, 1); 
 }
 
 
@@ -5231,7 +5253,7 @@ int cMsgAddInt64Array(void *vmsg, const char *name, const int64_t vals[], int le
  *
  * @param vmsg pointer to message
  * @param name name of field to add
- * @param vals array of 8-bit, unsigned ints to add
+ * @param vals array of 8-bit, unsigned ints to add (copy)
  * @param len number of ints from array to add
  * @param place place of field in payload item order (0 = first), 
  *              CMSG_CP_END if placed at the end, or
@@ -5246,7 +5268,7 @@ int cMsgAddInt64Array(void *vmsg, const char *name, const int64_t vals[], int le
  * @returns CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddUint8Array(void *vmsg, const char *name, const uint8_t vals[], int len, int place) {
-   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_UINT8_A, len, place, 0); 
+   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_UINT8_A, len, place, 0, 1); 
 }
 
 
@@ -5258,7 +5280,7 @@ int cMsgAddUint8Array(void *vmsg, const char *name, const uint8_t vals[], int le
  *
  * @param vmsg pointer to message
  * @param name name of field to add
- * @param vals array of 16-bit, unsigned ints to add
+ * @param vals array of 16-bit, unsigned ints to add (copy)
  * @param len number of ints from array to add
  * @param place place of field in payload item order (0 = first), 
  *              CMSG_CP_END if placed at the end, or
@@ -5273,7 +5295,7 @@ int cMsgAddUint8Array(void *vmsg, const char *name, const uint8_t vals[], int le
  * @returns CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddUint16Array(void *vmsg, const char *name, const uint16_t vals[], int len, int place) {
-   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_UINT16_A, len, place, 0); 
+   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_UINT16_A, len, place, 0, 1); 
 }
 
 
@@ -5285,7 +5307,7 @@ int cMsgAddUint16Array(void *vmsg, const char *name, const uint16_t vals[], int 
  *
  * @param vmsg pointer to message
  * @param name name of field to add
- * @param vals array of 32-bit, unsigned ints to add
+ * @param vals array of 32-bit, unsigned ints to add (copy)
  * @param len number of ints from array to add
  * @param place place of field in payload item order (0 = first), 
  *              CMSG_CP_END if placed at the end, or
@@ -5300,7 +5322,7 @@ int cMsgAddUint16Array(void *vmsg, const char *name, const uint16_t vals[], int 
  * @returns CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddUint32Array(void *vmsg, const char *name, const uint32_t vals[], int len, int place) {
-   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_UINT32_A, len, place, 0); 
+   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_UINT32_A, len, place, 0, 1); 
 }
 
 
@@ -5312,7 +5334,7 @@ int cMsgAddUint32Array(void *vmsg, const char *name, const uint32_t vals[], int 
  *
  * @param vmsg pointer to message
  * @param name name of field to add
- * @param vals array of 64-bit, unsigned ints to add
+ * @param vals array of 64-bit, unsigned ints to add (copy)
  * @param len number of ints from array to add
  * @param place place of field in payload item order (0 = first), 
  *              CMSG_CP_END if placed at the end, or
@@ -5327,7 +5349,7 @@ int cMsgAddUint32Array(void *vmsg, const char *name, const uint32_t vals[], int 
  * @returns CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddUint64Array(void *vmsg, const char *name, const uint64_t vals[], int len, int place) {
-   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_UINT64_A, len, place, 0); 
+   return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_UINT64_A, len, place, 0, 1); 
 }
 
 
