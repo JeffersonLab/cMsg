@@ -1482,9 +1482,51 @@ if(debug) printf("  skip to t = %p\n", t);
       if (s == NULL) return(CMSG_BAD_FORMAT);
       
       /* reals */
-      if (type == CMSG_CP_FLT || type == CMSG_CP_DBL) {
-          sscanf(t, "%lg", &dbl);
-if(debug) printf("read dbl/flt as %.16lg\n", dbl);
+      if (type == CMSG_CP_FLT) {
+if(debug) printf("trying to read FLOAT\n");
+          float flt;
+          tt = t;
+          /* convert from 16 chars (representing hex) to double */
+          int32 = ((toByte[*tt]    <<28) |
+                   (toByte[*(tt+1)]<<24) |
+                   (toByte[*(tt+2)]<<20) |
+                   (toByte[*(tt+3)]<<16) |
+                   (toByte[*(tt+4)]<<12) |
+                   (toByte[*(tt+5)]<<8 ) |
+                   (toByte[*(tt+6)]<<4 ) |
+                   (toByte[*(tt+7)]    ));
+          flt = *((float *)(&int32));
+          dbl = flt;
+if(debug) printf("read flt as %.16lg, t = %p\n", dbl, t);
+
+          err = addReal(vmsg, name, flt, type, CMSG_CP_MARKER, 1);  
+          if (err != CMSG_OK) {
+            if (err == CMSG_BAD_ARGUMENT) err = CMSG_BAD_FORMAT;
+            return(err);
+          }
+      }
+
+      else if (type == CMSG_CP_DBL) {
+          tt = t;
+          /* convert from 16 chars (representing hex) to double */
+          int64 = (((int64_t)toByte[*tt]     <<60) |
+                   ((int64_t)toByte[*(tt+1)] <<56) |
+                   ((int64_t)toByte[*(tt+2)] <<52) |
+                   ((int64_t)toByte[*(tt+3)] <<48) |
+                   ((int64_t)toByte[*(tt+4)] <<44) |
+                   ((int64_t)toByte[*(tt+5)] <<40) |
+                   ((int64_t)toByte[*(tt+6)] <<36) |
+                   ((int64_t)toByte[*(tt+7)] <<32) |
+                   ((int64_t)toByte[*(tt+8)] <<28) |
+                   ((int64_t)toByte[*(tt+9)] <<24) |
+                   ((int64_t)toByte[*(tt+10)]<<20) |
+                   ((int64_t)toByte[*(tt+11)]<<16) |
+                   ((int64_t)toByte[*(tt+12)]<<12) |
+                   ((int64_t)toByte[*(tt+13)]<<8)  |
+                   ((int64_t)toByte[*(tt+14)]<<4)  |
+                   ((int64_t)toByte[*(tt+15)]   ));
+          dbl = *((double *)(&int64));
+if(debug) printf("read dbl as %.16lg, t = %p\n", dbl, t);
 
           err = addReal(vmsg, name, dbl, type, CMSG_CP_MARKER, 1);  
           if (err != CMSG_OK) {
@@ -3980,8 +4022,11 @@ int cMsgAddBinary(void *vmsg, const char *name, const char *src,
  */   
 static int addReal(void *vmsg, const char *name, double val, int type, int place, int isSystem) {
   payloadItem *item;
-  int ok, textLen, totalLen, numLen;
-  char num[24];
+  int ok, byte, textLen, totalLen, len;
+  char *s;
+  uint32_t j32;
+  uint64_t j64;
+  float    flt;
   
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -4008,23 +4053,17 @@ static int addReal(void *vmsg, const char *name, double val, int type, int place
   item->type  = type;
   item->count = 1;
   
-  /* convert float/double to string */
-  memset((void *)num, 0, 23);
+  /* length of string to contain all data */
   if (type == CMSG_CP_FLT) {
-    sprintf(num,"%.7g",(float)val);
-    numLen = strlen(num);
+    textLen = 8 + 1;   /* 1 newline */
   }
   else {
-    sprintf(num,"%.16lg", val);
-    numLen = strlen(num);
+    textLen = 16 + 1; /* 1 newline */
   }
-  /* Create string to hold all data to be transferred over
-   * the network for this item. */
-   
-  /* length of string to contain all data */
-  textLen = numLen + 1; /* 1 newline */
   item->noHeaderLen = textLen;
   
+  /* Create string to hold all data to be transferred over
+   * the network for this item. */
   totalLen = strlen(name) +
              2 + /* 2 digit type */
              numDigits(item->count, 0) +
@@ -4033,15 +4072,50 @@ static int addReal(void *vmsg, const char *name, double val, int type, int place
              6 + /* 4 spaces, 1 newline, 1 null terminator */
              textLen;
   
-  item->text = (char *) calloc(1, totalLen);
+  s = item->text = (char *) calloc(1, totalLen);
   if (item->text == NULL) {
     payloadItemFree(item);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
   
-  sprintf(item->text, "%s %d %d %d %d\n%s\n", name, item->type, item->count, isSystem, textLen, num);
+  sprintf(s, "%s %d %d %d %d\n%n", name, item->type, item->count, isSystem, textLen, &len);
+  s += len;
   
+  if (type == CMSG_CP_FLT) {
+    flt = (float)val;
+    j32 = *((uint32_t *)(&flt));
+    byte = j32>>24 & 0xff;
+    *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+    byte = j32>>16 & 0xff;
+    *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+    byte = j32>>8 & 0xff;
+    *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+    byte = j32 & 0xff;
+    *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+    *s++ = '\n';
+  }
+  else {
+    j64 = *((uint64_t *)(&val));
+    byte = j64>>56 & 0xffL;
+    *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+    byte = j64>>48 & 0xffL;
+    *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+    byte = j64>>40 & 0xffL;
+    *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+    byte = j64>>32 & 0xffL;
+    *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+    byte = j64>>24 & 0xffL;
+    *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+    byte = j64>>16 & 0xffL;
+    *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+    byte = j64>>8 & 0xffL;
+    *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+    byte = j64 & 0xffL;
+    *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+    *s++ = '\n';
+  }
+
   item->length = strlen(item->text);
   item->dval   = val;
 
@@ -4141,7 +4215,7 @@ int cMsgAddDouble(void *vmsg, const char *name, double val, int place) {
 static int addRealArray(void *vmsg, const char *name, const double *vals,
                         int type, int len, int place, int isSystem, int copy) {
   payloadItem *item;
-  int i, ok, byte, cLen, totalLen, valLen=0, textLen=0;
+  int i, ok, byte, cLen, totalLen, textLen=0;
   void *array;
   char *s;
   uint32_t j32;
@@ -4175,14 +4249,14 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
   /* Create string to hold all data to be transferred over
    * the network for this item. */
   if (type == CMSG_CP_FLT_A) {
-    valLen += 8*len;
+    textLen += 8*len;
   }
   else {
-    valLen += 16*len;
+    textLen += 16*len;
   }
       
   /* length of string to contain all data */
-  textLen = valLen + len; /* len-1 spaces, 1 newline */
+  textLen += len; /* len-1 spaces, 1 newline */
   item->noHeaderLen = textLen;
   
   totalLen = strlen(name) +
