@@ -3450,7 +3450,7 @@ int cMsgGetUserTime(const void *vmsg, struct timespec *userTime) {
  * This routine sets the length of a message's byte array.
  *
  * @param vmsg pointer to message
- * @param length byte array's length
+ * @param length byte array's length (in bytes)
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL or length is negative
@@ -3471,7 +3471,7 @@ int cMsgSetByteArrayLength(void *vmsg, int length) {
  * This routine gets the length of a message's byte array.
  *
  * @param vmsg pointer to message
- * @param length int pointer to be filled with byte array length
+ * @param length int pointer to be filled with byte array length (in bytes)
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
@@ -3492,7 +3492,7 @@ int cMsgGetByteArrayLength(const void *vmsg, int *length) {
  * This routine sets the offset of a message's byte array.
  *
  * @param vmsg pointer to message
- * @param offset byte array's offset
+ * @param offset byte array's offset index
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
@@ -3512,7 +3512,7 @@ int cMsgSetByteArrayOffset(void *vmsg, int offset) {
  * This routine gets the offset of a message's byte array.
  *
  * @param vmsg pointer to message
- * @param offset int pointer to be filled with byte array offset
+ * @param offset int pointer to be filled with byte array offset index
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
@@ -3698,6 +3698,8 @@ int cMsgSetByteArray(void *vmsg, char *array) {
  *
  * @param vmsg pointer to message
  * @param array byte array
+ * @param offset offset of index into array
+ * @param length number of bytes in array
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL or length is negative
@@ -3726,6 +3728,8 @@ int cMsgSetByteArrayAndLimits(void *vmsg, char *array, int offset, int length) {
  *
  * @param vmsg pointer to message
  * @param array byte array
+ * @param offset offset of index into array
+ * @param length number of bytes in array
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message or array is NULL, or length is negative
