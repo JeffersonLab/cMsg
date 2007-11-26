@@ -5555,8 +5555,10 @@ int cMsgAddStringArray(void *vmsg, const char *name, const char **vals, int len,
  */   
 static int addMessage(void *vmsg, char *name, const void *vmessage, int place, int isSystem) {
   char *s;
-  int ok, len, binLen=0, count=0, endian;
+  int i, byte, ok, len, binLen=0, count=0, endian;
   int textLen=0, totalLen=0, length[12], numChars;
+  int32_t j32[5];
+  int64_t j64[6];
   payloadItem *item, *pItem;  
   cMsgMessage_t *msg     = (cMsgMessage_t *)vmsg;
   cMsgMessage_t *message = (cMsgMessage_t *)vmessage;
@@ -5684,9 +5686,8 @@ static int addMessage(void *vmsg, char *name, const void *vmessage, int place, i
   /* add length of 1 array of 5 ints: version, info, reserved, byteArrayLength, and userInt */
   /* ************************************************************************************** */
   
-  /* add length of string to contain ints */
-  length[9] = numDigits(message->version,0) + numDigits(message->info,0) + numDigits(message->reserved,0) +
-              numDigits(message->byteArrayLength,0) + numDigits(message->userInt,0) + 5 /* 4 sp, 1 nl */;
+  /* length of string to contain ints */
+  length[9] = 5*8 + 5 /* 4 sp, 1 nl */;
   textLen += strlen("cMsgInts") + 2 + 1 + 1 + numDigits(length[9], 0) + length[9] +
              5; /* 4 sp, 1 nl */
   count++;
@@ -5695,11 +5696,8 @@ static int addMessage(void *vmsg, char *name, const void *vmessage, int place, i
   /* add length of 1 array of 6 64-bit ints for 3 times: userTime, senderTime, receiverTime */
   /* ************************************************************************************** */
   
-  /* add length of string to contain userTime */
-  length[10] = numDigits(message->userTime.tv_sec,0) + numDigits(message->userTime.tv_nsec,0) +
-               numDigits(message->senderTime.tv_sec,0) + numDigits(message->senderTime.tv_nsec,0) +
-               numDigits(message->receiverTime.tv_sec,0) + numDigits(message->receiverTime.tv_nsec,0) +
-               6 /* 5 sp, 1 nl */;
+  /* length of string to contain times */
+  length[10] = 6*16 + 6 /* 5 sp, 1 nl */;
   textLen += strlen("cMsgTimes") + 2 + 1 + 1 +  numDigits(length[10], 0) + length[10] +
              5; /* 4 sp, 1 nl */
   count++;
@@ -5818,17 +5816,59 @@ static int addMessage(void *vmsg, char *name, const void *vmessage, int place, i
   /* next write 5 ints */
   sprintf(s, "%s %d 5 1 %d\n%n", "cMsgInts", CMSG_CP_INT32_A, length[9], &len);
   s+= len;
-  sprintf(s, "%d %d %d %d %d\n%n", message->version, message->info, message->reserved,
-                                   message->byteArrayLength, message->userInt, &len);
-  s+= len;
+  j32[0] = message->version;
+  j32[1] = message->info;
+  j32[2] = message->reserved;
+  j32[3] = message->byteArrayLength;
+  j32[4] = message->userInt;
+  for (i=0; i<5; i++) {
+      byte = j32[i]>>24 & 0xff;
+      *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+      byte = j32[i]>>16 & 0xff;
+      *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+      byte = j32[i]>>8 & 0xff;
+      *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+      byte = j32[i] & 0xff;
+      *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+    if (i < 4) {
+      *s++ = ' ';
+    } else {
+      *s++ = '\n';
+    }
+  }
 
   /* next write 6 64-bit ints */
   sprintf(s, "%s %d 6 1 %d\n%n", "cMsgTimes", CMSG_CP_INT64_A, length[10], &len);
   s+= len;
-  sprintf(s, "%ld %ld %ld %ld %ld %ld\n%n", message->userTime.tv_sec, message->userTime.tv_nsec,
-                                            message->senderTime.tv_sec, message->senderTime.tv_nsec,
-                                            message->receiverTime.tv_sec, message->receiverTime.tv_nsec, &len);
-  s+= len;
+  j64[0] = message->userTime.tv_sec;
+  j64[1] = message->userTime.tv_nsec;
+  j64[2] = message->senderTime.tv_sec;
+  j64[3] = message->senderTime.tv_nsec;
+  j64[4] = message->receiverTime.tv_sec;
+  j64[5] = message->receiverTime.tv_nsec;
+  for (i=0; i<6; i++) {
+      byte = j64[i]>>56 & 0xff;
+      *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+      byte = j64[i]>>48 & 0xff;
+      *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+      byte = j64[i]>>40 & 0xff;
+      *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+      byte = j64[i]>>32 & 0xff;
+      *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+      byte = j64[i]>>24 & 0xff;
+      *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+      byte = j64[i]>>16 & 0xff;
+      *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+      byte = j64[i]>>8 & 0xff;
+      *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+      byte = j64[i] & 0xff;
+      *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
+      if (i < 5) {
+        *s++ = ' ';
+      } else {
+        *s++ = '\n';
+      }
+  }            
   
   if (message->byteArray != NULL) {
     /* write first line and stop */
