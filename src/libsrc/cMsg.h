@@ -254,8 +254,8 @@ void clock_gettime(int dummy, struct timespec *t1);
   int    cMsgMoveFieldName           (      void *vmsg, const char *name, int placeTo);
   int    cMsgMoveField               (      void *vmsg, int placeFrom, int placeTo);
 
-  char *cMsgGetFieldName             (const void *vmsg);
-  char *cMsgGetFieldText             (const void *vmsg);
+  char  *cMsgGetFieldName            (const void *vmsg);
+  char  *cMsgGetFieldText            (const void *vmsg);
   int    cMsgGetFieldType            (const void *vmsg, int *type);
   int    cMsgGetFieldCount           (const void *vmsg, int *count);
 
