@@ -131,7 +131,7 @@ static void  connectMutexUnlock(void);
 static void  initMessage(cMsgMessage_t *msg);
 static int   freeMessage(void *vmsg);
 static int   messageStringSize(const void *vmsg, int level, int binary);
-static int   cMsgToString2(void *vmsg, char **string, int level, int binary);
+static int   cMsgToString2(void *vmsg, char **string, int level, int offset, int binary);
 
 
 
@@ -4018,7 +4018,7 @@ static char *binaryFormatb       = "]]> </binary>\n%n";
  */   
 static int messageStringSize(const void *vmsg, int level, int binary) {
   payloadItem *item;
-  int slen, len;
+  int i, slen, len;
   int payloadLen=0;        /* the whole payload length in chars */
   int formatItemStrLen=50 +   level*10; /* Max XML chars surrounding single string item minus fields */
   int formatItemBinLen=60 +   level*10; /* Max XML chars surrounding binary item minus fields */
@@ -4067,6 +4067,16 @@ static int messageStringSize(const void *vmsg, int level, int binary) {
       if (len < 0) return(len);
       payloadLen += len;
     }
+    else if (item->type == CMSG_CP_MSG_A) {
+      void **msgs = (void **)item->array;
+      for (i=0; i<item->count; i++) {
+        len = messageStringSize(msgs[i], level+2 , binary);
+/*printf("messageStringSize: level %d msg size = %d\n",level+1,len);*/
+        if (len < 0) return(len);
+        payloadLen += len;
+      }
+      payloadLen += formatItemNumLen; /* estimate of surrounding XML for array */
+    }
     /* if numbers or arrays of numbers ... */
     else {
       /* XML + (indent) * (# rows of 5 numbers each) */
@@ -4099,6 +4109,7 @@ static int messageStringSize(const void *vmsg, int level, int binary) {
  *               which gets filled and which will change the pointer and return it as
  *               the end of its additions (for recursive messaging)
  * @param level the level of indent or recursive messaging (0 = none)
+ * @param offset the number of spaces to add to the indent
  * @param binary includes binary as ASCII if true (!=0), else binary is ignored
  *
  * @returns CMSG_OK if successful
@@ -4107,7 +4118,7 @@ static int messageStringSize(const void *vmsg, int level, int binary) {
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  */   
-static int cMsgToString2(void *vmsg, char **string, int level, int binary) {
+static int cMsgToString2(void *vmsg, char **string, int level, int offset, int binary) {
 
   int j, ok, place, type, slen, len, count;  
   char *buffer=NULL, *pchar, *name, *indent;
@@ -4152,11 +4163,11 @@ static int cMsgToString2(void *vmsg, char **string, int level, int binary) {
     buffer = pchar;
     
     /* Create the indent since a message may contain a message, etc. */
-    indent = (char *)malloc(level*10+1);
-    for (j=0; j<level*10; j++) {
+    indent = (char *)malloc(level*10 + offset + 1);
+    for (j=0; j<(level*10 + offset); j++) {
       indent[j] = '\040'; /* ASCII space = char #32 (40 octal) */
     }
-    indent[level*10] = '\0';
+    indent[level*10 + offset] = '\0';
   }
 
   /* fill buffer with everything except payload and ending XML */
@@ -4321,11 +4332,24 @@ static int cMsgToString2(void *vmsg, char **string, int level, int binary) {
       case CMSG_CP_MSG:
         {void *m; ok=cMsgGetMessage(msg, &m);    if(ok!=CMSG_OK) {
          if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
-         ok = cMsgToString2(m, &pchar, level+1, binary); if(ok!=CMSG_OK) {
+         ok = cMsgToString2(m, &pchar, level+1, 0, binary); if(ok!=CMSG_OK) {
          if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
         } break;
          
       /* arrays */
+      case CMSG_CP_MSG_A:
+        {void **m; ok=cMsgGetMessageArray(msg, &m, &count);  if(ok!=CMSG_OK) {
+         if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         sprintf(pchar, "%s          <cMsgMessage_array name=\"%s\">\n%n", indent, name, &len);
+         pchar+=len;
+         for(j=0;j<count;j++) {
+           ok = cMsgToString2(m[j], &pchar, level+1, 5, binary); if(ok!=CMSG_OK) {
+           if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
+         }
+         sprintf(pchar, "%s          </cMsgMessage_array>\n%n", indent, &len);
+         pchar+=len;
+        } break;
+         
       case CMSG_CP_INT8_A:
         {const int8_t *i; ok=cMsgGetInt8Array(msg, &i, &count); if(ok!=CMSG_OK) {
          if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
@@ -4492,7 +4516,7 @@ static int cMsgToString2(void *vmsg, char **string, int level, int binary) {
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  */   
 int cMsgToString(void *vmsg, char **string, int binary) {
-  return cMsgToString2(vmsg, string, 0, binary);
+  return cMsgToString2(vmsg, string, 0, 0, binary);
 }
 
 

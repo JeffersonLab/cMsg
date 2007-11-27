@@ -261,6 +261,7 @@ void clock_gettime(int dummy, struct timespec *t1);
 
   int    cMsgGetBinary               (const void *vmsg, char **val, size_t *len, int *endian);
   int    cMsgGetMessage              (const void *vmsg, void **val);
+  int    cMsgGetMessageArray         (const void *vmsg, void ***val, int *len);
   
   int    cMsgGetString               (const void *vmsg, char **val);
   int    cMsgGetStringArray          (const void *vmsg, const char ***array, size_t *len);
@@ -316,6 +317,7 @@ void clock_gettime(int dummy, struct timespec *t1);
 
   int    cMsgAddBinary               (      void *vmsg, const char *name, const char *src, size_t size, int place, int endian);
   int    cMsgAddMessage              (      void *vmsg, char *name, const void *vmessage, int place);
+  int    cMsgAddMessageArray         (      void *vmsg, char *name, const void *vmessage[], int len, int place);
 
 
 
