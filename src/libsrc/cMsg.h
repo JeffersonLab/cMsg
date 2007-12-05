@@ -319,6 +319,8 @@ void clock_gettime(int dummy, struct timespec *t1);
   int    cMsgAddMessage              (      void *vmsg, char *name, const void *vmessage, int place);
   int    cMsgAddMessageArray         (      void *vmsg, char *name, const void *vmessage[], int len, int place);
 
+  char   *cMsgFloatChars(float f);
+  char   *cMsgDoubleChars(double d);
 
 
   /* system and domain info access functions */
