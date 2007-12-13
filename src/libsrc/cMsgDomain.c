@@ -1426,7 +1426,7 @@ int cmsg_cmsg_send(void *domainId, const void *vmsg) {
       }
     }
     else {
-      lenText = cMsgGetPayloadTextLength(vmsg);
+      lenText = cMsgPayloadGetTextLength(vmsg);
     }
 
     /* message id (in network byte order) to domain server */
@@ -1526,7 +1526,7 @@ int cmsg_cmsg_send(void *domainId, const void *vmsg) {
     else {
       size_t bufLen;
       /* this returns not only payload but incorporates text as well */
-      ok = cMsgGetPayloadText(vmsg, NULL, domain->msgBuffer+len, lenText, &bufLen);
+      ok = cMsgPayloadGetText(vmsg, NULL, domain->msgBuffer+len, lenText, &bufLen);
       if (ok != CMSG_OK || bufLen != lenText) {
         /* payload changed while trying to send it, so abandon ship ... */
         cMsgSocketMutexUnlock(domain);

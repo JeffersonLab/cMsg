@@ -1249,7 +1249,7 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
       /* printf("text = %s\n", tmp); */
     }
     else {
-      cMsgSetAllFieldsFromText(msg, pchar);
+      cMsgPayloadSetAllFieldsFromText(msg, pchar);
     }
     pchar += lengths[5];
   }
