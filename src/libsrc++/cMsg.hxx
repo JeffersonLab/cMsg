@@ -22,6 +22,8 @@
 #include <cMsg.h>
 #include <string>
 #include <exception>
+#include <vector>
+#include <map>
 
 
 /**
@@ -63,7 +65,7 @@ public:
 
 
 /**
- * Wrapper for cMsg message class.  
+ * Class for wrapping cMsg message.  
  */
 class cMsgMessage {
 
@@ -126,9 +128,113 @@ public:
   virtual int    getSubscriptionCueSize(void) const throw(cMsgException);
   virtual bool   getReliableSend(void) const throw(cMsgException);
   virtual void   setReliableSend(bool b) throw(cMsgException);
+  
+  //---------------
+  // PAYLOAD STUFF
+  //---------------
 
+  virtual bool   hasPayload() const;
+  
+  virtual void   payloadClear(void);
+  virtual void   payloadPrint(void);
+  virtual void   payloadSetFromText(const string &text) throw(cMsgException);
+  virtual void   payloadSetSystemFieldsFromText(const string &text) throw(cMsgException);
+  virtual void   payloadSetAllFieldsFromText(const string &text) throw(cMsgException);
+  virtual void   payloadCopy(cMsgMessage &msg) throw(cMsgException);
 
-private:
+  virtual bool   payloadRemoveField(const string &name);
+  virtual string payloadGetFieldDescription(const string &name) const throw(cMsgException);  
+  virtual string payloadGetText() const throw(cMsgException);
+  
+  virtual map<string,int> *payloadGet() const throw(cMsgException);
+  virtual int    payloadGetCount() const;
+  virtual bool   payloadContainsName (const string &name) const;
+  virtual int    payloadGetType      (const string &name) const throw(cMsgException);
+  virtual string payloadGetFieldText (const string &name) const throw(cMsgException);
+  
+  //
+  // Methods to get a payload item's value
+  //
+  virtual void   getBinary(string name, char **val, int &len, int &endian) const throw(cMsgException);
+
+  virtual cMsgMessage *getMessage(string name) const throw(cMsgException);
+  virtual vector<cMsgMessage> *getMessageVector(string name) const throw(cMsgException);
+
+  virtual string getString(string name) const throw(cMsgException);
+  virtual vector<string> *getStringVector(string name) const throw(cMsgException);
+  
+  virtual float  getFloat(string name) const throw(cMsgException);
+  virtual double getDouble(string name) const throw(cMsgException);
+  virtual vector<float> *getFloatVector(string name) const throw(cMsgException);
+  virtual vector<double> *getDoubleVector(string name) const throw(cMsgException);
+  
+  virtual int8_t   getInt8(string name)   const throw(cMsgException);
+  virtual int16_t  getInt16(string name)  const throw(cMsgException);
+  virtual int32_t  getInt32(string name)  const throw(cMsgException);
+  virtual int64_t  getInt64(string name)  const throw(cMsgException);
+  virtual uint8_t  getUint8(string name)  const throw(cMsgException);
+  virtual uint16_t getUint16(string name) const throw(cMsgException);
+  virtual uint32_t getUint32(string name) const throw(cMsgException);
+  virtual uint64_t getUint64(string name) const throw(cMsgException);
+  
+  virtual vector<int8_t>   *getInt8Vector (string name) const throw(cMsgException);
+  virtual vector<int16_t>  *getInt16Vector(string name) const throw(cMsgException);
+  virtual vector<int32_t>  *getInt32Vector(string name) const throw(cMsgException);
+  virtual vector<int64_t>  *getInt64Vector(string name) const throw(cMsgException);
+
+  virtual vector<uint8_t>  *getUint8Vector (string name) const throw(cMsgException);
+  virtual vector<uint16_t> *getUint16Vector(string name) const throw(cMsgException);
+  virtual vector<uint32_t> *getUint32Vector(string name) const throw(cMsgException);
+  virtual vector<uint64_t> *getUint64Vector(string name) const throw(cMsgException);
+  
+  //
+  // Methods to add items to a payload
+  //
+  virtual void addBinary(string name, const char *src, int size, int endian);
+
+  virtual void addMessage(string name, cMsgMessage msg);
+  virtual void addMessageArray(string name, cMsgMessage *msg, int len);
+  virtual void addMessageVector(string name, vector<cMsgMessage> msg);
+
+  virtual void addFloat(string name, float val);
+  virtual void addDouble(string name, double val);
+  virtual void addFloatArray(string name, float *vals, int len);
+  virtual void addDoubleArray(string name, double *vals, int len);
+  virtual void addFloatVector(string name, vector<float> vals);
+  virtual void addDoubleVector(string name, vector<double> vals);
+
+  virtual void addInt8 (string name, int8_t  val);
+  virtual void addInt16(string name, int16_t val);
+  virtual void addInt32(string name, int32_t val);
+  virtual void addInt64(string name, int64_t val);
+   
+  virtual void addUint8 (string name, uint8_t  val);
+  virtual void addUint16(string name, uint16_t val);
+  virtual void addUint32(string name, uint32_t val);
+  virtual void addUint64(string name, uint64_t val);
+  
+  virtual void addInt8Array (string name, int8_t *vals,  int len);
+  virtual void addInt16Array(string name, int16_t *vals, int len);
+  virtual void addInt32Array(string name, int32_t *vals, int len);
+  virtual void addInt64Array(string name, int64_t *vals, int len);
+   
+  virtual void addUint8Array (string name, uint8_t *vals,  int len);
+  virtual void addUint16Array(string name, uint16_t *vals, int len);
+  virtual void addUint32Array(string name, uint32_t *vals, int len);
+  virtual void addUint64Array(string name, uint64_t *vals, int len);
+  
+  virtual void addInt8Vector (string name, vector<int8_t>  vals);
+  virtual void addInt16Vector(string name, vector<int16_t> vals);
+  virtual void addInt32Vector(string name, vector<int32_t> vals);
+  virtual void addInt64Vector(string name, vector<int64_t> vals);
+  
+  virtual void addUint8Vector (string name, vector<uint8_t>  vals);
+  virtual void addUint16Vector(string name, vector<uint16_t> vals);
+  virtual void addUint32Vector(string name, vector<uint32_t> vals);
+  virtual void addUint64Vector(string name, vector<uint64_t> vals);
+   
+
+//private:
   void *myMsgPointer;  /**<Pointer to C message structure.*/
 };
 
