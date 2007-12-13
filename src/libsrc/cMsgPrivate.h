@@ -404,8 +404,8 @@ typedef struct subscribeConfig_t {
 } subscribeConfig;
 
 /* private prototype used in multiple files */
-         int cMsgSetFieldPointer    (const void *vmsg, void *p);
-         int cMsgGetFieldPointer    (const void *vmsg, void **p);
+         int cMsgPayloadSetFieldPointer(const void *vmsg, const char *name, void *p);
+         int cMsgPayloadGetFieldPointer(const void *vmsg, const char *name, void **p);
 unsigned int cMsg_b64_encode        (const char *src, unsigned int len, char *dst);
          int cMsg_b64_decode        (const char *src, unsigned int len, char *dst);
 unsigned int cMsg_b64_encode_len    (const char *src, unsigned int srclen);
