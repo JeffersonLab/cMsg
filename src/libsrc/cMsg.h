@@ -229,95 +229,93 @@ void clock_gettime(int dummy, struct timespec *t1);
   /*  misc. */
   int    cMsgToString              (      void *vmsg, char **string, int binary);
   
+  /* ***************************************** */
   /* compound payload stuff - 63 user routines */
+  /* ***************************************** */
   
+  int    cMsgPayloadGet              (const void *vmsg, char **names,  int *types,  int len);
+  int    cMsgPayloadGetInfo          (const void *vmsg, char ***names, int **types, int *len);
+  int    cMsgPayloadGetCount         (const void *vmsg, int *count);
+  int    cMsgPayloadContainsName     (const void *vmsg, const char *name);
+  int    cMsgPayloadGetType          (const void *vmsg, const char *name, int *type);
+  int    cMsgPayloadRemove           (      void *vmsg, const char *name);
+  int    cMsgPayloadCopy             (const void *vmsgFrom, void *vmsgTo);
+
+  int    cMsgPayloadGetText          (const void *vmsg, char **buf, char *dst, size_t size, size_t *length);
+  int    cMsgPayloadGetTextLength    (const void *vmsg);
+  int    cMsgPayloadGetFieldText     (const void *vmsg, const char *name, const char **val);
+  void   cMsgPayloadPrint            (const void *vmsg);
+  
+const char *cMsgPayloadFieldDescription(const void *vmsg, const char *name);
+  
+  /* users should NOT have access to these 3 routines */
+  int    cMsgPayloadSetFromText             (      void *vmsg, const char *text);
+  int    cMsgPayloadSetSystemFieldsFromText (      void *vmsg, const char *text);
+  int    cMsgPayloadSetAllFieldsFromText    (void *vmsg, const char *text);
+
   void   cMsgPayloadClear            (      void *vmsg);
-  void   cMsgPayloadPrintout         (      void *vmsg);
-  int    cMsgSetPayloadFromText      (      void *vmsg, const char *text);
-  int    cMsgSetSystemFieldsFromText (      void *vmsg, const char *text);
-  int    cMsgSetAllFieldsFromText    (      void *vmsg, const char *text);
- /* char  *cMsgGetPayloadText          (const void *vmsg);*/
-  int    cMsgGetPayloadText          (const void *vmsg, char **buf, char *dst, size_t size, size_t *length);
-  int    cMsgGetPayloadTextLength    (const void *vmsg);
   int    cMsgHasPayload              (const void *vmsg, int *hasPayload);
-  int    cMsgCopyPayload             (const void *vmsgFrom, void *vmsgTo);
-  const char *cMsgGetFieldDescription(const void *vmsg);
   
-  int    cMsgGoToFieldName           (      void *vmsg, const char *name);
-  int    cMsgGoToField               (      void *vmsg, int  position);
-  int    cMsgGetFieldPosition        (const void *vmsg, int *position);
-  int    cMsgNextField               (      void *vmsg);
-  int    cMsgHasNextField            (const void *vmsg);
-  int    cMsgFirstField              (      void *vmsg);
-  int    cMsgRemoveFieldName         (      void *vmsg, const char *name);
-  int    cMsgRemoveField             (      void *vmsg, int position);
-  int    cMsgMoveFieldName           (      void *vmsg, const char *name, int placeTo);
-  int    cMsgMoveField               (      void *vmsg, int placeFrom, int placeTo);
+  int    cMsgGetBinary               (const void *vmsg, const char *name, char **val, int *len, int *endian);
 
-  char  *cMsgGetFieldName            (const void *vmsg);
-  char  *cMsgGetFieldText            (const void *vmsg);
-  int    cMsgGetFieldType            (const void *vmsg, int *type);
-  int    cMsgGetFieldCount           (const void *vmsg, int *count);
-
-  int    cMsgGetBinary               (const void *vmsg, char **val, size_t *len, int *endian);
-  int    cMsgGetMessage              (const void *vmsg, void **val);
-  int    cMsgGetMessageArray         (const void *vmsg, void ***val, int *len);
+  int    cMsgGetMessage              (const void *vmsg, const char *name, void **val);
+  int    cMsgGetMessageArray         (const void *vmsg, const char *name, void ***val, int *len);
   
-  int    cMsgGetString               (const void *vmsg, char **val);
-  int    cMsgGetStringArray          (const void *vmsg, const char ***array, size_t *len);
+  int    cMsgGetString               (const void *vmsg, const char *name, char **val);
+  int    cMsgGetStringArray          (const void *vmsg, const char *name, const char ***array, int *len);
   
-  int    cMsgGetFloat                (const void *vmsg, float  *val);
-  int    cMsgGetFloatArray           (const void *vmsg, const float  **vals, size_t *len);
-  int    cMsgGetDouble               (const void *vmsg, double *val);
-  int    cMsgGetDoubleArray          (const void *vmsg, const double **vals, size_t *len);
+  int    cMsgGetFloat                (const void *vmsg, const char *name, float  *val);
+  int    cMsgGetFloatArray           (const void *vmsg, const char *name, const float  **vals, int *len);
+  int    cMsgGetDouble               (const void *vmsg, const char *name, double *val);
+  int    cMsgGetDoubleArray          (const void *vmsg, const char *name, const double **vals, int *len);
   
-  int    cMsgGetInt8                 (const void *vmsg, int8_t   *val);
-  int    cMsgGetInt16                (const void *vmsg, int16_t  *val);
-  int    cMsgGetInt32                (const void *vmsg, int32_t  *val);
-  int    cMsgGetInt64                (const void *vmsg, int64_t  *val);
-  int    cMsgGetUint8                (const void *vmsg, uint8_t  *val);
-  int    cMsgGetUint16               (const void *vmsg, uint16_t *val);
-  int    cMsgGetUint32               (const void *vmsg, uint32_t *val);
-  int    cMsgGetUint64               (const void *vmsg, uint64_t *val);
+  int    cMsgGetInt8                 (const void *vmsg, const char *name, int8_t   *val);
+  int    cMsgGetInt16                (const void *vmsg, const char *name, int16_t  *val);
+  int    cMsgGetInt32                (const void *vmsg, const char *name, int32_t  *val);
+  int    cMsgGetInt64                (const void *vmsg, const char *name, int64_t  *val);
+  int    cMsgGetUint8                (const void *vmsg, const char *name, uint8_t  *val);
+  int    cMsgGetUint16               (const void *vmsg, const char *name, uint16_t *val);
+  int    cMsgGetUint32               (const void *vmsg, const char *name, uint32_t *val);
+  int    cMsgGetUint64               (const void *vmsg, const char *name, uint64_t *val);
   
-  int    cMsgGetInt8Array            (const void *vmsg, const int8_t   **vals, size_t *len);
-  int    cMsgGetInt16Array           (const void *vmsg, const int16_t  **vals, size_t *len);
-  int    cMsgGetInt32Array           (const void *vmsg, const int32_t  **vals, size_t *len);
-  int    cMsgGetInt64Array           (const void *vmsg, const int64_t  **vals, size_t *len);
-  int    cMsgGetUint8Array           (const void *vmsg, const uint8_t  **vals, size_t *len);
-  int    cMsgGetUint16Array          (const void *vmsg, const uint16_t **vals, size_t *len);
-  int    cMsgGetUint32Array          (const void *vmsg, const uint32_t **vals, size_t *len);
-  int    cMsgGetUint64Array          (const void *vmsg, const uint64_t **vals, size_t *len);
+  int    cMsgGetInt8Array            (const void *vmsg, const char *name, const int8_t   **vals, int *len);
+  int    cMsgGetInt16Array           (const void *vmsg, const char *name, const int16_t  **vals, int *len);
+  int    cMsgGetInt32Array           (const void *vmsg, const char *name, const int32_t  **vals, int *len);
+  int    cMsgGetInt64Array           (const void *vmsg, const char *name, const int64_t  **vals, int *len);
+  int    cMsgGetUint8Array           (const void *vmsg, const char *name, const uint8_t  **vals, int *len);
+  int    cMsgGetUint16Array          (const void *vmsg, const char *name, const uint16_t **vals, int *len);
+  int    cMsgGetUint32Array          (const void *vmsg, const char *name, const uint32_t **vals, int *len);
+  int    cMsgGetUint64Array          (const void *vmsg, const char *name, const uint64_t **vals, int *len);
 
-  int    cMsgAddInt8                 (      void *vmsg, const char *name, int8_t   val, int place);
-  int    cMsgAddInt16                (      void *vmsg, const char *name, int16_t  val, int place);
-  int    cMsgAddInt32                (      void *vmsg, const char *name, int32_t  val, int place);
-  int    cMsgAddInt64                (      void *vmsg, const char *name, int64_t  val, int place);
-  int    cMsgAddUint8                (      void *vmsg, const char *name, uint8_t  val, int place);
-  int    cMsgAddUint16               (      void *vmsg, const char *name, uint16_t val, int place);
-  int    cMsgAddUint32               (      void *vmsg, const char *name, uint32_t val, int place);
-  int    cMsgAddUint64               (      void *vmsg, const char *name, uint64_t val, int place);
+  int    cMsgAddInt8                 (      void *vmsg, const char *name, int8_t   val);
+  int    cMsgAddInt16                (      void *vmsg, const char *name, int16_t  val);
+  int    cMsgAddInt32                (      void *vmsg, const char *name, int32_t  val);
+  int    cMsgAddInt64                (      void *vmsg, const char *name, int64_t  val);
+  int    cMsgAddUint8                (      void *vmsg, const char *name, uint8_t  val);
+  int    cMsgAddUint16               (      void *vmsg, const char *name, uint16_t val);
+  int    cMsgAddUint32               (      void *vmsg, const char *name, uint32_t val);
+  int    cMsgAddUint64               (      void *vmsg, const char *name, uint64_t val);
 
-  int    cMsgAddInt8Array            (      void *vmsg, const char *name, const int8_t   vals[], int len, int place);
-  int    cMsgAddInt16Array           (      void *vmsg, const char *name, const int16_t  vals[], int len, int place);
-  int    cMsgAddInt32Array           (      void *vmsg, const char *name, const int32_t  vals[], int len, int place);
-  int    cMsgAddInt64Array           (      void *vmsg, const char *name, const int64_t  vals[], int len, int place);
-  int    cMsgAddUint8Array           (      void *vmsg, const char *name, const uint8_t  vals[], int len, int place);
-  int    cMsgAddUint16Array          (      void *vmsg, const char *name, const uint16_t vals[], int len, int place);
-  int    cMsgAddUint32Array          (      void *vmsg, const char *name, const uint32_t vals[], int len, int place);
-  int    cMsgAddUint64Array          (      void *vmsg, const char *name, const uint64_t vals[], int len, int place);
+  int    cMsgAddInt8Array            (      void *vmsg, const char *name, const int8_t   vals[], int len);
+  int    cMsgAddInt16Array           (      void *vmsg, const char *name, const int16_t  vals[], int len);
+  int    cMsgAddInt32Array           (      void *vmsg, const char *name, const int32_t  vals[], int len);
+  int    cMsgAddInt64Array           (      void *vmsg, const char *name, const int64_t  vals[], int len);
+  int    cMsgAddUint8Array           (      void *vmsg, const char *name, const uint8_t  vals[], int len);
+  int    cMsgAddUint16Array          (      void *vmsg, const char *name, const uint16_t vals[], int len);
+  int    cMsgAddUint32Array          (      void *vmsg, const char *name, const uint32_t vals[], int len);
+  int    cMsgAddUint64Array          (      void *vmsg, const char *name, const uint64_t vals[], int len);
 
-  int    cMsgAddString               (      void *vmsg, const char *name, const char *val, int place);
-  int    cMsgAddStringArray          (      void *vmsg, const char *name, const char **vals, int len, int place);
+  int    cMsgAddString               (      void *vmsg, const char *name, const char *val);
+  int    cMsgAddStringArray          (      void *vmsg, const char *name, const char **vals, int len);
 
-  int    cMsgAddFloat                (      void *vmsg, const char *name, float  val, int place);
-  int    cMsgAddDouble               (      void *vmsg, const char *name, double val, int place);
-  int    cMsgAddFloatArray           (      void *vmsg, const char *name, const float vals[],  int len, int place);
-  int    cMsgAddDoubleArray          (      void *vmsg, const char *name, const double vals[], int len, int place);
+  int    cMsgAddFloat                (      void *vmsg, const char *name, float  val);
+  int    cMsgAddDouble               (      void *vmsg, const char *name, double val);
+  int    cMsgAddFloatArray           (      void *vmsg, const char *name, const float vals[],  int len);
+  int    cMsgAddDoubleArray          (      void *vmsg, const char *name, const double vals[], int len);
 
-  int    cMsgAddBinary               (      void *vmsg, const char *name, const char *src, size_t size, int place, int endian);
-  int    cMsgAddMessage              (      void *vmsg, char *name, const void *vmessage, int place);
-  int    cMsgAddMessageArray         (      void *vmsg, char *name, const void *vmessage[], int len, int place);
+  int    cMsgAddBinary               (      void *vmsg, const char *name, const char *src, int size, int endian);
+  int    cMsgAddMessage              (      void *vmsg, const char *name, const void *vmessage);
+  int    cMsgAddMessageArray         (      void *vmsg, const char *name, const void *vmessage[], int len);
 
   char   *cMsgFloatChars(float f);
   char   *cMsgDoubleChars(double d);
