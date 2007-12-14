@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <string.h>
 #include <strings.h>
 #include <time.h>
 #include <pthread.h>
@@ -31,26 +32,65 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 /******************************************************************/
-static void callback(void *msg, void *arg) {
-  /*
-  int cueSize;
-  struct timespec sleeep;
-
-  sleeep.tv_sec  = 0;
-  sleeep.tv_nsec = 10000000;
-  */
+static void callback(void *msg, void *arg) {  
+  int i, sent, endian, version;
+  size_t size;
+  int32_t *vals;
+  char *p;
   
-
-  pthread_mutex_lock(&mutex);
-  /*
-  cMsgGetSubscriptionCueSize(msg, &cueSize);
-  printf("%d\n",cueSize);
-  */
   count++;
-
-  pthread_mutex_unlock(&mutex);
-  /*nanosleep(&sleeep, NULL);*/
+  printf("Print out payload:\n");
+  cMsgPayloadPrint(msg);
   
+  /*
+  cMsgToString(msg, &p, 1);
+  printf("XML message:\n%s", p);
+  free(p);
+  */
+/*
+printf("\nLook for and print array values:\n");
+      if (cMsgGoToFieldName(msg, "intarray")) {
+        if (cMsgGetInt32Array(msg, &vals, &size) == CMSG_OK) {
+          for (i=0; i < size; i++) {
+            printf("%d ", vals[i]);
+          }
+        }      
+      }
+*/ 
+/* 
+  if (cMsgGoToFieldName(msg, "message")) {
+   void *msg2;
+    
+    if (cMsgGetMessage(msg, &msg2) == CMSG_OK) {
+      char *buf;
+      int i;
+      size_t size;
+      
+      if (msg2 == NULL) printf("MSG2 == NULL !!!\n");
+      
+      printf("\n2nd level msg binary:\n");     
+      
+      if (cMsgGoToFieldName(msg2, "my_bin")) {
+        if (cMsgGetBinary(msg2, &buf, &size, &endian) == CMSG_OK) {
+          for (i=0; i < size; i++) {
+            printf("%x ", buf[i] & 0xff);
+          }
+        }
+      }
+      else {
+        printf("Cannot find field \"my_bin\" of field \"message\"\n");
+      }
+    }
+  }
+  else {
+      printf("Cannot find field \"message\"\n");
+  }
+  
+  cMsgWasSent(msg, &sent);
+  if (sent) printf("I WAS SENT\n\n\n");
+  else printf("I WAS NOT SENT\n\n\n");
+*/  
+
   /* user MUST free messages passed to the callback */
   cMsgFreeMessage(&msg);
 }
@@ -70,9 +110,9 @@ int main(int argc,char **argv) {
   char *myDescription = "C consumer";
   char *subject       = "SUBJECT";
   char *type          = "TYPE";
-  char *UDL           = "cMsg:cMsg://localhost/cMsg/test";
+  char *UDL           = "cMsg:cMsg://aslan/cMsg/test";
   /* char *UDL           = "cMsg:cMsg://broadcast/cMsg/test"; */
-  int   err, debug = 1, loops=5;
+  int   err, debug = 1, loops=10000;
   cMsgSubscribeConfig *config;
   void *unSubHandle;
   
