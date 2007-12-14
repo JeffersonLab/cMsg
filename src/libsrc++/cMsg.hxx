@@ -191,17 +191,22 @@ public:
   // Methods to add items to a payload
   //
   virtual void addBinary(string name, const char *src, int size, int endian);
+  
+  virtual void addString(string name, string s);
+  virtual void addStringArray(string name, const char **strs, int len);
+  virtual void addStringArray(string name, string *strs, int len);
+  virtual void addStringVector(string name, vector<string> &strs);
 
-  virtual void addMessage(string name, cMsgMessage msg);
+  virtual void addMessage(string name, cMsgMessage &msg);
   virtual void addMessageArray(string name, cMsgMessage *msg, int len);
-  virtual void addMessageVector(string name, vector<cMsgMessage> msg);
+  virtual void addMessageVector(string name, vector<cMsgMessage> &msg);
 
   virtual void addFloat(string name, float val);
   virtual void addDouble(string name, double val);
   virtual void addFloatArray(string name, float *vals, int len);
   virtual void addDoubleArray(string name, double *vals, int len);
-  virtual void addFloatVector(string name, vector<float> vals);
-  virtual void addDoubleVector(string name, vector<double> vals);
+  virtual void addFloatVector(string name, vector<float> &vals);
+  virtual void addDoubleVector(string name, vector<double> &vals);
 
   virtual void addInt8 (string name, int8_t  val);
   virtual void addInt16(string name, int16_t val);
@@ -223,15 +228,15 @@ public:
   virtual void addUint32Array(string name, uint32_t *vals, int len);
   virtual void addUint64Array(string name, uint64_t *vals, int len);
   
-  virtual void addInt8Vector (string name, vector<int8_t>  vals);
-  virtual void addInt16Vector(string name, vector<int16_t> vals);
-  virtual void addInt32Vector(string name, vector<int32_t> vals);
-  virtual void addInt64Vector(string name, vector<int64_t> vals);
+  virtual void addInt8Vector (string name, vector<int8_t>  &vals);
+  virtual void addInt16Vector(string name, vector<int16_t> &vals);
+  virtual void addInt32Vector(string name, vector<int32_t> &vals);
+  virtual void addInt64Vector(string name, vector<int64_t> &vals);
   
-  virtual void addUint8Vector (string name, vector<uint8_t>  vals);
-  virtual void addUint16Vector(string name, vector<uint16_t> vals);
-  virtual void addUint32Vector(string name, vector<uint32_t> vals);
-  virtual void addUint64Vector(string name, vector<uint64_t> vals);
+  virtual void addUint8Vector (string name, vector<uint8_t>  &vals);
+  virtual void addUint16Vector(string name, vector<uint16_t> &vals);
+  virtual void addUint32Vector(string name, vector<uint32_t> &vals);
+  virtual void addUint64Vector(string name, vector<uint64_t> &vals);
    
 
 //private:

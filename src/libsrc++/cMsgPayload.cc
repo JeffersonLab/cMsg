@@ -956,17 +956,125 @@ vector<uint64_t> *cMsgMessage::getUint64Vector(string name) const throw(cMsgExce
  * @param endian endian value of binary data, may be CMSG_ENDIAN_BIG, CMSG_ENDIAN_LITTLE,
  *               CMSG_ENDIAN_LOCAL, or CMSG_ENDIAN_NOTLOCAL
  *
- * @throws cMsgException if no memory, name already used, improper name,
- *                       src is null, size < 1, or endian improper value
+ * @throws cMsgException if no memory, error in binary-to-text conversion, name already used,
+ *                       improper name, src is null, size < 1, or endian improper value
  */   
 void cMsgMessage::addBinary(string name, const char *src, int size, int endian) {
   int err = cMsgAddBinary(myMsgPointer, name.c_str(), src, size, endian);
   if (err != CMSG_OK) {
-         if (err == CMSG_BAD_FORMAT)     throw(cMsgException("Improper name"));
+    if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name or if error in binary-to-text conversion"));
     else if (err == CMSG_BAD_ARGUMENT)   throw(cMsgException("src or name null, size < 1, or endian improper value")); 
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
+  }
+}
+
+//-------------------------------------------------------------------
+// CMSG STRINGS
+//-------------------------------------------------------------------
+
+/**
+ * This method adds a string to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param s string to add
+ *
+ * @throws cMsgException if no memory, name already used, or improper name
+ */   
+void cMsgMessage::addString(string name, string s) {
+    int err = cMsgAddString(myMsgPointer, name.c_str(), s.c_str());
+    if (err != CMSG_OK) {
+             if (err == CMSG_BAD_FORMAT)     throw(cMsgException("Improper name"));
+        else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
+        else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
+        else throw(cMsgException("Error"));
+    }
+}
+
+//-------------------------------------------------------------------
+
+/**
+ * This method adds an array of strings to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param strs array of C-style strings to add
+ * @param len number of strings from array to add
+ *
+ * @throws cMsgException if no memory, name already used, improper name, strs is null, len < 1
+ */
+void cMsgMessage::addStringArray(string name, const char **strs, int len) {
+    if (strs == NULL) throw (cMsgException("strs arg is null"));
+    if (len < 1) throw (cMsgException("len < 1"));
+
+	int err = cMsgAddStringArray(myMsgPointer, name.c_str(), strs, len);
+	if (err != CMSG_OK) {
+		if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
+		else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
+		else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
+		else throw(cMsgException("Error"));
+	}
+}
+
+//-------------------------------------------------------------------
+
+/**
+ * This method adds an array of strings to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param strs array of strings to add
+ * @param len number of strings from array to add
+ *
+ * @throws cMsgException if no memory, name already used, improper name, strs is null, len < 1
+ */
+void cMsgMessage::addStringArray(string name, string *strs, int len) {
+  if (strs == NULL) throw (cMsgException("strs arg is null"));
+  if (len < 1) throw (cMsgException("len < 1"));
+
+  const char *strings[len];
+  for (int i=0; i<len; i++) {
+    strings[i] = strs[i].c_str();
+  }
+
+  int err = cMsgAddStringArray(myMsgPointer, name.c_str(), strings, len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
+    else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
+    else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
+    else throw(cMsgException("Error"));
+  }
+}
+
+//-------------------------------------------------------------------
+
+/**
+ * This method adds a vector of strings to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param strs vector of strings to add
+ *
+ * @throws cMsgException if no memory, name already used, or improper name
+ */
+void cMsgMessage::addStringVector(string name, vector<string> &strs) {
+  const char *strings[strs.size()];
+  for (vector<string>::size_type i=0; i < strs.size(); i++) {
+    strings[i] = strs[i].c_str();
+  }
+
+  int err = cMsgAddStringArray(myMsgPointer, name.c_str(), strings, strs.size());
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
+    else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
+    else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
+    else throw(cMsgException("Error"));
   }
 }
 
@@ -982,18 +1090,16 @@ void cMsgMessage::addBinary(string name, const char *src, int size, int endian) 
  * @param name name of field to add
  * @param msg  cMsgMessage object to add
  *
- * @throws cMsgException if no memory, error in bin_to_txt conversion,
- *                       name already used, improper name, msg or name is null
- */   
-void cMsgMessage::addMessage(string name, cMsgMessage msg) {
-  int err = cMsgAddMessage(myMsgPointer, name.c_str(), msg.myMsgPointer);
-  if (err != CMSG_OK) {
-         if (err == CMSG_BAD_FORMAT)     throw(cMsgException("Improper name or error in bin-to-txt conversion"));
-    else if (err == CMSG_BAD_ARGUMENT)   throw(cMsgException("either arg is null")); 
-    else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
-    else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
-    else throw(cMsgException("Error")); 
-  }
+ * @throws cMsgException if no memory, name already used, improper name
+ */
+void cMsgMessage::addMessage(string name, cMsgMessage &msg) {
+	int err = cMsgAddMessage(myMsgPointer, name.c_str(), msg.myMsgPointer);
+	if (err != CMSG_OK) {
+		if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
+		else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
+		else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
+		else throw(cMsgException("Error"));
+	}
 }
 
 //-------------------------------------------------------------------
@@ -1007,24 +1113,21 @@ void cMsgMessage::addMessage(string name, cMsgMessage msg) {
  * @param msg  array of cMsgMessage objects to add
  * @param len number of objects from array to add
  *
- * @throws cMsgException if no memory, error in bin_to_txt conversion,
- *                       name already used, improper name, msg or name is null
+ * @throws cMsgException if no memory, name already used, improper name, msg is null, len < 1
  */   
 void cMsgMessage::addMessageArray(string name, cMsgMessage *msg, int len) {
-  int i, err;
-  const void *msgs[len];
-  
+  if (msg == NULL) throw (cMsgException("msg arg is null"));
   if (len < 1) throw (cMsgException("len < 1"));
   
-  for (i=0; i<len; i++) {
+  const void *msgs[len];
+  for (int i=0; i<len; i++) {
     msgs[i] = msg[i].myMsgPointer;
   }
 
-  err = cMsgAddMessageArray(myMsgPointer, name.c_str(), msgs, len);
+  int err = cMsgAddMessageArray(myMsgPointer, name.c_str(), msgs, len);
   if (err != CMSG_OK) {
-         if (err == CMSG_BAD_FORMAT)     throw(cMsgException("Improper name or error in bin-to-txt conversion"));
-    else if (err == CMSG_BAD_ARGUMENT)   throw(cMsgException("name or msg arg is null")); 
-    else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
+    if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
+    else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
   }
@@ -1040,22 +1143,19 @@ void cMsgMessage::addMessageArray(string name, cMsgMessage *msg, int len) {
  * @param name name of field to add
  * @param msg vector of cMsgMessage objects to add (copy)
  *
- * @throws cMsgException if no memory, error in bin_to_txt conversion,
- *                       name already used, improper name, msg or name is null
+ * @throws cMsgException if no memory, name already used, improper name
  */   
-void cMsgMessage::addMessageVector(string name, vector<cMsgMessage> msg) {
-  int err;
+void cMsgMessage::addMessageVector(string name, vector<cMsgMessage> &msg) {
   const void *msgs[msg.size()];
   
-  for (vector<cMsgMessage>::size_type i; i < msg.size(); i++) {
+  for (vector<cMsgMessage>::size_type i=0; i < msg.size(); i++) {
     msgs[i] = msg[i].myMsgPointer;
   }
   
-  err = cMsgAddMessageArray(myMsgPointer, name.c_str(), msgs, msg.size());
+  int err = cMsgAddMessageArray(myMsgPointer, name.c_str(), msgs, msg.size());
   if (err != CMSG_OK) {
-         if (err == CMSG_BAD_FORMAT)     throw(cMsgException("Improper name or error in bin-to-txt conversion"));
-    else if (err == CMSG_BAD_ARGUMENT)   throw(cMsgException("either arg is null")); 
-    else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
+    if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
+    else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
   }
@@ -1122,13 +1222,13 @@ void cMsgMessage::addDouble(string name, double val) {
  * @param vals array of floats to add (copy)
  * @param len number of floats from array to add
  *
- * @throws cMsgException if no memory, name already used, or improper name
+ * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
 void cMsgMessage::addFloatArray(string name, float *vals, int len) {
   int err = cMsgAddFloatArray(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
-             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name")); 
+             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name or vals is null"));
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
@@ -1147,7 +1247,7 @@ void cMsgMessage::addFloatArray(string name, float *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addFloatVector(string name, vector<float> vals) {
+void cMsgMessage::addFloatVector(string name, vector<float> &vals) {
   int err = cMsgAddFloatArray(myMsgPointer, name.c_str(), &vals[0], vals.size());
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1169,13 +1269,13 @@ void cMsgMessage::addFloatVector(string name, vector<float> vals) {
  * @param vals array of doubles to add (copy)
  * @param len number of doubles from array to add
  *
- * @throws cMsgException if no memory, name already used, or improper name
+ * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
 void cMsgMessage::addDoubleArray(string name, double *vals, int len) {
   int err = cMsgAddDoubleArray(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
-             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name")); 
+             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name or vals is null")); 
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
@@ -1194,7 +1294,7 @@ void cMsgMessage::addDoubleArray(string name, double *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addDoubleVector(string name, vector<double> vals) {
+void cMsgMessage::addDoubleVector(string name, vector<double> &vals) {
   int err = cMsgAddDoubleArray(myMsgPointer, name.c_str(), &vals[0], vals.size());
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1404,13 +1504,13 @@ void cMsgMessage::addUint64(string name, uint64_t val) {
  * @param vals array of 8-bit, signed ints to add (copy)
  * @param len number of ints from array to add
  *
- * @throws cMsgException if no memory, name already used, or improper name
+ * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
 void cMsgMessage::addInt8Array(string name, int8_t *vals, int len) {
   int err = cMsgAddInt8Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
-             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name")); 
+             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name or vals is null")); 
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
@@ -1429,7 +1529,7 @@ void cMsgMessage::addInt8Array(string name, int8_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addInt8Vector(string name, vector<int8_t> vals) {
+void cMsgMessage::addInt8Vector(string name, vector<int8_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
@@ -1454,13 +1554,13 @@ void cMsgMessage::addInt8Vector(string name, vector<int8_t> vals) {
  * @param vals array of 16-bit, signed ints to add (copy)
  * @param len number of ints from array to add
  *
- * @throws cMsgException if no memory, name already used, or improper name
+ * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
 void cMsgMessage::addInt16Array(string name, int16_t *vals, int len) {
   int err = cMsgAddInt16Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
-             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name")); 
+             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name or vals is null")); 
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
@@ -1479,7 +1579,7 @@ void cMsgMessage::addInt16Array(string name, int16_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addInt16Vector(string name, vector<int16_t> vals) {
+void cMsgMessage::addInt16Vector(string name, vector<int16_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
@@ -1504,13 +1604,13 @@ void cMsgMessage::addInt16Vector(string name, vector<int16_t> vals) {
  * @param vals array of 32-bit, signed ints to add (copy)
  * @param len number of ints from array to add
  *
- * @throws cMsgException if no memory, name already used, or improper name
+ * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
 void cMsgMessage::addInt32Array(string name, int32_t *vals, int len) {
   int err = cMsgAddInt32Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
-             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name")); 
+             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name or vals is null")); 
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
@@ -1529,7 +1629,7 @@ void cMsgMessage::addInt32Array(string name, int32_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addInt32Vector(string name, vector<int32_t> vals) {
+void cMsgMessage::addInt32Vector(string name, vector<int32_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
@@ -1554,13 +1654,13 @@ void cMsgMessage::addInt32Vector(string name, vector<int32_t> vals) {
  * @param vals array of 64-bit, signed ints to add (copy)
  * @param len number of ints from array to add
  *
- * @throws cMsgException if no memory, name already used, or improper name
+ * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
 void cMsgMessage::addInt64Array(string name, int64_t *vals, int len) {
   int err = cMsgAddInt64Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
-             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name")); 
+             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name or vals is null")); 
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
@@ -1579,7 +1679,7 @@ void cMsgMessage::addInt64Array(string name, int64_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addInt64Vector(string name, vector<int64_t> vals) {
+void cMsgMessage::addInt64Vector(string name, vector<int64_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
@@ -1605,13 +1705,13 @@ void cMsgMessage::addInt64Vector(string name, vector<int64_t> vals) {
  * @param vals array of 8-bit, unsigned ints to add (copy)
  * @param len number of ints from array to add
  *
- * @throws cMsgException if no memory, name already used, or improper name
+ * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
 void cMsgMessage::addUint8Array(string name, uint8_t *vals, int len) {
   int err = cMsgAddUint8Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
-             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name")); 
+             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name or vals is null")); 
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
@@ -1630,7 +1730,7 @@ void cMsgMessage::addUint8Array(string name, uint8_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addUint8Vector(string name, vector<uint8_t> vals) {
+void cMsgMessage::addUint8Vector(string name, vector<uint8_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
@@ -1655,13 +1755,13 @@ void cMsgMessage::addUint8Vector(string name, vector<uint8_t> vals) {
  * @param vals array of 16-bit, unsigned ints to add (copy)
  * @param len number of ints from array to add
  *
- * @throws cMsgException if no memory, name already used, or improper name
+ * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
 void cMsgMessage::addUint16Array(string name, uint16_t *vals, int len) {
   int err = cMsgAddUint16Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
-             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name")); 
+             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name or vals is null")); 
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
@@ -1680,7 +1780,7 @@ void cMsgMessage::addUint16Array(string name, uint16_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addUint16Vector(string name, vector<uint16_t> vals) {
+void cMsgMessage::addUint16Vector(string name, vector<uint16_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
@@ -1705,13 +1805,13 @@ void cMsgMessage::addUint16Vector(string name, vector<uint16_t> vals) {
  * @param vals array of 32-bit, unsigned ints to add (copy)
  * @param len number of ints from array to add
  *
- * @throws cMsgException if no memory, name already used, or improper name
+ * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
 void cMsgMessage::addUint32Array(string name, uint32_t *vals, int len) {
   int err = cMsgAddUint32Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
-             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name")); 
+             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name or vals is null")); 
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
@@ -1730,7 +1830,7 @@ void cMsgMessage::addUint32Array(string name, uint32_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addUint32Vector(string name, vector<uint32_t> vals) {
+void cMsgMessage::addUint32Vector(string name, vector<uint32_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
@@ -1755,13 +1855,13 @@ void cMsgMessage::addUint32Vector(string name, vector<uint32_t> vals) {
  * @param vals array of 64-bit, unsigned ints to add (copy)
  * @param len number of ints from array to add
  *
- * @throws cMsgException if no memory, name already used, or improper name
+ * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
 void cMsgMessage::addUint64Array(string name, uint64_t *vals, int len) {
   int err = cMsgAddUint64Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
-             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name")); 
+             err == CMSG_BAD_ARGUMENT)   throw(cMsgException("Improper name or vals is null")); 
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
@@ -1780,7 +1880,7 @@ void cMsgMessage::addUint64Array(string name, uint64_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addUint64Vector(string name, vector<uint64_t> vals) {
+void cMsgMessage::addUint64Vector(string name, vector<uint64_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
