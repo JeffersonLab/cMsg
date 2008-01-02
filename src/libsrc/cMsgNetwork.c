@@ -344,7 +344,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port,
     }
   }
 
-#elif defined linux
+#elif defined linux || defined Darwin
 
 /*
  * There seem to be serious bugs with Linux implementation of
@@ -543,7 +543,7 @@ int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
   free(result);
   free(buff);
 
-#elif defined linux
+#elif defined linux || defined Darwin
 
 /*
  * There seem to be serious bugs with Linux implementation of
