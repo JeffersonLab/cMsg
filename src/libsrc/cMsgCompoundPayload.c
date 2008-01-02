@@ -239,20 +239,18 @@ static const char *excludedChars = " \t\n`\'\"";
 /*-------------------------------------------------------------------*/
 
 /** Mutex to make the payload linked list thread-safe. */
-#ifdef linux
+#if defined(PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP)
   static pthread_mutex_t mutex_recursive = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-#elif sun
+#else
   static int initialized = 0;
   static pthread_mutex_t mutex_recursive;
   static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-#elif Darwin
-  static pthread_mutex_t mutex_recursive = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 /** Routine to grab the pthread mutex used to protect payload linked list. */
 static void grabMutex(void) {
   int status;
-#ifdef sun  
+#if !defined(PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP)
   /* if I think the mutex is not initialized, make sure it is */
   if (!initialized) {
     /* make sure our mutex is recursive first */
@@ -1819,7 +1817,10 @@ static void payloadPrintout(const void *msg, int level) {
 
   /* get all name & type info */
   ok = cMsgPayloadGetInfo(msg, &names, &types, &namesLen);
-  if (ok != CMSG_OK) {if (level > 0) free(indent); return;}
+  if (ok != CMSG_OK) {
+    printf("PROBLEM getting payload info\n");
+    if (level > 0) free(indent); return;
+  }
   
   for (k=0; k<namesLen; k++) {
           
@@ -3649,13 +3650,13 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
             s[4] = '0'; s[5] = '0'; s[6] = '0'; s[7] = '0';
             s += 8;
 
-            byte = zeros>>24 & 0xffL;
+            byte = zeros>>24 & 0xff;
             *s++ = '0'; *s++ = toASCII[byte][1];
-            byte = zeros>>16 & 0xffL;
+            byte = zeros>>16 & 0xff;
             *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-            byte = zeros>>8 & 0xffL;
+            byte = zeros>>8 & 0xff;
             *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-            byte = zeros & 0xffL;
+            byte = zeros & 0xff;
             *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
           }
           
@@ -4381,13 +4382,13 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
                     s[4] = '0'; s[5] = '0'; s[6] = '0'; s[7] = '0';
                     s += 8;
 
-                    byte = zeros>>24 & 0xffL;
+                    byte = zeros>>24 & 0xff;
                     *s++ = '0'; *s++ = toASCII[byte][1];
-                    byte = zeros>>16 & 0xffL;
+                    byte = zeros>>16 & 0xff;
                     *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-                    byte = zeros>>8 & 0xffL;
+                    byte = zeros>>8 & 0xff;
                     *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-                    byte = zeros & 0xffL;
+                    byte = zeros & 0xff;
                     *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
                   }
                   
