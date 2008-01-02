@@ -176,7 +176,7 @@ static int   connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
                                   char **host, int *port);
 
 
-/*-------------------------------------------------------------------*/
+-----------------------------------------------------*/
 /**
  * This routine restores subscriptions to a new server which replaced a crashed server
  * during failover.
@@ -4728,10 +4728,20 @@ static void staticMutexUnlock(void) {
 
 
 /*-------------------------------------------------------------------*/
-
 #ifdef Darwin
-void clock_gettime(int dummy, struct timespec *t1) {
-	gettimeofday( &t1 , 0 );
+int clock_gettime(int clk_id /*ignored*/, struct timespec *tp)
+{
+  struct timeval now;
+    
+  int rv = gettimeofday(&now, NULL);
+    
+  if (rv != 0) {
+    return rv;
+  }
+    
+  tp->tv_sec = now.tv_sec;
+  tp->tv_nsec = now.tv_usec * 1000;
+    
+  return 0;
 }
-
 #endif
