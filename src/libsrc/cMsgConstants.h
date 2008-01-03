@@ -92,13 +92,6 @@ enum {
 };
 
 
-/** End of payload. */
-#define CMSG_CP_END 99999999
-/** After payload item marker. */
-#define CMSG_CP_MARKER 99998888
-/** Payload item after marker. */
-#define CMSG_CP_NEXT 99997777
-
 /** Type codes for compound payloads.
  *  Make these all 2 digits for ease in net protocol.
  */
