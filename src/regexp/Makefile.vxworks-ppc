@@ -30,8 +30,8 @@ MAKE_STATIC_LIB = make_me_please
 # Things common to all builds live in Makefile.common
 include $(BMS_HOME)/Makefile.common
 
-# Things common to building libraries live in Makefile.libs
-include $(BMS_HOME)/Makefile.libs
+# Things common to building vx loadable file live in Makefile.vxlib
+include $(BMS_HOME)/Makefile.vxlib
 
 CFLAGS += -DPOSIX_MISTAKE
 
