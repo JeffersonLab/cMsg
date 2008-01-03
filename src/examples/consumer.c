@@ -110,7 +110,7 @@ int main(int argc,char **argv) {
   char *myDescription = "C consumer";
   char *subject       = "SUBJECT";
   char *type          = "TYPE";
-  char *UDL           = "cMsg:cMsg://aslan/cMsg/test";
+  char *UDL           = "cMsg:cMsg://localhost/cMsg/test";
   /* char *UDL           = "cMsg:cMsg://broadcast/cMsg/test"; */
   int   err, debug = 1, loops=10000;
   cMsgSubscribeConfig *config;
