@@ -176,7 +176,7 @@ static int   connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
                                   char **host, int *port);
 
 
------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
 /**
  * This routine restores subscriptions to a new server which replaced a crashed server
  * during failover.
