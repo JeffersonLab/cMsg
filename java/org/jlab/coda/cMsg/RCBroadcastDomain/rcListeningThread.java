@@ -234,8 +234,15 @@ public class rcListeningThread extends Thread {
                 // Before sending a reply, check to see if we simply got a packet
                 // from ourself when first connecting. Just ignore our own probing
                 // broadcast.
+
+//                System.out.println("accepting Clients = " + server.acceptingClients);
+//                System.out.println("our host = " + InetAddress.getLocalHost().getCanonicalHostName());
+//                System.out.println("broadcaster's host = " + broadcasterHost);
+//                System.out.println("our port = " + server.localTempPort);
+//                System.out.println("broadcaster's port = " + broadcasterUdpPort);
+
                 if (!server.acceptingClients &&
-                        InetAddress.getLocalHost().getCanonicalHostName().equals(broadcasterHost) &&
+//                        InetAddress.getLocalHost().equals(broadcasterHost) &&
                         broadcasterUdpPort == server.localTempPort) {
 //System.out.println("Ignore our own probing broadcast");
                     continue;
