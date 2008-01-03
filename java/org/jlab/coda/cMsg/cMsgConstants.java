@@ -199,18 +199,71 @@ public class cMsgConstants {
     public static final int    msgServerShutdownSelf             = 47;
 
     // Flags for client's shutdown methods.
-
     /**
      * For shutdownClients,
      * do NOT exclude the client calling shutdown from being shutdown.
      */
     public static final int    includeMe = 1;
-
     /**
      * For shutdownServers,
      * do NOT exclude the server that the calling client is connected to
      * from being shutdown.
      */
     public static final int    includeMyServer = 2;
+
+    // Types of data contained in a message's payload in cMsgConstants.h
+    /** String item in cMsg message payload. */
+    public static final int payloadStr    = 10;
+    /** 4-byte float item in cMsg message payload. */
+    public static final int payloadFlt    = 11;
+    /** 8 byte double item in cMsg message payload. */
+    public static final int payloadDbl    = 12;
+    /** 1 byte signed integer item in cMsg message payload. */
+    public static final int payloadInt8   = 13;
+    /** 2 byte signed integer item in cMsg message payload. */
+    public static final int payloadInt16  = 14;
+    /** 4 byte signed integer item in cMsg message payload. */
+    public static final int payloadInt32  = 15;
+    /** 8 byte signed integer item in cMsg message payload. */
+    public static final int payloadInt64  = 16;
+    /** 1 byte unsigned integer item in cMsg message payload. */
+    public static final int payloadUint8  = 17;
+    /** 2 byte unsigned integer item in cMsg message payload. */
+    public static final int payloadUint16 = 18;
+    /** 4 byte unsigned integer item in cMsg message payload. */
+    public static final int payloadUint32 = 19;
+    /** 8 byte unsigned integer item in cMsg message payload. */
+    public static final int payloadUint64 = 20;
+    /** cMsg message in cMsg message payload. */
+    public static final int payloadMsg    = 21;
+    /** Binary array in cMsg message payload. */
+    public static final int payloadBin    = 22;
+
+    // arrays ...
+    /** String array item in cMsg message payload. */
+    public static final int payloadStrA    = 23;
+    /** 4-byte float array item in cMsg message payload. */
+    public static final int payloadFltA    = 24;
+    /** 8 byte double array item in cMsg message payload. */
+    public static final int payloadDblA    = 25;
+    /** 1 byte signed integer array item in cMsg message payload. */
+    public static final int payloadInt8A   = 26;
+    /** 2 byte signed integer array item in cMsg message payload. */
+    public static final int payloadInt16A  = 27;
+    /** 4 byte signed integer array item in cMsg message payload. */
+    public static final int payloadInt32A  = 28;
+    /** 8 byte signed integer array item in cMsg message payload. */
+    public static final int payloadInt64A  = 29;
+    /** 1 byte unsigned integer array item in cMsg message payload. */
+    public static final int payloadUint8A  = 30;
+    /** 2 byte unsigned integer array item in cMsg message payload. */
+    public static final int payloadUint16A = 31;
+    /** 4 byte unsigned integer array item in cMsg message payload. */
+    public static final int payloadUint32A = 32;
+    /** 8 byte unsigned integer array item in cMsg message payload. */
+    public static final int payloadUint64A = 33;
+    /** cMsg message array in cMsg message payload. */
+    public static final int payloadMsgA    = 34;
+
 
 }
