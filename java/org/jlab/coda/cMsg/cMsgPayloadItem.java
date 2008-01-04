@@ -1,19 +1,104 @@
+/*---------------------------------------------------------------------------*
+*  Copyright (c) 2007        Jefferson Science Associates,                   *
+*                            Thomas Jefferson National Accelerator Facility  *
+*                                                                            *
+*    This software was developed under a United States Government license    *
+*    described in the NOTICE file included as part of this distribution.     *
+*                                                                            *
+*    C.Timmer, 19-Dec-2007, Jefferson Lab                                    *
+*                                                                            *
+*    Authors: Carl Timmer                                                    *
+*             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
+*             Phone: (757) 269-5130             12000 Jefferson Ave.         *
+*             Fax:   (757) 269-6248             Newport News, VA 23606       *
+*                                                                            *
+*----------------------------------------------------------------------------*/
+
 package org.jlab.coda.cMsg;
 
 import java.math.BigInteger;
 import java.lang.Number;
-import java.util.Date;
 import java.util.Collection;
 
 /**
+ * <b>This class represents an item in a cMsg message's payload.
+ * The value of each item is stored in this class along with a text
+ * representation of that item. Following is the text format of various
+ * types of payload items ([nl] means newline, only 1 space between items):<p>
+ *
+ *<i>for string items:</i></b><p>
+ *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
+ *    string_length_1[nl]
+ *    string_characters_1[nl]
+ *     .
+ *     .
+ *     .
+ *    string_length_N[nl]
+ *    string_characters_N</pre><p>
+ *
+ *<b><i>for binary (converted into text) items:</i></b><p>
+ *
+ *<pre>    item_name   item_type   original_binary_byte_length   isSystemItem?   item_length[nl]
+ *    string_length   endian[nl]
+ *    string_characters[nl]</pre><p>
+ *
+ *<b><i>for primitive type items:</i></b><p>
+ *
+ *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
+ *    value_1   value_2   ...   value_N[nl]</pre><p>
+ *
+ *  <b>A cMsg message is formatted as a compound payload. Each message has
+ *  a number of fields (payload items).<p>
+ *
+ *  <i>for message items:</i></b><p>
+ *<pre>                                                                            _
+ *    item_name   item_type   item_count   isSystemItem?   item_length[nl]   /
+ *    message_1_in_compound_payload_text_format[nl]                         <  field_count[nl]
+ *        .                                                                  \ list_of_payload_format_items
+ *        .                                                                   -
+ *        .
+ *    message_N_in_compound_payload_text_format[nl]</pre>
  *
  */
 public class cMsgPayloadItem {
 
     /** Name of this item. */
     String name;
-    /** Type of item (number, bin, string, msg, ...) stored in this item. */
+
+    /**
+     * Type of item (number, bin, string, msg, ...) stored here.
+     * The type may have the following values:
+     * <UL>
+     * <LI>{@link cMsgConstants#payloadStr}         for a   String
+     * <LI>{@link cMsgConstants#payloadFlt}         for a   4 byte float
+     * <LI>{@link cMsgConstants#payloadDbl}         for an  8 byte float
+     * <LI>{@link cMsgConstants#payloadInt8}        for an  8 bit int
+     * <LI>{@link cMsgConstants#payloadInt16}       for a  16 bit int
+     * <LI>{@link cMsgConstants#payloadInt32}       for a  32 bit int
+     * <LI>{@link cMsgConstants#payloadInt64}       for a  64 bit int
+     * <LI>{@link cMsgConstants#payloadUint8}       for an unsigned  8 bit int
+     * <LI>{@link cMsgConstants#payloadUint16}      for an unsigned 16 bit int
+     * <LI>{@link cMsgConstants#payloadUint32}      for an unsigned 32 bit int
+     * <LI>{@link cMsgConstants#payloadUint64}      for an unsigned 64 bit int
+     * <LI>{@link cMsgConstants#payloadMsg}         for a  cMsg message
+     * <LI>{@link cMsgConstants#payloadBin}         for    binary
+     * <p/>
+     * <LI>{@link cMsgConstants#payloadStrA}        for a   String array
+     * <LI>{@link cMsgConstants#payloadFltA}        for a   4 byte float array
+     * <LI>{@link cMsgConstants#payloadDblA}        for an  8 byte float array
+     * <LI>{@link cMsgConstants#payloadInt8A}       for an  8 bit int array
+     * <LI>{@link cMsgConstants#payloadInt16A}      for a  16 bit int array
+     * <LI>{@link cMsgConstants#payloadInt32A}      for a  32 bit int array
+     * <LI>{@link cMsgConstants#payloadInt64A}      for a  64 bit int array
+     * <LI>{@link cMsgConstants#payloadUint8A}      for an unsigned  8 bit int array
+     * <LI>{@link cMsgConstants#payloadUint16A}     for an unsigned 16 bit int array
+     * <LI>{@link cMsgConstants#payloadUint32A}     for an unsigned 32 bit int array
+     * <LI>{@link cMsgConstants#payloadUint64A}     for an unsigned 64 bit int array
+     * <LI>{@link cMsgConstants#payloadMsgA}        for a  cMsg message array
+     * </UL>
+     */
     int type;
+
     /** Number of items in array if array, else 1. */
     int count = 1;
     /** Length of text in chars without header (first) line. */
@@ -78,7 +163,7 @@ public class cMsgPayloadItem {
      * This method returns the number of digits in an integer including a minus sign.
      *
      * @param number integer
-     * @returns number of digits in the integer argument including a minus sign
+     * @return number of digits in the integer argument including a minus sign
      */
     static int numDigits(long number) {
       int digits = 1;
@@ -102,7 +187,7 @@ public class cMsgPayloadItem {
      * for large numbers including unsigned 64 bit.
      *
      * @param number integer
-     * @returns number of digits in the integer argument including a minus sign
+     * @return number of digits in the integer argument including a minus sign
      */
     static int numDigits(BigInteger number) {
       int digits = 1;
