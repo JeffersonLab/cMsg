@@ -1,11 +1,82 @@
+/*---------------------------------------------------------------------------*
+*  Copyright (c) 2007        Jefferson Science Associates,                   *
+*                            Thomas Jefferson National Accelerator Facility  *
+*                                                                            *
+*    This software was developed under a United States Government license    *
+*    described in the NOTICE file included as part of this distribution.     *
+*                                                                            *
+*    C.Timmer, 17-Dec-2007, Jefferson Lab                                    *
+*                                                                            *
+*    Authors: Carl Timmer                                                    *
+*             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
+*             Phone: (757) 269-5130             12000 Jefferson Ave.         *
+*             Fax:   (757) 269-6248             Newport News, VA 23606       *
+*                                                                            *
+*----------------------------------------------------------------------------*/
+
 package org.jlab.coda.cMsg;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Set;
 import java.util.Collection;
 
+
 /**
- * 
+ * <b>This class defines the compound payload interface to cMsg messages. In short,
+ * the payload allows the text field of the message to store messages of arbitrary
+ * length and complexity. All types of ints (1,2,4,8 bytes), 4,8-byte floats,
+ * strings, binary, whole messages and arrays of all these types can be stored
+ * and retrieved from the compound payload. These methods are thread-safe.<p>
+ *
+ * Although XML would be a format well-suited to this task, cMsg should stand
+ * alone - not requiring an XML parser to work. It takes more memory and time
+ * to decode XML than a simple format. Thus, a simple, easy-to-parse format
+ * was developed to implement this interface.<p>
+ *
+ * Following is the text format of a complete compound payload ([nl] means newline, only 1 space between items).
+ * Each payload consists of a number of items. The first line is the number of
+ * items in the payload. That is followed by the text
+ * representation of each item:<p></b>
+ *
+ *<pre>    item_count[nl]</pre><p>
+ *
+ *<b><i>for string items:</i></b><p>
+ *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
+ *    string_length_1[nl]
+ *    string_characters_1[nl]
+ *     .
+ *     .
+ *     .
+ *    string_length_N[nl]
+ *    string_characters_N</pre><p>
+ *
+ *<b><i>for binary (converted into text) items:</i></b><p>
+ *
+ *<pre>    item_name   item_type   original_binary_byte_length   isSystemItem?   item_length[nl]
+ *    string_length   endian[nl]
+ *    string_characters[nl]</pre><p>
+ *
+ *<b><i>for primitive type items:</i></b><p>
+ *
+ *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
+ *    value_1   value_2   ...   value_N[nl]</pre><p>
+ *
+ *  <b>A cMsg message is formatted as a compound payload. Each message has
+ *  a number of fields (payload items).<p>
+ *
+ *  <i>for message items:</i></b><p>
+ *<pre>                                                                            _
+ *    item_name   item_type   item_count   isSystemItem?   item_length[nl]   /
+ *    message_1_in_compound_payload_text_format[nl]                         <  field_count[nl]
+ *        .                                                                  \ list_of_payload_format_items
+ *        .                                                                   -
+ *        .
+ *    message_N_in_compound_payload_text_format[nl]</pre><p>
+ *
+ * <b>Notice that this format allows a message to store a message which stores a message
+ * which stores a message, ad infinitum. In other words, recursive message storing.
+ * The item_length in each case is the length in bytes of the rest of the item (not
+ * including the newline at the end).</b>
  */
 public class cMsgPayload {
 
@@ -22,8 +93,8 @@ public class cMsgPayload {
      * This routine checks to see if a name is already in use by an existing payloadItem.
      *
      * @param name name to check
-     * @returns false if name does not exist
-     * @returns true if name exists
+     * @return false if name does not exist
+     * @return true if name exists
      */
     boolean nameExists(String name) {
         return items.containsKey(name);
@@ -70,8 +141,8 @@ public class cMsgPayload {
      *
      * @param cMsgText String containing the "text" field of a cMsg message
      *
-     * @returns resultant string if successful
-     * @returns null if no payload exists
+     * @return resultant string if successful
+     * @return null if no payload exists
      */
     synchronized String getNetworkText(String cMsgText) {
         int msgLen = 0, count, totalLen = 0;
@@ -131,8 +202,8 @@ public class cMsgPayload {
     /**
      * This method creates a string of all the payload items concatonated.
      *
-     * @returns resultant string if successful
-     * @returns null if no payload exists
+     * @return resultant string if successful
+     * @return null if no payload exists
      */
     synchronized String getItemsText() {
         int count, totalLen = 0;
