@@ -13,77 +13,67 @@
  *             Fax:   (757) 269-6248             Newport News, VA 23606       *
  *                                                                            *
  *----------------------------------------------------------------------------*/
-
+ 
 /**
  * @file
- * <H1><b>Introduction</b></H1><p>
- *
- * <H2>
- * This file contains the compound payload interface to cMsg messages. In short,
- * this allows the text field of the message to store messages of arbitrary
+ * <b><H1>Introduction</H1><p>
+ * 
+ * This class defines the compound payload interface to cMsg messages. In short,
+ * the payload allows the text field of the message to store messages of arbitrary
  * length and complexity. All types of ints (1,2,4,8 bytes), 4,8-byte floats,
  * strings, binary, whole messages and arrays of all these types can be stored
- * and retrieved from the compound payload. These routines are thread-safe.
- * </H2><p>
+ * and retrieved from the compound payload. These methods are thread-safe.<p>
  *
- * <H2>
  * Although XML would be a format well-suited to this task, cMsg should stand
  * alone - not requiring an XML parser to work. It takes more memory and time
  * to decode XML than a simple format. Thus, a simple, easy-to-parse format
- * was developed to implement this interface.
- * </H2><p>
+ * was developed to implement this interface.<p>
  *
- * <H2>
- * Following is the text format of a complete compound payload (nl = newline).
+ * Following is the text format of a complete compound payload ([nl] means newline, only 1 space between items).
  * Each payload consists of a number of items. The first line is the number of
- * items in the payload:
+ * items in the payload. That is followed by the text
+ * representation of each item:<p></b>
  *
- *    item_count<nl>
+ *<pre>    item_count[nl]</pre><p>
  *
- *  Each item type has its own format as follows.
- *
- *  for string items:
- *
- *    item_name item_type item_count isSystemItem? item_length<nl>
- *    string_length1<nl>
- *    string_characters1<nl>
+ *<b><i>for string items:</i></b><p>
+ *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
+ *    string_length_1[nl]
+ *    string_characters_1[nl]
  *     .
  *     .
  *     .
- *    string_lengthN<nl>
- *    string_charactersN<nl>
+ *    string_length_N[nl]
+ *    string_characters_N</pre><p>
  *
- *  for binary (converted into text) items:
+ *<b><i>for binary (converted into text) items:</i></b><p>
  *
- *    item_name item_type original_binary_byte_length isSystemItem? item_length<nl>
- *    string_length endian<nl>
- *    string_characters<nl>
- *   
- *  for primitive type items:
+ *<pre>    item_name   item_type   original_binary_byte_length   isSystemItem?   item_length[nl]
+ *    string_length   endian[nl]
+ *    string_characters[nl]</pre><p>
  *
- *    item_name item_type item_count isSystemItem? item_length<nl>
- *    value1 value2 ... valueN<nl>
+ *<b><i>for primitive type items:</i></b><p>
  *
- *  A cMsg message is formatted as a compound payload. Each message has
- *  a number of fields (payload items).
+ *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
+ *    value_1   value_2   ...   value_N[nl]</pre><p>
  *
- *  for message items:
- *                                                                   _
- *    item_name item_type item_count isSystemItem? item_length<nl>  /
- *    message1_in_compound_payload_text_format<nl>                 <  field_count<nl>
- *        .                                                         \ list_of_payload_format_items
- *        .                                                          -
- *        .
- *    messageN_in_compound_payload_text_format<nl>
+ *  <b>A cMsg message is formatted as a compound payload. Each message has
+ *  a number of fields (payload items).<p>
  *
- * Notice that this format allows a message to store a message which stores a message
+ *  <i>for message items:</i></b><p>
+ *<pre>                                                                            _
+ *    item_name   item_type   item_count   isSystemItem?   item_length[nl]   /
+ *    message_1_in_compound_payload_text_format[nl]                         <  field_count[nl]
+ *        .                                                                  \ list_of_payload_format_items
+ *        .                                                                   -
+ *        . . .
+ *    message_N_in_compound_payload_text_format[nl]</pre><p>
+ *
+ * <b>Notice that this format allows a message to store a message which stores a message
  * which stores a message, ad infinitum. In other words, recursive message storing.
  * The item_length in each case is the length in bytes of the rest of the item (not
- * including the newline at the end of the header line) - so it does NOT include the
- * header line for the item.
- *
- * </H2><p>
- */  
+ * including the newline at the end).</b>
+ */
 
 /* system includes */
 #ifdef VXWORKS
