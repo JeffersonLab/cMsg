@@ -87,7 +87,6 @@
  * its own thread.
  *
  *
-
  * <b>ADDITIONAL INFORMATION</b>
  *
  * See the cMsg User's Guide and the cMsg Developer's Guide for more information.
