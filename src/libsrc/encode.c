@@ -51,7 +51,7 @@
   *            to hold the encoding. Calculate necessary size with
   *            routine {@link cMsg_b64_encode_len}
   *
-  * @returns number of characters in resulting character array
+  * @return number of characters in resulting character array
   */
  unsigned int
  cMsg_b64_encode(const char *src, unsigned int len, char *dst)
@@ -116,7 +116,7 @@
   *            to hold the decoding. Calculate necessary size with
   *            routine {@link cMsg_b64_decode_len}
   *
-  * @returns if successful, # of bytes in resulting binary array,
+  * @return  if successful, # of bytes in resulting binary array,
   *          -1 if unexpected "=",
   *          -2 if invalid symbol, or
   *          -3 if invalid end sequence
@@ -210,7 +210,7 @@
   * @param src pointer to buffer containing base64 string
   * @param len number of characters in string
   *
-  * @returns number bytes needed to store decoded base64 string
+  * @return number bytes needed to store decoded base64 string
   */
  unsigned int
  cMsg_b64_decode_len(const char *src, unsigned int len)
@@ -261,7 +261,7 @@
   * @param src pointer to buffer containing binary data
   * @param len length of binary buffer in bytes
   *
-  * @returns number of characters needed to encode given binary array
+  * @return number of characters needed to encode given binary array
   */
  unsigned int
  cMsg_b64_encode_len(const char *src, unsigned int len)
@@ -305,7 +305,7 @@
   * @param src pointer to buffer containing binary data
   * @param srclen length of binary buffer in bytes
   *
-  * @returns number of characters needed to encode given binary array
+  * @return number of characters needed to encode given binary array
   */
  unsigned int
  cMsg_b64_encode_len_est(const char *src, unsigned int srclen)
@@ -326,7 +326,7 @@
   * @param src pointer to buffer containing base64 string
   * @param srclen number of characters in string
   *
-  * @returns number bytes needed to store decoded base64 string
+  * @return number bytes needed to store decoded base64 string
   */
  unsigned int
  cMsg_b64_decode_len_est(const char *src, unsigned int srclen)
