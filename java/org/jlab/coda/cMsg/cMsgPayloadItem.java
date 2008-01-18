@@ -19,6 +19,7 @@ package org.jlab.coda.cMsg;
 import java.math.BigInteger;
 import java.lang.Number;
 import java.util.Collection;
+import java.util.Arrays;
 
 /**
  * <b>This class represents an item in a cMsg message's payload.
@@ -60,10 +61,14 @@ import java.util.Collection;
  *    message_N_in_compound_payload_text_format[nl]</pre>
  *
  */
-public class cMsgPayloadItem {
+public final class cMsgPayloadItem implements Cloneable {
 
     /** Name of this item. */
     String name;
+
+    /** String representation for this item, containing name,
+      * type, count, length, values, etc for wire protocol. */
+    String text;
 
     /**
      * Type of item (number, bin, string, msg, ...) stored here.
@@ -97,56 +102,55 @@ public class cMsgPayloadItem {
      * <LI>{@link cMsgConstants#payloadMsgA}        for a  cMsg message array
      * </UL>
      */
-    int type;
+    private int type;
 
     /** Number of items in array if array, else 1. */
-    int count = 1;
-    /** Length of text in chars without header (first) line. */
-    int noHeaderLen;
-    /** Endian value if item is binary. */
-    int endian = cMsgConstants.endianBig;
-    /** Is this item part of a hidden system field in the payload? */
-    boolean isSystem;
+    private int count = 1;
 
-    /** String representation for this item, containing name,
-      * type, count, length, values, etc for wire protocol. */
-    String text;
+    /** Length of text in chars without header (first) line. */
+    private int noHeaderLen;
+
+    /** Endian value if item is binary. */
+    private int endian = cMsgConstants.endianBig;
+
+    /** Is this item part of a hidden system field in the payload? */
+    private boolean isSystem;
 
     /** Place to store the item passed to the constructor. */
-    Object item;
+    private Object item;
 
     /** Maximum length of the name. */
-    private int CMSG_PAYLOAD_NAME_LEN_MAX = 128;
+    private static final int CMSG_PAYLOAD_NAME_LEN_MAX = 128;
 
     /** String containing all characters not allowed in a name. */
-    private String EXCLUDED_CHARS = " \t\n`\'\"";
+    private static final String EXCLUDED_CHARS = " \t\n`\'\"";
 
     /** Map the value of a byte (index) to the hex string value it represents. */
-   private String toASCII[] =
-   {"00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "0a", "0b", "0c", "0d", "0e", "0f",
-    "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "1a", "1b", "1c", "1d", "1e", "1f",
-    "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "2a", "2b", "2c", "2d", "2e", "2f",
-    "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "3a", "3b", "3c", "3d", "3e", "3f",
-    "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "4a", "4b", "4c", "4d", "4e", "4f",
-    "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "5a", "5b", "5c", "5d", "5e", "5f",
-    "60", "61", "62", "63", "64", "65", "66", "67", "68", "69", "6a", "6b", "6c", "6d", "6e", "6f",
-    "70", "71", "72", "73", "74", "75", "76", "77", "78", "79", "7a", "7b", "7c", "7d", "7e", "7f",
-    "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "8a", "8b", "8c", "8d", "8e", "8f",
-    "90", "91", "92", "93", "94", "95", "96", "97", "98", "99", "9a", "9b", "9c", "9d", "9e", "9f",
-    "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "aa", "ab", "ac", "ad", "ae", "af",
-    "b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "ba", "bb", "bc", "bd", "be", "bf",
-    "c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "ca", "cb", "cc", "cd", "ce", "cf",
-    "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "da", "db", "dc", "dd", "de", "df",
-    "e0", "e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8", "e9", "ea", "eb", "ec", "ed", "ee", "ef",
-    "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "fa", "fb", "fc", "fd", "fe", "ff"};
+    private static final String toASCII[] =
+    {"00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "0a", "0b", "0c", "0d", "0e", "0f",
+     "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "1a", "1b", "1c", "1d", "1e", "1f",
+     "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "2a", "2b", "2c", "2d", "2e", "2f",
+     "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "3a", "3b", "3c", "3d", "3e", "3f",
+     "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "4a", "4b", "4c", "4d", "4e", "4f",
+     "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "5a", "5b", "5c", "5d", "5e", "5f",
+     "60", "61", "62", "63", "64", "65", "66", "67", "68", "69", "6a", "6b", "6c", "6d", "6e", "6f",
+     "70", "71", "72", "73", "74", "75", "76", "77", "78", "79", "7a", "7b", "7c", "7d", "7e", "7f",
+     "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "8a", "8b", "8c", "8d", "8e", "8f",
+     "90", "91", "92", "93", "94", "95", "96", "97", "98", "99", "9a", "9b", "9c", "9d", "9e", "9f",
+     "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "aa", "ab", "ac", "ad", "ae", "af",
+     "b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "ba", "bb", "bc", "bd", "be", "bf",
+     "c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "ca", "cb", "cc", "cd", "ce", "cf",
+     "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "da", "db", "dc", "dd", "de", "df",
+     "e0", "e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8", "e9", "ea", "eb", "ec", "ed", "ee", "ef",
+     "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "fa", "fb", "fc", "fd", "fe", "ff"};
 
     /**
      * Map the value of an ascii character (index) to the numerical
      * value it represents. The only characters of interest are 0-9,a-f,
      * and Z for converting hex strings back to numbers.
      */
-   private byte toByte[] =
-   {  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /*  0-9  */
+    private static final byte toByte[] =
+    { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /*  0-9  */
       -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 10-19 */
       -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 20-29 */
       -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 30-39 */
@@ -157,6 +161,51 @@ public class cMsgPayloadItem {
       -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 80-89 */
       -2, -1, -1, -1, -1, -1, -1, 10, 11, 12,  /* 90-99, Z maps to 90 */
       13, 14, 15}; /* 100-102 */
+
+    /**
+     * Clone this object.
+     * @return a cMsgPayloadItem object which is a copy of this object
+     */
+    public Object clone() {
+        try {
+            cMsgPayloadItem result = (cMsgPayloadItem) super.clone();
+            // The problem is how to clone the item object.
+            // If it's a String, Byte, Short, Integer, Long, Float, Double,
+            // or BigInteger, it's immutable and doesn't need explicit cloning.
+            // All other types need to be cloned explicitly.
+            if      (type == cMsgConstants.payloadBin)     { result.item = ((byte[])       item).clone(); }
+            else if (type == cMsgConstants.payloadStrA)    { result.item = ((String[])     item).clone(); }
+            else if (type == cMsgConstants.payloadDblA)    { result.item = ((double[])     item).clone(); }
+            else if (type == cMsgConstants.payloadFltA)    { result.item = ((float[])      item).clone(); }
+            else if (type == cMsgConstants.payloadInt8A)   { result.item = ((byte[])       item).clone(); }
+            else if (type == cMsgConstants.payloadInt16A)  { result.item = ((short[])      item).clone(); }
+            else if (type == cMsgConstants.payloadInt32A)  { result.item = ((int[])        item).clone(); }
+            else if (type == cMsgConstants.payloadInt64A)  { result.item = ((long[])       item).clone(); }
+            else if (type == cMsgConstants.payloadUint64A) { result.item = ((BigInteger[]) item).clone(); }
+            else if (type == cMsgConstants.payloadMsg)     { result.item = ((cMsgMessage)  item).clone(); }
+            else if (type == cMsgConstants.payloadMsgA)    {
+                result.item = ((cMsgMessage[]) item).clone();
+                cMsgMessage[] msgs = (cMsgMessage[]) item;
+                for (int i = 0; i < msgs.length; i++) {
+                    ((cMsgMessage[])result.item)[i] = (cMsgMessage) ((cMsgMessage[]) item)[i].clone();
+                }
+            }
+            return result;
+        }
+        catch (CloneNotSupportedException e) {
+            return null; // never invoked
+        }
+    }
+
+
+    /**
+     * Creates a complete copy of this object.
+     *
+     * @return copy of this object.
+     */
+    public cMsgPayloadItem copy() {
+        return (cMsgPayloadItem) this.clone();
+    }
 
 
     /**
@@ -228,8 +277,10 @@ public class cMsgPayloadItem {
         }
 
         // check for excluded chars
-        if (name.contains(EXCLUDED_CHARS)) {
-            throw new cMsgException("name contains illegal characters");
+        for (char c : EXCLUDED_CHARS.toCharArray()) {
+            if (name.indexOf(c) > -1) {
+                throw new cMsgException("name contains illegal character \"" + c + "\"");
+            }
         }
 
         // check for starting with cmsg
@@ -268,6 +319,40 @@ public class cMsgPayloadItem {
         return cMsgConstants.endianBig;
     }
 
+    static final void zerosToIntStr(StringBuilder sb, int zeros) {
+        sb.append("Z");
+        sb.append( toASCII[ zeros >> 24 & 0xff ].charAt(1) );
+        sb.append( toASCII[ zeros >> 16 & 0xff ] );
+        sb.append( toASCII[ zeros >>  8 & 0xff ] );
+        sb.append( toASCII[ zeros       & 0xff ] );
+    }
+
+    static final void zerosToLongStr(StringBuilder sb, int zeros) {
+        sb.append("Z00000000");
+        sb.append( toASCII[ zeros >> 24 & 0xff ].charAt(1) );
+        sb.append( toASCII[ zeros >> 16 & 0xff ] );
+        sb.append( toASCII[ zeros >>  8 & 0xff ] );
+        sb.append( toASCII[ zeros       & 0xff ] );
+    }
+
+    static final void longToStr(StringBuilder sb, long l) {
+        sb.append( toASCII[ (int) (l>>56 & 0xffL) ] );
+        sb.append( toASCII[ (int) (l>>48 & 0xffL) ] );
+        sb.append( toASCII[ (int) (l>>40 & 0xffL) ] );
+        sb.append( toASCII[ (int) (l>>32 & 0xffL) ] );
+        sb.append( toASCII[ (int) (l>>24 & 0xffL) ] );
+        sb.append( toASCII[ (int) (l>>16 & 0xffL) ] );
+        sb.append( toASCII[ (int) (l>> 8 & 0xffL) ] );
+        sb.append( toASCII[ (int) (l     & 0xffL) ] );
+    }
+
+    static final void intToStr(StringBuilder sb, int i) {
+        sb.append( toASCII[ i>>24 & 0xff ] );
+        sb.append( toASCII[ i>>16 & 0xff ] );
+        sb.append( toASCII[ i>> 8 & 0xff ] );
+        sb.append( toASCII[ i     & 0xff ] );
+    }
+
 
     //--------------------------
     // Constructors, String
@@ -277,10 +362,21 @@ public class cMsgPayloadItem {
         addString(name, s, false);
     }
 
+    cMsgPayloadItem(String name, String s, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addString(name, s, txt, false, noHeadLen);
+    }
+
     public cMsgPayloadItem(String name, String[] s) throws cMsgException {
         checkName(name, false);
         addString(name, s, false);
     }
+
+    cMsgPayloadItem(String name, String[] s, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addString(name, s, txt, false, noHeadLen);
+    }
+
 
     //--------------------------
     // Constructors, Binary
@@ -291,12 +387,33 @@ public class cMsgPayloadItem {
         addBinary(name, b, false);
     }
 
+    cMsgPayloadItem(String name, byte[] b, int end, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        endian = checkEndian(end);
+        addBinary(name, b, txt, false, noHeadLen);
+    }
+
     //--------------------------
     // Constructors, Message
     //--------------------------
     public cMsgPayloadItem(String name, cMsgMessage msg) throws cMsgException {
         checkName(name, false);
         addMessage(name, msg, false);
+    }
+
+    cMsgPayloadItem(String name, cMsgMessage m, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addMessage(name, m, txt, false, noHeadLen);
+    }
+
+    public cMsgPayloadItem(String name, cMsgMessage[] msg) throws cMsgException {
+        checkName(name, false);
+        addMessage(name, msg, false);
+    }
+
+    cMsgPayloadItem(String name, cMsgMessage[] m, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addMessage(name, m, txt, false, noHeadLen);
     }
 
     //-------------------
@@ -308,9 +425,19 @@ public class cMsgPayloadItem {
         addByte(name, b, false);
     }
 
+    cMsgPayloadItem(String name, byte b, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addByte(name, b, txt, false, noHeadLen);
+    }
+
     public cMsgPayloadItem(String name, short s) throws cMsgException {
         checkName(name, false);
         addShort(name, s, false);
+    }
+
+    cMsgPayloadItem(String name, short s, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addShort(name, s, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, int i) throws cMsgException {
@@ -318,9 +445,19 @@ public class cMsgPayloadItem {
         addInt(name, i, false);
     }
 
-    public cMsgPayloadItem(String name, long i) throws cMsgException {
+    cMsgPayloadItem(String name, int i, String txt, int noHeadLen) throws cMsgException {
         checkName(name, false);
-        addLong(name, i, false);
+        addInt(name, i, txt, false, noHeadLen);
+    }
+
+    public cMsgPayloadItem(String name, long l) throws cMsgException {
+        checkName(name, false);
+        addLong(name, l, false);
+    }
+
+    cMsgPayloadItem(String name, long l, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addLong(name, l, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, BigInteger big) throws cMsgException {
@@ -328,6 +465,11 @@ public class cMsgPayloadItem {
         if ((big.compareTo(new BigInteger("18446744073709551615")) > 0) ||
             (big.compareTo(BigInteger.ZERO) < 0) ) throw new cMsgException("number must fit in an unsigned, 64-bit int");
         addNumber(name, big, cMsgConstants.payloadUint64, false);
+    }
+
+    cMsgPayloadItem(String name, BigInteger big, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addBigInt(name, big, txt, false, noHeadLen);
     }
 
     public <T extends Number> cMsgPayloadItem(String name, T t) throws cMsgException {
@@ -340,7 +482,6 @@ public class cMsgPayloadItem {
 
         if (s.equals("java.lang.Byte")) {
             typ = cMsgConstants.payloadInt8;
-            System.out.println("Got type = Byte !!");
         }
         else if (s.equals("java.lang.Short")) {
             typ = cMsgConstants.payloadInt16;
@@ -373,9 +514,19 @@ public class cMsgPayloadItem {
         addByte(name, b, false);
     }
 
+    cMsgPayloadItem(String name, byte[] b, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addByte(name, b, txt, false, noHeadLen);
+    }
+
     public cMsgPayloadItem(String name, short[] s) throws cMsgException {
         checkName(name, false);
         addShort(name, s, false);
+    }
+
+    cMsgPayloadItem(String name, short[] s, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addShort(name, s, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, int[] i) throws cMsgException {
@@ -383,9 +534,19 @@ public class cMsgPayloadItem {
         addInt(name, i, false);
     }
 
+    cMsgPayloadItem(String name, int[] i, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addInt(name, i, txt, false, noHeadLen);
+    }
+
     public cMsgPayloadItem(String name, long[] l) throws cMsgException {
         checkName(name, false);
         addLong(name, l, false);
+    }
+
+    cMsgPayloadItem(String name, long[] l, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addLong(name, l, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, BigInteger[] big) throws cMsgException {
@@ -398,6 +559,11 @@ public class cMsgPayloadItem {
         addNumber(name, big, cMsgConstants.payloadUint64A, false);
     }
 
+    cMsgPayloadItem(String name, BigInteger[] b, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addBigInt(name, b, txt, false, noHeadLen);
+    }
+
     public <T extends Number> cMsgPayloadItem(String name, T[] t) throws cMsgException {
          int typ;
          String s = t[0].getClass().getName();
@@ -408,24 +574,24 @@ public class cMsgPayloadItem {
          // casts & "instance of" does not work with generics on naked types (on t), so use getClass()
 
          if (s.equals("java.lang.Byte")) {
-             typ = cMsgConstants.payloadInt8;
+             typ = cMsgConstants.payloadInt8A;
              System.out.println("Got type = Byte !!");
          }
          else if (s.equals("java.lang.Short")) {
-             typ = cMsgConstants.payloadInt16;
+             typ = cMsgConstants.payloadInt16A;
              System.out.println("Got type = Short !!");
          }
          else if (s.equals("java.lang.Integer")) {
-             typ = cMsgConstants.payloadInt32;
+             typ = cMsgConstants.payloadInt32A;
          }
          else if (s.equals("java.lang.Long")) {
-             typ = cMsgConstants.payloadInt64;
+             typ = cMsgConstants.payloadInt64A;
          }
          else if (s.equals("java.lang.Float")) {
-             typ = cMsgConstants.payloadFlt;
+             typ = cMsgConstants.payloadFltA;
          }
          else if (s.equals("java.lang.Double")) {
-             typ = cMsgConstants.payloadDbl;
+             typ = cMsgConstants.payloadDblA;
          }
          else {
              throw new cMsgException("Type T[]" + s + " not allowed");
@@ -443,9 +609,19 @@ public class cMsgPayloadItem {
         addFloat(name, f, false);
     }
 
+    cMsgPayloadItem(String name, float f, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addFloat(name, f, txt, false, noHeadLen);
+    }
+
     public cMsgPayloadItem(String name, double d) throws cMsgException {
         checkName(name, false);
         addDouble(name, d, false);
+    }
+
+    cMsgPayloadItem(String name, double d, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addDouble(name, d, txt, false, noHeadLen);
     }
 
     //------------
@@ -457,9 +633,19 @@ public class cMsgPayloadItem {
         addFloat(name, f, false);
     }
 
+    cMsgPayloadItem(String name, float[] f, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addFloat(name, f, txt, false, noHeadLen);
+    }
+
     public cMsgPayloadItem(String name, double[] d) throws cMsgException {
         checkName(name, false);
         addDouble(name, d, false);
+    }
+
+    cMsgPayloadItem(String name, double[] d, String txt, int noHeadLen) throws cMsgException {
+        checkName(name, false);
+        addDouble(name, d, txt, false, noHeadLen);
     }
 
 
@@ -490,8 +676,16 @@ public class cMsgPayloadItem {
         buf.append(noHeaderLen);       buf.append("\n");
         buf.append(val.length());      buf.append("\n");
         buf.append(val);               buf.append("\n");
-
         text = buf.toString();
+    }
+
+    private void addString(String name, String val, String txt, boolean isSystem, int noHeadLen) {
+        item = val;
+        type = cMsgConstants.payloadStr;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
     }
 
     //-----------------
@@ -501,7 +695,7 @@ public class cMsgPayloadItem {
     private void addString(String name, String[] vals, boolean isSystem) {
         item  = vals;
         count = vals.length;
-        type  = cMsgConstants.payloadStrA;
+        type = cMsgConstants.payloadStrA;
         this.name = name;
         this.isSystem = isSystem;
 
@@ -519,8 +713,17 @@ public class cMsgPayloadItem {
         buf.append(isSystem ? 1 : 0);  buf.append(" ");
         buf.append(noHeaderLen);       buf.append("\n");
         buf.append(sb);
-
         text = buf.toString();
+    }
+
+    private void addString(String name, String[] vals, String txt, boolean isSystem, int noHeadLen) {
+        item  = vals;
+        count = vals.length;
+        type = cMsgConstants.payloadStrA;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
     }
 
     //------------
@@ -555,6 +758,14 @@ public class cMsgPayloadItem {
         text = buf.toString();
     }
 
+    private void addBinary(String name, byte[] bin, String txt, boolean isSystem, int noHeadLen) {
+        item = bin;
+        type = cMsgConstants.payloadBin;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
+    }
 
     //------------
     // ADD MESSAGE
@@ -570,9 +781,166 @@ public class cMsgPayloadItem {
         buf.append(s);           buf.append("\n");
     }
 
+    private void addMessage(String name, cMsgMessage[] m, String txt, boolean isSystem, int noHeadLen) {
+        item  = m;
+        count = m.length;
+        type  = cMsgConstants.payloadMsgA;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
+    }
+
+    private void addMessage(String name, cMsgMessage[] msgs, boolean isSystem) {
+        item  = msgs;
+        count = msgs.length;
+        type  = cMsgConstants.payloadMsgA;
+        this.name = name;
+        this.isSystem = isSystem;
+
+        // Keep track of the number of payload fields for each msg
+        int[] fieldCount = new int[count];
+        // 2 fields in each msg for sure (cMsgInts & cMsgTimes)
+        Arrays.fill(fieldCount, 2);
+
+        // Create string to hold all data to be transferred over
+        // the network for this item. Try to make sure we have
+        // room in the buffer for the large items plus 1K/msg.
+        // Add 2k extra for cushion.
+        int size = 2048;
+
+        for (int i=0; i<msgs.length; i++) {
+            if (msgs[i].getItemsText() != null) size += msgs[i].getItemsText().length();
+            if (msgs[i].getText() != null) size += msgs[i].getText().length();
+            size += msgs[i].getByteArrayLength() * 1.4 + 1024;
+
+            if (msgs[i].getDomain()       != null) fieldCount[i]++;
+            if (msgs[i].getSubject()      != null) fieldCount[i]++;
+            if (msgs[i].getType()         != null) fieldCount[i]++;
+            if (msgs[i].getText()         != null) fieldCount[i]++;
+            if (msgs[i].getCreator()      != null) fieldCount[i]++;
+            if (msgs[i].getSender()       != null) fieldCount[i]++;
+            if (msgs[i].getSenderHost()   != null) fieldCount[i]++;
+            if (msgs[i].getReceiver()     != null) fieldCount[i]++;
+            if (msgs[i].getDomain()       != null) fieldCount[i]++;
+            if (msgs[i].getReceiverHost() != null) fieldCount[i]++;
+            if (msgs[i].getByteArrayLength() > 0)  fieldCount[i]++;
+            fieldCount[i] += msgs[i].getPayloadSize();
+        }
+
+        StringBuilder buf = new StringBuilder(size);
+        StringBuilder  sb = new StringBuilder(100);
+        int j=0;
+
+        for (cMsgMessage msg : msgs) {
+            // First thing is number of payload fields
+            buf.append(fieldCount[j++]);
+            buf.append("\n");
+
+            // Start adding message fields to string in payload item format
+            if (msg.getDomain()       != null) systemStringToBuf("cMsgDomain", buf, msg.getDomain());
+            if (msg.getSubject()      != null) systemStringToBuf("cMsgSubject", buf, msg.getSubject());
+            if (msg.getType()         != null) systemStringToBuf("cMsgType", buf, msg.getType());
+            if (msg.getText()         != null) systemStringToBuf("cMsgText", buf, msg.getText());
+            if (msg.getCreator()      != null) systemStringToBuf("cMsgCreator", buf, msg.getCreator());
+            if (msg.getSender()       != null) systemStringToBuf("cMsgSender", buf, msg.getSender());
+            if (msg.getSenderHost()   != null) systemStringToBuf("cMsgSenderHost", buf, msg.getSenderHost());
+            if (msg.getReceiver()     != null) systemStringToBuf("cMsgReceiver", buf, msg.getReceiver());
+            if (msg.getReceiverHost() != null) systemStringToBuf("cMsgReceiverHost", buf, msg.getReceiverHost());
+
+            // add an array of integers
+            sb.delete(0, sb.length());
+            intToStr(sb, msg.getVersion());
+            sb.append(" ");
+            intToStr(sb, msg.getInfo());
+            sb.append(" ");
+            intToStr(sb, msg.reserved);
+            sb.append(" ");
+            intToStr(sb, msg.getByteArrayLength());
+            sb.append(" ");
+            intToStr(sb, msg.getUserInt());
+            sb.append("\n");
+
+            buf.append("cMsgInts ");
+            buf.append(cMsgConstants.payloadInt32A);
+            buf.append(" 5 1 ");
+            buf.append(sb.length());
+            buf.append("\n");
+            buf.append(sb);
+
+            // Send a time as 2, 64 bit integers - one for seconds, one for nanoseconds.
+            // In java, time in only kept in milliseconds, so convert.
+            sb.delete(0, sb.length());
+            long t = msg.getUserTime().getTime();
+            longToStr(sb, t / 1000);   // sec
+            sb.append(" ");
+            longToStr(sb, (t - ((t / 1000L) * 1000L)) * 1000000L);   // nanosec
+            sb.append(" ");
+            t = msg.getSenderTime().getTime();
+            longToStr(sb, t / 1000);   // sec
+            sb.append(" ");
+            longToStr(sb, (t - ((t / 1000L) * 1000L)) * 1000000L);   // nanosec
+            sb.append(" ");
+            t = msg.getReceiverTime().getTime();
+            longToStr(sb, t / 1000);   // sec
+            sb.append(" ");
+            longToStr(sb, (t - ((t / 1000L) * 1000L)) * 1000000L);   // nanosec
+            sb.append("\n");
+
+            buf.append("cMsgTimes ");
+            buf.append(cMsgConstants.payloadInt64A);
+            buf.append(" 6 1 ");
+            buf.append(sb.length());
+            buf.append("\n");
+            buf.append(sb);
+
+            // send the byte array
+            if (msg.getByteArrayLength() > 0) {
+                String encodedBin = Base64.encodeToString(msg.getByteArray(), msg.getByteArrayOffset(),
+                                                          msg.getByteArrayLength(), true);
+                int len = numDigits(encodedBin.length()) + encodedBin.length() + 4;  // endian value, space, 2 newlines
+
+                buf.append("cMsgBinary ");
+                buf.append(cMsgConstants.payloadBin);
+                buf.append(" 1 1 ");
+                buf.append(len);                       buf.append("\n");
+                buf.append(encodedBin.length());       buf.append(" ");
+                buf.append(msg.getByteArrayEndian());  buf.append("\n");
+                buf.append(encodedBin);                buf.append("\n");
+            }
+
+            // add payload items of this message
+            Collection<cMsgPayloadItem> c = msg.getPayloadItems().values();
+            for (cMsgPayloadItem it : c) {
+                buf.append(it.text);
+            }
+        }
+
+        noHeaderLen = buf.length();
+
+        StringBuilder buf2 = new StringBuilder(noHeaderLen + 100);
+        buf2.append(name);                 buf2.append(" ");
+        buf2.append(type);                 buf2.append(" ");
+        buf2.append(count);                buf2.append(" ");
+        buf2.append(isSystem ? 1 : 0);     buf2.append(" ");
+        buf2.append(noHeaderLen);          buf2.append("\n");
+        buf2.append(buf);   // copy done here, but easier than calculating exact length beforehand (faster?)
+
+        text = buf2.toString();
+    }
+
+    private void addMessage(String name, cMsgMessage m, String txt, boolean isSystem, int noHeadLen) {
+        item = m;
+        type = cMsgConstants.payloadMsg;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
+    }
+
     private void addMessage(String name, cMsgMessage msg, boolean isSystem) {
         item = msg;
-        type = cMsgConstants.payloadBin;
+        type = cMsgConstants.payloadMsg;
         this.name = name;
         this.isSystem = isSystem;
 
@@ -580,84 +948,84 @@ public class cMsgPayloadItem {
         // the network for this item. Try to make sure we have some
         // room in the buffer for the large items plus 2K extra.
         int size = 0;
-        String payloadRep = msg.getPayload().getItemsText();
+        String payloadRep = msg.getItemsText();
         if (payloadRep    != null)  size += payloadRep.length();
         if (msg.getText() != null)  size += msg.getText().length();
         size += msg.getByteArrayLength()*1.4;
 
-        count = 0;
+        int fieldCount = 0;
         StringBuilder buf = new StringBuilder(size + 2048);
 
         // Start adding message fields to string in payload item format
         if (msg.getDomain() != null) {
             systemStringToBuf("cMsgDomain", buf, msg.getDomain());
-            count++;
+            fieldCount++;
         }
         if (msg.getSubject() != null) {
             systemStringToBuf("cMsgSubject", buf, msg.getSubject());
-            count++;
+            fieldCount++;
         }
         if (msg.getType() != null) {
             systemStringToBuf("cMsgType", buf, msg.getType());
-            count++;
+            fieldCount++;
         }
         if (msg.getText() != null) {
             systemStringToBuf("cMsgText", buf, msg.getText());
-            count++;
+            fieldCount++;
         }
         if (msg.getCreator() != null) {
             systemStringToBuf("cMsgCreator", buf, msg.getCreator());
-            count++;
+            fieldCount++;
         }
         if (msg.getSender() != null) {
             systemStringToBuf("cMsgSender", buf, msg.getSender());
-            count++;
+            fieldCount++;
         }
         if (msg.getSenderHost() != null) {
             systemStringToBuf("cMsgSenderHost", buf, msg.getSenderHost());
-            count++;
+            fieldCount++;
         }
         if (msg.getReceiver() != null) {
             systemStringToBuf("cMsgReceiver", buf, msg.getReceiver());
-            count++;
+            fieldCount++;
         }
         if (msg.getReceiverHost() != null) {
             systemStringToBuf("cMsgReceiverHost", buf, msg.getReceiverHost());
-            count++;
+            fieldCount++;
         }
 
         // add an array of integers
         StringBuilder sb = new StringBuilder(100);
-        sb.append(msg.getVersion());         sb.append(" ");
-        sb.append(msg.getInfo());            sb.append(" ");
-        sb.append(msg.reserved);             sb.append(" ");
-        sb.append(msg.getByteArrayLength()); sb.append(" ");
-        sb.append(msg.getUserInt());         sb.append("\n");
+        intToStr(sb, msg.getVersion());         sb.append(" ");
+        intToStr(sb, msg.getInfo());            sb.append(" ");
+        intToStr(sb, msg.reserved);             sb.append(" ");
+        intToStr(sb, msg.getByteArrayLength()); sb.append(" ");
+        intToStr(sb, msg.getUserInt());         sb.append("\n");
 
         buf.append("cMsgInts ");
         buf.append(cMsgConstants.payloadInt32A);
         buf.append(" 5 1 ");
         buf.append(sb.length());  buf.append("\n");
         buf.append(sb);
-        count++;
+        fieldCount++;
 
         // Send a time as 2, 64 bit integers - one for seconds, one for nanoseconds.
         // In java, time in only kept in milliseconds, so convert.
         sb.delete(0,sb.length());
         long t = msg.getUserTime().getTime();
-        sb.append(t/1000);   // sec
+        longToStr(sb, t/1000);   // sec
         sb.append(" ");
-        sb.append((t - ((t/1000L)*1000L))*1000000L);   // nanosec
+        longToStr(sb, (t - ((t/1000L)*1000L))*1000000L);   // nanosec
         sb.append(" ");
         t = msg.getSenderTime().getTime();
-        sb.append(t/1000);   // sec
+        longToStr(sb, t/1000);   // sec
         sb.append(" ");
-        sb.append((t - ((t/1000L)*1000L))*1000000L);   // nanosec
+        longToStr(sb, (t - ((t/1000L)*1000L))*1000000L);   // nanosec
         sb.append(" ");
         t = msg.getReceiverTime().getTime();
-        sb.append(t/1000);   // sec
+        longToStr(sb, t/1000);   // sec
         sb.append(" ");
-        sb.append((t - ((t/1000L)*1000L))*1000000L);   // nanosec
+        longToStr(sb, (t - ((t/1000L)*1000L))*1000000L);   // nanosec
         sb.append("\n");
 
         buf.append("cMsgTimes ");
@@ -665,10 +1033,11 @@ public class cMsgPayloadItem {
         buf.append(" 6 1 ");
         buf.append(sb.length());  buf.append("\n");
         buf.append(sb);
-        count++;
+        fieldCount++;
 
         // send the byte array
         if (msg.getByteArrayLength() > 0) {
+//System.out.println("ADDING BIN TO PAYLOAD MSG");
             String encodedBin = Base64.encodeToString(msg.getByteArray(), msg.getByteArrayOffset(),
                                                       msg.getByteArrayLength(), true);
             int len = numDigits(encodedBin.length()) + encodedBin.length() + 4;  // endian value, space, 2 newlines
@@ -680,22 +1049,18 @@ public class cMsgPayloadItem {
             buf.append(encodedBin.length());       buf.append(" ");
             buf.append(msg.getByteArrayEndian());  buf.append("\n");
             buf.append(encodedBin);                buf.append("\n");
-            count++;
-
+            fieldCount++;
         }
 
         // add payload items of this message
-        cMsgPayload payload = msg.getPayload();
-        if (payload != null) {
-            Collection<cMsgPayloadItem> c = payload.getItems();
-            for (cMsgPayloadItem it : c) {
-                buf.append(it.text);
-                count++;
-            }
+        Collection<cMsgPayloadItem> c = msg.getPayloadItems().values();
+        for (cMsgPayloadItem it : c) {
+            buf.append(it.text);
+            fieldCount++;
         }
 
         // length of everything except header
-        noHeaderLen = buf.length() + numDigits(count) + 1; // newline
+        noHeaderLen = buf.length() + numDigits(fieldCount) + 1; // newline
 
         StringBuilder buf2 = new StringBuilder(noHeaderLen + 100);
         buf2.append(name);                 buf2.append(" ");
@@ -703,7 +1068,7 @@ public class cMsgPayloadItem {
         buf2.append(count);                buf2.append(" ");
         buf2.append(isSystem ? 1 : 0);     buf2.append(" ");
         buf2.append(noHeaderLen);          buf2.append("\n");
-        buf2.append(count);                buf2.append("\n");
+        buf2.append(fieldCount);           buf2.append("\n");
         buf2.append(buf);   // copy done here, but easier than calculating exact length beforehand (faster?)
 
         text = buf2.toString();
@@ -721,10 +1086,28 @@ public class cMsgPayloadItem {
         addScalar(name, t.toString(), isSystem);
     }
 
+    private void addBigInt(String name, BigInteger b, String txt, boolean isSystem, int noHeadLen) {
+        item = b;
+        type = cMsgConstants.payloadUint64;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
+    }
+
     private void addByte(String name, byte b, boolean isSystem) {
         item = b;
         type = cMsgConstants.payloadInt8;
         addScalar(name, ((Byte) b).toString(), isSystem);
+    }
+
+    private void addByte(String name, byte b, String txt, boolean isSystem, int noHeadLen) {
+        item = b;
+        type = cMsgConstants.payloadInt8;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
     }
 
     private void addShort(String name, short s, boolean isSystem) {
@@ -733,11 +1116,29 @@ public class cMsgPayloadItem {
         addScalar(name, ((Short) s).toString(), isSystem);
     }
 
+    private void addShort(String name, short s, String txt, boolean isSystem, int noHeadLen) {
+        item = s;
+        type = cMsgConstants.payloadInt16;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
+    }
+
     private void addInt(String name, int i, boolean isSystem) {
         item = i;
         type = cMsgConstants.payloadInt32;
         addScalar(name, ((Integer) i).toString(), isSystem);
      }
+
+    private void addInt(String name, int i, String txt, boolean isSystem, int noHeadLen) {
+        item = i;
+        type = cMsgConstants.payloadInt32;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
+    }
 
     private void addLong(String name, long l, boolean isSystem) {
         item = l;
@@ -745,41 +1146,53 @@ public class cMsgPayloadItem {
         addScalar(name, ((Long) l).toString(), isSystem);
     }
 
+    private void addLong(String name, long l, String txt, boolean isSystem, int noHeadLen) {
+        item = l;
+        type = cMsgConstants.payloadInt64;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
+    }
+
     private void addFloat(String name, float f, boolean isSystem) {
         item = f;
         type = cMsgConstants.payloadFlt;
 
-        // bit pattern of int written into float
-        int j32 = Float.floatToIntBits(f);
-
         StringBuilder sb = new StringBuilder(8);
-        sb.append( toASCII[ j32>>24 & 0xff ] );
-        sb.append( toASCII[ j32>>16 & 0xff ] );
-        sb.append( toASCII[ j32>> 8 & 0xff ] );
-        sb.append( toASCII[ j32     & 0xff ] );
+        // bit pattern of float written into int and converted to text
+        intToStr(sb, Float.floatToIntBits(f));
 
         addScalar(name, sb, isSystem);
+    }
+
+    private void addFloat(String name, float f, String txt, boolean isSystem, int noHeadLen) {
+        item = f;
+        type = cMsgConstants.payloadFlt;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
     }
 
     private void addDouble(String name, double d, boolean isSystem) {
         item = d;
         type = cMsgConstants.payloadDbl;
 
-        // bit pattern of double written into long
-        long j64 = Double.doubleToLongBits(d);
-
         StringBuilder sb = new StringBuilder(16);
-        sb.append( toASCII[ (int) (j64>>56 & 0xffL) ] );
-        sb.append( toASCII[ (int) (j64>>48 & 0xffL) ] );
-        sb.append( toASCII[ (int) (j64>>40 & 0xffL) ] );
-        sb.append( toASCII[ (int) (j64>>32 & 0xffL) ] );
-        sb.append( toASCII[ (int) (j64>>24 & 0xffL) ] );
-        sb.append( toASCII[ (int) (j64>>16 & 0xffL) ] );
-        sb.append( toASCII[ (int) (j64>> 8 & 0xffL) ] );
-        sb.append( toASCII[ (int) (j64     & 0xffL) ] );
+        // bit pattern of double written into long and converted to text
+        longToStr(sb, Double.doubleToLongBits(d));
 
         addScalar(name, sb, isSystem);
+    }
 
+    private void addDouble(String name, double d, String txt, boolean isSystem, int noHeadLen) {
+        item = d;
+        type = cMsgConstants.payloadDbl;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
     }
 
     private void addScalar(String name, String val, boolean isSystem) {
@@ -864,6 +1277,16 @@ public class cMsgPayloadItem {
         }
     }
 
+    private void addByte(String name, byte[] b, String txt, boolean isSystem, int noHeadLen) {
+        item  = b;
+        count = b.length;
+        type  = cMsgConstants.payloadInt8A;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
+    }
+
     private void addByte(String name, byte[] b, boolean isSystem) {
         item  = b;
         count = b.length;
@@ -885,6 +1308,16 @@ public class cMsgPayloadItem {
         }
 
         addArray(sb);
+    }
+
+    private void addShort(String name, short[] s, String txt, boolean isSystem, int noHeadLen) {
+        item  = s;
+        count = s.length;
+        type  = cMsgConstants.payloadInt16A;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
     }
 
     private void addShort(String name, short[] s, boolean isSystem) {
@@ -961,6 +1394,16 @@ public class cMsgPayloadItem {
 
         noHeaderLen = (4+1)*(s.length - suppressed);
         addArray(sb);
+    }
+
+    private void addInt(String name, int[] i, String txt, boolean isSystem, int noHeadLen) {
+        item  = i;
+        count = i.length;
+        type  = cMsgConstants.payloadInt32A;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
     }
 
     private void addInt(String name, int[] i, boolean isSystem) {
@@ -1041,6 +1484,17 @@ public class cMsgPayloadItem {
         noHeaderLen = (8+1)*(i.length - suppressed);
         addArray(sb);
     }
+
+    private void addLong(String name, long[] l, String txt, boolean isSystem, int noHeadLen) {
+        item  = l;
+        count = l.length;
+        type  = cMsgConstants.payloadInt64A;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
+    }
+
 
     private void addLong(String name, long[] l, boolean isSystem) {
         item  = l;
@@ -1126,6 +1580,16 @@ public class cMsgPayloadItem {
         addArray(sb);
     }
 
+    private void addFloat(String name, float[] f, String txt, boolean isSystem, int noHeadLen) {
+        item  = f;
+        count = f.length;
+        type  = cMsgConstants.payloadFltA;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
+    }
+
     private void addFloat(String name, float[] f, boolean isSystem) {
         item  = f;
         count = f.length;
@@ -1206,6 +1670,18 @@ public class cMsgPayloadItem {
         noHeaderLen = (8+1)*(f.length - suppressed);
         addArray(sb);
     }
+
+
+    private void addDouble(String name, double[] d, String txt, boolean isSystem, int noHeadLen) {
+        item  = d;
+        count = d.length;
+        type  = cMsgConstants.payloadDblA;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
+    }
+
 
     private void addDouble(String name, double[] d, boolean isSystem) {
         item  = d;
@@ -1291,6 +1767,16 @@ public class cMsgPayloadItem {
 
         noHeaderLen = (16+1)*(d.length - suppressed);
         addArray(sb);
+    }
+
+    private void addBigInt(String name, BigInteger[] b, String txt, boolean isSystem, int noHeadLen) {
+        item  = b;
+        count = b.length;
+        type  = cMsgConstants.payloadUint64A;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
     }
 
     private void addBigInt(String name, BigInteger[] bi, boolean isSystem) {
@@ -1394,6 +1880,10 @@ public class cMsgPayloadItem {
     // GENERIC GETS
     //-------------
 
+    public String getName() {
+        return name;
+    }
+
     public Object getItem() {
         return item;
     }
@@ -1450,6 +1940,13 @@ public class cMsgPayloadItem {
     public cMsgMessage getMessage() throws cMsgException {
         if (type == cMsgConstants.payloadMsg)  {
             return (cMsgMessage)item;
+        }
+        throw new cMsgException("Wrong type");
+    }
+
+    public cMsgMessage[] getMessageArray() throws cMsgException {
+        if (type == cMsgConstants.payloadMsgA)  {
+            return (cMsgMessage[])item;
         }
         throw new cMsgException("Wrong type");
     }
@@ -1568,19 +2065,19 @@ public class cMsgPayloadItem {
 
     public BigInteger getBigInt() throws cMsgException {
 
-        if (type == cMsgConstants.payloadInt8A)  {
+        if (type == cMsgConstants.payloadInt8)  {
             return new BigInteger(item.toString());
         }
-        else if (type == cMsgConstants.payloadInt16A || type == cMsgConstants.payloadUint8A)  {
+        else if (type == cMsgConstants.payloadInt16 || type == cMsgConstants.payloadUint8)  {
             return new BigInteger(item.toString());
         }
-        else if (type == cMsgConstants.payloadInt32A || type == cMsgConstants.payloadUint16A) {
+        else if (type == cMsgConstants.payloadInt32 || type == cMsgConstants.payloadUint16) {
             return new BigInteger(item.toString());
         }
-        else if (type == cMsgConstants.payloadInt64A || type == cMsgConstants.payloadUint32A) {
+        else if (type == cMsgConstants.payloadInt64 || type == cMsgConstants.payloadUint32) {
             return new BigInteger(item.toString());
         }
-        else if (type == cMsgConstants.payloadUint64A) {
+        else if (type == cMsgConstants.payloadUint64) {
             return (BigInteger)item;
         }
         throw new cMsgException("Wrong type");
@@ -1598,11 +2095,11 @@ public class cMsgPayloadItem {
         else if (type == cMsgConstants.payloadInt16A || type == cMsgConstants.payloadUint8A)  {
             short[] S = (short[]) item;
             byte[] b  = new byte[S.length];
-            for (int i = 0; i < S.length; i++) {
-                if (S[i] > Byte.MAX_VALUE || S[i] < Byte.MIN_VALUE) {
+            for (int j = 0; j < S.length; j++) {
+                if (S[j] > Byte.MAX_VALUE || S[j] < Byte.MIN_VALUE) {
                     throw new cMsgException("Cannot retrieve item as byte array, values out-of-range");
                 }
-                b[i] = (byte) S[i];
+                b[j] = (byte) S[j];
             }
             return b;
         }
@@ -1620,24 +2117,24 @@ public class cMsgPayloadItem {
         else if (type == cMsgConstants.payloadInt64A || type == cMsgConstants.payloadUint32A) {
             long[] L = (long[]) item;
             byte[] b = new byte[L.length];
-            for (int i = 0; i < L.length; i++) {
-                if (L[i] > Byte.MAX_VALUE || L[i] < Byte.MIN_VALUE) {
+            for (int j = 0; j < L.length; j++) {
+                if (L[j] > Byte.MAX_VALUE || L[j] < Byte.MIN_VALUE) {
                     throw new cMsgException("Cannot retrieve item as byte array, values out-of-range");
                 }
-                b[i] = (byte) L[i];
+                b[j] = (byte) L[j];
             }
             return b;
         }
         else if (type == cMsgConstants.payloadUint64A) {
             BigInteger[] big = (BigInteger[]) item;
             BigInteger max = new BigInteger("" + Byte.MAX_VALUE);
-            int i=0;
+            int j=0;
             byte[] b = new byte[big.length];
             for (BigInteger bigI : big) {
                 if ( bigI.compareTo(max) > 0 ) {
                     throw new cMsgException("Cannot retrieve item as byte array, values out-of-range");
                 }
-                b[i++] = bigI.byteValue();
+                b[j++] = bigI.byteValue();
             }
             return b;
         }
@@ -1648,16 +2145,16 @@ public class cMsgPayloadItem {
     public short[] getShortArray() throws cMsgException {
 
         if (type == cMsgConstants.payloadInt8A) {
-            byte[] B = (byte[]) item;
+            byte[] B  = (byte[]) item;
             short[] s = new short[B.length];
-            System.arraycopy(B, 0, s, 0, B.length);
+            for (int j=0; j<B.length; j++) { s[j] = B[j]; }
             return s;
         }
         else if (type == cMsgConstants.payloadInt16A || type == cMsgConstants.payloadUint8A)  {
             return (short[]) item;
         }
         else if (type == cMsgConstants.payloadInt32A || type == cMsgConstants.payloadUint16A) {
-            int[] I   = (int[])item;
+            int[] I  = (int[])item;
             short[] s = new short[I.length];
             for (int j=0; j<I.length; j++) {
                 if (I[j] > Short.MAX_VALUE || I[j] < Short.MIN_VALUE) {
@@ -1670,24 +2167,24 @@ public class cMsgPayloadItem {
         else if (type == cMsgConstants.payloadInt64A || type == cMsgConstants.payloadUint32A) {
                 long[] L  = (long[])item;
                 short[] s = new short[L.length];
-                for (int i=0; i<L.length; i++) {
-                     if (L[i] > Short.MAX_VALUE || L[i] < Short.MIN_VALUE) {
+                for (int j=0; j<L.length; j++) {
+                     if (L[j] > Short.MAX_VALUE || L[j] < Short.MIN_VALUE) {
                         throw new cMsgException("Cannot retrieve item as short array, values out-of-range");
                     }
-                    s[i] = (short)L[i];
+                    s[j] = (short)L[j];
                 }
                 return s;
         }
         else if (type == cMsgConstants.payloadUint64A) {
             BigInteger[] big = (BigInteger[])item;
             BigInteger max = new BigInteger(""+Short.MAX_VALUE);
-            int i=0;
+            int j=0;
             short[] s = new short[big.length];
             for (BigInteger bigI : big) {
                 if ( bigI.compareTo(max) > 0 ) {
                     throw new cMsgException("Cannot retrieve item as short array, values out-of-range");
                 }
-                s[i++] = bigI.shortValue();
+                s[j++] = bigI.shortValue();
             }
             return s;
         }
@@ -1700,13 +2197,13 @@ public class cMsgPayloadItem {
         if (type == cMsgConstants.payloadInt8A)  {
             byte[] B = (byte[])item;
             int[] i  = new int[B.length];
-            System.arraycopy(B,0,i,0,B.length);
+            for (int j=0; j<B.length; j++) { i[j] = B[j]; }
             return i;
         }
         else if (type == cMsgConstants.payloadInt16A || type == cMsgConstants.payloadUint8A)  {
             short[] S = ((short[])item);
             int[] i   = new int[S.length];
-            System.arraycopy(S,0,i,0,S.length);
+            for (int j=0; j<S.length; j++) { i[j] = S[j]; }
             return i;
         }
         else if (type == cMsgConstants.payloadInt32A || type == cMsgConstants.payloadUint16A) {
@@ -1714,27 +2211,27 @@ public class cMsgPayloadItem {
         }
         else if (type == cMsgConstants.payloadInt64A || type == cMsgConstants.payloadUint32A) {
             long[] L = (long[]) item;
-            int[] s  = new int[L.length];
-            for (int i = 0; i < L.length; i++) {
-                if (L[i] > Integer.MAX_VALUE || L[i] < Integer.MIN_VALUE) {
+            int[] i  = new int[L.length];
+            for (int j = 0; j < L.length; j++) {
+                if (L[j] > Integer.MAX_VALUE || L[j] < Integer.MIN_VALUE) {
                     throw new cMsgException("Cannot retrieve item as int array, values out-of-range");
                 }
-                s[i] = (int)L[i];
+                i[j] = (int)L[j];
             }
-            return s;
+            return i;
         }
         else if (type == cMsgConstants.payloadUint64A) {
             BigInteger[] big = (BigInteger[])item;
             BigInteger max = new BigInteger(""+Integer.MAX_VALUE);
-            int i=0;
-            int[] s = new int[big.length];
+            int j=0;
+            int[] i = new int[big.length];
             for (BigInteger bigI : big) {
                 if ( bigI.compareTo(max) > 0 ) {
                     throw new cMsgException("Cannot retrieve item as int array, values out-of-range");
                 }
-                s[i++] = bigI.intValue();
+                i[j++] = bigI.intValue();
             }
-            return s;
+            return i;
         }
         throw new cMsgException("Wrong type");
     }
@@ -1745,19 +2242,20 @@ public class cMsgPayloadItem {
         if (type == cMsgConstants.payloadInt8A)  {
             byte[] B = (byte[])item;
             long[] l = new long[B.length];
-            System.arraycopy(B,0,l,0,B.length);
+            // since System.arraycopy does NOT work between arrays of primitive types ...
+            for (int i=0; i<B.length; i++) { l[i] = B[i]; }
             return l;
         }
         else if (type == cMsgConstants.payloadInt16A || type == cMsgConstants.payloadUint8A)  {
             short[] S = (short[])item;
             long[] l  = new long[S.length];
-            System.arraycopy(S,0,l,0,S.length);
+            for (int i=0; i<S.length; i++) { l[i] = S[i]; }
             return l;
         }
         else if (type == cMsgConstants.payloadInt32A || type == cMsgConstants.payloadUint16A) {
-            int[] I  = (int[])item;
+            int[]  I = (int[])item;
             long[] l = new long[I.length];
-            System.arraycopy(I,0,l,0,I.length);
+            for (int i=0; i<I.length; i++) { l[i] = I[i]; }
             return l;
         }
         else if (type == cMsgConstants.payloadInt64A || type == cMsgConstants.payloadUint32A) {
@@ -1767,14 +2265,14 @@ public class cMsgPayloadItem {
             BigInteger[] big = (BigInteger[])item;
             BigInteger max = new BigInteger(""+Long.MAX_VALUE);
             int i=0;
-            long[] s = new long[big.length];
+            long[] l = new long[big.length];
             for (BigInteger bigI : big) {
                 if ( bigI.compareTo(max) > 0 ) {
                     throw new cMsgException("Cannot retrieve item as long array, values out-of-range");
                 }
-                s[i++] = bigI.longValue();
+                l[i++] = bigI.longValue();
             }
-            return s;
+            return l;
         }
         throw new cMsgException("Wrong type");
     }
@@ -1785,25 +2283,26 @@ public class cMsgPayloadItem {
         if (type == cMsgConstants.payloadInt8A)  {
             byte[] B = (byte[])item;
             BigInteger[] bi = new BigInteger[B.length];
-            System.arraycopy(B,0,bi,0,B.length);
+            // since System.arraycopy does NOT work between arrays of primitive types & reference types ...
+            for (int i=0; i<B.length; i++) { bi[i] = new BigInteger(""+B[i]); }
             return bi;
         }
         else if (type == cMsgConstants.payloadInt16A || type == cMsgConstants.payloadUint8A)  {
             short[] S = (short[])item;
             BigInteger[] bi = new BigInteger[S.length];
-            System.arraycopy(S,0,bi,0,S.length);
+            for (int i=0; i<S.length; i++) { bi[i] = new BigInteger(""+S[i]); }
             return bi;
         }
         else if (type == cMsgConstants.payloadInt32A || type == cMsgConstants.payloadUint16A) {
             int[] I = (int[])item;
             BigInteger[] bi = new BigInteger[I.length];
-            System.arraycopy(I,0,bi,0,I.length);
+            for (int i=0; i<I.length; i++) { bi[i] = new BigInteger(""+I[i]); }
             return bi;
         }
         else if (type == cMsgConstants.payloadInt64A || type == cMsgConstants.payloadUint32A) {
             long[] L = (long[])item;
             BigInteger[] bi = new BigInteger[L.length];
-            System.arraycopy(L,0,bi,0,L.length);
+            for (int i=0; i<L.length; i++) { bi[i] = new BigInteger(""+L[i]); }
             return bi;
         }
         else if (type == cMsgConstants.payloadUint64A) {
@@ -1823,7 +2322,7 @@ public class cMsgPayloadItem {
         }
         else if (type == cMsgConstants.payloadDbl) {
             Double l = (Double)item;
-            if (l <= Float.MAX_VALUE && l >= Float.MIN_VALUE) {
+            if (l <= Float.MAX_VALUE && l >= -Float.MAX_VALUE) {
                 return l.floatValue();
             }
         }
@@ -1852,7 +2351,7 @@ public class cMsgPayloadItem {
             double[] D = (double[]) item;
             float[] f  = new float[D.length];
             for (int i = 0; i < D.length; i++) {
-                if (D[i] > Float.MAX_VALUE || D[i] < Float.MIN_VALUE) {
+                if (D[i] > Float.MAX_VALUE || D[i] < -Float.MAX_VALUE) {
                     throw new cMsgException("Cannot retrieve item as float array, values out-of-range");
                 }
                 f[i] = (float)D[i];
@@ -1866,7 +2365,7 @@ public class cMsgPayloadItem {
          if (type == cMsgConstants.payloadFltA)  {
              float[] F  = (float[])item;
              double[] d = new double[F.length];
-             System.arraycopy(F,0,d,0,F.length);
+             for (int i=0; i<F.length; i++) { d[i] = F[i]; }
              return d;
          }
          else if (type == cMsgConstants.payloadDblA) {
@@ -1874,5 +2373,55 @@ public class cMsgPayloadItem {
          }
          throw new cMsgException("Wrong type");
      }
+
+
+    //----------------------------------------------------
+    // METHODS TO DECODE TEXT INTO cMsgPayloadItem OBJECTS
+    //----------------------------------------------------
+
+
+    /**
+     * This method decodes text (in the format of a cMsgPayloadItem
+     * textual representation) to a float.
+     *
+     * @param txt text representation of a float cMsgPayloadItem
+     * @throws cMsgException if txt is in a bad format or not of float type
+     *
+     */
+    static float decodeFloatText(String txt)  throws cMsgException {
+
+        // find header line
+        int index1 = 0;
+        int index2 = txt.indexOf('\n');
+        if (index2 < 1) throw new cMsgException("bad format");
+        String sub = txt.substring(index1, index2);
+
+        // dissect header line into 5 values
+        String[] tokens = sub.split(" ");
+        if (tokens.length != 5) throw new cMsgException("bad format");
+        int dataType = Integer.parseInt(tokens[1]);
+
+        if (dataType != cMsgConstants.payloadFlt) throw new cMsgException("wrong type");
+
+        // next is string value of this payload item
+        index1 = index2 + 1;
+        index2 = txt.indexOf('\n', index1);
+        if (index2 < 1) throw new cMsgException("bad format");
+        String val = txt.substring(index1, index2);
+
+        // convert from 8 chars (representing hex) to float
+        int ival = ((toByte[val.charAt(0)] << 28) |
+                    (toByte[val.charAt(1)] << 24) |
+                    (toByte[val.charAt(2)] << 20) |
+                    (toByte[val.charAt(3)] << 16) |
+                    (toByte[val.charAt(4)] << 12) |
+                    (toByte[val.charAt(5)] <<  8) |
+                    (toByte[val.charAt(6)] <<  4) |
+                    (toByte[val.charAt(7)]));
+
+        // now convert int (4 bytes of IEEE-754 format) into float
+        return Float.intBitsToFloat(ival);
+    }
+
 
 }
