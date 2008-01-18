@@ -212,18 +212,19 @@ public class cMsgMessageFull extends cMsgMessage {
 
 
     /**
+     * Clone this object.
+     * @return a cMsgMessageFull object which is a copy of this message
+     */
+    public Object clone() {
+            return super.clone();
+    }
+
+    /**
      * Creates a complete copy of this message.
-     *
      * @return copy of this message.
      */
     public cMsgMessageFull copy() {
-        cMsgMessageFull msg = null;
-        try {
-            msg = (cMsgMessageFull) this.clone();
-        }
-        catch (CloneNotSupportedException e) {
-        }
-        return msg;
+        return (cMsgMessageFull) this.clone();
     }
 
 
