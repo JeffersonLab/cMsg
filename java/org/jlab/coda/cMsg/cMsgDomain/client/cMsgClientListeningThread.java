@@ -451,6 +451,11 @@ public class cMsgClientListeningThread extends Thread {
             in.skipBytes(4);
             msg.setUserInt(in.readInt());
             msg.setInfo(in.readInt());
+            // mark the message as having been sent over the wire
+            msg.setInfo(msg.getInfo() | cMsgMessage.wasSent);
+            // does message have compound payload? This works since info is read already.
+            boolean hasPayload = msg.hasPayload();
+
             // time message was sent = 2 ints (hightest byte first)
             // in milliseconds since midnight GMT, Jan 1, 1970
             long time = ((long) in.readInt() << 32) | ((long) in.readInt() & 0x00000000FFFFFFFFL);
@@ -461,18 +466,18 @@ public class cMsgClientListeningThread extends Thread {
             msg.setSysMsgId(in.readInt());
             msg.setSenderToken(in.readInt());
             // String lengths
-            int lengthSender = in.readInt();
+            int lengthSender     = in.readInt();
             int lengthSenderHost = in.readInt();
-            int lengthSubject = in.readInt();
-            int lengthType = in.readInt();
-            int lengthCreator = in.readInt();
-            int lengthText = in.readInt();
-            int lengthBinary = in.readInt();
+            int lengthSubject    = in.readInt();
+            int lengthType       = in.readInt();
+            int lengthCreator    = in.readInt();
+            int lengthText       = in.readInt();
+            int lengthBinary     = in.readInt();
             acknowledge = in.readInt() == 1;
 
             // bytes expected
             int stringBytesToRead = lengthSender + lengthSenderHost + lengthSubject +
-                    lengthType + lengthCreator + lengthText;
+                                    lengthType + lengthCreator + lengthText;
             int offset = 0;
 
             // read all string bytes
@@ -508,9 +513,20 @@ public class cMsgClientListeningThread extends Thread {
 
             // read text
             if (lengthText > 0) {
-                msg.setText(new String(bytes, offset, lengthText, "US-ASCII"));
-                //System.out.println("text = " + msg.getText());
+                String s = new String(bytes, offset, lengthText, "US-ASCII");
                 offset += lengthText;
+                if (hasPayload) {
+                    try {
+                        msg.setFieldsFromText(s, cMsgMessage.allFields);
+                    }
+                    catch (cMsgException e) {
+                        System.out.println("msg payload is in the wrong format: " + e.getMessage());
+                    }
+                }
+                else {
+                    msg.setText(s);
+                    //System.out.println("text = " + msg.getText());
+                }
             }
 
             // read binary array
