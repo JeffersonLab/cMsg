@@ -18,7 +18,7 @@ package org.jlab.coda.cMsg;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Set;
-import java.util.Collection;
+import java.util.Map;
 
 
 /**
@@ -81,23 +81,54 @@ import java.util.Collection;
 public class cMsgPayload {
 
     /** List of payload items. */
-    private ConcurrentHashMap<String, cMsgPayloadItem> items = new ConcurrentHashMap<String, cMsgPayloadItem>();
+    ConcurrentHashMap<String, cMsgPayloadItem> items = new ConcurrentHashMap<String, cMsgPayloadItem>();
 
+    /** Buffer to help build the text represenation of the payload to send over network. */
     StringBuilder buffer = new StringBuilder(4096);
 
 
-    public cMsgPayload() {     }
+    public cMsgPayload() { }
+
+    /**
+     * Clone this object.
+     * @return a cMsgPayload object which is a copy of this object
+     */
+    public Object clone() {
+        try {
+            cMsgPayload result = (cMsgPayload) super.clone();
+            // Ignore the buffer and clone the hashmap.
+            result.buffer = new StringBuilder(4096);
+            result.items  = new ConcurrentHashMap<String, cMsgPayloadItem>();
+            for (Map.Entry<String, cMsgPayloadItem> entry : items.entrySet()) {
+                result.items.put(entry.getKey(), (cMsgPayloadItem)entry.getValue().clone());
+            }
+            return result;
+        }
+        catch (CloneNotSupportedException e) {
+            return null; // never invoked
+        }
+    }
 
 
     /**
-     * This routine checks to see if a name is already in use by an existing payloadItem.
-     *
-     * @param name name to check
-     * @return false if name does not exist
-     * @return true if name exists
+     * Creates a complete copy of this object.
+     * @return copy of this object.
      */
-    boolean nameExists(String name) {
-        return items.containsKey(name);
+    public cMsgPayload copy() {
+        return (cMsgPayload) this.clone();
+    }
+
+    /**
+     * Gets a hashmap of all payload items.
+     * @return a hashmap of all payload items.
+     */
+    public Map<String,cMsgPayloadItem> getItems() {
+        return items;
+    }
+
+    /** Clears the payload of all items.  */
+    public void clear() {
+        items.clear();
     }
 
     public boolean add(cMsgPayloadItem item) {
@@ -122,10 +153,6 @@ public class cMsgPayload {
          return (items.keySet());
     }
 
-    public Collection<cMsgPayloadItem> getItems() {
-         return (items.values());
-    }
-
     public int getNumberOfItems() {
          return (items.size());
     }
@@ -135,16 +162,13 @@ public class cMsgPayload {
      * This method creates a string representation of the whole compound
      * payload and the hidden system fields (currently only the "text")
      * of the message as it gets sent over the network.
-     * If the dst argument is not NULL, this routine writes the string there.
-     * If the dst argument is NULL, memory is allocated and the string placed in that.
-     * In the latter case, the returned string (buf) must be freed by the user.
      *
      * @param cMsgText String containing the "text" field of a cMsg message
      *
      * @return resultant string if successful
      * @return null if no payload exists
      */
-    synchronized String getNetworkText(String cMsgText) {
+    synchronized public String getNetworkText(String cMsgText) {
         int msgLen = 0, count, totalLen = 0;
 
         count = items.size();
@@ -200,12 +224,51 @@ public class cMsgPayload {
     }
 
     /**
+     * This method returns the length of a string representation of the whole compound
+     * payload and the hidden system fields (currently only the "text")
+     * of the message as it gets sent over the network.
+     *
+     * @param cMsgText String containing the "text" field of a cMsg message
+     *
+     * @return string length if successful
+     * @return -1 if no payload exists
+     */
+    synchronized public int getNetworkTextLength(String cMsgText) {
+        int msgLen = 0, count, totalLen = 0;
+
+        count = items.size();
+        if (count < 1) {
+            return -1;
+        }
+
+        /* find total length, first payload, then text field */
+        for (cMsgPayloadItem item : items.values()) {
+            totalLen += item.text.length();
+        }
+
+        if (cMsgText != null) {
+            count++;
+
+            /* length of text item minus header line */
+            msgLen = cMsgPayloadItem.numDigits(cMsgText.length()) + cMsgText.length() + 2; /* 2 newlines */
+
+            totalLen += 17 + /* 8 chars "cMsgText", 2 digit type, 1 digit count, 1 digit isSys?,  4 spaces, 1 newline*/
+                        cMsgPayloadItem.numDigits(msgLen) + /* # of digits of length of what is to follow */
+                        msgLen;
+        }
+
+        totalLen += cMsgPayloadItem.numDigits(count) + 1; /* send count & newline first */
+
+        return totalLen;
+    }
+
+    /**
      * This method creates a string of all the payload items concatonated.
      *
      * @return resultant string if successful
      * @return null if no payload exists
      */
-    synchronized String getItemsText() {
+    synchronized public String getItemsText() {
         int count, totalLen = 0;
 
         count = items.size();
