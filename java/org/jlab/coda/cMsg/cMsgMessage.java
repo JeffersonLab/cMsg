@@ -1146,8 +1146,8 @@ public class cMsgMessage implements Cloneable {
                      {short[] i = item.getShortArray();
                       wr.printf("%s          <int16_array name=\"%s\" count=\"%d\">\n", indent, name, i.length);
                       for(int j=0;j<i.length;j++) {
-                         if (j%5 == 0) {wr.printf("%s               %6hd", indent, i[j]); }
-                         else          {wr.printf(" %6hd", i[j]); }
+                         if (j%5 == 0) {wr.printf("%s               %6d", indent, i[j]); }
+                         else          {wr.printf(" %6d", i[j]); }
                          if (j%5 == 4 || j == i.length-1) {wr.printf("\n"); }
                       }
                       wr.printf("%s          </int16_array>\n", indent);
@@ -1244,7 +1244,7 @@ public class cMsgMessage implements Cloneable {
      *                convert next 15 chars
      * @return long value of string
      */
-    static final long hexStrToLong (String hex, boolean zeroSup) {
+    public static final long hexStrToLong (String hex, boolean zeroSup) {
         if (!zeroSup) {
             return (((long) toByte[hex.charAt(0)]  << 60) |
                     ((long) toByte[hex.charAt(1)]  << 56) |
@@ -1254,14 +1254,14 @@ public class cMsgMessage implements Cloneable {
                     ((long) toByte[hex.charAt(5)]  << 40) |
                     ((long) toByte[hex.charAt(6)]  << 36) |
                     ((long) toByte[hex.charAt(7)]  << 32) |
-                    (       toByte[hex.charAt(8)]  << 28) |
-                    (       toByte[hex.charAt(9)]  << 24) |
-                    (       toByte[hex.charAt(10)] << 20) |
-                    (       toByte[hex.charAt(11)] << 16) |
-                    (       toByte[hex.charAt(12)] << 12) |
-                    (       toByte[hex.charAt(13)] <<  8) |
-                    (       toByte[hex.charAt(14)] <<  4) |
-                    (       toByte[hex.charAt(15)]));
+                    ((long) toByte[hex.charAt(8)]  << 28) |
+                    ((long) toByte[hex.charAt(9)]  << 24) |
+                    ((long) toByte[hex.charAt(10)] << 20) |
+                    ((long) toByte[hex.charAt(11)] << 16) |
+                    ((long) toByte[hex.charAt(12)] << 12) |
+                    ((long) toByte[hex.charAt(13)] <<  8) |
+                    ((long) toByte[hex.charAt(14)] <<  4) |
+                    ((long) toByte[hex.charAt(15)]));
         }
         else {
             long l=0;
@@ -1272,14 +1272,14 @@ public class cMsgMessage implements Cloneable {
                     ((long) toByte[hex.charAt(5)]  << 40) |
                     ((long) toByte[hex.charAt(6)]  << 36) |
                     ((long) toByte[hex.charAt(7)]  << 32) |
-                    (       toByte[hex.charAt(8)]  << 28) |
-                    (       toByte[hex.charAt(9)]  << 24) |
-                    (       toByte[hex.charAt(10)] << 20) |
-                    (       toByte[hex.charAt(11)] << 16) |
-                    (       toByte[hex.charAt(12)] << 12) |
-                    (       toByte[hex.charAt(13)] <<  8) |
-                    (       toByte[hex.charAt(14)] <<  4) |
-                    (       toByte[hex.charAt(15)]));
+                    ((long) toByte[hex.charAt(8)]  << 28) |
+                    ((long) toByte[hex.charAt(9)]  << 24) |
+                    ((long) toByte[hex.charAt(10)] << 20) |
+                    ((long) toByte[hex.charAt(11)] << 16) |
+                    ((long) toByte[hex.charAt(12)] << 12) |
+                    ((long) toByte[hex.charAt(13)] <<  8) |
+                    ((long) toByte[hex.charAt(14)] <<  4) |
+                    ((long) toByte[hex.charAt(15)]));
             return l;
         }
     }
@@ -1292,7 +1292,7 @@ public class cMsgMessage implements Cloneable {
      *                convert next 7 chars
      * @return int value of string
      */
-    static final int hexStrToInt (String hex, boolean zeroSup) {
+    public static final int hexStrToInt (String hex, boolean zeroSup) {
         if (!zeroSup) {
             return ((toByte[hex.charAt(0)] << 28) |
                     (toByte[hex.charAt(1)] << 24) |
@@ -1324,7 +1324,7 @@ public class cMsgMessage implements Cloneable {
      *                convert next 3 chars
      * @return int value of string
      */
-    static final short hexStrToShort (String hex, boolean zeroSup) {
+    public static final short hexStrToShort (String hex, boolean zeroSup) {
         if (!zeroSup) {
             return  ((short) (
                     (toByte[hex.charAt(0)] << 12) |
@@ -1596,7 +1596,7 @@ public class cMsgMessage implements Cloneable {
         clearPayload();
 
         String name, tokens[];
-        int dataType, count, noHeaderLen, headerLen, totalItemLen;
+        int dataType, count, noHeaderLen=0, headerLen, totalItemLen;
         boolean ignore, isSystem;
 
         // loop through all fields in payload
@@ -1610,7 +1610,7 @@ if (debug) System.out.println("index1 = " + index1 + ", index2 = " + index2);
             sub = text.substring(index1, index2);
 if (debug) System.out.println("sub text = " + sub);
 
-            // dissect line into 6 values
+            // dissect line into 5 separate values
             tokens = sub.split(" ");
             //if (tokens.length != 5) throw new cMsgException("bad format4");
 if (debug) System.out.println("# items on headler line = " + tokens.length);
@@ -1618,7 +1618,13 @@ if (debug) System.out.println("# items on headler line = " + tokens.length);
             dataType    = Integer.parseInt(tokens[1]);
             count       = Integer.parseInt(tokens[2]);
             isSystem    = Integer.parseInt(tokens[3]) != 0;
-            noHeaderLen = Integer.parseInt(tokens[4]);
+            // There may be extra spaces between these last two values.
+            // This must be accounted for as zero-len strings
+            // are included as tokens.
+            for (int j=4; j<tokens.length; j++) {
+                if (tokens[j].length() < 1) continue;
+                noHeaderLen = Integer.parseInt(tokens[j]);
+            }
 
             // length of header line
             headerLen = index2 - index1 + 1;
@@ -1839,7 +1845,7 @@ if (debug) System.out.println("  skipped field");
         int index2 = txt.indexOf('\n', index1);
         if (index2 < 1) throw new cMsgException("bad format");
         String[] stuff = txt.substring(index1, index2).split(" ");
-System.out.println("addBinFromText: stuff = " + txt.substring(index1, index2));
+//System.out.println("addBinFromText: stuff = " + txt.substring(index1, index2));
         int endian = Integer.parseInt(stuff[1]);
 
         // next is string value of this payload item
@@ -1899,7 +1905,7 @@ System.out.println("addBinFromText: stuff = " + txt.substring(index1, index2));
         int index2 = txt.indexOf('\n', index1);
         if (index2 < 1) throw new cMsgException("bad format");
         String val = txt.substring(index1, index2);
-System.out.println("real (hex) = " + val);
+//System.out.println("real (hex) = " + val + ", # chars = " + val.length());
 
         // get full text representation of item so it doesn't need to be recalculated
         // when creating the payload item
@@ -1952,7 +1958,7 @@ System.out.println("real (hex) = " + val);
         int index2 = txt.indexOf('\n', index1);
         if (index2 < 1) throw new cMsgException("bad format");
         String val = txt.substring(index1, index2);
-System.out.println("real array (hex) = " + val);
+//System.out.println("real array (hex) = " + val);
 
         // get full text representation of item so it doesn't need to be recalculated
         // when creating the payload item
@@ -2062,7 +2068,7 @@ System.out.println("real array (hex) = " + val);
         int index2 = txt.indexOf('\n', index1);
         if (index2 < 1) throw new cMsgException("bad format");
         String val = txt.substring(index1, index2);
-System.out.println("add Int = " + val);
+//System.out.println("add Int = " + val);
         // get full text representation of item so it doesn't need to be recalculated
         // when creating the payload item
         String textRep = txt.substring(fullIndex, index2);
@@ -2126,7 +2132,7 @@ System.out.println("add Int = " + val);
         int index2 = txt.indexOf('\n', index1);
         if (index2 < 1) throw new cMsgException("bad format");
         String val = txt.substring(index1, index2);
-System.out.println("add Int array = " + val);
+//System.out.println("add Int array = " + val);
         // get full text representation of item so it doesn't need to be recalculated
         // when creating the payload item
         String textRep = txt.substring(fullIndex, index2);
