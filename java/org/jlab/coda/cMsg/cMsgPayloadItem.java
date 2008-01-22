@@ -319,7 +319,7 @@ public final class cMsgPayloadItem implements Cloneable {
         return cMsgConstants.endianBig;
     }
 
-    static final void zerosToIntStr(StringBuilder sb, int zeros) {
+    public static final void zerosToIntStr(StringBuilder sb, int zeros) {
         sb.append("Z");
         sb.append( toASCII[ zeros >> 24 & 0xff ].charAt(1) );
         sb.append( toASCII[ zeros >> 16 & 0xff ] );
@@ -327,7 +327,7 @@ public final class cMsgPayloadItem implements Cloneable {
         sb.append( toASCII[ zeros       & 0xff ] );
     }
 
-    static final void zerosToLongStr(StringBuilder sb, int zeros) {
+    public static final void zerosToLongStr(StringBuilder sb, int zeros) {
         sb.append("Z00000000");
         sb.append( toASCII[ zeros >> 24 & 0xff ].charAt(1) );
         sb.append( toASCII[ zeros >> 16 & 0xff ] );
@@ -335,7 +335,7 @@ public final class cMsgPayloadItem implements Cloneable {
         sb.append( toASCII[ zeros       & 0xff ] );
     }
 
-    static final void longToStr(StringBuilder sb, long l) {
+    public static final void longToStr(StringBuilder sb, long l) {
         sb.append( toASCII[ (int) (l>>56 & 0xffL) ] );
         sb.append( toASCII[ (int) (l>>48 & 0xffL) ] );
         sb.append( toASCII[ (int) (l>>40 & 0xffL) ] );
@@ -346,7 +346,7 @@ public final class cMsgPayloadItem implements Cloneable {
         sb.append( toASCII[ (int) (l     & 0xffL) ] );
     }
 
-    static final void intToStr(StringBuilder sb, int i) {
+    public static final void intToStr(StringBuilder sb, int i) {
         sb.append( toASCII[ i>>24 & 0xff ] );
         sb.append( toASCII[ i>>16 & 0xff ] );
         sb.append( toASCII[ i>> 8 & 0xff ] );
