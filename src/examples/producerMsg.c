@@ -42,8 +42,8 @@ static void usage() {
 /******************************************************************/
 int main(int argc,char **argv) {  
 
-  char *myName        = "producer";
-  char *myDescription = "C producer";
+  char *myName        = "producerMsg";
+  char *myDescription = "C payload producer";
   char *subject       = "SUBJECT";
   char *type          = "TYPE";
   char *text          = "JUNK";
@@ -173,10 +173,10 @@ int main(int argc,char **argv) {
   test[8] = 0;
   test[9] = 0;
   
-  test64[0] = 1000000000000L;
-  test64[1] = -1000000000000L;
-  test64[2] = 256;
-  test64[3] = 65535;
+  test64[0] = 1000000000000LL;
+  test64[1] = -1000000000000LL;
+  test64[2] = 256L;
+  test64[3] = 65535L;
   
   testd[0] = 0;
   testd[1] = 1.;
@@ -192,13 +192,14 @@ int main(int argc,char **argv) {
   
   flt =  1.23456;
   cMsgAddFloat(msg1, "floater", flt);
-  cMsgAddDouble(msg1, "doubler",testd[5]);
+  cMsgAddDouble(msg1, "doubler",testd[4]);
   
   memset(testf, 0, 10000*sizeof(float));
   memset(dzero, 0, 10000*sizeof(double));
   dzero[0] = 1.;
   dzero[500] = 1.;
   dzero[999] = 1.;
+  
   err = cMsgAddFloatArray(msg1, "Fltarray", testf, 10);
   if (err != CMSG_OK) printf("Err = %s\n",cMsgPerror(err)); 
   err = cMsgAddDoubleArray(msg1, "DblZero", dzero, 10);
@@ -210,7 +211,7 @@ int main(int argc,char **argv) {
   strs[1] = "b";
   strs[2] = "c";
   cMsgAddStringArray(msg1, "msg1_strA", strs, 3);
-
+  
   /* message contained by msg1 */
   
   msg2 = cMsgCreateMessage();
@@ -228,18 +229,18 @@ int main(int argc,char **argv) {
   
   /* message contained by msg1 */
   msg3 = cMsgCreateMessage();
-  cMsgSetSubject(msg3, "Subject 3");
-  cMsgSetType(msg3, "Type 3");
-  cMsgAddDouble(msg3, "doubler", 1.2345);
+  cMsgSetSubject(msg3, "Subject_3");
+  cMsgSetType(msg3, "Type_3");
+  cMsgAddDouble(msg3, "doubler", 1.23456789123);
    
   /* add msg 3 to msg 2 */
-/*  cMsgAddMessage(msg2, "messagE", msg3);*/
+  cMsgAddMessage(msg2, "messagE", msg3);
   /* add msg 2 to msg 1 */
   msgs[0] = msg2;
   msgs[1] = msg3;
   cMsgAddMessageArray(msg1, "message", msgs, 2);
-/*  cMsgAddInt64(msg1, "msg1_64_int1", 6789LL);
-*/    
+  cMsgAddInt64(msg1, "msg1_64_int1", 6789LL);
+    
   cMsgToString(msg1, &p, 1);
   printf("XML message:\n%s", p);
   free(p);
