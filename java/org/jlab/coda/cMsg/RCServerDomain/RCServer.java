@@ -495,21 +495,24 @@ public class RCServer extends cMsgDomainAdapter {
     private void deliverMessage(cMsgMessage msg, int msgType, boolean getResponse) throws IOException {
 
         int[] len = new int[6]; // int arrays are initialized to 0
+        int binLength = 0;
 
-        if (msg.getSender()     != null) len[0] = msg.getSender().length();
-        if (msg.getSenderHost() != null) len[1] = msg.getSenderHost().length();
-        if (msg.getSubject()    != null) len[2] = msg.getSubject().length();
-        if (msg.getType()       != null) len[3] = msg.getType().length();
-        if (msg.getCreator()    != null) len[4] = msg.getCreator().length();
-        if (msg.getText()       != null) len[5] = msg.getText().length();
+        if (msg.getSender()      != null) len[0] = msg.getSender().length();
+        if (msg.getSenderHost()  != null) len[1] = msg.getSenderHost().length();
+        if (msg.getSubject()     != null) len[2] = msg.getSubject().length();
+        if (msg.getType()        != null) len[3] = msg.getType().length();
+        if (msg.getPayloadText() != null) len[4] = msg.getPayloadText().length();
+        if (msg.getText()        != null) len[5] = msg.getText().length();
+        if (msg.getByteArray()   != null) binLength = msg.getByteArrayLength();
 
-        int binLength;
-        if (msg.getByteArray() == null) {
-            binLength = 0;
-        }
-        else {
-            binLength = msg.getByteArrayLength();
-        }
+// BUG BUG: an eroneously big size is being calculated. Put in some TEMPORARY checks
+        if (len[0] > 1000) System.out.println("LARGE STRING found for sender: size = " + len[0]);
+        if (len[1] > 1000) System.out.println("LARGE STRING found for senderHost: size = " + len[1]);
+        if (len[2] > 1000) System.out.println("LARGE STRING found for subject: size = " + len[2]);
+        if (len[3] > 1000) System.out.println("LARGE STRING found for type: size = " + len[3]);
+        if (len[4] > 1000) System.out.println("LARGE STRING found for payload text: size = " + len[4]);
+        if (len[5] > 1000) System.out.println("LARGE STRING found for text: size = " + len[5]);
+        if (len[5] > 1000000) System.out.println("LARGE SIZE found for binary: size = " + binLength);
 
         // size of everything sent (except "size" itself which is first integer)
         int size = len[0] + len[1] + len[2] + len[3] + len[4] + len[5] +
@@ -542,12 +545,12 @@ public class RCServer extends cMsgDomainAdapter {
 
         // write strings
         try {
-            if (msg.getSender()     != null) out.write(msg.getSender().getBytes("US-ASCII"));
-            if (msg.getSenderHost() != null) out.write(msg.getSenderHost().getBytes("US-ASCII"));
-            if (msg.getSubject()    != null) out.write(msg.getSubject().getBytes("US-ASCII"));
-            if (msg.getType()       != null) out.write(msg.getType().getBytes("US-ASCII"));
-            if (msg.getCreator()    != null) out.write(msg.getCreator().getBytes("US-ASCII"));
-            if (msg.getText()       != null) out.write(msg.getText().getBytes("US-ASCII"));
+            if (msg.getSender()      != null) out.write(msg.getSender().getBytes("US-ASCII"));
+            if (msg.getSenderHost()  != null) out.write(msg.getSenderHost().getBytes("US-ASCII"));
+            if (msg.getSubject()     != null) out.write(msg.getSubject().getBytes("US-ASCII"));
+            if (msg.getType()        != null) out.write(msg.getType().getBytes("US-ASCII"));
+            if (msg.getPayloadText() != null) out.write(msg.getPayloadText().getBytes("US-ASCII"));
+            if (msg.getText()        != null) out.write(msg.getText().getBytes("US-ASCII"));
 
             if (binLength > 0) {
                 out.write(msg.getByteArray(),
@@ -883,7 +886,7 @@ public class RCServer extends cMsgDomainAdapter {
             sendAndGets.put(id, helper);
 
             cMsgMessageFull fullMsg = new cMsgMessageFull(message);
-            if (fullMsg.getCreator() == null) fullMsg.setCreator("rcServer");
+//            if (fullMsg.getCreator() == null) fullMsg.setCreator("rcServer");
             fullMsg.setSenderToken(id);
             fullMsg.setGetRequest(true);
             deliverMessage(fullMsg, cMsgConstants.msgSubscribeResponse, false);
