@@ -116,28 +116,6 @@ void cMsgMessage::payloadSetAllFieldsFromText(const string &text) throw(cMsgExce
 }
 
 //-------------------------------------------------------------------
-// users should not have access to this !!!
-
-/**
- * This method returns a pointer to the string representation of the
- * whole compound payload and the hidden system fields of the message
- * (which currently is only the "text") as it gets sent over the network.
- * Memory is allocated for the returned string so it must be freed by the user.
- *
- * @throws cMsgException text if no payload exists or no memory
- */   
-string cMsgMessage::payloadGetText() const throw(cMsgException) {
-  char *text;
-  int ok = cMsgPayloadGetText(myMsgPointer, &text, NULL, 0, NULL);
-  if (ok != CMSG_OK) {
-    throw(cMsgException("Either no payload exists, or no more memory"));
-  }
-  string s(text);
-  free(text);
-  return s;
-}
-
-//-------------------------------------------------------------------
 
 /**
  * This method returns whether a message has a compound payload or not. 
