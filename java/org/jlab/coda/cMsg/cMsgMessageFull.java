@@ -27,7 +27,7 @@ import org.xml.sax.*;
  * This class contains the full functionality of a message. It extends the class
  * that users have access to by defining setters and getters that the user has
  * no need of. This class is for use only by packages that are part of the cMsg
- * implementation.
+ * implementation. This whole class is really a private form of the cMsgMessage class.
  */
 public class cMsgMessageFull extends cMsgMessage {
 
@@ -140,7 +140,7 @@ public class cMsgMessageFull extends cMsgMessage {
         this.setGetResponse(Boolean.getBoolean(e.getAttribute("getResponse")));
         this.setNullGetResponse(Boolean.getBoolean(e.getAttribute("nullGetResponse")));
 
-        this.setCreator(e.getAttribute("creator"));
+        this.setPayloadText(e.getAttribute("payloadText"));
 
         this.setSender(e.getAttribute("sender"));
         this.setSenderHost(e.getAttribute("senderHost"));
@@ -190,7 +190,7 @@ public class cMsgMessageFull extends cMsgMessage {
         this.setDomain(m.getDomain());
         this.setSysMsgId(m.getSysMsgId());
         this.setInfo(m.getInfo());
-        this.setCreator(m.getCreator());
+        this.setPayloadText(m.getPayloadText());
 
         this.setSender(m.getSender());
         this.setSenderHost(m.getSenderHost());
@@ -343,14 +343,6 @@ public class cMsgMessageFull extends cMsgMessage {
     }
 
 
-    /**
-     * Sets the creator of this message.
-     * Creator is of the form name:nameServerHost:nameServerPort.
-     * @param creator creator of this message.
-     */
-    public void setCreator(String creator) {this.creator = creator;}
-
-
     // sender quantities
 
 
@@ -402,7 +394,6 @@ public class cMsgMessageFull extends cMsgMessage {
     public void setReceiverHost(String receiverHost) {this.receiverHost = receiverHost;}
 
 
-
     /**
       * Set time message was receivered.
       * @param time time message received.
@@ -423,7 +414,9 @@ public class cMsgMessageFull extends cMsgMessage {
         this.receiverSubscribeId = receiverSubscribeId;
     }
 
+
     // context quantities
+
 
     /**
      * Sets the object containing information about the context of the
@@ -436,4 +429,68 @@ public class cMsgMessageFull extends cMsgMessage {
         this.context = context;
     }
 
+
+    // payload quantities
+
+    
+    /**
+     * Sets the String representation of the compound payload of this message.
+     * @param payloadText payloadText of this message.
+     */
+    public void setPayloadText(String payloadText) {this.payloadText = payloadText;}
+
+    
+    /**
+     * Does this message have a payload that consists of objects in a hashmap
+     * (ie. is "expanded")? Or does it simply have a payloadText field which has
+     * not been expanded.
+     * @return true if message has an expanded payload, else false.
+     */
+    public boolean expandedPayload() {
+        return ((info & expandedPayload) == expandedPayload);
+    }
+
+
+    /**
+     * Set the "expanded-payload" bit of a message.
+     * @param ep boolean which is true if msg has an expanded payload, else false
+     */
+    public void expandedPayload(boolean ep) {
+      info = ep ? info | expandedPayload  :  info & ~expandedPayload;
+    }
+
+
+    /**
+     * If this message is unexpanded (has a non-null payloadText field but
+     * no items in its payload hashmap), then expand the payload text into
+     * a hashmap containing all cMsgPayloadItems.
+     */
+    public void expandPayload() {
+        expandedPayload(true);
+        if (expandedPayload() || payloadText == null) return;
+        try {
+            setFieldsFromText(payloadText, allFields);
+        }
+        catch (cMsgException e) {
+            // should not be thrown if internal code is bug-free
+            expandedPayload(false);
+        }
+    }
+
+
+    /**
+     * This method makes the protected method {@link cMsgMessage#setFieldsFromText} available
+     * to other cMsg system classes.
+     *
+     * @param text string sent over network to be unmarshalled
+     * @param flag if {@link cMsgMessage#systemFieldsOnly}, set system msg fields only,
+     *             if {@link cMsgMessage#payloadFieldsOnly} set payload msg fields only,
+     *             and if {@link cMsgMessage#allFields} set both
+     * @return index index pointing just past last character in text that was parsed
+     * @throws cMsgException if the text is in a bad format or the text arg is null
+     */
+    @Override
+    public int setFieldsFromText(String text, int flag) throws cMsgException {
+        return super.setFieldsFromText(text,flag);
+    }
 }
