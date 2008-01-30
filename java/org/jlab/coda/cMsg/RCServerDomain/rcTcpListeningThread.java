@@ -351,7 +351,8 @@ public class rcTcpListeningThread extends Thread {
 
             msg.setVersion(in.readInt());
             msg.setUserInt(in.readInt());
-            msg.setInfo(in.readInt());
+            // mark the message as having been sent over the wire & having expanded payload
+            msg.setInfo(in.readInt() | cMsgMessage.wasSent | cMsgMessage.expandedPayload);
             msg.setSenderToken(in.readInt());
 
             // time message was sent = 2 ints (hightest byte first)
@@ -363,14 +364,16 @@ public class rcTcpListeningThread extends Thread {
             msg.setUserTime(new Date(time));
 
             // String lengths
-            int lengthSender = in.readInt();
-            int lengthSubject = in.readInt();
-            int lengthType = in.readInt();
-            int lengthText = in.readInt();
-            int lengthBinary = in.readInt();
+            int lengthSender     = in.readInt();
+            int lengthSubject    = in.readInt();
+            int lengthType       = in.readInt();
+            int lengthPayloadTxt = in.readInt();
+            int lengthText       = in.readInt();
+            int lengthBinary     = in.readInt();
 
             // bytes expected
-            int stringBytesToRead = lengthSender + lengthSubject + lengthType + lengthText;
+            int stringBytesToRead = lengthSender + lengthSubject + lengthType +
+                                    lengthPayloadTxt + lengthText;
             int offset = 0;
 
             // read all string bytes
@@ -393,6 +396,20 @@ public class rcTcpListeningThread extends Thread {
             msg.setType(new String(bytes, offset, lengthType, "US-ASCII"));
             //System.out.println("type = " + msg.getType());
             offset += lengthType;
+
+            // read payload text
+            if (lengthPayloadTxt > 0) {
+                String s = new String(bytes, offset, lengthPayloadTxt, "US-ASCII");
+                // setting the payload text is done by setFieldsFromText
+                //System.out.println("payload text = " + s);
+                offset += lengthPayloadTxt;
+                try {
+                    msg.setFieldsFromText(s, cMsgMessage.allFields);
+                }
+                catch (cMsgException e) {
+                    System.out.println("msg payload is in the wrong format: " + e.getMessage());
+                }
+            }
 
             // read text
             if (lengthText > 0) {

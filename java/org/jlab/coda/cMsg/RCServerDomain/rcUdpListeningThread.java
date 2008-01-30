@@ -229,7 +229,8 @@ public class rcUdpListeningThread extends Thread {
         index += 4;
         msg.setUserInt(bytesToInt(buf, index));
         index += 4;
-        msg.setInfo(bytesToInt(buf, index));
+        // mark the message as having been sent over the wire & having expanded payload
+        msg.setInfo(bytesToInt(buf, index) | cMsgMessage.wasSent | cMsgMessage.expandedPayload);
         index += 4;
         msg.setSenderToken(bytesToInt(buf, index));
         index += 4;
@@ -246,16 +247,12 @@ public class rcUdpListeningThread extends Thread {
         index += 8;
 
         // String lengths
-        int lengthSender  = bytesToInt(buf, index);
-        index += 4;
-        int lengthSubject = bytesToInt(buf, index);
-        index += 4;
-        int lengthType    = bytesToInt(buf, index);
-        index += 4;
-        int lengthText    = bytesToInt(buf, index);
-        index += 4;
-        int lengthBinary  = bytesToInt(buf, index);
-        index += 4;
+        int lengthSender      = bytesToInt(buf, index);    index += 4;
+        int lengthSubject     = bytesToInt(buf, index);    index += 4;
+        int lengthType        = bytesToInt(buf, index);    index += 4;
+        int lengthPayloadTxt  = bytesToInt(buf, index);    index += 4;
+        int lengthText        = bytesToInt(buf, index);    index += 4;
+        int lengthBinary      = bytesToInt(buf, index);    index += 4;
 
         // read sender
         msg.setSender(new String(buf, index, lengthSender, "US-ASCII"));
@@ -271,6 +268,20 @@ public class rcUdpListeningThread extends Thread {
         msg.setType(new String(buf, index, lengthType, "US-ASCII"));
         //System.out.println("type = " + msg.getType());
         index += lengthType;
+
+        // read payload text
+        if (lengthPayloadTxt > 0) {
+            String s = new String(buf, index, lengthPayloadTxt, "US-ASCII");
+            // setting the payload text is done by setFieldsFromText
+            //System.out.println("payload text = " + s);
+            index += lengthPayloadTxt;
+            try {
+                msg.setFieldsFromText(s, cMsgMessage.allFields);
+            }
+            catch (cMsgException e) {
+                System.out.println("msg payload is in the wrong format: " + e.getMessage());
+            }
+        }
 
         // read text
         if (lengthText > 0) {
