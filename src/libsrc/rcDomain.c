@@ -117,8 +117,8 @@ static int   parseUDL(const char *UDLR, char **host,
 int   cmsg_rc_connect           (const char *myUDL, const char *myName,
                                  const char *myDescription,
                                  const char *UDLremainder, void **domainId);
-int   cmsg_rc_send              (void *domainId, const void *msg);
-int   cmsg_rc_syncSend          (void *domainId, const void *msg, const struct timespec *timeout, int *response);
+int   cmsg_rc_send              (void *domainId, void *msg);
+int   cmsg_rc_syncSend          (void *domainId, void *msg, const struct timespec *timeout, int *response);
 int   cmsg_rc_flush             (void *domainId, const struct timespec *timeout);
 int   cmsg_rc_subscribe         (void *domainId, const char *subject, const char *type,
                                  cMsgCallbackFunc *callback, void *userArg,
@@ -126,7 +126,7 @@ int   cmsg_rc_subscribe         (void *domainId, const char *subject, const char
 int   cmsg_rc_unsubscribe       (void *domainId, void *handle);
 int   cmsg_rc_subscribeAndGet   (void *domainId, const char *subject, const char *type,
                                  const struct timespec *timeout, void **replyMsg);
-int   cmsg_rc_sendAndGet        (void *domainId, const void *sendMsg,
+int   cmsg_rc_sendAndGet        (void *domainId, void *sendMsg,
                                  const struct timespec *timeout, void **replyMsg);
 int   cmsg_rc_monitor           (void *domainId, const char *command, void **replyMsg);
 int   cmsg_rc_start             (void *domainId);
@@ -843,6 +843,7 @@ static void *broadcastThd(void *arg) {
  *   <li>sender</li>
  *   <li>subject</li>
  *   <li>type</li>
+ *   <li>payload text</li>
  *   <li>text</li>
  *   <li>byte array</li>
  * </ol>
@@ -856,12 +857,12 @@ static void *broadcastThd(void *arg) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-int cmsg_rc_send(void *domainId, const void *vmsg) {
+int cmsg_rc_send(void *domainId, void *vmsg) {
   
   cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
   cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
-  int err=CMSG_OK, len, lenSender, lenSubject, lenType, lenText, lenByteArray;
-  int fd, highInt, lowInt, msgType, getResponse, outGoing[15];
+  int len, lenSender, lenSubject, lenType, lenText, lenPayloadText, lenByteArray;
+  int err=CMSG_OK, fd, highInt, lowInt, msgType, getResponse, outGoing[16];
   ssize_t sendLen;
   uint64_t llTime;
   struct timespec now;
@@ -891,6 +892,16 @@ int cmsg_rc_send(void *domainId, const void *vmsg) {
   }
   else {
     fd = domain->sendUdpSocket;
+  }
+
+  /* RC domain keeps no history */
+  
+  /* length of "payloadText" string */
+  if (msg->payloadText == NULL) {
+    lenPayloadText = 0;
+  }
+  else {
+    lenPayloadText = strlen(msg->payloadText);
   }
 
   cMsgGetGetResponse(vmsg, &getResponse);
@@ -941,16 +952,19 @@ int cmsg_rc_send(void *domainId, const void *vmsg) {
   lenType      = strlen(msg->type);
   outGoing[12] = htonl(lenType);
 
+  /* length of "payloadText" string */
+  outGoing[13] = htonl(lenPayloadText);
+
   /* length of "text" string */
-  outGoing[13] = htonl(lenText);
+  outGoing[14] = htonl(lenText);
 
   /* length of byte array */
   lenByteArray = msg->byteArrayLength;
-  outGoing[14] = htonl(lenByteArray);
+  outGoing[15] = htonl(lenByteArray);
 
   /* total length of message (minus first int) is first item sent */
   len = sizeof(outGoing) + lenSubject + lenType +
-        lenSender + lenText + lenByteArray;
+        lenSender + lenPayloadText + lenText + lenByteArray;
   outGoing[0] = htonl((int) (len - sizeof(int)));
 
   if (len > BIGGEST_UDP_PACKET_SIZE) {
@@ -994,6 +1008,8 @@ int cmsg_rc_send(void *domainId, const void *vmsg) {
   len += lenSubject;
   memcpy(domain->msgBuffer+len, (void *)msg->type, lenType);
   len += lenType;
+  memcpy(domain->msgBuffer+len, (void *)msg->payloadText, lenPayloadText);
+  len += lenPayloadText;
   memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
   len += lenText;
   memcpy(domain->msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
@@ -1028,7 +1044,7 @@ int cmsg_rc_send(void *domainId, const void *vmsg) {
 
 
 /** syncSend is not implemented in the rc domain. */
-int cmsg_rc_syncSend(void *domainId, const void *vmsg, const struct timespec *timeout, int *response) {
+int cmsg_rc_syncSend(void *domainId, void *vmsg, const struct timespec *timeout, int *response) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -1047,7 +1063,7 @@ int cmsg_rc_subscribeAndGet(void *domainId, const char *subject, const char *typ
 
 
 /** sendAndGet is not implemented in the rc domain. */
-int cmsg_rc_sendAndGet(void *domainId, const void *sendMsg, const struct timespec *timeout,
+int cmsg_rc_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
                             void **replyMsg) {
   return(CMSG_NOT_IMPLEMENTED);
 }
