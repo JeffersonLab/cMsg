@@ -160,7 +160,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             int len2 = msg.getSenderHost().length();
             int len3 = msg.getSubject().length();
             int len4 = msg.getType().length();
-            int len5 = msg.getCreator().length();
+            int len5 = msg.getPayloadText().length();
             int len6 = msg.getText().length();
             int binLength;
             if (msg.getByteArray() == null) {
@@ -203,7 +203,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
                 out.write(msg.getSenderHost().getBytes("US-ASCII"));
                 out.write(msg.getSubject().getBytes("US-ASCII"));
                 out.write(msg.getType().getBytes("US-ASCII"));
-                out.write(msg.getCreator().getBytes("US-ASCII"));
+                out.write(msg.getPayloadText().getBytes("US-ASCII"));
                 out.write(msg.getText().getBytes("US-ASCII"));
                 if (binLength > 0) {
                     out.write(msg.getByteArray(),
@@ -223,8 +223,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             return true;
         }
 
-        if (in.readInt() != cMsgConstants.ok) return false;
-        return true;
+        return in.readInt() == cMsgConstants.ok;
     }
 
 
