@@ -29,10 +29,15 @@
  * to decode XML than a simple format. Thus, a simple, easy-to-parse format
  * was developed to implement this interface.<p>
  *
- * Following is the text format of a complete compound payload ([nl] means newline, only 1 space between items).
- * Each payload consists of a number of items. The first line is the number of
- * items in the payload. That is followed by the text
- * representation of each item:<p></b>
+ * Following is the text format of a complete compound payload (where [nl] means
+ * newline). Each payload consists of a number of items. The very first line is the
+ * number of items in the payload. That is followed by the text representation of
+ * each item. The first line of each item consists of 5 entries.<p>
+ * 
+ * Note that there is only 1 space or newline between all entries. The only exception
+ * to the 1 space spacing is between the last two entries on each "header" line (the line
+ * that contains the item_name). There may be several spaces between the last 2
+ * entries on these lines.<p></b>
  *
  *<pre>    item_count[nl]</pre><p>
  *
@@ -111,12 +116,13 @@ static void releaseMutex(void);
 
 /* These routines generally deal with payload. */
 
-static int  goodFieldName(const char *s, int isSystem);
+static int  isValidFieldName(const char *s, int isSystem);
+static int  isValidSystemFieldName(const char *s);
+static void setPayload(cMsgMessage_t *msg, int hasPayload);
 static void payloadItemInit(payloadItem *item);
 static void payloadItemFree(payloadItem *item);
-static void setPayload(cMsgMessage_t *msg, int hasPayload);
+static payloadItem *payloadItemGet(const cMsgMessage_t *msg, char *name);
 static payloadItem *copyPayloadItem(const payloadItem *from);
-static void payloadPrintout(const void *msg, int level);
 
 /* These routines move payload items in linked list. */
 
@@ -147,6 +153,8 @@ static int  addIntArray(void *vmsg, const char *name, const int *vals,
 static int  addString(void *vmsg, const char *name, const char *val, int isSystem, int copy);
 static int  addStringArray(void *vmsg, const char *name, const char **vals,
                            int len, int isSystem, int copy);
+static int  createStringArrayItem(const char *name, const char **vals, int len,
+                                  int isSystem, int copy, payloadItem **pItem);
 
 static int  addReal(void *vmsg, const char *name, double val, int type, int isSystem);
 static int  addRealArray(void *vmsg, const char *name, const double *vals,
@@ -316,44 +324,6 @@ static int numDigits(int64_t number, int isUint64) {
   return digits;
 }
 
-/**
-* Counts number decimal digits in a 32 bit signed number.
-* 0 => 1, 9 => 1, 99 => 2, 2,147,483,647 => 10
-* @param x number whose digits you wish to count.
-* Must lie in range 0 .. Integer.MAX_VALUE;
-*
-* @return number of digits in x, e.g. Integer.toString(x).length()
-*/
-static int widthInDigits (const int x ) {
-   /* do an unravelled binary search */
-   if ( x < 10000 ) {
-      if ( x < 100 ) {
-         if ( x < 10 ) return 1;
-         else return 2;
-      }
-      else {
-         if ( x < 1000 ) return 3;
-         else return 4;
-      }
-   }
-   else {
-      if ( x < 1000000 ) {
-         if ( x < 100000 ) return 5;
-         else return 6;
-      }
-      else {
-         if ( x < 100000000 ) {
-            if ( x < 10000000 ) return 7;
-            else return 8;
-         }
-         else {
-            if ( x < 1000000000 ) return 9;
-            else return 10;
-         }
-      }
-   }
-}
-
   
 /*-------------------------------------------------------------------*/
 
@@ -436,7 +406,7 @@ char *cMsgDoubleChars(double d) {
 
 
 /**
- * This routine checks a string to see if it is a suitable field name.
+ * This routine checks a string to see if it is a valid field name.
  * It returns 0 if it is not, or a 1 if it is. A check is made to see if
  * it contains an unprintable character or any character from a list of
  * excluded characters. All names starting with "cmsg", independent of case,
@@ -449,7 +419,7 @@ char *cMsgDoubleChars(double d) {
  * @returns 1 if string is OK
  * @returns 0 if string contains illegal characters
  */   
-static int goodFieldName(const char *s, int isSystem) {
+static int isValidFieldName(const char *s, int isSystem) {
 
   int i, len;
 
@@ -464,16 +434,58 @@ static int goodFieldName(const char *s, int isSystem) {
   /* check for excluded chars */
   if (strpbrk(s, excludedChars) != NULL) return(0);
   
+  /* check for length */
+  if (strlen(s) > CMSG_PAYLOAD_NAME_LEN) return(0);
+  
   /* check for starting with cmsg  */
   if (!isSystem) {
     if (strncasecmp(s, "cmsg", 4) == 0) return(0);
   }
   
+  /* string ok */
+  return(1);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine checks a string to see if it is a valid system field name.
+ * It returns 0 if it is not, or a 1 if it is. A check is made to see if
+ * it contains an unprintable character or any character from a list of
+ * excluded characters. All names starting with "cmsg", independent of case,
+ * are valid system names. Names may not be longer than CMSG_PAYLOAD_NAME_LEN
+ * characters (including null terminator).
+ *
+ * @param s string to check
+ *
+ * @returns 1 if string is OK
+ * @returns 0 if string contains illegal characters
+ */   
+static int isValidSystemFieldName(const char *s) {
+
+  int i, len;
+
+  if (s == NULL) return(0);
+  len = strlen(s);
+
+  /* check for printable character */
+  for (i=0; i<len; i++) {
+    if (isprint((int)s[i]) == 0) return(0);
+  }
+
+  /* check for excluded chars */
+  if (strpbrk(s, excludedChars) != NULL) return(0);
+  
   /* check for length */
   if (strlen(s) > CMSG_PAYLOAD_NAME_LEN) return(0);
   
-  /* string ok */
-  return(1);
+  /* check for starting with cmsg  */
+  if (strncasecmp(s, "cmsg", 4) == 0) return(1);
+  
+  /* string not system name */
+  return(0);
 }
 
 
@@ -559,7 +571,7 @@ static void payloadItemFree(payloadItem *item) {
  *
  * @param vmsg pointer to message
  */   
-void cMsgPayloadClear(void *vmsg) {
+void cMsgPayloadWipeout(void *vmsg) {
   payloadItem *item, *next;
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -569,7 +581,7 @@ void cMsgPayloadClear(void *vmsg) {
     releaseMutex();
     return;
   }
-  
+
   item = msg->payload;
   while (item != NULL) {
     next = item->next;
@@ -579,10 +591,85 @@ void cMsgPayloadClear(void *vmsg) {
   }
   msg->payload = NULL;
   
+  if (msg->payloadText != NULL) {
+      free(msg->payloadText);
+      msg->payloadText = NULL;
+  }
+  
+  msg->payloadCount = 0;
+  
   /* write that we no longer have a payload */
   setPayload(msg, 0);
   
   releaseMutex();
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine removes all the user-added items in the given message's payload.
+ * The payload may still contain system fields that are inaccessible to the user.
+ * If there are no items left in the payload, this routine frees the allocated
+ * memory of the given message's entire payload and then initializes the payload
+ * components of the message. 
+ *
+ * @param vmsg pointer to message
+ */   
+
+void cMsgPayloadClear(void *vmsg) {
+    int sysFieldCount=0, firstFound=0;
+    payloadItem *item, *next, *first, *lastSysItem=NULL;
+    cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+
+    grabMutex();
+
+    if (msg == NULL || msg->payload == NULL) {
+        releaseMutex();
+        return;
+    }
+ 
+    first = item = msg->payload;
+    while (item != NULL) {
+        next = item->next;
+        if (isValidSystemFieldName(item->name)) {
+            if (!firstFound) {
+                first = item;
+                firstFound++;
+            }
+            else {
+                lastSysItem->next = item;
+            }
+            lastSysItem = item;   
+            item = next;
+            sysFieldCount++;
+            continue;
+        }
+        payloadItemFree(item);
+        free(item);
+        item = next;
+    }
+    
+    /* if payload is truly empty, init things */
+    if (sysFieldCount == 0) {
+        msg->payloadCount = 0;
+        msg->payload = NULL;
+        if (msg->payloadText != NULL) {
+            free(msg->payloadText);
+            msg->payloadText = NULL;
+        }
+        /* write that we no longer have a payload */
+        setPayload(msg, 0);
+    }
+    /* else recalculate the text representation of payload */
+    else {
+        msg->payloadCount = sysFieldCount;
+        msg->payload = first;
+        cMsgPayloadUpdateText(vmsg);
+    }
+ 
+    releaseMutex();
 }
 
 
@@ -642,29 +729,13 @@ int cMsgHasPayload(const void *vmsg, int *hasPayload) {
  */   
 int cMsgPayloadGetCount(const void *vmsg, int *count) {
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
-  payloadItem *item;
-  int i=0;
   
   if (msg == NULL || count == NULL) return(CMSG_BAD_ARGUMENT);
   
-  grabMutex();
-  
-  if (((msg->info & CMSG_HAS_PAYLOAD) != CMSG_HAS_PAYLOAD) || msg->payload == NULL) {
-    releaseMutex();
-    *count = 0;
-    return(CMSG_OK);
-  }
-  
-  item = msg->payload;
-  while (item != NULL) {
-    i++;
-    item = item->next;
-  }
- 
+  grabMutex(); 
+  *count = msg->payloadCount;
   releaseMutex();
 
-  *count = i;
-  
   return(CMSG_OK);
 }
 
@@ -780,6 +851,40 @@ int cMsgPayloadGetType(const void *vmsg, const char *name, int *type) {
 
 
 /**
+ * This routine gets the payload item corresponding to the given name
+ * if there is one.
+ *
+ * @param vmsg pointer to message
+ * @param name name of item to retrieve
+ * @returns item if successful
+ * @returns null if no item by that name is found
+ */
+static payloadItem *payloadItemGet(const cMsgMessage_t *msg, char *name) {
+    payloadItem *item;
+
+    if (msg == NULL || name == NULL || msg->payload == NULL) {
+        return (NULL);
+    }
+
+    grabMutex();
+
+    item = msg->payload;
+    while (item != NULL) {
+        if (strcmp(name, item->name) == 0) {
+            return item;
+        }
+        item = item->next;
+    }
+
+    releaseMutex();
+    return (NULL);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
  * This routine fills 2 arrays provided by the caller. One contains all
  * the names of the items in the payload, and the second contains the
  * corresponding data types of those items. Each element of the array
@@ -811,18 +916,10 @@ int cMsgPayloadGet(const void *vmsg, char **names, int *types, int len) {
   }
 
   grabMutex();
-  
-  /* first find out how many items we have */
-  item = msg->payload;
-  while (item != NULL) {
-    count++;
-    item = item->next;
-  }
-  
-  /* not enough room to place all the items */
-  if (count > len) return(CMSG_LIMIT_EXCEEDED);
     
-  count = 0;
+  /* not enough room to place all the items */
+  if (msg->payloadCount > len) return(CMSG_LIMIT_EXCEEDED);
+    
   item = msg->payload;
   while (item != NULL) {
     names[count]   = item->name;
@@ -959,8 +1056,11 @@ static void addItem(cMsgMessage_t *msg, payloadItem *item) {
   }
   
   /* store in msg struct that this msg has a compound payload */
-  setPayload(msg, 1);  
+  setPayload(msg, 1);
   
+  /* update text representation of msg */
+  cMsgPayloadUpdateText((const void *)msg);
+ 
   releaseMutex();
   return;
 }
@@ -983,7 +1083,7 @@ static void addItem(cMsgMessage_t *msg, payloadItem *item) {
  */   
 static int removeItem(cMsgMessage_t *msg, const char *name, payloadItem **pItem) {
   int spot=0;
-  payloadItem *item, *prev, *next;
+  payloadItem *item, *prev=NULL, *next;
   
   grabMutex();
   
@@ -1025,12 +1125,105 @@ static int removeItem(cMsgMessage_t *msg, const char *name, payloadItem **pItem)
   }
   
   /* store in msg struct that this msg does NOT have a compound payload anymore */
-  if (msg->payload == NULL) setPayload(msg, 0);  
-  
+  if (msg->payload == NULL) setPayload(msg, 0);
+  /* update text representation of msg */
+  cMsgPayloadUpdateText((const void *)msg);
+ 
   releaseMutex();
   return(1);
 }
 
+/*-------------------------------------------------------------------*/
+
+/**
+ * Adds a name to the history of senders of this message (in the payload).
+ * This method only keeps {@link cMsgMessage_t.historyLengthMax} number of
+ * the most recent names.
+ * This method is reserved for system use only.
+ * 
+ * @param name name of sender to add to the history of senders
+ */
+int cMsgAddSenderToHistory(void *vmsg, char *name) {
+    cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+    payloadItem *item, *newItem;
+    int err, len, i, index, exists=0;
+
+    grabMutex();
+
+    /* if set not to record history, just return */
+    if (msg->historyLengthMax < 1) {
+        releaseMutex();
+        return (CMSG_OK);
+    }
+
+    /* remove the history first */
+    exists = removeItem(msg, "cMsgSenderHistory", &item);
+
+    if (!exists) {
+        char *names[] = { name };
+        err = createStringArrayItem("cMsgSenderHistory", (const char **)names, 1, 1, 1, &newItem);
+        if (err != CMSG_OK) {
+            releaseMutex();
+            return (CMSG_OK);
+        }
+        addItem(msg, newItem);
+    } else {
+        /* get existing history */
+        char **newNames, **names = (char **)item->array;
+        len = item->count;
+
+        /* Don't repeat names consecutively. That just means that
+         * a msg producer is sending the same message repeatedly. */
+        if (strcmp(name, names[len-1]) == 0) {
+            releaseMutex();
+            return (CMSG_OK);
+        }
+
+        /* keep only historyLength number of the latest names */
+        index = 0;
+        if (item->count >= msg->historyLengthMax) {
+            len = msg->historyLengthMax - 1;
+            index = item->count - len;
+        }
+        
+        /* create spaces for list of names */
+        newNames = (char **) calloc(1, (len+1)*sizeof(char *));
+        if (newNames == NULL) {
+            releaseMutex();
+            return (CMSG_OUT_OF_MEMORY);
+        }
+        
+        /* copy over old names */
+        for (i=index; i<len+index; i++) {
+            newNames[i-index] = names[i];
+        }
+        /* add new name to end */
+        newNames[len] = strdup(name);
+        if (newNames[len] == NULL) {
+            releaseMutex();
+            return (CMSG_OUT_OF_MEMORY);
+        }
+        
+        /* put new sender history back into msg */
+        err = createStringArrayItem("cMsgSenderHistory", (const char **)newNames,
+                                    len+1, 1, 0, &newItem);
+        if (err != CMSG_OK) {
+            releaseMutex();
+            return (CMSG_OK);
+        }
+        addItem(msg, newItem);
+    }
+
+    /* we have a payload */
+    setPayload(msg, 1);
+    
+    /* update the text representation of payload */
+    cMsgPayloadUpdateText(vmsg);
+    
+    releaseMutex();
+   
+    return (CMSG_OK);
+}
 
 /*-------------------------------------------------------------------*/
 
@@ -1449,11 +1642,14 @@ static payloadItem *copyPayloadItem(const payloadItem *from) {
  * @returns CMSG_OUT_OF_MEMORY if operating system out of memory
  */   
 int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
-  int first=1;
-  payloadItem *item, *next, *copiedItem, *prevCopied=NULL, *firstCopied=NULL;
+  
+  payloadItem *item, *copiedItem, *prevCopied=NULL, *firstCopied=NULL;
   cMsgMessage_t *msgFrom = (cMsgMessage_t *)vmsgFrom;
   cMsgMessage_t *msgTo   = (cMsgMessage_t *)vmsgTo;
-  
+  char **toArray, **fromArray;
+  int i, first=1, err, index, len;
+  int lenFrom, lenTo = msgTo->historyLengthMax;
+ 
   if (msgTo == NULL || msgFrom == NULL) {
     return(CMSG_BAD_ARGUMENT);
   }
@@ -1461,6 +1657,11 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
   grabMutex();
   
   if (msgFrom->payload == NULL) {
+    if (msgFrom->payloadText != NULL) {
+        free(msgFrom->payloadText);
+        msgFrom->payloadText = NULL;
+    }
+    cMsgPayloadWipeout(vmsgTo);
     releaseMutex();
     return(CMSG_OK);
   }
@@ -1468,10 +1669,43 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
   /* copy linked list of payload items one-by-one */
   item = msgFrom->payload;
   while (item != NULL) {
-    copiedItem = copyPayloadItem(item);
-    if (copiedItem == NULL) {
-      releaseMutex();
-      return(CMSG_OUT_OF_MEMORY);
+    /* If the item is a system (hidden) field that stores history info,
+     * only copy over at most msgTo->historyLengthMax elements of the array. */
+    if ((strcmp(item->name, "cMsgSenderHistory") == 0) &&
+        (item->count > msgTo->historyLengthMax)) {
+        
+        index = 0;
+        len = lenFrom = item->count;
+        if (lenFrom > lenTo) {
+            len   = lenTo;
+            index = lenFrom - len;
+        }
+        
+        fromArray = (char **) item->array;
+        toArray = (char **) calloc(1, len*sizeof(char *));
+        if (toArray == NULL) {
+            payloadItemFree(firstCopied);
+            releaseMutex();
+            return(CMSG_OUT_OF_MEMORY);          
+        }
+        
+        for (i=index; i<len+index; i++) {
+            toArray[i-index] = fromArray[i];
+        }
+        err = createStringArrayItem(item->name, (const char **)toArray, len, 1, 1, &copiedItem);
+        if (err != CMSG_OK) {
+            releaseMutex();
+            payloadItemFree(firstCopied);
+            return(CMSG_OUT_OF_MEMORY);                      
+        }
+    }
+    else {
+        copiedItem = copyPayloadItem(item);       
+        if (copiedItem == NULL) {
+            releaseMutex();
+            payloadItemFree(firstCopied);
+            return(CMSG_OUT_OF_MEMORY);
+        }
     }
     
     if (first) {
@@ -1487,14 +1721,15 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
   }
   
   /* clear msgTo's list and replace it with the copied list */
-  item = msgTo->payload;
-  while (item != NULL) {
-    next = item->next;
-    payloadItemFree(item);
-    free(item);
-    item = next;
-  }
+  cMsgPayloadWipeout(vmsgTo);
   msgTo->payload = firstCopied;
+  
+  /* copy over text representation */
+  if (msgFrom->payloadText != NULL)
+      msgTo->payloadText = strdup(msgFrom->payloadText);
+  
+  /* don't forget to copy the record of the number of payload items */
+  msgTo->payloadCount = msgFrom->payloadCount;
   
   releaseMutex();
   return(CMSG_OK);
@@ -1506,87 +1741,19 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
 /*-------------------------------------------------------------------*/
 
 /**
- * This routine returns the length of a string representation of the
- * whole compound payload and the hidden system fields (currently only
- * the "text") of the message as it gets sent over the network.
- *
- * @param vmsg pointer to message
- *
- * @returns 0 if no payload exists or vmsg is NULL
- * @returns length of string representation if payload exists
- */   
-int cMsgPayloadGetTextLength(const void *vmsg) {
-  int totalLen=0, msgLen=0, count=0;
-  payloadItem *item;  
-  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
-
-  grabMutex();
-  
-  if (msg == NULL || msg->payload == NULL) {
-    releaseMutex();
-    return(0);
-  }
-  
-  /* find total length, first payload, then text field */
-  item = msg->payload;
-  while (item != NULL) {
-    totalLen += strlen(item->text);
-    item = item->next;
-    count++;
-  }
-  
-  if (msg->text != NULL) {
-    count++;
-
-    /* length of text item minus header line */
-    msgLen = numDigits(strlen(msg->text), 0) + strlen(msg->text) + 2; /* 2 newlines */
-
-    totalLen += strlen("cMsgText") +
-                2 + /* 2 digit type */
-                1 + /* 1 digit count */
-                1 + /* 1 digit isSys? */
-                numDigits(msgLen, 0) + /* # of digits of length of what is to follow */
-                msgLen + 
-                5; /* 4 spaces, 1 newline */
-  }
-  
-  totalLen += numDigits(count, 0) + 1; /* send count & newline first */
-  totalLen += 1; /* for null terminator */
-  
-  releaseMutex();
-  
-  return totalLen;
-}
-
-
-/*-------------------------------------------------------------------*/
-/* users do not need access to this */
-/*-------------------------------------------------------------------*/
-
-/**
  * This routine creates a string representation of the whole compound
- * payload and the hidden system fields (currently only the "text")
- * of the message as it gets sent over the network.
- * If the dst argument is not NULL, this routine writes the string there.
- * If the dst argument is NULL, memory is allocated and the string placed in that.
- * In the latter case, the returned string (buf) must be freed by the user.
+ * payload in a form for sending over the network. It stores that string
+ * in the given message.
  *
  * @param vmsg pointer to message
- * @param buf pointer to buffer filled in with payload text if dst is NULL
- *            (user needs to free buffer if not NULL)
- * @param dst pointer to where payload text is to be written if not NULL
- *            (no memory allocated in this case)
- * @param size if dst is not NULL, size of memory in bytes available to write in
- * @param length size in bytes of written string
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload exists
  * @returns CMSG_BAD_ARGUMENT if vmsg is NULL
- * @returns CMSG_OUT_OF_MEMORY if no more memory, or dst is too small (if not NULL)
+ * @returns CMSG_OUT_OF_MEMORY if no more memory
  */   
-int cMsgPayloadGetText(const void *vmsg, char **buf, char *dst, size_t size, size_t *length) {
+int cMsgPayloadUpdateText(const void *vmsg) {
   char *s, *pBuf;
-  int len, msgLen=0, count=0;
+  int len;
   size_t totalLen=0;
   payloadItem *item;  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
@@ -1598,59 +1765,38 @@ int cMsgPayloadGetText(const void *vmsg, char **buf, char *dst, size_t size, siz
   grabMutex();
   
   if (msg->payload == NULL) {
+    if (msg->payloadText != NULL) {
+        free(msg->payloadText);
+        msg->payloadText = NULL;
+    }
     releaseMutex();
-    return(CMSG_ERROR);
+    return(CMSG_OK);
   }
-  
-  /* find total length, first payload, then text field */
+      
+  /* add each item's length to total */
   item = msg->payload;
   while (item != NULL) {
-    totalLen += strlen(item->text);
+    totalLen += item->length;
     item = item->next;
-    count++;
   }
-  
-  if (msg->text != NULL) {
-    count++;
-    
-    /* length of text item minus header line */
-    msgLen = numDigits(strlen(msg->text), 0) + strlen(msg->text) + 2; /* 2 newlines */
-
-    totalLen += strlen("cMsgText") +
-                2 + /* 2 digit type */
-                1 + /* 1 digit count */
-                1 + /* 1 digit isSys? */
-                numDigits(msgLen, 0) + /* # of digits of length of what is to follow */
-                msgLen + 
-                5; /* 4 spaces, 1 newline */
-  }
-  
-  totalLen += numDigits(count, 0) + 1; /* send count & newline first */
+  totalLen += numDigits(msg->payloadCount, 0) + 1; /* send count & newline first */
   totalLen += 1; /* for null terminator */
   
-  if (dst == NULL) {
-    pBuf = s = (char *) calloc(1, totalLen);
-    if (s == NULL) {
-      releaseMutex();
-      return(CMSG_OUT_OF_MEMORY);
-    }
+  pBuf = s = (char *) malloc(totalLen);
+  if (s == NULL) {
+    releaseMutex();
+    return(CMSG_OUT_OF_MEMORY);
   }
-  else {
-    /* check to see if enough space to write in */
-    if (totalLen < size) return(CMSG_OUT_OF_MEMORY);
-    pBuf = s = dst;
-  }
+  s[totalLen-1] = '\0';
   
+  /* clear out old payload text */
+  if (msg->payloadText != NULL) {
+      free(msg->payloadText);
+  }
+
   /* first item is number of fields to come (count) & newline */
-  sprintf(s, "%d\n%n", count, &len);
-  
-  /* add message text if there is one */
-  if (msg->text != NULL) {
-    s += len;
-    sprintf(s, "cMsgText %d 1 1 %d\n%d\n%s\n%n", CMSG_CP_STR, msgLen,
-                                             strlen(msg->text), msg->text, &len);
-  }
-  
+  sprintf(s, "%d\n%n", msg->payloadCount, &len);
+    
   /* add payload fields */
   item = msg->payload;
   while (item != NULL) {
@@ -1660,17 +1806,8 @@ int cMsgPayloadGetText(const void *vmsg, char **buf, char *dst, size_t size, siz
   }
   
   releaseMutex();
-  
-  if (length != NULL) {
-    *length = totalLen;
-  }
-  
-  if (dst == NULL) {
-    if (buf != NULL) *buf = pBuf;
-  }
-  else {
-    if (buf != NULL) *buf = NULL;
-  }
+    
+  msg->payloadText = pBuf;
   
   return(CMSG_OK);
 }
@@ -1789,7 +1926,7 @@ const char *cMsgPayloadFieldDescription(const void *vmsg, const char *name) {
  *
  * @param msg pointer to message
  */
-static void payloadPrintout(const void *msg, int level) {
+void cMsgPayloadPrintout(const void *msg, int level) {
   int ok, j, k, len, *types, namesLen=0;
   char *indent, *name, **names;
   
@@ -1875,7 +2012,7 @@ static void payloadPrintout(const void *msg, int level) {
          for(j=0; j<len;j++) printf("%s  string[%d] = %s\n", indent, j,i[j]);} break;
          
       case CMSG_CP_BIN:
-        {char *b, *enc; size_t sb,sz; unsigned int se; int end;
+        {char *b, *enc; size_t sb; unsigned int se; int sz, end;
          ok=cMsgGetBinary(msg, name, &b, &sz, &end); if(ok!=CMSG_OK) break;
          /* only print up to 1kB */
          sb = sz; if (sb > 1024) {sb = 1024;}
@@ -1892,7 +2029,7 @@ static void payloadPrintout(const void *msg, int level) {
       case CMSG_CP_MSG:
         {void *v; ok=cMsgGetMessage(msg, name, &v); if(ok!=CMSG_OK) break;
          printf(" (cMsg message):\n");
-         payloadPrintout(v, level+1);
+         cMsgPayloadPrintout(v, level+1);
         } break;
         
       case CMSG_CP_MSG_A:
@@ -1900,7 +2037,7 @@ static void payloadPrintout(const void *msg, int level) {
           printf(":\n");
           for (j=0; j<len; j++) {
            printf("%s  message[%d] =\n", indent, j);
-           payloadPrintout(v[j], level+1);
+           cMsgPayloadPrintout(v[j], level+1);
          }
         } break;
         
@@ -1925,7 +2062,7 @@ static void payloadPrintout(const void *msg, int level) {
  * @param vmsg pointer to message
  */
 void cMsgPayloadPrint(const void *vmsg) {
-  payloadPrintout(vmsg,0);  
+  cMsgPayloadPrintout(vmsg,0);  
 }
 
   
@@ -3110,7 +3247,7 @@ static int addBinary(void *vmsg, const char *name, const char *src, int size,
 
   if (msg == NULL || name == NULL ||
       src == NULL || size < 1)              return(CMSG_BAD_ARGUMENT);
-  if (!goodFieldName(name, isSystem))       return(CMSG_BAD_FORMAT);
+  if (!isValidFieldName(name, isSystem))       return(CMSG_BAD_FORMAT);
   if (cMsgPayloadContainsName(vmsg, name))  return(CMSG_ALREADY_EXISTS);
   if (isSystem) isSystem = 1; /* force it to be = 1, need to it be 1 digit */
   if ((endian != CMSG_ENDIAN_BIG)   && (endian != CMSG_ENDIAN_LITTLE)   &&
@@ -3286,7 +3423,7 @@ static int addReal(void *vmsg, const char *name, double val, int type, int isSys
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL || name == NULL)    return(CMSG_BAD_ARGUMENT);
-  if (!goodFieldName(name, isSystem)) return(CMSG_BAD_FORMAT);
+  if (!isValidFieldName(name, isSystem)) return(CMSG_BAD_FORMAT);
   if (cMsgPayloadContainsName(vmsg, name))         return(CMSG_ALREADY_EXISTS);
   if (type != CMSG_CP_FLT  &&
       type != CMSG_CP_DBL)            return(CMSG_BAD_ARGUMENT);
@@ -3459,7 +3596,7 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
 
   if (msg == NULL  || name == NULL ||
       vals == NULL || len < 1)               return(CMSG_BAD_ARGUMENT);
-  if (!goodFieldName(name, isSystem))        return(CMSG_BAD_FORMAT);
+  if (!isValidFieldName(name, isSystem))        return(CMSG_BAD_FORMAT);
   if (cMsgPayloadContainsName(vmsg, name))   return(CMSG_ALREADY_EXISTS);
   if (type != CMSG_CP_FLT_A &&
       type != CMSG_CP_DBL_A)                 return(CMSG_BAD_ARGUMENT);
@@ -3615,7 +3752,7 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
         j64 = ((uint64_t *)vals)[i];
         
         /* both values are zero in IEEE754 */
-        if (j64 == 0 || j64 == 0x8000000000000000) {
+        if (j64 == 0 || j64 == 0x8000000000000000LL) {
           if ((++zeros < 0xfffffff) && (i < len-1)) {
             continue;
           }
@@ -3791,7 +3928,7 @@ static int addInt(void *vmsg, const char *name, int64_t val, int type, int isSys
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL || name == NULL)    return(CMSG_BAD_ARGUMENT);
-  if (!goodFieldName(name, isSystem)) return(CMSG_BAD_FORMAT);
+  if (!isValidFieldName(name, isSystem)) return(CMSG_BAD_FORMAT);
   if (cMsgPayloadContainsName(vmsg, name))         return(CMSG_ALREADY_EXISTS);
   if (isSystem) isSystem = 1;
 
@@ -4080,12 +4217,11 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
   uint64_t  j64;
   void *array=NULL;
 
- 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL  || name == NULL ||
       vals == NULL || len < 1)              return(CMSG_BAD_ARGUMENT);
-  if (!goodFieldName(name, isSystem))       return(CMSG_BAD_FORMAT);
+  if (!isValidFieldName(name, isSystem))       return(CMSG_BAD_FORMAT);
   if (cMsgPayloadContainsName(vmsg, name))  return(CMSG_ALREADY_EXISTS);
   
   if (type != CMSG_CP_INT8_A   && type != CMSG_CP_INT16_A  &&
@@ -4110,8 +4246,7 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
   item->count = len;
   
   /* Create string to hold all data to be transferred over
-   * the network for this item. */
-         
+   * the network for this item. */         
   switch (type) {
       case CMSG_CP_INT8_A:
       case CMSG_CP_UINT8_A:
@@ -4345,7 +4480,7 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
             
       case CMSG_CP_UINT64_A:
       case CMSG_CP_INT64_A:
-            for (i=0; i<len; i++) {
+           for (i=0; i<len; i++) {
                 j64 = ((uint64_t *)vals)[i];
 
                 if (j64 == 0) {
@@ -4442,13 +4577,13 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
             else {
               item->array = (void *)vals;
             }
-            break;
+           break;
   }
    
   item->length = strlen(item->text);
   
   addItem(msg, item);
-  
+ 
   return(CMSG_OK);
 }
 
@@ -4663,7 +4798,7 @@ static int addString(void *vmsg, const char *name, const char *val, int isSystem
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL || name == NULL || val == NULL) return(CMSG_BAD_ARGUMENT);
-  if (!goodFieldName(name, isSystem))             return(CMSG_BAD_FORMAT);
+  if (!isValidFieldName(name, isSystem))             return(CMSG_BAD_FORMAT);
   if (cMsgPayloadContainsName(vmsg, name))        return(CMSG_ALREADY_EXISTS);
   if (isSystem) isSystem = 1;
   
@@ -4753,8 +4888,108 @@ int cMsgAddString(void *vmsg, const char *name, const char *val) {
 
 
 /**
- * This routine adds a named string array field to the compound payload of a message.
- * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * This routine creates a payloadItem of the string array variety.
+ * Names may not be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of item to create
+ * @param val array of strings 
+ * @param len number of strings to add
+ * @param isSystem if = 1 allows using names starting with "cmsg", else not
+ * @param copy if true, copy the strings in "vals", else record the pointer and assume ownership
+ * @param pItem pointer to pointer to payloadItem which gets filled in with the created item
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
+ * @returns CMSG_OUT_OF_MEMORY if no more memory
+ * @returns CMSG_BAD_FORMAT if name is not properly formed
+ */   
+static int createStringArrayItem(const char *name, const char **vals, int len,
+                                 int isSystem, int copy, payloadItem **pItem) {
+  int i, cLen, totalLen, textLen=0;
+  payloadItem *item;
+  char *s;
+
+  if (name == NULL || vals == NULL || len < 1) return(CMSG_BAD_ARGUMENT);
+  if (!isValidFieldName(name, isSystem)) return(CMSG_BAD_FORMAT);         
+  if (isSystem) isSystem = 1;
+  
+  /* payload item */
+  item = (payloadItem *) calloc(1, sizeof(payloadItem));
+  if (item == NULL) return(CMSG_OUT_OF_MEMORY);
+  payloadItemInit(item);
+  
+  item->name = strdup(name);
+  if (item->name == NULL) {
+    free(item);
+    return(CMSG_OUT_OF_MEMORY);
+  }
+  
+  if (copy) {  
+    /* allocate memory to store "len" number of pointers */
+    item->array = malloc(len*sizeof(char *));
+    if (item->array == NULL) {
+      payloadItemFree(item);
+      free(item);
+      return(CMSG_OUT_OF_MEMORY);
+    }
+
+    /* copy all strings for storage */
+    for (i=0; i < len; i++) {
+        ((char **)(item->array))[i] = strdup(vals[i]);
+    }
+  }
+  else {
+    item->array = (void *)vals;
+  }
+  
+  item->type  = CMSG_CP_STR_A;
+  item->count = len;
+  
+  /* Create string to hold all data to be transferred over
+   * the network for this item. */
+   
+  for (i=0; i<len; i++) {
+     /* digits in length + length of string + 2 newlines */
+     textLen += numDigits(strlen(vals[i]), 0) + strlen(vals[i]) + 2;
+  }
+   
+  item->noHeaderLen = textLen;
+  
+  totalLen = strlen(name) +
+             2 + /* 2 digit type */
+             numDigits(item->count, 0) +
+             1 + /* isSystem */
+             numDigits(textLen, 0) +
+             6 + /* 4 spaces, 1 newline, 1 null term */
+             textLen;
+
+  s = item->text = (char *) calloc(1, totalLen);
+  if (item->text == NULL) {
+    payloadItemFree(item);
+    free(item);
+    return(CMSG_OUT_OF_MEMORY);
+  }
+  sprintf(s, "%s %d %d %d %d\n%n", name, item->type, item->count, isSystem, textLen, &cLen);
+  s += cLen;
+  
+  for (i=0; i<len; i++) {
+    sprintf(s, "%d\n%s\n%n", strlen(vals[i]), vals[i], &cLen);
+    s += cLen;
+  }
+  item->length = strlen(item->text);
+  *pItem = item;
+  
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine adds a named string array field to the compound payload
+ * of a message. Names may not be longer than CMSG_PAYLOAD_NAME_LEN,
  * or contain white space or quotes.
  *
  * @param vmsg pointer to message
@@ -4772,6 +5007,47 @@ int cMsgAddString(void *vmsg, const char *name, const char *val) {
  */   
 static int addStringArray(void *vmsg, const char *name, const char **vals, int len,
                           int isSystem, int copy) {
+  int err;
+  payloadItem *item;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (cMsgPayloadContainsName(vmsg, name)) return(CMSG_ALREADY_EXISTS);
+  
+  /* payload item */
+  err = createStringArrayItem(name, vals, len, isSystem, copy, &item);
+  if (err != CMSG_OK) return(err);
+  
+  /* place payload item in msg's linked list */
+  addItem(msg, item);
+  
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine adds a named string array field to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param vmsg pointer to message
+ * @param name name of field to add
+ * @param val strings to add
+ * @param len number of strings to add
+ * @param isSystem if = 1 allows using names starting with "cmsg", else not
+ * @param copy if true, copy the strings in "vals", else record the pointer and assume ownership
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
+ * @returns CMSG_OUT_OF_MEMORY if no more memory
+ * @returns CMSG_BAD_FORMAT if name is not properly formed
+ * @returns CMSG_ALREADY_EXISTS if name is being used already
+ */   
+static int addStringArrayOrig(void *vmsg, const char *name, const char **vals, int len,
+                          int isSystem, int copy) {
   int i, cLen, totalLen, textLen=0;
   payloadItem *item;
   char *s;
@@ -4779,7 +5055,7 @@ static int addStringArray(void *vmsg, const char *name, const char **vals, int l
 
   if (msg == NULL || name == NULL ||
      vals == NULL || len < 1)               return(CMSG_BAD_ARGUMENT);
-  if (!goodFieldName(name, isSystem))       return(CMSG_BAD_FORMAT);
+  if (!isValidFieldName(name, isSystem))       return(CMSG_BAD_FORMAT);
   if (cMsgPayloadContainsName(vmsg, name))  return(CMSG_ALREADY_EXISTS);
   if (isSystem) isSystem = 1;
   
@@ -4917,9 +5193,11 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   if (msg  == NULL ||
       name == NULL ||
       message == NULL)                      return(CMSG_BAD_ARGUMENT);
-  if (!goodFieldName(name, isSystem))       return(CMSG_BAD_FORMAT);
+  if (!isValidFieldName(name, isSystem))       return(CMSG_BAD_FORMAT);
   if (cMsgPayloadContainsName(vmsg, name))  return(CMSG_ALREADY_EXISTS);
   if (isSystem) isSystem = 1;
+  
+  memset((void *)length, 0, 12*sizeof(int));
   
   /* payload item to add to msg */
   item = (payloadItem *) calloc(1, sizeof(payloadItem));
@@ -4995,9 +5273,9 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   }
   
   /* add length of "creator" member as a string */
-  if (message->creator != NULL) {
+  if (message->payloadText != NULL) {
     count++;
-    length[4] = strlen(message->creator) + numDigits(strlen(message->creator), 0) + 2;
+    length[4] = strlen(message->payloadText) + numDigits(strlen(message->payloadText), 0) + 2;
     textLen += strlen("cMsgCreator") + 9 + numDigits(length[4], 0) + length[4] ;
   }
   
@@ -5126,9 +5404,9 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   }
 
   /* add message's creator member as string */
-  if (message->creator != NULL) {
+  if (message->payloadText != NULL) {
     sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgCreator", CMSG_CP_STR, length[4],
-                                            strlen(message->creator), message->creator, &len);
+                                            strlen(message->payloadText), message->payloadText, &len);
     s += len;
   }
 
@@ -5324,8 +5602,8 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
 
   
   if (msg == NULL || name == NULL ||
-      message == NULL || number < 1)       return(CMSG_BAD_ARGUMENT);
-  if (!goodFieldName(name, isSystem))      return(CMSG_BAD_FORMAT);
+      vmessage == NULL || number < 1)      return(CMSG_BAD_ARGUMENT);
+  if (!isValidFieldName(name, isSystem))   return(CMSG_BAD_FORMAT);
   if (cMsgPayloadContainsName(vmsg, name)) return(CMSG_ALREADY_EXISTS);
   if (isSystem) isSystem = 1;
   
@@ -5421,9 +5699,9 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
       }
 
       /* add length of "creator" member as a string */
-      if (message->creator != NULL) {
+      if (message->payloadText != NULL) {
         count[i]++;
-        length[i][4] = strlen(message->creator) + numDigits(strlen(message->creator), 0) + 2;
+        length[i][4] = strlen(message->payloadText) + numDigits(strlen(message->payloadText), 0) + 2;
         textLen += strlen("cMsgCreator") + 9 + numDigits(length[i][4], 0) + length[i][4] ;
       }
 
@@ -5561,9 +5839,9 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
     }
 
     /* add message's creator member as string */
-    if (message->creator != NULL) {
+    if (message->payloadText != NULL) {
       sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgCreator", CMSG_CP_STR, length[i][4],
-                                              strlen(message->creator), message->creator, &len);
+                                              strlen(message->payloadText), message->payloadText, &len);
       s += len;
     }
 
@@ -5981,7 +6259,7 @@ static int addIntArrayFromText(void *vmsg, char *name, int type, int count, int 
                                 char *pVal, char *pText, int textLen, int noHeaderLen) {
   char *s;
   int32_t j, k, debug=0, zeros=0;
-  payloadItem *item;  
+  payloadItem *item=NULL;  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   /* payload item to add to msg */
@@ -6175,14 +6453,14 @@ if(debug) printf("  int32[%d] = %d\n", j, myArray[j]);
                       ((int64_t)toByte[(int)(*(pVal+5))] <<40) |
                       ((int64_t)toByte[(int)(*(pVal+6))] <<36) |
                       ((int64_t)toByte[(int)(*(pVal+7))] <<32) |
-                      ((int64_t)toByte[(int)(*(pVal+8))] <<28) |
-                      ((int64_t)toByte[(int)(*(pVal+9))] <<24) |
-                      ((int64_t)toByte[(int)(*(pVal+10))]<<20) |
-                      ((int64_t)toByte[(int)(*(pVal+11))]<<16) |
-                      ((int64_t)toByte[(int)(*(pVal+12))]<<12) |
-                      ((int64_t)toByte[(int)(*(pVal+13))]<<8)  |
-                      ((int64_t)toByte[(int)(*(pVal+14))]<<4)  |
-                      ((int64_t)toByte[(int)(*(pVal+15))]   ));
+                      (         toByte[(int)(*(pVal+8))] <<28) |
+                      (         toByte[(int)(*(pVal+9))] <<24) |
+                      (         toByte[(int)(*(pVal+10))]<<20) |
+                      (         toByte[(int)(*(pVal+11))]<<16) |
+                      (         toByte[(int)(*(pVal+12))]<<12) |
+                      (         toByte[(int)(*(pVal+13))]<<8)  |
+                      (         toByte[(int)(*(pVal+14))]<<4)  |
+                      (         toByte[(int)(*(pVal+15))]   ));
         pVal += 17;
 if(debug) printf("  int64[%d] = %lld\n", j, myArray[j]);
       }
@@ -6221,14 +6499,14 @@ if(debug) printf("  int64[%d] = %lld\n", j, myArray[j]);
                    ((int64_t)toByte[(int)(*(pVal+5))] <<40) |
                    ((int64_t)toByte[(int)(*(pVal+6))] <<36) |
                    ((int64_t)toByte[(int)(*(pVal+7))] <<32) |
-                   ((int64_t)toByte[(int)(*(pVal+8))] <<28) |
-                   ((int64_t)toByte[(int)(*(pVal+9))] <<24) |
-                   ((int64_t)toByte[(int)(*(pVal+10))]<<20) |
-                   ((int64_t)toByte[(int)(*(pVal+11))]<<16) |
-                   ((int64_t)toByte[(int)(*(pVal+12))]<<12) |
-                   ((int64_t)toByte[(int)(*(pVal+13))]<<8)  |
-                   ((int64_t)toByte[(int)(*(pVal+14))]<<4)  |
-                   ((int64_t)toByte[(int)(*(pVal+15))]   ));
+                   (         toByte[(int)(*(pVal+8))] <<28) |
+                   (         toByte[(int)(*(pVal+9))] <<24) |
+                   (         toByte[(int)(*(pVal+10))]<<20) |
+                   (         toByte[(int)(*(pVal+11))]<<16) |
+                   (         toByte[(int)(*(pVal+12))]<<12) |
+                   (         toByte[(int)(*(pVal+13))]<<8)  |
+                   (         toByte[(int)(*(pVal+14))]<<4)  |
+                   (         toByte[(int)(*(pVal+15))]   ));
 
           /* expand zeros */
           for (k=0; k<zeros; k++) {
@@ -6254,14 +6532,14 @@ if(debug) {
                       ((int64_t)toByte[(int)(*(pVal+5))] <<40) |
                       ((int64_t)toByte[(int)(*(pVal+6))] <<36) |
                       ((int64_t)toByte[(int)(*(pVal+7))] <<32) |
-                      ((int64_t)toByte[(int)(*(pVal+8))] <<28) |
-                      ((int64_t)toByte[(int)(*(pVal+9))] <<24) |
-                      ((int64_t)toByte[(int)(*(pVal+10))]<<20) |
-                      ((int64_t)toByte[(int)(*(pVal+11))]<<16) |
-                      ((int64_t)toByte[(int)(*(pVal+12))]<<12) |
-                      ((int64_t)toByte[(int)(*(pVal+13))]<<8)  |
-                      ((int64_t)toByte[(int)(*(pVal+14))]<<4)  |
-                      ((int64_t)toByte[(int)(*(pVal+15))]   ));
+                      (         toByte[(int)(*(pVal+8))] <<28) |
+                      (         toByte[(int)(*(pVal+9))] <<24) |
+                      (         toByte[(int)(*(pVal+10))]<<20) |
+                      (         toByte[(int)(*(pVal+11))]<<16) |
+                      (         toByte[(int)(*(pVal+12))]<<12) |
+                      (         toByte[(int)(*(pVal+13))]<<8)  |
+                      (         toByte[(int)(*(pVal+14))]<<4)  |
+                      (         toByte[(int)(*(pVal+15))]   ));
         pVal += 17;
 if(debug) {
   if (type == CMSG_CP_UINT64_A)
@@ -6352,14 +6630,14 @@ static int addRealFromText(void *vmsg, char *name, int type, int count, int isSy
              ((int64_t)toByte[(int)(*(pVal+5))] <<40) |
              ((int64_t)toByte[(int)(*(pVal+6))] <<36) |
              ((int64_t)toByte[(int)(*(pVal+7))] <<32) |
-             ((int64_t)toByte[(int)(*(pVal+8))] <<28) |
-             ((int64_t)toByte[(int)(*(pVal+9))] <<24) |
-             ((int64_t)toByte[(int)(*(pVal+10))]<<20) |
-             ((int64_t)toByte[(int)(*(pVal+11))]<<16) |
-             ((int64_t)toByte[(int)(*(pVal+12))]<<12) |
-             ((int64_t)toByte[(int)(*(pVal+13))]<<8)  |
-             ((int64_t)toByte[(int)(*(pVal+14))]<<4)  |
-             ((int64_t)toByte[(int)(*(pVal+15))]   ));
+             (         toByte[(int)(*(pVal+8))] <<28) |
+             (         toByte[(int)(*(pVal+9))] <<24) |
+             (         toByte[(int)(*(pVal+10))]<<20) |
+             (         toByte[(int)(*(pVal+11))]<<16) |
+             (         toByte[(int)(*(pVal+12))]<<12) |
+             (         toByte[(int)(*(pVal+13))]<<8)  |
+             (         toByte[(int)(*(pVal+14))]<<4)  |
+             (         toByte[(int)(*(pVal+15))]   ));
     item->dval = *((double *)(&int64));
   }
   else {
@@ -6458,7 +6736,7 @@ static int addRealArrayFromText(void *vmsg, char *name, int type, int count, int
     }
 
     for (j=0; j<count; j++) {
-      /* Convert from 16 chars (representing hex) to float.
+      /* Convert from 16 chars (representing hex) to double.
        * if we got a Z to start with, uncompress all the zeros. */
       if ( toByte[(int)(*pVal)] == -2 ) {
         int64 = 0;
@@ -6469,14 +6747,14 @@ static int addRealArrayFromText(void *vmsg, char *name, int type, int count, int
                  ((int64_t)toByte[(int)(*(pVal+5))] <<40) |
                  ((int64_t)toByte[(int)(*(pVal+6))] <<36) |
                  ((int64_t)toByte[(int)(*(pVal+7))] <<32) |
-                 ((int64_t)toByte[(int)(*(pVal+8))] <<28) |
-                 ((int64_t)toByte[(int)(*(pVal+9))] <<24) |
-                 ((int64_t)toByte[(int)(*(pVal+10))]<<20) |
-                 ((int64_t)toByte[(int)(*(pVal+11))]<<16) |
-                 ((int64_t)toByte[(int)(*(pVal+12))]<<12) |
-                 ((int64_t)toByte[(int)(*(pVal+13))]<<8)  |
-                 ((int64_t)toByte[(int)(*(pVal+14))]<<4)  |
-                 ((int64_t)toByte[(int)(*(pVal+15))]   ));
+                 (         toByte[(int)(*(pVal+8))] <<28) |
+                 (         toByte[(int)(*(pVal+9))] <<24) |
+                 (         toByte[(int)(*(pVal+10))]<<20) |
+                 (         toByte[(int)(*(pVal+11))]<<16) |
+                 (         toByte[(int)(*(pVal+12))]<<12) |
+                 (         toByte[(int)(*(pVal+13))]<<8)  |
+                 (         toByte[(int)(*(pVal+14))]<<4)  |
+                 (         toByte[(int)(*(pVal+15))]   ));
                  
         /* we have int64 number of zeros */
         for (k=0; k<int64; k++) {
@@ -6497,14 +6775,14 @@ if(debug) printf("  double[%d] = %.16lg\n", j+k, myArray[j+k]);
                ((int64_t)toByte[(int)(*(pVal+5))] <<40) |
                ((int64_t)toByte[(int)(*(pVal+6))] <<36) |
                ((int64_t)toByte[(int)(*(pVal+7))] <<32) |
-               ((int64_t)toByte[(int)(*(pVal+8))] <<28) |
-               ((int64_t)toByte[(int)(*(pVal+9))] <<24) |
-               ((int64_t)toByte[(int)(*(pVal+10))]<<20) |
-               ((int64_t)toByte[(int)(*(pVal+11))]<<16) |
-               ((int64_t)toByte[(int)(*(pVal+12))]<<12) |
-               ((int64_t)toByte[(int)(*(pVal+13))]<<8)  |
-               ((int64_t)toByte[(int)(*(pVal+14))]<<4)  |
-               ((int64_t)toByte[(int)(*(pVal+15))]   ));
+               (         toByte[(int)(*(pVal+8))] <<28) |
+               (         toByte[(int)(*(pVal+9))] <<24) |
+               (         toByte[(int)(*(pVal+10))]<<20) |
+               (         toByte[(int)(*(pVal+11))]<<16) |
+               (         toByte[(int)(*(pVal+12))]<<12) |
+               (         toByte[(int)(*(pVal+13))]<<8)  |
+               (         toByte[(int)(*(pVal+14))]<<4)  |
+               (         toByte[(int)(*(pVal+15))]   ));
       myArray[j] = *((double *)(&int64));
       pVal += 17;
 if(debug) printf("  double[%d] = %.16lg\n", j, myArray[j]);
@@ -6654,8 +6932,8 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
       msg->domain = str;
     }
     else if (strcmp(name, "cMsgCreator") == 0) {
-      if (msg->creator != NULL) free(msg->creator);
-      msg->creator = str;
+      if (msg->payloadText != NULL) free(msg->payloadText);
+      msg->payloadText = str;
     }
     else if (strcmp(name, "cMsgSender") == 0) {
       if (msg->sender != NULL) free(msg->sender);
