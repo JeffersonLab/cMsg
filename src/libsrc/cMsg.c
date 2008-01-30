@@ -711,7 +711,7 @@ static int reconstructUDL(char *domainType, parsedUDL *pList, char **UDL) {
 int cMsgConnect(const char *myUDL, const char *myName,
                 const char *myDescription, void **domainId) {
 
-  int     i, err, listSize;
+  int     i, err, listSize=0;
   char  *domainType=NULL, *newUDL=NULL;
   cMsgDomain *domain;
   parsedUDL  *pList;
@@ -1051,7 +1051,7 @@ int cMsgConnectOrig(const char *myUDL, const char *myName,
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSend
  */   
-int cMsgSend(void *domainId, const void *msg) {
+int cMsgSend(void *domainId, void *msg) {
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
@@ -1084,7 +1084,7 @@ int cMsgSend(void *domainId, const void *msg) {
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSyncSend
  */   
-int cMsgSyncSend(void *domainId, const void *msg, const struct timespec *timeout, int *response) {
+int cMsgSyncSend(void *domainId, void *msg, const struct timespec *timeout, int *response) {
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
@@ -1207,7 +1207,7 @@ int cMsgUnSubscribe(void *domainId, void *handle) {
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSendAndGet
  */   
-int cMsgSendAndGet(void *domainId, const void *sendMsg, const struct timespec *timeout, void **replyMsg) {
+int cMsgSendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg) {
     
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
@@ -2443,10 +2443,12 @@ static void initMessage(cMsgMessage_t *msg) {
     int endian;
     if (msg == NULL) return;
     
-    msg->version  = CMSG_VERSION_MAJOR;
-    msg->sysMsgId = 0;
-    msg->bits     = 0;
-    msg->info     = 0;
+    msg->version       = CMSG_VERSION_MAJOR;
+    msg->sysMsgId      = 0;
+    msg->bits          = 0;
+    msg->info          = 0;
+    msg->historyLengthMax = 20;
+    msg->payloadCount  = 0;
     
     /* default is local endian */
     if (cMsgLocalByteOrder(&endian) == CMSG_OK) {
@@ -2458,14 +2460,13 @@ static void initMessage(cMsgMessage_t *msg) {
         }
     }
     
-    msg->domain    = NULL;
-    msg->creator   = NULL;
-    msg->payload   = NULL;
-    msg->marker    = NULL;
-    msg->subject   = NULL;
-    msg->type      = NULL;
-    msg->text      = NULL;
-    msg->byteArray = NULL;
+    msg->domain      = NULL;
+    msg->payloadText = NULL;
+    msg->payload     = NULL;
+    msg->subject     = NULL;
+    msg->type        = NULL;
+    msg->text        = NULL;
+    msg->byteArray   = NULL;
     
     msg->byteArrayOffset  = 0;
     msg->byteArrayLength  = 0;
@@ -2515,7 +2516,6 @@ static int freeMessage(void *vmsg) {
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
    
   if (msg->domain       != NULL) {free(msg->domain);       msg->domain       = NULL;}
-  if (msg->creator      != NULL) {free(msg->creator);      msg->creator      = NULL;}
   if (msg->subject      != NULL) {free(msg->subject);      msg->subject      = NULL;}
   if (msg->type         != NULL) {free(msg->type);         msg->type         = NULL;}
   if (msg->text         != NULL) {free(msg->text);         msg->text         = NULL;}
@@ -2531,7 +2531,7 @@ static int freeMessage(void *vmsg) {
   if (msg->context.cueSize != NULL) {                            msg->context.cueSize = NULL;}
   
   /* remove compound payload */
-  cMsgPayloadClear(vmsg);
+  cMsgPayloadWipeout(vmsg);
   
   /* only free byte array if it was copied into the msg */
   if ((msg->byteArray != NULL) && ((msg->bits & CMSG_BYTE_ARRAY_IS_COPIED) > 0)) {
@@ -2616,6 +2616,7 @@ int cMsgFreeMessage(void **vmsg) {
     newMsg->receiverSubscribeId = msg->receiverSubscribeId;
     newMsg->byteArrayOffset     = msg->byteArrayOffset;
     newMsg->byteArrayLength     = msg->byteArrayLength;
+    newMsg->historyLengthMax    = msg->historyLengthMax;
     
     /*-------------------*/
     /* copy over strings */
@@ -2633,25 +2634,12 @@ int cMsgFreeMessage(void **vmsg) {
         newMsg->domain = NULL;
     }
         
-    /* copy creator */
-    if (msg->creator != NULL) {
-        newMsg->creator = (char *) strdup(msg->creator);
-        if (newMsg->creator == NULL) {
-            if (newMsg->domain != NULL) free(newMsg->domain);
-            free(newMsg);
-            return NULL;
-        }
-    }
-    else {
-        newMsg->creator = NULL;
-    }
         
     /* copy subject */
     if (msg->subject != NULL) {
         newMsg->subject = (char *) strdup(msg->subject);
         if (newMsg->subject == NULL) {
-            if (newMsg->domain  != NULL) free(newMsg->domain);
-            if (newMsg->creator != NULL) free(newMsg->creator);
+            if (newMsg->domain != NULL) free(newMsg->domain);
             free(newMsg);
             return NULL;
         }
@@ -2665,7 +2653,6 @@ int cMsgFreeMessage(void **vmsg) {
         newMsg->type = (char *) strdup(msg->type);
         if (newMsg->type == NULL) {
             if (newMsg->domain  != NULL) free(newMsg->domain);
-            if (newMsg->creator != NULL) free(newMsg->creator);
             if (newMsg->subject != NULL) free(newMsg->subject);
             free(newMsg);
             return NULL;
@@ -2680,7 +2667,6 @@ int cMsgFreeMessage(void **vmsg) {
         newMsg->text = (char *) strdup(msg->text);
         if (newMsg->text == NULL) {
             if (newMsg->domain  != NULL) free(newMsg->domain);
-            if (newMsg->creator != NULL) free(newMsg->creator);
             if (newMsg->subject != NULL) free(newMsg->subject);
             if (newMsg->type    != NULL) free(newMsg->type);
             free(newMsg);
@@ -2696,7 +2682,6 @@ int cMsgFreeMessage(void **vmsg) {
         newMsg->sender = (char *) strdup(msg->sender);
         if (newMsg->sender == NULL) {
             if (newMsg->domain  != NULL) free(newMsg->domain);
-            if (newMsg->creator != NULL) free(newMsg->creator);
             if (newMsg->subject != NULL) free(newMsg->subject);
             if (newMsg->type    != NULL) free(newMsg->type);
             if (newMsg->text    != NULL) free(newMsg->text);
@@ -2713,7 +2698,6 @@ int cMsgFreeMessage(void **vmsg) {
         newMsg->senderHost = (char *) strdup(msg->senderHost);
         if (newMsg->senderHost == NULL) {
             if (newMsg->domain  != NULL) free(newMsg->domain);
-            if (newMsg->creator != NULL) free(newMsg->creator);
             if (newMsg->subject != NULL) free(newMsg->subject);
             if (newMsg->type    != NULL) free(newMsg->type);
             if (newMsg->text    != NULL) free(newMsg->text);
@@ -2732,7 +2716,6 @@ int cMsgFreeMessage(void **vmsg) {
         newMsg->receiver = (char *) strdup(msg->receiver);
         if (newMsg->receiver == NULL) {
             if (newMsg->domain     != NULL) free(newMsg->domain);
-            if (newMsg->creator    != NULL) free(newMsg->creator);
             if (newMsg->subject    != NULL) free(newMsg->subject);
             if (newMsg->type       != NULL) free(newMsg->type);
             if (newMsg->text       != NULL) free(newMsg->text);
@@ -2751,7 +2734,6 @@ int cMsgFreeMessage(void **vmsg) {
         newMsg->receiverHost = (char *) strdup(msg->receiverHost);
         if (newMsg->receiverHost == NULL) {
             if (newMsg->domain     != NULL) free(newMsg->domain);
-            if (newMsg->creator    != NULL) free(newMsg->creator);
             if (newMsg->subject    != NULL) free(newMsg->subject);
             if (newMsg->type       != NULL) free(newMsg->type);
             if (newMsg->text       != NULL) free(newMsg->text);
@@ -2771,8 +2753,20 @@ int cMsgFreeMessage(void **vmsg) {
     /*----------------------------*/
     err = cMsgHasPayload(vmsg, &hasPayload);
     if (err == CMSG_OK && hasPayload) {
-      cMsgPayloadCopy(vmsg, newMsg);
-    }
+      err = cMsgPayloadCopy(vmsg, newMsg);
+      if (err != CMSG_OK) {
+          if (newMsg->domain       != NULL) free(newMsg->domain);
+          if (newMsg->subject      != NULL) free(newMsg->subject);
+          if (newMsg->type         != NULL) free(newMsg->type);
+          if (newMsg->text         != NULL) free(newMsg->text);
+          if (newMsg->sender       != NULL) free(newMsg->sender);
+          if (newMsg->senderHost   != NULL) free(newMsg->senderHost);
+          if (newMsg->receiver     != NULL) free(newMsg->receiver);
+          if (newMsg->receiverHost != NULL) free(newMsg->receiverHost);
+          free(newMsg);
+          return NULL;         
+      }
+   }
     
     /*-----------------------*/
     /* copy over binary data */
@@ -2785,7 +2779,6 @@ int cMsgFreeMessage(void **vmsg) {
         newMsg->byteArray = (char *) malloc(msg->byteArrayLength);
         if (newMsg->byteArray == NULL) {
             if (newMsg->domain       != NULL) free(newMsg->domain);
-            if (newMsg->creator      != NULL) free(newMsg->creator);
             if (newMsg->subject      != NULL) free(newMsg->subject);
             if (newMsg->type         != NULL) free(newMsg->type);
             if (newMsg->text         != NULL) free(newMsg->text);
@@ -2865,8 +2858,8 @@ void *cMsgCreateMessage(void) {
 
 
 /**
- * This routine copies the given message, sets the creator
- * field to null, and is marked as NOT having been sent.
+ * This routine copies the given message, clears the history,
+ * and is marked as NOT having been sent.
  * Memory is allocated with this function and can be freed by cMsgFreeMessage().
  *
  * @param vmsg pointer to message being copied
@@ -2883,10 +2876,7 @@ void *cMsgCreateNewMessage(const void *vmsg) {
       return NULL;
     }
     
-    if (newMsg->creator != NULL) {
-        free(newMsg->creator);
-        newMsg->creator = NULL;
-    }
+    /* BUG BUG clear history here */
     
     newMsg->info = newMsg->info & ~CMSG_WAS_SENT;
     
@@ -3173,29 +3163,26 @@ int cMsgGetDomain(const void *vmsg, const char **domain) {
 /*-------------------------------------------------------------------*/
 
 /**
- * This routine gets the creator of a message. When a newly created
- * message is sent, on the server it's creator field is set to the sender.
- * Once set, this value never changes. On the client, this field never gets
- * set. Messages received from the server will have this field set.
+ * This routine gets the payload text of a message.
  * If successful, this routine will return a pointer to char inside the
  * message structure. The user may NOT write to this memory location!
  *
  * @param vmsg pointer to message
- * @param creator pointer to pointer filled with message's creator
+ * @param payloadText pointer to pointer filled with message's payload text
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgGetCreator(const void *vmsg, const char **creator) {
+int cMsgGetPayloadText(const void *vmsg, const char **payloadText) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
-  if (msg == NULL || creator == NULL) return(CMSG_BAD_ARGUMENT);
-  if (msg->creator == NULL) {
-    *creator = NULL;
+  if (msg == NULL || payloadText == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg->payloadText == NULL) {
+    *payloadText = NULL;
   }
   else {
-    *creator = msg->creator;
+    *payloadText = msg->payloadText;
   }
   return(CMSG_OK);
 }
@@ -3940,7 +3927,6 @@ static char *format1 =
     "%s     getRequest      = \"%s\"\n"
     "%s     getResponse     = \"%s\"\n"
     "%s     nullGetResponse = \"%s\"\n"
-    "%s     creator         = \"%s\"\n"
     "%s     sender          = \"%s\"\n"
     "%s     senderHost      = \"%s\"\n"
     "%s     senderTime      = \"%s\"\n"
@@ -3967,7 +3953,6 @@ static char *format1a =
     "%s     getRequest      = \"%s\"\n"
     "%s     getResponse     = \"%s\"\n"
     "%s     nullGetResponse = \"%s\"\n"
-    "%s     creator         = \"%s\"\n"
     "%s     sender          = \"%s\"\n"
     "%s     senderHost      = \"%s\"\n"
     "%s     senderTime      = \"%s\"\n"
@@ -4029,7 +4014,6 @@ static int messageStringSize(const void *vmsg, int level, int binary) {
   /* get string len */
   slen=formatLen;
   if(msg->domain!=NULL)        slen += strlen(msg->domain);
-  if(msg->creator!=NULL)       slen += strlen(msg->creator);
   if(msg->sender!=NULL)        slen += strlen(msg->sender);
   if(msg->senderHost!=NULL)    slen += strlen(msg->senderHost);
   if(msg->receiver!=NULL)      slen += strlen(msg->receiver);
@@ -4150,7 +4134,6 @@ static int cMsgToString2(void *vmsg, char **string, int level, int offset, int b
 /*printf("cMsgToString2: length of buffer needed = %d\n", slen);*/
     pchar = buffer = (char*)calloc(1, slen);
     if (buffer == NULL) {
-      if (level > 0) free(indent);
       return(CMSG_OUT_OF_MEMORY);
     }
     indent = "";
@@ -4182,8 +4165,7 @@ static int cMsgToString2(void *vmsg, char **string, int level, int offset, int b
             indent, ((msg->info & CMSG_IS_GET_REQUEST)!=0)?"true":"false",
             indent, ((msg->info & CMSG_IS_GET_RESPONSE)!=0)?"true":"false",
             indent, ((msg->info & CMSG_IS_NULL_GET_RESPONSE)!=0)?"true":"false",
-            indent, msg->creator, indent, msg->sender,
-            indent, msg->senderHost, indent, senderTimeBuf,
+            indent, msg->sender, indent, msg->senderHost, indent, senderTimeBuf,
             indent, msg->userInt, indent, userTimeBuf,
             indent, msg->receiver,indent, msg->receiverHost, indent, receiverTimeBuf,
             indent, msg->subject, indent, msg->type, indent, msg->text, indent,
@@ -4202,8 +4184,7 @@ static int cMsgToString2(void *vmsg, char **string, int level, int offset, int b
             indent, ((msg->info & CMSG_IS_GET_REQUEST)!=0)?"true":"false",
             indent, ((msg->info & CMSG_IS_GET_RESPONSE)!=0)?"true":"false",
             indent, ((msg->info & CMSG_IS_NULL_GET_RESPONSE)!=0)?"true":"false",
-            indent, msg->creator, indent, msg->sender,
-            indent, msg->senderHost, indent, senderTimeBuf,
+            indent, msg->sender,indent, msg->senderHost, indent, senderTimeBuf,
             indent, msg->userInt, indent, userTimeBuf,
             indent, msg->receiver,indent, msg->receiverHost, indent, receiverTimeBuf,
             indent, msg->subject, indent, msg->type, indent, msg->text, indent,
@@ -4309,7 +4290,7 @@ static int cMsgToString2(void *vmsg, char **string, int level, int offset, int b
         } break;
         
       case CMSG_CP_BIN:
-        {char *s; size_t sz; int endian; char *endianTxt;
+        {char *s; int sz, endian; char *endianTxt;
          if (!binary) break;
          ok=cMsgGetBinary(msg, name, &s, &sz, &endian);
          if(ok!=CMSG_OK) {if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
