@@ -231,11 +231,10 @@ public class cMsgDomainServer extends Thread {
      * @return integer value
      */
     private static final int bytesToInt(byte[] b, int off) {
-        int result = ((b[off] & 0xff) << 24)     |
-                     ((b[off + 1] & 0xff) << 16) |
-                     ((b[off + 2] & 0xff) << 8)  |
-                      (b[off + 3] & 0xff);
-        return result;
+        return (((b[off]     & 0xff) << 24) |
+                ((b[off + 1] & 0xff) << 16) |
+                ((b[off + 2] & 0xff) << 8)  |
+                 (b[off + 3] & 0xff));
     }
 
 
@@ -885,7 +884,10 @@ public class cMsgDomainServer extends Thread {
             msg.setUserInt(bytesToInt(buf, bufIndex+=4));
             msg.setSysMsgId(bytesToInt(buf, bufIndex+=4));
             msg.setSenderToken(bytesToInt(buf, bufIndex+=4));
-            msg.setInfo(bytesToInt(buf, bufIndex+=4));
+            // mark msg as having been sent over wire
+            msg.setInfo(bytesToInt(buf, bufIndex+=4) | cMsgMessage.wasSent);
+            // set info to mark msg as unexpanded
+            msg.expandedPayload(false);
 
             // time message was sent = 2 ints (hightest byte first)
             // in milliseconds since midnight GMT, Jan 1, 1970
@@ -898,11 +900,11 @@ public class cMsgDomainServer extends Thread {
                    ((long) (bytesToInt(buf, bufIndex+=4)) & 0x00000000FFFFFFFFL);
             msg.setUserTime(new Date(time));
 
-            int lengthSubject = bytesToInt(buf, bufIndex+=4);
-            int lengthType    = bytesToInt(buf, bufIndex+=4);
-            int lengthCreator = bytesToInt(buf, bufIndex+=4);
-            int lengthText    = bytesToInt(buf, bufIndex+=4);
-            int lengthBinary  = bytesToInt(buf, bufIndex+=4);
+            int lengthSubject    = bytesToInt(buf, bufIndex+=4);
+            int lengthType       = bytesToInt(buf, bufIndex+=4);
+            int lengthPayloadTxt = bytesToInt(buf, bufIndex+=4);
+            int lengthText       = bytesToInt(buf, bufIndex+=4);
+            int lengthBinary     = bytesToInt(buf, bufIndex+=4);
 
             // read subject
             msg.setSubject(new String(buf, bufIndex += 4, lengthSubject, "US-ASCII"));
@@ -912,12 +914,12 @@ public class cMsgDomainServer extends Thread {
             msg.setType(new String(buf, bufIndex += lengthSubject, lengthType, "US-ASCII"));
             //System.out.println("type = " + msg.getType());
 
-            // read creator
-            msg.setCreator(new String(buf, bufIndex += lengthType, lengthCreator, "US-ASCII"));
-            //System.out.println("creator = " + msg.getCreator());
+            // read payload text
+            msg.setPayloadText(new String(buf, bufIndex += lengthType, lengthPayloadTxt, "US-ASCII"));
+            //System.out.println("payload text = " + msg.getPayloadText());
 
             // read text
-            msg.setText(new String(buf, bufIndex += lengthCreator, lengthText, "US-ASCII"));
+            msg.setText(new String(buf, bufIndex += lengthPayloadTxt, lengthText, "US-ASCII"));
             //System.out.println("text = " + msg.getText());
 
             if (lengthBinary > 0) {
@@ -1358,7 +1360,10 @@ public class cMsgDomainServer extends Thread {
             msg.setUserInt(in.readInt());
             msg.setSysMsgId(in.readInt());
             msg.setSenderToken(in.readInt());
-            msg.setInfo(in.readInt());
+            // mark msg as having been sent over wire
+            msg.setInfo(in.readInt() | cMsgMessage.wasSent);
+            // mark msg as unexpanded
+            msg.expandedPayload(false);
 
             // time message was sent = 2 ints (hightest byte first)
             // in milliseconds since midnight GMT, Jan 1, 1970
@@ -1368,15 +1373,15 @@ public class cMsgDomainServer extends Thread {
             time = ((long) in.readInt() << 32) | ((long) in.readInt() & 0x00000000FFFFFFFFL);
             msg.setUserTime(new Date(time));
 
-            int lengthSubject = in.readInt();
-            int lengthType    = in.readInt();
-            int lengthCreator = in.readInt();
-            int lengthText    = in.readInt();
-            int lengthBinary  = in.readInt();
+            int lengthSubject    = in.readInt();
+            int lengthType       = in.readInt();
+            int lengthPayloadTxt = in.readInt();
+            int lengthText       = in.readInt();
+            int lengthBinary     = in.readInt();
 
             // string bytes expected
             int stringBytesToRead = lengthSubject + lengthType +
-                                    lengthCreator + lengthText;
+                                    lengthPayloadTxt + lengthText;
             int offset = 0;
 
             // read all string bytes
@@ -1395,10 +1400,10 @@ public class cMsgDomainServer extends Thread {
             //System.out.println("type = " + msg.getType());
             offset += lengthType;
 
-            // read creator
-            msg.setCreator(new String(bytes, offset, lengthCreator, "US-ASCII"));
-            //System.out.println("creator = " + msg.getCreator());
-            offset += lengthCreator;
+            // read payload text
+            msg.setPayloadText(new String(bytes, offset, lengthPayloadTxt, "US-ASCII"));
+            //System.out.println("payload text = " + msg.getPayloadText());
+            offset += lengthPayloadTxt;
 
             // read text
             msg.setText(new String(bytes, offset, lengthText, "US-ASCII"));
@@ -1444,7 +1449,10 @@ public class cMsgDomainServer extends Thread {
 
             msg.setUserInt(in.readInt());
             msg.setSenderToken(in.readInt());
-            msg.setInfo(in.readInt());
+            // mark msg as having been sent over wire
+            msg.setInfo(in.readInt() | cMsgMessage.wasSent);
+            // mark msg as unexpanded
+            msg.expandedPayload(false);
 
             // time message was sent = 2 ints (hightest byte first)
             // in milliseconds since midnight GMT, Jan 1, 1970
@@ -1454,16 +1462,16 @@ public class cMsgDomainServer extends Thread {
             time = ((long)in.readInt() << 32) | ((long)in.readInt() & 0x00000000FFFFFFFFL);
             msg.setUserTime(new Date(time));
 
-            int lengthSubject   = in.readInt();
-            int lengthType      = in.readInt();
-            int lengthNamespace = in.readInt();
-            int lengthCreator   = in.readInt();
-            int lengthText      = in.readInt();
-            int lengthBinary    = in.readInt();
+            int lengthSubject    = in.readInt();
+            int lengthType       = in.readInt();
+            int lengthNamespace  = in.readInt();
+            int lengthPayloadTxt = in.readInt();
+            int lengthText       = in.readInt();
+            int lengthBinary     = in.readInt();
 
             // string bytes expected
             int stringBytesToRead = lengthSubject + lengthType + lengthNamespace +
-                                    lengthCreator + lengthText;
+                                    lengthPayloadTxt + lengthText;
             int offset = 0;
 
             // read all string bytes
@@ -1487,9 +1495,9 @@ public class cMsgDomainServer extends Thread {
                 offset += lengthNamespace;
             }
 
-            // read creator
-            msg.setCreator(new String(bytes, offset, lengthCreator, "US-ASCII"));
-            offset += lengthCreator;
+            // read payload text
+            msg.setPayloadText(new String(bytes, offset, lengthPayloadTxt, "US-ASCII"));
+            offset += lengthPayloadTxt;
 
             // read text
             msg.setText(new String(bytes, offset, lengthText, "US-ASCII"));
