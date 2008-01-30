@@ -138,7 +138,6 @@ int main(int argc,char **argv) {
  dbl = 0.;
  printf("String rep of double (0) = %s\n", cMsgDoubleChars(dbl));
  
-  
   if (debug) {
     printf("Running the cMsg producerMsg, \"%s\"\n", myName);
     cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
@@ -175,8 +174,8 @@ int main(int argc,char **argv) {
   
   test64[0] = 1000000000000LL;
   test64[1] = -1000000000000LL;
-  test64[2] = 256L;
-  test64[3] = 65535L;
+  test64[2] = 256LL;
+  test64[3] = 65535LL;
   
   testd[0] = 0;
   testd[1] = 1.;
@@ -294,9 +293,9 @@ int main(int argc,char **argv) {
   } 
   
   end:
-printf("producer: will free msg1\n");  
+
   cMsgFreeMessage(&msg1);
-printf("producer: will disconnect\n");  
+  
   err = cMsgDisconnect(&domainId);
   if (err != CMSG_OK) {
       if (debug) {
