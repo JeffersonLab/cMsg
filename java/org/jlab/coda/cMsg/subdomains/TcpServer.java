@@ -230,7 +230,7 @@ public class TcpServer extends cMsgSubdomainAdapter{
         // return result
         try {
             cMsgMessageFull responseMsg = new cMsgMessageFull();
-            responseMsg.setCreator(myName);
+//            responseMsg.setCreator(myName);
             responseMsg.setSubject(msg.getSubject());
             responseMsg.setType(msg.getType());
             responseMsg.setText(sb.toString());
