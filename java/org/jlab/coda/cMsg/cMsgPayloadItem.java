@@ -25,7 +25,12 @@ import java.util.Arrays;
  * <b>This class represents an item in a cMsg message's payload.
  * The value of each item is stored in this class along with a text
  * representation of that item. Following is the text format of various
- * types of payload items ([nl] means newline, only 1 space between items):<p>
+ * types of payload items where [nl] means newline.<p>
+ *
+ * Note that there is only 1 space or newline between all entries. The only exception
+ * to the 1 space spacing is between the last two entries on each "header" line (the line
+ * that contains the item_name). There may be several spaces between the last 2
+ * entries on these lines.<p></b>
  *
  *<i>for string items:</i></b><p>
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
@@ -257,7 +262,7 @@ public final class cMsgPayloadItem implements Cloneable {
 
 
     /**
-     * This method checks a string to see if it is a suitable payload item name.
+     * This method checks a string to see if it is a valid payload item name.
      * It returns false if it is not, or true if it is. A check is made to see if
      * it contains any character from a list of excluded characters.
      * All names starting with "cmsg", independent of case,
@@ -271,7 +276,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if string is null, contains illegal characters, starts with
      *                       "cmsg" if not isSystem, or is too long
      */
-    private void checkName(String name, boolean isSystem) throws cMsgException {
+    public void validName(String name, boolean isSystem) throws cMsgException {
         if (name == null) {
             throw new cMsgException("name argument is null");
         }
@@ -283,15 +288,45 @@ public final class cMsgPayloadItem implements Cloneable {
             }
         }
 
+        // check for length
+        if (name.length() > CMSG_PAYLOAD_NAME_LEN_MAX) {
+            throw new cMsgException("name too long, " + CMSG_PAYLOAD_NAME_LEN_MAX + " chars allowed" );
+        }
+
         // check for starting with cmsg
         if (!isSystem && name.toLowerCase().startsWith("cmsg")) {
             throw new cMsgException("names may not start with \"cmsg\"");
         }
+    }
 
-        // check for length */
-        if (name.length() > CMSG_PAYLOAD_NAME_LEN_MAX){
-            throw new cMsgException("name too long, " + CMSG_PAYLOAD_NAME_LEN_MAX + " chars allowed" );
+
+    /**
+     * This method checks a string to see if it is a valid name starting with "cmsg",
+     * independent of case, reserved for use by the cMsg system itself. Names may not be
+     * longer than CMSG_PAYLOAD_NAME_LEN_MAX characters.
+     *
+     * @param name string to check
+     * @returns true if string is a valid system name, else false
+     */
+    static boolean validSystemName(String name) {
+        if (name == null) {
+            return false;
         }
+
+        // check for excluded chars
+        for (char c : EXCLUDED_CHARS.toCharArray()) {
+            if (name.indexOf(c) > -1) {
+                return false;
+            }
+        }
+
+        // check for length
+        if (name.length() > CMSG_PAYLOAD_NAME_LEN_MAX) {
+            return false;
+        }
+
+        // check for starting with cmsg
+        return name.toLowerCase().startsWith("cmsg");
     }
 
 
@@ -358,23 +393,35 @@ public final class cMsgPayloadItem implements Cloneable {
     // Constructors, String
     //--------------------------
     public cMsgPayloadItem(String name, String s) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addString(name, s, false);
     }
 
     cMsgPayloadItem(String name, String s, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addString(name, s, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, String[] s) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addString(name, s, false);
     }
 
-    cMsgPayloadItem(String name, String[] s, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
-        addString(name, s, txt, false, noHeadLen);
+    /**
+     * Constructor for hidden system fields like cMsgSenderHistory.
+     * @param name
+     * @param s
+     * @param isSystem
+     * @throws cMsgException
+     */
+    cMsgPayloadItem(String name, String[] s, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addString(name, s, isSystem);
+    }
+
+    cMsgPayloadItem(String name, String[] s, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addString(name, s, txt, isSystem, noHeadLen);
     }
 
 
@@ -382,13 +429,13 @@ public final class cMsgPayloadItem implements Cloneable {
     // Constructors, Binary
     //--------------------------
     public cMsgPayloadItem(String name, byte[] b, int end) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         endian = checkEndian(end);
         addBinary(name, b, false);
     }
 
     cMsgPayloadItem(String name, byte[] b, int end, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         endian = checkEndian(end);
         addBinary(name, b, txt, false, noHeadLen);
     }
@@ -397,22 +444,22 @@ public final class cMsgPayloadItem implements Cloneable {
     // Constructors, Message
     //--------------------------
     public cMsgPayloadItem(String name, cMsgMessage msg) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addMessage(name, msg, false);
     }
 
     cMsgPayloadItem(String name, cMsgMessage m, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addMessage(name, m, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, cMsgMessage[] msg) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addMessage(name, msg, false);
     }
 
     cMsgPayloadItem(String name, cMsgMessage[] m, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addMessage(name, m, txt, false, noHeadLen);
     }
 
@@ -421,54 +468,54 @@ public final class cMsgPayloadItem implements Cloneable {
     //-------------------
 
     public cMsgPayloadItem(String name, byte b) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addByte(name, b, false);
     }
 
     cMsgPayloadItem(String name, byte b, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addByte(name, b, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, short s) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addShort(name, s, false);
     }
 
     cMsgPayloadItem(String name, short s, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addShort(name, s, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, int i) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addInt(name, i, false);
     }
 
     cMsgPayloadItem(String name, int i, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addInt(name, i, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, long l) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addLong(name, l, false);
     }
 
     cMsgPayloadItem(String name, long l, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addLong(name, l, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, BigInteger big) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         if ((big.compareTo(new BigInteger("18446744073709551615")) > 0) ||
             (big.compareTo(BigInteger.ZERO) < 0) ) throw new cMsgException("number must fit in an unsigned, 64-bit int");
         addNumber(name, big, cMsgConstants.payloadUint64, false);
     }
 
     cMsgPayloadItem(String name, BigInteger big, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addBigInt(name, big, txt, false, noHeadLen);
     }
 
@@ -476,7 +523,7 @@ public final class cMsgPayloadItem implements Cloneable {
         int typ;
         String s = t.getClass().getName();
 
-        checkName(name, false);
+        validName(name, false);
 
         // casts & "instance of" does not work with generics on naked types (on t), so use getClass()
 
@@ -510,47 +557,47 @@ public final class cMsgPayloadItem implements Cloneable {
     //--------------------------
 
     public cMsgPayloadItem(String name, byte[] b) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addByte(name, b, false);
     }
 
     cMsgPayloadItem(String name, byte[] b, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addByte(name, b, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, short[] s) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addShort(name, s, false);
     }
 
     cMsgPayloadItem(String name, short[] s, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addShort(name, s, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, int[] i) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addInt(name, i, false);
     }
 
     cMsgPayloadItem(String name, int[] i, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addInt(name, i, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, long[] l) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addLong(name, l, false);
     }
 
     cMsgPayloadItem(String name, long[] l, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addLong(name, l, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, BigInteger[] big) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         for (BigInteger bi : big) {
             if ((bi.compareTo(new BigInteger("18446744073709551615")) > 0) ||
                 (bi.compareTo(BigInteger.ZERO) < 0) )
@@ -560,7 +607,7 @@ public final class cMsgPayloadItem implements Cloneable {
     }
 
     cMsgPayloadItem(String name, BigInteger[] b, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addBigInt(name, b, txt, false, noHeadLen);
     }
 
@@ -569,7 +616,7 @@ public final class cMsgPayloadItem implements Cloneable {
          String s = t[0].getClass().getName();
          System.out.println("class = " + s);
 
-         checkName(name, false);
+         validName(name, false);
 
          // casts & "instance of" does not work with generics on naked types (on t), so use getClass()
 
@@ -605,22 +652,22 @@ public final class cMsgPayloadItem implements Cloneable {
     //-----------
 
     public cMsgPayloadItem(String name, float f) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addFloat(name, f, false);
     }
 
     cMsgPayloadItem(String name, float f, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addFloat(name, f, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, double d) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addDouble(name, d, false);
     }
 
     cMsgPayloadItem(String name, double d, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addDouble(name, d, txt, false, noHeadLen);
     }
 
@@ -629,22 +676,22 @@ public final class cMsgPayloadItem implements Cloneable {
     //------------
 
     public cMsgPayloadItem(String name, float[] f) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addFloat(name, f, false);
     }
 
     cMsgPayloadItem(String name, float[] f, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addFloat(name, f, txt, false, noHeadLen);
     }
 
     public cMsgPayloadItem(String name, double[] d) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addDouble(name, d, false);
     }
 
     cMsgPayloadItem(String name, double[] d, String txt, int noHeadLen) throws cMsgException {
-        checkName(name, false);
+        validName(name, false);
         addDouble(name, d, txt, false, noHeadLen);
     }
 
@@ -818,7 +865,6 @@ public final class cMsgPayloadItem implements Cloneable {
             if (msgs[i].getSubject()      != null) fieldCount[i]++;
             if (msgs[i].getType()         != null) fieldCount[i]++;
             if (msgs[i].getText()         != null) fieldCount[i]++;
-            if (msgs[i].getCreator()      != null) fieldCount[i]++;
             if (msgs[i].getSender()       != null) fieldCount[i]++;
             if (msgs[i].getSenderHost()   != null) fieldCount[i]++;
             if (msgs[i].getReceiver()     != null) fieldCount[i]++;
@@ -842,7 +888,6 @@ public final class cMsgPayloadItem implements Cloneable {
             if (msg.getSubject()      != null) systemStringToBuf("cMsgSubject", buf, msg.getSubject());
             if (msg.getType()         != null) systemStringToBuf("cMsgType", buf, msg.getType());
             if (msg.getText()         != null) systemStringToBuf("cMsgText", buf, msg.getText());
-            if (msg.getCreator()      != null) systemStringToBuf("cMsgCreator", buf, msg.getCreator());
             if (msg.getSender()       != null) systemStringToBuf("cMsgSender", buf, msg.getSender());
             if (msg.getSenderHost()   != null) systemStringToBuf("cMsgSenderHost", buf, msg.getSenderHost());
             if (msg.getReceiver()     != null) systemStringToBuf("cMsgReceiver", buf, msg.getReceiver());
@@ -971,10 +1016,6 @@ public final class cMsgPayloadItem implements Cloneable {
         }
         if (msg.getText() != null) {
             systemStringToBuf("cMsgText", buf, msg.getText());
-            fieldCount++;
-        }
-        if (msg.getCreator() != null) {
-            systemStringToBuf("cMsgCreator", buf, msg.getCreator());
             fieldCount++;
         }
         if (msg.getSender() != null) {
