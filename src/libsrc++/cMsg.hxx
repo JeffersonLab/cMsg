@@ -101,7 +101,6 @@ public:
   virtual void setUserTime(const struct timespec &userTime) throw(cMsgException);
   virtual int getVersion(void) const throw(cMsgException);
   virtual string getDomain(void) const throw(cMsgException);
-  virtual string getCreator(void) const throw(cMsgException);
   virtual string getReceiver(void) const throw(cMsgException);
   virtual string getReceiverHost(void) const throw(cMsgException);
   virtual string getSender(void) const throw(cMsgException);
@@ -144,7 +143,6 @@ public:
 
   virtual bool   payloadRemoveField(const string &name);
   virtual string payloadGetFieldDescription(const string &name) const throw(cMsgException);  
-  virtual string payloadGetText() const throw(cMsgException);
   
   virtual map<string,int> *payloadGet() const throw(cMsgException);
   virtual int    payloadGetCount() const;
