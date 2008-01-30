@@ -669,15 +669,24 @@ public class RunControl extends cMsgDomainAdapter {
 
             String subject = message.getSubject();
             String type    = message.getType();
-            String text    = message.getText();
 
             // check message fields first
             if (subject == null || type == null) {
                 throw new cMsgException("message subject and/or type is null");
             }
 
-            if (text == null) {
-                text = "";
+            // check for null text
+            String text = message.getText();
+            int textLen = 0;
+            if (text != null) {
+                textLen = text.length();
+            }
+
+            // Payload stuff. Do NOT keep track of sender history.
+            String payloadTxt = message.getPayloadText();
+            int payloadLen = 0;
+            if (payloadTxt != null) {
+                payloadLen = payloadTxt.length();
             }
 
             int msgType = cMsgConstants.msgSubscribeResponse;
@@ -698,7 +707,7 @@ public class RunControl extends cMsgDomainAdapter {
 
                 // length not including first int
                 int totalLength = (4 * 14) + name.length() + subject.length() +
-                        type.length() + text.length() + binaryLength;
+                                  type.length() + payloadLen + textLen + binaryLength;
 
                 // total length of msg (not including this int) is 1st item
                 domainOut.writeInt(totalLength);
@@ -718,7 +727,8 @@ public class RunControl extends cMsgDomainAdapter {
                 domainOut.writeInt(name.length());
                 domainOut.writeInt(subject.length());
                 domainOut.writeInt(type.length());
-                domainOut.writeInt(text.length());
+                domainOut.writeInt(payloadLen);
+                domainOut.writeInt(textLen);
                 domainOut.writeInt(binaryLength);
 
                 // write strings & byte array
@@ -726,7 +736,12 @@ public class RunControl extends cMsgDomainAdapter {
                     domainOut.write(name.getBytes("US-ASCII"));
                     domainOut.write(subject.getBytes("US-ASCII"));
                     domainOut.write(type.getBytes("US-ASCII"));
-                    domainOut.write(text.getBytes("US-ASCII"));
+                    if (payloadLen > 0) {
+                        domainOut.write(payloadTxt.getBytes("US-ASCII"));
+                    }
+                    if (textLen > 0) {
+                        domainOut.write(text.getBytes("US-ASCII"));
+                    }
                     if (binaryLength > 0) {
                         domainOut.write(message.getByteArray(),
                                   message.getByteArrayOffset(),
@@ -766,15 +781,24 @@ public class RunControl extends cMsgDomainAdapter {
 
         String subject = message.getSubject();
         String type    = message.getType();
-        String text    = message.getText();
 
         // check message fields first
         if (subject == null || type == null) {
             throw new cMsgException("message subject and/or type is null");
         }
 
-        if (text == null) {
-            text = "";
+        // check for null text
+        String text = message.getText();
+        int textLen = 0;
+        if (text != null) {
+            textLen = text.length();
+        }
+
+        // Payload stuff. Do NOT keep track of sender history.
+        String payloadTxt = message.getPayloadText();
+        int payloadLen = 0;
+        if (payloadTxt != null) {
+            payloadLen = payloadTxt.length();
         }
 
         int msgType = cMsgConstants.msgSubscribeResponse;
@@ -787,7 +811,7 @@ public class RunControl extends cMsgDomainAdapter {
 
         // total length of msg (not including first int which is this size)
         int totalLength = (4 * 14) + name.length() + subject.length() +
-                type.length() + text.length() + binaryLength;
+                type.length() + payloadLen + textLen + binaryLength;
 
         if (totalLength > 8192) {
             throw new cMsgException("Too big a message for UDP to send");
@@ -822,7 +846,8 @@ public class RunControl extends cMsgDomainAdapter {
             out.writeInt(name.length());
             out.writeInt(subject.length());
             out.writeInt(type.length());
-            out.writeInt(text.length());
+            out.writeInt(payloadLen);
+            out.writeInt(textLen);
             out.writeInt(binaryLength);
 
             // write strings & byte array
@@ -830,7 +855,12 @@ public class RunControl extends cMsgDomainAdapter {
                 out.write(name.getBytes("US-ASCII"));
                 out.write(subject.getBytes("US-ASCII"));
                 out.write(type.getBytes("US-ASCII"));
-                out.write(text.getBytes("US-ASCII"));
+                if (payloadLen > 0) {
+                    out.write(payloadTxt.getBytes("US-ASCII"));
+                }
+                if (textLen > 0) {
+                    out.write(text.getBytes("US-ASCII"));
+                }
                 if (binaryLength > 0) {
                     out.write(message.getByteArray(),
                               message.getByteArrayOffset(),
