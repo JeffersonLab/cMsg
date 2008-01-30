@@ -52,15 +52,15 @@
 /* Prototypes of the 14 functions which implement the standard cMsg tasks in the cMsg domain. */
 int   cmsg_file_connect(const char *myUDL, const char *myName, const char *myDescription,
                         const char *UDLremainder, void **domainId);
-int   cmsg_file_send(void *domainId, const void *msg);
-int   cmsg_file_syncSend(void *domainId, const void *msg, const struct timespec *timeout, int *response);
+int   cmsg_file_send(void *domainId, void *msg);
+int   cmsg_file_syncSend(void *domainId, void *msg, const struct timespec *timeout, int *response);
 int   cmsg_file_flush(void *domainId, const struct timespec *timeout);
 int   cmsg_file_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                           void *userArg, cMsgSubscribeConfig *config, void **handle);
 int   cmsg_file_unsubscribe(void *domainId, void *handle);
 int   cmsg_file_subscribeAndGet(void *domainId, const char *subject, const char *type,
                                 const struct timespec *timeout, void **replyMsg);
-int   cmsg_file_sendAndGet(void *domainId, const void *sendMsg, const struct timespec *timeout, void **replyMsg);
+int   cmsg_file_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
 int   cmsg_file_monitor(void *domainId, const char *command, void **replyMsg);
 int   cmsg_file_start(void *domainId);
 int   cmsg_file_stop(void *domainId);
@@ -154,7 +154,7 @@ int cmsg_file_connect(const char *myUDL, const char *myName, const char *myDescr
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_send(void *domainId, const void *vmsg) {
+int cmsg_file_send(void *domainId, void *vmsg) {
 
   char *s;
   time_t now;
@@ -172,7 +172,7 @@ int cmsg_file_send(void *domainId, const void *vmsg) {
 
 
   /* check creator */
-  if(msg->creator==NULL)msg->creator=strdup(fdi->name);
+  if(msg->payloadText==NULL)msg->payloadText=strdup(fdi->name);
     
 
   /* set sender,senderTime,senderHost */
@@ -209,7 +209,7 @@ int cmsg_file_send(void *domainId, const void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_syncSend(void *domainId, const void *vmsg, const struct timespec *timeout, int *response) {
+int cmsg_file_syncSend(void *domainId, void *vmsg, const struct timespec *timeout, int *response) {
   *response=0;
   return(cmsg_file_send(domainId,vmsg));
 }
@@ -227,7 +227,7 @@ int cmsg_file_subscribeAndGet(void *domainId, const char *subject, const char *t
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_sendAndGet(void *domainId, const void *sendMsg, const struct timespec *timeout,
+int cmsg_file_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
                       void **replyMsg) {
   return(CMSG_NOT_IMPLEMENTED);
 }
