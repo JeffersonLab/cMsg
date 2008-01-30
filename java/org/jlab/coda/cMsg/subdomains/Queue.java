@@ -320,7 +320,7 @@ public class Queue extends cMsgSubdomainAdapter {
             myPStmt.setInt(i++,       (msg.isGetResponse()?1:0));
             myPStmt.setInt(i++,       (msg.isNullGetResponse()?1:0));
 
-            myPStmt.setString(i++,    msg.getCreator());
+//            myPStmt.setString(i++,    msg.getCreator());
             myPStmt.setString(i++,    msg.getSender());
             myPStmt.setString(i++,    msg.getSenderHost());
             myPStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getSenderTime().getTime()));
@@ -402,7 +402,7 @@ public class Queue extends cMsgSubdomainAdapter {
 
                 response.setSysMsgId(rs.getInt("sysMsgId"));
 
-                response.setCreator(rs.getString("creator"));
+//                response.setCreator(rs.getString("creator"));
                 response.setSender(rs.getString("sender"));
                 response.setSenderHost(rs.getString("senderHost"));
                 response.setSenderTime(rs.getTimestamp("senderTime"));
