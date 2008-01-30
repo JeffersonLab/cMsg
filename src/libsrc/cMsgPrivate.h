@@ -81,19 +81,29 @@ extern "C" {
 #define CMSG_MAX_DOMAIN_TYPES   20
 
 /* Access to information stored in the "info" member of the message structure */
-/** Is message a sendAndGet request? -- is stored in 1st bit. */
+/** Is message a sendAndGet request? -- is stored in 1st bit of info. */
 #define CMSG_IS_GET_REQUEST       0x1
-/** Is message a response to a sendAndGet? -- is stored in 2nd bit. */
+/** Is message a response to a sendAndGet? -- is stored in 2nd bit of info. */
 #define CMSG_IS_GET_RESPONSE      0x2
-/** Is the response message null instead of a message? -- is stored in 3rd bit. */
+/** Is the response message null instead of a message? -- is stored in 3rd bit of info. */
 #define CMSG_IS_NULL_GET_RESPONSE 0x4
-/** Is the byte array in big endian form? -- is stored in 4th bit. */
+/** Is the byte array in big endian form? -- is stored in 4th bit of info. */
 #define CMSG_IS_BIG_ENDIAN 0x8
-/** Has the message been sent over the wire? -- is stored in 5th bit. */
+/** Has the message been sent over the wire? -- is stored in 5th bit of info. */
 #define CMSG_WAS_SENT 0x10
-/** Does the message have a compound payload? -- is stored in 6th bit. */
+/** Does the message have a compound payload? -- is stored in 6th bit of info. */
 #define CMSG_HAS_PAYLOAD 0x20
-
+/**
+ * If the message has a compound payload, is the payload only in text form
+ * or has it been expanded into a list of real structures?
+ * Stored in the 7th bit of info.
+ */
+#define CMSG_EXPANDED_PAYLOAD 0x40
+    
+/** The absolute maximum number of entries a message keeps
+ * when recording the history of various parameters. */
+#define CMSG_MAX_HISTORY_LENGTH 200
+    
 /** Is byte array copied in? -- is stored in 1st bit. */
 #define CMSG_BYTE_ARRAY_IS_COPIED 0x1
 
@@ -116,10 +126,10 @@ typedef int (*CONNECT_PTR)     (const char *udl, const char *name, const char *d
                                 const char *UDLremainder, void **domainId); 
                                   
 /** Typedef for a domain's send function */  
-typedef int (*SEND_PTR)        (void *domainId, const void *msg);
+typedef int (*SEND_PTR)        (void *domainId, void *msg);
 
 /** Typedef for a domain's syncSend function */  
-typedef int (*SYNCSEND_PTR)    (void *domainId, const void *msg, const struct timespec *timeout,
+typedef int (*SYNCSEND_PTR)    (void *domainId, void *msg, const struct timespec *timeout,
                                 int *response);
 
 /** Typedef for a domain's subscribe function */  
@@ -135,7 +145,7 @@ typedef int (*SUBSCRIBE_AND_GET_PTR) (void *domainId, const char *subject, const
                                       const struct timespec *timeout, void **replyMsg);
 
 /** Typedef for a domain's sendAndGet function */  
-typedef int (*SEND_AND_GET_PTR)         (void *domainId, const void *sendMsg,
+typedef int (*SEND_AND_GET_PTR)         (void *domainId, void *sendMsg,
                                          const struct timespec *timeout, void **replyMsg);
 
 /** Typedef for a domain's monitor function */  
@@ -317,15 +327,18 @@ typedef struct cMsg_t {
                           * - is byte array data big endian? 4th bit
                           * - has message been sent over the wire? 5th bit
                           * - message has compound payload? 6th bit
+                          * - payload is expanded (from only text into structures)? 7th bit
                           */
   int     reserved;      /**< Reserved for future use. */
   int     bits;          /**< Stores info in bit form about internal state (true = 1).
                           * - is byte array copied in? 1st bit
                           */
-  char   *domain;        /**< Domain message is generated in. */
-  char   *creator;       /**< Message was originally created by this user/sender. */
+  int     historyLengthMax; /**< The maximum number of entries a message keeps (in payload)
+                             *   when recording the history of various parameters. */
+  int     payloadCount;  /**< Number of items in compound payload. */
+  char   *payloadText;   /**< Entire compound payload in text form. */
   payloadItem  *payload; /**< First compound payload item. */
-  payloadItem  *marker;  /**< Current compound payload item. */
+  char   *domain;        /**< Domain message is generated in. */
   
   /* user-settable quantities */
   char   *subject;             /**< Subject of message. */
