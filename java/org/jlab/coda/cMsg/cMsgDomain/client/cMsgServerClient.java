@@ -147,8 +147,6 @@ public class cMsgServerClient extends cMsg {
         ParsedUDL p = parseUDL(UDL);
         p.copyToLocal();
 
-        creator = name+":"+nameServerHost+":"+nameServerPort;
-
         // cannot run this simultaneously with any other public method
         connectLock.lock();
         try {
@@ -380,9 +378,7 @@ public class cMsgServerClient extends cMsg {
         String subject    = message.getSubject();
         String type       = message.getType();
         String text       = message.getText();
-        String msgCreator = message.getCreator();
-        // this sender's creator if msg created here
-        if (msgCreator == null) msgCreator = creator;
+        String payloadTxt = message.getPayloadText();
 
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
@@ -411,7 +407,7 @@ public class cMsgServerClient extends cMsg {
             try {
                 // total length of msg (not including this int) is 1st item
                 domainOut.writeInt(4 * 15 + subject.length() + type.length() + namespace.length() +
-                        msgCreator.length() + text.length() + binaryLength);
+                        payloadTxt.length() + text.length() + binaryLength);
 
                 domainOut.writeInt(cMsgConstants.msgServerSendAndGetRequest);
                 domainOut.writeInt(0); // reserved for future use
@@ -429,7 +425,7 @@ public class cMsgServerClient extends cMsg {
                 domainOut.writeInt(subject.length());
                 domainOut.writeInt(type.length());
                 domainOut.writeInt(namespace.length());
-                domainOut.writeInt(msgCreator.length());
+                domainOut.writeInt(payloadTxt.length());
                 domainOut.writeInt(text.length());
                 domainOut.writeInt(binaryLength);
 
@@ -438,7 +434,7 @@ public class cMsgServerClient extends cMsg {
                     domainOut.write(subject.getBytes("US-ASCII"));
                     domainOut.write(type.getBytes("US-ASCII"));
                     domainOut.write(namespace.getBytes("US-ASCII"));
-                    domainOut.write(msgCreator.getBytes("US-ASCII"));
+                    domainOut.write(payloadTxt.getBytes("US-ASCII"));
                     domainOut.write(text.getBytes("US-ASCII"));
                     if (binaryLength > 0) {
                         domainOut.write(message.getByteArray(),
