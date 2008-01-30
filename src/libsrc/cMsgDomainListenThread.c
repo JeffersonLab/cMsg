@@ -64,7 +64,7 @@ typedef struct freeMem_t {
 
 /*-------------------------------------------------------------------*
  * The listening thread needs a pthread cancellation cleanup handler.
- * It will be called when the cMsgClientListeningThread is cancelled.
+ * It will be called when the cMsgClientListenin+gThread is cancelled.
  * It's task is to remove all the client threads.
  *-------------------------------------------------------------------*/
 static void cleanUpHandler(void *arg) {
@@ -1046,7 +1046,7 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
 static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *acknowledge) {
 
   uint64_t llTime;
-  int  hasPayload, stringLen, lengths[7], inComing[18];
+  int  err, hasPayload, stringLen, lengths[7], inComing[18];
   char *pchar, *tmp;
     
   if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
@@ -1057,12 +1057,13 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   }
 
   /* swap to local endian */
-  msg->version  = ntohl(inComing[0]);  /* major version of cMsg */
-                                       /* second int is for future use */
-  msg->userInt  = ntohl(inComing[2]);  /* user int */
-  msg->info     = ntohl(inComing[3]);  /* get info */
-  msg->info    |= CMSG_WAS_SENT;       /* mark message as having been sent over the wire */
-  cMsgHasPayload(msg, &hasPayload);    /* does message have compound payload? */
+  msg->version  = ntohl(inComing[0]); /* major version of cMsg */
+                                      /* second int is for future use */
+  msg->userInt = ntohl(inComing[2]);  /* user int */
+  msg->info    = ntohl(inComing[3]);  /* get info */
+  /* mark message as having been sent over the wire and as having an expanded payload */
+  msg->info   |= CMSG_WAS_SENT | CMSG_EXPANDED_PAYLOAD;
+  cMsgHasPayload(msg, &hasPayload);   /* does message have compound payload? */
   
   /*
    * Time arrives as the high 32 bits followed by the low 32 bits
@@ -1085,7 +1086,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   lengths[1]       = ntohl(inComing[11]); /* senderHost length */
   lengths[2]       = ntohl(inComing[12]); /* subject length */
   lengths[3]       = ntohl(inComing[13]); /* type length */
-  lengths[4]       = ntohl(inComing[14]); /* creator length */
+  lengths[4]       = ntohl(inComing[14]); /* payloadText length */
   lengths[5]       = ntohl(inComing[15]); /* text length */
   lengths[6]       = ntohl(inComing[16]); /* binary length */
   *acknowledge     = ntohl(inComing[17]); /* acknowledge receipt of message? (1-y,0-n) */
@@ -1199,59 +1200,51 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
 /*printf("*****   got type length = %d\n", lengths[3]);*/
   }
   
-  /*---------------------*/
-  /* read creator string */
-  /*---------------------*/
+  /*-------------------------*/
+  /* read payloadText string */
+  /*-------------------------*/
   if (lengths[4] > 0) {
-    if ( (tmp = (char *) malloc(lengths[4]+1)) == NULL) {
-      if (msg->sender != NULL)     free((void *) msg->sender);
-      if (msg->senderHost != NULL) free((void *) msg->senderHost);
-      if (msg->subject != NULL)    free((void *) msg->subject);
-      if (msg->type != NULL)       free((void *) msg->type);
-      msg->sender     = NULL;
-      msg->senderHost = NULL;
-      msg->subject    = NULL;
-      msg->type       = NULL;
-      return(CMSG_OUT_OF_MEMORY);    
-    }
-    memcpy(tmp, pchar, lengths[4]);
-    tmp[lengths[4]] = 0;
-    msg->creator = tmp;
-    pchar += lengths[4];
-    /* printf("creator = %s\n", tmp); */
+      err = cMsgPayloadSetAllFieldsFromText(msg, pchar);
+      if (err != CMSG_OK) {
+          if (msg->sender != NULL)     free((void *) msg->sender);
+          if (msg->senderHost != NULL) free((void *) msg->senderHost);
+          if (msg->subject != NULL)    free((void *) msg->subject);
+          if (msg->type != NULL)       free((void *) msg->type);
+          msg->sender     = NULL;
+          msg->senderHost = NULL;
+          msg->subject    = NULL;
+          msg->type       = NULL;
+          return(err);    
+      }    
+      pchar += lengths[4];
   }
   else {
-    msg->creator = NULL;
+      msg->payload      = NULL;
+      msg->payloadText  = NULL;
+      msg->payloadCount = 0;
   }
     
   /*--------------------------------------------------*/
   /* read text string & compound payload if it exists */
   /*--------------------------------------------------*/
   if (lengths[5] > 0) {
-    if (!hasPayload) {
       if ( (tmp = (char *) malloc(lengths[5]+1)) == NULL) {
         if (msg->sender != NULL)     free((void *) msg->sender);
         if (msg->senderHost != NULL) free((void *) msg->senderHost);
         if (msg->subject != NULL)    free((void *) msg->subject);
         if (msg->type != NULL)       free((void *) msg->type);
-        if (msg->creator != NULL)    free((void *) msg->creator);
+        if (msg->payload != NULL)    cMsgPayloadWipeout((void *)msg);
         msg->sender     = NULL;
         msg->senderHost = NULL;
         msg->subject    = NULL;
         msg->type       = NULL;
-        msg->creator    = NULL;
         return(CMSG_OUT_OF_MEMORY);    
-      }
-    
+      }    
       memcpy(tmp, pchar, lengths[5]);
       tmp[lengths[5]] = 0;
       msg->text = tmp;
       /* printf("text = %s\n", tmp); */
-    }
-    else {
-      cMsgPayloadSetAllFieldsFromText(msg, pchar);
-    }
-    pchar += lengths[5];
+      pchar += lengths[5];
   }
   else {
     msg->text = NULL;
@@ -1267,13 +1260,12 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
       if (msg->senderHost != NULL) free((void *) msg->senderHost);
       if (msg->subject != NULL)    free((void *) msg->subject);
       if (msg->type != NULL)       free((void *) msg->type);
-      if (msg->creator != NULL)    free((void *) msg->creator);
+      if (msg->payload != NULL)    cMsgPayloadWipeout((void *)msg);
       if (msg->text != NULL)       free((void *) msg->text);
       msg->sender     = NULL;
       msg->senderHost = NULL;
       msg->subject    = NULL;
       msg->type       = NULL;
-      msg->creator    = NULL;
       msg->text       = NULL;
       return(CMSG_OUT_OF_MEMORY);    
     }
@@ -1286,13 +1278,12 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
       if (msg->senderHost != NULL) free((void *) msg->senderHost);
       if (msg->subject != NULL)    free((void *) msg->subject);
       if (msg->type != NULL)       free((void *) msg->type);
-      if (msg->creator != NULL)    free((void *) msg->creator);
+      if (msg->payload != NULL)    cMsgPayloadWipeout((void *)msg);
       if (msg->text != NULL)       free((void *) msg->text);
       msg->sender     = NULL;
       msg->senderHost = NULL;
       msg->subject    = NULL;
       msg->type       = NULL;
-      msg->creator    = NULL;
       msg->text       = NULL;      
       return(CMSG_NETWORK_ERROR);
     }
