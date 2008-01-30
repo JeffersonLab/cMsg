@@ -346,6 +346,9 @@ public class rcListeningThread extends Thread {
             in.skipBytes(4);
             msg.setUserInt(in.readInt());
             msg.setInfo(in.readInt());
+            // mark the message as having been sent over the wire & having expanded payload
+            msg.setInfo(msg.getInfo() | cMsgMessage.wasSent | cMsgMessage.expandedPayload);
+
             // time message was sent = 2 ints (hightest byte first)
             // in milliseconds since midnight GMT, Jan 1, 1970
             long time = ((long) in.readInt() << 32) | ((long) in.readInt() & 0x00000000FFFFFFFFL);
@@ -356,18 +359,18 @@ public class rcListeningThread extends Thread {
             msg.setSysMsgId(in.readInt());
             msg.setSenderToken(in.readInt());
             // String lengths
-            int lengthSender = in.readInt();
-            int lengthSenderHost = in.readInt();
-            int lengthSubject = in.readInt();
-            int lengthType = in.readInt();
-            int lengthCreator = in.readInt();
-            int lengthText = in.readInt();
-            int lengthBinary = in.readInt();
+            int lengthSender      = in.readInt();
+            int lengthSenderHost  = in.readInt();
+            int lengthSubject     = in.readInt();
+            int lengthType        = in.readInt();
+            int lengthPayloadText = in.readInt();
+            int lengthText        = in.readInt();
+            int lengthBinary      = in.readInt();
             acknowledge = in.readInt() == 1;
 
             // bytes expected
             int stringBytesToRead = lengthSender + lengthSenderHost + lengthSubject +
-                    lengthType + lengthCreator + lengthText;
+                                    lengthType + lengthPayloadText + lengthText;
             int offset = 0;
 
             // read all string bytes
@@ -396,10 +399,19 @@ public class rcListeningThread extends Thread {
             //System.out.println("type = " + msg.getType());
             offset += lengthType;
 
-            // read creator
-            msg.setCreator(new String(bytes, offset, lengthCreator, "US-ASCII"));
-            //System.out.println("creator = " + msg.getCreator());
-            offset += lengthCreator;
+            // read payload text
+            if (lengthPayloadText > 0) {
+                String s = new String(bytes, offset, lengthPayloadText, "US-ASCII");
+                // setting the payload text is done by setFieldsFromText
+                //System.out.println("payload text = " + s);
+                offset += lengthPayloadText;
+                try {
+                    msg.setFieldsFromText(s, cMsgMessage.allFields);
+                }
+                catch (cMsgException e) {
+                    System.out.println("msg payload is in the wrong format: " + e.getMessage());
+                }
+            }
 
             // read text
             if (lengthText > 0) {
