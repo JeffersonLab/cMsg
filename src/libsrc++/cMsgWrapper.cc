@@ -722,31 +722,6 @@ cMsgMessage *cMsgMessage::copy(void) const throw(cMsgException) {
 
 
 /**
- * Gets message creator.
- *
- * @return Creator
- */
-string cMsgMessage::getCreator(void) const throw(cMsgException) {
-
-  const char *s;
-
-  int stat;
-  if((stat=cMsgGetCreator(myMsgPointer,&s))!=CMSG_OK) {
-    throw(cMsgException(cMsgPerror(stat),stat));
-  };
-
-  if(s==NULL) {
-    return("null");
-  } else {
-    return(string(s));
-  }
-}
-
-
-//-----------------------------------------------------------------------------
-
-
-/**
  * Gets message domain.
  *
  * @return Domain
