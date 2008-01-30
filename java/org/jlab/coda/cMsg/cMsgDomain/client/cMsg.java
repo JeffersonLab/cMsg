@@ -46,12 +46,6 @@ public class cMsg extends cMsgDomainAdapter {
     /** Port number to listen on. */
     int port;
 
-    /**
-     * A string of the form name:nameServerHost:nameserverPort.
-     * This is a variable of convenience so it does not have to
-     * be calculated for each send.
-     */
-    String creator;
 
     /** Subdomain being used. */
     private String subdomain;
@@ -266,11 +260,10 @@ public class cMsg extends cMsgDomainAdapter {
      * @return integer value
      */
     private static final int bytesToInt(byte[] b, int off) {
-        int result = ((b[off] & 0xff) << 24)     |
-                     ((b[off + 1] & 0xff) << 16) |
-                     ((b[off + 2] & 0xff) << 8)  |
-                      (b[off + 3] & 0xff);
-        return result;
+        return (((b[off]     & 0xff) << 24) |
+                ((b[off + 1] & 0xff) << 16) |
+                ((b[off + 2] & 0xff) << 8)  |
+                 (b[off + 3] & 0xff));
     }
 
 
@@ -663,9 +656,6 @@ public class cMsg extends cMsgDomainAdapter {
      *                       communication problems with the server
      */
     private void connectDirect() throws cMsgException {
-        // UDL has already been parsed and stored in this object's members
-        creator = name + ":" + nameServerHost + ":" + nameServerPort;
-
         // cannot run this simultaneously with any other public method
         connectLock.lock();
         try {
@@ -1241,20 +1231,28 @@ public class cMsg extends cMsgDomainAdapter {
 
         String subject = message.getSubject();
         String type    = message.getType();
-        String text    = message.getText();
 
         // check message fields first
         if (subject == null || type == null) {
             throw new cMsgException("message subject and/or type is null");
         }
 
-        if (text == null) {
-            text = "";
+        // check for null text
+        String text = message.getText();
+        int textLen = 0;
+        if (text != null) {
+            textLen = text.length();
         }
 
-        // creator (this sender's name:nsHost:nsPort if msg created here)
-        String msgCreator = message.getCreator();
-        if (msgCreator == null) msgCreator = creator;
+        // Payload stuff. Include the name of this sender as part of a history
+        // of senders in the cMsgSenderHistory payload field. Note that msg may
+        // be set not to record any history.
+        message.addSenderToHistory(name);
+        String payloadTxt = message.getPayloadText();
+        int payloadLen = 0;
+        if (payloadTxt != null) {
+            payloadLen = payloadTxt.length();
+        }
 
         int binaryLength = message.getByteArrayLength();
 
@@ -1272,8 +1270,8 @@ public class cMsg extends cMsgDomainAdapter {
                 }
 
                 // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(4 * 15 + subject.length() + type.length() + msgCreator.length() +
-                        text.length() + binaryLength);
+                domainOut.writeInt(4 * 15 + subject.length() + type.length() + payloadLen +
+                                  textLen + binaryLength);
                 domainOut.writeInt(cMsgConstants.msgSendRequest);
                 domainOut.writeInt(0); // reserved for future use
                 domainOut.writeInt(message.getUserInt());
@@ -1290,16 +1288,20 @@ public class cMsg extends cMsgDomainAdapter {
 
                 domainOut.writeInt(subject.length());
                 domainOut.writeInt(type.length());
-                domainOut.writeInt(msgCreator.length());
-                domainOut.writeInt(text.length());
+                domainOut.writeInt(payloadLen);
+                domainOut.writeInt(textLen);
                 domainOut.writeInt(binaryLength);
 
                 // write strings & byte array
                 try {
                     domainOut.write(subject.getBytes("US-ASCII"));
                     domainOut.write(type.getBytes("US-ASCII"));
-                    domainOut.write(msgCreator.getBytes("US-ASCII"));
-                    domainOut.write(text.getBytes("US-ASCII"));
+                    if (payloadLen > 0) {
+                        domainOut.write(payloadTxt.getBytes("US-ASCII"));
+                    }
+                    if (textLen > 0) {
+                        domainOut.write(text.getBytes("US-ASCII"));
+                    }
                     if (binaryLength > 0) {
                         domainOut.write(message.getByteArray(),
                                         message.getByteArrayOffset(),
@@ -1345,26 +1347,34 @@ public class cMsg extends cMsgDomainAdapter {
 
         String subject = message.getSubject();
         String type    = message.getType();
-        String text    = message.getText();
 
         // check message fields first
         if (subject == null || type == null) {
             throw new cMsgException("message subject and/or type is null");
         }
 
-        if (text == null) {
-            text = "";
+        // check for null text
+        String text = message.getText();
+        int textLen = 0;
+        if (text != null) {
+            textLen = text.length();
         }
 
-        // creator (this sender's name:nsHost:nsPort if msg created here)
-        String msgCreator = message.getCreator();
-        if (msgCreator == null) msgCreator = creator;
+        // Payload stuff. Include the name of this sender as part of a history
+        // of senders in the cMsgSenderHistory payload field. Note that msg may
+        // be set not to record any history.
+        message.addSenderToHistory(name);
+        String payloadTxt = message.getPayloadText();
+        int payloadLen = 0;
+        if (payloadTxt != null) {
+            payloadLen = payloadTxt.length();
+        }
 
         int binaryLength = message.getByteArrayLength();
 
         // total length of msg (not including first int which is this size)
-        int totalLength = 4*15 + subject.length() + type.length() + msgCreator.length() +
-                                 text.length() + binaryLength;
+        int totalLength = 4*15 + subject.length() + type.length() + payloadLen +
+                                 textLen + binaryLength;
         if (totalLength > 8192) {
             throw new cMsgException("Too big a message for UDP to send");
         }
@@ -1396,16 +1406,20 @@ public class cMsg extends cMsgDomainAdapter {
 
                 out.writeInt(subject.length());
                 out.writeInt(type.length());
-                out.writeInt(msgCreator.length());
-                out.writeInt(text.length());
+                out.writeInt(payloadLen);
+                out.writeInt(textLen);
                 out.writeInt(binaryLength);
 
                 // write strings & byte array
                 try {
                     out.write(subject.getBytes("US-ASCII"));
                     out.write(type.getBytes("US-ASCII"));
-                    out.write(msgCreator.getBytes("US-ASCII"));
-                    out.write(text.getBytes("US-ASCII"));
+                    if (payloadLen > 0) {
+                        out.write(payloadTxt.getBytes("US-ASCII"));
+                    }
+                    if (textLen > 0) {
+                        out.write(text.getBytes("US-ASCII"));
+                    }
                     if (binaryLength > 0) {
                         out.write(message.getByteArray(),
                                   message.getByteArrayOffset(),
@@ -1466,20 +1480,28 @@ public class cMsg extends cMsgDomainAdapter {
 
         String subject = message.getSubject();
         String type = message.getType();
-        String text = message.getText();
 
         // check args first
         if (subject == null || type == null) {
             throw new cMsgException("message subject and/or type is null");
         }
 
-        if (text == null) {
-            text = "";
+        // check for null text
+        String text = message.getText();
+        int textLen = 0;
+        if (text != null) {
+            textLen = text.length();
         }
 
-        // this sender's name if msg created here
-        String msgCreator = message.getCreator();
-        if (msgCreator == null) msgCreator = creator;
+        // Payload stuff. Include the name of this sender as part of a history
+        // of senders in the cMsgSenderHistory payload field. Note that msg may
+        // be set not to record any history.
+        message.addSenderToHistory(name);
+        String payloadTxt = message.getPayloadText();
+        int payloadLen = 0;
+        if (payloadTxt != null) {
+            payloadLen = payloadTxt.length();
+        }
 
         int binaryLength = message.getByteArrayLength();
 
@@ -1501,8 +1523,8 @@ public class cMsg extends cMsgDomainAdapter {
                 socketLock.lock();
                 try {
                     // total length of msg (not including this int) is 1st item
-                    domainOut.writeInt(4 * 15 + subject.length() + type.length() + msgCreator.length() +
-                            text.length() + binaryLength);
+                    domainOut.writeInt(4 * 15 + subject.length() + type.length() + payloadLen +
+                                       textLen + binaryLength);
                     domainOut.writeInt(cMsgConstants.msgSyncSendRequest);
                     domainOut.writeInt(0); // reserved for future use
                     domainOut.writeInt(message.getUserInt());
@@ -1519,16 +1541,20 @@ public class cMsg extends cMsgDomainAdapter {
 
                     domainOut.writeInt(subject.length());
                     domainOut.writeInt(type.length());
-                    domainOut.writeInt(msgCreator.length());
-                    domainOut.writeInt(text.length());
+                    domainOut.writeInt(payloadLen);
+                    domainOut.writeInt(textLen);
                     domainOut.writeInt(binaryLength);
 
                     // write strings & byte array
                     try {
                         domainOut.write(subject.getBytes("US-ASCII"));
                         domainOut.write(type.getBytes("US-ASCII"));
-                        domainOut.write(msgCreator.getBytes("US-ASCII"));
-                        domainOut.write(text.getBytes("US-ASCII"));
+                        if (payloadLen > 0) {
+                            domainOut.write(payloadTxt.getBytes("US-ASCII"));
+                        }
+                        if (textLen > 0) {
+                            domainOut.write(text.getBytes("US-ASCII"));
+                        }
                         if (binaryLength > 0) {
                             domainOut.write(message.getByteArray(),
                                             message.getByteArrayOffset(),
@@ -2139,19 +2165,27 @@ public class cMsg extends cMsgDomainAdapter {
 
         String subject    = message.getSubject();
         String type       = message.getType();
-        String text       = message.getText();
-        String msgCreator = message.getCreator();
-        // this sender's creator if msg created here
-        if (msgCreator == null) msgCreator = creator;
-
 
         // check args first
         if (subject == null || type == null) {
             throw new cMsgException("message subject and/or type is null");
         }
 
-        if (text == null) {
-            text = "";
+        // check for null text
+        String text = message.getText();
+        int textLen = 0;
+        if (text != null) {
+            textLen = text.length();
+        }
+
+        // Payload stuff. Include the name of this sender as part of a history
+        // of senders in the cMsgSenderHistory payload field. Note that msg may
+        // be set not to record any history.
+        message.addSenderToHistory(name);
+        String payloadTxt = message.getPayloadText();
+        int payloadLen = 0;
+        if (payloadTxt != null) {
+            payloadLen = payloadTxt.length();
         }
 
         int id = 0;
@@ -2186,8 +2220,8 @@ public class cMsg extends cMsgDomainAdapter {
             socketLock.lock();
             try {
                 // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(4*15 + subject.length() + type.length() + msgCreator.length() +
-                                   text.length() + binaryLength);
+                domainOut.writeInt(4*15 + subject.length() + type.length() + payloadLen +
+                                   textLen + binaryLength);
                 domainOut.writeInt(cMsgConstants.msgSendAndGetRequest);
                 domainOut.writeInt(0); // reserved for future use
                 domainOut.writeInt(message.getUserInt());
@@ -2204,16 +2238,20 @@ public class cMsg extends cMsgDomainAdapter {
                 domainOut.writeInt(subject.length());
                 domainOut.writeInt(type.length());
                 domainOut.writeInt(0); // namespace length
-                domainOut.writeInt(msgCreator.length());
-                domainOut.writeInt(text.length());
+                domainOut.writeInt(payloadLen);
+                domainOut.writeInt(textLen);
                 domainOut.writeInt(binaryLength);
 
                 // write strings & byte array
                 try {
                     domainOut.write(subject.getBytes("US-ASCII"));
                     domainOut.write(type.getBytes("US-ASCII"));
-                    domainOut.write(msgCreator.getBytes("US-ASCII"));
-                    domainOut.write(text.getBytes("US-ASCII"));
+                    if (payloadLen > 0) {
+                        domainOut.write(payloadTxt.getBytes("US-ASCII"));
+                    }
+                    if (textLen > 0) {
+                        domainOut.write(text.getBytes("US-ASCII"));
+                    }
                     if (binaryLength > 0) {
                         domainOut.write(message.getByteArray(),
                                         message.getByteArrayOffset(),
