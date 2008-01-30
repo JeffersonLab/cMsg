@@ -46,10 +46,15 @@ import java.math.BigInteger;
   * to decode XML than a simple format. Thus, a simple, easy-to-parse format
   * was developed to implement this interface.<p>
   *
-  * Following is the text format of a complete compound payload ([nl] means newline, only 1 space between items).
-  * Each payload consists of a number of items. The first line is the number of
-  * items in the payload. That is followed by the text
-  * representation of each item:<p></b>
+  * Following is the text format of a complete compound payload (where [nl] means
+  * newline). Each payload consists of a number of items. The very first line is the
+  * number of items in the payload. That is followed by the text representation of
+  * each item. The first line of each item consists of 5 entries.<p>
+  *
+  * Note that there is only 1 space or newline between all entries. The only exception
+  * to the 1 space spacing is between the last two entries on each "header" line (the line
+  * that contains the item_name). There may be several spaces between the last 2
+  * entries on these lines.<p></b>
   *
   *<pre>    item_count[nl]</pre><p>
   *
@@ -128,6 +133,14 @@ public class cMsgMessage implements Cloneable {
      */
     public static final int hasPayload = 0x20;
 
+    /**
+     * If the message has a compound payload, is the payload only in text form
+     * or has it been expanded into a hashtable of real objects?
+     * Is stored in the 7th bit of info.
+     * This is only for internal use.
+     */
+    public static final int expandedPayload = 0x40;
+
    /** When converting text to message fields, only convert system fields. */
     public static final int systemFieldsOnly = 0;
 
@@ -155,6 +168,9 @@ public class cMsgMessage implements Cloneable {
       -2, -1, -1, -1, -1, -1, -1, 10, 11, 12,  /* 90-99, Z maps to 90 */
       13, 14, 15}; /* 100-102 */
 
+    /** Absolute maximum number of entries a message keeps when recording the history of various parameters. */
+    private static final int historyLengthAbsoluteMax = 200;
+
     // general quantities
 
     /**
@@ -181,10 +197,10 @@ public class cMsgMessage implements Cloneable {
     int info;
     /** Version number of cMsg. */
     int version;
-    /** Creator of the this message in the form: name:nameServerHost:NameServerPort. */
-    String creator;
     /** Class member reserved for future use. */
     int reserved;
+    /** Maximum number of entries a message keeps when recording the history of various parameters. */
+    private int historyLengthMax;
 
     // user-settable quantities
 
@@ -211,6 +227,8 @@ public class cMsgMessage implements Cloneable {
     ConcurrentHashMap<String, cMsgPayloadItem> items;
     /** Buffer to help build the text represenation of the payload to send over network. */
     private StringBuilder buffer;
+    /** String representation of the entire payload (including hidden system payload items). */
+    String payloadText;
 
     // sender quantities
 
@@ -250,7 +268,7 @@ public class cMsgMessage implements Cloneable {
             cMsgMessage result = (cMsgMessage) super.clone();
             result.context = new cMsgMessageContextDefault();
             result.context.setReliableSend(reliableSend);
-            result.buffer = new StringBuilder(4096);
+            result.buffer = new StringBuilder(512);
             result.items  = new ConcurrentHashMap<String, cMsgPayloadItem>();
             for (Map.Entry<String, cMsgPayloadItem> entry : items.entrySet()) {
                 result.items.put(entry.getKey(), (cMsgPayloadItem)entry.getValue().clone());
@@ -271,11 +289,13 @@ public class cMsgMessage implements Cloneable {
         version = cMsgConstants.version;
         items   = new ConcurrentHashMap<String, cMsgPayloadItem>();
         buffer  = new StringBuilder(512);
+        info   |= expandedPayload;
+        historyLengthMax = 20;
     }
 
 
     /**
-     * The constructor which copies a given message, EXCEPT for the creator field.
+     * The constructor which copies a given message.
      *
      * @param msg message to be copied
      */
@@ -284,7 +304,6 @@ public class cMsgMessage implements Cloneable {
         domain              = msg.domain;
         info                = msg.info;
         version             = msg.version;
-        //creator             = msg.creator;
         subject             = msg.subject;
         type                = msg.type;
         text                = msg.text;
@@ -300,7 +319,8 @@ public class cMsgMessage implements Cloneable {
         receiverHost        = msg.receiverHost;
         receiverTime        = msg.receiverTime;
         receiverSubscribeId = msg.receiverSubscribeId;
-        buffer              = new StringBuilder(4096);
+        historyLengthMax    = msg.historyLengthMax;
+        buffer              = new StringBuilder(512);
         items               = new ConcurrentHashMap<String, cMsgPayloadItem>();
         for (Map.Entry<String, cMsgPayloadItem> entry : msg.items.entrySet()) {
             items.put(entry.getKey(), (cMsgPayloadItem)entry.getValue().clone());
@@ -390,6 +410,30 @@ public class cMsgMessage implements Cloneable {
     // general quantities
     ///////////////////////
 
+    /**
+     * Gets the maximum number of entries this message keeps of its history of various parameters.
+     * @return the maximum number of entries this message keeps of its history of various parameters
+     */
+    public int getHistoryLengthMax() {
+        return historyLengthMax;
+    }
+
+    /**
+     * Sets the maximum number of entries this message keeps of its history of various parameters.
+     * Setting this quantity to zero effectively turns off keeping any history.
+     *
+     * @param historyLengthMax the maximum number of entries this message keeps of its history of various parameters
+     * @throws cMsgException if historyLengthMax is < 0 or > historyLengthAbsoluteMax
+     */
+    public void setHistoryLengthMax(int historyLengthMax) throws cMsgException {
+        if (historyLengthMax < 0) {
+            throw new cMsgException("historyLengthMax must >= 0");
+        }
+        else if (historyLengthMax > historyLengthAbsoluteMax) {
+            throw new cMsgException("historyLengthMax must <= " + historyLengthAbsoluteMax);
+        }
+        this.historyLengthMax = historyLengthMax;
+    }
 
     /**
      * Get system id of message. Irrelevant to the user, used only by the system.
@@ -459,52 +503,6 @@ public class cMsgMessage implements Cloneable {
     public int getVersion() {
         return version;
     }
-
-
-    /**
-     * Gets the creator of this message.
-     * It is in the form name:nameServerHost:nameServerPort.
-     * @return creator of this message.
-     */
-    public String getCreator() {
-        return creator;
-    }
-
-
-    /**
-     * Gets the name of the creator of this message.
-     * @return name of the creator of this message.
-     */
-    public String getCreatorName() {
-        String s[] = creator.split(":");
-        return s[0];
-    }
-
-
-    /**
-     * Gets the name server host of the creator of this message.
-     * @return name server host of the creator of this message.
-     */
-    public String getCreatorServerHost() {
-        String s[] = creator.split(":");
-        return s[1];
-    }
-
-
-    /**
-     * Gets the name server port of the creator of this message.
-     * @return name server port of the creator of this message.
-     */
-    public int getCreatorServerPort() {
-        String s[] = creator.split(":");
-        int p = 0;
-
-        try { p = Integer.parseInt(s[2]); }
-        catch (NumberFormatException e) {}
-
-        return p;
-    }
-
 
     /////////////////////////////
     // user-settable quantities
@@ -910,7 +908,6 @@ public class cMsgMessage implements Cloneable {
         "%s     getRequest      = \"%s\"\n" +
         "%s     getResponse     = \"%s\"\n" +
         "%s     nullGetResponse = \"%s\"\n" +
-        "%s     creator         = \"%s\"\n" +
         "%s     sender          = \"%s\"\n" +
         "%s     senderHost      = \"%s\"\n" +
         "%s     senderTime      = \"%s\"\n" +
@@ -936,7 +933,6 @@ public class cMsgMessage implements Cloneable {
         "%s     getRequest      = \"%s\"\n" +
         "%s     getResponse     = \"%s\"\n" +
         "%s     nullGetResponse = \"%s\"\n" +
-        "%s     creator         = \"%s\"\n" +
         "%s     sender          = \"%s\"\n" +
         "%s     senderHost      = \"%s\"\n" +
         "%s     senderTime      = \"%s\"\n" +
@@ -1021,8 +1017,7 @@ public class cMsgMessage implements Cloneable {
                       indent, ((info & isGetRequest) != 0) ? "true" : "false",
                       indent, ((info & isGetResponse) != 0) ? "true" : "false",
                       indent, ((info & isNullGetResponse) != 0) ? "true" : "false",
-                      indent, creator, indent, sender,
-                      indent, senderHost, indent, sendTime,
+                      indent, sender, indent, senderHost, indent, sendTime,
                       indent, userInt, indent, useTime,
                       indent, receiver, indent, receiverHost, indent, receiveTime,
                       indent, subject, indent, type, indent, text, indent,
@@ -1037,8 +1032,7 @@ public class cMsgMessage implements Cloneable {
                       indent, ((info & isGetRequest) != 0) ? "true" : "false",
                       indent, ((info & isGetResponse) != 0) ? "true" : "false",
                       indent, ((info & isNullGetResponse) != 0) ? "true" : "false",
-                      indent, creator, indent, sender,
-                      indent, senderHost, indent, sendTime,
+                      indent, sender, indent, senderHost, indent, sendTime,
                       indent, userInt, indent, useTime,
                       indent, receiver, indent, receiverHost, indent, receiveTime,
                       indent, subject, indent, type, indent, text, indent,
@@ -1343,11 +1337,24 @@ public class cMsgMessage implements Cloneable {
     }
 
     /**
-     * Set the "has-a-compound-payload" bit of a message.
-     * @param hp boolean (true if msg has a compound payload, else has no payload)
+     * Copy only the payload of the given message, overwriting
+     * the existing payload.
+     * @param msg message to copy payload from
      */
-    protected void hasPayload(boolean hp) {
-      info = hp ? info | hasPayload  :  info & ~hasPayload;
+    public void copyPayload(cMsgMessage msg) {
+        items.clear();
+        for (Map.Entry<String, cMsgPayloadItem> entry : msg.getPayloadItems().entrySet()) {
+            items.put(entry.getKey(), (cMsgPayloadItem)entry.getValue().clone());
+        }
+        payloadText = msg.payloadText;
+    }
+
+    /**
+     * Gets the String representation of the compound payload of this message.
+     * @return creator of this message.
+     */
+    public String getPayloadText() {
+        return payloadText;
     }
 
     /**
@@ -1359,6 +1366,14 @@ public class cMsgMessage implements Cloneable {
     }
 
     /**
+     * Set the "has-a-compound-payload" bit of a message.
+     * @param hp boolean which is true if msg has a compound payload, else is false (no payload)
+     */
+    protected void hasPayload(boolean hp) {
+      info = hp ? info | hasPayload  :  info & ~hasPayload;
+    }
+
+    /**
      * Gets an unmodifiable (read only) hashmap of all payload items.
      * @return a hashmap of all payload items.
      */
@@ -1366,9 +1381,16 @@ public class cMsgMessage implements Cloneable {
         return Collections.unmodifiableMap(items);
     }
 
-    /** Clears the payload of all items.  */
+    /** Clears the payload of all user-added items.  */
     public void clearPayload() {
-        items.clear();
+        for (String name : items.keySet()) {
+            // Do NOT allow system items to be removed from the payload
+            if (cMsgPayloadItem.validSystemName(name)) {
+                continue;
+            }
+            items.remove(name);
+        }
+        updatePayloadText();
     }
 
     /**
@@ -1379,7 +1401,54 @@ public class cMsgMessage implements Cloneable {
         if (item == null) return;
         items.put(item.name, item);
         hasPayload(true);
+        updatePayloadText();
      }
+
+    /**
+     * Adds a name to the history of senders of this message (in the payload).
+     * This method only keeps MAX_HISTORY_LENGTH number of the most recent names.
+     * This method is reserved for system use only.
+     * @param name name of sender to add to the history of senders
+     */
+    public void addSenderToHistory(String name) {
+        // if set not to record history, just return
+        if (historyLengthMax < 1) {
+            return;
+        }
+
+        cMsgPayloadItem item = items.get("cMsgSenderHistory");
+        try {
+            if (item == null) {
+                String[] newNames = {name};
+                cMsgPayloadItem it = new cMsgPayloadItem("cMsgSenderHistory", newNames, true);
+                addPayloadItem(it);
+            }
+            else {
+                // get existing history
+                String[] names = item.getStringArray();
+
+                // Don't repeat names consecutively. That just means that a msg producer
+                // is sending the same message repeatedly.
+                if (name.equals(names[names.length-1])) return;
+
+                // keep only historyLengthMax number of the latest names
+                int index = 0, len = names.length;
+                if (names.length >= historyLengthMax) {
+                    len   = historyLengthMax - 1;
+                    index = names.length - len;
+                }
+                String[] newNames = new String[len + 1];
+                System.arraycopy(names, index, newNames, 0, len);
+                newNames[len] = name;
+                cMsgPayloadItem it = new cMsgPayloadItem("cMsgSenderHistory", newNames, true);
+                addPayloadItem(it);
+            }
+        }
+        catch (cMsgException e) {/* should never happen */}
+
+        hasPayload(true);
+        updatePayloadText();
+    }
 
     /**
      * Remove an item from the payload.
@@ -1387,8 +1456,13 @@ public class cMsgMessage implements Cloneable {
      * @return true if item removed, else false
      */
     public boolean removePayloadItem(cMsgPayloadItem item) {
+        // Do NOT allow system items to be removed from the payload
+        if (cMsgPayloadItem.validSystemName(item.name)) {
+            return false;
+        }
         boolean b = (items.remove(item.name) != null);
         if (items.size() < 1) hasPayload(false);
+        updatePayloadText();
         return b;
     }
 
@@ -1398,8 +1472,13 @@ public class cMsgMessage implements Cloneable {
      * @return true if item removed, else false
      */
     public boolean removePayloadItem(String name) {
+        // Do NOT allow system items to be removed from the payload
+        if (cMsgPayloadItem.validSystemName(name)) {
+            return false;
+        }
         boolean b = (items.remove(name) != null);
         if (items.size() < 1) hasPayload(false);
+        updatePayloadText();
         return b;
     }
 
@@ -1430,103 +1509,45 @@ public class cMsgMessage implements Cloneable {
 
     /**
      * This method creates a string representation of the whole compound
-     * payload and the hidden system fields (currently only the "text")
-     * of the message. This is used for sending the payload over the network.
-     *
-     * @return resultant string if successful
-     * @return null if no payload exists
+     * payload and the hidden system fields (currently fields describing
+     * the history of the message bding sent) of the message and stores
+     * it in the {@link #payloadText} member.
+     * This string is used for sending the payload over the network.
      */
-    public String getNetworkText() {
-        int msgLen = 0, count, totalLen = 0;
+    public void updatePayloadText() {
+        int count = 0, totalLen = 0;
 
-        count = items.size();
-        if (count < 1) {
-            return null;
+        if (items.size() < 1) {
+            payloadText = null;
+            return;
         }
 
-        /* find total length, first payload, then text field */
+        // find total length of text representations of all payload items
         for (cMsgPayloadItem item : items.values()) {
             totalLen += item.text.length();
-        }
-
-        if (text != null) {
             count++;
-
-            /* length of text item minus header line */
-            msgLen = cMsgPayloadItem.numDigits(text.length()) + text.length() + 2; /* 2 newlines */
-
-            totalLen += 17 + /* 8 chars "cMsgText", 2 digit type, 1 digit count, 1 digit isSys?,  4 spaces, 1 newline*/
-                        cMsgPayloadItem.numDigits(msgLen) + /* # of digits of length of what is to follow */
-                        msgLen;
         }
 
-        totalLen += cMsgPayloadItem.numDigits(count) + 1; /* send count & newline first */
+        totalLen += cMsgPayloadItem.numDigits(count) + 1; // send count & newline first
 
-        /* ensure buffer size, and clear it */
+        // ensure buffer size, and clear it
         if (buffer.capacity() < totalLen) buffer.ensureCapacity(totalLen + 512);
         buffer.delete(0,buffer.capacity());
 
-        /* first item is number of fields to come (count) & newline */
+        // first item is number of fields to come (count) & newline
         buffer.append(count);
         buffer.append("\n");
 
-        /* add message text if there is one */
-        if (text != null) {
-            buffer.append("cMsgText ");
-            buffer.append(cMsgConstants.payloadStr);
-            buffer.append(" 1 1 ");
-            buffer.append(msgLen);
-            buffer.append("\n");
-            buffer.append(text.length());
-            buffer.append("\n");
-            buffer.append(text);
-            buffer.append("\n");
-        }
-
-        /* add payload fields */
+        // add payload fields
         for (cMsgPayloadItem item : items.values()) {
+            if (count-- < 1) break;
             buffer.append(item.text);
         }
 
-        return buffer.toString();
+        payloadText = buffer.toString();
+        return;
     }
 
-    /**
-     * This method returns the length of a string representation of the whole compound
-     * payload and the hidden system fields (currently only the "text")
-     * of the message.
-     *
-     * @return string length if successful
-     * @return 0 if no payload exists
-     */
-    public int getNetworkTextLength() {
-        int msgLen, count, totalLen = 0;
-
-        count = items.size();
-        if (count < 1) {
-            return 0;
-        }
-
-        /* find total length, first payload, then text field */
-        for (cMsgPayloadItem item : items.values()) {
-            totalLen += item.text.length();
-        }
-
-        if (text != null) {
-            count++;
-
-            /* length of text item minus header line */
-            msgLen = cMsgPayloadItem.numDigits(text.length()) + text.length() + 2; /* 2 newlines */
-
-            totalLen += 17 + /* 8 chars "cMsgText", 2 digit type, 1 digit count, 1 digit isSys?,  4 spaces, 1 newline*/
-                        cMsgPayloadItem.numDigits(msgLen) + /* # of digits of length of what is to follow */
-                        msgLen;
-        }
-
-        totalLen += cMsgPayloadItem.numDigits(count) + 1; /* send count & newline first */
-
-        return totalLen;
-    }
 
     /**
      * This method creates a string of all the payload items concatonated.
@@ -1535,10 +1556,9 @@ public class cMsgMessage implements Cloneable {
      * @return null if no payload exists
      */
     public String getItemsText() {
-        int count, totalLen = 0;
+        int totalLen = 0;
 
-        count = items.size();
-        if (count < 1) {
+        if (items.size() < 1) {
             return null;
         }
 
@@ -1574,7 +1594,7 @@ public class cMsgMessage implements Cloneable {
      * @return index index pointing just past last character in text that was parsed
      * @throws cMsgException if the text is in a bad format or the text arg is null
      */
-    public int setFieldsFromText(String text, int flag) throws cMsgException {
+    protected int setFieldsFromText(String text, int flag) throws cMsgException {
 
         int index1, index2, firstIndex;
         boolean debug = false;
@@ -1757,7 +1777,6 @@ if (debug) System.out.println("  skipped field");
             else if (name.equals("cMsgSubject"))      subject = val;
             else if (name.equals("cMsgType"))         type = val;
             else if (name.equals("cMsgDomain"))       domain = val;
-            else if (name.equals("cMsgCreator"))      creator = val;
             else if (name.equals("cMsgSender"))       sender = val;
             else if (name.equals("cMsgSenderHost"))   senderHost = val;
             else if (name.equals("cMsgReceiver"))     receiver = val;
@@ -1816,8 +1835,11 @@ if (debug) System.out.println("  skipped field");
         // when creating the payload item
         String textRep = txt.substring(fullIndex, index2);
 
-        // create payload item to add to msg  & store in payload
-        addPayloadItem(new cMsgPayloadItem(name, vals, textRep, noHeadLen));
+        // Create payload item to add to msg  & store in payload.
+        // In this case, system fields are passed on untouched.
+        // This means the string array that tracks names of senders for this message
+        // (cMsgSenders), is passed on as is.
+        addPayloadItem(new cMsgPayloadItem(name, vals, textRep, noHeadLen, isSystem));
 
         return;
     }
@@ -1965,7 +1987,7 @@ if (debug) System.out.println("  skipped field");
         String textRep = txt.substring(fullIndex, index2);
 
         // vars used to get next number
-        String num = null;
+        String num;
         int i1, i2;
 
         if (dataType == cMsgConstants.payloadDblA) {
@@ -2146,7 +2168,7 @@ if (debug) System.out.println("  skipped field");
         boolean unsigned8  = dataType == cMsgConstants.payloadUint8A;
 
         // vars used to get next number
-        String num = null;
+        String num;
         int i1, i2;
 
         // if 64 bit integers ...
