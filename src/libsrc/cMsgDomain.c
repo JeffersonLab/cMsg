@@ -104,15 +104,15 @@ static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 /* Prototypes of the functions which implement the standard cMsg tasks in the cMsg domain. */
 int   cmsg_cmsg_connect           (const char *myUDL, const char *myName, const char *myDescription,
                                    const char *UDLremainder,void **domainId);
-int   cmsg_cmsg_send              (void *domainId, const void *msg);
-int   cmsg_cmsg_syncSend          (void *domainId, const void *msg, const struct timespec *timeout, int *response);
+int   cmsg_cmsg_send              (void *domainId, void *msg);
+int   cmsg_cmsg_syncSend          (void *domainId, void *msg, const struct timespec *timeout, int *response);
 int   cmsg_cmsg_flush             (void *domainId, const struct timespec *timeout);
 int   cmsg_cmsg_subscribe         (void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                                    void *userArg, cMsgSubscribeConfig *config, void **handle);
 int   cmsg_cmsg_unsubscribe       (void *domainId, void *handle);
 int   cmsg_cmsg_subscribeAndGet   (void *domainId, const char *subject, const char *type,
                                    const struct timespec *timeout, void **replyMsg);
-int   cmsg_cmsg_sendAndGet        (void *domainId, const void *sendMsg, const struct timespec *timeout,
+int   cmsg_cmsg_sendAndGet        (void *domainId, void *sendMsg, const struct timespec *timeout,
                                    void **replyMsg);
 int   cmsg_cmsg_monitor           (void *domainId, const char *command,  void **replyMsg);
 int   cmsg_cmsg_start             (void *domainId);
@@ -1367,14 +1367,13 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-int cmsg_cmsg_send(void *domainId, const void *vmsg) {
+int cmsg_cmsg_send(void *domainId, void *vmsg) {
   
-  int err, ok, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
-  int fd, hasPayload, highInt, lowInt, outGoing[16];
+  int err, len, lenSubject, lenType, lenPayloadText, lenText, lenByteArray;
+  int fd, highInt, lowInt, outGoing[16];
   ssize_t sendLen;
   cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
   cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
-  char *creator;
   uint64_t llTime;
   struct timespec now;
 
@@ -1415,18 +1414,22 @@ int cmsg_cmsg_send(void *domainId, const void *vmsg) {
       break;
     }
     
-    /* length of "text" string, include payload (if any) as text */
-    cMsgHasPayload(vmsg, &hasPayload);
-    if (!hasPayload) {
-      if (msg->text == NULL) {
-        lenText = 0;
-      }
-      else {
-        lenText = strlen(msg->text);
-      }
+    if (msg->text == NULL) {
+      lenText = 0;
     }
     else {
-      lenText = cMsgPayloadGetTextLength(vmsg);
+      lenText = strlen(msg->text);
+    }
+
+    /* update history here */
+    cMsgAddSenderToHistory(vmsg, domain->name);
+    
+    /* length of "payloadText" string */
+    if (msg->payloadText == NULL) {
+      lenPayloadText = 0;
+    }
+    else {
+      lenPayloadText = strlen(msg->payloadText);
     }
 
     /* message id (in network byte order) to domain server */
@@ -1467,12 +1470,8 @@ int cmsg_cmsg_send(void *domainId, const void *vmsg) {
     lenType      = strlen(msg->type);
     outGoing[12] = htonl(lenType);
 
-    /* send creator (this sender's name if msg created here) */
-    creator = msg->creator;
-    if (creator == NULL) creator = domain->name;
-    /* length of "creator" string */
-    lenCreator   = strlen(creator);
-    outGoing[13] = htonl(lenCreator);
+    /* length of "payloadText" string */
+    outGoing[13] = htonl(lenPayloadText);
 
     /* length of "text" string, include payload (if any) as text here */
     outGoing[14] = htonl(lenText);
@@ -1483,7 +1482,7 @@ int cmsg_cmsg_send(void *domainId, const void *vmsg) {
 
     /* total length of message (minus first int) is first item sent */
     len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType +
-          lenCreator + lenText + lenByteArray;
+          lenPayloadText + lenText + lenByteArray;
     outGoing[0] = htonl(len);
 
     if (msg->context.udpSend && len > 8192) {
@@ -1518,22 +1517,9 @@ int cmsg_cmsg_send(void *domainId, const void *vmsg) {
     len += lenSubject;
     memcpy(domain->msgBuffer+len, (void *)msg->type, lenType);
     len += lenType;
-    memcpy(domain->msgBuffer+len, (void *)creator, lenCreator);
-    len += lenCreator;
-    if (!hasPayload) {
-      memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
-    }
-    else {
-      size_t bufLen;
-      /* this returns not only payload but incorporates text as well */
-      ok = cMsgPayloadGetText(vmsg, NULL, domain->msgBuffer+len, lenText, &bufLen);
-      if (ok != CMSG_OK || bufLen != lenText) {
-        /* payload changed while trying to send it, so abandon ship ... */
-        cMsgSocketMutexUnlock(domain);
-        cMsgConnectReadUnlock(domain);
-        return(CMSG_ERROR);
-      }
-    }
+    memcpy(domain->msgBuffer+len, (void *)msg->payloadText, lenPayloadText);
+    len += lenPayloadText;
+    memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
     len += lenText;
     memcpy(domain->msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
     len += lenByteArray;   
@@ -1704,7 +1690,7 @@ int cmsg_cmsg_sendOrig(void *domainId, const void *vmsg) {
     outGoing[12] = htonl(lenType);
 
     /* send creator (this sender's name if msg created here) */
-    creator = msg->creator;
+    creator = msg->payloadText;
     if (creator == NULL) creator = domain->name;
     /* length of "creator" string */
     lenCreator   = strlen(creator);
@@ -1828,13 +1814,12 @@ int cmsg_cmsg_sendOrig(void *domainId, const void *vmsg) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-int cmsg_cmsg_syncSend(void *domainId, const void *vmsg, const struct timespec *timeout, int *response) {
+int cmsg_cmsg_syncSend(void *domainId, void *vmsg, const struct timespec *timeout, int *response) {
   
-  int err, len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
+  int err, len, lenSubject, lenType, lenPayloadText, lenText, lenByteArray;
   int fd, fdIn, highInt, lowInt, outGoing[16];
   cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
   cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
-  char *creator;
   uint64_t llTime;
   struct timespec now;
 
@@ -1878,7 +1863,17 @@ int cmsg_cmsg_syncSend(void *domainId, const void *vmsg, const struct timespec *
       lenText = strlen(msg->text);
     }
 
-    /* message id (in network byte order) to domain server */
+    /* update history here */
+    cMsgAddSenderToHistory(vmsg, domain->name);
+    
+    /* length of "payloadText" string */
+    if (msg->payloadText == NULL) {
+      lenPayloadText = 0;
+    }
+    else {
+      lenPayloadText = strlen(msg->payloadText);
+    }
+    
     outGoing[1] = htonl(CMSG_SYNC_SEND_REQUEST);
     /* reserved */
     outGoing[2] = 0;
@@ -1915,12 +1910,8 @@ int cmsg_cmsg_syncSend(void *domainId, const void *vmsg, const struct timespec *
     lenType      = strlen(msg->type);
     outGoing[12] = htonl(lenType);
 
-    /* send creator (this sender's name if msg created here) */
-    creator = msg->creator;
-    if (creator == NULL) creator = domain->name;
-    /* length of "creator" string */
-    lenCreator   = strlen(creator);
-    outGoing[13] = htonl(lenCreator);
+    /* length of "payloadText" string */
+    outGoing[13] = htonl(lenPayloadText);
 
     /* length of "text" string */
     outGoing[14] = htonl(lenText);
@@ -1931,7 +1922,7 @@ int cmsg_cmsg_syncSend(void *domainId, const void *vmsg, const struct timespec *
 
     /* total length of message (minus first int) is first item sent */
     len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType +
-          lenCreator + lenText + lenByteArray;
+          lenPayloadText + lenText + lenByteArray;
     outGoing[0] = htonl(len);
 
     /* make syncSends be synchronous 'cause we need a reply */
@@ -1963,8 +1954,8 @@ int cmsg_cmsg_syncSend(void *domainId, const void *vmsg, const struct timespec *
     len += lenSubject;
     memcpy(domain->msgBuffer+len, (void *)msg->type, lenType);
     len += lenType;
-    memcpy(domain->msgBuffer+len, (void *)creator, lenCreator);
-    len += lenCreator;
+    memcpy(domain->msgBuffer+len, (void *)msg->payloadText, lenPayloadText);
+    len += lenPayloadText;
     memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
     len += lenText;
     memcpy(domain->msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
@@ -2002,8 +1993,7 @@ int cmsg_cmsg_syncSend(void *domainId, const void *vmsg, const struct timespec *
     cMsgConnectReadUnlock(domain);
     break;
   }
-  
-  
+   
   if (err!= CMSG_OK) {
     /* don't wait for resubscribes */
     if (failoverSuccessful(domain, 0)) {
@@ -2016,8 +2006,6 @@ int cmsg_cmsg_syncSend(void *domainId, const void *vmsg, const struct timespec *
     }
   }
   
-      
-
   /* return domain server's reply */  
   *response = ntohl(err);  
   
@@ -2364,17 +2352,16 @@ static int unSubscribeAndGet(void *domainId, const char *subject, const char *ty
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-int cmsg_cmsg_sendAndGet(void *domainId, const void *sendMsg, const struct timespec *timeout,
+int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
                       void **replyMsg) {
   
   cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
   cMsgMessage_t *msg = (cMsgMessage_t *) sendMsg;
   int i, err, uniqueId, status;
-  int len, lenSubject, lenType, lenCreator, lenText, lenByteArray;
+  int len, lenSubject, lenType, lenPayloadText, lenText, lenByteArray;
   int gotSpot, fd, highInt, lowInt, outGoing[16];
   getInfo *info = NULL;
   struct timespec wait;
-  char *creator;
   uint64_t llTime;
   struct timespec now;
 
@@ -2411,6 +2398,17 @@ int cmsg_cmsg_sendAndGet(void *domainId, const void *sendMsg, const struct times
     lenText = strlen(msg->text);
   }
   
+  /* update history here */
+  cMsgAddSenderToHistory(sendMsg, domain->name);
+  
+  /* length of "payloadText" string */
+  if (msg->payloadText == NULL) {
+    lenPayloadText = 0;
+  }
+  else {
+    lenPayloadText = strlen(msg->payloadText);
+  }
+
   /*
    * Pick a unique identifier for the subject/type pair, and
    * send it to the domain server & remember it for future use
@@ -2494,12 +2492,8 @@ int cmsg_cmsg_sendAndGet(void *domainId, const void *sendMsg, const struct times
   /* namespace length */
   outGoing[12] = htonl(0);
   
-  /* send creator (this sender's name if msg created here) */
-  creator = msg->creator;
-  if (creator == NULL) creator = domain->name;
-  /* length of "creator" string */
-  lenCreator   = strlen(creator);
-  outGoing[13] = htonl(lenCreator);
+  /* length of "payloadText" string */
+  outGoing[13] = htonl(lenPayloadText);
   
   /* length of "text" string */
   outGoing[14] = htonl(lenText);
@@ -2510,7 +2504,7 @@ int cmsg_cmsg_sendAndGet(void *domainId, const void *sendMsg, const struct times
     
   /* total length of message (minus first int) is first item sent */
   len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType +
-        lenCreator + lenText + lenByteArray;
+        lenPayloadText + lenText + lenByteArray;
   outGoing[0] = htonl(len);  
 
   /* make send socket communications thread-safe */
@@ -2543,8 +2537,8 @@ int cmsg_cmsg_sendAndGet(void *domainId, const void *sendMsg, const struct times
   len += lenSubject;
   memcpy(domain->msgBuffer+len, (void *)msg->type, lenType);
   len += lenType;
-  memcpy(domain->msgBuffer+len, (void *)creator, lenCreator);
-  len += lenCreator;
+  memcpy(domain->msgBuffer+len, (void *)msg->payloadText, lenPayloadText);
+  len += lenPayloadText;
   memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
   len += lenText;
   memcpy(domain->msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
