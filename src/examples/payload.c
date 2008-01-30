@@ -172,7 +172,7 @@ int main(int argc,char **argv) {
   
   cMsgAddInt8Array(msg, "myInt8Array", ivals, 11);
   
-  err = cMsgGetInt8Array(msg, "myInt8Array", &ivals2, &len);
+  err = cMsgGetInt8Array(msg, "myInt8Array", (const int8_t **)&ivals2, &len);
   if (err != CMSG_OK) {
     printf("Error getting int array\n"); 
   }
@@ -186,26 +186,13 @@ int main(int argc,char **argv) {
 
   cMsgPayloadGetFieldText(msg, "heyho", &t);
   printf("\nPrint text for heyho:\n%s", t);
-  
-  err = cMsgPayloadGetText(msg, &s, NULL, 0 , NULL);
-  if (err != CMSG_OK) {
-    printf("Error getting payload text for msg\n"); 
-  }
-  printf("Print text for whole msg as it goes over wire:\n%s", s);
-    
+     
   printf("Create a new message1:\n");
   newMsg = cMsgCreateMessage();
     
   printf("Set fields with wire text:\n");
   err = cMsgPayloadSetAllFieldsFromText(newMsg, s);
   if (err != CMSG_OK) printf("%s\n", cMsgPerror(err));  
-  free(s);
-  
-  err = cMsgPayloadGetText(newMsg, &s, NULL, 0, NULL);
-  if (err != CMSG_OK) {
-    printf("Error getting payload text for newMsg\n"); 
-  }
-  printf("Print text for NEW msg as it goes over wire:\n%s", s);
   free(s);
   
   printf("Create a new message2:\n");
@@ -216,13 +203,6 @@ int main(int argc,char **argv) {
   if (err != CMSG_OK) {
     printf("Error copying payload\n");
   }
-  
-  err = cMsgPayloadGetText(newMsg2, &s, NULL, 0, NULL);
-  if (err != CMSG_OK) {
-    printf("Error getting payload text for newMsg2\n"); 
-  }
-  printf("Print text for copied msg:\n%s", s);
-  free(s);
   
   err = cMsgToString(msg, &s, 1);
   if (err != CMSG_OK) {
