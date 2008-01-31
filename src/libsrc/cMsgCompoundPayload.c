@@ -230,11 +230,13 @@ static char toByte[103] =
   
 /*-------------------------------------------------------------------*/
 
+/** Union defined to help in skirting optimization problems with gcc. */
 typedef union u1 {
    float f;
    uint32_t i;
 } intFloatUnion;
 
+/** Union defined to help in skirting optimization problems with gcc. */
 typedef union u2 {
    double d;
    uint64_t i;
@@ -350,9 +352,11 @@ static int numDigits(int64_t number, int isUint64) {
 char *cMsgFloatChars(float f) {
     int byte;
     uint32_t j32;
+    intFloatUnion floater;
     static char flt[9];
       
-    j32 = *((uint32_t *)(&f));
+    floater.f = f;
+    j32 = floater.i;
     byte = j32>>24 & 0xff;
     flt[0] = toASCII[byte][0];
     flt[1] = toASCII[byte][1];
@@ -380,9 +384,11 @@ char *cMsgFloatChars(float f) {
 char *cMsgDoubleChars(double d) {
     int byte;
     uint64_t j64;
+    intDoubleUnion doubler;
     static char dbl[17];
-      
-    j64 = *((uint64_t *)(&d));
+    
+    doubler.d = d;
+    j64 = doubler.i;
     byte = j64>>56 & 0xffL;
     dbl[0] = toASCII[byte][0];
     dbl[1] = toASCII[byte][1];
@@ -3606,8 +3612,7 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
   void *array;
   char *s;
   uint32_t j32, zeros=0, suppressed=0;
-  uint64_t j64;
-  
+  uint64_t j64;  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL  || name == NULL ||
