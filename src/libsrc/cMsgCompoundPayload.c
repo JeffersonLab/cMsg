@@ -1055,6 +1055,9 @@ static void addItem(cMsgMessage_t *msg, payloadItem *item) {
     item->next = next;
   }
   
+  /* increment payload item count */
+  msg->payloadCount++;
+  
   /* store in msg struct that this msg has a compound payload */
   setPayload(msg, 1);
   
@@ -5182,7 +5185,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
                       int isSystem) {
   char *s;
   int i, byte, len, binLen=0, count=0, endian;
-  int textLen=0, totalLen=0, length[12], numChars;
+  int textLen=0, totalLen=0, length[11], numChars;
   int32_t j32[5];
   int64_t j64[6];
   payloadItem *item, *pItem;  
@@ -5234,8 +5237,8 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   }
   
   /* *************************************************** */
-  /* add up to 9 strings: domain, subject, type, text,   */
-  /* creator, sender, senderHost, reciever, receiverHost */
+  /* add up to 8 strings: domain, subject, type, text,   */
+  /* sender, senderHost, reciever, receiverHost          */
   /* *************************************************** */
   
   /* add length of "domain" member as a string */
@@ -5271,40 +5274,33 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
     length[3] = strlen(message->text) + numDigits(strlen(message->text), 0) + 2;
     textLen += strlen("cMsgText") + 9 + numDigits(length[3], 0) + length[3] ;
   }
-  
-  /* add length of "creator" member as a string */
-  if (message->payloadText != NULL) {
-    count++;
-    length[4] = strlen(message->payloadText) + numDigits(strlen(message->payloadText), 0) + 2;
-    textLen += strlen("cMsgCreator") + 9 + numDigits(length[4], 0) + length[4] ;
-  }
-  
+    
   /* add length of "sender" member as a string */
   if (message->sender != NULL) {
     count++;
-    length[5] = strlen(message->sender) + numDigits(strlen(message->sender), 0) + 2;
-    textLen += strlen("cMsgSender") + 9 + numDigits(length[5], 0) + length[5] ;
+    length[4] = strlen(message->sender) + numDigits(strlen(message->sender), 0) + 2;
+    textLen += strlen("cMsgSender") + 9 + numDigits(length[4], 0) + length[4] ;
   }
   
   /* add length of "senderHost" member as a string */
   if (message->senderHost != NULL) {
     count++;
-    length[6] = strlen(message->senderHost) + numDigits(strlen(message->senderHost), 0) + 2;
-    textLen += strlen("cMsgSenderHost") + 9 + numDigits(length[6], 0) + length[6] ;
+    length[5] = strlen(message->senderHost) + numDigits(strlen(message->senderHost), 0) + 2;
+    textLen += strlen("cMsgSenderHost") + 9 + numDigits(length[5], 0) + length[5] ;
   }
   
   /* add length of "receiver" member as a string */
   if (message->receiver != NULL) {
     count++;
-    length[7] = strlen(message->receiver) + numDigits(strlen(message->receiver), 0) + 2;
-    textLen += strlen("cMsgReceiver") + 9 + numDigits(length[7], 0) + length[7] ;
+    length[6] = strlen(message->receiver) + numDigits(strlen(message->receiver), 0) + 2;
+    textLen += strlen("cMsgReceiver") + 9 + numDigits(length[6], 0) + length[6] ;
   }
   
   /* add length of "receiverHost" member as a string */
   if (message->receiverHost != NULL) {
     count++;
-    length[8] = strlen(message->receiverHost) + numDigits(strlen(message->receiverHost), 0) + 2;
-    textLen += strlen("cMsgReceiverHost") + 9 + numDigits(length[8], 0) + length[8] ;
+    length[7] = strlen(message->receiverHost) + numDigits(strlen(message->receiverHost), 0) + 2;
+    textLen += strlen("cMsgReceiverHost") + 9 + numDigits(length[7], 0) + length[7] ;
   }
   
   /* ************************************************************************************** */
@@ -5312,8 +5308,8 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   /* ************************************************************************************** */
   
   /* length of string to contain ints */
-  length[9] = 5*8 + 5 /* 4 sp, 1 nl */;
-  textLen += strlen("cMsgInts") + 2 + 1 + 1 + numDigits(length[9], 0) + length[9] +
+  length[8] = 5*8 + 5 /* 4 sp, 1 nl */;
+  textLen += strlen("cMsgInts") + 2 + 1 + 1 + numDigits(length[8], 0) + length[8] +
              5; /* 4 sp, 1 nl */
   count++;
 
@@ -5322,8 +5318,8 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   /* ************************************************************************************** */
   
   /* length of string to contain times */
-  length[10] = 6*16 + 6 /* 5 sp, 1 nl */;
-  textLen += strlen("cMsgTimes") + 2 + 1 + 1 +  numDigits(length[10], 0) + length[10] +
+  length[9] = 6*16 + 6 /* 5 sp, 1 nl */;
+  textLen += strlen("cMsgTimes") + 2 + 1 + 1 +  numDigits(length[9], 0) + length[9] +
              5; /* 4 sp, 1 nl */
   count++;
 
@@ -5333,10 +5329,10 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   if (message->byteArray != NULL) {
     /* find size of text-encoded binary data (exact) */
     binLen = cMsg_b64_encode_len(message->byteArray + message->byteArrayOffset, message->byteArrayLength);
-    length[11] = binLen + numDigits(binLen, 0) + 4 /* 1 endian, 1 space, 2 newlines */;
+    length[10] = binLen + numDigits(binLen, 0) + 4 /* 1 endian, 1 space, 2 newlines */;
     
     textLen += strlen("cMsgBinary") + 2 + numDigits(message->byteArrayLength, 0) + 1 +
-               numDigits(length[11], 0) + length[11] + 5; /* 4 spaces, 1 newline */
+               numDigits(length[10], 0) + length[10] + 5; /* 4 spaces, 1 newline */
     count++;
   }
   
@@ -5403,43 +5399,36 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
     s += len;
   }
 
-  /* add message's creator member as string */
-  if (message->payloadText != NULL) {
-    sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgCreator", CMSG_CP_STR, length[4],
-                                            strlen(message->payloadText), message->payloadText, &len);
-    s += len;
-  }
-
   /* add message's sender member as string */
   if (message->sender != NULL) {
-    sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSender", CMSG_CP_STR, length[5],
+    sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSender", CMSG_CP_STR, length[4],
                                              strlen(message->sender), message->sender, &len);
     s += len;
   }
 
   /* add message's senderHost member as string */
   if (message->senderHost != NULL) {
-    sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSenderHost", CMSG_CP_STR, length[6],
+    sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSenderHost", CMSG_CP_STR, length[5],
                                             strlen(message->senderHost), message->senderHost, &len);
     s += len;
   }
 
   /* add message's receiver member as string */
   if (message->receiver != NULL) {
-    sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgReceiver", CMSG_CP_STR, isSystem, length[7],
+    sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgReceiver", CMSG_CP_STR, isSystem, length[6],
                                             strlen(message->receiver), message->receiver, &len);
     s += len;
   }
 
   /* add message's receiverHost member as string */
   if (message->receiverHost != NULL) {
-    sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgReceiverHost", CMSG_CP_STR, isSystem, length[8],
+    sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgReceiverHost", CMSG_CP_STR, isSystem, length[7],
                                             strlen(message->receiverHost), message->receiverHost, &len);
     s += len;
   }
 
   /* next write 5 ints */
-  sprintf(s, "%s %d 5 1 %d\n%n", "cMsgInts", CMSG_CP_INT32_A, length[9], &len);
+  sprintf(s, "%s %d 5 1 %d\n%n", "cMsgInts", CMSG_CP_INT32_A, length[8], &len);
   s+= len;
   j32[0] = message->version;
   j32[1] = message->info;
@@ -5463,7 +5452,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   }
 
   /* next write 6 64-bit ints */
-  sprintf(s, "%s %d 6 1 %d\n%n", "cMsgTimes", CMSG_CP_INT64_A, length[10], &len);
+  sprintf(s, "%s %d 6 1 %d\n%n", "cMsgTimes", CMSG_CP_INT64_A, length[9], &len);
   s+= len;
   j64[0] = message->userTime.tv_sec;
   j64[1] = message->userTime.tv_nsec;
@@ -5498,12 +5487,12 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   if (message->byteArray != NULL) {
     /* write first line and stop */
     sprintf(s, "%s %d %d 1 %d\n%n", "cMsgBinary", CMSG_CP_BIN, message->byteArrayLength,
-                                     length[11], &len);
+                                     length[10], &len);
     s += len;
     
     /* write the length */
     cMsgGetByteArrayEndian(vmessage, &endian);
-    sprintf(s, "%u %d\n%n", length[11], endian, &len);
+    sprintf(s, "%u %d\n%n", length[10], endian, &len);
     s += len;
 
     /* write the binary-encoded text */
@@ -5593,7 +5582,7 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
                            int number, int isSystem) {
   char *s;
   int i, j, byte, len, binLen=0, count[number], endian;
-  int textLen=0, totalLen=0, length[number][12], numChars;
+  int textLen=0, totalLen=0, length[number][11], numChars;
   int32_t j32[5];
   int64_t j64[6];
   void **msgArray;
@@ -5660,8 +5649,8 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
       }
 
       /* *************************************************** */
-      /* add up to 9 strings: domain, subject, type, text,   */
-      /* creator, sender, senderHost, reciever, receiverHost */
+      /* add up to 8 strings: domain, subject, type, text,   */
+      /* sender, senderHost, reciever, receiverHost          */
       /* *************************************************** */
 
       /* add length of "domain" member as a string */
@@ -5698,39 +5687,32 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
         textLen += strlen("cMsgText") + 9 + numDigits(length[i][3], 0) + length[i][3] ;
       }
 
-      /* add length of "creator" member as a string */
-      if (message->payloadText != NULL) {
-        count[i]++;
-        length[i][4] = strlen(message->payloadText) + numDigits(strlen(message->payloadText), 0) + 2;
-        textLen += strlen("cMsgCreator") + 9 + numDigits(length[i][4], 0) + length[i][4] ;
-      }
-
       /* add length of "sender" member as a string */
       if (message->sender != NULL) {
         count[i]++;
-        length[i][5] = strlen(message->sender) + numDigits(strlen(message->sender), 0) + 2;
-        textLen += strlen("cMsgSender") + 9 + numDigits(length[i][5], 0) + length[i][5] ;
+        length[i][4] = strlen(message->sender) + numDigits(strlen(message->sender), 0) + 2;
+        textLen += strlen("cMsgSender") + 9 + numDigits(length[i][4], 0) + length[i][4] ;
       }
 
       /* add length of "senderHost" member as a string */
       if (message->senderHost != NULL) {
         count[i]++;
-        length[i][6] = strlen(message->senderHost) + numDigits(strlen(message->senderHost), 0) + 2;
-        textLen += strlen("cMsgSenderHost") + 9 + numDigits(length[i][6], 0) + length[i][6] ;
+        length[i][5] = strlen(message->senderHost) + numDigits(strlen(message->senderHost), 0) + 2;
+        textLen += strlen("cMsgSenderHost") + 9 + numDigits(length[i][5], 0) + length[i][5] ;
       }
 
       /* add length of "receiver" member as a string */
       if (message->receiver != NULL) {
         count[i]++;
-        length[i][7] = strlen(message->receiver) + numDigits(strlen(message->receiver), 0) + 2;
-        textLen += strlen("cMsgReceiver") + 9 + numDigits(length[i][7], 0) + length[i][7] ;
+        length[i][6] = strlen(message->receiver) + numDigits(strlen(message->receiver), 0) + 2;
+        textLen += strlen("cMsgReceiver") + 9 + numDigits(length[i][6], 0) + length[i][6] ;
       }
 
       /* add length of "receiverHost" member as a string */
       if (message->receiverHost != NULL) {
         count[i]++;
-        length[i][8] = strlen(message->receiverHost) + numDigits(strlen(message->receiverHost), 0) + 2;
-        textLen += strlen("cMsgReceiverHost") + 9 + numDigits(length[i][8], 0) + length[i][8] ;
+        length[i][7] = strlen(message->receiverHost) + numDigits(strlen(message->receiverHost), 0) + 2;
+        textLen += strlen("cMsgReceiverHost") + 9 + numDigits(length[i][7], 0) + length[i][7] ;
       }
 
       /* ************************************************************************************** */
@@ -5738,8 +5720,8 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
       /* ************************************************************************************** */
 
       /* length of string to contain ints */
-      length[i][9] = 5*8 + 5 /* 4 sp, 1 nl */;
-      textLen += strlen("cMsgInts") + 2 + 1 + 1 + numDigits(length[i][9], 0) + length[i][9] +
+      length[i][8] = 5*8 + 5 /* 4 sp, 1 nl */;
+      textLen += strlen("cMsgInts") + 2 + 1 + 1 + numDigits(length[i][8], 0) + length[i][8] +
                  5; /* 4 sp, 1 nl */
       count[i]++;
 
@@ -5748,8 +5730,8 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
       /* ************************************************************************************** */
 
       /* length of string to contain times */
-      length[i][10] = 6*16 + 6 /* 5 sp, 1 nl */;
-      textLen += strlen("cMsgTimes") + 2 + 1 + 1 +  numDigits(length[i][10], 0) + length[i][10] +
+      length[i][9] = 6*16 + 6 /* 5 sp, 1 nl */;
+      textLen += strlen("cMsgTimes") + 2 + 1 + 1 +  numDigits(length[i][9], 0) + length[i][9] +
                  5; /* 4 sp, 1 nl */
       count[i]++;
 
@@ -5759,10 +5741,10 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
       if (message->byteArray != NULL) {
         /* find size of text-encoded binary data (exact) */
         binLen = cMsg_b64_encode_len(message->byteArray + message->byteArrayOffset, message->byteArrayLength);
-        length[i][11] = binLen + numDigits(binLen, 0) + 4 /* 1 endian, 1 space, 2 newlines */;
+        length[i][10] = binLen + numDigits(binLen, 0) + 4 /* 1 endian, 1 space, 2 newlines */;
 
         textLen += strlen("cMsgBinary") + 2 + numDigits(message->byteArrayLength, 0) + 1 +
-                   numDigits(length[i][11], 0) + length[i][11] + 5; /* 4 spaces, 1 newline */
+                   numDigits(length[i][10], 0) + length[i][10] + 5; /* 4 spaces, 1 newline */
         count[i]++;
       }
 
@@ -5838,43 +5820,36 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
       s += len;
     }
 
-    /* add message's creator member as string */
-    if (message->payloadText != NULL) {
-      sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgCreator", CMSG_CP_STR, length[i][4],
-                                              strlen(message->payloadText), message->payloadText, &len);
-      s += len;
-    }
-
     /* add message's sender member as string */
     if (message->sender != NULL) {
-      sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSender", CMSG_CP_STR, length[i][5],
+      sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSender", CMSG_CP_STR, length[i][4],
                                                strlen(message->sender), message->sender, &len);
       s += len;
     }
 
     /* add message's senderHost member as string */
     if (message->senderHost != NULL) {
-      sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSenderHost", CMSG_CP_STR, length[i][6],
+      sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSenderHost", CMSG_CP_STR, length[i][5],
                                               strlen(message->senderHost), message->senderHost, &len);
       s += len;
     }
 
     /* add message's receiver member as string */
     if (message->receiver != NULL) {
-      sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgReceiver", CMSG_CP_STR, isSystem, length[i][7],
+      sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgReceiver", CMSG_CP_STR, isSystem, length[i][6],
                                               strlen(message->receiver), message->receiver, &len);
       s += len;
     }
 
     /* add message's receiverHost member as string */
     if (message->receiverHost != NULL) {
-      sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgReceiverHost", CMSG_CP_STR, isSystem, length[i][8],
+      sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgReceiverHost", CMSG_CP_STR, isSystem, length[i][7],
                                               strlen(message->receiverHost), message->receiverHost, &len);
       s += len;
     }
 
     /* next write 5 ints */
-    sprintf(s, "%s %d 5 1 %d\n%n", "cMsgInts", CMSG_CP_INT32_A, length[i][9], &len);
+    sprintf(s, "%s %d 5 1 %d\n%n", "cMsgInts", CMSG_CP_INT32_A, length[i][8], &len);
     s+= len;
     j32[0] = message->version;
     j32[1] = message->info;
@@ -5898,7 +5873,7 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
     }
 
     /* next write 6 64-bit ints */
-    sprintf(s, "%s %d 6 1 %d\n%n", "cMsgTimes", CMSG_CP_INT64_A, length[i][10], &len);
+    sprintf(s, "%s %d 6 1 %d\n%n", "cMsgTimes", CMSG_CP_INT64_A, length[i][9], &len);
     s+= len;
     j64[0] = message->userTime.tv_sec;
     j64[1] = message->userTime.tv_nsec;
@@ -5933,12 +5908,12 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
     if (message->byteArray != NULL) {
       /* write first line and stop */
       sprintf(s, "%s %d %d 1 %d\n%n", "cMsgBinary", CMSG_CP_BIN, message->byteArrayLength,
-                                       length[i][11], &len);
+                                       length[i][10], &len);
       s += len;
 
       /* write the length */
       cMsgGetByteArrayEndian(vmessage[i], &endian);
-      sprintf(s, "%u %d\n%n", length[i][11], endian, &len);
+      sprintf(s, "%u %d\n%n", length[i][10], endian, &len);
       s += len;
 
       /* write the binary-encoded text */
@@ -6930,10 +6905,6 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
     else if (strcmp(name, "cMsgDomain") == 0) {
       if (msg->domain != NULL) free(msg->domain);
       msg->domain = str;
-    }
-    else if (strcmp(name, "cMsgCreator") == 0) {
-      if (msg->payloadText != NULL) free(msg->payloadText);
-      msg->payloadText = str;
     }
     else if (strcmp(name, "cMsgSender") == 0) {
       if (msg->sender != NULL) free(msg->sender);
