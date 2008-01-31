@@ -228,6 +228,17 @@ static char toByte[103] =
    -2, -1, -1, -1, -1, -1, -1, 10, 11, 12,  /* 90-99, Z maps to 90 */
    13, 14, 15}; /* 100-102 */
   
+/*-------------------------------------------------------------------*/
+
+typedef union u1 {
+   float f;
+   uint32_t i;
+} intFloatUnion;
+
+typedef union u2 {
+   double d;
+   uint64_t i;
+} intDoubleUnion;
 
 /*-------------------------------------------------------------------*/
 
@@ -3421,7 +3432,8 @@ static int addReal(void *vmsg, const char *name, double val, int type, int isSys
   char *s;
   uint32_t j32;
   uint64_t j64;
-  float    flt;
+  intFloatUnion  floater;
+  intDoubleUnion doubler;
   
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3473,10 +3485,10 @@ static int addReal(void *vmsg, const char *name, double val, int type, int isSys
   
   sprintf(s, "%s %d %d %d %d\n%n", name, item->type, item->count, isSystem, textLen, &len);
   s += len;
-  
+
   if (type == CMSG_CP_FLT) {
-    flt = (float)val;
-    j32 = *((uint32_t *)(&flt));
+    floater.f = (float)val;
+    j32 = floater.i;
     byte = j32>>24 & 0xff;
     *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
     byte = j32>>16 & 0xff;
@@ -3488,7 +3500,8 @@ static int addReal(void *vmsg, const char *name, double val, int type, int isSys
     *s++ = '\n';
   }
   else {
-    j64 = *((uint64_t *)(&val));
+    doubler.d = val;
+    j64 = doubler.i;
     byte = j64>>56 & 0xffL;
     *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
     byte = j64>>48 & 0xffL;
