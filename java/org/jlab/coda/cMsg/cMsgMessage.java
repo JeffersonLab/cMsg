@@ -171,6 +171,9 @@ public class cMsgMessage implements Cloneable {
     /** Absolute maximum number of entries a message keeps when recording the history of various parameters. */
     private static final int historyLengthAbsoluteMax = 200;
 
+    /** Initial maximum number of entries a message keeps when recording the history of various parameters. */
+    private static final int historyLengthInit = 20;
+
     // general quantities
 
     /**
@@ -290,7 +293,7 @@ public class cMsgMessage implements Cloneable {
         items   = new ConcurrentHashMap<String, cMsgPayloadItem>();
         buffer  = new StringBuilder(512);
         info   |= expandedPayload;
-        historyLengthMax = 20;
+        historyLengthMax = historyLengthInit;
     }
 
 
@@ -1238,7 +1241,7 @@ public class cMsgMessage implements Cloneable {
      *                convert next 15 chars
      * @return long value of string
      */
-    public static final long hexStrToLong (String hex, boolean zeroSup) {
+    static final long hexStrToLong (String hex, boolean zeroSup) {
         if (!zeroSup) {
             return (((long) toByte[hex.charAt(0)]  << 60) |
                     ((long) toByte[hex.charAt(1)]  << 56) |
@@ -1286,7 +1289,7 @@ public class cMsgMessage implements Cloneable {
      *                convert next 7 chars
      * @return int value of string
      */
-    public static final int hexStrToInt (String hex, boolean zeroSup) {
+    static final int hexStrToInt (String hex, boolean zeroSup) {
         if (!zeroSup) {
             return ((toByte[hex.charAt(0)] << 28) |
                     (toByte[hex.charAt(1)] << 24) |
@@ -1318,7 +1321,7 @@ public class cMsgMessage implements Cloneable {
      *                convert next 3 chars
      * @return int value of string
      */
-    public static final short hexStrToShort (String hex, boolean zeroSup) {
+    static final short hexStrToShort (String hex, boolean zeroSup) {
         if (!zeroSup) {
             return  ((short) (
                     (toByte[hex.charAt(0)] << 12) |
@@ -1406,7 +1409,7 @@ public class cMsgMessage implements Cloneable {
 
     /**
      * Adds a name to the history of senders of this message (in the payload).
-     * This method only keeps MAX_HISTORY_LENGTH number of the most recent names.
+     * This method only keeps {@link #historyLengthMax} number of the most recent names.
      * This method is reserved for system use only.
      * @param name name of sender to add to the history of senders
      */
@@ -1562,16 +1565,16 @@ public class cMsgMessage implements Cloneable {
             return null;
         }
 
-        /* find total length, first payload, then text field */
+        // find total length, first payload, then text field
         for (cMsgPayloadItem item : items.values()) {
             totalLen += item.text.length();
         }
 
-        /* ensure buffer size, and clear it */
+        // ensure buffer size, and clear it
         if (buffer.capacity() < totalLen) buffer.ensureCapacity(totalLen + 512);
         buffer.delete(0,buffer.capacity());
 
-        /* concatenate payload fields */
+        // concatenate payload fields
         for (cMsgPayloadItem item : items.values()) {
             buffer.append(item.text);
         }
@@ -1747,7 +1750,7 @@ if (debug) System.out.println("  skipped field");
      * (doesn't need to be generated).
      *
      * @param name name of field to add
-     * @param isSystem if = 0, add item to payload, else set system parameters
+     * @param isSystem if false, add item to payload, else set system parameters
      * @param txt string read in over wire for message's text field
      * @param index1 index into txt after the item's header line
      * @param fullIndex index into txt at beginning of item (before header line)
@@ -1802,7 +1805,7 @@ if (debug) System.out.println("  skipped field");
      *
      * @param name name of field to add
      * @param count number of elements in array
-     * @param isSystem if = 0, add item to payload, else set system parameters
+     * @param isSystem if false, add item to payload, else set system parameters
      * @param txt string read in over wire for message's text field
      * @param index1 index into txt after the item's header line
      * @param fullIndex index into txt at beginning of item (before header line)
@@ -1914,7 +1917,7 @@ if (debug) System.out.println("  skipped field");
      *
      * @param name name of field to add
      * @param dataType either {@link cMsgConstants#payloadDbl} or {@link cMsgConstants#payloadFlt}
-     * @param isSystem if = 0, add item to payload, else set system parameters
+     * @param isSystem if false, add item to payload, else set system parameters
      * @param txt string read in over wire for message's text field
      * @param index1 index into txt after the item's header line
      * @param fullIndex index into txt at beginning of item (before header line)
@@ -1967,7 +1970,7 @@ if (debug) System.out.println("  skipped field");
      * @param name name of field to add
      * @param dataType either {@link cMsgConstants#payloadDbl} or {@link cMsgConstants#payloadFlt}
      * @param count number of elements in array
-     * @param isSystem if = 0, add item to payload, else set system parameters
+     * @param isSystem if false, add item to payload, else set system parameters
      * @param txt string read in over wire for message's text field
      * @param index1 index into txt after the item's header line
      * @param fullIndex index into txt at beginning of item (before header line)
@@ -2076,8 +2079,11 @@ if (debug) System.out.println("  skipped field");
      * (doesn't need to be generated).
      *
      * @param name name of field to add
-     * @param dataType either {@link cMsgConstants#payloadDbl} or {@link cMsgConstants#payloadFlt}
-     * @param isSystem if = 0, add item to payload, else set system parameters
+     * @param dataType either {@link cMsgConstants#payloadInt8}, {@link cMsgConstants#payloadInt16},
+     *                        {@link cMsgConstants#payloadInt32}, {@link cMsgConstants#payloadInt64},
+     *                        {@link cMsgConstants#payloadUint8}, {@link cMsgConstants#payloadUint16},
+     *                        {@link cMsgConstants#payloadUint32}, or {@link cMsgConstants#payloadUint64}
+     * @param isSystem if false, add item to payload, else do something special maybe (currently nothing)
      * @param txt string read in over wire for message's text field
      * @param index1 index into txt after the item's header line
      * @param fullIndex index into txt at beginning of item (before header line)
@@ -2139,9 +2145,9 @@ if (debug) System.out.println("  skipped field");
      * (doesn't need to be generated).
      *
      * @param name name of field to add
-     * @param dataType any iteger type (e.g. {@link cMsgConstants#payloadInt8})
+     * @param dataType any iteger type (e.g. {@link cMsgConstants#payloadInt8A})
      * @param count number of elements in array
-     * @param isSystem if = 0, add item to payload, else set system parameters
+     * @param isSystem if false, add item to payload, else set system parameters
      * @param txt string read in over wire for message's text field
      * @param index1 index into txt after the item's header line
      * @param fullIndex index into txt at beginning of item (before header line)
@@ -2433,17 +2439,24 @@ if (debug) System.out.println("  skipped field");
 
     /**
      * This method prints out the message payload in a readable form.
+     * Simpler than XML.
+     * @param level level of indentation (0 = normal)
      */
     public void payloadPrintout(int level) {
         int j, typ;
-        String indent, name;
+        String indent="", name;
         cMsgPayloadItem item;
 
         // create the indent since a message may contain a message, etc.
         if (level < 1) {
-            indent = "";
+            level = 0;
         }
+        // limit indentation to 10 levels
         else {
+            level %= 10;
+        }
+
+        if (level > 0) {
             char[] c = new char[level * 5];
             Arrays.fill(c, ' ');
             indent = new String(c);
