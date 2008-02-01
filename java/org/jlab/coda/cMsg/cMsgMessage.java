@@ -1600,7 +1600,7 @@ public class cMsgMessage implements Cloneable {
         boolean debug = false;
 
         if (text == null) throw new cMsgException("bad argument");
-
+//System.out.println("Text to decode:\n" + text);
         // read number of fields to come
         index1 = 0;
         index2 = text.indexOf('\n');
@@ -1785,8 +1785,8 @@ if (debug) System.out.println("  skipped field");
         }
 
         // get full text representation of item so it doesn't need to be recalculated
-        // when creating the payload item
-        String textRep = txt.substring(fullIndex, index2);
+        // when creating the payload item (+1 includes last newline)
+        String textRep = txt.substring(fullIndex, index2+1);
 
         // create payload item to add to msg  & store in payload
         addPayloadItem(new cMsgPayloadItem(name, val, textRep, noHeadLen));
@@ -1814,9 +1814,9 @@ if (debug) System.out.println("  skipped field");
                                    int index1, int fullIndex, int noHeadLen)
             throws cMsgException {
 
-        int index2 = index1;
+        int index2;
         String[] vals = new String[count];
-
+//System.out.println("addStringArrayFromText Inn" + txt);
         for (int i = 0; i < count; i++) {
             // first item is length of string but we'll skip over it
             // since we don't really need it in java
@@ -1826,14 +1826,18 @@ if (debug) System.out.println("  skipped field");
             // next is string value of this payload item
             index1 = index2 + 1;
             index2 = txt.indexOf('\n', index1);
-            if (index2 < 1) throw new cMsgException("bad format");
+            if (index2 < 1) {
+//System.out.println("Cannot find ending <nl> in string array text");
+                throw new cMsgException("bad format");
+            }
             vals[i] = txt.substring(index1, index2);
             index1 = index2 + 1;
         }
 
         // get full text representation of item so it doesn't need to be recalculated
-        // when creating the payload item
-        String textRep = txt.substring(fullIndex, index2);
+        // when creating the payload item (+1 includes last newline)
+        String textRep = txt.substring(fullIndex, index1);
+//System.out.println("addStringArrayFromText textRep len = " + textRep.length() + ", text =\n" + textRep);
 
         // Create payload item to add to msg  & store in payload.
         // In this case, system fields are passed on untouched.
@@ -1894,7 +1898,7 @@ if (debug) System.out.println("  skipped field");
 
         // get full text representation of item so it doesn't need to be recalculated
         // when creating the payload item
-        String textRep = txt.substring(fullIndex, index2);
+        String textRep = txt.substring(fullIndex, index2+1);
 
         // create payload item to add to msg  & store in payload
         addPayloadItem(new cMsgPayloadItem(name, b, endian, textRep, noHeadLen));
@@ -1931,7 +1935,7 @@ if (debug) System.out.println("  skipped field");
 
         // get full text representation of item so it doesn't need to be recalculated
         // when creating the payload item
-        String textRep = txt.substring(fullIndex, index2);
+        String textRep = txt.substring(fullIndex, index2+1);
 
         if (dataType == cMsgConstants.payloadDbl) {
             // convert from 16 chars (representing hex) to double
@@ -1984,7 +1988,7 @@ if (debug) System.out.println("  skipped field");
 
         // get full text representation of item so it doesn't need to be recalculated
         // when creating the payload item
-        String textRep = txt.substring(fullIndex, index2);
+        String textRep = txt.substring(fullIndex, index2+1);
 
         // vars used to get next number
         String num;
@@ -2093,7 +2097,7 @@ if (debug) System.out.println("  skipped field");
 //System.out.println("add Int = " + val);
         // get full text representation of item so it doesn't need to be recalculated
         // when creating the payload item
-        String textRep = txt.substring(fullIndex, index2);
+        String textRep = txt.substring(fullIndex, index2+1);
 
         if (dataType == cMsgConstants.payloadInt8) {
             // create payload item to add to msg  & store in payload
@@ -2157,7 +2161,7 @@ if (debug) System.out.println("  skipped field");
 //System.out.println("add Int array = " + val);
         // get full text representation of item so it doesn't need to be recalculated
         // when creating the payload item
-        String textRep = txt.substring(fullIndex, index2);
+        String textRep = txt.substring(fullIndex, index2+1);
 
         // Identify the UNSIGNED types here since they
         // don't exist in java and need to be promoted.
