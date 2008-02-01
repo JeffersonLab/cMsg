@@ -4305,7 +4305,7 @@ static int cMsgToString2(void *vmsg, char **string, int level, int offset, int b
       case CMSG_CP_MSG:
         {void *m; ok=cMsgGetMessage(msg, name, &m);    if(ok!=CMSG_OK) {
          if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
-         ok = cMsgToString2(m, &pchar, level+1, 0, binary); if(ok!=CMSG_OK) {
+         ok = cMsgToString2(m, &pchar, level+1, offset, binary); if(ok!=CMSG_OK) {
          if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
         } break;
          
