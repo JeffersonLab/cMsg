@@ -18,6 +18,8 @@ package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
 
+import java.math.BigInteger;
+
 
 /**
  * An example class which creates a cMsg message consumer.
@@ -28,7 +30,7 @@ public class cMsgConsumer {
     String  description = "java consumer";
     //String  UDL = "cMsg:configFile://configgy;cMsg://aslan:3456/cMsg/test";
     //String  UDL = "cMsg:cmsg://broadcast/cMsg/test";
-    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
+    String  UDL = "cMsg:cMsg://localhost:3456/cMsg/test";
     String  subject = "SUBJECT";
     String  type = "TYPE";
     boolean debug;
@@ -153,6 +155,200 @@ public class cMsgConsumer {
 //            catch (InterruptedException e) {}
 
 //System.out.println("Cue size = " + msg.getContext().getCueSize());
+System.out.println("Has payload = " + msg.hasPayload());
+/*
+            cMsgPayloadItem item = msg.getPayloadItem("INT");
+            if (item != null) {
+                try {
+                    int j = item.getInt();
+                    System.out.println("int = " + j);
+                }
+                catch (cMsgException e) {  }
+            }
+
+            item = msg.getPayloadItem("BYTE");
+            if (item != null) {
+                try {
+                    byte j = item.getByte();
+                    System.out.println("byte = " + j);
+                }
+                catch (cMsgException e) {  }
+            }
+
+            item = msg.getPayloadItem("SHORT");
+            if (item != null) {
+                try {
+                    short j = item.getShort();
+                    System.out.println("short = " + j);
+                }
+                catch (cMsgException e) {  }
+            }
+
+            item = msg.getPayloadItem("LONG");
+            if (item != null) {
+                try {
+                    long j = item.getLong();
+                    System.out.println("long = " + j);
+                }
+                catch (cMsgException e) {  }
+            }
+            item = msg.getPayloadItem("BIGINT");
+            if (item != null) {
+                try {
+                    BigInteger j = item.getBigInt();
+                    System.out.println("BigInt = " + j.toString());
+                }
+                catch (cMsgException e) {
+                    e.printStackTrace();
+                }
+            }
+            item = msg.getPayloadItem("BIGINT_ARRAY");
+            if (item != null) {
+                try {
+                    BigInteger[] l = item.getBigIntArray();
+                    for (int i=0; i<l.length; i++) {
+                        System.out.println("big[" + i + "] = " + l[i]);
+                    }
+                }
+                catch (cMsgException e) {
+                    e.printStackTrace();
+                }
+            }
+*/
+/*
+            item = msg.getPayloadItem("LONG_ARRAY_ZERO");
+            if (item != null) {
+                try {
+                    long[] l = item.getLongArray();
+                    for (int i=0; i<l.length; i++) {
+                        System.out.println("long[" + i + "] = " + l[i]);
+                    }
+                }
+                catch (cMsgException e) {
+                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                }
+            }
+*/
+
+/*
+            cMsgPayloadItem item = msg.getPayloadItem("ARRAY_ZERO");
+            if (item != null) {
+                try {
+                    byte[] b = item.getByteArray();
+                    for (int i=0; i<b.length; i++) {
+                        System.out.println("byte[" + i + "] = " + b[i]);
+                    }
+                    short[] s = item.getShortArray();
+                    for (int i=0; i<s.length; i++) {
+                        System.out.println("short[" + i + "] = " + s[i]);
+                    }
+                    int[] j = item.getIntArray();
+                    for (int i=0; i<j.length; i++) {
+                        System.out.println("int[" + i + "] = " + j[i]);
+                    }
+                    long[] l = item.getLongArray();
+                    for (int i=0; i<l.length; i++) {
+                        System.out.println("long[" + i + "] = " + l[i]);
+                    }
+                    BigInteger[] bi = item.getBigIntArray();
+                    for (int i=0; i<l.length; i++) {
+                        System.out.println("bigint[" + i + "] = " + bi[i].toString());
+                    }
+                }
+                catch (cMsgException e) {
+                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                }
+            }
+*/
+
+/*
+            cMsgPayloadItem item = msg.getPayloadItem("FLT");
+            if (item != null) {
+                try {
+                    float j = item.getFloat();
+                    System.out.println("float = " + j);
+                }
+                catch (cMsgException e) {  }
+            }
+
+            item = msg.getPayloadItem("DBL");
+            if (item != null) {
+                try {
+                    double j = item.getDouble();
+                    System.out.println("double = " + j);
+                }
+                catch (cMsgException e) {  }
+            }
+
+            item = msg.getPayloadItem("FLT_ARRAY");
+            if (item != null) {
+                try {
+                    float[] l = item.getFloatArray();
+                    for (int i=0; i<l.length; i++) {
+                        System.out.println("float[" + i + "] = " + l[i]);
+                    }
+                    double[] d = item.getDoubleArray();
+                    for (int i=0; i<d.length; i++) {
+                        System.out.println("flt as double[" + i + "] = " + d[i]);
+                    }
+                }
+                catch (cMsgException e) {
+                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                }
+            }
+
+            item = msg.getPayloadItem("DBL_ARRAY");
+            if (item != null) {
+                try {
+                    float[] f = item.getFloatArray();
+                    for (int i=0; i<f.length; i++) {
+                        System.out.println("dbl as float[" + i + "] = " + f[i]);
+                    }
+                    double[] l = item.getDoubleArray();
+                    for (int i=0; i<l.length; i++) {
+                        System.out.println("double[" + i + "] = " + l[i]);
+                    }
+                }
+                catch (cMsgException e) {
+                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                }
+            }
+*/
+
+/*
+            cMsgPayloadItem item = msg.getPayloadItem("MSG_ARRAY");
+            if (item != null) {
+                try {
+                    cMsgMessage[] m = item.getMessageArray();
+                    System.out.println("msg[0] = " + m[0]);
+                    item = m[0].getPayloadItem("DBL");
+                    if (item != null) {
+                        try {
+                            double j = item.getDouble();
+                            System.out.println("double in embedded msg 0 = " + j);
+                        }
+                        catch (cMsgException e) {  }
+                    }
+                    item = m[1].getPayloadItem("INT");
+                    if (item != null) {
+                        try {
+                            int j = item.getInt();
+                            System.out.println("int in embedded msg 1 = " + j);
+                        }
+                        catch (cMsgException e) {  }
+                    }
+                }
+                catch (cMsgException e) {
+                    System.out.println("Error getting msg field from payload");
+                }
+            }
+
+            msg.payloadPrintout(0);
+*/
+
+            System.out.println("MESSAGE IN XML:\n" + msg);
+
+
             count++;
         }
 
