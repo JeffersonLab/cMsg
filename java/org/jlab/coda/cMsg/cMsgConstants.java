@@ -26,7 +26,7 @@ public class cMsgConstants {
     private cMsgConstants() {}
 
     /** Major cMsg version number. */
-    public static final int    version      = 1;
+    public static final int    version      = 2;
     /** Minor cMsg version number. */
     public static final int    minorVersion = 0;
 
