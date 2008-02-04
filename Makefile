@@ -52,8 +52,8 @@ doc:
 	cd doc; $(MAKE) -f $(MAKEFILE);
 
 tar:
-	-$(RM) tar/cMsg-1.0.tar.gz;
-	tar -X tar/tarexclude -C .. -c -z -f tar/cMsg-1.0.tar.gz cMsg
+	-$(RM) tar/cMsg-2.0.tar.gz;
+	tar -X tar/tarexclude -C .. -c -z -f tar/cMsg-2.0.tar.gz cMsg
 
 # Use this pattern rule for all other targets
 %:
