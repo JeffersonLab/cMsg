@@ -971,8 +971,8 @@ public class cMsgMessage implements Cloneable {
      * This method converts the message to a printable string in XML format.
      * Any binary data is encoded in the base64 format.
      *
-     * @returns message as XML String object
-     * @returns a blank string if any error occurs
+     * @return message as XML String object
+     * @return a blank string if any error occurs
      */
     public String toString() {
         return toString2(0,0,true);
@@ -986,8 +986,8 @@ public class cMsgMessage implements Cloneable {
       * @param offset the number of spaces to add to the indent
       * @param binary includes binary as ASCII if true, else binary is ignored
       *
-     * @returns message as XML String object
-     * @returns a blank string if any error occurs
+     * @return message as XML String object
+     * @return a blank string if any error occurs
       */
     private String toString2(int level, int offset, boolean binary) {
         StringWriter sw = new StringWriter(2048);
