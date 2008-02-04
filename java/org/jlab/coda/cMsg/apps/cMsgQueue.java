@@ -171,7 +171,7 @@ public class cMsgQueue {
             if(url!=null) {
                 try {
                     int i = 1;
-                    pStmt.setString(i++,    msg.getCreator());
+//                    pStmt.setString(i++,    msg.getCreator());
                     pStmt.setString(i++,    msg.getSubject());
                     pStmt.setString(i++,    msg.getType());
                     pStmt.setString(i++,    msg.getText());
@@ -277,7 +277,7 @@ public class cMsgQueue {
 
                         int id = rs.getInt("id");
 
-                        response.setCreator(rs.getString("creator"));
+//                        response.setCreator(rs.getString("creator"));
                         response.setSubject(rs.getString("subject"));
                         response.setType(rs.getString("type"));
                         response.setText(rs.getString("text"));
