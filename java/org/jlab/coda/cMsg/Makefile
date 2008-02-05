@@ -16,7 +16,11 @@ JAVA_OBJS = \
 	cMsgUtilities.class \
 	cMsgSubscription.class \
 	cMsgException.class \
-	cMsgMessage.class \
+	FileHelper.class \
+	Base64.class \
+	Base64DecodingException.class \
+	cMsgPayloadItem.class \
+	cMsgPayloadItem.class \
 	cMsgMessageFull.class \
 	cMsgMessageMatcher.class \
 	cMsgConstants.class \
