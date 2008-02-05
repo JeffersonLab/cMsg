@@ -122,6 +122,7 @@ static void setPayload(cMsgMessage_t *msg, int hasPayload);
 static void payloadItemInit(payloadItem *item);
 static void payloadItemFree(payloadItem *item);
 static payloadItem *copyPayloadItem(const payloadItem *from);
+static void payloadPrintout(const void *msg, int level);
 
 /* These routines move payload items in linked list. */
 
@@ -626,10 +627,9 @@ void cMsgPayloadWipeout(void *vmsg) {
 
 /**
  * This routine removes all the user-added items in the given message's payload.
- * The payload may still contain system fields that are inaccessible to the user.
- * If there are no items left in the payload, this routine frees the allocated
- * memory of the given message's entire payload and then initializes the payload
- * components of the message. 
+ * The payload may still contain fields added by the cMsg system.
+ * If there are no items left in the payload, this routine is equivalent to
+ * {@link cMsgPayloadWipeout}. 
  *
  * @param vmsg pointer to message
  */   
@@ -1909,9 +1909,21 @@ const char *cMsgPayloadFieldDescription(const void *vmsg, const char *name) {
 /**
  * This routine prints out the message payload in a readable form.
  *
+ * @param vmsg pointer to message
+ */
+void cMsgPayloadPrint(const void *vmsg) {
+  payloadPrintout(vmsg,0);  
+}
+
+  
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine prints out the message payload in a readable form.
+ *
  * @param msg pointer to message
  */
-void cMsgPayloadPrintout(const void *msg, int level) {
+static void payloadPrintout(const void *msg, int level) {
   int ok, j, k, len, *types, namesLen=0;
   char *indent, *name, **names;
   
@@ -2014,7 +2026,7 @@ void cMsgPayloadPrintout(const void *msg, int level) {
       case CMSG_CP_MSG:
         {void *v; ok=cMsgGetMessage(msg, name, &v); if(ok!=CMSG_OK) break;
          printf(" (cMsg message):\n");
-         cMsgPayloadPrintout(v, level+1);
+         payloadPrintout(v, level+1);
         } break;
         
       case CMSG_CP_MSG_A:
@@ -2022,7 +2034,7 @@ void cMsgPayloadPrintout(const void *msg, int level) {
           printf(":\n");
           for (j=0; j<len; j++) {
            printf("%s  message[%d] =\n", indent, j);
-           cMsgPayloadPrintout(v[j], level+1);
+           payloadPrintout(v[j], level+1);
          }
         } break;
         
@@ -2039,18 +2051,6 @@ void cMsgPayloadPrintout(const void *msg, int level) {
 }
 
 
-/*-------------------------------------------------------------------*/
-
-/**
- * This routine prints out the message payload in a readable form.
- *
- * @param vmsg pointer to message
- */
-void cMsgPayloadPrint(const void *vmsg) {
-  cMsgPayloadPrintout(vmsg,0);  
-}
-
-  
 /*-------------------------------------------------------------------*/
 
 
