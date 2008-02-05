@@ -121,7 +121,6 @@ static int  isValidSystemFieldName(const char *s);
 static void setPayload(cMsgMessage_t *msg, int hasPayload);
 static void payloadItemInit(payloadItem *item);
 static void payloadItemFree(payloadItem *item);
-static payloadItem *payloadItemGet(const cMsgMessage_t *msg, char *name);
 static payloadItem *copyPayloadItem(const payloadItem *from);
 
 /* These routines move payload items in linked list. */
@@ -861,40 +860,6 @@ int cMsgPayloadGetType(const void *vmsg, const char *name, int *type) {
  
   releaseMutex();
   return(CMSG_ERROR);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine gets the payload item corresponding to the given name
- * if there is one.
- *
- * @param vmsg pointer to message
- * @param name name of item to retrieve
- * @returns item if successful
- * @returns null if no item by that name is found
- */
-static payloadItem *payloadItemGet(const cMsgMessage_t *msg, char *name) {
-    payloadItem *item;
-
-    if (msg == NULL || name == NULL || msg->payload == NULL) {
-        return (NULL);
-    }
-
-    grabMutex();
-
-    item = msg->payload;
-    while (item != NULL) {
-        if (strcmp(name, item->name) == 0) {
-            return item;
-        }
-        item = item->next;
-    }
-
-    releaseMutex();
-    return (NULL);
 }
 
 
@@ -5039,112 +5004,6 @@ static int addStringArray(void *vmsg, const char *name, const char **vals, int l
   err = createStringArrayItem(name, vals, len, isSystem, copy, &item);
   if (err != CMSG_OK) return(err);
   
-  /* place payload item in msg's linked list */
-  addItem(msg, item);
-  
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine adds a named string array field to the compound payload of a message.
- * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
- * or contain white space or quotes.
- *
- * @param vmsg pointer to message
- * @param name name of field to add
- * @param val strings to add
- * @param len number of strings to add
- * @param isSystem if = 1 allows using names starting with "cmsg", else not
- * @param copy if true, copy the strings in "vals", else record the pointer and assume ownership
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
- */   
-static int addStringArrayOrig(void *vmsg, const char *name, const char **vals, int len,
-                          int isSystem, int copy) {
-  int i, cLen, totalLen, textLen=0;
-  payloadItem *item;
-  char *s;
-  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
-
-  if (msg == NULL || name == NULL ||
-     vals == NULL || len < 1)               return(CMSG_BAD_ARGUMENT);
-  if (!isValidFieldName(name, isSystem))       return(CMSG_BAD_FORMAT);
-  if (cMsgPayloadContainsName(vmsg, name))  return(CMSG_ALREADY_EXISTS);
-  if (isSystem) isSystem = 1;
-  
-  /* payload item */
-  item = (payloadItem *) calloc(1, sizeof(payloadItem));
-  if (item == NULL) return(CMSG_OUT_OF_MEMORY);
-  payloadItemInit(item);
-  
-  item->name = strdup(name);
-  if (item->name == NULL) {
-    free(item);
-    return(CMSG_OUT_OF_MEMORY);
-  }
-  
-  if (copy) {  
-    /* allocate memory to store "len" number of pointers */
-    item->array = malloc(len*sizeof(char *));
-    if (item->array == NULL) {
-      payloadItemFree(item);
-      free(item);
-      return(CMSG_OUT_OF_MEMORY);
-    }
-
-    /* copy all strings for storage in message */
-    for (i=0; i < len; i++) {
-        ((char **)(item->array))[i] = strdup(vals[i]);
-    }
-  }
-  else {
-    item->array = (void *)vals;
-  }
-  
-  item->type  = CMSG_CP_STR_A;
-  item->count = len;
-  
-  /* Create string to hold all data to be transferred over
-   * the network for this item. */
-   
-  for (i=0; i<len; i++) {
-     /* digits in length + length of string + 2 newlines */
-     textLen += numDigits(strlen(vals[i]), 0) + strlen(vals[i]) + 2;
-  }
-   
-  item->noHeaderLen = textLen;
-  
-  totalLen = strlen(name) +
-             2 + /* 2 digit type */
-             numDigits(item->count, 0) +
-             1 + /* isSystem */
-             numDigits(textLen, 0) +
-             6 + /* 4 spaces, 1 newline, 1 null term */
-             textLen;
-
-  s = item->text = (char *) calloc(1, totalLen);
-  if (item->text == NULL) {
-    payloadItemFree(item);
-    free(item);
-    return(CMSG_OUT_OF_MEMORY);
-  }
-  sprintf(s, "%s %d %d %d %d\n%n", name, item->type, item->count, isSystem, textLen, &cLen);
-  s += cLen;
-  
-  for (i=0; i<len; i++) {
-    sprintf(s, "%d\n%s\n%n", strlen(vals[i]), vals[i], &cLen);
-    s += cLen;
-  }
-  item->length = strlen(item->text);
-
   /* place payload item in msg's linked list */
   addItem(msg, item);
   
