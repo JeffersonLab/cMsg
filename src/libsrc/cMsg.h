@@ -254,7 +254,6 @@ const char *cMsgPayloadFieldDescription(const void *vmsg, const char *name);
   void   cMsgPayloadWipeout          (      void *vmsg);
   void   cMsgPayloadClear            (      void *vmsg);
   int    cMsgHasPayload              (const void *vmsg, int *hasPayload);
-  void   cMsgPayloadPrintout         (const void *msg, int level);
  
   int    cMsgGetBinary               (const void *vmsg, const char *name, char **val, int *len, int *endian);
 
