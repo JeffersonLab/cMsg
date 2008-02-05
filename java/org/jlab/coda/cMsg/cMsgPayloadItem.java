@@ -32,7 +32,7 @@ import java.util.Arrays;
  * that contains the item_name). There may be several spaces between the last 2
  * entries on these lines.<p></b>
  *
- *<i>for string items:</i></b><p>
+ *<b><i>for string items:</i></b><p>
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
  *    string_length_1[nl]
  *    string_characters_1[nl]
@@ -214,10 +214,10 @@ public final class cMsgPayloadItem implements Cloneable {
 
 
     /**
-     * This method returns the number of digits in an integer including a minus sign.
+     * This method returns the number of characters needed to represent an integer including a minus sign.
      *
      * @param number integer
-     * @return number of digits in the integer argument including a minus sign
+     * @return number of characters needed to represent integer argument including minus sign
      */
     static int numDigits(long number) {
       int digits = 1;
@@ -237,11 +237,11 @@ public final class cMsgPayloadItem implements Cloneable {
 
 
     /**
-     * This method returns the number of digits in an integer including a minus sign
-     * for large numbers including unsigned 64 bit.
+     * This method returns the number of characters needed to represent an integer
+     * including a minus sign for large numbers including unsigned 64 bit.
      *
      * @param number integer
-     * @return number of digits in the integer argument including a minus sign
+     * @return number of characters needed to represent integer argument including minus sign
      */
     static int numDigits(BigInteger number) {
       int digits = 1;
@@ -272,7 +272,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param name string to check
      * @param isSystem if true, allows names starting with "cmsg", else not
      *
-     * @returns true if string is OK
+     * @return true if string is OK, else false
      * @throws cMsgException if string is null, contains illegal characters, starts with
      *                       "cmsg" if not isSystem, or is too long
      */
@@ -301,12 +301,12 @@ public final class cMsgPayloadItem implements Cloneable {
 
 
     /**
-     * This method checks a string to see if it is a valid name starting with "cmsg",
+     * This method checks a string to see if it is a valid payload item name starting with "cmsg",
      * independent of case, reserved for use by the cMsg system itself. Names may not be
      * longer than CMSG_PAYLOAD_NAME_LEN_MAX characters.
      *
      * @param name string to check
-     * @returns true if string is a valid system name, else false
+     * @return true if string is a valid system name, else false
      */
     static boolean validSystemName(String name) {
         if (name == null) {
@@ -331,14 +331,16 @@ public final class cMsgPayloadItem implements Cloneable {
 
 
     /**
-     * This method checks an integer to make sure it has the proper value for an endian argument
-     * (cMsgConstants.endianBig, .endianLittle, .endianLocal, or .endianNotLocal). It returns
-     * the final endian value of either cMsgConstants.endianBig or .endianLittle. In other words,
-     * cMsgConstants.endianLocal, or .endianNotLocal are transformed to big or little.
+     * This method checks an integer to make sure it has the proper value for an endian argument --
+     * {@link cMsgConstants#endianBig}, {@link cMsgConstants#endianLittle},
+     * {@link cMsgConstants#endianLocal}, or {@link cMsgConstants#endianNotLocal}.
+     * It returns the final endian value of either {@link cMsgConstants#endianBig} or
+     * {@link cMsgConstants#endianLittle}. In other words, {@link cMsgConstants#endianLocal}, or
+     * {@link cMsgConstants#endianNotLocal} are transformed to big or little.
      *
      * @param endian value to check
      *
-     * @returns either cMsgConstants.endianBig or cMsgConstants.endianLittle
+     * @return either {@link cMsgConstants#endianBig} or {@link cMsgConstants#endianLittle}
      * @throws cMsgException if endian is an improper value
      */
     private int checkEndian(int endian) throws cMsgException {
@@ -354,6 +356,14 @@ public final class cMsgPayloadItem implements Cloneable {
         return cMsgConstants.endianBig;
     }
 
+    /**
+     * This method changes an integer value into a string of 8 hex characters starting with
+     * "Z" in order to represent a number of zeros in our simple zero-compression scheme.
+     * This only makes sense for positive integers.
+     *
+     * @param sb StringBuilder object into which the characters are written
+     * @param zeros the number of zeros to be encoded/compressed
+     */
     public static final void zerosToIntStr(StringBuilder sb, int zeros) {
         sb.append("Z");
         sb.append( toASCII[ zeros >> 24 & 0xff ].charAt(1) );
@@ -362,6 +372,14 @@ public final class cMsgPayloadItem implements Cloneable {
         sb.append( toASCII[ zeros       & 0xff ] );
     }
 
+    /**
+     * This method changes an integer value into a string of 16 hex characters starting with
+     * "Z" in order to represent a number of zeros in our simple zero-compression scheme.
+     * This only makes sense for positive integers.
+     * 
+     * @param sb StringBuilder object into which the characters are written
+     * @param zeros the number of zeros to be encoded/compressed
+     */
     public static final void zerosToLongStr(StringBuilder sb, int zeros) {
         sb.append("Z00000000");
         sb.append( toASCII[ zeros >> 24 & 0xff ].charAt(1) );
@@ -370,6 +388,13 @@ public final class cMsgPayloadItem implements Cloneable {
         sb.append( toASCII[ zeros       & 0xff ] );
     }
 
+    /**
+     * This method changes a long value into a string of 16 hex characters in
+     * order to represent its bit pattern.
+     *
+     * @param sb StringBuilder object into which the characters are written
+     * @param l the number to transform
+     */
     public static final void longToStr(StringBuilder sb, long l) {
         sb.append( toASCII[ (int) (l>>56 & 0xffL) ] );
         sb.append( toASCII[ (int) (l>>48 & 0xffL) ] );
@@ -381,6 +406,13 @@ public final class cMsgPayloadItem implements Cloneable {
         sb.append( toASCII[ (int) (l     & 0xffL) ] );
     }
 
+    /**
+     * This method changes an int value into a string of 8 hex characters in
+     * order to represent its bit pattern.
+     *
+     * @param sb StringBuilder object into which the characters are written
+     * @param i the number to transform
+     */
     public static final void intToStr(StringBuilder sb, int i) {
         sb.append( toASCII[ i>>24 & 0xff ] );
         sb.append( toASCII[ i>>16 & 0xff ] );
@@ -392,16 +424,42 @@ public final class cMsgPayloadItem implements Cloneable {
     //--------------------------
     // Constructors, String
     //--------------------------
+
+    /**
+     * Construct a payload item from a String object.
+     *
+     * @param name name of item
+     * @param s string to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, String s) throws cMsgException {
         validName(name, false);
         addString(name, s, false);
     }
 
+    /**
+     * Construct a payload item from a String object.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param s string to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, String s, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         addString(name, s, txt, false, noHeadLen);
     }
 
+    /**
+     * Construct a payload item from a String array.
+     *
+     * @param name name of item
+     * @param s string to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, String[] s) throws cMsgException {
         validName(name, false);
         addString(name, s, false);
@@ -409,16 +467,31 @@ public final class cMsgPayloadItem implements Cloneable {
 
     /**
      * Constructor for hidden system fields like cMsgSenderHistory.
-     * @param name
-     * @param s
-     * @param isSystem
-     * @throws cMsgException
+     * Used internally when adding system fields to a payload (e.g. sender
+     * history) just before sending.
+     *
+     * @param name name of item
+     * @param s string array to be part of the payload
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
+     * @throws cMsgException if invalid name
      */
     cMsgPayloadItem(String name, String[] s, boolean isSystem) throws cMsgException {
         validName(name, isSystem);
         addString(name, s, isSystem);
     }
 
+    /**
+     * Construct a payload item from a String array.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param s string array to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, String[] s, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
         validName(name, isSystem);
         addString(name, s, txt, isSystem, noHeadLen);
@@ -428,12 +501,36 @@ public final class cMsgPayloadItem implements Cloneable {
     //--------------------------
     // Constructors, Binary
     //--------------------------
+    /**
+     * Construct a payload item from a byte array containing binary data.
+     *
+     * @param name name of item
+     * @param b byte array containing binary data to be part of the payload
+     * @param end endian value of the binary data ({@link cMsgConstants#endianBig},
+     *            {@link cMsgConstants#endianLittle}, {@link cMsgConstants#endianLocal}, or
+     *            {@link cMsgConstants#endianNotLocal})
+     * @throws cMsgException if invalid name or endian value
+     */
     public cMsgPayloadItem(String name, byte[] b, int end) throws cMsgException {
         validName(name, false);
         endian = checkEndian(end);
         addBinary(name, b, false);
     }
 
+    /**
+     * Construct a payload item from a byte array containing binary data.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param b byte array containing binary data to be part of the payload
+     * @param end endian value of the binary data ({@link cMsgConstants#endianBig},
+     *            {@link cMsgConstants#endianLittle}, {@link cMsgConstants#endianLocal}, or
+     *            {@link cMsgConstants#endianNotLocal})
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name or endian value
+     */
     cMsgPayloadItem(String name, byte[] b, int end, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         endian = checkEndian(end);
@@ -443,70 +540,185 @@ public final class cMsgPayloadItem implements Cloneable {
     //--------------------------
     // Constructors, Message
     //--------------------------
+    /**
+     * Construct a payload item from a cMsgMessage object.
+     *
+     * @param name name of item
+     * @param msg cMsgMessage object to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, cMsgMessage msg) throws cMsgException {
         validName(name, false);
         addMessage(name, msg, false);
     }
 
-    cMsgPayloadItem(String name, cMsgMessage m, String txt, int noHeadLen) throws cMsgException {
+    /**
+     * Construct a payload item from a cMsgMessage object.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param msg cMsgMessage object to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
+    cMsgPayloadItem(String name, cMsgMessage msg, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
-        addMessage(name, m, txt, false, noHeadLen);
+        addMessage(name, msg, txt, false, noHeadLen);
     }
 
-    public cMsgPayloadItem(String name, cMsgMessage[] msg) throws cMsgException {
+    /**
+     * Construct a payload item from an array of cMsgMessage objects.
+     *
+     * @param name name of item
+     * @param msgs array of cMsgMessage objects to be part of the payload
+     * @throws cMsgException if invalid name
+     */
+    public cMsgPayloadItem(String name, cMsgMessage[] msgs) throws cMsgException {
         validName(name, false);
-        addMessage(name, msg, false);
+        addMessage(name, msgs, false);
     }
 
-    cMsgPayloadItem(String name, cMsgMessage[] m, String txt, int noHeadLen) throws cMsgException {
+    /**
+     * Construct a payload item from an array of cMsgMessage objects.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param msgs array of cMsgMessage objects to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
+    cMsgPayloadItem(String name, cMsgMessage[] msgs, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
-        addMessage(name, m, txt, false, noHeadLen);
+        addMessage(name, msgs, txt, false, noHeadLen);
     }
 
     //-------------------
     // Constructors, Ints
     //-------------------
 
+    /**
+     * Construct a payload item from an 8-bit integer.
+     *
+     * @param name name of item
+     * @param b byte (8-bit integer) to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, byte b) throws cMsgException {
         validName(name, false);
         addByte(name, b, false);
     }
 
+    /**
+     * Construct a payload item from an 8-bit integer.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param b byte (8-bit integer) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, byte b, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         addByte(name, b, txt, false, noHeadLen);
     }
 
+    /**
+     * Construct a payload item from a 16-bit integer.
+     *
+     * @param name name of item
+     * @param s short (16-bit integer) to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, short s) throws cMsgException {
         validName(name, false);
         addShort(name, s, false);
     }
 
+    /**
+     * Construct a payload item from a 16-bit integer.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param s short (16-bit integer) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, short s, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         addShort(name, s, txt, false, noHeadLen);
     }
 
+    /**
+     * Construct a payload item from a 32-bit integer.
+     *
+     * @param name name of item
+     * @param i int (32-bit integer) to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, int i) throws cMsgException {
         validName(name, false);
         addInt(name, i, false);
     }
 
+    /**
+     * Construct a payload item from a 32-bit integer.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param i int (32-bit integer) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, int i, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         addInt(name, i, txt, false, noHeadLen);
     }
 
+    /**
+     * Construct a payload item from a 64-bit integer.
+     *
+     * @param name name of item
+     * @param l long (64-bit integer) to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, long l) throws cMsgException {
         validName(name, false);
         addLong(name, l, false);
     }
 
+    /**
+     * Construct a payload item from a 64-bit integer.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param l long (64-bit integer) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, long l, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         addLong(name, l, txt, false, noHeadLen);
     }
 
+    /**
+     * Construct a payload item from an unsigned 64-bit integer.
+     *
+     * @param name name of item
+     * @param big BigInteger object (containing an unsigned 64-bit integer) to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, BigInteger big) throws cMsgException {
         validName(name, false);
         if ((big.compareTo(new BigInteger("18446744073709551615")) > 0) ||
@@ -514,11 +726,31 @@ public final class cMsgPayloadItem implements Cloneable {
         addNumber(name, big, cMsgConstants.payloadUint64, false);
     }
 
+    /**
+     * Construct a payload item from an unsigned 64-bit integer.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param big BigInteger object (containing an unsigned 64-bit integer) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, BigInteger big, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         addBigInt(name, big, txt, false, noHeadLen);
     }
 
+    /**
+     * Construct a payload item from an object implementing the Number interface.
+     * The object must be one of either {@link Byte}, {@link Short}, {@link Integer},
+     * {@link Long}, {@link Float}, or {@link Double}. 
+     *
+     * @param name name of item
+     * @param t Number object to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public <T extends Number> cMsgPayloadItem(String name, T t) throws cMsgException {
         int typ;
         String s = t.getClass().getName();
@@ -556,61 +788,162 @@ public final class cMsgPayloadItem implements Cloneable {
     // Constructors, Ints Arrays
     //--------------------------
 
+    /**
+     * Construct a payload item from an array of 8-bit integers.
+     *
+     * @param name name of item
+     * @param b byte array (array of 8-bit integers) to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, byte[] b) throws cMsgException {
         validName(name, false);
         addByte(name, b, false);
     }
 
+    /**
+     * Construct a payload item from an array of 8-bit integers.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param b byte array (array of 8-bit integers) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, byte[] b, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         addByte(name, b, txt, false, noHeadLen);
     }
 
+    /**
+     * Construct a payload item from an array of 16-bit integers.
+     *
+     * @param name name of item
+     * @param s short array (array of 16-bit integers) to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, short[] s) throws cMsgException {
         validName(name, false);
         addShort(name, s, false);
     }
 
+    /**
+     * Construct a payload item from an array of 16-bit integers.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param s short array (array of 16-bit integers) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, short[] s, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         addShort(name, s, txt, false, noHeadLen);
     }
 
+    /**
+     * Construct a payload item from an array of 32-bit integers.
+     *
+     * @param name name of item
+     * @param i int array (array of 32-bit integers) to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, int[] i) throws cMsgException {
         validName(name, false);
         addInt(name, i, false);
     }
 
+    /**
+     * Construct a payload item from an array of 32-bit integers.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param i int array (array of 32-bit integers) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, int[] i, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         addInt(name, i, txt, false, noHeadLen);
     }
 
+    /**
+     * Construct a payload item from an array of 64-bit integers.
+     *
+     * @param name name of item
+     * @param l long array (array of 64-bit integers) to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, long[] l) throws cMsgException {
         validName(name, false);
         addLong(name, l, false);
     }
 
+    /**
+     * Construct a payload item from an array of 64-bit integers.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param l long array (array of 64-bit integers) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, long[] l, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         addLong(name, l, txt, false, noHeadLen);
     }
 
-    public cMsgPayloadItem(String name, BigInteger[] big) throws cMsgException {
+    /**
+     * Construct a payload item from an array of unsigned 64-bit integers.
+     *
+     * @param name name of item
+     * @param bigs array of BigInteger objects (each containing an unsigned 64-bit integer)
+     *            to be part of the payload
+     * @throws cMsgException if invalid name
+     */
+    public cMsgPayloadItem(String name, BigInteger[] bigs) throws cMsgException {
         validName(name, false);
-        for (BigInteger bi : big) {
+        for (BigInteger bi : bigs) {
             if ((bi.compareTo(new BigInteger("18446744073709551615")) > 0) ||
                 (bi.compareTo(BigInteger.ZERO) < 0) )
                 throw new cMsgException("number must fit in an unsigned, 64-bit int");
         }
-        addNumber(name, big, cMsgConstants.payloadUint64A, false);
+        addNumber(name, bigs, cMsgConstants.payloadUint64A, false);
     }
 
-    cMsgPayloadItem(String name, BigInteger[] b, String txt, int noHeadLen) throws cMsgException {
+    /**
+     * Construct a payload item from an array of unsigned 64-bit integers.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param bigs array of BigInteger objects (each containing an unsigned 64-bit integer)
+     *            to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
+    cMsgPayloadItem(String name, BigInteger[] bigs, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
-        addBigInt(name, b, txt, false, noHeadLen);
+        addBigInt(name, bigs, txt, false, noHeadLen);
     }
 
+    /**
+     * Construct a payload item from an array of objects implementing the Number interface.
+     * The objects must be one of either {@link Byte}, {@link Short}, {@link Integer},
+     * {@link Long}, {@link Float}, or {@link Double}.
+     *
+     * @param name name of item
+     * @param t array of Number objects to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public <T extends Number> cMsgPayloadItem(String name, T[] t) throws cMsgException {
          int typ;
          String s = t[0].getClass().getName();
@@ -651,21 +984,57 @@ public final class cMsgPayloadItem implements Cloneable {
     // Reals
     //-----------
 
+    /**
+     * Construct a payload item from a float.
+     *
+     * @param name name of item
+     * @param f float to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, float f) throws cMsgException {
         validName(name, false);
         addFloat(name, f, false);
     }
 
+    /**
+     * Construct a payload item from a float.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param f float to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, float f, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         addFloat(name, f, txt, false, noHeadLen);
     }
 
+    /**
+     * Construct a payload item from a double.
+     *
+     * @param name name of item
+     * @param d double to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, double d) throws cMsgException {
         validName(name, false);
         addDouble(name, d, false);
     }
 
+    /**
+     * Construct a payload item from a double.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param d double to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, double d, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         addDouble(name, d, txt, false, noHeadLen);
@@ -675,21 +1044,57 @@ public final class cMsgPayloadItem implements Cloneable {
     // Real Arrays
     //------------
 
+    /**
+     * Construct a payload item from an array of floats.
+     *
+     * @param name name of item
+     * @param f float array to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, float[] f) throws cMsgException {
         validName(name, false);
         addFloat(name, f, false);
     }
 
+    /**
+     * Construct a payload item from an array of floats.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param f float array to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, float[] f, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         addFloat(name, f, txt, false, noHeadLen);
     }
 
+    /**
+     * Construct a payload item from an array of doubles.
+     *
+     * @param name name of item
+     * @param d double array to be part of the payload
+     * @throws cMsgException if invalid name
+     */
     public cMsgPayloadItem(String name, double[] d) throws cMsgException {
         validName(name, false);
         addDouble(name, d, false);
     }
 
+    /**
+     * Construct a payload item from an array of doubles.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param d double array to be part of the payload
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @throws cMsgException if invalid name
+     */
     cMsgPayloadItem(String name, double[] d, String txt, int noHeadLen) throws cMsgException {
         validName(name, false);
         addDouble(name, d, txt, false, noHeadLen);
@@ -705,6 +1110,13 @@ public final class cMsgPayloadItem implements Cloneable {
     // ADD STRING
     //------------
 
+    /**
+     * This method creates a String (text representation) of a String payload item.
+     *
+     * @param name name of item
+     * @param val string to be part of the payload
+     * @param isSystem is the given string (val) a system field?
+     */
     private void addString(String name, String val, boolean isSystem) {
         item = val;
         type = cMsgConstants.payloadStr;
@@ -726,6 +1138,17 @@ public final class cMsgPayloadItem implements Cloneable {
         text = buf.toString();
     }
 
+    /**
+     * This method stores a String (text representation) of a String payload item.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param val string to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addString(String name, String val, String txt, boolean isSystem, int noHeadLen) {
         item = val;
         type = cMsgConstants.payloadStr;
@@ -739,6 +1162,13 @@ public final class cMsgPayloadItem implements Cloneable {
     // ADD STRING ARRAY
     //-----------------
 
+    /**
+     * This method creates a String (text representation) of a String array payload item.
+     *
+     * @param name name of item
+     * @param vals string array to be part of the payload
+     * @param isSystem is the given string array a system field?
+     */
     private void addString(String name, String[] vals, boolean isSystem) {
         item  = vals;
         count = vals.length;
@@ -763,6 +1193,17 @@ public final class cMsgPayloadItem implements Cloneable {
         text = buf.toString();
     }
 
+    /**
+     * This method stores a String (text representation) of a String array payload item.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param vals string array to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addString(String name, String[] vals, String txt, boolean isSystem, int noHeadLen) {
         item  = vals;
         count = vals.length;
@@ -777,6 +1218,13 @@ public final class cMsgPayloadItem implements Cloneable {
     // ADD BINARY
     //------------
 
+    /**
+     * This method creates a String (text representation) of a byte array (binary) payload item.
+     *
+     * @param name name of item
+     * @param bin byte array (binary) to be part of the payload
+     * @param isSystem is the given byte array a system field?
+     */
     private void addBinary(String name, byte[] bin, boolean isSystem) {
         item = bin;
         type = cMsgConstants.payloadBin;
@@ -805,6 +1253,16 @@ public final class cMsgPayloadItem implements Cloneable {
         text = buf.toString();
     }
 
+    /**
+     * This method stroes a String (text representation) of a byte array (binary) payload item.
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param bin byte array (binary) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addBinary(String name, byte[] bin, String txt, boolean isSystem, int noHeadLen) {
         item = bin;
         type = cMsgConstants.payloadBin;
@@ -818,6 +1276,16 @@ public final class cMsgPayloadItem implements Cloneable {
     // ADD MESSAGE
     //------------
 
+    /**
+     * This is a utility method which takes a given string "s" and places it into a buffer
+     * "buf" in the proper format to be a text representation of a String payload item.
+     *
+     * @param name name of payload item
+     * @param buf StringBuilder object into which will be placed characters that represent
+     *            a String item of the payload
+     * @param s is the string to be placed in the buffer in the form of a text representation
+     *          of a String payload item
+     */
     private void systemStringToBuf(String name, StringBuilder buf, String s) {
         int len = numDigits(s.length()) +s.length() + 2; // 2 newlines
         buf.append(name);       buf.append(" ");
@@ -828,9 +1296,177 @@ public final class cMsgPayloadItem implements Cloneable {
         buf.append(s);           buf.append("\n");
     }
 
-    private void addMessage(String name, cMsgMessage[] m, String txt, boolean isSystem, int noHeadLen) {
-        item  = m;
-        count = m.length;
+    /**
+     * This method stores a String (text representation) of a cMsgMessage object payload item.
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param msg cMsgMessage object to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
+    private void addMessage(String name, cMsgMessage msg, String txt, boolean isSystem, int noHeadLen) {
+        item = msg;
+        type = cMsgConstants.payloadMsg;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
+    }
+
+    /**
+     * This method creates a String (text representation) of a cMsgMessage object payload item.
+     *
+     * @param name name of item
+     * @param msg cMsgMessage object to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
+    private void addMessage(String name, cMsgMessage msg, boolean isSystem) {
+        item = msg;
+        type = cMsgConstants.payloadMsg;
+        this.name = name;
+        this.isSystem = isSystem;
+
+        // Create string to hold all data to be transferred over
+        // the network for this item. Try to make sure we have some
+        // room in the buffer for the large items plus 2K extra.
+        int size = 0;
+        String payloadRep = msg.getItemsText();
+        if (payloadRep    != null)  size += payloadRep.length();
+        if (msg.getText() != null)  size += msg.getText().length();
+        size += msg.getByteArrayLength()*1.4;
+
+        int fieldCount = 0;
+        StringBuilder buf = new StringBuilder(size + 2048);
+
+        // Start adding message fields to string in payload item format
+        if (msg.getDomain() != null) {
+            systemStringToBuf("cMsgDomain", buf, msg.getDomain());
+            fieldCount++;
+        }
+        if (msg.getSubject() != null) {
+            systemStringToBuf("cMsgSubject", buf, msg.getSubject());
+            fieldCount++;
+        }
+        if (msg.getType() != null) {
+            systemStringToBuf("cMsgType", buf, msg.getType());
+            fieldCount++;
+        }
+        if (msg.getText() != null) {
+            systemStringToBuf("cMsgText", buf, msg.getText());
+            fieldCount++;
+        }
+        if (msg.getSender() != null) {
+            systemStringToBuf("cMsgSender", buf, msg.getSender());
+            fieldCount++;
+        }
+        if (msg.getSenderHost() != null) {
+            systemStringToBuf("cMsgSenderHost", buf, msg.getSenderHost());
+            fieldCount++;
+        }
+        if (msg.getReceiver() != null) {
+            systemStringToBuf("cMsgReceiver", buf, msg.getReceiver());
+            fieldCount++;
+        }
+        if (msg.getReceiverHost() != null) {
+            systemStringToBuf("cMsgReceiverHost", buf, msg.getReceiverHost());
+            fieldCount++;
+        }
+
+        // add an array of integers
+        StringBuilder sb = new StringBuilder(100);
+        intToStr(sb, msg.getVersion());         sb.append(" ");
+        intToStr(sb, msg.getInfo());            sb.append(" ");
+        intToStr(sb, msg.reserved);             sb.append(" ");
+        intToStr(sb, msg.getByteArrayLength()); sb.append(" ");
+        intToStr(sb, msg.getUserInt());         sb.append("\n");
+
+        buf.append("cMsgInts ");
+        buf.append(cMsgConstants.payloadInt32A);
+        buf.append(" 5 1 ");
+        buf.append(sb.length());  buf.append("\n");
+        buf.append(sb);
+        fieldCount++;
+
+        // Send a time as 2, 64 bit integers - one for seconds, one for nanoseconds.
+        // In java, time in only kept in milliseconds, so convert.
+        sb.delete(0,sb.length());
+        long t = msg.getUserTime().getTime();
+        longToStr(sb, t/1000);   // sec
+        sb.append(" ");
+        longToStr(sb, (t - ((t/1000L)*1000L))*1000000L);   // nanosec
+        sb.append(" ");
+        t = msg.getSenderTime().getTime();
+        longToStr(sb, t/1000);   // sec
+        sb.append(" ");
+        longToStr(sb, (t - ((t/1000L)*1000L))*1000000L);   // nanosec
+        sb.append(" ");
+        t = msg.getReceiverTime().getTime();
+        longToStr(sb, t/1000);   // sec
+        sb.append(" ");
+        longToStr(sb, (t - ((t/1000L)*1000L))*1000000L);   // nanosec
+        sb.append("\n");
+
+        buf.append("cMsgTimes ");
+        buf.append(cMsgConstants.payloadInt64A);
+        buf.append(" 6 1 ");
+        buf.append(sb.length());  buf.append("\n");
+        buf.append(sb);
+        fieldCount++;
+
+        // send the byte array
+        if (msg.getByteArrayLength() > 0) {
+//System.out.println("ADDING BIN TO PAYLOAD MSG");
+            String encodedBin = Base64.encodeToString(msg.getByteArray(), msg.getByteArrayOffset(),
+                                                      msg.getByteArrayLength(), true);
+            int len = numDigits(encodedBin.length()) + encodedBin.length() + 4;  // endian value, space, 2 newlines
+
+            buf.append("cMsgBinary ");
+            buf.append(cMsgConstants.payloadBin);
+            buf.append(" 1 1 ");
+            buf.append(len);                       buf.append("\n");
+            buf.append(encodedBin.length());       buf.append(" ");
+            buf.append(msg.getByteArrayEndian());  buf.append("\n");
+            buf.append(encodedBin);                buf.append("\n");
+            fieldCount++;
+        }
+
+        // add payload items of this message
+        Collection<cMsgPayloadItem> c = msg.getPayloadItems().values();
+        for (cMsgPayloadItem it : c) {
+            buf.append(it.text);
+            fieldCount++;
+        }
+
+        // length of everything except header
+        noHeaderLen = buf.length() + numDigits(fieldCount) + 1; // newline
+
+        StringBuilder buf2 = new StringBuilder(noHeaderLen + 100);
+        buf2.append(name);                 buf2.append(" ");
+        buf2.append(type);                 buf2.append(" ");
+        buf2.append(count);                buf2.append(" ");
+        buf2.append(isSystem ? 1 : 0);     buf2.append(" ");
+        buf2.append(noHeaderLen);          buf2.append("\n");
+        buf2.append(fieldCount);           buf2.append("\n");
+        buf2.append(buf);   // copy done here, but easier than calculating exact length beforehand (faster?)
+
+        text = buf2.toString();
+    }
+
+    /**
+     * This method stores a String (text representation) of a cMsgMessage array payload item.
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param msgs array of cMsgMessage objects to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
+    private void addMessage(String name, cMsgMessage[] msgs, String txt, boolean isSystem, int noHeadLen) {
+        item  = msgs;
+        count = msgs.length;
         type  = cMsgConstants.payloadMsgA;
         this.name = name;
         this.isSystem = isSystem;
@@ -838,6 +1474,13 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = noHeadLen;
     }
 
+    /**
+     * This method creates a String (text representation) of a cMsgMessage array payload item.
+     *
+     * @param name name of item
+     * @param msgs array of cMsgMessage objects to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
     private void addMessage(String name, cMsgMessage[] msgs, boolean isSystem) {
         item  = msgs;
         count = msgs.length;
@@ -974,161 +1617,40 @@ public final class cMsgPayloadItem implements Cloneable {
         text = buf2.toString();
     }
 
-    private void addMessage(String name, cMsgMessage m, String txt, boolean isSystem, int noHeadLen) {
-        item = m;
-        type = cMsgConstants.payloadMsg;
-        this.name = name;
-        this.isSystem = isSystem;
-        text = txt;
-        noHeaderLen = noHeadLen;
-    }
-
-    private void addMessage(String name, cMsgMessage msg, boolean isSystem) {
-        item = msg;
-        type = cMsgConstants.payloadMsg;
-        this.name = name;
-        this.isSystem = isSystem;
-
-        // Create string to hold all data to be transferred over
-        // the network for this item. Try to make sure we have some
-        // room in the buffer for the large items plus 2K extra.
-        int size = 0;
-        String payloadRep = msg.getItemsText();
-        if (payloadRep    != null)  size += payloadRep.length();
-        if (msg.getText() != null)  size += msg.getText().length();
-        size += msg.getByteArrayLength()*1.4;
-
-        int fieldCount = 0;
-        StringBuilder buf = new StringBuilder(size + 2048);
-
-        // Start adding message fields to string in payload item format
-        if (msg.getDomain() != null) {
-            systemStringToBuf("cMsgDomain", buf, msg.getDomain());
-            fieldCount++;
-        }
-        if (msg.getSubject() != null) {
-            systemStringToBuf("cMsgSubject", buf, msg.getSubject());
-            fieldCount++;
-        }
-        if (msg.getType() != null) {
-            systemStringToBuf("cMsgType", buf, msg.getType());
-            fieldCount++;
-        }
-        if (msg.getText() != null) {
-            systemStringToBuf("cMsgText", buf, msg.getText());
-            fieldCount++;
-        }
-        if (msg.getSender() != null) {
-            systemStringToBuf("cMsgSender", buf, msg.getSender());
-            fieldCount++;
-        }
-        if (msg.getSenderHost() != null) {
-            systemStringToBuf("cMsgSenderHost", buf, msg.getSenderHost());
-            fieldCount++;
-        }
-        if (msg.getReceiver() != null) {
-            systemStringToBuf("cMsgReceiver", buf, msg.getReceiver());
-            fieldCount++;
-        }
-        if (msg.getReceiverHost() != null) {
-            systemStringToBuf("cMsgReceiverHost", buf, msg.getReceiverHost());
-            fieldCount++;
-        }
-
-        // add an array of integers
-        StringBuilder sb = new StringBuilder(100);
-        intToStr(sb, msg.getVersion());         sb.append(" ");
-        intToStr(sb, msg.getInfo());            sb.append(" ");
-        intToStr(sb, msg.reserved);             sb.append(" ");
-        intToStr(sb, msg.getByteArrayLength()); sb.append(" ");
-        intToStr(sb, msg.getUserInt());         sb.append("\n");
-
-        buf.append("cMsgInts ");
-        buf.append(cMsgConstants.payloadInt32A);
-        buf.append(" 5 1 ");
-        buf.append(sb.length());  buf.append("\n");
-        buf.append(sb);
-        fieldCount++;
-
-        // Send a time as 2, 64 bit integers - one for seconds, one for nanoseconds.
-        // In java, time in only kept in milliseconds, so convert.
-        sb.delete(0,sb.length());
-        long t = msg.getUserTime().getTime();
-        longToStr(sb, t/1000);   // sec
-        sb.append(" ");
-        longToStr(sb, (t - ((t/1000L)*1000L))*1000000L);   // nanosec
-        sb.append(" ");
-        t = msg.getSenderTime().getTime();
-        longToStr(sb, t/1000);   // sec
-        sb.append(" ");
-        longToStr(sb, (t - ((t/1000L)*1000L))*1000000L);   // nanosec
-        sb.append(" ");
-        t = msg.getReceiverTime().getTime();
-        longToStr(sb, t/1000);   // sec
-        sb.append(" ");
-        longToStr(sb, (t - ((t/1000L)*1000L))*1000000L);   // nanosec
-        sb.append("\n");
-
-        buf.append("cMsgTimes ");
-        buf.append(cMsgConstants.payloadInt64A);
-        buf.append(" 6 1 ");
-        buf.append(sb.length());  buf.append("\n");
-        buf.append(sb);
-        fieldCount++;
-
-        // send the byte array
-        if (msg.getByteArrayLength() > 0) {
-//System.out.println("ADDING BIN TO PAYLOAD MSG");
-            String encodedBin = Base64.encodeToString(msg.getByteArray(), msg.getByteArrayOffset(),
-                                                      msg.getByteArrayLength(), true);
-            int len = numDigits(encodedBin.length()) + encodedBin.length() + 4;  // endian value, space, 2 newlines
-
-            buf.append("cMsgBinary ");
-            buf.append(cMsgConstants.payloadBin);
-            buf.append(" 1 1 ");
-            buf.append(len);                       buf.append("\n");
-            buf.append(encodedBin.length());       buf.append(" ");
-            buf.append(msg.getByteArrayEndian());  buf.append("\n");
-            buf.append(encodedBin);                buf.append("\n");
-            fieldCount++;
-        }
-
-        // add payload items of this message
-        Collection<cMsgPayloadItem> c = msg.getPayloadItems().values();
-        for (cMsgPayloadItem it : c) {
-            buf.append(it.text);
-            fieldCount++;
-        }
-
-        // length of everything except header
-        noHeaderLen = buf.length() + numDigits(fieldCount) + 1; // newline
-
-        StringBuilder buf2 = new StringBuilder(noHeaderLen + 100);
-        buf2.append(name);                 buf2.append(" ");
-        buf2.append(type);                 buf2.append(" ");
-        buf2.append(count);                buf2.append(" ");
-        buf2.append(isSystem ? 1 : 0);     buf2.append(" ");
-        buf2.append(noHeaderLen);          buf2.append("\n");
-        buf2.append(fieldCount);           buf2.append("\n");
-        buf2.append(buf);   // copy done here, but easier than calculating exact length beforehand (faster?)
-
-        text = buf2.toString();
-    }
-
 
     //------------
     // ADD NUMBERS
     //------------
 
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of an object
+     * implementing the Number interface. The object must be one of either {@link Byte}, {@link Short},
+     * {@link Integer}, {@link Long}, {@link Float}, or {@link Double}.
+     *
+     * @param name name of item
+     * @param t object implementing Number interface
+     * @param type type of payloadItem being created (e.g. {@link cMsgConstants#payloadDbl})
+     * @param isSystem is the given string a system field?
+     */
     private <T extends Number> void addNumber(String name, T t, int type, boolean isSystem) {
         item = t;
         this.type = type;
         addScalar(name, t.toString(), isSystem);
     }
 
-    private void addBigInt(String name, BigInteger b, String txt, boolean isSystem, int noHeadLen) {
-        item = b;
+    /**
+     * This method stores a String (text representation) of a payload item consisting of BigInteger.
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param big BigInteger object to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
+    private void addBigInt(String name, BigInteger big, String txt, boolean isSystem, int noHeadLen) {
+        item = big;
         type = cMsgConstants.payloadUint64;
         this.name = name;
         this.isSystem = isSystem;
@@ -1136,12 +1658,31 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = noHeadLen;
     }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a byte (8-bit integer).
+     *
+     * @param name name of item
+     * @param b byte (8-bit integer) to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
     private void addByte(String name, byte b, boolean isSystem) {
         item = b;
         type = cMsgConstants.payloadInt8;
         addScalar(name, ((Byte) b).toString(), isSystem);
     }
 
+    /**
+     * This method stores a String (text representation) of a payload item consisting of
+     * a byte (8-bit integer).
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param b byte (8-bit integer) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addByte(String name, byte b, String txt, boolean isSystem, int noHeadLen) {
         item = b;
         type = cMsgConstants.payloadInt8;
@@ -1151,12 +1692,31 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = noHeadLen;
     }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a short (16-bit integer).
+     *
+     * @param name name of item
+     * @param s short (16-bit integer) to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
     private void addShort(String name, short s, boolean isSystem) {
         item = s;
         type = cMsgConstants.payloadInt16;
         addScalar(name, ((Short) s).toString(), isSystem);
     }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a short (16-bit integer).
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param s short (16-bit integer) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addShort(String name, short s, String txt, boolean isSystem, int noHeadLen) {
         item = s;
         type = cMsgConstants.payloadInt16;
@@ -1166,12 +1726,31 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = noHeadLen;
     }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * an int (32-bit integer).
+     *
+     * @param name name of item
+     * @param i int (32-bit integer) to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
     private void addInt(String name, int i, boolean isSystem) {
         item = i;
         type = cMsgConstants.payloadInt32;
         addScalar(name, ((Integer) i).toString(), isSystem);
      }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * an int (32-bit integer).
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param i int (32-bit integer) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addInt(String name, int i, String txt, boolean isSystem, int noHeadLen) {
         item = i;
         type = cMsgConstants.payloadInt32;
@@ -1181,12 +1760,31 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = noHeadLen;
     }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a long (64-bit integer).
+     *
+     * @param name name of item
+     * @param l long (64-bit integer) to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
     private void addLong(String name, long l, boolean isSystem) {
         item = l;
         type = cMsgConstants.payloadInt64;
         addScalar(name, ((Long) l).toString(), isSystem);
     }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a long (64-bit integer).
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param l long (64-bit integer) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addLong(String name, long l, String txt, boolean isSystem, int noHeadLen) {
         item = l;
         type = cMsgConstants.payloadInt64;
@@ -1196,6 +1794,14 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = noHeadLen;
     }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a float.
+     *
+     * @param name name of item
+     * @param f float to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
     private void addFloat(String name, float f, boolean isSystem) {
         item = f;
         type = cMsgConstants.payloadFlt;
@@ -1207,6 +1813,17 @@ public final class cMsgPayloadItem implements Cloneable {
         addScalar(name, sb, isSystem);
     }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a float.
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param f float to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addFloat(String name, float f, String txt, boolean isSystem, int noHeadLen) {
         item = f;
         type = cMsgConstants.payloadFlt;
@@ -1216,6 +1833,14 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = noHeadLen;
     }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a double.
+     *
+     * @param name name of item
+     * @param d double to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
     private void addDouble(String name, double d, boolean isSystem) {
         item = d;
         type = cMsgConstants.payloadDbl;
@@ -1227,6 +1852,17 @@ public final class cMsgPayloadItem implements Cloneable {
         addScalar(name, sb, isSystem);
     }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a double.
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param d double to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addDouble(String name, double d, String txt, boolean isSystem, int noHeadLen) {
         item = d;
         type = cMsgConstants.payloadDbl;
@@ -1236,6 +1872,15 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = noHeadLen;
     }
 
+    /**
+     * This is a utility method which takes a String representation of any type of integer or
+     * Number object and creates a String (text representation) of an associated payload item.
+     *
+     * @param name name of payload item
+     * @param val is the string representation of any type of integer or
+     *            Number object (excluding Float and Double)
+     * @param isSystem is the given string a system field?
+     */
     private void addScalar(String name, String val, boolean isSystem) {
         this.name = name;
         this.isSystem = isSystem;
@@ -1256,6 +1901,14 @@ public final class cMsgPayloadItem implements Cloneable {
     }
 
 
+    /**
+     * This is a utility method which takes a StringBuilder representation of any type of integer or
+     * Number object and creates a String (text representation) of an associated payload item.
+     *
+     * @param name name of payload item
+     * @param val is the string representation of a Float or Double
+     * @param isSystem is the given string a system field?
+     */
     private void addScalar(String name, StringBuilder val, boolean isSystem) {
         this.name = name;
         this.isSystem = isSystem;
@@ -1280,6 +1933,16 @@ public final class cMsgPayloadItem implements Cloneable {
     // ADD NUMBER ARRAYS
     //-------------------
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of an array of objects
+     * implementing the Number interface. The objects must be one of either {@link Byte}, {@link Short},
+     * {@link Integer}, {@link Long}, {@link Float}, {@link Double}, or {@link BigInteger}.
+     *
+     * @param name name of item
+     * @param t array of objects implementing Number interface
+     * @param type type of payloadItem being created (e.g. {@link cMsgConstants#payloadDblA})
+     * @param isSystem is the given string a system field?
+     */
     private <T extends Number> void addNumber(String name, T[] t, int type, boolean isSystem) {
 
         // store in a primitive form if Byte, Short, Integer, Long, Float, or Double
@@ -1318,6 +1981,17 @@ public final class cMsgPayloadItem implements Cloneable {
         }
     }
 
+    /**
+     * This method stores a String (text representation) of a payload item consisting of
+     * a byte array (8-bit integer array).
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param b byte array (8-bit integer array) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addByte(String name, byte[] b, String txt, boolean isSystem, int noHeadLen) {
         item  = b;
         count = b.length;
@@ -1328,6 +2002,14 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = noHeadLen;
     }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a byte array (8-bit integer array).
+     *
+     * @param name name of item
+     * @param b byte array (8-bit integer array) to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
     private void addByte(String name, byte[] b, boolean isSystem) {
         item  = b;
         count = b.length;
@@ -1351,6 +2033,17 @@ public final class cMsgPayloadItem implements Cloneable {
         addArray(sb);
     }
 
+    /**
+     * This method stores a String (text representation) of a payload item consisting of
+     * a short array (16-bit integer array).
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param s short array (16-bit integer array) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addShort(String name, short[] s, String txt, boolean isSystem, int noHeadLen) {
         item  = s;
         count = s.length;
@@ -1361,6 +2054,14 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = noHeadLen;
     }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a short array (16-bit integer array).
+     *
+     * @param name name of item
+     * @param s short array (16-bit integer array) to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
     private void addShort(String name, short[] s, boolean isSystem) {
         item  = s;
         count = s.length;
@@ -1437,6 +2138,17 @@ public final class cMsgPayloadItem implements Cloneable {
         addArray(sb);
     }
 
+    /**
+     * This method stores a String (text representation) of a payload item consisting of
+     * an int array (32-bit integer array).
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param i int array (32-bit integer array) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addInt(String name, int[] i, String txt, boolean isSystem, int noHeadLen) {
         item  = i;
         count = i.length;
@@ -1447,6 +2159,14 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = noHeadLen;
     }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * an int array (32-bit integer array).
+     *
+     * @param name name of item
+     * @param i int array (32-bit integer array) to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
     private void addInt(String name, int[] i, boolean isSystem) {
         item  = i;
         count = i.length;
@@ -1526,6 +2246,17 @@ public final class cMsgPayloadItem implements Cloneable {
         addArray(sb);
     }
 
+    /**
+     * This method stores a String (text representation) of a payload item consisting of
+     * a long array (64-bit integer array).
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param l long array (64-bit integer array) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addLong(String name, long[] l, String txt, boolean isSystem, int noHeadLen) {
         item  = l;
         count = l.length;
@@ -1537,6 +2268,14 @@ public final class cMsgPayloadItem implements Cloneable {
     }
 
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a long array (64-bit integer array).
+     *
+     * @param name name of item
+     * @param l long array (64-bit integer array) to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
     private void addLong(String name, long[] l, boolean isSystem) {
         item  = l;
         count = l.length;
@@ -1621,6 +2360,17 @@ public final class cMsgPayloadItem implements Cloneable {
         addArray(sb);
     }
 
+    /**
+     * This method stores a String (text representation) of a payload item consisting of
+     * a float array.
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param f float array to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addFloat(String name, float[] f, String txt, boolean isSystem, int noHeadLen) {
         item  = f;
         count = f.length;
@@ -1631,6 +2381,14 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = noHeadLen;
     }
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a float array.
+     *
+     * @param name name of item
+     * @param f float array to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
     private void addFloat(String name, float[] f, boolean isSystem) {
         item  = f;
         count = f.length;
@@ -1713,6 +2471,17 @@ public final class cMsgPayloadItem implements Cloneable {
     }
 
 
+    /**
+     * This method stores a String (text representation) of a payload item consisting of
+     * a double array.
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param d double array to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
     private void addDouble(String name, double[] d, String txt, boolean isSystem, int noHeadLen) {
         item  = d;
         count = d.length;
@@ -1724,6 +2493,14 @@ public final class cMsgPayloadItem implements Cloneable {
     }
 
 
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a double array.
+     *
+     * @param name name of item
+     * @param d double array to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
     private void addDouble(String name, double[] d, boolean isSystem) {
         item  = d;
         count = d.length;
@@ -1810,9 +2587,20 @@ public final class cMsgPayloadItem implements Cloneable {
         addArray(sb);
     }
 
-    private void addBigInt(String name, BigInteger[] b, String txt, boolean isSystem, int noHeadLen) {
-        item  = b;
-        count = b.length;
+    /**
+     * This method stores a String (text representation) of a payload item consisting of
+     * a BigInteger object (unsigned 64-bit integer) array.
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param bigs BigInteger object (unsigned 64-bit integer) array to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
+    private void addBigInt(String name, BigInteger[] bigs, String txt, boolean isSystem, int noHeadLen) {
+        item  = bigs;
+        count = bigs.length;
         type  = cMsgConstants.payloadUint64A;
         this.name = name;
         this.isSystem = isSystem;
@@ -1820,15 +2608,23 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = noHeadLen;
     }
 
-    private void addBigInt(String name, BigInteger[] bi, boolean isSystem) {
-        item  = bi;
-        count = bi.length;
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a BigInteger object (unsigned 64-bit integer) array.
+     *
+     * @param name name of item
+     * @param bigs BigInteger object (unsigned 64-bit integer) array to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
+    private void addBigInt(String name, BigInteger[] bigs, boolean isSystem) {
+        item  = bigs;
+        count = bigs.length;
         type  = cMsgConstants.payloadUint64A;
         this.name = name;
         this.isSystem = isSystem;
 
         // guess at how much memory we need
-        int lenGuess = (16+1)*bi.length; // (length - 1)spaces + 1 newline
+        int lenGuess = (16+1)*bigs.length; // (length - 1)spaces + 1 newline
         StringBuilder sb = new StringBuilder(lenGuess + 100);
 
         // Add each array element as a string of 16 hex characters.
@@ -1837,11 +2633,11 @@ public final class cMsgPayloadItem implements Cloneable {
         boolean thisOneZero=false;
         long j64;
 
-        for (int i = 0; i < bi.length; i++) {
-            j64 = bi[i].longValue();
+        for (int i = 0; i < bigs.length; i++) {
+            j64 = bigs[i].longValue();
 
             if (j64 == 0L) {
-                if ((++zeros < 0xfffffff) && (i < bi.length-1)) {
+                if ((++zeros < 0xfffffff) && (i < bigs.length-1)) {
                     continue;
                 }
                 thisOneZero = true;
@@ -1867,7 +2663,7 @@ public final class cMsgPayloadItem implements Cloneable {
                 }
 
                 if (thisOneZero) {
-                    if (i < bi.length - 1) {
+                    if (i < bigs.length - 1) {
                         sb.append(" ");
                         zeros = 0;
                         thisOneZero = false;
@@ -1893,18 +2689,24 @@ public final class cMsgPayloadItem implements Cloneable {
             sb.append( toASCII[ (int) (j64>> 8 & 0xffL) ] );
             sb.append( toASCII[ (int) (j64     & 0xffL) ] );
 
-            if (i < bi.length-1) {
+            if (i < bigs.length-1) {
                 sb.append(" ");
             } else {
                 sb.append("\n");
             }
         }
 
-        noHeaderLen = (16+1)*(bi.length - suppressed);
+        noHeaderLen = (16+1)*(bigs.length - suppressed);
         addArray(sb);
     }
 
 
+    /**
+     * This is a utility method which takes a StringBuilder representation of any type of array
+     * and creates a String (text representation) of an associated payload item.
+     *
+     * @param sb is the StringBuilder representation of an array
+     */
     private void addArray(StringBuilder sb) {
          StringBuilder buf = new StringBuilder(100);
          buf.append(name);              buf.append(" ");
@@ -1921,34 +2723,93 @@ public final class cMsgPayloadItem implements Cloneable {
     // GENERIC GETS
     //-------------
 
+    /**
+     * Get the name of this payload item.
+     * @return name of this payload item
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * Get the payload item itself as an object of class Object.
+     * @return payload item as an object of class Object
+     */
     public Object getItem() {
         return item;
     }
 
+    /**
+     * Get the type of this payload item.
+     * The type has one of the following values:
+     * <UL>
+     * <LI>{@link cMsgConstants#payloadStr}         for a   String
+     * <LI>{@link cMsgConstants#payloadFlt}         for a   4 byte float
+     * <LI>{@link cMsgConstants#payloadDbl}         for an  8 byte float
+     * <LI>{@link cMsgConstants#payloadInt8}        for an  8 bit int
+     * <LI>{@link cMsgConstants#payloadInt16}       for a  16 bit int
+     * <LI>{@link cMsgConstants#payloadInt32}       for a  32 bit int
+     * <LI>{@link cMsgConstants#payloadInt64}       for a  64 bit int
+     * <LI>{@link cMsgConstants#payloadUint8}       for an unsigned  8 bit int
+     * <LI>{@link cMsgConstants#payloadUint16}      for an unsigned 16 bit int
+     * <LI>{@link cMsgConstants#payloadUint32}      for an unsigned 32 bit int
+     * <LI>{@link cMsgConstants#payloadUint64}      for an unsigned 64 bit int
+     * <LI>{@link cMsgConstants#payloadMsg}         for a  cMsg message
+     * <LI>{@link cMsgConstants#payloadBin}         for    binary
+     * <p/>
+     * <LI>{@link cMsgConstants#payloadStrA}        for a   String array
+     * <LI>{@link cMsgConstants#payloadFltA}        for a   4 byte float array
+     * <LI>{@link cMsgConstants#payloadDblA}        for an  8 byte float array
+     * <LI>{@link cMsgConstants#payloadInt8A}       for an  8 bit int array
+     * <LI>{@link cMsgConstants#payloadInt16A}      for a  16 bit int array
+     * <LI>{@link cMsgConstants#payloadInt32A}      for a  32 bit int array
+     * <LI>{@link cMsgConstants#payloadInt64A}      for a  64 bit int array
+     * <LI>{@link cMsgConstants#payloadUint8A}      for an unsigned  8 bit int array
+     * <LI>{@link cMsgConstants#payloadUint16A}     for an unsigned 16 bit int array
+     * <LI>{@link cMsgConstants#payloadUint32A}     for an unsigned 32 bit int array
+     * <LI>{@link cMsgConstants#payloadUint64A}     for an unsigned 64 bit int array
+     * <LI>{@link cMsgConstants#payloadMsgA}        for a  cMsg message array
+     * </UL>
+     *
+     * @return type of this payload item
+     */
     public int getType() {
         return type;
     }
 
+    /**
+     * Get the text representation of this payload item.
+     * @return text representation of this payload item
+     */
     public String getText() {
         return text;
     }
 
+    /**
+     * Get the number of elements if this payload item is an array, else return one.
+     * @return number of elements if this payload item is an array, else one
+     */
     public int getCount() {
         return count;
     }
 
+    /**
+     * Get the endian value if this payload item is a byte array containing binary data.
+     * @return endian value if this payload item is a byte array containing binary data, else meaningless
+     */
     public int getEndian() {
         return endian;
     }
 
-      //----------------
+    //----------------
     // GET STRINGS
     //----------------
 
+    /**
+     * Gets the payload item as a String object.
+     * @return  payload item as a String object
+     * @throws cMsgException if payload item is not of type {@link cMsgConstants#payloadStr}
+     */
     public String getString() throws cMsgException {
         if (type == cMsgConstants.payloadStr)  {
             return (String)item;
@@ -1956,6 +2817,11 @@ public final class cMsgPayloadItem implements Cloneable {
         throw new cMsgException("Wrong type");
     }
 
+    /**
+     * Gets the payload item as an array of String objects.
+     * @return  payload item as an array of String objects
+     * @throws cMsgException if payload item is not of type {@link cMsgConstants#payloadStrA}
+     */
     public String[] getStringArray() throws cMsgException {
         if (type == cMsgConstants.payloadStrA)  {
             return (String[])item;
@@ -1967,6 +2833,11 @@ public final class cMsgPayloadItem implements Cloneable {
     // GET BINARY
     //----------------
 
+    /**
+     * Gets the payload item as a byte array object holding binary data.
+     * @return  payload item as a byte array object holding binary data
+     * @throws cMsgException if payload item is not of type {@link cMsgConstants#payloadBin}
+     */
     public byte[] getBinary() throws cMsgException {
         if (type == cMsgConstants.payloadBin)  {
             return (byte[])item;
@@ -1978,6 +2849,11 @@ public final class cMsgPayloadItem implements Cloneable {
     // GET MESSAGE
     //----------------
 
+    /**
+     * Gets the payload item as a cMsgMessage object.
+     * @return  payload item as a cMsgMessage object
+     * @throws cMsgException if payload item is not of type {@link cMsgConstants#payloadMsg}
+     */
     public cMsgMessage getMessage() throws cMsgException {
         if (type == cMsgConstants.payloadMsg)  {
             return (cMsgMessage)item;
@@ -1985,6 +2861,11 @@ public final class cMsgPayloadItem implements Cloneable {
         throw new cMsgException("Wrong type");
     }
 
+    /**
+     * Gets the payload item as an array of cMsgMessage objects.
+     * @return  payload item as an array of cMsgMessage objects
+     * @throws cMsgException if payload item is not of type {@link cMsgConstants#payloadMsgA}
+     */
     public cMsgMessage[] getMessageArray() throws cMsgException {
         if (type == cMsgConstants.payloadMsgA)  {
             return (cMsgMessage[])item;
@@ -1996,6 +2877,15 @@ public final class cMsgPayloadItem implements Cloneable {
     // GET INTEGERS
     //-------------
 
+    /**
+     * Gets the payload item as a byte (8-bit integer).
+     * This method will also return all other integer types as a byte if the
+     * payload item's value is in the valid range of a byte.
+     *
+     * @return payload item as a byte (8-bit integer)
+     * @throws cMsgException if payload item is not of an integer type,
+     *                       or if its value is out-of-range for a byte
+     */
     public byte getByte() throws cMsgException {
 
         if (type == cMsgConstants.payloadInt8)  {
@@ -2028,6 +2918,15 @@ public final class cMsgPayloadItem implements Cloneable {
         throw new cMsgException("Wrong type");
     }
 
+    /**
+     * Gets the payload item as a short (16-bit integer).
+     * This method will also return all other integer types as a short if the
+     * payload item's value is in the valid range of a short.
+     *
+     * @return payload item as a short (16-bit integer)
+     * @throws cMsgException if payload item is not of an integer type,
+     *                       or if its value is out-of-range for a short
+     */
     public short getShort() throws cMsgException {
 
         if (type == cMsgConstants.payloadInt8)  {
@@ -2057,6 +2956,15 @@ public final class cMsgPayloadItem implements Cloneable {
         throw new cMsgException("Wrong type");
     }
 
+    /**
+     * Gets the payload item as a int (32-bit integer).
+     * This method will also return all other integer types as a int if the
+     * payload item's value is in the valid range of a int.
+     *
+     * @return payload item as a int (32-bit integer)
+     * @throws cMsgException if payload item is not of an integer type,
+     *                       or if its value is out-of-range for a int
+     */
     public int getInt() throws cMsgException {
         if (type == cMsgConstants.payloadInt8) {
             return (Byte)item;
@@ -2082,6 +2990,15 @@ public final class cMsgPayloadItem implements Cloneable {
         throw new cMsgException("Wrong type");
     }
 
+    /**
+     * Gets the payload item as a long (64-bit integer).
+     * This method will also return all other integer types as a long if the
+     * payload item's value is in the valid range of a long.
+     *
+     * @return payload item as a long (64-bit integer)
+     * @throws cMsgException if payload item is not of an integer type,
+     *                       or if its value is out-of-range for a long
+     */
     public long getLong() throws cMsgException {
         if (type == cMsgConstants.payloadInt8) {
             return (Byte)item;
@@ -2104,6 +3021,14 @@ public final class cMsgPayloadItem implements Cloneable {
         throw new cMsgException("Wrong type");
     }
 
+    /**
+     * Gets the payload item as a BigInteger object. This method is designed
+     * to work with 64-bit, unsigned integer types, but also works with all
+     * integer types.
+     *
+     * @return payload item as a BigInteger object
+     * @throws cMsgException if payload item is not of an integer type
+     */
     public BigInteger getBigInt() throws cMsgException {
 
         if (type == cMsgConstants.payloadInt8)  {
@@ -2128,6 +3053,17 @@ public final class cMsgPayloadItem implements Cloneable {
     // GET INTEGER ARRAYS
     //-------------------
 
+    /**
+     * Gets the payload item as an array of bytes (8-bit integers).
+     * This method will also return all other integer array types as a byte array if the
+     * payload item's array values are in the valid range of a byte. Note that it is
+     * somewhat inefficient to convert large arrays from one integer type to another and
+     * have the bounds of each conversion checked.
+     *
+     * @return payload item as an array of bytes (8-bit integers)
+     * @throws cMsgException if payload item is not of an integer array type,
+     *                       or if its array values are out-of-range for a byte
+     */
     public byte[] getByteArray() throws cMsgException {
 
         if (type == cMsgConstants.payloadInt8A)  {
@@ -2183,6 +3119,17 @@ public final class cMsgPayloadItem implements Cloneable {
     }
 
 
+    /**
+     * Gets the payload item as an array of shorts (16-bit integers).
+     * This method will also return all other integer array types as a short array if the
+     * payload item's array values are in the valid range of a short. Note that it is
+     * somewhat inefficient to convert large arrays from one integer type to another and
+     * have the bounds of each conversion checked.
+     *
+     * @return payload item as an array of shorts (16-bit integers)
+     * @throws cMsgException if payload item is not of an integer array type,
+     *                       or if its array values are out-of-range for a short
+     */
     public short[] getShortArray() throws cMsgException {
 
         if (type == cMsgConstants.payloadInt8A) {
@@ -2233,6 +3180,17 @@ public final class cMsgPayloadItem implements Cloneable {
     }
 
 
+    /**
+     * Gets the payload item as an array of ints (32-bit integers).
+     * This method will also return all other integer array types as a int array if the
+     * payload item's array values are in the valid range of a int. Note that it is
+     * somewhat inefficient to convert large arrays from one integer type to another and
+     * have the bounds of each conversion checked.
+     *
+     * @return payload item as an array of ints (32-bit integers)
+     * @throws cMsgException if payload item is not of an integer array type,
+     *                       or if its array values are out-of-range for a int
+     */
     public int[] getIntArray() throws cMsgException {
 
         if (type == cMsgConstants.payloadInt8A)  {
@@ -2278,6 +3236,17 @@ public final class cMsgPayloadItem implements Cloneable {
     }
 
 
+    /**
+     * Gets the payload item as an array of longs (64-bit integers).
+     * This method will also return all other integer array types as a long array if the
+     * payload item's array values are in the valid range of a long. Note that it is
+     * somewhat inefficient to convert large arrays from one integer type to another and
+     * have the bounds of each conversion checked.
+     *
+     * @return payload item as an array of longs (64-bit integers)
+     * @throws cMsgException if payload item is not of an integer array type,
+     *                       or if its array values are out-of-range for a long
+     */
     public long[] getLongArray() throws cMsgException {
 
         if (type == cMsgConstants.payloadInt8A)  {
@@ -2319,6 +3288,16 @@ public final class cMsgPayloadItem implements Cloneable {
     }
 
 
+    /**
+     * Gets the payload item as an array of BigInteger objects. This method is designed
+     * to work with 64-bit, unsigned integer types, but also works with all
+     * integer types.
+     * Note that it is inefficient to convert arrays from primitive integer types to
+     * BigInteger objects.
+     *
+     * @return payload item as an array of BigInteger objects
+     * @throws cMsgException if payload item is not of an integer array type
+     */
     public BigInteger[] getBigIntArray() throws cMsgException {
 
         if (type == cMsgConstants.payloadInt8A)  {
@@ -2357,6 +3336,16 @@ public final class cMsgPayloadItem implements Cloneable {
     // GET REALS DUDE
     //---------------
 
+    /**
+     * Gets the payload item as a float.
+     * This method will also return a double as a float if the
+     * payload item's value is in the valid range of a float.
+     *
+     * @return payload item as a float
+     * @throws cMsgException if payload item is not of type {@link cMsgConstants#payloadFlt},
+     *                       or it's not of type {@link cMsgConstants#payloadDbl} and
+     *                       its value is out-of-range for a float
+     */
     public float getFloat() throws cMsgException {
         if (type == cMsgConstants.payloadFlt) {
             return (Float)item;
@@ -2370,6 +3359,14 @@ public final class cMsgPayloadItem implements Cloneable {
         throw new cMsgException("Wrong type");
     }
 
+    /**
+     * Gets the payload item as a double.
+     * This method will also return a float as a double.
+     *
+     * @return payload item as a float
+     * @throws cMsgException if payload item is not of type {@link cMsgConstants#payloadFlt}
+     *                       or {@link cMsgConstants#payloadDbl}
+     */
     public double getDouble() throws cMsgException {
         if (type == cMsgConstants.payloadFlt) {
             return (Float)item;
@@ -2384,6 +3381,16 @@ public final class cMsgPayloadItem implements Cloneable {
     // GET REAL ARRAYS
     //----------------
 
+    /**
+     * Gets the payload item as an array of floats.
+     * This method will also return an array of doubles as an array of floats if the
+     * payload item's values are in the valid range of a float.
+     *
+     * @return payload item as a float array
+     * @throws cMsgException if payload item is not of type {@link cMsgConstants#payloadFltA},
+     *                       or it's not of type {@link cMsgConstants#payloadDblA} and
+     *                       its values are out-of-range for a float
+     */
     public float[] getFloatArray() throws cMsgException {
         if (type == cMsgConstants.payloadFltA)  {
             return (float[])item;
@@ -2402,6 +3409,14 @@ public final class cMsgPayloadItem implements Cloneable {
         throw new cMsgException("Wrong type");
     }
 
+    /**
+     * Gets the payload item as an array of doubles.
+     * This method will also return an array of floats as an array of doubles.
+     *
+     * @return payload item as a double array
+     * @throws cMsgException if payload item is not of type {@link cMsgConstants#payloadFltA}
+     *                       or {@link cMsgConstants#payloadDblA}
+     */
     public double[] getDoubleArray() throws cMsgException {
          if (type == cMsgConstants.payloadFltA)  {
              float[] F  = (float[])item;
