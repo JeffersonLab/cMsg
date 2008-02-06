@@ -1971,7 +1971,7 @@ static void payloadPrintout(const void *msg, int level) {
       case CMSG_CP_UINT64:
         {uint64_t i; ok=cMsgGetUint64(msg, name, &i); if(ok==CMSG_OK) printf(" (uint64): %llu\n", i);}   break;
       case CMSG_CP_DBL:
-        {double d;   ok=cMsgGetDouble(msg, name, &d); if(ok==CMSG_OK) printf(" (double): %.16lg\n", d);} break;
+        {double d;   ok=cMsgGetDouble(msg, name, &d); if(ok==CMSG_OK) printf(" (double): %.16g\n", d);} break;
       case CMSG_CP_FLT:
         {float f;    ok=cMsgGetFloat(msg, name, &f);  if(ok==CMSG_OK) printf(" (float): %.7g\n", f);}    break;
       case CMSG_CP_STR:
@@ -2002,7 +2002,7 @@ static void payloadPrintout(const void *msg, int level) {
          for(j=0; j<len;j++) printf("%s  uint64[%d] = %llu\n", indent, j,i[j]);} break;
       case CMSG_CP_DBL_A:
         {const double *i; ok=cMsgGetDoubleArray(msg, name, &i, &len); if(ok!=CMSG_OK) break; printf(":\n");
-         for(j=0; j<len;j++) printf("%s  double[%d] = %.16lg\n", indent, j,i[j]);} break;
+         for(j=0; j<len;j++) printf("%s  double[%d] = %.16g\n", indent, j,i[j]);} break;
       case CMSG_CP_FLT_A:
         {const float *i; ok=cMsgGetFloatArray(msg, name, &i, &len); if(ok!=CMSG_OK) break; printf(":\n");
          for(j=0; j<len;j++) printf("%s  float[%d] = %.7g\n", indent, j,i[j]);} break;
@@ -6613,7 +6613,7 @@ static int addRealArrayFromText(void *vmsg, char *name, int type, int count, int
         /* we have int64 number of zeros */
         for (k=0; k<int64; k++) {
           myArray[j+k] = 0.;
-if(debug) printf("  double[%d] = %.16lg\n", j+k, myArray[j+k]);
+if(debug) printf("  double[%d] = %.16g\n", j+k, myArray[j+k]);
         }
         j += int64 - 1;
         pVal += 17;
@@ -6639,7 +6639,7 @@ if(debug) printf("  double[%d] = %.16lg\n", j+k, myArray[j+k]);
                (         toByte[(int)(*(pVal+15))]   ));
       myArray[j] = *((double *)(&int64));
       pVal += 17;
-if(debug) printf("  double[%d] = %.16lg\n", j, myArray[j]);
+if(debug) printf("  double[%d] = %.16g\n", j, myArray[j]);
     }
     
     item->array = (void *)myArray;
