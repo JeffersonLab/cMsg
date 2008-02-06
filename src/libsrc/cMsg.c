@@ -4275,7 +4275,7 @@ static int cMsgToString2(void *vmsg, char **string, int level, int offset, int b
         {double d; ok=cMsgGetDouble(msg, name, &d); if(ok!=CMSG_OK) {
          if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
          sprintf(pchar, "%s          <double name=\"%s\">\n%n", indent, name, &len); pchar+=len;
-         sprintf(pchar, "%s               %.16lg\n%s          </double>\n%n", indent, d, indent, &len); pchar+=len;
+         sprintf(pchar, "%s               %.16g\n%s          </double>\n%n", indent, d, indent, &len); pchar+=len;
         } break;
       case CMSG_CP_FLT:
         {float f; ok=cMsgGetFloat(msg, name, &f); if(ok!=CMSG_OK) {
@@ -4416,8 +4416,8 @@ static int cMsgToString2(void *vmsg, char **string, int level, int offset, int b
          if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
          sprintf(pchar,"%s          <double_array name=\"%s\" count=\"%d\">\n%n", indent, name, count, &len); pchar+=len;
          for(j=0;j<count;j++) {
-            if (j%5 == 0) {sprintf(pchar, "%s               %.16lg%n", indent, d[j], &len); pchar+=len;}
-            else          {sprintf(pchar, " %.16lg%n", d[j], &len); pchar+=len;}
+            if (j%5 == 0) {sprintf(pchar, "%s               %.16g%n", indent, d[j], &len); pchar+=len;}
+            else          {sprintf(pchar, " %.16g%n", d[j], &len); pchar+=len;}
             if (j%5==4 || j==count-1) {sprintf(pchar, "\n"); pchar++;}
          }
          sprintf(pchar, "%s          </double_array>\n%n", indent, &len); pchar+=len;
