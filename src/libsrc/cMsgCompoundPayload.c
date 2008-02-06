@@ -276,7 +276,9 @@ static void grabMutex(void) {
        * do).*/
       pthread_mutexattr_t attr;
       pthread_mutexattr_init(&attr);
+#ifndef VXWORKS
       pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+#endif
       pthread_mutex_init(&mutex_recursive, &attr);
       initialized = 1;
     }
