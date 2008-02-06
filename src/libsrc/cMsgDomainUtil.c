@@ -590,6 +590,8 @@ static void subscribeInfoFree(subInfo *info) {
  * subscribeAndGet/sendAndGet information.
  */
 static void getInfoFree(getInfo *info) {  
+    void *p = (void *)info->msg;
+
 #ifdef sun    
     /* cannot destroy mutexes and cond vars in vxworks & Linux(?) */
     int status;
@@ -607,7 +609,7 @@ static void getInfoFree(getInfo *info) {
     
     if (info->type != NULL)    {free(info->type);    info->type    = NULL;}
     if (info->subject != NULL) {free(info->subject); info->subject = NULL;}
-    if (info->msg != NULL)     {cMsgFreeMessage((void **) &info->msg); info->type = NULL;}
+    if (info->msg != NULL)     {cMsgFreeMessage(&p); info->msg     = NULL;}
 }
 
 
