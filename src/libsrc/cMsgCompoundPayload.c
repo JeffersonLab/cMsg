@@ -2262,7 +2262,7 @@ int cMsgPayloadSetFieldPointer(const void *vmsg, const char *name, void *p) {
  * @returns CMSG_BAD_FORMAT field is not right type or contains error
  * @returns CMSG_BAD_ARGUMENT if any arg is NULL
  */   
-int cMsgGetBinary(const void *vmsg, const char *name, char **val, int *len, int *endian) {
+int cMsgGetBinary(const void *vmsg, const char *name, const char **val, int *len, int *endian) {
   payloadItem *item;  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -2314,7 +2314,7 @@ int cMsgGetBinary(const void *vmsg, const char *name, char **val, int *len, int 
  * @returns CMSG_BAD_FORMAT field is not right type or contains error
  * @returns CMSG_BAD_ARGUMENT if any arg is NULL
  */   
-int cMsgGetMessage(const void *vmsg, const char *name, void **val) {
+int cMsgGetMessage(const void *vmsg, const char *name, const void **val) {
   payloadItem *item;  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -2365,7 +2365,7 @@ int cMsgGetMessage(const void *vmsg, const char *name, void **val) {
  * @returns CMSG_BAD_FORMAT field is not right type or contains error
  * @returns CMSG_BAD_ARGUMENT if any arg is NULL
  */   
-int cMsgGetMessageArray(const void *vmsg, const char *name, void ***val, int *len) {
+int cMsgGetMessageArray(const void *vmsg, const char *name, const void ***val, int *len) {
   payloadItem *item;  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -3112,7 +3112,7 @@ int cMsgGetUint64Array(const void *vmsg, const char *name, const uint64_t **vals
  * @returns CMSG_BAD_FORMAT field is not right type or contains error
  * @returns CMSG_BAD_ARGUMENT if any arg is NULL
  */   
-int cMsgGetString(const void *vmsg, const char *name, char **val) {
+int cMsgGetString(const void *vmsg, const char *name, const char **val) {
   payloadItem *item;  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
