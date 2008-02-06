@@ -32,14 +32,14 @@ help:
 	@echo "      install       - install all headers and compiled files for C,C++"
 	@echo "      uninstall     - uninstall all headers and compiled files for C,C++"
 	@echo "      relink        - delete libs and executables, and relink object files"
-    @echo "      doc           - generate javadoc and doxygen documentation"
-    @echo "      tar           - create a tar file of the cMsg top level directory"
-    @echo "      clean         - delete all exec, library, object, and dependency files"
+	@echo "      doc           - generate javadoc and doxygen documentation"
+	@echo "      tar           - create a tar file of the cMsg top level directory"
+	@echo "      clean         - delete all exec, library, object, and dependency files"
 	@echo "      distClean     - clean and remove hidden OS directory"
-    @echo "      execClean     - delete all exec and library files"
-    @echo "      java          - make java code and put jar file in build/lib dir"
-    @echo "      javaClean     - remove all class files from build/classes dir"
-    @echo "      javaDistClean - remove all generated files including class, doc, and jar files"
+	@echo "      execClean     - delete all exec and library files"
+	@echo "      java          - make java code and put jar file in build/lib dir"
+	@echo "      javaClean     - remove all class files from build/classes dir"
+	@echo "      javaDistClean - remove all generated files including class, doc, and jar files"
 
 java:
 	ant jar;
