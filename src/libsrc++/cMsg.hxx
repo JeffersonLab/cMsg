@@ -73,31 +73,31 @@ class cMsgMessage {
   
   
 public:
-  cMsgMessage(void)                 throw(cMsgException);
-  cMsgMessage(const cMsgMessage &m) throw(cMsgException);
-  cMsgMessage(void *msgPointer)     throw(cMsgException);
+  cMsgMessage(void)                   throw(cMsgException);
+  cMsgMessage(const cMsgMessage &m)   throw(cMsgException);
+  cMsgMessage(void *msgPointer) throw(cMsgException);
   virtual ~cMsgMessage(void);
 
-  virtual string getSubject(void)            const throw(cMsgException);
-  virtual void   setSubject(const string &subject) throw(cMsgException);
-  virtual string getType(void)               const throw(cMsgException);
-  virtual void   setType(const string &type)       throw(cMsgException);
-  virtual string getText(void)               const throw(cMsgException);
-  virtual void   setText(const string &text)       throw(cMsgException);
-  virtual void   setByteArrayLength(int length)    throw(cMsgException);
-  virtual int    getByteArrayLength(void)    const throw(cMsgException);
-  virtual void   setByteArrayOffset(int offset)    throw(cMsgException);
-  virtual int    getByteArrayOffset(void)    const throw(cMsgException);
-  virtual int    getByteArrayEndian(void)    const throw(cMsgException);
-  virtual void   setByteArrayEndian(int endian)    throw(cMsgException);
-  virtual bool   needToSwap(void)            const throw(cMsgException);
-  virtual void   setByteArray(char *array)         throw(cMsgException);
-  virtual char*  getByteArray(void)          const throw(cMsgException);
+  virtual string getSubject(void)               const throw(cMsgException);
+  virtual void   setSubject(const string &subject)    throw(cMsgException);
+  virtual string getType(void)                  const throw(cMsgException);
+  virtual void   setType(const string &type)          throw(cMsgException);
+  virtual string getText(void)                  const throw(cMsgException);
+  virtual void   setText(const string &text)          throw(cMsgException);
+  virtual void   setByteArrayLength(int length)       throw(cMsgException);
+  virtual int    getByteArrayLength(void)       const throw(cMsgException);
+  virtual void   setByteArrayOffset(int offset)       throw(cMsgException);
+  virtual int    getByteArrayOffset(void)       const throw(cMsgException);
+  virtual int    getByteArrayEndian(void)       const throw(cMsgException);
+  virtual void   setByteArrayEndian(int endian)       throw(cMsgException);
+  virtual bool   needToSwap(void)               const throw(cMsgException);
+  virtual void   setByteArray(char *array)            throw(cMsgException);
+  virtual char*  getByteArray(void)             const throw(cMsgException);
   virtual void   setByteArrayAndLimits(char *array, int offset, int length) throw(cMsgException);
   virtual void   copyByteArray(char* array, int offset, int length) throw(cMsgException);
-  virtual int    getUserInt(void)            const throw(cMsgException);
-  virtual void   setUserInt(int i)                 throw(cMsgException);
-  virtual struct timespec getUserTime(void)  const throw(cMsgException);
+  virtual int    getUserInt(void)               const throw(cMsgException);
+  virtual void   setUserInt(int i)                    throw(cMsgException);
+  virtual struct timespec getUserTime(void)     const throw(cMsgException);
   virtual void   setUserTime(const struct timespec &userTime) throw(cMsgException);
   virtual int    getVersion(void)               const throw(cMsgException);
   virtual string getDomain(void)                const throw(cMsgException);
@@ -135,10 +135,8 @@ public:
   virtual bool   hasPayload() const;
   
   virtual void   payloadClear(void);
-  virtual void   payloadPrint(void);
-  virtual void   payloadSetFromText(const string &text)               throw(cMsgException);
-  virtual void   payloadSetSystemFieldsFromText(const string &text)   throw(cMsgException);
-  virtual void   payloadSetAllFieldsFromText(const string &text)      throw(cMsgException);
+  virtual void   payloadWipeout(void);
+  virtual void   payloadPrint(void) const;
   virtual void   payloadCopy(cMsgMessage &msg)                        throw(cMsgException);
 
   virtual bool   payloadRemoveField(const string &name);
@@ -148,14 +146,13 @@ public:
   virtual int    payloadGetCount()                              const;
   virtual bool   payloadContainsName (const string &name)       const;
   virtual int    payloadGetType      (const string &name)       const throw(cMsgException);
-  virtual string payloadGetFieldText (const string &name)       const throw(cMsgException);
   
   //
   // Methods to get a payload item's value
   //
-  virtual void getBinary(string name, char **val, int &len, int &endian) const throw(cMsgException);
+  virtual void getBinary(string name, const char **val, int &len, int &endian) const throw(cMsgException);
 
-  virtual cMsgMessage         *getMessage(string name)       const throw(cMsgException);
+  virtual const cMsgMessage         *getMessage(string name)       const throw(cMsgException);
   virtual vector<cMsgMessage> *getMessageVector(string name) const throw(cMsgException);
 
   virtual string          getString(string name)       const throw(cMsgException);
@@ -253,7 +250,7 @@ class cMsgCallback {
 
 public:
   virtual void callback(cMsgMessage *msg, void *userObject) = 0;
-  virtual ~cMsgCallback(void);
+//  virtual ~cMsgCallback(void);
 };
 
 
