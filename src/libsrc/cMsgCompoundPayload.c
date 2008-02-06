@@ -215,7 +215,7 @@ static char toASCII[256][3] =
   * value it represents. The only characters of interest are 0-9,a-f
   * for converting hex strings back to numbers.
   */
-static char toByte[103] =
+static int toByte[103] =
 {  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /*  0-9  */
    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 10-19 */
    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 20-29 */
