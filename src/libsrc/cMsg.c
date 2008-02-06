@@ -130,7 +130,7 @@ static void  connectMutexUnlock(void);
 static void  initMessage(cMsgMessage_t *msg);
 static int   freeMessage(void *vmsg);
 static int   messageStringSize(const void *vmsg, int level, int binary);
-static int   cMsgToString2(void *vmsg, char **string, int level, int offset, int binary);
+static int   cMsgToString2(const void *vmsg, char **string, int level, int offset, int binary);
 
 
 
@@ -4100,7 +4100,7 @@ static int messageStringSize(const void *vmsg, int level, int binary) {
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  */   
-static int cMsgToString2(void *vmsg, char **string, int level, int offset, int binary) {
+static int cMsgToString2(const void *vmsg, char **string, int level, int offset, int binary) {
 
   int i, j, ok, slen, len, count, hasPayload, *types, namesLen=0;  
   char *buffer=NULL, *pchar, *name, *indent, **names;
