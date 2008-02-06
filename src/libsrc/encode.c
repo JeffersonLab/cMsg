@@ -12,7 +12,6 @@
   *-------------------------------------------------------------------------
   */
  #include <stdio.h>
- #include <inttypes.h>
  #include <ctype.h>
  #include "cMsg.h"
  
