@@ -154,7 +154,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * value it represents. The only characters of interest are 0-9,a-f,
      * and Z for converting hex strings back to numbers.
      */
-    private static final byte toByte[] =
+    private static final int toByte[] =
     { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /*  0-9  */
       -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 10-19 */
       -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 20-29 */
