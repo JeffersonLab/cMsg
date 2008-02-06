@@ -1975,7 +1975,7 @@ static void payloadPrintout(const void *msg, int level) {
       case CMSG_CP_FLT:
         {float f;    ok=cMsgGetFloat(msg, name, &f);  if(ok==CMSG_OK) printf(" (float): %.7g\n", f);}    break;
       case CMSG_CP_STR:
-        {char *s;    ok=cMsgGetString(msg, name, &s); if(ok==CMSG_OK) printf(" (string): %s\n", s);}     break;
+        {const char *s; ok=cMsgGetString(msg, name, &s); if(ok==CMSG_OK) printf(" (string): %s\n", s);}     break;
       case CMSG_CP_INT8_A:
         {const int8_t *i; ok=cMsgGetInt8Array(msg, name, &i, &len); if(ok!=CMSG_OK) break; printf(":\n");
          for(j=0; j<len;j++) printf("%s  int8[%d] = %d\n", indent, j,i[j]);} break;
@@ -2011,7 +2011,7 @@ static void payloadPrintout(const void *msg, int level) {
          for(j=0; j<len;j++) printf("%s  string[%d] = %s\n", indent, j,i[j]);} break;
          
       case CMSG_CP_BIN:
-        {char *b, *enc; size_t sb; unsigned int se; int sz, end;
+        {const char *b; char *enc; size_t sb; unsigned int se; int sz, end;
          ok=cMsgGetBinary(msg, name, &b, &sz, &end); if(ok!=CMSG_OK) break;
          /* only print up to 1kB */
          sb = sz; if (sb > 1024) {sb = 1024;}
@@ -2026,13 +2026,13 @@ static void payloadPrintout(const void *msg, int level) {
         } break;
         
       case CMSG_CP_MSG:
-        {void *v; ok=cMsgGetMessage(msg, name, &v); if(ok!=CMSG_OK) break;
+        {const void *v; ok=cMsgGetMessage(msg, name, &v); if(ok!=CMSG_OK) break;
          printf(" (cMsg message):\n");
          payloadPrintout(v, level+1);
         } break;
         
       case CMSG_CP_MSG_A:
-        {void **v; ok=cMsgGetMessageArray(msg, name, &v, &len); if(ok!=CMSG_OK) break;
+        {const void **v; ok=cMsgGetMessageArray(msg, name, &v, &len); if(ok!=CMSG_OK) break;
           printf(":\n");
           for (j=0; j<len; j++) {
            printf("%s  message[%d] =\n", indent, j);
