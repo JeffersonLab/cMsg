@@ -255,12 +255,12 @@ const char *cMsgPayloadFieldDescription(const void *vmsg, const char *name);
   void   cMsgPayloadClear            (      void *vmsg);
   int    cMsgHasPayload              (const void *vmsg, int *hasPayload);
  
-  int    cMsgGetBinary               (const void *vmsg, const char *name, char **val, int *len, int *endian);
+  int    cMsgGetBinary               (const void *vmsg, const char *name, const char **val, int *len, int *endian);
 
-  int    cMsgGetMessage              (const void *vmsg, const char *name, void **val);
-  int    cMsgGetMessageArray         (const void *vmsg, const char *name, void ***val, int *len);
+  int    cMsgGetMessage              (const void *vmsg, const char *name, const void **val);
+  int    cMsgGetMessageArray         (const void *vmsg, const char *name, const void ***val, int *len);
   
-  int    cMsgGetString               (const void *vmsg, const char *name, char **val);
+  int    cMsgGetString               (const void *vmsg, const char *name, const char **val);
   int    cMsgGetStringArray          (const void *vmsg, const char *name, const char ***array, int *len);
   
   int    cMsgGetFloat                (const void *vmsg, const char *name, float  *val);
