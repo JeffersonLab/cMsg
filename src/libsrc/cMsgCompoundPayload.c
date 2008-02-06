@@ -164,28 +164,28 @@ static int  addRealArray(void *vmsg, const char *name, const double *vals,
  * reconstruct payload items as well as set the system
  * fields of messages. 
  */
-static int  setFieldsFromText(void *vmsg, const char *text, int flag, char **ptr);
+static int  setFieldsFromText(void *vmsg, const char *text, int flag, const char **ptr);
  
 static int addBinaryFromText      (void *vmsg, char *name, int type, int count, int isSystem,
-                                   char *pVal, char *pText, int textLen,
+                                   const char *pVal, const char *pText, int textLen,
                                    int noHeaderLen);
 static int addIntFromText         (void *vmsg, char *name, int type, int count, int isSystem,
-                                   char *pVal, char *pText, int textLen,
+                                   const char *pVal, const char *pText, int textLen,
                                    int noHeaderLen);
 static int addIntArrayFromText    (void *vmsg, char *name, int type, int count, int isSystem,
-                                   char *pVal, char *pText, int textLen,
+                                   const char *pVal, const char *pText, int textLen,
                                    int noHeaderLen);
 static int addRealFromText        (void *vmsg, char *name, int type, int count, int isSystem,
-                                   char *pVal, char *pText, int textLen,
+                                   const char *pVal, const char *pText, int textLen,
                                    int noHeaderLen);
 static int addRealArrayFromText   (void *vmsg, char *name, int type, int count, int isSystem,
-                                   char *pVal, char *pText, int textLen,
+                                   const char *pVal, const char *pText, int textLen,
                                    int noHeaderLen);
 static int addStringFromText      (void *vmsg, char *name, int type, int count, int isSystem,
-                                   char *pVal, char *pText, int textLen,
+                                   const char *pVal, const char *pText, int textLen,
                                    int noHeaderLen);
 static int addStringArrayFromText (void *vmsg, char *name, int type, int count, int isSystem,
-                                   char *pVal, char *pText, int textLen,
+                                   const char *pVal, const char *pText, int textLen,
                                    int noHeaderLen);
 static int addMessagesFromText     (void *vmsg, const char *name, int type, int count, int isSystem,
                                     void *vmessages, const char *pText, int textLen,
@@ -1241,8 +1241,9 @@ int cMsgAddSenderToHistory(void *vmsg, char *name) {
  * @returns CMSG_BAD_FORMAT     if the text is in the wrong format or contains values
  *                              that don't make sense
  */   
-static int setFieldsFromText(void *vmsg, const char *text, int flag, char **ptr) {
-  char *s, *t, *pmsgTxt, name[CMSG_PAYLOAD_NAME_LEN+1];
+static int setFieldsFromText(void *vmsg, const char *text, int flag, const char **ptr) {
+  const char *t, *pmsgTxt;
+  char *s, name[CMSG_PAYLOAD_NAME_LEN+1];
   int i, j, err, type, count, fields, ignore;
   int noHeaderLen, isSystem, msgTxtLen, debug=0, headerLen;
   
@@ -1360,7 +1361,7 @@ if(debug) printf("  skipped field\n");
     
     /* cMsg message */
     else if (type == CMSG_CP_MSG) {
-      char *endptr;
+      const char *endptr;
       void *newMsg;
       
       /* create a single message */
@@ -1387,7 +1388,7 @@ if(debug) {
     
     /* cMsg message array */
     else if (type == CMSG_CP_MSG_A) {
-      char *endptr, *ptext;      
+      const char *endptr, *ptext;      
       void **myArray;
       
       myArray = (void **)malloc(count*sizeof(void *));
@@ -2393,7 +2394,7 @@ int cMsgGetMessageArray(const void *vmsg, const char *name, const void ***val, i
     return(CMSG_BAD_FORMAT);
   }
     
-  *val = (void **)item->array;
+  *val = (const void **)item->array;
   *len = item->count;
   
   releaseMutex();
@@ -5886,7 +5887,7 @@ int cMsgAddMessageArray(void *vmsg, const char *name, const void *vmessage[], in
  *
  */
 static int addBinaryFromText(void *vmsg, char *name, int type, int count, int isSystem,
-                             char *pVal, char *pText, int textLen, int noHeaderLen) {
+                             const char *pVal, const char *pText, int textLen, int noHeaderLen) {
   char *s;
   int numBytes, debug=0, len, endian;
   payloadItem *item;
@@ -6028,7 +6029,7 @@ if (debug) printf("addBinaryFromString: decoded string len = %d, should be %d\n"
 
  */   
 static int addIntFromText(void *vmsg, char *name, int type, int count, int isSystem,
-                          char *pVal, char *pText, int textLen, int noHeaderLen) {
+                          const char *pVal, const char *pText, int textLen, int noHeaderLen) {
   char *s;
   int debug=0;
   int64_t   int64;
@@ -6110,7 +6111,7 @@ if(debug) printf("read int as %lld\n", int64);
  *
  */
 static int addIntArrayFromText(void *vmsg, char *name, int type, int count, int isSystem,
-                                char *pVal, char *pText, int textLen, int noHeaderLen) {
+                               const char *pVal, const char *pText, int textLen, int noHeaderLen) {
   char *s;
   int32_t j, k, debug=0, zeros=0;
   payloadItem *item=NULL;  
@@ -6307,14 +6308,14 @@ if(debug) printf("  int32[%d] = %d\n", j, myArray[j]);
                       ((int64_t)toByte[(int)(*(pVal+5))] <<40) |
                       ((int64_t)toByte[(int)(*(pVal+6))] <<36) |
                       ((int64_t)toByte[(int)(*(pVal+7))] <<32) |
-                      (         toByte[(int)(*(pVal+8))] <<28) |
-                      (         toByte[(int)(*(pVal+9))] <<24) |
-                      (         toByte[(int)(*(pVal+10))]<<20) |
-                      (         toByte[(int)(*(pVal+11))]<<16) |
-                      (         toByte[(int)(*(pVal+12))]<<12) |
-                      (         toByte[(int)(*(pVal+13))]<<8)  |
-                      (         toByte[(int)(*(pVal+14))]<<4)  |
-                      (         toByte[(int)(*(pVal+15))]   ));
+                      ((int64_t)toByte[(int)(*(pVal+8))] <<28) |
+                      ((int64_t)toByte[(int)(*(pVal+9))] <<24) |
+                      ((int64_t)toByte[(int)(*(pVal+10))]<<20) |
+                      ((int64_t)toByte[(int)(*(pVal+11))]<<16) |
+                      ((int64_t)toByte[(int)(*(pVal+12))]<<12) |
+                      ((int64_t)toByte[(int)(*(pVal+13))]<<8)  |
+                      ((int64_t)toByte[(int)(*(pVal+14))]<<4)  |
+                      ((int64_t)toByte[(int)(*(pVal+15))]   ));
         pVal += 17;
 if(debug) printf("  int64[%d] = %lld\n", j, myArray[j]);
       }
@@ -6342,7 +6343,7 @@ if(debug) printf("  int64[%d] = %lld\n", j, myArray[j]);
       }
 
       for (j=0; j<count; j++) {
-        /* Convert from 16 chars (representing hex) to float.
+        /* Convert from 16 chars (representing hex) to 64 bit int.
          * if we got a Z to start with, uncompress all the zeros. */
         if ( toByte[(int)(*pVal)] == -2 ) {
           zeros = 0;
@@ -6353,14 +6354,14 @@ if(debug) printf("  int64[%d] = %lld\n", j, myArray[j]);
                    ((int64_t)toByte[(int)(*(pVal+5))] <<40) |
                    ((int64_t)toByte[(int)(*(pVal+6))] <<36) |
                    ((int64_t)toByte[(int)(*(pVal+7))] <<32) |
-                   (         toByte[(int)(*(pVal+8))] <<28) |
-                   (         toByte[(int)(*(pVal+9))] <<24) |
-                   (         toByte[(int)(*(pVal+10))]<<20) |
-                   (         toByte[(int)(*(pVal+11))]<<16) |
-                   (         toByte[(int)(*(pVal+12))]<<12) |
-                   (         toByte[(int)(*(pVal+13))]<<8)  |
-                   (         toByte[(int)(*(pVal+14))]<<4)  |
-                   (         toByte[(int)(*(pVal+15))]   ));
+                   ((int64_t)toByte[(int)(*(pVal+8))] <<28) |
+                   ((int64_t)toByte[(int)(*(pVal+9))] <<24) |
+                   ((int64_t)toByte[(int)(*(pVal+10))]<<20) |
+                   ((int64_t)toByte[(int)(*(pVal+11))]<<16) |
+                   ((int64_t)toByte[(int)(*(pVal+12))]<<12) |
+                   ((int64_t)toByte[(int)(*(pVal+13))]<<8)  |
+                   ((int64_t)toByte[(int)(*(pVal+14))]<<4)  |
+                   ((int64_t)toByte[(int)(*(pVal+15))]   ));
 
           /* expand zeros */
           for (k=0; k<zeros; k++) {
@@ -6377,7 +6378,7 @@ if(debug) {
           continue;
         }
 
-        /* convert from 16 chars (representing hex) to double */
+        /* convert from 16 chars (representing hex) to 64 bit int */
         myArray[j] = (((int64_t)toByte[(int)(*pVal)]     <<60) |
                       ((int64_t)toByte[(int)(*(pVal+1))] <<56) |
                       ((int64_t)toByte[(int)(*(pVal+2))] <<52) |
@@ -6386,14 +6387,14 @@ if(debug) {
                       ((int64_t)toByte[(int)(*(pVal+5))] <<40) |
                       ((int64_t)toByte[(int)(*(pVal+6))] <<36) |
                       ((int64_t)toByte[(int)(*(pVal+7))] <<32) |
-                      (         toByte[(int)(*(pVal+8))] <<28) |
-                      (         toByte[(int)(*(pVal+9))] <<24) |
-                      (         toByte[(int)(*(pVal+10))]<<20) |
-                      (         toByte[(int)(*(pVal+11))]<<16) |
-                      (         toByte[(int)(*(pVal+12))]<<12) |
-                      (         toByte[(int)(*(pVal+13))]<<8)  |
-                      (         toByte[(int)(*(pVal+14))]<<4)  |
-                      (         toByte[(int)(*(pVal+15))]   ));
+                      ((int64_t)toByte[(int)(*(pVal+8))] <<28) |
+                      ((int64_t)toByte[(int)(*(pVal+9))] <<24) |
+                      ((int64_t)toByte[(int)(*(pVal+10))]<<20) |
+                      ((int64_t)toByte[(int)(*(pVal+11))]<<16) |
+                      ((int64_t)toByte[(int)(*(pVal+12))]<<12) |
+                      ((int64_t)toByte[(int)(*(pVal+13))]<<8)  |
+                      ((int64_t)toByte[(int)(*(pVal+14))]<<4)  |
+                      ((int64_t)toByte[(int)(*(pVal+15))]   ));
         pVal += 17;
 if(debug) {
   if (type == CMSG_CP_UINT64_A)
@@ -6453,13 +6454,13 @@ if(debug) {
 
  */   
 static int addRealFromText(void *vmsg, char *name, int type, int count, int isSystem,
-                           char *pVal, char *pText, int textLen, int noHeaderLen) {
+                           const char *pVal, const char *pText, int textLen, int noHeaderLen) {
   char *s;
-  int32_t int32;
-  int64_t int64;
   payloadItem *item;  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
-
+  intFloatUnion  fun;
+  intDoubleUnion dun;
+  
   /* payload item to add to msg */
   item = (payloadItem *) calloc(1, sizeof(payloadItem));
   if (item == NULL) return(CMSG_OUT_OF_MEMORY);
@@ -6476,28 +6477,28 @@ static int addRealFromText(void *vmsg, char *name, int type, int count, int isSy
   
   if (type == CMSG_CP_DBL) {
     /* convert from 16 chars (representing hex) to double */
-    int64 = (((int64_t)toByte[(int)(*pVal)]     <<60) |
-             ((int64_t)toByte[(int)(*(pVal+1))] <<56) |
-             ((int64_t)toByte[(int)(*(pVal+2))] <<52) |
-             ((int64_t)toByte[(int)(*(pVal+3))] <<48) |
-             ((int64_t)toByte[(int)(*(pVal+4))] <<44) |
-             ((int64_t)toByte[(int)(*(pVal+5))] <<40) |
-             ((int64_t)toByte[(int)(*(pVal+6))] <<36) |
-             ((int64_t)toByte[(int)(*(pVal+7))] <<32) |
-             (         toByte[(int)(*(pVal+8))] <<28) |
-             (         toByte[(int)(*(pVal+9))] <<24) |
-             (         toByte[(int)(*(pVal+10))]<<20) |
-             (         toByte[(int)(*(pVal+11))]<<16) |
-             (         toByte[(int)(*(pVal+12))]<<12) |
-             (         toByte[(int)(*(pVal+13))]<<8)  |
-             (         toByte[(int)(*(pVal+14))]<<4)  |
-             (         toByte[(int)(*(pVal+15))]   ));
-    item->dval = *((double *)(&int64));
+    dun.i = (((uint64_t)toByte[(int)(*pVal)]     <<60) |
+             ((uint64_t)toByte[(int)(*(pVal+1))] <<56) |
+             ((uint64_t)toByte[(int)(*(pVal+2))] <<52) |
+             ((uint64_t)toByte[(int)(*(pVal+3))] <<48) |
+             ((uint64_t)toByte[(int)(*(pVal+4))] <<44) |
+             ((uint64_t)toByte[(int)(*(pVal+5))] <<40) |
+             ((uint64_t)toByte[(int)(*(pVal+6))] <<36) |
+             ((uint64_t)toByte[(int)(*(pVal+7))] <<32) |
+             ((uint64_t)toByte[(int)(*(pVal+8))] <<28) |
+             ((uint64_t)toByte[(int)(*(pVal+9))] <<24) |
+             ((uint64_t)toByte[(int)(*(pVal+10))]<<20) |
+             ((uint64_t)toByte[(int)(*(pVal+11))]<<16) |
+             ((uint64_t)toByte[(int)(*(pVal+12))]<<12) |
+             ((uint64_t)toByte[(int)(*(pVal+13))]<<8)  |
+             ((uint64_t)toByte[(int)(*(pVal+14))]<<4)  |
+             ((uint64_t)toByte[(int)(*(pVal+15))]   ));
+    item->dval = dun.d;
   }
   else {
     float flt;
     /* convert from 8 chars (representing hex) to float */
-    int32 = ((toByte[(int)(*pVal)]    <<28) |
+    fun.i = ((toByte[(int)(*pVal)]    <<28) |
              (toByte[(int)(*(pVal+1))]<<24) |
              (toByte[(int)(*(pVal+2))]<<20) |
              (toByte[(int)(*(pVal+3))]<<16) |
@@ -6505,7 +6506,7 @@ static int addRealFromText(void *vmsg, char *name, int type, int count, int isSy
              (toByte[(int)(*(pVal+5))]<<8 ) |
              (toByte[(int)(*(pVal+6))]<<4 ) |
              (toByte[(int)(*(pVal+7))]    ));
-    flt = *((float *)(&int32));
+    flt = fun.f;
     item->dval = (double) flt;
   }
   
@@ -6559,12 +6560,14 @@ static int addRealFromText(void *vmsg, char *name, int type, int count, int isSy
  *
  */
 static int addRealArrayFromText(void *vmsg, char *name, int type, int count, int isSystem,
-                                char *pVal, char *pText, int textLen, int noHeaderLen) {
+                                const char *pVal, const char *pText, int textLen, int noHeaderLen) {
   char *s;
   int32_t int32, j, k, debug=0;
   int64_t int64;
   payloadItem *item;  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+  intFloatUnion  fun;
+  intDoubleUnion dun;
 
   /* payload item to add to msg */
   item = (payloadItem *) calloc(1, sizeof(payloadItem));
@@ -6590,7 +6593,7 @@ static int addRealArrayFromText(void *vmsg, char *name, int type, int count, int
     }
 
     for (j=0; j<count; j++) {
-      /* Convert from 16 chars (representing hex) to double.
+      /* Convert from 16 chars (representing hex) to 64 bit int.
        * if we got a Z to start with, uncompress all the zeros. */
       if ( toByte[(int)(*pVal)] == -2 ) {
         int64 = 0;
@@ -6601,14 +6604,14 @@ static int addRealArrayFromText(void *vmsg, char *name, int type, int count, int
                  ((int64_t)toByte[(int)(*(pVal+5))] <<40) |
                  ((int64_t)toByte[(int)(*(pVal+6))] <<36) |
                  ((int64_t)toByte[(int)(*(pVal+7))] <<32) |
-                 (         toByte[(int)(*(pVal+8))] <<28) |
-                 (         toByte[(int)(*(pVal+9))] <<24) |
-                 (         toByte[(int)(*(pVal+10))]<<20) |
-                 (         toByte[(int)(*(pVal+11))]<<16) |
-                 (         toByte[(int)(*(pVal+12))]<<12) |
-                 (         toByte[(int)(*(pVal+13))]<<8)  |
-                 (         toByte[(int)(*(pVal+14))]<<4)  |
-                 (         toByte[(int)(*(pVal+15))]   ));
+                 ((int64_t)toByte[(int)(*(pVal+8))] <<28) |
+                 ((int64_t)toByte[(int)(*(pVal+9))] <<24) |
+                 ((int64_t)toByte[(int)(*(pVal+10))]<<20) |
+                 ((int64_t)toByte[(int)(*(pVal+11))]<<16) |
+                 ((int64_t)toByte[(int)(*(pVal+12))]<<12) |
+                 ((int64_t)toByte[(int)(*(pVal+13))]<<8)  |
+                 ((int64_t)toByte[(int)(*(pVal+14))]<<4)  |
+                 ((int64_t)toByte[(int)(*(pVal+15))]   ));
                  
         /* we have int64 number of zeros */
         for (k=0; k<int64; k++) {
@@ -6621,7 +6624,7 @@ if(debug) printf("  double[%d] = %.16g\n", j+k, myArray[j+k]);
       }
 
       /* convert from 16 chars (representing hex) to double */
-      int64 = (((int64_t)toByte[(int)(*pVal)]     <<60) |
+      dun.i = (((int64_t)toByte[(int)(*pVal)]     <<60) |
                ((int64_t)toByte[(int)(*(pVal+1))] <<56) |
                ((int64_t)toByte[(int)(*(pVal+2))] <<52) |
                ((int64_t)toByte[(int)(*(pVal+3))] <<48) |
@@ -6629,15 +6632,15 @@ if(debug) printf("  double[%d] = %.16g\n", j+k, myArray[j+k]);
                ((int64_t)toByte[(int)(*(pVal+5))] <<40) |
                ((int64_t)toByte[(int)(*(pVal+6))] <<36) |
                ((int64_t)toByte[(int)(*(pVal+7))] <<32) |
-               (         toByte[(int)(*(pVal+8))] <<28) |
-               (         toByte[(int)(*(pVal+9))] <<24) |
-               (         toByte[(int)(*(pVal+10))]<<20) |
-               (         toByte[(int)(*(pVal+11))]<<16) |
-               (         toByte[(int)(*(pVal+12))]<<12) |
-               (         toByte[(int)(*(pVal+13))]<<8)  |
-               (         toByte[(int)(*(pVal+14))]<<4)  |
-               (         toByte[(int)(*(pVal+15))]   ));
-      myArray[j] = *((double *)(&int64));
+               ((int64_t)toByte[(int)(*(pVal+8))] <<28) |
+               ((int64_t)toByte[(int)(*(pVal+9))] <<24) |
+               ((int64_t)toByte[(int)(*(pVal+10))]<<20) |
+               ((int64_t)toByte[(int)(*(pVal+11))]<<16) |
+               ((int64_t)toByte[(int)(*(pVal+12))]<<12) |
+               ((int64_t)toByte[(int)(*(pVal+13))]<<8)  |
+               ((int64_t)toByte[(int)(*(pVal+14))]<<4)  |
+               ((int64_t)toByte[(int)(*(pVal+15))]   ));
+      myArray[j] = dun.d;
       pVal += 17;
 if(debug) printf("  double[%d] = %.16g\n", j, myArray[j]);
     }
@@ -6656,7 +6659,7 @@ if(debug) printf("  double[%d] = %.16g\n", j, myArray[j]);
     }
 
     for (j=0; j<count; j++) {
-      /* Convert from 8 chars (representing hex) to float.
+      /* Convert from 8 chars (representing hex) to int.
        * if we got a Z to start with, uncompress all the zeros. */
       if ( toByte[(int)(*pVal)] == -2 ) {
         int32 = 0;
@@ -6678,7 +6681,7 @@ if(debug) printf("  float[%d] = %.7g\n", j+k, myArray[j+k]);
         continue;
       }
 
-      int32 = ((toByte[(int)(*pVal)]    <<28) |
+      fun.i = ((toByte[(int)(*pVal)]    <<28) |
                (toByte[(int)(*(pVal+1))]<<24) |
                (toByte[(int)(*(pVal+2))]<<20) |
                (toByte[(int)(*(pVal+3))]<<16) |
@@ -6686,7 +6689,7 @@ if(debug) printf("  float[%d] = %.7g\n", j+k, myArray[j+k]);
                (toByte[(int)(*(pVal+5))]<<8 ) |
                (toByte[(int)(*(pVal+6))]<<4 ) |
                (toByte[(int)(*(pVal+7))]    ));
-      myArray[j] = *((float *)(&int32));
+      myArray[j] = fun.f;
       pVal+=9;
 if(debug) printf("  float[%d] = %.7g\n", j, myArray[j]);
     }
@@ -6742,8 +6745,9 @@ if(debug) printf("  float[%d] = %.7g\n", j, myArray[j]);
  *
  */
 static int addStringFromText(void *vmsg, char *name, int type, int count, int isSystem,
-                             char *pVal, char *pText, int textLen, int noHeaderLen) {
-  char *s, *t, *str;
+                             const char *pVal, const char *pText, int textLen, int noHeaderLen) {
+  const char *t;
+  char *s, *str;
   int len;
   payloadItem *item;  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
@@ -6869,8 +6873,9 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
  *
  */
 static int addStringArrayFromText(void *vmsg, char *name, int type, int count, int isSystem,
-                                  char *pVal, char *pText, int textLen, int noHeaderLen) {
-  char *s, *t, **txtArray;
+                                  const char *pVal, const char *pText, int textLen, int noHeaderLen) {
+  const char *t;
+  char *s, **txtArray;
   int i, j, len;
   payloadItem *item;  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
