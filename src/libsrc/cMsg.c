@@ -4284,13 +4284,13 @@ static int cMsgToString2(void *vmsg, char **string, int level, int offset, int b
          sprintf(pchar, "%s               %.7g\n%s          </float>\n%n", indent, f, indent, &len); pchar+=len;
         } break;
       case CMSG_CP_STR:
-        {char *s; ok=cMsgGetString(msg, name, &s); if(ok!=CMSG_OK) {
+        {const char *s; ok=cMsgGetString(msg, name, &s); if(ok!=CMSG_OK) {
          if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
          sprintf(pchar, singleStringFormat, indent, name, s, &len); pchar+=len;
         } break;
         
       case CMSG_CP_BIN:
-        {char *s; int sz, endian; char *endianTxt;
+        {const char *s; int sz, endian; char *endianTxt;
          if (!binary) break;
          ok=cMsgGetBinary(msg, name, &s, &sz, &endian);
          if(ok!=CMSG_OK) {if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
@@ -4303,7 +4303,7 @@ static int cMsgToString2(void *vmsg, char **string, int level, int offset, int b
         } break;
         
       case CMSG_CP_MSG:
-        {void *m; ok=cMsgGetMessage(msg, name, &m);    if(ok!=CMSG_OK) {
+        {const void *m; ok=cMsgGetMessage(msg, name, &m);    if(ok!=CMSG_OK) {
          if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
          ok = cMsgToString2(m, &pchar, level+1, offset, binary); if(ok!=CMSG_OK) {
          if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
@@ -4311,7 +4311,7 @@ static int cMsgToString2(void *vmsg, char **string, int level, int offset, int b
          
       /* arrays */
       case CMSG_CP_MSG_A:
-        {void **m; ok=cMsgGetMessageArray(msg, name, &m, &count);  if(ok!=CMSG_OK) {
+        {const void **m; ok=cMsgGetMessageArray(msg, name, &m, &count);  if(ok!=CMSG_OK) {
          if (level < 1) free(buffer); else free(indent);return(CMSG_ERROR);}
          sprintf(pchar, "%s          <cMsgMessage_array name=\"%s\">\n%n", indent, name, &len);
          pchar+=len;
