@@ -946,7 +946,13 @@ void cMsgMessage::addStringArray(string name, string *strs, int len) {
   if (strs == NULL) throw (cMsgException("strs arg is null"));
   if (len < 1) throw (cMsgException("len < 1"));
 
+#ifdef linux
   const char *strings[len];
+#else
+  const char **strings = (const char **)malloc(len*sizeof(char *));
+  if (strings == NULL) throw(cMsgException("No memory available"));
+#endif
+  
   for (int i=0; i<len; i++) {
     strings[i] = strs[i].c_str();
   }
@@ -958,6 +964,10 @@ void cMsgMessage::addStringArray(string name, string *strs, int len) {
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
     else throw(cMsgException("Error"));
   }
+ 
+#ifndef linux
+  free(strings);
+#endif
 }
 
 //-------------------------------------------------------------------
@@ -973,7 +983,13 @@ void cMsgMessage::addStringArray(string name, string *strs, int len) {
  * @throws cMsgException if no memory, name already used, or improper name
  */
 void cMsgMessage::addStringVector(string name, vector<string> &strs) {
-  const char *strings[strs.size()];
+#ifdef linux
+    const char *strings[strs.size()];
+#else
+    const char **strings = (const char **)malloc(strs.size()*sizeof(char *));
+    if (strings == NULL) throw(cMsgException("No memory available"));
+#endif
+
   for (vector<string>::size_type i=0; i < strs.size(); i++) {
     strings[i] = strs[i].c_str();
   }
@@ -985,6 +1001,10 @@ void cMsgMessage::addStringVector(string name, vector<string> &strs) {
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
     else throw(cMsgException("Error"));
   }
+  
+#ifndef linux
+  free(strings);
+#endif
 }
 
 //-------------------------------------------------------------------
@@ -1028,7 +1048,13 @@ void cMsgMessage::addMessageArray(string name, cMsgMessage *msg, int len) {
   if (msg == NULL) throw (cMsgException("msg arg is null"));
   if (len < 1) throw (cMsgException("len < 1"));
   
+#ifdef linux
   const void *msgs[len];
+#else
+  const void **msgs = (const void **)malloc(len*sizeof(void *));
+  if (msgs == NULL) throw(cMsgException("No memory available"));
+#endif
+
   for (int i=0; i<len; i++) {
     msgs[i] = msg[i].myMsgPointer;
   }
@@ -1040,6 +1066,10 @@ void cMsgMessage::addMessageArray(string name, cMsgMessage *msg, int len) {
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
   }
+  
+#ifndef linux
+  free(msgs);
+#endif
 }
 
 //-------------------------------------------------------------------
@@ -1055,7 +1085,12 @@ void cMsgMessage::addMessageArray(string name, cMsgMessage *msg, int len) {
  * @throws cMsgException if no memory, name already used, improper name
  */   
 void cMsgMessage::addMessageVector(string name, vector<cMsgMessage> &msg) {
-  const void *msgs[msg.size()];
+#ifdef linux
+    const void *msgs[msg.size()];
+#else
+    const void **msgs = (const void **)malloc(msg.size()*sizeof(void *));
+    if (msgs == NULL) throw(cMsgException("No memory available"));
+#endif
   
   for (vector<cMsgMessage>::size_type i=0; i < msg.size(); i++) {
     msgs[i] = msg[i].myMsgPointer;
@@ -1068,6 +1103,10 @@ void cMsgMessage::addMessageVector(string name, vector<cMsgMessage> &msg) {
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
   }
+  
+#ifndef linux
+  free(msgs);
+#endif
 }
 
 //-------------------------------------------------------------------
