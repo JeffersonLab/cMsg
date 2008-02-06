@@ -30,274 +30,216 @@ using namespace cmsg;
 
 namespace cmsg {
 
-//-----------------------------------------------------------------------------
-//  cMsgPayload methods
-//-----------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------
+    //  cMsgPayload methods
+    //-----------------------------------------------------------------------------
 
 
+    //-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
+    /**
+     * This method removes all the user-added items in the payload.
+     * The payload may still contain fields added by the cMsg system.
+     * If there are no items left in the payload, this method is equivalent to
+     * {@link cMsgMessage#payloadWipeout}. 
+     */   
+    void cMsgMessage::payloadClear(void) {
+        cMsgPayloadClear(myMsgPointer);
+    }
 
-/**
- * This method frees the allocated memory of the given message's entire payload
- * and then initializes the payload components of the message. 
- */   
-void cMsgMessage::payloadClear(void) {
-    cMsgPayloadClear(myMsgPointer);
-}
+    //-----------------------------------------------------------------------------
 
-//-------------------------------------------------------------------
+    /**
+     * This method removes all items (including those added by the cMsg system)
+     * in the payload.
+     * This method frees the allocated memory of the given message's entire payload
+     * and then initializes the payload components of the message.
+     */
+    void cMsgMessage::payloadWipeout(void) {
+        cMsgPayloadWipeout(myMsgPointer);
+    }
 
-/**
- * This method prints out the message payload in a readable form.
- */
-void cMsgMessage::payloadPrint(void) {
-    cMsgPayloadPrint(myMsgPointer);
-}
+    //-------------------------------------------------------------------
 
-//-------------------------------------------------------------------
-// users should not have access to this !!!
+    /**
+     * This method prints out the message payload in a readable form.
+     */
+    void cMsgMessage::payloadPrint(void) const {
+        cMsgPayloadPrint(myMsgPointer);
+    }
 
-/**
- * This method takes a string representation of the
- * whole compound payload, including the system (hidden) fields of the message,
- * as it gets sent over the network and converts it into the standard message
- * payload. All system information is ignored. This overwrites any existing
- * payload and skips over any fields with names starting with "cMsg"
- * (as they are reserved for system use).
- *
- * @param text string sent over network to be unmarshalled
- * @throws cMsgException if no payload exists or no memory
- */   
-void cMsgMessage::payloadSetFromText(const string &text) throw(cMsgException) {
-  int err = cMsgPayloadSetFromText(myMsgPointer, text.c_str());
-  if (err != CMSG_OK) {
-    throw(cMsgException(cMsgPerror(err),err));
-  }
-}
+    //-------------------------------------------------------------------
 
-//-------------------------------------------------------------------
-// users should not have access to this !!!
+    /**
+     * This method returns whether a message has a compound payload or not. 
+     *
+     * @returns true if message has a payload, else false
+     */
+    bool cMsgMessage::hasPayload() const {
+        int hasPayload;
+        cMsgHasPayload(myMsgPointer, &hasPayload);
+        return hasPayload ? true : false;
+    }
 
-/**
- * This method takes a string representation of the
- * whole compound payload, including the system (hidden) fields of the message,
- * as it gets sent over the network and converts it into the hidden system fields
- * of the message. All non-system information is ignored. This overwrites any existing
- * system fields.
- *
- * @param text string sent over network to be unmarshalled
- * @throws cMsgException if no payload exists or no memory
- */   
-void cMsgMessage::payloadSetSystemFieldsFromText(const string &text) throw(cMsgException) {
-  int err = cMsgPayloadSetSystemFieldsFromText(myMsgPointer, text.c_str());
-  if (err != CMSG_OK) {
-    throw(cMsgException(cMsgPerror(err),err));
-  }
-}
+    //-------------------------------------------------------------------
 
-//-------------------------------------------------------------------
-// users should not have access to this !!!
+    /**
+     * This method returns whether an item in the payload has the given name or not. 
+     *
+     * @param name name of field to look for
+     * @returns true if an item in the payload has the given name, else false
+     */
+    bool cMsgMessage::payloadContainsName(const string &name) const {
+        return cMsgPayloadContainsName(myMsgPointer, name.c_str()) ? true : false;
+    }
 
-/**
- * This method takes a string representation of the
- * whole compound payload, including the system (hidden) fields of the message,
- * as it gets sent over the network and converts it into the hidden system fields
- * and payload of the message. This overwrites any existing system fields and payload.
- *
- * @param text string sent over network to be unmarshalled
- * @throws cMsgException if no payload exists or no memory
- */   
-void cMsgMessage::payloadSetAllFieldsFromText(const string &text) throw(cMsgException) {
-  int err = cMsgPayloadSetAllFieldsFromText(myMsgPointer, text.c_str());
-  if (err != CMSG_OK) {
-    throw(cMsgException(cMsgPerror(err),err));
-  }
-}
+    //-------------------------------------------------------------------
 
-//-------------------------------------------------------------------
+    /**
+     * This method returns the number of payload items a message has. 
+     *
+     * @returns number of payload items a message has
+     */
+    int cMsgMessage::payloadGetCount() const {
+        int count;
+        cMsgPayloadGetCount(myMsgPointer, &count);
+        return count;
+    }
 
-/**
- * This method returns whether a message has a compound payload or not. 
- *
- * @returns true if message has a payload, else false
- */   
-bool cMsgMessage::hasPayload() const {
-  int hasPayload;
-  cMsgHasPayload(myMsgPointer, &hasPayload);
-  return hasPayload ? true : false;
-}
+    //-------------------------------------------------------------------
 
-//-------------------------------------------------------------------
+    /**
+     * This method returns the type of data associated with the payload
+     * field given by the name argument. The returned type may have the
+     * following values:
+     * <UL>
+     * <LI>CMSG_CP_STR          for a   String
+     * <LI>CMSG_CP_FLT          for a   4 byte float
+     * <LI>CMSG_CP_DBL          for an  8 byte float
+     * <LI>CMSG_CP_INT8         for an  8 bit int
+     * <LI>CMSG_CP_INT16        for a  16 bit int
+     * <LI>CMSG_CP_INT32        for a  32 bit int
+     * <LI>CMSG_CP_INT64        for a  64 bit int
+     * <LI>CMSG_CP_UINT8        for an unsigned  8 bit int
+     * <LI>CMSG_CP_UINT16       for an unsigned 16 bit int
+     * <LI>CMSG_CP_UINT32       for an unsigned 32 bit int
+     * <LI>CMSG_CP_UINT64       for an unsigned 64 bit int
+     * <LI>CMSG_CP_MSG          for a  cMsg message
+     * <LI>CMSG_CP_BIN          for    binary
 
-/**
- * This method returns whether an item in the payload has the given name or not. 
- *
- * @param name name of field to look for
- * @returns true if an item in the payload has the given name, else false
- */   
-bool cMsgMessage::payloadContainsName(const string &name) const {
-  return cMsgPayloadContainsName(myMsgPointer, name.c_str()) ? true : false;
-}
+     * <LI>CMSG_CP_STR_A        for a   String array
+     * <LI>CMSG_CP_FLT_A        for a   4 byte float array
+     * <LI>CMSG_CP_DBL_A        for an  8 byte float array
+     * <LI>CMSG_CP_INT8_A       for an  8 bit int array
+     * <LI>CMSG_CP_INT16_A      for a  16 bit int array
+     * <LI>CMSG_CP_INT32_A      for a  32 bit int array
+     * <LI>CMSG_CP_INT64_A      for a  64 bit int array
+     * <LI>CMSG_CP_UINT8_A      for an unsigned  8 bit int array
+     * <LI>CMSG_CP_UINT16_A     for an unsigned 16 bit int array
+     * <LI>CMSG_CP_UINT32_A     for an unsigned 32 bit int array
+     * <LI>CMSG_CP_UINT64_A     for an unsigned 64 bit int array
+     * <LI>CMSG_CP_MSG_A        for a  cMsg message array
+     * </UL>
+     *
+     * @param name name of field to find type for
+     *
+     * @returns the type of data associated with the payload
+     *          field given by the name argument
+     * @throws cMsgException if no payload/field exists, or if name is NULL
+     */
+    int cMsgMessage::payloadGetType(const string &name) const
+            throw(cMsgException) {
+        int err, type;
+        err = cMsgPayloadGetType(myMsgPointer, name.c_str(), &type);
+        if (err != CMSG_OK) {
+            if (err == CMSG_BAD_ARGUMENT)
+                throw(cMsgException("Name is null"));
+            else
+                throw(cMsgException("No payload item of that name"));
+        }
+        return type;
+    }
 
-//-------------------------------------------------------------------
+    //-------------------------------------------------------------------
 
-/**
- * This method returns the number of payload items a message has. 
- *
- * @returns number of payload items a message has
- */   
-int cMsgMessage::payloadGetCount() const {
-  int count;
-  cMsgPayloadGetCount(myMsgPointer, &count);
-  return count;
-}
+    /**
+     * This method copies the payload from another message.
+     * The original payload is overwritten.
+     *
+     * @param reference to message to copy payload from
+     * @throws cMsgException if no memory
+     */
+    void cMsgMessage::payloadCopy(cMsgMessage &msg) throw(cMsgException) {
+        int err = cMsgPayloadCopy(msg.myMsgPointer, myMsgPointer);
+        if (err!= CMSG_OK) {
+            throw(cMsgException(cMsgPerror(err),err));
+        }
+    }
 
-//-------------------------------------------------------------------
+    //-------------------------------------------------------------------
 
-/**
- * This method returns the string representation of the given field. 
- *
- * @param name name of field to look for
- * @returns string representation of the given field
- * @throws cMsgException if no payload/field exists, or if name is NULL
- */   
-string cMsgMessage::payloadGetFieldText(const string &name) const throw(cMsgException) {
-  const char *val;
-  int err = cMsgPayloadGetFieldText(myMsgPointer, name.c_str(), &val);
-  if (err != CMSG_OK) {
-    if (err == CMSG_BAD_ARGUMENT) throw(cMsgException("Name is null")); 
-    else throw(cMsgException("No payload item of that name")); 
-  }
-  return string(val);
-}
+    /**
+     * This method returns the current field name.
+     *
+     * @throws cMsgException if no payload
+     */
+    string cMsgMessage::payloadGetFieldDescription(const string &name) const
+            throw(cMsgException) {
+        const char *field = cMsgPayloadFieldDescription(myMsgPointer,
+                name.c_str());
+        if (field == NULL) {
+            string err("No such field as ");
+            err += field;
+            throw(cMsgException(err));
+        }
+        string s(field);
+        return s;
+    }
 
-//-------------------------------------------------------------------
+    //-------------------------------------------------------------------
 
-/**
- * This method returns the type of data associated with the payload
- * field given by the name argument. The returned type may have the
- * following values:
- * <UL>
- * <LI>CMSG_CP_STR          for a   String
- * <LI>CMSG_CP_FLT          for a   4 byte float
- * <LI>CMSG_CP_DBL          for an  8 byte float
- * <LI>CMSG_CP_INT8         for an  8 bit int
- * <LI>CMSG_CP_INT16        for a  16 bit int
- * <LI>CMSG_CP_INT32        for a  32 bit int
- * <LI>CMSG_CP_INT64        for a  64 bit int
- * <LI>CMSG_CP_UINT8        for an unsigned  8 bit int
- * <LI>CMSG_CP_UINT16       for an unsigned 16 bit int
- * <LI>CMSG_CP_UINT32       for an unsigned 32 bit int
- * <LI>CMSG_CP_UINT64       for an unsigned 64 bit int
- * <LI>CMSG_CP_MSG          for a  cMsg message
- * <LI>CMSG_CP_BIN          for    binary
+    /**
+     * This method returns a pointer to a map containing all name/type pairs
+     * of the payload. A field's name is the key and type is the value.
+     * The map must be deleted to avoid a memory leak.
+     *
+     * @returns a pointer to a map containing all name/type pairs of the payload
+     * @throws cMsgException if no payload exists, or if name is NULL
+     */
+    map<string,int> *cMsgMessage::payloadGet() const throw(cMsgException) {
+        char **names;
+        int *types, len;
 
- * <LI>CMSG_CP_STR_A        for a   String array
- * <LI>CMSG_CP_FLT_A        for a   4 byte float array
- * <LI>CMSG_CP_DBL_A        for an  8 byte float array
- * <LI>CMSG_CP_INT8_A       for an  8 bit int array
- * <LI>CMSG_CP_INT16_A      for a  16 bit int array
- * <LI>CMSG_CP_INT32_A      for a  32 bit int array
- * <LI>CMSG_CP_INT64_A      for a  64 bit int array
- * <LI>CMSG_CP_UINT8_A      for an unsigned  8 bit int array
- * <LI>CMSG_CP_UINT16_A     for an unsigned 16 bit int array
- * <LI>CMSG_CP_UINT32_A     for an unsigned 32 bit int array
- * <LI>CMSG_CP_UINT64_A     for an unsigned 64 bit int array
- * <LI>CMSG_CP_MSG_A        for a  cMsg message array
- * </UL>
- *
- * @param name name of field to find type for
- *
- * @returns the type of data associated with the payload
- *          field given by the name argument
- * @throws cMsgException if no payload/field exists, or if name is NULL
- */   
-int cMsgMessage::payloadGetType(const string &name) const throw(cMsgException) {
-  int err, type;
-  err = cMsgPayloadGetType(myMsgPointer, name.c_str(), &type);
-  if (err != CMSG_OK) {
-    if (err == CMSG_BAD_ARGUMENT) throw(cMsgException("Name is null")); 
-    else throw(cMsgException("No payload item of that name")); 
-  }
-  return type;
-}
+        int err = cMsgPayloadGetInfo(myMsgPointer, &names, &types, &len);
+        if (err != CMSG_OK) {
+            if (err == CMSG_BAD_ARGUMENT)
+                throw(cMsgException("Name is null"));
+            else if (err == CMSG_ERROR)
+                throw(cMsgException("No payload exists"));
+            else
+                throw(cMsgException("Out of memory"));
+        }
 
-//-------------------------------------------------------------------
+        map<string,int> *mp = new map<string,int>;
+        for (int i=0; i<len; i++) {
+            (*mp)[names[i]] = types[i];
+        }
+        return mp;
+    }
 
-/**
- * This method copies the payload from another message.
- * The original payload is overwritten.
- *
- * @param reference to message to copy payload from
- * @throws cMsgException if no memory
- */   
-void cMsgMessage::payloadCopy(cMsgMessage &msg) throw(cMsgException) {
-  int err = cMsgPayloadCopy(msg.myMsgPointer, myMsgPointer);
-  if (err!= CMSG_OK) {
-    throw(cMsgException(cMsgPerror(err),err));
-  }
-}
+    //-------------------------------------------------------------------
 
-//-------------------------------------------------------------------
-
-/**
- * This method returns the current field name.
- *
- * @throws cMsgException if no payload
- */   
-string cMsgMessage::payloadGetFieldDescription(const string &name) const throw(cMsgException) {
-  const char *field = cMsgPayloadFieldDescription(myMsgPointer, name.c_str());
-  if (field == NULL) {
-    string err("No such field as ");
-    err += field;
-    throw(cMsgException(err));
-  }
-  string s(field);
-  return s;
-}
-
-//-------------------------------------------------------------------
-
-/**
- * This method returns a pointer to a map containing all name/type pairs
- * of the payload. A field's name is the key and type is the value.
- * The map must be deleted to avoid a memory leak.
- *
- * @returns a pointer to a map containing all name/type pairs of the payload
- * @throws cMsgException if no payload exists, or if name is NULL
- */   
-map<string,int> *cMsgMessage::payloadGet() const throw(cMsgException) {
-  char **names;
-  int *types, len;
-  
-  int err = cMsgPayloadGetInfo(myMsgPointer, &names, &types, &len);
-  if (err != CMSG_OK) {
-    if (err == CMSG_BAD_ARGUMENT) throw(cMsgException("Name is null")); 
-    else if (err == CMSG_ERROR) throw(cMsgException("No payload exists")); 
-    else throw(cMsgException("Out of memory")); 
-  }
-  
-  map<string,int> *mp = new map<string,int>;
-  for (int i=0; i<len; i++) {
-    (*mp)[names[i]] = types[i];
-  }
-  return mp;
-}
-
-//-------------------------------------------------------------------
-
-/**
- * This method removes the named field if its exists.
- *
- * @param name name of field to remove
- *
- * @returns true if successful
- * @returns false if no field with that name was found
- */   
-bool cMsgMessage::payloadRemoveField(const string &name) {
-  return cMsgPayloadRemove(myMsgPointer, name.c_str()) == 0 ? false : true;
-}
+    /**
+     * This method removes the named field if its exists.
+     *
+     * @param name name of field to remove
+     *
+     * @returns true if successful
+     * @returns false if no field with that name was found
+     */
+    bool cMsgMessage::payloadRemoveField(const string &name) {
+        return cMsgPayloadRemove(myMsgPointer, name.c_str()) == 0 ? false : true;
+    }
 
 
 //-------------------------------------------------------------------
@@ -311,7 +253,7 @@ bool cMsgMessage::payloadRemoveField(const string &name) {
 /**
  * This method returns the value of the given field as a binary array if it exists.
  *
- * @param name name of field to add
+ * @param name name of field to get
  * @param val address of pointer to data which sets the pointer to converted binary
  * @param len int reference which gets set to the number of bytes in binary array
  * @param endian int reference which gets set to endian of data (CMSG_ENDIAN_BIG/LITTLE)
@@ -319,7 +261,7 @@ bool cMsgMessage::payloadRemoveField(const string &name) {
  * @throws cMsgException if no payload/field exists or field is not right type,
  *                        or if any arg is NULL
  */   
-void cMsgMessage::getBinary(string name, char **val, int &len, int &endian) const throw(cMsgException) {
+void cMsgMessage::getBinary(string name, const char **val, int &len, int &endian) const throw(cMsgException) {
   int err = cMsgGetBinary(myMsgPointer, name.c_str(), val, &len, &endian);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
@@ -337,19 +279,18 @@ void cMsgMessage::getBinary(string name, char **val, int &len, int &endian) cons
  * object pointer if its exists. This object must be deleted to avoid
  * a memory leak.
  *
- * @param name name of field to add
- *
- * @returns field's value as cMag message
- * @throws cMsgException if no payload/field exists or field is not right type (single string)
+ * @param name name of field to get
+ * @return field's value as cMsg message
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
-cMsgMessage *cMsgMessage::getMessage(string name) const throw(cMsgException) {
-  void *val;
+const cMsgMessage *cMsgMessage::getMessage(string name) const throw(cMsgException) {
+  const void *val;
   int err = cMsgGetMessage(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
     else throw(cMsgException("No payload item of that name")); 
   }
-  return new cMsgMessage(val);
+  return new cMsgMessage(const_cast<void *>(val));
 }
 
 //-------------------------------------------------------------------
@@ -359,14 +300,13 @@ cMsgMessage *cMsgMessage::getMessage(string name) const throw(cMsgException) {
  * vector of cMsgMessage objects if its exists. The vector pointer
  * must be deleted by caller to avoid a memory leak.
  *
- * @param name name of field to add
- *
- * @returns field's value as vector of cMsgMessage objects
- * @throws cMsgException if no payload/field exists or field is not right type (message array)
+ * @param name name of field to get
+ * @return field's value as vector of cMsgMessage objects
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 vector<cMsgMessage> *cMsgMessage::getMessageVector(string name) const throw(cMsgException) {
   int len;
-  void **vals;
+  const void **vals;
   int err = cMsgGetMessageArray(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
@@ -379,7 +319,7 @@ vector<cMsgMessage> *cMsgMessage::getMessageVector(string name) const throw(cMsg
     //msgs->push_back(new cMsgMessage(cMsgCopyMessage(vals[i])));
     // theoretically, 1st creation of message only copies pointer,
     // when added to vector, copy constructor gets called so we should be OK
-    msgs->push_back(cMsgMessage(vals[i]));
+    msgs->push_back(cMsgMessage(const_cast<void *>(vals[i])));
   }
   return msgs;
 }
@@ -391,13 +331,12 @@ vector<cMsgMessage> *cMsgMessage::getMessageVector(string name) const throw(cMsg
 /**
  * This method returns the value of the given field as a string if its exists.
  *
- * @param name name of field to add
- *
- * @returns field's value as string
- * @throws cMsgException if no payload/field exists or field is not right type (single string)
+ * @param name name of field to get
+ * @return field's value as string
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 string cMsgMessage::getString(string name) const throw(cMsgException) {
-  char *val;
+  const char *val;
   int err = cMsgGetString(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
@@ -414,10 +353,9 @@ string cMsgMessage::getString(string name) const throw(cMsgException) {
  * vector of strings if its exists. The vector pointer must be deleted
  * by caller to avoid a memory leak.
  *
- * @param name name of field to add
- *
- * @returns field's value as vector of strings
- * @throws cMsgException if no payload/field exists or field is not right type (string array)
+ * @param name name of field to get
+ * @return field's value as vector of strings
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 vector<string> *cMsgMessage::getStringVector(string name) const throw(cMsgException) {
   int len;
@@ -443,9 +381,9 @@ vector<string> *cMsgMessage::getStringVector(string name) const throw(cMsgExcept
 /**
  * This method returns the value of the given field as a float if its exists.
  *
- * @param name name of field to add
- *
- * @throws cMsgException if no payload/field exists or field is not right type (float)
+ * @param name name of field to get
+ * @return field's value as a float
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 float cMsgMessage::getFloat(string name) const throw(cMsgException) {
   float val;
@@ -462,9 +400,9 @@ float cMsgMessage::getFloat(string name) const throw(cMsgException) {
 /**
  * This method returns the value of the given field as a double if its exists.
  *
- * @param name name of field to add
- *
- * @throws cMsgException if no payload/field exists or field is not right type (double)
+ * @param name name of field to get
+ * @return field's value as a double
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 double cMsgMessage::getDouble(string name) const throw(cMsgException) {
   double val;
@@ -486,10 +424,9 @@ double cMsgMessage::getDouble(string name) const throw(cMsgException) {
  * vector of floats if its exists. The vector pointer must be deleted
  * by caller to avoid a memory leak.
  *
- * @param name name of field to add
- *
- * @returns field's value as vector of floats
- * @throws cMsgException if no payload/field exists or field is not right type (float array)
+ * @param name name of field to get
+ * @return field's value as vector of floats
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 vector<float> *cMsgMessage::getFloatVector(string name) const throw(cMsgException) {
   int len;
@@ -514,10 +451,9 @@ vector<float> *cMsgMessage::getFloatVector(string name) const throw(cMsgExceptio
  * vector of doubles if its exists. The vector pointer must be deleted
  * by caller to avoid a memory leak.
  *
- * @param name name of field to add
- *
- * @returns field's value as vector of doubles
- * @throws cMsgException if no payload/field exists or field is not right type (double array)
+ * @param name name of field to get
+ * @return field's value as vector of doubles
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 vector<double> *cMsgMessage::getDoubleVector(string name) const throw(cMsgException) {
   int len;
@@ -542,9 +478,9 @@ vector<double> *cMsgMessage::getDoubleVector(string name) const throw(cMsgExcept
 /**
  * This method returns the value of the given field as an 8 bit, signed integer if its exists.
  *
- * @param name name of field to add
- *
- * @throws cMsgException if no payload/field exists or field is not right type (8 bit int)
+ * @param name name of field to get
+ * @return field's value as an 8-bit, signed integer
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 int8_t cMsgMessage::getInt8(string name) const throw(cMsgException) {
   int8_t val;
@@ -561,9 +497,9 @@ int8_t cMsgMessage::getInt8(string name) const throw(cMsgException) {
 /**
  * This method returns the value of the given field as an 16 bit, signed integer if its exists.
  *
- * @param name name of field to add
- *
- * @throws cMsgException if no payload/field exists or field is not right type (16 bit int)
+ * @param name name of field to get
+ * @return field's value as an 16-bit, signed integer
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 int16_t cMsgMessage::getInt16(string name) const throw(cMsgException) {
   int16_t val;
@@ -580,9 +516,9 @@ int16_t cMsgMessage::getInt16(string name) const throw(cMsgException) {
 /**
  * This method returns the value of the given field as an 32 bit, signed integer if its exists.
  *
- * @param name name of field to add
- *
- * @throws cMsgException if no payload/field exists or field is not right type (32 bit int)
+ * @param name name of field to get
+ * @return field's value as an 32-bit, signed integer
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 int32_t cMsgMessage::getInt32(string name) const throw(cMsgException) {
   int32_t val;
@@ -599,9 +535,9 @@ int32_t cMsgMessage::getInt32(string name) const throw(cMsgException) {
 /**
  * This method returns the value of the given field as an 64 bit, signed integer if its exists.
  *
- * @param name name of field to add
- *
- * @throws cMsgException if no payload/field exists or field is not right type (64 bit int)
+ * @param name name of field to get
+ * @return field's value as an 64-bit, signed integer
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 int64_t cMsgMessage::getInt64(string name) const throw(cMsgException) {
   int64_t val;
@@ -618,9 +554,9 @@ int64_t cMsgMessage::getInt64(string name) const throw(cMsgException) {
 /**
  * This method returns the value of the given field as an 8 bit, unsigned integer if its exists.
  *
- * @param name name of field to add
- *
- * @throws cMsgException if no payload/field exists or field is not right type (8 bit unsigned int)
+ * @param name name of field to get
+ * @return field's value as an 8-bit, unsigned integer
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 uint8_t cMsgMessage::getUint8(string name) const throw(cMsgException) {
   uint8_t val;
@@ -637,9 +573,9 @@ uint8_t cMsgMessage::getUint8(string name) const throw(cMsgException) {
 /**
  * This method returns the value of the given field as an 16 bit, unsigned integer if its exists.
  *
- * @param name name of field to add
- *
- * @throws cMsgException if no payload/field exists or field is not right type (16 bit unsigned int)
+ * @param name name of field to get
+ * @return field's value as an 16-bit, unsigned integer
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 uint16_t cMsgMessage::getUint16(string name) const throw(cMsgException) {
   uint16_t val;
@@ -656,9 +592,9 @@ uint16_t cMsgMessage::getUint16(string name) const throw(cMsgException) {
 /**
  * This method returns the value of the given field as an 32 bit, unsigned integer if its exists.
  *
- * @param name name of field to add
- *
- * @throws cMsgException if no payload/field exists or field is not right type (32 bit unsigned int)
+ * @param name name of field to get
+ * @return field's value as an 32-bit, unsigned integer
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 uint32_t cMsgMessage::getUint32(string name) const throw(cMsgException) {
   uint32_t val;
@@ -675,9 +611,9 @@ uint32_t cMsgMessage::getUint32(string name) const throw(cMsgException) {
 /**
  * This method returns the value of the given field as an 64 bit, unsigned integer if its exists.
  *
- * @param name name of field to add
- *
- * @throws cMsgException if no payload/field exists or field is not right type (64 bit unsigned int)
+ * @param name name of field to get
+ * @return field's value as an 64-bit, unsigned integer
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 uint64_t cMsgMessage::getUint64(string name) const throw(cMsgException) {
   uint64_t val;
@@ -698,10 +634,9 @@ uint64_t cMsgMessage::getUint64(string name) const throw(cMsgException) {
  * vector of 8-bit, signed ints if its exists. The vector pointer must be deleted
  * by caller to avoid a memory leak.
  *
- * @param name name of field to add
- *
- * @returns field's value as vector of 8 bit, signed ints
- * @throws cMsgException if no payload/field exists or field is not right type (8 bit, signed ints)
+ * @param name name of field to get
+ * @return field's value as vector of 8 bit, signed ints
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 vector<int8_t> *cMsgMessage::getInt8Vector(string name) const throw(cMsgException) {
   int len;
@@ -726,10 +661,9 @@ vector<int8_t> *cMsgMessage::getInt8Vector(string name) const throw(cMsgExceptio
  * vector of 16-bit, signed ints if its exists. The vector pointer must be deleted
  * by caller to avoid a memory leak.
  *
- * @param name name of field to add
- *
- * @returns field's value as vector of 16 bit, signed ints
- * @throws cMsgException if no payload/field exists or field is not right type (16 bit, signed ints)
+ * @param name name of field to get
+ * @return field's value as vector of 16 bit, signed ints
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 vector<int16_t> *cMsgMessage::getInt16Vector(string name) const throw(cMsgException) {
   int len;
@@ -754,10 +688,9 @@ vector<int16_t> *cMsgMessage::getInt16Vector(string name) const throw(cMsgExcept
  * vector of 32-bit, signed ints if its exists. The vector pointer must be deleted
  * by caller to avoid a memory leak.
  *
- * @param name name of field to add
- *
- * @returns field's value as vector of 32 bit, signed ints
- * @throws cMsgException if no payload/field exists or field is not right type (32 bit, signed ints)
+ * @param name name of field to get
+ * @return field's value as vector of 32 bit, signed ints
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 vector<int32_t> *cMsgMessage::getInt32Vector(string name) const throw(cMsgException) {
   int len;
@@ -782,10 +715,9 @@ vector<int32_t> *cMsgMessage::getInt32Vector(string name) const throw(cMsgExcept
  * vector of 64-bit, signed ints if its exists. The vector pointer must be deleted
  * by caller to avoid a memory leak.
  *
- * @param name name of field to add
- *
- * @returns field's value as vector of 64 bit, signed ints
- * @throws cMsgException if no payload/field exists or field is not right type (64 bit, signed ints)
+ * @param name name of field to get
+ * @return field's value as vector of 64 bit, signed ints
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 vector<int64_t> *cMsgMessage::getInt64Vector(string name) const throw(cMsgException) {
   int len;
@@ -810,10 +742,10 @@ vector<int64_t> *cMsgMessage::getInt64Vector(string name) const throw(cMsgExcept
  * vector of 8-bit, unsigned ints if its exists. The vector pointer must be deleted
  * by caller to avoid a memory leak.
  *
- * @param name name of field to add
+ * @param name name of field to get
  *
- * @returns field's value as vector of 8 bit, unsigned ints
- * @throws cMsgException if no payload/field exists or field is not right type (8 bit, unsigned ints)
+ * @return field's value as vector of 8 bit, unsigned ints
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 vector<uint8_t> *cMsgMessage::getUint8Vector(string name) const throw(cMsgException) {
   int len;
@@ -838,10 +770,10 @@ vector<uint8_t> *cMsgMessage::getUint8Vector(string name) const throw(cMsgExcept
  * vector of 16-bit, unsigned ints if its exists. The vector pointer must be deleted
  * by caller to avoid a memory leak.
  *
- * @param name name of field to add
+ * @param name name of field to get
  *
- * @returns field's value as vector of 16 bit, unsigned ints
- * @throws cMsgException if no payload/field exists or field is not right type (16 bit, unsigned ints)
+ * @return field's value as vector of 16 bit, unsigned ints
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 vector<uint16_t> *cMsgMessage::getUint16Vector(string name) const throw(cMsgException) {
   int len;
@@ -866,10 +798,9 @@ vector<uint16_t> *cMsgMessage::getUint16Vector(string name) const throw(cMsgExce
  * vector of 32-bit, unsigned ints if its exists. The vector pointer must be deleted
  * by caller to avoid a memory leak.
  *
- * @param name name of field to add
- *
- * @returns field's value as vector of 32 bit, unsigned ints
- * @throws cMsgException if no payload/field exists or field is not right type (32 bit, unsigned ints)
+ * @param name name of field to get
+ * @return field's value as vector of 32 bit, unsigned ints
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 vector<uint32_t> *cMsgMessage::getUint32Vector(string name) const throw(cMsgException) {
   int len;
@@ -894,10 +825,9 @@ vector<uint32_t> *cMsgMessage::getUint32Vector(string name) const throw(cMsgExce
  * vector of 64-bit, unsigned ints if its exists. The vector pointer must be deleted
  * by caller to avoid a memory leak.
  *
- * @param name name of field to add
- *
- * @returns field's value as vector of 64 bit, unsigned ints
- * @throws cMsgException if no payload/field exists or field is not right type (64 bit, unsigned ints)
+ * @param name name of field to get
+ * @return field's value as vector of 64 bit, unsigned ints
+ * @throws cMsgException if no payload/field exists or field is not right type
  */   
 vector<uint64_t> *cMsgMessage::getUint64Vector(string name) const throw(cMsgException) {
   int len;
@@ -925,14 +855,15 @@ vector<uint64_t> *cMsgMessage::getUint64Vector(string name) const throw(cMsgExce
 
 /**
  * This method adds a named binary field to the compound payload of a message.
- * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
- * or contain white space or quotes.
+ * Names may not begin with "cmsg" (case insensitive), be longer than
+ * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
  *
  * @param name name of field to add
  * @param src  pointer to binary data to add
  * @param size size in bytes of data to add
- * @param endian endian value of binary data, may be CMSG_ENDIAN_BIG, CMSG_ENDIAN_LITTLE,
- *               CMSG_ENDIAN_LOCAL, or CMSG_ENDIAN_NOTLOCAL
+ * @param endian endian value of binary data, may be {@link CMSG_ENDIAN_BIG},
+ *               {@link CMSG_ENDIAN_LITTLE}, {@link CMSG_ENDIAN_LOCAL}, or
+ *               {@link CMSG_ENDIAN_NOTLOCAL}
  *
  * @throws cMsgException if no memory, error in binary-to-text conversion, name already used,
  *                       improper name, src is null, size < 1, or endian improper value
@@ -940,7 +871,7 @@ vector<uint64_t> *cMsgMessage::getUint64Vector(string name) const throw(cMsgExce
 void cMsgMessage::addBinary(string name, const char *src, int size, int endian) {
   int err = cMsgAddBinary(myMsgPointer, name.c_str(), src, size, endian);
   if (err != CMSG_OK) {
-    if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name or if error in binary-to-text conversion"));
+         if (err == CMSG_BAD_FORMAT)     throw(cMsgException("Improper name or if error in binary-to-text conversion"));
     else if (err == CMSG_BAD_ARGUMENT)   throw(cMsgException("src or name null, size < 1, or endian improper value")); 
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used")); 
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
@@ -954,8 +885,8 @@ void cMsgMessage::addBinary(string name, const char *src, int size, int endian) 
 
 /**
  * This method adds a string to the compound payload of a message.
- * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
- * or contain white space or quotes.
+ * Names may not begin with "cmsg" (case insensitive), be longer than
+ * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
  *
  * @param name name of field to add
  * @param s string to add
@@ -976,8 +907,8 @@ void cMsgMessage::addString(string name, string s) {
 
 /**
  * This method adds an array of strings to the compound payload of a message.
- * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
- * or contain white space or quotes.
+  * Names may not begin with "cmsg" (case insensitive), be longer than
+ * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
  *
  * @param name name of field to add
  * @param strs array of C-style strings to add
@@ -991,7 +922,7 @@ void cMsgMessage::addStringArray(string name, const char **strs, int len) {
 
 	int err = cMsgAddStringArray(myMsgPointer, name.c_str(), strs, len);
 	if (err != CMSG_OK) {
-		if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
+		     if (err == CMSG_BAD_FORMAT)     throw(cMsgException("Improper name"));
 		else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
 		else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
 		else throw(cMsgException("Error"));
@@ -1002,8 +933,8 @@ void cMsgMessage::addStringArray(string name, const char **strs, int len) {
 
 /**
  * This method adds an array of strings to the compound payload of a message.
- * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
- * or contain white space or quotes.
+ * Names may not begin with "cmsg" (case insensitive), be longer than
+ * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
  *
  * @param name name of field to add
  * @param strs array of strings to add
@@ -1022,7 +953,7 @@ void cMsgMessage::addStringArray(string name, string *strs, int len) {
 
   int err = cMsgAddStringArray(myMsgPointer, name.c_str(), strings, len);
   if (err != CMSG_OK) {
-    if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
+         if (err == CMSG_BAD_FORMAT)     throw(cMsgException("Improper name"));
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
     else throw(cMsgException("Error"));
@@ -1033,8 +964,8 @@ void cMsgMessage::addStringArray(string name, string *strs, int len) {
 
 /**
  * This method adds a vector of strings to the compound payload of a message.
- * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
- * or contain white space or quotes.
+ * Names may not begin with "cmsg" (case insensitive), be longer than
+ * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
  *
  * @param name name of field to add
  * @param strs vector of strings to add
@@ -1049,7 +980,7 @@ void cMsgMessage::addStringVector(string name, vector<string> &strs) {
 
   int err = cMsgAddStringArray(myMsgPointer, name.c_str(), strings, strs.size());
   if (err != CMSG_OK) {
-    if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
+         if (err == CMSG_BAD_FORMAT)     throw(cMsgException("Improper name"));
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
     else throw(cMsgException("Error"));
