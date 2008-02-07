@@ -348,7 +348,6 @@ public class rcTcpListeningThread extends Thread {
 
             // create a message
             cMsgMessageFull msg = new cMsgMessageFull();
-System.out.println("rc Server (TCP) decoding a message!!");
 
             msg.setVersion(in.readInt());
             msg.setUserInt(in.readInt());
