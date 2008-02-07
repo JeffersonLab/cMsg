@@ -224,7 +224,6 @@ public class rcUdpListeningThread extends Thread {
 
         // create a message
         cMsgMessageFull msg = new cMsgMessageFull();
-System.out.println("rc Server (UDP) decoding a message!!");
 
         msg.setVersion(bytesToInt(buf, index));
         index += 4;
