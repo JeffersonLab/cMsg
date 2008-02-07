@@ -230,7 +230,7 @@ void clock_gettime(int dummy, struct timespec *t1);
   /* ***************************************** */
   /* compound payload stuff - 65 user routines */
   /* ***************************************** */
-  int    cMsgAddSenderToHistory      (void *vmsg, char *name);
+  void   cMsgAddSenderToHistory      (void *vmsg, char *name);
   
   int    cMsgPayloadGet              (const void *vmsg, char **names,  int *types,  int len);
   int    cMsgPayloadGetInfo          (const void *vmsg, char ***names, int **types, int *len);
