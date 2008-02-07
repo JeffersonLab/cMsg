@@ -67,7 +67,19 @@ public class rcClient {
             try {
                 cMsgMessage sendMsg;
                 try {
+                    System.out.println("Callback received sendAndGet msg - responding");
                     sendMsg = msg.response();
+                    // Create Compound Payload
+                    cMsgPayloadItem item = new cMsgPayloadItem("serverity", "really severe");
+                    msg.addPayloadItem(item);
+                    item = new cMsgPayloadItem("state", "downloaded");
+                    msg.addPayloadItem(item);
+                    item = new cMsgPayloadItem("codaid", 5555);
+                    msg.addPayloadItem(item);
+                    item = new cMsgPayloadItem("runType", 6666);
+                    msg.addPayloadItem(item);
+                    item = new cMsgPayloadItem("codaClass", "ROC");
+                    msg.addPayloadItem(item);
                 }
                 catch (cMsgException e) {
                     System.out.println("Callback received non-sendAndGet msg - ignoring");
