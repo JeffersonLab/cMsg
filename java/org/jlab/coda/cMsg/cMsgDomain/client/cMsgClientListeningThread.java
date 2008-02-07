@@ -445,7 +445,7 @@ public class cMsgClientListeningThread extends Thread {
 
             // create a message
             cMsgMessageFull msg = new cMsgMessageFull();
-System.out.println("Decoding a message!!");
+System.out.println("cMsg domain client decoding a message!!");
             msg.setVersion(in.readInt());
             // second incoming integer is for future use
             in.skipBytes(4);
