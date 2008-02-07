@@ -70,15 +70,7 @@ public class rcClient {
                     System.out.println("Callback received sendAndGet msg - responding");
                     sendMsg = msg.response();
                     // Create Compound Payload
-                    cMsgPayloadItem item = new cMsgPayloadItem("serverity", "really severe");
-                    sendMsg.addPayloadItem(item);
-                    item = new cMsgPayloadItem("state", "downloaded");
-                    sendMsg.addPayloadItem(item);
-                    item = new cMsgPayloadItem("codaid", 5555);
-                    sendMsg.addPayloadItem(item);
-                    item = new cMsgPayloadItem("runType", 6666);
-                    sendMsg.addPayloadItem(item);
-                    item = new cMsgPayloadItem("codaClass", "ROC");
+                    cMsgPayloadItem item = new cMsgPayloadItem("severity", "really severe");
                     sendMsg.addPayloadItem(item);
                 }
                 catch (cMsgException e) {
@@ -143,16 +135,7 @@ public class rcClient {
          msg.setSubject("subby");
          msg.setType("typey");
          msg.setText("Send with TCP");
-System.out.println("Add payload items");
-         cMsgPayloadItem item = new cMsgPayloadItem("serverity", "really severe");
-         msg.addPayloadItem(item);
-         item = new cMsgPayloadItem("state", "downloaded");
-         msg.addPayloadItem(item);
-         item = new cMsgPayloadItem("codaid", 5555);
-         msg.addPayloadItem(item);
-         item = new cMsgPayloadItem("runType", 6666);
-         msg.addPayloadItem(item);
-         item = new cMsgPayloadItem("codaClass", "ROC");
+         cMsgPayloadItem item = new cMsgPayloadItem("severity", "really severe");
          msg.addPayloadItem(item);
 
          System.out.println("Send subby, typey with TCP");
