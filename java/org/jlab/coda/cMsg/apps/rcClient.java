@@ -131,6 +131,7 @@ public class rcClient {
          msg.setSubject("subby");
          msg.setType("typey");
          msg.setText("Send with TCP");
+System.out.println("Add payload item 'String'");
          cMsgPayloadItem item = new cMsgPayloadItem("String", "String in payload");
          msg.addPayloadItem(item);
 
