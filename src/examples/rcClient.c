@@ -137,7 +137,14 @@ int main(int argc,char **argv) {
   cMsgSetType(msg, "typey");
   cMsgSetText(msg, "send with TCP");
   cMsgSetReliableSend(msg, 1);
-    
+  /* Create Compound Payload */
+  cMsgAddString(msg,"severity","really severe");
+  cMsgAddString(msg,"state","downloaded");
+  /* Add CODA 2 specific options not available to RC3*/
+  cMsgAddInt32(msg,"codaid", 5555);
+  cMsgAddInt32(msg,"runType", 6666);
+  cMsgAddString(msg,"codaClass", "ROC");
+   
   while (loops-- > 0) {      
       /* send msgs to rc server */
       err = cMsgSend(domainId, msg);
