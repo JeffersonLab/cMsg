@@ -59,6 +59,7 @@ public class cMsgTestRcServer {
             System.out.println("              msg text = " + msg.getText());
             System.out.println("              msg  sub = " + msg.getSubject());
             System.out.println("              msg type = " + msg.getType());
+            msg.payloadPrintout(0);
         }
     }
 
@@ -69,6 +70,7 @@ public class cMsgTestRcServer {
             System.out.println("              msg text = " + msg.getText());
             System.out.println("              msg  sub = " + msg.getSubject());
             System.out.println("              msg type = " + msg.getType());
+            msg.payloadPrintout(0);
         }
     }
 
