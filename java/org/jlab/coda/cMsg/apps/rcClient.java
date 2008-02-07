@@ -71,22 +71,22 @@ public class rcClient {
                     sendMsg = msg.response();
                     // Create Compound Payload
                     cMsgPayloadItem item = new cMsgPayloadItem("serverity", "really severe");
-                    msg.addPayloadItem(item);
+                    sendMsg.addPayloadItem(item);
                     item = new cMsgPayloadItem("state", "downloaded");
-                    msg.addPayloadItem(item);
+                    sendMsg.addPayloadItem(item);
                     item = new cMsgPayloadItem("codaid", 5555);
-                    msg.addPayloadItem(item);
+                    sendMsg.addPayloadItem(item);
                     item = new cMsgPayloadItem("runType", 6666);
-                    msg.addPayloadItem(item);
+                    sendMsg.addPayloadItem(item);
                     item = new cMsgPayloadItem("codaClass", "ROC");
-                    msg.addPayloadItem(item);
+                    sendMsg.addPayloadItem(item);
                 }
                 catch (cMsgException e) {
                     System.out.println("Callback received non-sendAndGet msg - ignoring");
                     return;
                 }
-                sendMsg.setSubject("rcSubject");
-                sendMsg.setType("rcType");
+                sendMsg.setSubject("RESPONDING");
+                sendMsg.setType("TO MESSAGE");
                 sendMsg.setText("responder's text");
                 sendMsg.getContext().setReliableSend(false);
                 cmsg.send(sendMsg);
