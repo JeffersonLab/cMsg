@@ -250,45 +250,11 @@ static const char *excludedChars = " \t\n`\'\"";
 /*-------------------------------------------------------------------*/
 
 /** Mutex to make the payload linked list thread-safe. */
-#if defined(PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP)
-  static pthread_mutex_t mutex_recursive = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-#else
-  static int initialized = 0;
-  static pthread_mutex_t mutex_recursive;
-  static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-#endif
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /** Routine to grab the pthread mutex used to protect payload linked list. */
 static void grabMutex(void) {
-  int status;
-#if !defined(PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP)
-  /* if I think the mutex is not initialized, make sure it is */
-  if (!initialized) {
-    /* make sure our mutex is recursive first */
-    status = pthread_mutex_lock(&mutex);
-    if (status != 0) {
-      cmsg_err_abort(status, "Lock linked list Mutex");
-    }
-    if (!initialized) {
-      /* We need our mutex to be recursive, since cMsgPayloadCopy calls copyPayloadItem
-       * which can call cMsgCopyMessage which can call cMsgPayloadCopy. However, then
-       * it needs to be initialized that way (which the static initializer will not
-       * do).*/
-      pthread_mutexattr_t attr;
-      pthread_mutexattr_init(&attr);
-#ifndef VXWORKS
-      pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-#endif
-      pthread_mutex_init(&mutex_recursive, &attr);
-      initialized = 1;
-    }
-    status = pthread_mutex_unlock(&mutex);
-    if (status != 0) {
-      cmsg_err_abort(status, "Unlock linked list Mutex");
-    }
-  }
-#endif  
-  status = pthread_mutex_lock(&mutex_recursive);
+  int status = pthread_mutex_lock(&mutex);
   if (status != 0) {
     cmsg_err_abort(status, "Lock linked list Mutex");
   }
@@ -296,7 +262,7 @@ static void grabMutex(void) {
 
 /** Routine to release the pthread mutex used to protect payload linked list. */
 static void releaseMutex(void) {
-  int status = pthread_mutex_unlock(&mutex_recursive);
+  int status = pthread_mutex_unlock(&mutex);
   if (status != 0) {
     cmsg_err_abort(status, "Unlock linked list Mutex");
   }
@@ -1074,7 +1040,7 @@ static int removeItem(cMsgMessage_t *msg, const char *name, payloadItem **pItem)
   
   grabMutex();
   
-  if (msg->payload == NULL || name != NULL) {
+  if (msg->payload == NULL) {
     releaseMutex();
     return(0);
   }
@@ -1102,6 +1068,9 @@ static int removeItem(cMsgMessage_t *msg, const char *name, payloadItem **pItem)
       } else {
         *pItem = item;
       }
+      
+      /* decrement payload item count */
+      msg->payloadCount++;
 
       break;
     }
@@ -1130,41 +1099,47 @@ static int removeItem(cMsgMessage_t *msg, const char *name, payloadItem **pItem)
  * 
  * @param name name of sender to add to the history of senders
  */
-int cMsgAddSenderToHistory(void *vmsg, char *name) {
+void cMsgAddSenderToHistory(void *vmsg, char *name) {
     cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
     payloadItem *item, *newItem;
-    int err, len, i, index, exists=0;
-
-    grabMutex();
+    int err, len, i, index, exists=1;
+    char **oldNames;
+    const char **nameArray;
 
     /* if set not to record history, just return */
     if (msg->historyLengthMax < 1) {
-        releaseMutex();
-        return (CMSG_OK);
+        return;
     }
-
-    /* remove the history first */
-    exists = removeItem(msg, "cMsgSenderHistory", &item);
+    
+    /* is there a history already? */
+    err = cMsgGetStringArray(vmsg, "cMsgSenderHistory", &nameArray, &len);
+    if (err == CMSG_ERROR) {
+        exists = 0;
+    }
+    else if (err != CMSG_OK) return;
 
     if (!exists) {
-        char *names[] = { name };
-        err = createStringArrayItem("cMsgSenderHistory", (const char **)names, 1, 1, 1, &newItem);
+        const char *names[] = { name };
+        err = createStringArrayItem("cMsgSenderHistory", names, 1, 1, 1, &newItem);
         if (err != CMSG_OK) {
-            releaseMutex();
-            return (CMSG_OK);
+            return;
         }
         addItem(msg, newItem);
     } else {
-        /* get existing history */
-        char **newNames, **names = (char **)item->array;
-        len = item->count;
-
+        const char **newNames;
+               
         /* Don't repeat names consecutively. That just means that
          * a msg producer is sending the same message repeatedly. */
-        if (strcmp(name, names[len-1]) == 0) {
-            releaseMutex();
-            return (CMSG_OK);
+        if (strcmp(name, nameArray[len-1]) == 0) {
+            return;
         }
+ 
+        /* now, remove the history and recreate it */
+        exists = removeItem(msg, "cMsgSenderHistory", &item);
+        if (!exists) return;
+        
+        oldNames = (char **)item->array;
+        len = item->count;
 
         /* keep only historyLength number of the latest names */
         index = 0;
@@ -1174,42 +1149,35 @@ int cMsgAddSenderToHistory(void *vmsg, char *name) {
         }
         
         /* create spaces for list of names */
-        newNames = (char **) calloc(1, (len+1)*sizeof(char *));
+        newNames = (const char **) calloc(1, (len+1)*sizeof(char *));
         if (newNames == NULL) {
-            releaseMutex();
-            return (CMSG_OUT_OF_MEMORY);
+            addItem(msg, item);
+            return;
         }
         
         /* copy over old names */
         for (i=index; i<len+index; i++) {
-            newNames[i-index] = names[i];
+            newNames[i-index] = oldNames[i];
         }
         /* add new name to end */
         newNames[len] = strdup(name);
         if (newNames[len] == NULL) {
-            releaseMutex();
-            return (CMSG_OUT_OF_MEMORY);
+            free(newNames);
+            addItem(msg, item);
+            return;
         }
         
         /* put new sender history back into msg */
-        err = createStringArrayItem("cMsgSenderHistory", (const char **)newNames,
-                                    len+1, 1, 0, &newItem);
+        err = createStringArrayItem("cMsgSenderHistory", newNames, len+1, 1, 0, &newItem);
         if (err != CMSG_OK) {
-            releaseMutex();
-            return (CMSG_OK);
+            free(newNames);
+            addItem(msg, item);
+            return;
         }
         addItem(msg, newItem);
     }
-
-    /* we have a payload */
-    setPayload(msg, 1);
-    
-    /* update the text representation of payload */
-    cMsgPayloadUpdateText(vmsg);
-    
-    releaseMutex();
-   
-    return (CMSG_OK);
+       
+    return;
 }
 
 /*-------------------------------------------------------------------*/
@@ -1631,7 +1599,7 @@ static payloadItem *copyPayloadItem(const payloadItem *from) {
  */   
 int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
   
-  payloadItem *item, *copiedItem, *prevCopied=NULL, *firstCopied=NULL;
+  payloadItem *item, *next, *copiedItem, *prevCopied=NULL, *firstCopied=NULL;
   cMsgMessage_t *msgFrom = (cMsgMessage_t *)vmsgFrom;
   cMsgMessage_t *msgTo   = (cMsgMessage_t *)vmsgTo;
   char **toArray, **fromArray;
@@ -1649,7 +1617,24 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
         free(msgFrom->payloadText);
         msgFrom->payloadText = NULL;
     }
-    cMsgPayloadWipeout(vmsgTo);
+    
+    /* inline version of  cMsgPayloadWipeout(vmsgTo) */
+    item = msgTo->payload;
+    while (item != NULL) {
+      next = item->next;
+      payloadItemFree(item);
+      free(item);
+      item = next;
+    }
+    msgTo->payload = NULL;
+    
+    if (msgTo->payloadText != NULL) {
+        free(msgTo->payloadText);
+        msgTo->payloadText = NULL;
+    }
+    msgTo->payloadCount = 0;
+    /* write that we no longer have a payload */
+    setPayload(msgTo, 0);
     releaseMutex();
     return(CMSG_OK);
   }
@@ -1708,8 +1693,20 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
     item = item->next;
   }
   
-  /* clear msgTo's list and replace it with the copied list */
-  cMsgPayloadWipeout(vmsgTo);
+  /* Clear msgTo's list and replace it with the copied list.
+   * (inline version of  cMsgPayloadWipeout(vmsgTo)) */
+  item = msgTo->payload;
+  while (item != NULL) {
+    next = item->next;
+    payloadItemFree(item);
+    free(item);
+    item = next;
+  }
+  
+  if (msgTo->payloadText != NULL) {
+      free(msgTo->payloadText);
+      msgTo->payloadText = NULL;
+  } 
   msgTo->payload = firstCopied;
   
   /* copy over text representation */
@@ -1718,6 +1715,9 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
   
   /* don't forget to copy the record of the number of payload items */
   msgTo->payloadCount = msgFrom->payloadCount;
+  
+  /* write that we have a payload */
+  setPayload(msgTo, 1);
   
   releaseMutex();
   return(CMSG_OK);
@@ -1749,15 +1749,15 @@ int cMsgPayloadUpdateText(const void *vmsg) {
   if (msg == NULL) {
     return(CMSG_BAD_ARGUMENT);
   }
-  
-  grabMutex();
+
+  /* This routine is only called by routines that already have the mutex locked,
+   * so don't bother with grabbing and releasing mutex. */ 
   
   if (msg->payload == NULL) {
     if (msg->payloadText != NULL) {
         free(msg->payloadText);
         msg->payloadText = NULL;
     }
-    releaseMutex();
     return(CMSG_OK);
   }
       
@@ -1772,8 +1772,7 @@ int cMsgPayloadUpdateText(const void *vmsg) {
   
   pBuf = s = (char *) malloc(totalLen);
   if (s == NULL) {
-    releaseMutex();
-    return(CMSG_OUT_OF_MEMORY);
+   return(CMSG_OUT_OF_MEMORY);
   }
   s[totalLen-1] = '\0';
   
@@ -1792,9 +1791,7 @@ int cMsgPayloadUpdateText(const void *vmsg) {
     sprintf(s, "%s%n", item->text, &len);
     item = item->next;
   }
-  
-  releaseMutex();
-    
+      
   msg->payloadText = pBuf;
   
   return(CMSG_OK);
