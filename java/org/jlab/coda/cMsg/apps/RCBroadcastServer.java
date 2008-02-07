@@ -50,7 +50,6 @@ public class RCBroadcastServer {
             String s = (String) userObject;
             System.out.println("RAN CALLBACK, msg sub = " + msg.getSubject() +
                     ", type " + msg.getType() + ", text = " + msg.getText() + ", for " + s);
-            msg.payloadPrintout(0);
         }
     }
 
