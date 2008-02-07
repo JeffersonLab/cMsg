@@ -143,7 +143,7 @@ public class rcClient {
          msg.setSubject("subby");
          msg.setType("typey");
          msg.setText("Send with TCP");
-System.out.println("Add payload item 'String'");
+System.out.println("Add payload items");
          cMsgPayloadItem item = new cMsgPayloadItem("serverity", "really severe");
          msg.addPayloadItem(item);
          item = new cMsgPayloadItem("state", "downloaded");
