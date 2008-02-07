@@ -47,6 +47,7 @@ public class rcClient {
         public void callback(cMsgMessage msg, Object userObject) {
             count++;
             System.out.println("Got msg with sub = " + msg.getSubject() + ", typ = " + msg.getType() + ", txt = " + msg.getText());
+            msg.payloadPrintout(0);
         }
      }
 
@@ -130,6 +131,8 @@ public class rcClient {
          msg.setSubject("subby");
          msg.setType("typey");
          msg.setText("Send with TCP");
+         cMsgPayloadItem item = new cMsgPayloadItem("String", "String in payload");
+         msg.addPayloadItem(item);
 
          System.out.println("Send subby, typey with TCP");
          cmsg.send(msg);
