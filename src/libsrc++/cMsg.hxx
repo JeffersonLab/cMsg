@@ -152,7 +152,7 @@ public:
   //
   virtual void getBinary(string name, const char **val, int &len, int &endian) const throw(cMsgException);
 
-  virtual const cMsgMessage         *getMessage(string name)       const throw(cMsgException);
+  virtual const cMsgMessage   *getMessage(string name)       const throw(cMsgException);
   virtual vector<cMsgMessage> *getMessageVector(string name) const throw(cMsgException);
 
   virtual string          getString(string name)       const throw(cMsgException);
