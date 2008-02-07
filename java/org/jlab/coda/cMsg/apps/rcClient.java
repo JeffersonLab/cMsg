@@ -85,8 +85,8 @@ public class rcClient {
                     System.out.println("Callback received non-sendAndGet msg - ignoring");
                     return;
                 }
-                sendMsg.setSubject("RESPONDING");
-                sendMsg.setType("TO MESSAGE");
+                sendMsg.setSubject("rcSubject");
+                sendMsg.setType("rcType");
                 sendMsg.setText("responder's text");
                 sendMsg.getContext().setReliableSend(false);
                 cmsg.send(sendMsg);
