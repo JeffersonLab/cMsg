@@ -178,6 +178,7 @@ public class cMsgTestRcServer {
             System.out.println("Response msg sub = " + response.getSubject() +
                                     ", type = " + response.getType() +
                                     ", text = " + response.getText());
+            response.payloadPrintout(0);
         }
         catch (TimeoutException e) {
             System.out.println("TIMEOUT");
