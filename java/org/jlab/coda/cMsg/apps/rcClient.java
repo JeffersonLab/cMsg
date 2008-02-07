@@ -144,7 +144,15 @@ public class rcClient {
          msg.setType("typey");
          msg.setText("Send with TCP");
 System.out.println("Add payload item 'String'");
-         cMsgPayloadItem item = new cMsgPayloadItem("String", "String in payload");
+         cMsgPayloadItem item = new cMsgPayloadItem("serverity", "really severe");
+         msg.addPayloadItem(item);
+         item = new cMsgPayloadItem("state", "downloaded");
+         msg.addPayloadItem(item);
+         item = new cMsgPayloadItem("codaid", 5555);
+         msg.addPayloadItem(item);
+         item = new cMsgPayloadItem("runType", 6666);
+         msg.addPayloadItem(item);
+         item = new cMsgPayloadItem("codaClass", "ROC");
          msg.addPayloadItem(item);
 
          System.out.println("Send subby, typey with TCP");
