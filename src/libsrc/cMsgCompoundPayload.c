@@ -551,12 +551,13 @@ static void payloadItemFree(payloadItem *item) {
 
 
 /**
- * This routine frees the allocated memory of the given message's entire payload
+ * This routine resets the payload to its initial condition (no payload).
+ * It frees the allocated memory of the given message's entire payload
  * and then initializes the payload components of the message. 
  *
  * @param vmsg pointer to message
  */   
-void cMsgPayloadWipeout(void *vmsg) {
+void cMsgPayloadReset(void *vmsg) {
   payloadItem *item, *next;
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
