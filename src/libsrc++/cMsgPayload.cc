@@ -56,7 +56,7 @@ namespace cmsg {
      * and then initializes the payload components of the message.
      */
     void cMsgMessage::payloadWipeout(void) {
-        cMsgPayloadWipeout(myMsgPointer);
+        cMsgPayloadReset(myMsgPointer);
     }
 
     //-------------------------------------------------------------------
