@@ -278,7 +278,7 @@ static void releaseMutex(void) {
  *
  * @param number integer
  * @param isUint64 is number an unsigned 64 bit integer (0=no)
- * @returns number of digits in the integer argument including a minus sign
+ * @return number of digits in the integer argument including a minus sign
  */   
 static int numDigits(int64_t number, int isUint64) {
   int digits = 1;
@@ -315,7 +315,7 @@ static int numDigits(int64_t number, int isUint64) {
  * internal static character array.
  *
  * @param f float value to convert
- * @returns string of hex character rep of IEEE765 bytes
+ * @return string of hex character rep of IEEE765 bytes
  */   
 char *cMsgFloatChars(float f) {
     int byte;
@@ -347,7 +347,7 @@ char *cMsgFloatChars(float f) {
  * internal static character array.
  *
  * @param d double value to convert
- * @returns string of hex character rep of IEEE765 bytes
+ * @return string of hex character rep of IEEE765 bytes
  */   
 char *cMsgDoubleChars(double d) {
     int byte;
@@ -401,8 +401,8 @@ char *cMsgDoubleChars(double d) {
  * @param s string to check
  * @param isSystem if true, allows names starting with "cmsg", else not
  *
- * @returns 1 if string is OK
- * @returns 0 if string contains illegal characters
+ * @return 1 if string is OK
+ * @return 0 if string contains illegal characters
  */   
 static int isValidFieldName(const char *s, int isSystem) {
 
@@ -445,8 +445,8 @@ static int isValidFieldName(const char *s, int isSystem) {
  *
  * @param s string to check
  *
- * @returns 1 if string is OK
- * @returns 0 if string contains illegal characters
+ * @return 1 if string is OK
+ * @return 0 if string contains illegal characters
  */   
 static int isValidSystemFieldName(const char *s) {
 
@@ -691,8 +691,8 @@ static void setPayload(cMsgMessage_t *msg, int hasPayload) {
  * @param hasPayload pointer which gets filled with the number of items
  *                   if msg has compound payload, else 0
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if either arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgHasPayload(const void *vmsg, int *hasPayload) {  
   return cMsgPayloadGetCount(vmsg, hasPayload);
@@ -709,8 +709,8 @@ int cMsgHasPayload(const void *vmsg, int *hasPayload) {
  * @param count pointer which gets filled with the number of payload
  *                      items (0 for no payload)
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if either arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if either arg is NULL
  */   
 int cMsgPayloadGetCount(const void *vmsg, int *count) {
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
@@ -735,8 +735,8 @@ int cMsgPayloadGetCount(const void *vmsg, int *count) {
  * @param vmsg pointer to message
  * @param name name to check
  *
- * @returns 0 if name does not exist or there is no payload
- * @returns 1 if name exists
+ * @return 0 if name does not exist or there is no payload
+ * @return 1 if name exists
  */   
 int cMsgPayloadContainsName(const void *vmsg, const char *name) {  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
@@ -803,9 +803,9 @@ int cMsgPayloadContainsName(const void *vmsg, const char *name) {
  * @param type pointer to int gets filled with type of data associated with field
  *             given by name
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no field of the given name is found
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no field of the given name is found
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgPayloadGetType(const void *vmsg, const char *name, int *type) {  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
@@ -848,10 +848,10 @@ int cMsgPayloadGetType(const void *vmsg, const char *name, int *type) {
  *              associated with each field name in "names"
  * @param len pointer to int which gives the length of the returned arrays
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload is found
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL or of improper value
- * @returns CMSG_LIMIT_EXCEEDED if len < the number of items
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload is found
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL or of improper value
+ * @return CMSG_LIMIT_EXCEEDED if len < the number of items
  */   
 int cMsgPayloadGet(const void *vmsg, char **names, int *types, int len) {  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
@@ -900,10 +900,10 @@ int cMsgPayloadGet(const void *vmsg, char **names, int *types, int len) {
  *              associated with each field name in "names"
  * @param len pointer to int which gives the length of the returned arrays
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload is found
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
- * @returns CMSG_OUT_OF_MEMORY if out of memory
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload is found
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OUT_OF_MEMORY if out of memory
  */   
 int cMsgPayloadGetInfo(const void *vmsg, char ***names, int **types, int *len) {  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
@@ -968,8 +968,8 @@ int cMsgPayloadGetInfo(const void *vmsg, char ***names, int **types, int *len) {
  * @param vmsg pointer to message
  * @param name name of field to remove
  *
- * @returns 1 if successful
- * @returns 0 if no field with that name was found
+ * @return 1 if successful
+ * @return 0 if no field with that name was found
  */   
 int cMsgPayloadRemove(void *vmsg, const char *name) {
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
@@ -1032,8 +1032,8 @@ static void addItem(cMsgMessage_t *msg, payloadItem *item) {
  * @param name name of payload item to remove
  * @param pItem if not NULL, it is filled with removed item, else the removed item is freed
  *
- * @returns 1 if successful
- * @returns 0 if item doesn't exist
+ * @return 1 if successful
+ * @return 0 if item doesn't exist
  */   
 static int removeItem(cMsgMessage_t *msg, const char *name, payloadItem **pItem) {
   int spot=0;
@@ -1071,7 +1071,7 @@ static int removeItem(cMsgMessage_t *msg, const char *name, payloadItem **pItem)
       }
       
       /* decrement payload item count */
-      msg->payloadCount++;
+      msg->payloadCount--;
 
       break;
     }
@@ -1132,7 +1132,7 @@ void cMsgAddSenderToHistory(void *vmsg, char *name) {
         /* Don't repeat names consecutively. That just means that
          * a msg producer is sending the same message repeatedly. */
         if (strcmp(name, nameArray[len-1]) == 0) {
-            return;
+           return;
         }
  
         /* now, remove the history and recreate it */
@@ -1175,6 +1175,7 @@ void cMsgAddSenderToHistory(void *vmsg, char *name) {
             addItem(msg, item);
             return;
         }
+
         addItem(msg, newItem);
     }
        
@@ -1202,12 +1203,11 @@ void cMsgAddSenderToHistory(void *vmsg, char *name) {
  *            since a payload may contain a msg which contains a payload, etc).
  *            If ptr == text, then there was nothing more to parse/unmarshal.
  *
- * @returns CMSG_OK             if successful
- * @returns CMSG_ERROR          if payload item cannot be placed at the desired location
- * @returns CMSG_OUT_OF_MEMORY  if out of memory
- * @returns CMSG_BAD_ARGUMENT   if the msg and/or text argument is NULL
- * @returns CMSG_ALREADY_EXISTS if text contains name that is being used already
- * @returns CMSG_BAD_FORMAT     if the text is in the wrong format or contains values
+ * @return CMSG_OK             if successful
+ * @return CMSG_OUT_OF_MEMORY  if out of memory
+ * @return CMSG_BAD_ARGUMENT   if the msg and/or text argument is NULL
+ * @return CMSG_ALREADY_EXISTS if text contains name that is being used already
+ * @return CMSG_BAD_FORMAT     if the text is in the wrong format or contains values
  *                              that don't make sense
  */   
 static int setFieldsFromText(void *vmsg, const char *text, int flag, const char **ptr) {
@@ -1247,8 +1247,8 @@ if(debug) printf("# fields = %d\n", fields);
     memset(name, 0, CMSG_PAYLOAD_NAME_LEN+1);
     sscanf(t, "%s%d%d%d%d%n", name, &type, &count, &isSystem, &noHeaderLen, &headerLen);
     
-if(debug) printf("FIELD #%d, name = %s, type = %d, count = %d, isSys = %d, len = %d, t = %p\n",
-                 i, name, type, count, isSystem, headerLen, t);
+if(debug) printf("FIELD #%d, name = %s, type = %d, count = %d, isSys = %d, noHeadLen = %d, t = %p\n",
+                 i, name, type, count, isSystem, noHeaderLen, t);
     
     /* store to get the text so it doesn't need to be regenerated */
     pmsgTxt = t;
@@ -1428,8 +1428,8 @@ if(debug) {
  *
  * @param from pointer to payload item to be copied
  *
- * @returns pointer to copy of payload item if successful
- * @returns NULL if argument is null or memory cannot be allocated
+ * @return pointer to copy of payload item if successful
+ * @return NULL if argument is null or memory cannot be allocated
  */   
 static payloadItem *copyPayloadItem(const payloadItem *from) {
   int i, j, len;
@@ -1594,9 +1594,9 @@ static payloadItem *copyPayloadItem(const payloadItem *from) {
  * @param vmsgFrom pointer to message to copy payload from
  * @param vmsgTo pointer to message to copy payload to
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if either argument is null
- * @returns CMSG_OUT_OF_MEMORY if operating system out of memory
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if either argument is null
+ * @return CMSG_OUT_OF_MEMORY if operating system out of memory
  */   
 int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
   
@@ -1736,9 +1736,9 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
  *
  * @param vmsg pointer to message
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if vmsg is NULL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if vmsg is NULL
+ * @return CMSG_OUT_OF_MEMORY if no more memory
  */   
 int cMsgPayloadUpdateText(const void *vmsg) {
   char *s, *pBuf;
@@ -1809,8 +1809,8 @@ int cMsgPayloadUpdateText(const void *vmsg) {
  * @param vmsg pointer to message
  * @param name name of field to describe
  *
- * @returns NULL if no payload exists
- * @returns field name if field exists
+ * @return NULL if no payload exists
+ * @return field name if field exists
  */   
 const char *cMsgPayloadFieldDescription(const void *vmsg, const char *name) {
   static char s[64];
@@ -2063,9 +2063,9 @@ static void payloadPrintout(const void *msg, int level) {
  * @param name name of field
  * @param val pointer to pointer which is set to string representation of field
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgPayloadGetFieldText(const void *vmsg, const char *name, const char **val) {
   payloadItem *item;  
@@ -2107,7 +2107,7 @@ int cMsgPayloadGetFieldText(const void *vmsg, const char *name, const char **val
  * @param vmsg pointer to message
  * @param text string sent over network to be unmarshalled
  *
- * @returns NULL if no payload exists or no memory
+ * @return NULL if no payload exists or no memory
  */   
 int cMsgPayloadSetFromText(void *vmsg, const char *text) {
   return setFieldsFromText(vmsg, text, 1, NULL);
@@ -2128,7 +2128,7 @@ int cMsgPayloadSetFromText(void *vmsg, const char *text) {
  * @param vmsg pointer to message
  * @param text string sent over network to be unmarshalled
  *
- * @returns NULL if no payload exists or no memory
+ * @return NULL if no payload exists or no memory
  */   
 int cMsgPayloadSetSystemFieldsFromText(void *vmsg, const char *text) {
   return setFieldsFromText(vmsg, text, 0, NULL);
@@ -2148,7 +2148,7 @@ int cMsgPayloadSetSystemFieldsFromText(void *vmsg, const char *text) {
  * @param vmsg pointer to message
  * @param text string sent over network to be unmarshalled
  *
- * @returns NULL if no payload exists or no memory
+ * @return NULL if no payload exists or no memory
  */   
 int cMsgPayloadSetAllFieldsFromText(void *vmsg, const char *text) {
   return setFieldsFromText(vmsg, text, 2, NULL);
@@ -2166,9 +2166,9 @@ int cMsgPayloadSetAllFieldsFromText(void *vmsg, const char *text) {
  * @param name name of payload item
  * @param p pointer that gets filled with user pointer
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgPayloadGetFieldPointer(const void *vmsg, const char *name, void **p) {
   payloadItem *item;  
@@ -2211,9 +2211,9 @@ int cMsgPayloadGetFieldPointer(const void *vmsg, const char *name, void **p) {
  * @param name name of payload item
  * @param p user pointer value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgPayloadSetFieldPointer(const void *vmsg, const char *name, void *p) {
   payloadItem *item;  
@@ -2258,10 +2258,10 @@ int cMsgPayloadSetFieldPointer(const void *vmsg, const char *name, void *p) {
  * @param len pointer filled with number of bytes in binary array
  * @param endian pointer filled with endian of data (CMSG_ENDIAN_BIG/LITTLE)
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetBinary(const void *vmsg, const char *name, const char **val, int *len, int *endian) {
   payloadItem *item;  
@@ -2310,10 +2310,10 @@ int cMsgGetBinary(const void *vmsg, const char *name, const char **val, int *len
  * @param name name of payload field
  * @param val pointer filled with field value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetMessage(const void *vmsg, const char *name, const void **val) {
   payloadItem *item;  
@@ -2361,10 +2361,10 @@ int cMsgGetMessage(const void *vmsg, const char *name, const void **val) {
  * @param val pointer filled with array value
  * @param len pointer to int which gets filled with the number of elements in array
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetMessageArray(const void *vmsg, const char *name, const void ***val, int *len) {
   payloadItem *item;  
@@ -2411,10 +2411,10 @@ int cMsgGetMessageArray(const void *vmsg, const char *name, const void ***val, i
  * @param type type of real to get (CMSG_CP_DBL or CMSG_CP_FLT)
  * @param val pointer filled with field value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any pointer arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any pointer arg is NULL
  */   
 static int getReal(const void *vmsg, const char *name, int type, double *val) {
   payloadItem *item;  
@@ -2459,10 +2459,10 @@ static int getReal(const void *vmsg, const char *name, int type, double *val) {
  * @param name name of payload field
  * @param val pointer filled with field value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetFloat(const void *vmsg, const char *name, float *val) {
   int err;
@@ -2486,10 +2486,10 @@ int cMsgGetFloat(const void *vmsg, const char *name, float *val) {
  * @param name name of payload field
  * @param val pointer filled with field value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetDouble(const void *vmsg, const char *name, double *val) {
   return getReal(vmsg, name, CMSG_CP_DBL, val);
@@ -2509,10 +2509,10 @@ int cMsgGetDouble(const void *vmsg, const char *name, double *val) {
  * @param vals pointer filled with field array
  * @param len pointer int which gets filled with the number of elements in array
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any pointer arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any pointer arg is NULL
  */   
 static int getArray(const void *vmsg, const char *name, int type,
                     const void **vals, int *len) {
@@ -2561,10 +2561,10 @@ static int getArray(const void *vmsg, const char *name, int type,
  * @param vals pointer filled with field array
  * @param len pointer int which gets filled with the number of elements in array
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetFloatArray(const void *vmsg, const char *name, const float **vals, int *len) {
   int   err;
@@ -2590,10 +2590,10 @@ int cMsgGetFloatArray(const void *vmsg, const char *name, const float **vals, in
  * @param vals pointer filled with field array
  * @param len pointer int which gets filled with the number of elements in array
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetDoubleArray(const void *vmsg, const char *name, const double **vals, int *len) {
   int   err;
@@ -2618,10 +2618,10 @@ int cMsgGetDoubleArray(const void *vmsg, const char *name, const double **vals, 
  * @param type type of integer to get (e.g. CMSG_CP_INT32)
  * @param val pointer filled with field value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any pointer arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any pointer arg is NULL
  */   
 static int getInt(const void *vmsg, const char *name, int type, int64_t *val) {
   payloadItem *item;  
@@ -2666,10 +2666,10 @@ static int getInt(const void *vmsg, const char *name, int type, int64_t *val) {
  * @param name name of payload field
  * @param val pointer filled with field value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetInt8(const void *vmsg, const char *name, int8_t *val) {
   int err;
@@ -2693,10 +2693,10 @@ int cMsgGetInt8(const void *vmsg, const char *name, int8_t *val) {
  * @param name name of payload field
  * @param val pointer filled with field value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetInt16(const void *vmsg, const char *name, int16_t *val) {
   int err;
@@ -2720,10 +2720,10 @@ int cMsgGetInt16(const void *vmsg, const char *name, int16_t *val) {
  * @param name name of payload field
  * @param val pointer filled with field value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetInt32(const void *vmsg, const char *name, int32_t *val) {
   int err;
@@ -2747,10 +2747,10 @@ int cMsgGetInt32(const void *vmsg, const char *name, int32_t *val) {
  * @param name name of payload field
  * @param val pointer filled with field value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetInt64(const void *vmsg, const char *name, int64_t *val) {  
   return getInt(vmsg, name, CMSG_CP_INT64, val);
@@ -2767,10 +2767,10 @@ int cMsgGetInt64(const void *vmsg, const char *name, int64_t *val) {
  * @param name name of payload field
  * @param val pointer filled with field value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetUint8(const void *vmsg, const char *name, uint8_t *val) {
   int err;
@@ -2794,10 +2794,10 @@ int cMsgGetUint8(const void *vmsg, const char *name, uint8_t *val) {
  * @param name name of payload field
  * @param val pointer filled with field value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetUint16(const void *vmsg, const char *name, uint16_t *val) {
   int err;
@@ -2821,10 +2821,10 @@ int cMsgGetUint16(const void *vmsg, const char *name, uint16_t *val) {
  * @param name name of payload field
  * @param val pointer filled with field value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetUint32(const void *vmsg, const char *name, uint32_t *val) {
   int err;
@@ -2848,10 +2848,10 @@ int cMsgGetUint32(const void *vmsg, const char *name, uint32_t *val) {
  * @param name name of payload field
  * @param val pointer filled with field value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetUint64(const void *vmsg, const char *name, uint64_t *val) {
   int err;
@@ -2877,10 +2877,10 @@ int cMsgGetUint64(const void *vmsg, const char *name, uint64_t *val) {
  * @param vals pointer filled with field array
  * @param len pointer int which gets filled with the number of elements in array
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetInt8Array(const void *vmsg, const char *name, const int8_t **vals, int *len) {
   int   err;
@@ -2906,10 +2906,10 @@ int cMsgGetInt8Array(const void *vmsg, const char *name, const int8_t **vals, in
  * @param vals pointer filled with field array
  * @param len pointer int which gets filled with the number of elements in array
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetInt16Array(const void *vmsg, const char *name, const int16_t **vals, int *len) {
   int   err;
@@ -2935,10 +2935,10 @@ int cMsgGetInt16Array(const void *vmsg, const char *name, const int16_t **vals, 
  * @param vals pointer filled with field array
  * @param len pointer int which gets filled with the number of elements in array
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetInt32Array(const void *vmsg, const char *name, const int32_t **vals, int *len) {
   int   err;
@@ -2964,10 +2964,10 @@ int cMsgGetInt32Array(const void *vmsg, const char *name, const int32_t **vals, 
  * @param vals pointer filled with field array
  * @param len pointer int which gets filled with the number of elements in array
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetInt64Array(const void *vmsg, const char *name, const int64_t **vals, int *len) {
   int   err;
@@ -2993,10 +2993,10 @@ int cMsgGetInt64Array(const void *vmsg, const char *name, const int64_t **vals, 
  * @param vals pointer filled with field array
  * @param len pointer int which gets filled with the number of elements in array
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetUint8Array(const void *vmsg, const char *name, const uint8_t **vals, int *len) {
   int   err;
@@ -3022,10 +3022,10 @@ int cMsgGetUint8Array(const void *vmsg, const char *name, const uint8_t **vals, 
  * @param vals pointer filled with field array
  * @param len pointer int which gets filled with the number of elements in array
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetUint16Array(const void *vmsg, const char *name, const uint16_t **vals, int *len) {
   int   err;
@@ -3051,10 +3051,10 @@ int cMsgGetUint16Array(const void *vmsg, const char *name, const uint16_t **vals
  * @param vals pointer filled with field array
  * @param len pointer int which gets filled with the number of elements in array
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetUint32Array(const void *vmsg, const char *name, const uint32_t **vals, int *len) {
   int   err;
@@ -3080,10 +3080,10 @@ int cMsgGetUint32Array(const void *vmsg, const char *name, const uint32_t **vals
  * @param vals pointer filled with field array
  * @param len pointer int which gets filled with the number of elements in array
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetUint64Array(const void *vmsg, const char *name, const uint64_t **vals, int *len) {
   int   err;
@@ -3108,10 +3108,10 @@ int cMsgGetUint64Array(const void *vmsg, const char *name, const uint64_t **vals
  * @param name name of payload field
  * @param val pointer filled with field value
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetString(const void *vmsg, const char *name, const char **val) {
   payloadItem *item;  
@@ -3158,10 +3158,10 @@ int cMsgGetString(const void *vmsg, const char *name, const char **val) {
  * @param array pointer to array of pointers which gets filled with string array
  * @param len pointer int which gets filled with the number of elements in array
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if no payload or field of that name exists
- * @returns CMSG_BAD_FORMAT field is not right type or contains error
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if no payload or field of that name exists
+ * @return CMSG_BAD_FORMAT field is not right type or contains error
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
  */   
 int cMsgGetStringArray(const void *vmsg, const char *name, const char ***array, int *len) {
   payloadItem *item;  
@@ -3212,15 +3212,15 @@ int cMsgGetStringArray(const void *vmsg, const char *name, const char ***array, 
  * @param endian endian value of binary data, may be CMSG_ENDIAN_BIG, CMSG_ENDIAN_LITTLE,
  *               CMSG_ENDIAN_LOCAL, or CMSG_ENDIAN_NOTLOCAL
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if cannot find local endian
- * @returns CMSG_BAD_ARGUMENT if message, src or name is NULL, size < 1, or
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if cannot find local endian
+ * @return CMSG_BAD_ARGUMENT if message, src or name is NULL, size < 1, or
  *                            endian != CMSG_ENDIAN_BIG, CMSG_ENDIAN_LITTLE,
  *                            CMSG_ENDIAN_LOCAL, or CMSG_ENDIAN_NOTLOCAL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed,
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed,
  *                          or if error in binary-to-text transformation
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 static int addBinary(void *vmsg, const char *name, const char *src, int size,
                      int isSystem, int endian) {
@@ -3363,14 +3363,14 @@ static int addBinary(void *vmsg, const char *name, const char *src, int size,
  * @param endian endian value of binary data, may be CMSG_ENDIAN_BIG, CMSG_ENDIAN_LITTLE,
  *               CMSG_ENDIAN_LOCAL, or CMSG_ENDIAN_NOTLOCAL
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if cannot find local endian
- * @returns CMSG_BAD_ARGUMENT if message, src or name is NULL, size < 1, or
+ * @return CMSG_OK if successful
+ * @return CMSG_ERROR if cannot find local endian
+ * @return CMSG_BAD_ARGUMENT if message, src or name is NULL, size < 1, or
  *                            endian != CMSG_ENDIAN_BIG, CMSG_ENDIAN_LITTLE,
  *                            CMSG_ENDIAN_LOCAL, or CMSG_ENDIAN_NOTLOCAL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddBinary(void *vmsg, const char *name, const char *src,
                   int size, int endian) {
@@ -3391,12 +3391,12 @@ int cMsgAddBinary(void *vmsg, const char *name, const char *src,
  * @param type type of real number to add (CMSG_CP_FLT or CMSG_CP_DBL)
  * @param isSystem if = 1 allows using names starting with "cmsg", else not
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message or name is NULL, or
  *                            wrong type being added
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 static int addReal(void *vmsg, const char *name, double val, int type, int isSystem) {
   payloadItem *item;
@@ -3514,11 +3514,11 @@ static int addReal(void *vmsg, const char *name, double val, int type, int isSys
  * @param name name of field to add
  * @param val float to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message or name is NULL
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddFloat(void *vmsg, const char *name, float val) {
   return addReal(vmsg, name, val, CMSG_CP_FLT, 0);
@@ -3537,11 +3537,11 @@ int cMsgAddFloat(void *vmsg, const char *name, float val) {
  * @param name name of field to add
  * @param val double to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message or name is NULL
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddDouble(void *vmsg, const char *name, double val) {
   return addReal(vmsg, name, val, CMSG_CP_DBL, 0);
@@ -3565,11 +3565,11 @@ int cMsgAddDouble(void *vmsg, const char *name, double val) {
  * @param isSystem if = 1 allows using names starting with "cmsg", else not
  * @param copy if true, copy the array in "vals", else record the pointer and assume ownership
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, name, or vals is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, name, or vals is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 static int addRealArray(void *vmsg, const char *name, const double *vals,
                         int type, int len, int isSystem, int copy) {
@@ -3855,11 +3855,11 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
  * @param vals array of floats to add (copy)
  * @param len number of floats from array to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, name, or vals is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, name, or vals is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddFloatArray(void *vmsg, const char *name, const float vals[], int len) {
    return addRealArray(vmsg, name, (double *)vals, CMSG_CP_FLT_A, len, 0, 1); 
@@ -3877,11 +3877,11 @@ int cMsgAddFloatArray(void *vmsg, const char *name, const float vals[], int len)
  * @param vals array of doubles to add (copy)
  * @param len number of doubles from array to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, name, or vals is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, name, or vals is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddDoubleArray(void *vmsg, const char *name, const double vals[], int len) {
    return addRealArray(vmsg, name, vals, CMSG_CP_DBL_A, len, 0, 1); 
@@ -3901,12 +3901,12 @@ int cMsgAddDoubleArray(void *vmsg, const char *name, const double vals[], int le
  * @param type type of int to add (CMSG_CP_INT32, etc)
  * @param isSystem if = 1 allows using names starting with "cmsg", else not
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL, or
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message or name is NULL, or
  *                            wrong type being added
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 static int addInt(void *vmsg, const char *name, int64_t val, int type, int isSystem) {
   payloadItem *item;
@@ -4000,11 +4000,11 @@ static int addInt(void *vmsg, const char *name, int64_t val, int type, int isSys
  * @param name name of field to add
  * @param val value of 8-bit, signed int to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message or name is NULL
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddInt8(void *vmsg, const char *name, int8_t val) {
   return addInt(vmsg, name, val, CMSG_CP_INT8, 0);
@@ -4023,11 +4023,11 @@ int cMsgAddInt8(void *vmsg, const char *name, int8_t val) {
  * @param name name of field to add
  * @param val value of 16-bit, signed int to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message or name is NULL
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddInt16(void *vmsg, const char *name, int16_t val) {
   return addInt(vmsg, name, val, CMSG_CP_INT16, 0);
@@ -4046,11 +4046,11 @@ int cMsgAddInt16(void *vmsg, const char *name, int16_t val) {
  * @param name name of field to add
  * @param val value of 32-bit, signed int to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message or name is NULL
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddInt32(void *vmsg, const char *name, int32_t val) {
   return addInt(vmsg, name, val, CMSG_CP_INT32, 0);
@@ -4069,11 +4069,11 @@ int cMsgAddInt32(void *vmsg, const char *name, int32_t val) {
  * @param name name of field to add
  * @param val value of 64-bit, signed int to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message or name is NULL
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddInt64(void *vmsg, const char *name, int64_t val) {
   return addInt(vmsg, name, val, CMSG_CP_INT64, 0);
@@ -4092,11 +4092,11 @@ int cMsgAddInt64(void *vmsg, const char *name, int64_t val) {
  * @param name name of field to add
  * @param val value of 8-bit, unsigned int to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message or name is NULL
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddUint8(void *vmsg, const char *name, uint8_t val) {
   return addInt(vmsg, name, val, CMSG_CP_UINT8, 0);
@@ -4115,11 +4115,11 @@ int cMsgAddUint8(void *vmsg, const char *name, uint8_t val) {
  * @param name name of field to add
  * @param val value of 16-bit, unsigned int to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message or name is NULL
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddUint16(void *vmsg, const char *name, uint16_t val) {
   return addInt(vmsg, name, val, CMSG_CP_UINT16, 0);
@@ -4138,11 +4138,11 @@ int cMsgAddUint16(void *vmsg, const char *name, uint16_t val) {
  * @param name name of field to add
  * @param val value of 32-bit, unsigned int to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message or name is NULL
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddUint32(void *vmsg, const char *name, uint32_t val) {
   return addInt(vmsg, name, val, CMSG_CP_UINT32, 0);
@@ -4161,11 +4161,11 @@ int cMsgAddUint32(void *vmsg, const char *name, uint32_t val) {
  * @param name name of field to add
  * @param val value of 64-bit, unsigned int to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or name is NULL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message or name is NULL
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddUint64(void *vmsg, const char *name, uint64_t val) {
   return addInt(vmsg, name, (int64_t)val, CMSG_CP_UINT64, 0);
@@ -4188,11 +4188,11 @@ int cMsgAddUint64(void *vmsg, const char *name, uint64_t val) {
  * @param copy if true, copy the array in "vals", else record the pointer and assume ownership
  *
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 static int addIntArray(void *vmsg, const char *name, const int *vals,
                        int type, int len, int isSystem, int copy) {
@@ -4587,11 +4587,11 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
  * @param vals array of 8-bit, signed ints to add (copy)
  * @param len number of ints from array to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddInt8Array(void *vmsg, const char *name, const int8_t vals[], int len) {
    return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_INT8_A, len, 0, 1); 
@@ -4610,11 +4610,11 @@ int cMsgAddInt8Array(void *vmsg, const char *name, const int8_t vals[], int len)
  * @param vals array of 16-bit, signed ints to add (copy)
  * @param len number of ints from array to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddInt16Array(void *vmsg, const char *name, const int16_t vals[], int len) {
    return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_INT16_A, len, 0, 1); 
@@ -4633,11 +4633,11 @@ int cMsgAddInt16Array(void *vmsg, const char *name, const int16_t vals[], int le
  * @param vals array of 32-bit, signed ints to add (copy)
  * @param len number of ints from array to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddInt32Array(void *vmsg, const char *name, const int32_t vals[], int len) {
    return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_INT32_A, len, 0, 1); 
@@ -4656,11 +4656,11 @@ int cMsgAddInt32Array(void *vmsg, const char *name, const int32_t vals[], int le
  * @param vals array of 64-bit, signed ints to add (copy)
  * @param len number of ints from array to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddInt64Array(void *vmsg, const char *name, const int64_t vals[], int len) {
    return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_INT64_A, len, 0, 1); 
@@ -4679,11 +4679,11 @@ int cMsgAddInt64Array(void *vmsg, const char *name, const int64_t vals[], int le
  * @param vals array of 8-bit, unsigned ints to add (copy)
  * @param len number of ints from array to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddUint8Array(void *vmsg, const char *name, const uint8_t vals[], int len) {
    return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_UINT8_A, len, 0, 1); 
@@ -4702,11 +4702,11 @@ int cMsgAddUint8Array(void *vmsg, const char *name, const uint8_t vals[], int le
  * @param vals array of 16-bit, unsigned ints to add (copy)
  * @param len number of ints from array to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddUint16Array(void *vmsg, const char *name, const uint16_t vals[], int len) {
    return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_UINT16_A, len, 0, 1); 
@@ -4725,11 +4725,11 @@ int cMsgAddUint16Array(void *vmsg, const char *name, const uint16_t vals[], int 
  * @param vals array of 32-bit, unsigned ints to add (copy)
  * @param len number of ints from array to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddUint32Array(void *vmsg, const char *name, const uint32_t vals[], int len) {
    return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_UINT32_A, len, 0, 1); 
@@ -4748,11 +4748,11 @@ int cMsgAddUint32Array(void *vmsg, const char *name, const uint32_t vals[], int 
  * @param vals array of 64-bit, unsigned ints to add (copy)
  * @param len number of ints from array to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddUint64Array(void *vmsg, const char *name, const uint64_t vals[], int len) {
    return addIntArray(vmsg, name, (const int *)vals, CMSG_CP_UINT64_A, len, 0, 1); 
@@ -4772,11 +4772,11 @@ int cMsgAddUint64Array(void *vmsg, const char *name, const uint64_t vals[], int 
  * @param isSystem if true allows using names starting with "cmsg", else not
  * @param copy if true, copy the string "val", else record the pointer and assume ownership
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, val or name is NULL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, val or name is NULL
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 static int addString(void *vmsg, const char *name, const char *val, int isSystem, int copy) {
   payloadItem *item;
@@ -4860,11 +4860,11 @@ static int addString(void *vmsg, const char *name, const char *val, int isSystem
  * @param name name of field to add
  * @param val string to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, val or name is NULL
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, val or name is NULL
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddString(void *vmsg, const char *name, const char *val) {
   return addString(vmsg, name, val, 0, 1);
@@ -4886,10 +4886,10 @@ int cMsgAddString(void *vmsg, const char *name, const char *val) {
  * @param copy if true, copy the strings in "vals", else record the pointer and assume ownership
  * @param pItem pointer to pointer to payloadItem which gets filled in with the created item
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
  */   
 static int createStringArrayItem(const char *name, const char **vals, int len,
                                  int isSystem, int copy, payloadItem **pItem) {
@@ -4986,11 +4986,11 @@ static int createStringArrayItem(const char *name, const char **vals, int len,
  * @param isSystem if = 1 allows using names starting with "cmsg", else not
  * @param copy if true, copy the strings in "vals", else record the pointer and assume ownership
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 static int addStringArray(void *vmsg, const char *name, const char **vals, int len,
                           int isSystem, int copy) {
@@ -5025,11 +5025,11 @@ static int addStringArray(void *vmsg, const char *name, const char **vals, int l
  * @param val strings to add
  * @param len number of strings to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_BAD_FORMAT if name is not properly formed
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_BAD_FORMAT if name is not properly formed
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddStringArray(void *vmsg, const char *name, const char **vals, int len) {
   return addStringArray(vmsg, name, vals, len, 0, 1);
@@ -5051,12 +5051,12 @@ int cMsgAddStringArray(void *vmsg, const char *name, const char **vals, int len)
  * @param vmessage cMsg message to add
  * @param isSystem if = 1 allows using names starting with "cmsg", else not
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
- * @returns CMSG_BAD_FORMAT if name is not properly formed,
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_BAD_FORMAT if name is not properly formed,
  *                          or if error in binary-to-text transformation
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  *
  */   
 static int addMessage(void *vmsg, const char *name, const void *vmessage,
@@ -5421,12 +5421,12 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
  * @param name name of field to add
  * @param message cMsg message to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL
- * @returns CMSG_BAD_FORMAT if name is not properly formed,
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL
+ * @return CMSG_BAD_FORMAT if name is not properly formed,
  *                          or if error in binary-to-text transformation
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  *
  */   
 int cMsgAddMessage(void *vmsg, const char *name, const void *vmessage) {
@@ -5448,12 +5448,12 @@ int cMsgAddMessage(void *vmsg, const char *name, const void *vmessage) {
  * @param number number of messages from array to add
  * @param isSystem if = 1 allows using names starting with "cmsg", else not
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if any arg is NULL or number < 1
- * @returns CMSG_BAD_FORMAT if name is not properly formed,
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if any arg is NULL or number < 1
+ * @return CMSG_BAD_FORMAT if name is not properly formed,
  *                          or if error in binary-to-text transformation
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  *
  */   
 static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
@@ -5848,12 +5848,12 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
  * @param vmessage array of cMsg messages to add
  * @param len number of messages from array to add
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message array, src, or name is NULL; len < 1
- * @returns CMSG_BAD_FORMAT if name is not properly formed,
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_ARGUMENT if message array, src, or name is NULL; len < 1
+ * @return CMSG_BAD_FORMAT if name is not properly formed,
  *                          or if error in binary-to-text transformation
- * @returns CMSG_OUT_OF_MEMORY if no more memory
- * @returns CMSG_ALREADY_EXISTS if name is being used already
+ * @return CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_ALREADY_EXISTS if name is being used already
  */   
 int cMsgAddMessageArray(void *vmsg, const char *name, const void *vmessage[], int len) {
   return addMessageArray(vmsg, name, vmessage, len, 0);
@@ -5879,9 +5879,9 @@ int cMsgAddMessageArray(void *vmsg, const char *name, const void *vmessage[], in
  * @param textLen length (in chars) of all text
  * @param noHeaderLen length (in chars) of text without header line
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_FORMAT if text being parsed is in wrong format
- * @returns CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_FORMAT if text being parsed is in wrong format
+ * @return CMSG_OUT_OF_MEMORY if no more memory
  *
  */
 static int addBinaryFromText(void *vmsg, char *name, int type, int count, int isSystem,
@@ -6022,8 +6022,8 @@ if (debug) printf("addBinaryFromString: decoded string len = %d, should be %d\n"
  * @param textLen length (in chars) of msgText arg
  * @param noHeaderLen length (in chars) of msgText without header line
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_OK if successful
+ * @return CMSG_OUT_OF_MEMORY if no more memory
 
  */   
 static int addIntFromText(void *vmsg, char *name, int type, int count, int isSystem,
@@ -6103,9 +6103,9 @@ if(debug) printf("read int as %lld\n", int64);
  * @param textLen length (in chars) of all text
  * @param noHeaderLen length (in chars) of text without header line
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_FORMAT if text being parsed is in wrong format
- * @returns CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_FORMAT if text being parsed is in wrong format
+ * @return CMSG_OUT_OF_MEMORY if no more memory
  *
  */
 static int addIntArrayFromText(void *vmsg, char *name, int type, int count, int isSystem,
@@ -6447,8 +6447,8 @@ if(debug) {
  * @param textLen length (in chars) of msgText arg
  * @param noHeaderLen length (in chars) of msgText without header line
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_OK if successful
+ * @return CMSG_OUT_OF_MEMORY if no more memory
 
  */   
 static int addRealFromText(void *vmsg, char *name, int type, int count, int isSystem,
@@ -6552,9 +6552,9 @@ static int addRealFromText(void *vmsg, char *name, int type, int count, int isSy
  * @param textLen length (in chars) of all text
  * @param noHeaderLen length (in chars) of text without header line
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_FORMAT if text being parsed is in wrong format
- * @returns CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_FORMAT if text being parsed is in wrong format
+ * @return CMSG_OUT_OF_MEMORY if no more memory
  *
  */
 static int addRealArrayFromText(void *vmsg, char *name, int type, int count, int isSystem,
@@ -6737,9 +6737,9 @@ if(debug) printf("  float[%d] = %.7g\n", j, myArray[j]);
  * @param textLen length (in chars) of all text
  * @param noHeaderLen length (in chars) of text without header line
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_FORMAT if text being parsed is in wrong format
- * @returns CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_FORMAT if text being parsed is in wrong format
+ * @return CMSG_OUT_OF_MEMORY if no more memory
  *
  */
 static int addStringFromText(void *vmsg, char *name, int type, int count, int isSystem,
@@ -6865,9 +6865,9 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
  * @param textLen length (in chars) of all text
  * @param noHeaderLen length (in chars) of text without header line
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_FORMAT if text being parsed is in wrong format
- * @returns CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_OK if successful
+ * @return CMSG_BAD_FORMAT if text being parsed is in wrong format
+ * @return CMSG_OUT_OF_MEMORY if no more memory
  *
  */
 static int addStringArrayFromText(void *vmsg, char *name, int type, int count, int isSystem,
@@ -6976,8 +6976,8 @@ static int addStringArrayFromText(void *vmsg, char *name, int type, int count, i
  * @param textLen length (in chars) of msgText arg
  * @param noHeaderLen length (in chars) of msgText without header line
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_OUT_OF_MEMORY if no more memory
+ * @return CMSG_OK if successful
+ * @return CMSG_OUT_OF_MEMORY if no more memory
 
  */   
 static int addMessagesFromText(void *vmsg, const char *name, int type, int count, int isSystem,
