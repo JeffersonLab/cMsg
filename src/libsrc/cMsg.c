@@ -2531,7 +2531,7 @@ static int freeMessage(void *vmsg) {
   if (msg->context.cueSize != NULL) {                            msg->context.cueSize = NULL;}
   
   /* remove compound payload */
-  cMsgPayloadWipeout(vmsg);
+  cMsgPayloadReset(vmsg);
   
   /* only free byte array if it was copied into the msg */
   if ((msg->byteArray != NULL) && ((msg->bits & CMSG_BYTE_ARRAY_IS_COPIED) > 0)) {
