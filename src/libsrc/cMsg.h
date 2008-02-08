@@ -251,7 +251,7 @@ const char *cMsgPayloadFieldDescription(const void *vmsg, const char *name);
   int    cMsgPayloadSetSystemFieldsFromText (      void *vmsg, const char *text);
   int    cMsgPayloadSetAllFieldsFromText    (void *vmsg, const char *text);
 
-  void   cMsgPayloadWipeout          (      void *vmsg);
+  void   cMsgPayloadReset          (      void *vmsg);
   void   cMsgPayloadClear            (      void *vmsg);
   int    cMsgHasPayload              (const void *vmsg, int *hasPayload);
  
