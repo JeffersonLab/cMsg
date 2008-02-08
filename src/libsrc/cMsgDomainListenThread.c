@@ -1042,13 +1042,26 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
  * This routine reads a message sent from the server to the client.
  * This routine is called by a single thread spawned from the client's
  * listening thread and is called serially.
+ *
+ * @param connfd socket file descriptor
+ * @param buffer char array into which text is read from socket
+ * @param msg pointer to message structure into which the read values are put
+ * @param acknowledge pointer filled in with 1 if message is to be acknowledged,
+ *                    else filled with 0
+ *  
+ * @return CMSG_OK if OK
+ * @return CMSG_NETWORK_ERROR  if error reading message from TCP buffer
+ * @return CMSG_OUT_OF_MEMORY  if no memory available
+ * @return CMSG_ALREADY_EXISTS if payload text contains name that is being used already
+ * @return CMSG_BAD_FORMAT     if payload text is in the wrong format or contains values
+ *                             that don't make sense
  */
 static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *acknowledge) {
 
   uint64_t llTime;
   int  err, hasPayload, stringLen, lengths[7], inComing[18];
   char *pchar, *tmp;
-    
+
   if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cMsgReadMessage: error reading message 1\n");
@@ -1097,7 +1110,7 @@ static int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg, int *ac
   
   if (cMsgTcpRead(connfd, buffer, stringLen) != stringLen) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgReadMessage: error reading message\n");
+      fprintf(stderr, "cMsgReadMessage: error reading message 2\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -1223,7 +1236,7 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
       msg->payloadText  = NULL;
       msg->payloadCount = 0;
   }
-    
+   
   /*--------------------------------------------------*/
   /* read text string & compound payload if it exists */
   /*--------------------------------------------------*/
@@ -1300,7 +1313,7 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
     */
             
   }
-        
+       
   return(CMSG_OK);
 }
 
