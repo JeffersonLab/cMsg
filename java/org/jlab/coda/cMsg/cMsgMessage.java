@@ -1631,7 +1631,7 @@ if (debug) System.out.println("index1 = " + index1 + ", index2 = " + index2);
 if (debug) System.out.println("index1 = " + index1 + ", index2 = " + index2);
             if (index2 < 1) throw new cMsgException("bad format3");
             sub = text.substring(index1, index2);
-if (debug) System.out.println("sub text = " + sub);
+if (debug) System.out.println("Header text = " + sub);
 
             // dissect line into 5 separate values
             tokens = sub.split(" ");
@@ -1655,7 +1655,7 @@ if (debug) System.out.println("# items on headler line = " + tokens.length);
             totalItemLen = headerLen + noHeaderLen;
 
 if (debug) System.out.println("FIELD #" + i + ": name = " + name + ", type = " + dataType +
-                    ", count = " + count + ", isSys = " + isSystem + ", len header = " + headerLen + 
+                    ", count = " + count + ", isSys = " + isSystem + ", len header = " + headerLen +
                     ", len noheader = " + noHeaderLen + ", sub len = " + sub.length());
 
             if (name.length() < 1 || count < 1 || noHeaderLen < 1 ||
