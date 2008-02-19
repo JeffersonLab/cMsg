@@ -21,6 +21,8 @@ import java.nio.channels.Selector;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.net.Socket;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 /**
  * This class stores methods which are neatly self-contained and
@@ -264,5 +266,55 @@ public class cMsgUtilities {
           System.out.println("error: " + reason);
 
       return(reason);
+    }
+
+    /**
+     * This method tests its input argument to see if it is in the proper format
+     * for a server; namely, "host:port". If it is, it makes sure the host is in
+     * its canonical form.
+     *
+     * @param s input string of a possible server name
+     * @return an acceptable server name with the canonical form of the host name
+     * @throws org.jlab.coda.cMsg.cMsgException if input string is not in the proper form (host:port)
+     *                       or the host is unknown
+     */
+    static public String constructServerName(String s) throws cMsgException {
+
+        // Separate the server name from the server port.
+        // First check for ":"
+        int index = s.indexOf(":");
+        if (index == -1) {
+            throw new cMsgException("arg is not in the \"host:port\" format");
+        }
+
+        String sName = s.substring(0, index);
+        String sPort = s.substring(index + 1);
+        int port;
+
+        // translate the port from string to int
+        try {
+            port = Integer.parseInt(sPort);
+        }
+        catch (NumberFormatException e) {
+            throw new cMsgException("port needs to be an integer");
+        }
+
+        if (port < 1024 || port > 65535) {
+            throw new cMsgException("port needs to be an integer between 1024 & 65535");
+        }
+
+        // See if this host is recognizable. To do that
+        InetAddress address;
+        try {
+            address = InetAddress.getByName(sName);
+        }
+        catch (UnknownHostException e) {
+            throw new cMsgException("specified server is unknown");
+        }
+
+        // put everything in canonical form if possible
+        s = address.getCanonicalHostName() + ":" + sPort;
+
+        return s;
     }
 }
