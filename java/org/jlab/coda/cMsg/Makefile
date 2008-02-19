@@ -20,9 +20,7 @@ JAVA_OBJS = \
 	Base64.class \
 	Base64DecodingException.class \
 	cMsgPayloadItem.class \
-	cMsgPayloadItem.class \
 	cMsgMessageFull.class \
-	cMsgMessageMatcher.class \
 	cMsgConstants.class \
 	cMsgGetHelper.class \
 	cMsgClientInfo.class \
