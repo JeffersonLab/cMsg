@@ -117,10 +117,10 @@ public class RCServer extends cMsgDomainAdapter {
      * Collection of all of this client's {@link #subscribeAndGet} calls currently in execution.
      * SubscribeAndGets are very similar to subscriptions and can be thought of as
      * one-shot subscriptions.
-     * Key is receiverSubscribeId object, value is {@link org.jlab.coda.cMsg.cMsgGetHelper}
+     * Key is receiverSubscribeId object, value is {@link org.jlab.coda.cMsg.cMsgSubscription}
      * object.
      */
-    ConcurrentHashMap<Integer,cMsgGetHelper> subscribeAndGets;
+    ConcurrentHashMap<Integer,cMsgSubscription> subscribeAndGets;
 
     /**
      * Collection of all of this client's {@link #sendAndGet} calls currently in execution.
@@ -142,7 +142,7 @@ public class RCServer extends cMsgDomainAdapter {
     public RCServer() throws cMsgException {
         domain = "rcs";
         subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
-        subscribeAndGets = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
+        subscribeAndGets = new ConcurrentHashMap<Integer,cMsgSubscription>(20);
         sendAndGets      = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
         unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
         uniqueId         = new AtomicInteger();
@@ -783,7 +783,7 @@ public class RCServer extends cMsgDomainAdapter {
         }
 
         int id = 0;
-        cMsgGetHelper helper = null;
+        cMsgSubscription helper = null;
 
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
@@ -798,7 +798,7 @@ public class RCServer extends cMsgDomainAdapter {
             id = uniqueId.getAndIncrement();
 
             // create cMsgGetHelper object (not callback thread object)
-            helper = new cMsgGetHelper(subject, type);
+            helper = new cMsgSubscription(subject, type);
 
             // keep track of get calls
             subscribeAndGets.put(id, helper);
