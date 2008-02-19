@@ -359,7 +359,7 @@ public class cMsgSubscription extends cMsgGetHelper {
     private void createRegexp(String subtyp, boolean isSubject) {
         // Escape everything except the "bar" character,
         // since there may be bars in the range constructs.
-        String subtypEscaped = cMsgMessageMatcher.escapeNoBar(subtyp);
+        String subtypEscaped = escapeNoBar(subtyp);
 //System.out.println("Escaped str = " + subtypEscaped);
 
         StringBuffer sb = new StringBuffer(subtyp.length()*2);
@@ -467,13 +467,13 @@ public class cMsgSubscription extends cMsgGetHelper {
         if (isSubject) {
             wildCardsInSub = true;
             // escape remaining "bar" chars
-            subjectRegexp = cMsgMessageMatcher.escapeBar(sb.toString());
+            subjectRegexp = escapeBar(sb.toString());
 //System.out.println("string regexp = " + subjectRegexp);
         }
         else {
             wildCardsInType = true;
             // escape remaining "bar" chars
-            typeRegexp = cMsgMessageMatcher.escapeBar(sb.toString());
+            typeRegexp = escapeBar(sb.toString());
 //System.out.println("string regexp = " + typeRegexp);
         }
         
@@ -488,7 +488,7 @@ public class cMsgSubscription extends cMsgGetHelper {
      * @param s string to be escaped
      * @return escaped string
      */
-    static private String escape(String s) {
+    static public String escape(String s) {
         return escapeString(s, lookFor, replaceWith);
     }
 
@@ -499,7 +499,7 @@ public class cMsgSubscription extends cMsgGetHelper {
      * @param s string to be escaped
      * @return escaped string
      */
-    static private String escapeNoBar(String s) {
+    static public String escapeNoBar(String s) {
         return escapeString(s, lookForNoBar, replaceWithNoBar);
     }
 
@@ -509,7 +509,7 @@ public class cMsgSubscription extends cMsgGetHelper {
      * @param s string to be escaped
      * @return escaped string
      */
-    static private String escapeBar(String s) {
+    static public String escapeBar(String s) {
         return escapeString(s, lookForBar, replaceWithBar);
     }
 
@@ -824,6 +824,41 @@ public class cMsgSubscription extends cMsgGetHelper {
         }
 
         return true;
+    }
+
+
+    /**
+     * This method implements a simple wildcard matching scheme where "*" means
+     * any or no characters, "?" means exactly 1 character, and "#" means
+     * 1 or no positive integer.
+     *
+     * @param regexp subscription string that can contain wildcards (*, ?, #), null matches everything
+     * @param s message string to be matched (blank only matches *, null matches nothing)
+     * @param escapeRegexp if true, the regexp argument has regular expression chars escaped,
+     *                     and *, ?, # chars translated to real java regular expression syntax, else not
+     * @return true if there is a match, false if there is not
+     */
+    static public boolean matches(String regexp, String s, boolean escapeRegexp) {
+        // It's a match if regexp (subscription string) is null
+        if (regexp == null) return true;
+
+        // If the message's string is null, something's wrong
+        if (s == null) return false;
+
+        // The first order of business is to take the regexp arg and modify it so that it is
+        // a regular expression that Java can understand. This means subbing all occurrences
+        // of "*", "?", and # with ".*", ".{1}", and "[0-9]*". And it means escaping other regular
+        // expression special characters.
+        // Sometimes regexp is already escaped, so no need to redo it.
+        if (escapeRegexp) {
+            // escape reg expression chars except *, ?
+            regexp = cMsgSubscription.escape(regexp);
+            // substitute real java regexps for psuedo wildcards
+            regexp = replaceWildcards(regexp, true, true, true);
+        }
+
+        // Now see if there's a match with the string arg
+        return s.matches(regexp);
     }
 
 
