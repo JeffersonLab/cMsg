@@ -453,17 +453,17 @@ public class rcTcpListeningThread extends Thread {
 
             if (server.subscribeAndGets.size() > 0) {
                 // for each subscribeAndGet called by this server ...
-                cMsgGetHelper helper;
+                cMsgSubscription sub;
                 for (Iterator i = server.subscribeAndGets.values().iterator(); i.hasNext();) {
-                    helper = (cMsgGetHelper) i.next();
-                    if (cMsgMessageMatcher.matches(msg.getSubject(), msg.getType(), helper)) {
+                    sub = (cMsgSubscription) i.next();
+                    if (sub.matches(msg.getSubject(), msg.getType())) {
 
-                        helper.setTimedOut(false);
-                        helper.setMessage(msg.copy());
+                        sub.setTimedOut(false);
+                        sub.setMessage(msg.copy());
                         // Tell the subscribeAndGet-calling thread to wakeup
                         // and retrieve the held msg
-                        synchronized (helper) {
-                            helper.notify();
+                        synchronized (sub) {
+                            sub.notify();
                         }
                     }
                     i.remove();
@@ -488,7 +488,7 @@ public class rcTcpListeningThread extends Thread {
                     // for each subscription of this server ...
                     for (cMsgSubscription sub : set) {
                         // if subject & type of incoming message match those in subscription ...
-                        if (cMsgMessageMatcher.matches(msg.getSubject(), msg.getType(), sub)) {
+                        if (sub.matches(msg.getSubject(), msg.getType())) {
                             gotMatch = true;
                             // run through all callbacks
                             for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
