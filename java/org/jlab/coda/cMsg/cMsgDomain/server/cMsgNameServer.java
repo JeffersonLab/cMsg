@@ -574,7 +574,7 @@ public class cMsgNameServer extends Thread {
         if (serverToJoin != null) {
             // first make sure the given server name is of the right format (host:port)
             try {
-                serverToJoin = cMsgMessageMatcher.constructServerName(serverToJoin);
+                serverToJoin = cMsgUtilities.constructServerName(serverToJoin);
             }
             catch (cMsgException e) {
                 System.out.println("Name of server to join not in \"host:port\" format");
