@@ -44,7 +44,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 
     /** HashMap to store server clients. Name is key and cMsgClientInfo is value. */
     static private ConcurrentHashMap<String,cMsgClientInfo> servers =
-            new ConcurrentHashMap<String,cMsgClientInfo>(100);
+            new ConcurrentHashMap<String,cMsgClientInfo>(20);
 
     /**
      * This is a set to store regular clients as cMsgClientInfo objects. This is not done by
@@ -52,7 +52,7 @@ public class cMsg extends cMsgSubdomainAdapter {
      * are not unique - only the name/namespace combination is unique.
      */
     static private Set<cMsgClientInfo> clients =
-            Collections.synchronizedSet(new HashSet<cMsgClientInfo>(100));
+            Collections.synchronizedSet(new HashSet<cMsgClientInfo>(1000));
 
     /**
      * HashMap to store sendAndGets in progress. sysMsgId of get msg is key,
@@ -102,7 +102,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 
     /** Set of all subscriptions (including the subscribeAndGets) of regular & bridge clients. */
     static private HashSet<cMsgSubscription> subscriptions =
-            new HashSet<cMsgSubscription>(100);
+            new HashSet<cMsgSubscription>(5000);
 
     /** This lock is used in global registrations for regular clients and server clients. */
     static private final ReentrantLock registrationLock = new ReentrantLock();
@@ -515,7 +515,7 @@ public class cMsg extends cMsgSubdomainAdapter {
                     continue;
                 }
                 */
-                if (!cMsgMessageMatcher.matches(message.getSubject(), message.getType(), sub)) {
+                if (!sub.matches(message.getSubject(), message.getType())) {
                     continue;
                 }
 
@@ -561,7 +561,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 
 
     /**
-     * This method handles a message sent by reuglar (non-server) client. The message's subject
+     * This method handles a message sent by regular (non-server) client. The message's subject
      * and type are matched against all clients' subscriptions. For each client, the message is
      * compared to each of its subscriptions until a match is found. At that point, the message
      * is sent to that client. The client is responsible for finding all the matching gets
@@ -646,11 +646,7 @@ public class cMsg extends cMsgSubdomainAdapter {
                 }
 
                 // subscription subject and type must match msg's
-//                if (!cMsgMessageMatcher.matches(sub.getSubjectPattern(), message.getSubject()) ||
-//                    !cMsgMessageMatcher.matches(sub.getTypePattern(), message.getType())) {
-//                    continue;
-//                }
-                if (!cMsgMessageMatcher.matches(message.getSubject(), message.getType(), sub)) {
+                if (!sub.matches(message.getSubject(), message.getType())) {
                     continue;
                 }
 
@@ -1276,7 +1272,7 @@ public class cMsg extends cMsgSubdomainAdapter {
                 continue;
             }
 
-            if (cMsgMessageMatcher.matches(client, clientName, true)) {
+            if (cMsgSubscription.matches(client, clientName, true)) {
                 try {
 //System.out.println("  dHandler: deliver shutdown message to client " + clientName);
                     info.getDeliverer().deliverMessage(null, cMsgConstants.msgShutdownClients);
