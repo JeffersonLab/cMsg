@@ -794,9 +794,9 @@ public class cMsgSubscription extends cMsgGetHelper {
             // add to set since it matches
             subjectMatches.add(msgSubject);
         }
-        else {
-            System.out.println(msgSubject + " is in the hashset !!!");
-        }
+//        else {
+//            System.out.println(msgSubject + " is in the hashset !!!");
+//        }
 
         // first see if it's stored in the set of strings known to match
         if (!typeMatches.contains(msgType)) {
@@ -819,9 +819,9 @@ public class cMsgSubscription extends cMsgGetHelper {
             // add to set since it matches
             typeMatches.add(msgType);
         }
-        else {
-            System.out.println(msgType + " is in the hashset !!!");
-        }
+//        else {
+//            System.out.println(msgType + " is in the hashset !!!");
+//        }
 
         return true;
     }
