@@ -470,7 +470,7 @@ public class rcListeningThread extends Thread {
                     // for each subscription of this client ...
                     for (cMsgSubscription sub : set) {
                         // if subject & type of incoming message match those in subscription ...
-                        if (cMsgMessageMatcher.matches(msg.getSubject(), msg.getType(), sub)) {
+                        if (sub.matches(msg.getSubject(), msg.getType())) {
                             // run through all callbacks
                             for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
                                 // The callback thread copies the message given
