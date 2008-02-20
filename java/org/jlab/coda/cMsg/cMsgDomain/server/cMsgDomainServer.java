@@ -1693,13 +1693,13 @@ public class cMsgDomainServer extends Thread {
                                         continue;
                                     }
                                     // if names match, shut it down
-                                    if (cMsgMessageMatcher.matches(holder.client, b.serverName, true)) {
+                                    if (cMsgSubscription.matches(holder.client, b.serverName, true)) {
                                         b.shutdownServer();
                                     }
                                 }
                             }
                             // shut ourselves down if directed to
-                            if (holder.include && cMsgMessageMatcher.matches(holder.client,
+                            if (holder.include && cMsgSubscription.matches(holder.client,
                                                                              nameServer.getServerName(),
                                                                              true)) {
                                 nameServer.shutdown();
