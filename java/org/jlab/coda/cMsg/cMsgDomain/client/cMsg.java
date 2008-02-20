@@ -174,9 +174,9 @@ public class cMsg extends cMsgDomainAdapter {
      * Collection of all of this client's {@link #subscribeAndGet} calls currently in execution.
      * SubscribeAndGets are very similar to subscriptions and can be thought of as
      * one-shot subscriptions.
-     * Key is receiverSubscribeId object, value is {@link cMsgGetHelper} object.
+     * Key is receiverSubscribeId object, value is {@link cMsgSubscription} object.
      */
-    ConcurrentHashMap<Integer,cMsgGetHelper> subscribeAndGets;
+    ConcurrentHashMap<Integer,cMsgSubscription> subscribeAndGets;
 
     /**
      * Collection of all of this client's {@link #sendAndGet} calls currently in execution.
@@ -278,7 +278,7 @@ public class cMsg extends cMsgDomainAdapter {
         domain = "cMsg";
 
         subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
-        subscribeAndGets = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
+        subscribeAndGets = new ConcurrentHashMap<Integer,cMsgSubscription>(20);
         sendAndGets      = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
         uniqueId         = new AtomicInteger();
         unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
@@ -1992,7 +1992,7 @@ public class cMsg extends cMsgDomainAdapter {
         }
 
         int id = 0;
-        cMsgGetHelper helper = null;
+        cMsgSubscription sub = null;
         boolean addedHashEntry  = false;
 
         // cannot run this simultaneously with connect or disconnect
@@ -2011,11 +2011,11 @@ public class cMsg extends cMsgDomainAdapter {
 
             id = uniqueId.getAndIncrement();
 
-            // create cMsgGetHelper object (not callback thread object)
-            helper = new cMsgGetHelper(subject, type);
+            // create cMsgSubscription object (not callback thread object)
+            sub = new cMsgSubscription(subject, type);
 
             // keep track of get calls
-            subscribeAndGets.put(id, helper);
+            subscribeAndGets.put(id, sub);
             addedHashEntry = true;
 
             socketLock.lock();
@@ -2055,35 +2055,35 @@ public class cMsg extends cMsgDomainAdapter {
 
         // WAIT for the msg-receiving thread to wake us up
         try {
-            synchronized (helper) {
+            synchronized (sub) {
                 if (timeout > 0) {
-                    helper.wait(timeout);
+                    sub.wait(timeout);
                 }
                 else {
-                    helper.wait();
+                    sub.wait();
                 }
             }
         }
         catch (InterruptedException e) {
         }
 
-        // Check the message stored for us in helper.
+        // Check the message stored for us in sub.
         // If msg is null, we timed out.
         // Tell server to forget the get if necessary.
-        if (helper.isTimedOut()) {
+        if (sub.isTimedOut()) {
             // remove the get from server
             subscribeAndGets.remove(id);
             unSubscribeAndGet(subject, type, id);
             throw new TimeoutException();
         }
-        else if (helper.getErrorCode() != cMsgConstants.ok) {
-            throw new cMsgException("server died", helper.getErrorCode());
+        else if (sub.getErrorCode() != cMsgConstants.ok) {
+            throw new cMsgException("server died", sub.getErrorCode());
         }
 
         // If msg is received, server has removed subscription from his records.
         // Client listening thread has also removed subscription from client's
         // records (subscribeAndGets HashSet).
-        return helper.getMessage();
+        return sub.getMessage();
     }
 
 
@@ -2506,7 +2506,7 @@ public class cMsg extends cMsgDomainAdapter {
         // Parse the server string to see if it's in an acceptable form.
         // It must be of the form "host:port" where host should be the
         // canonical form. If it isn't, that must be corrected here.
-        server = cMsgMessageMatcher.constructServerName(server);
+        server = cMsgUtilities.constructServerName(server);
 
         // cannot run this simultaneously with any other public method
         connectLock.lock();
