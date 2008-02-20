@@ -654,7 +654,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
             }
 
             // create cMsgGetHelper object (not callback thread object)
-            helper = new cMsgGetHelper(subject, type);
+            helper = new cMsgGetHelper();
 
             // keep track of get calls
             subscribeAndGets.add(helper);
