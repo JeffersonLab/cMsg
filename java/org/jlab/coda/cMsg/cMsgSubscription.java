@@ -189,25 +189,13 @@ public class cMsgSubscription extends cMsgGetHelper {
     /** Compiled regular expression ojbect of {@link #exprSec}. */
     private static final Pattern patSec  = Pattern.compile(exprSec);
 
-    /** List of lists each of which stores numbers extracted
+    /** List of lists each of which stores numbers, operators, and conjunctions extracted
      * with {@link #exprSec} for a single section of range in the subject. */
     private List<ArrayList<Integer>> subNumbersList = new LinkedList<ArrayList<Integer>>();
-    /** List of lists each of which stores operators ({@link #LT}, {@link #GT}, and {@link #EQ})
-     * extracted with {@link #exprSec} for a single section of range in the subject. */
-    private List<ArrayList<Integer>> subOperatorsList = new LinkedList<ArrayList<Integer>>();
-    /** List of lists each of which stores conjunctions ({@link #OR} and {@link #AND})
-     * extracted with {@link #exprSec} for a single section of range in the subject. */
-    private List<ArrayList<Integer>> subConjunctionsList = new LinkedList<ArrayList<Integer>>();
 
-    /** List of lists each of which stores numbers extracted
+    /** List of lists each of which stores numbers, operators, and conjunctions extracted
      * with {@link #exprSec} for a single section of range in the type. */
     private List<ArrayList<Integer>> typeNumbersList = new LinkedList<ArrayList<Integer>>();
-    /** List of lists each of which stores operators ({@link #LT}, {@link #GT}, and {@link #EQ})
-     * extracted with {@link #exprSec} for a single section of range in the type. */
-    private List<ArrayList<Integer>> typeOperatorsList = new LinkedList<ArrayList<Integer>>();
-    /** List of lists each of which stores conjunctions ({@link #OR} and {@link #AND})
-     * extracted with {@link #exprSec} for a single section of range in the type. */
-    private List<ArrayList<Integer>> typeConjunctionsList = new LinkedList<ArrayList<Integer>>();
 
 
 
@@ -367,11 +355,10 @@ public class cMsgSubscription extends cMsgGetHelper {
         boolean foundRangeMatch = false;
 
         // loop thru each range \{...\}
+        mainWhile:
         while (matchExprs.find()) {
-            // define some lists to store some of our findings
-            ArrayList<Integer> numbers = new ArrayList<Integer>(20);      // all range ints
-            ArrayList<Integer> operators = new ArrayList<Integer>(10);    // all range operators
-            ArrayList<Integer> conjunctions = new ArrayList<Integer>(10); // all range conjunctions
+            // define list to store all range ints, oerators, conjunctions
+            ArrayList<Integer> numbers = new ArrayList<Integer>(20);
 
             // remove all spaces
             String s = matchExprs.group(1).replaceAll("\\x20", "");
@@ -387,17 +374,14 @@ public class cMsgSubscription extends cMsgGetHelper {
                 if (s.equals("") || s.equals("i")) {
 //System.out.println("Declare a match for s = " + s);
                     numbers.add(1);
+                    numbers.add(EQ);
                     numbers.add(1);
-                    operators.add(EQ);
                     if (isSubject) {
+                        // store list in list of lists
                         subNumbersList.add(numbers);
-                        subOperatorsList.add(operators);
-                        subConjunctionsList.add(conjunctions);
                     }
                     else {
                         typeNumbersList.add(numbers);
-                        typeOperatorsList.add(operators);
-                        typeConjunctionsList.add(conjunctions);
                     }
                     // Replace each range \{...\} in the subject with ([0-9]+)
                     // in order to match an int in messge's subject or type.
@@ -412,41 +396,45 @@ public class cMsgSubscription extends cMsgGetHelper {
 
             // examine what's in a properly formatted range \{...\}
             m = patSec.matcher(s);
-            mainloop:
             while (m.find()) {
-                int groupCount = m.groupCount();
-                for (int i = 1; i <= groupCount; i++) {
-                    String st = m.group(i);
-//System.out.println("group(" + i + ") = " + st);
-                    // sub range in format # op # (&|)*
-                    if (i == 1 || i == 3) {
-                        // Substitution will be done for i later (with number from
-                        // messge's sub/type). Save it for now as -1.
-                        if (st.equals("i")) numbers.add(-1);
-                        else numbers.add(Integer.valueOf(st));
-                    }
-                    else if (i == 2) {
-                        if (st.equals("<")) operators.add(LT);
-                        else if (st.equals(">")) operators.add(GT);
-                        else operators.add(EQ);
-                    }
-                    else {
-                        if (st == null) break;
-                        if (st.equals("|")) conjunctions.add(OR);
-                        else conjunctions.add(AND);
-                    }
+                String s1,s2,s3,s4=null;
+                s1 = m.group(1);
+                s2 = m.group(2);
+                s3 = m.group(3);
+                if (m.groupCount() >3) s4 = m.group(4);
+
+                // There is still the possibility that the range contains an improper
+                // construct such as i>i or 20<10. Be sure to ignore those.
+                boolean b1 = s1.equals("i");
+                boolean b3 = s3.equals("i");
+                if ((b1 && b3) || (!b1 && !b3)) {
+                    continue mainWhile;
                 }
+
+                // sub range in format # op # (&|)*
+                // Substitution will be done for i later (with number from
+                // messge's sub/type). Save it for now as -1.
+                if (b1) numbers.add(-1);
+                else numbers.add(Integer.valueOf(s1));
+
+                if (s2.equals("<")) numbers.add(LT);
+                else if (s2.equals(">")) numbers.add(GT);
+                else numbers.add(EQ);
+
+                if (b3) numbers.add(-1);
+                else numbers.add(Integer.valueOf(s3));
+
+                if (s4 == null) break;
+                if (s4.equals("|")) numbers.add(OR);
+                else numbers.add(AND);
             }
 
             if (isSubject) {
+                // store list in list of lists
                 subNumbersList.add(numbers);
-                subOperatorsList.add(operators);
-                subConjunctionsList.add(conjunctions);
             }
             else {
                 typeNumbersList.add(numbers);
-                typeOperatorsList.add(operators);
-                typeConjunctionsList.add(conjunctions);
             }
             // Replace each range \{...\} in the subject with ([0-9]+)
             // in order to match an int in messge's subject or type.
@@ -661,7 +649,7 @@ public class cMsgSubscription extends cMsgGetHelper {
             String s;
             Integer conj;
             int num1, num2, oper, myNum;
-            boolean lastBool, finalBool = true;
+            boolean lastBool;
 
             // Each group is a just a single positive integer taken from the message's subject or type.
             // This int must be run through the previously parsed pseudo wildcard ranges of the form like
@@ -676,20 +664,15 @@ public class cMsgSubscription extends cMsgGetHelper {
                     conj = null;
                     lastBool = true;
 
-                    int numIndex=0, numOper=0, numConj=0;
-                    ArrayList<Integer> numbers;      // all range ints
-                    ArrayList<Integer> operators;    // all range operators
-                    ArrayList<Integer> conjunctions; // all range conjunctions
+                    int numIndex=0;
+                    // all range ints, operators, conjunctions
+                    ArrayList<Integer> numbers;
 
                     if (isSubject) {
                         numbers = subNumbersList.get(i-1);
-                        operators = subOperatorsList.get(i-1);
-                        conjunctions = subConjunctionsList.get(i-1);
                     }
                     else {
                         numbers = typeNumbersList.get(i-1);
-                        operators = typeOperatorsList.get(i-1);
-                        conjunctions = typeConjunctionsList.get(i-1);
                     }
 //System.out.println("Size of numbers list = " + numbers.size());
                     while (numIndex < numbers.size()) {
@@ -698,11 +681,12 @@ public class cMsgSubscription extends cMsgGetHelper {
                         num1 = numbers.get(numIndex++);
                         if (num1 == -1) num1 = myNum;
 
+                        oper = numbers.get(numIndex++);
+
                         num2 = numbers.get(numIndex++);
                         if (num2 == -1) num2 = myNum;
 //System.out.print("    num1 = " + num1 + ", num2 = " + num2);
 
-                        oper = operators.get(numOper++);
                         if (oper == GT) {
                             myBool = (num1 > num2);
                             System.out.println(", op is >");
@@ -733,10 +717,9 @@ public class cMsgSubscription extends cMsgGetHelper {
 //System.out.println("    After  conj myBool = " + myBool);
                         lastBool = myBool;
 
-                        if (numConj < conjunctions.size()) {
-                            conj = conjunctions.get(numConj++);
+                        if (numIndex < numbers.size()) {
+                            conj = numbers.get(numIndex++);
                         }
-                        else conj = null;
                     }
 //if (lastBool) System.out.println("YES\n");
 //else System.out.println("NO\n");
@@ -746,7 +729,7 @@ public class cMsgSubscription extends cMsgGetHelper {
                     return false;
                 }
 
-//System.out.println("Final BOOLEAN = " + finalBool);
+//System.out.println("Final BOOLEAN = " + lastBool);
                 if (!lastBool) return false;
             } // for each captured group
         }
