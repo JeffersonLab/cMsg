@@ -625,16 +625,14 @@ public class cMsgSubscription extends cMsgGetHelper {
 
         // Does string match regular expression?
         if (!matcher.matches()) {
-            if (isSubject) {
-                System.out.println("There is no match between regexp " + subjectRegexp + " and string " + subtyp);
-            }
-            else {
-                System.out.println("There is no match between regexp " + typeRegexp + " and string " + subtyp);
-            }
+//            if (isSubject)
+//                System.out.println("There is no match between regexp " + subjectRegexp + " and string " + subtyp);
+//            else
+//                System.out.println("There is no match between regexp " + typeRegexp + " and string " + subtyp);
             return false;
         }
 
-        System.out.println("groupCount = " + matcher.groupCount() + ", numRanges = " + numRanges);
+//System.out.println("groupCount = " + matcher.groupCount() + ", numRanges = " + numRanges);
         if (matcher.groupCount() != numRanges) {
             System.out.println("Internal error: mismatch between # of integers grabbed and # of integer ranges");
             return false;
