@@ -765,7 +765,7 @@ public class cMsgSubscription extends cMsgGetHelper {
 //System.out.println("Wildcards in subject, use regexps for matching");
                 if (!matchesRegexp(msgSubject, true)) return false;
             }
-System.out.println("Msg subject (" + msgSubject + ") matches regexp (" + subjectRegexp + ")");
+//System.out.println("Msg subject (" + msgSubject + ") matches regexp (" + subjectRegexp + ")");
 
             // first check to see if our hashset is getting too big
             if (subjectMatches.size() > 50) {
@@ -776,10 +776,9 @@ System.out.println("Msg subject (" + msgSubject + ") matches regexp (" + subject
             // add to set since it matches
             subjectMatches.add(msgSubject);
         }
-        else {
-            System.out.println("Msg subject (" + msgSubject + ") matches - in hashset");
-//            System.out.println(msgSubject + " is in the hashset !!!");
-        }
+//        else {
+//            System.out.println("Msg subject (" + msgSubject + ") matches - in hashset");
+//        }
 
         // first see if it's stored in the set of strings known to match
         if (!typeMatches.contains(msgType)) {
@@ -792,7 +791,7 @@ System.out.println("Msg subject (" + msgSubject + ") matches regexp (" + subject
 //System.out.println("Wildcards in type, use regexps for matching");
                 if (!matchesRegexp(msgType, false)) return false;
             }
-System.out.println("Msg type (" + msgType + ") matches regexp (" + typeRegexp + ")");
+//System.out.println("Msg type (" + msgType + ") matches regexp (" + typeRegexp + ")");
 
             // first check to see if our hashset is getting too big
             if (typeMatches.size() > 50) {
@@ -803,10 +802,9 @@ System.out.println("Msg type (" + msgType + ") matches regexp (" + typeRegexp + 
             // add to set since it matches
             typeMatches.add(msgType);
         }
-        else {
-            System.out.println("Msg type (" + msgType + ") matches - in hashset");
-//            System.out.println(msgType + " is in the hashset !!!");
-        }
+//        else {
+//            System.out.println("Msg type (" + msgType + ") matches - in hashset");
+//        }
 
         return true;
     }
