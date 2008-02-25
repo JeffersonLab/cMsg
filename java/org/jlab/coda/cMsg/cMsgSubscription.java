@@ -762,7 +762,7 @@ public class cMsgSubscription extends cMsgGetHelper {
             }
             // else if there are wildcards in the subscription's subject, use regexp matching
             else {
-                System.out.println("Wildcards in subject, use regexps for matching");
+//System.out.println("Wildcards in subject, use regexps for matching");
                 if (!matchesRegexp(msgSubject, true)) return false;
             }
 
@@ -787,7 +787,7 @@ public class cMsgSubscription extends cMsgGetHelper {
             }
             // else if there are wildcards in the subscription's type, use regexp matching
             else {
-                System.out.println("Wildcards in type, use regexps for matching");
+//System.out.println("Wildcards in type, use regexps for matching");
                 if (!matchesRegexp(msgType, false)) return false;
             }
 
