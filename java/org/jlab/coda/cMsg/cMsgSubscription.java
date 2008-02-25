@@ -687,15 +687,15 @@ public class cMsgSubscription extends cMsgGetHelper {
 
                         if (oper == GT) {
                             myBool = (num1 > num2);
-                            System.out.println(", op is >");
+//System.out.println(", op is >");
                         }
                         else if (oper == LT) {
                             myBool = (num1 < num2);
-                            System.out.println(", op is <");
+//System.out.println(", op is <");
                         }
                         else {
                             myBool = (num1 == num2);
-                            System.out.println(", op is =");
+//System.out.println(", op is =");
                         }
 //System.out.println("    Before conj myBool = " + myBool);
 
@@ -765,6 +765,7 @@ public class cMsgSubscription extends cMsgGetHelper {
 //System.out.println("Wildcards in subject, use regexps for matching");
                 if (!matchesRegexp(msgSubject, true)) return false;
             }
+System.out.println("Msg subject (" + msgSubject + ") matches regexp (" + subjectRegexp + ")");
 
             // first check to see if our hashset is getting too big
             if (subjectMatches.size() > 50) {
@@ -775,9 +776,10 @@ public class cMsgSubscription extends cMsgGetHelper {
             // add to set since it matches
             subjectMatches.add(msgSubject);
         }
-//        else {
+        else {
+            System.out.println("Msg subject (" + msgSubject + ") matches - in hashset");
 //            System.out.println(msgSubject + " is in the hashset !!!");
-//        }
+        }
 
         // first see if it's stored in the set of strings known to match
         if (!typeMatches.contains(msgType)) {
@@ -790,6 +792,7 @@ public class cMsgSubscription extends cMsgGetHelper {
 //System.out.println("Wildcards in type, use regexps for matching");
                 if (!matchesRegexp(msgType, false)) return false;
             }
+System.out.println("Msg type (" + msgType + ") matches regexp (" + typeRegexp + ")");
 
             // first check to see if our hashset is getting too big
             if (typeMatches.size() > 50) {
@@ -800,9 +803,10 @@ public class cMsgSubscription extends cMsgGetHelper {
             // add to set since it matches
             typeMatches.add(msgType);
         }
-//        else {
+        else {
+            System.out.println("Msg type (" + msgType + ") matches - in hashset");
 //            System.out.println(msgType + " is in the hashset !!!");
-//        }
+        }
 
         return true;
     }
