@@ -2954,7 +2954,7 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
 
         /* scan through callbacks looking for duplicates */ 
         for (j=0; j<CMSG_MAX_CALLBACK; j++) {
-	  if (domain->subscribeInfo[i].cbInfo[j].active == 0) {
+          if (domain->subscribeInfo[i].cbInfo[j].active == 0) {
             continue;
           }
 
@@ -2969,15 +2969,12 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
 
         /* scan through callbacks looking for empty space */ 
         for (j=0; j<CMSG_MAX_CALLBACK; j++) {
-	  if (domain->subscribeInfo[i].cbInfo[j].active == 0) {
+          if (domain->subscribeInfo[i].cbInfo[j].active == 0) {
 
+            cMsgCallbackInfoInit(&domain->subscribeInfo[i].cbInfo[j]);
             domain->subscribeInfo[i].cbInfo[j].active   = 1;
-	    domain->subscribeInfo[i].cbInfo[j].callback = callback;
-	    domain->subscribeInfo[i].cbInfo[j].userArg  = userArg;
-            domain->subscribeInfo[i].cbInfo[j].head     = NULL;
-            domain->subscribeInfo[i].cbInfo[j].tail     = NULL;
-            domain->subscribeInfo[i].cbInfo[j].quit     = 0;
-            domain->subscribeInfo[i].cbInfo[j].messages = 0;
+            domain->subscribeInfo[i].cbInfo[j].callback = callback;
+            domain->subscribeInfo[i].cbInfo[j].userArg  = userArg;
             domain->subscribeInfo[i].cbInfo[j].config   = *sConfig;
             
             domain->subscribeInfo[i].numCallbacks++;
@@ -2987,7 +2984,7 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
               cMsgSubscribeMutexUnlock(domain);
               cMsgConnectReadUnlock(domain);
               return(CMSG_OUT_OF_MEMORY);  
-            }                        
+            }
             cbarg->domainId = (uintptr_t) domainId;
             cbarg->subIndex = i;
             cbarg->cbIndex  = j;
@@ -3028,9 +3025,9 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
               cMsgSubscribeConfigDestroy((cMsgSubscribeConfig *) sConfig);
             }
 
-	    jok = 1;
+            jok = 1;
             break;
-	  }
+          }
         }
         break;
       }
@@ -3058,19 +3055,15 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
         continue;
       }
 
+      cMsgCallbackInfoInit(&domain->subscribeInfo[i].cbInfo[0]);
       domain->subscribeInfo[i].active  = 1;
       domain->subscribeInfo[i].subject = (char *) strdup(subject);
       domain->subscribeInfo[i].type    = (char *) strdup(type);
-      domain->subscribeInfo[i].subjectRegexp = cMsgStringEscape(subject);
-      domain->subscribeInfo[i].typeRegexp    = cMsgStringEscape(type);
       domain->subscribeInfo[i].cbInfo[0].active   = 1;
       domain->subscribeInfo[i].cbInfo[0].callback = callback;
       domain->subscribeInfo[i].cbInfo[0].userArg  = userArg;
-      domain->subscribeInfo[i].cbInfo[0].head     = NULL;
-      domain->subscribeInfo[i].cbInfo[0].tail     = NULL;
-      domain->subscribeInfo[i].cbInfo[0].quit     = 0;
-      domain->subscribeInfo[i].cbInfo[0].messages = 0;
       domain->subscribeInfo[i].cbInfo[0].config   = *sConfig;
+      cMsgSubscriptionSetRegexpStuff(&domain->subscribeInfo[i]);
 
       domain->subscribeInfo[i].numCallbacks++;
 
@@ -3173,15 +3166,10 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type, c
         domain->subscribeInfo[i].cbInfo[0].quit = 1;
         pthread_cancel(domain->subscribeInfo[i].cbInfo[0].thread);
         
-        free(domain->subscribeInfo[i].subject);
-        free(domain->subscribeInfo[i].type);
-        free(domain->subscribeInfo[i].subjectRegexp);
-        free(domain->subscribeInfo[i].typeRegexp);
-        domain->subscribeInfo[i].subject       = NULL;
-        domain->subscribeInfo[i].type          = NULL;
-        domain->subscribeInfo[i].subjectRegexp = NULL;
-        domain->subscribeInfo[i].typeRegexp    = NULL;
-        domain->subscribeInfo[i].active        = 0;
+        /* Set mem free and set pointers to NULL so they aren't freed again later. */
+        cMsgSubscribeInfoFree(&domain->subscribeInfo[i]);
+
+        domain->subscribeInfo[i].active = 0;
         domain->subscribeInfo[i].numCallbacks--;
         
         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -3472,17 +3460,12 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
       cMsgSocketMutexUnlock(domain);
       
       /* We told the server, now do the unsubscribe. */
-      free(subscriptionInfo->subject);
-      free(subscriptionInfo->type);
-      free(subscriptionInfo->subjectRegexp);
-      free(subscriptionInfo->typeRegexp);
-      /* set these equal to NULL so they aren't freed again later */
-      subscriptionInfo->subject       = NULL;
-      subscriptionInfo->type          = NULL;
-      subscriptionInfo->subjectRegexp = NULL;
-      subscriptionInfo->typeRegexp    = NULL;
+      
+      /* Set mem free and set pointers to NULL so they aren't freed again later. */
+      cMsgSubscribeInfoFree(subscriptionInfo);
+
       /* make array space available for another subscription */
-      subscriptionInfo->active        = 0;
+      subscriptionInfo->active = 0;
       
     } /* if gotta notify server */
     
