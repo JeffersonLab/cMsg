@@ -364,6 +364,25 @@ void cMsgRestoreSignals(cMsgDomainInfo *domain) {
 
 
 /**
+ * This routine initializes the structure used to store numberRange data
+ * for subscriptions.
+ * 
+ * @param range pointer to range data structure
+ */
+ void cMsgNumberRangeInit(numberRange *range) {    
+    range->numbers[0] = -1;
+    range->numbers[1] = -1;
+    range->numbers[2] = -1;
+    range->numbers[3] = -1;
+    range->next       = NULL;
+    range->nextHead   = NULL;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
  * This routine initializes the structure used to handle a get - 
  * either a sendAndGet or a subscribeAndGet.
  */
@@ -393,36 +412,59 @@ static void getInfoInit(getInfo *info) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine initializes the structure used to handle a subscription's callback
+ * with the exception of the mutex and condition variable.
+ * 
+ * @param info pointer to subscription callback structure
+ */
+void cMsgCallbackInfoInit(subscribeCbInfo *info) {
+    info->active   = 0;
+    info->threads  = 0;
+    info->messages = 0;
+    info->quit     = 0;
+    info->msgCount = 0;
+    info->callback = NULL;
+    info->userArg  = NULL;
+    info->head     = NULL;
+    info->tail     = NULL;
+    info->config.init          = 0;
+    info->config.maySkip       = 0;
+    info->config.mustSerialize = 1;
+    info->config.maxCueSize    = 100;
+    info->config.skipSize      = 20;
+    info->config.maxThreads    = 100;
+    info->config.msgsPerThread = 150;
+    info->config.stackSize     = 0;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
 /** This routine initializes the structure used to handle a subscribe. */
 static void subscribeInfoInit(subInfo *info) {
     int j, status;
     
-    info->id            = 0;
-    info->active        = 0;
-    info->numCallbacks  = 0;
-    info->type          = NULL;
-    info->subject       = NULL;
-    info->typeRegexp    = NULL;
-    info->subjectRegexp = NULL;
+    info->id                = 0;
+    info->active            = 0;
+    info->numCallbacks      = 0;
+    info->subWildCardCount  = 0;
+    info->typeWildCardCount = 0;
+    info->subRangeCount     = 0;
+    info->typeRangeCount    = 0;
+    info->type            = NULL;
+    info->subject         = NULL;
+    info->typeRegexp      = NULL;
+    info->subjectRegexp   = NULL;
+    info->subRange        = NULL;
+    info->typeRange       = NULL;
+    
+    hashInit(&info->subjectTable, 128);
+    hashInit(&info->typeTable, 128);
     
     for (j=0; j<CMSG_MAX_CALLBACK; j++) {
-      info->cbInfo[j].active   = 0;
-      info->cbInfo[j].threads  = 0;
-      info->cbInfo[j].messages = 0;
-      info->cbInfo[j].quit     = 0;
-      info->cbInfo[j].msgCount = 0;
-      info->cbInfo[j].callback = NULL;
-      info->cbInfo[j].userArg  = NULL;
-      info->cbInfo[j].head     = NULL;
-      info->cbInfo[j].tail     = NULL;
-      info->cbInfo[j].config.init          = 0;
-      info->cbInfo[j].config.maySkip       = 0;
-      info->cbInfo[j].config.mustSerialize = 1;
-      info->cbInfo[j].config.maxCueSize    = 100;
-      info->cbInfo[j].config.skipSize      = 20;
-      info->cbInfo[j].config.maxThreads    = 100;
-      info->cbInfo[j].config.msgsPerThread = 150;
-      info->cbInfo[j].config.stackSize     = 0;
+      cMsgCallbackInfoInit(&info->cbInfo[j]);
       
       status = pthread_cond_init (&info->cbInfo[j].cond,  NULL);
       if (status != 0) {
@@ -442,6 +484,8 @@ static void subscribeInfoInit(subInfo *info) {
 /**
  * This routine initializes the structure used to hold connection-to-
  * a-domain information.
+ * 
+ * @param domain pointer to domain information structure
  */
 void cMsgDomainInit(cMsgDomainInfo *domain) {
   int i, status;
@@ -548,6 +592,64 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
       
 }
 
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine frees allocated memory in a structure used to hold
+ * parsed subscription's subject and type information.
+ * 
+ * @param r the head of a linked list of linked lists containing
+ *          parsed subscription information
+ */
+void cMsgNumberRangeFree(numberRange *r) {
+    numberRange *head, *range, *nextHead, *next;
+    if (r == NULL) return;
+    
+    /* go from linked list head to linked list head */
+    head = r;
+    while (head != NULL) {
+        nextHead = head->nextHead;
+        /* free a sinle linked list */
+        range = head;
+        while (range != NULL) {
+            next = range->next;
+            free(range);
+            range = next;
+        }
+        head = nextHead;
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine frees allocated memory in a structure used to hold
+ * subscribe information but does not touch the mutexes or condition
+ * variables.
+ * 
+ * @param info pointer to subscription information structure
+ */
+void cMsgSubscribeInfoFree(subInfo *info) {    
+    if (info->type != NULL)           {free(info->type);          info->type          = NULL;}
+    if (info->subject != NULL)        {free(info->subject);       info->subject       = NULL;}
+    if (info->typeRegexp != NULL)     {free(info->typeRegexp);    info->typeRegexp    = NULL;}
+    if (info->subjectRegexp != NULL)  {free(info->subjectRegexp); info->subjectRegexp = NULL;}
+//    if (info->compTypeRegexp != NULL) {cMsgRegfree(info->compTypeRegexp); info->compTypeRegexp = NULL;}
+//    if (info->compSubRegexp  != NULL) {cMsgRegfree(info->compSubRegexp);  info->compSubRegexp  = NULL;}
+    cMsgRegfree(&info->compTypeRegexp);
+    cMsgRegfree(&info->compSubRegexp);
+
+    cMsgNumberRangeFree(info->subRange);
+    cMsgNumberRangeFree(info->typeRange);
+    info->subRange  = NULL;
+    info->typeRange = NULL;
+    
+    hashDestroy(&info->subjectTable, NULL, NULL);
+    hashDestroy(&info->typeTable,    NULL, NULL);
+}
+
 
 /*-------------------------------------------------------------------*/
 
@@ -555,6 +657,8 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
 /**
  * This routine frees allocated memory in a structure used to hold
  * subscribe information.
+ * 
+ * @param info pointer to subscription information structure
  */
 static void subscribeInfoFree(subInfo *info) {  
 #ifdef sun    
@@ -574,11 +678,7 @@ static void subscribeInfoFree(subInfo *info) {
   
     }
 #endif   
-    
-    if (info->type != NULL)          {free(info->type);          info->type          = NULL;}
-    if (info->subject != NULL)       {free(info->subject);       info->subject       = NULL;}
-    if (info->typeRegexp != NULL)    {free(info->typeRegexp);    info->typeRegexp    = NULL;}
-    if (info->subjectRegexp != NULL) {free(info->subjectRegexp); info->subjectRegexp = NULL;}
+    cMsgSubscribeInfoFree(info);
 }
 
 
