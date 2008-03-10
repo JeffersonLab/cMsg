@@ -32,6 +32,8 @@
 
 #include "cMsgPrivate.h"
 #include "rwlock.h"
+#include "regex.h"
+#include "hash.h"
 
 #ifdef	__cplusplus
 extern "C" {
@@ -95,16 +97,40 @@ typedef struct subscribeCbInfo_t {
 
 
 /**
+ * This structure represents the results of a parsed subject or type from a subscription
+ * with a pseudo wildcard number range(s) specified (ie. format like {i>5&10>i|i=66}).
+ * This structure can be made into a linked list of linked lists of numberRanges.
+ */
+typedef struct numberRange_t {
+  int    numbers[4];              /**< Array containing number, operator, number, and conjunction. */
+  struct numberRange_t *next;     /**< Next member in linked list of numberRange structs. */
+  struct numberRange_t *nextHead; /**< Pointer to head of next linked list of numberRange structs. */
+} numberRange;
+
+
+/**
  * This structure represents a subscription of a certain subject and type.
  */
 typedef struct subscribeInfo_t {
-  int  id;             /**< Unique id # corresponding to a unique subject/type pair. */
-  int  active;         /**< Boolean telling if this subject/type has an active callback. */
-  int  numCallbacks;   /**< Current number of active callbacks. */
-  char *subject;       /**< Subject of subscription. */
-  char *type;          /**< Type of subscription. */
-  char *subjectRegexp; /**< Subject of subscription made into regular expression. */
-  char *typeRegexp;    /**< Type of subscription made into regular expression. */
+  int  id;                 /**< Unique id # corresponding to a unique subject/type pair. */
+  int  active;             /**< Boolean telling if this subject/type has an active callback. */
+  int  numCallbacks;       /**< Current number of active callbacks. */
+  int  subWildCardCount;   /**< Number of pseudo wildcards in the subject */
+  int  typeWildCardCount;  /**< Number of pseudo wildcards in the type */
+  int  subRangeCount;      /**< Number of pseudo wildcard number ranges in the subject */
+  int  typeRangeCount;     /**< Number of pseudo wildcard number ranges in the type */
+  char *subject;           /**< Subject of subscription. */
+  char *type;              /**< Type of subscription. */
+  char *subjectRegexp;     /**< Subject of subscription made into regular expression. */
+  char *typeRegexp;        /**< Type of subscription made into regular expression. */
+  numberRange *subRange;   /**< Linked list of linked lists containing results of parsed
+                                subject from subscription with pseudo wildcard number ranges. */
+  numberRange *typeRange;  /**< Linked list of linked lists containing results of parsed
+                                type from subscription with pseudo wildcard number ranges. */
+  hash_t  subjectTable;    /**< Hash table of strings matching subject. */
+  hash_t  typeTable;       /**< Hash table of strings matching type. */
+  regex_t compSubRegexp;   /**< Subject of subscription made into compiled regular expression. */
+  regex_t compTypeRegexp;  /**< Type of subscription made into compiled regular expression. */
   subscribeCbInfo cbInfo[CMSG_MAX_CALLBACK]; /**< Array of callbacks. */
 } subInfo;
 
@@ -276,9 +302,16 @@ typedef struct cMsgThreadInfo_t {
 /* prototypes */
 
 /* string matching */
+int   cMsgSubscriptionSetRegexpStuff(subInfo *sub);
+void  cMsgNumberRangeInit(numberRange *range);
+void  cMsgNumberRangeFree(numberRange *r);
 char *cMsgStringEscape(const char *s);
+char *cMsgStringEscapePseudo(const char *s, int *wildCardCount);
 int   cMsgStringMatches(char *regexp, const char *s);
 int   cMsgRegexpMatches(char *regexp, const char *s);
+char *cMsgStringToRegexp(const char *s, int *wildCardCount);
+int   cMsgSubscriptionMatches(subInfo *sub, char *msgSubject, char *msgType);
+
 
 /* mutexes and read/write locks */
 void  cMsgMutexLock(pthread_mutex_t *mutex);
@@ -305,6 +338,8 @@ void *cMsgCallbackThread(void *arg);
 void *cMsgSupplementalThread(void *arg);
 
 /* initialization and freeing */
+void  cMsgSubscribeInfoFree(subInfo *info);
+void  cMsgCallbackInfoInit(subscribeCbInfo *info);
 void  cMsgDomainInit(cMsgDomainInfo *domain);
 void  cMsgDomainClear(cMsgDomainInfo *domain);
 void  cMsgDomainFree(cMsgDomainInfo *domain);
