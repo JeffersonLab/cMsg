@@ -636,8 +636,6 @@ void cMsgSubscribeInfoFree(subInfo *info) {
     if (info->subject != NULL)        {free(info->subject);       info->subject       = NULL;}
     if (info->typeRegexp != NULL)     {free(info->typeRegexp);    info->typeRegexp    = NULL;}
     if (info->subjectRegexp != NULL)  {free(info->subjectRegexp); info->subjectRegexp = NULL;}
-//    if (info->compTypeRegexp != NULL) {cMsgRegfree(info->compTypeRegexp); info->compTypeRegexp = NULL;}
-//    if (info->compSubRegexp  != NULL) {cMsgRegfree(info->compSubRegexp);  info->compSubRegexp  = NULL;}
     cMsgRegfree(&info->compTypeRegexp);
     cMsgRegfree(&info->compSubRegexp);
 
