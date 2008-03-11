@@ -311,35 +311,7 @@ void hashClear(hash_t *tptr, void ***data, int *size) {
  *             gets filled with the number of entries if not NULL and data not NULL
  */
 void hashDestroy(hash_t *tptr, void ***data, int *size) {
-  hash_node_t *node, *last;
-  int i, index=0;
-  void **array=NULL;
-  
-  /* return data so user can free it */
-  if (data != NULL) {
-    if (tptr->entries > 0) {
-      array = (void **) malloc(tptr->entries*sizeof(void *));
-      *data = array;
-      if (size != NULL)
-         *size = tptr->entries;
-    }
-    else {
-        *data = NULL;
-        if (size != NULL)
-            *size = 0;
-    }
-  }
-  
-  for (i=0; i<tptr->size; i++) {
-    node = tptr->bucket[i];
-    while (node != NULL) { 
-      last = node;   
-      node = node->next;
-      if (array != NULL)
-          array[index++] = last->data;
-      free(last);
-    }
-  }     
+  hashClear(tptr, data, size);
 
   /* free the entire array of buckets */
   if (tptr->bucket != NULL) {
