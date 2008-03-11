@@ -111,10 +111,16 @@ static char *stringToRegexp(const char *s, const char *replaceChars,
                             const char **replaceWith, int *replacementsDone);
 static char *stringReplace(const char *s, const char *replaceChars,
                            const char **replaceWith, int *replacementsDone);
-static int setTypeRegexpStuff(subInfo *sub);
-static int setSubjectRegexpStuff(subInfo *sub);
-static int rangeParse(subInfo *sub, int isSubject, int *rangeCount);
-static int regexpMatch(subInfo *sub, int isSubject, char *subtyp, int *match);
+static int  rangeParse(char *subtyp, char **subRegexp, numberRange **subRange, int *rangeCount);
+static int  regexpMatch(char *subtyp, regex_t *compiled,
+                        numberRange *topHead, int rangeCount, int *match);
+static int  setRegexpStuff(char *str, char **pRegexp, numberRange **pRange,
+                           regex_t *compRegexp, int *rCount, int *wcCount);
+
+static char *stringEscape(const char *s);
+static char *stringEscapeBar(const char *s);
+static char *stringEscapeNoBar(const char *s);
+static char *stringEscapePseudo(const char *s, int *wildCardCount);
 
     
     
@@ -292,7 +298,7 @@ char *cMsgStringToRegexp(const char *s, int *wildCardCount) {
     str1 = stringToRegexp(s, RegexpChars, replaceRegexp, NULL);
     
     /* substitute for pseudo wildcards */
-    str2 = cMsgStringEscapePseudo(str1, wildCardCount);
+    str2 = stringEscapePseudo(str1, wildCardCount);
     
     return str2;
 }
@@ -310,7 +316,7 @@ char *cMsgStringToRegexp(const char *s, int *wildCardCount) {
  *                          (*,? and # chars) that were found in s
  * @return replaced string
  */
-char *cMsgStringEscape(const char *s) {
+static char *stringEscape(const char *s) {
     return stringToRegexp(s, RegexpChars, replaceRegexp, NULL);
 }
 
@@ -327,7 +333,7 @@ char *cMsgStringEscape(const char *s) {
  *                          (*,? and # chars) that were found in s
  * @return replaced string
  */
-char *cMsgStringEscapeNoBar(const char *s) {
+static char *stringEscapeNoBar(const char *s) {
     return stringToRegexp(s, RegexpNoBar, replaceNoBar, NULL);
 }
 
@@ -338,7 +344,7 @@ char *cMsgStringEscapeNoBar(const char *s) {
  * @param s string to have characters replaced
  * @return replaced string
  */
-char *cMsgStringEscapeBar(const char *s) {
+static char *stringEscapeBar(const char *s) {
     return stringReplace(s, RegexpBar, replaceBar, NULL);
 }
 
@@ -352,7 +358,7 @@ char *cMsgStringEscapeBar(const char *s) {
  *                      (*,? and # chars) that were found in s
  * @return replaced string
  */
-char *cMsgStringEscapePseudo(const char *s, int *wildCardCount) {
+static char *stringEscapePseudo(const char *s, int *wildCardCount) {
     return stringReplace(s, PseudoWildcards, replacePseudo, wildCardCount);
 }
 
@@ -360,9 +366,10 @@ char *cMsgStringEscapePseudo(const char *s, int *wildCardCount) {
 
 /**
  * This routine implements a simple wildcard matching scheme where "*" means
- * any or no characters and "?" means exactly 1 character.
+ * any or no characters, "?" means exactly 1 character, and "#" means one or no
+ * positive integer.
  *
- * @param regexp subscription string that can contain the wildcards * and ?
+ * @param regexp subscription string that can contain the wildcards *, ?, and #
  * @param s message string to be matched (can be blank which only matches *)
  * @return 1 if there is a match, 0 if there is not, -1 if there is an error condition
  */
@@ -410,51 +417,124 @@ int cMsgStringMatches(char *regexp, const char *s) {
 
 
 /**
- * This routine implements a simple wildcard matching scheme where "*" means
- * any or no characters and "?" means exactly 1 character. It is more efficient
- * than cMsgStringMatches as the first argument is assumed to have had
- * cMsgStringEscape already called on it (which cMsgStringMatches always does).
+ * This routine checks to see if there is a match between a (message's) subject & type
+ * pair and a subscribeAndGet's subject and type.
+ * 
+ * If they have no wildcards characters, then a straight string compare is done.
+ * If there are wildcard characters a match using regular expressions is done.
+ * The subAndGet's subject and type may include wildcards where "*" means any or
+ * no characters, "?" means exactly 1 character, "#" means 1 or no positive integer,
+ * and a defined range (eg. {i>5 & i<10 | i=66}) matches 1 integer and applies the given
+ * logic to see if there is a match with that integer.
  *
- * @param regexp subscription string that has already had all regular expression
- *               symbols escaped (except * and ? which must be replaced with .* and .{1}).
- *               In other words, this argument must be a string returned by cMsgStringEscape.
- * @param s message string to be matched (can be blank which only matches *)
- * @return 1 if there is a match, 0 if there is not, -1 if there is an error condition
+ * @param info pointer to subscribeAndGet structure
+ * @param msgSubject (message's) subject
+ * @param msgType (message's) type
+ * @return 1 if there is a match of both subject and type, 0 if there is not (or error)
  */
-int cMsgRegexpMatches(char *regexp, const char *s) {
-    int err,returnCode;
-    regex_t re;
+int cMsgSubAndGetMatches(getInfo *info, char *msgSubject, char *msgType) {
+    int err, match;
+    subInfo sub;
+    
+    /* first check for null subjects/types in subscription */
+    if (info->subject == NULL || info->type == NULL) return 0;
+    
+    /* use subscription structure as all routines are setup to use it */
+    sub.subWildCardCount  = 0;
+    sub.typeWildCardCount = 0;
+    sub.subRangeCount     = 0;
+    sub.typeRangeCount    = 0;
+    sub.type              = info->type;
+    sub.subject           = info->subject;
+    sub.typeRegexp        = NULL;
+    sub.subjectRegexp     = NULL;
+    sub.subRange          = NULL;
+    sub.typeRange         = NULL;
 
-    /* Check args */
-    if ((regexp == NULL)||(s == NULL)) return -1;
-
-    /* Now see if there's a match with the "s" arg */
-    err = cMsgRegcomp(&re, regexp, REG_EXTENDED);
-    if (err != 0) {
-        /* printf("Unsuccessful compiling of %s\n", regexp);*/
-        return -1;
+    err = cMsgSubscriptionSetRegexpStuff(&sub);
+    if (err != CMSG_OK) {
+        if (sub.typeRegexp)    free(sub.typeRegexp);
+        if (sub.subjectRegexp) free(sub.subjectRegexp);
+        cMsgNumberRangeFree(sub.subRange);
+        cMsgNumberRangeFree(sub.typeRange);
+        if (sub.subWildCardCount)  cMsgRegfree(&sub.compSubRegexp);
+        if (sub.typeWildCardCount) cMsgRegfree(&sub.compTypeRegexp);
+        return 0;
     }
-
-    err = cMsgRegexec(&re, s, 0, NULL, 0);
-    if (err == 0) {
-        returnCode = 1;
+    
+    /* else if there are no wildcards in the subscription's subject, just use string compare */
+    if (!sub.subWildCardCount) {
+        if (strcmp(msgSubject, sub.subject) != 0) {
+            if (sub.typeWildCardCount) {
+                free(sub.typeRegexp);
+                cMsgNumberRangeFree(sub.typeRange);
+                cMsgRegfree(&sub.compTypeRegexp);
+            }
+            return 0;
+        }
     }
-    else if (err == REG_NOMATCH) {
-        returnCode = 0;
+    /* else if there are wildcards in the subscription's subject, use regexp matching */
+    else {
+        /* printf("Wildcards in subject, use regexps for matching\n"); */
+        /* ignore errors since there are no bad args and
+         * we'll just ignore out of memory for now. */
+        regexpMatch(msgSubject, &sub.compSubRegexp,
+                    sub.subRange, sub.subRangeCount, &match);
+        cMsgRegfree(&sub.compSubRegexp);
+        if (!match) {
+            free(sub.subjectRegexp);
+            cMsgNumberRangeFree(sub.subRange);
+            if (sub.typeWildCardCount) {
+                free(sub.typeRegexp);
+                cMsgNumberRangeFree(sub.typeRange);
+                cMsgRegfree(&sub.compTypeRegexp);
+            }
+            return 0;
+        }
+    }
+    /* printf("Msg subject (%s) matches regexp (%s)\n", msgSubject, sub.subjectRegexp); */
+
+    if (!sub.typeWildCardCount) {
+        if (strcmp(msgType, sub.type) != 0) {
+            if (sub.subWildCardCount) {
+                free(sub.subjectRegexp);
+                cMsgNumberRangeFree(sub.subRange);
+                cMsgRegfree(&sub.compSubRegexp);
+            }
+            return 0;
+        }
     }
     else {
-        returnCode = -1;
+        /* printf("Wildcards in type, use regexps for matching\n"); */
+        regexpMatch(msgType, &sub.compTypeRegexp,
+                    sub.typeRange, sub.typeRangeCount, &match);
+        cMsgRegfree(&sub.compTypeRegexp);
+        if (!match) {
+            free(sub.typeRegexp);
+            cMsgNumberRangeFree(sub.typeRange);
+            if (sub.subWildCardCount) {
+                free(sub.subjectRegexp);
+                cMsgNumberRangeFree(sub.subRange);
+                cMsgRegfree(&sub.compSubRegexp);
+            }
+            return 0;
+        }
     }
+    /* printf("Msg type (%s) matches regexp (%s)\n", msgType, sub.typeRegexp); */
+
+    if (sub.typeRegexp)    free(sub.typeRegexp);
+    if (sub.subjectRegexp) free(sub.subjectRegexp);
+    cMsgNumberRangeFree(sub.subRange);
+    cMsgNumberRangeFree(sub.typeRange);
     
-    /* free up memory */
-    cMsgRegfree(&re);
-    
-    return returnCode;
+    return 1;
 }
+
 
 /**
  * This routine checks to see if there is a match between a (message's) subject & type
- * pair and a subscription's subject and type.
+ * pair and a subscription's subject and type. Hash tables are not used so a full check
+ * is done each time this routine is called.
  * 
  * If they have no wildcards characters, then a straight string compare is done.
  * If there are wildcard characters a match using regular expressions is done.
@@ -469,41 +549,40 @@ int cMsgRegexpMatches(char *regexp, const char *s) {
  * @return 1 if there is a match of both subject and type, 0 if there is not
  */
 int cMsgSubscriptionMatchesNoHash(subInfo *sub, char *msgSubject, char *msgType) {
-    int err, match;
+    int match;
     
     /* first check for null subjects/types in subscription */
     if (sub->subject == NULL || sub->type == NULL) return 0;
 
-        /* else if there are no wildcards in the subscription's subject, just use string compare */
-        if (!sub->subWildCardCount) {
-            if (strcmp(msgSubject, sub->subject) != 0) return 0;
+    /* else if there are no wildcards in the subscription's subject, just use string compare */
+    if (!sub->subWildCardCount) {
+        if (strcmp(msgSubject, sub->subject) != 0) return 0;
+    }
+    /* else if there are wildcards in the subscription's subject, use regexp matching */
+    else {
+        /* printf("Wildcards in subject, use regexps for matching\n"); */
+        /* ignore errors since there are no bad args and
+         * we'll just ignore out of memory for now. */
+        regexpMatch(msgSubject, &sub->compSubRegexp,
+                    sub->subRange, sub->subRangeCount, &match);
+        if (!match) {
+            return 0;
         }
-        /* else if there are wildcards in the subscription's subject, use regexp matching */
-        else {
-/* printf("Wildcards in subject, use regexps for matching\n"); */
-            /* ignore errors since there are no bad args and
-             * we'll just ignore out of memory for now. */
-            regexpMatch(sub, 1, msgSubject, &match);
-            if (!match) {
-                return 0;
-            }
+    }
+    /* printf("Msg subject (%s) matches regexp (%s)\n", msgSubject, sub->subjectRegexp); */
+
+    if (!sub->typeWildCardCount) {
+        if (strcmp(msgType, sub->type) != 0) return 0;
+    }
+    else {
+        /* printf("Wildcards in type, use regexps for matching\n"); */
+        regexpMatch(msgType, &sub->compTypeRegexp,
+                    sub->typeRange, sub->typeRangeCount, &match);
+        if (!match) {
+            return 0;
         }
-/* printf("Msg subject (%s) matches regexp (%s)\n", msgSubject, sub->subjectRegexp); */
-
-
-
-        if (!sub->typeWildCardCount) {
-            if (strcmp(msgType, sub->type) != 0) return 0;
-        }
-        else {
-/* printf("Wildcards in type, use regexps for matching\n"); */
-            err = regexpMatch(sub, 0, msgType, &match);
-            if (!match) {
-                return 0;
-            }
-        }
-/* printf("Msg type (%s) matches regexp (%s)\n", msgType, sub->typeRegexp); */
-
+    }
+    /* printf("Msg type (%s) matches regexp (%s)\n", msgType, sub->typeRegexp); */
 
     return 1;
 }
@@ -528,7 +607,7 @@ int cMsgSubscriptionMatchesNoHash(subInfo *sub, char *msgSubject, char *msgType)
  * @return 1 if there is a match of both subject and type, 0 if there is not
  */
 int cMsgSubscriptionMatches(subInfo *sub, char *msgSubject, char *msgType) {
-    int err, match;
+    int match;
     
     /* first check for null subjects/types in subscription */
     if (sub->subject == NULL || sub->type == NULL) return 0;
@@ -544,7 +623,8 @@ int cMsgSubscriptionMatches(subInfo *sub, char *msgSubject, char *msgType) {
 /* printf("Wildcards in subject, use regexps for matching\n"); */
             /* ignore errors since there are no bad args and
              * we'll just ignore out of memory for now. */
-            regexpMatch(sub, 1, msgSubject, &match);
+            regexpMatch(msgSubject, &sub->compSubRegexp,
+                        sub->subRange, sub->subRangeCount, &match);
             if (!match) {
                 return 0;
             }
@@ -572,7 +652,8 @@ int cMsgSubscriptionMatches(subInfo *sub, char *msgSubject, char *msgType) {
         }
         else {
 /* printf("Wildcards in type, use regexps for matching\n"); */
-            err = regexpMatch(sub, 0, msgType, &match);
+            regexpMatch(msgType, &sub->compTypeRegexp,
+                        sub->typeRange, sub->typeRangeCount, &match);
             if (!match) {
                 return 0;
             }
@@ -616,10 +697,14 @@ int cMsgSubscriptionSetRegexpStuff(subInfo *sub) {
     sub->subWildCardCount  = 0;
     sub->typeWildCardCount = 0;
 
-    err = setSubjectRegexpStuff(sub);
+    err = setRegexpStuff(sub->subject, &sub->subjectRegexp, &sub->subRange,
+                         &sub->compSubRegexp, &sub->subRangeCount,
+                         &sub->subWildCardCount);
     if (err != CMSG_OK) return (err);
-   
-    err = setTypeRegexpStuff(sub);
+    
+    err = setRegexpStuff(sub->type, &sub->typeRegexp, &sub->typeRange,
+                         &sub->compTypeRegexp, &sub->typeRangeCount,
+                         &sub->typeWildCardCount);
     if (err != CMSG_OK) return (err);
     
     return (CMSG_OK);
@@ -627,10 +712,10 @@ int cMsgSubscriptionSetRegexpStuff(subInfo *sub) {
 
 
 /**
- * Given a subscription, if its subject contains pseudo wildcards (*, ?, #, and {}),
- * this routine creates a valid regular expression string from that subject.
- * It also precompiles the regular expression and stores the number of wildcards found.
- * If valid number ranges are found, they are parsed and stored in the subscription structure.
+ * Given a string (subject or type), if it contains pseudo wildcards (*, ?, #, and {}),
+ * this routine creates a valid regular expression from that string.
+ * It also precompiles the regular expression and finds the number of wildcards contained
+ * in that string. If valid number ranges are found, they are parsed and returned.
  *
  * @param sub pointer to subscription structure
  * 
@@ -639,156 +724,97 @@ int cMsgSubscriptionSetRegexpStuff(subInfo *sub) {
  * @return CMSG_BAD_ARGUMENT  if sub argument or subject is NULL
  * @return CMSG_OUT_OF_MEMORY if out of memory
  */
-static int setSubjectRegexpStuff(subInfo *sub) {
-    char *c;
-    int err, wildCards = 0;
-
-    if (sub->subject == NULL) return (CMSG_BAD_ARGUMENT);
+static int setRegexpStuff(char *str, char **pRegexp, numberRange **pRange,
+                          regex_t *compRegexp, int *rCount, int *wcCount) {
+    char *c, *regexp=NULL; 
+    numberRange *range=NULL;
+    int err, wildCards=0, rangeCount=0, wildCardCount=0;
+    
+    if (str == NULL) return (CMSG_BAD_ARGUMENT);
 
     /* First a quick test. Are both "{" and "}" in subject? If so, look for ranges. */
-    if (strpbrk(sub->subject, "{") != NULL && strpbrk(sub->subject, "}") != NULL) {
+    if (strpbrk(str, "{") != NULL && strpbrk(str, "}") != NULL) {
         /* 1) This does nothing if no ranges found.
-         * 2) Otherwise it sets sub->subjectRegexp to the subject
+         * 2) Otherwise it sets regexp to the subject
          *    with escaped regular expression characters if any,
          *    and also substitutes for number range instances.
-         *    This will set sub->subWildCardCount to the number
+         *    This will set rangeCount to the number
          *    of valid ranges.
          */
-        err = rangeParse(sub, 1, &sub->subRangeCount);
+        err = rangeParse(str, &regexp, &range, &rangeCount);
         if (err != CMSG_OK) {
             return (err);
         }
-        sub->subWildCardCount = sub->subRangeCount;
+        wildCardCount = rangeCount;
     }
 
     /* we only need to do the regexp stuff if there are pseudo wildcards chars in subject */
-    if (strpbrk(sub->subject, PseudoWildcards) != NULL) {
+    if (strpbrk(str, PseudoWildcards) != NULL) {
         /* if no valid ranges were found ... */
-        if (!sub->subRangeCount) {
-             sub->subjectRegexp = stringToRegexp(sub->subject, PseudoWildcards, replacePseudo, &wildCards);
-             sub->subWildCardCount += wildCards;
+        if (!rangeCount) {
+             regexp = stringToRegexp(str, PseudoWildcards, replacePseudo, &wildCards);
+             wildCardCount += wildCards;
         }
-        /* else retain the parsing we did previously in cMsgRangeParse */
+        /* else retain the parsing we did previously in rangeParse */
         else {
-            c = stringReplace(sub->subjectRegexp, PseudoWildcards, replacePseudo, &wildCards);
-            free(sub->subjectRegexp);
-            sub->subjectRegexp = c;
-            sub->subWildCardCount += wildCards;
+            c = stringReplace(regexp, PseudoWildcards, replacePseudo, &wildCards);
+            free(regexp);
+            regexp = c;
+            wildCardCount += wildCards;
         }
     }
 
-    if (sub->subWildCardCount) {
+    if (wildCardCount) {
         /* compile regular expression */
-        err = cMsgRegcomp(&sub->compSubRegexp, sub->subjectRegexp, REG_EXTENDED);
+        err = cMsgRegcomp(compRegexp, regexp, REG_EXTENDED);
         if (err != 0) {
             return (CMSG_ERROR);
         }
     }
     
-    return (CMSG_OK);
-}
-
-    
-/**
- * Given a subscription, if its type contains pseudo wildcards (*, ?, #, and {}),
- * this routine creates a valid regular expression string from that type.
- * It also precompiles the regular expression and stores the number of wildcards found.
- * If valid number ranges are found, they are parsed and stored in the subscription structure.
- *
- * @param sub pointer to subscription structure
- * 
- * @return CMSG_OK            if everything OK
- * @return CMSG_ERROR         if cannot compile regular expression
- * @return CMSG_BAD_ARGUMENT  if sub argument or type is NULL
- * @return CMSG_OUT_OF_MEMORY if out of memory
- */
-static int setTypeRegexpStuff(subInfo *sub) {
-    char *c;
-    int err, wildCards = 0;
-
-    if (sub->type == NULL) return (CMSG_BAD_ARGUMENT);
-
-    /* First a quick test. Are both "{" and "}" in type? If so, look for ranges. */
-    if (strpbrk(sub->type, "{") != NULL && strpbrk(sub->type, "}") != NULL) {
-        /* 1) This does nothing if no ranges found.
-         * 2) Otherwise it sets sub->typeRegexp to the type
-         *    with escaped regular expression characters if any,
-         *    and also substitutes for number range instances.
-         *    This will set sub->typeWildCardCount to the number
-         *    of valid ranges.
-         */
-        err = rangeParse(sub, 0, &sub->typeRangeCount);
-        if (err != CMSG_OK) {
-            return (err);
-        }
-        sub->typeWildCardCount = sub->typeRangeCount;
-    }
-
-    /* we only need to do the regexp stuff if there are pseudo wildcards chars in type */
-    if (strpbrk(sub->type, PseudoWildcards) != NULL) {
-        /* if no valid ranges were found ... */
-        if (!sub->typeRangeCount) {
-             sub->typeRegexp = stringToRegexp(sub->type, PseudoWildcards, replacePseudo, &wildCards);
-             sub->typeWildCardCount += wildCards;
-        }
-        /* else retain the parsing we did previously in cMsgRangeParse */
-        else {
-            c = stringReplace(sub->typeRegexp, PseudoWildcards, replacePseudo, &wildCards);
-            free(sub->typeRegexp);
-            sub->typeRegexp = c;
-            sub->subWildCardCount += wildCards;
-        }
-    }
-
-    if (sub->typeWildCardCount) {
-        /* compile regular expression */
-        err = cMsgRegcomp(&sub->compTypeRegexp, sub->typeRegexp, REG_EXTENDED);
-        if (err != 0) {
-            return (CMSG_ERROR);
-        }
-    }
+    if (pRegexp) *pRegexp = regexp;
+    if (pRange)  *pRange  = range;
+    if (rCount)  *rCount  = rangeCount;
+    if (wcCount) *wcCount = wildCardCount;
     
     return (CMSG_OK);
 }
 
     
+    
 /**
- * This routine takes a subscription and searches for pseudo wildcard
- * number ranges. These ranges are of the format {i>5 & 10>i & i=66}.
- * Once found, each range is parsed and stored in the subscription structure.
- * If no valid ranges are found, no change is made to the subscription.
+ * This routine takes a subscription's subject or type (or any string)
+ * and searches for pseudo wildcard number ranges.
+ * These ranges are of the format {i>5 & 10>i & i=66}.
+ * Once found, each range is parsed and results are returned in the args.
  * 
- * @param sub pointer to subscription structure
- * @param isSubject if 0, subtyp is type, else subtyp is subject
- * @param rangeCount pointer to int which gets filled with the number of
- *                   valid ranges found
+ * @param subtyp subscription's subject or type
+ * @param subRegexp  pointer which gets filled in with a generated regular expression
+ *                   from subtyp if rangeCount > 0
+ * @param subRange   pointer which gets filled in with number range information
+ *                   from subtyp if rangeCount > 0
+ * @param rangeCount pointer which gets filled with the number of valid ranges found
  * 
  * @return CMSG_OK            if everything OK
  * @return CMSG_ERROR         if cannot compile regular expression
  * @return CMSG_BAD_ARGUMENT  if sub argument or subject/type is NULL
  * @return CMSG_OUT_OF_MEMORY if out of memory
  */
-static int rangeParse(subInfo *sub, int isSubject, int *rangeCount) {
+static int rangeParse(char *subtyp, char **subRegexp, numberRange **subRange, int *rangeCount) {
 
     int i, err, len, debug=0, strLen1, strLen2;
     int validRange=0, isHead=0, isTopHead=0;
     regmatch_t matches[4], matches2[5]; /* pull sub strings out of matches */
     regex_t    compiled, compiled1, compiled2;
-    char *styp, *subtyp; /* either subject or type depending on isSubject arg */
+    char *styp;
     char *buf, *buf2, *b2, *regexp;
     numberRange *range, *head, *prevHead=NULL, *topHead=NULL, *prevRange=NULL;
 
-    if (isSubject) {
-        subtyp = sub->subject;
-    }
-    else {
-        subtyp = sub->type;        
-    }
-    if (subtyp == NULL || sub == NULL) return (CMSG_BAD_ARGUMENT);
+    if (subtyp == NULL) return (CMSG_BAD_ARGUMENT);
     isTopHead = 1;
 
     /* escape regexp chars except bar '|' (since that's used in ranges) */
-    styp = subtyp = cMsgStringEscapeNoBar(subtyp);
+    styp = subtyp = stringEscapeNoBar(subtyp);
     if (debug) printf("Escaped string = %s, pointer = %p\n", subtyp, subtyp);
     
     /* make buffers to construct various strings */
@@ -1056,18 +1082,12 @@ static int rangeParse(subInfo *sub, int isSubject, int *rangeCount) {
     
     /* if we found at least 1 valid range ... */
     if (validRange) {
-        /* store results in subscription structure */
-        if (isSubject) {
-            sub->subRange = topHead;
-            sub->subjectRegexp = cMsgStringEscapeBar(regexp);
-        }
-        else {
-            sub->typeRange = topHead;        
-            sub->typeRegexp = cMsgStringEscapeBar(regexp);
-       }
+        /* return results in pointer args */
+        if (subRegexp) *subRegexp = stringEscapeBar(regexp);
+        if (subRange)  *subRange  = topHead;
     }
     
-    if (rangeCount != NULL) *rangeCount = validRange;
+    if (rangeCount) *rangeCount = validRange;
     
     /* free up memory */
     cMsgRegfree(&compiled);
@@ -1078,49 +1098,33 @@ static int rangeParse(subInfo *sub, int isSubject, int *rangeCount) {
 
 
 /**
- * This routine takes a subscription's regular expression taken from
- * either the subject or type and sees if it matches a given string.
+ * This routine takes a subscription's regular expression (compiled)
+ * taken from either the subject or type and sees if it matches a given string.
  * This is only called if there are wildcards in the subject/type.
  * 
- * @param sub pointer to subscription structure
- * @param isSubject if 0, subtyp is type, else subtyp is subject
- * @param subtyp string containing either subject or type depending on isSubject
+ * @param subtyp string containing message's subject or type
+ * @param regexp subscription's compiled regular expression to match to subtyp
+ * @param topHead subscription's pointer to number-range information
+ * @param rangeCount subscription's count of the number of ranges
  * @param match pointer to int gets filled with 0 if no match, else 1
  * 
  * @return CMSG_OK            if everything OK
  * @return CMSG_BAD_ARGUMENT  if sub or subtype argument is NULL
  * @return CMSG_OUT_OF_MEMORY if out of memory
  */
-static int regexpMatch(subInfo *sub, int isSubject, char *subtyp, int *match) {
-    int i, err, len, debug=0, rangeCount;
-    int num1, num2, myNum, conj=-1, lastBool, myBool;
+static int regexpMatch(char *subtyp, regex_t *compiled,
+                       numberRange *topHead, int rangeCount, int *match) {
+    char *buf;
+    int i, err, len, debug=0, num1, num2, myNum, conj=-1, lastBool, myBool;
     regmatch_t *matches = NULL;
-    regex_t    *compiled;
-    char       *buf, *regexp;
-    numberRange *nextHead, *range, *topHead;
+    numberRange *nextHead, *range;
     
     /* check args */
-    if (sub == NULL || subtyp == NULL) {
+    if (subtyp == NULL || compiled == NULL ||
+            (rangeCount > 0 && topHead == NULL) ) {
         return (CMSG_BAD_ARGUMENT);
     }
-    
-    if (isSubject) {
-        regexp     = sub->subjectRegexp;
-        compiled   = &sub->compSubRegexp;
-        topHead    = sub->subRange;
-        rangeCount = sub->subRangeCount;
-    }
-    else {
-        regexp     = sub->typeRegexp;
-        compiled   = &sub->compTypeRegexp;
-        topHead    = sub->typeRange;
-        rangeCount = sub->typeRangeCount;
-   }
-
-    if (regexp == NULL) {
-        return (CMSG_BAD_ARGUMENT);
-    }
-    
+        
     /* make buffer to hold int as string */
     buf = (char *) malloc(12);
     if (buf == NULL) {
@@ -1128,7 +1132,7 @@ static int regexpMatch(subInfo *sub, int isSubject, char *subtyp, int *match) {
     }
     
     /* look for a match */
-    if (debug) printf("\nNow try to match our subscription's regexp (%s) with s = %s\n", regexp, subtyp);
+    if (debug) printf("\nNow try to match our subscription's regexp with s = %s\n", subtyp);
     if (debug) printf("  range count = %d\n", rangeCount);
     matches = (regmatch_t *) malloc((rangeCount+1)*sizeof(regmatch_t));
     if (matches == NULL)
@@ -1206,11 +1210,11 @@ static int regexpMatch(subInfo *sub, int isSubject, char *subtyp, int *match) {
             }
             
             range = nextHead;
-            if (range != NULL) nextHead = range->nextHead;
+            if (range) nextHead = range->nextHead;
         }
     }
    
     free(buf);
-    if (match != NULL) *match = 1;
+    if (match) *match = 1;
     return (CMSG_OK);
 }
