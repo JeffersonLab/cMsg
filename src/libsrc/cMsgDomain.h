@@ -305,11 +305,9 @@ typedef struct cMsgThreadInfo_t {
 int   cMsgSubscriptionSetRegexpStuff(subInfo *sub);
 void  cMsgNumberRangeInit(numberRange *range);
 void  cMsgNumberRangeFree(numberRange *r);
-char *cMsgStringEscape(const char *s);
-char *cMsgStringEscapePseudo(const char *s, int *wildCardCount);
 int   cMsgStringMatches(char *regexp, const char *s);
-int   cMsgRegexpMatches(char *regexp, const char *s);
 char *cMsgStringToRegexp(const char *s, int *wildCardCount);
+int   cMsgSubAndGetMatches(getInfo *info, char *msgSubject, char *msgType);
 int   cMsgSubscriptionMatches(subInfo *sub, char *msgSubject, char *msgType);
 
 
