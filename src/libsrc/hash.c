@@ -18,7 +18,7 @@
  *   derived from his ray tracer code.
  *   Carl Timmer changed data from int to void pointer and changed routines
  *   signatures. Use doxygen documentation. Fix bug in hashRemove which did
- *   not decrement entry counter.
+ *   not decrement entry counter. Added some new routines.
  ***************************************************************************/
 
 #include <stdio.h>
