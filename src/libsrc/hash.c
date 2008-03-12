@@ -260,9 +260,8 @@ int hashRemove(hashTable *tptr, const char *key, void **data) {
  *             gets filled with the number of entries if not NULL and entries not NULL
  */
 void hashGetAll(hashTable *tptr, hashNode **entries, int *size) {
-    hashNode *node, *last;
+    hashNode *node, *last, *array=NULL;
     int i, index=0;
-    hashNode *array=NULL;
 
     /* return data so user can free it */
     if (entries != NULL) {
@@ -314,9 +313,8 @@ void hashGetAll(hashTable *tptr, hashNode **entries, int *size) {
  *             gets filled with the number of entries if not NULL and entries not NULL
  */
 void hashClear(hashTable *tptr, hashNode **entries, int *size) {
-    hashNode *node, *last;
+    hashNode *node, *last, *array=NULL;
     int i, index=0;
-    hashNode *array=NULL;
 
     /* return data so user can free it */
     if (entries != NULL) {
