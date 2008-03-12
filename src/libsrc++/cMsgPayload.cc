@@ -55,7 +55,7 @@ namespace cmsg {
      * This method frees the allocated memory of the given message's entire payload
      * and then initializes the payload components of the message.
      */
-    void cMsgMessage::payloadWipeout(void) {
+    void cMsgMessage::payloadReset(void) {
         cMsgPayloadReset(myMsgPointer);
     }
 
@@ -73,7 +73,7 @@ namespace cmsg {
     /**
      * This method returns whether a message has a compound payload or not. 
      *
-     * @returns true if message has a payload, else false
+     * @return true if message has a payload, else false
      */
     bool cMsgMessage::hasPayload() const {
         int hasPayload;
@@ -87,7 +87,7 @@ namespace cmsg {
      * This method returns whether an item in the payload has the given name or not. 
      *
      * @param name name of field to look for
-     * @returns true if an item in the payload has the given name, else false
+     * @return true if an item in the payload has the given name, else false
      */
     bool cMsgMessage::payloadContainsName(const string &name) const {
         return cMsgPayloadContainsName(myMsgPointer, name.c_str()) ? true : false;
@@ -98,7 +98,7 @@ namespace cmsg {
     /**
      * This method returns the number of payload items a message has. 
      *
-     * @returns number of payload items a message has
+     * @return number of payload items a message has
      */
     int cMsgMessage::payloadGetCount() const {
         int count;
@@ -143,7 +143,7 @@ namespace cmsg {
      *
      * @param name name of field to find type for
      *
-     * @returns the type of data associated with the payload
+     * @return the type of data associated with the payload
      *          field given by the name argument
      * @throws cMsgException if no payload/field exists, or if name is NULL
      */
@@ -179,14 +179,13 @@ namespace cmsg {
     //-------------------------------------------------------------------
 
     /**
-     * This method returns the current field name.
+     * This method returns a description of the given field name in the payload.
      *
-     * @throws cMsgException if no payload
+     * @throws cMsgException if no such field in the payload
      */
     string cMsgMessage::payloadGetFieldDescription(const string &name) const
             throw(cMsgException) {
-        const char *field = cMsgPayloadFieldDescription(myMsgPointer,
-                name.c_str());
+        const char *field = cMsgPayloadFieldDescription(myMsgPointer, name.c_str());
         if (field == NULL) {
             string err("No such field as ");
             err += field;
@@ -203,7 +202,7 @@ namespace cmsg {
      * of the payload. A field's name is the key and type is the value.
      * The map must be deleted to avoid a memory leak.
      *
-     * @returns a pointer to a map containing all name/type pairs of the payload
+     * @return a pointer to a map containing all name/type pairs of the payload
      * @throws cMsgException if no payload exists, or if name is NULL
      */
     map<string,int> *cMsgMessage::payloadGet() const throw(cMsgException) {
@@ -234,8 +233,8 @@ namespace cmsg {
      *
      * @param name name of field to remove
      *
-     * @returns true if successful
-     * @returns false if no field with that name was found
+     * @return true if successful
+     * @return false if no field with that name was found
      */
     bool cMsgMessage::payloadRemoveField(const string &name) {
         return cMsgPayloadRemove(myMsgPointer, name.c_str()) == 0 ? false : true;
