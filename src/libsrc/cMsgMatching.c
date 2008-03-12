@@ -632,7 +632,7 @@ int cMsgSubscriptionMatches(subInfo *sub, char *msgSubject, char *msgType) {
 /* printf("Msg subject (%s) matches regexp (%s)\n", msgSubject, sub->subjectRegexp); */
 
         /* first check to see if our hash table is getting too big */
-        if (hashSize(&sub->subjectTable) > 100) {
+        if (hashSize(&sub->subjectTable) > 200) {
             /* clear things out */
             hashClear(&sub->subjectTable, NULL, NULL);
         }
@@ -660,7 +660,7 @@ int cMsgSubscriptionMatches(subInfo *sub, char *msgSubject, char *msgType) {
         }
 /* printf("Msg type (%s) matches regexp (%s)\n", msgType, sub->typeRegexp); */
 
-        if (hashSize(&sub->typeTable) > 100) {
+        if (hashSize(&sub->typeTable) > 200) {
             hashClear(&sub->typeTable, NULL, NULL);
         }
 
