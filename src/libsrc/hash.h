@@ -21,34 +21,34 @@
 
 /** This structure represents a hash table. */
 typedef struct hash_t {
-  struct hash_node_t **bucket; /**< array of hash nodes. */
-  int size;                    /**< size of the array. */
-  int entries;                 /**< number of entries in table. */
-  int downshift;               /**< shift cound, used in hash function. */
-  int mask;                    /**< used to select bits for hashing. */
-} hash_t;
+    struct hash_node_t **bucket; /**< array of hash nodes. */
+    int size;                    /**< size of the array. */
+    int entries;                 /**< number of entries in table. */
+    int downshift;               /**< shift cound, used in hash function. */
+    int mask;                    /**< used to select bits for hashing. */
+} hashTable;
 
-#define HASH_FAIL -1
+/** This structure represents a hash table entry (key & value). */
+typedef struct hash_node_t {
+    void *data;                 /**< data in hash node. */
+    char *key;                  /**< key for hash lookup. */
+    struct hash_node_t *next;   /**< next node in hash chain. */
+} hashNode;
+
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void hashInit(hash_t *, int);
-
-int hashLookup (const hash_t *, const char *, void **);
-
-int hashInsert (hash_t *, const char *, void *, void **);
-
-int hashRemove (hash_t *, const char *, void **);
-
-void hashClear(hash_t *, void ***, int *);
-
-void hashDestroy(hash_t *, void ***, int *);
-
-int hashSize(hash_t *tptr);
-
-char *hashStats (hash_t *);
+    void  hashInit    (hashTable *, int);
+    int   hashLookup  (const hashTable *, const char *, void **);
+    int   hashInsert  (hashTable *, const char *, void *, void **);
+    int   hashRemove  (hashTable *, const char *, void **);
+    void  hashGetAll  (hashTable *, hashNode **, int *);
+    void  hashClear   (hashTable *, hashNode **, int *);
+    void  hashDestroy (hashTable *, hashNode **, int *);
+    int   hashSize    (hashTable *);
+    char *hashStats   (hashTable *);
 
 #ifdef __cplusplus
 }
