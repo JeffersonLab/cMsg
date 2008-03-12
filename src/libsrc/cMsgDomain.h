@@ -127,8 +127,8 @@ typedef struct subscribeInfo_t {
                                 subject from subscription with pseudo wildcard number ranges. */
   numberRange *typeRange;  /**< Linked list of linked lists containing results of parsed
                                 type from subscription with pseudo wildcard number ranges. */
-  hash_t  subjectTable;    /**< Hash table of strings matching subject. */
-  hash_t  typeTable;       /**< Hash table of strings matching type. */
+  hashTable  subjectTable; /**< Hash table of strings matching subject. */
+  hashTable  typeTable;    /**< Hash table of strings matching type. */
   regex_t compSubRegexp;   /**< Subject of subscription made into compiled regular expression. */
   regex_t compTypeRegexp;  /**< Type of subscription made into compiled regular expression. */
   subscribeCbInfo cbInfo[CMSG_MAX_CALLBACK]; /**< Array of callbacks. */
