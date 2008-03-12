@@ -135,7 +135,7 @@ public:
   virtual bool   hasPayload() const;
   
   virtual void   payloadClear(void);
-  virtual void   payloadWipeout(void);
+  virtual void   payloadReset(void);
   virtual void   payloadPrint(void) const;
   virtual void   payloadCopy(cMsgMessage &msg)                        throw(cMsgException);
 
