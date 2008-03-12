@@ -460,8 +460,8 @@ static void subscribeInfoInit(subInfo *info) {
     info->subRange        = NULL;
     info->typeRange       = NULL;
     
-    hashInit(&info->subjectTable, 128);
-    hashInit(&info->typeTable, 128);
+    hashInit(&info->subjectTable, 256);
+    hashInit(&info->typeTable, 256);
     
     for (j=0; j<CMSG_MAX_CALLBACK; j++) {
       cMsgCallbackInfoInit(&info->cbInfo[j]);
