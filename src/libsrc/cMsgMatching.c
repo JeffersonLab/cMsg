@@ -122,18 +122,6 @@ static char *stringEscapeBar(const char *s);
 static char *stringEscapeNoBar(const char *s);
 static char *stringEscapePseudo(const char *s, int *wildCardCount);
 
-    
-    
-#ifdef VXWORKS
-/** Implementation of strdup for vxWorks. */
-static char *strdup(const char *s1) {
-    char *s;    
-    if (s1 == NULL) return NULL;    
-    if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;    
-    return strcpy(s, s1);
-}
-#endif
-
 
 /**
  * This routine takes a string, replaces the given list of characters with a given
