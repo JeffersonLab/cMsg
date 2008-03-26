@@ -1363,7 +1363,7 @@ cMsgSubscriptionConfig::~cMsgSubscriptionConfig(void) {
  *
  * @return Max cue size
  */
-int cMsgSubscriptionConfig::getMaxCueSize(void) {
+int cMsgSubscriptionConfig::getMaxCueSize(void) const {
   int size;
   cMsgSubscribeGetMaxCueSize(config,&size);
   return(size);
@@ -1391,7 +1391,7 @@ void cMsgSubscriptionConfig::setMaxCueSize(int size) {
  *
  * @return Skip size
  */
-int cMsgSubscriptionConfig::getSkipSize(void) {
+int cMsgSubscriptionConfig::getSkipSize(void) const {
   int size;
   cMsgSubscribeGetSkipSize(config,&size);
   return(size);
@@ -1419,7 +1419,7 @@ void cMsgSubscriptionConfig::setSkipSize(int size) {
  *
  * @return True if can skip
  */
-bool cMsgSubscriptionConfig::getMaySkip(void) {
+bool cMsgSubscriptionConfig::getMaySkip(void) const {
   int maySkip;
   cMsgSubscribeGetMaySkip(config,&maySkip);
   return((maySkip==0)?false:true);
@@ -1447,7 +1447,7 @@ void cMsgSubscriptionConfig::setMaySkip(bool maySkip) {
  *
  * @return True if must serialize
  */
-bool cMsgSubscriptionConfig::getMustSerialize(void) {
+bool cMsgSubscriptionConfig::getMustSerialize(void) const {
   int maySerialize;
   cMsgSubscribeGetMustSerialize(config,&maySerialize);
   return((maySerialize==0)?false:true);
@@ -1475,7 +1475,7 @@ void cMsgSubscriptionConfig::setMustSerialize(bool mustSerialize) {
  *
  * @return Maximum number of threads
  */
-int cMsgSubscriptionConfig::getMaxThreads(void) {
+int cMsgSubscriptionConfig::getMaxThreads(void) const {
   int max;
   cMsgSubscribeGetMaxThreads(config,&max);
   return(max);
@@ -1503,7 +1503,7 @@ void cMsgSubscriptionConfig::setMaxThreads(int max) {
  *
  * @return Max messages per callback thread
  */
-int cMsgSubscriptionConfig::getMessagesPerThread(void) {
+int cMsgSubscriptionConfig::getMessagesPerThread(void) const {
   int mpt;
   cMsgSubscribeGetMessagesPerThread(config,&mpt);
   return(mpt);
@@ -1531,7 +1531,7 @@ void cMsgSubscriptionConfig::setMessagesPerThread(int mpt) {
  *
  * @return Message stack size
  */
-size_t cMsgSubscriptionConfig::getStackSize(void) {
+size_t cMsgSubscriptionConfig::getStackSize(void) const {
   size_t size;
   cMsgSubscribeGetStackSize(config,&size);
   return(size);

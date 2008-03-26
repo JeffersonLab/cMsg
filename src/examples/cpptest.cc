@@ -45,16 +45,13 @@ static void usage() {
 /******************************************************************/
 int main(int argc,char **argv) {  
 
-  int   i, err, debug=1, hasPayload=0;
-  size_t ii, len;
+  int   err, debug=1, hasPayload=0;
+  size_t ii;
   int8_t  ivals[11];
-  const int8_t  *ivals2;
   int16_t  ivals16[11];
   int32_t  ivals32[11];
   double   dvals[11];
-  const double  *dvals2;
   char *s, *vals[3];
-  const char **array;
       
  
   if (debug) {

@@ -1,3 +1,14 @@
+// still to do:
+
+//  const cMsgMessage *getMessage()?
+//  why is myMsgPointer public?
+//  is friend class needed?
+//  should subscription config be public?
+//  more use of throw()?
+//  add stream operators to cMsgMessage?  e.g:  msg << setName(aName) << aValue;
+
+
+
 /*----------------------------------------------------------------------------*
 *  Copyright (c) 2005        Southeastern Universities Research Association, *
 *                            Thomas Jefferson National Accelerator Facility  *
@@ -128,9 +139,13 @@ public:
   virtual bool   getReliableSend(void)          const throw(cMsgException);
   virtual void   setReliableSend(bool b)              throw(cMsgException);
   
+
+
   //---------------
   // PAYLOAD STUFF
   //---------------
+
+public:
 
   virtual bool   hasPayload() const;
   
@@ -147,6 +162,7 @@ public:
   virtual bool   payloadContainsName (const string &name)       const;
   virtual int    payloadGetType      (const string &name)       const throw(cMsgException);
   
+
   //
   // Methods to get a payload item's value
   //
@@ -234,7 +250,7 @@ public:
   virtual void addUint64Vector(string name, vector<uint64_t> &vals);
    
 
-//private:
+public:
   void *myMsgPointer;  /**<Pointer to C message structure.*/
 };
 
@@ -250,7 +266,6 @@ class cMsgCallback {
 
 public:
   virtual void callback(cMsgMessage *msg, void *userObject) = 0;
-//  virtual ~cMsgCallback(void);
 };
 
 
@@ -267,22 +282,22 @@ public:
   cMsgSubscriptionConfig(void);
   virtual ~cMsgSubscriptionConfig(void);
 
-  virtual int    getMaxCueSize(void);
+  virtual int    getMaxCueSize(void) const;
   virtual void   setMaxCueSize(int size);
-  virtual int    getSkipSize(void);
+  virtual int    getSkipSize(void) const;
   virtual void   setSkipSize(int size);
-  virtual bool   getMaySkip(void);
+  virtual bool   getMaySkip(void) const;
   virtual void   setMaySkip(bool maySkip);
-  virtual bool   getMustSerialize(void);
+  virtual bool   getMustSerialize(void) const;
   virtual void   setMustSerialize(bool mustSerialize);
-  virtual int    getMaxThreads(void);
+  virtual int    getMaxThreads(void) const;
   virtual void   setMaxThreads(int max);
-  virtual int    getMessagesPerThread(void);
+  virtual int    getMessagesPerThread(void) const;
   virtual void   setMessagesPerThread(int mpt);
-  virtual size_t getStackSize(void);
+  virtual size_t getStackSize(void) const;
   virtual void   setStackSize(size_t size);
 
-public:
+public:  // cMsg class must pass this to underlying C routines
   cMsgSubscribeConfig *config;   /**<Pointer to subscription config struct.*/
 };
 
