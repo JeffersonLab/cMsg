@@ -155,6 +155,8 @@ public:
   virtual void   payloadCopy(cMsgMessage &msg)                        throw(cMsgException);
 
   virtual bool   payloadRemoveField(const string &name);
+  virtual string payloadGetText() const;
+  virtual void   payloadSetFromText(const string txt)           const throw(cMsgException);
   virtual string payloadGetFieldDescription(const string &name) const throw(cMsgException);  
   
   virtual map<string,int> *payloadGet()                         const throw(cMsgException);
