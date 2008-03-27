@@ -179,8 +179,42 @@ namespace cmsg {
     //-------------------------------------------------------------------
 
     /**
+     * This method returns a text representation of the payload. Its format
+     * is proprietary - not XML.
+     *
+     * @return payload representation string
+     */
+    string cMsgMessage::payloadGetText() const {
+        const char *txt;
+        cMsgGetPayloadText(myMsgPointer, &txt);
+        string s(txt);
+        return s;
+    }
+
+    //-------------------------------------------------------------------
+
+    /**
+     * This method takes a string returned from {@link #payloadGetText} as an
+     * argument and constructs a payload out of it. Any existing payload is
+     * overwritten.
+     *
+     * @param txt string representing payload
+     */
+    void cMsgMessage::payloadSetFromText(const string txt) const
+          throw(cMsgException) {
+        int err = cMsgPayloadSetAllFieldsFromText(myMsgPointer, txt.c_str());
+        if (err != CMSG_OK) {
+            throw(cMsgException(cMsgPerror(err),err));
+        }
+        return;
+    }
+
+    //-------------------------------------------------------------------
+
+    /**
      * This method returns a description of the given field name in the payload.
      *
+     * @return field description string
      * @throws cMsgException if no such field in the payload
      */
     string cMsgMessage::payloadGetFieldDescription(const string &name) const
