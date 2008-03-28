@@ -345,6 +345,21 @@ public class cMsgDomainServer extends Thread {
 
         ServerSocket listeningSocket = serverChannel.socket();
 
+        int domainPortMax=0;
+        try {
+            String env = System.getenv("CMSG_DOMAIN_MAX_PORT");
+            if (env != null) {
+                domainPortMax = Integer.parseInt(env);
+            }
+        }
+        catch (NumberFormatException ex) {
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("Bad port number specified in CMSG_DOMAIN_MAX_PORT env variable");
+            }
+        }
+
+        if (domainPortMax < 1) domainPortMax = nameServer.domainPortMax;
+
         while (true) {
             try {
                 listeningSocket.bind(new InetSocketAddress(port));
@@ -352,7 +367,7 @@ public class cMsgDomainServer extends Thread {
             }
             catch (IOException ex) {
                 // try another port by adding one
-                if (port < 65535) {
+                if (port <= domainPortMax) {
                     port++;
                     try { Thread.sleep(1);  }
                     catch (InterruptedException e) {}
