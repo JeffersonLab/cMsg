@@ -55,6 +55,9 @@ public class cMsgNameServer extends Thread {
     /** This server's UDP listening port number for receiving broadcasts. */
     private int broadcastPort;
 
+    /** The maximum value for the cMsgDomainServer's listening port number. */
+    static int domainPortMax;
+
     /**
      * This is the time ordering property of the server.
      * If this is true, then all non-(un)subscribe commands sent to it
@@ -500,6 +503,22 @@ public class cMsgNameServer extends Thread {
                     System.out.println("\nBad port number specified");
                     usage();
                     e.printStackTrace();
+                    System.exit(-1);
+                }
+            }
+            if (s.equalsIgnoreCase("domainPortMax")) {
+                try {
+                    domainPortMax = Integer.parseInt(System.getProperty(s));
+                }
+                catch (NumberFormatException e) {
+                    System.out.println("\nBad port number specified");
+                    usage();
+                    e.printStackTrace();
+                    System.exit(-1);
+                }
+                if (domainPortMax > 65535) {
+                    System.out.println("\nBad maximum domain port number specified");
+                    usage();
                     System.exit(-1);
                 }
             }
