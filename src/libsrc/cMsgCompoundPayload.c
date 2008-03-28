@@ -6019,8 +6019,8 @@ if (debug) printf("addBinaryFromString: decoded string len = %d, should be %d\n"
  * @param isSystem if = 0, add item to payload, else set system parameters
  * @param pVal pointer to "value" part of text (after header)
  * @param pText text form of cMsg message to add
- * @param textLen length (in chars) of msgText arg
- * @param noHeaderLen length (in chars) of msgText without header line
+ * @param textLen length (in chars) of pText arg
+ * @param noHeaderLen length (in chars) of pText without header line
  *
  * @return CMSG_OK if successful
  * @return CMSG_OUT_OF_MEMORY if no more memory
