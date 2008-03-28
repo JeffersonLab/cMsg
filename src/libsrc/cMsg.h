@@ -177,6 +177,7 @@ void clock_gettime(int dummy, struct timespec *t1);
   int    cMsgGetNullGetResponse   (const void *vmsg, int *nullGetResponse);
     
   int    cMsgGetDomain            (const void *vmsg, const char **domain);
+  int    cMsgGetPayloadText       (const void *vmsg, const char **payloadText);
   
   int    cMsgSetSubject           (      void *vmsg, const char  *subject);
   int    cMsgGetSubject           (const void *vmsg, const char **subject);
@@ -228,7 +229,7 @@ void clock_gettime(int dummy, struct timespec *t1);
   int    cMsgToString              (      void *vmsg, char **string, int binary);
   
   /* ***************************************** */
-  /* compound payload stuff - 65 user routines */
+  /* compound payload stuff - 66 user routines */
   /* ***************************************** */
   void   cMsgAddSenderToHistory      (void *vmsg, char *name);
   
