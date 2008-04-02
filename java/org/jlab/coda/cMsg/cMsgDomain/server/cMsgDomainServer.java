@@ -358,7 +358,13 @@ public class cMsgDomainServer extends Thread {
             }
         }
 
-        if (domainPortMax < 1) domainPortMax = nameServer.domainPortMax;
+        if (domainPortMax > 65535 || domainPortMax < cMsgNetworkConstants.domainServerStartingPort) {
+            domainPortMax = nameServer.domainPortMax;
+            if (domainPortMax > 65535 || domainPortMax < cMsgNetworkConstants.domainServerStartingPort) {
+                domainPortMax = 65535;
+            }
+        }
+
 
         while (true) {
             try {
