@@ -56,7 +56,7 @@ public class cMsgNameServer extends Thread {
     private int broadcastPort;
 
     /** The maximum value for the cMsgDomainServer's listening port number. */
-    static int domainPortMax;
+    static int domainPortMax = 65535;
 
     /**
      * This is the time ordering property of the server.
@@ -516,7 +516,7 @@ public class cMsgNameServer extends Thread {
                     e.printStackTrace();
                     System.exit(-1);
                 }
-                if (domainPortMax > 65535) {
+                if (domainPortMax > 65535 || domainPortMax < cMsgNetworkConstants.domainServerStartingPort) {
                     System.out.println("\nBad maximum domain port number specified");
                     usage();
                     System.exit(-1);
