@@ -110,6 +110,7 @@ public class B64test {
 
 
         System.out.println("Running B64 test");
+/*
         short[] st = new short[100];
         int off = 0;
         try {
@@ -121,11 +122,16 @@ public class B64test {
             }
         }
         catch (UnsupportedEncodingException e) { }
+*/
 
-//        System.out.println("Running byte test");
-//        byte b = -1;
-//        int  i = b & 0xff;
-//        System.out.println("Int = " + i + ", b = " + b);
+        System.out.println("Running cast test");
+        int i = -1;
+        long l1, l2;
+        l1 = i;
+        l2 = (long)i;
+
+        System.out.println("Int = " + i + ", long by assignment = " + l1);
+        System.out.println("Int = " + i + ", long by cast = " + l2);
 
     }
 }

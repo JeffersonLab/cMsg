@@ -28,7 +28,7 @@ import java.util.Arrays;
 public class cMsgProducer {
     String  name = "producer";
     String  description = "java producer";
-    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
+    String  UDL = "cMsg:cMsg://localhost:3456/cMsg/test";
     //String  UDL = "cMsg:cmsg://broadcast/cMsg/test";
     String  subject = "SUBJECT";
     String  type = "TYPE";
