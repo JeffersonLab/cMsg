@@ -82,7 +82,7 @@ public class cMsgDomainServer extends Thread {
     private cMsgSubdomainInterface subdomainHandler;
 
     /** Reference to cMsg subdomain handler object if appropriate. */
-    org.jlab.coda.cMsg.subdomains.cMsg cMsgSubdomainHandler;
+    org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg cMsgSubdomainHandler;
 
     /**
      * Thread-safe queue to hold cMsgHolder objects of
@@ -253,7 +253,7 @@ public class cMsgDomainServer extends Thread {
         nameServer.printSizes();
 
         // print static stuff for cMsg subdomain class
-        org.jlab.coda.cMsg.subdomains.cMsg.printStaticSizes();
+        org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg.printStaticSizes();
 
         System.out.println();
 
@@ -286,8 +286,8 @@ public class cMsgDomainServer extends Thread {
 
         // If we're in the cMsg subdomain, create an object that has access
         // to methods besides those in the cMsgSubdomainInterface.
-        if (subdomainHandler instanceof org.jlab.coda.cMsg.subdomains.cMsg) {
-            cMsgSubdomainHandler = (org.jlab.coda.cMsg.subdomains.cMsg)subdomainHandler;
+        if (subdomainHandler instanceof org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg) {
+            cMsgSubdomainHandler = (org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg)subdomainHandler;
         }
 
         // Port number to listen on
