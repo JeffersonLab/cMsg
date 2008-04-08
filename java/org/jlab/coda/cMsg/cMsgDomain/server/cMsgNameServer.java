@@ -672,7 +672,7 @@ public class cMsgNameServer extends Thread {
 
         // no one can mess with (substitute another class for) the cMsg subdomain
         if (subdomain.equalsIgnoreCase("cMsg")) {
-            clientHandlerClass = "org.jlab.coda.cMsg.subdomains.cMsg";
+            clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg";
         }
 
         // Check to see if handler class name was set on the command line.
@@ -699,25 +699,25 @@ public class cMsgNameServer extends Thread {
         // If there is still no handler class look in predefined classes.
         if (clientHandlerClass == null) {
             if (subdomain.equalsIgnoreCase("CA")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.CA";
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.CA";
             }
             else if (subdomain.equalsIgnoreCase("Database")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.database";
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.database";
             }
             else if (subdomain.equalsIgnoreCase("LogFile")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.LogFile";
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.LogFile";
             }
             else if (subdomain.equalsIgnoreCase("Queue")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.queue";
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.queue";
             }
             else if (subdomain.equalsIgnoreCase("SmartSockets")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.smartsockets";
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.smartsockets";
             }
             else if (subdomain.equalsIgnoreCase("TcpServer")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.tcpserver";
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.tcpserver";
             }
             else if (subdomain.equalsIgnoreCase("FileQueue")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.subdomains.FileQueue";
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.FileQueue";
             }
         }
 
@@ -973,14 +973,14 @@ public class cMsgNameServer extends Thread {
             // to communicate, but other subdomains do.
             subdomainHandler.setMessageDeliverer(deliverer);
 
-            // Also store deliverer object in client info object.
-            // The cMsg subdomain uses this reference to communicate.
-            info.setDeliverer(deliverer);
-
             // Register client with the subdomain.
             // If we're in the cMsg subdomain ...
-            if (subdomainHandler instanceof org.jlab.coda.cMsg.subdomains.cMsg) {
-                // Wait until clients are allowed to connect (i.e. this server
+            if (subdomainHandler instanceof org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg) {
+                // Also store deliverer object in client info object.
+                // The cMsg subdomain uses this reference to communicate.
+                info.setDeliverer(deliverer);
+
+               // Wait until clients are allowed to connect (i.e. this server
                 // has joined the cloud of cMsg subdomain name servers).
                 try {
                     // If we've timed out ...
@@ -1031,8 +1031,8 @@ public class cMsgNameServer extends Thread {
         synchronized private cMsgSubdomainInterface registerServer(cMsgClientInfo info) throws cMsgException {
             // Create instance of cMsg subdomain handler. We need to access
             // methods not in the cMsgSubdomainInterface so do a cast.
-            org.jlab.coda.cMsg.subdomains.cMsg subdomainHandler =
-                    (org.jlab.coda.cMsg.subdomains.cMsg) createClientHandler("cMsg");
+            org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg subdomainHandler =
+                    (org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg) createClientHandler("cMsg");
 
             // The first thing we do is set the namespace to the default namespace.
             // Server clients don't use the namespace so it doesn't matter.
@@ -1090,8 +1090,8 @@ public class cMsgNameServer extends Thread {
         private void cMsgSubdomainRegistration(cMsgClientInfo info, cMsgSubdomainInterface subdomainHandler)
                 throws cMsgException, IOException {
 
-            org.jlab.coda.cMsg.subdomains.cMsg cMsgSubdomainHandler =
-                    (org.jlab.coda.cMsg.subdomains.cMsg) subdomainHandler;
+            org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg cMsgSubdomainHandler =
+                    (org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg) subdomainHandler;
 
 //System.out.println(">> NS: IN subdomainRegistration");
             // If there are no connections to other servers (bridges), do local registration only

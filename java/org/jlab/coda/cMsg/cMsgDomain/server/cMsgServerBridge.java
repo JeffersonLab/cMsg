@@ -30,7 +30,7 @@ import java.io.IOException;
 public class cMsgServerBridge {
 
     /** Reference to subdomain handler object for use by all bridges in this server. */
-    static private org.jlab.coda.cMsg.subdomains.cMsg subdomainHandler = new org.jlab.coda.cMsg.subdomains.cMsg();
+    static private org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg subdomainHandler = new org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg();
 
     /** Need 1 callback for all subscriptions. */
     static private SubscribeCallback subCallback = new SubscribeCallback();
