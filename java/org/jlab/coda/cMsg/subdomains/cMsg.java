@@ -107,7 +107,7 @@ public class cMsg extends cMsgSubdomainAdapter {
     /** This lock is used in global registrations for regular clients and server clients. */
     static private final ReentrantLock registrationLock = new ReentrantLock();
 
-    /** This lock is used to ensure all access to {@link #subscriptions} is sequential. */
+    /** This lock is used to ensure write access to {@link #subscriptions} is sequential. */
     static private final ReentrantLock subscribeLock = new ReentrantLock();
 
     static public void printStaticSizes() {
@@ -950,7 +950,7 @@ public class cMsg extends cMsgSubdomainAdapter {
      * cMsg servers (server cloud contains more than one server), then this
      * server does a LOCAL sendAndGet (this method) before doing a sendAndGet
      * through all the bridge objects. The purpose of this is to install the
-     * notifier object and letting local responders immediate ability to
+     * notifier object and allow local responders immediate ability to
      * respond to the message going out from this sendAndGet.
      *
      * @param message message requesting what sort of message to get
@@ -988,10 +988,10 @@ public class cMsg extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to synchronously get a single message from a resonder to a message
-     * beug sent by the server client. This method is called as a result of a bridge
+     * Method to synchronously get a single message from a responder to a message
+     * being sent by the server client. This method is called as a result of a bridge
      * client doing a serverSendAndGet to a remote server. No notifier is needed here.
-     * We only want to send to local responders to avoid imfinite loops that would occur
+     * We only want to send to local responders to avoid infinite loops that would occur
      * if servers should get this request.
      *
      * @param message message requesting what sort of message to get
