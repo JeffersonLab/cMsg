@@ -45,16 +45,6 @@ public interface cMsgSubdomainInterface {
 
 
     /**
-     * Method to give the subdomain handler on object able to deliver messages
-     * to the client.
-     *
-     * @param deliverer object able to deliver messages to the client
-     * @throws org.jlab.coda.cMsg.cMsgException
-     */
-    public void setMessageDeliverer(cMsgDeliverMessageInterface deliverer) throws cMsgException;
-
-
-    /**
      * Method to register a domain client.
      *
      * @param info information about client

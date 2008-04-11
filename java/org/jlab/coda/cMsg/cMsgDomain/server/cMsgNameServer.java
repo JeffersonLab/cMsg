@@ -32,6 +32,7 @@ import java.text.DateFormat;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgNetworkConstants;
+import org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsgMessageDeliverer;
 
 /**
  * This class implements a cMsg name server in the cMsg domain.
@@ -958,29 +959,26 @@ public class cMsgNameServer extends Thread {
             // is stored in the subdomainHandler object.
             subdomainHandler.setUDLRemainder(info.getUDLremainder());
 
-            // The next thing to do is create an object enabling the handler
-            // to communicate with only this client in this cMsg domain.
-            cMsgMessageDeliverer deliverer;
-            try {
-                deliverer = new cMsgMessageDeliverer(info);
-            }
-            catch (IOException e) {
-                cMsgException ex = new cMsgException("socket communication error");
-                ex.setReturnCode(cMsgConstants.errorNetwork);
-                throw ex;
-            }
-            // The cMsg subdomain does not use this reference to the deliverer
-            // to communicate, but other subdomains do.
-            subdomainHandler.setMessageDeliverer(deliverer);
-
             // Register client with the subdomain.
             // If we're in the cMsg subdomain ...
             if (subdomainHandler instanceof org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg) {
-                // Also store deliverer object in client info object.
+                // The next thing to do is create an object enabling the handler
+                // to communicate with only this client in this cMsg domain.
+                cMsgMessageDeliverer deliverer;
+                try {
+                    deliverer = new cMsgMessageDeliverer(info);
+                }
+                catch (IOException e) {
+                    cMsgException ex = new cMsgException("socket communication error");
+                    ex.setReturnCode(cMsgConstants.errorNetwork);
+                    throw ex;
+                }
+
+                // Store deliverer object in client info object.
                 // The cMsg subdomain uses this reference to communicate.
                 info.setDeliverer(deliverer);
 
-               // Wait until clients are allowed to connect (i.e. this server
+                // Wait until clients are allowed to connect (i.e. this server
                 // has joined the cloud of cMsg subdomain name servers).
                 try {
                     // If we've timed out ...

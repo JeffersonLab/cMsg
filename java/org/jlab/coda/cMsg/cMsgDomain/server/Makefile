@@ -12,7 +12,6 @@ JAVAC_FLAGS = -classpath $(TOPDIR)
 JAVA_OBJS = \
 	cMsgHolder.class \
 	cMsgServerSubscribeInfo.class \
-	cMsgMessageDeliverer.class \
 	cMsgServerBridge.class \
 	cMsgServerCloudJoiner.class \
 	cMsgServerStatistics.class \

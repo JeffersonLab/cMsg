@@ -50,17 +50,6 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
     }
 
 
-    /**
-     * Method to give the subdomain handler on object able to deliver messages
-     * to the client.
-     *
-     * @param deliverer object able to deliver messages to the client
-     * @throws org.jlab.coda.cMsg.cMsgException
-     */
-    public void setMessageDeliverer(cMsgDeliverMessageInterface deliverer) throws cMsgException {
-        throw new cMsgException("setMessageDeliverer is not implemented");
-    }
-
 
     /**
      * Method to register domain client.
