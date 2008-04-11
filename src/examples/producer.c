@@ -33,10 +33,12 @@
 
 /******************************************************************/
 static void usage() {
-  printf("Usage:  producer [-s <size> | -b <size>] -u <UDL>\n");
-  printf("                  -s sets the byte size for text data, or\n");
-  printf("                  -b sets the byte size for binary data\n");
-  printf("                  -u sets the connection UDL\n");
+    printf("Usage:  producer [-a <size> | -b <size>] -u <UDL> -s <subject> -t <type>\n");
+    printf("                  -a sets the byte size for ascii data, or\n");
+    printf("                  -b sets the byte size for binary data\n");
+    printf("                  -s sets the subscription subject\n");
+    printf("                  -t sets the subscription type\n");
+    printf("                  -u sets the connection UDL\n");
 }
 
 /******************************************************************/
@@ -51,17 +53,17 @@ int main(int argc,char **argv) {
   char *UDL           = "cMsg:cmsg://localhost:3456/cMsg/test";
   char *p;
   int   i, j, err, debug=1, msgSize=0, mainloops=200;
-  int8_t    i1vals[3];
-  int16_t   i2vals[3];
-  int32_t   i3vals[3];
-  int64_t   i4vals[3];
-  uint8_t   i5vals[3];
-  uint16_t  i6vals[3];
-  uint32_t  i7vals[3];
-  uint64_t  i8vals[3];
-  char       *vals[3];
-  float      fvals[3];
-  double     dvals[3];
+//  int8_t    i1vals[3];
+//  int16_t   i2vals[3];
+//  int32_t   i3vals[3];
+//  int64_t   i4vals[3];
+//  uint8_t   i5vals[3];
+//  uint16_t  i6vals[3];
+//  uint32_t  i7vals[3];
+//  uint64_t  i8vals[3];
+//  char       *vals[3];
+//  float      fvals[3];
+//  double     dvals[3];
   void *msg, *domainId;
   
   /* msg rate measuring variables */
@@ -77,7 +79,7 @@ int main(int argc,char **argv) {
   
     for (i=1; i<argc; i++) {
 
-       if (strcmp("-s", argv[i]) == 0) {
+       if (strcmp("-a", argv[i]) == 0) {
          if (argc < i+2) {
            usage();
            return(-1);
@@ -119,6 +121,20 @@ int main(int argc,char **argv) {
          }
 
        }
+       else if (strcmp(argv[i], "-s") == 0) {
+         if (argc < i+2) {
+           usage();
+           return(-1);
+         }
+         subject = argv[++i];
+       }
+       else if (strcmp(argv[i], "-t") == 0) {
+         if (argc < i+2) {
+           usage();
+           return(-1);
+         }
+         type = argv[++i];
+       }
        else if (strcmp(argv[i], "-u") == 0) {
          if (argc < i+2) {
            usage();
@@ -138,6 +154,7 @@ int main(int argc,char **argv) {
     }
     
   }
+
  
   
   if (debug) {
@@ -162,80 +179,80 @@ int main(int argc,char **argv) {
   
   /* set compound payload fields */
 
-  cMsgAddFloat (msg, "flt", -1.23456e-05);
-  cMsgAddDouble(msg, "dbl", -1.23456789101012e-195);
-  
-  cMsgAddString (msg, "str", "string");
-  
-  vals[0] = "zero";
-  vals[1] = "one";
-  vals[2] = "two";
-  cMsgAddStringArray(msg, "strA", (const char **) vals, 3);
-
-  fvals[0] = -1234567;
-  fvals[1] = +234.;
-  fvals[2] = -12.3456e-35;
-  cMsgAddFloatArray(msg,  "fltA", fvals, 3);
-  
-  dvals[0] = -1234567;
-  dvals[1] = +234.678910;
-  dvals[2] = -12.3456789101012e-301;
-  cMsgAddDoubleArray(msg,  "dblA", dvals, 3);
-
-  cMsgAddInt8   (msg, "int8",  SCHAR_MIN);
-  cMsgAddInt16  (msg, "int16", SHRT_MIN);
-  cMsgAddInt32  (msg, "int32", INT_MIN);
-  cMsgAddInt64  (msg, "int64", -9223372036854775807LL);
-  
-  cMsgAddUint8   (msg, "uint8",  UCHAR_MAX);
-  cMsgAddUint16  (msg, "uint16", USHRT_MAX);
-  cMsgAddUint32  (msg, "uint32", UINT_MAX);
-  cMsgAddUint64  (msg, "uint64", 18446744073709551615ULL);
-    
-  i1vals[0] = -128;
-  i1vals[1] = 127;
-  i1vals[2] = 255;
-  cMsgAddInt8Array(msg, "int8A", i1vals, 3);
-  
-  i2vals[0] = -32768;
-  i2vals[1] = 32767;
-  i2vals[2] = 65535;
-  cMsgAddInt16Array(msg, "int16A", i2vals, 3);
-  
-  i3vals[0] = -2147483648;
-  i3vals[1] = 2147483647;
-  i3vals[2] = 4294967295;
-  cMsgAddInt32Array(msg, "int32A", i3vals, 3);
-  
-  i4vals[0] = -9223372036854775807LL;
-  i4vals[1] = 9223372036854775807LL;
-  i4vals[2] = 18446744073709551615ULL;
-  cMsgAddInt64Array(msg, "int64A", i4vals, 3);
-  
-  i5vals[0] = 0;
-  i5vals[1] = 255;
-  i5vals[2] = -1;
-  cMsgAddUint8Array(msg, "uint8A", i5vals, 3);
-
-  i6vals[0] = 0;
-  i6vals[1] = 65535;
-  i6vals[2] = -1;
-  cMsgAddUint16Array(msg, "uint16A", i6vals, 3);
-  
-  i7vals[0] = 0U;
-  i7vals[1] = 4294967295U;
-  i7vals[2] = -1;
-  cMsgAddUint32Array(msg, "uint32A", i7vals, 3);
-  
-  i8vals[0] = 0ULL;
-  i8vals[1] = 18446744073709551615ULL;
-  i8vals[2] = -1;
-  cMsgAddUint64Array(msg, "uint64A", i8vals, 3);
-  
-  cMsgToString(msg, &p, 1);
-  printf("XML message:\n%s", p);
-  free(p);
-    
+//  cMsgAddFloat (msg, "flt", -1.23456e-05);
+//  cMsgAddDouble(msg, "dbl", -1.23456789101012e-195);
+//  
+//  cMsgAddString (msg, "str", "string");
+//  
+//  vals[0] = "zero";
+//  vals[1] = "one";
+//  vals[2] = "two";
+//  cMsgAddStringArray(msg, "strA", (const char **) vals, 3);
+//
+//  fvals[0] = -1234567;
+//  fvals[1] = +234.;
+//  fvals[2] = -12.3456e-35;
+//  cMsgAddFloatArray(msg,  "fltA", fvals, 3);
+//  
+//  dvals[0] = -1234567;
+//  dvals[1] = +234.678910;
+//  dvals[2] = -12.3456789101012e-301;
+//  cMsgAddDoubleArray(msg,  "dblA", dvals, 3);
+//
+//  cMsgAddInt8   (msg, "int8",  SCHAR_MIN);
+//  cMsgAddInt16  (msg, "int16", SHRT_MIN);
+//  cMsgAddInt32  (msg, "int32", INT_MIN);
+//  cMsgAddInt64  (msg, "int64", -9223372036854775807LL);
+//  
+//  cMsgAddUint8   (msg, "uint8",  UCHAR_MAX);
+//  cMsgAddUint16  (msg, "uint16", USHRT_MAX);
+//  cMsgAddUint32  (msg, "uint32", UINT_MAX);
+//  cMsgAddUint64  (msg, "uint64", 18446744073709551615ULL);
+//    
+//  i1vals[0] = -128;
+//  i1vals[1] = 127;
+//  i1vals[2] = 255;
+//  cMsgAddInt8Array(msg, "int8A", i1vals, 3);
+//  
+//  i2vals[0] = -32768;
+//  i2vals[1] = 32767;
+//  i2vals[2] = 65535;
+//  cMsgAddInt16Array(msg, "int16A", i2vals, 3);
+//  
+//  i3vals[0] = -2147483648;
+//  i3vals[1] = 2147483647;
+//  i3vals[2] = 4294967295;
+//  cMsgAddInt32Array(msg, "int32A", i3vals, 3);
+//  
+//  i4vals[0] = -9223372036854775807LL;
+//  i4vals[1] = 9223372036854775807LL;
+//  i4vals[2] = 18446744073709551615ULL;
+//  cMsgAddInt64Array(msg, "int64A", i4vals, 3);
+//  
+//  i5vals[0] = 0;
+//  i5vals[1] = 255;
+//  i5vals[2] = -1;
+//  cMsgAddUint8Array(msg, "uint8A", i5vals, 3);
+//
+//  i6vals[0] = 0;
+//  i6vals[1] = 65535;
+//  i6vals[2] = -1;
+//  cMsgAddUint16Array(msg, "uint16A", i6vals, 3);
+//  
+//  i7vals[0] = 0U;
+//  i7vals[1] = 4294967295U;
+//  i7vals[2] = -1;
+//  cMsgAddUint32Array(msg, "uint32A", i7vals, 3);
+//  
+//  i8vals[0] = 0ULL;
+//  i8vals[1] = 18446744073709551615ULL;
+//  i8vals[2] = -1;
+//  cMsgAddUint64Array(msg, "uint64A", i8vals, 3);
+//  
+//  cMsgToString(msg, &p, 1);
+//  printf("XML message:\n%s", p);
+//  free(p);
+//    
   if (dostring) {
     printf("  try setting text to %s\n", text);
     cMsgSetText(msg, text);
