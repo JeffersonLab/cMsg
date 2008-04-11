@@ -19,7 +19,8 @@ JAVA_OBJS = \
 	LogFile.class \
 	TcpServer.class \
 	FileQueue.class \
-	Queue.class
+	Queue.class \
+	cMsgMessageDeliverer.class
 
 all: $(JAVA_OBJS)
 

@@ -101,24 +101,6 @@ public class TcpServer extends cMsgSubdomainAdapter{
 
 
     /**
-     * Method to give the subdomain handler on object able to deliver messages
-     * to the client.
-     *
-     * @param deliverer object able to deliver messages to the client
-     * @throws cMsgException
-     */
-    public void setMessageDeliverer(cMsgDeliverMessageInterface deliverer) throws cMsgException {
-        if (deliverer == null) {
-            throw new cMsgException("TcpServer subdomain must be able to deliver messages, set the deliverer.");
-        }
-        myDeliverer = deliverer;
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
      * Method to register domain client.
      *
      * Connects to tcpserver.
@@ -131,6 +113,18 @@ public class TcpServer extends cMsgSubdomainAdapter{
 
         // save client info
         myClientInfo = info;
+
+
+        // Create an object enabling this handler to communicate
+        // with only this client in this cMsg subdomain.
+        try {
+            myDeliverer = new cMsgMessageDeliverer(info);
+        }
+        catch (IOException e) {
+            cMsgException ex = new cMsgException("socket communication error");
+            ex.setReturnCode(cMsgConstants.errorNetwork);
+            throw ex;
+        }
 
 
         // extract tcpserver host and port from UDL remainder

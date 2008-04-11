@@ -19,6 +19,7 @@ package org.jlab.coda.cMsg.cMsgDomain.subdomains;
 import org.jlab.coda.cMsg.*;
 
 import java.util.Date;
+import java.io.IOException;
 
 /**
  * This class is a subdomain which does nothing. It was used for finding a
@@ -26,8 +27,10 @@ import java.util.Date;
  */
 public class Dummy extends cMsgSubdomainAdapter {
 
-    long counter;
-    Date now;
+    private long counter;
+    private Date now;
+    private cMsgDeliverMessageInterface deliverer;
+    
 
     public Dummy() {
         now = new Date();
@@ -47,22 +50,21 @@ public class Dummy extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to give the subdomain handler on object able to deliver messages
-     * to the client.
-     *
-     * @param deliverer object able to deliver messages to the client
-     */
-    public void setMessageDeliverer(cMsgDeliverMessageInterface deliverer) {
-        return;
-    }
-
-
-    /**
      * Method to register domain client.
      *
      * @param info information about client
      */
-    public void registerClient(cMsgClientInfo info) {
+    public void registerClient(cMsgClientInfo info) throws cMsgException {
+        // Create an object enabling this handler to communicate
+        // with only this client in this cMsg subdomain.
+        try {
+            deliverer = new cMsgMessageDeliverer(info);
+        }
+        catch (IOException e) {
+            cMsgException ex = new cMsgException("socket communication error");
+            ex.setReturnCode(cMsgConstants.errorNetwork);
+            throw ex;
+        }
         return;
     }
 

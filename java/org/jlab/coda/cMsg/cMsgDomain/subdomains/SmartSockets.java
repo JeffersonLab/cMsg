@@ -197,24 +197,6 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to give the subdomain handler on object able to deliver messages
-     * to the client.
-     *
-     * @param deliverer object able to deliver messages to the client
-     * @throws cMsgException
-     */
-    public void setMessageDeliverer(cMsgDeliverMessageInterface deliverer) throws cMsgException {
-        if (deliverer == null) {
-            throw new cMsgException("SmartSockets subdomain must be able to deliver messages, set the deliverer.");
-        }
-        myDeliverer = deliverer;
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
      * Method to register domain client.
      *
      * @param info contains all client info
@@ -223,6 +205,18 @@ public class SmartSockets extends cMsgSubdomainAdapter {
     public void registerClient(cMsgClientInfo info) throws cMsgException {
 
         myClientInfo = info;
+
+
+        // Create an object enabling this handler to communicate
+        // with only this client in this cMsg subdomain.
+        try {
+            myDeliverer = new cMsgMessageDeliverer(info);
+        }
+        catch (IOException e) {
+            cMsgException ex = new cMsgException("socket communication error");
+            ex.setReturnCode(cMsgConstants.errorNetwork);
+            throw ex;
+        }
 
 
         // extract project from UDL remainder
