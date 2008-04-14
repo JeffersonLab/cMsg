@@ -237,6 +237,7 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port,
   int buflen          = 8192;
 #endif
 #endif
+printf("cMsgTcpConnect: ipaddr = %s, port = %hd\n", ip_address, port);
 
   if (ip_address == NULL || fd == NULL) {
      if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpConnect: null argument(s)\n");
