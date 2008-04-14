@@ -174,7 +174,7 @@ printf("Setting UDP = %s\n", UDL);
   msg = cMsgCreateMessage();    /* allocating mem here */
   cMsgSetSubject(msg, subject); /* allocating mem here */
   cMsgSetType(msg, type);       /* allocating mem here */
-  cMsgSetReliableSend(msg, 0);
+/*  cMsgSetReliableSend(msg, 0);*/
   
   /* set compound payload fields */
 
