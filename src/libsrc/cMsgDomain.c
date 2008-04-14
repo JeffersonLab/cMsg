@@ -4437,7 +4437,7 @@ static int parseUDL(const char *UDL, char **password,
     free(udlLowerCase);
     
     udlRemainder = udl + index + 7;
- printf("parseUDL: udl remainder = %s\n", udlRemainder);
+/* printf("parseUDL: udl remainder = %s\n", udlRemainder); */
     
     if (UDLRemainder != NULL) {
         *UDLRemainder = (char *) strdup(udlRemainder);
@@ -4501,11 +4501,11 @@ static int parseUDL(const char *UDL, char **password,
         if (strcasecmp(buffer, "broadcast") == 0 ||
             strcmp(buffer, "255.255.255.255") == 0) {
             mustBroadcast = 1;
- printf("set mustBroadcast to true (locally in parse method)"); 
+/* printf("set mustBroadcast to true (locally in parse method)"); */
         }
         /* if the host is "localhost", find the actual host name */
         else if (strcasecmp(buffer, "localhost") == 0) {
- printf("parseUDL: host = localhost\n");
+/* printf("parseUDL: host = localhost\n"); */
             /* get canonical local host name */
             if (cMsgLocalHost(buffer, bufLength) != CMSG_OK) {
                 /* error */
@@ -4522,10 +4522,10 @@ static int parseUDL(const char *UDL, char **password,
             *broadcast = mustBroadcast;        
         }
     }
-
+/*
 printf("parseUDL: host = %s\n", buffer);
 printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
-
+ */
 
     /* find port */
     if (matches[2].rm_so < 0) {
@@ -4558,7 +4558,7 @@ printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
     if (port != NULL) {
       *port = Port;
     }
- printf("parseUDL: port = %hu\n", Port );
+/* printf("parseUDL: port = %hu\n", Port ); */
 
 
     /* find subdomain */
@@ -4567,7 +4567,7 @@ printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
         if (subdomainType != NULL) {
             *subdomainType = (char *) strdup("cMsg");
         }
- printf("parseUDL: subdomain = cMsg\n");
+/* printf("parseUDL: subdomain = cMsg\n"); */
     }
     else {
         buffer[0] = 0;
@@ -4577,7 +4577,7 @@ printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
         if (subdomainType != NULL) {
             *subdomainType = (char *) strdup(buffer);
         }        
- printf("parseUDL: subdomain = %s\n", buffer);
+/* printf("parseUDL: subdomain = %s\n", buffer); */
     }
 
 
@@ -4596,7 +4596,7 @@ printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
         if (UDLsubRemainder != NULL) {
             *UDLsubRemainder = (char *) strdup(buffer);
         }        
- printf("parseUDL: subdomain remainder = %s, len = %d\n", buffer, len);
+/* printf("parseUDL: subdomain remainder = %s, len = %d\n", buffer, len); */
     }
 
 
@@ -4628,7 +4628,7 @@ printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
              if (password != NULL) {
                *password = (char *) strdup(buffer);
              }        
- printf("parseUDL: password = %s\n", buffer);
+/* printf("parseUDL: password = %s\n", buffer); */
           }
         }
         
@@ -4657,7 +4657,7 @@ printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
              if (timeout != NULL) {
                *timeout = atoi(buffer);
              }        
- printf("parseUDL: timeout = %d seconds\n", atoi(buffer));
+/* printf("parseUDL: timeout = %d seconds\n", atoi(buffer)); */
           }
         }
         
@@ -4669,7 +4669,7 @@ printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
     }
     
     /* UDL parsed ok */
- printf("DONE PARSING UDL\n");
+/* printf("DONE PARSING UDL\n"); */
     free(udl);
     free(buffer);
     return(CMSG_OK);
