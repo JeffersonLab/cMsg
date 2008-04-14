@@ -79,7 +79,7 @@ int main(int argc,char **argv) {
  printf("argc = %d\n", argc);
   
     for (i=1; i<argc; i++) {
- printf("i = %d\n", i);
+ printf("staring i = %d\n", i);
 
        if (strcmp("-a", argv[i]) == 0) {
          if (argc < i+2) {
@@ -153,6 +153,7 @@ printf("Setting UDP = %s\n", UDL);
          usage();
          return(-1);
        }
+ printf("ending i = %d\n", i);
 
     }
     
