@@ -76,10 +76,8 @@ int main(int argc,char **argv) {
   sleeep.tv_nsec = 0;
   
   if (argc > 1) {
- printf("argc = %d\n", argc);
   
     for (i=1; i<argc; i++) {
- printf("staring i = %d\n", i);
 
        if (strcmp("-a", argv[i]) == 0) {
          if (argc < i+2) {
@@ -117,8 +115,8 @@ printf("using text msg size %d\n", msgSize);
 printf("using array msg size %d\n", msgSize);
          bytes = p = (char *) malloc((size_t) msgSize);
          if (p == NULL) exit(1);
-         for (i=0; i < msgSize; i++) {
-           *p = i%255;
+         for (j=0; j < msgSize; j++) {
+           *p = j%255;
            p++;
          }
 
@@ -153,10 +151,7 @@ printf("Setting UDP = %s\n", UDL);
          usage();
          return(-1);
        }
- printf("ending i = %d\n", i);
-
-    }
-    
+    }  
   }
 
  
