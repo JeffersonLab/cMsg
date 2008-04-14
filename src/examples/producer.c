@@ -76,8 +76,10 @@ int main(int argc,char **argv) {
   sleeep.tv_nsec = 0;
   
   if (argc > 1) {
+ printf("argc = %d\n", argc);
   
     for (i=1; i<argc; i++) {
+ printf("i = %d\n", i);
 
        if (strcmp("-a", argv[i]) == 0) {
          if (argc < i+2) {
@@ -90,7 +92,7 @@ int main(int argc,char **argv) {
          msgSize = atoi(argv[++i]);
          text = p = (char *) malloc((size_t) (msgSize + 1));
          if (p == NULL) exit(1);
-         printf("using text msg size %d\n", msgSize);
+printf("using text msg size %d\n", msgSize);
          for (j=0; j < msgSize; j++) {
            *p = 'A';
            p++;
@@ -112,7 +114,7 @@ int main(int argc,char **argv) {
            usage();
            return(-1);
          }
-         printf("using array msg size %d\n", msgSize);
+printf("using array msg size %d\n", msgSize);
          bytes = p = (char *) malloc((size_t) msgSize);
          if (p == NULL) exit(1);
          for (i=0; i < msgSize; i++) {
