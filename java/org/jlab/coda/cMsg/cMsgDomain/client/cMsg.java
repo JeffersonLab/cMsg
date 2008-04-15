@@ -1375,12 +1375,13 @@ public class cMsg extends cMsgDomainAdapter {
         // total length of msg (not including first int which is this size)
         int totalLength = 4*15 + subject.length() + type.length() + payloadLen +
                                  textLen + binaryLength;
-        if (totalLength > 8192) {
-            throw new cMsgException("Too big a message for UDP to send");
-        }
+//        if (totalLength > 8192) {
+//            throw new cMsgException("Too big a message for UDP to send");
+//        }
 
         // create byte array for broadcast
-        ByteArrayOutputStream baos = new ByteArrayOutputStream(8192);
+//        ByteArrayOutputStream baos = new ByteArrayOutputStream(8192);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(totalLength);
         DataOutputStream out = new DataOutputStream(baos);
 
         // go here to try the send again
