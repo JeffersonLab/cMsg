@@ -1484,7 +1484,7 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
     len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType +
           lenPayloadText + lenText + lenByteArray;
     outGoing[0] = htonl(len);
-
+/*
     if (msg->context.udpSend && len > 8192) {
       cMsgConnectReadUnlock(domain);
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -1492,7 +1492,7 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
       }
       return(CMSG_OUT_OF_RANGE);
     }
-
+*/
     /* Make send socket communications thread-safe. That
      * includes protecting the one buffer being used.
      */
