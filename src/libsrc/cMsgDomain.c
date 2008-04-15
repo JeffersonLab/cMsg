@@ -1131,7 +1131,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   getInfo *info;
   const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
   struct sockaddr_in  servaddr;
-    
+ printf("in reconnect\n");   
   cMsgConnectWriteLock(domain);  
 
   /*--------------------------------------------------------------------*/
