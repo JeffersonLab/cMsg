@@ -75,7 +75,7 @@ extern "C" {
 #define CMSG_BIGSOCKBUFSIZE     65536
 #else
 /*#define CMSG_BIGSOCKBUFSIZE    131072*/
-#define CMSG_BIGSOCKBUFSIZE    256000
+#define CMSG_BIGSOCKBUFSIZE    1024000
 #endif
 
 #define CMSG_IOV_MAX        16     /* minimum for POSIX systems */
