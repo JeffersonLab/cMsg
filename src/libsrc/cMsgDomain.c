@@ -1535,11 +1535,11 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
       if (sendLen == len) domain->monData.numUdpSends++;
     }
     if (sendLen != len) {
+        perror("cmsg_cmsg_send");
       cMsgSocketMutexUnlock(domain);
       cMsgConnectReadUnlock(domain);
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
           fprintf(stderr, "cmsg_cmsg_send: write failure, err = %d\n", (int)sendLen);
-          perror("cmsg_cmsg_send:");
       }
       err = CMSG_NETWORK_ERROR;
       break;
