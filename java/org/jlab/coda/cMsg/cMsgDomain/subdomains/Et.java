@@ -61,10 +61,10 @@ public class Et extends cMsgSubdomainAdapter {
     private int chunkSize = 1;
 
     /** Array of new events from ET system. */
-    Event[] events;
+    private Event[] events;
 
     /** Events are put back into the ET system one at a time but must be in an array. */
-    Event[] putEvent = new Event[1];
+    private Event[] putEvent = new Event[1];
 
     /** Number of new events left before we need to call etSystem.newEvents() again. */
     private int eventsLeft = 0;
@@ -74,6 +74,9 @@ public class Et extends cMsgSubdomainAdapter {
 
     /** Attachment to GrandCentral station. */
     private Attachment gcAttachment;
+
+    /** Are we shut down right now? */
+    private boolean shutDown;
 
 
 
@@ -111,7 +114,7 @@ public class Et extends cMsgSubdomainAdapter {
      */
     public void setUDLRemainder(String udlRemainder) throws cMsgException {
         myUDLRemainder=udlRemainder;
-        int debug = 1;
+        boolean debug = false;
 
         if (udlRemainder == null) {
             throw new cMsgException("invalid UDL");
@@ -127,6 +130,7 @@ public class Et extends cMsgSubdomainAdapter {
          * 3) port and host are specified if openMethod = direct
          * 4) any number of multi's may be given - each being a multicast address in dotted-decimal form.
          *    This is used when openMethod = multicast or broadAndmulticast
+         * 5) chunk specifies the number of new events retrieved from the ET system with one call
          */
 
         Pattern pattern = Pattern.compile("([\\w\\.\\-/]+)(.*)");
@@ -141,11 +145,11 @@ public class Et extends cMsgSubdomainAdapter {
             // remainder
             remainder = matcher.group(2);
 
-           // if (debug >= cMsgConstants.debugInfo) {
+            if (debug) {
                 System.out.println("\nparseUDL: " +
                                    "\n  ET file   = " + etFile +
                                    "\n  remainder = " + remainder);
-          //  }
+            }
         }
         else {
             throw new cMsgException("invalid UDL");
@@ -167,7 +171,7 @@ public class Et extends cMsgSubdomainAdapter {
         if (matcher.find()) {
             int chunk = Integer.parseInt(matcher.group(1));
             if (chunk > 0 && chunk < 1001) chunkSize = chunk;
-            System.out.println("chunk size = " + chunk);
+//System.out.println("chunk size = " + chunk);
         }
         
         openMethod = Constants.broadcast;
@@ -189,7 +193,7 @@ public class Et extends cMsgSubdomainAdapter {
             else if(s.equalsIgnoreCase("broadAndMulticast")) {
                 openMethod = Constants.broadAndMulticast;
             }
-System.out.println("parsed open = " + s);
+//System.out.println("parsed open = " + s);
         }
 
         serverPort    = Constants.serverPort;
@@ -228,7 +232,7 @@ System.out.println("parsed open = " + s);
                 ex.setReturnCode(cMsgConstants.errorBadFormat);
                 throw ex;
             }
-            System.out.println("port = " + port);
+//System.out.println("port = " + port);
         }
 
         // If we're making a direct connection ...
@@ -243,7 +247,7 @@ System.out.println("parsed open = " + s);
             else {
                 host = Constants.hostLocal;
             }
-            System.out.println("host = " + host);
+//System.out.println("host = " + host);
         }
         // If we're making a multicast connection ...
         else if (openMethod == Constants.multicast || openMethod == Constants.broadAndMulticast) {
@@ -253,7 +257,7 @@ System.out.println("parsed open = " + s);
             while (matcher.find()) {
                 mAddr = matcher.group(1);
                 multicastAddrs.add(mAddr);
-                System.out.println("multicast addr = " + mAddr);
+//System.out.println("multicast addr = " + mAddr);
             }
         }
 
@@ -267,7 +271,7 @@ System.out.println("parsed open = " + s);
      * @throws cMsgException upon error
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
-        System.out.println("Registering client");
+        //System.out.println("Registering client");
 
         // open ET system
         SystemOpenConfig config = null;
@@ -328,6 +332,8 @@ System.out.println("parsed open = " + s);
      * @throws cMsgException
      */
     synchronized public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
+        if (shutDown) return;
+        
         try {
             if (eventsLeft < 1) {
                 //System.out.println("Get new events from ET system");
@@ -345,14 +351,12 @@ System.out.println("parsed open = " + s);
 
             //System.out.println("Putting new event into ET system");
             etSystem.putEvents(gcAttachment, putEvent);
-
-            //System.out.println("Done with event");
         }
         catch (IOException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
         }
         catch (EtException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
         }
         catch (EtEmptyException e) {
             // never happen
@@ -364,7 +368,7 @@ System.out.println("parsed open = " + s);
             // never happen
         }
         catch (EtWakeUpException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
         }
 
 
@@ -393,8 +397,18 @@ System.out.println("parsed open = " + s);
      * @throws cMsgException
      */
     synchronized public void handleClientShutdown() throws cMsgException {
-        System.out.println("Shutting down client");
+        //System.out.println("Shutting down client");
+        // get rid of unused events
+        if (eventsLeft > 0) {
+            Event[] evs = new Event[eventsLeft];
+            int index = events.length - eventsLeft;
+            try {
+                etSystem.dumpEvents(gcAttachment, evs, index, eventsLeft);
+            }
+            catch (Exception e) { }
+        }
         etSystem.close();
+        shutDown = true;
     }
 
 
