@@ -1131,7 +1131,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   getInfo *info;
   const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
   struct sockaddr_in  servaddr;
- printf("in reconnect\n");   
+    
   cMsgConnectWriteLock(domain);  
 
   /*--------------------------------------------------------------------*/
@@ -1535,11 +1535,11 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
       if (sendLen == len) domain->monData.numUdpSends++;
     }
     if (sendLen != len) {
-        perror("cmsg_cmsg_send");
       cMsgSocketMutexUnlock(domain);
       cMsgConnectReadUnlock(domain);
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-          fprintf(stderr, "cmsg_cmsg_send: write failure, err = %d\n", (int)sendLen);
+          fprintf(stderr, "cmsg_cmsg_send: write failure\n");
+          perror("cmsg_cmsg_send");
       }
       err = CMSG_NETWORK_ERROR;
       break;
@@ -1556,7 +1556,9 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
     /* don't wait for resubscribes */
     if (failoverSuccessful(domain, 0)) {
        fd = domain->sendSocket;
-       printf("cmsg_cmsg_send: FAILOVER SUCCESSFUL, try send again\n");
+       if (cMsgDebug >= CMSG_DEBUG_INFO) {
+           printf("cmsg_cmsg_send: FAILOVER SUCCESSFUL, try send again\n");
+       }
        goto tryagain;
     }  
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
