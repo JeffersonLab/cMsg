@@ -1,5 +1,4 @@
 // to do
-//   word doc
 //   subscribe must lock list until done ?
 
 
