@@ -34,12 +34,12 @@ using namespace cmsg;
 
 
 /******************************************************************/
-static void usage() {
-  printf("Usage:  payload [-s <size> | -b <size>] -u <UDL>\n");
-  printf("                  -s sets the byte size for text data, or\n");
-  printf("                  -b sets the byte size for binary data\n");
-  printf("                  -u sets the connection UDL\n");
-}
+// static void usage() {
+//   printf("Usage:  payload [-s <size> | -b <size>] -u <UDL>\n");
+//   printf("                  -s sets the byte size for text data, or\n");
+//   printf("                  -b sets the byte size for binary data\n");
+//   printf("                  -u sets the connection UDL\n");
+// }
 
 
 /******************************************************************/
@@ -67,8 +67,8 @@ int main(int argc,char **argv) {
   if (b) printf("I GOTTA PAYLOAD\n");
   else printf("I DONT GOTTA PAYLOAD\n");
   
-  msg.addInt32("fred", 1234);
-  msg.addString("str1", "first string");
+  msg.add("fred", 1234);
+  msg.add("str1", "first string");
 
   printf("added fred (1234) and ginger (5678)\n");
   
@@ -76,7 +76,7 @@ int main(int argc,char **argv) {
   vals[1] = "one";
   vals[2] = "two";
   
-  msg.addStringArray("heyho", (const char **) vals, 3);
+  msg.add("heyho", (const char **) vals, 3);
   
   vector<string> *v = msg.getStringVector("heyho");
   for (ii=0; ii<v->size(); ii++) {
