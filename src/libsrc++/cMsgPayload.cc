@@ -169,7 +169,7 @@ namespace cmsg {
      * @param reference to message to copy payload from
      * @throws cMsgException if no memory
      */
-    void cMsgMessage::payloadCopy(cMsgMessage &msg) throw(cMsgException) {
+    void cMsgMessage::payloadCopy(const cMsgMessage &msg) throw(cMsgException) {
         int err = cMsgPayloadCopy(msg.myMsgPointer, myMsgPointer);
         if (err!= CMSG_OK) {
             throw(cMsgException(cMsgPerror(err),err));
@@ -200,7 +200,7 @@ namespace cmsg {
      *
      * @param txt string representing payload
      */
-    void cMsgMessage::payloadSetFromText(const string txt) const
+    void cMsgMessage::payloadSetFromText(const string &txt)
           throw(cMsgException) {
         int err = cMsgPayloadSetAllFieldsFromText(myMsgPointer, txt.c_str());
         if (err != CMSG_OK) {
@@ -294,7 +294,7 @@ namespace cmsg {
  * @throws cMsgException if no payload/field exists or field is not right type,
  *                        or if any arg is NULL
  */   
-void cMsgMessage::getBinary(string name, const char **val, int &len, int &endian) const throw(cMsgException) {
+void cMsgMessage::getBinary(const string &name, const char **val, int &len, int &endian) const throw(cMsgException) {
   int err = cMsgGetBinary(myMsgPointer, name.c_str(), val, &len, &endian);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
@@ -309,35 +309,42 @@ void cMsgMessage::getBinary(string name, const char **val, int &len, int &endian
 
 /**
  * This method returns the value of the given field as a cMsgMessage
- * object pointer if its exists. This object must be deleted to avoid
- * a memory leak.
+ * object pointer if its exists.  A copy of the message is made, so the
+ * pointer must be deleted to avoid a memory leak.
  *
  * @param name name of field to get
  * @return field's value as cMsg message
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-const cMsgMessage *cMsgMessage::getMessage(string name) const throw(cMsgException) {
+cMsgMessage *cMsgMessage::getMessage(const string &name) const throw(cMsgException) {
   const void *val;
   int err = cMsgGetMessage(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
-    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type"));
     else throw(cMsgException("No payload item of that name")); 
   }
-  return new cMsgMessage(const_cast<void *>(val));
+
+  // copy message
+  void *newMsgPointer=cMsgCopyMessage(val);
+  if(newMsgPointer==NULL)
+    throw(cMsgException("?cMsgMessage::getMessage...unable to create new message from message contents",CMSG_ERROR));
+
+  return(new cMsgMessage(newMsgPointer));
 }
 
 //-------------------------------------------------------------------
 
 /**
  * This method returns the value of the given field as a pointer to a
- * vector of cMsgMessage objects if its exists. The vector pointer
- * must be deleted by caller to avoid a memory leak.
+ * vector of pointers to cMsgMessage objects, if its exists. The vector pointer
+ * must be deleted by caller to avoid a memory leak, as do all the messages it 
+ * contains.
  *
  * @param name name of field to get
- * @return field's value as vector of cMsgMessage objects
+ * @return field's value as vector of pointers to cMsgMessage objects
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<cMsgMessage> *cMsgMessage::getMessageVector(string name) const throw(cMsgException) {
+vector<cMsgMessage*> *cMsgMessage::getMessageVector(const string &name) const throw(cMsgException) {
   int len;
   const void **vals;
   int err = cMsgGetMessageArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -346,16 +353,16 @@ vector<cMsgMessage> *cMsgMessage::getMessageVector(string name) const throw(cMsg
     else throw(cMsgException("No payload item of that name")); 
   }
   
-  // put array values into a vector
-  vector<cMsgMessage> *msgs = new vector<cMsgMessage>(len);
+
+  // fill new vector with message copies
+  vector<cMsgMessage*> *msgVecP = new vector<cMsgMessage*>(len);
   for (int i=0; i<len; i++) {
-    //msgs->push_back(new cMsgMessage(cMsgCopyMessage(vals[i])));
-    // theoretically, 1st creation of message only copies pointer,
-    // when added to vector, copy constructor gets called so we should be OK
-    msgs->push_back(cMsgMessage(const_cast<void *>(vals[i])));
+    msgVecP->push_back(new cMsgMessage(cMsgCopyMessage(vals[i])));
   }
-  return msgs;
+
+  return(msgVecP);
 }
+
 
 //-------------------------------------------------------------------
 // STRINGS
@@ -368,7 +375,7 @@ vector<cMsgMessage> *cMsgMessage::getMessageVector(string name) const throw(cMsg
  * @return field's value as string
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-string cMsgMessage::getString(string name) const throw(cMsgException) {
+string cMsgMessage::getString(const string &name) const throw(cMsgException) {
   const char *val;
   int err = cMsgGetString(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -390,7 +397,7 @@ string cMsgMessage::getString(string name) const throw(cMsgException) {
  * @return field's value as vector of strings
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<string> *cMsgMessage::getStringVector(string name) const throw(cMsgException) {
+vector<string> *cMsgMessage::getStringVector(const string &name) const throw(cMsgException) {
   int len;
   const char **vals;
   int err = cMsgGetStringArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -418,7 +425,7 @@ vector<string> *cMsgMessage::getStringVector(string name) const throw(cMsgExcept
  * @return field's value as a float
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-float cMsgMessage::getFloat(string name) const throw(cMsgException) {
+float cMsgMessage::getFloat(const string &name) const throw(cMsgException) {
   float val;
   int err = cMsgGetFloat(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -437,7 +444,7 @@ float cMsgMessage::getFloat(string name) const throw(cMsgException) {
  * @return field's value as a double
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-double cMsgMessage::getDouble(string name) const throw(cMsgException) {
+double cMsgMessage::getDouble(const string &name) const throw(cMsgException) {
   double val;
   int err = cMsgGetDouble(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -461,7 +468,7 @@ double cMsgMessage::getDouble(string name) const throw(cMsgException) {
  * @return field's value as vector of floats
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<float> *cMsgMessage::getFloatVector(string name) const throw(cMsgException) {
+vector<float> *cMsgMessage::getFloatVector(const string &name) const throw(cMsgException) {
   int len;
   const float *vals;
   int err = cMsgGetFloatArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -488,7 +495,7 @@ vector<float> *cMsgMessage::getFloatVector(string name) const throw(cMsgExceptio
  * @return field's value as vector of doubles
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<double> *cMsgMessage::getDoubleVector(string name) const throw(cMsgException) {
+vector<double> *cMsgMessage::getDoubleVector(const string &name) const throw(cMsgException) {
   int len;
   const double *vals;
   int err = cMsgGetDoubleArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -515,7 +522,7 @@ vector<double> *cMsgMessage::getDoubleVector(string name) const throw(cMsgExcept
  * @return field's value as an 8-bit, signed integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-int8_t cMsgMessage::getInt8(string name) const throw(cMsgException) {
+int8_t cMsgMessage::getInt8(const string &name) const throw(cMsgException) {
   int8_t val;
   int err = cMsgGetInt8(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -534,7 +541,7 @@ int8_t cMsgMessage::getInt8(string name) const throw(cMsgException) {
  * @return field's value as an 16-bit, signed integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-int16_t cMsgMessage::getInt16(string name) const throw(cMsgException) {
+int16_t cMsgMessage::getInt16(const string &name) const throw(cMsgException) {
   int16_t val;
   int err = cMsgGetInt16(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -553,7 +560,7 @@ int16_t cMsgMessage::getInt16(string name) const throw(cMsgException) {
  * @return field's value as an 32-bit, signed integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-int32_t cMsgMessage::getInt32(string name) const throw(cMsgException) {
+int32_t cMsgMessage::getInt32(const string &name) const throw(cMsgException) {
   int32_t val;
   int err = cMsgGetInt32(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -572,7 +579,7 @@ int32_t cMsgMessage::getInt32(string name) const throw(cMsgException) {
  * @return field's value as an 64-bit, signed integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-int64_t cMsgMessage::getInt64(string name) const throw(cMsgException) {
+int64_t cMsgMessage::getInt64(const string &name) const throw(cMsgException) {
   int64_t val;
   int err = cMsgGetInt64(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -591,7 +598,7 @@ int64_t cMsgMessage::getInt64(string name) const throw(cMsgException) {
  * @return field's value as an 8-bit, unsigned integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-uint8_t cMsgMessage::getUint8(string name) const throw(cMsgException) {
+uint8_t cMsgMessage::getUint8(const string &name) const throw(cMsgException) {
   uint8_t val;
   int err = cMsgGetUint8(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -610,7 +617,7 @@ uint8_t cMsgMessage::getUint8(string name) const throw(cMsgException) {
  * @return field's value as an 16-bit, unsigned integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-uint16_t cMsgMessage::getUint16(string name) const throw(cMsgException) {
+uint16_t cMsgMessage::getUint16(const string &name) const throw(cMsgException) {
   uint16_t val;
   int err = cMsgGetUint16(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -629,7 +636,7 @@ uint16_t cMsgMessage::getUint16(string name) const throw(cMsgException) {
  * @return field's value as an 32-bit, unsigned integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-uint32_t cMsgMessage::getUint32(string name) const throw(cMsgException) {
+uint32_t cMsgMessage::getUint32(const string &name) const throw(cMsgException) {
   uint32_t val;
   int err = cMsgGetUint32(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -648,7 +655,7 @@ uint32_t cMsgMessage::getUint32(string name) const throw(cMsgException) {
  * @return field's value as an 64-bit, unsigned integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-uint64_t cMsgMessage::getUint64(string name) const throw(cMsgException) {
+uint64_t cMsgMessage::getUint64(const string &name) const throw(cMsgException) {
   uint64_t val;
   int err = cMsgGetUint64(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -671,7 +678,7 @@ uint64_t cMsgMessage::getUint64(string name) const throw(cMsgException) {
  * @return field's value as vector of 8 bit, signed ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<int8_t> *cMsgMessage::getInt8Vector(string name) const throw(cMsgException) {
+vector<int8_t> *cMsgMessage::getInt8Vector(const string &name) const throw(cMsgException) {
   int len;
   const int8_t *vals;
   int err = cMsgGetInt8Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -698,7 +705,7 @@ vector<int8_t> *cMsgMessage::getInt8Vector(string name) const throw(cMsgExceptio
  * @return field's value as vector of 16 bit, signed ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<int16_t> *cMsgMessage::getInt16Vector(string name) const throw(cMsgException) {
+vector<int16_t> *cMsgMessage::getInt16Vector(const string &name) const throw(cMsgException) {
   int len;
   const int16_t *vals;
   int err = cMsgGetInt16Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -725,7 +732,7 @@ vector<int16_t> *cMsgMessage::getInt16Vector(string name) const throw(cMsgExcept
  * @return field's value as vector of 32 bit, signed ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<int32_t> *cMsgMessage::getInt32Vector(string name) const throw(cMsgException) {
+vector<int32_t> *cMsgMessage::getInt32Vector(const string &name) const throw(cMsgException) {
   int len;
   const int32_t *vals;
   int err = cMsgGetInt32Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -752,7 +759,7 @@ vector<int32_t> *cMsgMessage::getInt32Vector(string name) const throw(cMsgExcept
  * @return field's value as vector of 64 bit, signed ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<int64_t> *cMsgMessage::getInt64Vector(string name) const throw(cMsgException) {
+vector<int64_t> *cMsgMessage::getInt64Vector(const string &name) const throw(cMsgException) {
   int len;
   const int64_t *vals;
   int err = cMsgGetInt64Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -780,7 +787,7 @@ vector<int64_t> *cMsgMessage::getInt64Vector(string name) const throw(cMsgExcept
  * @return field's value as vector of 8 bit, unsigned ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<uint8_t> *cMsgMessage::getUint8Vector(string name) const throw(cMsgException) {
+vector<uint8_t> *cMsgMessage::getUint8Vector(const string &name) const throw(cMsgException) {
   int len;
   const uint8_t *vals;
   int err = cMsgGetUint8Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -808,7 +815,7 @@ vector<uint8_t> *cMsgMessage::getUint8Vector(string name) const throw(cMsgExcept
  * @return field's value as vector of 16 bit, unsigned ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<uint16_t> *cMsgMessage::getUint16Vector(string name) const throw(cMsgException) {
+vector<uint16_t> *cMsgMessage::getUint16Vector(const string &name) const throw(cMsgException) {
   int len;
   const uint16_t *vals;
   int err = cMsgGetUint16Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -835,7 +842,7 @@ vector<uint16_t> *cMsgMessage::getUint16Vector(string name) const throw(cMsgExce
  * @return field's value as vector of 32 bit, unsigned ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<uint32_t> *cMsgMessage::getUint32Vector(string name) const throw(cMsgException) {
+vector<uint32_t> *cMsgMessage::getUint32Vector(const string &name) const throw(cMsgException) {
   int len;
   const uint32_t *vals;
   int err = cMsgGetUint32Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -862,7 +869,7 @@ vector<uint32_t> *cMsgMessage::getUint32Vector(string name) const throw(cMsgExce
  * @return field's value as vector of 64 bit, unsigned ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<uint64_t> *cMsgMessage::getUint64Vector(string name) const throw(cMsgException) {
+vector<uint64_t> *cMsgMessage::getUint64Vector(const string &name) const throw(cMsgException) {
   int len;
   const uint64_t *vals;
   int err = cMsgGetUint64Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -901,7 +908,7 @@ vector<uint64_t> *cMsgMessage::getUint64Vector(string name) const throw(cMsgExce
  * @throws cMsgException if no memory, error in binary-to-text conversion, name already used,
  *                       improper name, src is null, size < 1, or endian improper value
  */   
-void cMsgMessage::addBinary(string name, const char *src, int size, int endian) {
+void cMsgMessage::addBinary(const string &name, const char *src, int size, int endian) {
   int err = cMsgAddBinary(myMsgPointer, name.c_str(), src, size, endian);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT)     throw(cMsgException("Improper name or if error in binary-to-text conversion"));
@@ -926,7 +933,7 @@ void cMsgMessage::addBinary(string name, const char *src, int size, int endian) 
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addString(string name, string s) {
+void cMsgMessage::addString(const string &name, const string &s) {
     int err = cMsgAddString(myMsgPointer, name.c_str(), s.c_str());
     if (err != CMSG_OK) {
              if (err == CMSG_BAD_FORMAT)     throw(cMsgException("Improper name"));
@@ -934,6 +941,22 @@ void cMsgMessage::addString(string name, string s) {
         else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
         else throw(cMsgException("Error"));
     }
+}
+
+//-------------------------------------------------------------------
+
+/**
+ * This method adds a string to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than
+ * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param pointer to s string to add
+ *
+ * @throws cMsgException if no memory, name already used, or improper name
+ */   
+void cMsgMessage::addString(const string &name, const string *s) {
+  addString(name,*s);
 }
 
 //-------------------------------------------------------------------
@@ -949,7 +972,7 @@ void cMsgMessage::addString(string name, string s) {
  *
  * @throws cMsgException if no memory, name already used, improper name, strs is null, len < 1
  */
-void cMsgMessage::addStringArray(string name, const char **strs, int len) {
+void cMsgMessage::addStringArray(const string &name, const char **strs, int len) {
     if (strs == NULL) throw (cMsgException("strs arg is null"));
     if (len < 1) throw (cMsgException("len < 1"));
 
@@ -975,7 +998,7 @@ void cMsgMessage::addStringArray(string name, const char **strs, int len) {
  *
  * @throws cMsgException if no memory, name already used, improper name, strs is null, len < 1
  */
-void cMsgMessage::addStringArray(string name, string *strs, int len) {
+void cMsgMessage::addStringArray(const string &name, const string *strs, int len) {
   if (strs == NULL) throw (cMsgException("strs arg is null"));
   if (len < 1) throw (cMsgException("len < 1"));
 
@@ -1015,7 +1038,7 @@ void cMsgMessage::addStringArray(string name, string *strs, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */
-void cMsgMessage::addStringVector(string name, vector<string> &strs) {
+void cMsgMessage::addStringVector(const string &name, const vector<string> &strs) {
 #ifdef linux
     const char *strings[strs.size()];
 #else
@@ -1040,6 +1063,20 @@ void cMsgMessage::addStringVector(string name, vector<string> &strs) {
 #endif
 }
 
+/**
+ * This method adds a vector of strings to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than
+ * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param pointer to strs vector of strings to add
+ *
+ * @throws cMsgException if no memory, name already used, or improper name
+ */
+void cMsgMessage::addStringVector(const string &name, const vector<string> *strs) {
+  addStringVector(name,*strs);
+}
+
 //-------------------------------------------------------------------
 // CMSG MESSAGES
 //-------------------------------------------------------------------
@@ -1054,7 +1091,7 @@ void cMsgMessage::addStringVector(string name, vector<string> &strs) {
  *
  * @throws cMsgException if no memory, name already used, improper name
  */
-void cMsgMessage::addMessage(string name, cMsgMessage &msg) {
+void cMsgMessage::addMessage(const string &name, const cMsgMessage &msg) {
 	int err = cMsgAddMessage(myMsgPointer, name.c_str(), msg.myMsgPointer);
 	if (err != CMSG_OK) {
 		if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
@@ -1062,6 +1099,22 @@ void cMsgMessage::addMessage(string name, cMsgMessage &msg) {
 		else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
 		else throw(cMsgException("Error"));
 	}
+}
+
+//-------------------------------------------------------------------
+
+/**
+ * This method adds a cMsg message to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param msg  pointer to cMsgMessage object to add
+ *
+ * @throws cMsgException if no memory, name already used, improper name
+ */
+void cMsgMessage::addMessage(const string &name, const cMsgMessage *msg) {
+  addMessage(name,*msg);
 }
 
 //-------------------------------------------------------------------
@@ -1077,7 +1130,7 @@ void cMsgMessage::addMessage(string name, cMsgMessage &msg) {
  *
  * @throws cMsgException if no memory, name already used, improper name, msg is null, len < 1
  */   
-void cMsgMessage::addMessageArray(string name, cMsgMessage *msg, int len) {
+void cMsgMessage::addMessageArray(const string &name, const cMsgMessage *msg, int len) {
   if (msg == NULL) throw (cMsgException("msg arg is null"));
   if (len < 1) throw (cMsgException("len < 1"));
   
@@ -1113,23 +1166,23 @@ void cMsgMessage::addMessageArray(string name, cMsgMessage *msg, int len) {
  * or contain white space or quotes.
  *
  * @param name name of field to add
- * @param msg vector of cMsgMessage objects to add (copy)
+ * @param vector of cMsgMessage pointers to add (copy)
  *
  * @throws cMsgException if no memory, name already used, improper name
  */   
-void cMsgMessage::addMessageVector(string name, vector<cMsgMessage> &msg) {
+void cMsgMessage::addMessageVector(const string &name, const vector<cMsgMessage*> &msgVec) {
 #ifdef linux
-    const void *msgs[msg.size()];
+    const void *msgs[msgVec.size()];
 #else
-    const void **msgs = (const void **)malloc(msg.size()*sizeof(void *));
+    const void **msgs = (const void **)malloc(msgVec.size()*sizeof(void *));
     if (msgs == NULL) throw(cMsgException("No memory available"));
 #endif
   
-  for (vector<cMsgMessage>::size_type i=0; i < msg.size(); i++) {
-    msgs[i] = msg[i].myMsgPointer;
+  for (vector<cMsgMessage>::size_type i=0; i < msgVec.size(); i++) {
+    msgs[i] = msgVec[i]->myMsgPointer;
   }
   
-  int err = cMsgAddMessageArray(myMsgPointer, name.c_str(), msgs, msg.size());
+  int err = cMsgAddMessageArray(myMsgPointer, name.c_str(), msgs, msgVec.size());
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
@@ -1141,6 +1194,25 @@ void cMsgMessage::addMessageVector(string name, vector<cMsgMessage> &msg) {
   free(msgs);
 #endif
 }
+
+
+//-------------------------------------------------------------------
+
+
+/**
+ * This method adds a named vector of cMsgMessage objects to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param pointer to vector of cMsgMessage pointers to add (copy)
+ *
+ * @throws cMsgException if no memory, name already used, improper name
+ */   
+void cMsgMessage::addMessageVector(const string &name, const vector<cMsgMessage*> *msgVec) {
+  addMessageVector(name,*msgVec);
+}
+
 
 //-------------------------------------------------------------------
 // REALS
@@ -1156,7 +1228,7 @@ void cMsgMessage::addMessageVector(string name, vector<cMsgMessage> &msg) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addFloat(string name, float val) {
+void cMsgMessage::addFloat(const string &name, float val) {
   int err = cMsgAddFloat(myMsgPointer, name.c_str(), val);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1179,7 +1251,7 @@ void cMsgMessage::addFloat(string name, float val) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addDouble(string name, double val) {
+void cMsgMessage::addDouble(const string &name, double val) {
   int err = cMsgAddDouble(myMsgPointer, name.c_str(), val);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1205,7 +1277,7 @@ void cMsgMessage::addDouble(string name, double val) {
  *
  * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
-void cMsgMessage::addFloatArray(string name, float *vals, int len) {
+void cMsgMessage::addFloatArray(const string &name, const float *vals, int len) {
   int err = cMsgAddFloatArray(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1228,7 +1300,7 @@ void cMsgMessage::addFloatArray(string name, float *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addFloatVector(string name, vector<float> &vals) {
+void cMsgMessage::addFloatVector(const string &name, const vector<float> &vals) {
   int err = cMsgAddFloatArray(myMsgPointer, name.c_str(), &vals[0], vals.size());
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1237,6 +1309,22 @@ void cMsgMessage::addFloatVector(string name, vector<float> &vals) {
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
   }
+}
+
+//-------------------------------------------------------------------
+
+/**
+ * This method adds a named vector of floats to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param vals pointer to vector of floats to add (copy)
+ *
+ * @throws cMsgException if no memory, name already used, or improper name
+ */   
+void cMsgMessage::addFloatVector(const string &name, const vector<float> *vals) {
+  addFloatVector(name,*vals);
 }
 
 //-------------------------------------------------------------------
@@ -1252,7 +1340,7 @@ void cMsgMessage::addFloatVector(string name, vector<float> &vals) {
  *
  * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
-void cMsgMessage::addDoubleArray(string name, double *vals, int len) {
+void cMsgMessage::addDoubleArray(const string &name, const double *vals, int len) {
   int err = cMsgAddDoubleArray(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1275,7 +1363,7 @@ void cMsgMessage::addDoubleArray(string name, double *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addDoubleVector(string name, vector<double> &vals) {
+void cMsgMessage::addDoubleVector(const string &name, const vector<double> &vals) {
   int err = cMsgAddDoubleArray(myMsgPointer, name.c_str(), &vals[0], vals.size());
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1284,6 +1372,22 @@ void cMsgMessage::addDoubleVector(string name, vector<double> &vals) {
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
   }
+}
+
+//-------------------------------------------------------------------
+
+/**
+ * This method adds a named vector of doubles to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param vals pointer to vector of doubles to add (copy)
+ *
+ * @throws cMsgException if no memory, name already used, or improper name
+ */   
+void cMsgMessage::addDoubleVector(const string &name, const vector<double> *vals) {
+  addDoubleVector(name,*vals);
 }
 
 //-------------------------------------------------------------------
@@ -1300,7 +1404,7 @@ void cMsgMessage::addDoubleVector(string name, vector<double> &vals) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addInt8(string name, int8_t val) {
+void cMsgMessage::addInt8(const string &name, int8_t val) {
   int err = cMsgAddInt8(myMsgPointer, name.c_str(), val);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1323,7 +1427,7 @@ void cMsgMessage::addInt8(string name, int8_t val) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addInt16(string name, int16_t val) {
+void cMsgMessage::addInt16(const string &name, int16_t val) {
   int err = cMsgAddInt16(myMsgPointer, name.c_str(), val);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1346,7 +1450,7 @@ void cMsgMessage::addInt16(string name, int16_t val) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addInt32(string name, int32_t val) {
+void cMsgMessage::addInt32(const string &name, int32_t val) {
   int err = cMsgAddInt32(myMsgPointer, name.c_str(), val);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1369,7 +1473,7 @@ void cMsgMessage::addInt32(string name, int32_t val) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addInt64(string name, int64_t val) {
+void cMsgMessage::addInt64(const string &name, int64_t val) {
   int err = cMsgAddInt64(myMsgPointer, name.c_str(), val);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1392,7 +1496,7 @@ void cMsgMessage::addInt64(string name, int64_t val) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addUint8(string name, uint8_t val) {
+void cMsgMessage::addUint8(const string &name, uint8_t val) {
   int err = cMsgAddUint8(myMsgPointer, name.c_str(), val);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1415,7 +1519,7 @@ void cMsgMessage::addUint8(string name, uint8_t val) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addUint16(string name, uint16_t val) {
+void cMsgMessage::addUint16(const string &name, uint16_t val) {
   int err = cMsgAddUint16(myMsgPointer, name.c_str(), val);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1438,7 +1542,7 @@ void cMsgMessage::addUint16(string name, uint16_t val) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addUint32(string name, uint32_t val) {
+void cMsgMessage::addUint32(const string &name, uint32_t val) {
   int err = cMsgAddUint32(myMsgPointer, name.c_str(), val);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1461,7 +1565,7 @@ void cMsgMessage::addUint32(string name, uint32_t val) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addUint64(string name, uint64_t val) {
+void cMsgMessage::addUint64(const string &name, uint64_t val) {
   int err = cMsgAddUint64(myMsgPointer, name.c_str(), val);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1487,7 +1591,7 @@ void cMsgMessage::addUint64(string name, uint64_t val) {
  *
  * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
-void cMsgMessage::addInt8Array(string name, int8_t *vals, int len) {
+void cMsgMessage::addInt8Array(const string &name, const int8_t *vals, int len) {
   int err = cMsgAddInt8Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1499,6 +1603,7 @@ void cMsgMessage::addInt8Array(string name, int8_t *vals, int len) {
 }
 
 //-------------------------------------------------------------------
+
 /**
  * This method adds a named vector of 8-bit, signed ints to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
@@ -1510,7 +1615,7 @@ void cMsgMessage::addInt8Array(string name, int8_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addInt8Vector(string name, vector<int8_t> &vals) {
+void cMsgMessage::addInt8Vector(const string &name, const vector<int8_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
@@ -1527,6 +1632,23 @@ void cMsgMessage::addInt8Vector(string name, vector<int8_t> &vals) {
 //-------------------------------------------------------------------
 
 /**
+ * This method adds a named vector of 8-bit, signed ints to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param vals pointer to vector of 8-bit, signed ints to add (copy)
+ * @param len number of ints from array to add
+ *
+ * @throws cMsgException if no memory, name already used, or improper name
+ */   
+void cMsgMessage::addInt8Vector(const string &name, const vector<int8_t> *vals) {
+  addInt8Vector(name,*vals);
+}
+
+//-------------------------------------------------------------------
+
+/**
  * This method adds a named array of 16-bit, signed ints to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
  * or contain white space or quotes.
@@ -1537,7 +1659,7 @@ void cMsgMessage::addInt8Vector(string name, vector<int8_t> &vals) {
  *
  * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
-void cMsgMessage::addInt16Array(string name, int16_t *vals, int len) {
+void cMsgMessage::addInt16Array(const string &name, const int16_t *vals, int len) {
   int err = cMsgAddInt16Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1549,6 +1671,7 @@ void cMsgMessage::addInt16Array(string name, int16_t *vals, int len) {
 }
 
 //-------------------------------------------------------------------
+
 /**
  * This method adds a named vector of 16-bit, signed ints to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
@@ -1560,8 +1683,7 @@ void cMsgMessage::addInt16Array(string name, int16_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addInt16Vector(string name, vector<int16_t> &vals) {
-  
+void cMsgMessage::addInt16Vector(const string &name, const vector<int16_t> &vals) {
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
   int err = cMsgAddInt16Array(myMsgPointer, name.c_str(), &vals[0], vals.size());
@@ -1577,6 +1699,23 @@ void cMsgMessage::addInt16Vector(string name, vector<int16_t> &vals) {
 //-------------------------------------------------------------------
 
 /**
+ * This method adds a named vector of 16-bit, signed ints to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param vals pointer to vector of 16-bit, signed ints to add (copy)
+ * @param len number of ints from array to add
+ *
+ * @throws cMsgException if no memory, name already used, or improper name
+ */   
+void cMsgMessage::addInt16Vector(const string &name, const vector<int16_t> *vals) {
+  addInt16Vector(name,*vals);
+}
+
+//-------------------------------------------------------------------
+
+/**
  * This method adds a named array of 32-bit, signed ints to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
  * or contain white space or quotes.
@@ -1587,7 +1726,7 @@ void cMsgMessage::addInt16Vector(string name, vector<int16_t> &vals) {
  *
  * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
-void cMsgMessage::addInt32Array(string name, int32_t *vals, int len) {
+void cMsgMessage::addInt32Array(const string &name, const int32_t *vals, int len) {
   int err = cMsgAddInt32Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1599,6 +1738,7 @@ void cMsgMessage::addInt32Array(string name, int32_t *vals, int len) {
 }
 
 //-------------------------------------------------------------------
+
 /**
  * This method adds a named vector of 32-bit, signed ints to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
@@ -1610,7 +1750,7 @@ void cMsgMessage::addInt32Array(string name, int32_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addInt32Vector(string name, vector<int32_t> &vals) {
+void cMsgMessage::addInt32Vector(const string &name, const vector<int32_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
@@ -1627,6 +1767,23 @@ void cMsgMessage::addInt32Vector(string name, vector<int32_t> &vals) {
 //-------------------------------------------------------------------
 
 /**
+ * This method adds a named vector of 32-bit, signed ints to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param vals pointer to vector of 32-bit, signed ints to add (copy)
+ * @param len number of ints from array to add
+ *
+ * @throws cMsgException if no memory, name already used, or improper name
+ */   
+void cMsgMessage::addInt32Vector(const string &name, const vector<int32_t> *vals) {
+  addInt32Vector(name,*vals);
+}
+
+//-------------------------------------------------------------------
+
+/**
  * This method adds a named array of 64-bit, signed ints to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
  * or contain white space or quotes.
@@ -1637,7 +1794,7 @@ void cMsgMessage::addInt32Vector(string name, vector<int32_t> &vals) {
  *
  * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
-void cMsgMessage::addInt64Array(string name, int64_t *vals, int len) {
+void cMsgMessage::addInt64Array(const string &name, const int64_t *vals, int len) {
   int err = cMsgAddInt64Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1649,6 +1806,7 @@ void cMsgMessage::addInt64Array(string name, int64_t *vals, int len) {
 }
 
 //-------------------------------------------------------------------
+
 /**
  * This method adds a named vector of 64-bit, signed ints to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
@@ -1660,7 +1818,7 @@ void cMsgMessage::addInt64Array(string name, int64_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addInt64Vector(string name, vector<int64_t> &vals) {
+void cMsgMessage::addInt64Vector(const string &name, const vector<int64_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
@@ -1672,6 +1830,23 @@ void cMsgMessage::addInt64Vector(string name, vector<int64_t> &vals) {
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
   }
+}
+
+//-------------------------------------------------------------------
+
+/**
+ * This method adds a named vector of 64-bit, signed ints to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param vals pointer to vector of 64-bit, signed ints to add (copy)
+ * @param len number of ints from array to add
+ *
+ * @throws cMsgException if no memory, name already used, or improper name
+ */   
+void cMsgMessage::addInt64Vector(const string &name, const vector<int64_t> *vals) {
+  addInt64Vector(name,*vals);
 }
 
 //-------------------------------------------------------------------
@@ -1688,7 +1863,7 @@ void cMsgMessage::addInt64Vector(string name, vector<int64_t> &vals) {
  *
  * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
-void cMsgMessage::addUint8Array(string name, uint8_t *vals, int len) {
+void cMsgMessage::addUint8Array(const string &name, const uint8_t *vals, int len) {
   int err = cMsgAddUint8Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1700,6 +1875,7 @@ void cMsgMessage::addUint8Array(string name, uint8_t *vals, int len) {
 }
 
 //-------------------------------------------------------------------
+
 /**
  * This method adds a named vector of 8-bit, unsigned ints to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
@@ -1711,7 +1887,7 @@ void cMsgMessage::addUint8Array(string name, uint8_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addUint8Vector(string name, vector<uint8_t> &vals) {
+void cMsgMessage::addUint8Vector(const string &name, const vector<uint8_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
@@ -1728,6 +1904,23 @@ void cMsgMessage::addUint8Vector(string name, vector<uint8_t> &vals) {
 //-------------------------------------------------------------------
 
 /**
+ * This method adds a named vector of 8-bit, unsigned ints to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param vals pointer to vector of 8-bit, unsigned ints to add (copy)
+ * @param len number of ints from array to add
+ *
+ * @throws cMsgException if no memory, name already used, or improper name
+ */   
+void cMsgMessage::addUint8Vector(const string &name, const vector<uint8_t> *vals) {
+  addUint8Vector(name,*vals);
+}
+
+//-------------------------------------------------------------------
+
+/**
  * This method adds a named array of 16-bit, unsigned ints to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
  * or contain white space or quotes.
@@ -1738,7 +1931,7 @@ void cMsgMessage::addUint8Vector(string name, vector<uint8_t> &vals) {
  *
  * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
-void cMsgMessage::addUint16Array(string name, uint16_t *vals, int len) {
+void cMsgMessage::addUint16Array(const string &name, const uint16_t *vals, int len) {
   int err = cMsgAddUint16Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1750,6 +1943,7 @@ void cMsgMessage::addUint16Array(string name, uint16_t *vals, int len) {
 }
 
 //-------------------------------------------------------------------
+
 /**
  * This method adds a named vector of 16-bit, unsigned ints to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
@@ -1761,7 +1955,7 @@ void cMsgMessage::addUint16Array(string name, uint16_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addUint16Vector(string name, vector<uint16_t> &vals) {
+void cMsgMessage::addUint16Vector(const string &name, const vector<uint16_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
@@ -1778,6 +1972,23 @@ void cMsgMessage::addUint16Vector(string name, vector<uint16_t> &vals) {
 //-------------------------------------------------------------------
 
 /**
+ * This method adds a named vector of 16-bit, unsigned ints to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param vals pointer to vector of 16-bit, unsigned ints to add (copy)
+ * @param len number of ints from array to add
+ *
+ * @throws cMsgException if no memory, name already used, or improper name
+ */   
+void cMsgMessage::addUint16Vector(const string &name, const vector<uint16_t> *vals) {
+  addUint16Vector(name,*vals);
+}
+
+//-------------------------------------------------------------------
+
+/**
  * This method adds a named array of 32-bit, unsigned ints to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
  * or contain white space or quotes.
@@ -1788,7 +1999,7 @@ void cMsgMessage::addUint16Vector(string name, vector<uint16_t> &vals) {
  *
  * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
-void cMsgMessage::addUint32Array(string name, uint32_t *vals, int len) {
+void cMsgMessage::addUint32Array(const string &name, const uint32_t *vals, int len) {
   int err = cMsgAddUint32Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1800,6 +2011,7 @@ void cMsgMessage::addUint32Array(string name, uint32_t *vals, int len) {
 }
 
 //-------------------------------------------------------------------
+
 /**
  * This method adds a named vector of 32-bit, unsigned ints to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
@@ -1811,7 +2023,7 @@ void cMsgMessage::addUint32Array(string name, uint32_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addUint32Vector(string name, vector<uint32_t> &vals) {
+void cMsgMessage::addUint32Vector(const string &name, const vector<uint32_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
@@ -1828,6 +2040,23 @@ void cMsgMessage::addUint32Vector(string name, vector<uint32_t> &vals) {
 //-------------------------------------------------------------------
 
 /**
+ * This method adds a named vector of 32-bit, unsigned ints to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param vals pointer to vector of 32-bit, unsigned ints to add (copy)
+ * @param len number of ints from array to add
+ *
+ * @throws cMsgException if no memory, name already used, or improper name
+ */   
+void cMsgMessage::addUint32Vector(const string &name, const vector<uint32_t> *vals) {
+  addUint32Vector(name,*vals);
+}
+
+//-------------------------------------------------------------------
+
+/**
  * This method adds a named array of 64-bit, unsigned ints to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
  * or contain white space or quotes.
@@ -1838,7 +2067,7 @@ void cMsgMessage::addUint32Vector(string name, vector<uint32_t> &vals) {
  *
  * @throws cMsgException if no memory, name already used, improper name, or vals is null
  */   
-void cMsgMessage::addUint64Array(string name, uint64_t *vals, int len) {
+void cMsgMessage::addUint64Array(const string &name, const uint64_t *vals, int len) {
   int err = cMsgAddUint64Array(myMsgPointer, name.c_str(), vals, len);
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT ||
@@ -1850,6 +2079,7 @@ void cMsgMessage::addUint64Array(string name, uint64_t *vals, int len) {
 }
 
 //-------------------------------------------------------------------
+
 /**
  * This method adds a named vector of 64-bit, unsigned ints to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
@@ -1861,7 +2091,7 @@ void cMsgMessage::addUint64Array(string name, uint64_t *vals, int len) {
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
-void cMsgMessage::addUint64Vector(string name, vector<uint64_t> &vals) {
+void cMsgMessage::addUint64Vector(const string &name, const vector<uint64_t> &vals) {
   
   // Can transform vector into array since STL standard mandates continguous
   // memory for storage of vector data (ie it's a standard C++ technique).
@@ -1873,6 +2103,23 @@ void cMsgMessage::addUint64Vector(string name, vector<uint64_t> &vals) {
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
     else throw(cMsgException("Error")); 
   }
+}
+
+//-------------------------------------------------------------------
+
+/**
+ * This method adds a named vector of 64-bit, unsigned ints to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param vals pointer to vector of 64-bit, unsigned ints to add (copy)
+ * @param len number of ints from array to add
+ *
+ * @throws cMsgException if no memory, name already used, or improper name
+ */   
+void cMsgMessage::addUint64Vector(const string &name, const vector<uint64_t> *vals) {
+  addUint64Vector(name,*vals);
 }
 
 //-------------------------------------------------------------------
