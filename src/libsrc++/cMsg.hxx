@@ -268,6 +268,7 @@ class cMsgCallback {
 
 public:
   virtual void callback(cMsgMessage *msg, void *userObject) = 0;
+  virtual ~cMsgCallback() {};
 };
 
 
