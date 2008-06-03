@@ -204,67 +204,67 @@ public:
   // Methods to add items to a payload
   //
 
-  virtual void addBinary(const string &name, const char *src, int size, int endian);
+  virtual void add(const string &name, const char *src, int size, int endian);
   
-  virtual void addString(const string &name, const string &s);
-  virtual void addString(const string &name, const string *s);
-  virtual void addStringArray(const string &name, const char **strs, int len);
-  virtual void addStringArray(const string &name, const string *strs, int len);
-  virtual void addStringVector(const string &name, const vector<string> &strs);
-  virtual void addStringVector(const string &name, const vector<string> *strs);
+  virtual void add(const string &name, const string &s);
+  virtual void add(const string &name, const string *s);
+  virtual void add(const string &name, const char **strs, int len);
+  virtual void add(const string &name, const string *strs, int len);
+  virtual void add(const string &name, const vector<string> &strs);
+  virtual void add(const string &name, const vector<string> *strs);
 
-  virtual void addMessage(const string &name, const cMsgMessage &msg);
-  virtual void addMessage(const string &name, const cMsgMessage *msg);
-  virtual void addMessageArray(const string &name, const cMsgMessage *msg, int len);
-  virtual void addMessageVector(const string &name, const vector<cMsgMessage*> &msgVec);
-  virtual void addMessageVector(const string &name, const vector<cMsgMessage*> *msgVec);
+  virtual void add(const string &name, const cMsgMessage &msg);
+  virtual void add(const string &name, const cMsgMessage *msg);
+  virtual void add(const string &name, const cMsgMessage *msg, int len);
+  virtual void add(const string &name, const vector<cMsgMessage*> &msgVec);
+  virtual void add(const string &name, const vector<cMsgMessage*> *msgVec);
 
-  virtual void addFloat(const string &name, float val);
-  virtual void addDouble(const string &name, double val);
-  virtual void addFloatArray(const string &name, const float *vals, int len);
-  virtual void addDoubleArray(const string &name, const double *vals, int len);
-  virtual void addFloatVector(const string &name, const vector<float> &vals);
-  virtual void addFloatVector(const string &name, const vector<float> *vals);
-  virtual void addDoubleVector(const string &name, const vector<double> &vals);
-  virtual void addDoubleVector(const string &name, const vector<double> *vals);
+  virtual void add(const string &name, float val);
+  virtual void add(const string &name, double val);
+  virtual void add(const string &name, const float *vals, int len);
+  virtual void add(const string &name, const double *vals, int len);
+  virtual void add(const string &name, const vector<float> &vals);
+  virtual void add(const string &name, const vector<float> *vals);
+  virtual void add(const string &name, const vector<double> &vals);
+  virtual void add(const string &name, const vector<double> *vals);
 
-  virtual void addInt8 (const string &name, int8_t  val);
-  virtual void addInt16(const string &name, int16_t val);
-  virtual void addInt32(const string &name, int32_t val);
-  virtual void addInt64(const string &name, int64_t val);
+  virtual void add(const string &name, int8_t  val);
+  virtual void add(const string &name, int16_t val);
+  virtual void add(const string &name, int32_t val);
+  virtual void add(const string &name, int64_t val);
    
-  virtual void addUint8 (const string &name, uint8_t  val);
-  virtual void addUint16(const string &name, uint16_t val);
-  virtual void addUint32(const string &name, uint32_t val);
-  virtual void addUint64(const string &name, uint64_t val);
+  virtual void add(const string &name, uint8_t  val);
+  virtual void add(const string &name, uint16_t val);
+  virtual void add(const string &name, uint32_t val);
+  virtual void add(const string &name, uint64_t val);
   
-  virtual void addInt8Array (const string &name, const int8_t  *vals, int len);
-  virtual void addInt16Array(const string &name, const int16_t *vals, int len);
-  virtual void addInt32Array(const string &name, const int32_t *vals, int len);
-  virtual void addInt64Array(const string &name, const int64_t *vals, int len);
+  virtual void add(const string &name, const int8_t  *vals, int len);
+  virtual void add(const string &name, const int16_t *vals, int len);
+  virtual void add(const string &name, const int32_t *vals, int len);
+  virtual void add(const string &name, const int64_t *vals, int len);
    
-  virtual void addUint8Array (const string &name, const uint8_t  *vals, int len);
-  virtual void addUint16Array(const string &name, const uint16_t *vals, int len);
-  virtual void addUint32Array(const string &name, const uint32_t *vals, int len);
-  virtual void addUint64Array(const string &name, const uint64_t *vals, int len);
+  virtual void add(const string &name, const uint8_t  *vals, int len);
+  virtual void add(const string &name, const uint16_t *vals, int len);
+  virtual void add(const string &name, const uint32_t *vals, int len);
+  virtual void add(const string &name, const uint64_t *vals, int len);
   
-  virtual void addInt8Vector (const string &name, const vector<int8_t>  &vals);
-  virtual void addInt8Vector (const string &name, const vector<int8_t>  *vals);
-  virtual void addInt16Vector(const string &name, const vector<int16_t> &vals);
-  virtual void addInt16Vector(const string &name, const vector<int16_t> *vals);
-  virtual void addInt32Vector(const string &name, const vector<int32_t> &vals);
-  virtual void addInt32Vector(const string &name, const vector<int32_t> *vals);
-  virtual void addInt64Vector(const string &name, const vector<int64_t> &vals);
-  virtual void addInt64Vector(const string &name, const vector<int64_t> *vals);
+  virtual void add(const string &name, const vector<int8_t>  &vals);
+  virtual void add(const string &name, const vector<int8_t>  *vals);
+  virtual void add(const string &name, const vector<int16_t> &vals);
+  virtual void add(const string &name, const vector<int16_t> *vals);
+  virtual void add(const string &name, const vector<int32_t> &vals);
+  virtual void add(const string &name, const vector<int32_t> *vals);
+  virtual void add(const string &name, const vector<int64_t> &vals);
+  virtual void add(const string &name, const vector<int64_t> *vals);
   
-  virtual void addUint8Vector (const string &name, const vector<uint8_t>  &vals);
-  virtual void addUint8Vector (const string &name, const vector<uint8_t>  *vals);
-  virtual void addUint16Vector(const string &name, const vector<uint16_t> &vals);
-  virtual void addUint16Vector(const string &name, const vector<uint16_t> *vals);
-  virtual void addUint32Vector(const string &name, const vector<uint32_t> &vals);
-  virtual void addUint32Vector(const string &name, const vector<uint32_t> *vals);
-  virtual void addUint64Vector(const string &name, const vector<uint64_t> &vals);
-  virtual void addUint64Vector(const string &name, const vector<uint64_t> *vals);
+  virtual void add(const string &name, const vector<uint8_t>  &vals);
+  virtual void add(const string &name, const vector<uint8_t>  *vals);
+  virtual void add(const string &name, const vector<uint16_t> &vals);
+  virtual void add(const string &name, const vector<uint16_t> *vals);
+  virtual void add(const string &name, const vector<uint32_t> &vals);
+  virtual void add(const string &name, const vector<uint32_t> *vals);
+  virtual void add(const string &name, const vector<uint64_t> &vals);
+  virtual void add(const string &name, const vector<uint64_t> *vals);
    
 
 public:
