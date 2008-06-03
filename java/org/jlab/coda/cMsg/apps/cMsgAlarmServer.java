@@ -1,3 +1,8 @@
+//  metadata table
+//  id and index
+
+
+
 //  general purpose cMsg alarm server
 
 //      -url jdbc:mysql://xdaq/test -driver com.mysql.jdbc.Driver -account fred
