@@ -1162,7 +1162,11 @@ string cMsgMessage::toString(void) const throw(cMsgException) {
 
   char *cs;
 
-  cMsgToString(myMsgPointer,&cs,1);
+  int stat;
+  if((stat=cMsgToString(myMsgPointer,&cs,1))!=CMSG_OK) {
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
+
   string s(cs);
   free(cs);
   return(s);

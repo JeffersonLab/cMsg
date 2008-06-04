@@ -42,9 +42,11 @@ class myCallbackObject : public cMsgCallback {
   void callback(cMsgMessage *msg, void* userObject) {
     cout << msg->toString() << endl;
     
-    cout << endl << endl << "raw payload has " << msg->payloadGetCount() << " items: " << endl << endl 
-         << msg->payloadGetText() << endl;
+
+//     cout << endl << endl << "raw payload has " << msg->payloadGetCount() << " items: " << endl << endl 
+//          << msg->payloadGetText() << endl;
     
+
     delete(msg);
     exit(EXIT_SUCCESS);
   }
@@ -100,6 +102,11 @@ int main(int argc, char **argv) {
     unsigned int a[] = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
     vector<unsigned int> v(a,a+15);
     m.add("payload_vector",v);
+
+
+    char b[] = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+    m.add("payload_binary",b,sizeof(b),CMSG_ENDIAN_LOCAL);
+
 
     c.send(m);
     c.flush();
