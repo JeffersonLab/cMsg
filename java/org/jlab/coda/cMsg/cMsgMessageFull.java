@@ -140,7 +140,7 @@ public class cMsgMessageFull extends cMsgMessage {
         this.setGetResponse(Boolean.getBoolean(e.getAttribute("getResponse")));
         this.setNullGetResponse(Boolean.getBoolean(e.getAttribute("nullGetResponse")));
 
-        this.setPayloadText(e.getAttribute("payloadText"));
+        this.setPayloadText(e.getAttribute("payload"));
 
         this.setSender(e.getAttribute("sender"));
         this.setSenderHost(e.getAttribute("senderHost"));
