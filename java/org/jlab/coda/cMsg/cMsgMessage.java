@@ -975,21 +975,35 @@ public class cMsgMessage implements Cloneable {
      * @return a blank string if any error occurs
      */
     public String toString() {
-        return toString2(0,0,true);
+        return toString2(0,0,true, false);
     }
 
 
     /**
-      * This method converts the message to a printable string in XML format.
-      *
-      * @param level the level of indent or recursive messaging (0 = none)
-      * @param offset the number of spaces to add to the indent
-      * @param binary includes binary as ASCII if true, else binary is ignored
-      *
+     * This method converts the message to a printable string in XML format.
+     * Any binary data is encoded in the base64 format.
+     *
+     * @param compactPayload if true includes payload only as a single string (internal format)
      * @return message as XML String object
      * @return a blank string if any error occurs
-      */
-    private String toString2(int level, int offset, boolean binary) {
+     */
+    public String toString(boolean compactPayload) {
+        return toString2(0,0,true, compactPayload);
+    }
+
+
+    /**
+     * This method converts the message to a printable string in XML format.
+     *
+     * @param level the level of indent or recursive messaging (0 = none)
+     * @param offset the number of spaces to add to the indent
+     * @param binary includes binary as ASCII if true, else binary is ignored
+     * @param compactPayload if true includes payload only as a single string (internal format)
+     *
+     * @return message as XML String object
+     * @return a blank string if any error occurs
+     */
+    private String toString2(int level, int offset, boolean binary, boolean compactPayload) {
         StringWriter sw = new StringWriter(2048);
         PrintWriter  wr = new PrintWriter(sw);
 
@@ -1047,6 +1061,11 @@ public class cMsgMessage implements Cloneable {
           wr.printf("%s          (null)\n", indent);
           wr.printf(format2, indent, indent);
           return sw.toString();
+        }
+        else if (compactPayload) {
+            wr.printf("<![CDATA[%s]]>\n", payloadText);
+            wr.printf(format2, indent, indent);
+            return sw.toString();
         }
 
         try {
@@ -1115,7 +1134,7 @@ public class cMsgMessage implements Cloneable {
 
                    case cMsgConstants.payloadMsg:
                      {cMsgMessage m = item.getMessage();
-                      wr.printf("%s", m.toString2(level+1, offset, binary));
+                      wr.printf("%s", m.toString2(level+1, offset, binary, false));
                      } break;
 
                    // arrays
@@ -1123,7 +1142,7 @@ public class cMsgMessage implements Cloneable {
                      {cMsgMessage[] msgs = item.getMessageArray();
                       wr.printf("%s          <cMsgMessage_array name=\"%s\">\n", indent, name);
                       for (cMsgMessage m : msgs) {
-                          wr.printf("%s", m.toString2(level+1, 5, binary));
+                          wr.printf("%s", m.toString2(level+1, 5, binary,false));
                       }
                       wr.printf("%s          </cMsgMessage_array>\n", indent);
                      } break;
