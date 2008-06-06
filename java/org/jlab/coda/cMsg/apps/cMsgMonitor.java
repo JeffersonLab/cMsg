@@ -9,7 +9,7 @@ public class cMsgMonitor {
 
     String  name = "monitor";
     String  description = "java monitor";
-    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
+    String  UDL = "cMsg:cMsg://broadcast/cMsg";
     boolean debug;
 
 
@@ -60,7 +60,7 @@ public class cMsgMonitor {
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage:\n\n" +
-            "   java cMsgConsumer [-n name] [-d description] [-u UDL] [-debug]\n");
+            "   java cMsgMonitor [-n name] [-d description] [-u UDL] [-debug]\n");
     }
 
 

@@ -437,7 +437,10 @@ public class cMsgMessageFull extends cMsgMessage {
      * Sets the String representation of the compound payload of this message.
      * @param payloadText payloadText of this message.
      */
-    public void setPayloadText(String payloadText) {this.payloadText = payloadText;}
+    public void setPayloadText(String payloadText) {
+    	this.payloadText = payloadText;
+    	expandPayload();
+    }
 
     
     /**

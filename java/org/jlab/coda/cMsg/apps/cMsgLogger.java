@@ -1,9 +1,5 @@
 //  general purpose cMsg logger
 
-// still to do:
-//   compound payload
-
-
 
 
 /*----------------------------------------------------------------------------*
@@ -52,7 +48,7 @@ public class cMsgLogger {
 
 
     /** Universal Domain Locator and cMsg system object. */
-    private static String UDL = "cMsg:cMsg://aslan/cMsg";
+    private static String UDL = "cMsg:cMsg://broadcast/cMsg";
     private static cMsg cmsg  = null;
 
 
@@ -75,11 +71,11 @@ public class cMsgLogger {
     private static boolean header   = false;
     private static boolean wide     = false;
 
-    private static String normalFormat    = "%-6d  %18s  %18s  %24s    %9d    %-18s  %-18s    %s";
-    private static String normalHeader    = "%-6s  %18s  %18s  %24s    %9s    %-18s  %-18s    %s";
+    private static String normalFormat    = "%-6d  %18s  %24s    %9d    %-18s  %-18s    %s  %s";
+    private static String normalHeader    = "%-6s  %18s  %24s    %9s    %-18s  %-18s    %s  %s";
 
-    private static String wideFormat      = "%-6d  %18s  %18s  %24s    %9d    %-30s  %-30s    %s";
-    private static String wideHeader      = "%-6s  %18s  %18s  %24s    %9s    %-30s  %-30s    %s";
+    private static String wideFormat      = "%-6d  %18s  %24s    %9d    %-30s  %-30s    %s  %s";
+    private static String wideHeader      = "%-6s  %18s  %24s    %9s    %-30s  %-30s    %s  %s";
 
 
 
@@ -126,13 +122,14 @@ public class cMsgLogger {
                 if(!verbose) {
                     System.out.println(String.format(wide?wideFormat:normalFormat,
                                                      count,
-                                                     msg.getPayloadText(),
                                                      msg.getSenderHost(),
                                                      new java.sql.Timestamp(msg.getSenderTime().getTime()),
                                                      msg.getUserInt(),
                                                      msg.getSubject(),
                                                      msg.getType(),
-                                                     msg.getText()));
+                                                     msg.getText(),
+                                                     msg.getPayloadText()
+                    ));
                 } else {
                     System.out.println("msg count is: " + count);
                     System.out.println(msg.toString());
@@ -145,12 +142,15 @@ public class cMsgLogger {
                 if(!verbose) {
                     pWriter.println(String.format(wide?wideFormat:normalFormat,
                                                   count,
-                                                  msg.getPayloadText(),
                                                   msg.getSenderHost(),
                                                   new java.sql.Timestamp(msg.getSenderTime().getTime()),
+                                                  msg.getUserInt(),
                                                   msg.getSubject(),
                                                   msg.getType(),
-                                                  msg.getText()));
+                                                  msg.getText(),
+                                                  msg.getPayloadText()
+                    ));
+
                 } else {
                     pWriter.println("msg count is: " + count);
                     pWriter.println(msg);
@@ -170,7 +170,6 @@ public class cMsgLogger {
                     pStmt.setInt(i++,       (msg.isGetRequest()?1:0));
                     pStmt.setInt(i++,       (msg.isGetResponse()?1:0));
                     pStmt.setInt(i++,       (msg.isNullGetResponse()?1:0));
-                    pStmt.setString(i++,    msg.getPayloadText());
 
                     pStmt.setString(i++,    msg.getSender());
                     pStmt.setString(i++,    msg.getSenderHost());
@@ -194,8 +193,14 @@ public class cMsgLogger {
                         pStmt.setString(i++, t.substring(0,maxText*1024));
                         System.out.println("?text field too long (" + t.length() + "), truncating to " + maxText + "kB");
                     }
-
-
+                    String p = msg.getPayloadText();
+                    if(p.length()<=maxText*1024) {
+                        pStmt.setString(i++, p);
+                    } else {
+                        pStmt.setString(i++, p.substring(0,maxText*1024));
+                        System.out.println("?payload field too long (" + p.length() + "), truncating to " + maxText + "kB");
+                    }
+                    
                     pStmt.setInt(i++, msg.getByteArrayEndian());
                     byte[] b = msg.getByteArray();
                     if(b!=null) {
@@ -269,9 +274,9 @@ public class cMsgLogger {
         if(verbose)header=false;
         if(toScreen&&header) {
             System.out.println(String.format(wide?wideHeader:normalHeader,
-                                             "Count","Creator","SenderHost","SenderTime      ","UserInt","Subject","Type","Text"));
+                                             "Count","SenderHost","SenderTime      ","UserInt","Subject","Type","Text/Payload"));
             System.out.println(String.format(wide?wideHeader:normalHeader,
-                                             "-----","-------","----------","----------      ","-------","-------","----","----"));
+                                             "-----","----------","----------      ","-------","-------","----","------------"));
         }
 
 
@@ -312,11 +317,11 @@ public class cMsgLogger {
                 if((!dbrs.next())||(!dbrs.getString(3).equalsIgnoreCase(table))) {
                     String sql="create table " + table + " (" +
                         "version int, domain varchar(255), sysMsgId int," +
-                        "getRequest int, getResponse int, isNullGetResponse int, creator varchar(128)," +
+                        "getRequest int, getResponse int, isNullGetResponse int," +
                         "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
                         "userInt int, userTime datetime," +
                         "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
-                        "subject  varchar(255), type varchar(128), text text," +
+                        "subject  varchar(255), type varchar(128), text text, payload text" +
                         "byteArrayEndian int, byteArray " + getBlobName(dbmeta) +
                         ")";
                     con.createStatement().executeUpdate(sql);
@@ -330,14 +335,14 @@ public class cMsgLogger {
             try {
                 String sql = "insert into " + table + " (" +
                     "version,domain,sysMsgId," +
-                    "getRequest,getResponse,isNullGetResponse,creator," +
+                    "getRequest,getResponse,isNullGetResponse," +
                     "sender,senderHost,senderTime,senderToken," +
                     "userInt,userTime," +
                     "receiver,receiverHost,receiverTime,receiverSubscribeId," +
-                    "subject,type,text," +
+                    "subject,type,text,payload," +
                     "byteArrayEndian,byteArray" +
                     ") values (" +
-                    "?,?,?" + ",?,?,?,?" + ",?,?,?,?" + ",?,?" + ",?,?,?,?" + ",?,?,?" +",?,?" +  ")";
+                    "?,?,?" + ",?,?,?" + ",?,?,?,?" + ",?,?" + ",?,?,?,?" + ",?,?,?,?" +",?,?" +  ")";
                 pStmt = con.prepareStatement(sql);
             } catch (SQLException e) {
                 System.err.println("?unable to prepare statement\n" + e);

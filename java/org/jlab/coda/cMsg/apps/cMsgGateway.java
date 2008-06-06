@@ -57,8 +57,8 @@ public class cMsgGateway {
 
 
     /** UDL's. */
-    private static String UDL1 = "cMsg:cMsg://ollie/cMsg";
-    private static String UDL2 = "cMsg:cMsg://ollie/cMsg";
+    private static String UDL1 = "cMsg:cMsg://broadcast/cMsg";
+    private static String UDL2 = "cMsg:cMsg://broadcast/cMsg";
 
 
     /** Descriptions. */

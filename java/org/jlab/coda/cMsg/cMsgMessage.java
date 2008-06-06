@@ -1068,6 +1068,7 @@ public class cMsgMessage implements Cloneable {
             return sw.toString();
         }
 
+// need to be able to convert payload string into xml...can this be modified?
         try {
             // get all name & type info
             int typ;
@@ -1373,7 +1374,7 @@ public class cMsgMessage implements Cloneable {
 
     /**
      * Gets the String representation of the compound payload of this message.
-     * @return creator of this message.
+     * @return string representation of payload
      */
     public String getPayloadText() {
         return payloadText;

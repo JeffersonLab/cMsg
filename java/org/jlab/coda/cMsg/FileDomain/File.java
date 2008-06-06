@@ -1,4 +1,3 @@
-// still to do:
 
 
 /*----------------------------------------------------------------------------*
@@ -139,7 +138,6 @@ public class File extends cMsgDomainAdapter {
             if((msg.getDomain()==null)||(msg.getDomain().length()<=0)) {
                 cMsgMessageFull msgFull = new cMsgMessageFull(msg);
                 msgFull.setDomain(domain);
-//                msgFull.setCreator(name);
                 msgFull.setSender(name);
                 msgFull.setSenderHost(host);
                 msgFull.setSenderTime(now);

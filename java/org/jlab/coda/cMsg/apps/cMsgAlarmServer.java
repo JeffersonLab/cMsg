@@ -49,7 +49,7 @@ public class cMsgAlarmServer {
 
 
     /** Universal Domain Locator and cMsg system object. */
-    private static String udl = "cMsg:cMsg://ollie/cMsg";
+    private static String udl = "cMsg://broadcast/cMsg";
     private static cMsg cmsg  = null;
 
 

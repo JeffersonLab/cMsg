@@ -43,14 +43,14 @@ import java.nio.channels.*;
 /**
  * Queues messages to file or MySQL database.
  * Only stores user-settable information.
- * I.e. subject,type,text,userTime,userInt.
+ * I.e. subject,type,text,payload,userTime,userInt
  *
  * To use, e.g, with a database queue:
- *   java cMsgQueue -udl cMsg:cMsg://ollie/cMsg -name myQueue
+ *   java cMsgQueue -udl cMsg://broadcast/cMsg -name myQueue
  *                  -url jdbc:mysql://xdaq/test -driver com.mysql.jdbc.Driver -account fred
  *
  * To use, e.g, with a file-based queue:
- *   java cMsgQueue -udl cMsg:cMsg://ollie/cMsg  -name myQueue
+ *   java cMsgQueue -udl cMsg://broadcast/cMsg  -name myQueue
  *                  -dir myDir -base myFileBaseName
  *
  *
@@ -60,7 +60,7 @@ public class cMsgQueue {
 
 
     /** Universal Domain Locator and cMsg system object. */
-    private static String UDL = "cMsg:cMsg://ollie/cMsg";
+    private static String UDL = "cMsg://broadcast/cMsg";
     private static cMsg cmsg  = null;
 
 
@@ -171,10 +171,10 @@ public class cMsgQueue {
             if(url!=null) {
                 try {
                     int i = 1;
-//                    pStmt.setString(i++,    msg.getCreator());
                     pStmt.setString(i++,    msg.getSubject());
                     pStmt.setString(i++,    msg.getType());
                     pStmt.setString(i++,    msg.getText());
+                    pStmt.setString(i++,    msg.getPayloadText());
                     pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getUserTime().getTime()));
                     pStmt.setInt(i++,       msg.getUserInt());
                     pStmt.executeUpdate();
@@ -276,11 +276,10 @@ public class cMsgQueue {
                         response.makeResponse(msg);
 
                         int id = rs.getInt("id");
-
-//                        response.setCreator(rs.getString("creator"));
                         response.setSubject(rs.getString("subject"));
                         response.setType(rs.getString("type"));
                         response.setText(rs.getString("text"));
+                        response.setPayloadText(rs.getString("payload"));
                         response.setUserTime(rs.getTimestamp("userTime"));
                         response.setUserInt(rs.getInt("userInt"));
 
@@ -416,7 +415,7 @@ public class cMsgQueue {
                 if((!dbrs.next())||(!dbrs.getString(3).equalsIgnoreCase(table))) {
                     String sql = "create table " + table +
                         "(id int not null primary key auto_increment, " +
-                        "creator varchar(128),subject varchar(255), type varchar(128), text text," +
+                        "subject varchar(255), type varchar(128), text text, payload text" +
                         "userTime datetime, userInt int)";
                     con.createStatement().executeUpdate(sql);
                 }
@@ -430,7 +429,7 @@ public class cMsgQueue {
                 stmt = con.createStatement();
 
                 String sql = "insert into " + table + " (" +
-                    "creator,subject,type,text," +
+                    "subject,type,text,payload" +
                     "userTime,userInt" +
                     ") values (" +
                     "?,?,?,?," + "?,?" + ")";
