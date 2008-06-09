@@ -439,7 +439,6 @@ public class cMsgMessageFull extends cMsgMessage {
      */
     public void setPayloadText(String payloadText) {
     	this.payloadText = payloadText;
-    	expandPayload();
     }
 
     
