@@ -28,7 +28,6 @@ package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
 
-import java.lang.*;
 import java.io.*;
 import java.sql.*;
 import java.util.Date;
@@ -128,7 +127,7 @@ public class cMsgLogger {
                                                      msg.getSubject(),
                                                      msg.getType(),
                                                      msg.getText(),
-                                                     msg.getPayloadText()
+                                                     msg.toString() // payload xml needed ???
                     ));
                 } else {
                     System.out.println("msg count is: " + count);
@@ -148,12 +147,12 @@ public class cMsgLogger {
                                                   msg.getSubject(),
                                                   msg.getType(),
                                                   msg.getText(),
-                                                  msg.getPayloadText()
+                                                  msg.toString() //payload in xml needed ???
                     ));
 
                 } else {
                     pWriter.println("msg count is: " + count);
-                    pWriter.println(msg);
+                    pWriter.println(msg.toString());
                 }
                 pWriter.flush();
             }
@@ -193,12 +192,12 @@ public class cMsgLogger {
                         pStmt.setString(i++, t.substring(0,maxText*1024));
                         System.out.println("?text field too long (" + t.length() + "), truncating to " + maxText + "kB");
                     }
-                    String p = msg.getPayloadText();
+                    String p = msg.toString(); // need xml represention of payload only???
                     if(p.length()<=maxText*1024) {
                         pStmt.setString(i++, p);
                     } else {
                         pStmt.setString(i++, p.substring(0,maxText*1024));
-                        System.out.println("?payload field too long (" + p.length() + "), truncating to " + maxText + "kB");
+                        System.out.println("?payload XML too long (" + p.length() + "), truncating to " + maxText + "kB");
                     }
                     
                     pStmt.setInt(i++, msg.getByteArrayEndian());
