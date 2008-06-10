@@ -956,11 +956,11 @@ public class cMsgMessage implements Cloneable {
     static private final String format2 =
         "%s</cMsgMessage>\n";
 
-    static private final String stringInArrayFormat  = "%s%s          <string> <![CDATA[%s]]> </string>\n";
-    static private final String singleStringFormat   = "%s%s     <string name=\"%s\"> <![CDATA[%s]]> </string>\n";
-    static private final String binaryFormata        = "%s%s     <binary name=\"%s\" endian=\"%s\" nbytes=\"%d\"> <![CDATA[";
+    static private final String stringInArrayFormat  = "%s          <string> <![CDATA[%s]]> </string>\n";
+    static private final String singleStringFormat   = "%s     <string name=\"%s\"> <![CDATA[%s]]> </string>\n";
+    static private final String binaryFormata        = "%s     <binary name=\"%s\" endian=\"%s\" nbytes=\"%d\"> <![CDATA[";
     static private final String binaryFormatb        = "]]> </binary>\n";
-    static private final String binaryFormatc        = "%s%s     <binary name=\"%s\" endian=\"%s\" nbytes=\"%d\" />\n";
+    static private final String binaryFormatc        = "%s     <binary name=\"%s\" endian=\"%s\" nbytes=\"%d\" />\n";
 
 
     /**
@@ -970,7 +970,7 @@ public class cMsgMessage implements Cloneable {
      * @return message as XML String object
      */
     public String toString() {
-        return toStringImpl(0,0,false, false);
+        return toStringImpl(0,false, false);
     }
 
 
@@ -984,28 +984,27 @@ public class cMsgMessage implements Cloneable {
      * @return message as XML String object
      */
     public String toString(boolean binary, boolean compactPayload) {
-        return toStringImpl(0,0,binary, compactPayload);
+        return toStringImpl(0,binary, compactPayload);
     }
 
 
     /**
      * This method converts the message to a printable string in XML format.
      *
-     * @param level the level of indent or recursive messaging (0 = none)
-     * @param offset the number of spaces to add to the indent
+     * @param margin the number of spaces in the indent
      * @param binary includes binary as ASCII if true, else binary is ignored
      * @param compactPayload if true includes payload only as a single string (internal format)
      *
      * @return message as XML String object
      */
-    private String toStringImpl(int level, int offset, boolean binary, boolean compactPayload) {
+    private String toStringImpl(int margin, boolean binary, boolean compactPayload) {
         StringWriter sw = new StringWriter(2048);
         PrintWriter  wr = new PrintWriter(sw);
 
         // indentation is dependent on level of recursion
         String indent = "";
-        if (level > 0) {
-            char[] c = new char[level * 10 + offset];
+        if (margin > 0) {
+            char[] c = new char[margin];
             Arrays.fill(c, ' ');
             indent = new String(c);
         }
@@ -1058,7 +1057,7 @@ public class cMsgMessage implements Cloneable {
         }
 
         // add payload
-        wr.printf("%s", payloadToStringImpl(5,level,offset,binary, compactPayload));
+        wr.printf("%s", payloadToStringImpl(margin+5, binary, compactPayload));
 
         // </cMsgMessage>
         wr.printf(format2, indent);
@@ -1077,52 +1076,39 @@ public class cMsgMessage implements Cloneable {
      * @return message as XML String object
      */
     public String payloadToString(boolean binary, boolean compactPayload) {
-        return payloadToStringImpl(0,0,0,binary, compactPayload);
+        return payloadToStringImpl(0,binary, compactPayload);
     }
 
 
     /**
      * This method converts only the message payload to a printable string in XML format.
      *
-     * @param initialOffset the initial number of spaces on left (generally 5 if message
-     *                      is being printed and 0 if only payload is being printed)
-     * @param level the level of indent or recursive messaging (0 = none)
-     * @param offset the number of spaces to add to the indent
+     * @param margin the number of spaces in the indent
      * @param binary includes binary as ASCII if true, else binary is ignored
      * @param compactPayload if true includes payload only as a single string (internal format)
      *
      * @return payload as String containing XML
      */
-    private String payloadToStringImpl(int initialOffset, int level, int offset,
-                                             boolean binary, boolean compactPayload) {
+    private String payloadToStringImpl(int margin, boolean binary, boolean compactPayload) {
         StringWriter sw = new StringWriter(2048);
         PrintWriter  wr = new PrintWriter(sw);
 
         // indentation is dependent on level of recursion
         String indent = "";
-        if (level > 0) {
-            char[] c = new char[level * 10 + offset];
+        if (margin > 0) {
+            char[] c = new char[margin];
             Arrays.fill(c, ' ');
             indent = new String(c);
         }
 
-        // Initial indent is generally 5 if message is being printed and
-        // 0 if only payload is being printed.
-        String initialIndent = "";
-        if (initialOffset > 0) {
-            char[] c = new char[initialOffset];
-            Arrays.fill(c, ' ');
-            initialIndent = new String(c);
-        }
-
         if (compactPayload) {
-            wr.printf("%s%s<payload>\n<![CDATA[%s]]>\n%s%s</payload>\n",
-                      indent, initialIndent, payloadText, indent, initialIndent);
+            wr.printf("%s<payload>\n<![CDATA[%s]]>\n%s</payload>\n",
+                      indent, payloadText, indent);
             return sw.toString();
         }
 
         //   <payload>
-        wr.printf("%s%s<payload>\n", indent, initialIndent);
+        wr.printf("%s<payload>\n", indent);
 
         try {
             // get all name & type info
@@ -1138,49 +1124,49 @@ public class cMsgMessage implements Cloneable {
                 switch (typ) {
                     case cMsgConstants.payloadInt8:
                       {byte i = item.getByte();
-                       wr.printf("%s%s     <int8 name=\"%s\">\n", indent, initialIndent, name);
-                       wr.printf("%s%s          %d\n%s%s     </int8>\n", indent, initialIndent, i,
-                                                                         indent, initialIndent);
+                       wr.printf("%s     <int8 name=\"%s\">\n", indent, name);
+                       wr.printf("%s          %d\n%s     </int8>\n", indent, i,
+                                                                         indent);
                       } break;
                     case cMsgConstants.payloadInt16:
                       {short i = item.getShort();
-                       wr.printf("%s%s     <int16 name=\"%s\">\n", indent, initialIndent, name);
-                       wr.printf("%s%s          %d\n%s%s     </int16>\n", indent, initialIndent, i,
-                                                                          indent, initialIndent);
+                       wr.printf("%s     <int16 name=\"%s\">\n", indent, name);
+                       wr.printf("%s          %d\n%s     </int16>\n", indent, i,
+                                                                          indent);
                       } break;
                     case cMsgConstants.payloadInt32:
                       {int i = item.getInt();
-                       wr.printf("%s%s     <int32 name=\"%s\">\n", indent, initialIndent, name);
-                       wr.printf("%s%s          %d\n%s%s     </int32>\n", indent, initialIndent, i,
-                                                                          indent, initialIndent);
+                       wr.printf("%s     <int32 name=\"%s\">\n", indent, name);
+                       wr.printf("%s          %d\n%s     </int32>\n", indent, i,
+                                                                          indent);
                       } break;
                     case cMsgConstants.payloadInt64:
                       {long i = item.getLong();
-                       wr.printf("%s%s     <int64 name=\"%s\">\n", indent, initialIndent, name);
-                       wr.printf("%s%s          %d\n%s%s     </int64>\n", indent, initialIndent, i,
-                                                                          indent, initialIndent);
+                       wr.printf("%s     <int64 name=\"%s\">\n", indent, name);
+                       wr.printf("%s          %d\n%s     </int64>\n", indent, i,
+                                                                          indent);
                       } break;
                     case cMsgConstants.payloadUint64:
                       {BigInteger i = item.getBigInt();
-                       wr.printf("%s%s     <uint64 name=\"%s\">\n", indent, initialIndent, name);
-                       wr.printf("%s%s          %d\n%s%s     </uint64>\n", indent, initialIndent, i,
-                                                                           indent, initialIndent);
+                       wr.printf("%s     <uint64 name=\"%s\">\n", indent, name);
+                       wr.printf("%s          %d\n%s     </uint64>\n", indent, i,
+                                                                           indent);
                       } break;
                     case cMsgConstants.payloadDbl:
                       {double d = item.getDouble();
-                       wr.printf("%s%s     <double name=\"%s\">\n", indent, initialIndent, name);
-                       wr.printf("%s%s          %.16g\n%s%s     </double>\n", indent, initialIndent, d,
-                                                                              indent, initialIndent);
+                       wr.printf("%s     <double name=\"%s\">\n", indent, name);
+                       wr.printf("%s          %.16g\n%s     </double>\n", indent, d,
+                                                                              indent);
                       } break;
                     case cMsgConstants.payloadFlt:
                       {float f = item.getFloat();
-                       wr.printf("%s%s     <float name=\"%s\">\n", indent, initialIndent, name);
-                       wr.printf("%s%s          %.7g\n%s%s     </float>\n", indent, initialIndent, f,
-                                                                            indent, initialIndent);
+                       wr.printf("%s     <float name=\"%s\">\n", indent, name);
+                       wr.printf("%s          %.7g\n%s     </float>\n", indent, f,
+                                                                            indent);
                       } break;
                    case cMsgConstants.payloadStr:
                      {String s = item.getString();
-                      wr.printf(singleStringFormat, indent, initialIndent, name, s);
+                      wr.printf(singleStringFormat, indent, name, s);
                      } break;
 
                    case cMsgConstants.payloadBin:
@@ -1189,10 +1175,10 @@ public class cMsgMessage implements Cloneable {
                       String endianTxt = (endian == cMsgConstants.endianBig) ? "big" : "little";
 
                       if (!binary) {
-                         wr.printf(binaryFormatc, indent, initialIndent, name, endianTxt, b.length);
+                         wr.printf(binaryFormatc, indent, name, endianTxt, b.length);
                          break;
                       }
-                      wr.printf(binaryFormata, indent, initialIndent, name, endianTxt, b.length);
+                      wr.printf(binaryFormata, indent, name, endianTxt, b.length);
                       String enc = Base64.encodeToString(b);
                       wr.printf("%s",enc);
                       wr.printf(binaryFormatb);
@@ -1200,111 +1186,111 @@ public class cMsgMessage implements Cloneable {
 
                    case cMsgConstants.payloadMsg:
                      {cMsgMessage m = item.getMessage();
-                      wr.printf("%s", m.toStringImpl(level+1, offset, binary, false));
+                      wr.printf("%s", m.toStringImpl(margin+5, binary, false));
                      } break;
 
                    // arrays
                    case cMsgConstants.payloadMsgA:
                      {cMsgMessage[] msgs = item.getMessageArray();
-                      wr.printf("%s%s     <cMsgMessage_array name=\"%s\">\n", indent, initialIndent, name);
+                      wr.printf("%s     <cMsgMessage_array name=\"%s\">\n", indent, name);
                       for (cMsgMessage m : msgs) {
-                          wr.printf("%s", m.toStringImpl(level+1, 5, binary,false));
+                          wr.printf("%s", m.toStringImpl(margin+10, binary,false));
                       }
-                      wr.printf("%s%s     </cMsgMessage_array>\n", indent, initialIndent);
+                      wr.printf("%s     </cMsgMessage_array>\n", indent);
                      } break;
 
                    case cMsgConstants.payloadInt8A:
                      {byte[] b = item.getByteArray();
-                      wr.printf("%s%s     <int8_array name=\"%s\" count=\"%d\">\n", indent, initialIndent,
+                      wr.printf("%s     <int8_array name=\"%s\" count=\"%d\">\n", indent,
                                                                                     name, b.length);
                       for(int j=0;j<b.length;j++) {
-                         if (j%5 == 0) {wr.printf("%s%s          %4d", indent, initialIndent, b[j]);}
+                         if (j%5 == 0) {wr.printf("%s          %4d", indent, b[j]);}
                          else          {wr.printf(" %4d", b[j]);}
                          if (j%5 == 4 || j == b.length-1) {wr.printf("\n");}
                       }
-                      wr.printf("%s%s     </int8_array>\n", indent, initialIndent);
+                      wr.printf("%s     </int8_array>\n", indent);
                      } break;
 
                    case cMsgConstants.payloadInt16A:
                      {short[] i = item.getShortArray();
-                      wr.printf("%s%s     <int16_array name=\"%s\" count=\"%d\">\n", indent, initialIndent,
+                      wr.printf("%s     <int16_array name=\"%s\" count=\"%d\">\n", indent,
                                                                                      name, i.length);
                       for(int j=0;j<i.length;j++) {
-                         if (j%5 == 0) {wr.printf("%s%s          %6d", indent, initialIndent, i[j]); }
+                         if (j%5 == 0) {wr.printf("%s          %6d", indent, i[j]); }
                          else          {wr.printf(" %6d", i[j]); }
                          if (j%5 == 4 || j == i.length-1) {wr.printf("\n"); }
                       }
-                      wr.printf("%s%s     </int16_array>\n", indent, initialIndent);
+                      wr.printf("%s     </int16_array>\n", indent);
                      } break;
 
                    case cMsgConstants.payloadInt32A:
                      {int[] i = item.getIntArray();
-                      wr.printf("%s%s     <int32_array name=\"%s\" count=\"%d\">\n", indent, initialIndent,
+                      wr.printf("%s     <int32_array name=\"%s\" count=\"%d\">\n", indent,
                                                                                      name, i.length);
                       for(int j=0;j<i.length;j++) {
-                         if (j%5 == 0) {wr.printf("%s%s          %d", indent, initialIndent, i[j]); }
+                         if (j%5 == 0) {wr.printf("%s          %d", indent, i[j]); }
                          else          {wr.printf(" %d", i[j]); }
                          if (j%5 == 4 || j == i.length-1) {wr.printf("\n"); }
                       }
-                      wr.printf("%s%s     </int32_array>\n", indent, initialIndent);
+                      wr.printf("%s     </int32_array>\n", indent);
                      } break;
 
                    case cMsgConstants.payloadInt64A:
                      {long[] i = item.getLongArray();
-                      wr.printf("%s%s     <int64_array name=\"%s\" count=\"%d\">\n", indent, initialIndent,
+                      wr.printf("%s     <int64_array name=\"%s\" count=\"%d\">\n", indent,
                                                                                      name, i.length);
                       for(int j=0;j<i.length;j++) {
-                         if (j%5 == 0) {wr.printf("%s%s          %d", indent, initialIndent, i[j]); }
+                         if (j%5 == 0) {wr.printf("%s          %d", indent, i[j]); }
                          else          {wr.printf(" %d", i[j]); }
                          if (j%5 == 4 || j == i.length-1) {wr.printf("\n"); }
                       }
-                      wr.printf("%s%s     </int64_array>\n", indent, initialIndent);
+                      wr.printf("%s     </int64_array>\n", indent);
                      } break;
 
                    case cMsgConstants.payloadUint64A:
                      {BigInteger[] i = item.getBigIntArray();
-                      wr.printf("%s%s     <uint64_array name=\"%s\" count=\"%d\">\n", indent, initialIndent,
+                      wr.printf("%s     <uint64_array name=\"%s\" count=\"%d\">\n", indent,
                                                                                       name, i.length);
                       for(int j=0;j<i.length;j++) {
-                         if (j%5 == 0) {wr.printf("%s%s          %d", indent, initialIndent, i[j]); }
+                         if (j%5 == 0) {wr.printf("%s          %d", indent, i[j]); }
                          else          {wr.printf(" %d", i[j]); }
                          if (j%5 == 4 || j == i.length-1) {wr.printf("\n"); }
                       }
-                      wr.printf("%s%s     </uint64_array>\n", indent, initialIndent);
+                      wr.printf("%s     </uint64_array>\n", indent);
                      } break;
 
                    case cMsgConstants.payloadDblA:
                      {double[] d = item.getDoubleArray();
-                      wr.printf("%s%s     <double_array name=\"%s\" count=\"%d\">\n", indent, initialIndent,
+                      wr.printf("%s     <double_array name=\"%s\" count=\"%d\">\n", indent,
                                                                                       name, d.length);
                       for(int j=0;j<d.length;j++) {
-                         if (j%5 == 0) {wr.printf("%s%s          %.16g", indent, initialIndent, d[j]); }
+                         if (j%5 == 0) {wr.printf("%s          %.16g", indent, d[j]); }
                          else          {wr.printf(" %.16g", d[j]); }
                          if (j%5 == 4 || j == d.length-1) {wr.printf("\n"); }
                       }
-                      wr.printf("%s%s     </double_array>\n", indent, initialIndent);
+                      wr.printf("%s     </double_array>\n", indent);
                      } break;
 
                    case cMsgConstants.payloadFltA:
                      {float[] f = item.getFloatArray();
-                      wr.printf("%s%s     <float_array name=\"%s\" count=\"%d\">\n", indent, initialIndent,
+                      wr.printf("%s     <float_array name=\"%s\" count=\"%d\">\n", indent,
                                                                                      name, f.length);
                       for(int j=0;j<f.length;j++) {
-                         if (j%5 == 0) {wr.printf("%s%s          %.7g", indent, initialIndent, f[j]); }
+                         if (j%5 == 0) {wr.printf("%s          %.7g", indent, f[j]); }
                          else          {wr.printf(" %.7g", f[j]); }
                          if (j%5 == 4 || j == f.length-1) {wr.printf("\n"); }
                       }
-                      wr.printf("%s%s     </float_array>\n", indent, initialIndent);
+                      wr.printf("%s     </float_array>\n", indent);
                      } break;
 
                    case cMsgConstants.payloadStrA:
                      {String[] sa = item.getStringArray();
-                      wr.printf("%s%s     <string_array name=\"%s\" count=\"%d\">\n", indent, initialIndent,
+                      wr.printf("%s     <string_array name=\"%s\" count=\"%d\">\n", indent,
                                                                                       name, sa.length);
                       for(String s : sa) {
-                         wr.printf(stringInArrayFormat, indent, initialIndent, s);
+                         wr.printf(stringInArrayFormat, indent, s);
                       }
-                      wr.printf("%s%s     </string_array>\n", indent, initialIndent);
+                      wr.printf("%s     </string_array>\n", indent);
                      } break;
                 } // switch
             } // for each entry
@@ -1314,7 +1300,7 @@ public class cMsgMessage implements Cloneable {
         }
 
         //   </payload>
-        wr.printf("%s%s</payload>\n", indent, initialIndent);
+        wr.printf("%s</payload>\n", indent);
         wr.flush();
         return sw.toString();
     }
