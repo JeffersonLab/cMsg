@@ -960,7 +960,7 @@ public class cMsgMessage implements Cloneable {
     static private final String singleStringFormat   = "%s%s     <string name=\"%s\"> <![CDATA[%s]]> </string>\n";
     static private final String binaryFormata        = "%s%s     <binary name=\"%s\" endian=\"%s\" nbytes=\"%d\"> <![CDATA[";
     static private final String binaryFormatb        = "]]> </binary>\n";
-    static private final String binaryFormatc        = "%s%s     <binary name=\"%s\" endian=\"%s\" nbytes=\"%d\" />";
+    static private final String binaryFormatc        = "%s%s     <binary name=\"%s\" endian=\"%s\" nbytes=\"%d\" />\n";
 
 
     /**
@@ -1116,7 +1116,7 @@ public class cMsgMessage implements Cloneable {
         }
 
         if (compactPayload) {
-            wr.printf("%s%s<payload>\n<![CDATA[%s]]>\n%s%s</payload>",
+            wr.printf("%s%s<payload>\n<![CDATA[%s]]>\n%s%s</payload>\n",
                       indent, initialIndent, payloadText, indent, initialIndent);
             return sw.toString();
         }
