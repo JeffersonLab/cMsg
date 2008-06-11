@@ -1193,7 +1193,7 @@ public class cMsgMessage implements Cloneable {
 
                    case cMsgConstants.payloadMsg:
                      {cMsgMessage m = item.getMessage();
-                      wr.printf("%s", m.toStringImpl(margin+5, binary, false));
+                      wr.printf("%s", m.toStringImpl(margin+5, binary, compactPayload));
                      } break;
 
                    // arrays
@@ -1201,7 +1201,7 @@ public class cMsgMessage implements Cloneable {
                      {cMsgMessage[] msgs = item.getMessageArray();
                       wr.printf("%s     <cMsgMessage_array name=\"%s\">\n", indent, name);
                       for (cMsgMessage m : msgs) {
-                          wr.printf("%s", m.toStringImpl(margin+10, binary,false));
+                          wr.printf("%s", m.toStringImpl(margin+10, binary, compactPayload));
                       }
                       wr.printf("%s     </cMsgMessage_array>\n", indent);
                      } break;
