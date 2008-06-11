@@ -956,6 +956,7 @@ public class cMsgMessage implements Cloneable {
     static private final String format2 =
         "%s</cMsgMessage>\n";
 
+    static private final String noPayloadFormat      = "%s     <payload />\n";
     static private final String stringInArrayFormat  = "%s          <string> <![CDATA[%s]]> </string>\n";
     static private final String singleStringFormat   = "%s     <string name=\"%s\"> <![CDATA[%s]]> </string>\n";
     static private final String binaryFormata        = "%s     <binary name=\"%s\" endian=\"%s\" nbytes=\"%d\"> <![CDATA[";
@@ -1099,6 +1100,12 @@ public class cMsgMessage implements Cloneable {
             char[] c = new char[margin];
             Arrays.fill(c, ' ');
             indent = new String(c);
+        }
+
+        // no payload so return
+        if (!hasPayload()) {
+          wr.printf(noPayloadFormat, indent);
+          return sw.toString();
         }
 
         if (compactPayload) {
