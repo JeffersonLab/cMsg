@@ -1611,7 +1611,7 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
     return(CMSG_BAD_ARGUMENT);
   }
 
-  grabMutex();
+  /*grabMutex();*/  /* this routine is used recursively, so no mutex grabbing */
   
   if (msgFrom->payload == NULL) {
     if (msgFrom->payloadText != NULL) {
@@ -1636,7 +1636,7 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
     msgTo->payloadCount = 0;
     /* write that we no longer have a payload */
     setPayload(msgTo, 0);
-    releaseMutex();
+    /* releaseMutex(); */
     return(CMSG_OK);
   }
   
@@ -1658,8 +1658,8 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
         fromArray = (char **) item->array;
         toArray = (char **) calloc(1, len*sizeof(char *));
         if (toArray == NULL) {
+            /*releaseMutex();*/
             payloadItemFree(firstCopied);
-            releaseMutex();
             return(CMSG_OUT_OF_MEMORY);          
         }
         
@@ -1668,7 +1668,7 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
         }
         err = createStringArrayItem(item->name, (const char **)toArray, len, 1, 1, &copiedItem);
         if (err != CMSG_OK) {
-            releaseMutex();
+            /*releaseMutex();*/
             payloadItemFree(firstCopied);
             return(CMSG_OUT_OF_MEMORY);                      
         }
@@ -1676,7 +1676,7 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
     else {
         copiedItem = copyPayloadItem(item);       
         if (copiedItem == NULL) {
-            releaseMutex();
+            /*releaseMutex();*/
             payloadItemFree(firstCopied);
             return(CMSG_OUT_OF_MEMORY);
         }
@@ -1720,7 +1720,7 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
   /* write that we have a payload */
   setPayload(msgTo, 1);
   
-  releaseMutex();
+  /*releaseMutex();*/
   return(CMSG_OK);
 }
 
@@ -5074,10 +5074,10 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   if (msg  == NULL ||
       name == NULL ||
       message == NULL)                      return(CMSG_BAD_ARGUMENT);
-  if (!isValidFieldName(name, isSystem))       return(CMSG_BAD_FORMAT);
+  if (!isValidFieldName(name, isSystem))    return(CMSG_BAD_FORMAT);
   if (cMsgPayloadContainsName(vmsg, name))  return(CMSG_ALREADY_EXISTS);
   if (isSystem) isSystem = 1;
-  
+
   memset((void *)length, 0, 12*sizeof(int));
   
   /* payload item to add to msg */
@@ -5092,7 +5092,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   }
   item->type  = CMSG_CP_MSG;
   item->count = 1;
-  
+
   /* store original data */
   item->array = cMsgCopyMessage(vmessage);
   if (item->array == NULL) {
@@ -5118,7 +5118,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   /* add up to 8 strings: domain, subject, type, text,   */
   /* sender, senderHost, reciever, receiverHost          */
   /* *************************************************** */
-  
+ 
   /* add length of "domain" member as a string */
   if (message->domain != NULL) {
     count++;
@@ -5230,7 +5230,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   totalLen += 1; /* for null terminator */
   
   item->noHeaderLen = textLen;
-  
+ 
   s = item->text = (char *) malloc(totalLen);
   if (item->text == NULL) {
     payloadItemFree(item);
@@ -5248,7 +5248,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   s += len;
   
   /* next write strings */
-  
+ 
   /* add message's domain member as string */
   if (message->domain != NULL) {
     sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgDomain", CMSG_CP_STR, length[0],
@@ -5385,7 +5385,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
     /* add newline */
     sprintf(s++, "\n");
   }
-    
+   
   /* add payload fields */
   pItem = message->payload;
   while (pItem != NULL) {
@@ -5399,7 +5399,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   
   /* store length of text */
   item->length = strlen(item->text);
-  
+
   /* place payload item in msg's linked list */
   addItem(msg, item);
     
