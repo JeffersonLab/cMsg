@@ -226,7 +226,9 @@ void clock_gettime(int dummy, struct timespec *t1);
   int    cMsgSetReliableSend       (      void *vmsg, int boolean);
   int    cMsgGetReliableSend       (      void *vmsg, int *boolean);
   /*  misc. */
-  int    cMsgToString              (      void *vmsg, char **string, int binary);
+  int    cMsgToString              (const void *vmsg, char **string);
+  int    cMsgToString2             (const void *vmsg, char **string, int binary, int compactPayload);
+  int    cMsgPayloadToString       (const void *vmsg, char **string, int binary, int compactPayload);
   
   /* ***************************************** */
   /* compound payload stuff - 66 user routines */
