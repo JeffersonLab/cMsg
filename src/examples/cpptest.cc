@@ -162,7 +162,7 @@ int main(int argc,char **argv) {
   msg.setText("TEXXXXT");
   
       
-  err = cMsgToString(msg.myMsgPointer, &s, 1);
+  err = cMsgToString(msg.myMsgPointer, &s);
   if (err != CMSG_OK) {
     printf("Error copying getting xml string: %s\n", cMsgPerror(err));
   }

@@ -204,7 +204,7 @@ int main(int argc,char **argv) {
     printf("Error copying payload\n");
   }
   
-  err = cMsgToString(msg, &s, 1);
+  err = cMsgToString(msg, &s);
   if (err != CMSG_OK) {
     printf("Error copying getting xml string: %s\n", cMsgPerror(err));
   }

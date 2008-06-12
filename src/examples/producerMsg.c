@@ -52,7 +52,6 @@ int main(int argc,char **argv) {
   char *p;
   char  bin[256], *strs[3];
   int   i, j, test[10], err, debug=1, msgSize=0, mainloops=200;
-  int32_t test32[1000];
   int64_t test64[4];
   double dbl, testd[7], dzero[10000];
   float  flt, testf[10000];
@@ -240,7 +239,7 @@ int main(int argc,char **argv) {
   cMsgAddMessageArray(msg1, "message", msgs, 2);
   cMsgAddInt64(msg1, "msg1_64_int1", 6789LL);
     
-  cMsgToString(msg1, &p, 1);
+  cMsgToString(msg1, &p);
   printf("XML message:\n%s", p);
   free(p);
     
