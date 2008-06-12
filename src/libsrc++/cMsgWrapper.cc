@@ -1163,7 +1163,7 @@ string cMsgMessage::toString(void) const throw(cMsgException) {
   char *cs;
 
   int stat;
-  if((stat=cMsgToString(myMsgPointer,&cs,1))!=CMSG_OK) {
+  if((stat=cMsgToString(myMsgPointer,&cs))!=CMSG_OK) {
     throw(cMsgException(cMsgPerror(stat),stat));
   }
 
