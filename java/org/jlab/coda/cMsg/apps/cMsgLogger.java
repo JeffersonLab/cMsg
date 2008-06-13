@@ -126,8 +126,7 @@ public class cMsgLogger {
                                                      msg.getUserInt(),
                                                      msg.getSubject(),
                                                      msg.getType(),
-                                                     msg.getText(),
-                                                     msg.toString() // payload xml needed ???
+                                                     msg.getText()
                     ));
                 } else {
                     System.out.println("msg count is: " + count);
@@ -146,8 +145,7 @@ public class cMsgLogger {
                                                   msg.getUserInt(),
                                                   msg.getSubject(),
                                                   msg.getType(),
-                                                  msg.getText(),
-                                                  msg.toString() //payload in xml needed ???
+                                                  msg.getText()
                     ));
 
                 } else {
