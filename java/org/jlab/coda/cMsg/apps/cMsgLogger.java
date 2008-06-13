@@ -70,11 +70,11 @@ public class cMsgLogger {
     private static boolean header   = false;
     private static boolean wide     = false;
 
-    private static String normalFormat    = "%-6d  %18s  %24s    %9d    %-18s  %-18s    %s  %s";
-    private static String normalHeader    = "%-6s  %18s  %24s    %9s    %-18s  %-18s    %s  %s";
+    private static String normalFormat    = "%-6d  %18s  %24s    %9d    %-18s  %-18s    %s";
+    private static String normalHeader    = "%-6s  %18s  %24s    %9s    %-18s  %-18s    %s";
 
-    private static String wideFormat      = "%-6d  %18s  %24s    %9d    %-30s  %-30s    %s  %s";
-    private static String wideHeader      = "%-6s  %18s  %24s    %9s    %-30s  %-30s    %s  %s";
+    private static String wideFormat      = "%-6d  %18s  %24s    %9d    %-30s  %-30s    %s";
+    private static String wideHeader      = "%-6s  %18s  %24s    %9s    %-30s  %-30s    %s";
 
 
 
