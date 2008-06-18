@@ -1317,9 +1317,12 @@ public class cMsgNameServer extends Thread {
          * @throws IOException if problems with socket communication
          */
         private void handleClient() throws IOException {
-//System.out.println("handleClient: IN");
             // listening port of client
             int clientListeningPort = in.readInt();
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("connecting client:\n  remote addr = " + channel.socket().getRemoteSocketAddress());
+                System.out.println("  client listening port = " + clientListeningPort);
+            }
             // length of password
             int lengthPassword = in.readInt();
             // length of domain type client is expecting to connect to
