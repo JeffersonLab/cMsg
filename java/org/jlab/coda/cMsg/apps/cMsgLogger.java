@@ -271,9 +271,9 @@ public class cMsgLogger {
         if(verbose)header=false;
         if(toScreen&&header) {
             System.out.println(String.format(wide?wideHeader:normalHeader,
-                                             "Count","SenderHost","SenderTime      ","UserInt","Subject","Type","Text/Payload"));
+                                             "Count","SenderHost","SenderTime      ","UserInt","Subject","Type","Text"));
             System.out.println(String.format(wide?wideHeader:normalHeader,
-                                             "-----","----------","----------      ","-------","-------","----","------------"));
+                                             "-----","----------","----------      ","-------","-------","----","----"));
         }
 
 
