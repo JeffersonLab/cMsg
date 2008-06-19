@@ -27,6 +27,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.util.Date;
 import java.util.Set;
+import java.util.HashMap;
+import java.util.HashSet;
 
 /**
  * This class implements a thread to listen to runcontrol clients in the
@@ -119,6 +121,10 @@ public class rcListeningThread extends Thread {
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("Running RC Broadcast Listening Thread");
         }
+
+        // Want "conflicting expids" message to be printed only once per client,
+        // so keep track of who had such messges.
+        HashSet<String> names = new HashSet<String>(200);
 
         // create a packet to be written into from client
         byte[] buf = new byte[2048];
@@ -225,9 +231,15 @@ public class rcListeningThread extends Thread {
 
                 // Check for conflicting expid's
                 if (!server.expid.equalsIgnoreCase(broadcasterExpid)) {
-                    if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("Conflicting EXPID's, ignoring");
-                    }
+                    //if (debug >= cMsgConstants.debugInfo) {
+                        if (!names.contains(broadcasterName)) {
+                            System.out.println("Conflicting EXPID's so ignore client, server has \"" +
+                                    server.expid + "\", client has \"" + broadcasterExpid + "\"");
+                            names.add(broadcasterName);
+                            // protect against memory leak
+                            if (names.size() > 3000) names.clear();
+                        }
+                    //}
                     continue;
                 }
 
