@@ -341,6 +341,26 @@ void *cMsgClientListeningThread(void *arg)
     
     connectionNumber++;
     index = connectionNumber%2;
+    
+    /* If we're in the rc domain, accept only 1 connection.
+     * If we're in the cmsg domain, accept only 2 connections.
+     * This is a hack designed to prevent port-scanning software from
+     * messing up cmsg clients.
+     */
+    if (strcasecmp(threadArg->domainType, "rc") == 0) {
+        if (connectionNumber > 0) break;
+    }
+    else {
+        if (connectionNumber > 1) break;    
+    }
+  }
+  
+  /* We're here since we've made as many connections as necessary. Any more connections
+   * are most likely from port-scanning software. To leave all the thread-ending software
+   * untouched (and functioning), just wait here forever.
+   */
+  while (1) {
+      sleep(1000);
   }
   
   /* on some operating systems (Linux) this call is necessary - calls cleanup handler */
