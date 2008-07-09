@@ -2273,7 +2273,7 @@ public class cMsgDomainServer extends Thread {
             nameServer.subscribeLock.lock();
             try {
                 // If not in a cMsg server cloud, just call subdomain handler.
-                if (nameServer.standAlone && nameServer.bridges.size() < 1) {
+                if (nameServer.standAlone || nameServer.bridges.size() < 1) {
 //System.out.println("    DS: call regular cmsg subdomain send&Get");
                     subdomainHandler.handleSubscribeAndGetRequest(holder.subject,
                                                                   holder.type,
