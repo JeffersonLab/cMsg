@@ -56,8 +56,11 @@ public class cMsgNetworkConstants {
     public static final int    rcDomainBroadcastKillSelf = 8;
 
     
-    /** The biggest single UDP packet size is 2^16 - IP 64 byte header - 8 byte UDP header. */
-    public static final int    biggestUdpPacketSize = 65463;
+    /** The biggest single UDP packet size is 2^16 - IP(v6) 40 byte header - 8 byte UDP header. */
+    public static final int    biggestUdpPacketSize = 65487;
+
+    /** The size (in bytes) of biggest buffers used to send UDP data from client to server. */
+    public static final int    biggestUdpBufferSize = 65536;
 
     /** The size (in bytes) of big buffers used to send data from client to server. */
     public static final int    bigBufferSize = 131072;
