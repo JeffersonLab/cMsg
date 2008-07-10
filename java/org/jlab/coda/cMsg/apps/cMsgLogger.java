@@ -67,7 +67,7 @@ public class cMsgLogger {
     /** toScreen true to log to screen. */
     private static boolean toScreen = false;
     private static boolean verbose  = false;
-    private static boolean header   = false;
+    private static int nHeader      = 0;
     private static boolean wide     = false;
 
     private static String normalFormat    = "%-6d  %18s  %24s    %9d    %-18s  %-18s    %s";
@@ -118,6 +118,15 @@ public class cMsgLogger {
 
             // output to screen
             if(toScreen) {
+
+                // output header if requested
+                if((count>1)&&(nHeader>0)&&((count%nHeader==1)||(nHeader==1))) {
+                    System.out.println(String.format(wide?wideHeader:normalHeader,
+                        "\nCount","SenderHost","SenderTime      ","UserInt","Subject","Type","Text"));
+                    System.out.println(String.format(wide?wideHeader:normalHeader,
+                         "-----","----------","----------      ","-------","-------","----","----"));
+                }
+
                 if(!verbose) {
                     System.out.println(String.format(wide?wideFormat:normalFormat,
                                                      count,
@@ -197,7 +206,7 @@ public class cMsgLogger {
                         pStmt.setString(i++, p.substring(0,maxText*1024));
                         System.out.println("?payload XML too long (" + p.length() + "), truncating to " + maxText + "kB");
                     }
-                    
+
                     pStmt.setInt(i++, msg.getByteArrayEndian());
                     byte[] b = msg.getByteArray();
                     if(b!=null) {
@@ -268,13 +277,14 @@ public class cMsgLogger {
 
         // enable screen logging if nothing else enabled
         if((filename==null)&&(url==null)) toScreen=true;
-        if(verbose)header=false;
-        if(toScreen&&header) {
+        if(verbose)nHeader=-1;
+        if(nHeader>=0) {
             System.out.println(String.format(wide?wideHeader:normalHeader,
                                              "Count","SenderHost","SenderTime      ","UserInt","Subject","Type","Text"));
             System.out.println(String.format(wide?wideHeader:normalHeader,
                                              "-----","----------","----------      ","-------","-------","----","----"));
         }
+
 
 
         // init file logging
@@ -419,7 +429,7 @@ public class cMsgLogger {
 
         String help = "\nUsage:\n\n" +
             "   java cMsgLogger [-name name] [-descr description] [-udl domain] [-subject subject] [-type type]\n" +
-            "                   [-screen] [-file filename] [-verbose] [-header] [-wide]\n" +
+            "                   [-screen] [-file filename] [-verbose] [-header nlines] [-wide]\n" +
             "                   [-url url] [-table table] [-driver driver] [-account account] [-pwd password]\n" +
             "                   [-maxText maxText] [-maxByteArray maxByteArray]\n" +
             "                   [-debug]\n\n";
@@ -467,7 +477,8 @@ public class cMsgLogger {
 
             }
             else if (args[i].equalsIgnoreCase("-header")) {
-                header=true;
+                nHeader=Integer.parseInt(args[i+1]);
+                i++;
 
             }
             else if (args[i].equalsIgnoreCase("-file")) {
