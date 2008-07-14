@@ -858,11 +858,7 @@ public class cMsgDomainServer extends Thread {
                         if (debug >= cMsgConstants.debugWarn) {
                             System.out.println("dServer udpSendHandler: can't understand your message " + info.getName());
                         }
-                        if (calledShutdown.compareAndSet(false, true)) {
-//System.out.println("SHUTDOWN TO BE RUN due to unknown command being received");
-                            shutdown();
-                        }
-                        return;
+                        continue;
                     }
 
                     monData.udpSends++;
