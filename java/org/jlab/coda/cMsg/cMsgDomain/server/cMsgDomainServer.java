@@ -702,6 +702,11 @@ public class cMsgDomainServer extends Thread {
                     // remove key from selected set since it's been handled
                     it.remove();
                 }
+                if (connectionNumber > 3) {
+                    // No more connections are needed, so to prevent port scanning
+                    // problems, just return.
+                    break;
+                }
             }
         }
         catch (IOException ex) {
