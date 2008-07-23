@@ -806,13 +806,8 @@ public class cMsgServerClient extends cMsg {
             // Now that we've communicated with the server,
             // delete stuff from hashes & kill threads -
             // basically, do the unsubscribe now.
-            if (Thread.currentThread() == cbThread) {
-                //System.out.println("Don't interrupt my own thread!!!");
-                cbThread.dieNow(false);
-            }
-            else {
-                cbThread.dieNow(true);
-            }
+            //System.out.println("Don't interrupt my own thread!!!");
+            cbThread.dieNow(false);
             synchronized (subscriptions) {
                 oldSub.getCallbacks().remove(cbThread);
                 subscriptions.remove(oldSub);
