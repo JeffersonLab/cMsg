@@ -45,16 +45,26 @@ public interface cMsgDeliverMessageInterface {
             throws cMsgException, IOException;
 
     /**
-     * Method to deliver a message from a domain server's subdomain handler to a client
-     * and receive acknowledgment that the message was received.
+     * Method to deliver an array of string from a domain server's subdomain handler to a client.
      *
-     * @param msg     message to sent to client
+     * @param strs array of strings to sent to client
      * @param msgType type of communication with the client
-     * @return true if message acknowledged by receiver, otherwise false
      * @throws cMsgException
      * @throws java.io.IOException
      */
-    public boolean deliverMessageAndAcknowledge(cMsgMessage msg, int msgType)
+    public void deliverMessage(String[] strs, int msgType)
+            throws cMsgException, IOException;
+
+    /**
+     * Method to deliver 2 integers from a domain server's subdomain handler to a client.
+     *
+     * @param i integer to sent to client
+     * @param j integer to sent to client
+     * @param msgType type of communication with the client
+     * @throws cMsgException
+     * @throws java.io.IOException
+     */
+    public void deliverMessage(int i, int j, int msgType)
             throws cMsgException, IOException;
 
 }

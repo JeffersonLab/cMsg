@@ -262,16 +262,9 @@ public class CA extends cMsgSubdomainAdapter {
         myClientInfo = info;
         mySenderId   = ++senderCount;
 
-        // Create an object enabling this handler to communicate
+        // Get the object enabling this handler to communicate
         // with only this client in this cMsg subdomain.
-        try {
-            myDeliverer = new cMsgMessageDeliverer(info);
-        }
-        catch (IOException e) {
-            cMsgException ex = new cMsgException("socket communication error");
-            ex.setReturnCode(cMsgConstants.errorNetwork);
-            throw ex;
-        }
+        myDeliverer = info.getDeliverer();
 
         // extract channel from UDL remainder
         int ind = myUDLRemainder.indexOf("?");

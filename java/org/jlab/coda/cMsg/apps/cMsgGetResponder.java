@@ -30,7 +30,7 @@ public class cMsgGetResponder {
 
     String  name = "getResponder";
     String  description = "java getResponder";
-    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
+    String  UDL = "cMsg://localhost:3456/cMsg/test/?regime=low";
     String  subject = "SUBJECT";
     String  type = "TYPE";
     boolean debug;

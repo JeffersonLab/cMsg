@@ -25,7 +25,7 @@ import java.util.concurrent.Callable;
  * This class is a callback-running thread to be used with the enterprise-level
  * implementation of sendAndGet.
  */
-public class cMsgSendAndGetCallbackThread implements Callable {
+public class cMsgSendAndGetCallbackThread implements Callable<Boolean> {
 
      /** A cue containing a single message to be passed to the callback. */
      private SynchronousQueue<cMsgMessageFull> messageCue;

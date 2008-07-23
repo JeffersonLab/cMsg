@@ -36,13 +36,13 @@ public class cMsgSubscription extends cMsgGetHelper {
     /** Subject subscribed to. */
     private String subject;
 
-    /** Subject turned into regular expression that understands * and ?. */
+    /** Subject turned into regular expression that understands *, ?, #, and integer ranges. */
     private String subjectRegexp;
 
     /** Compiled regular expression given in {@link #subjectRegexp}. */
     private Pattern subjectPattern;
 
-    /** Are there any * or ? characters or integer ranges in the subject? */
+    /** Are there any *, ?, or # characters or integer ranges in the subject? */
     private boolean wildCardsInSub;
 
     /** Keep a set of strings that are known to match the subject for performance reasons. */
@@ -51,19 +51,19 @@ public class cMsgSubscription extends cMsgGetHelper {
     /** Type subscribed to. */
     private String type;
 
-    /** Type turned into regular expression that understands * and ?. */
+    /** Type turned into regular expression that understands *, ?, #, and integer ranges. */
     private String typeRegexp;
 
     /** Compiled regular expression given in {@link #typeRegexp}. */
     private Pattern typePattern;
 
-    /** Are there any * or ? characters or integer ranges in the type? */
+    /** Are there any *, ?, or # characters or integer ranges in the type? */
     private boolean wildCardsInType;
 
     /** Keep a set of strings that are known to match the type for performance reasons. */
     private Set<String> typeMatches = Collections.synchronizedSet(new HashSet<String>(65));
 
-    /** Client generated id. */
+    /** Client generated intVal. */
     private int id;
 
     /**
@@ -233,7 +233,7 @@ public class cMsgSubscription extends cMsgGetHelper {
      * Constructor used by cMsg domain API.
      * @param subject subscription subject
      * @param type subscription type
-     * @param id unique id referring to subject and type combination
+     * @param id unique intVal referring to subject and type combination
      * @param cbThread object containing callback, its argument, and the thread to run it
      */
     public cMsgSubscription(String subject, String type, int id, cMsgCallbackThread cbThread) {
@@ -959,18 +959,18 @@ public class cMsgSubscription extends cMsgGetHelper {
     }
 
     /**
-     * Gets the id which client generates (receiverSubscribeId).
+     * Gets the intVal which client generates (receiverSubscribeId).
      * @return receiverSubscribeId
      */
-    public int getId() {
+    public int getIntVal() {
         return id;
     }
 
     /**
-     * Sets the id which client generates (receiverSubscribeId).
-     * @param id id which client generates (receiverSubscribeId)
+     * Sets the intVal which client generates (receiverSubscribeId).
+     * @param id intVal which client generates (receiverSubscribeId)
      */
-    public void setId(int id) {
+    public void setIntVal(int id) {
         this.id = id;
     }
 

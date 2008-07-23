@@ -18,7 +18,8 @@ package org.jlab.coda.cMsg;
 
 
 /**
- * This class is used to help in implementing sendAndGet and some subscribeAndGet methods.
+ * This class is used to help in implementing some sendAndGet, subscribeAndGet, and
+ * syncSend methods.
  * This is true in the cMsg domain for the client and in the RCBroadcast and RCServer
  * domains for servers.
  * An object of this class stores a msg from a sender to the method's caller and
@@ -30,13 +31,16 @@ public class cMsgGetHelper {
     cMsgMessageFull message;
 
     /** Has the "subscribeAndGet" or "sendAndGet" call timed out? */
-    boolean timedOut;
+    volatile boolean timedOut;
 
     /**
      * When a "subscribeAndGet" or "sendAndGet" is woken up by an error condition,
      * such as "the server died", this code is set.
      */
     int errorCode;
+
+    /** Used to store syncSend return value. */
+    int intVal;
 
 
     public cMsgGetHelper() {
@@ -59,6 +63,16 @@ public class cMsgGetHelper {
      */
     public void setMessage(cMsgMessageFull message) {
         this.message = message;
+    }
+
+    /**
+     * Returns true if the "syncSend" response has not yet been received and
+     * the client still needs to wait for it.
+     * @return true if the "syncSend" response has not yet been received and
+     *              the client still needs to wait for it
+     */
+    public boolean needToWait() {
+        return timedOut;
     }
 
     /**
@@ -91,6 +105,22 @@ public class cMsgGetHelper {
      */
     public void setErrorCode(int errorCode) {
         this.errorCode = errorCode;
+    }
+
+    /**
+     * Gets intVal from when a "syncSend" is woken up.
+     * @return syncSend intVal
+     */
+    public int getIntVal() {
+        return intVal;
+    }
+
+    /**
+     * Sets intVal from when a "syncSend" is woken up.
+     * @param intVal syncSend response
+     */
+    public void setIntVal(int intVal) {
+        this.intVal = intVal;
     }
 
 

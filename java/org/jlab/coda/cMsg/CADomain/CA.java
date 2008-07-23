@@ -86,6 +86,7 @@ public class CA extends cMsgDomainAdapter {
                 //  get cMsg and fill common fields
                 cMsgMessageFull cmsg = new cMsgMessageFull();
                 cmsg.setDomain(domain);
+//                cmsg.setCreator(myChannelName);
                 cmsg.setSender(myChannelName);
                 cmsg.setSenderHost(myAddrList);
                 cmsg.setSenderTime(new Date());
@@ -351,6 +352,7 @@ public class CA extends cMsgDomainAdapter {
 
         cMsgMessageFull response = new cMsgMessageFull();
         response.setDomain(domain);
+//        response.setCreator(myChannelName);
         response.setSender(myChannelName);
         response.setSenderHost(myAddrList);
         response.setSenderTime(new Date());

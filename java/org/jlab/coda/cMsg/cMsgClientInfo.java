@@ -16,7 +16,10 @@
 
 package org.jlab.coda.cMsg;
 
+import org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsgMessageDeliverer;
+
 import java.lang.*;
+import java.nio.channels.SocketChannel;
 
 
 /**
@@ -27,40 +30,48 @@ import java.lang.*;
  */
 public class cMsgClientInfo {
     /** Client's name. */
-    private String  name;
+    protected String  name;
     /** Client supplied description. */
-    private String  description;
+    protected String  description;
     /** Client supplied UDL. */
-    private String  UDL;
+    protected String  UDL;
     /** Remainder from client's UDL. */
-    private String  UDLremainder;
+    protected String  UDLremainder;
     /** Subdomain client wishes to use. */
-    private String  subdomain;
+    protected String  subdomain;
     /** cMsg subdomain namespace client is using. */
-    private String  namespace;
+    protected String  namespace;
     /** Client's host. */
-    private String  clientHost;
-    /** Client's port. */
-    private int     clientPort;
+    protected String  clientHost;
+
     /** Domain server's host. */
-    private String  domainHost;
+    protected String  domainHost;
     /** Domain server's TCP port. */
-    private int     domainPort;
+    protected int     domainPort;
     /** Domain server's UDP port. */
-    private int     domainUdpPort;
+    protected int     domainUdpPort;
 
     /** Is this client another cMsg server? */
-    boolean isServer;
+    protected boolean isServer;
     /**
      * If this client is a cMsg server, this quantity is the name server's port
      * of the server which has just become a client of cMsg server where this
      * object lives. (I hope you got that).
      */
-    private int serverPort;
+    protected int serverPort;
+
+    /** Socket channel used to get messages to and receive messages/requests from client. */
+    protected SocketChannel messageChannel;
 
     /** Object for delivering messges to this client. */
-    cMsgDeliverMessageInterface deliverer;
+    protected cMsgMessageDeliverer deliverer;
 
+
+    /**
+     * Default constructor.
+     */
+    public cMsgClientInfo() {
+    }
 
     /**
      * Constructor specifing client's name, port, host, subdomain, and UDL remainder.
@@ -68,18 +79,18 @@ public class cMsgClientInfo {
      *
      * @param name  client's name
      * @param nsPort name server's listening port
-     * @param port  client's listening port
+     * @param dPort  domain server's listening port
      * @param host  client's host
      * @param subdomain    client's subdomain
      * @param UDLRemainder client's UDL's remainder
      * @param UDL          client's UDL
      * @param description  client's description
      */
-    public cMsgClientInfo(String name, int nsPort, int port, String host, String subdomain,
+    public cMsgClientInfo(String name, int nsPort, int dPort, String host, String subdomain,
                           String UDLRemainder, String UDL, String description) {
         this.name = name;
         serverPort = nsPort;
-        clientPort = port;
+        domainPort = dPort;
         clientHost = host;
         this.subdomain = subdomain;
         this.UDLremainder = UDLRemainder;
@@ -93,13 +104,11 @@ public class cMsgClientInfo {
      *
      * @param name  client's name
      * @param nsPort name server's listening port
-     * @param port  client's listening port
      * @param host  client's host
      */
-    public cMsgClientInfo(String name, int nsPort, int port, String host) {
+    public cMsgClientInfo(String name, int nsPort, String host) {
         this.name  = name;
         serverPort = nsPort;
-        clientPort = port;
         clientHost = host;
         isServer   = true;
     }
@@ -166,14 +175,6 @@ public class cMsgClientInfo {
      * @return host client is running on
      */
     public String getClientHost() {return clientHost;}
-
-    //-----------------------------------------------------------------------------------
-
-    /**
-     * Gets TCP port client is listening on.
-     * @return TCP port client is listening on
-     */
-    public int getClientPort() {return clientPort;}
 
     //-----------------------------------------------------------------------------------
 
@@ -245,12 +246,30 @@ public class cMsgClientInfo {
     }
 
     //-----------------------------------------------------------------------------------
+    /**
+     * Gets the SocketChannel used to send messages to and receives messages/requests from this client.
+     * @return the SocketChannel used to send messages to and receives messages/requests from this client
+     */
+    public SocketChannel getMessageChannel() {
+        return messageChannel;
+    }
 
+    /**
+     * Sets the SocketChannel used to send messages to and receives messages/requests from this client.
+     * @param messageChannel the SocketChannel used to send messages to and receives
+     *                       messages/requests from this client
+     */
+    public void setMessageChannel(SocketChannel messageChannel) {
+        this.messageChannel = messageChannel;
+    }
+
+
+    //-----------------------------------------------------------------------------------
     /**
      * Gets the object used to deliver messages to this client.
      * @return object used to deliver messages to this client
      */
-    public cMsgDeliverMessageInterface getDeliverer() {
+    public cMsgMessageDeliverer getDeliverer() {
         return deliverer;
     }
 
@@ -258,7 +277,7 @@ public class cMsgClientInfo {
      * Sets the object used to deliver messages to this client.
      * @param deliverer object used to deliver messages to this client
      */
-    public void setDeliverer(cMsgDeliverMessageInterface deliverer) {
+    public void setDeliverer(cMsgMessageDeliverer deliverer) {
         this.deliverer = deliverer;
     }
 

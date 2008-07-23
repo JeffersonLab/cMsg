@@ -482,7 +482,7 @@ public class RCServer extends cMsgDomainAdapter {
 
     /**
      * Method to deliver a message to a client. This is a somewhat modified "copy"
-     * of {@link org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsgMessageDeliverer#deliverMessageReal(cMsgMessage, int, boolean)}.
+     * of {@link org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsgMessageDeliverer#deliverMessageReal(cMsgMessage, int)}.
      * It leaves open the possibility that many fields may be null and still will not
      * barf. It's always possible that a knowledgable user could create an object of
      * type cMsgMessageFull and pass that in. That way the user gets to set all fields.

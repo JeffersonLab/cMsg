@@ -30,7 +30,7 @@ public class cMsgGetConsumer {
 
     String  name = "getConsumer";
     String  description = "java getConsumer";
-    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
+    String  UDL = "cMsg://localhost:3456/cMsg/test/?regime=low";
     String  subject = "SUBJECT";
     String  type = "TYPE";
     boolean send;
@@ -229,12 +229,12 @@ public class cMsgGetConsumer {
                 if (msg == null) {
                     System.out.println("Got null msg");
                 }
-                else {
+//                else {
 //                    System.out.println("CLIENT GOT MESSAGE!!!");
 //                    System.out.println("    sub =  " + msg.getSubject());
 //                    System.out.println("    typ =  " + msg.getType());
 //                    System.out.println("    txt =  " + msg.getText());
-                }
+//                }
                 count++;
                 // delay between messages sent
 //               try {Thread.sleep(20);}

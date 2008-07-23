@@ -16,11 +16,10 @@
 
 package org.jlab.coda.cMsg.apps;
 
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgMessage;
-import org.jlab.coda.cMsg.cMsg;
+import org.jlab.coda.cMsg.*;
 
 import java.util.Arrays;
+import java.util.Map;
 
 /**
  * An example class which creates a cMsg message producer.
@@ -42,7 +41,7 @@ public class cMsgProducer {
     int     binSize;
     boolean sendBinary;
 
-    int     delay;
+    int     delay, count = 50000;
     boolean debug;
 
 
@@ -107,6 +106,12 @@ public class cMsgProducer {
                 }
                 System.out.println("binary size = " + binSize);
                 sendBinary = true;
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-c")) {
+                count = Integer.parseInt(args[i + 1]);
+                if (count < 1)
+                    System.exit(-1);
                 i++;
             }
             else if (args[i].equalsIgnoreCase("-delay")) {
@@ -175,6 +180,57 @@ public class cMsgProducer {
         return s;
     }
 
+
+
+
+      /**
+     * This class defines the callback to be run when a message matching
+     * our subscription arrives.
+     */
+    class myCallback extends cMsgCallbackAdapter {
+        /**
+         * Callback method definition.
+         *
+         * @param msg message received from domain server
+         * @param userObject object passed as an argument which was set when the
+         *                   client orginally subscribed to a subject and type of
+         *                   message.
+         */
+        public void callback(cMsgMessage msg, Object userObject) {
+//            System.out.println("Got msg, sub = " + msg.getSubject() + ", type = " + msg.getType());
+
+//            try {
+//                if (msg.hasPayload()) {
+//                    Map<String, cMsgPayloadItem> map = msg.getPayloadItems();
+//                    if (map.containsKey("STR_ARRAY")) {
+//                        String[] sa = msg.getPayloadItem("STR_ARRAY").getStringArray();
+//                        for (String s : sa) {
+//                            System.out.println("str = " + s);
+//                        }
+//                    }
+//                    if (map.containsKey("INT_ARRAY")) {
+//                        int[] ia = msg.getPayloadItem("INT_ARRAY").getIntArray();
+//                        for (int i : ia) {
+//                            System.out.println("int = " + i);
+//                        }
+//                    }
+//                }
+//            }
+//            catch (cMsgException e) {
+//                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+//            }
+        }
+
+        public int getMaximumCueSize() {return 10000;}
+
+        public boolean maySkipMessages() {return false;}
+
+        public boolean mustSerializeMessages() {return true;}
+
+        public int  getMaximumThreads() {return 200;}
+     }
+
+
     /**
      * This method is executed as a thread.
      */
@@ -190,10 +246,34 @@ public class cMsgProducer {
         cMsg coda = new cMsg(UDL, name, description);
         coda.connect();
 
+        // enable message reception
+        coda.start();
+
+        // subscribe to subject/type
+//        cMsgCallbackInterface cb = new myCallback();
+//        Object unsub  = coda.subscribe(subject, type, cb, null);
+
         // create a message
         cMsgMessage msg = new cMsgMessage();
         msg.setSubject(subject);
         msg.setType(type);
+        msg.setText("blah");
+        msg.getContext().setReliableSend(false);
+
+
+//        String[] ses = new String[]{"one", "two", "three"};
+//        cMsgPayloadItem item = new cMsgPayloadItem("STR_ARRAY", ses);
+//        msg.addPayloadItem(item);
+//
+//        int ii = 123456789;
+//        cMsgPayloadItem item3 = new cMsgPayloadItem("INT", ii);
+//        msg.addPayloadItem(item3);
+//
+//        int[] ia = {1,2,3};
+//        cMsgPayloadItem item4 = new cMsgPayloadItem("INT_ARRAY", ia);
+//        msg.addPayloadItem(item4);
+
+
         // set for UDP send
         //msg.getContext().setReliableSend(false);
         if (sendText) {
@@ -207,7 +287,7 @@ public class cMsgProducer {
 
         // variables to track message rate
         double freq=0., freqAvg=0.;
-        long t1, t2, deltaT, totalT=0, totalC=0, count=50000, ignore=0;
+        long t1, t2, deltaT, totalT=0, totalC=0, ignore=0;
 
         // delay between messages
         //if (delay != 0) rcCount = rcCount/(20 + delay);
@@ -216,7 +296,9 @@ public class cMsgProducer {
             t1 = System.currentTimeMillis();
             for (int i = 0; i < count; i++) {
                 coda.send(msg);
-                //int a = coda.syncSend(msg);
+                //System.out.print("Try syncSend number " + (i+1));
+                //int a = coda.syncSend(msg, 1000);
+                //System.out.println("Got syncSend val = " + a);
                 coda.flush(0);
                 // delay between messages sent
                 if (delay != 0) {

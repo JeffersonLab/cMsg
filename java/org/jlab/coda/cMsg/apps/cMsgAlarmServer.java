@@ -1,8 +1,3 @@
-//  metadata table
-//  id and index
-
-
-
 //  general purpose cMsg alarm server
 
 //      -url jdbc:mysql://xdaq/test -driver com.mysql.jdbc.Driver -account fred
@@ -49,7 +44,7 @@ public class cMsgAlarmServer {
 
 
     /** Universal Domain Locator and cMsg system object. */
-    private static String udl = "cMsg://broadcast/cMsg";
+    private static String udl = "cMsg:cMsg://ollie/cMsg";
     private static cMsg cmsg  = null;
 
 

@@ -21,7 +21,6 @@ import org.jlab.coda.cMsg.*;
 import java.io.*;
 import java.net.*;
 import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
 import java.nio.channels.UnresolvedAddressException;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -104,6 +103,12 @@ public class cMsg extends cMsgDomainAdapter {
      */
     boolean mustBroadcast;
 
+    /**
+     * True if this client promises to send relative low rates of relatively small messages
+     * (message regime as opposed to daq regime). Else false.
+     */
+    boolean regimeLow;
+
     /** Signal to coordinate the broadcasting and waiting for responses. */
     CountDownLatch broadcastResponse;
 
@@ -129,28 +134,29 @@ public class cMsg extends cMsgDomainAdapter {
     int domainServerUdpPort;
 
     /** Channel for talking to domain server. */
-    SocketChannel domainOutChannel;
-    /** Channel for receiving from domain server. */
-    SocketChannel domainInChannel;
+    Socket domainOutSocket;
     /** Socket input stream associated with domainInChannel - gets info from server. */
     DataInputStream  domainIn;
     /** Socket output stream associated with domainOutChannel - sends info to server. */
     DataOutputStream domainOut;
 
-    /** Channel for checking to see that the domain server is still alive. */
-    SocketChannel keepAliveChannel;
+    /** Socket for checking to see that the domain server is still alive. */
+    Socket keepAliveSocket;
 
     /** String containing monitor data received from a cMsg server as a keep alive response. */
     public String monitorXML;
 
-    /** Time in milliseconds between sending keep alives. */
-    final int sleepTime = 1000;
+    /** Time in milliseconds between sending monitor data / keep alives. */
+    final int sleepTime = 2000;
 
     /** Thread listening for TCP connections and responding to domain server commands. */
     cMsgClientListeningThread listeningThread;
 
     /** Thread for sending keep alive commands to domain server to check its health. */
     KeepAlive keepAliveThread;
+
+    /** Thread for sending periodic monitoring info to domain server to check this client's health. */
+    UpdateServer updateServerThread;
 
     /**
      * Collection of all of this client's message subscriptions which are
@@ -183,6 +189,12 @@ public class cMsg extends cMsgDomainAdapter {
      * Key is senderToken object, value is {@link cMsgGetHelper} object.
      */
     ConcurrentHashMap<Integer,cMsgGetHelper> sendAndGets;
+
+    /**
+     * Collection of all of this client's {@link #syncSend} calls currently in execution.
+     * Key is senderToken object, value is {@link cMsgGetHelper} object.
+     */
+    ConcurrentHashMap<Integer,cMsgGetHelper> syncSends;
 
 
     /**
@@ -242,7 +254,7 @@ public class cMsg extends cMsgDomainAdapter {
     boolean hasShutdown;
 
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugNone;
+    int debug = cMsgConstants.debugError;
 
     // For statistics/monitoring
 
@@ -280,6 +292,7 @@ public class cMsg extends cMsgDomainAdapter {
         subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
         subscribeAndGets = new ConcurrentHashMap<Integer,cMsgSubscription>(20);
         sendAndGets      = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
+        syncSends        = new ConcurrentHashMap<Integer,cMsgGetHelper>(10);
         uniqueId         = new AtomicInteger();
         unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
         failovers        = new ArrayList<ParsedUDL>(10);
@@ -661,112 +674,31 @@ public class cMsg extends cMsgDomainAdapter {
         try {
             if (connected) return;
 
-            // read env variable for starting port number
-            try {
-                String env = System.getenv("CMSG_CLIENT_PORT");
-                if (env != null) {
-                    startingPort = Integer.parseInt(env);
-                }
-            }
-            catch (NumberFormatException ex) {
-            }
-
-            // port #'s < 1024 are reserved
-            if (startingPort < 1024) {
-                startingPort = cMsgNetworkConstants.clientServerStartingPort;
-            }
-
-            // At this point, find a port to bind to. If that isn't possible, throw
-            // an exception.
-            try {
-                serverChannel = ServerSocketChannel.open();
-            }
-            catch (IOException ex) {
-                ex.printStackTrace();
-                throw new cMsgException("connect: cannot open a listening socket");
-            }
-
-            port = startingPort;
-            ServerSocket listeningSocket = serverChannel.socket();
-
-            while (true) {
-                try {
-                    listeningSocket.bind(new InetSocketAddress(port));
-                    break;
-                }
-                catch (IOException ex) {
-                    // try another port by adding one
-                    if (port < 65535) {
-                        port++;
-                        try { Thread.sleep(100);  }
-                        catch (InterruptedException e) {}
-                    }
-                    else {
-                        // close channel
-                        try { serverChannel.close(); }
-                        catch (IOException e) { }
-
-                        ex.printStackTrace();
-                        throw new cMsgException("connect: cannot find port to listen on");
-                    }
-                }
-            }
-
-            // launch thread and start listening on receive socket
-            listeningThread = new cMsgClientListeningThread(this, serverChannel);
-            listeningThread.start();
-
-            // Wait for indication thread is actually running before
-            // continuing on. This thread must be running before we talk to
-            // the name server since the server tries to communicate with
-            // the listening thread.
-            synchronized (listeningThread) {
-                if (!listeningThread.isAlive()) {
-                    try {
-                        listeningThread.wait();
-                    }
-                    catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-
             // connect & talk to cMsg name server to check if name is unique
-            SocketChannel channel = null;
+            Socket nsSocket = null;
             try {
-                channel = SocketChannel.open(new InetSocketAddress(nameServerHost, nameServerPort));
-                // set socket options
-                Socket socket = channel.socket();
+                nsSocket = new Socket(nameServerHost, nameServerPort);
                 // Set tcpNoDelay so no packets are delayed
-                socket.setTcpNoDelay(true);
+                nsSocket.setTcpNoDelay(true);
                 // no need to set buffer sizes
             }
-            catch (UnresolvedAddressException e) {
-                // undo everything we've just done
-                listeningThread.killThread();
-                try {if (channel != null) channel.close();} catch (IOException e1) {}
-
-                throw new cMsgException("connect: cannot create channel to name server", e);
-            }
             catch (IOException e) {
-                // undo everything we've just done
-                listeningThread.killThread();
-                try {if (channel != null) channel.close();} catch (IOException e1) {}
-
+                try {if (nsSocket != null) nsSocket.close();} catch (IOException e1) {}
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("connect: cannot create channel to name server", e);
+                throw new cMsgException("connect: cannot create socket to name server", e);
             }
+
 
             // get host & port to send messages & other info from name server
             try {
-                talkToNameServerFromClient(channel);
+                talkToNameServerFromClient(nsSocket);
             }
             catch (IOException e) {
                 // undo everything we've just done
-                listeningThread.killThread();
-                try {channel.close();} catch (IOException e1) {}
+                //listeningThread.killThread();
+                try {nsSocket.close();} catch (IOException e1) {}
 
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
@@ -776,7 +708,7 @@ public class cMsg extends cMsgDomainAdapter {
 
             // done talking to server
             try {
-                channel.close();
+                nsSocket.close();
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
@@ -785,75 +717,62 @@ public class cMsg extends cMsgDomainAdapter {
                 }
             }
 
-            // create request response reading (from domain) channel
+
+            // create request sending (to domain) socket
             try {
-                domainInChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-                // buffered communication streams for efficiency
-                Socket socket = domainInChannel.socket();
+                // Do NOT use SocketChannel objects to establish communications. The socket obtained
+                // from a SocketChannel object has its input and outputstreams synchronized - making 
+                // simultaneous reads and writes impossible!!
+                // SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
+                Socket socket = new Socket(domainServerHost, domainServerPort);
                 socket.setTcpNoDelay(true);
-                domainIn = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 2048));
+                socket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                domainOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(),
+                                                                          cMsgNetworkConstants.bigBufferSize));
+                // launch thread to start listening on receive end of "sending" socket
+                listeningThread = new cMsgClientListeningThread(this, socket);
+                listeningThread.start();
             }
             catch (IOException e) {
-                // undo everything we've just done
-                listeningThread.killThread();
-                try {channel.close();} catch (IOException e1) {}
-                try {if (domainInChannel != null) domainInChannel.close();} catch (IOException e1) {}
+                // undo everything we've just done so far
+                try {if (domainOutSocket != null) domainOutSocket.close();} catch (IOException e1) {}
+                if (listeningThread != null) listeningThread.killThread();
 
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
                 throw new cMsgException("connect: cannot create channel to domain server", e);
             }
+//System.out.println("connect: created channel to connection handler");
+
 
             // create keepAlive socket
             try {
-                keepAliveChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-                Socket socket = keepAliveChannel.socket();
+                Socket socket = new Socket(domainServerHost, domainServerPort);
                 socket.setTcpNoDelay(true);
 
-                // Create thread to send periodic keep alives and handle dead server
-                // and with failover capability.
-                keepAliveThread = new KeepAlive(keepAliveChannel, useFailoverWaiting, failovers);
+                // Create thread to handle dead server with failover capability.
+                keepAliveThread = new KeepAlive(socket, useFailoverWaiting, failovers);
                 keepAliveThread.start();
+                // Create thread to send periodic monitor data / keep alives
+                updateServerThread = new UpdateServer(socket);
+                updateServerThread.start();
             }
             catch (IOException e) {
                 // undo everything we've just done so far
                 listeningThread.killThread();
-                try { channel.close(); }         catch (IOException e1) {}
-                try { domainInChannel.close(); } catch (IOException e1) {}
-                try { if (keepAliveChannel != null) keepAliveChannel.close(); } catch (IOException e1) {}
-                if (keepAliveThread != null) keepAliveThread.killThread();
+                try { domainOutSocket.close(); } catch (IOException e1) {}
+                try { if (keepAliveSocket != null) keepAliveSocket.close(); } catch (IOException e1) {}
+                if (keepAliveThread != null)    keepAliveThread.killThread();
+                if (updateServerThread != null) updateServerThread.killThread();
 
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
                 throw new cMsgException("connect: cannot create keepAlive channel to domain server", e);
             }
+//System.out.println("connect: created channel to keep alive handler");
 
-            // create request sending (to domain) channel (This takes longest so do last)
-            try {
-                domainOutChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-                // buffered communication streams for efficiency
-                Socket socket = domainOutChannel.socket();
-                socket.setTcpNoDelay(true);
-                socket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
-                domainOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(),
-                                                                          cMsgNetworkConstants.bigBufferSize));
-            }
-            catch (IOException e) {
-                // undo everything we've just done so far
-                listeningThread.killThread();
-                keepAliveThread.killThread();
-                try { channel.close(); }          catch (IOException e1) {}
-                try { domainInChannel.close(); }  catch (IOException e1) {}
-                try { keepAliveChannel.close(); } catch (IOException e1) {}
-                try {if (domainOutChannel != null) domainOutChannel.close();} catch (IOException e1) {}
-
-                if (debug >= cMsgConstants.debugError) {
-                    e.printStackTrace();
-                }
-                throw new cMsgException("connect: cannot create channel to domain server", e);
-            }
 
             // create udp socket to send messages on
             try {
@@ -861,7 +780,7 @@ public class cMsg extends cMsgDomainAdapter {
                 InetAddress addr = InetAddress.getByName(domainServerHost);
                 // connect for speed and to keep out unwanted packets
                 sendUdpSocket.connect(addr, domainServerUdpPort);
-                sendUdpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                sendUdpSocket.setSendBufferSize(cMsgNetworkConstants.biggestUdpBufferSize);
                 sendUdpPacket = new DatagramPacket(new byte[0], 0, addr, domainServerUdpPort);
                 // System.out.println("udp socket connected to host = " + domainServerHost +
                 // " and port = " + domainServerUdpPort);
@@ -869,10 +788,10 @@ public class cMsg extends cMsgDomainAdapter {
             catch (UnknownHostException e) {
                 listeningThread.killThread();
                 keepAliveThread.killThread();
-                try { channel.close(); } catch (IOException e1) {}
-                try { domainInChannel.close(); } catch (IOException e1) {}
-                try { keepAliveChannel.close(); } catch (IOException e1) {}
-                try {domainOutChannel.close();} catch (IOException e1) {}
+                updateServerThread.killThread();
+                try {
+                    keepAliveSocket.close();} catch (IOException e1) {}
+                try {domainOutSocket.close();} catch (IOException e1) {}
                 if (sendUdpSocket != null) sendUdpSocket.close();
 
                 if (debug >= cMsgConstants.debugError) {
@@ -883,10 +802,10 @@ public class cMsg extends cMsgDomainAdapter {
             catch (SocketException e) {
                 listeningThread.killThread();
                 keepAliveThread.killThread();
-                try { channel.close(); } catch (IOException e1) {}
-                try { domainInChannel.close(); } catch (IOException e1) {}
-                try { keepAliveChannel.close(); } catch (IOException e1) {}
-                try {domainOutChannel.close();} catch (IOException e1) {}
+                updateServerThread.killThread();
+                try {
+                    keepAliveSocket.close();} catch (IOException e1) {}
+                try {domainOutSocket.close();} catch (IOException e1) {}
                 if (sendUdpSocket != null) sendUdpSocket.close();
 
                 if (debug >= cMsgConstants.debugError) {
@@ -934,13 +853,15 @@ public class cMsg extends cMsgDomainAdapter {
 
             connected = false;
 
-            // Stop keep alive thread & close channel so when domain server
+            // Stop keep alive threads & close channel so when domain server
             // shuts down, we don't detect it's dead and make a fuss.
             //
             // NOTE: It may be the keepAlive thread that is calling this method.
             // In this case, it exits after running this method.
             keepAliveThread.killThread();
             keepAliveThread.interrupt();
+            updateServerThread.killThread();
+            updateServerThread.interrupt();
 
             // give thread a chance to shutdown
             try { Thread.sleep(100); }
@@ -960,11 +881,10 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             // close all our streams and sockets
-            try {domainIn.close();}                  catch (IOException e) {}
-            try {domainOut.close();}                 catch (IOException e) {}
-            try {domainInChannel.close();}           catch (IOException e) {}
-            try {domainOutChannel.close();}          catch (IOException e) {}
-            try {keepAliveChannel.socket().close();} catch (IOException e) {}
+            try {domainOut.close();}        catch (IOException e) {}
+            try {domainOutSocket.close();} catch (IOException e) {}
+            try {
+                keepAliveSocket.close();} catch (IOException e) {}
             sendUdpSocket.close();
 
             // give server a chance to shutdown
@@ -1007,6 +927,14 @@ public class cMsg extends cMsgDomainAdapter {
                 }
             }
 
+            // wakeup all syncSends
+            for (cMsgGetHelper helper : syncSends.values()) {
+                helper.setErrorCode(cMsgConstants.errorAbort);
+                synchronized (helper) {
+                    helper.notify();
+                }
+            }
+
             // empty all hash tables
             subscriptions.clear();
             sendAndGets.clear();
@@ -1017,6 +945,7 @@ public class cMsg extends cMsgDomainAdapter {
         finally {
             connectLock.unlock();
         }
+//System.out.println("\nReached end of disconnect method");
     }
 
 
@@ -1032,8 +961,17 @@ public class cMsg extends cMsgDomainAdapter {
         connectLock.lock();
 
         try {
-            // KeepAlive & listening threads needs to keep running.
+            // KeepAlive thread needs to keep running.
             // Keep all existing callback threads for the subscribes.
+
+            // wakeup all syncSends - they can't be saved
+            for (cMsgGetHelper helper : syncSends.values()) {
+                helper.setMessage(null);
+                helper.setErrorCode(cMsgConstants.errorServerDied);
+                synchronized (helper) {
+                    helper.notify();
+                }
+            }
 
             // wakeup all subscribeAndGets - they can't be saved
             for (cMsgGetHelper helper : subscribeAndGets.values()) {
@@ -1053,37 +991,36 @@ public class cMsg extends cMsgDomainAdapter {
                 }
             }
 
-            // shutdown extra listening threads
-            listeningThread.killClientHandlerThreads();
+            // shutdown listening thread (since socket needs to change)
+            listeningThread.killThread();
 
             // connect & talk to cMsg name server to check if name is unique
-            SocketChannel channel = null;
+            Socket nsSocket = null;
             try {
-                channel = SocketChannel.open(new InetSocketAddress(nameServerHost, nameServerPort));
-                // set socket options
-                Socket socket = channel.socket();
+                nsSocket = new Socket(nameServerHost, nameServerPort);
                 // Set tcpNoDelay so no packets are delayed
-                socket.setTcpNoDelay(true);
+                nsSocket.setTcpNoDelay(true);
                 // no need to set buffer sizes
             }
             catch (UnresolvedAddressException e) {
-                try {if (channel != null) channel.close();} catch (IOException e1) {}
-                throw new cMsgException("reconnect: cannot create channel to name server", e);
+                try {if (nsSocket != null) nsSocket.close();} catch (IOException e1) {}
+                throw new cMsgException("reconnect: cannot create socket to name server", e);
             }
             catch (IOException e) {
-                try {if (channel != null) channel.close();} catch (IOException e1) {}
+                try {if (nsSocket != null) nsSocket.close();} catch (IOException e1) {}
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("reconnect: cannot create channel to name server", e);
+                throw new cMsgException("reconnect: cannot create socket to name server", e);
             }
 
             // get host & port to send messages & other info from name server
             try {
-                talkToNameServerFromClient(channel);
+                talkToNameServerFromClient(nsSocket);
             }
             catch (IOException e) {
-                try {channel.close();} catch (IOException e1) {}
+                try {
+                    nsSocket.close();} catch (IOException e1) {}
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
@@ -1092,74 +1029,68 @@ public class cMsg extends cMsgDomainAdapter {
 
             // done talking to server
             try {
-                channel.close();
+                nsSocket.close();
             }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
-                    System.out.println("reconnect: cannot close channel to name server, continue on");
+                    System.out.println("reconnect: cannot close socket to name server, continue on");
                     e.printStackTrace();
                 }
             }
 
-            // create request response reading (from domain) channel
+            // create request sending (to domain) socket
             try {
-                domainInChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-                // buffered communication streams for efficiency
-                Socket socket = domainInChannel.socket();
-                socket.setTcpNoDelay(true);
-                domainIn = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 2048));
-            }
-            catch (IOException e) {
-                try {channel.close();} catch (IOException e1) {}
-                try {if (domainInChannel != null) domainInChannel.close();} catch (IOException e1) {}
-
-                if (debug >= cMsgConstants.debugError) {
-                    e.printStackTrace();
-                }
-                throw new cMsgException("reconnect: cannot create channel to domain server", e);
-            }
-
-            // create keepAlive socket
-            try {
-                keepAliveChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-                Socket socket = keepAliveChannel.socket();
-                socket.setTcpNoDelay(true);
-
-                // update keepAlive thread with new channel
-                keepAliveThread.changeChannels(keepAliveChannel);
-            }
-            catch (IOException e) {
-                try { channel.close(); } catch (IOException e1) {}
-                try { domainInChannel.close(); } catch (IOException e1) {}
-                try { if (keepAliveChannel != null) keepAliveChannel.close(); } catch (IOException e1) {}
-
-                if (debug >= cMsgConstants.debugError) {
-                    e.printStackTrace();
-                }
-                throw new cMsgException("reconnect: cannot create keepAlive channel to domain server", e);
-            }
-
-            // create request sending (to domain) channel (This takes longest so do last)
-            try {
-                domainOutChannel = SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-                // buffered communication streams for efficiency
-                Socket socket = domainOutChannel.socket();
+                // Do NOT use SocketChannel objects to establish communications. The socket obtained
+                // from a SocketChannel object has its input and outputstreams synchronized - making
+                // simultaneous reads and writes impossible!!
+                // SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
+                Socket socket = new Socket(domainServerHost, domainServerPort);
                 socket.setTcpNoDelay(true);
                 socket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
                 domainOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(),
                                                                           cMsgNetworkConstants.bigBufferSize));
+                // launch thread to start listening on receive end of "sending" socket
+                listeningThread = new cMsgClientListeningThread(this, socket);
+                listeningThread.start();
             }
             catch (IOException e) {
-                try { channel.close(); }          catch (IOException e1) {}
-                try { domainInChannel.close(); }  catch (IOException e1) {}
-                try { keepAliveChannel.close(); } catch (IOException e1) {}
-                try {if (domainOutChannel != null) domainOutChannel.close();} catch (IOException e1) {}
+                // undo everything we've just done so far
+                try {if (domainOutSocket != null) domainOutSocket.close();} catch (IOException e1) {}
+                if (listeningThread != null) listeningThread.killThread();
 
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("reconnect: cannot create channel to domain server", e);
+                throw new cMsgException("connect: cannot create socket to domain server", e);
             }
+
+
+            // create keepAlive socket
+            try {
+                Socket socket = new Socket(domainServerHost, domainServerPort);
+                socket.setTcpNoDelay(true);
+
+                // Create thread to handle dead server with failover capability.
+                keepAliveThread = new KeepAlive(socket, useFailoverWaiting, failovers);
+                keepAliveThread.start();
+                // Create thread to send periodic monitor data / keep alives
+                updateServerThread = new UpdateServer(socket);
+                updateServerThread.start();
+            }
+            catch (IOException e) {
+                // undo everything we've just done so far
+                listeningThread.killThread();
+                try { domainOutSocket.close(); } catch (IOException e1) {}
+                try { if (keepAliveSocket != null) keepAliveSocket.close(); } catch (IOException e1) {}
+                if (keepAliveThread != null)    keepAliveThread.killThread();
+                if (updateServerThread != null) updateServerThread.killThread();
+
+                if (debug >= cMsgConstants.debugError) {
+                    e.printStackTrace();
+                }
+                throw new cMsgException("connect: cannot create keepAlive socket to domain server", e);
+            }
+
 
             // create udp socket to send messages on
             try {
@@ -1167,16 +1098,18 @@ public class cMsg extends cMsgDomainAdapter {
                 InetAddress addr = InetAddress.getByName(domainServerHost);
                 // connect for speed and to keep out unwanted packets
                 sendUdpSocket.connect(addr, domainServerUdpPort);
-                sendUdpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                sendUdpSocket.setSendBufferSize(cMsgNetworkConstants.biggestUdpBufferSize);
                 sendUdpPacket = new DatagramPacket(new byte[0], 0, addr, domainServerUdpPort);
                 // System.out.println("udp socket connected to host = " + domainServerHost +
                 // " and port = " + domainServerUdpPort);
             }
             catch (UnknownHostException e) {
-                try { channel.close(); }          catch (IOException e1) {}
-                try { domainInChannel.close(); }  catch (IOException e1) {}
-                try { keepAliveChannel.close(); } catch (IOException e1) {}
-                try { domainOutChannel.close();}  catch (IOException e1) {}
+                listeningThread.killThread();
+                keepAliveThread.killThread();
+                updateServerThread.killThread();
+                try {
+                    keepAliveSocket.close();} catch (IOException e1) {}
+                try {domainOutSocket.close();} catch (IOException e1) {}
                 if (sendUdpSocket != null) sendUdpSocket.close();
 
                 if (debug >= cMsgConstants.debugError) {
@@ -1185,10 +1118,12 @@ public class cMsg extends cMsgDomainAdapter {
                 throw new cMsgException("reconnect: cannot create udp socket to domain server", e);
             }
             catch (SocketException e) {
-                try { channel.close(); }          catch (IOException e1) {}
-                try { domainInChannel.close(); }  catch (IOException e1) {}
-                try { keepAliveChannel.close(); } catch (IOException e1) {}
-                try { domainOutChannel.close();}  catch (IOException e1) {}
+                listeningThread.killThread();
+                keepAliveThread.killThread();
+                updateServerThread.killThread();
+                try {
+                    keepAliveSocket.close();} catch (IOException e1) {}
+                try {domainOutSocket.close();} catch (IOException e1) {}
                 if (sendUdpSocket != null) sendUdpSocket.close();
 
                 if (debug >= cMsgConstants.debugError) {
@@ -1268,7 +1203,9 @@ public class cMsg extends cMsgDomainAdapter {
                 if (!connected) {
                     throw new IOException("not connected to server");
                 }
-
+                int size = 4 * 15 + subject.length() + type.length() + payloadLen +
+                                  textLen + binaryLength;
+//System.out.println("send: writing " + size + " bytes in send msg");
                 // total length of msg (not including this int) is 1st item
                 domainOut.writeInt(4 * 15 + subject.length() + type.length() + payloadLen +
                                   textLen + binaryLength);
@@ -1311,10 +1248,13 @@ public class cMsg extends cMsgDomainAdapter {
                 catch (UnsupportedEncodingException e) {
                 }
 
+//System.out.println("send: flush");
                 domainOut.flush();
+//System.out.println("send: flush done");
                 numTcpSends++;
             }
             catch (IOException e) {
+//System.out.println("send: error");
                 // wait awhile for possible failover
                 if (failoverSuccessful(false)) {
                     continue;
@@ -1323,12 +1263,15 @@ public class cMsg extends cMsgDomainAdapter {
 
             }
             finally {
+//System.out.println("send: try unlocking mutexes");
                 socketLock.unlock();
                 notConnectLock.unlock();
             }
 
             break;
         }
+//System.out.println("send: DONE");
+
     }
 
 
@@ -1372,15 +1315,14 @@ public class cMsg extends cMsgDomainAdapter {
 
         int binaryLength = message.getByteArrayLength();
 
-        // total length of msg (not including first int which is this size)
+        // total length of msg (not including first int which is this size & the magic #s)
         int totalLength = 4*15 + subject.length() + type.length() + payloadLen +
                                  textLen + binaryLength;
-        if (totalLength > cMsgNetworkConstants.biggestUdpPacketSize) {
+        if (totalLength > cMsgNetworkConstants.biggestUdpBufferSize) {
             throw new cMsgException("Too big a message for UDP to send");
         }
 
         // create byte array for broadcast
-//        ByteArrayOutputStream baos = new ByteArrayOutputStream(8192);
         ByteArrayOutputStream baos = new ByteArrayOutputStream(totalLength);
         DataOutputStream out = new DataOutputStream(baos);
 
@@ -1390,6 +1332,9 @@ public class cMsg extends cMsgDomainAdapter {
             notConnectLock.lock();
 
             try {
+                out.writeInt(cMsgConstants.udpMagicNumbers[0]); // cMsg
+                out.writeInt(cMsgConstants.udpMagicNumbers[1]); // is
+                out.writeInt(cMsgConstants.udpMagicNumbers[2]); // cool
                 out.writeInt(totalLength); // total length of msg (not including this int)
                 out.writeInt(cMsgConstants.msgSendRequest);
                 out.writeInt(0); // reserved for future use
@@ -1469,7 +1414,7 @@ public class cMsg extends cMsgDomainAdapter {
      *
      * @param message message
      * @param timeout ignored in this domain
-     * @return response from subdomain handler
+     * @return response from subdomain handler (0 in this subdomain)
      * @throws cMsgException if there are communication problems with the server;
      *                       subject and/or type is null
      */
@@ -1511,9 +1456,14 @@ public class cMsg extends cMsgDomainAdapter {
 
             // cannot run this simultaneously with connect, reconenct, or disconnect
             notConnectLock.lock();
-            // cannot run this simultaneously with itself since it receives communication
-            // back from the server
-            returnCommunicationLock.lock();
+
+            // We're expecting a response, so the id is sent back
+            // in the response message, allowing us to wake this call.
+            int id = uniqueId.getAndIncrement();
+
+            // track specific syncSend request
+            cMsgGetHelper helper = new cMsgGetHelper();
+            syncSends.put(id, helper);
 
             try {
 
@@ -1527,7 +1477,7 @@ public class cMsg extends cMsgDomainAdapter {
                     domainOut.writeInt(4 * 15 + subject.length() + type.length() + payloadLen +
                                        textLen + binaryLength);
                     domainOut.writeInt(cMsgConstants.msgSyncSendRequest);
-                    domainOut.writeInt(0); // reserved for future use
+                    domainOut.writeInt(id);
                     domainOut.writeInt(message.getUserInt());
                     domainOut.writeInt(message.getSysMsgId());
                     domainOut.writeInt(message.getSenderToken());
@@ -1571,7 +1521,6 @@ public class cMsg extends cMsgDomainAdapter {
 
                 domainOut.flush(); // no need to be protected by socketLock
                 numSyncSends++;
-                return domainIn.readInt();  // this is protected by returnCommunicationLock
             }
             catch (IOException e) {
                 // wait awhile for possible failover
@@ -1581,9 +1530,32 @@ public class cMsg extends cMsgDomainAdapter {
                 throw new cMsgException(e.getMessage());
             }
             finally {
-                returnCommunicationLock.unlock();
                 notConnectLock.unlock();
             }
+
+            // WAIT for the msg-receiving thread to wake us up
+            try {
+                synchronized (helper) {
+                    // syncSend responses can be so fast that the helper's
+                    // notify method has already been called before we have
+                    // had time to wait in the code below. Thus, first check
+                    // the timedOut variable. If that is false, the response
+                    // has already come.
+                    if (helper.needToWait()) {
+                        helper.wait();
+                    }
+                }
+            }
+            catch (InterruptedException e) {
+            }
+
+            if (helper.getErrorCode() != cMsgConstants.ok) {
+                throw new cMsgException("syncSend abort", helper.getErrorCode());
+            }
+
+            // If response arrived, client listening thread has also removed subscription from client's
+            // records (syncSends HashSet).
+            return helper.getIntVal();
         }
     }
 
@@ -1701,6 +1673,7 @@ public class cMsg extends cMsgDomainAdapter {
 
                 socketLock.lock();
                 try {
+//System.out.println("subscribe: writing into domainOut");
                     // total length of msg (not including this int) is 1st item
                     domainOut.writeInt(5 * 4 + subject.length() + type.length());
                     domainOut.writeInt(cMsgConstants.msgSubscribeRequest);
@@ -1718,7 +1691,9 @@ public class cMsg extends cMsgDomainAdapter {
                     catch (UnsupportedEncodingException e) {
                     }
 
+//System.out.println("subscribe: flush");
                     domainOut.flush();
+//System.out.println("subscribe: flush done");
                     numSubscribes++;
                 }
                 finally {
@@ -1726,6 +1701,7 @@ public class cMsg extends cMsgDomainAdapter {
                 }
             }
             catch (IOException e) {
+//System.out.println("subscribe: error");
                 // undo the modification of the hashtable we made & stop the created thread
                 if (addedHashEntry) {
                     // "subscriptions" is synchronized so it's mutex protected
@@ -1822,7 +1798,7 @@ public class cMsg extends cMsgDomainAdapter {
                     // total length of msg (not including this int) is 1st item
                     domainOut.writeInt(5 * 4 + subject.length() + type.length());
                     domainOut.writeInt(cMsgConstants.msgUnsubscribeRequest);
-                    domainOut.writeInt(sub.getId()); // reserved for future use
+                    domainOut.writeInt(sub.getIntVal()); // reserved for future use
                     domainOut.writeInt(subject.length());
                     domainOut.writeInt(type.length());
                     domainOut.writeInt(0); // no namespace being sent
@@ -1921,7 +1897,7 @@ public class cMsg extends cMsgDomainAdapter {
                 // First generate a unique id for the receiveSubscribeId field. This info
                 // allows us to unsubscribe.
                 id = uniqueId.getAndIncrement();
-                mySub.setId(id);
+                mySub.setIntVal(id);
             }
 
             socketLock.lock();
@@ -2040,10 +2016,13 @@ public class cMsg extends cMsgDomainAdapter {
             }
             finally {
                 socketLock.unlock();
+                java.net.SocketException sk = new SocketException();
             }
             domainOut.flush();
         }
         catch (IOException e) {
+            e.printStackTrace();
+
             if (addedHashEntry) {
                 subscribeAndGets.remove(id);
             }
@@ -2058,9 +2037,11 @@ public class cMsg extends cMsgDomainAdapter {
         try {
             synchronized (sub) {
                 if (timeout > 0) {
+//System.out.println("subscribeAndGet: wait for time = " + timeout);
                     sub.wait(timeout);
                 }
                 else {
+//System.out.println("subscribeAndGet: wait forever");
                     sub.wait();
                 }
             }
@@ -2073,6 +2054,7 @@ public class cMsg extends cMsgDomainAdapter {
         // Tell server to forget the get if necessary.
         if (sub.isTimedOut()) {
             // remove the get from server
+//System.out.println("subscribeAndGet: timed out");
             subscribeAndGets.remove(id);
             unSubscribeAndGet(subject, type, id);
             throw new TimeoutException();
@@ -2361,53 +2343,13 @@ public class cMsg extends cMsgDomainAdapter {
      * @return response message containing monitoring information
      * @throws cMsgException
      */
-    public cMsgMessage monitor(String command)
-            throws cMsgException {
+    @Override
+    public cMsgMessage monitor(String command) {
 
         cMsgMessageFull msg = new cMsgMessageFull();
+        msg.setText(monitorXML);
+        return msg;
 
-        // cannot run this simultaneously with connect or disconnect
-        notConnectLock.lock();
-        // cannot run this simultaneously with itself since it receives communication
-        // back from the server
-        returnCommunicationLock.lock();
-
-        try {
-            if (!connected) {
-                throw new cMsgException("not connected to server");
-            }
-
-            socketLock.lock();
-            try {
-                // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(4);
-                domainOut.writeInt(cMsgConstants.msgMonitorRequest);
-            }
-            finally {
-                socketLock.unlock();
-            }
-             // no need to be protected by socketLock, this is protected by returnCommunicationLock
-            domainOut.flush();
-
-            // time message was sent
-            long time = ((long) domainIn.readInt() << 32) | ((long) domainIn.readInt() & 0x00000000FFFFFFFFL);
-            msg.setSenderTime(new Date(time));
-            // read all text string bytes
-            int lengthText = domainIn.readInt();
-            byte[] bytes   = new byte[lengthText];
-            domainIn.readFully(bytes, 0, lengthText);
-            msg.setText(new String(bytes, 0, lengthText, "US-ASCII"));
-            //System.out.println("text = " + msg.getText());
-            return msg;
-        }
-        catch (IOException e) {
-            throw new cMsgException(e.getMessage());
-        }
-        // release lock 'cause we can't block connect/disconnect forever
-        finally {
-            returnCommunicationLock.unlock();
-            notConnectLock.unlock();
-        }
     }
     
 
@@ -2425,6 +2367,7 @@ public class cMsg extends cMsgDomainAdapter {
      * @param includeMe  if true, it is permissible to shutdown calling client
      * @throws cMsgException if there are communication problems with the server
      */
+    @Override
     public void shutdownClients(String client, boolean includeMe) throws cMsgException {
 
         if (!hasShutdown) {
@@ -2554,25 +2497,25 @@ public class cMsg extends cMsgDomainAdapter {
      * Note to those who would make changes in the protocol, keep the first three
      * ints the same. That way the server can reliably check for mismatched versions.
      *
-     * @param channel nio socket communication channel
+     * @param socket socket to server
      * @throws IOException if there are communication problems with the name server
      * @throws cMsgException if the name server's domain does not match the UDL's domain;
      *                       the client cannot be registered; the domain server cannot
      *                       open a listening socket or find a port to listen on; or
      *                       the name server cannot establish a connection to the client
      */
-    void talkToNameServerFromClient(SocketChannel channel)
+    void talkToNameServerFromClient(Socket socket)
             throws IOException, cMsgException {
 
         byte[] buf = new byte[512];
 
-        DataInputStream  in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream()));
-        DataOutputStream out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream()));
+        DataInputStream  in  = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+        DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
 
         out.writeInt(cMsgConstants.msgConnectRequest);
         out.writeInt(cMsgConstants.version);
         out.writeInt(cMsgConstants.minorVersion);
-        out.writeInt(port);
+        out.writeInt(regimeLow ? 1 : 0); // CHANGED
         out.writeInt(password.length());
         out.writeInt(domain.length());
         out.writeInt(subdomain.length());
@@ -2687,11 +2630,13 @@ public class cMsg extends cMsgDomainAdapter {
         // 4) remainder is past on to the subdomain plug-in
         // 5) client's password is in tag=value part of UDL as cmsgpassword=<password>
         // 6) broadcast timeout is in tag=value part of UDL as broadcastTO=<time out in seconds>
+        // 7) small message, low throughtput client is in tag=value part of UDL as regime=low
 
         Pattern pattern = Pattern.compile("([\\w\\.\\-]+):?(\\d+)?/?(\\w+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
         String udlHost, udlPort, udlSubdomain, udlSubRemainder;
+        boolean regimeLow = false;
 
         if (matcher.find()) {
             // host
@@ -2819,9 +2764,17 @@ public class cMsg extends cMsgDomainAdapter {
             }
         }
 
+        // look for ?regime=low& or &regime=low&
+        pattern = Pattern.compile("[\\?&]regime=low");
+        matcher = pattern.matcher(udlSubRemainder);
+        if (matcher.find()) {
+            regimeLow = true;
+//System.out.println("regime = low");
+        }
+
         // store results in a class
         return new ParsedUDL(udl, udlRemainder, udlSubdomain, udlSubRemainder,
-                             pswd, udlHost, udlPortInt, timeout, mustBroadcast);
+                             pswd, udlHost, udlPortInt, timeout, mustBroadcast, regimeLow);
     }
 
 
@@ -2861,6 +2814,7 @@ public class cMsg extends cMsgDomainAdapter {
         int     nameServerPort;
         int     broadcastTimeout;
         boolean mustBroadcast;
+        boolean regimeLow;
         boolean valid;
 
         /** Constructor. */
@@ -2871,7 +2825,7 @@ public class cMsg extends cMsgDomainAdapter {
 
         /** Constructor. */
         ParsedUDL(String s1, String s2, String s3, String s4, String s5, String s6,
-                  int i1, int i2, boolean b1) {
+                  int i1, int i2, boolean b1, boolean b2) {
             UDL              = s1;
             UDLremainder     = s2;
             subdomain        = s3;
@@ -2881,6 +2835,7 @@ public class cMsg extends cMsgDomainAdapter {
             nameServerPort   = i1;
             broadcastTimeout = i2;
             mustBroadcast    = b1;
+            regimeLow        = b2;
             valid            = true;
         }
 
@@ -2895,6 +2850,7 @@ public class cMsg extends cMsgDomainAdapter {
             cMsg.this.nameServerPort   = nameServerPort;
             cMsg.this.broadcastTimeout = broadcastTimeout;
             cMsg.this.mustBroadcast    = mustBroadcast;
+            cMsg.this.regimeLow        = regimeLow;
             if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("Copy from stored parsed UDL to local :");
                 System.out.println("  UDL              = " + UDL);
@@ -2906,6 +2862,7 @@ public class cMsg extends cMsgDomainAdapter {
                 System.out.println("  nameServerPort   = " + nameServerPort);
                 System.out.println("  broadcastTimeout = " + broadcastTimeout);
                 System.out.println("  mustBroadcast    = " + mustBroadcast);
+                System.out.println("  regimeLow        = " + regimeLow);
             }
         }
 
@@ -2920,6 +2877,7 @@ public class cMsg extends cMsgDomainAdapter {
             cMsg.this.nameServerPort   = 0;
             cMsg.this.broadcastTimeout = 0;
             cMsg.this.mustBroadcast    = false;
+            cMsg.this.regimeLow        = false;
         }
     }
 
@@ -2928,19 +2886,15 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * Class that periodically checks the health of the domain server.
-     * If the server responds to the keepAlive command, everything is OK.
-     * If it doesn't, it is assumed dead and a disconnect is done.
+     * Class that checks the health of the domain server by reading monitoring information.
+     * If there is an IOException, server is assumed dead and a disconnect is done.
      */
     class KeepAlive extends Thread {
         /** Socket communication channel with domain server. */
-        private SocketChannel channel;
+        private Socket socket;
 
         /** Socket input stream associated with channel. */
         private DataInputStream in;
-
-        /** Socket output stream associated with channel. */
-        private DataOutputStream out;
 
         /** Do we failover or not? */
         boolean implementFailovers;
@@ -2960,32 +2914,30 @@ public class cMsg extends cMsgDomainAdapter {
          * If reconnecting to another server as part of a failover, we must change to
          * another channel for keepAlives.
          *
-         * @param channel communication channel with domain server
+         * @param socket communication socket with domain server
          * @throws IOException if channel is closed
          */
-        public void changeChannels(SocketChannel channel) throws IOException {
-            this.channel = channel;
+        synchronized public void changeChannels(Socket socket) throws IOException {
+            this.socket = socket;
             // buffered communication streams for efficiency
-            in = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream()));
-            out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream()));
+            in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
         }
 
 
         /**
          * Constructor.
          *
-         * @param channel communication channel with domain server
+         * @param socket communication socket with domain server
          * @throws IOException if channel is closed
          */
-        public KeepAlive(SocketChannel channel, boolean implementFailovers,
+        public KeepAlive(Socket socket, boolean implementFailovers,
                          ArrayList<cMsg.ParsedUDL> failovers) throws IOException {
-            this.channel = channel;
+            this.socket = socket;
             this.failovers = failovers;
             this.implementFailovers = implementFailovers;
 
             // buffered communication streams for efficiency
-            in = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream()));
-            out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream()));
+            in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
 
             // die if no more non-daemon thds running
             setDaemon(true);
@@ -3002,35 +2954,15 @@ public class cMsg extends cMsgDomainAdapter {
             boolean weGotAConnection = true;
 
             while (weGotAConnection) {
-
                 try {
-                    // periodically check to see if the domain server is alive
+                    // periodically send monitor info to see if the domain server is alive
                     while (true) {
                         try {
                             // quit thread
                             if (killThread) {
                                 return;
                             }
-
-                            // send keep alive command
-                            // out.writeInt(4);
-                            out.writeInt(cMsgConstants.msgKeepAlive);
-                            out.flush();
-
-                            // read response -  1 int
-                            int len = in.readInt();
-                            if (len != cMsgConstants.ok && len > 0) {
-                                // read all monitor data string
-                                byte[] bytes = new byte[len];
-                                in.readFully(bytes, 0, len);
-                                monitorXML = new String(bytes, 0, len, "US-ASCII");
-                            }
-
-                            // sleep for 1 second and try again
-                            Thread.sleep(sleepTime);
-                        }
-                        catch (InterruptedException e) {
-                            //System.out.println("Interrupted Client during sleep");
+                            getMonitorInfo();
                         }
                         catch (InterruptedIOException e) {
                             //System.out.println("Interrupted Client during I/O");
@@ -3044,7 +2976,7 @@ public class cMsg extends cMsgDomainAdapter {
 
                 // if we've reach here, there's an error
                 if (debug >= cMsgConstants.debugError) {
-                    System.out.println("KeepAlive Thread: domain server is probably dead, dis/reconnect\n");
+                    System.out.println("\nKeepAlive Thread: domain server is probably dead, dis/reconnect");
                 }
 
                 // start by trying to connect to the first UDL on the list
@@ -3080,7 +3012,7 @@ public class cMsg extends cMsgDomainAdapter {
                         }
                         catch (cMsgException e) {
                             // if subscriptions fail, then we do NOT use failover server
-                            try { channel.close(); disconnect(); }
+                            try { socket.close(); disconnect(); }
                             catch (Exception e1) { }
                             throw e;
                         }
@@ -3097,10 +3029,182 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             // disconnect (sockets closed here)
+//System.out.println("\nTrying running disconnect from this (KA) thread");
             disconnect();
+        }
+
+        /**
+         * This method reads monitoring data from the server.
+         * @throws IOException if communication error
+         */
+        synchronized private void getMonitorInfo() throws IOException {
+            // read monitor info from server
+//System.out.println("     Try reading first KA int from server");
+            int len = in.readInt();
+            if (len > 0) {
+                // read all monitor data string
+                byte[] bytes = new byte[len];
+                in.readFully(bytes, 0, len);
+                monitorXML = new String(bytes, 0, len, "US-ASCII");
+//System.out.println("     Read KA from server");
+//System.out.println("...");
+            }
         }
 
     }
 
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Class that periodically sends statistical info to the domain server.
+     * The server uses this to gauge the health of this client.
+     */
+    class UpdateServer extends Thread {
+        /** Socket output stream associated with channel. */
+        private DataOutputStream out;
+
+        /** Setting this to true will kill this thread. */
+        private boolean killThread;
+
+        /** Kill this thread. */
+        public void killThread() {
+            killThread = true;
+        }
+
+        /**
+         * If reconnecting to another server as part of a failover, we must change to
+         * another channel for keepAlives.
+         *
+         * @param socket communication socket with domain server
+         * @throws IOException if channel is closed
+         */
+        synchronized public void changeSockets(Socket socket) throws IOException {
+            // buffered communication streams for efficiency
+            out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+        }
+
+
+        /**
+         * Constructor.
+         *
+         * @param socket communication socket with domain server
+         * @throws IOException if socket is closed
+         */
+        public UpdateServer(Socket socket) throws IOException {
+            // buffered communication streams for efficiency
+            out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+            // die if no more non-daemon thds running
+            setDaemon(true);
+        }
+
+        /**
+         * This method is executed as a thread.
+         */
+        public void run() {
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("Running client's monitor info sending thread");
+            }
+
+            while (true) {
+                try {
+                    // periodically send monitor info to see if the domain server is alive
+                    while (true) {
+                        try {
+                            // quit thread
+                            if (killThread) {
+                                return;
+                            }
+
+                            sendMonitorInfo();
+
+                            // sleep for 1 second and try again
+                            Thread.sleep(sleepTime);
+                        }
+                        catch (InterruptedException e) {
+                            //System.out.println("Interrupted Client during sleep");
+                        }
+                        catch (InterruptedIOException e) {
+                            //System.out.println("Interrupted Client during I/O");
+                        }
+                    }
+                }
+                catch (IOException e) {
+                    //e.printStackTrace();
+                    // if we've reach here, there's an error
+                    if (debug >= cMsgConstants.debugError) {
+                        System.out.println("\nUpdateServer Thread: domain server is probably dead\n");
+                    }
+                    break;
+                }
+
+            }
+        }
+
+
+
+        /**
+         * This method gathers and sends monitoring data to the server
+         * as a response to the keep alive command.
+         * @throws IOException if communication error
+         */
+        synchronized private void sendMonitorInfo() throws IOException {
+
+            String indent1 = "      ";
+            String indent2 = "        ";
+
+            StringBuilder xml = new StringBuilder(2048);
+
+            synchronized (subscriptions) {
+
+                // for each subscription of this client ...
+                for (cMsgSubscription sub : subscriptions) {
+
+                    xml.append(indent1);
+                    xml.append("<subscription  subject=\"");
+                    xml.append(sub.getSubject());
+                    xml.append("\"  type=\"");
+                    xml.append(sub.getType());
+                    xml.append("\">\n");
+
+                    // run through all callbacks
+                    int num=0;
+                    for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
+                        xml.append(indent2);
+                        xml.append("<callback  id=\"");
+                        xml.append(num++);
+                        xml.append("\"  received=\"");
+                        xml.append(cbThread.getMsgCount());
+                        xml.append("\"  cueSize=\"");
+                        xml.append(cbThread.getCueSize());
+                        xml.append("\"/>\n");
+                    }
+
+                    xml.append(indent1);
+                    xml.append("</subscription>\n");
+                }
+            }
+//System.out.println("     TRY SENDING KA TO SERVER");
+            int size = xml.length() + 4*4 + 8*7;
+            out.writeInt(size);
+            out.writeInt(xml.length());
+            out.writeInt(1); // This is a java client (0 is for C/C++)
+            out.writeInt(subscribeAndGets.size()); // pending sub&gets
+            out.writeInt(sendAndGets.size());      // pending send&gets
+
+            out.writeLong(numTcpSends);
+            out.writeLong(numUdpSends);
+            out.writeLong(numSyncSends);
+            out.writeLong(numSendAndGets);
+            out.writeLong(numSubscribeAndGets);
+            out.writeLong(numSubscribes);
+            out.writeLong(numUnsubscribes);
+
+            out.write(xml.toString().getBytes("US-ASCII"));
+            out.flush();
+//System.out.println("     SENT KA TO SERVER");
+        }
+
+    }
 
 }

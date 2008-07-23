@@ -92,7 +92,7 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      *
      * @param subject message subject subscribed to
      * @param type    message type subscribed to
-     * @param id      message id refering to these specific subject and type values
+     * @param id      message intVal refering to these specific subject and type values
      * @throws cMsgException
      */
     public void handleSubscribeAndGetRequest(String subject, String type, int id)
@@ -117,7 +117,7 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      * Method to handle remove sendAndGet request sent by domain client
      * (hidden from user).
      *
-     * @param id message id refering to these specific subject and type values
+     * @param id message intVal refering to these specific subject and type values
      * @throws cMsgException
      */
     public void handleUnSendAndGetRequest(int id) throws cMsgException {
@@ -131,7 +131,7 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      *
      * @param subject message subject subscribed to
      * @param type    message type subscribed to
-     * @param id message id refering to these specific subject and type values
+     * @param id message intVal refering to these specific subject and type values
      * @throws cMsgException
      */
     public void handleUnsubscribeAndGetRequest(String subject, String type, int id)
@@ -145,7 +145,7 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      *
      * @param subject  message subject to subscribe to
      * @param type     message type to subscribe to
-     * @param id       message id refering to these specific subject and type values
+     * @param id       message intVal refering to these specific subject and type values
      * @throws cMsgException
      */
     public void handleSubscribeRequest(String subject, String type, int id)
@@ -158,7 +158,7 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      *
      * @param subject  message subject to subscribe to
      * @param type     message type to subscribe to
-     * @param id       message id refering to these specific subject and type values
+     * @param id       message intVal refering to these specific subject and type values
      * @throws cMsgException
      */
     public void handleUnsubscribeRequest(String subject, String type, int id)
@@ -177,16 +177,6 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
     public void handleShutdownClientsRequest(String client, boolean includeMe)
             throws cMsgException {
         throw new cMsgException("handleShutdownClientsRequest is not implemented");
-    }
-
-
-    /**
-     * Method to handle keepalive sent by domain client checking to see
-     * if the domain server socket is still up.
-     *
-     * @throws cMsgException
-     */
-    public void handleKeepAlive() throws cMsgException {
     }
 
 

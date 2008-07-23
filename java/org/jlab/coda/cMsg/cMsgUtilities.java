@@ -17,10 +17,9 @@
 package org.jlab.coda.cMsg;
 
 import java.nio.channels.SocketChannel;
-import java.nio.channels.Selector;
+import java.nio.channels.ByteChannel;
 import java.nio.ByteBuffer;
 import java.io.IOException;
-import java.net.Socket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
@@ -32,6 +31,42 @@ import java.net.UnknownHostException;
  * @version 1.0
  */
 public class cMsgUtilities {
+
+    static public ByteChannel wrapChannel2(final ByteChannel channel)
+    {
+        return channel;
+    }
+
+
+    /**
+     * This method wraps a SocketChannel so that the input and output streams
+     * derived from that channel do not block each other (SUN java bug id 4774871).
+     * The problem is that a SocketChannel is also a SelectableChannel which has this
+     * synchronization issue, and that is eliminated by making it a ByteChannel.
+     *
+     * @param channel the SelectableChannel which has sync problems
+     * @return a ByteChannel which does not have sync problems
+     */
+     static public ByteChannel wrapChannel(final ByteChannel channel) {
+        return new ByteChannel() {
+            public int write(ByteBuffer src) throws IOException {
+                return channel.write(src);
+            }
+
+            public int read(ByteBuffer dst) throws IOException {
+                return channel.read(dst);
+            }
+
+            public boolean isOpen() {
+                return channel.isOpen();
+            }
+
+            public void close() throws IOException {
+                channel.close();
+            }
+        };
+    }
+
 
     /**
       * This methods reads a minimum of number of bytes from a channel into a buffer.
@@ -75,7 +110,7 @@ public class cMsgUtilities {
      static public int readSocketBytes(ByteBuffer buffer, SocketChannel channel, int bytes, int debug)
              throws IOException {
 
-         int n, tries = 0, count = 0, maxTries=500;
+         int n, tries = 0, count = 0, maxTries=200;
 
          buffer.clear();
          buffer.limit(bytes);
@@ -107,34 +142,6 @@ public class cMsgUtilities {
          return count;
      }
 
-
-     /**
-     * Registers an nio channel with a selector and sets socket parameters.
-     *
-     * @param selector object which handles channel readiness states
-     * @param channel nio socket communication channel
-     * @param ops selector's operation
-     * @throws IOException If socket parameters cannot be set or channel is closed
-     */
-    static public void registerChannel(Selector selector, SocketChannel channel, int ops)
-            throws IOException {
-        if (channel == null) {
-            return;
-        }
-
-        // set socket options, first make socket nonblocking
-        channel.configureBlocking(false);
-
-        // get socket
-        Socket socket = channel.socket();
-        // Set tcpNoDelay so no packets are delayed
-        socket.setTcpNoDelay(true);
-        // set buffer sizes
-        socket.setReceiveBufferSize(65535);
-        socket.setSendBufferSize(65535);
-
-        channel.register(selector, ops);
-    }
 
 
     /**
@@ -224,7 +231,7 @@ public class cMsgUtilities {
               break;
 
           case cMsgConstants.errorBadDomainId:
-              reason = "id does not match any existing domain";
+              reason = "intVal does not match any existing domain";
               break;
 
           case cMsgConstants.errorBadMessage:

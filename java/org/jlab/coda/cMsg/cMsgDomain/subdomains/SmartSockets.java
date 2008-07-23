@@ -207,16 +207,9 @@ public class SmartSockets extends cMsgSubdomainAdapter {
         myClientInfo = info;
 
 
-        // Create an object enabling this handler to communicate
+        // Get an object enabling this handler to communicate
         // with only this client in this cMsg subdomain.
-        try {
-            myDeliverer = new cMsgMessageDeliverer(info);
-        }
-        catch (IOException e) {
-            cMsgException ex = new cMsgException("socket communication error");
-            ex.setReturnCode(cMsgConstants.errorNetwork);
-            throw ex;
-        }
+        myDeliverer = info.getDeliverer();
 
 
         // extract project from UDL remainder

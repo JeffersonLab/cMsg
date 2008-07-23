@@ -112,7 +112,7 @@ public class cMsgServerCloudJoiner extends Thread {
                     // After our first successful connect (currently NONCLOUD status),
                     // we are now in the BECOMINGCLOUD status.
                     if (nameServer.getCloudStatus() == cMsgNameServer.NONCLOUD) {
-//System.out.println("    << JR: Now in BECOMINCLOUD status");
+//System.out.println("    << JR: Now in BECOMINGCLOUD status");
                         nameServer.setCloudStatus(cMsgNameServer.BECOMINGCLOUD);
                     }
 //System.out.println("    << JR: Adding bridge (" + bridge + ") to bridges map");
@@ -257,14 +257,17 @@ public class cMsgServerCloudJoiner extends Thread {
 //System.out.println("    << JR: grabLockTries = " + grabLockTries);
 //System.out.println("    << JR: status = " + bridge.getCloudStatus() + ", bridge = " + bridge);
                     if (bridge.getCloudStatus() == cMsgNameServer.INCLOUD) {
-//System.out.println("    << JR: try in-cloud lock");
                         try {
+//System.out.println("    << JR: try in-cloud lock");
                             if (bridge.cloudLock(200)) {
-//System.out.println("    << JR: first grabbed 1 cloud lock (for " + bridge.server + ")");
+//System.out.println("    << JR: first grabbed 1 cloud lock (for " + bridge.serverName + ")");
                                 lockedBridges.add(bridge);
                                 firstLockBridge = bridge;
                                 gotCloudLock = true;
                                 break;
+                            }
+                            else {
+//System.out.println("    << JR: failed to grab cloud lock (for " + bridge.serverName + ")");
                             }
                         }
                         catch (IOException e) {}
@@ -308,13 +311,13 @@ public class cMsgServerCloudJoiner extends Thread {
 
                     // If it's already locked, skip it
                     if (lockedBridges.contains(bridge)) {
-//System.out.println("    << JR: Already grabbed (so skip grabbing) cloud lock for " + bridge.server);
+//System.out.println("    << JR: Already grabbed (so skip grabbing) cloud lock for " + bridge.serverName);
                         continue;
                     }
 
                     try {
                         // If sucessfull in locking remote server ...
-//System.out.println("    << JR: Try to cloud lock bridge to " + bridge.server);
+//System.out.println("    << JR: Try to cloud lock bridge to " + bridge.serverName);
                         if (bridge.cloudLock(200)) {
 //System.out.println("    << JR: LOCKED IT!!");
                             lockedBridges.add(bridge);
@@ -388,9 +391,9 @@ public class cMsgServerCloudJoiner extends Thread {
             // release the locks
             for (cMsgServerBridge bridge : nameServer.bridges.values()) {
                 try {
-//System.out.println("    << JR: Try unlocking cloud lock for " + bridge.server);
+//System.out.println("    << JR: Try unlocking cloud lock for " + bridge.serverName);
                     bridge.cloudUnlock();
-//System.out.println("    << JR: UNLOCKED cloud lock for " + bridge.server);
+//System.out.println("    << JR: UNLOCKED cloud lock for " + bridge.serverName);
                 }
                 catch (IOException e) {
                     e.printStackTrace();

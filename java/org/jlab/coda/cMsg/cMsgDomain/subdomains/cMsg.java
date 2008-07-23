@@ -553,6 +553,7 @@ public class cMsg extends cMsgSubdomainAdapter {
             // Deliver this msg to this client.
             try {
                 // message delivery in cMsg subdomain is synchronized
+//System.out.println("subdh: bridgeSend: deliver message");
                 client.getDeliverer().deliverMessage(message, cMsgConstants.msgSubscribeResponse);
             }
             catch (IOException e) { }
@@ -1108,7 +1109,7 @@ public class cMsg extends cMsgSubdomainAdapter {
             // Lock for subscriptions
             subscribeLock.unlock();
         }
-//System.out.println("    subs count of sub&Getters = " + sub.getClientSubAndGetters().get(myInfo));
+//System.out.println("    subs count of sub&Getters = " + sub.getSubAndGetters().get(myInfo));
     }
 
 
@@ -1275,7 +1276,7 @@ public class cMsg extends cMsgSubdomainAdapter {
             if (cMsgSubscription.matches(client, clientName, true)) {
                 try {
 //System.out.println("  dHandler: deliver shutdown message to client " + clientName);
-                    info.getDeliverer().deliverMessage(null, cMsgConstants.msgShutdownClients);
+                    info.getDeliverer().deliverMessage(0, 0, cMsgConstants.msgShutdownClients);
                 }
                 catch (IOException e) {
                     if (debug >= cMsgConstants.debugError) {

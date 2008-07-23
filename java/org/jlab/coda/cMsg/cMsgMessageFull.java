@@ -140,7 +140,7 @@ public class cMsgMessageFull extends cMsgMessage {
         this.setGetResponse(Boolean.getBoolean(e.getAttribute("getResponse")));
         this.setNullGetResponse(Boolean.getBoolean(e.getAttribute("nullGetResponse")));
 
-        this.setPayloadText(e.getAttribute("payload"));
+        this.setPayloadText(e.getAttribute("payloadText"));
 
         this.setSender(e.getAttribute("sender"));
         this.setSenderHost(e.getAttribute("senderHost"));
@@ -301,8 +301,8 @@ public class cMsgMessageFull extends cMsgMessage {
 
 
     /**
-     * Set system id of message. Used by the system in doing sendAndGet.
-     * @param sysMsgId system id of message.
+     * Set system intVal of message. Used by the system in doing sendAndGet.
+     * @param sysMsgId system intVal of message.
      */
     public void setSysMsgId(int sysMsgId) {this.sysMsgId = sysMsgId;}
 
@@ -402,13 +402,13 @@ public class cMsgMessageFull extends cMsgMessage {
 
 
     /**
-     * Get receiverSubscribe id number.
-     * @return id number
+     * Get receiverSubscribe intVal number.
+     * @return intVal number
      */
     public int getReceiverSubscribeId() {return receiverSubscribeId;}
     /**
-     * Set receiverSubscribe id number.
-     * @param receiverSubscribeId  id number
+     * Set receiverSubscribe intVal number.
+     * @param receiverSubscribeId  intVal number
      */
     public void setReceiverSubscribeId(int receiverSubscribeId) {
         this.receiverSubscribeId = receiverSubscribeId;
@@ -437,9 +437,7 @@ public class cMsgMessageFull extends cMsgMessage {
      * Sets the String representation of the compound payload of this message.
      * @param payloadText payloadText of this message.
      */
-    public void setPayloadText(String payloadText) {
-    	this.payloadText = payloadText;
-    }
+    public void setPayloadText(String payloadText) {this.payloadText = payloadText;}
 
     
     /**

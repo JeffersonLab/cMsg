@@ -48,8 +48,19 @@ public class cMsgHolder {
     /** Request id. */
     int id;
 
+    /** syncSend id. */
+    int ssid;
+
     /** Request type. */
     int request;
+
+    /** Byte array. */
+    byte[] array;
+
+    /** Client associated with array. */
+    cMsgClientData data;
+
+    boolean isUdpChannel;
 
     /**
      * Constructor for holding sendAndGet, subscribe, and unget information from client.
@@ -58,9 +69,22 @@ public class cMsgHolder {
     public cMsgHolder() {
     }
 
-    /** Constructor for holding send and get information from client. */
+    /** Constructor for holding request from client. */
+    public cMsgHolder(byte[] array, cMsgClientData data, boolean isUdpChannel) {
+        this.array = array;
+        this.data  = data;
+        this.isUdpChannel  = isUdpChannel;
+    }
+
+    /** Constructor for holding send and sendAndGet information from client. */
     public cMsgHolder(cMsgMessageFull message) {
         this.message = message;
+    }
+
+    /** Constructor for holding syncSend information from client. */
+    public cMsgHolder(cMsgMessageFull message, int i) {
+        this.message = message;
+        this.ssid = i;
     }
 
     /** Constructor for holding shutdown information from client. */

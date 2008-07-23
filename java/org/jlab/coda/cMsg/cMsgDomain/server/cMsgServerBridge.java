@@ -80,10 +80,7 @@ public class cMsgServerBridge {
             if (msg.getText() == null) {
                 msg.setText("");
             }
-            //try {
-            //    Thread.sleep(1);
-            //}
-            //catch (InterruptedException e) {}
+
             try {
                 // pass this message on to local clients
                 subdomainHandler.localSend(msg, namespace);

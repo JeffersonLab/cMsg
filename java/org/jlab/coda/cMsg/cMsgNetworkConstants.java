@@ -30,10 +30,12 @@ public class cMsgNetworkConstants {
 
     /** TCP port at which a cMsg domain name server starts looking for an unused listening port. */
     public static final int    nameServerStartingPort   = 3456;
+    /** TCP port at which a cMsg domain, domain server listens. */
+    public static final int    domainServerPort = 4567;
     /** TCP port at which a cMsg domain, domain server starts looking for an unused listening port. */
-    public static final int    domainServerStartingPort = 4567;  
+    public static final int    domainServerStartingPort = 4567;
     /** TCP port at which a cMsg domain client starts looking for an unused listening port. */
-    public static final int    clientServerStartingPort = 2345;
+    public static final int    clientServerStartingPort = 23945;
     /** TCP port at which a TCPServer server listens for connections. */
     public static final int    tcpServerPort = 5432;
     /** UDP port at which a RunControl server listens for broadcasts. */

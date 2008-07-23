@@ -20,6 +20,9 @@ import org.jlab.coda.cMsg.*;
 
 import java.io.*;
 import java.nio.channels.SocketChannel;
+import java.nio.channels.ByteChannel;
+import java.nio.channels.Channels;
+import java.nio.ByteBuffer;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 
@@ -38,40 +41,54 @@ import java.net.Socket;
  * with a return acknowlegment<p>
  * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgShutdownClients} for a message to shutdown
  * the receiving client<p>
+ * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgSyncSendResponse} for an int sent in
+ * response to a {@link org.jlab.coda.cMsg.cMsg#syncSend}<p>
+ * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgServerRegistrationLockResponse} for an int sent in
+ * response to a {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient#registrationLock}<p>
+ * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgServerCloudLockResponse} for an int sent in
+ * response to a {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient#cloudLock}<p>
+ * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgServerSendClientNamesResponse} for an int sent in
+ * response to a {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient#getClientNamesAndNamespaces}<p>
  * </ul>
  */
 public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
 
     /** Communication channel used by subdomainHandler to talk to client. */
     private SocketChannel channel;
-    /** Buffered data input stream associated with channel socket. */
-    private DataInputStream  in;
+
     /** Buffered data output stream associated with channel socket. */
     private DataOutputStream out;
+
+    private cMsgClientInfo info;
+
+    boolean blocking;
+
+    /** Direct buffer for writing nonblocking IO. */
+    ByteBuffer buffer;
 
     //-----------------------------------------------------------------------------------
 
     /**
      * Create a message delivering object for use with one specific client.
-     * @param info information object about client to talk to
      * @throws IOException if cannot establish communication with client
      */
-    public cMsgMessageDeliverer(cMsgClientInfo info) throws IOException {
-        createClientConnection(info);
+    public cMsgMessageDeliverer() throws IOException {
+        // Do not create the connection yet.
+        // Now it's done after client connects to domain server.
     }
 
     /**
      * Method to close all streams and sockets.
      */
     synchronized public void close() {
-        try {in.close();}
-        catch (IOException e) {}
-
-        try {out.close();}
-        catch (IOException e) {}
-
-        try {channel.close();}
-        catch (IOException e) {}
+        if (out != null) {
+            try {out.close();}
+            catch (IOException e) {}
+        }
+        if (channel != null) {
+            try {channel.close();}
+            catch (IOException e) {}
+        }
     }
 
     /**
@@ -85,77 +102,294 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
      */
     synchronized public void deliverMessage(cMsgMessage msg, int msgType)
             throws IOException, cMsgException {
-        deliverMessageReal(msg, msgType, false);
+        if (blocking) {
+            deliverMessageReal(msg, msgType);
+        }
+        else {
+            deliverMessageRealNonblocking(msg, msgType);
+        }
     }
 
     /**
-     * Method to deliver a message from a domain server's subdomain handler to a client
-     * and receive acknowledgment that the message was received.
+     * Method to deliver an integer from a domain server's subdomain handler to a client.
      *
-     * @param msg message to sent to client
+     * @param i integer to sent to client
+     * @param j integer to sent to client
      * @param msgType type of communication with the client
-     * @return true if message acknowledged by receiver or acknowledgment undesired, otherwise false
      * @throws IOException if the message cannot be sent over the channel
      *                     or client returns an error
      * @throws cMsgException if connection to client has not been established
      */
-    synchronized public boolean deliverMessageAndAcknowledge(cMsgMessage msg, int msgType)
+    synchronized public void deliverMessage(int i, int j, int msgType)
             throws IOException, cMsgException {
-        return deliverMessageReal(msg, msgType, true);
+        if (blocking) {
+            deliverMessageReal(i, j, msgType);
+        }
+        else {
+            deliverMessageRealNonblocking(i, j, msgType);
+        }
     }
 
     /**
+     * Method to deliver an array of string from a domain server's subdomain handler to a client.
+     *
+     * @param strs array of strings to sent to client
+     * @param msgType type of communication with the client
+     * @throws IOException if the message cannot be sent over the channel
+     *                     or client returns an error
+     * @throws cMsgException if connection to client has not been established
+     */
+    synchronized public void deliverMessage(String[] strs, int msgType)
+            throws IOException, cMsgException {
+        if (blocking) {
+            deliverMessageReal(strs, msgType);
+        }
+        else {
+            deliverMessageRealNonblocking(strs, msgType);
+        }
+    }
+
+
+    /**
      * Creates a socket communication channel to a client.
-     * @param info client information object
+     * @param channel channel to client
+     * @param blocking is socket blocking (true) or nonblocking (false) ?
      * @throws IOException if socket cannot be created
      */
-    synchronized public void createClientConnection(cMsgClientInfo info) throws IOException {
-        channel = SocketChannel.open(new InetSocketAddress(info.getClientHost(),
-                                                           info.getClientPort()));
-        // set socket options
-        Socket socket = channel.socket();
+    synchronized public void createClientConnection(SocketChannel channel, boolean blocking) throws IOException {
+        this.blocking = blocking;
+        this.channel  = channel;
+        buffer = ByteBuffer.allocateDirect(16384);
+        // set socket options (most set in cMsgDomainServerSelect)
         // Set tcpNoDelay so no packets are delayed
-        socket.setTcpNoDelay(true);
-        // set buffer sizes
-        socket.setReceiveBufferSize(65535);
-        socket.setSendBufferSize(65535);
+        channel.socket().setTcpNoDelay(true);
+        // set buffer size
+        channel.socket().setSendBufferSize(65535);
 
-        // create buffered communication streams for efficiency
-        in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 2048));
-        out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 65536));
+        if (blocking) {
+            channel.configureBlocking(true);
+            ByteChannel bc = cMsgUtilities.wrapChannel(channel);
+            out = new DataOutputStream(new BufferedOutputStream(Channels.newOutputStream(bc), 65535));
+        }
     }
+
+
+
+    /**
+     * Method to deliver a integer to a client.
+     *
+     * @param i integer to be sent
+     * @param j integer to be sent
+     * @param msgType type of communication with the client
+     * @throws cMsgException if connection to client has not been established
+     * @throws IOException if the message cannot be sent over the channel
+     *                     or client returns an error
+     */
+    private void deliverMessageReal(int i, int j, int msgType)
+            throws IOException, cMsgException {
+
+        if (out == null || !channel.isOpen()) {
+            throw new cMsgException("Call createClientConnection first to create connection to client");
+        }
+
+        if (msgType == cMsgConstants.msgShutdownClients) {
+            // size
+            out.writeInt(4);
+            // msg type
+            out.writeInt(msgType);
+            out.flush();
+        }
+        else {
+            // size
+            out.writeInt(12);
+            // msg type
+            out.writeInt(msgType);
+            // sync send response
+            out.writeInt(i);
+            // sync send id
+            out.writeInt(j);
+            out.flush();
+        }
+        return;
+    }
+
+
+    /**
+     * Method to deliver a integer to a client.
+     *
+     * @param i integer to be sent
+     * @param j integer to be sent
+     * @param msgType type of communication with the client
+     * @throws cMsgException if connection to client has not been established
+     * @throws IOException if the message cannot be sent over the channel
+     *                     or client returns an error
+     */
+    private void deliverMessageRealNonblocking(int i, int j, int msgType)
+            throws IOException, cMsgException {
+
+        if (!channel.isOpen()) {
+            throw new cMsgException("Call createClientConnection first to create connection to client");
+        }
+
+        if (msgType == cMsgConstants.msgShutdownClients) {
+            buffer.clear();
+            // size
+            buffer.putInt(4);
+            // msg type
+            buffer.putInt(msgType);
+            buffer.flip();
+        }
+        else {
+            buffer.clear();
+            buffer.putInt(12);
+            buffer.putInt(msgType);
+            // sync send response
+            buffer.putInt(i);
+            // sync send id
+            buffer.putInt(j);
+            buffer.flip();
+        }
+
+        while (buffer.hasRemaining()) {
+            channel.write(buffer);
+        }
+
+        return;
+    }
+
+
+    /**
+     * Method to deliver an array of strings to a client.
+     *
+     * @param strs array of strings to be sent
+     * @param msgType type of communication with the client
+     * @throws cMsgException if connection to client has not been established
+     * @throws IOException if the message cannot be sent over the channel
+     *                     or client returns an error
+     */
+    private void deliverMessageReal(String[] strs, int msgType)
+            throws IOException, cMsgException {
+
+        if (out == null || !channel.isOpen()) {
+            throw new cMsgException("Call createClientConnection first to create connection to client");
+        }
+
+        // lengths of ints to send
+        int size = 4*(2+strs.length);
+        // lengths of strings to send
+        for (String s : strs) {
+            size += s.length();
+        }
+
+        // size in bytes
+        out.writeInt(size);
+        // msg type
+        out.writeInt(msgType);
+        // number of strings to come
+        out.writeInt(strs.length);
+        // lengths of strings
+        for (String s : strs) {
+            out.writeInt(s.length());
+        }
+        // strings
+        try {
+            for (String s : strs) {
+                out.write(s.getBytes("US-ASCII"));
+            }
+        }
+        catch (UnsupportedEncodingException e) {/* never happen */}
+        out.flush();
+
+        return;
+    }
+
+    /**
+     * Method to deliver an array of string to a client.
+     *
+     * @param strs array of strings to be sent
+     * @param msgType type of communication with the client
+     * @throws cMsgException if connection to client has not been established
+     * @throws IOException if the message cannot be sent over the channel
+     *                     or client returns an error
+     */
+    private void deliverMessageRealNonblocking(String[] strs, int msgType)
+            throws IOException, cMsgException {
+
+        if (!channel.isOpen()) {
+            throw new cMsgException("Call createClientConnection first to create connection to client");
+        }
+
+        // lengths of ints to send
+        int size = 4*(2+strs.length);
+        // lengths of strings to send
+        for (String s : strs) {
+            size += s.length();
+        }
+
+        if (buffer.capacity() < size) {
+            buffer = ByteBuffer.allocateDirect(size + 1024);
+        }
+
+        buffer.clear();
+        buffer.putInt(size);
+        buffer.putInt(msgType);
+        buffer.putInt(strs.length);
+        // lengths of strings
+        for (String s : strs) {
+            buffer.putInt(s.length());
+        }
+        // strings
+        try {
+            for (String s : strs) {
+                buffer.put(s.getBytes("US-ASCII"));
+            }
+        }
+        catch (UnsupportedEncodingException e) {/* never happen */}
+        buffer.flip();
+
+        while (buffer.hasRemaining()) {
+            channel.write(buffer);
+        }
+
+        return;
+    }
+
+
 
     /**
      * Method to deliver a message to a client.
      *
      * @param msg     message to be sent
      * @param msgType type of communication with the client
-     * @param acknowledge if acknowledgement of message is desired, set to true
-     * @return true if message acknowledged by receiver or acknowledgment undesired, otherwise false
      * @throws cMsgException if connection to client has not been established
      * @throws IOException if the message cannot be sent over the channel
      *                     or client returns an error
      */
-    private boolean deliverMessageReal(cMsgMessage msg, int msgType, boolean acknowledge)
+    private void deliverMessageRealNonblocking(cMsgMessage msg, int msgType)
             throws IOException, cMsgException {
 
-        if (in == null || out == null || !channel.isOpen()) {
+        if (!channel.isOpen()) {
             throw new cMsgException("Call createClientConnection first to create connection to client");
         }
 
-
+// CHANGED the protocol by getting rid of acknowledges & adding syncSend response
+        if (msgType == cMsgConstants.msgSyncSendResponse ||
+            msgType == cMsgConstants.msgServerRegistrationLock ||
+            msgType == cMsgConstants.msgServerCloudLock) {
+            throw new cMsgException("Call deliverMessage(int,int) to send msg");
+        }
+        
         if (msgType == cMsgConstants.msgShutdownClients) {
+            buffer.clear();
             // size
-            out.writeInt(8);
+            buffer.putInt(4);
             // msg type
-            out.writeInt(msgType);
-            // want an acknowledgment?
-            out.writeInt(acknowledge ? 1 : 0);
-            out.flush();
+            buffer.putInt(msgType);
+            buffer.flip();
         }
         else {
             // write 20 ints
-//System.out.println("deliverer: Normal message actually being sent");
+//System.out.println("deliverer (NIO) : Normal message actually being sent");
             int len1 = msg.getSender().length();
             int len2 = msg.getSenderHost().length();
             int len3 = msg.getSubject().length();
@@ -171,7 +405,121 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             }
             // size of everything sent (except "size" itself which is first integer)
             int size = len1 + len2 + len3 + len4 + len5 + len6 +
-                       binLength + 4*19;
+                       binLength + 4*18;
+
+            if (buffer.capacity() < size) {
+                buffer = ByteBuffer.allocateDirect(size + 1024);
+            }
+
+            buffer.clear();
+            buffer.putInt(size);
+            buffer.putInt(msgType);
+            buffer.putInt(msg.getVersion());
+            buffer.putInt(0);   // reserved for future use
+            buffer.putInt(msg.getUserInt());
+            buffer.putInt(msg.getInfo());
+
+            // send the time in milliseconds as 2, 32 bit integers
+            buffer.putInt((int) (msg.getSenderTime().getTime() >>> 32)); // higher 32 bits
+            buffer.putInt((int) (msg.getSenderTime().getTime() & 0x00000000FFFFFFFFL)); // lower 32 bits
+            buffer.putInt((int) (msg.getUserTime().getTime() >>> 32));
+            buffer.putInt((int) (msg.getUserTime().getTime() & 0x00000000FFFFFFFFL));
+
+            buffer.putInt(msg.getSysMsgId());
+            buffer.putInt(msg.getSenderToken());
+            buffer.putInt(len1);
+            buffer.putInt(len2);
+            buffer.putInt(len3);
+            buffer.putInt(len4);
+            buffer.putInt(len5);
+            buffer.putInt(len6);
+            buffer.putInt(binLength);
+
+            // write strings
+            try {
+                buffer.put(msg.getSender().getBytes("US-ASCII"));
+                buffer.put(msg.getSenderHost().getBytes("US-ASCII"));
+                buffer.put(msg.getSubject().getBytes("US-ASCII"));
+                buffer.put(msg.getType().getBytes("US-ASCII"));
+                buffer.put(msg.getPayloadText().getBytes("US-ASCII"));
+                buffer.put(msg.getText().getBytes("US-ASCII"));
+                if (binLength > 0) {
+                    buffer.put(msg.getByteArray(),
+                               msg.getByteArrayOffset(),
+                               binLength);
+                }
+            }
+            catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            }
+            buffer.flip();
+
+        }
+
+        while (buffer.hasRemaining()) {
+//System.out.println("deliverer (NIO) : try writing buffer, chan open (" + channel.isOpen() +
+//                    "), connected (" + channel.isConnected() + ")");
+            channel.write(buffer);
+        }
+//System.out.println("deliverer (NIO) : done sending msg");
+
+        return;
+    }
+
+    /**
+     * Method to deliver a message to a client.
+     *
+     * @param msg     message to be sent
+     * @param msgType type of communication with the client
+     * @throws cMsgException if connection to client has not been established
+     * @throws IOException if the message cannot be sent over the channel
+     *                     or client returns an error
+     */
+    private void deliverMessageReal(cMsgMessage msg, int msgType)
+            throws IOException, cMsgException {
+
+        //if (in == null || out == null || !channel.isOpen()) {
+        if (out == null || !channel.isOpen()) {
+            throw new cMsgException("Call createClientConnection first to create connection to client");
+        }
+
+// CHANGED the protocol by getting rid of acknowledges & adding syncSend reponse
+
+        if (msgType == cMsgConstants.msgShutdownClients) {
+            // size
+            out.writeInt(4);
+            // msg type
+            out.writeInt(msgType);
+            out.flush();
+        }
+        else if (msgType == cMsgConstants.msgSyncSendResponse) {
+            // size
+            out.writeInt(8);
+            // msg type
+            out.writeInt(msgType);
+            // sync send response
+            out.writeInt(0);
+            out.flush();
+        }
+        else {
+            // write 20 ints
+//System.out.println("deliverer (streams) : Normal message actually being sent");
+            int len1 = msg.getSender().length();
+            int len2 = msg.getSenderHost().length();
+            int len3 = msg.getSubject().length();
+            int len4 = msg.getType().length();
+            int len5 = msg.getPayloadText().length();
+            int len6 = msg.getText().length();
+            int binLength;
+            if (msg.getByteArray() == null) {
+                binLength = 0;
+            }
+            else {
+                binLength = msg.getByteArrayLength();
+            }
+            // size of everything sent (except "size" itself which is first integer)
+            int size = len1 + len2 + len3 + len4 + len5 + len6 +
+                       binLength + 4*18;
 
             out.writeInt(size);
             out.writeInt(msgType);
@@ -195,7 +543,6 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             out.writeInt(len5);
             out.writeInt(len6);
             out.writeInt(binLength);
-            out.writeInt(acknowledge ? 1 : 0);
 
             // write strings
             try {
@@ -214,16 +561,13 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             catch (UnsupportedEncodingException e) {
                 e.printStackTrace();
             }
+//System.out.println("deliverer (streams) : try flushing");
             out.flush();
 
         }
+//System.out.println("deliverer (streams) : done");
 
-        // If no acknowledgment required, return
-        if (!acknowledge) {
-            return true;
-        }
-
-        return in.readInt() == cMsgConstants.ok;
+       return;
     }
 
 

@@ -55,16 +55,9 @@ public class Dummy extends cMsgSubdomainAdapter {
      * @param info information about client
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
-        // Create an object enabling this handler to communicate
+        // Get an object enabling this handler to communicate
         // with only this client in this cMsg subdomain.
-        try {
-            deliverer = new cMsgMessageDeliverer(info);
-        }
-        catch (IOException e) {
-            cMsgException ex = new cMsgException("socket communication error");
-            ex.setReturnCode(cMsgConstants.errorNetwork);
-            throw ex;
-        }
+        deliverer = info.getDeliverer();
         return;
     }
 

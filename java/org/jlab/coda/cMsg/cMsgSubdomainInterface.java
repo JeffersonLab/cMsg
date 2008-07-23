@@ -79,7 +79,7 @@ public interface cMsgSubdomainInterface {
      *
      * @param subject message subject subscribed to
      * @param type    message type subscribed to
-     * @param id      message id
+     * @param id      message intVal
      * @throws cMsgException
      */
     public void handleSubscribeAndGetRequest(String subject, String type, int id)
@@ -91,7 +91,7 @@ public interface cMsgSubdomainInterface {
      *
      * @param subject message subject subscribed to
      * @param type    message type subscribed to
-     * @param id      message id
+     * @param id      message intVal
      * @throws cMsgException
      */
     public void handleUnsubscribeAndGetRequest(String subject, String type, int id)
@@ -111,7 +111,7 @@ public interface cMsgSubdomainInterface {
     /**
      * Method to remove a sendAndGet request previously sent by a domain client.
      *
-     * @param id message id refering to these specific subject and type values
+     * @param id message intVal refering to these specific subject and type values
      * @throws cMsgException
      */
     public void handleUnSendAndGetRequest(int id) throws cMsgException;
@@ -122,7 +122,7 @@ public interface cMsgSubdomainInterface {
      *
      * @param subject message subject subscribed to
      * @param type    message type subscribed to
-     * @param id      message id
+     * @param id      message intVal
      * @throws cMsgException
      */
     public void handleSubscribeRequest(String subject, String type, int id)
@@ -134,7 +134,7 @@ public interface cMsgSubdomainInterface {
      *
      * @param subject message subject subscribed to
      * @param type    message type subscribed to
-     * @param id      message id
+     * @param id      message intVal
      * @throws cMsgException
      */
     public void handleUnsubscribeRequest(String subject, String type, int id)
@@ -151,14 +151,6 @@ public interface cMsgSubdomainInterface {
     public void handleShutdownClientsRequest(String client, boolean includeMe)
             throws cMsgException;
 
-
-    /**
-     * Method to handle a keepalive sent by a domain client checking to see
-     * if the domain server is still up.
-     *
-     * @throws cMsgException
-     */
-    public void handleKeepAlive() throws cMsgException;
 
 
     /**

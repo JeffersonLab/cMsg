@@ -28,7 +28,6 @@ import java.nio.channels.Selector;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.text.DateFormat;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgNetworkConstants;
@@ -48,7 +47,10 @@ import org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsgMessageDeliverer;
 public class cMsgNameServer extends Thread {
 
     /** This server's name. */
-    private String serverName;
+    String serverName;
+
+    /** Host this server is running on. */
+    private String host;
 
     /** This server's TCP listening port number. */
     private int port;
@@ -58,6 +60,9 @@ public class cMsgNameServer extends Thread {
 
     /** The maximum value for the cMsgDomainServer's listening port number. */
     static int domainPortMax = 65535;
+
+    /** The value of the TCP listening port for establishing permanent client connections. */
+    static int domainServerPort;
 
     /**
      * This is the time ordering property of the server.
@@ -76,14 +81,38 @@ public class cMsgNameServer extends Thread {
     /** Thread which receives client broadcasts. */
     private cMsgBroadcastListeningThread broadcastThread;
 
+    /** Thread which handles the permanen client connections. */
+    private cMsgConnectionHandler connectionThread;
+
     /**
-     * Set of all active domain server objects. It is implemented as a HashMap
+     * Thread which monitors the health of clients. It also sends and receives
+     * general monitoring information.
+     */
+    private cMsgMonitorClient monitorThread;
+
+
+    /**
+     * Set of all active cMsgDomainServer objects. It is implemented as a HashMap
      * but that is only to take advantage of the concurrency protection.
      * The values are all null. This set will be used to call the active domain servers'
      * handleServerShutdown methods when this name server is being
      * shutdown or also when creating monitoring data strings.
      */
     ConcurrentHashMap<cMsgDomainServer,String> domainServers;
+
+    /**
+     * Set of all active cMsgDomainServerSelect objects. It is implemented as a HashMap
+     * but that is only to take advantage of the concurrency protection.
+     * The values are all null. This set will be used to call the active domain servers'
+     * handleServerShutdown methods when this name server is being
+     * shutdown or also when creating monitoring data strings.
+     */
+    ConcurrentHashMap<cMsgDomainServerSelect,String> domainServersSelect;   // CHANGED
+
+    /**
+     * List of all cMsgDomainServerSelect objects that have room for more clients.
+     */
+    List<cMsgDomainServerSelect> availableDomainServers;   // CHANGED
 
     /** Level of debug output for this class. */
     private int debug;
@@ -276,7 +305,7 @@ public class cMsgNameServer extends Thread {
 
     /**
      * Get the name server's listening port.
-     * @return listening port
+     * @return name server's listening port
      */
     public int getPort() {
         return port;
@@ -284,9 +313,19 @@ public class cMsgNameServer extends Thread {
 
 
     /**
+     * Get the domain server's listening port.
+     * @return domain server's listening port
+     */
+    public int getDomainPort() {
+        return domainServerPort;
+    }
+
+
+    /**
      * Constructor which reads environmental variables and opens listening sockets.
      *
      * @param port TCP listening port for communication from clients
+     * @param domainPort  listening port for receiving 2 permanent connections from each client
      * @param udpPort UDP listening port for receiving broadcasts from clients
      * @param timeOrdered if true all client commands are processed in the order received
      * @param standAlone  if true no other cMsg servers are allowed to attached to this one and form a cloud
@@ -294,17 +333,44 @@ public class cMsgNameServer extends Thread {
      * @param cloudPassword  password server needs to provide to connect to this server to become part of a cloud
      * @param debug desired level of debug output
      */
-    public cMsgNameServer(int port, int udpPort, boolean timeOrdered, boolean standAlone,
+    public cMsgNameServer(int port, int domainPort, int udpPort, boolean timeOrdered, boolean standAlone,
                           String clientPassword, String cloudPassword, int debug) {
 
-        domainServers  = new ConcurrentHashMap<cMsgDomainServer,String>(20);
+        domainServers        = new ConcurrentHashMap<cMsgDomainServer,String>(20);
+        domainServersSelect  = new ConcurrentHashMap<cMsgDomainServerSelect,String>(20);
         handlerThreads = new ArrayList<ClientHandler>(10);
+        availableDomainServers = Collections.synchronizedList(new LinkedList<cMsgDomainServerSelect>());   // CHANGED
 
         this.debug          = debug;
         this.timeOrdered    = timeOrdered;
         this.standAlone     = standAlone;
         this.cloudPassword  = cloudPassword;
         this.clientPassword = clientPassword;
+
+        // read env variable for domain server port number
+        if (domainPort < 1) {
+            try {
+                String env = System.getenv("CMSG_DOMAIN_PORT");
+                if (env != null) {
+                    domainPort = Integer.parseInt(env);
+                }
+            }
+            catch (NumberFormatException ex) {
+                System.out.println("Bad port number specified in CMSG_DOMAIN_PORT env variable");
+                System.exit(-1);
+            }
+        }
+
+        if (domainPort < 1) {
+            domainPort = cMsgNetworkConstants.domainServerPort;
+        }
+        domainServerPort = domainPort;
+
+        // port #'s < 1024 are reserved
+        if (domainServerPort < 1024) {
+            System.out.println("Domain server port number must be > 1023");
+            System.exit(-1);
+        }
 
         // read env variable for starting (desired) port number
         if (port < 1) {
@@ -316,7 +382,6 @@ public class cMsgNameServer extends Thread {
             }
             catch (NumberFormatException ex) {
                 System.out.println("Bad port number specified in CMSG_PORT env variable");
-                ex.printStackTrace();
                 System.exit(-1);
             }
         }
@@ -370,6 +435,8 @@ public class cMsgNameServer extends Thread {
         ServerSocket listeningSocket = serverChannel.socket();
 
         try {
+            // prefer low latency, short connection times, and high bandwidth in that order
+            listeningSocket.setPerformancePreferences(1,2,0);         // CHANGED
             listeningSocket.bind(new InetSocketAddress(port));
         }
         catch (IOException ex) {
@@ -402,12 +469,19 @@ public class cMsgNameServer extends Thread {
         catch (UnknownHostException e) {
         }
         serverName = serverName + ":" + port;
+
+        // Host this is running on
+        try {
+            host = InetAddress.getLocalHost().getCanonicalHostName();
+        }
+        catch (UnknownHostException ex) {}
     }
 
 
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage: java [-Dport=<tcp listening port>]\n"+
+                             "            [-DdomainPort=<domain server listening port>]\n" +
                              "            [-Dudp=<udp listening port>]\n" +
                              "            [-DsubdomainName=<className>]\n" +
                              "            [-Dserver=<hostname:serverport>]\n" +
@@ -417,6 +491,7 @@ public class cMsgNameServer extends Thread {
                              "            [-Dpassword=<password>]\n" +
                              "            [-Dcloudpassword=<password>]  cMsgNameServer\n");
         System.out.println("       port is the TCP port this server listens on");
+        System.out.println("       domainPort is the TCP port this server listens on for connection to domain server");
         System.out.println("       udp  is the UDP port this server listens on for broadcasts");
         System.out.println("       subdomainName  is the name of a subdomain and className is the");
         System.out.println("                      name of the java class used to implement the subdomain");
@@ -463,7 +538,7 @@ public class cMsgNameServer extends Thread {
     public static void main(String[] args) {
 
         int debug = cMsgConstants.debugNone;
-        int port = 0, udpPort = 0;
+        int port = 0, udpPort = 0, domainPort=0;
         boolean timeOrdered   = false;
         boolean standAlone    = false;
         String serverToJoin   = null;
@@ -507,18 +582,18 @@ public class cMsgNameServer extends Thread {
                     System.exit(-1);
                 }
             }
-            if (s.equalsIgnoreCase("domainPortMax")) {
+            if (s.equalsIgnoreCase("domainPort")) {
                 try {
-                    domainPortMax = Integer.parseInt(System.getProperty(s));
+                    domainPort = Integer.parseInt(System.getProperty(s));
                 }
                 catch (NumberFormatException e) {
-                    System.out.println("\nBad port number specified");
+                    System.out.println("\nBad domain server port number specified");
                     usage();
                     e.printStackTrace();
                     System.exit(-1);
                 }
-                if (domainPortMax > 65535 || domainPortMax < cMsgNetworkConstants.domainServerStartingPort) {
-                    System.out.println("\nBad maximum domain port number specified");
+                if (domainPort > 65535 || domainPort < 1024) {
+                    System.out.println("\nBad domain server port number specified");
                     usage();
                     System.exit(-1);
                 }
@@ -569,7 +644,7 @@ public class cMsgNameServer extends Thread {
         }
 
         // create server object
-        cMsgNameServer server = new cMsgNameServer(port, udpPort, timeOrdered, standAlone,
+        cMsgNameServer server = new cMsgNameServer(port, domainPort, udpPort, timeOrdered, standAlone,
                                                    clientPassword, cloudPassword, debug);
 
         // start server
@@ -616,8 +691,14 @@ public class cMsgNameServer extends Thread {
         broadcastThread.start();
 
         // Start thread to gather monitor info
-        MonitorDataThread monitorThread = new MonitorDataThread();
+//System.out.println("Start KA monitor thread");
+        monitorThread = new cMsgMonitorClient(this, debug);
         monitorThread.start();
+
+        // Start domain server connection thread
+//System.out.println("Start connection handling thread");
+        connectionThread = new cMsgConnectionHandler(this, debug);
+        connectionThread.start();
 //System.out.println("startServer; Done");
     }
 
@@ -635,9 +716,22 @@ public class cMsgNameServer extends Thread {
 
         // Shutdown UDP listening thread
         broadcastThread.killThread();
+        // Shutdown connecting new clients thread
+        connectionThread.killThread();
+        // Shutdown monitoring clients thread
+        monitorThread.killThread();
 
         // Shutdown all domain servers
         for (cMsgDomainServer server : domainServers.keySet()) {
+            // need to shutdown this domain server
+            if (server.calledShutdown.compareAndSet(false, true)) {
+//System.out.println("DS shutdown to be run by NameServer");
+                server.shutdown();
+            }
+        }
+
+        // Shutdown all domain servers Select
+        for (cMsgDomainServerSelect server : domainServersSelect.keySet()) {
             // need to shutdown this domain server
             if (server.calledShutdown.compareAndSet(false, true)) {
 //System.out.println("DS shutdown to be run by NameServer");
@@ -651,6 +745,7 @@ public class cMsgNameServer extends Thread {
         nameServers.clear();
         handlerThreads.clear();
         domainServers.clear();
+        domainServersSelect.clear();
         subscriptions.clear();
     }
 
@@ -814,7 +909,7 @@ public class cMsgNameServer extends Thread {
                         // Set tcpNoDelay so no packets are delayed
                         socket.setTcpNoDelay(true);
                         // set recv buffer size
-                        socket.setReceiveBufferSize(65535);
+                        socket.setReceiveBufferSize(4096);
 
                         // start up client handling thread & store reference
                         handlerThreads.add(new ClientHandler(channel));
@@ -858,6 +953,30 @@ public class cMsgNameServer extends Thread {
         /** Buffered output communication streams for efficiency. */
         DataOutputStream out;
 
+        cMsgClientData info;
+
+        // The following members are associated with server clients.
+
+        /** Does the client operate in a low throughput regime? */
+        boolean regimeLow;
+
+        /** The relationship between the connecting server and the server cloud -
+         * can be INCLOUD, NONCLOUD, or BECOMINGCLOUD.
+         */
+        byte connectingCloudStatus;
+
+        /** Is connecting server client originating connection or is this a reciprocal one? */
+        boolean isReciprocalConnection;
+
+        /** Listening port of name server that server client is a part of. */
+        int nameServerListeningPort;
+
+        /** Locally constructed name for server client. */
+        String name;
+
+        /** Server client's given password. */
+        String password;
+
         /**
          * Constructor.
          * @param channel socket channel to client
@@ -879,7 +998,7 @@ public class cMsgNameServer extends Thread {
 
             try {
                 // buffered communication streams for efficiency
-                in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 65536));
+                in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 4096));
                 out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 2048));
                 // message id
                 int msgId = in.readInt();
@@ -904,10 +1023,10 @@ public class cMsgNameServer extends Thread {
 
                 switch(msgId) {
                     case cMsgConstants.msgConnectRequest:
-                        handleClient();
+                        handleRegularClient();
                         break;
                     case cMsgConstants.msgServerConnectRequest:
-                        handleServer();
+                        handleServerClient();
                         break;
                     default:
                         if (debug >= cMsgConstants.debugError) {
@@ -932,101 +1051,305 @@ public class cMsgNameServer extends Thread {
 
 
         /**
-         * This method registers a client with this name server. This method passes on the
-         * registration function to the client handler object. Part of the information
-         * in the cMsgClientInfo object is the subdomain which specifies the type of
-         * client handler object needed. This handler object gets the UDL remainder
-         * (also part of the cMsgClientInfo object) which it can parse as it sees fit.
-         * <p/>
-         * The subdomain should have a class by that name that can be loaded and used
-         * as the client handler object. The classes corresponding to these handlers
-         * can be passed to the name server on the command line as in the following:
-         * java cMsgNameServer -DmySubdomain=myCmsgClientHandlerClass
+         * This method handles all communication between a cMsg server client
+         * and this server in the cMsg domain / cMsg subdomain.
          *
-         * @param info object containing information about the client
-         * @return created subdomain handler object
-         * @throws IOException If a client could not be registered in the cMsg server cloud
-         * @throws cMsgException If a domain server could not be started for the client
+         * @throws IOException  if problems with socket communication
          */
-        synchronized private cMsgSubdomainInterface registerClient(cMsgClientInfo info)
-                throws cMsgException, IOException {
+        private void handleServerClient() {
 
-            // create a subdomain handler object
-            cMsgSubdomainInterface subdomainHandler = createClientHandler(info.getSubdomain());
+            try {
+                readServerClientInfo();
 
-            // The first thing we do is pass the UDL remainder to the handler.
-            // In the cMsg subdomain, it is parsed to find the namespace which
-            // is stored in the subdomainHandler object.
-            subdomainHandler.setUDLRemainder(info.getUDLremainder());
+                // At this point grab the "cloud" lock so no other servers
+                // can connect simultaneously
+                cloudLock.lock();
 
-            // Register client with the subdomain.
-            // If we're in the cMsg subdomain ...
-            if (subdomainHandler instanceof org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg) {
-                // The next thing to do is create an object enabling the handler
-                // to communicate with only this client in this cMsg domain.
-                cMsgMessageDeliverer deliverer;
                 try {
-                    deliverer = new cMsgMessageDeliverer(info);
-                }
-                catch (IOException e) {
-                    cMsgException ex = new cMsgException("socket communication error");
-                    ex.setReturnCode(cMsgConstants.errorNetwork);
-                    throw ex;
-                }
-
-                // Store deliverer object in client info object.
-                // The cMsg subdomain uses this reference to communicate.
-                info.setDeliverer(deliverer);
-
-                // Wait until clients are allowed to connect (i.e. this server
-                // has joined the cloud of cMsg subdomain name servers).
-                try {
-                    // If we've timed out ...
-                    if (!allowConnectionsSignal.await(5L, TimeUnit.SECONDS)) {
-                        cMsgException ex = new cMsgException("nameserver not in server cloud - timeout error");
-                        ex.setReturnCode(cMsgConstants.errorTimeout);
-                        throw ex;
+                    if (!allowServerClientConnection()) {
+                        return;
                     }
+
+                    // Create object which holds all data concerning client
+                    info = new cMsgClientData(name, nameServerListeningPort, host);
+
+                    if (debug >= cMsgConstants.debugInfo) {
+                        System.out.println(">> NS: try to register " + name);
+                    }
+
+                    // Register this client. If this cMsg server already has a
+                    // client by this name (it never should), it will fail.
+                    registerServer();
                 }
-                catch (InterruptedException e) {
-                    cMsgException ex = new cMsgException("interrupted while waiting for name server to join server cloud");
-                    ex.setReturnCode(cMsgConstants.error);
-                    throw ex;
+                finally {
+                    // At this point release the "cloud" lock
+                    cloudLock.unlock();
                 }
-
-                // We need to do a global registration spanning
-                // all cMsg domain servers in this cloud.
-                cMsgSubdomainRegistration(info, subdomainHandler);
             }
-            else {
-                subdomainHandler.registerClient(info);
-            }
-
-            // Create a domain server thread, and get back its host & port
-            cMsgDomainServer server = new cMsgDomainServer(cMsgNameServer.this, subdomainHandler, info,
-                                                           cMsgNetworkConstants.domainServerStartingPort,
-                                                           timeOrdered);
-
-            // kill this thread too if name server thread quits
-            server.setDaemon(true);
-            server.start();
-            // store ref to this domain server
-            domainServers.put(server, "");
-
-            return subdomainHandler;
+            catch (cMsgException ex) { }
+            catch (IOException ex)   { }
         }
 
 
         /**
-         * This method registers a server "client" with this name server. This method passes on the
-         * registration function to the client handler object. These server clients exist only in
-         * the cMsg subdomain.
+         * This method reads incoming communication from a cMsg server client.
          *
-         * @param info object containing information about the client
-         * @return created subdomain handler object
-         * @throws cMsgException If a domain server could not be started for the client
+         * @throws IOException if problems with socket communication
          */
-        synchronized private cMsgSubdomainInterface registerServer(cMsgClientInfo info) throws cMsgException {
+        private void readServerClientInfo() throws IOException {
+//System.out.println(">> NS: IN handleServer");
+
+            // Is client low throughput & small msg size?
+            // Server clients are never treated as low throughput so ignore.
+            regimeLow = in.readInt() == 1;
+            // What relationship does the connecting server have to the server cloud?
+            // Can be INCLOUD, NONCLOUD, or BECOMINGCLOUD.
+            connectingCloudStatus = in.readByte();
+            // Is connecting server originating connection or is this a reciprocal one?
+            isReciprocalConnection = in.readByte() == 0;
+            // listening port of name server that client is a part of
+            int nameServerListeningPort = in.readInt();
+            // length of server client's host name
+            int lengthHost = in.readInt();
+            // length of server client's password
+            int lengthPassword = in.readInt();
+
+            // bytes expected
+            int bytesToRead = lengthHost + lengthPassword;
+            int offset = 0;
+
+            // read all string bytes
+            byte[] bytes = new byte[bytesToRead];
+            in.readFully(bytes, 0, bytesToRead);
+
+            // read host
+            String host = new String(bytes, offset, lengthHost, "US-ASCII");
+            offset += lengthHost;
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println(">> NS: host = " + host);
+            }
+
+            // read password
+            password = new String(bytes, offset, lengthPassword, "US-ASCII");
+            offset += lengthPassword;
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println(">> NS: given cloud password = " + password);
+            }
+
+            // Make this client's name = "host:port"
+            name = host + ":" + nameServerListeningPort;
+//System.out.println(">> NS: host name = " + host + ", client hame = " + name);
+        }
+
+
+        /**
+         * This method determines whether a server client is allowed to connect.
+         *
+         * @return true if allowed to connect, else false
+         * @throws IOException if problems with socket communication
+         */
+        private boolean allowServerClientConnection() throws IOException {
+
+            boolean allowConnection = false;
+
+            try {
+                // First, check to see if password matches.
+//System.out.println("local cloudpassword = " + cloudPassword +
+//                   ", given password = " + password);
+                if (cloudPassword != null && !cloudPassword.equals(password)) {
+//System.out.println(">> NS: PASSWORDS DO NOT MATCH");
+                    cMsgException ex = new cMsgException("wrong password - connection refused");
+                    ex.setReturnCode(cMsgConstants.errorWrongPassword);
+                    throw ex;
+                }
+
+                // Second, check to see if this is a stand alone server.
+                if (standAlone) {
+                    cMsgException ex = new cMsgException("stand alone server - no server connections allowed");
+                    ex.setReturnCode(cMsgConstants.error);
+                    throw ex;
+                }
+
+                // Third, check to see if this server is already connected.
+                if (nameServers.contains(name)) {
+//System.out.println(">> NS: ALREADY CONNECTED TO " + name);
+                    cMsgException ex = new cMsgException("already connected");
+                    ex.setReturnCode(cMsgConstants.errorAlreadyExists);
+                    throw ex;
+                }
+
+                // Allow other servers to connect to this one if:
+                //   (1) this server is a cloud member, or
+                //   (2) this server is not a cloud member and it is a
+                //       reciprocal connection from a cloud member, or
+                //   (3) this server is becoming a cloud member and it is an
+                //       original or reciprocal connection from a another server
+                //       that is simultaneously trying to become a cloud member.
+                if (cloudStatus == INCLOUD) {
+                    allowConnection = true;
+                    // If I'm in the cloud, the connecting server cannot be making
+                    // a reciprocal connection since a reciprocal connection
+                    // is the only kind I can make.
+                    isReciprocalConnection = false;
+                }
+                else if (connectingCloudStatus == INCLOUD) {
+                    allowConnection = true;
+                    // If the connecting server is a cloud member and I am not,
+                    // it must be making a reciprocal connection since that's the
+                    // only kind of connection a cloud member can make.
+                    isReciprocalConnection = true;
+                }
+                else if (cloudStatus == BECOMINGCLOUD && connectingCloudStatus == BECOMINGCLOUD) {
+                    allowConnection = true;
+                }
+                else {
+                    // If we've reached here, then it's a connection from a noncloud server
+                    // trying to connect to a noncloud/becomingcloud server or vice versa which
+                    // is forbidden. This connection will not be allowed to proceed until this
+                    // server becomes part of the cloud.
+                }
+
+                if (!allowConnection) {
+                    try {
+                        // Wait here up to 5 sec if the connecting server is not allowed to connect.
+//System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connection");
+                        if (!allowConnectionsSignal.await(5L, TimeUnit.SECONDS)) {
+                            cMsgException ex = new cMsgException("nameserver not in server cloud - timeout error");
+                            ex.setReturnCode(cMsgConstants.errorTimeout);
+                            throw ex;
+                        }
+                    }
+                    catch (InterruptedException e) {
+                        cMsgException ex = new cMsgException("interrupted while waiting for name server to join server cloud");
+                        ex.setReturnCode(cMsgConstants.error);
+                        throw ex;
+                    }
+                }
+
+                allowConnection = true; // CHANGED LOGIC HERE !!!
+            }
+            catch (cMsgException ex) {
+                // send int error code to client
+                out.writeInt(ex.getReturnCode());
+                // send error string to client
+                out.writeInt(ex.getMessage().length());
+                try {
+                    out.write(ex.getMessage().getBytes("US-ASCII"));
+                }
+                catch (UnsupportedEncodingException e) {
+                }
+
+                out.flush();
+            }
+
+            return allowConnection;
+        }
+
+
+        /**
+         * This method sends back a reply to the server client trying to connect,
+         * telling the domain server host and port along with names of other servers
+         * in the cloud.
+         *
+         * @throws IOException if problems with socket communication
+         */
+        private void replyToServerClient() throws IOException {
+            // send ok back as acknowledgment
+            out.writeInt(cMsgConstants.ok);
+
+            // send cMsg domain host & port contact info back to client
+            out.writeInt(domainServerPort);
+            out.writeInt(info.getDomainHost().length());
+            try {
+                out.write(info.getDomainHost().getBytes("US-ASCII"));
+            }
+            catch (UnsupportedEncodingException e) {
+            }
+
+            try {
+                // If this is not a reciprocal connection, we need to make one.
+                if (!isReciprocalConnection) {
+//System.out.println(">> NS: Create reciprocal bridge to " + name);
+                    cMsgServerBridge b = new cMsgServerBridge(cMsgNameServer.this, name, port);
+                    // connect as reciprocal (originating = false)
+                    b.connect(false, cloudPassword);
+//System.out.println(">> NS: Add " + name + " to bridges");
+                    bridges.put(name, b);
+                    // If status was NONCLOUD, it is now BECOMINGCLOUD,
+                    // and if we're here it is not INCLOUD.
+                    b.setCloudStatus(cMsgNameServer.BECOMINGCLOUD);
+//System.out.println(">> NS: set bridge (" + b + ") status to " + b.getCloudStatus());
+                }
+                // If this is a reciprocal connection, look up bridge for
+                // connecting server and change its cloud status.
+                else {
+//System.out.println(">> NS: Do NOT create reciprocal bridge to " + name);
+                    // We cannot look up the bridge in "bridges" as it is still
+                    // in the middle of being created and has not been added
+                    // to that collection yet. We have saved a reference, however.
+                    cMsgServerBridge b = bridgeBeingCreated;
+                    if (b != null) {
+                        b.setCloudStatus(connectingCloudStatus);
+//System.out.println(">> NS: set bridge (" + b + ") status to " + b.getCloudStatus());
+                    }
+                    else {
+                        System.out.println(">> NS: bridge  = " + b);
+                    }
+                }
+            }
+            catch (cMsgException e) {
+                e.printStackTrace();
+            }
+
+            // If I'm in the cloud, send a list of cMsg servers I'm already connected to.
+            // If there are no connections to other servers, we can forget it.
+            // Do this only if not a reciprocal connection.
+            if ((cloudStatus == INCLOUD) &&
+                    (nameServers.size() > 0) &&
+                    (!isReciprocalConnection)) {
+                // send number of servers I'm connected to
+//System.out.println(">> NS: Tell connecting server " + nameServers.size() + " servers are connected to us:");
+                out.writeInt(nameServers.size());
+
+                // for each cloud server, send name length, then name
+                synchronized (nameServers) {
+                    for (String serverName : nameServers) {
+                        System.out.println(">>    - " + serverName);
+                        out.writeInt(serverName.length());
+                        out.write(serverName.getBytes("US-ASCII"));
+                    }
+                }
+            }
+            else {
+                // no servers are connected
+//System.out.println(">> NS: Tell connecting server no one is connected to us");
+                out.writeInt(0);
+            }
+            out.flush();
+
+            // store this connection in hashtable
+            if (connectingCloudStatus == NONCLOUD) {
+                // If we're this far then we're in the cloud and the connecting
+                // server is trying to become part of it.
+                connectingCloudStatus = BECOMINGCLOUD;
+            }
+//System.out.println(">> NS: Add " + name + " to nameServers with status = " + connectingCloudStatus);
+            nameServers.add(name);
+
+//System.out.println("");
+        }
+
+
+        /**
+         * This method registers a server client with this server. This method passes on the
+         * registration function to the subdomain handler object. These server clients exist
+         * only in the cMsg subdomain.
+         *
+         * @throws cMsgException if a domain server could not be started for the client or if
+         *                       a subdomain handler object could not be created
+         * @throws IOException if problems with socket communication
+         */
+        synchronized private void registerServer() throws cMsgException, IOException {
             // Create instance of cMsg subdomain handler. We need to access
             // methods not in the cMsgSubdomainInterface so do a cast.
             org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg subdomainHandler =
@@ -1036,11 +1359,15 @@ public class cMsgNameServer extends Thread {
             // Server clients don't use the namespace so it doesn't matter.
             subdomainHandler.setUDLRemainder(null);
 
+            info.subdomainHandler = subdomainHandler;
+            info.cMsgSubdomainHandler = subdomainHandler;
+            info.setDomainHost(host);
+
             // The next thing to do is create an object enabling the handler
             // to communicate with only this client in this cMsg domain.
             cMsgMessageDeliverer deliverer;
             try {
-                deliverer = new cMsgMessageDeliverer(info);
+                deliverer = new cMsgMessageDeliverer();
             }
             catch (IOException e) {
                 cMsgException ex = new cMsgException("socket communication error");
@@ -1057,17 +1384,390 @@ public class cMsgNameServer extends Thread {
             subdomainHandler.registerServer(info);
 
             // Create a domain server thread, and get back its host & port
-            cMsgDomainServer server = new cMsgDomainServer(cMsgNameServer.this, subdomainHandler, info,
-                                                           cMsgNetworkConstants.domainServerStartingPort,
-                                                           timeOrdered);
+            cMsgDomainServer dServer = new cMsgDomainServer(cMsgNameServer.this, info, timeOrdered, true, debug);
+
+            // accept 2 permanent connections from client
+            synchronized (connectionThread) {
+                // get ready to accept a couple connections from client
+                connectionThread.allowConnections(info);
+                // send client info about connecting to domain server and
+                // about other servers in the cloud
+                replyToServerClient();
+                // client should make a couple connections to domain server (1 sec timeout)
+                if (!connectionThread.gotConnections()) {
+                    // failed to get proper connections from server client, so abort
+                    cMsgException ex = new cMsgException("server client did not make connections to domain server");
+                    ex.setReturnCode(cMsgConstants.errorLostConnection);
+                    throw ex;
+                }
+            }
 
             // kill this thread too if name server thread quits
-            server.setDaemon(true);
-            server.start();
+            dServer.setDaemon(true);
+            dServer.startThreads();
             // store ref to this domain server
-            domainServers.put(server, "");
+            domainServers.put(dServer, "");
+        }
 
-            return subdomainHandler;
+
+
+        /**
+         * This method receives information about a regular (non-server) cMsg client
+         * which is attempting to connect to this server and registers it.
+         *
+         * @throws IOException if problems with socket communication
+         */
+        private void handleRegularClient() throws IOException {
+//System.out.println("getClientInfo: IN");
+            // is client low throughput & small msg size?
+            regimeLow = in.readInt() == 1;  // CHANGED
+            // length of password
+            int lengthPassword = in.readInt();
+            // length of domain type client is expecting to connect to
+            int lengthDomainType = in.readInt();
+            // length of subdomain type client is expecting to use
+            int lengthSubdomainType = in.readInt();
+            // length of UDL remainder to pass to subdomain handler
+            int lengthUDLRemainder = in.readInt();
+            // length of client's host name
+            int lengthHost = in.readInt();
+            // length of client's name
+            int lengthName = in.readInt();
+            // length of client's UDL
+            int lengthUDL = in.readInt();
+            // length of client's description
+            int lengthDescription = in.readInt();
+
+            // bytes expected
+            int bytesToRead = lengthPassword + lengthDomainType + lengthSubdomainType +
+                              lengthUDLRemainder + lengthHost + lengthName + lengthUDL +
+                              lengthDescription;
+//System.out.println("getClientInfo: bytesToRead = " + bytesToRead);
+            int offset = 0;
+
+            // read all string bytes
+            byte[] bytes = new byte[bytesToRead];
+            in.readFully(bytes, 0, bytesToRead);
+
+            // read password
+            String password = new String(bytes, offset, lengthPassword, "US-ASCII");
+            offset += lengthPassword;
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  password = " + password);
+            }
+
+            // read domain
+            String domainType = new String(bytes, offset, lengthDomainType, "US-ASCII");
+            offset += lengthDomainType;
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  domain = " + domainType);
+            }
+
+            // read subdomain
+            String subdomainType = new String(bytes, offset, lengthSubdomainType, "US-ASCII");
+            offset += lengthSubdomainType;
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  subdomain = " + subdomainType);
+            }
+
+            // Elliott wanted this printed out
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  server port = " + port);
+            }
+
+            // read UDL remainder
+            String UDLRemainder = new String(bytes, offset, lengthUDLRemainder, "US-ASCII");
+            offset += lengthUDLRemainder;
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  remainder = " + UDLRemainder);
+            }
+
+            // read host
+            String host = new String(bytes, offset, lengthHost, "US-ASCII");
+            offset += lengthHost;
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  host = " + host);
+            }
+
+            // read name
+            String name = new String(bytes, offset, lengthName, "US-ASCII");
+            offset += lengthName;
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  name = " + name);
+            }
+
+            // read UDL
+            String UDL = new String(bytes, offset, lengthUDL, "US-ASCII");
+            offset += lengthUDL;
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  UDL = " + UDL);
+            }
+
+            // read description
+            String description = new String(bytes, offset, lengthDescription, "US-ASCII");
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  description = " + description);
+            }
+
+            // if this is not the domain of server the client is expecting, return an error
+            if (!domainType.equalsIgnoreCase(this.domain)) {
+                // send error to client
+                out.writeInt(cMsgConstants.errorWrongDomainType);
+                // send error string to client
+                String s = "this server implements " + this.domain + " domain";
+                out.writeInt(s.length());
+                try {
+                    out.write(s.getBytes("US-ASCII"));
+                }
+                catch (UnsupportedEncodingException e) {
+                }
+
+                out.flush();
+                return;
+            }
+
+            // if the client does not provide the correct password if required, return an error
+            if (clientPassword != null) {
+
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("  local password = " + clientPassword);
+                    System.out.println("  given password = " + password);
+                }
+
+                if (password.length() < 1 || !clientPassword.equals(password)) {
+
+                    if (debug >= cMsgConstants.debugError) {
+                        System.out.println("  wrong password sent");
+                    }
+
+                    // send error to client
+                    out.writeInt(cMsgConstants.errorWrongPassword);
+                    // send error string to client
+                    String s = "wrong password given";
+                    out.writeInt(s.length());
+                    try {
+                        out.write(s.getBytes("US-ASCII"));
+                    }
+                    catch (UnsupportedEncodingException e) {
+                    }
+
+                    out.flush();
+                    return;
+                }
+            }
+
+            // Try to register this client. If the cMsg system already has a
+            // client by this name, it will fail.
+            info = new cMsgClientData(name, port, domainServerPort, host,
+                                      subdomainType, UDLRemainder, UDL, description);
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("name server try to register " + name);
+            }
+
+            try {
+                registerClient();
+            }
+            catch (cMsgException ex) {
+                // send int error code to client
+                out.writeInt(ex.getReturnCode());
+                // send error string to client
+                out.writeInt(ex.getMessage().length());
+                try {
+                    out.write(ex.getMessage().getBytes("US-ASCII"));
+                }
+                catch (UnsupportedEncodingException e) {
+                }
+                out.flush();
+            }
+        }
+
+
+        /**
+         * This method registers a client with this server. This method passes on the
+         * registration function to the subdomain handler object. This handler object
+         * gets the UDL remainder (also part of the cMsgClientData object) which it can
+         * parse as it sees fit.
+         * <p/>
+         * The subdomain should have a class by that name that can be loaded and used
+         * as the subdomain handler object. The classes corresponding to these handlers
+         * can be passed to the name server on the command line as in the following:
+         * java cMsgNameServer -DmySubdomain=myCmsgClientHandlerClass
+         *
+         * @throws IOException If a client could not be registered in the cMsg server cloud
+         * @throws cMsgException If a domain server could not be started for the client
+         */
+        private void registerClient() throws cMsgException, IOException {
+
+            // create a subdomain handler object
+            cMsgSubdomainInterface subdomainHandler = createClientHandler(info.getSubdomain());
+
+            // The first thing we do is pass the UDL remainder to the handler.
+            // In the cMsg subdomain, it is parsed to find the namespace which
+            // is stored in the subdomainHandler object.
+            subdomainHandler.setUDLRemainder(info.getUDLremainder());
+
+            info.subdomainHandler = subdomainHandler;
+            info.setDomainHost(host);
+
+            // The next thing to do is create an object enabling the handler
+            // to communicate with only this client in this cMsg domain.
+            cMsgMessageDeliverer deliverer;
+            try {
+                deliverer = new cMsgMessageDeliverer();
+            }
+            catch (IOException e) {
+                cMsgException ex = new cMsgException("socket communication error");
+                ex.setReturnCode(cMsgConstants.errorNetwork);
+                throw ex;
+            }
+
+            // Store deliverer object in client info object.
+            info.setDeliverer(deliverer);
+
+            // Register client with the subdomain.
+            // If we're in the cMsg subdomain ...
+            if (subdomainHandler instanceof org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg) {
+                // Wait until clients are allowed to connect (i.e. this server
+                // has joined the cloud of cMsg subdomain name servers).
+                try {
+                    // If we've timed out ...
+                    if (!allowConnectionsSignal.await(5L, TimeUnit.SECONDS)) {
+                        cMsgException ex = new cMsgException("nameserver not in server cloud - timeout error");
+                        ex.setReturnCode(cMsgConstants.errorTimeout);
+                        throw ex;
+                    }
+                }
+                catch (InterruptedException e) {
+                    cMsgException ex = new cMsgException("interrupted while waiting for name server to join server cloud");
+                    ex.setReturnCode(cMsgConstants.error);
+                    throw ex;
+                }
+
+                info.cMsgSubdomainHandler = (org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg) subdomainHandler;
+
+                // We need to do a global registration spanning
+                // all cMsg domain servers in this cloud.
+                cMsgSubdomainRegistration(info.cMsgSubdomainHandler);
+            }
+            else {
+                subdomainHandler.registerClient(info);
+            }
+
+
+            // Create or find the domain server object. The server's udp socket is
+            // created with the object and it's port # will be available to send
+            // back to the client when the connections to the client are made.
+            cMsgDomainServer dServer = null;
+            cMsgDomainServerSelect dsServer = null;
+
+            if (regimeLow) {
+                // first look for an available domain server with room for another client
+                synchronized (availableDomainServers) {
+                    if (availableDomainServers.size() > 0) {
+                        // Take this domain server out of list so other clients cannot use
+                        // it simultaneously. It will be added back to the list if it
+                        // hasn't hit the max # of clients (in server.add method)
+                        dsServer = availableDomainServers.remove(0);
+                    }
+                }
+
+                // if none found, create one
+                if (dsServer == null) {
+                    // Create a domain server thread, and get back its host & port
+                    dsServer = new cMsgDomainServerSelect(cMsgNameServer.this,
+                                                          cMsgNetworkConstants.domainServerStartingPort,
+                                                          timeOrdered, debug);
+                }
+
+                info.setDomainUdpPort(dsServer.getUdpPort());
+            }
+            else {
+                dServer = new cMsgDomainServer(cMsgNameServer.this, info, timeOrdered, false, debug);
+            }
+
+//System.out.println("registerClient: make 2 connections");
+            // accept 2 permanent connections from client
+            synchronized (connectionThread) {
+                // get ready to accept a couple connections from client
+                connectionThread.allowConnections(info);
+                // send client info about domain server
+                sendClientConnectionInfo(subdomainHandler);
+                // client should make a couple connections to domain server (1 sec timeout)
+                if (!connectionThread.gotConnections()) {
+                    // failed to get proper connections from client, so abort
+                    cMsgException ex = new cMsgException("client did not make connections to domain server");
+                    ex.setReturnCode(cMsgConstants.errorLostConnection);
+                    throw ex;
+                }
+            }
+//System.out.println("registerClient: got 2 connections");
+
+            // Start the domain server's threads.
+            if (regimeLow) {
+                // if threads haven't been started yet ...
+                if (!dsServer.isAlive()) {
+                    // kill this thread too if name server thread quits
+                    dsServer.setDaemon(true);
+                    //dsServer.start();
+                    dsServer.startThreads();
+                    // store ref to this domain server
+                    domainServersSelect.put(dsServer, "");
+                }
+
+                dsServer.addClient(info);
+            }
+            else {
+                // kill this thread too if name server thread quits
+                dServer.setDaemon(true);
+                //dServer.start();
+                dServer.startThreads();
+                // store ref to this domain server
+                domainServers.put(dServer, "");
+            }
+
+            return;
+        }
+
+
+        /**
+         * This method returns communication to a regular (non-server) cMsg client
+         * to tell it information about the domain it is attempting to connect to
+         * and about the domain server port. The client should then make 2 permanent
+         * connections to the domain server.
+         *
+         * @param handler subdomain handler object
+         * @throws IOException if problems with socket communication
+         */
+        private void sendClientConnectionInfo(cMsgSubdomainInterface handler)
+                throws IOException {
+
+            // send ok back as acknowledgment
+            out.writeInt(cMsgConstants.ok);
+
+            // send back attributes of clientHandler class/object
+            // 1 = has, 0 = don't have: send, subscribeAndGet, sendAndGet, subscribe, unsubscribe
+            byte[] atts = new byte[7];
+            atts[0] = handler.hasSend() ? (byte) 1 : (byte) 0;
+            atts[1] = handler.hasSyncSend() ? (byte) 1 : (byte) 0;
+            atts[2] = handler.hasSubscribeAndGet() ? (byte) 1 : (byte) 0;
+            atts[3] = handler.hasSendAndGet() ? (byte) 1 : (byte) 0;
+            atts[4] = handler.hasSubscribe() ? (byte) 1 : (byte) 0;
+            atts[5] = handler.hasUnsubscribe() ? (byte) 1 : (byte) 0;
+            atts[6] = handler.hasShutdown() ? (byte) 1 : (byte) 0;
+            out.write(atts);
+
+            // send cMsg domain host & port contact info back to client
+//System.out.println("Sending to client: domain udp port = " + info.getDomainUdpPort());
+            out.writeInt(info.getDomainPort());
+            out.writeInt(info.getDomainUdpPort());
+            out.writeInt(info.getDomainHost().length());
+            try {
+                out.write(info.getDomainHost().getBytes("US-ASCII"));
+            }
+            catch (UnsupportedEncodingException e) {
+            }
+
+            out.flush();
         }
 
 
@@ -1078,18 +1778,14 @@ public class cMsgNameServer extends Thread {
          * global uniqueness of a client name, locks must be taken out on all servers
          * so that no other potential client may connect during this time.
          *
-         * @param info             object containing information about the client
          * @param subdomainHandler subdomain handler object
          * @throws cMsgException if a registration lock on another server cannot be grabbed within
          *                       1/2 second, or the client trying to connect here does not have a
          *                       unique name
          * @throws IOException   if trouble communicating with other servers
          */
-        private void cMsgSubdomainRegistration(cMsgClientInfo info, cMsgSubdomainInterface subdomainHandler)
+        private void cMsgSubdomainRegistration(org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg subdomainHandler)
                 throws cMsgException, IOException {
-
-            org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg cMsgSubdomainHandler =
-                    (org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg) subdomainHandler;
 
 //System.out.println(">> NS: IN subdomainRegistration");
             // If there are no connections to other servers (bridges), do local registration only
@@ -1135,7 +1831,7 @@ public class cMsgNameServer extends Thread {
 
                         // Second, Grab our own registration lock
 //System.out.println(">> NS: try to grab this registration lock");
-                        if (!gotRegistrationLock && cMsgSubdomainHandler.registrationLock(500)) {
+                        if (!gotRegistrationLock && subdomainHandler.registrationLock(500)) {
 //System.out.println(">> NS: grabbed registration lock");
                             gotRegistrationLock = true;
                         }
@@ -1222,7 +1918,7 @@ public class cMsgNameServer extends Thread {
                                 try {b.registrationUnlock();}
                                 catch (IOException e) {}
                             }
-                            cMsgSubdomainHandler.registrationUnlock();
+                            subdomainHandler.registrationUnlock();
                             cloudUnlock();
 
                             // try to lock 'em again
@@ -1256,7 +1952,7 @@ public class cMsgNameServer extends Thread {
                                 name = nameList[i];
                                 ns   = nameList[i+1];
                                 if (name.equals(info.getName()) &&
-                                        ns.equals(cMsgSubdomainHandler.getNamespace())) {
+                                        ns.equals(subdomainHandler.getNamespace())) {
 //System.out.println(">> NS: THIS MATCHES NAME OF CONNECTING CLIENT");
                                     cMsgException e = new cMsgException("client already exists");
                                     e.setReturnCode(cMsgConstants.errorAlreadyExists);
@@ -1275,7 +1971,7 @@ public class cMsgNameServer extends Thread {
                             try {b.registrationUnlock();}
                             catch (IOException e) {}
                         }
-                        cMsgSubdomainHandler.registrationUnlock();
+                        subdomainHandler.registrationUnlock();
                         cloudUnlock();
                     }
 
@@ -1293,7 +1989,7 @@ public class cMsgNameServer extends Thread {
                     }
 
                     if (gotRegistrationLock) {
-                        cMsgSubdomainHandler.registrationUnlock();
+                        subdomainHandler.registrationUnlock();
                     }
 
                     if (gotCloudLock) {
@@ -1309,622 +2005,7 @@ public class cMsgNameServer extends Thread {
                 }
         }
 
-
-        /**
-         * This method handles all communication between a regular (non-server) cMsg client
-         * and this name server for that domain.
-         *
-         * @throws IOException if problems with socket communication
-         */
-        private void handleClient() throws IOException {
-            // listening port of client
-            int clientListeningPort = in.readInt();
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("connecting client:\n  remote addr = " + channel.socket().getRemoteSocketAddress());
-                System.out.println("  client listening port = " + clientListeningPort);
-            }
-            // length of password
-            int lengthPassword = in.readInt();
-            // length of domain type client is expecting to connect to
-            int lengthDomainType = in.readInt();
-            // length of subdomain type client is expecting to use
-            int lengthSubdomainType = in.readInt();
-            // length of UDL remainder to pass to subdomain handler
-            int lengthUDLRemainder = in.readInt();
-            // length of client's host name
-            int lengthHost = in.readInt();
-            // length of client's name
-            int lengthName = in.readInt();
-            // length of client's UDL
-            int lengthUDL = in.readInt();
-            // length of client's description
-            int lengthDescription = in.readInt();
-
-            // bytes expected
-            int bytesToRead = lengthPassword + lengthDomainType + lengthSubdomainType +
-                              lengthUDLRemainder + lengthHost + lengthName + lengthUDL +
-                              lengthDescription;
-//System.out.println("handleClient: bytesToRead = " + bytesToRead);
-            int offset = 0;
-
-            // read all string bytes
-            byte[] bytes = new byte[bytesToRead];
-            in.readFully(bytes, 0, bytesToRead);
-
-            // read password
-            String password = new String(bytes, offset, lengthPassword, "US-ASCII");
-            offset += lengthPassword;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  password = " + password);
-            }
-
-            // read domain
-            String domainType = new String(bytes, offset, lengthDomainType, "US-ASCII");
-            offset += lengthDomainType;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  domain = " + domainType);
-            }
-
-            // read subdomain
-            String subdomainType = new String(bytes, offset, lengthSubdomainType, "US-ASCII");
-            offset += lengthSubdomainType;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  subdomain = " + subdomainType);
-            }
-
-            // Elliott wanted this printed out
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  server port = " + port);
-            }
-
-            // read UDL remainder
-            String UDLRemainder = new String(bytes, offset, lengthUDLRemainder, "US-ASCII");
-            offset += lengthUDLRemainder;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  remainder = " + UDLRemainder);
-            }
-
-            // read host
-            String host = new String(bytes, offset, lengthHost, "US-ASCII");
-            offset += lengthHost;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  host = " + host);
-            }
-
-            // read name
-            String name = new String(bytes, offset, lengthName, "US-ASCII");
-            offset += lengthName;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  client port = " + clientListeningPort);
-                System.out.println("  name = " + name);
-            }
-
-            // read UDL
-            String UDL = new String(bytes, offset, lengthUDL, "US-ASCII");
-            offset += lengthUDL;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  UDL = " + UDL);
-            }
-
-            // read description
-            String description = new String(bytes, offset, lengthDescription, "US-ASCII");
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  description = " + description);
-            }
-
-            // if this is not the domain of server the client is expecting, return an error
-            if (!domainType.equalsIgnoreCase(this.domain)) {
-                // send error to client
-                out.writeInt(cMsgConstants.errorWrongDomainType);
-                // send error string to client
-                String s = "this server implements " + this.domain + " domain";
-                out.writeInt(s.length());
-                try {
-                    out.write(s.getBytes("US-ASCII"));
-                }
-                catch (UnsupportedEncodingException e) {
-                }
-
-                out.flush();
-                return;
-            }
-
-            // if the client does not provide the correct password if required, return an error
-            if (clientPassword != null) {
-
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("  local password = " + clientPassword);
-                    System.out.println("  given password = " + password);
-                }
-
-                if (password == null ||
-                        password.length() < 1 ||
-                        !clientPassword.equals(password)) {
-
-                    if (debug >= cMsgConstants.debugError) {
-                        System.out.println("  wrong password sent");
-                    }
-
-                    // send error to client
-                    out.writeInt(cMsgConstants.errorWrongPassword);
-                    // send error string to client
-                    String s = "wrong password given";
-                    out.writeInt(s.length());
-                    try {
-                        out.write(s.getBytes("US-ASCII"));
-                    }
-                    catch (UnsupportedEncodingException e) {
-                    }
-
-                    out.flush();
-                    return;
-                }
-            }
-
-            // Try to register this client. If the cMsg system already has a
-            // client by this name, it will fail.
-            try {
-                cMsgClientInfo info = new cMsgClientInfo(name, port,
-                                                         clientListeningPort, host,
-                                                         subdomainType, UDLRemainder,
-                                                         UDL, description);
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("name server try to register " + name);
-                }
-
-                cMsgSubdomainInterface handler = registerClient(info);
-
-                // send ok back as acknowledgment
-                out.writeInt(cMsgConstants.ok);
-
-                // send back attributes of clientHandler class/object
-                // 1 = has, 0 = don't have: send, subscribeAndGet, sendAndGet, subscribe, unsubscribe
-                byte[] atts = new byte[7];
-                atts[0] = handler.hasSend() ? (byte) 1 : (byte) 0;
-                atts[1] = handler.hasSyncSend() ? (byte) 1 : (byte) 0;
-                atts[2] = handler.hasSubscribeAndGet() ? (byte) 1 : (byte) 0;
-                atts[3] = handler.hasSendAndGet() ? (byte) 1 : (byte) 0;
-                atts[4] = handler.hasSubscribe() ? (byte) 1 : (byte) 0;
-                atts[5] = handler.hasUnsubscribe() ? (byte) 1 : (byte) 0;
-                atts[6] = handler.hasShutdown() ? (byte) 1 : (byte) 0;
-                out.write(atts);
-
-                // send cMsg domain host & port contact info back to client
-                out.writeInt(info.getDomainPort());
-                out.writeInt(info.getDomainUdpPort());
-                out.writeInt(info.getDomainHost().length());
-                try {
-                    out.write(info.getDomainHost().getBytes("US-ASCII"));
-                }
-                catch (UnsupportedEncodingException e) {
-                }
-
-                out.flush();
-            }
-            catch (cMsgException ex) {
-                // send int error code to client
-                out.writeInt(ex.getReturnCode());
-                // send error string to client
-                out.writeInt(ex.getMessage().length());
-                try {
-                    out.write(ex.getMessage().getBytes("US-ASCII"));
-                }
-                catch (UnsupportedEncodingException e) {
-                }
-                out.flush();
-            }
-        }
-
-
-        /**
-         * This method handles all communication between a cMsg server
-         * and this name server in the cMsg domain / cMsg subdomain.
-         *
-         * @throws IOException   if problems with socket communication
-         */
-        private void handleServer() throws IOException {
-//System.out.println(">> NS: IN handleServer");
-
-            // listening port of server client
-            int clientListeningPort = in.readInt();
-            // What relationship does the connecting server have to the server cloud?
-            // Can be INCLOUD, NONCLOUD, or BECOMINGCLOUD.
-            byte connectingCloudStatus = in.readByte();
-            // Is connecting server originating connection or is this a reciprocal one?
-            boolean isReciprocalConnection = in.readByte() == 0;
-            // listening port of name server that client is a part of
-            int nameServerListeningPort = in.readInt();
-            // length of server client's host name
-            int lengthHost = in.readInt();
-            // length of server client's password
-            int lengthPassword = in.readInt();
-
-            // bytes expected
-            int bytesToRead = lengthHost + lengthPassword;
-            int offset = 0;
-
-            // read all string bytes
-            byte[] bytes = new byte[bytesToRead];
-            in.readFully(bytes, 0, bytesToRead);
-
-            // read host
-            String host = new String(bytes, offset, lengthHost, "US-ASCII");
-            offset += lengthHost;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println(">> NS: host = " + host);
-            }
-
-            // read password
-            String password = new String(bytes, offset, lengthPassword, "US-ASCII");
-            offset += lengthPassword;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println(">> NS: given cloud password = " + password);
-            }
-
-            // Make this client's name = "host:port"
-            String name = host + ":" + nameServerListeningPort;
-//System.out.println(">> NS: host name = " + host + ", client hame = " + name);
-
-            // At this point grab the "cloud" lock so no other servers
-            // can connect simultaneously
-            cloudLock.lock();
-
-            try {
-
-                cMsgClientInfo info;
-
-                try {
-                    // First, check to see if password matches.
-//System.out.println("local cloudpassword = " + cloudPassword +
-//                   ", given password = " + password);
-                    if (cloudPassword != null && !cloudPassword.equals(password)) {
-//System.out.println(">> NS: PASSWORDS DO NOT MATCH");
-                        cMsgException ex = new cMsgException("wrong password - connection refused");
-                        ex.setReturnCode(cMsgConstants.errorWrongPassword);
-                        throw ex;
-                    }
-
-                    // Second, check to see if this is a stand alone server.
-                    if (standAlone) {
-                        cMsgException ex = new cMsgException("stand alone server - no server connections allowed");
-                        ex.setReturnCode(cMsgConstants.error);
-                        throw ex;
-                    }
-
-                    // Third, check to see if this server is already connected.
-                    if (nameServers.contains(name)) {
-//System.out.println(">> NS: ALREADY CONNECTED TO " + name);
-                        cMsgException ex = new cMsgException("already connected");
-                        ex.setReturnCode(cMsgConstants.errorAlreadyExists);
-                        throw ex;
-                    }
-
-                    // Allow other servers to connect to this one if:
-                    //   (1) this server is a cloud member, or
-                    //   (2) this server is not a cloud member and it is a
-                    //       reciprocal connection from a cloud member, or
-                    //   (3) this server is becoming a cloud member and it is an
-                    //       original or reciprocal connection from a another server
-                    //       that is simultaneously trying to become a cloud member.
-                    boolean allowConnection = false;
-
-                    if (cloudStatus == INCLOUD) {
-                        allowConnection = true;
-                        // If I'm in the cloud, the connecting server cannot be making
-                        // a reciprocal connection since a reciprocal connection
-                        // is the only kind I can make.
-                        isReciprocalConnection = false;
-                    }
-                    else if (connectingCloudStatus == INCLOUD) {
-                        allowConnection = true;
-                        // If the connecting server is a cloud member and I am not,
-                        // it must be making a reciprocal connection since that's the
-                        // only kind of connection a cloud member can make.
-                        isReciprocalConnection = true;
-                    }
-                    else if (cloudStatus == BECOMINGCLOUD && connectingCloudStatus == BECOMINGCLOUD) {
-                        allowConnection = true;
-                    }
-                    else {
-                        // If we've reached here, then it's a connection from a noncloud server
-                        // trying to connect to a noncloud/becomingcloud server or vice versa which
-                        // is forbidden. This connection will not be allowed to proceed until this
-                        // server becomes part of the cloud.
-                    }
-
-                    if (!allowConnection) {
-                        try {
-                            // Wait here up to 5 sec if the connecting server is not allowed to connect.
-//System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connection");
-                            if (!allowConnectionsSignal.await(5L, TimeUnit.SECONDS)) {
-                                cMsgException ex = new cMsgException("nameserver not in server cloud - timeout error");
-                                ex.setReturnCode(cMsgConstants.errorTimeout);
-                                throw ex;
-                            }
-                        }
-                        catch (InterruptedException e) {
-                            cMsgException ex = new cMsgException("interrupted while waiting for name server to join server cloud");
-                            ex.setReturnCode(cMsgConstants.error);
-                            throw ex;
-                        }
-                    }
-
-                    // Register this client. If this cMsg server already has a
-                    // client by this name (it never should), it will fail.
-                    info = new cMsgClientInfo(name, nameServerListeningPort,
-                                                             clientListeningPort, host);
-
-                    // register the server (store info in cMsg subdomain class)
-                    if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println(">> NS: try to register " + name);
-                    }
-//System.out.println(">> NS: Register connecting server");
-                    registerServer(info);
-                }
-                catch (cMsgException ex) {
-                    // send int error code to client
-                    out.writeInt(ex.getReturnCode());
-                    // send error string to client
-                    out.writeInt(ex.getMessage().length());
-                    try {
-                        out.write(ex.getMessage().getBytes("US-ASCII"));
-                    }
-                    catch (UnsupportedEncodingException e) {
-                    }
-
-                    out.flush();
-                    return;
-                }
-
-                // send ok back as acknowledgment
-                out.writeInt(cMsgConstants.ok);
-
-                // send cMsg domain host & port contact info back to client
-                out.writeInt(info.getDomainPort());
-                out.writeInt(info.getDomainHost().length());
-                try {
-                    out.write(info.getDomainHost().getBytes("US-ASCII"));
-                }
-                catch (UnsupportedEncodingException e) {
-                }
-
-                try {
-                    // If this is not a reciprocal connection, we need to make one.
-                    if (!isReciprocalConnection) {
-//System.out.println(">> NS: Create reciprocal bridge to " + name);
-                        cMsgServerBridge b = new cMsgServerBridge(cMsgNameServer.this, name, port);
-                        // connect as reciprocal (originating = false)
-                        b.connect(false, cloudPassword);
-//System.out.println(">> NS: Add " + name + " to bridges");
-                        bridges.put(name, b);
-                        // If status was NONCLOUD, it is now BECOMINGCLOUD,
-                        // and if we're here it is not INCLOUD.
-                        b.setCloudStatus(cMsgNameServer.BECOMINGCLOUD);
-//System.out.println(">> NS: set bridge (" + b + ") status to " + b.getCloudStatus());
-                    }
-                    // If this is a reciprocal connection, look up bridge for
-                    // connecting server and change its cloud status.
-                    else {
-//System.out.println(">> NS: Do NOT create reciprocal bridge to " + name);
-                        // We cannot look up the bridge in "bridges" as it is still
-                        // in the middle of being created and has not been added
-                        // to that collection yet. We have saved a reference, however.
-                        cMsgServerBridge b = bridgeBeingCreated;
-                        if (b != null) {
-                            b.setCloudStatus(connectingCloudStatus);
-//System.out.println(">> NS: set bridge (" + b + ") status to " + b.getCloudStatus());
-                        }
-                        else {
-                            System.out.println(">> NS: bridge  = " + b);
-                        }
-                    }
-                }
-                catch (cMsgException e) {
-                    e.printStackTrace();
-                }
-
-                // If I'm in the cloud, send a list of cMsg servers I'm already connected to.
-                // If there are no connections to other servers, we can forget it.
-                // Do this only if not a reciprocal connection.
-                if ((cloudStatus == INCLOUD) &&
-                    (nameServers.size() > 0) &&
-                     (!isReciprocalConnection)) {
-                    // send number of servers I'm connected to
-//System.out.println(">> NS: Tell connecting server " + nameServers.size() + " servers are connected to us:");
-                    out.writeInt(nameServers.size());
-
-                    // for each cloud server, send name length, then name
-                    synchronized (nameServers) {
-                        for (String serverName : nameServers) {
-                            System.out.println(">>    - " + serverName);
-                            out.writeInt(serverName.length());
-                            out.write(serverName.getBytes("US-ASCII"));
-                        }
-                    }
-                }
-                else {
-                    // no servers are connected
-//System.out.println(">> NS: Tell connecting server no one is connected to us");
-                    out.writeInt(0);
-                }
-                out.flush();
-
-                // store this connection in hashtable
-                if (connectingCloudStatus == NONCLOUD) {
-                    // If we're this far then we're in the cloud and the connecting
-                    // server is trying to become part of it.
-                    connectingCloudStatus = BECOMINGCLOUD;
-                }
-//System.out.println(">> NS: Add " + name + " to nameServers with status = " + connectingCloudStatus);
-                nameServers.add(name);
-
-            }
-            finally {
-                // At this point release the "cloud" lock
-                cloudLock.unlock();
-            }
-//System.out.println("");
-        }
-
     }
-
-
-    /** Class to gather all monitor data into 1 place. */
-    private class MonitorDataThread extends Thread {
-
-        /** This method is executed as a thread. */
-        public void run() {
-
-            DateFormat dateFormat = DateFormat.getDateTimeInstance(DateFormat.FULL,DateFormat.FULL);
-
-            while (true) {
-                if (killAllThreads) {
-                    break;
-                }
-                StringBuilder xml = new StringBuilder(1000);
-
-                // Gather all the xml monitor data into 1 place for final
-                // distribution to clients asking for it in XML format.
-                xml.append("\n  <server  name=\"");
-                xml.append(serverName);
-                xml.append("\">\n");
-                String indent1 = "      ";
-
-                for (cMsgDomainServer ds : domainServers.keySet()) {
-//System.out.println("  ns looking at client " + ds.info.getName());
-                    // Skip other servers' bridges to us,
-                    // they're not real clients.
-                    if (ds.info.isServer()) {
-//System.out.println("Skipping other server's bridge client");
-                        continue;
-                    }
-
-                    // subdomain
-                    String sd = ds.info.getSubdomain();
-
-                    xml.append("\n    <client  name=\"");
-                    xml.append(ds.info.getName());
-                    xml.append("\"  subdomain=\"");
-                    xml.append(sd);
-                    xml.append("\">\n");
-
-                    // time created
-                    xml.append(indent1);
-                    xml.append("<timeConnected>");
-                    xml.append(dateFormat.format(ds.monData.birthday));
-                    xml.append("</timeConnected>\n");
-
-                    // namespace
-                    String ns = ds.info.getNamespace();
-                    if (ns != null) {
-                        // get rid of beginning slash (add by subdomain)
-                        ns = ns.substring(1, ns.length());
-                        xml.append(indent1);
-                        xml.append("<namespace>");
-                        xml.append(ns);
-                        xml.append("</namespace>\n");
-                    }
-
-                    // list subscriptions sent from client (cmsg subdomain only)
-                    if (sd != null && sd.equalsIgnoreCase("cmsg") && ds.monData.monXML != null) {
-                        xml.append(indent1);
-                        xml.append("<sendStats");
-
-                        xml.append("  tcpSends=\"");
-                        xml.append(ds.monData.clientTcpSends);
-
-                        xml.append("\"  udpSends=\"");
-                        xml.append(ds.monData.clientUdpSends);
-
-                        xml.append("\"  syncSends=\"");
-                        xml.append(ds.monData.clientSyncSends);
-
-                        xml.append("\"  sendAndGets=\"");
-                        xml.append(ds.monData.clientSendAndGets);
-                        xml.append("\" />\n");
-                        
-                        xml.append(indent1);
-                        xml.append("<subStats");
-
-                        xml.append("   subscribes=\"");
-                        xml.append(ds.monData.clientSubscribes);
-
-                        xml.append("\"  unsubscribes=\"");
-                        xml.append(ds.monData.clientUnsubscribes);
-
-                        xml.append("\"  subAndGets=\"");
-                        xml.append(ds.monData.clientSubAndGets);
-                        xml.append("\" />\n");
-
-                        // add subscription & callback stuff here (from client)
-//System.out.println("  ns adding from client: \n" + ds.monData.monXML);
-                        xml.append(ds.monData.monXML);
-                    }
-                    else {
-                        xml.append(indent1);
-                        xml.append("<sendStats");
-
-                        xml.append("  tcpSends=\"");
-                        xml.append(ds.monData.tcpSends);
-
-                        xml.append("\"  udpSends=\"");
-                        xml.append(ds.monData.udpSends);
-
-                        xml.append("\"  syncSends=\"");
-                        xml.append(ds.monData.syncSends);
-
-                        xml.append("\"  sendAndGets=\"");
-                        xml.append(ds.monData.sendAndGets);
-                        xml.append("\" />\n");
-
-                        xml.append(indent1);
-                        xml.append("<subStats");
-
-                        xml.append("  subscribes=\"");
-                        xml.append(ds.monData.subscribes);
-
-                        xml.append("\"  unsubscribes=\"");
-                        xml.append(ds.monData.unsubscribes);
-
-                        xml.append("\"  subAndGets=\"");
-                        xml.append(ds.monData.subAndGets);
-                        xml.append("\" />\n");
-                    }
-                    xml.append("    </client>\n");
-                }
-                xml.append("\n  </server>\n\n");
-
-                // store this as an xml string describing local server only
-                nsMonitorXML = xml.toString();
-
-                xml.insert(0,"<cMsgMonitorData  domain=\"cmsg\">\n");
-              //  xml.insert(0, "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n\n");
-                xml.insert(0, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\n");
-
-                // allow no changes to "bridges" while iterating
-                synchronized (bridges) {
-                    // foreach bridge ...
-                    for (cMsgServerBridge b : bridges.values()) {
-                        xml.append(b.client.monitorXML);
-                    }
-                }
-                xml.append("</cMsgMonitorData>\n");
-
-                // store this as an xml string describing all monitor data
-                fullMonitorXML = xml.toString();
-//System.out.println("  fullMonitorXML = \n" + fullMonitorXML);
-
-                if (killAllThreads) {
-                    break;
-                }
-
-                try { Thread.sleep(2000); }
-                catch (InterruptedException e) { }
-            }
-
-        }
-    }
-
 
 }
 

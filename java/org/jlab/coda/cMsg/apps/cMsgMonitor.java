@@ -9,7 +9,7 @@ public class cMsgMonitor {
 
     String  name = "monitor";
     String  description = "java monitor";
-    String  UDL = "cMsg:cMsg://broadcast/cMsg";
+    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
     boolean debug;
 
 
@@ -60,7 +60,7 @@ public class cMsgMonitor {
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage:\n\n" +
-            "   java cMsgMonitor [-n name] [-d description] [-u UDL] [-debug]\n");
+            "   java cMsgConsumer [-n name] [-d description] [-u UDL] [-debug]\n");
     }
 
 
@@ -98,7 +98,7 @@ public class cMsgMonitor {
 
         while (true) {
             msg = coda.monitor(null);
-            System.out.println("Msg ->\n" + msg.getText());
+            System.out.println("\nMsg ->\n" + msg.getText());
             // wait
             try { Thread.sleep(period); }
             catch (InterruptedException e) {}

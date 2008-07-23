@@ -26,9 +26,18 @@ public class cMsgConstants {
     private cMsgConstants() {}
 
     /** Major cMsg version number. */
-    public static final int    version      = 2;
+    public static final int    version      = 3;
     /** Minor cMsg version number. */
     public static final int    minorVersion = 0;
+
+    /**
+     * At the beginning of each udp send there are 3 integers which spell out
+     * "cMsg is cool" in ASCII. The server uses this to filter out bogus packets
+     * (eg. port scanners).
+     */
+    public static int[] udpMagicNumbers = {0x634d7367,   // "cMsg"
+                                           0x20697320,   // " is "
+                                           0x636f6f6c};  // "cool"
 
     // constants from cMsgPrivate.h
 
@@ -148,15 +157,23 @@ public class cMsgConstants {
     // network to specify a particular response.
 
     /** Respond to a "sendAndGet" request. */
-    public static final int    msgGetResponse              =  20;
+    public static final int    msgGetResponse                    =  20;
     /** Respond with message to the subscribe command. */
-    public static final int    msgSubscribeResponse        =  21;
+    public static final int    msgSubscribeResponse              =  21;
     /** Respond to a server's "sendAndGet" request. */
-    public static final int    msgServerGetResponse        =  22;
+    public static final int    msgServerGetResponse              =  22;
     /** Respond to a runcontrol server's "connect" request. */
-    public static final int    msgRcConnect                =  23;
+    public static final int    msgRcConnect                      =  23;
     /** Respond to a runcontrol server's "connect" request. */
-    public static final int    msgRcAbortConnect           =  24;
+    public static final int    msgRcAbortConnect                 =  24;
+    /** Send a response to a syncSend request. */
+    public static final int    msgSyncSendResponse               =  25;
+    /** Send a response to a server client's "sendClientNames" request. */
+    public static final int    msgServerSendClientNamesResponse  =  26;
+    /** Send a response to a server client's "cloud lock" request. */
+    public static final int    msgServerCloudLockResponse        =  27;
+    /** Send a response to a server client's "registration lock" request. */
+    public static final int    msgServerRegistrationLockResponse =  28;
 
     // Codes sent by a server's "client" connection to another server
     // in the cMsg subdomain only
