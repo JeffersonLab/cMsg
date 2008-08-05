@@ -1008,9 +1008,9 @@ bool cMsgMessage::needToSwap(void) const throw(cMsgException) {
 /**
  * Makes a message a null response message.
  *
- * @param msg Message to make a null response
+ * @param msg Message to make null response of
  */
-void cMsgMessage::makeNullResponse(cMsgMessage &msg) throw(cMsgException) {
+void cMsgMessage::makeNullResponse(const cMsgMessage &msg) throw(cMsgException) {
 
   cMsgMessage_t *t = (cMsgMessage_t*)myMsgPointer;
   cMsgMessage_t *m = (cMsgMessage_t*)msg.myMsgPointer;
@@ -1027,9 +1027,9 @@ void cMsgMessage::makeNullResponse(cMsgMessage &msg) throw(cMsgException) {
 /**
  * Makes a message a null response message.
  *
- * @param msg Message to make a null response
+ * @param msg Message to make null response of
  */
-void cMsgMessage::makeNullResponse(cMsgMessage *msg) throw(cMsgException) {
+void cMsgMessage::makeNullResponse(const cMsgMessage *msg) throw(cMsgException) {
 
   cMsgMessage_t *t = (cMsgMessage_t*)myMsgPointer;
   cMsgMessage_t *m = (cMsgMessage_t*)msg->myMsgPointer;
@@ -1046,9 +1046,9 @@ void cMsgMessage::makeNullResponse(cMsgMessage *msg) throw(cMsgException) {
 /**
  * Makes a message a response message.
  *
- * @param msg Message to make a response
+ * @param msg Message to make response of
  */
-void cMsgMessage::makeResponse(cMsgMessage &msg) throw(cMsgException) {
+void cMsgMessage::makeResponse(const cMsgMessage &msg) throw(cMsgException) {
 
   cMsgMessage_t *t = (cMsgMessage_t*)myMsgPointer;
   cMsgMessage_t *m = (cMsgMessage_t*)msg.myMsgPointer;
@@ -1065,9 +1065,9 @@ void cMsgMessage::makeResponse(cMsgMessage &msg) throw(cMsgException) {
 /**
  * Makes a message a response message.
  *
- * @param msg Message to make a response
+ * @param msg Message to make response of
  */
-void cMsgMessage::makeResponse(cMsgMessage *msg) throw(cMsgException) {
+void cMsgMessage::makeResponse(const cMsgMessage *msg) throw(cMsgException) {
 
   cMsgMessage_t *t = (cMsgMessage_t*)myMsgPointer;
   cMsgMessage_t *m = (cMsgMessage_t*)msg->myMsgPointer;

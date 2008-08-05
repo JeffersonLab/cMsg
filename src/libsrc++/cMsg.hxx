@@ -119,10 +119,12 @@ public:
   virtual bool   isGetRequest(void)             const throw(cMsgException);
   virtual bool   isGetResponse(void)            const throw(cMsgException);
   virtual bool   isNullGetResponse(void)        const throw(cMsgException);
-  virtual void   makeNullResponse(cMsgMessage &msg)   throw(cMsgException);
-  virtual void   makeNullResponse(cMsgMessage *msg)   throw(cMsgException);
-  virtual void   makeResponse(cMsgMessage &msg)       throw(cMsgException);
-  virtual void   makeResponse(cMsgMessage *msg)       throw(cMsgException);
+
+  virtual void   makeNullResponse(const cMsgMessage &msg)   throw(cMsgException);
+  virtual void   makeNullResponse(const cMsgMessage *msg)   throw(cMsgException);
+  virtual void   makeResponse(const cMsgMessage &msg)       throw(cMsgException);
+  virtual void   makeResponse(const cMsgMessage *msg)       throw(cMsgException);
+
   virtual void   setGetResponse(bool b)               throw(cMsgException);
   virtual void   setNullGetResponse(bool b)           throw(cMsgException);
   virtual string toString(void)                 const throw(cMsgException);
