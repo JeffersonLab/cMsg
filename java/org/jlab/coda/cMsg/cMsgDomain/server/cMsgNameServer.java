@@ -1319,10 +1319,15 @@ public class cMsgNameServer extends Thread {
         private void handleClient() throws IOException {
             // listening port of client
             int clientListeningPort = in.readInt();
+
+            InetSocketAddress add = (InetSocketAddress)(channel.socket().getRemoteSocketAddress());
             if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("connecting client:\n  remote addr = " + channel.socket().getRemoteSocketAddress());
-                System.out.println("  client listening port = " + clientListeningPort);
+                System.out.println("connecting client:\n  client sending addr = " + add);
+                System.out.println("  client host = " +  add.getHostName());
+                System.out.println("  client addr = " +  add.getAddress().getHostAddress());
+                System.out.println("  client sending port = " +  add.getPort());
             }
+
             // length of password
             int lengthPassword = in.readInt();
             // length of domain type client is expecting to connect to
@@ -1466,6 +1471,7 @@ public class cMsgNameServer extends Thread {
             try {
                 cMsgClientInfo info = new cMsgClientInfo(name, port,
                                                          clientListeningPort, host,
+                                                         add.getAddress().getHostAddress(),
                                                          subdomainType, UDLRemainder,
                                                          UDL, description);
                 if (debug >= cMsgConstants.debugInfo) {
