@@ -110,7 +110,10 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
      * @throws IOException if socket cannot be created
      */
     synchronized public void createClientConnection(cMsgClientInfo info) throws IOException {
-        channel = SocketChannel.open(new InetSocketAddress(info.getClientHost(),
+        // info.getClientHost() is replaced by info.getDottedDecimalAddr() to get around a
+        // problem with hosts that have the network IP address associated with their canonical name
+        // inactivated. In that case the following line fails.
+        channel = SocketChannel.open(new InetSocketAddress(info.getDottedDecimalAddr(),
                                                            info.getClientPort()));
         // set socket options
         Socket socket = channel.socket();
