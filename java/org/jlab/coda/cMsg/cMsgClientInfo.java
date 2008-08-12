@@ -28,6 +28,8 @@ import java.lang.*;
 public class cMsgClientInfo {
     /** Client's name. */
     private String  name;
+    /** Client's address in dotted decimal form. */
+    private String  dottedDecimalAddr;
     /** Client supplied description. */
     private String  description;
     /** Client supplied UDL. */
@@ -75,9 +77,11 @@ public class cMsgClientInfo {
      * @param UDL          client's UDL
      * @param description  client's description
      */
-    public cMsgClientInfo(String name, int nsPort, int port, String host, String subdomain,
+    public cMsgClientInfo(String name, int nsPort, int port, String host,
+                          String dotDec, String subdomain,
                           String UDLRemainder, String UDL, String description) {
         this.name = name;
+        dottedDecimalAddr = dotDec;
         serverPort = nsPort;
         clientPort = port;
         clientHost = host;
@@ -112,6 +116,14 @@ public class cMsgClientInfo {
      * @return client's name
      */
     public String getName() {return name;}
+
+    //-----------------------------------------------------------------------------------
+
+    /**
+     * Gets client's address in dotted decimal form.
+     * @return client's address in dotted decimal form
+     */
+    public String getDottedDecimalAddr() {return dottedDecimalAddr;}
 
     //-----------------------------------------------------------------------------------
 
