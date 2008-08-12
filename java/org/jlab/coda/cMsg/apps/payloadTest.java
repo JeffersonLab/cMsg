@@ -184,10 +184,6 @@ public class payloadTest {
                                "\n    type    = " + type);
         }
 
-        // connect to cMsg server
-        cMsg coda = new cMsg(UDL, name, description);
-        coda.connect();
-
         // create a message
         cMsgMessage msg = new cMsgMessage();
         msg.setSubject(subject);
@@ -198,7 +194,7 @@ public class payloadTest {
         String[] ses = new String[]{"one", "two", "three"};
         cMsgPayloadItem item = new cMsgPayloadItem("STR_ARRAY", ses);
         msg.addPayloadItem(item);
-
+/*
         cMsgPayloadItem item2 = new cMsgPayloadItem("STR", "hey you");
         msg.addPayloadItem(item2);
 
@@ -235,11 +231,11 @@ public class payloadTest {
         msg.addPayloadItem(item10);
 
 
-/*
-        byte[] ba = {1,2,3};
-        cMsgPayloadItem item11 = new cMsgPayloadItem("BIN", ba, cMsgConstants.endianLocal);
+        byte[] bia = {1,2,3};
+        cMsgPayloadItem item11 = new cMsgPayloadItem("BIN", bia, cMsgConstants.endianLocal);
         msg.addPayloadItem(item11);
-
+*/
+/*
         // test zero suppression
         long[] la = new long[30];
         la[0] = 1; la[15] = 2; la[29] = 3;
@@ -326,25 +322,21 @@ public class payloadTest {
         cMsgPayloadItem item6 = new cMsgPayloadItem("DBL_ARRAY", dd);
         msg.addPayloadItem(item6);
 */
+/*
+        double d = 1.23e-123;
+        cMsgPayloadItem item15 = new cMsgPayloadItem("DBL", d);
+        msg.addPayloadItem(item15);
+*/
+        // get rid of history
+        //msg.setHistoryLengthMax(0);
+
         cMsgMessage[] ma = new cMsgMessage[2];
 
-/*
         // create a message as payload
         ma[0] = new cMsgMessage();
         ma[0].setSubject(subject);
         ma[0].setType(type);
-*/
 
-        double d = 1.23e-123;
-        cMsgPayloadItem item15 = new cMsgPayloadItem("DBL", d);
-        //ma[0].addPayloadItem(item15);
-        msg.addPayloadItem(item15);
-
-        // get rid of history
-        //msg.setHistoryLengthMax(0);
-
-/*
-        // create a message as payload
         ma[1] = new cMsgMessage();
         ma[1].setSubject("subbie");
         ma[1].setType("typie");
@@ -352,10 +344,23 @@ public class payloadTest {
         int j = 123456789;
         cMsgPayloadItem item1 = new cMsgPayloadItem("INT", j);
         ma[1].addPayloadItem(item1);
-*/
 
-       // cMsgPayloadItem item6 = new cMsgPayloadItem("MSG_ARRAY", ma);
-      //  msg.addPayloadItem(item6);
+        cMsgPayloadItem item66 = new cMsgPayloadItem("MSG_ARRAY", ma);
+
+        cMsgMessage[] ma2 = new cMsgMessage[2];
+
+        // create a message as payload
+        ma2[0] = new cMsgMessage();
+        ma2[0].setSubject(subject);
+        ma2[0].setType(type);
+
+        ma2[1] = new cMsgMessage();
+        ma2[1].setSubject("subbie");
+        ma2[1].setType("typie");
+        ma2[1].addPayloadItem(item66);
+
+        cMsgPayloadItem item666 = new cMsgPayloadItem("MSG_ARRAY", ma2);
+        msg.addPayloadItem(item666);
 
         // set for UDP send
         //msg.getContext().setReliableSend(false);
@@ -367,6 +372,16 @@ public class payloadTest {
           System.out.println("Sending byte array\n");
           msg.setByteArrayNoCopy(binArray);
         }
+
+//        System.out.println("MSG:\n" + msg.toString(true, false));
+//        if (true) throw new cMsgException("hey");
+
+        System.out.println("PAYLOAD:\n" + msg.payloadToString(true, false));
+        if (true) throw new cMsgException("hey");
+
+        // connect to cMsg server
+        cMsg coda = new cMsg(UDL, name, description);
+        coda.connect();
 
         // variables to track message rate
         double freq=0., freqAvg=0.;
