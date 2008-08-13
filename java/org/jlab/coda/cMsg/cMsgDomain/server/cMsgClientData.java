@@ -103,14 +103,16 @@ public class cMsgClientData extends cMsgClientInfo {
      * @param nsPort name server's listening port
      * @param port  client's listening port
      * @param host  client's host
+     * @param dotDec  client's address in dotted decimal form
      * @param subdomain    client's subdomain
      * @param UDLRemainder client's UDL's remainder
      * @param UDL          client's UDL
      * @param description  client's description
      */
-    public cMsgClientData(String name, int nsPort, int port, String host, String subdomain,
+    public cMsgClientData(String name, int nsPort, int port, String host,
+                          String dotDec, String subdomain,                          
                           String UDLRemainder, String UDL, String description) {
-        super(name, nsPort, port, host, subdomain, UDLRemainder, UDL, description);
+        super(name, nsPort, port, host, dotDec, subdomain, UDLRemainder, UDL, description);
     }
 
     /**
