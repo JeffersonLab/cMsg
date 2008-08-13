@@ -69,6 +69,7 @@ public class cMsgClientInfo {
      * Used in nameServer for a connecting regular client.
      *
      * @param name  client's name
+     * @param dotDec  client's address in dotted decimal form
      * @param nsPort name server's listening port
      * @param port  client's listening port
      * @param host  client's host
