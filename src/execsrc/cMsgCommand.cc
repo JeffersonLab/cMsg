@@ -96,8 +96,9 @@ int main(int argc, char **argv) {
   }
   
   
-  // done
+  // done...allow some time for disconnect
   c.disconnect();
+  usleep(sleepTime*1000);
 }
 
 
