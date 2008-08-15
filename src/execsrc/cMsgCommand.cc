@@ -35,7 +35,7 @@ static int userInt;
 
 
 // misc parameters
-static int sleepTime = 10000;  // units are micro-sec
+static int sleepTime = 100;  // units are millisec
 
 
 // prototypes
@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
     
     
     // allow some time for message to be transferred before disconnecting
-    usleep(sleepTime);
+    usleep(sleepTime*1000);
     
 
   } catch (cMsgException e) {
