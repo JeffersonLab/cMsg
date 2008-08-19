@@ -2234,7 +2234,7 @@ int cmsg_cmsg_syncSend(void *domainId, void *vmsg, const struct timespec *timeou
   }
   /* If we did not timeout and everything's OK */
   else {
-      if (response != NULL) *response = info->active;
+      if (response != NULL) *response = info->response;
       err = CMSG_OK;
   }
   
@@ -2327,7 +2327,6 @@ int cmsg_cmsg_subscribeAndGet(void *domainId, const char *subject, const char *t
   }
   cMsgGetInfoInit(info);
   info->id      = uniqueId;
-  info->active  = 1;
   info->error   = CMSG_OK;
   info->msgIn   = 0;
   info->quit    = 0;
@@ -2673,7 +2672,6 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *t
   }
   cMsgGetInfoInit(info);
   info->id      = uniqueId;
-  info->active  = 1;
   info->error   = CMSG_OK;
   info->msgIn   = 0;
   info->quit    = 0;

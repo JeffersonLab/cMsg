@@ -737,7 +737,7 @@ static int cMsgWakeSyncSend(cMsgDomainInfo *domain, int response, int ssid) {
   /* find the right syncSend */
   idString = cMsgIntChars(ssid);
   if (idString == NULL) {
-    return(CMSG_OUT_OF_MEMORY);      
+    return(CMSG_OUT_OF_MEMORY);
   }
   
   /* if id not in hashTable, return */
@@ -752,7 +752,7 @@ static int cMsgWakeSyncSend(cMsgDomainInfo *domain, int response, int ssid) {
   free(idString);
   
   if (info->id == ssid) {
-      info->active = response; /* pick convenient member of struct to send integer in */
+      info->response = response;
       info->msgIn = 1;
 
       /* wakeup "syncSend" */      

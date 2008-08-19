@@ -457,14 +457,14 @@ void cMsgRestoreSignals(cMsgDomainInfo *domain) {
 void cMsgGetInfoInit(getInfo *info) {
     int status;
     
-    info->id      = 0;
-    info->active  = 0;
-    info->error   = CMSG_OK;
-    info->msgIn   = 0;
-    info->quit    = 0;
-    info->type    = NULL;
-    info->subject = NULL;    
-    info->msg     = NULL;
+    info->id       = 0;
+    info->response = 0;
+    info->error    = CMSG_OK;
+    info->msgIn    = 0;
+    info->quit     = 0;
+    info->type     = NULL;
+    info->subject  = NULL;    
+    info->msg      = NULL;
     
     status = pthread_cond_init(&info->cond, NULL);
     if (status != 0) {
@@ -528,7 +528,6 @@ void cMsgCallbackInfoInit(subscribeCbInfo *info) {
 /** This routine initializes the structure used to handle a subscribe. */
 void cMsgSubscribeInfoInit(subInfo *info) {
     info->id                = 0;
-    info->active            = 0;
     info->numCallbacks      = 0;
     info->subWildCardCount  = 0;
     info->typeWildCardCount = 0;

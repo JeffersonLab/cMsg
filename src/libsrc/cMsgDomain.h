@@ -108,7 +108,6 @@ typedef struct numberRange_t {
  */
 typedef struct subscribeInfo_t {
   int  id;                 /**< Unique id # corresponding to a unique subject/type pair. */
-  int  active;             /**< Boolean telling if this subject/type has an active callback. */
   int  numCallbacks;       /**< Current number of active callbacks. */
   int  subWildCardCount;   /**< Number of pseudo wildcards in the subject */
   int  typeWildCardCount;  /**< Number of pseudo wildcards in the type */
@@ -130,13 +129,10 @@ typedef struct subscribeInfo_t {
 } subInfo;
 
 
-/**
- * This structure represents a sendAndGet or subscribeAndGet
- * of a certain subject and type.
- */
+/** This structure represents a sendAndGet, subscribeAndGet, or syncSend. */
 typedef struct getInfo_t {
   int  id;       /**< Unique id # corresponding to a unique subject/type pair. */
-  int  active;   /**< Boolean telling if this subject/type has an active callback. */
+  int  response; /**< SyncSend reponse value. */
   int  error;    /**< Error code when client woken up with error condition. */
   int  msgIn;    /**< Boolean telling if a message has arrived. (1-y, 0-n) */
   int  quit;     /**< Boolean commanding sendAndGet to end. */
