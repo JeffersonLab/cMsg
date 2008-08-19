@@ -126,7 +126,6 @@ typedef struct subscribeInfo_t {
   regex_t compTypeRegexp;  /**< Type of subscription made into compiled regular expression. */
   hashTable subjectTable;  /**< Hash table of strings matching subject. */
   hashTable typeTable;     /**< Hash table of strings matching type. */
-  hashTable callbackTable; /**< Hashtable of callbacks. */
   subscribeCbInfo *callbacks; /**< Linked list of callbacks. */
 } subInfo;
 

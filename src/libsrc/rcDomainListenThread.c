@@ -37,6 +37,7 @@
 
 #include "cMsgPrivate.h"
 #include "cMsg.h"
+#include "cMsgNetwork.h"
 #include "cMsgDomain.h"
 
 /* for debugging threaded code */

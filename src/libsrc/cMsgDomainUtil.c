@@ -46,7 +46,6 @@
 #include "cMsgNetwork.h"
 #include "rwlock.h"
 #include "cMsgDomain.h"
-#include "rcDomain.h"
 
 
 /** Excluded characters from subject, type, and description strings. */
