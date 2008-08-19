@@ -310,12 +310,42 @@ static int numDigits(int64_t number, int isUint64) {
 
 
 /**
+ * This routine returns a unique string representation of a int in the form
+ * of 8 hex chars. String points to allocated memory which needs to be freed
+ * by caller to avoid a memory leak.
+ *
+ * @param i int value to convert
+ * @return string of hex characters rep of 32 bit unsigned int, needs to be
+ *         freed by caller
+ */   
+char *cMsgIntChars(uint32_t i) {
+    int byte;    
+    char *s = (char *)malloc(9);
+    if (s == NULL) return NULL;
+      
+    byte = i>>24 & 0xff;
+    s[0] = toASCII[byte][0];
+    s[1] = toASCII[byte][1];
+    byte = i>>16 & 0xff;
+    s[2] = toASCII[byte][0];
+    s[3] = toASCII[byte][1];
+    byte = i>>8 & 0xff;
+    s[4] = toASCII[byte][0];
+    s[5] = toASCII[byte][1];
+    byte = i & 0xff;
+    s[6] = toASCII[byte][0];
+    s[7] = toASCII[byte][1];
+    s[8] = '\0';
+    return s;
+}
+    
+/**
  * This routine returns a string representation of a float in the form
  * of 8 hex chars of the IEEE754 representation. String points to 
  * internal static character array.
  *
  * @param f float value to convert
- * @return string of hex character rep of IEEE765 bytes
+ * @return string of hex characters rep of IEEE765 bytes
  */   
 char *cMsgFloatChars(float f) {
     int byte;
@@ -347,7 +377,7 @@ char *cMsgFloatChars(float f) {
  * internal static character array.
  *
  * @param d double value to convert
- * @return string of hex character rep of IEEE765 bytes
+ * @return string of hex characters rep of IEEE765 bytes
  */   
 char *cMsgDoubleChars(double d) {
     int byte;

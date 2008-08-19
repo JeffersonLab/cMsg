@@ -39,13 +39,12 @@ extern "C" {
  */
 typedef struct rcDomain_t {  
   
-  void *id;            /**< Unique id of connection. */ 
-  
   int receiveState;    /**< Boolean telling if messages are being delivered to
-                                    callbacks (1) or if they are being igmored (0). */
+                            callbacks (1) or if they are being igmored (0). */
   int gotConnection;   /**< Boolean telling if connection to rc server is good. */
   
-  int sendSocket;      /**< File descriptor for UDP socket to send messages on. */
+  int sendSocket;      /**< File descriptor for TCP socket to send messages on. */
+  int sendUdpSocket;   /**< File descriptor for UDP socket to send messages on. */
   int receiveSocket;   /**< File descriptor for TCP socket to receive responses on. */
   int listenSocket;    /**< File descriptor for socket this program listens on for TCP connections. */
 
@@ -78,18 +77,34 @@ typedef struct rcDomain_t {
   rwLock_t connectLock;
   pthread_mutex_t socketMutex;    /**< Mutex to ensure thread-safety of socket use. */
   pthread_mutex_t subscribeMutex; /**< Mutex to ensure thread-safety of (un)subscribes. */
-  pthread_cond_t  subscribeCond;  /**< Condition variable used for waiting on clogged callback cue. */
-    
-  /** Array of structures - each of which contain a subscription. */
-  subInfo subscribeInfo[MAX_SUBSCRIBE]; 
+  pthread_cond_t  subscribeCond;  /**< Condition variable used for waiting on clogged callback cue. */    
+  pthread_mutex_t sendAndGetMutex; /**< Mutex to ensure thread-safety of sendAndGet hash table. */
+
+  int rcConnectAbort;    /**< Flag used to abort rc client connection to RC Broadcast server. */
+  int rcConnectComplete; /**< Has a special TCP message been sent from RC server to
+  indicate that connection is conplete? (1-y, 0-n) */
+  
+  pthread_mutex_t rcConnectMutex;    /**< Mutex used for rc domain connect. */
+  pthread_cond_t  rcConnectCond;     /**< Condition variable used for rc domain connect. */
+  
+  /** Hashtable of sendAndGets. */
+  hashTable sendAndGetTable;
+  /** Hashtable of subscriptions. */
+  hashTable subscribeTable;
   
   /** Shutdown handler function. */
   cMsgShutdownHandler *shutdownHandler;
   
+  /** Store signal mask for restoration after disconnect. */
+  sigset_t originalMask;
+  
+  /** Boolean telling if original mask is being stored. */
+  int maskStored;
+ 
   /** Shutdown handler user argument. */
   void *shutdownUserArg;  
  
-} rcDomain;
+} rcDomainInfo;
 
 
 /* prototypes */

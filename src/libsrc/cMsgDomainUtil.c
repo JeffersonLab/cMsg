@@ -46,17 +46,14 @@
 #include "cMsgNetwork.h"
 #include "rwlock.h"
 #include "cMsgDomain.h"
+#include "rcDomain.h"
 
 
 /** Excluded characters from subject, type, and description strings. */
 static const char *excludedChars = "`\'\"";
 
 /* local prototypes */
-static void  getInfoInit(getInfo *info);
-static void  subscribeInfoInit(subInfo *info);
-static void  getInfoFree(getInfo *info);
-static void  subscribeInfoFree(subInfo *info);
-static void  parsedUDLFree(parsedUDL *p);  
+static void  parsedUDLFree(parsedUDL *p);
 
 
 /*-------------------------------------------------------------------*/
@@ -192,7 +189,74 @@ void cMsgSocketMutexUnlock(cMsgDomainInfo *domain) {
 /*-------------------------------------------------------------------*/
 
 
-/** This routine locks the pthread mutex used to serialize syncSend calls. */
+/**
+ * This routine locks the pthread mutex used to serialize
+ * subscribeAndGet hash table access.
+ */
+void cMsgSubAndGetMutexLock(cMsgDomainInfo *domain) {
+
+  int status = pthread_mutex_lock(&domain->subAndGetMutex);
+  if (status != 0) {
+    cmsg_err_abort(status, "Failed subAndGet mutex lock");
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine unlocks the pthread mutex used to serialize
+ * subscribeAndGet hash table access.
+ */
+void cMsgSubAndGetMutexUnlock(cMsgDomainInfo *domain) {
+
+  int status = pthread_mutex_unlock(&domain->subAndGetMutex);
+  if (status != 0) {
+    cmsg_err_abort(status, "Failed subAndGet mutex unlock");
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine locks the pthread mutex used to serialize
+ * sendAndGet hash table access.
+ */
+void cMsgSendAndGetMutexLock(cMsgDomainInfo *domain) {
+
+  int status = pthread_mutex_lock(&domain->sendAndGetMutex);
+  if (status != 0) {
+    cmsg_err_abort(status, "Failed sendAndGet mutex lock");
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine unlocks the pthread mutex used to serialize
+ * sendAndGet hash table access.
+ */
+void cMsgSendAndGetMutexUnlock(cMsgDomainInfo *domain) {
+
+  int status = pthread_mutex_unlock(&domain->sendAndGetMutex);
+  if (status != 0) {
+    cmsg_err_abort(status, "Failed sendAndGet mutex unlock");
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine locks the pthread mutex used to serialize
+ * syncSend hash table access.
+ */
 void cMsgSyncSendMutexLock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_lock(&domain->syncSendMutex);
@@ -205,7 +269,10 @@ void cMsgSyncSendMutexLock(cMsgDomainInfo *domain) {
 /*-------------------------------------------------------------------*/
 
 
-/** This routine unlocks the pthread mutex used to serialize syncSend calls. */
+/**
+ * This routine unlocks the pthread mutex used to serialize
+ * syncSend hash table access.
+ */
 void cMsgSyncSendMutexUnlock(cMsgDomainInfo *domain) {
 
   int status = pthread_mutex_unlock(&domain->syncSendMutex);
@@ -383,10 +450,12 @@ void cMsgRestoreSignals(cMsgDomainInfo *domain) {
 
 
 /**
- * This routine initializes the structure used to handle a get - 
- * either a sendAndGet or a subscribeAndGet.
+ * This routine initializes the structure used to handle
+ * either a sendAndGet, a subscribeAndGet, or a syncSend.
+ *
+ * @param info pointer to structure holding send&Get, sub&Get or syncSend info
  */
-static void getInfoInit(getInfo *info) {
+void cMsgGetInfoInit(getInfo *info) {
     int status;
     
     info->id      = 0;
@@ -400,11 +469,11 @@ static void getInfoInit(getInfo *info) {
     
     status = pthread_cond_init(&info->cond, NULL);
     if (status != 0) {
-      cmsg_err_abort(status, "getInfoInit:initializing condition var");
+      cmsg_err_abort(status, "cMsgGetInfoInit:initializing condition var");
     }
     status = pthread_mutex_init(&info->mutex, NULL);
     if (status != 0) {
-      cmsg_err_abort(status, "getInfoInit:initializing mutex");
+      cmsg_err_abort(status, "cMsgGetInfoInit:initializing mutex");
     }
 }
 
@@ -419,6 +488,9 @@ static void getInfoInit(getInfo *info) {
  * @param info pointer to subscription callback structure
  */
 void cMsgCallbackInfoInit(subscribeCbInfo *info) {
+    int status;
+    
+    info->done     = 0; /* new */
     info->active   = 0;
     info->threads  = 0;
     info->messages = 0;
@@ -428,6 +500,7 @@ void cMsgCallbackInfoInit(subscribeCbInfo *info) {
     info->userArg  = NULL;
     info->head     = NULL;
     info->tail     = NULL;
+    info->next     = NULL;
     info->config.init          = 0;
     info->config.maySkip       = 0;
     info->config.mustSerialize = 1;
@@ -436,6 +509,17 @@ void cMsgCallbackInfoInit(subscribeCbInfo *info) {
     info->config.maxThreads    = 100;
     info->config.msgsPerThread = 150;
     info->config.stackSize     = 0;
+
+    status = pthread_cond_init(&info->cond,  NULL);
+    if (status != 0) {
+      cmsg_err_abort(status, "cMsgCallbackInfoInit:initializing condition var");
+    }
+
+    status = pthread_mutex_init(&info->mutex, NULL);
+    if (status != 0) {
+      cmsg_err_abort(status, "cMsgCallbackInfoInit:initializing mutex");
+    }
+
 }
 
 
@@ -443,9 +527,7 @@ void cMsgCallbackInfoInit(subscribeCbInfo *info) {
 
 
 /** This routine initializes the structure used to handle a subscribe. */
-static void subscribeInfoInit(subInfo *info) {
-    int j, status;
-    
+void cMsgSubscribeInfoInit(subInfo *info) {
     info->id                = 0;
     info->active            = 0;
     info->numCallbacks      = 0;
@@ -459,49 +541,37 @@ static void subscribeInfoInit(subInfo *info) {
     info->subjectRegexp   = NULL;
     info->subRange        = NULL;
     info->typeRange       = NULL;
-    
-    hashInit(&info->subjectTable, 256);
-    hashInit(&info->typeTable, 256);
-    
-    for (j=0; j<CMSG_MAX_CALLBACK; j++) {
-      cMsgCallbackInfoInit(&info->cbInfo[j]);
-      
-      status = pthread_cond_init (&info->cbInfo[j].cond,  NULL);
-      if (status != 0) {
-        cmsg_err_abort(status, "subscribeInfoInit:initializing condition var");
-      }
-      
-      status = pthread_mutex_init(&info->cbInfo[j].mutex, NULL);
-      if (status != 0) {
-        cmsg_err_abort(status, "subscribeInfoInit:initializing mutex");
-      }
-    }
+    info->callbacks       = NULL;
+
+    hashInit(&info->subjectTable,  256);
+    hashInit(&info->typeTable,     256);
 }
 
 
 /*-------------------------------------------------------------------*/
 
+
 /**
  * This routine initializes the structure used to hold connection-to-
  * a-domain information.
- * 
- * @param domain pointer to domain information structure
+ *
+ * @param domain pointer to cMsg domain information structure
  */
 void cMsgDomainInit(cMsgDomainInfo *domain) {
-  int i, status;
+  int status;
  
   domain->receiveState        = 0;
   domain->gotConnection       = 0;
       
   domain->sendSocket          = 0;
   domain->sendUdpSocket       = -1;
-  domain->receiveSocket       = 0;
-  domain->listenSocket        = 0;
   domain->keepAliveSocket     = 0;
+  domain->receiveSocket       = 0; /* rc domain only */
+  domain->listenSocket        = 0; /* rc domain only */
   
   domain->sendPort            = 0;
   domain->sendUdpPort         = 0;
-  domain->listenPort          = 0;
+  domain->listenPort          = 0; /* rc domain only */
   
   domain->hasSend             = 0;
   domain->hasSyncSend         = 0;
@@ -536,25 +606,21 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
   domain->msgBuffer           = NULL;
   domain->msgBufferSize       = 0;
   
+  domain->monitorXML          = NULL;
+  domain->monitorXMLSize      = 0;
+  
   domain->maskStored          = 0;
   sigemptyset(&domain->originalMask);
   
   memset((void *) &domain->monData, 0, sizeof(monitorData));
-        
+  
+  hashInit(&domain->syncSendTable,   128);
+  hashInit(&domain->sendAndGetTable, 128);
+  hashInit(&domain->subAndGetTable,  128);
+  hashInit(&domain->subscribeTable,  128); /* new */
+
   cMsgCountDownLatchInit(&domain->syncLatch, 1);
-
-  for (i=0; i<CMSG_MAX_SUBSCRIBE; i++) {
-    subscribeInfoInit(&domain->subscribeInfo[i]);
-  }
-  
-  for (i=0; i<CMSG_MAX_SUBSCRIBE_AND_GET; i++) {
-    getInfoInit(&domain->subscribeAndGetInfo[i]);
-  }
-  
-  for (i=0; i<CMSG_MAX_SEND_AND_GET; i++) {
-    getInfoInit(&domain->sendAndGetInfo[i]);
-  }
-
+    
   status = rwl_init(&domain->connectLock);
   if (status != 0) {
     cmsg_err_abort(status, "cMsgDomainInit:initializing connect read/write lock");
@@ -565,9 +631,19 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
     cmsg_err_abort(status, "cMsgDomainInit:initializing socket mutex");
   }
   
+  status = pthread_mutex_init(&domain->sendAndGetMutex, NULL);
+  if (status != 0) {
+    cmsg_err_abort(status, "cMsgDomainInit:initializing sendAndGet mutex");
+  }
+  
+  status = pthread_mutex_init(&domain->subAndGetMutex, NULL);
+  if (status != 0) {
+    cmsg_err_abort(status, "cMsgDomainInit:initializing subAndGet mutex");
+  }
+  
   status = pthread_mutex_init(&domain->syncSendMutex, NULL);
   if (status != 0) {
-    cmsg_err_abort(status, "cMsgDomainInit:initializing sync send mutex");
+    cmsg_err_abort(status, "cMsgDomainInit:initializing syncSend mutex");
   }
   
   status = pthread_mutex_init(&domain->subscribeMutex, NULL);
@@ -620,6 +696,33 @@ void cMsgNumberRangeFree(numberRange *r) {
   }
 }
 
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine free any resources taken by mutexes and condition
+ * variables.
+ *
+ * @param info pointer to subscription callback structure
+ */
+void cMsgCallbackInfoFree(subscribeCbInfo *info) {
+#ifdef sun
+    /* cannot destroy mutexes and cond vars in vxworks & apparently Linux */
+    int status;
+
+      status = pthread_cond_destroy (&info-cond);
+      if (status != 0) {
+        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var");
+      }
+  
+      status = pthread_mutex_destroy(&info->mutex);
+      if (status != 0) {
+        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying mutex");
+      }
+  
+#endif
+}
+
 
 /*-------------------------------------------------------------------*/
 
@@ -631,7 +734,7 @@ void cMsgNumberRangeFree(numberRange *r) {
  * 
  * @param info pointer to subscription information structure
  */
-void cMsgSubscribeInfoFree(subInfo *info) {    
+void cMsgSubscribeInfoFreeNoMutex(subInfo *info) {
     if (info->type != NULL)           {free(info->type);          info->type          = NULL;}
     if (info->subject != NULL)        {free(info->subject);       info->subject       = NULL;}
     if (info->typeRegexp != NULL)     {free(info->typeRegexp);    info->typeRegexp    = NULL;}
@@ -646,6 +749,9 @@ void cMsgSubscribeInfoFree(subInfo *info) {
     
     hashDestroy(&info->subjectTable, NULL, NULL);
     hashDestroy(&info->typeTable,    NULL, NULL);
+
+    /* Do NOT free up callback mem or stop callback threads.
+     * That's done in the main code. */
 }
 
 
@@ -658,7 +764,7 @@ void cMsgSubscribeInfoFree(subInfo *info) {
  * 
  * @param info pointer to subscription information structure
  */
-static void subscribeInfoFree(subInfo *info) {  
+void cMsgSubscribeInfoFree(subInfo *info) {
 #ifdef sun    
     /* cannot destroy mutexes and cond vars in vxworks & apparently Linux */
     int j, status;
@@ -684,10 +790,12 @@ static void subscribeInfoFree(subInfo *info) {
 
 
 /**
- * This routine frees allocated memory in a structure used to hold
- * subscribeAndGet/sendAndGet information.
+ * This routine frees allocated memory in a structure used to handle
+ * subscribeAndGet/sendAndGet/syncSend information.
+ *
+ * @param info pointer to structure holding send&Get, sub&Get or syncSend info
  */
-static void getInfoFree(getInfo *info) {  
+void cMsgGetInfoFree(getInfo *info) {
     void *p = (void *)info->msg;
 
 #ifdef sun    
@@ -696,12 +804,12 @@ static void getInfoFree(getInfo *info) {
     
     status = pthread_cond_destroy (&info->cond);
     if (status != 0) {
-      cmsg_err_abort(status, "getInfoFree:destroying cond var");
+      cmsg_err_abort(status, "cMsgGetInfoFree: destroying cond var");
     }
     
     status = pthread_mutex_destroy(&info->mutex);
     if (status != 0) {
-      cmsg_err_abort(status, "getInfoFree:destroying cond var");
+      cmsg_err_abort(status, "cMsgGetInfoFree: destroying cond var");
     }
 #endif
     
@@ -733,7 +841,8 @@ static void parsedUDLFree(parsedUDL *p) {
  * connection-to-a-domain information.
  */
 void cMsgDomainFree(cMsgDomainInfo *domain) {  
-  int i;
+  int i, size;
+  hashNode *entries = NULL;
 #ifdef sun
   int status;
 #endif
@@ -745,12 +854,56 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
   if (domain->description    != NULL) {free(domain->description);    domain->description    = NULL;}
   if (domain->password       != NULL) {free(domain->password);       domain->password       = NULL;}
   if (domain->msgBuffer      != NULL) {free(domain->msgBuffer);      domain->msgBuffer      = NULL;}
+  if (domain->monitorXML     != NULL) {free(domain->monitorXML);     domain->monitorXML     = NULL;}
   
   if (domain->failovers != NULL) {
     for (i=0; i<domain->failoverSize; i++) {       
       parsedUDLFree(&domain->failovers[i]);
     }
     free(domain->failovers);
+  }
+  
+  hashDestroy(&domain->syncSendTable, &entries, &size);
+  /* If there are entries in the hashTable, free them.
+  * Key is a string, value is getInfo pointer. */
+  if (entries != NULL) {
+    for (i=0; i<size; i++) {
+      free(entries[i].key);
+      cMsgGetInfoFree((getInfo *)entries[i].data);
+      free(entries[i].data);
+    }
+    free(entries);
+  }
+  
+  hashDestroy(&domain->sendAndGetTable, &entries, &size);
+  if (entries != NULL) {
+    for (i=0; i<size; i++) {
+      free(entries[i].key);
+      cMsgGetInfoFree((getInfo *)entries[i].data);
+      free(entries[i].data);
+    }
+    free(entries);
+  }
+  
+  hashDestroy(&domain->subAndGetTable, &entries, &size);
+  if (entries != NULL) {
+    for (i=0; i<size; i++) {
+      free(entries[i].key);
+      cMsgGetInfoFree((getInfo *)entries[i].data);
+      free(entries[i].data);
+    }
+    free(entries);
+  }
+
+  /* new BUGBUG needs more ? */
+  hashDestroy(&domain->subscribeTable, &entries, &size);
+  if (entries != NULL) {
+    for (i=0; i<size; i++) {
+      free(entries[i].key);
+      cMsgSubscribeInfoFree((subInfo *)entries[i].data); /* new less extreme form ? */
+      free(entries[i].data);
+    }
+    free(entries);
   }
   
 #ifdef sun
@@ -760,9 +913,19 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
     cmsg_err_abort(status, "cMsgDomainFree:destroying socket mutex");
   }
   
+  status = pthread_mutex_destroy(&domain->sendAndGetMutex);
+  if (status != 0) {
+    cmsg_err_abort(status, "cMsgDomainInit:destroying sendAndGet mutex");
+  }
+  
+  status = pthread_mutex_destroy(&domain->subAndGetMutex);
+  if (status != 0) {
+    cmsg_err_abort(status, "cMsgDomainInit:destroying subAndGet mutex");
+  }
+  
   status = pthread_mutex_destroy(&domain->syncSendMutex);
   if (status != 0) {
-    cmsg_err_abort(status, "cMsgDomainFree:destroying sync send mutex");
+    cmsg_err_abort(status, "cMsgDomainInit:destroying syncSend mutex");
   }
   
   status = pthread_mutex_destroy(&domain->subscribeMutex);
@@ -794,17 +957,6 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
 
   cMsgCountDownLatchFree(&domain->syncLatch);
     
-  for (i=0; i<CMSG_MAX_SUBSCRIBE; i++) {
-    subscribeInfoFree(&domain->subscribeInfo[i]);
-  }
-  
-  for (i=0; i<CMSG_MAX_SUBSCRIBE_AND_GET; i++) {
-    getInfoFree(&domain->subscribeAndGetInfo[i]);
-  }
-  
-  for (i=0; i<CMSG_MAX_SEND_AND_GET; i++) {
-    getInfoFree(&domain->sendAndGetInfo[i]);
-  }
 }
 
 
@@ -1186,11 +1338,9 @@ void *cMsgCallbackThread(void *arg)
 {
     /* subscription information passed in thru arg */
     cbArg *cbarg = (cbArg *) arg;
-    int subIndex = cbarg->subIndex;
-    int cbIndex  = cbarg->cbIndex;
     cMsgDomainInfo *domain = cbarg->domain;
-    subInfo *sub           = &domain->subscribeInfo[subIndex];
-    subscribeCbInfo *cback = &domain->subscribeInfo[subIndex].cbInfo[cbIndex];
+    subInfo *sub           = cbarg->sub;
+    subscribeCbInfo *cback = cbarg->cb;
     int i, status, need, threadsAdded, maxToAdd, wantToAdd;
     int numMsgs, numThreads;
     cMsgMessage_t *msg, *nextMsg;
@@ -1277,6 +1427,7 @@ void *cMsgCallbackThread(void *arg)
           
           /* unlock mutex */
           cMsgMutexUnlock(&cback->mutex);
+          cback->done = 1;
 
           /* Signal to cMsgRunCallbacks in case the cue is full and it's
            * blocked trying to put another message in. So now we tell it that
@@ -1332,6 +1483,7 @@ void *cMsgCallbackThread(void *arg)
           
           /* unlock mutex */
           cMsgMutexUnlock(&cback->mutex);
+          cback->done = 1;
 
           /* Signal to cMsgRunCallbacks in case the cue is full and it's
            * blocked trying to put another message in. So now we tell it that
@@ -1418,11 +1570,9 @@ void *cMsgSupplementalThread(void *arg)
 {
     /* subscription information passed in thru arg */
     cbArg *cbarg = (cbArg *) arg;
-    int subIndex = cbarg->subIndex;
-    int cbIndex  = cbarg->cbIndex;
     cMsgDomainInfo *domain = cbarg->domain;
-    subInfo *sub           = &domain->subscribeInfo[subIndex];
-    subscribeCbInfo *cback = &domain->subscribeInfo[subIndex].cbInfo[cbIndex];
+    subInfo *sub           = cbarg->sub;
+    subscribeCbInfo *cback = cbarg->cb;
     int status, empty;
     cMsgMessage_t *msg, *nextMsg;
     struct timespec wait, timeout;
@@ -1469,6 +1619,7 @@ void *cMsgSupplementalThread(void *arg)
           
           /* unlock mutex */
           cMsgMutexUnlock(&cback->mutex);
+          cback->done = 1;
 
           /* Signal to cMsgRunCallbacks in case the cue is full and it's
            * blocked trying to put another message in. So now we tell it that
@@ -1535,6 +1686,7 @@ void *cMsgSupplementalThread(void *arg)
           
           /* unlock mutex */
           cMsgMutexUnlock(&cback->mutex);
+          cback->done = 1;
 
           /* Signal to cMsgRunCallbacks in case the cue is full and it's
            * blocked trying to put another message in. So now we tell it that

@@ -40,15 +40,16 @@ typedef struct hash_node_t {
 extern "C" {
 #endif
 
-    void  hashInit    (hashTable *, int);
-    int   hashLookup  (const hashTable *, const char *, void **);
-    int   hashInsert  (hashTable *, const char *, void *, void **);
-    int   hashRemove  (hashTable *, const char *, void **);
-    void  hashGetAll  (hashTable *, hashNode **, int *);
-    void  hashClear   (hashTable *, hashNode **, int *);
-    void  hashDestroy (hashTable *, hashNode **, int *);
-    int   hashSize    (hashTable *);
-    char *hashStats   (hashTable *);
+    void  hashInit     (hashTable *, int);
+    int   hashLookup   (const hashTable *, const char *, void **);
+    int   hashInsertTry(hashTable *, const char *, void *);
+    int   hashInsert   (hashTable *, const char *, void *, void **);
+    int   hashRemove   (hashTable *, const char *, void **);
+    void  hashGetAll   (hashTable *, hashNode **, int *);
+    void  hashClear    (hashTable *, hashNode **, int *);
+    void  hashDestroy  (hashTable *, hashNode **, int *);
+    int   hashSize     (hashTable *);
+    char *hashStats    (hashTable *);
 
 #ifdef __cplusplus
 }

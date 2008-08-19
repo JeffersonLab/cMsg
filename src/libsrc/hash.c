@@ -28,7 +28,7 @@
 
 #define HASH_LIMIT 0.5
 
-/*
+/**
  * This hash function returns a hash number for a given key.
  *
  * @param tptr Pointer to a hash table
@@ -51,7 +51,7 @@ static int hash(const hashTable *tptr, const char *key) {
 }
 
 
-/*
+/**
  * This routine initializes a new hash table.
  *
  * @param tptr Pointer to the hash table to initialize
@@ -60,7 +60,7 @@ static int hash(const hashTable *tptr, const char *key) {
 void hashInit(hashTable *tptr, int buckets) {
 
     /* make sure we allocate something */
-    if (buckets==0)
+    if (buckets<=0)
         buckets=16;
 
     /* initialize the table */
@@ -83,7 +83,7 @@ void hashInit(hashTable *tptr, int buckets) {
 }
 
 
-/*
+/**
  * This routine creates new hash table when old one fills up.
  *
  * @param tptr Pointer to a hash table
@@ -116,7 +116,7 @@ static void rebuild_table(hashTable *tptr) {
 }
 
 
-/*
+/**
  * This routines looks up an entry in the hash table and fills a pointer with it.
  * It returns 1 if it was found, else 0.
  *
@@ -146,26 +146,24 @@ int hashLookup(const hashTable *tptr, const char *key, void **data) {
 }
 
 
-/*
- * This routine insert an entry into the hash table. If the entry already
- * exists, the oldData pointer (if not NULL) gets filled with the old entry,
- * the new entry is inserted and 1 is returned. Otherwise the new entry is
- * inserted and 0 is returned.
+/**
+ * This routine inserts an entry into the hash table. If an entry with that
+ * key already exists, nothing is inserted and 0 is returned. Otherwise the
+ * new entry is inserted and 1 is returned.
  *
  * @param tptr A pointer to the hash table
  * @param key The key to insert into the hash table
  * @param data A pointer to the data to insert into the hash table
- * @param oldData A pointer that gets filled with any existing old data for the key
- * 
- * @return 0 if the only the new entry is inserted or 1 if the new entry is
- *         replacing an existing entry
+ *
+ * @return 1 if the new entry is inserted or 0 if an entry
+ *         already exists for that key
  */
-int hashInsert(hashTable *tptr, const char *key, void *data, void **oldData) {
+int hashInsertTry(hashTable *tptr, const char *key, void *data) {
     hashNode *node;
     int h;
 
     /*****************************************************/
-    /* check to see if the entry exists, if so update it */
+    /* check to see if the entry exists, if so return */
 
     /* find the entry in the hash table */
     h=hash(tptr, key);
@@ -174,12 +172,9 @@ int hashInsert(hashTable *tptr, const char *key, void *data, void **oldData) {
             break;
     }
 
-    /* if entry exists, update it and return */
+    /* if entry exists, return */
     if (node != NULL) {
-        if (oldData != NULL)
-            *oldData = node->data;
-        node->data = data;
-        return (1);
+        return (0);
     }
     /*****************************************************/
 
@@ -196,11 +191,65 @@ int hashInsert(hashTable *tptr, const char *key, void *data, void **oldData) {
     tptr->bucket[h]=node;
     tptr->entries++;
 
-    return (0);
+    return (1);
 }
 
 
-/*
+/**
+ * This routine insert an entry into the hash table. If the entry already
+ * exists, the oldData pointer (if not NULL) gets filled with the old entry,
+ * the new entry is inserted and 1 is returned. Otherwise the new entry is
+ * inserted and 0 is returned.
+ *
+ * @param tptr A pointer to the hash table
+ * @param key The key to insert into the hash table
+ * @param data A pointer to the data to insert into the hash table
+ * @param oldData A pointer that gets filled with any existing old data for the key
+ *
+ * @return 0 if the only the new entry is inserted or 1 if the new entry is
+ *         replacing an existing entry
+ */
+int hashInsert(hashTable *tptr, const char *key, void *data, void **oldData) {
+  hashNode *node;
+  int h;
+
+  /*****************************************************/
+  /* check to see if the entry exists, if so update it */
+
+  /* find the entry in the hash table */
+  h=hash(tptr, key);
+  for (node=tptr->bucket[h]; node!=NULL; node=node->next) {
+    if (!strcmp(node->key, key))
+      break;
+  }
+
+  /* if entry exists, update it and return */
+  if (node != NULL) {
+    if (oldData != NULL)
+      *oldData = node->data;
+    node->data = data;
+    return (1);
+  }
+  /*****************************************************/
+
+  /* expand the table if needed */
+  while (tptr->entries>=HASH_LIMIT*tptr->size) {
+    rebuild_table(tptr);
+  }
+
+  /* insert the new entry */
+  node=(struct hash_node_t *) malloc(sizeof(hashNode));
+  node->data=data;
+  node->key=strdup(key); /* copy key to avoid it going out of scope */
+  node->next=tptr->bucket[h];
+  tptr->bucket[h]=node;
+  tptr->entries++;
+
+  return (0);
+}
+
+
+/**
  * This routine removes an entry from a hash table and fills a pointer
  * with it if it exists. It returns 1 if removed and 0 if it wasn't.
  *
@@ -248,7 +297,7 @@ int hashRemove(hashTable *tptr, const char *key, void **data) {
 }
 
 
-/*
+/**
  * This routine returns an array of all the entries and its size.
  * The caller must free the returned array to avoid a memory leak,
  * but must NOT free the keys or data.
@@ -293,7 +342,7 @@ void hashGetAll(hashTable *tptr, hashNode **entries, int *size) {
 }
 
 
-/*
+/**
  * This routine clears the table of all entries.<p>
  * If the "entries" arg is not NULL, it returns an array of
  * all the entries and its size, and the caller must free
@@ -352,7 +401,7 @@ void hashClear(hashTable *tptr, hashNode **entries, int *size) {
 }
 
 
-/*
+/**
  * This routine deletes the entire table, and all entries.<p>
  * If the "entries" arg is not NULL, it returns an array of
  * all the entries and its size, and the caller must free
@@ -382,7 +431,7 @@ void hashDestroy(hashTable *tptr, hashNode **entries, int *size) {
 }
 
 
-/*
+/**
  * This routine returns the number of entries.
  * 
  * @param tptr A pointer to the hash table
@@ -393,7 +442,7 @@ int hashSize(hashTable *tptr) {
 }
 
 
-/*
+/**
  * This routine finds the average length of search.
  *
  * @param tptr A pointer to the hash table
@@ -414,7 +463,7 @@ static float alos(hashTable *tptr) {
 }
 
 
-/*
+/**
  * This routine returns a string with statistics about a hash table.
  *
  * @param tptr A pointer to the hash table

@@ -70,7 +70,7 @@ extern "C" {
     } while (0)
 
 /** Major version number. */
-#define CMSG_VERSION_MAJOR 2
+#define CMSG_VERSION_MAJOR 3
 /** Minor version number. */
 #define CMSG_VERSION_MINOR 0
 
@@ -394,7 +394,8 @@ enum responseMsgId {
   CMSG_SUBSCRIBE_RESPONSE,        /**< Subscribe response. */
   CMSG_SERVER_GET_RESPONSE,       /**< Respose to server's "sendAndGet" request. */
   CMSG_RC_CONNECT,                /**< Respond to RC server's "connect" request. */
-  CMSG_RC_CONNECT_ABORT           /**< Response by RC Broadcast server to abort an RC client's "connect" request. */
+  CMSG_RC_CONNECT_ABORT,          /**< Response by RC Broadcast server to abort an RC client's "connect" request. */
+  CMSG_SYNC_SEND_RESPONSE         /**< SyncSend response. */
 };
 
 

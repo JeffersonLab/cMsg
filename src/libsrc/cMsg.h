@@ -321,6 +321,7 @@ const char *cMsgPayloadFieldDescription(const void *vmsg, const char *name);
 
   char   *cMsgFloatChars(float f);
   char   *cMsgDoubleChars(double d);
+  char   *cMsgIntChars(uint32_t i);
 
 
   /* system and domain info access functions */

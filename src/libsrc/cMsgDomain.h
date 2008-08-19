@@ -6,9 +6,9 @@
  *    described in the NOTICE file included as part of this distribution.     *
  *                                                                            *
  *    Author:  Carl Timmer                                                    *
- *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
+ *             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
  *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
- *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *             Fax:   (757) 269-6248             Newport News, VA 23606       *
  *                                                                            *
  *----------------------------------------------------------------------------*
  *
@@ -39,14 +39,6 @@
 extern "C" {
 #endif
 
-/** Maximum number of subscriptions per client connection. */
-#define CMSG_MAX_SUBSCRIBE 40
-/** Maximum number of simultaneous subscribeAndGets per client connection. */
-#define CMSG_MAX_SUBSCRIBE_AND_GET 20
-/** Maximum number of simultaneous sendAndGets per client connection. */
-#define CMSG_MAX_SEND_AND_GET 20
-/** Maximum number of callbacks per subscription. */
-#define CMSG_MAX_CALLBACK 20
 
 /**
  * This structure is used to synchronize threads waiting to failover (are
@@ -67,6 +59,7 @@ typedef struct countDownLatch_t {
 typedef struct monitorData_t {
   int subAndGets;           /**< Number of subscribeAndGets currently active. */
   int sendAndGets;          /**< Number of sendAndGets currently active. */
+  int syncSends;            /**< Number of syncSends currently active. */
   uint64_t numTcpSends;     /**< Number of tcp sends done. */
   uint64_t numUdpSends;     /**< Number of udp sends done. */
   uint64_t numSyncSends;    /**< Number of syncSends done. */
@@ -79,6 +72,7 @@ typedef struct monitorData_t {
 
 /** This structure represents a single subscription's callback. */
 typedef struct subscribeCbInfo_t {
+  int               done;     /**< Ending callback, ok to free this struct. */
   int               active;   /**< Boolean telling if this callback is active. */
   int               messages; /**< Number of messages in list. */
   int               threads;  /**< Number of supplemental threads to run callback if
@@ -93,6 +87,7 @@ typedef struct subscribeCbInfo_t {
   pthread_t         thread;   /**< Thread running callback. */
   pthread_cond_t    cond;     /**< Condition variable callback thread is waiting on. */
   pthread_mutex_t   mutex;    /**< Mutex callback thread is waiting on. */
+  struct subscribeCbInfo_t * next; /**< Pointer allows struct to be part of linked list. */
 } subscribeCbInfo;
 
 
@@ -127,11 +122,12 @@ typedef struct subscribeInfo_t {
                                 subject from subscription with pseudo wildcard number ranges. */
   numberRange *typeRange;  /**< Linked list of linked lists containing results of parsed
                                 type from subscription with pseudo wildcard number ranges. */
-  hashTable  subjectTable; /**< Hash table of strings matching subject. */
-  hashTable  typeTable;    /**< Hash table of strings matching type. */
   regex_t compSubRegexp;   /**< Subject of subscription made into compiled regular expression. */
   regex_t compTypeRegexp;  /**< Type of subscription made into compiled regular expression. */
-  subscribeCbInfo cbInfo[CMSG_MAX_CALLBACK]; /**< Array of callbacks. */
+  hashTable subjectTable;  /**< Hash table of strings matching subject. */
+  hashTable typeTable;     /**< Hash table of strings matching type. */
+  hashTable callbackTable; /**< Hashtable of callbacks. */
+  subscribeCbInfo *callbacks; /**< Linked list of callbacks. */
 } subInfo;
 
 
@@ -162,6 +158,7 @@ typedef struct parsedUDL_t {
   int   valid;          /**< 1 if valid UDL for the cMsg domain, else 0. */
   int   mustBroadcast;  /**< 1 if UDL specifies broadcasting to find server, else 0. */
   int   timeout;        /**< time in seconds to wait for a broadcast response. */
+  int   regimeLow;      /**< 1 if regime is low (low data rate). */
   char *udl;            /**< whole UDL for name server */
   char *udlRemainder;   /**< domain specific part of the UDL. */
   char *subdomain;      /**< subdomain name. */
@@ -181,16 +178,16 @@ typedef struct cMsgDomainInfo_t {
                             callbacks (1) or if they are being igmored (0). */
   int gotConnection;   /**< Boolean telling if connection to cMsg server is good. */
   
-  int sendSocket;      /**< File descriptor for TCP socket to send messages/requests on. */
+  int sendSocket;      /**< File descriptor for TCP socket to send/receive messages/requests on. */
   int sendUdpSocket;   /**< File descriptor for UDP socket to send messages on. */
-  int receiveSocket;   /**< File descriptor for TCP socket to receive request responses on. */
-  int listenSocket;    /**< File descriptor for socket this program listens on for TCP connections. */
   int keepAliveSocket; /**< File descriptor for socket to tell if server is still alive or not. */
+  int receiveSocket;   /**< File descriptor for TCP socket to receive request responses on (rcDomain). */
+  int listenSocket;    /**< File descriptor for socket this program listens on for TCP connections (rc Domain). */
 
   int sendPort;        /**< Port to send messages to. */
   int sendUdpPort;     /**< Port to send messages to with UDP protocol. */
-  int listenPort;      /**< Port this program listens on for this domain's TCP connections. */
-  
+  int listenPort;      /**< Port this program listens on for this domain's TCP connections (rcDomain). */
+   
   /* subdomain handler attributes */
   int hasSend;            /**< Does this subdomain implement a send function? (1-y, 0-n) */
   int hasSyncSend;        /**< Does this subdomain implement a syncSend function? (1-y, 0-n) */
@@ -221,9 +218,10 @@ typedef struct cMsgDomainInfo_t {
   char *msgBuffer;           /**< Buffer used in socket communication to server. */
   int   msgBufferSize;       /**< Size of buffer (in bytes) used in socket communication to server. */
 
-  pthread_t pendThread;      /**< Listening thread. */
-  pthread_t keepAliveThread; /**< Thread sending keep alives to server. */
-  pthread_t clientThread[2]; /**< Threads from server connecting to client (created by pendThread). */
+  pthread_t pendThread;         /**< Msg receiving thread for cmsg domain, listening thread for rc domain. */
+  pthread_t keepAliveThread;    /**< Thread reading keep alives (monitor data) from server. */
+  pthread_t updateServerThread; /**< Thread sending keep alives (monitor data) to server. */
+  pthread_t clientThread;       /**< Thread handling rc server connection to rc client (created by pendThread). */
   
   /**
    * Read/write lock to prevent connect or disconnect from being
@@ -231,30 +229,37 @@ typedef struct cMsgDomainInfo_t {
    */
   rwLock_t connectLock;
   pthread_mutex_t socketMutex;    /**< Mutex to ensure thread-safety of socket use. */
-  pthread_mutex_t syncSendMutex;  /**< Mutex to ensure thread-safety of syncSends. */
   pthread_mutex_t subscribeMutex; /**< Mutex to ensure thread-safety of (un)subscribes. */
   pthread_cond_t  subscribeCond;  /**< Condition variable used for waiting on clogged callback cue. */
+  
+  pthread_mutex_t subAndGetMutex; /**< Mutex to ensure thread-safety of subAndGet hash table. */
+  pthread_mutex_t sendAndGetMutex; /**< Mutex to ensure thread-safety of sendAndGet hash table. */
+  pthread_mutex_t syncSendMutex;   /**< Mutex to ensure thread-safety of syncSend hash table. */
 
   /*  rc domain stuff  */
-  int             rcConnectAbort;    /**< Flag used to abort rc client connection to RC Broadcast server. */
-  int             rcConnectComplete; /**< Has a special TCP message been sent from RC
-                                          server to indicate that connection is conplete?
-                                          (1-y, 0-n) */
+  int rcConnectAbort;    /**< Flag used to abort rc client connection to RC Broadcast server. */
+  int rcConnectComplete; /**< Has a special TCP message been sent from RC server to
+                              indicate that connection is conplete? (1-y, 0-n) */
   pthread_mutex_t rcConnectMutex;    /**< Mutex used for rc domain connect. */
   pthread_cond_t  rcConnectCond;     /**< Condition variable used for rc domain connect. */
   /* ***************** */
   
+  /** Size in bytes of cMsg system data in XML form. */
+  int  monitorXMLSize;
+  /** cMsg system data in XML form from keepalive communications. */
+  char *monitorXML;
+  
   /** Data from monitoring client connection. */
   monitorData monData;
   
-  /** Array of structures - each of which contain a subscription. */
-  subInfo subscribeInfo[CMSG_MAX_SUBSCRIBE];
-  
-  /** Array of structures - each of which contain a subscribeAndGet. */
-  getInfo subscribeAndGetInfo[CMSG_MAX_SUBSCRIBE_AND_GET];
-  
-  /** Array of structures - each of which contain a sendAndGet. */
-  getInfo sendAndGetInfo[CMSG_MAX_SEND_AND_GET];
+  /** Hashtable of syncSends. */
+  hashTable syncSendTable;  
+  /** Hashtable of sendAndGets. */
+  hashTable sendAndGetTable;  
+  /** Hashtable of subscribeAndGets. */
+  hashTable subAndGetTable;  
+  /** Hashtable of subscriptions. */
+  hashTable subscribeTable;
   
   /** Shutdown handler function. */
   cMsgShutdownHandler *shutdownHandler;
@@ -271,12 +276,14 @@ typedef struct cMsgDomainInfo_t {
 } cMsgDomainInfo;
 
 
-/** This structure (pointer) is passed as an argument to a callback. */
+/** This structure (pointer) is passed as an argument to a callback thread
+ *  and also used to unsubscribe. */
 typedef struct cbArg_t {
-  uintptr_t domainId;  /**< Domain identifier. */
-  int subIndex;        /**< Index into domain structure's subscription array. */
-  int cbIndex;         /**< Index into subscription structure's callback array. */
-  cMsgDomainInfo *domain;  /**< Pointer to element of domain structure array. */
+  uintptr_t domainId;     /**< Domain identifier. */
+  char *key;              /**< Key into hashtable, value = subscription give by sub. */
+  subInfo *sub;           /**< Pointer to subscription info structure. */
+  subscribeCbInfo *cb;    /**< Pointer to callback info structure. */
+  cMsgDomainInfo *domain; /**< Pointer to element of domain structure array. */
 } cbArg;
 
 
@@ -290,12 +297,11 @@ typedef struct cMsgThreadInfo_t {
   int isRunning;  /**< Boolean to indicate client listening thread is running. (1-y, 0-n) */
   int connfd;     /**< Socket connection's file descriptor. */
   int listenFd;   /**< Listening socket file descriptor. */
-  int thd0started;/**< Boolean to indicate client msg receiving thread is running. (1-y, 0-n) */
-  int thd1started;/**< Boolean to indicate client keepalive receiving thread is running. (1-y, 0-n) */
+  int thdstarted; /**< Boolean to indicate client msg receiving thread is running. (1-y, 0-n) */
   int blocking;   /**< Block in accept (CMSG_BLOCKING) or
                       not (CMSG_NONBLOCKING)? */
   cMsgDomainInfo *domain;  /**< Pointer to element of domain structure array. */
-  char *domainType;        /**< String containing domain name (e.g. cmsg, rc, file). */
+  struct cMsgThreadInfo_t *arg;  /**< Pointer to same structure. */
 } cMsgThreadInfo;
 
 
@@ -320,11 +326,15 @@ void  cMsgConnectWriteLock(cMsgDomainInfo *domain);
 void  cMsgConnectWriteUnlock(cMsgDomainInfo *domain);
 void  cMsgSocketMutexLock(cMsgDomainInfo *domain);
 void  cMsgSocketMutexUnlock(cMsgDomainInfo *domain);
+void  cMsgSubAndGetMutexLock(cMsgDomainInfo *domain);
+void  cMsgSubAndGetMutexUnlock(cMsgDomainInfo *domain);
+void  cMsgSendAndGetMutexLock(cMsgDomainInfo *domain);
+void  cMsgSendAndGetMutexUnlock(cMsgDomainInfo *domain);
 void  cMsgSyncSendMutexLock(cMsgDomainInfo *domain);
 void  cMsgSyncSendMutexUnlock(cMsgDomainInfo *domain);
 void  cMsgSubscribeMutexLock(cMsgDomainInfo *domain);
 void  cMsgSubscribeMutexUnlock(cMsgDomainInfo *domain);
-void  cMsgCountDownLatchFree(countDownLatch *latch); 
+void  cMsgCountDownLatchFree(countDownLatch *latch);
 void  cMsgCountDownLatchInit(countDownLatch *latch, int count);
 void  cMsgLatchReset(countDownLatch *latch, int count, const struct timespec *timeout);
 int   cMsgLatchCountDown(countDownLatch *latch, const struct timespec *timeout);
@@ -336,13 +346,20 @@ void *cMsgCallbackThread(void *arg);
 void *cMsgSupplementalThread(void *arg);
 
 /* initialization and freeing */
+void  cMsgSubscribeInfoInit(subInfo *info);
 void  cMsgSubscribeInfoFree(subInfo *info);
+void  cMsgSubscribeInfoFreeNoMutex(subInfo *info);
 void  cMsgCallbackInfoInit(subscribeCbInfo *info);
+void  cMsgCallbackInfoFree(subscribeCbInfo *info);
 void  cMsgDomainInit(cMsgDomainInfo *domain);
 void  cMsgDomainClear(cMsgDomainInfo *domain);
 void  cMsgDomainFree(cMsgDomainInfo *domain);
+void  cMsgGetInfoInit(getInfo *info);
+void  cMsgGetInfoFree(getInfo *info);
 
 /* misc */
+int   cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg);
+int   cMsgRunCallbacks(cMsgDomainInfo *domain, void *msg);
 int   cMsgCheckString(const char *s);
 int   cMsgGetAbsoluteTime(const struct timespec *deltaTime, struct timespec *absTime);
 int   sun_setconcurrency(int newLevel);

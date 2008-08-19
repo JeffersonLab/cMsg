@@ -159,9 +159,18 @@ extern "C" {
 /** The biggest single UDP packet size is 2^16 - IP 64 byte header - 8 byte UDP header. */
 #define BIGGEST_UDP_PACKET_SIZE 65463
 
-/* socket and/or thread blocking options */
+/** Socket or thread is blocking. */
 #define CMSG_BLOCKING    0
+/** Socket or thread is nonblocking. */
 #define CMSG_NONBLOCKING 1
+
+/** Ints representing ascii for "cMsg is cool", used to filter out portscanning software. */
+#define CMSG_MAGIC_INT1 0x634d7367
+#define CMSG_MAGIC_INT2 0x20697320
+#define CMSG_MAGIC_INT3 0x636f6f6c
+
+/** The size (in bytes) of biggest buffers used to send UDP data from client to server. */
+#define CMSG_BIGGEST_UDP_BUFFER_SIZE 65536
 
 /* cMsg prototypes */
 extern int   cMsgTcpListen(int blocking, unsigned short port, int *listenFd);
