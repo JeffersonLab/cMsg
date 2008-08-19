@@ -1098,6 +1098,30 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   }
 
 
+  /* wakeup all syncSends - they can't be saved */
+  hashClear(&domain->syncSendTable, &entries, &tblSize);
+  if (entries != NULL) {
+    for (i=0; i<tblSize; i++) {
+      info = (getInfo *)entries[i].data;
+      info->msg = NULL;
+      info->msgIn = 1;
+      info->quit  = 1;
+      info->error = CMSG_SERVER_DIED;
+
+      /* wakeup the sendAndGet */
+      status = pthread_cond_signal(&info->cond);
+      if (status != 0) {
+        cmsg_err_abort(status, "Failed get condition signal");
+      }
+
+      free(entries[i].key);
+      cMsgGetInfoFree(info);
+      free(info);
+    }
+    free(entries);
+  }
+
+
   /* wakeup all existing subscribeAndGets - they can't be saved */
   hashClear(&domain->subAndGetTable, &entries, &tblSize);
   if (entries != NULL) {
@@ -2000,22 +2024,22 @@ int cmsg_cmsg_syncSend(void *domainId, void *vmsg, const struct timespec *timeou
 
   /* If we timed out ... */
   if (info->msgIn == 0) {
-      /*printf("get: timed out\n");*/      
-      err = CMSG_TIMEOUT;
-      /* if we've timed out, item has not been removed from hash table yet */
-      cMsgSyncSendMutexLock(domain);
-      hashRemove(&domain->syncSendTable, idString, NULL);
-      cMsgSyncSendMutexUnlock(domain);
+    /*printf("get: timed out\n");*/
+    err = CMSG_TIMEOUT;
+    /* if we've timed out, item has not been removed from hash table yet */
+    cMsgSyncSendMutexLock(domain);
+    hashRemove(&domain->syncSendTable, idString, NULL);
+    cMsgSyncSendMutexUnlock(domain);
   }
   /* If we've been woken up with an error condition ... */
   else if (info->error != CMSG_OK) {
-      err = info->error;    
-      hashRemove(&domain->syncSendTable, idString, NULL);
+    /* in this case hash table has been cleared in reconnect */
+    err = info->error;
   }
   /* If we did not timeout and everything's OK */
   else {
-      if (response != NULL) *response = info->response;
-      err = CMSG_OK;
+    if (response != NULL) *response = info->response;
+    err = CMSG_OK;
   }
   
   /* free up memory */
@@ -3615,11 +3639,11 @@ int cmsg_cmsg_disconnect(void **domainId) {
       info->msgIn = 0;
       info->quit  = 1;
 
-      /* wakeup "get" */
       if (cMsgDebug >= CMSG_DEBUG_INFO) {
         fprintf(stderr, "cmsg_cmsg_disconnect:wake up a sendAndGet\n");
       }
   
+      /* wakeup "get" */
       status = pthread_cond_signal(&info->cond);
       if (status != 0) {
         cmsg_err_abort(status, "Failed get condition signal");
@@ -3632,6 +3656,33 @@ int cmsg_cmsg_disconnect(void **domainId) {
     free(entries);
   }
   
+  /* wakeup all syncSends */
+  hashClear(&domain->syncSendTable, &entries, &tblSize);
+  if (entries != NULL) {
+    for (i=0; i<tblSize; i++) {
+      info = (getInfo *)entries[i].data;
+      info->msg = NULL;
+      info->msgIn = 0;
+      info->quit  = 1;
+
+      if (cMsgDebug >= CMSG_DEBUG_INFO) {
+        fprintf(stderr, "cmsg_cmsg_disconnect:wake up a syncSend\n");
+      }
+  
+      /* wakeup the syncSend */
+      status = pthread_cond_signal(&info->cond);
+      if (status != 0) {
+        cmsg_err_abort(status, "Failed get condition signal");
+      }
+
+      free(entries[i].key);
+      cMsgGetInfoFree(info);
+      free(info);
+    }
+    free(entries);
+  }
+
+
   /* give the above threads a chance to quit before we reset everytbing */
   nanosleep(&wait4thds, NULL);
   
@@ -3774,11 +3825,37 @@ static int disconnectFromKeepAlive(void **domainId) {
       info->msgIn = 0;
       info->quit  = 1;
 
-      /* wakeup "get" */
       if (cMsgDebug >= CMSG_DEBUG_INFO) {
         fprintf(stderr, "cmsg_cmsg_disconnect:wake up a sendAndGet\n");
       }
   
+      /* wakeup "get" */
+      status = pthread_cond_signal(&info->cond);
+      if (status != 0) {
+        cmsg_err_abort(status, "Failed get condition signal");
+      }
+
+      free(entries[i].key);
+      cMsgGetInfoFree(info);
+      free(info);
+    }
+    free(entries);
+  }
+  
+  /* wakeup all syncSends */
+  hashClear(&domain->syncSendTable, &entries, &tblSize);
+  if (entries != NULL) {
+    for (i=0; i<tblSize; i++) {
+      info = (getInfo *)entries[i].data;
+      info->msg = NULL;
+      info->msgIn = 0;
+      info->quit  = 1;
+
+      if (cMsgDebug >= CMSG_DEBUG_INFO) {
+        fprintf(stderr, "cmsg_cmsg_disconnect:wake up a syncSend\n");
+      }
+  
+      /* wakeup the syncSend */
       status = pthread_cond_signal(&info->cond);
       if (status != 0) {
         cmsg_err_abort(status, "Failed get condition signal");
