@@ -489,8 +489,8 @@ void cMsgGetInfoInit(getInfo *info) {
 void cMsgCallbackInfoInit(subscribeCbInfo *info) {
     int status;
     
-    info->done     = 0; /* new */
-    info->active   = 0;
+    info->done     = 0;
+    info->fullQ    = 0;
     info->threads  = 0;
     info->messages = 0;
     info->quit     = 0;
@@ -1338,12 +1338,19 @@ void *cMsgCallbackThread(void *arg)
     cbArg *cbarg = (cbArg *) arg;
     cMsgDomainInfo *domain = cbarg->domain;
     subInfo *sub           = cbarg->sub;
-    subscribeCbInfo *cback = cbarg->cb;
+    subscribeCbInfo *cb = cbarg->cb;
     int i, status, need, threadsAdded, maxToAdd, wantToAdd;
     int numMsgs, numThreads;
     cMsgMessage_t *msg, *nextMsg;
     pthread_t thd;
     void *p;
+    struct timespec wait;
+    
+    /* Wait 1/2 sec for cMsgRunCallbacks to deal with ending callback
+     * before freeing cb memory. Bit of a hack, but it should work.
+     */
+    wait.tv_sec  = 0;
+    wait.tv_nsec = 500000000;
     
     /* time_t now, t; *//* for printing msg cue size periodically */
     
@@ -1367,23 +1374,23 @@ void *cMsgCallbackThread(void *arg)
        * are no messages to grab, but this is the only place that the
        * number of threads will be increased.
        */
-      numMsgs = cback->messages;
-      numThreads = cback->threads;
+      numMsgs = cb->messages;
+      numThreads = cb->threads;
       threadsAdded = 0;
       
       /* Check to see if we need more threads to handle the load */      
-      if ((!cback->config.mustSerialize) &&
-          (numThreads < cback->config.maxThreads) &&
-          (numMsgs > cback->config.msgsPerThread)) {
+      if ((!cb->config.mustSerialize) &&
+          (numThreads < cb->config.maxThreads) &&
+          (numMsgs > cb->config.msgsPerThread)) {
 
         /* find number of threads needed */
-        need = cback->messages/cback->config.msgsPerThread;
+        need = cb->messages/cb->config.msgsPerThread;
 
         /* add more threads if necessary */
         if (need > numThreads) {
           
           /* maximum # of threads that can be added w/o exceeding config limit */
-          maxToAdd  = cback->config.maxThreads - numThreads;
+          maxToAdd  = cb->config.maxThreads - numThreads;
           /* number of threads we want to add to handle the load */
           wantToAdd = need - numThreads;
           /* number of threads that we will add */
@@ -1399,21 +1406,14 @@ void *cMsgCallbackThread(void *arg)
       }
            
       /* lock mutex */
-/* fprintf(stderr, "  CALLBACK THREAD: will grab mutex %p\n", &cback->mutex); */
-      cMsgMutexLock(&cback->mutex);
+/* fprintf(stderr, "  CALLBACK THREAD: will grab mutex %p\n", &cb->mutex); */
+      cMsgMutexLock(&cb->mutex);
 /* fprintf(stderr, "  CALLBACK THREAD: grabbed mutex\n"); */
       
       /* quit if commanded to */
-      if (cback->quit) {
-          /* Set flag telling thread-that-adds-messages-to-cue that
-           * its time to stop. The only bug-a-boo here is that we would
-           * prefer to do the following with the domain->subscribeMutex
-           * grabbed.
-           */
-          cback->active = 0;
-          
+      if (cb->quit) {         
           /* Now free all the messages cued up. */
-          msg = cback->head; /* get first message in linked list */
+          msg = cb->head; /* get first message in linked list */
           while (msg != NULL) {
             nextMsg = msg->next;
             p = (void *)msg; /* get rid of compiler warnings */
@@ -1421,11 +1421,11 @@ void *cMsgCallbackThread(void *arg)
             msg = nextMsg;
           }
           
-          cback->messages = 0;
+          cb->messages = 0;
           
           /* unlock mutex */
-          cMsgMutexUnlock(&cback->mutex);
-          cback->done = 1;
+          cMsgMutexUnlock(&cb->mutex);
+          cb->done = 1;
 
           /* Signal to cMsgRunCallbacks in case the cue is full and it's
            * blocked trying to put another message in. So now we tell it that
@@ -1436,40 +1436,42 @@ void *cMsgCallbackThread(void *arg)
             cmsg_err_abort(status, "Failed callback condition signal");
           }
           
+          /* If cMsgRunCallbacks is stuck due to having the cue full,
+           * take time before freeing cb memory since that struct is
+           * needed in cMsgRunCallbacks.
+           */
+          if (cb->fullQ) {
+            nanosleep(&wait, NULL);
+          }
+          cMsgCallbackInfoFree(cb);
+          free(cb);
 /* printf(" CALLBACK THREAD: told to quit\n"); */
           goto end;
       }
 
       /* do the following bookkeeping under mutex protection */
-      cback->threads += threadsAdded;
+      cb->threads += threadsAdded;
 
       if (threadsAdded) {
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          fprintf(stderr, "thds = %d\n", cback->threads);
+          fprintf(stderr, "thds = %d\n", cb->threads);
         }
       }
       
       /* wait while there are no messages */
-      while (cback->head == NULL) {
+      while (cb->head == NULL) {
         /* wait until signaled */
 /* fprintf(stderr, "  CALLBACK THREAD: cond wait, release mutex\n"); */
-        status = pthread_cond_wait(&cback->cond, &cback->mutex);
+        status = pthread_cond_wait(&cb->cond, &cb->mutex);
         if (status != 0) {
           cmsg_err_abort(status, "Failed callback cond wait");
         }
-/* fprintf(stderr, "  CALLBACK THREAD woke up, grabbed mutex\n", cback->quit); */
+/* fprintf(stderr, "  CALLBACK THREAD woke up, grabbed mutex\n", cb->quit); */
         
         /* quit if commanded to */
-        if (cback->quit) {
-          /* Set flag telling thread-that-adds-messages-to-cue that
-           * its time to stop. The only bug-a-boo here is that we would
-           * prefer to do the following with the domain->subscribeMutex
-           * grabbed.
-           */
-          cback->active = 0;
-          
+        if (cb->quit) {
           /* Now free all the messages cued up. */
-          msg = cback->head; /* get first message in linked list */
+          msg = cb->head; /* get first message in linked list */
           while (msg != NULL) {
             nextMsg = msg->next;
             p = (void *)msg; /* get rid of compiler warnings */
@@ -1477,20 +1479,30 @@ void *cMsgCallbackThread(void *arg)
             msg = nextMsg;
           }
           
-          cback->messages = 0;
+          cb->messages = 0;
           
           /* unlock mutex */
-          cMsgMutexUnlock(&cback->mutex);
-          cback->done = 1;
+          cMsgMutexUnlock(&cb->mutex);
+          cb->done = 1;
 
           /* Signal to cMsgRunCallbacks in case the cue is full and it's
-           * blocked trying to put another message in. So now we tell it that
-           * there are no messages in the cue and, in fact, no callback anymore.
-           */
+          * blocked trying to put another message in. So now we tell it that
+          * there are no messages in the cue and, in fact, no callback anymore.
+          */
           status = pthread_cond_signal(&domain->subscribeCond);
           if (status != 0) {
             cmsg_err_abort(status, "Failed callback condition signal");
           }
+          
+          /* If cMsgRunCallbacks is stuck due to having the cue full,
+          * take time before freeing cb memory since that struct is
+          * needed in cMsgRunCallbacks.
+          */
+          if (cb->fullQ) {
+            nanosleep(&wait, NULL);
+          }
+          cMsgCallbackInfoFree(cb);
+          free(cb);
           
 /* printf(" CALLBACK THREAD: told to quit\n"); */
           goto end;
@@ -1498,23 +1510,23 @@ void *cMsgCallbackThread(void *arg)
       }
             
       /* get first message in linked list */
-      msg = cback->head;
+      msg = cb->head;
 
       /* if there are no more messages ... */
       if (msg->next == NULL) {
-        cback->head = NULL;
-        cback->tail = NULL;
+        cb->head = NULL;
+        cb->tail = NULL;
       }
       /* else make the next message the head */
       else {
-        cback->head = msg->next;
+        cb->head = msg->next;
       }
-      cback->messages--;
+      cb->messages--;
      
       /* unlock mutex */
-/* fprintf(stderr, "  CALLBACK THREAD: message taken off cue, cue = %d\n",cback->messages);
+/* fprintf(stderr, "  CALLBACK THREAD: message taken off cue, cue = %d\n",cb->messages);
    fprintf(stderr, "  CALLBACK THREAD: release mutex\n"); */
-      cMsgMutexUnlock(&cback->mutex);
+      cMsgMutexUnlock(&cb->mutex);
       
       /* wakeup cMsgRunCallbacks thread if trying to add item to full cue */
 /* fprintf(stderr, "  CALLBACK THREAD: wake up cMsgRunCallbacks thread\n"); */
@@ -1526,7 +1538,7 @@ void *cMsgCallbackThread(void *arg)
       /* print out number of messages in cue */      
 /*       t = time(NULL);
       if (now + 3 <= t) {
-        printf("  CALLBACK THD: cue size = %d\n",cback->messages);
+        printf("  CALLBACK THD: cue size = %d\n",cb->messages);
         now = t;
       }
  */      
@@ -1536,10 +1548,10 @@ void *cMsgCallbackThread(void *arg)
       msg->context.subject = (char *) strdup(sub->subject);
       msg->context.type    = (char *) strdup(sub->type);
       msg->context.udl     = (char *) strdup(domain->udl);
-      msg->context.cueSize = &cback->messages; /* pointer to cueSize info allows it
+      msg->context.cueSize = &cb->messages; /* pointer to cueSize info allows it
                                                   to always be up-to-date in callback */
-      cback->msgCount++;
-      cback->callback(msg, cback->userArg);
+      cb->msgCount++;
+      cb->callback(msg, cb->userArg);
       
     } /* while(1) */
     
@@ -1570,7 +1582,7 @@ void *cMsgSupplementalThread(void *arg)
     cbArg *cbarg = (cbArg *) arg;
     cMsgDomainInfo *domain = cbarg->domain;
     subInfo *sub           = cbarg->sub;
-    subscribeCbInfo *cback = cbarg->cb;
+    subscribeCbInfo *cb = cbarg->cb;
     int status, empty;
     cMsgMessage_t *msg, *nextMsg;
     struct timespec wait, timeout;
@@ -1593,19 +1605,12 @@ void *cMsgSupplementalThread(void *arg)
       empty = 0;
       
       /* lock mutex before messing with linked list */
-      cMsgMutexLock(&cback->mutex);
+      cMsgMutexLock(&cb->mutex);
       
       /* quit if commanded to */
-      if (cback->quit) {
-          /* Set flag telling thread-that-adds-messages-to-cue that
-           * its time to stop. The only bug-a-boo here is that we would
-           * prefer to do the following with the domain->subscribeMutex
-           * grabbed.
-           */
-          cback->active = 0;
-          
+      if (cb->quit) {
           /* Now free all the messages cued up. */
-          msg = cback->head; /* get first message in linked list */
+          msg = cb->head; /* get first message in linked list */
           while (msg != NULL) {
             nextMsg = msg->next;
             p = (void *)msg; /* get rid of compiler warnings */
@@ -1613,11 +1618,11 @@ void *cMsgSupplementalThread(void *arg)
             msg = nextMsg;
           }
           
-          cback->messages = 0;
+          cb->messages = 0;
           
           /* unlock mutex */
-          cMsgMutexUnlock(&cback->mutex);
-          cback->done = 1;
+          cMsgMutexUnlock(&cb->mutex);
+          cb->done = 1;
 
           /* Signal to cMsgRunCallbacks in case the cue is full and it's
            * blocked trying to put another message in. So now we tell it that
@@ -1632,24 +1637,24 @@ void *cMsgSupplementalThread(void *arg)
       }
 
       /* wait while there are no messages */
-      while (cback->head == NULL) {
+      while (cb->head == NULL) {
         /* wait until signaled or for .2 sec, before
          * waking thread up and checking for messages
          */
         cMsgGetAbsoluteTime(&timeout, &wait);        
-        status = pthread_cond_timedwait(&cback->cond, &cback->mutex, &wait);
+        status = pthread_cond_timedwait(&cb->cond, &cb->mutex, &wait);
         
         /* if the wait timed out ... */
         if (status == ETIMEDOUT) {
           /* if we wake up 10 times with no messages (2 sec), quit this thread */
           if (++empty%10 == 0) {
-            cback->threads--;
+            cb->threads--;
             if (cMsgDebug >= CMSG_DEBUG_INFO) {
-              fprintf(stderr, "thds = %d\n", cback->threads);
+              fprintf(stderr, "thds = %d\n", cb->threads);
             }
             
             /* unlock mutex & kill this thread */
-            cMsgMutexUnlock(&cback->mutex);
+            cMsgMutexUnlock(&cb->mutex);
             
             sun_setconcurrency(con);
 
@@ -1663,16 +1668,9 @@ void *cMsgSupplementalThread(void *arg)
         }
         
         /* quit if commanded to */
-        if (cback->quit) {
-          /* Set flag telling thread-that-adds-messages-to-cue that
-           * its time to stop. The only bug-a-boo here is that we would
-           * prefer to do the following with the domain->subscribeMutex
-           * grabbed.
-           */
-          cback->active = 0;
-          
+        if (cb->quit) {
           /* Now free all the messages cued up. */
-          msg = cback->head; /* get first message in linked list */
+          msg = cb->head; /* get first message in linked list */
           while (msg != NULL) {
             nextMsg = msg->next;
             p = (void *)msg; /* get rid of compiler warnings */
@@ -1680,11 +1678,11 @@ void *cMsgSupplementalThread(void *arg)
             msg = nextMsg;
           }
           
-          cback->messages = 0;
+          cb->messages = 0;
           
           /* unlock mutex */
-          cMsgMutexUnlock(&cback->mutex);
-          cback->done = 1;
+          cMsgMutexUnlock(&cb->mutex);
+          cb->done = 1;
 
           /* Signal to cMsgRunCallbacks in case the cue is full and it's
            * blocked trying to put another message in. So now we tell it that
@@ -1700,21 +1698,21 @@ void *cMsgSupplementalThread(void *arg)
       }
                   
       /* get first message in linked list */
-      msg = cback->head;      
+      msg = cb->head;
 
       /* if there are no more messages ... */
       if (msg->next == NULL) {
-        cback->head = NULL;
-        cback->tail = NULL;
+        cb->head = NULL;
+        cb->tail = NULL;
       }
       /* else make the next message the head */
       else {
-        cback->head = msg->next;
+        cb->head = msg->next;
       }
-      cback->messages--;
+      cb->messages--;
      
       /* unlock mutex */
-      cMsgMutexUnlock(&cback->mutex);
+      cMsgMutexUnlock(&cb->mutex);
       
       /* wakeup cMsgRunCallbacks thread if trying to add item to full cue */
       status = pthread_cond_signal(&domain->subscribeCond);
@@ -1727,10 +1725,10 @@ void *cMsgSupplementalThread(void *arg)
       msg->context.subject = (char *) strdup(sub->subject);
       msg->context.type    = (char *) strdup(sub->type);
       msg->context.udl     = (char *) strdup(domain->udl);
-      msg->context.cueSize = &cback->messages; /* pointer to cueSize info allows it
+      msg->context.cueSize = &cb->messages; /* pointer to cueSize info allows it
                                                   to always be up-to-date in callback */
-      cback->msgCount++;
-      cback->callback(msg, cback->userArg);
+      cb->msgCount++;
+      cb->callback(msg, cb->userArg);
       
     }
     

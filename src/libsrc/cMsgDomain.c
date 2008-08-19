@@ -85,6 +85,9 @@ typedef struct thdArg_t {
 /** Number of seconds to wait for cMsgClientListeningThread threads to start. */
 #define WAIT_FOR_THREADS 10
 
+/** Number of seconds to wait for callback thread to end before cancelling. */
+#define WAIT_FOR_CB_THREAD 1
+
 /* local variables */
 /** Pthread mutex to protect one-time initialization and the local generation of unique numbers. */
 static pthread_mutex_t generalMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -3592,8 +3595,8 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
     hz = sysconf(_SC_CLK_TCK);
     if (hz < 0) hz = 100;
 #endif
-    /* wait up to WAIT_FOR_THREADS seconds for a thread to finish */
-    try_max = hz * WAIT_FOR_THREADS;
+    /* wait up to WAIT_FOR_CB_THREAD seconds for a cb thread to finish */
+    try_max = hz * WAIT_FOR_CB_THREAD;
     num_try = 0;
     waitForThread.tv_sec  = 0;
     waitForThread.tv_nsec = 1000000000/hz;
@@ -3607,12 +3610,9 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
       }
       /* kill thread if taking too long */
       pthread_cancel(cb->thread);
-      nanosleep(&waitForThread, NULL);
     }
           
-    /* free mem */
-    cMsgCallbackInfoFree(cb);
-    free(cb);
+    /* Free mem, don't free cb struct, that's done in cb thread. */
     free(cbarg);
 
     break;

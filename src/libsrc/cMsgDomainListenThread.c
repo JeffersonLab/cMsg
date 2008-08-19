@@ -785,7 +785,7 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
   char *idString;
   void *p;
 
-  /* wait 60 sec between warning messages for a full cue */
+  /* wait 3 sec between warning messages for a full cue */
   timeout.tv_sec  = 3;
   timeout.tv_nsec = 0;
     
@@ -923,13 +923,14 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
               goToNextCallback = 0;
 
               while (cb->messages >= cb->config.maxCueSize) {
-                  /* Wait here until signaled - meaning message taken off cue or unsubscribed.
-                * There is a problem doing a pthread_cancel on this thread because
-                * the only cancellation point is the timedwait which follows. The
-                * cancellation wakes the timewait which locks the mutex and then it
-                * exits the thread. However, we do NOT want to block cancellation
-                * here just in case we need to kill things no matter what.
-                  */
+                cb->fullQ = 1;
+                /* Wait here until signaled - meaning message taken off cue or unsubscribed.
+                 * There is a problem doing a pthread_cancel on this thread because
+                 * the only cancellation point is the timedwait which follows. The
+                 * cancellation wakes the timewait which locks the mutex and then it
+                 * exits the thread. However, we do NOT want to block cancellation
+                 * here just in case we need to kill things no matter what.
+                 */
                 cMsgGetAbsoluteTime(&timeout, &wait);
                 /* fprintf(stderr, "cMsgRunCallbacks: cue full, start waiting, will UNLOCK mutex\n"); */
                 status = pthread_cond_timedwait(&domain->subscribeCond, &domain->subscribeMutex, &wait);
@@ -944,18 +945,16 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
                   return(CMSG_SERVER_DIED);
                 }
                   
-                  /* BUGBUG
-                * There is a race condition here. If an unsubscribe of the current
-                * callback was done during the above wait there may be a problem.
-                * It's possible that the array element storing the callback info
-                * would be overwritten with the new subscription. This can only
-                * happen if the new subscription sneaks in after the above wait
-                * and before the check on the next line. In any case, what could
-                * happen is that the message waiting to be put on the cue is now
-                * put on the new cue.
-                * Check for our callback being unsubscribed first.
-                  */
-                if (cb->active == 0) {
+                /* BUGBUG
+                 * There is a race condition here. If an unsubscribe of the current
+                 * callback was done during the above wait there may be a problem.
+                 * As the callback thread is being terminated (cb->quit == 1),
+                 * we have 1/2 second to use the cb struct before it's freed.
+                 * Shouldn't happen, but you never know.
+                 */
+
+                /* Check for our callback being unsubscribed first. */
+                if (cb->quit == 1) {
                   /* if there is no callback anymore, dump message, look at next callback */
                   p = (void *)message; /* get rid of compiler warnings */
                   cMsgFreeMessage(&p);
@@ -977,6 +976,7 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
                 }
                 /* else woken up 'cause msg taken off cue */
                 else {
+                  cb->fullQ = 0;
                   break;
                 }
               }
