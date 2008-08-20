@@ -3730,7 +3730,7 @@ static int disconnectFromKeepAlive(void **domainId) {
   
   int i, status, tblSize;
   cMsgDomainInfo *domain;
-  subscribeCbInfo *cb;
+  subscribeCbInfo *cb, *cbNext;
   subInfo *sub;
   getInfo *info;
   struct timespec wait4thds = {0,100000000}; /* 0.1 sec */
@@ -3776,6 +3776,10 @@ static int disconnectFromKeepAlive(void **domainId) {
         /* tell callback thread to end */
         cb->quit = 1;
 
+        /* once the callback thread is woken up, it will free cb memory,
+        * so store anything from that struct locally, NOW. */
+        cbNext = cb->next;
+
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "cmsg_cmsg_disconnect:wake up callback thread\n");
         }
@@ -3812,12 +3816,10 @@ static int disconnectFromKeepAlive(void **domainId) {
           }
           /* kill thread if taking too long */
           pthread_cancel(cb->thread);
-          nanosleep(&waitForThread, NULL);
         }
 
-        cMsgCallbackInfoFree(cb);
         /* go to the next callback */
-        cb = cb->next;
+        cb = cbNext;
         
       } /* next callback */
       
