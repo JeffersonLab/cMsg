@@ -228,11 +228,11 @@ void *cMsgClientListeningThread(void *arg)
             }
             exit(1);
           }
-
+          /*
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
             fprintf(stderr, "clientThread: subscribe response received\n");
           }
-          
+          */
           /* fill in known message fields */
           message->next = NULL;
           clock_gettime(CLOCK_REALTIME, &message->receiverTime);
@@ -383,6 +383,7 @@ void *cMsgClientListeningThread(void *arg)
   /* on some operating systems (Linux) this call is necessary - calls cleanup handler */
   pthread_cleanup_pop(1);
     
+  pthread_exit(NULL);
   return NULL;
 }
 
