@@ -3250,7 +3250,7 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
     return(CMSG_BAD_ARGUMENT);  
   }
   
-  cbarg = (cbArg *)handle;  
+  cbarg = (cbArg *)handle;
   if (cbarg->domainId != (uintptr_t)domainId) {
     return(CMSG_BAD_ARGUMENT);    
   }
@@ -3499,7 +3499,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
   
   int i, status, outGoing[2], tblSize;
   cMsgDomainInfo *domain;
-  subscribeCbInfo *cb;
+  subscribeCbInfo *cb, *cbNext;
   getInfo *info;
   subInfo *sub;
   struct timespec wait4thds = {0, 100000000}; /* 0.1 sec */
@@ -3576,8 +3576,16 @@ int cmsg_cmsg_disconnect(void **domainId) {
 
       /* for each callback ... */
       while (cb != NULL) {       
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+          fprintf(stderr, "cmsg_cmsg_disconnect: callback thread = %p\n", cb);
+        }
+
         /* tell callback thread to end */
         cb->quit = 1;
+        
+        /* once the callback thread is woken up, it will free cb memory,
+         * so store anything from that struct locally, NOW. */
+        cbNext = cb->next;
 
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "cmsg_cmsg_disconnect:wake up callback thread\n");
@@ -3600,8 +3608,8 @@ int cmsg_cmsg_disconnect(void **domainId) {
         hz = sysconf(_SC_CLK_TCK);
         if (hz < 0) hz = 100;
 #endif
-        /* wait up to WAIT_FOR_THREADS seconds for a thread to finish */
-        try_max = hz * WAIT_FOR_THREADS;
+        /* wait up to WAIT_FOR_CB_THREAD seconds for a thread to finish */
+        try_max = hz * WAIT_FOR_CB_THREAD;
         num_try = 0;
         waitForThread.tv_sec  = 0;
         waitForThread.tv_nsec = 1000000000/hz;
@@ -3617,9 +3625,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
             pthread_cancel(cb->thread);
         }
 
-        /* go to the next callback */
-        cb = cb->next;
-        
+        cb = cbNext;        
       } /* next callback */
       
       free(entries[i].key);
@@ -3791,8 +3797,8 @@ static int disconnectFromKeepAlive(void **domainId) {
         hz = sysconf(_SC_CLK_TCK);
         if (hz < 0) hz = 100;
 #endif
-        /* wait up to WAIT_FOR_THREADS seconds for a thread to finish */
-        try_max = hz * WAIT_FOR_THREADS;
+        /* wait up to WAIT_FOR_CB_THREAD seconds for a thread to finish */
+        try_max = hz * WAIT_FOR_CB_THREAD;
         num_try = 0;
         waitForThread.tv_sec  = 0;
         waitForThread.tv_nsec = 1000000000/hz;
