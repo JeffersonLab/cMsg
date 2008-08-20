@@ -3559,6 +3559,9 @@ int cmsg_cmsg_disconnect(void **domainId) {
   pthread_cancel(domain->pendThread);
   
   /* terminate all callback threads */
+   
+  /* Don't want incoming msgs to be delivered to callbacks will removing them. */
+  cMsgSubscribeMutexLock(domain);
 
   /* get client subscriptions */
   hashClear(&domain->subscribeTable, &entries, &tblSize);
@@ -3608,14 +3611,12 @@ int cmsg_cmsg_disconnect(void **domainId) {
         }
         if (num_try > try_max) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                fprintf(stderr, "cmsg_cmsg_unsubscribe, callback thread not stopped yet, cancel it\n");
+              fprintf(stderr, "cmsg_cmsg_disconnect, callback thread not stopped yet, cancel it\n");
             }
             /* kill thread if taking too long */
             pthread_cancel(cb->thread);
-            nanosleep(&waitForThread, NULL);
         }
 
-        cMsgCallbackInfoFree(cb);
         /* go to the next callback */
         cb = cb->next;
         
@@ -3629,9 +3630,12 @@ int cmsg_cmsg_disconnect(void **domainId) {
     free(entries);
   } /* if there are subscriptions */
 
+  cMsgSubscribeMutexUnlock(domain);
 
   /* wakeup all gets */
+  cMsgSendAndGetMutexLock(domain);
   hashClear(&domain->sendAndGetTable, &entries, &tblSize);
+  cMsgSendAndGetMutexUnlock(domain);
   if (entries != NULL) {
     for (i=0; i<tblSize; i++) {
       info = (getInfo *)entries[i].data;
@@ -3657,7 +3661,9 @@ int cmsg_cmsg_disconnect(void **domainId) {
   }
   
   /* wakeup all syncSends */
+  cMsgSyncSendMutexLock(domain);
   hashClear(&domain->syncSendTable, &entries, &tblSize);
+  cMsgSyncSendMutexUnlock(domain);
   if (entries != NULL) {
     for (i=0; i<tblSize; i++) {
       info = (getInfo *)entries[i].data;
