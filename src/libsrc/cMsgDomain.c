@@ -3750,6 +3750,9 @@ static int disconnectFromKeepAlive(void **domainId) {
   close(domain->sendSocket);
     
   /* terminate all callback threads */
+  
+  /* Don't want incoming msgs to be delivered to callbacks will removing them. */
+  cMsgSubscribeMutexLock(domain);
 
   /* get client subscriptions */
   hashClear(&domain->subscribeTable, &entries, &tblSize);
@@ -3820,10 +3823,13 @@ static int disconnectFromKeepAlive(void **domainId) {
     free(entries);
   } /* if there are subscriptions */
 
+  cMsgSubscribeMutexUnlock(domain);
 
 
   /* wakeup all gets */
+  cMsgSendAndGetMutexLock(domain);
   hashClear(&domain->sendAndGetTable, &entries, &tblSize);
+  cMsgSendAndGetMutexUnlock(domain);
   if (entries != NULL) {
     for (i=0; i<tblSize; i++) {
       info = (getInfo *)entries[i].data;
@@ -3849,7 +3855,9 @@ static int disconnectFromKeepAlive(void **domainId) {
   }
   
   /* wakeup all syncSends */
+  cMsgSyncSendMutexLock(domain);
   hashClear(&domain->syncSendTable, &entries, &tblSize);
+  cMsgSyncSendMutexUnlock(domain);
   if (entries != NULL) {
     for (i=0; i<tblSize; i++) {
       info = (getInfo *)entries[i].data;
