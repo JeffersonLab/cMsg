@@ -87,7 +87,7 @@ typedef struct subscribeCbInfo_t {
   pthread_t         thread;   /**< Thread running callback. */
   pthread_cond_t    cond;     /**< Condition variable callback thread is waiting on. */
   pthread_mutex_t   mutex;    /**< Mutex callback thread is waiting on. */
-  struct subscribeCbInfo_t * next; /**< Pointer allows struct to be part of linked list. */
+  struct subscribeCbInfo_t *next; /**< Pointer allows struct to be part of linked list. */
 } subscribeCbInfo;
 
 
