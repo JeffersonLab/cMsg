@@ -780,7 +780,7 @@ void cMsgSubscribeInfoFree(subInfo *info) {
   
     }
 #endif   
-    cMsgSubscribeInfoFree(info);
+    cMsgSubscribeInfoFreeNoMutex(info);
 }
 
 
@@ -1486,24 +1486,24 @@ void *cMsgCallbackThread(void *arg)
           cb->done = 1;
 
           /* Signal to cMsgRunCallbacks in case the cue is full and it's
-          * blocked trying to put another message in. So now we tell it that
-          * there are no messages in the cue and, in fact, no callback anymore.
-          */
+           * blocked trying to put another message in. So now we tell it that
+           * there are no messages in the cue and, in fact, no callback anymore.
+           */
           status = pthread_cond_signal(&domain->subscribeCond);
           if (status != 0) {
             cmsg_err_abort(status, "Failed callback condition signal");
           }
           
           /* If cMsgRunCallbacks is stuck due to having the cue full,
-          * take time before freeing cb memory since that struct is
-          * needed in cMsgRunCallbacks.
-          */
+           * take time before freeing cb memory since that struct is
+           * needed in cMsgRunCallbacks.
+           */
           if (cb->fullQ) {
             nanosleep(&wait, NULL);
           }
           cMsgCallbackInfoFree(cb);
           free(cb);
-          
+
 /* printf(" CALLBACK THREAD: told to quit\n"); */
           goto end;
         }
