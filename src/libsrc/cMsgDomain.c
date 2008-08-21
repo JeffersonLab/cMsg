@@ -4390,15 +4390,14 @@ static void *keepAliveThread(void *arg) {
                domain->monitorXMLSize = len;
                if (domain->monitorXML == NULL) {
                    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                       fprintf(stderr, "keepAliveThread: no memory\n");
+                     fprintf(stderr, "keepAliveThread: no memory for size %d\n", (len+1));
                    }                
                    exit(-1);
                }
            }
 
            /* read monitoring data */
-           if ((err = cMsgTcpRead(socket, domain->monitorXML, domain->monitorXMLSize)) !=
-                        domain->monitorXMLSize) {
+           if ((err = cMsgTcpRead(socket, domain->monitorXML, len)) !=  len) {
                if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                    fprintf(stderr, "keepAliveThread: read failure\n");
                }
