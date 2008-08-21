@@ -45,9 +45,9 @@ extern "C" {
     int   hashInsertTry(hashTable *, const char *, void *);
     int   hashInsert   (hashTable *, const char *, void *, void **);
     int   hashRemove   (hashTable *, const char *, void **);
-    void  hashGetAll   (hashTable *, hashNode **, int *);
-    void  hashClear    (hashTable *, hashNode **, int *);
-    void  hashDestroy  (hashTable *, hashNode **, int *);
+    int   hashGetAll   (hashTable *, hashNode **, int *);
+    int   hashClear    (hashTable *, hashNode **, int *);
+    int   hashDestroy  (hashTable *, hashNode **, int *);
     int   hashSize     (hashTable *);
     char *hashStats    (hashTable *);
 

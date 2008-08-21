@@ -39,8 +39,9 @@ static int hash(const hashTable *tptr, const char *key) {
     int i=0;
     int hashvalue;
 
-    while (*key != '\0')
+    while (*key != '\0') {
         i=(i<<3)+(*key++ - '0');
+    }
 
     hashvalue = (((i*1103515249)>>tptr->downshift) & tptr->mask);
     if (hashvalue < 0) {
@@ -60,8 +61,9 @@ static int hash(const hashTable *tptr, const char *key) {
 void hashInit(hashTable *tptr, int buckets) {
 
     /* make sure we allocate something */
-    if (buckets<=0)
+    if (buckets<=0) {
         buckets=16;
+    }
 
     /* initialize the table */
     tptr->entries=0;
@@ -132,14 +134,16 @@ int hashLookup(const hashTable *tptr, const char *key, void **data) {
     /* find the entry in the hash table */
     h=hash(tptr, key);
     for (node=tptr->bucket[h]; node!=NULL; node=node->next) {
-        if (!strcmp(node->key, key))
-            break;
+        if (!strcmp(node->key, key)) {
+          break;
+        }
     }
 
     /* Set pointer to the entry if it exists. Return 1 if it exists, else 0. */
     if (node != NULL) {
-        if (data != NULL)
+        if (data != NULL) {
             *data = node->data;
+        }
         return (1);
     }
     return (0);
@@ -168,8 +172,9 @@ int hashInsertTry(hashTable *tptr, const char *key, void *data) {
     /* find the entry in the hash table */
     h=hash(tptr, key);
     for (node=tptr->bucket[h]; node!=NULL; node=node->next) {
-        if (!strcmp(node->key, key))
+        if (!strcmp(node->key, key)) {
             break;
+        }
     }
 
     /* if entry exists, return */
@@ -219,14 +224,16 @@ int hashInsert(hashTable *tptr, const char *key, void *data, void **oldData) {
   /* find the entry in the hash table */
   h=hash(tptr, key);
   for (node=tptr->bucket[h]; node!=NULL; node=node->next) {
-    if (!strcmp(node->key, key))
-      break;
+      if (!strcmp(node->key, key)) {
+          break;
+      }
   }
 
   /* if entry exists, update it and return */
   if (node != NULL) {
-    if (oldData != NULL)
+    if (oldData != NULL) {
       *oldData = node->data;
+    }
     node->data = data;
     return (1);
   }
@@ -266,29 +273,34 @@ int hashRemove(hashTable *tptr, const char *key, void **data) {
     /* find the node to remove */
     h=hash(tptr, key);
     for (node=tptr->bucket[h]; node; node=node->next) {
-        if (!strcmp(node->key, key))
+        if (!strcmp(node->key, key)) {
             break;
+        }
     }
 
     /* Didn't find anything */
-    if (node==NULL)
+    if (node==NULL) {
         return 0;
+    }
 
     /* if node is at head of bucket, we have it easy */
-    if (node==tptr->bucket[h])
+    if (node==tptr->bucket[h]) {
         tptr->bucket[h]=node->next;
+    }
     else {
         /* find the node before the node we want to remove */
         for (last=tptr->bucket[h]; last && last->next; last=last->next) {
-            if (last->next==node)
+            if (last->next==node) {
                 break;
+            }
         }
         last->next=node->next;
     }
 
     /* free memory and return the data */
-    if (data != NULL)
+    if (data != NULL) {
         *data=node->data;
+    }
     free(node->key);
     free(node);
     tptr->entries--;
@@ -300,31 +312,37 @@ int hashRemove(hashTable *tptr, const char *key, void **data) {
 /**
  * This routine returns an array of all the entries and its size.
  * The caller must free the returned array to avoid a memory leak,
- * but must NOT free the keys or data.
+ * but must NOT free the keys or data. If any argument is
+ * NULL, no information is returned in any argument.
  * 
  * @param tptr A pointer to the hash table
  * @param entries pointer to array of hashNode structures -
  *                gets filled with entries if not NULL
  * @param size pointer to int -
  *             gets filled with the number of entries if not NULL and entries not NULL
+ *
+ * @return 1 if meaningful results returned, else 0. Means an arg is NULL
+ *         or cannot allocate memory
  */
-void hashGetAll(hashTable *tptr, hashNode **entries, int *size) {
+int hashGetAll(hashTable *tptr, hashNode **entries, int *size) {
     hashNode *node, *last, *array=NULL;
     int i, index=0;
 
+    if (tptr == NULL || entries == NULL || size == NULL) {
+      return 0;
+    }
+
     /* return data so user can free it */
-    if (entries != NULL) {
-        if (tptr->entries > 0) {
-            array = (hashNode *) malloc(tptr->entries*sizeof(hashNode));
-            *entries = array;
-            if (size != NULL)
-                *size = tptr->entries;
-        }
-        else {
-            *entries = NULL;
-            if (size != NULL)
-                *size = 0;
-        }
+    if (tptr->entries > 0) {
+        array = (hashNode *) malloc(tptr->entries*sizeof(hashNode));
+        if (array == NULL) return 0;
+        *entries = array;
+        *size = tptr->entries;
+    }
+    else {
+        *entries = NULL;
+        *size = 0;
+        return 1;
     }
 
     for (i=0; i<tptr->size; i++) {
@@ -332,13 +350,13 @@ void hashGetAll(hashTable *tptr, hashNode **entries, int *size) {
         while (node != NULL) { 
             last = node;   
             node = node->next;
-            if (array != NULL) {
-                array[index].key    = last->key;
-                array[index].data   = last->data;
-                array[index++].next = NULL;
-            }
+            
+            array[index].key    = last->key;
+            array[index].data   = last->data;
+            array[index++].next = NULL;
         }
     }
+    return 1;
 }
 
 
@@ -360,46 +378,57 @@ void hashGetAll(hashTable *tptr, hashNode **entries, int *size) {
  *                gets filled with entries if not NULL
  * @param size pointer to int -
  *             gets filled with the number of entries if not NULL and entries not NULL
+ *
+ * @return 0 if NULL first arg or cannot allocate memory, else 1
  */
-void hashClear(hashTable *tptr, hashNode **entries, int *size) {
-    hashNode *node, *last, *array=NULL;
-    int i, index=0;
+int hashClear(hashTable *tptr, hashNode **entries, int *size) {
+  hashNode *node, *last, *array=NULL;
+  int i, index=0;
 
-    /* return data so user can free it */
-    if (entries != NULL) {
-        if (tptr->entries > 0) {
-            array = (hashNode *) malloc(tptr->entries*sizeof(hashNode));
-            *entries = array;
-            if (size != NULL)
-                *size = tptr->entries;
-        }
-        else {
-            *entries = NULL;
-            if (size != NULL)
-                *size = 0;
-        }
+  if (tptr == NULL) {
+    return 0;
+  }
+
+  /* return data so user can free it */
+  if (entries != NULL) {
+    if (tptr->entries > 0) {
+      array = (hashNode *) malloc(tptr->entries*sizeof(hashNode));
+      if (array == NULL) return 0;
+      *entries = array;
+      if (size != NULL) {
+         *size = tptr->entries;
+      }
     }
-
-    for (i=0; i<tptr->size; i++) {
-        node = tptr->bucket[i];
-        while (node != NULL) { 
-            last = node;   
-            node = node->next;
-            if (array != NULL) {
-                array[index].key    = last->key;
-                array[index].data   = last->data;
-                array[index++].next = NULL;
-            }
-            else {
-                free(last->key);
-            }
-            free(last);
-        }
+    else {
+      *entries = NULL;
+      if (size != NULL) {
+         *size = 0;
+      }
+      tptr->entries = 0;
+      return 1;
     }
+  }
 
-    tptr->entries = 0;
+  for (i=0; i<tptr->size; i++) {
+    node = tptr->bucket[i];
+    while (node != NULL) {
+      last = node;
+      node = node->next;
+      if (array != NULL) {
+        array[index].key    = last->key;
+        array[index].data   = last->data;
+        array[index++].next = NULL;
+      }
+      else {
+        free(last->key);
+      }
+      free(last);
+    }
+  }
+
+  tptr->entries = 0;
+  return 1;
 }
-
 
 /**
  * This routine deletes the entire table, and all entries.<p>
@@ -419,15 +448,18 @@ void hashClear(hashTable *tptr, hashNode **entries, int *size) {
  *                gets filled with entries if not NULL
  * @param size pointer to int -
  *             gets filled with the number of entries if not NULL and entries not NULL
+ *
+ * @return 0 if NULL first arg, else 1
  */
-void hashDestroy(hashTable *tptr, hashNode **entries, int *size) {
-    hashClear(tptr, entries, size);
+int hashDestroy(hashTable *tptr, hashNode **entries, int *size) {
+  if (!hashClear(tptr, entries, size)) return 0;
 
     /* free the entire array of buckets */
     if (tptr->bucket != NULL) {
         free(tptr->bucket);
         memset(tptr, 0, sizeof(hashTable));
     }
+    return 1;
 }
 
 
