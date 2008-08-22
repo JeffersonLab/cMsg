@@ -449,7 +449,7 @@ int hashClear(hashTable *tptr, hashNode **entries, int *size) {
  * @param size pointer to int -
  *             gets filled with the number of entries if not NULL and entries not NULL
  *
- * @return 0 if NULL first arg, else 1
+ * @return 0 if NULL first arg or cannot allocate memory, else 1
  */
 int hashDestroy(hashTable *tptr, hashNode **entries, int *size) {
   if (!hashClear(tptr, entries, size)) return 0;
