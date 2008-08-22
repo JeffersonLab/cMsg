@@ -772,7 +772,10 @@ static int cMsgWakeSyncSend(cMsgDomainInfo *domain, int response, int ssid) {
 
 /**
  * This routine runs all the appropriate subscribe and subscribeAndGet
- * callbacks when a message arrives from the server. 
+ * callbacks when a message arrives from the server.
+ * 
+ * @returns CMSG_OK if successful
+ * @returns CMSG_OUT_OF_MEMORY if all available memory has been used
  */
 int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
 
@@ -786,13 +789,18 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
   char *idString;
   void *p;
 
-  /* wait 3 sec between warning messages for a full cue */
-  timeout.tv_sec  = 3;
+  /* wait 10 sec between warning messages for a full cue */
+  timeout.tv_sec  = 10;
   timeout.tv_nsec = 0;
     
   /* for each subscribeAndGet ... */
   cMsgSubAndGetMutexLock(domain); /* serialize access to subAndGet hash table */
-  hashGetAll(&domain->subAndGetTable, &entries, &tblSize);
+  
+  if (!hashGetAll(&domain->subAndGetTable, &entries, &tblSize)) {
+    cMsgSubAndGetMutexUnlock(domain);
+    return(CMSG_OUT_OF_MEMORY); /* ... or table is NULL pointer */
+  }
+  
   if (entries != NULL) {
     for (i=0; i<tblSize; i++) {
       info = (getInfo *)entries[i].data;
@@ -924,7 +932,6 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
               goToNextCallback = 0;
 
               while (cb->messages >= cb->config.maxCueSize) {
-                cb->fullQ = 1;
                 /* Wait here until signaled - meaning message taken off cue or unsubscribed.
                  * There is a problem doing a pthread_cancel on this thread because
                  * the only cancellation point is the timedwait which follows. The
@@ -950,7 +957,7 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
                  * There is a race condition here. If an unsubscribe of the current
                  * callback was done during the above wait there may be a problem.
                  * As the callback thread is being terminated (cb->quit == 1),
-                 * we have 1/2 second to use the cb struct before it's freed.
+                 * we have 1 second (minimum) to use the cb struct before it's freed.
                  * Shouldn't happen, but you never know.
                  */
 
@@ -968,16 +975,18 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
                 if (status == ETIMEDOUT) {
                   /* fprintf(stderr, "cMsgRunCallbacks: timeout of waiting\n"); */
                   if (cMsgDebug >= CMSG_DEBUG_WARN) {
-                    fprintf(stderr, "cMsgRunCallbacks: waited 1 minute for cue to empty\n");
+                    fprintf(stderr, "cMsgRunCallbacks: waited 10 seconds for cue to empty\n");
                   }
                 }
                 /* else if error */
                 else if (status != 0) {
                   cmsg_err_abort(status, "Failed callback cond wait");
                 }
+                /* else woken up 'cause of unsubscribe of another callback so ignore */
+                else if (!cb->quit) {
+                }
                 /* else woken up 'cause msg taken off cue */
                 else {
-                  cb->fullQ = 0;
                   break;
                 }
               }

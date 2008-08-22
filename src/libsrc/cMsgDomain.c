@@ -2954,6 +2954,7 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type,
     cb->callback = callback;
     cb->userArg  = userArg;
     cb->config   = *sConfig;
+printf("Creating cb thread at %p\n", cb);
 
     /* store callback in subscription's linked list */
     cbItem = sub->callbacks;
@@ -3227,8 +3228,6 @@ static int resubscribe(cMsgDomainInfo *domain, subInfo *sub) {
 int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
 
   int fd, status, err;
-  int hz, num_try, try_max;
-  struct timespec waitForThread;
   cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
   struct iovec iov[3];
   cbArg           *cbarg;
@@ -3365,11 +3364,11 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
       else {
         printf("cmsg_cmsg_unsubscribe: no cbs in sub list (?!), cannot remove cb\n");
       }
+      
+      /* one less callback */
+      sub->numCallbacks--;
     }
     
-    /* one less callback */
-    sub->numCallbacks--;
-
     /* tell callback thread to end */
     cb->quit = 1;
 
@@ -3379,41 +3378,27 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
       cmsg_err_abort(status, "Failed callback condition signal");
     }
 
+    /* Signal to cMsgRunCallbacks in case the callback's cue is full and
+    * the message-receiving thread is blocked trying to put another message in.
+    * So now we tell it that there are no messages in the cue and, in fact,
+    * no callback anymore. It will only wake up once we call
+    * cMsgSubscribeMutexUnlock.
+    */
+    status = pthread_cond_signal(&domain->subscribeCond);
+    if (status != 0) {
+      cmsg_err_abort(status, "Failed RunCallbacks condition signal");
+    }
+
     domain->monData.numUnsubscribes++;
     
     /* done protecting unsubscribe */
     cMsgSubscribeMutexUnlock(domain);
     cMsgConnectReadUnlock(domain);
-  
-    /* At this point we want to free callback resources (mutex, cond variable)
-     * but cannot do so since they may still be in use during callback thread
-     * shutdown. We must wait for callback thread to say, "done using resources".
-     */
-#ifdef VXWORKS
-    hz = sysClkRateGet();
-#else
-    /* get system clock rate - probably 100 Hz */
-    hz = sysconf(_SC_CLK_TCK);
-    if (hz < 0) hz = 100;
-#endif
-    /* wait up to WAIT_FOR_CB_THREAD seconds for a cb thread to finish */
-    try_max = hz * WAIT_FOR_CB_THREAD;
-    num_try = 0;
-    waitForThread.tv_sec  = 0;
-    waitForThread.tv_nsec = 1000000000/hz;
 
-    while((cb->done != 1) && (num_try++ < try_max)) {
-      nanosleep(&waitForThread, NULL);
-    }
-    if (num_try > try_max) {
-      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cmsg_cmsg_unsubscribe, callback thread not stopped yet, cancel it\n");
-      }
-      /* kill thread if taking too long */
-      pthread_cancel(cb->thread);
-    }
-          
-    /* Free mem, don't free cb struct, that's done in cb thread. */
+    /* Kill callback thread. Thread's cleanup handler will free cb memory */
+    pthread_cancel(cb->thread);
+
+    /* Free arg mem */
     free(cbarg);
 
     break;

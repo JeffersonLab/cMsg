@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <time.h>
 #include <ctype.h>
@@ -490,7 +491,6 @@ void cMsgCallbackInfoInit(subscribeCbInfo *info) {
     int status;
     
     info->done     = 0;
-    info->fullQ    = 0;
     info->threads  = 0;
     info->messages = 0;
     info->quit     = 0;
@@ -1327,7 +1327,34 @@ void cMsgLatchReset(countDownLatch *latch, int count, const struct timespec *tim
 
 }
 
- 
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * cMsgCallbackThread needs a pthread cancellation cleanup handler.
+ * This handler will be called when the cMsgCallbackThread is
+ * cancelled. It's task is to free memory allocated for the
+ * callback thread.
+ */
+static void cleanUpHandler(void *arg) {
+  subscribeCbInfo *cb = (subscribeCbInfo *)arg;
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "cMsgCallbackThread: in cleanup handler\n");
+  }
+  
+  /* decrease concurrency as callback thread disappears */
+  sun_setconcurrency(sun_getconcurrency() - 1);
+  /* wait for cMsgRunCallbacks to finish using cb */
+  sleep(1);
+  
+  /* release memory */
+  printf(" cleanUpHandler: try to free stuff, cb = %p\n", cb);
+  cMsgCallbackInfoFree(cb);
+  free(cb);
+}
+
+
 /*-------------------------------------------------------------------*/
 
 
@@ -1339,13 +1366,22 @@ void *cMsgCallbackThread(void *arg)
     cMsgDomainInfo *domain = cbarg->domain;
     subInfo *sub           = cbarg->sub;
     subscribeCbInfo *cb = cbarg->cb;
-    int i, status, need, threadsAdded, maxToAdd, wantToAdd;
+    int i, status, need, threadsAdded, maxToAdd, wantToAdd, state;
     int numMsgs, numThreads;
     cMsgMessage_t *msg, *nextMsg;
     pthread_t thd;
     void *p;
     struct timespec wait;
     
+    /* Install a cleanup handler for this thread's cancellation. 
+     * Give it a pointer which points to the memory which must
+     * be freed upon cancelling this thread.
+     */
+    pthread_cleanup_push(cleanUpHandler, (void *)cb);
+    
+    /* release system resources when thread finishes */
+    pthread_detach(pthread_self());
+
     /* Wait 1/2 sec for cMsgRunCallbacks to deal with ending callback
      * before freeing cb memory. Bit of a hack, but it should work.
      */
@@ -1362,11 +1398,8 @@ void *cMsgCallbackThread(void *arg)
     /* for printing msg cue size periodically */
     /* now = time(NULL); */
     
-    /* release system resources when thread finishes */
-    pthread_detach(pthread_self());
-
     threadsAdded = 0;
-
+  
     while(1) {
       /*
        * Take a current snapshot of the number of threads and messages.
@@ -1422,30 +1455,10 @@ void *cMsgCallbackThread(void *arg)
           }
           
           cb->messages = 0;
-          
+          cb->done = 1;
+    
           /* unlock mutex */
           cMsgMutexUnlock(&cb->mutex);
-          cb->done = 1;
-
-          /* Signal to cMsgRunCallbacks in case the cue is full and it's
-           * blocked trying to put another message in. So now we tell it that
-           * there are no messages in the cue and, in fact, no callback anymore.
-           */
-          status = pthread_cond_signal(&domain->subscribeCond);
-          if (status != 0) {
-            cmsg_err_abort(status, "Failed callback condition signal");
-          }
-          
-          /* If cMsgRunCallbacks is stuck due to having the cue full,
-           * take time before freeing cb memory since that struct is
-           * needed in cMsgRunCallbacks.
-           */
-          if (cb->fullQ) {
-            nanosleep(&wait, NULL);
-          }
-          cMsgCallbackInfoFree(cb);
-          free(cb);
-/* printf(" CALLBACK THREAD: told to quit\n"); */
           goto end;
       }
 
@@ -1480,31 +1493,10 @@ void *cMsgCallbackThread(void *arg)
           }
           
           cb->messages = 0;
-          
+          cb->done = 1;
+    
           /* unlock mutex */
           cMsgMutexUnlock(&cb->mutex);
-          cb->done = 1;
-
-          /* Signal to cMsgRunCallbacks in case the cue is full and it's
-           * blocked trying to put another message in. So now we tell it that
-           * there are no messages in the cue and, in fact, no callback anymore.
-           */
-          status = pthread_cond_signal(&domain->subscribeCond);
-          if (status != 0) {
-            cmsg_err_abort(status, "Failed callback condition signal");
-          }
-          
-          /* If cMsgRunCallbacks is stuck due to having the cue full,
-           * take time before freeing cb memory since that struct is
-           * needed in cMsgRunCallbacks.
-           */
-          if (cb->fullQ) {
-            nanosleep(&wait, NULL);
-          }
-          cMsgCallbackInfoFree(cb);
-          free(cb);
-
-/* printf(" CALLBACK THREAD: told to quit\n"); */
           goto end;
         }
       }
@@ -1549,17 +1541,39 @@ void *cMsgCallbackThread(void *arg)
       msg->context.type    = (char *) strdup(sub->type);
       msg->context.udl     = (char *) strdup(domain->udl);
       msg->context.cueSize = &cb->messages; /* pointer to cueSize info allows it
-                                                  to always be up-to-date in callback */
+                                               to always be up-to-date in callback */
+      pthread_testcancel();
+      
+      /* Disable pthread cancellation during running of callback.
+       * Since we have no idea what is done in the callback, better
+       * be safe than sorry.
+       */
+      status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);
+      if (status != 0) {
+        cmsg_err_abort(status, "Disabling callback thread cancelability");
+      }
+
       cb->msgCount++;
       cb->callback(msg, cb->userArg);
       
+      /* Renable pthread cancellation at cancellation points like pthread_testcancel */
+      status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
+      if (status != 0) {
+        cmsg_err_abort(status, "Enabling callback thread cancelability");
+      }
+  
+      pthread_testcancel();
+
     } /* while(1) */
     
   end:
-        
-    /* don't free arg as it is used for the unsubscribe handle */
-    /*free(arg);*/     
-    sun_setconcurrency(con);
+
+    /* avoid compiler error (doesn't like pthread_cleanup_pop after label) */
+    i += 1;
+  
+    /* on some operating systems (Linux) this call is necessary - calls cleanup handler */
+    pthread_cleanup_pop(1);
+  
 /* fprintf(stderr, "QUITTING MAIN CALLBACK THREAD\n"); */
     pthread_exit(NULL);
     return NULL;
