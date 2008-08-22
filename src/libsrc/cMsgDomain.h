@@ -73,7 +73,6 @@ typedef struct monitorData_t {
 /** This structure represents a single subscription's callback. */
 typedef struct subscribeCbInfo_t {
   int               done;     /**< Ending callback, ok to free this struct. */
-  int               fullQ;    /**< Boolean telling if this callback msg queue is full. */
   int               messages; /**< Number of messages in list. */
   int               threads;  /**< Number of supplemental threads to run callback if
                                *   config allows parallelizing (mustSerialize = 0). */
