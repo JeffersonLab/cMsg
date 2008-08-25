@@ -9,7 +9,9 @@
 // system includes
 using namespace std;
 #include <iostream>
+#include <sstream>
 #include <unistd.h>
+
 
 
 // for cMsg
@@ -50,8 +52,7 @@ int main(int argc, char **argv) {
 
 
   // set defaults
-  udl           = "cMsg://ollie:3456/cMsg/vmeTest";       // universal domain locator
-  name          = "cMsgCommand";                          // unique name
+  udl           = "cMsg://broadcast/cMsg";                // universal domain locator
   description   = "cMsgCommand utility";                  // description is arbitrary
   subject       = "mySubject";
   type          = "myType";
@@ -61,6 +62,16 @@ int main(int argc, char **argv) {
 
   // decode command line parameters
   decodeCommandLine(argc,argv);
+
+
+  // get random unique name if not specified
+  if(name.length()<=1) {
+    char n[64];
+    stringstream ss;
+    gethostname(n,64);
+    ss << n << "_" << getpid() << ends;
+    name=ss.str();
+  }
 
 
   // connect to cMsg server
