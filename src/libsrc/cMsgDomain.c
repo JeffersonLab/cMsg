@@ -2954,7 +2954,7 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type,
     cb->callback = callback;
     cb->userArg  = userArg;
     cb->config   = *sConfig;
-printf("Creating cb thread at %p\n", cb);
+/*printf("Creating cb thread at %p\n", cb);*/
 
     /* store callback in subscription's linked list */
     cbItem = sub->callbacks;
@@ -3368,15 +3368,19 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
       /* one less callback */
       sub->numCallbacks--;
     }
+
+    /* ensure new value of cb->quit is picked up by callback thread */
+    cMsgMutexLock(&cb->mutex);
     
-    /* tell callback thread to end */
+    /* tell callback thread to end gracefully */
     cb->quit = 1;
 
-    /* wakeup callback thread */
-    status = pthread_cond_broadcast(&cb->cond);
-    if (status != 0) {
-      cmsg_err_abort(status, "Failed callback condition signal");
-    }
+    /* Kill callback thread. Plays same role as pthread_cond_signal.
+     * Thread's cleanup handler will free cb memory, handle cb cleanup.
+     */
+    pthread_cancel(cb->thread);
+    
+    cMsgMutexUnlock(&cb->mutex);
 
     /* Signal to cMsgRunCallbacks in case the callback's cue is full and
     * the message-receiving thread is blocked trying to put another message in.
@@ -3395,10 +3399,8 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
     cMsgSubscribeMutexUnlock(domain);
     cMsgConnectReadUnlock(domain);
 
-    /* Kill callback thread. Thread's cleanup handler will free cb memory */
-    pthread_cancel(cb->thread);
-
     /* Free arg mem */
+    free(cbarg->key);
     free(cbarg);
 
     break;
@@ -3489,9 +3491,9 @@ int cmsg_cmsg_disconnect(void **domainId) {
   subInfo *sub;
   struct timespec wait4thds = {0, 100000000}; /* 0.1 sec */
   hashNode *entries = NULL;
-  int hz, num_try, try_max;
-  struct timespec waitForThread;
-  
+  cMsgMessage_t *msg, *nextMsg;
+  void *p;
+
 
   if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
   domain = (cMsgDomainInfo *) (*domainId);
@@ -3536,11 +3538,16 @@ int cmsg_cmsg_disconnect(void **domainId) {
   /* close UDP sending socket */
   close(domain->sendUdpSocket);
 
-  /* stop listening and client communication threads */
+  /* Stop message receiving thread. This thread will not cancel in the middle
+   * of reading a msg or putting a msg on a callback Q. If a Q is full and cb cannot
+   * skip msgs, then this thread will be block in a state in which it will NOT
+   * cancel.
+   */
+  /*
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsg_cmsg_disconnect:cancel listening & client threads\n");
+    fprintf(stderr, "cmsg_cmsg_disconnect: cancel msg receiving thread\n");
   }
-  
+  */  
   pthread_cancel(domain->pendThread);
   
   /* terminate all callback threads */
@@ -3561,56 +3568,46 @@ int cmsg_cmsg_disconnect(void **domainId) {
 
       /* for each callback ... */
       while (cb != NULL) {       
+        /*
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "cmsg_cmsg_disconnect: callback thread = %p\n", cb);
         }
+        */
+        /* Ensure new value of cb->quit is picked up by callback thread. */
+        cMsgMutexLock(&cb->mutex);
+     
+        /* Release all messages held in callback thread's queue.
+         * Do that now, so we don't have to deal with full Q's
+         * causing all kinds of delays.*/
+        msg = cb->head; /* get first message in linked list */
+        while (msg != NULL) {
+          nextMsg = msg->next;
+          p = (void *)msg; /* get rid of compiler warnings */
+          cMsgFreeMessage(&p);
+          msg = nextMsg;
+        }
+        cb->messages = 0;
 
-        /* tell callback thread to end */
-        cb->quit = 1;
-        
         /* once the callback thread is woken up, it will free cb memory,
-         * so store anything from that struct locally, NOW. */
+        * so store anything from that struct locally, NOW. */
         cbNext = cb->next;
 
-        if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          fprintf(stderr, "cmsg_cmsg_disconnect:wake up callback thread\n");
-        }
-  
-        /* wakeup callback thread */
-        status = pthread_cond_broadcast(&cb->cond);
-        if (status != 0) {
-          cmsg_err_abort(status, "Failed callback condition signal");
-        }
+        /* tell callback thread to end gracefully */
+        cb->quit = 1;
 
-        /* At this point we want to free callback resources (mutex, cond variable)
-         * but cannot do so since they may still be in use during callback thread
-         * shutdown. We must wait for callback threads to say, "done with resources".
+        /* Kill callback thread. Plays same role as pthread_cond_signal.
+         * Thread's cleanup handler will free cb memory, handle cb cleanup.
          */
-#ifdef VXWORKS
-        hz = sysClkRateGet();
-#else
-        /* get system clock rate - probably 100 Hz */
-        hz = sysconf(_SC_CLK_TCK);
-        if (hz < 0) hz = 100;
-#endif
-        /* wait up to WAIT_FOR_CB_THREAD seconds for a thread to finish */
-        try_max = hz * WAIT_FOR_CB_THREAD;
-        num_try = 0;
-        waitForThread.tv_sec  = 0;
-        waitForThread.tv_nsec = 1000000000/hz;
+        /*
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+          fprintf(stderr, "cmsg_cmsg_disconnect: wake up callback thread\n");
+        }
+        */
+        pthread_cancel(cb->thread);
     
-        while((cb->done != 1) && (num_try++ < try_max)) {
-            nanosleep(&waitForThread, NULL);
-        }
-        if (num_try > try_max) {
-            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "cmsg_cmsg_disconnect, callback thread not stopped yet, cancel it\n");
-            }
-            /* kill thread if taking too long */
-            pthread_cancel(cb->thread);
-        }
+        cMsgMutexUnlock(&cb->mutex);        
 
-        cb = cbNext;        
+        cb = cbNext;
       } /* next callback */
       
       free(entries[i].key);
@@ -3621,7 +3618,17 @@ int cmsg_cmsg_disconnect(void **domainId) {
     free(entries);
   } /* if there are subscriptions */
 
+  /* Pthread cancelling the callback threads will not allow them to wake up
+   * the runCallbacks (msg receiving) thread, which must be done in case it
+   * is stuck with a full Q. Do it now.
+   */
+  status = pthread_cond_signal(&domain->subscribeCond);
+  if (status != 0) {
+    cmsg_err_abort(status, "Failed subscribe condition signal");
+  }
+
   cMsgSubscribeMutexUnlock(domain);
+  sched_yield();
 
   /* wakeup all gets */
   cMsgSendAndGetMutexLock(domain);
@@ -3635,7 +3642,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
       info->quit  = 1;
 
       if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "cmsg_cmsg_disconnect:wake up a sendAndGet\n");
+        fprintf(stderr, "cmsg_cmsg_disconnect: wake up a sendAndGet\n");
       }
   
       /* wakeup "get" */
@@ -3663,7 +3670,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
       info->quit  = 1;
 
       if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "cmsg_cmsg_disconnect:wake up a syncSend\n");
+        fprintf(stderr, "cmsg_cmsg_disconnect: wake up a syncSend\n");
       }
   
       /* wakeup the syncSend */
@@ -3689,6 +3696,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
   cMsgConnectWriteUnlock(domain);
     
   /* Clean up memory */
+/*printf("cmsg_cmsg_disconnect: calling cMsgDomainFree\n");*/
   cMsgDomainFree(domain);
   free(domain);
   *domainId = NULL;
@@ -3719,9 +3727,7 @@ static int disconnectFromKeepAlive(void **domainId) {
   subInfo *sub;
   getInfo *info;
   struct timespec wait4thds = {0,100000000}; /* 0.1 sec */
-  struct timespec waitForThread;
   hashNode *entries = NULL;
-  int hz, num_try, try_max;
 
   if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
   domain = (cMsgDomainInfo *) (*domainId);
@@ -3758,54 +3764,31 @@ static int disconnectFromKeepAlive(void **domainId) {
 
       /* for each callback ... */
       while (cb != NULL) {
-        /* tell callback thread to end */
-        cb->quit = 1;
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+          fprintf(stderr, "cmsg_cmsg_disconnect: callback thread = %p\n", cb);
+        }
 
+        /* ensure new value of cb->quit is picked up by callback thread */
+        cMsgMutexLock(&cb->mutex);
+    
         /* once the callback thread is woken up, it will free cb memory,
-        * so store anything from that struct locally, NOW. */
+         * so store anything from that struct locally, NOW. */
         cbNext = cb->next;
 
+        /* tell callback thread to end gracefully */
+        cb->quit = 1;
+
+        /* Kill callback thread. Plays same role as pthread_cond_signal.
+         * Thread's cleanup handler will free cb memory, handle cb cleanup.
+         */
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "cmsg_cmsg_disconnect:wake up callback thread\n");
         }
-  
-        /* wakeup callback thread */
-        status = pthread_cond_broadcast(&cb->cond);
-        if (status != 0) {
-          cmsg_err_abort(status, "Failed callback condition signal");
-        }
-
-        /* At this point we want to free callback resources (mutex, cond variable)
-        * but cannot do so since they may still be in use during callback thread
-        * shutdown. We must wait for callback threads to say, "done with resources".
-        */
-#ifdef VXWORKS
-        hz = sysClkRateGet();
-#else
-        /* get system clock rate - probably 100 Hz */
-        hz = sysconf(_SC_CLK_TCK);
-        if (hz < 0) hz = 100;
-#endif
-        /* wait up to WAIT_FOR_CB_THREAD seconds for a thread to finish */
-        try_max = hz * WAIT_FOR_CB_THREAD;
-        num_try = 0;
-        waitForThread.tv_sec  = 0;
-        waitForThread.tv_nsec = 1000000000/hz;
+        pthread_cancel(cb->thread);
     
-        while((cb->done != 1) && (num_try++ < try_max)) {
-          nanosleep(&waitForThread, NULL);
-        }
-        if (num_try > try_max) {
-          if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-            fprintf(stderr, "cmsg_cmsg_unsubscribe, callback thread not stopped yet, cancel it\n");
-          }
-          /* kill thread if taking too long */
-          pthread_cancel(cb->thread);
-        }
+        cMsgMutexUnlock(&cb->mutex);
 
-        /* go to the next callback */
         cb = cbNext;
-        
       } /* next callback */
       
       free(entries[i].key);
@@ -3816,9 +3799,18 @@ static int disconnectFromKeepAlive(void **domainId) {
     free(entries);
   } /* if there are subscriptions */
 
+  /* Pthread cancelling the callback threads will not allow them to wake up
+   * the runCallbacks (msg receiving) thread, which must be done in case it
+   * is stuck with a full Q. Do it now.
+   */
+  status = pthread_cond_signal(&domain->subscribeCond);
+  if (status != 0) {
+    cmsg_err_abort(status, "Failed subscribe condition signal");
+  }
+
   cMsgSubscribeMutexUnlock(domain);
-
-
+  sched_yield();
+  
   /* wakeup all gets */
   cMsgSendAndGetMutexLock(domain);
   hashClear(&domain->sendAndGetTable, &entries, &tblSize);
