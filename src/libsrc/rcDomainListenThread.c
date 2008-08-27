@@ -537,7 +537,7 @@ static void *clientThread(void *arg)
           }
           
           /* re-enable pthread cancellation */
-          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
+          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
           if (status != 0) {
             cmsg_err_abort(status, "Reenabling client cancelability");
           }
@@ -549,7 +549,20 @@ static void *clientThread(void *arg)
       case  CMSG_RC_CONNECT_ABORT:
       {
             domain->rcConnectAbort = 1;
-            cMsgLatchCountDown(&domain->syncLatch, &wait);      
+
+            /* disable pthread cancellation to protect mutexes */
+            status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);
+            if (status != 0) {
+              cmsg_err_abort(status, "Disabling client cancelability");
+            }
+            
+            cMsgLatchCountDown(&domain->syncLatch, &wait);
+            
+            /* re-enable pthread cancellation */
+            status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
+            if (status != 0) {
+              cmsg_err_abort(status, "Reenabling client cancelability");
+            }
       }
       break;
       
@@ -614,12 +627,6 @@ static void *clientThread(void *arg)
           /* now free message */
           cMsgFreeMessage(&msg);
           
-          /* re-enable pthread cancellation */
-          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
-          if (status != 0) {
-            cmsg_err_abort(status, "Reenabling client cancelability");
-          }
-
 /*
 printf("clientThread %d: connecting, tcp port = %d, udp port = %d, senderHost = %s\n",
 localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
@@ -722,6 +729,12 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
             cMsgSocketMutexUnlock(domain);
         }
           
+        /* re-enable pthread cancellation */
+        status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
+        if (status != 0) {
+          cmsg_err_abort(status, "Reenabling client cancelability");
+        }
+
         /* Send back a response - the name of this client */
         lenName    = strlen(domain->name);        /* length of client's name */
         netLenName = htonl(lenName);              /* length of client's name in net byte order */

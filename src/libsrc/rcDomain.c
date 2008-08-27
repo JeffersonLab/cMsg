@@ -1318,6 +1318,8 @@ int cmsg_rc_unsubscribe(void *domainId, void *handle) {
     cbArg           *cbarg;
     subInfo         *sub;
     subscribeCbInfo *cb, *cbItem, *cbPrev;
+    cMsgMessage_t *msg, *nextMsg;
+    void *p;
 
     /* check args */
     if (domain == NULL || handle == NULL) {
@@ -1388,6 +1390,18 @@ int cmsg_rc_unsubscribe(void *domainId, void *handle) {
     
     /* ensure new value of cb->quit is picked up by callback thread */
     cMsgMutexLock(&cb->mutex);
+    
+    /* Release all messages held in callback thread's queue.
+     * Do that now, so we don't have to deal with full Q's
+     * causing all kinds of delays.*/
+    msg = cb->head; /* get first message in linked list */
+    while (msg != NULL) {
+      nextMsg = msg->next;
+      p = (void *)msg; /* get rid of compiler warnings */
+      cMsgFreeMessage(&p);
+      msg = nextMsg;
+    }
+    cb->messages = 0;
     
     /* tell callback thread to end */
     cb->quit = 1;
@@ -1500,6 +1514,8 @@ int cmsg_rc_disconnect(void **domainId) {
     subInfo *sub;
     struct timespec wait4thds = {0, 100000000}; /* 0.1 sec */
     hashNode *entries = NULL;
+    cMsgMessage_t *msg, *nextMsg;
+    void *p;
 
     if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
     domain = (cMsgDomainInfo *) (*domainId);
@@ -1547,6 +1563,18 @@ int cmsg_rc_disconnect(void **domainId) {
           /* ensure new value of cb->quit is picked up by callback thread */
           cMsgMutexLock(&cb->mutex);
      
+          /* Release all messages held in callback thread's queue.
+           * Do that now, so we don't have to deal with full Q's
+           * causing all kinds of delays.*/
+          msg = cb->head; /* get first message in linked list */
+          while (msg != NULL) {
+            nextMsg = msg->next;
+            p = (void *)msg; /* get rid of compiler warnings */
+            cMsgFreeMessage(&p);
+            msg = nextMsg;
+          }
+          cb->messages = 0;
+
           /* once the callback thread is woken up, it will free cb memory,
            * so store anything from that struct locally, NOW. */
           cbNext = cb->next;
