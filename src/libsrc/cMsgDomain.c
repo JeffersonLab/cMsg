@@ -3557,11 +3557,6 @@ int cmsg_cmsg_disconnect(void **domainId) {
    * skip msgs, then this thread will be block in a state in which it will NOT
    * cancel.
    */
-  
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cmsg_cmsg_disconnect: cancel msg receiving thread\n");
-  }
-   
   pthread_cancel(domain->pendThread);
   
   /* terminate all callback threads */
@@ -3582,11 +3577,11 @@ int cmsg_cmsg_disconnect(void **domainId) {
 
       /* for each callback ... */
       while (cb != NULL) {       
-        
+        /*
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "cmsg_cmsg_disconnect: callback thread = %p\n", cb);
         }
-        
+        */
         /* Ensure new value of cb->quit is picked up by callback thread. */
         cMsgMutexLock(&cb->mutex);
      
@@ -3611,12 +3606,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
 
         /* Kill callback thread. Plays same role as pthread_cond_signal.
          * Thread's cleanup handler will free cb memory, handle cb cleanup.
-         */
-        
-        if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          fprintf(stderr, "cmsg_cmsg_disconnect: wake up callback thread\n");
-        }
-        
+         */        
         pthread_cancel(cb->thread);
     
         cMsgMutexUnlock(&cb->mutex);        
@@ -3783,10 +3773,11 @@ static int disconnectFromKeepAlive(void **domainId) {
 
       /* for each callback ... */
       while (cb != NULL) {
+        /*
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "cmsg_cmsg_disconnect: callback thread = %p\n", cb);
         }
-
+        */
         /* ensure new value of cb->quit is picked up by callback thread */
         cMsgMutexLock(&cb->mutex);
     
@@ -3812,9 +3803,6 @@ static int disconnectFromKeepAlive(void **domainId) {
         /* Kill callback thread. Plays same role as pthread_cond_signal.
          * Thread's cleanup handler will free cb memory, handle cb cleanup.
          */
-        if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          fprintf(stderr, "cmsg_cmsg_disconnect:wake up callback thread\n");
-        }
         pthread_cancel(cb->thread);
     
         cMsgMutexUnlock(&cb->mutex);
@@ -3905,9 +3893,6 @@ static int disconnectFromKeepAlive(void **domainId) {
   cMsgRestoreSignals(domain);
 
   cMsgConnectWriteUnlock(domain);
-
-  /* do NOT close listening socket */
-  /*close(domain->listenSocket);*/
     
   /* Clean up memory */
   cMsgDomainFree(domain);

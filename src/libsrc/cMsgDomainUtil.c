@@ -1389,11 +1389,12 @@ static void cleanUpHandler(void *arg) {
   /* decrease concurrency as callback thread disappears */
   sun_setconcurrency(sun_getconcurrency() - 1);
 
-  /* release memory */  
+  /* release memory */
+  /*
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "  cleanUpHandler: try to free stuff (for %p)\n", cb);
+    fprintf(stderr, "  cleanUpHandler: try to free stuff (for cb %p)\n", cb);
   }
-  
+  */
   cMsgCallbackInfoFree(cb);
   free(cb);
 }
