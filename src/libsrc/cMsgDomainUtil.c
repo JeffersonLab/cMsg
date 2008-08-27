@@ -519,6 +519,11 @@ void cMsgCallbackInfoInit(subscribeCbInfo *info) {
       cmsg_err_abort(status, "cMsgCallbackInfoInit:initializing condition var2");
     }
 
+    status = pthread_cond_init(&info->cond3,  NULL);
+    if (status != 0) {
+      cmsg_err_abort(status, "cMsgCallbackInfoInit:initializing condition var3");
+    }
+
     status = pthread_mutex_init(&info->mutex, NULL);
     if (status != 0) {
       cmsg_err_abort(status, "cMsgCallbackInfoInit:initializing mutex");
@@ -721,6 +726,11 @@ void cMsgCallbackInfoFree(subscribeCbInfo *info) {
       status = pthread_cond_destroy (&info->cond2);
       if (status != 0) {
         cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var2");
+      }
+  
+      status = pthread_cond_destroy (&info->cond3);
+      if (status != 0) {
+        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var3");
       }
   
       status = pthread_mutex_destroy(&info->mutex);
@@ -1318,11 +1328,15 @@ void cMsgLatchReset(countDownLatch *latch, int count, const struct timespec *tim
 static void cleanUpHandler(void *arg) {
   int status;
   subscribeCbInfo *cb = (subscribeCbInfo *)arg;
-  struct timespec wait, timeout;
+  struct timespec wait, fullQ_TO, supp_TO;
 
-  /* wait 3 sec */
-  timeout.tv_sec  = 3;
-  timeout.tv_nsec = 0;
+  /* wait 3 sec for runCallbacks to signal if full Q */
+  fullQ_TO.tv_sec  = 3;
+  fullQ_TO.tv_nsec = 0;
+
+  /* wait .5 sec to check if all supplemental threads are done */
+  supp_TO.tv_sec  = 0;
+  supp_TO.tv_nsec = 500000000; /* .5 */
 
   /*
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
@@ -1337,15 +1351,14 @@ static void cleanUpHandler(void *arg) {
    * done using the "cb" structure so we can free it).
    */
   if (cb->fullQ) {
-    cMsgGetAbsoluteTime(&timeout, &wait);
-    /*fprintf(stderr, "  cleanUpHandler: wait for cond2 sig (for %p)\n", cb);*/
+    cMsgGetAbsoluteTime(&fullQ_TO, &wait);
+    fprintf(stderr, "  cleanUpHandler: wait for cond2 sig (for %p)\n", cb);
     status = pthread_cond_timedwait(&cb->cond2, &cb->mutex, &wait);
     /* if the wait timed out ... */
     if (status == ETIMEDOUT) {
       /*
       if (cMsgDebug >= CMSG_DEBUG_WARN) {
-        fprintf(stderr, "  cleanUpHandler: waited 3 seconds for runCallbacks to respond (%p)\n",
-               cb);
+        fprintf(stderr, "  cleanUpHandler: waited 3 seconds for runCallbacks to respond (%p)\n",cb);
       }
       */
     }
@@ -1359,19 +1372,28 @@ static void cleanUpHandler(void *arg) {
     }
     */
   }
-  cMsgMutexUnlock(&cb->mutex);         
+    
+  /* now wait for all supplemental threads to finish */
+  while (cb->threads > 0) {
+    cMsgGetAbsoluteTime(&supp_TO, &wait);
+    /*fprintf(stderr, "  cleanUpHandler: # supp thds (%d, %p), waiting\n", cb->threads, cb);*/
+    status = pthread_cond_timedwait(&cb->cond3, &cb->mutex, &wait);
+    if (status != ETIMEDOUT && status != 0) {
+      cmsg_err_abort(status, "Failed callback cond3 timed wait");
+    }
+    /*fprintf(stderr, "  cleanUpHandler: # supp thds (%d, %p), done waiting\n", cb->threads, cb);*/
+  }
+
+  cMsgMutexUnlock(&cb->mutex);
   
   /* decrease concurrency as callback thread disappears */
   sun_setconcurrency(sun_getconcurrency() - 1);
-  /* wait for cMsgRunCallback & supplemental thds to finish using cb */
-  sleep(2);
 
-  /* release memory */
-  /*
+  /* release memory */  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "  cleanUpHandler: try to free stuff (for %p)\n", cb);
   }
-  */
+  
   cMsgCallbackInfoFree(cb);
   free(cb);
 }
@@ -1389,10 +1411,11 @@ void *cMsgCallbackThread(void *arg)
     subInfo *sub           = cbarg->sub;
     subscribeCbInfo *cb = cbarg->cb;
     int i, status, need, threadsAdded, maxToAdd, wantToAdd, state;
-    int con, numMsgs, numThreads;
+    int con, numMsgs, numThreads, quit;
     cMsgMessage_t *msg;
     pthread_t thd;
 
+    
     /* Install a cleanup handler for this thread's cancellation. 
      * Give it a pointer which points to the memory which must
      * be freed upon cancelling this thread.
@@ -1418,17 +1441,21 @@ void *cMsgCallbackThread(void *arg)
        * are no messages to grab, but this is the only place that the
        * number of threads will be increased.
        */
+      cMsgMutexLock(&cb->mutex);
+      quit = cb->quit;
       numMsgs = cb->messages;
       numThreads = cb->threads;
+      cMsgMutexUnlock(&cb->mutex);
       threadsAdded = 0;
-      
+
       /* Check to see if we need more threads to handle the load */      
-      if ((!cb->config.mustSerialize) &&
+      if (!quit &&
+          !cb->config.mustSerialize &&
           (numThreads < cb->config.maxThreads) &&
           (numMsgs > cb->config.msgsPerThread)) {
 
         /* find number of threads needed */
-        need = cb->messages/cb->config.msgsPerThread;
+        need = numMsgs/cb->config.msgsPerThread;
 
         /* add more threads if necessary */
         if (need > numThreads) {
@@ -1606,6 +1633,11 @@ void *cMsgSupplementalThread(void *arg)
           fprintf(stderr, "Supplemental thd: exit1, thds = %d\n", cb->threads);
         }
         */
+        status = pthread_cond_signal(&cb->cond3);
+        if (status != 0) {
+          cmsg_err_abort(status, "Failed callback condition signal");
+        }
+        
         cMsgMutexUnlock(&cb->mutex);
         goto end;
       }
@@ -1628,6 +1660,11 @@ void *cMsgSupplementalThread(void *arg)
               fprintf(stderr, "Supplemental thd: exit2, thds = %d\n", cb->threads);
             }
             */
+            status = pthread_cond_signal(&cb->cond3);
+            if (status != 0) {
+              cmsg_err_abort(status, "Failed callback condition signal");
+            }
+            
             /* unlock mutex & kill this thread */
             cMsgMutexUnlock(&cb->mutex);
             goto end;
@@ -1645,6 +1682,11 @@ void *cMsgSupplementalThread(void *arg)
             fprintf(stderr, "Supplemental thd: exit3, thds = %d\n", cb->threads);
           }
           */
+          status = pthread_cond_signal(&cb->cond3);
+          if (status != 0) {
+            cmsg_err_abort(status, "Failed callback condition signal");
+          }
+          
           cMsgMutexUnlock(&cb->mutex);
           goto end;
         }

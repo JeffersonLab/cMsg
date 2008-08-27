@@ -3233,6 +3233,8 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
   cbArg           *cbarg;
   subInfo         *sub;
   subscribeCbInfo *cb, *cbItem, *cbPrev;
+  cMsgMessage_t *msg, *nextMsg;
+  void *p;
   
   if (domain == NULL) {
     return(CMSG_BAD_ARGUMENT);
@@ -3372,6 +3374,18 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
     /* ensure new value of cb->quit is picked up by callback thread */
     cMsgMutexLock(&cb->mutex);
     
+    /* Release all messages held in callback thread's queue.
+     * Do that now, so we don't have to deal with full Q's
+     * causing all kinds of delays.*/
+    msg = cb->head; /* get first message in linked list */
+    while (msg != NULL) {
+      nextMsg = msg->next;
+      p = (void *)msg; /* get rid of compiler warnings */
+      cMsgFreeMessage(&p);
+      msg = nextMsg;
+    }
+    cb->messages = 0;
+
     /* tell callback thread to end gracefully */
     cb->quit = 1;
 
@@ -3543,11 +3557,11 @@ int cmsg_cmsg_disconnect(void **domainId) {
    * skip msgs, then this thread will be block in a state in which it will NOT
    * cancel.
    */
-  /*
+  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "cmsg_cmsg_disconnect: cancel msg receiving thread\n");
   }
-  */  
+   
   pthread_cancel(domain->pendThread);
   
   /* terminate all callback threads */
@@ -3568,11 +3582,11 @@ int cmsg_cmsg_disconnect(void **domainId) {
 
       /* for each callback ... */
       while (cb != NULL) {       
-        /*
+        
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "cmsg_cmsg_disconnect: callback thread = %p\n", cb);
         }
-        */
+        
         /* Ensure new value of cb->quit is picked up by callback thread. */
         cMsgMutexLock(&cb->mutex);
      
@@ -3598,11 +3612,11 @@ int cmsg_cmsg_disconnect(void **domainId) {
         /* Kill callback thread. Plays same role as pthread_cond_signal.
          * Thread's cleanup handler will free cb memory, handle cb cleanup.
          */
-        /*
+        
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
           fprintf(stderr, "cmsg_cmsg_disconnect: wake up callback thread\n");
         }
-        */
+        
         pthread_cancel(cb->thread);
     
         cMsgMutexUnlock(&cb->mutex);        
@@ -3728,16 +3742,21 @@ static int disconnectFromKeepAlive(void **domainId) {
   getInfo *info;
   struct timespec wait4thds = {0,100000000}; /* 0.1 sec */
   hashNode *entries = NULL;
+  cMsgMessage_t *msg, *nextMsg;
+  void *p;
 
   if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
   domain = (cMsgDomainInfo *) (*domainId);
   if (domain == NULL) return(CMSG_BAD_ARGUMENT);
       
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "disconnectFromKeepAlive: IN\n");
+  }
   cMsgConnectWriteLock(domain);
      
   domain->gotConnection = 0;
 
-  /* stop listening and client communication threads */
+  /* stop msg receiving thread */
   pthread_cancel(domain->pendThread);
    
   /* stop thread writing keep alives to server */
@@ -3771,6 +3790,18 @@ static int disconnectFromKeepAlive(void **domainId) {
         /* ensure new value of cb->quit is picked up by callback thread */
         cMsgMutexLock(&cb->mutex);
     
+        /* Release all messages held in callback thread's queue.
+         * Do that now, so we don't have to deal with full Q's
+         * causing all kinds of delays.*/
+        msg = cb->head; /* get first message in linked list */
+        while (msg != NULL) {
+          nextMsg = msg->next;
+          p = (void *)msg; /* get rid of compiler warnings */
+          cMsgFreeMessage(&p);
+          msg = nextMsg;
+        }
+        cb->messages = 0;
+      
         /* once the callback thread is woken up, it will free cb memory,
          * so store anything from that struct locally, NOW. */
         cbNext = cb->next;
