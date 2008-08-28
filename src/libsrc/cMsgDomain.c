@@ -2262,22 +2262,25 @@ int cmsg_cmsg_subscribeAndGet(void *domainId, const char *subject, const char *t
 
   /* If we timed out, tell server to forget the get. */
   if (info->msgIn == 0) {
-      /*printf("get: timed out\n");*/
-      
+    /*printf("get: timed out\n");*/
+
+    if (!info->quit) {
       /* remove the get from server */
       unSubscribeAndGet(domainId, subject, type, uniqueId);
-      if (replyMsg != NULL) *replyMsg = NULL;
-      err = CMSG_TIMEOUT;
-      /* if we've timed out, item has not been removed from hash table yet */
-      cMsgSubAndGetMutexLock(domain);
-      hashRemove(&domain->subAndGetTable, idString, NULL);
-      cMsgSubAndGetMutexUnlock(domain);
+    }
+    
+    if (replyMsg != NULL) *replyMsg = NULL;
+    err = CMSG_TIMEOUT;
+    /* if we've timed out, item has not been removed from hash table yet */
+    cMsgSubAndGetMutexLock(domain);
+    hashRemove(&domain->subAndGetTable, idString, NULL);
+    cMsgSubAndGetMutexUnlock(domain);
   }
   /* If we've been woken up for dead server ... */
   else if (info->error != CMSG_OK) {
       /* in this case hash table has been cleared in reconnect */
       if (replyMsg != NULL) *replyMsg = NULL;
-      err = info->error;    
+      err = info->error;
   }
   /* If we did not timeout and everything's OK */
   else {
@@ -2287,13 +2290,12 @@ int cmsg_cmsg_subscribeAndGet(void *domainId, const char *subject, const char *t
        * must free it.
        */
       if (replyMsg != NULL) *replyMsg = info->msg;
+      info->msg = NULL;
       err = CMSG_OK;
   }
   
   /* free up memory */
-  /* do NOT call cMsgGetInfoFree(info) because that frees msg */
-  free(info->subject);
-  free(info->type);
+  cMsgGetInfoFree(info);
   free(info);
   free(idString);
 
@@ -2668,16 +2670,18 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *t
 
   /* If we timed out, tell server to forget the get. */
   if (info->msgIn == 0) {
-      /*printf("get: timed out\n");*/      
+    /*printf("get: timed out\n");*/
+    if (!info->quit) {
       /* remove the get from server */
       unSendAndGet(domainId, uniqueId);
-
-      if (replyMsg != NULL) *replyMsg = NULL;
-      err = CMSG_TIMEOUT;
-      /* if we've timed out, item has not been removed from hash table yet */
-      cMsgSendAndGetMutexLock(domain);
-      hashRemove(&domain->sendAndGetTable, idString, NULL);
-      cMsgSendAndGetMutexUnlock(domain);
+    }
+    
+    if (replyMsg != NULL) *replyMsg = NULL;
+    err = CMSG_TIMEOUT;
+    /* if we've timed out, item has not been removed from hash table yet */
+    cMsgSendAndGetMutexLock(domain);
+    hashRemove(&domain->sendAndGetTable, idString, NULL);
+    cMsgSendAndGetMutexUnlock(domain);
   }
   /* If we've been woken up for dead server ... */
   else if (info->error != CMSG_OK) {
@@ -2693,13 +2697,14 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *t
        * must free it.
        */
     if (replyMsg != NULL) *replyMsg = info->msg;
-      err = CMSG_OK;
+    /* May not free this down below in cMsgGetInfoFree. */
+    info->msg = NULL;
+    err = CMSG_OK;
   }
   
   /* free up memory */
-  /* do NOT call cMsgGetInfoFree(info) because that frees msg */
-  free(info->subject);
-  free(info->type);
+  /* be careful, cMsgGetInfoFree(info) frees info->msg */
+  cMsgGetInfoFree(info);
   free(info);
   free(idString);
 
@@ -3634,7 +3639,39 @@ int cmsg_cmsg_disconnect(void **domainId) {
   cMsgSubscribeMutexUnlock(domain);
   sched_yield();
 
-  /* wakeup all gets */
+  /* wakeup all sub&gets */
+  cMsgSubAndGetMutexLock(domain);
+  hashClear(&domain->subAndGetTable, &entries, &tblSize);
+  cMsgSubAndGetMutexUnlock(domain);
+  if (entries != NULL) {
+    for (i=0; i<tblSize; i++) {
+      info = (getInfo *)entries[i].data;
+      info->msg   = NULL;
+      info->msgIn = 0;
+      info->quit  = 1;
+
+      if (cMsgDebug >= CMSG_DEBUG_INFO) {
+        fprintf(stderr, "cmsg_cmsg_disconnect: wake up a sendAndGet\n");
+      }
+  
+      /* wakeup "get" */
+      status = pthread_cond_signal(&info->cond);
+      if (status != 0) {
+        cmsg_err_abort(status, "Failed get condition signal");
+      }
+
+      free(entries[i].key);
+      /* Do NOT free info or run cMsgGetInfoFree here! That's
+      * done in the cmsg_cmsg_subAndGet routine. If the disconnect
+      * is done early in the subAndGet, everything is cleaned up.
+      * If the disconnect is done while waiting for a msg to arrive,
+      * the subAndGet will timeout and call free routines.
+      */
+    }
+    free(entries);
+  }
+  
+  /* wakeup all send&gets */
   cMsgSendAndGetMutexLock(domain);
   hashClear(&domain->sendAndGetTable, &entries, &tblSize);
   cMsgSendAndGetMutexUnlock(domain);
@@ -3656,8 +3693,6 @@ int cmsg_cmsg_disconnect(void **domainId) {
       }
 
       free(entries[i].key);
-      cMsgGetInfoFree(info);
-      free(info);
     }
     free(entries);
   }
@@ -3684,8 +3719,6 @@ int cmsg_cmsg_disconnect(void **domainId) {
       }
 
       free(entries[i].key);
-      cMsgGetInfoFree(info);
-      free(info);
     }
     free(entries);
   }
@@ -3700,7 +3733,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
   cMsgConnectWriteUnlock(domain);
     
   /* Clean up memory */
-/*printf("cmsg_cmsg_disconnect: calling cMsgDomainFree\n");*/
+  /*printf("cmsg_cmsg_disconnect: calling cMsgDomainFree\n");*/
   cMsgDomainFree(domain);
   free(domain);
   *domainId = NULL;
@@ -3830,7 +3863,33 @@ static int disconnectFromKeepAlive(void **domainId) {
   cMsgSubscribeMutexUnlock(domain);
   sched_yield();
   
-  /* wakeup all gets */
+  /* wakeup all sub&gets */
+  cMsgSubAndGetMutexLock(domain);
+  hashClear(&domain->subAndGetTable, &entries, &tblSize);
+  cMsgSubAndGetMutexUnlock(domain);
+  if (entries != NULL) {
+    for (i=0; i<tblSize; i++) {
+      info = (getInfo *)entries[i].data;
+      info->msg   = NULL;
+      info->msgIn = 0;
+      info->quit  = 1;
+
+      if (cMsgDebug >= CMSG_DEBUG_INFO) {
+        fprintf(stderr, "cmsg_cmsg_disconnect: wake up a sendAndGet\n");
+      }
+  
+      /* wakeup "get" */
+      status = pthread_cond_signal(&info->cond);
+      if (status != 0) {
+        cmsg_err_abort(status, "Failed get condition signal");
+      }
+
+      free(entries[i].key);
+    }
+    free(entries);
+  }
+  
+  /* wakeup all send&gets */
   cMsgSendAndGetMutexLock(domain);
   hashClear(&domain->sendAndGetTable, &entries, &tblSize);
   cMsgSendAndGetMutexUnlock(domain);
@@ -3852,8 +3911,6 @@ static int disconnectFromKeepAlive(void **domainId) {
       }
 
       free(entries[i].key);
-      cMsgGetInfoFree(info);
-      free(info);
     }
     free(entries);
   }
@@ -3880,8 +3937,6 @@ static int disconnectFromKeepAlive(void **domainId) {
       }
 
       free(entries[i].key);
-      cMsgGetInfoFree(info);
-      free(info);
     }
     free(entries);
   }

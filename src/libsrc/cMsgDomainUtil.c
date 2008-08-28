@@ -784,7 +784,7 @@ void cMsgSubscribeInfoFree(subInfo *info) {
 void cMsgGetInfoFree(getInfo *info) {
     void *p = (void *)info->msg;
 
-#ifndef VXWORKS
+#ifdef VXWORKS
     /* cannot destroy mutexes and cond vars in vxworks & Linux(?) */
     int status;
     
