@@ -518,8 +518,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
                 binLength = msg.getByteArrayLength();
             }
             // size of everything sent (except "size" itself which is first integer)
-            int size = len1 + len2 + len3 + len4 + len5 + len6 +
-                       binLength + 4*18;
+            int size = len1 + len2 + len3 + len4 + len5 + len6 + binLength + 4*18;
 
             out.writeInt(size);
             out.writeInt(msgType);
