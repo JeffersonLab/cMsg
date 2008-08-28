@@ -141,13 +141,29 @@ public class rcListeningThread extends Thread {
                         socket.setReceiveBufferSize(65535);
                         socket.setSendBufferSize(65535);
 
+                        // read in magic numbers from rcServer ("cMsg is cool" in ascii)
+                        byte[] magic = new byte[12];
+                        socket.getInputStream().read(magic);
+
+                        // check magic numbers to filter out port-scanners
+                        if ( (cMsgUtilities.bytesToInt(magic, 0) != cMsgNetworkConstants.magicNumbers[0]) ||
+                             (cMsgUtilities.bytesToInt(magic, 4) != cMsgNetworkConstants.magicNumbers[1]) ||
+                             (cMsgUtilities.bytesToInt(magic, 8) != cMsgNetworkConstants.magicNumbers[2])   ) {
+
+                            if (debug >= cMsgConstants.debugInfo) {
+                                System.out.println("rcClientListeningThread: wrong magic #s from connecting process");
+                            }
+                            it.remove();
+                            continue;
+                        }
+
                         // Start up client handling thread & store reference.
                         // The first of the 2 connections is for message receiving.
                         // The second is to respond to keepAlives from the server.
                         handlerThreads.add(new ClientHandler(channel));
 
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("cMsgClientListeningThread: new connection");
+                            System.out.println("rcClientListeningThread: new connection");
                         }
                     }
                     // remove key from selected set since it's been handled
@@ -167,7 +183,7 @@ public class rcListeningThread extends Thread {
         }
 
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("Quitting Client Listening Thread");
+            System.out.println("Quitting RC Client Listening Thread");
         }
 
         return;
