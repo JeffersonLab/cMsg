@@ -129,6 +129,8 @@ public class cMsgMonitorClient extends Thread {
             outBuffer.clear();
 //System.out.println("Buffer capacity = " + outBuffer.capacity());
             // put size first
+
+//System.out.println("KA xml data length = " + dataLength);
             outBuffer.putInt(dataLength);
 
             // create outBuffer with data to be sent to server clients
@@ -416,7 +418,7 @@ public class cMsgMonitorClient extends Thread {
     /**
      * This method updates the XML string representing the state of this server and the
      * XML string representing the state of the complete cMsg system - cMsg subdomain.
-     * */
+     */
     public void updateMonitorXML() {
 
         DateFormat dateFormat = DateFormat.getDateTimeInstance(DateFormat.FULL,DateFormat.FULL);

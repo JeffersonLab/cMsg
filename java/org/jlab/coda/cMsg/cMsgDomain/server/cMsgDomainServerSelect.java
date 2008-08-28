@@ -782,9 +782,9 @@ public class cMsgDomainServerSelect extends Thread {
 //System.out.println("client " + info.getName() + " is UDP readable");
                                 udpChannel.receive(udpBuffer);
                                 udpBuffer.flip();
-                                if (udpBuffer.getInt() != cMsgConstants.udpMagicNumbers[0] ||
-                                    udpBuffer.getInt() != cMsgConstants.udpMagicNumbers[1] ||
-                                    udpBuffer.getInt() != cMsgConstants.udpMagicNumbers[2]) {
+                                if (udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[0] ||
+                                    udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[1] ||
+                                    udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[2]) {
                                     if (debug >= cMsgConstants.debugWarn) {
                                         System.out.println(" received bogus udp packet");
                                     }

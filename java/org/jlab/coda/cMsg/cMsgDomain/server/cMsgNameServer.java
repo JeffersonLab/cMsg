@@ -1419,6 +1419,14 @@ public class cMsgNameServer extends Thread {
          */
         private void handleRegularClient() throws IOException {
 //System.out.println("getClientInfo: IN");
+            InetSocketAddress add = (InetSocketAddress)(channel.socket().getRemoteSocketAddress());
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("connecting client:\n  client sending addr = " + add);
+                System.out.println("  client host = " +  add.getHostName());
+                System.out.println("  client addr = " +  add.getAddress().getHostAddress());
+                System.out.println("  client sending port = " +  add.getPort());
+            }
+
             // is client low throughput & small msg size?
             regimeLow = in.readInt() == 1;  // CHANGED
             // length of password
@@ -1559,6 +1567,7 @@ public class cMsgNameServer extends Thread {
             // Try to register this client. If the cMsg system already has a
             // client by this name, it will fail.
             info = new cMsgClientData(name, port, domainServerPort, host,
+                                      add.getAddress().getHostAddress(),
                                       subdomainType, UDLRemainder, UDL, description);
             if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("name server try to register " + name);

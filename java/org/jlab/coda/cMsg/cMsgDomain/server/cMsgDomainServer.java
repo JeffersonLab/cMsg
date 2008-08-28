@@ -535,17 +535,17 @@ public class cMsgDomainServer extends Thread {
                     if (killSpawnedThreads) return;
 
                     // check magic #s coming in
-                    if (bytesToInt(buf,0) != cMsgConstants.udpMagicNumbers[0] ||
-                        bytesToInt(buf,4) != cMsgConstants.udpMagicNumbers[1] ||
-                        bytesToInt(buf,8) != cMsgConstants.udpMagicNumbers[2]) {
+                    if (bytesToInt(buf,0) != cMsgNetworkConstants.magicNumbers[0] ||
+                        bytesToInt(buf,4) != cMsgNetworkConstants.magicNumbers[1] ||
+                        bytesToInt(buf,8) != cMsgNetworkConstants.magicNumbers[2]) {
                         if (debug >= cMsgConstants.debugWarn) {
                             System.out.println("DS udpSendHandler: received bogus udp packet");
                         }
                         continue;
                     }
-                    else {
-                        System.out.println("Packet has good magic #s");
-                    }
+                    //else {
+                    //    System.out.println("Packet has good magic #s");
+                   // }
 
                     // pick apart byte array received
                     bufIndex = 12;
