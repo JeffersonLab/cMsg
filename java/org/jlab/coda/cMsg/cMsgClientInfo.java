@@ -31,6 +31,8 @@ import java.nio.channels.SocketChannel;
 public class cMsgClientInfo {
     /** Client's name. */
     protected String  name;
+    /** Client's address in dotted decimal form. */
+    private String  dottedDecimalAddr;
     /** Client supplied description. */
     protected String  description;
     /** Client supplied UDL. */
@@ -78,6 +80,7 @@ public class cMsgClientInfo {
      * Used in nameServer for a connecting regular client.
      *
      * @param name  client's name
+     * @param dotDec  client's address in dotted decimal form
      * @param nsPort name server's listening port
      * @param dPort  domain server's listening port
      * @param host  client's host
@@ -86,9 +89,11 @@ public class cMsgClientInfo {
      * @param UDL          client's UDL
      * @param description  client's description
      */
-    public cMsgClientInfo(String name, int nsPort, int dPort, String host, String subdomain,
+    public cMsgClientInfo(String name, int nsPort, int dPort, String host,
+                          String dotDec, String subdomain,
                           String UDLRemainder, String UDL, String description) {
         this.name = name;
+        dottedDecimalAddr = dotDec;
         serverPort = nsPort;
         domainPort = dPort;
         clientHost = host;
@@ -121,6 +126,14 @@ public class cMsgClientInfo {
      * @return client's name
      */
     public String getName() {return name;}
+
+    //-----------------------------------------------------------------------------------
+
+    /**
+     * Gets client's address in dotted decimal form.
+     * @return client's address in dotted decimal form
+     */
+    public String getDottedDecimalAddr() {return dottedDecimalAddr;}
 
     //-----------------------------------------------------------------------------------
 

@@ -30,14 +30,6 @@ public class cMsgConstants {
     /** Minor cMsg version number. */
     public static final int    minorVersion = 0;
 
-    /**
-     * At the beginning of each udp send there are 3 integers which spell out
-     * "cMsg is cool" in ASCII. The server uses this to filter out bogus packets
-     * (eg. port scanners).
-     */
-    public static int[] udpMagicNumbers = {0x634d7367,   // "cMsg"
-                                           0x20697320,   // " is "
-                                           0x636f6f6c};  // "cool"
 
     // constants from cMsgPrivate.h
 

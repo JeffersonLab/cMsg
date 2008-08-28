@@ -32,7 +32,23 @@ import java.net.UnknownHostException;
  */
 public class cMsgUtilities {
 
-    static public ByteChannel wrapChannel2(final ByteChannel channel)
+    /**
+        * Converts 4 bytes of a byte array into an integer.
+        *
+        * @param b byte array
+        * @param off offset into the byte array (0 = start at first element)
+        * @return integer value
+        */
+       static public final int bytesToInt(byte[] b, int off) {
+         int result = ((b[off]  &0xff) << 24) |
+                      ((b[off+1]&0xff) << 16) |
+                      ((b[off+2]&0xff) <<  8) |
+                       (b[off+3]&0xff);
+         return result;
+       }
+
+
+    static public final ByteChannel wrapChannel2(final ByteChannel channel)
     {
         return channel;
     }
@@ -47,7 +63,7 @@ public class cMsgUtilities {
      * @param channel the SelectableChannel which has sync problems
      * @return a ByteChannel which does not have sync problems
      */
-     static public ByteChannel wrapChannel(final ByteChannel channel) {
+     static public final ByteChannel wrapChannel(final ByteChannel channel) {
         return new ByteChannel() {
             public int write(ByteBuffer src) throws IOException {
                 return channel.write(src);
@@ -77,7 +93,7 @@ public class cMsgUtilities {
       * @return number of bytes read
       * @throws IOException If channel is closed or cannot be read from
       */
-     static public int readSocketBytesPlain(ByteBuffer buffer, SocketChannel channel, int bytes)
+     static public final int readSocketBytesPlain(ByteBuffer buffer, SocketChannel channel, int bytes)
              throws IOException {
 
          int n, count = 0;
@@ -107,7 +123,7 @@ public class cMsgUtilities {
       * @return number of bytes read
       * @throws IOException If channel is closed or cannot be read from
       */
-     static public int readSocketBytes(ByteBuffer buffer, SocketChannel channel, int bytes, int debug)
+     static public final int readSocketBytes(ByteBuffer buffer, SocketChannel channel, int bytes, int debug)
              throws IOException {
 
          int n, tries = 0, count = 0, maxTries=200;
@@ -151,7 +167,7 @@ public class cMsgUtilities {
      * @param debug level of debug output
      * @return error explanation
      */
-    static public String printError(int error, int debug) {
+    static public final String printError(int error, int debug) {
       String reason;
 
       switch (error) {
@@ -285,7 +301,7 @@ public class cMsgUtilities {
      * @throws org.jlab.coda.cMsg.cMsgException if input string is not in the proper form (host:port)
      *                       or the host is unknown
      */
-    static public String constructServerName(String s) throws cMsgException {
+    static public final String constructServerName(String s) throws cMsgException {
 
         // Separate the server name from the server port.
         // First check for ":"

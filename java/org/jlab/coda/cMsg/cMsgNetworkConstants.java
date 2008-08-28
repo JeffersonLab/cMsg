@@ -28,6 +28,9 @@ public class cMsgNetworkConstants {
 
     // constants from cMsgNetwork.h
 
+    /** Ints representing ascii for "cMsg is cool", used to filter out portscanning software. */
+    public static final int[] magicNumbers = {0x634d7367, 0x20697320, 0x636f6f6c};
+
     /** TCP port at which a cMsg domain name server starts looking for an unused listening port. */
     public static final int    nameServerStartingPort   = 3456;
     /** TCP port at which a cMsg domain, domain server listens. */
