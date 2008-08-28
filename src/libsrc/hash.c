@@ -411,6 +411,7 @@ int hashClear(hashTable *tptr, hashNode **entries, int *size) {
 
   for (i=0; i<tptr->size; i++) {
     node = tptr->bucket[i];
+    tptr->bucket[i] = NULL;
     while (node != NULL) {
       last = node;
       node = node->next;
