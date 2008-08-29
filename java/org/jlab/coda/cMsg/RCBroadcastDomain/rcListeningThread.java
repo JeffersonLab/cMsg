@@ -311,6 +311,7 @@ public class rcListeningThread extends Thread {
 
                 // If expid's match, pass on messgage to subscribes and/or subscribeAndGets
                 cMsgMessageFull msg = new cMsgMessageFull();
+                msg.setText(broadcasterAddress.getHostAddress());    // put dotted decimal form of host here
                 msg.setSenderHost(broadcasterHost);
                 msg.setUserInt(broadcasterTcpPort);
                 msg.setSender(broadcasterName);
