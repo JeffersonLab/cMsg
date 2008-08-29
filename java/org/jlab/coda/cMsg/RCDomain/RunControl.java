@@ -73,7 +73,7 @@ public class RunControl extends cMsgDomainAdapter {
     /** Quit a connection in progress if true. */
     volatile boolean abandonConnection;
 
-    /** RunControl server's net address obtained from broadcast resonse. */
+    /** RunControl server's net address obtained from broadcast response. */
     volatile InetAddress rcServerAddress;
 
     /** RunControl server's UDP listening port obtained from {@link #connect}. */
