@@ -135,6 +135,7 @@ int   cmsg_rc_disconnect        (void **domainId);
 int   cmsg_rc_shutdownClients   (void *domainId, const char *client, int flag);
 int   cmsg_rc_shutdownServers   (void *domainId, const char *server, int flag);
 int   cmsg_rc_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
+int   cmsg_rc_isConnected       (void *domainId, int *connected);
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
 static domainFunctions functions = {cmsg_rc_connect, cmsg_rc_send,
@@ -144,13 +145,48 @@ static domainFunctions functions = {cmsg_rc_connect, cmsg_rc_send,
                                     cmsg_rc_monitor, cmsg_rc_start,
                                     cmsg_rc_stop, cmsg_rc_disconnect,
                                     cmsg_rc_shutdownClients, cmsg_rc_shutdownServers,
-                                    cmsg_rc_setShutdownHandler};
+                                    cmsg_rc_setShutdownHandler,
+                                    cmsg_rc_isConnected};
 
 /* CC domain type */
 domainTypeInfo rcDomainTypeInfo = {
   "rc",
   &functions
 };
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine tells whether a client is connected or not.
+ *
+ * @param domain id of the domain connection
+ * @param connected pointer whose value is set to 1 if this client is connected,
+ *                  else it is set to 0
+ *
+ * @returns CMSG_OK
+ */
+int cmsg_rc_isConnected(void *domainId, int *connected) {
+  cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+  
+  if (domain == NULL) {
+    if (connected != NULL) {
+      *connected = 0;
+    }
+    return(CMSG_OK);
+  }
+             
+  cMsgConnectReadLock(domain);
+
+  if (connected != NULL) {
+    *connected = domain->gotConnection;
+  }
+  
+  cMsgConnectReadUnlock(domain);
+    
+  return(CMSG_OK);
+}
+
 
 /*-------------------------------------------------------------------*/
 

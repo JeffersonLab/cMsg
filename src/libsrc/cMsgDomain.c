@@ -124,6 +124,7 @@ int   cmsg_cmsg_disconnect        (void **domainId);
 int   cmsg_cmsg_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
 int   cmsg_cmsg_shutdownClients   (void *domainId, const char *client, int flag);
 int   cmsg_cmsg_shutdownServers   (void *domainId, const char *server, int flag);
+int   cmsg_cmsg_isConnected       (void *domainId, int *connected);
 
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
@@ -134,7 +135,8 @@ static domainFunctions functions = {cmsg_cmsg_connect, cmsg_cmsg_send,
                                     cmsg_cmsg_monitor, cmsg_cmsg_start,
                                     cmsg_cmsg_stop, cmsg_cmsg_disconnect,
                                     cmsg_cmsg_shutdownClients, cmsg_cmsg_shutdownServers,
-                                    cmsg_cmsg_setShutdownHandler};
+                                    cmsg_cmsg_setShutdownHandler,
+                                    cmsg_cmsg_isConnected};
 
 /* cMsg domain type */
 domainTypeInfo cmsgDomainTypeInfo = {
@@ -185,8 +187,9 @@ static int   connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
 
 /*-------------------------------------------------------------------*/
 /**
- * This routine restores subscriptions to a new server which replaced a crashed server
- * during failover.
+ * This routine restores subscriptions to a new server which replaced a
+ * crashed server during failover. It is already protected by
+ * cMsgConnectWriteLock when called in the keepAlive thread.
  *
  * @param domain id of the domain connection
  *
@@ -199,12 +202,6 @@ static int restoreSubscriptions(cMsgDomainInfo *domain)  {
   hashNode *entries = NULL;
   subInfo *sub;
   
-    /*
-  * We don't want any cMsg commands to be sent to the server
-  * while we are busy resubscribing to a failover server.
-    */
-  cMsgConnectWriteLock(domain);
-
   hashGetAll(&domain->subscribeTable, &entries, &size);
   
   if (entries != NULL) {
@@ -214,7 +211,6 @@ static int restoreSubscriptions(cMsgDomainInfo *domain)  {
 /* printf("Restore Subscription to sub = %s, type = %s\n", subject, type); */
       err = resubscribe(domain, sub);    
       if (err != CMSG_OK) {
-        cMsgConnectWriteUnlock(domain);
         free(entries);
         return(err);
       }
@@ -223,8 +219,6 @@ static int restoreSubscriptions(cMsgDomainInfo *domain)  {
     free(entries);
   }
 
-  cMsgConnectWriteUnlock(domain);
-  
   return(CMSG_OK);
 }
 
@@ -276,6 +270,40 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
     }
     
     return 0;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine tells whether a client is connected or not.
+ *
+ * @param domain id of the domain connection
+ * @param connected pointer whose value is set to 1 if this client is connected,
+ *                  else it is set to 0
+ *
+ * @returns CMSG_OK
+ */
+int cmsg_cmsg_isConnected(void *domainId, int *connected) {
+  cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+  
+  if (domain == NULL) {
+    if (connected != NULL) {
+      *connected = 0;
+    }
+    return(CMSG_OK);
+  }
+             
+  cMsgConnectReadLock(domain);
+
+  if (connected != NULL) {
+    *connected = domain->gotConnection;
+  }
+  
+  cMsgConnectReadUnlock(domain);
+    
+  return(CMSG_OK);
 }
 
 
@@ -1033,7 +1061,8 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
 /**
  * This routine is called by the keepAlive thread upon the death of the
  * cMsg server in an attempt to failover to another server whose UDL was
- * given in the original call to connect(). 
+ * given in the original call to connect(). It is already protected
+ * by cMsgConnectWriteLock() when called in keepAlive thread.
  * 
  * @param domain pointer to connection info structure
  * @param failoverIndex index into the array of parsed UDLs to which
@@ -1054,8 +1083,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   cMsgThreadInfo *threadArg;
   hashNode *entries = NULL;
    
-  cMsgConnectWriteLock(domain);  
-
   /*--------------------------------------------------------------------*/
   /* Connect to cMsg name server to check if server can be connected to.
    * If not, don't waste any more time and try the next one.            */
@@ -1064,7 +1091,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   if ( (err = cMsgTcpConnect(domain->failovers[failoverIndex].nameServerHost,
                              (unsigned short) domain->failovers[failoverIndex].nameServerPort,
                              0, 0, &serverfd)) != CMSG_OK) {
-    cMsgConnectWriteUnlock(domain);
     return(err);
   }  
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
@@ -1091,8 +1117,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
       }
 
       free(entries[i].key);
-      cMsgGetInfoFree(info);
-      free(info);
     }
     free(entries);
   }
@@ -1115,8 +1139,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
       }
 
       free(entries[i].key);
-      cMsgGetInfoFree(info);
-      free(info);
     }
     free(entries);
   }
@@ -1139,8 +1161,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
       }
 
       free(entries[i].key);
-      cMsgGetInfoFree(info);
-      free(info);
     }
     free(entries);
   }
@@ -1152,7 +1172,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   /* get host & port (domain->sendHost,sendPort) to send messages to */
   err = talkToNameServer(domain, serverfd, failoverIndex);
   if (err != CMSG_OK) {
-    cMsgConnectWriteUnlock(domain);
     close(serverfd);
     return(err);
   }
@@ -1178,7 +1197,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
                              (unsigned short) domain->sendPort,
                               CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE,
                               &domain->sendSocket)) != CMSG_OK) {
-    cMsgConnectWriteUnlock(domain);
     return(err);
   }
 
@@ -1189,8 +1207,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   /* launch pend thread and start listening on send socket */
   threadArg = (cMsgThreadInfo *) malloc(sizeof(cMsgThreadInfo));
   if (threadArg == NULL) {
-      cMsgConnectWriteUnlock(domain);
-      return(CMSG_OUT_OF_MEMORY);  
+      return(CMSG_OUT_OF_MEMORY);
   }
   threadArg->isRunning   = 0;
   threadArg->thdstarted  = 0;
@@ -1217,7 +1234,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
                               0, 0, &domain->keepAliveSocket)) != CMSG_OK) {
-    cMsgConnectWriteUnlock(domain);
     close(domain->sendSocket);
     return(err);
   }
@@ -1252,7 +1268,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
 
   /* create sending UDP socket */
   if ((domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-    cMsgConnectWriteUnlock(domain);
     close(domain->keepAliveSocket);
     close(domain->sendSocket);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "reconnect: socket error, %s\n", strerror(errno));
@@ -1262,7 +1277,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   /* set send buffer size */
   err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
   if (err < 0) {
-    cMsgConnectWriteUnlock(domain);
     close(domain->keepAliveSocket);
     close(domain->sendSocket);
     close(domain->sendUdpSocket);
@@ -1275,7 +1289,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   servaddr.sin_port   = htons(domain->sendUdpPort);
 
   if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
-    cMsgConnectWriteUnlock(domain);
     close(domain->keepAliveSocket);
     close(domain->sendSocket);
     close(domain->sendUdpSocket);
@@ -1285,7 +1298,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
 
   err = connect(domain->sendUdpSocket, (SA *) &servaddr, (socklen_t) sizeof(servaddr));
   if (err < 0) {
-    cMsgConnectWriteUnlock(domain);
     close(domain->keepAliveSocket);
     close(domain->sendSocket);
     close(domain->sendUdpSocket);
@@ -1293,8 +1305,6 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
     return(CMSG_SOCKET_ERROR);
   }
    
-  cMsgConnectWriteUnlock(domain);
-  
 /* printf("reconnect END\n"); */
   return(CMSG_OK);
 }
@@ -3501,7 +3511,7 @@ int cmsg_cmsg_stop(void *domainId) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId or the pointer it points to is NULL
  */   
-int cmsg_cmsg_disconnect(void **domainId) {
+int cmsg_cmsg_disconnectOrig(void **domainId) {
   
   int i, status, outGoing[2], tblSize;
   cMsgDomainInfo *domain;
@@ -3519,6 +3529,11 @@ int cmsg_cmsg_disconnect(void **domainId) {
   if (domain == NULL) return(CMSG_BAD_ARGUMENT);
         
   cMsgConnectWriteLock(domain);
+
+  if (!domain->gotConnection) {
+    cMsgConnectWriteUnlock(domain);
+    return(CMSG_OK);
+  }
   
   domain->gotConnection = 0;
   /*
@@ -3534,7 +3549,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
 
   /* Tell server we're disconnecting */
   
-  /* size of msg */
+  /* size of msg */ 
   outGoing[0] = htonl(4);
   /* message id (in network byte order) to domain server */
   outGoing[1] = htonl(CMSG_SERVER_DISCONNECT);
@@ -3744,6 +3759,65 @@ int cmsg_cmsg_disconnect(void **domainId) {
 
 /*-------------------------------------------------------------------*/
 
+
+/**
+ * This routine disconnects the client from the cMsg server. This is done
+ * by telling the server to kill its connection to this client. This client's
+ * keepAlive thread will detect this and do the real disconnect.
+ *
+ * @param domainId pointer to id of the domain connection
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if domainId or the pointer it points to is NULL
+ */
+int cmsg_cmsg_disconnect(void **domainId) {
+  
+  int outGoing[2];
+  cMsgDomainInfo *domain;
+
+  if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
+  domain = (cMsgDomainInfo *) (*domainId);
+  if (domain == NULL) return(CMSG_BAD_ARGUMENT);
+        
+  cMsgConnectWriteLock(domain);
+
+  if (!domain->gotConnection) {
+    cMsgConnectWriteUnlock(domain);
+    return(CMSG_OK);
+  }
+  
+  /* Tell server we're disconnecting */  
+  /* size of msg */
+  outGoing[0] = htonl(4);
+  /* message id (in network byte order) to domain server */
+  outGoing[1] = htonl(CMSG_SERVER_DISCONNECT);
+
+  /* make send socket communications thread-safe */
+  cMsgSocketMutexLock(domain);
+  
+  /* send int */
+  if (cMsgTcpWrite(domain->sendSocket, (char*) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
+    /* if there is an error we are most likely in the process of disconnecting */
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cmsg_cmsg_disconnect: write failure, but continue\n");
+    }
+  }
+
+  /* calling "disconnect" takes precedence over failing-over to another server */
+  domain->implementFailovers = 0;
+  
+  /* after calling disconnect, no top level API routines should function */
+  domain->gotConnection = 0;
+  
+  cMsgSocketMutexUnlock(domain);
+  cMsgConnectWriteUnlock(domain);
+  
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
 /**
  * This routine disconnects the client from the cMsg server when
  * called by the keepAlive thread.
@@ -3773,10 +3847,11 @@ static int disconnectFromKeepAlive(void **domainId) {
   if (domain == NULL) return(CMSG_BAD_ARGUMENT);
       
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "disconnectFromKeepAlive: IN\n");
+    fprintf(stderr, "disconnectFromKeepAlive: IN, domainId = %p, *domainId = %p\n",
+            domainId, *domainId);
   }
   cMsgConnectWriteLock(domain);
-     
+    
   domain->gotConnection = 0;
 
   /* stop msg receiving thread */
@@ -3851,7 +3926,7 @@ static int disconnectFromKeepAlive(void **domainId) {
     free(entries);
   } /* if there are subscriptions */
 
-  /* Pthread cancelling the callback threads will not allow them to wake up
+  /* Pthread_cancelling the callback threads will not allow them to wake up
    * the runCallbacks (msg receiving) thread, which must be done in case it
    * is stuck with a full Q. Do it now.
    */
@@ -3885,6 +3960,12 @@ static int disconnectFromKeepAlive(void **domainId) {
       }
 
       free(entries[i].key);
+      /* Do NOT free info or run cMsgGetInfoFree here! That's
+       * done in the cmsg_cmsg_subAndGet routine. If the disconnect
+       * is done early in the subAndGet, everything is cleaned up.
+       * If the disconnect is done while waiting for a msg to arrive,
+       * the subAndGet will timeout and call free routines.
+       */
     }
     free(entries);
   }
@@ -3947,12 +4028,32 @@ static int disconnectFromKeepAlive(void **domainId) {
   /* Unblock SIGPIPE */
   cMsgRestoreSignals(domain);
 
+  /* can't use this id anymore */
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "disconnectFromKeepAlive: setting %p to NULL\n", *domainId);
+  }
+  *domainId = NULL;
+
   cMsgConnectWriteUnlock(domain);
+
+  /* There may be other threads that have simultaneously called send, syncSend,
+   * sub&Get, send&Get, etc. They must be currently waiting on the domain->connectLock.
+   * This sleep allows these threads to wake up and figure out that there is no more
+  * connection before we free the memory of that lock.
+   */
+  sleep(1);
     
+  status = rwl_destroy (&domain->connectLock);
+  if (status != 0) {
+    cmsg_err_abort(status, "disconnectFromKeepAlive: destroying connect read/write lock");
+  }
+
   /* Clean up memory */
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "disconnectFromKeepAlive: free domain memory at %p\n", domain);
+  }
   cMsgDomainFree(domain);
   free(domain);
-  *domainId = NULL;
 
   return(CMSG_OK);
 }
@@ -4466,6 +4567,9 @@ static void *keepAliveThread(void *arg) {
         weGotAConnection = 0;
         domain->resubscribeComplete = 0;
 
+        /* grab mutex to keep from conflicting with "disconnect" */
+        cMsgConnectWriteLock(domain);
+
         while (domain->implementFailovers && !weGotAConnection) {
             if (connectFailures >= domain->failoverSize) {
 /* printf("ka: Reached our limit of UDLs so quit\n"); */
@@ -4525,7 +4629,8 @@ static void *keepAliveThread(void *arg) {
             }
             cMsgLatchReset(&domain->syncLatch, 1, NULL);
         }
-    }
+        cMsgConnectWriteUnlock(domain);
+    } /* while we gotta connection */
 
     /* close communication socket */
     close(socket);

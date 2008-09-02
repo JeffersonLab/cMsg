@@ -157,7 +157,7 @@ typedef int (*FLUSH_PTR)                (void *domainId, const struct timespec *
 /** Typedef for a domain's start & stop functions */  
 typedef int (*START_STOP_PTR)           (void *domainId);
 
-/** Typedef for a domain's disconnect functions */  
+/** Typedef for a domain's disconnect function */
 typedef int (*DISCONNECT_PTR)           (void **domainId);
 
 /** Typedef for a domain's shutdownClients and shutdownServers functions */  
@@ -166,6 +166,10 @@ typedef int (*SHUTDOWN_PTR)             (void *domainId, const char *client, int
 /** Typedef for a domain's shutdownClients and shutdownServers functions */  
 typedef int (*SET_SHUTDOWN_HANDLER_PTR) (void *domainId, cMsgShutdownHandler *handler,
                                          void *userArg);
+                                         
+/** Typedef for a domain's isConnected function */
+typedef int (*ISCONNECTED_PTR)          (void *domainId, int *connected);
+
 
 
 
@@ -225,6 +229,9 @@ typedef struct domainFunctions_t {
   
   /** This function sets the shutdown handler. */
   SET_SHUTDOWN_HANDLER_PTR setShutdownHandler;
+
+  /** This function tells whether a client is connected or not. */
+  ISCONNECTED_PTR isConnected;
   
 } domainFunctions;
 
@@ -241,7 +248,6 @@ typedef struct cMsgDomain_t {
   void *implId;        /**< Pointer set by implementation to identify particular domain connection. */
 
   /* other state variables */
-  int connected;       /**< Is there a valid connection? 0 = No, 1 = Yes */
   int receiveState;    /**< Is connection receiving callback messages? 0 = No, 1 = Yes */
   
   char *type;          /**< Domain type (eg cMsg, CA, SmartSockets, File, etc). */

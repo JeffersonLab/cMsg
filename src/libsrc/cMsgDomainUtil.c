@@ -832,6 +832,7 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
 #ifndef VXWORKS
   int status;
 #endif
+
   if (domain->myHost         != NULL) {free(domain->myHost);         domain->myHost         = NULL;}
   if (domain->sendHost       != NULL) {free(domain->sendHost);       domain->sendHost       = NULL;}
   if (domain->serverHost     != NULL) {free(domain->serverHost);     domain->serverHost     = NULL;}
@@ -933,12 +934,13 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
   if (status != 0) {
     cmsg_err_abort(status, "cMsgDomainFree:destroying rc connect cond var");
   }
-    
+  /* this is freed in disconnectFromKeepAlive */
+  /*  
   status = rwl_destroy (&domain->connectLock);
   if (status != 0) {
     cmsg_err_abort(status, "cMsgDomainFree:destroying connect read/write lock");
   }
-    
+  */  
 #endif
 
   cMsgCountDownLatchFree(&domain->syncLatch);

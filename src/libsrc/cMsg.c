@@ -843,7 +843,6 @@ int cMsgConnect(const char *myUDL, const char *myName,
       return err;
   }  
   
-  domain->connected = 1;
   *domainId = (void *)domain;
   
   return CMSG_OK;
@@ -867,7 +866,6 @@ int cMsgConnect(const char *myUDL, const char *myName,
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId is NULL
- * @returns CMSG_LOST_CONNECTION if no longer connected to domain
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSend
  */   
@@ -875,7 +873,6 @@ int cMsgSend(void *domainId, void *msg) {
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  if (!domain->connected) return(CMSG_LOST_CONNECTION);
   /* dispatch to function registered for this domain type */
   return(domain->functions->send(domain->implId, msg));
 }
@@ -900,7 +897,6 @@ int cMsgSend(void *domainId, void *msg) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId is NULL
- * @returns CMSG_LOST_CONNECTION if no longer connected to domain
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSyncSend
  */   
@@ -908,7 +904,6 @@ int cMsgSyncSend(void *domainId, void *msg, const struct timespec *timeout, int 
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  if (!domain->connected) return(CMSG_LOST_CONNECTION);
   /* dispatch to function registered for this domain type */
   return(domain->functions->syncSend(domain->implId, msg, timeout, response));
 }
@@ -928,7 +923,6 @@ int cMsgSyncSend(void *domainId, void *msg, const struct timespec *timeout, int 
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId is NULL
- * @returns CMSG_LOST_CONNECTION if no longer connected to domain
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgFlush
  */   
@@ -936,7 +930,6 @@ int cMsgFlush(void *domainId, const struct timespec *timeout) {
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  if (!domain->connected) return(CMSG_LOST_CONNECTION);
   return(domain->functions->flush(domain->implId, timeout));
 }
 
@@ -963,7 +956,6 @@ int cMsgFlush(void *domainId, const struct timespec *timeout) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId is NULL
- * @returns CMSG_LOST_CONNECTION if no longer connected to domain
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSubscribe
  */   
@@ -973,7 +965,6 @@ int cMsgSubscribe(void *domainId, const char *subject, const char *type, cMsgCal
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  if (!domain->connected) return(CMSG_LOST_CONNECTION);
   return(domain->functions->subscribe(domain->implId, subject, type, callback,
                                         userArg, config, handle));
 }
@@ -991,7 +982,6 @@ int cMsgSubscribe(void *domainId, const char *subject, const char *type, cMsgCal
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId is NULL
- * @returns CMSG_LOST_CONNECTION if no longer connected to domain
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgUnSubscribe
  */   
@@ -999,7 +989,6 @@ int cMsgUnSubscribe(void *domainId, void *handle) {
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  if (!domain->connected) return(CMSG_LOST_CONNECTION);
   return(domain->functions->unsubscribe(domain->implId, handle));
 } 
 
@@ -1023,7 +1012,6 @@ int cMsgUnSubscribe(void *domainId, void *handle) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId is NULL
- * @returns CMSG_LOST_CONNECTION if no longer connected to domain
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSendAndGet
  */   
@@ -1032,7 +1020,6 @@ int cMsgSendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  if (!domain->connected) return(CMSG_LOST_CONNECTION);
   return(domain->functions->sendAndGet(domain->implId, sendMsg, timeout, replyMsg));
 }
 
@@ -1052,7 +1039,6 @@ int cMsgSendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId is NULL
- * @returns CMSG_LOST_CONNECTION if no longer connected to domain
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSendAndGet
  */   
@@ -1062,7 +1048,6 @@ int cMsgSubscribeAndGet(void *domainId, const char *subject, const char *type,
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  if (!domain->connected) return(CMSG_LOST_CONNECTION);
   return(domain->functions->subscribeAndGet(domain->implId, subject, type,
                                                 timeout, replyMsg));
 }
@@ -1083,7 +1068,6 @@ int cMsgSubscribeAndGet(void *domainId, const char *subject, const char *type,
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId is NULL
- * @returns CMSG_LOST_CONNECTION if no longer connected to domain
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSendAndGet
  */   
@@ -1092,7 +1076,6 @@ int cMsgMonitor(void *domainId, const char *command, void **replyMsg) {
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  if (!domain->connected) return(CMSG_LOST_CONNECTION);
   return(domain->functions->monitor(domain->implId, command, replyMsg));
 }
 
@@ -1108,7 +1091,6 @@ int cMsgMonitor(void *domainId, const char *command, void **replyMsg) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId is NULL
- * @returns CMSG_LOST_CONNECTION if no longer connected to domain
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgReceiveStart
  */   
@@ -1118,8 +1100,7 @@ int cMsgReceiveStart(void *domainId) {
   cMsgDomain *domain = (cMsgDomain *) domainId;
   
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  if (!domain->connected) return(CMSG_LOST_CONNECTION);
-  
+
   if ( (err = domain->functions->start(domain->implId)) != CMSG_OK) {
     return err;
   }
@@ -1142,7 +1123,6 @@ int cMsgReceiveStart(void *domainId) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId is NULL
- * @returns CMSG_LOST_CONNECTION if no longer connected to domain
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgReceiveStop
  */   
@@ -1152,8 +1132,7 @@ int cMsgReceiveStop(void *domainId) {
   cMsgDomain *domain = (cMsgDomain *) domainId;
 
   if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  if (!domain->connected) return(CMSG_LOST_CONNECTION);
-  
+
   if ( (err = domain->functions->stop(domain->implId)) != CMSG_OK ) {
     return err;
   }
@@ -1186,11 +1165,7 @@ int cMsgDisconnect(void **domainId) {
   if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
   domain = (cMsgDomain *) *domainId;
   if (domain == NULL) return(CMSG_BAD_ARGUMENT);
-  
-  if (!domain->connected) return(CMSG_LOST_CONNECTION);
     
-  domain->connected = 0;
-  
   if ( (err = domain->functions->disconnect(&domain->implId)) != CMSG_OK) {
     return err;
   }
@@ -1200,6 +1175,31 @@ int cMsgDisconnect(void **domainId) {
   *domainId = NULL;
     
   return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine gets the state of a cMsg connection. If connectState gets
+ * filled with a one, there is a valid connection. Anything else (zero
+ * in this case), indicates client is not connected. The meaning of
+ * "connected" may vary with domain.
+ *
+ * @param domainId id of the domain connection
+ * @param connected integer pointer to be filled in with connection state,
+ *                     (1-connected, 0-unconnected)
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgGetConnectState
+ */
+int cMsgGetConnectState(void *domainId, int *connected) {
+  cMsgDomain *domain = (cMsgDomain *) domainId;
+  if (domain == NULL || connected == NULL) return(CMSG_BAD_ARGUMENT);
+  return(domain->functions->isConnected(domain->implId, connected));
 }
 
 
@@ -1700,6 +1700,15 @@ static int registerDynamicDomains(char *domainType) {
   }
   funcs->setShutdownHandler = (SET_SHUTDOWN_HANDLER_PTR) pValue;
 
+  /* get "isConnected" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_isConnected", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+    free(funcs);
+    free(lowerCase);
+    return(CMSG_ERROR);
+  }
+  funcs->isConnected = (ISCONNECTED_PTR) pValue;
+
 
 #else 
   
@@ -1869,6 +1878,17 @@ static int registerDynamicDomains(char *domainType) {
   }
   funcs->setShutdownHandler = (SET_SHUTDOWN_HANDLER_PTR) sym;
 
+  /* get "isConnected" function */
+  sprintf(functionName, "cmsg_%s_isConnected", lowerCase);
+  sym = dlsym(libHandle, functionName);
+  if (sym == NULL) {
+    free(funcs);
+    free(lowerCase);
+    dlclose(libHandle);
+    return(CMSG_ERROR);
+  }
+  funcs->isConnected = (ISCONNECTED_PTR) sym;
+
 
 #endif  
 
@@ -1891,7 +1911,6 @@ static int registerDynamicDomains(char *domainType) {
  * @param domain pointer to structure holding domain info
  */   
 static void domainInit(cMsgDomain *domain) {  
-  domain->connected      = 0;
   domain->receiveState   = 0;
       
   domain->implId         = NULL;
@@ -2196,30 +2215,6 @@ int cMsgGetDescription(void *domainId, char **description) {
   else {
     *description = domain->description;
   }
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine gets the state of a cMsg connection. If connectState gets
- * filled with a one, there is a valid connection. Anything else (zero
- * in this case), indicates no connection to a cMsg server.
- *
- * @param domainId id of the domain connection
- * @param connectState integer pointer to be filled in with the connection state
- *
- * @returns CMSG_BAD_ARGUMENT if either arg is NULL
- * @returns CMSG_OK if successful
- */   
-int cMsgGetConnectState(void *domainId, int *connectState) {
-
-  cMsgDomain *domain = (cMsgDomain *) domainId;
-  
-  if (domain == NULL || connectState == NULL) return(CMSG_BAD_ARGUMENT);
-  *connectState = domain->connected;
   return(CMSG_OK);
 }
 

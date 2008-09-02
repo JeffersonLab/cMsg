@@ -154,6 +154,7 @@ void clock_gettime(int dummy, struct timespec *t1);
   int   cMsgSetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
   int   cMsgShutdownClients   (void *domainId, const char *client, int flag);
   int   cMsgShutdownServers   (void *domainId, const char *server, int flag);
+  int   cMsgGetConnectState   (void *domainId,  int *connectState);
   char *cMsgPerror            (int errorCode);
   
   
@@ -328,7 +329,6 @@ const char *cMsgPayloadFieldDescription(const void *vmsg, const char *name);
   int cMsgGetUDL         (void *domainId, char **udl);
   int cMsgGetName        (void *domainId, char **name);
   int cMsgGetDescription (void *domainId, char **description);
-  int cMsgGetConnectState(void *domainId,  int *connectState);
   int cMsgGetReceiveState(void *domainId,  int *receiveState);
 
   

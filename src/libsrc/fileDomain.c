@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "cMsgPrivate.h"
 #include "cMsg.h"
@@ -68,6 +69,7 @@ int   cmsg_file_disconnect(void **domainId);
 int   cmsg_file_shutdownClients(void *domainId, const char *client, int flag);
 int   cmsg_file_shutdownServers(void *domainId, const char *server, int flag);
 int   cmsg_file_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
+int   cmsg_file_isConnected(void *domainId, int *connected);
 
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
@@ -78,7 +80,8 @@ static domainFunctions functions = { cmsg_file_connect, cmsg_file_send,
                                      cmsg_file_monitor, cmsg_file_start,
                                      cmsg_file_stop, cmsg_file_disconnect,
                                      cmsg_file_shutdownClients, cmsg_file_shutdownServers,
-                                     cmsg_file_setShutdownHandler
+                                     cmsg_file_setShutdownHandler,
+                                     cmsg_file_isConnected
 };
 
 
@@ -94,7 +97,32 @@ typedef struct {
   char *descr;
   FILE *file;
   int textOnly;
+  pthread_mutex_t mutex; /* make this domain thread-safe */
 } fileDomainInfo;
+
+
+/*-------------------------------------------------------------------*/
+
+
+/** This routine locks the given pthread mutex. */
+static void mutexLock(pthread_mutex_t *mutex) {
+  int status = pthread_mutex_lock(mutex);
+  if (status != 0) {
+    cmsg_err_abort(status, "Failed mutex lock");
+  }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/** This routine unlocks the given pthread mutex. */
+static void mutexUnlock(pthread_mutex_t *mutex) {
+  int status = pthread_mutex_unlock(mutex);
+  if (status != 0) {
+    cmsg_err_abort(status, "Failed mutex unlock");
+  }
+}
 
 
 /*-------------------------------------------------------------------*/
@@ -106,7 +134,7 @@ int cmsg_file_connect(const char *myUDL, const char *myName, const char *myDescr
 
   char *fname;
   const char *c;
-  int textOnly;
+  int textOnly, status;
   fileDomainInfo *fdi;
   FILE *f;
 
@@ -130,11 +158,23 @@ int cmsg_file_connect(const char *myUDL, const char *myName, const char *myDescr
 
   /* open file */
   f = fopen(fname,"a");
-  if(f==NULL)return(CMSG_ERROR);
-
+  if(f==NULL) {
+    if(fname!=NULL)free(fname);
+    return(CMSG_ERROR);
+  }
+  if(fname!=NULL)free(fname);
   
   /* store file domain info */
   fdi = (fileDomainInfo*)malloc(sizeof(fileDomainInfo));
+  if(fdi == NULL) {
+    fclose(f);
+    return(CMSG_OUT_OF_MEMORY);
+  }
+  
+  status = pthread_mutex_init(&fdi->mutex, NULL);
+  if (status != 0) {
+    cmsg_err_abort(status, "cmsg_file_connect: initializing mutex");
+  }
   fdi->domain   = strdup("file");
   fdi->host     = (char*)malloc(256);
   cMsgLocalHost(fdi->host,256);
@@ -146,7 +186,34 @@ int cmsg_file_connect(const char *myUDL, const char *myName, const char *myDescr
 
 
   /* done */
-  if(fname!=NULL)free(fname);
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine tells whether a file is open or not.
+ *
+ * @param domain id of the domain connection
+ * @param connected pointer whose value is set to 1 if this file is open,
+ *                  else it is set to 0
+ *
+ * @returns CMSG_OK
+ */
+int cmsg_file_isConnected(void *domainId, int *connected) {
+  fileDomainInfo *fdi = (fileDomainInfo*)domainId;
+  
+  if (connected != NULL) {
+    if (fdi == NULL) {
+      *connected = 0;
+    }
+    else {
+      *connected = 1;
+    }
+  }
+  
   return(CMSG_OK);
 }
 
@@ -166,14 +233,19 @@ int cmsg_file_send(void *domainId, void *vmsg) {
   cMsgMessage_t  *msg = (cMsgMessage_t*)vmsg;
   fileDomainInfo *fdi = (fileDomainInfo*)domainId;
   
+  if (fdi == NULL) return(CMSG_ERROR);
 
+  /* keep sends and disconnect from interfering with eachother */
+  mutexLock(&fdi->mutex);
+  
+  
   /* set domain */
   msg->domain=strdup(fdi->domain);
 
 
-  /* check creator */
-  if(msg->payloadText==NULL)msg->payloadText=strdup(fdi->name);
-    
+  /* update history here */
+  cMsgAddSenderToHistory(vmsg, fdi->name);
+   
 
   /* set sender,senderTime,senderHost */
   msg->sender            = strdup(fdi->name);
@@ -200,7 +272,10 @@ int cmsg_file_send(void *domainId, void *vmsg) {
     free(s);
   }
 
+  
+  mutexUnlock(&fdi->mutex);
 
+  
   /* done */
   return((stat!=0)?CMSG_OK:CMSG_ERROR);
 }
@@ -254,8 +329,7 @@ int cmsg_file_flush(void *domainId, const struct timespec *timeout) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
-                     void *userArg, cMsgSubscribeConfig *config, void **handle) {
+int cmsg_file_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback, void *userArg, cMsgSubscribeConfig *config, void **handle) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -289,21 +363,32 @@ int cmsg_file_stop(void *domainId) {
 
 int cmsg_file_disconnect(void **domainId) {
 
-  int stat;
+  int stat, status;
   fileDomainInfo *fdi;
 
   if(domainId==NULL)return(CMSG_ERROR);
   if(*domainId==NULL)return(CMSG_ERROR);
   fdi = (fileDomainInfo*) (*domainId);
 
+  /* keep sends and disconnect from interfering with eachother */
+  mutexLock(&fdi->mutex);
+  
   /* close file */
   stat = fclose(fdi->file);
   
+  *domainId = NULL;
+
+  mutexUnlock(&fdi->mutex);
+
   /* clean up */
   if(fdi->domain!=NULL) free(fdi->domain);
   if(fdi->host!=NULL)   free(fdi->host);
   if(fdi->name!=NULL)   free(fdi->name);
   if(fdi->descr!=NULL)  free(fdi->descr);
+  status = pthread_mutex_destroy(&fdi->mutex);
+  if (status != 0) {
+    cmsg_err_abort(status, "cmsg_file_disconnect: destroying mutex");
+  }  
   free(fdi);
 
   /* done */
