@@ -347,11 +347,8 @@ void *cMsgClientListeningThread(void *arg)
      * This is a hack designed to prevent port-scanning software from
      * messing up cmsg clients.
      */
-    if (strcasecmp(threadArg->domainType, "rc") == 0) {
-        if (connectionNumber > 0) break;
-    }
-    else {
-        if (connectionNumber > 1) break;    
+    if (strcasecmp(threadArg->domainType, "rc") != 0) {
+        if (connectionNumber > 1) break;
     }
   }
   
@@ -473,7 +470,18 @@ static void *clientThread(void *arg)
     }
     
     size = ntohl(inComing[0]);
-    
+
+    /* check for port scanning trouble in rc domain since server must accept all
+     * connections.
+     */
+    if (strcasecmp(domainType, "rc") == 0) {
+        if (size > 1000) {
+          free(pfreeMem);
+          free(buffer);
+          pthread_exit(NULL);
+        }
+    }
+ 
     /* make sure we have big enough buffer */
     if (size > bufSize) {
       
@@ -741,7 +749,7 @@ static void *clientThread(void *arg)
           int len, netLenName, lenName;
           char *pchar;
           
-printf("clientThread: Got CMSG_RC_CONNECT message!!!\n");
+/*printf("clientThread: Got CMSG_RC_CONNECT message!!!\n");*/
           /* disable pthread cancellation until message memory is released or
            * we'll get a mem leak */
           status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
@@ -763,7 +771,7 @@ printf("clientThread: Got CMSG_RC_CONNECT message!!!\n");
           }
                     
           /* read the message */
-printf("clientThread: Try reading CMSG_RC_CONNECT message\n");
+/*printf("clientThread: Try reading CMSG_RC_CONNECT message\n");*/
           if ( cMsgReadMessage(connfd, buffer, message, &acknowledge) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread %d: error reading message\n", localCount);
@@ -771,7 +779,7 @@ printf("clientThread: Try reading CMSG_RC_CONNECT message\n");
             cMsgFreeMessage(&msg);
             goto end;
           }
-printf("clientThread: Done reading CMSG_RC_CONNECT message\n");
+/*printf("clientThread: Done reading CMSG_RC_CONNECT message\n");*/
           
           /* We need 3 pieces of info from the server: 1) server's host,
            * 2) server's UDP port, 3) server's TCP port. These are in the
@@ -801,10 +809,10 @@ printf("clientThread: Done reading CMSG_RC_CONNECT message\n");
             cmsg_err_abort(status, "Reenabling client cancelability");
           }
 
-
+          /*
 printf("clientThread: connecting, tcp port = %d, udp port = %d, senderHost = %s\n",
 domain->sendPort, domain->sendUdpPort, domain->sendHost);
-         
+          */
           /* First look to see if we are already connected.
            * If so, then the server must have died, been resurrected,
            * and is trying to RE-establish the connection.
@@ -812,7 +820,7 @@ domain->sendPort, domain->sendUdpPort, domain->sendHost);
            * go ahead and complete the standard connection procedure.
            */
           if (domain->gotConnection == 0) {
-printf("clientThread: try to connect for first time\n");
+/*printf("clientThread: try to connect for first time\n");*/
             /* notify "connect" call that it may resume and end now */
             wait.tv_sec  = 1;
             wait.tv_nsec = 0;
@@ -839,7 +847,7 @@ printf("clientThread: try to connect for first time\n");
             memset((void *)&addr, 0, sizeof(addr));
             addr.sin_family = AF_INET;
             addr.sin_port   = htons(domain->sendUdpPort);
-printf("clientThread: try to reconnect\n");
+/* printf("clientThread: try to reconnect\n"); */
             
             /*
              * Don't allow changes to the sockets while communication
@@ -850,7 +858,7 @@ printf("clientThread: try to reconnect\n");
             /* create new UDP socket for sends */
             close(domain->sendUdpSocket); /* close old UDP socket */
             domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
-printf("clientThread: udp socket = %d, port = %d\n", domain->sendUdpSocket, domain->sendUdpPort);
+/*printf("clientThread: udp socket = %d, port = %d\n", domain->sendUdpSocket, domain->sendUdpPort);*/
             if (domain->sendUdpSocket < 0) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -877,7 +885,7 @@ printf("clientThread: udp socket = %d, port = %d\n", domain->sendUdpSocket, doma
                 goto end;
             }
 
-printf("clientThread: try UDP connection to port = %hu\n", ntohs(addr.sin_port));
+/*printf("clientThread: try UDP connection to port = %hu\n", ntohs(addr.sin_port));*/
             err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
             if (err < 0) {
                 cMsgSocketMutexUnlock(domain);
@@ -916,7 +924,7 @@ printf("clientThread: try UDP connection to port = %hu\n", ntohs(addr.sin_port))
         memcpy(returnBuf,     (void *)(&netLenName), len);     /* write name len into buffer */
         memcpy(returnBuf+len, (void *)domain->name,  lenName); /* write name into buffer */
         len += lenName;
-printf("clientThread: try sending back name of this client\n");
+/*printf("clientThread: try sending back name of this client\n");*/
 
         if (cMsgTcpWrite(connfd, returnBuf, len) != len) {
           if (cMsgDebug >= CMSG_DEBUG_ERROR) {
