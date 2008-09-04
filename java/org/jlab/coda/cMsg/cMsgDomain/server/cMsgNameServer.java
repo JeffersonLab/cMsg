@@ -859,7 +859,7 @@ public class cMsgNameServer extends Thread {
             System.out.println(">> NS: Running Name Server at " + (new Date()) );
         }
 
-        // For old versions of cMsg (1 and 2), it's expecting
+        // For mismatch in magic numbers (or old cMsg versions 1 and 2)
         // a response so send it an error message.
         String s = "wrong cMsg version";
         int len = 8 + s.length();
