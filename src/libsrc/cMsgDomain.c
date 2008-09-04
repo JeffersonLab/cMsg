@@ -80,6 +80,15 @@ typedef struct thdArg_t {
     char *buffer;
 } thdArg;
 
+/**
+ * Structure for arg to be passed to keepAlive thread.
+ * Allows data to flow back and forth with these threads.
+ */
+typedef struct kaThdArg_t {
+  void **domainId;
+  cMsgDomainInfo *domain;
+} kaThdArg;
+
 
 /* built-in limits */
 /** Number of seconds to wait for cMsgClientListeningThread threads to start. */
@@ -164,8 +173,8 @@ static int resubscribe(cMsgDomainInfo *domain, subInfo *sub);
 /* misc */
 static int  udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static int  sendMonitorInfo(cMsgDomainInfo *domain, int connfd);
-static int  disconnectFromKeepAlive(void **domainId);
-static int  connectDirect(cMsgDomainInfo *domain, int failoverIndex);
+static int  disconnectFromKeepAlive(void **pdomainId);
+static int  connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIndex);
 static int  talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIndex);
 static int  parseUDL(const char *UDL, char **password,
                            char **host, int *port,
@@ -294,15 +303,17 @@ int cmsg_cmsg_isConnected(void *domainId, int *connected) {
     }
     return(CMSG_OK);
   }
-             
+  
+  /*printf(" cmsg_cmsg_isConnected: will use domain ptr %p\n", domain); */
   cMsgConnectReadLock(domain);
-
+  /*printf(" cmsg_cmsg_isConnected: read locked mutex\n");*/
+  
   if (connected != NULL) {
     *connected = domain->gotConnection;
   }
   
   cMsgConnectReadUnlock(domain);
-    
+  
   return(CMSG_OK);
 }
 
@@ -486,7 +497,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
                              &domain->failovers[0].nameServerPort);     
       }
       
-      err = connectDirect(domain, 0);
+      err = connectDirect(domain, domainId, 0);
       domain->failoverIndex = 0;
       if (err != CMSG_OK) {
           cMsgDomainFree(domain);
@@ -519,7 +530,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
                              &domain->failovers[failoverIndex].nameServerPort);     
       }
 
-      err = connectDirect(domain, failoverIndex);
+      err = connectDirect(domain, domainId, failoverIndex);
       if (err == CMSG_OK) {
         domain->failoverIndex = failoverIndex;
         gotConnection = 1;
@@ -842,6 +853,8 @@ static void *broadcastThd(void *arg) {
  * connecting to the cMsg name server.
  * 
  * @param domain pointer to connection information structure.
+ * @param domain pointer to pointer given to cmsg_cmsg_connect.
+ * @param failoverIndex index into array of valid URL info
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
@@ -851,13 +864,13 @@ static void *broadcastThd(void *arg) {
  * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
  *                             or a communication error with either server occurs.
  */   
-static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
+static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIndex) {
 
   int err, serverfd, status;
   cMsgThreadInfo *threadArg;
   const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
   struct sockaddr_in  servaddr;
-    
+  kaThdArg *kaArg;
   
   /* Block SIGPIPE for this and all spawned threads. */
   cMsgBlockSignals(domain);
@@ -960,8 +973,19 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
   }
   
   /* create thread to read periodic keep alives (monitoring data) and handle dead server */
+  kaArg = (kaThdArg *) malloc(sizeof(kaThdArg));
+  if (kaArg == NULL) {
+    cMsgRestoreSignals(domain);
+    close(domain->sendSocket);
+    pthread_cancel(domain->pendThread);
+    pthread_join(domain->pendThread, NULL);
+    return(CMSG_OUT_OF_MEMORY);
+  }
+  kaArg->domain   = domain;
+  kaArg->domainId = domainId;
+  
   status = pthread_create(&domain->keepAliveThread, NULL,
-                          keepAliveThread, (void *)domain);
+                          keepAliveThread, (void *) kaArg);
   if (status != 0) {
     cmsg_err_abort(status, "Creating keep alive thread");
   }
@@ -1074,7 +1098,7 @@ static int connectDirect(cMsgDomainInfo *domain, int failoverIndex) {
  * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
  *                             or a communication error with either server occurs.
  */   
-static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
+static int reconnect(void **domainId, int failoverIndex) {
 
   int i, err, serverfd, status, tblSize;
   getInfo *info;
@@ -1082,6 +1106,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   struct sockaddr_in  servaddr;
   cMsgThreadInfo *threadArg;
   hashNode *entries = NULL;
+  cMsgDomainInfo *domain = (cMsgDomainInfo *) (*domainId);
    
   /*--------------------------------------------------------------------*/
   /* Connect to cMsg name server to check if server can be connected to.
@@ -1244,7 +1269,7 @@ static int reconnect(cMsgDomainInfo *domain, int failoverIndex) {
   
   /* create thread to read periodic keep alives (monitoring data) and handle dead server */
   status = pthread_create(&domain->keepAliveThread, NULL,
-                          keepAliveThread, (void *)domain);
+                          keepAliveThread, (void *) domainId);
   if (status != 0) {
     cmsg_err_abort(status, "Creating keep alive thread");
   }
@@ -3830,7 +3855,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
  * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
  *                               since cMsgConnect() was never called
  */   
-static int disconnectFromKeepAlive(void **domainId) {
+static int disconnectFromKeepAlive(void **pdomainId) {
   
   int i, status, tblSize;
   cMsgDomainInfo *domain;
@@ -3842,13 +3867,13 @@ static int disconnectFromKeepAlive(void **domainId) {
   cMsgMessage_t *msg, *nextMsg;
   void *p;
 
-  if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
-  domain = (cMsgDomainInfo *) (*domainId);
+  if (pdomainId == NULL) return(CMSG_BAD_ARGUMENT);
+  domain = (cMsgDomainInfo *) (*pdomainId);
   if (domain == NULL) return(CMSG_BAD_ARGUMENT);
       
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "disconnectFromKeepAlive: IN, domainId = %p, *domainId = %p\n",
-            domainId, *domainId);
+    fprintf(stderr, "disconnectFromKeepAlive: IN, pdomainId = %p, *pdomainId = %p\n",
+            pdomainId, *pdomainId);
   }
   cMsgConnectWriteLock(domain);
     
@@ -4028,12 +4053,6 @@ static int disconnectFromKeepAlive(void **domainId) {
   /* Unblock SIGPIPE */
   cMsgRestoreSignals(domain);
 
-  /* can't use this id anymore */
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "disconnectFromKeepAlive: setting %p to NULL\n", *domainId);
-  }
-  *domainId = NULL;
-
   cMsgConnectWriteUnlock(domain);
 
   /* There may be other threads that have simultaneously called send, syncSend,
@@ -4054,7 +4073,7 @@ static int disconnectFromKeepAlive(void **domainId) {
   }
   cMsgDomainFree(domain);
   free(domain);
-
+  
   return(CMSG_OK);
 }
 
@@ -4487,10 +4506,19 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIn
  * communication (monitoring info in XML format) from a cMsg server.
  * If there is an I/O error, the other end of the socket & the server
  * is presumed dead.
+ *
+ * NOTE: When creating a new thread and passing the domain structure,
+ * pass the original pointer to the pointer to the struct (see domainId
+ * below)!! Thus when disconnect is done and the pointer to struct is
+ * set to NULL, all threads will see it. This allows calls to other
+ * cMsg functions detect a NULL pointer and return an error instead of
+ * seg faulting.
  */
 static void *keepAliveThread(void *arg) {
 
-    cMsgDomainInfo *domain = (cMsgDomainInfo *) arg;
+    kaThdArg *kaArg = (kaThdArg *) arg;
+    void **domainId = kaArg->domainId;
+    cMsgDomainInfo *domain = kaArg->domain;
     int socket = domain->keepAliveSocket;
     int outGoing, err, len;
     
@@ -4505,6 +4533,9 @@ static void *keepAliveThread(void *arg) {
     con = sun_getconcurrency();
     sun_setconcurrency(con + 1);
 
+    free(arg);
+
+/*printf("ka: arg = %p, domainId = %p, domain = %p\n", arg, domainId, domain);*/
     wait.tv_sec  = 1;
     wait.tv_nsec = 100000000; /* 1.1 sec */
 
@@ -4525,9 +4556,9 @@ static void *keepAliveThread(void *arg) {
 
            /* read len of monitoring data to come */
            if ((err = cMsgTcpRead(socket, (char*) &len, sizeof(len))) != sizeof(len)) {
-               if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+               /*if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                    fprintf(stderr, "keepAliveThread: read failure\n");
-               }
+                 }*/
                break;
            }
            len = ntohl(len);
@@ -4547,9 +4578,9 @@ static void *keepAliveThread(void *arg) {
 
            /* read monitoring data */
            if ((err = cMsgTcpRead(socket, domain->monitorXML, len)) !=  len) {
-               if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+               /*if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                    fprintf(stderr, "keepAliveThread: read failure\n");
-               }
+                 }*/
                break;
            }
         }
@@ -4597,7 +4628,7 @@ static void *keepAliveThread(void *arg) {
                                    &domain->failovers[failoverIndex].nameServerPort);     
             }
 
-            err = reconnect(domain, failoverIndex);
+            err = reconnect(domainId, failoverIndex);
             if (err != CMSG_OK) {
               connectFailures++;
 /* printf("ka: ERROR reconnecting, continue\n"); */
@@ -4643,6 +4674,12 @@ static void *keepAliveThread(void *arg) {
 /* printf("\n\n\nka: DISCONNECTING \n\n\n"); */            
     p = (void *)domain; /* get rid of compiler warnings */
     disconnectFromKeepAlive(&p);
+    
+    /* Will set the id returned by cmsg_cmsg_connect to NULL,
+     * so no one else can use it.
+     */
+    *domainId = NULL;
+ /*printf("ka: domainId = %p, p = %p, domain = %p, setting *domainId to NULL\n", domainId, p, domain);*/
     
     sun_setconcurrency(con);
     
