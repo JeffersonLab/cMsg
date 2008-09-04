@@ -370,6 +370,7 @@ public class cMsgNameServer extends Thread {
         ServerSocket listeningSocket = serverChannel.socket();
 
         try {
+            listeningSocket.setReuseAddress(true);
             listeningSocket.bind(new InetSocketAddress(port));
         }
         catch (IOException ex) {
