@@ -315,6 +315,7 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if general error
+ * @returns CMSG_TIMEOUT if broadcast connection attempt timed out
  * @returns CMSG_BAD_FORMAT if the UDL is malformed
  * @returns CMSG_BAD_ARGUMENT if no UDL given
  * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
@@ -445,9 +446,14 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
       
       if (domain->failovers[0].mustBroadcast == 1) {
         free(domain->failovers[0].nameServerHost);
-        connectWithBroadcast(domain, 0,
+        err = connectWithBroadcast(domain, 0,
                              &domain->failovers[0].nameServerHost,
                              &domain->failovers[0].nameServerPort);     
+        if (err != CMSG_OK) {
+          cMsgDomainFree(domain);
+          free(domain);
+          return(err);
+        }
       }
       
       err = connectDirect(domain, 0);
@@ -478,9 +484,13 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
       domain->failovers[failoverIndex].udl);*/
       if (domain->failovers[failoverIndex].mustBroadcast == 1) {
         free(domain->failovers[failoverIndex].nameServerHost);
-        connectWithBroadcast(domain, failoverIndex,
+        err = connectWithBroadcast(domain, failoverIndex,
                              &domain->failovers[failoverIndex].nameServerHost,
                              &domain->failovers[failoverIndex].nameServerPort);     
+        if (err != CMSG_OK) {
+          connectFailures++;
+          continue;
+        }
       }
 
       err = connectDirect(domain, failoverIndex);
