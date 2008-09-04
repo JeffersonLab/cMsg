@@ -1545,7 +1545,7 @@ int cmsg_rc_stop(void *domainId) {
 int cmsg_rc_disconnect(void **domainId) {
 
     cMsgDomainInfo *domain;
-    int i, tblSize;
+    int i, tblSize, status;
     subscribeCbInfo *cb, *cbNext;
     subInfo *sub;
     struct timespec wait4thds = {0, 300000000}; /* 0.3 sec */
