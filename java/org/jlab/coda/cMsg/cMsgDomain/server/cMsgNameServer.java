@@ -28,6 +28,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.ByteBuffer;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgNetworkConstants;
@@ -858,6 +859,36 @@ public class cMsgNameServer extends Thread {
             System.out.println(">> NS: Running Name Server at " + (new Date()) );
         }
 
+        // For old versions of cMsg (1 and 2), it's expecting
+        // a response so send it an error message.
+        String s = "wrong cMsg version";
+        int len = 8 + s.length();
+        byte[] respond = null;
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(len);
+        DataOutputStream out       = new DataOutputStream(baos);
+
+        try {
+            // Put our error code, string len, and string into byte array
+            out.writeInt(cMsgConstants.error);
+            out.writeInt(s.length());
+            try {
+                out.write(s.getBytes("US-ASCII"));
+            }
+            catch (UnsupportedEncodingException e) { }
+            out.flush();
+            out.close();
+
+            // create buffer to send to bad client
+            respond = baos.toByteArray();
+            baos.close();
+        }
+        catch (IOException e) {  }
+
+        /** Direct buffer for reading 3 magic ints with nonblocking IO. */
+        int BYTES_TO_READ = 12;
+        ByteBuffer buffer = ByteBuffer.allocateDirect(BYTES_TO_READ > respond.length ?
+                                                      BYTES_TO_READ : respond.length);
+
         Selector selector = null;
 
         try {
@@ -896,6 +927,7 @@ public class cMsgNameServer extends Thread {
                 Iterator it = selector.selectedKeys().iterator();
 
                 // look at each key
+                keyLoop:
                 while (it.hasNext()) {
                     SelectionKey key = (SelectionKey) it.next();
 
@@ -905,6 +937,61 @@ public class cMsgNameServer extends Thread {
                         // accept the connection from the client
                         SocketChannel channel = server.accept();
 
+                        // Check to see if this is a legitimate cMsg client or some imposter.
+                        // Don't want to block on read here since it may not be a cMsg client
+                        // and may block forever - tying up the server.
+                        int bytes, bytesRead=0, loops=0;
+                        buffer.clear();
+                        buffer.limit(BYTES_TO_READ);
+                        channel.configureBlocking(false);
+
+                        // read magic numbers
+                        while (bytesRead < BYTES_TO_READ) {
+//System.out.println("  try reading rest of Buffer");
+//System.out.println("  Buffer capacity = " + buffer.capacity() + ", limit = " + buffer.limit()
+//                    + ", position = " + buffer.position() );
+                            bytes = channel.read(buffer);
+                            // for End-of-stream ...
+                            if (bytes == -1) {
+                                it.remove();
+                                continue keyLoop;
+                            }
+                            bytesRead += bytes;
+//System.out.println("  bytes read = " + bytesRead);
+
+                            // if we've read everything, look to see if it's sent the magic #s
+                            if (bytesRead >= BYTES_TO_READ) {
+                                buffer.flip();
+                                int magic1 = buffer.getInt();
+                                int magic2 = buffer.getInt();
+                                int magic3 = buffer.getInt();
+                                if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
+                                    magic2 != cMsgNetworkConstants.magicNumbers[1] ||
+                                    magic3 != cMsgNetworkConstants.magicNumbers[2])  {
+//System.out.println("  Magic numbers did NOT match, send response");
+                                    // For old versions of cMsg (1 and 2), it's expecting a response
+                                    buffer.clear();
+                                    buffer.put(respond);
+                                    buffer.flip();
+                                    channel.write(buffer);
+
+                                    it.remove();
+                                    continue keyLoop;
+                                }
+                            }
+                            else {
+                                // give client 10 loops (.1 sec) to send its stuff, else no deal
+                                if (++loops > 10) {
+                                    it.remove();
+                                    continue keyLoop;
+                                }
+                                try { Thread.sleep(10); }
+                                catch (InterruptedException e) { }
+                            }
+                        }
+
+                        // back to using streams
+                        channel.configureBlocking(true);
                         // set socket options
                         Socket socket = channel.socket();
                         // Set tcpNoDelay so no packets are delayed
@@ -1001,6 +1088,7 @@ public class cMsgNameServer extends Thread {
                 // buffered communication streams for efficiency
                 in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 4096));
                 out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 2048));
+                
                 // message id
                 int msgId = in.readInt();
                 // major version
