@@ -1548,7 +1548,7 @@ int cmsg_rc_disconnect(void **domainId) {
     int i, tblSize;
     subscribeCbInfo *cb, *cbNext;
     subInfo *sub;
-    struct timespec wait4thds = {0, 100000000}; /* 0.1 sec */
+    struct timespec wait4thds = {0, 300000000}; /* 0.3 sec */
     hashNode *entries = NULL;
     cMsgMessage_t *msg, *nextMsg;
     void *p;
@@ -1578,6 +1578,9 @@ int cmsg_rc_disconnect(void **domainId) {
     close(domain->listenSocket);
     
     /* terminate all callback threads */
+
+    /* Don't want incoming msgs to be delivered to callbacks will removing them. */
+    cMsgSubscribeMutexLock(domain);
 
     /* get client subscriptions */
     hashClear(&domain->subscribeTable, &entries, &tblSize);
@@ -1639,14 +1642,26 @@ int cmsg_rc_disconnect(void **domainId) {
       free(entries);
     } /* if there are subscriptions */
 
+    /* Pthread_cancelling the callback threads will not allow them to wake up
+     * the runCallbacks (msg receiving) thread, which must be done in case it
+     * is stuck with a full Q. Do it now.
+     */
+    status = pthread_cond_signal(&domain->subscribeCond);
+    if (status != 0) {
+      cmsg_err_abort(status, "Failed subscribe condition signal");
+    }
     
-    /* give the above threads a chance to quit before we reset everytbing */
-    nanosleep(&wait4thds, NULL);
+    cMsgSubscribeMutexUnlock(domain);
+    sched_yield();
     
     /* Unblock SIGPIPE */
     cMsgRestoreSignals(domain);
     
     cMsgConnectWriteUnlock(domain);
+    
+    /* Give the above threads a chance to quit and pendThread's cleanUpHandler
+     * to be run before we free everytbing. */
+    nanosleep(&wait4thds, NULL);
 
     /* Clean up memory */
     cMsgDomainFree(domain);
