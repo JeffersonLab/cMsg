@@ -47,6 +47,19 @@ public class cMsgUtilities {
          return result;
        }
 
+    /**
+      * Copies an integer value into 4 bytes of a byte array.
+      * @param intVal integer value
+      * @param b byte array
+      * @param off offset into the byte array
+      */
+     public static final void intToBytes(int intVal, byte[] b, int off) {
+       b[off]   = (byte) ((intVal & 0xff000000) >>> 24);
+       b[off+1] = (byte) ((intVal & 0x00ff0000) >>> 16);
+       b[off+2] = (byte) ((intVal & 0x0000ff00) >>>  8);
+       b[off+3] = (byte)  (intVal & 0x000000ff);
+     }
+
 
     static public final ByteChannel wrapChannel2(final ByteChannel channel)
     {
