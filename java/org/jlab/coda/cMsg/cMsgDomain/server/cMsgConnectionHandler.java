@@ -153,6 +153,7 @@ public class cMsgConnectionHandler extends Thread {
         // Create channel and bind to port. If that isn't possible, exit.
         try {
             serverChannel = ServerSocketChannel.open();
+            serverChannel.socket().setReuseAddress(true);
             serverChannel.socket().bind(new InetSocketAddress(nameServer.domainServerPort));
         }
         catch (IOException ex) {
