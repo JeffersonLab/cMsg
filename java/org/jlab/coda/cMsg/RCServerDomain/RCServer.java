@@ -248,7 +248,7 @@ public class RCServer extends cMsgDomainAdapter {
                 cMsgMessageFull msg = new cMsgMessageFull();
                 msg.setSenderHost(InetAddress.getLocalHost().getCanonicalHostName());
                 msg.setText(localUdpPort+":"+localTcpPort);
-                deliverMessage(msg, cMsgConstants.msgRcConnect, true);
+                deliverMessage(msg, cMsgConstants.msgRcConnect);
 
                 connected = true;
             }
@@ -309,6 +309,12 @@ public class RCServer extends cMsgDomainAdapter {
             // create buffered communication stream for efficiency
             in  = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
             out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
+
+            // send some ints identifying us as a valid rc Domain server ("cMsg is cool" in ascii)
+            out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+            out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+            out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+            out.flush();
         }
         catch (IOException e) {
             if (in != null) try {in.close();} catch (IOException e1) {}
@@ -467,7 +473,7 @@ public class RCServer extends cMsgDomainAdapter {
             if (!connected) {
                 throw new cMsgException("not connected to server");
             }
-            deliverMessage(message, cMsgConstants.msgSubscribeResponse, false);
+            deliverMessage(message, cMsgConstants.msgSubscribeResponse);
         }
         catch (IOException e) {
             throw new cMsgException(e.getMessage(),e);
@@ -489,10 +495,9 @@ public class RCServer extends cMsgDomainAdapter {
      *
      * @param msg message to be sent
      * @param msgType type of message to be sent
-     * @param getResponse true if response expected, else false
      * @throws IOException if the message cannot be sent over the channel
      */
-    private void deliverMessage(cMsgMessage msg, int msgType, boolean getResponse) throws IOException {
+    private void deliverMessage(cMsgMessage msg, int msgType) throws IOException {
 
         int[] len = new int[6]; // int arrays are initialized to 0
         int binLength = 0;
@@ -515,8 +520,7 @@ public class RCServer extends cMsgDomainAdapter {
         if (len[5] > 1000000) System.out.println("LARGE SIZE found for binary: size = " + binLength);
 
         // size of everything sent (except "size" itself which is first integer)
-        int size = len[0] + len[1] + len[2] + len[3] + len[4] + len[5] +
-                binLength + 4 * 19;
+        int size = len[0] + len[1] + len[2] + len[3] + len[4] + len[5] + binLength + 4 * 18;
 
         out.writeInt(size);
         out.writeInt(msgType);
@@ -541,7 +545,6 @@ public class RCServer extends cMsgDomainAdapter {
         out.writeInt(len[4]);
         out.writeInt(len[5]);
         out.writeInt(binLength);
-        out.writeInt(0); // never acknowledge in rc/rcServer domain
 
         // write strings
         try {
@@ -563,7 +566,7 @@ public class RCServer extends cMsgDomainAdapter {
         }
         out.flush();
 
-        if (getResponse) {
+        if (msgType == cMsgConstants.msgRcConnect) {
             int lengthClientName = in.readInt();
 
             // read all string bytes
@@ -886,10 +889,9 @@ public class RCServer extends cMsgDomainAdapter {
             sendAndGets.put(id, helper);
 
             cMsgMessageFull fullMsg = new cMsgMessageFull(message);
-//            if (fullMsg.getCreator() == null) fullMsg.setCreator("rcServer");
             fullMsg.setSenderToken(id);
             fullMsg.setGetRequest(true);
-            deliverMessage(fullMsg, cMsgConstants.msgSubscribeResponse, false);
+            deliverMessage(fullMsg, cMsgConstants.msgSubscribeResponse);
         }
         catch (IOException e) {
             throw new cMsgException(e.getMessage(),e);
