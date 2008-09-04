@@ -872,6 +872,9 @@ public class cMsgServerClient extends cMsg {
         DataInputStream  in  = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
         DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
 
+        out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+        out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+        out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
         out.writeInt(cMsgConstants.msgServerConnectRequest);
         out.writeInt(cMsgConstants.version);
         out.writeInt(cMsgConstants.minorVersion);
