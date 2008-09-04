@@ -435,6 +435,7 @@ public class cMsgNameServer extends Thread {
         ServerSocket listeningSocket = serverChannel.socket();
 
         try {
+            listeningSocket.setReuseAddress(true);
             // prefer low latency, short connection times, and high bandwidth in that order
             listeningSocket.setPerformancePreferences(1,2,0);         // CHANGED
             listeningSocket.bind(new InetSocketAddress(port));
