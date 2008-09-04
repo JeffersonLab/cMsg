@@ -1207,8 +1207,7 @@ public class cMsg extends cMsgDomainAdapter {
                                   textLen + binaryLength;
 //System.out.println("send: writing " + size + " bytes in send msg");
                 // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(4 * 15 + subject.length() + type.length() + payloadLen +
-                                  textLen + binaryLength);
+                domainOut.writeInt(size);
                 domainOut.writeInt(cMsgConstants.msgSendRequest);
                 domainOut.writeInt(0); // reserved for future use
                 domainOut.writeInt(message.getUserInt());
@@ -1332,9 +1331,10 @@ public class cMsg extends cMsgDomainAdapter {
             notConnectLock.lock();
 
             try {
-                out.writeInt(cMsgConstants.udpMagicNumbers[0]); // cMsg
-                out.writeInt(cMsgConstants.udpMagicNumbers[1]); // is
-                out.writeInt(cMsgConstants.udpMagicNumbers[2]); // cool
+                out.writeInt(cMsgNetworkConstants.magicNumbers[0]); // cMsg
+                out.writeInt(cMsgNetworkConstants.magicNumbers[1]); // is
+                out.writeInt(cMsgNetworkConstants.magicNumbers[2]); // cool
+                
                 out.writeInt(totalLength); // total length of msg (not including this int)
                 out.writeInt(cMsgConstants.msgSendRequest);
                 out.writeInt(0); // reserved for future use
@@ -2016,7 +2016,6 @@ public class cMsg extends cMsgDomainAdapter {
             }
             finally {
                 socketLock.unlock();
-                java.net.SocketException sk = new SocketException();
             }
             domainOut.flush();
         }
