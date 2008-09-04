@@ -77,19 +77,6 @@ public class rcListeningThread extends Thread {
         return result;
     }
 
-    /**
-     * Copies an integer value into 4 bytes of a byte array.
-     * @param intVal integer value
-     * @param b byte array
-     * @param off offset into the byte array
-     */
-    public static final void intToBytes(int intVal, byte[] b, int off) {
-      b[off]   = (byte) ((intVal & 0xff000000) >>> 24);
-      b[off+1] = (byte) ((intVal & 0x00ff0000) >>> 16);
-      b[off+2] = (byte) ((intVal & 0x0000ff00) >>>  8);
-      b[off+3] = (byte)  (intVal & 0x000000ff);
-    }
-
 
     /**
      * Constructor.
@@ -280,7 +267,7 @@ public class rcListeningThread extends Thread {
                     // if this server was properly started, tell the one probing us to kill itself
                     if (server.acceptingClients) {
                         // create packet to respond to broadcast
-                        intToBytes(cMsgNetworkConstants.rcDomainBroadcastKillSelf, buf, 0);
+                        cMsgUtilities.intToBytes(cMsgNetworkConstants.rcDomainBroadcastKillSelf, buf, 0);
                         DatagramPacket pkt = new DatagramPacket(buf, 4, broadcasterAddress, server.broadcastPort);
 //System.out.println("Send reponse packet (kill yourself) to server");
                         broadcastSocket.send(pkt);
