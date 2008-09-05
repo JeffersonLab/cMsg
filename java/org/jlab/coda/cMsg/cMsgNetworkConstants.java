@@ -32,11 +32,11 @@ public class cMsgNetworkConstants {
     public static final int[] magicNumbers = {0x634d7367, 0x20697320, 0x636f6f6c};
 
     /** TCP port at which a cMsg domain name server starts looking for an unused listening port. */
-    public static final int    nameServerStartingPort   = 3456;
+    public static final int    nameServerPort = 3456;
     /** TCP port at which a cMsg domain, domain server listens. */
     public static final int    domainServerPort = 4567;
-    /** TCP port at which a cMsg domain, domain server starts looking for an unused listening port. */
-    public static final int    domainServerStartingPort = 4567;
+    /** TCP port at which a cMsg domain, domain server starts looking for an unused UDP listening port. */
+    public static final int    domainServerUdpStartingPort = 4567;
     /** TCP port at which a cMsg domain client starts looking for an unused listening port. */
     public static final int    clientServerStartingPort = 23945;
     /** TCP port at which a TCPServer server listens for connections. */
