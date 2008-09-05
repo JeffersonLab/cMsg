@@ -493,10 +493,12 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
       
       if (domain->failovers[0].mustBroadcast == 1) {
         free(domain->failovers[0].nameServerHost);
+/*printf("Trying to connect with Broadcast 1\n");*/
         err = connectWithBroadcast(domain, 0,
                              &domain->failovers[0].nameServerHost,
                              &domain->failovers[0].nameServerPort);
         if (err != CMSG_OK) {
+/*printf("Error trying to connect with Broadcast, err = %d\n", err);*/
           cMsgDomainFree(domain);
           free(domain);
           return(err);
@@ -527,14 +529,15 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
       }
 
       /* connect using that UDL info */
-/*printf("\nTrying to connect with UDL = %s\n",
-      domain->failovers[failoverIndex].udl);*/
+/*printf("\nTrying to connect with UDL = %s\n", domain->failovers[failoverIndex].udl);*/
       if (domain->failovers[failoverIndex].mustBroadcast == 1) {
         free(domain->failovers[failoverIndex].nameServerHost);
+        printf("Trying to connect with Broadcast 2\n");
         err = connectWithBroadcast(domain, failoverIndex,
                              &domain->failovers[failoverIndex].nameServerHost,
                              &domain->failovers[failoverIndex].nameServerPort);     
         if (err != CMSG_OK) {
+/*printf("Error trying to connect with Broadcast, err = %d\n", err);*/
           connectFailures++;
           continue;
         }
