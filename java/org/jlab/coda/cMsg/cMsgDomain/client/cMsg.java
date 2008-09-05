@@ -2724,7 +2724,7 @@ public class cMsg extends cMsgDomainAdapter {
                     udlPortInt = cMsgNetworkConstants.nameServerBroadcastPort;
                 }
                 else {
-                    udlPortInt = cMsgNetworkConstants.nameServerStartingPort;
+                    udlPortInt = cMsgNetworkConstants.nameServerPort;
                 }
                 if (debug >= cMsgConstants.debugWarn) {
                     System.out.println("parseUDL: non-integer port, guessing server port is " + udlPortInt);
@@ -2736,7 +2736,7 @@ public class cMsg extends cMsgDomainAdapter {
                 udlPortInt = cMsgNetworkConstants.nameServerBroadcastPort;
             }
             else {
-                udlPortInt = cMsgNetworkConstants.nameServerStartingPort;
+                udlPortInt = cMsgNetworkConstants.nameServerPort;
             }
             if (debug >= cMsgConstants.debugWarn) {
                 System.out.println("parseUDL: guessing name server port is " + udlPortInt);
