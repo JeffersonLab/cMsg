@@ -420,9 +420,9 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port,
  * @param addr pointer to struct holding the binary numeric value of the host
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if internal logic error
  * @returns CMSG_BAD_ARGUMENT if ip_address is null
- * @returns CMSG_NETWORK_ERROR if the numeric address could not be obtained
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
+ * @returns CMSG_NETWORK_ERROR if the numeric address could not be obtained/resolved
  */
 int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
 {
@@ -454,6 +454,7 @@ int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
 
   /* compile regular expression */
   err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED);
+  /* this will never happen */
   if (err != 0) {
      return(CMSG_ERROR);
   }
