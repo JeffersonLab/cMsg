@@ -215,17 +215,28 @@ int cmsg_rc_isConnected(void *domainId, int *connected) {
  * @param domainId pointer to integer which gets filled with a unique id referring
  *        to this connection.
  *
+ *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if the EXPID is not defined
- * @returns CMSG_BAD_FORMAT if the UDL is malformed
- * @returns CMSG_ABORT if RC Broadcast server aborts connection attempt
+ * @returns CMSG_BAD_FORMAT if UDLremainder arg is not in the proper format
+ * @returns CMSG_BAD_ARGUMENT if UDLremainder arg is NULL
+ * @returns CMSG_ABORT if RC Broadcast server aborts connection before rc server
+ *                     can complete it
  * @returns CMSG_OUT_OF_RANGE if the port specified in the UDL is out-of-range
- * @returns CMSG_OUT_OF_MEMORY if the allocating memory for domain id or
- *                             message buffer failed
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
+ * @returns CMSG_TIMEOUT if timed out of wait for either response to broadcast or
+ *                       for rc server to complete connection
+ *
  * @returns CMSG_SOCKET_ERROR if the listening thread finds all the ports it tries
- *                            to listen on are busy, or socket options could not be set.
- *                            If udp socket to server could not be created or connect failed.
- * @returns CMSG_NETWORK_ERROR if no connection to the rc server can be made,
+ *                            to listen on are busy, tcp socket to rc server could
+ *                            not be created, udp socket for sending to rc server
+ *                            could not be created, could not connect udp socket to
+ *                            rc server once created, udp socket for broadcasting
+ *                            could not be created, or socket options could not be set.
+ *                            
+ * @returns CMSG_NETWORK_ERROR if host name in UDL or rc server's host could not be
+ *                             resolved, or
+ *                             no connection to the rc server can be made,
  *                             or a communication error with server occurs.
  */   
 int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescription,
@@ -346,7 +357,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         free(domain);
         free(serverHost);
         free(expid);
-        return(err);
+        return(err); /* CMSG_SOCKET_ERROR if cannot find available port */
     }
     
 /*printf("connect: create listening socket on port %d\n", domain->listenPort );*/
@@ -457,6 +468,10 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         free(domain);
         free(serverHost);
         free(expid);
+        /* only possible errors are:
+           CMSG_NETWORK_ERROR if the numeric address could not be obtained
+           CMSG_OUT_OF_MEMORY if out of memory
+        */
         return(err);
     }
     
@@ -583,7 +598,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
-        return(CMSG_NETWORK_ERROR);
+        return(CMSG_TIMEOUT);
     }
     
 /* printf("Got a response, now wait for connect to finish\n"); */ 
@@ -611,6 +626,8 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         status = cMsgLatchAwait(&domain->syncLatch, NULL);
     }
 
+    /* Told by broadcast server to stop waiting for the
+     * rc Server to finish the connection. */
     if (domain->rcConnectAbort) {
 /*printf("Told to abort connect by RC Broadcast server\n");*/
         close(domain->sendSocket);
@@ -643,6 +660,10 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
+        /* besides out-of-mem or bad arg we can have:
+            CMSG_SOCKET_ERROR if socket could not be created or socket options could not be set.
+            CMSG_NETWORK_ERROR if sendHost name could not be resolved or could not connect
+        */
         return(err);
      }
 
@@ -1742,6 +1763,37 @@ int cmsg_rc_shutdownServers(void *domainId, const char *server, int flag) {
 /**
  * This routine parses, using regular expressions, the RC domain
  * portion of the UDL sent from the next level up" in the API.
+ * The full RC domain UDL is of the form:<p>
+ * cMsg:rc://host:port/?expid=expid&broadcastTO=timeout&connectTO=timeout<p>
+ * The UDL parsed in this function is only the "remainder" - that is,
+ * everything past the initial "cMsg:rc://" .
+ * Remember that for this domain:
+ * 1) port is optional with a default of RC_BROADCAST_PORT
+ * 2) host is optional with a default of 255.255.255.255 (broadcast)
+ *    and may be "localhost" or in dotted decimal form
+ * 3) the experiment id or expid is optional, it is taken from the
+ *    environmental variable EXPID
+ * 4) broadcastTO is the time to wait in seconds before connect returns a
+ *    timeout when a rc broadcast server does not answer
+ * 5) connectTO is the time to wait in seconds before connect returns a
+ *    timeout while waiting for the rc server to send a special (tcp)
+ *    concluding connect message
+ *
+ * 
+ * @param UDLR  udl to be parsed
+ * @param host  pointer filled in with host
+ * @param port  pointer filled in with port
+ * @param expid pointer filled in with expid tag's value if it exists
+ * @param broadcastTO pointer filled in with broadcast timeout tag's value if it exists
+ * @param connectTO   pointer filled in with connect timeout tag's value if it exists
+ * @param remainder   pointer filled in with the part of the udl after host:port/ if it exists,
+ *                    else it is set to NULL
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_FORMAT if UDLR arg is not in the proper format
+ * @returns CMSG_BAD_ARGUMENT if UDLR arg is NULL
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
+ * @returns CMSG_OUT_OF_RANGE if port is an improper value
  */
 static int parseUDL(const char *UDLR,
                     char **host,
@@ -1749,7 +1801,7 @@ static int parseUDL(const char *UDLR,
                     char **expid,
                     int  *broadcastTO,
                     int  *connectTO,
-                    char **junk) {
+                    char **remainder) {
 
     int        err, Port, index;
     size_t     len, bufLength;
@@ -1760,7 +1812,7 @@ static int parseUDL(const char *UDLR,
     regex_t    compiled;
     
     if (UDLR == NULL) {
-        return (CMSG_BAD_FORMAT);
+      return (CMSG_BAD_ARGUMENT);
     }
     
     /* make a copy */        
@@ -1768,7 +1820,7 @@ static int parseUDL(const char *UDLR,
     if (udlRemainder == NULL) {
       return(CMSG_OUT_OF_MEMORY);
     }
-/* printf("parseUDL: udl remainder = %s\n", udlRemainder); */
+ printf("parseUDL: udl remainder = %s\n", udlRemainder);
  
     /* make a big enough buffer to construct various strings, 256 chars minimum */
     len       = strlen(udlRemainder) + 1;
@@ -1779,24 +1831,9 @@ static int parseUDL(const char *UDLR,
       return(CMSG_OUT_OF_MEMORY);
     }
     
-    /* RC domain UDL is of the form:
-     *        cMsg:rc://<host>:<port>/?expid=<expid>&broadcastTO=<timeout>&connectTO=<timeout>
-     *
-     * Remember that for this domain:
-     * 1) port is optional with a default of RC_BROADCAST_PORT (6543)
-     * 2) host is optional with a default of 255.255.255.255 (broadcast)
-     *    and may be "localhost" or in dotted decimal form
-     * 3) the experiment id or expid is optional, it is taken from the
-     *    environmental variable EXPID
-     * 4) broadcastTO is the time to wait in seconds before connect returns a
-     *    timeout when a rc broadcast server does not answer 
-     * 5) connectTO is the time to wait in seconds before connect returns a
-     *    timeout while waiting for the rc server to send a special (tcp)
-     *    concluding connect message
-     */
-
     /* compile regular expression */
     err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED);
+    /* this error will never happen since it's already been determined to work */
     if (err != 0) {
         free(udlRemainder);
         free(buffer);
@@ -1870,22 +1907,22 @@ static int parseUDL(const char *UDLR,
     }
 /* printf("parseUDL: port = %hu\n", Port ); */
 
-    /* find junk */
+    /* find remainder */
     index++;
     buffer[0] = 0;
     if (matches[index].rm_so < 0) {
         /* no match */
         len = 0;
-        if (junk != NULL) {
-            *junk = NULL;
+        if (remainder != NULL) {
+          *remainder = NULL;
         }
     }
     else {
         len = matches[index].rm_eo - matches[index].rm_so;
         strncat(buffer, udlRemainder+matches[index].rm_so, len);
                 
-        if (junk != NULL) {
-            *junk = (char *) strdup(buffer);
+        if (remainder != NULL) {
+          *remainder = (char *) strdup(buffer);
         }        
 /* printf("parseUDL: remainder = %s, len = %d\n", buffer, len); */
     }
@@ -1983,8 +2020,6 @@ static int parseUDL(const char *UDLR,
         
         break;
     }
-
-
 
     /* UDL parsed ok */
 /* printf("DONE PARSING UDL\n"); */
