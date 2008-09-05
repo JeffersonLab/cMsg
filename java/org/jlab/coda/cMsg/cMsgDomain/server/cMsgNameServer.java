@@ -388,7 +388,7 @@ public class cMsgNameServer extends Thread {
         }
 
         if (port < 1) {
-            port = cMsgNetworkConstants.nameServerStartingPort;
+            port = cMsgNetworkConstants.nameServerPort;
         }
 
         // port #'s < 1024 are reserved
@@ -1773,7 +1773,7 @@ public class cMsgNameServer extends Thread {
                 if (dsServer == null) {
                     // Create a domain server thread, and get back its host & port
                     dsServer = new cMsgDomainServerSelect(cMsgNameServer.this,
-                                                          cMsgNetworkConstants.domainServerStartingPort,
+                                                          cMsgNetworkConstants.domainServerUdpStartingPort,
                                                           timeOrdered, debug);
                 }
 
