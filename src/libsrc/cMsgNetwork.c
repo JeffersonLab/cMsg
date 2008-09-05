@@ -220,6 +220,23 @@ int cMsgGetListeningSocket(int blocking, unsigned short startingPort, int *final
  *  Solaris 10       49152     49152
  *  
  */
+
+/**
+ * This routine makes a TCP connection to a server.
+ *
+ * @param ip_address name of host to connect to (may be dotted-decimal)
+ * @param port port to connect to
+ * @param sendBufSize size of socket's send buffer in bytes
+ * @param rcvBufSize  size of socket's receive buffer in bytes
+ * @param fd pointer to file descriptor which get filled in
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if ip_adress or fd args are NULL
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
+ * @returns CMSG_SOCKET_ERROR if socket could not be created or socket options could not be set.
+ * @returns CMSG_NETWORK_ERROR if host name could not be resolved or could not connect
+ *
+ */
 int cMsgTcpConnect(const char *ip_address, unsigned short port,
                    int sendBufSize, int rcvBufSize, int *fd)
 {
