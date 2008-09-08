@@ -29,18 +29,18 @@ public class RCBroadcastServer {
              int    port = msg.getUserInt();
              String name = msg.getSender();
              
-             //System.out.println("Ran broadcast cb, host = " + host +
-             //                   ", port = " + port +
-             //                   ", name = " + name);
+             System.out.println("Ran broadcast cb, host = " + host +
+                                ", port = " + port +
+                                ", name = " + name);
 
              // now that we have the message, we know what TCP host and port
              // to connect to in the RC Server domain.
-             //System.out.println("Starting RC Server");
+             System.out.println("Starting RC Server");
 
-             //RcServerReconnectThread rcserver  = new RcServerReconnectThread(host, port);
-             ConnectDisconnectThread rcserver2 = new ConnectDisconnectThread(host, port);
-             //RcServerThread rcserver2 = new RcServerThread(host, port);
-             rcserver2.start();
+             RcServerReconnectThread rcserver  = new RcServerReconnectThread(host, port);
+             //ConnectDisconnectThread rcserver = new ConnectDisconnectThread(host, port);
+             //RcServerThread rcserver = new RcServerThread(host, port);
+             rcserver.start();
         }
     }
 
@@ -53,10 +53,10 @@ public class RCBroadcastServer {
         }
     }
 
-    class nullCallback extends cMsgCallbackAdapter {
+    class starCallback extends cMsgCallbackAdapter {
         public void callback(cMsgMessage msg, Object userObject) {
             String s = (String) userObject;
-            System.out.println("RAN CALLBACK, for NULL subscription, msg sub = " + msg.getSubject() +
+            System.out.println("RAN CALLBACK, for STAR subscription, msg sub = " + msg.getSubject() +
                     ", type " + msg.getType() + ", text = " + msg.getText() + ", for " + s);
         }
     }
@@ -81,7 +81,7 @@ public class RCBroadcastServer {
         // The intial cMsg:rcb:// is stripped off by the top layer API
         //
         // Remember that for this domain:
-        // 1) udp listening port is optional and defaults to 6543 (cMsgNetworkConstants.rcBroadcastPort)
+        // 1) udp listening port is optional and defaults to cMsgNetworkConstants.rcBroadcastPort
         // 2) the experiment id is given by the optional parameter expid. If none is
         //    given, the environmental variable EXPID is used. if that is not defined,
         //    an exception is thrown
@@ -122,7 +122,7 @@ public class RCBroadcastServer {
                 String rcsUDL = "cMsg:rcs://" + rcClientHost + ":" + rcClientTcpPort;
 
                 cMsg server = new cMsg(rcsUDL, "rc server", "connect trial");
-//System.out.println("connect");
+System.out.println("RC server: try to connect");
                 server.connect();
                 try {Thread.sleep(1000);}
                 catch (InterruptedException e) {}
@@ -203,8 +203,8 @@ public class RCBroadcastServer {
                 rcCallback cb2 = new rcCallback();
                 Object unsub = server.subscribe("subby", "typey", cb2, "1st sub");
 
-                nullCallback nullCb = new nullCallback();
-                Object unsub2 = server.subscribe(null, null, nullCb, "2nd sub");
+                starCallback starCb = new starCallback();
+                Object unsub2 = server.subscribe("*", "*", starCb, "2nd sub");
 
                 // send stuff to rc client
                 cMsgMessage msg = new cMsgMessage();
@@ -233,7 +233,7 @@ public class RCBroadcastServer {
                 server2.start();
 
                 server2.subscribe("subby", "typey", cb2, "3rd sub");
-                server2.subscribe(null, null, nullCb, "4th sub");
+                server2.subscribe("*", "*", starCb, "4th sub");
 
                 loops = 5;
                 while(loops-- > 0) {
