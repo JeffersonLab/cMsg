@@ -46,7 +46,8 @@ public class rcClient {
          */
         public void callback(cMsgMessage msg, Object userObject) {
             count++;
-            System.out.println("Got msg with sub = " + msg.getSubject() + ", typ = " + msg.getType() + ", txt = " + msg.getText());
+            System.out.println("Got msg with sub = " + msg.getSubject() + ", typ = " + msg.getType() +
+                    ", msg # = " + msg.getUserInt());
             msg.payloadPrintout(0);
         }
      }
@@ -110,8 +111,8 @@ public class rcClient {
           *    timeout while waiting for the rc server to send a special (tcp)
           *    concluding connect message
           */
-         //String UDL = "cMsg:rc://?expid=carlExp&broadcastTO=5&connectTO=5";
-         String UDL = "cMsg:rc://?expid=carlExp";
+         String UDL = "cMsg:rc://33444?expid=carlExp&broadcastTO=5&connectTO=5";
+         //String UDL = "cMsg:rc://33444?expid=carlExp";
 
          cmsg = new cMsg(UDL, "java rc client", "rc trial");
          cmsg.connect();
@@ -153,6 +154,7 @@ public class rcClient {
          System.out.println("Send blah, yech with TCP");
          cmsg.send(msg);
 
+         System.out.println("Sleep for 12 sec");
          try {Thread.sleep(12000); }
          catch (InterruptedException e) {}
 
