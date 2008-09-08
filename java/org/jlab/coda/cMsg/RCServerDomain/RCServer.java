@@ -599,7 +599,8 @@ public class RCServer extends cMsgDomainAdapter {
      *                of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
      * @return handle object to be used for unsubscribing
-     * @throws cMsgException if the callback is null; an identical subscription already exists;
+     * @throws cMsgException if the subject, type, or callback is null;
+     *                       an identical subscription already exists;
      *                       if not connected to an rc client
      */
     public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
