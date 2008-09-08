@@ -245,7 +245,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     unsigned short serverPort;
     char  *serverHost, *expid=NULL, buffer[1024];
     int    err, status, len, expidLen, nameLen;
-    int    i, outGoing[4], broadcastTO=0, connectTO=0;
+    int    i, outGoing[7], broadcastTO=0, connectTO=0;
     char   temp[CMSG_MAXHOSTNAMELEN];
     char  *portEnvVariable=NULL;
     unsigned short startingPort;
@@ -491,14 +491,18 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     nameLen  = strlen(myName);
     expidLen = strlen(expid);
     
+    /* magic #s */
+    outGoing[0] = htonl(CMSG_MAGIC_INT1);
+    outGoing[1] = htonl(CMSG_MAGIC_INT2);
+    outGoing[2] = htonl(CMSG_MAGIC_INT3);
     /* type of broadcast */
-    outGoing[0] = htonl(RC_DOMAIN_BROADCAST);
+    outGoing[3] = htonl(RC_DOMAIN_BROADCAST);
     /* tcp port */
-    outGoing[1] = htonl((int) domain->listenPort);
+    outGoing[4] = htonl((int) domain->listenPort);
     /* length of "myName" string */
-    outGoing[2] = htonl(nameLen);
+    outGoing[5] = htonl(nameLen);
     /* length of "expid" string */
-    outGoing[3] = htonl(expidLen);
+    outGoing[6] = htonl(expidLen);
 
     /* copy data into a single buffer */
     memcpy(buffer, (void *)outGoing, sizeof(outGoing));
@@ -745,9 +749,11 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
 static void *receiverThd(void *arg) {
 
     thdArg *threadArg = (thdArg *) arg;
-    int  ints[4], code, port, len1, len2;
+    int  ints[6], magic[3], port, len1, len2, minMsgSize;
     char buf[1024], *pbuf, *tmp, *host=NULL, *expid=NULL;
     ssize_t len;
+
+    minMsgSize = 6*sizeof(int);
     
     /* release resources when done */
     pthread_detach(pthread_self());
@@ -761,27 +767,52 @@ static void *receiverThd(void *arg) {
                        (SA *) &threadArg->addr, &(threadArg->len));
         
         /* server is sending:
-         *         -> 0xc0da
+         *         -> 3 magic ints
          *         -> port server is listening on
          *         -> length of server's host name
          *         -> length of server's expid
          *         -> server's host name
          *         -> server's expid
          */
-        if (len < 18) continue;
+        if (len < minMsgSize) {
+          /*printf("receiverThd: got packet that's too small\n");*/
+          continue;
+        }
         
         pbuf = buf;
         memcpy(ints, pbuf, sizeof(ints));
         pbuf += sizeof(ints);
 
-        code = ntohl(ints[0]);
-        port = ntohl(ints[1]);
-        len1 = ntohl(ints[2]);
-        len2 = ntohl(ints[3]);
+        magic[0] = ntohl(ints[0]);
+        magic[1] = ntohl(ints[1]);
+        magic[2] = ntohl(ints[2]);
+        if (magic[0] != CMSG_MAGIC_INT1 ||
+            magic[1] != CMSG_MAGIC_INT2 ||
+            magic[2] != CMSG_MAGIC_INT3)  {
+          printf("receiverThd: got bogus magic # response to broadcast\n");
+          continue;
+        }
+
+        port = ntohl(ints[3]);
+
+        if (port != threadArg->port) {
+          printf("receiverThd: got bogus port response to broadcast\n");
+          continue;
+        }
+
+        len1 = ntohl(ints[4]);
+        len2 = ntohl(ints[5]);
         
-        if (len1 > 0 && len1 < 1025-16) {
+        if (len < minMsgSize + len1 + len2) {
+          printf("receiverThd: got packet that's too small or internal error\n");
+          continue;
+        }
+
+        /* I'm not sure why we send "host" since it isn't used */
+        if (len1 > 0) {
           if ( (tmp = (char *) malloc(len1+1)) == NULL) {
-            continue;    
+            printf("receiverThd: out of memory\n");
+            exit(-1);
           }
           /* read host string into memory */
           memcpy(tmp, pbuf, len1);
@@ -793,45 +824,28 @@ static void *receiverThd(void *arg) {
           pbuf += len1;
 /*printf("host = %s\n", host);*/
         }
-        else {
-            len1 = 0;
-        }
-        
-        if (len2 > 0 && len2 < 1025-16-len1) {
+                
+        if (len2 > 0) {
           if ( (tmp = (char *) malloc(len2+1)) == NULL) {
-            continue;    
+            printf("receiverThd: out of memory\n");
+            exit(-1);
           }
           memcpy(tmp, pbuf, len2);
           tmp[len2] = 0;
           expid = tmp;
           pbuf += len2;
 /*printf("expid = %s\n", expid);*/
-        }
-        else {
-            len2 = 0;
+          if (strcmp(expid, threadArg->expid) != 0) {
+            printf("receiverThd: got bogus expid response to broadcast\n");
+            continue;
+          }
         }
 /*
 printf("Broadcast response from: %s, on port %hu, listening port = %d, host = %s, expid = %s\n",
                 inet_ntoa(threadArg->addr.sin_addr),
                 ntohs(threadArg->addr.sin_port),
                 port, host, expid);
-*/                 
-        /* make sure the response is from the RCBroadcastServer */
-        if (code != 0xc0da) {
-            printf("receiverThd: got bogus secret code response to broadcast\n");
-            continue;
-        }
-        else if (port != threadArg->port) {
-            printf("receiverThd: got bogus port response to broadcast\n");
-            continue;
-        }
-        else if (len2 > 0) {
-            if (strcmp(expid, threadArg->expid) != 0) {
-                printf("receiverThd: got bogus expid response to broadcast\n");
-                continue;
-            }
-        }
-        
+*/                        
         /* Tell main thread we are done. */
         pthread_cond_signal(&cond);
         break;
@@ -1764,7 +1778,7 @@ int cmsg_rc_shutdownServers(void *domainId, const char *server, int flag) {
  * This routine parses, using regular expressions, the RC domain
  * portion of the UDL sent from the next level up" in the API.
  * The full RC domain UDL is of the form:<p>
- * cMsg:rc://host:port/?expid=expid&broadcastTO=timeout&connectTO=timeout<p>
+ * cMsg:rc://&lt;host&gt;:&lt;port&gt;/?expid=&lt;expid&gt;&broadcastTO=&lt;timeout&gt;&connectTO=&lt;timeout&gt;<p>
  * The UDL parsed in this function is only the "remainder" - that is,
  * everything past the initial "cMsg:rc://" .
  * Remember that for this domain:

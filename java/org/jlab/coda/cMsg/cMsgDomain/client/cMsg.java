@@ -718,7 +718,7 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
 
-            // create request sending (to domain) socket
+            // create request sending/receiving (to domain) socket
             try {
                 // Do NOT use SocketChannel objects to establish communications. The socket obtained
                 // from a SocketChannel object has its input and outputstreams synchronized - making 
@@ -729,6 +729,12 @@ public class cMsg extends cMsgDomainAdapter {
                 socket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
                 domainOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(),
                                                                           cMsgNetworkConstants.bigBufferSize));
+                // send magic #s to foil port-scanning
+                domainOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+                domainOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+                domainOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+                domainOut.flush();
+
                 // launch thread to start listening on receive end of "sending" socket
                 listeningThread = new cMsgClientListeningThread(this, socket);
                 listeningThread.start();
@@ -750,6 +756,14 @@ public class cMsg extends cMsgDomainAdapter {
             try {
                 Socket socket = new Socket(domainServerHost, domainServerPort);
                 socket.setTcpNoDelay(true);
+                socket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                // send magic #s to foil port-scanning
+                DataOutputStream kaOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+                kaOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+                kaOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+                kaOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+                kaOut.flush();
+                kaOut.close();
 
                 // Create thread to handle dead server with failover capability.
                 keepAliveThread = new KeepAlive(socket, useFailoverWaiting, failovers);
@@ -1565,8 +1579,6 @@ public class cMsg extends cMsgDomainAdapter {
 
     /**
      * Method to subscribe to receive messages of a subject and type from the domain server.
-     * The combination of arguments must be unique. In other words, only 1 subscription is
-     * allowed for a given set of subject, type, callback, and userObj.
      *
      * Note about the server failing and an IOException being thrown. All existing
      * subscriptions are resubscribed on the new failover server by the keepAlive thread.
@@ -1631,19 +1643,6 @@ public class cMsg extends cMsgDomainAdapter {
                         // and don't bother the server since any matching message will be delivered
                         // to this client anyway.
                         if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
-                            // Only add another callback if the callback/userObj
-                            // combination does NOT already exist. In other words,
-                            // a callback/argument pair must be unique for a single
-                            // subscription. Otherwise it is impossible to unsubscribe.
-
-                            // for each callback listed ...
-                            for (cMsgCallbackThread cbt : sub.getCallbacks()) {
-                                // if callback and user arg already exist, reject the subscription
-                                if ((cbt.getCallback() == cb) && (cbt.getArg() == userObj)) {
-                                    throw new cMsgException("subscription already exists");
-                                }
-                            }
-
                             // add to existing set of callbacks
                             cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
                             sub.addCallback(cbThread);

@@ -290,8 +290,11 @@ public class RunControl extends cMsgDomainAdapter {
             DataOutputStream out = new DataOutputStream(baos);
 
             try {
-                // Put our TCP listening port, our name, and
+                // Put our magic #s, TCP listening port, name, and
                 // the EXPID (experiment id string) into byte array.
+                out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+                out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+                out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
                 out.writeInt(cMsgNetworkConstants.rcDomainBroadcastClient); // broadcast is from rc domain client
                 out.writeInt(port);
                 out.writeInt(name.length());
@@ -442,32 +445,33 @@ public class RunControl extends cMsgDomainAdapter {
 
 
     /**
-     * Method to parse the Universal Domain Locator (UDL) into its various components.
-     *
-     * @param udlRemainder partial UDL to parse
-     * @throws cMsgException if udlRemainder is null
-     */
+      * Method to parse the Universal Domain Locator (UDL) into its various components.
+      *
+      * Runcontrol domain UDL is of the form:<p>
+      *        cMsg:rc://&lt;host&gt;:&lt;port&gt;/?expid=&lt;expid&gt;&broadcastTO=&lt;timeout&gt;&connectTO=&lt;timeout&gt;<p>
+      *
+      * Remember that for this domain:
+      * 1) port is optional with a default of cMsgNetworkConstants.rcBroadcastPort
+      * 2) host is optional with a default of 255.255.255.255 (broadcast)
+      *    and may be "localhost" or in dotted decimal form
+      * 3) the experiment id or expid is optional, it is taken from the
+      *    environmental variable EXPID
+      * 4) broadcastTO is the time to wait in seconds before connect returns a
+      *    timeout when a rc broadcast server does not answer
+      * 5) connectTO is the time to wait in seconds before connect returns a
+      *    timeout while waiting for the rc server to send a special (tcp)
+      *    concluding connect message
+      *
+      *
+      * @param udlRemainder partial UDL to parse
+      * @throws cMsgException if udlRemainder is null
+      */
      void parseUDL(String udlRemainder) throws cMsgException {
 
         if (udlRemainder == null) {
             throw new cMsgException("invalid UDL");
         }
 
-        /* Runcontrol domain UDL is of the form:
-         *        cMsg:rc://<host>:<port>/?expid=<expid>&broadcastTO=<timeout>&connectTO=<timeout>
-         *
-         * Remember that for this domain:
-         * 1) port is optional with a default of 6543 (cMsgNetworkConstants.rcBroadcastPort)
-         * 2) host is optional with a default of 255.255.255.255 (broadcast)
-         *    and may be "localhost" or in dotted decimal form
-         * 3) the experiment id or expid is optional, it is taken from the
-         *    environmental variable EXPID
-         * 4) broadcastTO is the time to wait in seconds before connect returns a
-         *    timeout when a rc broadcast server does not answer
-         * 5) connectTO is the time to wait in seconds before connect returns a
-         *    timeout while waiting for the rc server to send a special (tcp)
-         *    concluding connect message
-         */
 
         Pattern pattern = Pattern.compile("((?:[a-zA-Z]+[\\w\\.\\-]*)|(?:[\\d]+\\.[\\d\\.]+))?:?(\\d+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
@@ -899,8 +903,6 @@ public class RunControl extends cMsgDomainAdapter {
 
     /**
      * Method to subscribe to receive messages of a subject and type from the domain server.
-     * The combination of arguments must be unique. In other words, only 1 subscription is
-     * allowed for a given set of subject, type, callback, and userObj.
      *
      * Note about the server failing and an IOException being thrown. All existing
      * subscriptions are resubscribed on the new failover server by the keepAlive thread.
@@ -957,19 +959,6 @@ public class RunControl extends cMsgDomainAdapter {
                     // and don't bother the server since any matching message will be delivered
                     // to this client anyway.
                     if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
-                        // Only add another callback if the callback/userObj
-                        // combination does NOT already exist. In other words,
-                        // a callback/argument pair must be unique for a single
-                        // subscription. Otherwise it is impossible to unsubscribe.
-
-                        // for each callback listed ...
-                        for (cMsgCallbackThread cbt : sub.getCallbacks()) {
-                            // if callback and user arg already exist, reject the subscription
-                            if ((cbt.getCallback() == cb) && (cbt.getArg() == userObj)) {
-                                throw new cMsgException("subscription already exists");
-                            }
-                        }
-
                         // add to existing set of callbacks
                         cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
                         sub.addCallback(cbThread);
@@ -1091,7 +1080,7 @@ public class RunControl extends cMsgDomainAdapter {
 
             byte[] buf = new byte[1024];
             DatagramPacket packet = new DatagramPacket(buf, 1024);
-            int index;
+            int index, len;
 
             while (true) {
                 // reset for each round
@@ -1100,19 +1089,54 @@ public class RunControl extends cMsgDomainAdapter {
 
                 try {
                     broadcastUdpSocket.receive(packet);
+                    // if we get too small of a packet, reject it
+                    if (packet.getLength() < 6*4) {
+                        if (debug >= cMsgConstants.debugWarn) {
+                                     System.out.println("Broadcast receiver: got packet that's too small");
+                        }
+                        continue;
+                    }
 //System.out.println("received broadcast packet");
-                    int code = bytesToInt(buf, index);
+                    int magic1 = bytesToInt(buf, index);
                     index += 4;
+                    int magic2 = bytesToInt(buf, index);
+                    index += 4;
+                    int magic3 = bytesToInt(buf, index);
+                    index += 4;
+                    
+                    if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
+                        magic2 != cMsgNetworkConstants.magicNumbers[1] ||
+                        magic3 != cMsgNetworkConstants.magicNumbers[2])  {
+                        if (debug >= cMsgConstants.debugWarn) {
+                            System.out.println("Broadcast receiver: got bad magic # response to broadcast");
+                        }
+                        continue;
+                    }
+
                     int port = bytesToInt(buf, index);
                     index += 4;
+
+                    if (port != rcServerBroadcastPort) {
+                        if (debug >= cMsgConstants.debugWarn) {
+                            System.out.println("Broadcast receiver: got bad port response to broadcast (" + port + ")");
+                        }
+                        continue;
+                    }
+
                     int hostLen = bytesToInt(buf, index);
                     index += 4;
                     int expidLen = bytesToInt(buf, index);
                     index += 4;
-//System.out.println("code = " + Integer.toHexString(code) + ", port = " + port);
+
+                    if (packet.getLength() < 4*6 + hostLen + expidLen) {
+                        if (debug >= cMsgConstants.debugWarn) {
+                            System.out.println("Broadcast receiver: got packet that's too small");
+                        }
+                        continue;
+                    }
 
                     // get host
-                    if (hostLen > 0 && hostLen < 1025-16) {
+                    if (hostLen > 0) {
                         String host = new String(buf, index, hostLen, "US-ASCII");
 //System.out.println("host = " + host);
                         index += hostLen;
@@ -1123,29 +1147,15 @@ public class RunControl extends cMsgDomainAdapter {
 
                     // get expid
                     String serverExpid = null;
-                    if (expidLen > 0 && expidLen < 1025-16-hostLen) {
+                    if (expidLen > 0) {
                         serverExpid = new String(buf, index, expidLen, "US-ASCII");
 //System.out.println("expid = " + serverExpid);
-                    }
-
-                    /* make sure the response is from the RCBroadcastServer */
-                    if (code != 0xc0da) {
-                        if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("Broadcast receiver: got bad secret code response to broadcast (" + code + ")");
+                        if (!expid.equals(serverExpid)) {
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("Broadcast receiver: got bad expid response to broadcast (" + serverExpid + ")");
+                            }
+                            continue;
                         }
-                        continue;
-                    }
-                    else if (port != rcServerBroadcastPort) {
-                        if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("Broadcast receiver: got bad port response to broadcast (" + port + ")");
-                        }
-                        continue;
-                    }
-                    else if (!expid.equals(serverExpid)) {
-                        if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("Broadcast receiver: got bad expid response to broadcast (" + serverExpid + ")");
-                        }
-                        continue;
                     }
                 }
                 catch (UnsupportedEncodingException e) {continue;}

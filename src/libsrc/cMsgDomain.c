@@ -34,8 +34,7 @@
  * Lab. The cMsg domain has a dual function. It acts as a framework so that the
  * cMsg client can connect to a variety of subdomains (messaging systems). However,
  * it also acts as a messaging system itself in the cMsg <b>subdomain</b>.
- */  
- 
+ */
 
 /* system includes */
 #ifdef VXWORKS
@@ -327,12 +326,12 @@ int cmsg_cmsg_isConnected(void *domainId, int *connected) {
  * The argument "myUDL" is the Universal Domain Locator (or can be a semicolon
  * separated list of UDLs) used to uniquely identify the cMsg server to connect to.
  * It has the form:<p>
- *       <b>cMsg:cMsg://host:port/subdomainType/namespace/?cmsgpassword=<password>& ... </b><p>
+ *       <b>cMsg:cMsg://host:port/subdomainType/namespace/?cmsgpassword=&lt;password&gt;& ... </b><p>
  * where the first "cMsg:" is optional. The subdomain is optional with
  * the default being cMsg (if nothing follows the host & port).
  * If the namespace is given, the subdomainType must be specified as well.
  * If the name server requires a password to connect, this can be specified by
- * ?cmsgpassword=<password> immediately after the namespace. It may also be 
+ * ?cmsgpassword=&lt;password&gt; immediately after the namespace. It may also be
  * included later as one of several optional key-value pairs specified.
  *
  * If "myUDL" is a list of UDLs, the first valid one is connected to. If that
@@ -879,7 +878,7 @@ static void *broadcastThd(void *arg) {
  */   
 static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIndex) {
 
-  int err, serverfd, status;
+  int err, serverfd, sendLen, status, outGoing[3];
   cMsgThreadInfo *threadArg;
   const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
   struct sockaddr_in  servaddr;
@@ -935,6 +934,18 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIn
                               &domain->sendSocket)) != CMSG_OK) {
     cMsgRestoreSignals(domain);
     return(err);
+  }  
+
+  /* first send magic #s to server which identifies us as real cMsg client */
+  outGoing[0] = htonl(CMSG_MAGIC_INT1);
+  outGoing[1] = htonl(CMSG_MAGIC_INT2);
+  outGoing[2] = htonl(CMSG_MAGIC_INT3);
+  /* send data over TCP socket */
+  sendLen = cMsgTcpWrite(domain->sendSocket, (void *) outGoing, sizeof(outGoing));
+  if (sendLen != sizeof(outGoing)) {
+    cMsgRestoreSignals(domain);
+    close(domain->sendSocket);
+    return(CMSG_NETWORK_ERROR);
   }
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
@@ -981,6 +992,17 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIn
     return(err);
   }
   
+  /* send magic #s over TCP socket */
+  sendLen = cMsgTcpWrite(domain->keepAliveSocket, (void *) outGoing, sizeof(outGoing));
+  if (sendLen != sizeof(outGoing)) {
+    cMsgRestoreSignals(domain);
+    close(domain->sendSocket);
+    close(domain->keepAliveSocket);
+    pthread_cancel(domain->pendThread);
+    pthread_join(domain->pendThread, NULL);
+    return(CMSG_NETWORK_ERROR);
+  }
+
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "connectDirect: created keepalive socket fd = %d\n",domain->keepAliveSocket );
   }
@@ -1377,9 +1399,9 @@ static int reconnect(void **domainId, int failoverIndex) {
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
- */   
+ */
 int cmsg_cmsg_send(void *domainId, void *vmsg) {
-  
+
   int err, len, lenSubject, lenType, lenPayloadText, lenText, lenByteArray;
   int fd, highInt, lowInt, outGoing[16];
   ssize_t sendLen;
@@ -1388,35 +1410,35 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
   uint64_t llTime;
   struct timespec now;
 
-  
+
   if (domain == NULL) {
     return(CMSG_BAD_ARGUMENT);
   }
-    
+
   if (!domain->hasSend) {
     return(CMSG_NOT_IMPLEMENTED);
   }
-  
+
   /* check args */
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  
+
   if ( (cMsgCheckString(msg->subject) != CMSG_OK ) ||
        (cMsgCheckString(msg->type)    != CMSG_OK )    ) {
     return(CMSG_BAD_ARGUMENT);
   }
-  
+
   /* send using udp socket */
   if (msg->context.udpSend) {
     return udpSend(domain, msg);
   }
-  
-  fd = domain->sendSocket;  
-  
+
+  fd = domain->sendSocket;
+
   tryagain:
-  
+
   while (1) {
     err = CMSG_OK;
-    
+
     /* Cannot run this while connecting/disconnecting */
     cMsgConnectReadLock(domain);
 
@@ -1425,7 +1447,7 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
       err = CMSG_LOST_CONNECTION;
       break;
     }
-    
+
     if (msg->text == NULL) {
       lenText = 0;
     }
@@ -4607,6 +4629,39 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
 /**
  * This routine parses, using regular expressions, the cMsg domain
  * portion of the UDL sent from the next level up" in the API.
+ * The full cMsg domain UDL is of the form:<p>
+ *     cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2& ...<p>
+ *
+ * The first "cMsg:" is optional. The subdomain is optional with
+ * the default being cMsg.
+ *
+ * Remember that for this domain:
+ * 1) port is not necessary
+ * 2) host can be "localhost", may include dots (.), or may be dotted decimal
+ * 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
+ *    if subdomainType is not cMsg, it is required
+ * 4) remainder is past on to the subdomain plug-in
+ * 5) tag/val of regime=low is looked for
+ * 6) tag/val of broadcastTO=&lt;value&gt; is looked for
+ * 7) tag/val of msgpassword=&lt;value&gt; is looke for
+ *
+ *
+ * @param UDL      full udl to be parsed
+ * @param password pointer filled in with password
+ * @param host     pointer filled in with host
+ * @param port     pointer filled in with port
+ * @param UDLRemainder    pointer filled in with UDl with cMsg:cMsg:// removed
+ * @param subdomainType   pointer filled in with subdomain type
+ * @param UDLsubRemainder pointer filled in with everything after subdomain portion of UDL
+ * @param broadcast       pointer filled in with 1 if broadcast specified, else 0
+ * @param timeout         pointer filled in with broadcast timeout if specified
+ * @param regimeLow       pointer filled in with 1 if regime of client will be low data througput rate
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_FORMAT if UDL arg is not in the proper format
+ * @returns CMSG_BAD_ARGUMENT if UDL arg is NULL
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
+ * @returns CMSG_OUT_OF_RANGE if port is an improper value
  */
 static int parseUDL(const char *UDL, char **password,
                           char **host, int *port,
@@ -4666,22 +4721,9 @@ static int parseUDL(const char *UDL, char **password,
       return(CMSG_OUT_OF_MEMORY);
     }
     
-    /* cMsg domain UDL is of the form:
-     *        cMsg:cMsg://<host>:<port>/<subdomainType>/<subdomain remainder>?tag=value&tag2=value2& ...
-     * 
-     * the first "cMsg:" is optional. The subdomain is optional with
-     * the default being cMsg.
-     *
-     * Remember that for this domain:
-     * 1) port is not necessary
-     * 2) host can be "localhost" and may also includes dots (.)
-     * 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
-     *    if subdomainType is not cMsg, it is required
-     * 4) remainder is past on to the subdomain plug-in
-     */
-
     /* compile regular expression */
     err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED);
+    /* wiil never happen */
     if (err != 0) {
         free(udl);
         free(buffer);

@@ -17,8 +17,10 @@
 package org.jlab.coda.cMsg.cMsgDomain.server;
 
 import org.jlab.coda.cMsg.cMsgConstants;
+import org.jlab.coda.cMsg.cMsgNetworkConstants;
 
 import java.nio.channels.*;
+import java.nio.ByteBuffer;
 import java.net.Socket;
 import java.net.InetSocketAddress;
 import java.io.IOException;
@@ -177,6 +179,10 @@ public class cMsgConnectionHandler extends Thread {
             System.exit(-1);
         }
 
+        /* Direct buffer for reading 3 magic ints with nonblocking IO. */
+        int BYTES_TO_READ = 12;
+        ByteBuffer buffer = ByteBuffer.allocateDirect(BYTES_TO_READ);
+
         try {
 
             while (true) {
@@ -195,6 +201,7 @@ public class cMsgConnectionHandler extends Thread {
                     Iterator it = selector.selectedKeys().iterator();
 
                      // look at each key
+                    keyLoop:
                      while (it.hasNext()) {
                          SelectionKey key = (SelectionKey) it.next();
 
@@ -204,22 +211,69 @@ public class cMsgConnectionHandler extends Thread {
                         }
 
                         if (key.isAcceptable()) {
+                            
                             ServerSocketChannel server = (ServerSocketChannel) key.channel();
                             // accept the connection from the client
                             SocketChannel channel = server.accept();
+
+                            // Check to see if this is a legitimate rc server client or some imposter.
+                            // Don't want to block on read here since it may not be a real client
+                            // and may block forever - tying up the server.
+                            int bytes, bytesRead=0, loops=0;
+                            buffer.clear();
+                            buffer.limit(BYTES_TO_READ);
+                            channel.configureBlocking(false);
+
+                            // read magic numbers
+                            while (bytesRead < BYTES_TO_READ) {
+//System.out.println("  try reading rest of Buffer");
+//System.out.println("  Buffer capacity = " + buffer.capacity() + ", limit = " + buffer.limit()
+//                    + ", position = " + buffer.position() );
+                                bytes = channel.read(buffer);
+                                // for End-of-stream ...
+                                if (bytes == -1) {
+                                    it.remove();
+                                    continue keyLoop;
+                                }
+                                bytesRead += bytes;
+//System.out.println("  bytes read = " + bytesRead);
+
+                                // if we've read everything, look to see if it's sent the magic #s
+                                if (bytesRead >= BYTES_TO_READ) {
+                                    buffer.flip();
+                                    int magic1 = buffer.getInt();
+                                    int magic2 = buffer.getInt();
+                                    int magic3 = buffer.getInt();
+                                    if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
+                                        magic2 != cMsgNetworkConstants.magicNumbers[1] ||
+                                        magic3 != cMsgNetworkConstants.magicNumbers[2])  {
+//System.out.println("  Magic numbers did NOT match");
+                                        it.remove();
+                                        continue keyLoop;
+                                    }
+                                }
+                                else {
+                                    // give client 10 loops (.1 sec) to send its stuff, else no deal
+                                    if (++loops > 10) {
+                                        it.remove();
+                                        continue keyLoop;
+                                    }
+                                    try { Thread.sleep(10); }
+                                    catch (InterruptedException e) { }
+                                }
+                            }
 
                             // set socket options
                             Socket socket = channel.socket();
                             // Set tcpNoDelay so no packets are delayed
                             socket.setTcpNoDelay(true);
+ 
 //System.out.println(">>    CCH: new connection, num = " + connectionNumber);
 
                             // The 1st connection is for a client request handling thread
                             if (connectionNumber == 1) {
                                 // set recv buffer size
                                 socket.setReceiveBufferSize(131072);
-                                // set the new channel nonblocking
-                                channel.configureBlocking(false);
                                 // save it in info object
                                 info.setMessageChannel(channel);
                                 // record when client connected
@@ -231,8 +285,6 @@ public class cMsgConnectionHandler extends Thread {
                             else if (connectionNumber == 2) {
                                 // set recv buffer size
                                 socket.setReceiveBufferSize(4096);
-                                // set the new channel blocking
-                                channel.configureBlocking(false);
                                 // save it in info object
                                 info.keepAliveChannel = channel;
                                 // if there is a spurious connection to this port, ignore it
@@ -257,8 +309,7 @@ public class cMsgConnectionHandler extends Thread {
                         it.remove();
                     }
                 }
-                catch (IOException ex) {
-                }
+                catch (IOException ex) { }
             }
         }
         finally {

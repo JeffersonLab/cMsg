@@ -884,7 +884,7 @@ public class cMsgNameServer extends Thread {
         }
         catch (IOException e) {  }
 
-        /** Direct buffer for reading 3 magic ints with nonblocking IO. */
+        /* Direct buffer for reading 3 magic ints with nonblocking IO. */
         int BYTES_TO_READ = 12;
         ByteBuffer buffer = ByteBuffer.allocateDirect(BYTES_TO_READ > respond.length ?
                                                       BYTES_TO_READ : respond.length);

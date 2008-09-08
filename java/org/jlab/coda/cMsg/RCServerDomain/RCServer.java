@@ -327,17 +327,22 @@ public class RCServer extends cMsgDomainAdapter {
 
     /**
      * Method to parse the Universal Domain Locator (UDL) into its various components.
+     * RC Server domain UDL is of the form:<p>
+     *       cMsg:rcs://host:tcpPort?port=udpPort<p>
+     *
+     * The intial cMsg:rcs:// is stripped off by the top layer API
+     *
+     * Remember that for this domain:
+     * 1) host is NOT optional (must start with an alphabetic character according to "man hosts" or
+     *    may be in dotted form (129.57.35.21)
+     * 2) host can be "localhost"
+     * 3) tcp port is optional and defaults to cMsgNetworkConstants.rcClientPort
+     * 4) the udp port to listen on may be given by the optional port parameter.
+     *    if it's not given, the system assigns one
      *
      * @param udlRemainder partial UDL to parse
      * @throws cMsgException if udlRemainder is null
-     */
-     private void parseUDL(String udlRemainder) throws cMsgException, UnknownHostException {
-
-        if (udlRemainder == null) {
-            throw new cMsgException("invalid UDL");
-        }
-
-        // RC Server domain UDL is of the form:
+     */                           // RC Server domain UDL is of the form:
         //       cMsg:rcs://<host>:<tcpPort>?port=<udpPort>
         //
         // The intial cMsg:rcs:// is stripped off by the top layer API
@@ -349,6 +354,12 @@ public class RCServer extends cMsgDomainAdapter {
         // 3) tcp port is optional and defaults to 7654 (cMsgNetworkConstants.rcClientPort)
         // 4) the udp port to listen on may be given by the optional port parameter.
         //    if it's not given, the system assigns one
+
+     private void parseUDL(String udlRemainder) throws cMsgException, UnknownHostException {
+
+        if (udlRemainder == null) {
+            throw new cMsgException("invalid UDL");
+        }
 
         Pattern pattern = Pattern.compile("((?:[a-zA-Z]+[\\w\\.\\-]*)|(?:[\\d]+\\.[\\d\\.]+)):?(\\d+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
@@ -510,15 +521,6 @@ public class RCServer extends cMsgDomainAdapter {
         if (msg.getText()        != null) len[5] = msg.getText().length();
         if (msg.getByteArray()   != null) binLength = msg.getByteArrayLength();
 
-// BUG BUG: an eroneously big size is being calculated. Put in some TEMPORARY checks
-        if (len[0] > 1000) System.out.println("LARGE STRING found for sender: size = " + len[0]);
-        if (len[1] > 1000) System.out.println("LARGE STRING found for senderHost: size = " + len[1]);
-        if (len[2] > 1000) System.out.println("LARGE STRING found for subject: size = " + len[2]);
-        if (len[3] > 1000) System.out.println("LARGE STRING found for type: size = " + len[3]);
-        if (len[4] > 1000) System.out.println("LARGE STRING found for payload text: size = " + len[4]);
-        if (len[5] > 1000) System.out.println("LARGE STRING found for text: size = " + len[5]);
-        if (len[5] > 1000000) System.out.println("LARGE SIZE found for binary: size = " + binLength);
-
         // size of everything sent (except "size" itself which is first integer)
         int size = len[0] + len[1] + len[2] + len[3] + len[4] + len[5] + binLength + 4 * 18;
 
@@ -587,8 +589,6 @@ public class RCServer extends cMsgDomainAdapter {
 
     /**
      * This is a method to subscribe to receive messages of a subject and type from the rc client.
-     * The combination of arguments must be unique. In other words, only 1 subscription is
-     * allowed for a given set of subject, type, callback, and userObj.
      *
      * If the subject and type are both null, a "default" subscription is made, meaning any
      * received messages which do not match any other subscription are given to the default
@@ -634,39 +634,8 @@ public class RCServer extends cMsgDomainAdapter {
 
                 // for each subscription ...
                 for (cMsgSubscription sub : subscriptions) {
-                    // Check to see if subscription to subject & type exist already
-                    boolean subjectMatches = false, typeMatches = false;
-
-                    // Check for null subject and type in subscription (which denotes default subscription)
-                    if (sub.getSubject() == null) {
-                        if (subject == null) subjectMatches = true;
-                    }
-                    else if (sub.getSubject().equals(subject)) {
-                        subjectMatches = true;
-                    }
-
-                    if (sub.getType() == null) {
-                        if (type == null) typeMatches = true;
-                    }
-                    else if (sub.getType().equals(type)) {
-                        typeMatches = true;
-                    }
-
                     // If subscription to subject & type exist already...
-                    if (subjectMatches && typeMatches)  {
-                        // Only add another callback if the callback/userObj
-                        // combination does NOT already exist. In other words,
-                        // a callback/argument pair must be unique for a single
-                        // subscription. Otherwise it is impossible to unsubscribe.
-
-                        // for each callback listed ...
-                        for (cMsgCallbackThread cbt : sub.getCallbacks()) {
-                            // if callback and user arg already exist, reject the subscription
-                            if ((cbt.getCallback() == cb) && (cbt.getArg() == userObj)) {
-                                throw new cMsgException("subscription already exists");
-                            }
-                        }
-
+                    if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
                         // add to existing set of callbacks
                         cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
                         sub.addCallback(cbThread);

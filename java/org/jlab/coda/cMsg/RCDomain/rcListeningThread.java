@@ -6,6 +6,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.Selector;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Date;
@@ -97,6 +98,10 @@ public class rcListeningThread extends Thread {
             // register the channel with the selector for accepts
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
+            /* Direct buffer for reading 3 magic ints with nonblocking IO. */
+            int BYTES_TO_READ = 12;
+            ByteBuffer buffer = ByteBuffer.allocateDirect(BYTES_TO_READ);
+
             // cMsg object is waiting for this thread to start in connect method,
             // so tell it we've started.
             synchronized(this) {
@@ -124,15 +129,66 @@ public class rcListeningThread extends Thread {
                 Iterator it = selector.selectedKeys().iterator();
 
                 // look at each key
+                keyLoop:
                 while (it.hasNext()) {
                     SelectionKey key = (SelectionKey) it.next();
 
                     // is this a new connection coming in?
                     if (key.isValid() && key.isAcceptable()) {
+
                         ServerSocketChannel server = (ServerSocketChannel) key.channel();
                         // accept the connection from the client
                         SocketChannel channel = server.accept();
 
+                        // Check to see if this is a legitimate rc server client or some imposter.
+                        // Don't want to block on read here since it may not be a real client
+                        // and may block forever - tying up the server.
+                        int bytes, bytesRead=0, loops=0;
+                        buffer.clear();
+                        buffer.limit(BYTES_TO_READ);
+                        channel.configureBlocking(false);
+
+                        // read magic numbers
+                        while (bytesRead < BYTES_TO_READ) {
+//System.out.println("  try reading rest of Buffer");
+//System.out.println("  Buffer capacity = " + buffer.capacity() + ", limit = " + buffer.limit()
+//                    + ", position = " + buffer.position() );
+                            bytes = channel.read(buffer);
+                            // for End-of-stream ...
+                            if (bytes == -1) {
+                                it.remove();
+                                continue keyLoop;
+                            }
+                            bytesRead += bytes;
+//System.out.println("  bytes read = " + bytesRead);
+
+                            // if we've read everything, look to see if it's sent the magic #s
+                            if (bytesRead >= BYTES_TO_READ) {
+                                buffer.flip();
+                                int magic1 = buffer.getInt();
+                                int magic2 = buffer.getInt();
+                                int magic3 = buffer.getInt();
+                                if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
+                                    magic2 != cMsgNetworkConstants.magicNumbers[1] ||
+                                    magic3 != cMsgNetworkConstants.magicNumbers[2])  {
+//System.out.println("  Magic numbers did NOT match");
+                                    it.remove();
+                                    continue keyLoop;
+                                }
+                            }
+                            else {
+                                // give client 10 loops (.1 sec) to send its stuff, else no deal
+                                if (++loops > 10) {
+                                    it.remove();
+                                    continue keyLoop;
+                                }
+                                try { Thread.sleep(10); }
+                                catch (InterruptedException e) { }
+                            }
+                        }
+
+                        // back to using streams
+                        channel.configureBlocking(true);
                         // set socket options
                         Socket socket = channel.socket();
                         // Set tcpNoDelay so no packets are delayed
@@ -141,31 +197,14 @@ public class rcListeningThread extends Thread {
                         socket.setReceiveBufferSize(65535);
                         socket.setSendBufferSize(65535);
 
-                        // read in magic numbers from rcServer ("cMsg is cool" in ascii)
-                        byte[] magic = new byte[12];
-                        socket.getInputStream().read(magic);
-
-                        // check magic numbers to filter out port-scanners
-                        if ( (cMsgUtilities.bytesToInt(magic, 0) != cMsgNetworkConstants.magicNumbers[0]) ||
-                             (cMsgUtilities.bytesToInt(magic, 4) != cMsgNetworkConstants.magicNumbers[1]) ||
-                             (cMsgUtilities.bytesToInt(magic, 8) != cMsgNetworkConstants.magicNumbers[2])   ) {
-
-                            if (debug >= cMsgConstants.debugInfo) {
-                                System.out.println("rcClientListeningThread: wrong magic #s from connecting process");
-                            }
-                            it.remove();
-                            continue;
-                        }
-
-                        // Start up client handling thread & store reference.
-                        // The first of the 2 connections is for message receiving.
-                        // The second is to respond to keepAlives from the server.
+                        // start up client handling thread & store reference
                         handlerThreads.add(new ClientHandler(channel));
+//System.out.println("handlerThd size = " + handlerThreads.size());
 
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("rcClientListeningThread: new connection");
-                        }
-                    }
+                             System.out.println("rcClientListeningThread: new connection");
+                         }
+                   }
                     // remove key from selected set since it's been handled
                     it.remove();
                 }

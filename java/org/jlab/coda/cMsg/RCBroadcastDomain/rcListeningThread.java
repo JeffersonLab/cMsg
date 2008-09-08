@@ -118,8 +118,10 @@ public class rcListeningThread extends Thread {
         DataOutputStream out       = new DataOutputStream(baos);
 
         try {
-            // Put our special code, UDP listening port, and host into byte array
-            out.writeInt(0xc0da);
+            // Put our special #s, UDP listening port, and host into byte array
+            out.writeInt(cMsgNetworkConstants.magicNumbers[0]);    // instead if 0xc0da
+            out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+            out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
             out.writeInt(broadcastPort);
             out.writeInt(server.getHost().length());
             out.writeInt(server.expid.length());
@@ -163,7 +165,27 @@ public class rcListeningThread extends Thread {
                 InetAddress broadcasterAddress = packet.getAddress();
                 String broadcasterHost = broadcasterAddress.getCanonicalHostName();
                 int broadcasterUdpPort = packet.getPort();   // port to send response packet to
-                int msgType            = bytesToInt(buf, 0); // what type of broadcast is this ?
+
+                if (packet.getLength() < 4*4) {
+                    if (debug >= cMsgConstants.debugWarn) {
+                        System.out.println("got broadcast packet that's too small");
+                    }
+                    continue;
+                }
+
+                int magic1  = bytesToInt(buf, 0);
+                int magic2  = bytesToInt(buf, 4);
+                int magic3  = bytesToInt(buf, 8);
+                if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
+                    magic2 != cMsgNetworkConstants.magicNumbers[1] ||
+                    magic3 != cMsgNetworkConstants.magicNumbers[2])  {
+                    if (debug >= cMsgConstants.debugWarn) {
+                        System.out.println("got broadcast packet with bad magic #s");
+                    }
+                    continue;
+                }
+
+                int msgType = bytesToInt(buf, 12); // what type of broadcast is this ?
 
                 switch (msgType) {
                     // broadcasts from rc clients
@@ -186,21 +208,21 @@ public class rcListeningThread extends Thread {
                         continue;
                 }
 
-                int broadcasterTcpPort = bytesToInt(buf, 4); // tcp listening port
-                int nameLen            = bytesToInt(buf, 8); // length of broadcaster's name (# chars)
-                int expidLen           = bytesToInt(buf, 12); // length of expid (# chars)
+                int broadcasterTcpPort = bytesToInt(buf, 16); // tcp listening port
+                int nameLen            = bytesToInt(buf, 20); // length of broadcaster's name (# chars)
+                int expidLen           = bytesToInt(buf, 24); // length of expid (# chars)
 
                 // rc broadcaster's name
                 String broadcasterName = null;
                 try {
-                    broadcasterName = new String(buf, 16, nameLen, "US-ASCII");
+                    broadcasterName = new String(buf, 28, nameLen, "US-ASCII");
                 }
                 catch (UnsupportedEncodingException e) {}
 
                 // rc broadcaster's EXPID
                 String broadcasterExpid = null;
                 try {
-                    broadcasterExpid = new String(buf, 16+nameLen, expidLen, "US-ASCII");
+                    broadcasterExpid = new String(buf, 28+nameLen, expidLen, "US-ASCII");
                 }
                 catch (UnsupportedEncodingException e) {}
 
@@ -267,8 +289,11 @@ public class rcListeningThread extends Thread {
                     // if this server was properly started, tell the one probing us to kill itself
                     if (server.acceptingClients) {
                         // create packet to respond to broadcast
-                        cMsgUtilities.intToBytes(cMsgNetworkConstants.rcDomainBroadcastKillSelf, buf, 0);
-                        DatagramPacket pkt = new DatagramPacket(buf, 4, broadcasterAddress, server.broadcastPort);
+                        cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[0], buf, 0);
+                        cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[1], buf, 4);
+                        cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[2], buf, 8);
+                        cMsgUtilities.intToBytes(cMsgNetworkConstants.rcDomainBroadcastKillSelf, buf, 12);
+                        DatagramPacket pkt = new DatagramPacket(buf, 16, broadcasterAddress, server.broadcastPort);
 //System.out.println("Send reponse packet (kill yourself) to server");
                         broadcastSocket.send(pkt);
                     }

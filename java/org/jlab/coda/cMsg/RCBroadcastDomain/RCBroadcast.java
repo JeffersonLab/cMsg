@@ -194,6 +194,9 @@ public class RCBroadcast extends cMsgDomainAdapter {
                 // the EXPID (experiment id string) into byte array.
 
                 // this broadcast is from an rc broadcast domain server
+                out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+                out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+                out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
                 out.writeInt(cMsgNetworkConstants.rcDomainBroadcastServer);
                 // port is irrelevant
                 out.writeInt(0);
@@ -479,8 +482,6 @@ public class RCBroadcast extends cMsgDomainAdapter {
     /**
      * Method to subscribe to receive messages from rc clients. In this domain,
      * subject and type are ignored and set to the preset values of "s" and "t".
-     * The combination of arguments must be unique. In other words, only 1 subscription is
-     * allowed for a given set of callback and userObj.
      *
      * @param subject ignored and set to "s"
      * @param type ignored and set to "t"
@@ -523,19 +524,6 @@ public class RCBroadcast extends cMsgDomainAdapter {
                 for (cMsgSubscription sub : subscriptions) {
                     // If subscription to subject & type exist already...
                     if (sub.getSubject().equals(subject) && sub.getType().equals(type)) {
-                        // Only add another callback if the callback/userObj
-                        // combination does NOT already exist. In other words,
-                        // a callback/argument pair must be unique for a single
-                        // subscription. Otherwise it is impossible to unsubscribe.
-
-                        // for each callback listed ...
-                        for (cMsgCallbackThread cbt : sub.getCallbacks()) {
-                            // if callback and user arg already exist, reject the subscription
-                            if ((cbt.getCallback() == cb) && (cbt.getArg() == userObj)) {
-                                throw new cMsgException("subscription already exists");
-                            }
-                        }
-
                         // add to existing set of callbacks
                         cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
                         sub.addCallback(cbThread);
