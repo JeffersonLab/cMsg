@@ -194,7 +194,7 @@ public class RCServer extends cMsgDomainAdapter {
 
         try {
             if (connected) {
-//System.out.println("Using already established connection with RC client");
+//System.out.println("RC server: using already established connection with RC client");
                 return;
             }
 
@@ -577,7 +577,6 @@ public class RCServer extends cMsgDomainAdapter {
 
             // read subject
             rcClientName = new String(bytes, 0, lengthClientName, "US-ASCII");
-//System.out.println("client name = " + name);
         }
 
         return;
@@ -607,8 +606,11 @@ public class RCServer extends cMsgDomainAdapter {
             throws cMsgException {
 
         // check args first
-        if (cb == null) {
-            throw new cMsgException("callback argument is null");
+        if (subject == null || type == null || cb == null) {
+            throw new cMsgException("subject, type or callback argument is null");
+        }
+        else if (subject.length() < 1 || type.length() < 1) {
+            throw new cMsgException("subject or type is blank string");
         }
 
         cMsgCallbackThread cbThread = null;
