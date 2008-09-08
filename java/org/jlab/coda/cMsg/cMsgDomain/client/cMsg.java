@@ -724,10 +724,12 @@ public class cMsg extends cMsgDomainAdapter {
                 // from a SocketChannel object has its input and outputstreams synchronized - making 
                 // simultaneous reads and writes impossible!!
                 // SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-                Socket socket = new Socket(domainServerHost, domainServerPort);
-                socket.setTcpNoDelay(true);
-                socket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
-                domainOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(),
+//System.out.println("connect: try creating channel to connection handler");
+                domainOutSocket = new Socket(domainServerHost, domainServerPort);
+//System.out.println("connect: created channel to connection handler");
+                domainOutSocket.setTcpNoDelay(true);
+                domainOutSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                domainOut = new DataOutputStream(new BufferedOutputStream(domainOutSocket.getOutputStream(),
                                                                           cMsgNetworkConstants.bigBufferSize));
                 // send magic #s to foil port-scanning
                 domainOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
@@ -736,7 +738,7 @@ public class cMsg extends cMsgDomainAdapter {
                 domainOut.flush();
 
                 // launch thread to start listening on receive end of "sending" socket
-                listeningThread = new cMsgClientListeningThread(this, socket);
+                listeningThread = new cMsgClientListeningThread(this, domainOutSocket);
                 listeningThread.start();
             }
             catch (IOException e) {
@@ -749,27 +751,28 @@ public class cMsg extends cMsgDomainAdapter {
                 }
                 throw new cMsgException("connect: cannot create channel to domain server", e);
             }
-//System.out.println("connect: created channel to connection handler");
 
 
             // create keepAlive socket
             try {
-                Socket socket = new Socket(domainServerHost, domainServerPort);
-                socket.setTcpNoDelay(true);
-                socket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+//System.out.println("connect: try creating channel to connection handler");
+                keepAliveSocket = new Socket(domainServerHost, domainServerPort);
+//System.out.println("connect: created KA channel to connection handler");
+                keepAliveSocket.setTcpNoDelay(true);
+                keepAliveSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
                 // send magic #s to foil port-scanning
-                DataOutputStream kaOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+                DataOutputStream kaOut = new DataOutputStream(new BufferedOutputStream(
+                                                              keepAliveSocket.getOutputStream()));
                 kaOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 kaOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 kaOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
                 kaOut.flush();
-                kaOut.close();
 
                 // Create thread to handle dead server with failover capability.
-                keepAliveThread = new KeepAlive(socket, useFailoverWaiting, failovers);
+                keepAliveThread = new KeepAlive(keepAliveSocket, useFailoverWaiting, failovers);
                 keepAliveThread.start();
                 // Create thread to send periodic monitor data / keep alives
-                updateServerThread = new UpdateServer(socket);
+                updateServerThread = new UpdateServer(keepAliveSocket);
                 updateServerThread.start();
             }
             catch (IOException e) {
@@ -1058,13 +1061,19 @@ public class cMsg extends cMsgDomainAdapter {
                 // from a SocketChannel object has its input and outputstreams synchronized - making
                 // simultaneous reads and writes impossible!!
                 // SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-                Socket socket = new Socket(domainServerHost, domainServerPort);
-                socket.setTcpNoDelay(true);
-                socket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
-                domainOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(),
+                domainOutSocket = new Socket(domainServerHost, domainServerPort);
+                domainOutSocket.setTcpNoDelay(true);
+                domainOutSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                domainOut = new DataOutputStream(new BufferedOutputStream(domainOutSocket.getOutputStream(),
                                                                           cMsgNetworkConstants.bigBufferSize));
+                // send magic #s to foil port-scanning
+                domainOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+                domainOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+                domainOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+                domainOut.flush();
+
                 // launch thread to start listening on receive end of "sending" socket
-                listeningThread = new cMsgClientListeningThread(this, socket);
+                listeningThread = new cMsgClientListeningThread(this, domainOutSocket);
                 listeningThread.start();
             }
             catch (IOException e) {
@@ -1081,14 +1090,22 @@ public class cMsg extends cMsgDomainAdapter {
 
             // create keepAlive socket
             try {
-                Socket socket = new Socket(domainServerHost, domainServerPort);
-                socket.setTcpNoDelay(true);
+                keepAliveSocket = new Socket(domainServerHost, domainServerPort);
+                keepAliveSocket.setTcpNoDelay(true);
+
+                // send magic #s to foil port-scanning
+                DataOutputStream kaOut = new DataOutputStream(new BufferedOutputStream(
+                                                              keepAliveSocket.getOutputStream()));
+                kaOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+                kaOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+                kaOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+                kaOut.flush();
 
                 // Create thread to handle dead server with failover capability.
-                keepAliveThread = new KeepAlive(socket, useFailoverWaiting, failovers);
+                keepAliveThread = new KeepAlive(keepAliveSocket, useFailoverWaiting, failovers);
                 keepAliveThread.start();
                 // Create thread to send periodic monitor data / keep alives
-                updateServerThread = new UpdateServer(socket);
+                updateServerThread = new UpdateServer(keepAliveSocket);
                 updateServerThread.start();
             }
             catch (IOException e) {
