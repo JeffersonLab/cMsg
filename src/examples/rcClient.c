@@ -31,6 +31,8 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /******************************************************************/
 static void callback(void *msg, void *arg) {
+  char *sub, *type;
+  int userInt;
   /*
   int userInt;
   struct timespec sleeep;
@@ -39,9 +41,15 @@ static void callback(void *msg, void *arg) {
   sleeep.tv_nsec = 0;
   */ 
   
-  pthread_mutex_lock(&mutex);
-  
+  pthread_mutex_lock(&mutex);  
   count++;
+  pthread_mutex_unlock(&mutex);
+  
+  cMsgGetSubject(msg, &sub);
+  cMsgGetType(msg, &type);
+  cMsgGetUserInt(msg, &userInt);
+  printf("Got msg with sub = %s, typ = %s, msg # = %d\n", sub, type, userInt);
+  /*msg.payloadPrintout(0);*/
   /*printf("Running callback, count = %d\n", count);*/
   
   /*nanosleep(&sleeep, NULL);*/
@@ -53,8 +61,7 @@ static void callback(void *msg, void *arg) {
   
   oldInt = userInt;
   */  
-  pthread_mutex_unlock(&mutex);
-  
+
   /* user MUST free messages passed to the callback */
   cMsgFreeMessage(&msg);
 }
@@ -84,8 +91,9 @@ int main(int argc,char **argv) {
      *    timeout while waiting for the rc server to send a special (tcp)
      *    concluding connect message
      */
-  char *UDL     = "cMsg:rc://?expid=carlExp";
-  
+  char *UDL     = "cMsg:rc://33444?expid=carlExp&broadcastTO=3";
+  /*char *UDL     = "cMsg://broadcast/&broadcastTO=3";*/
+
   int   err, debug = 1;
   cMsgSubscribeConfig *config;
   void *unSubHandle, *msg;
