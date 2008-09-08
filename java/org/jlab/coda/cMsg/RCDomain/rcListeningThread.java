@@ -171,7 +171,7 @@ public class rcListeningThread extends Thread {
                                 if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
                                     magic2 != cMsgNetworkConstants.magicNumbers[1] ||
                                     magic3 != cMsgNetworkConstants.magicNumbers[2])  {
-//System.out.println("  Magic numbers did NOT match");
+//System.out.println("rcListening thd: magic numbers did NOT match");
                                     it.remove();
                                     continue keyLoop;
                                 }
@@ -186,6 +186,7 @@ public class rcListeningThread extends Thread {
                                 catch (InterruptedException e) { }
                             }
                         }
+//System.out.println("rcListening thd: magic numbers did match");
 
                         // back to using streams
                         channel.configureBlocking(true);
@@ -316,8 +317,10 @@ public class rcListeningThread extends Thread {
 
                         // (rc) server finishing connect loop
                         case cMsgConstants.msgRcConnect:
+//System.out.println("Got rc connect message!!!");
                             // read the message
                             msg = readIncomingMessage();
+//System.out.println("Finished reading message");
 
                             // We need 3 pieces of info from the server: 1) server's host,
                             // 2) server's UDP port, 3) server's TCP port. These are in the
@@ -328,6 +331,7 @@ public class rcListeningThread extends Thread {
                             client.rcTcpServerPort = Integer.parseInt(ports[1]);
 
                             if (client.isConnected()) {
+//System.out.println("Reestablish broken socket");
                                 // Reestablish the broken socket.
                                 // Create a UDP "connection". This means security check is done only once
                                 // and communication with any other host/port is not allowed.
@@ -349,6 +353,7 @@ public class rcListeningThread extends Thread {
                             }
 
                             // Send back a response - the name of this client
+//System.out.println("write back response to rc server");
                             out.writeInt(client.getName().length());
                             try {
                                 out.write(client.getName().getBytes("US-ASCII"));
@@ -421,7 +426,6 @@ public class rcListeningThread extends Thread {
             int lengthPayloadText = in.readInt();
             int lengthText        = in.readInt();
             int lengthBinary      = in.readInt();
-            acknowledge = in.readInt() == 1;
 
             // bytes expected
             int stringBytesToRead = lengthSender + lengthSenderHost + lengthSubject +
