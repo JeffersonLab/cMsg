@@ -968,7 +968,7 @@ public class cMsgNameServer extends Thread {
                                 if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
                                     magic2 != cMsgNetworkConstants.magicNumbers[1] ||
                                     magic3 != cMsgNetworkConstants.magicNumbers[2])  {
-//System.out.println("  Magic numbers did NOT match, send response");
+//System.out.println("cMsgNameServer:  Magic numbers did NOT match, send response");
                                     // For old versions of cMsg (1 and 2), it's expecting a response
                                     buffer.clear();
                                     buffer.put(respond);
@@ -990,6 +990,7 @@ public class cMsgNameServer extends Thread {
                             }
                         }
 
+//System.out.println("cMsgNameServer:  Magic numbers did match");
                         // back to using streams
                         channel.configureBlocking(true);
                         // set socket options
