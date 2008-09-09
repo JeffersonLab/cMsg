@@ -156,7 +156,8 @@ typedef struct parsedUDL_t {
   int   valid;          /**< 1 if valid UDL for the cMsg domain, else 0. */
   int   mustBroadcast;  /**< 1 if UDL specifies broadcasting to find server, else 0. */
   int   timeout;        /**< time in seconds to wait for a broadcast response. */
-  int   regimeLow;      /**< 1 if regime is low (low data rate). */
+  int   regime;         /**< CMSG_REGIME_LOW if low data rate regime, similarly can be
+                             can be CMSG_REGIME_MEDIUM, or CMSG_REGIME_HIGH. */
   char *udl;            /**< whole UDL for name server */
   char *udlRemainder;   /**< domain specific part of the UDL. */
   char *subdomain;      /**< subdomain name. */
