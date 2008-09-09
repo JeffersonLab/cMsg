@@ -61,9 +61,9 @@ public class cMsgConstants {
     /** Client has high data/message throughput. */
     public static final int    regimeHigh          = 2;
     /** Client has medium data/message throughput. */
-    public static final int    regimeMedium        = 1;
+    public static final int    regimeMedium        = 0;
     /** Client has low data/message throughput. */
-    public static final int    regimeLow           = 0;
+    public static final int    regimeLow           = 1;
     /** Default maximum number of clients per cMsgDomainServerSelect object in regimeLow mode. */
     public static final int    regimeLowMaxClients = 10;
 
