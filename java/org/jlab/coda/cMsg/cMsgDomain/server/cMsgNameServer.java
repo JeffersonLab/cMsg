@@ -483,10 +483,10 @@ public class cMsgNameServer extends Thread {
                              "            [-DsubdomainName=<className>]\n" +
                              "            [-Dserver=<hostname:serverport>]\n" +
                              "            [-Ddebug=<level>]\n" +
-                             "            [-Dtimeorder]\n" +
                              "            [-Dstandalone]\n" +
                              "            [-Dpassword=<password>]\n" +
-                             "            [-Dcloudpassword=<password>]  cMsgNameServer\n");
+                             "            [-Dcloudpassword=<password>]\n" +
+                             "            [-DlowRegimeSize=<size>]  cMsgNameServer\n");
         System.out.println("       port is the TCP port this server listens on");
         System.out.println("       domainPort is the TCP port this server listens on for connection to domain server");
         System.out.println("       udp  is the UDP port this server listens on for broadcasts");
@@ -501,11 +501,12 @@ public class cMsgNameServer extends Thread {
         System.out.println("               error  for severity of error or greater");
         System.out.println("               severe for severity of \"cannot go on\"");
         System.out.println("               none   for no debug output (default)");
-        System.out.println("       timeorder      means messages handled in order received");
         System.out.println("       standalone     means no other servers may connect or vice versa");
         System.out.println("       password       is used to block clients without this password in their UDL's");
         System.out.println("       cloudpassword  is used to join a password-protected cloud or to allow");
         System.out.println("                      servers with this password to join this cloud");
+        System.out.println("       DlowRegimeSize for clients of \"regime=low\" type, this sets the number of");
+        System.out.println("                      clients serviced by a single thread");
         System.out.println();
     }
 
