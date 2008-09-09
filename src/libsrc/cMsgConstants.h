@@ -55,10 +55,18 @@
 #define CMSG_DEBUG_INFO    4
 
 
+/* regime values */
+/** Client has high data/message throughput. */
+#define CMSG_REGIME_HIGH   2
+/** Client has medium data/message throughput. */
+#define CMSG_REGIME_MEDIUM 1
+/** Client has low data/message throughput. */
+#define CMSG_REGIME_LOW    0
+
+
 /* shutdown flags */
 /** When shutting down clients, include the calling client (me). */
 #define CMSG_SHUTDOWN_INCLUDE_ME 1
-
 
 
 /** Return codes. */
