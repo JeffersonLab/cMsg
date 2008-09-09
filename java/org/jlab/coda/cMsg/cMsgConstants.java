@@ -25,13 +25,14 @@ public class cMsgConstants {
 
     private cMsgConstants() {}
 
+    // constants from cMsgPrivate.h
+
     /** Major cMsg version number. */
     public static final int    version      = 3;
     /** Minor cMsg version number. */
     public static final int    minorVersion = 0;
 
-
-    // constants from cMsgPrivate.h
+    // constants from cMsgConstants.h
 
     /** Print out no status messages. */
     public static final int    debugNone           = 0;
@@ -44,7 +45,6 @@ public class cMsgConstants {
     /** Print out all error, warning, and informational messages. */
     public static final int    debugInfo           = 4;
 
-    // endianness constants in cMsgBase.h
 
     /** Data is big endian. */
     public static final int    endianBig           = 0;
@@ -58,7 +58,13 @@ public class cMsgConstants {
     public static final int    endianSwitch        = 4;
 
 
-    // C language cMsg error codes from cMsgBase.h
+    /** Client has high data/message throughput. */
+    public static final int    regimeHigh          = 2;
+    /** Client has medium data/message throughput. */
+    public static final int    regimeMedium        = 1;
+    /** Client has low data/message throughput. */
+    public static final int    regimeLow           = 0;
+
 
     /** No error. */
     public static final int    ok                      =  0;
@@ -114,7 +120,7 @@ public class cMsgConstants {
     public static final int    errorAbort              = 25;
 
     // Codes sent by the client over the network to
-    // specify a particular request.
+    // specify a particular request from cMsgPrivate.h .
 
     /** Connect to the server from client. */
     public static final int    msgConnectRequest               =  0;
@@ -146,7 +152,7 @@ public class cMsgConstants {
     public static final int    msgMonitorRequest               = 13;
 
     // Codes sent by the server to a client over the
-    // network to specify a particular response.
+    // network to specify a particular response from cMsgPrivate.h .
 
     /** Respond to a "sendAndGet" request. */
     public static final int    msgGetResponse                    =  20;
@@ -168,7 +174,7 @@ public class cMsgConstants {
     public static final int    msgServerRegistrationLockResponse =  28;
 
     // Codes sent by a server's "client" connection to another server
-    // in the cMsg subdomain only
+    // in the cMsg subdomain only (no C counterpart).
 
     /** Subscribe to messages by another server. */
     public static final int    msgServerSubscribeRequest         = 30;
@@ -207,7 +213,8 @@ public class cMsgConstants {
     /** Shutdown various servers. */
     public static final int    msgServerShutdownSelf             = 47;
 
-    // Flags for client's shutdown methods.
+    // Flags for client's shutdown methods in cmsgConstants.h
+    
     /**
      * For shutdownClients,
      * do NOT exclude the client calling shutdown from being shutdown.
@@ -221,6 +228,7 @@ public class cMsgConstants {
     public static final int    includeMyServer = 2;
 
     // Types of data contained in a message's payload in cMsgConstants.h
+
     /** String item in cMsg message payload. */
     public static final int payloadStr    = 10;
     /** 4-byte float item in cMsg message payload. */
