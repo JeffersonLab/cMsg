@@ -156,23 +156,6 @@ public class cMsgDomainServer extends Thread {
         return info.subdomainHandler;
     }
 
-
-    /**
-     * Set the time ordering property of the server.
-     * If this is true, then all non-sequential commands sent to it
-     * are guaranteed to be passed to the subdomain handler object in
-     * the order in which they were received.
-     *
-     * @param timeOrdered set to true if timeordering of commands is desired
-     */
-    final public void setTimeOrdered(boolean timeOrdered) {
-        if (timeOrdered) {
-            permanentCommandHandlingThreads = 1;
-            tempThreadsMax = 0;
-        }
-    }
-
-
     /**
      * Converts 4 bytes of a byte array into an integer.
      *
@@ -216,18 +199,16 @@ public class cMsgDomainServer extends Thread {
      *
      * @param nameServer nameServer object which created (is creating) this object
      * @param info object containing client data
-     * @param timeOrdered  if true, all non-(un)subscribe requests sent to this object
-     *                     are guaranteed to be passed in the order in which they were received.
      * @param noUdp  if true, do not create and listen on a udp socket.
      * @param debug  level of debug output.
+     * 
      * @throws cMsgException if UDP listening socket could not be opened
      */
     public cMsgDomainServer(cMsgNameServer nameServer, cMsgClientData info,
-                            boolean timeOrdered, boolean noUdp, int debug) throws cMsgException {
+                            boolean noUdp, int debug) throws cMsgException {
 
-        // receive all requests in sequence or not
-        setTimeOrdered(timeOrdered);
 
+System.out.println("Creating cMsgDomainServer");
         this.info = info;
         this.noUdp = noUdp;
         this.debug = debug;

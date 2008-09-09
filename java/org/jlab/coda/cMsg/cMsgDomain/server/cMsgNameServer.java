@@ -59,19 +59,14 @@ public class cMsgNameServer extends Thread {
     /** This server's UDP listening port number for receiving broadcasts. */
     private int broadcastPort;
 
+    /** The maximum number of clients to be serviced simultaneously by a cMsgDomainServerSelect object. */
+    private int clientsMax = 10;
+
     /** The maximum value for the cMsgDomainServer's listening port number. */
     static int domainPortMax = 65535;
 
     /** The value of the TCP listening port for establishing permanent client connections. */
     static int domainServerPort;
-
-    /**
-     * This is the time ordering property of the server.
-     * If this is true, then all non-(un)subscribe commands sent to it
-     * are guaranteed to be passed to the subdomain handler objects in
-     * the order in which they were received.
-     */
-    private boolean timeOrdered;
 
     /** Server channel (contains socket). */
     private ServerSocketChannel serverChannel;
@@ -328,14 +323,14 @@ public class cMsgNameServer extends Thread {
      * @param port TCP listening port for communication from clients
      * @param domainPort  listening port for receiving 2 permanent connections from each client
      * @param udpPort UDP listening port for receiving broadcasts from clients
-     * @param timeOrdered if true all client commands are processed in the order received
      * @param standAlone  if true no other cMsg servers are allowed to attached to this one and form a cloud
      * @param clientPassword password client needs to provide to connect to this server
      * @param cloudPassword  password server needs to provide to connect to this server to become part of a cloud
      * @param debug desired level of debug output
+     * @param clientsMax max number of clients per cMsgDomainServerSelect object for regime = low
      */
-    public cMsgNameServer(int port, int domainPort, int udpPort, boolean timeOrdered, boolean standAlone,
-                          String clientPassword, String cloudPassword, int debug) {
+    public cMsgNameServer(int port, int domainPort, int udpPort, boolean standAlone,
+                          String clientPassword, String cloudPassword, int debug, int clientsMax) {
 
         domainServers        = new ConcurrentHashMap<cMsgDomainServer,String>(20);
         domainServersSelect  = new ConcurrentHashMap<cMsgDomainServerSelect,String>(20);
@@ -343,7 +338,7 @@ public class cMsgNameServer extends Thread {
         availableDomainServers = Collections.synchronizedList(new LinkedList<cMsgDomainServerSelect>());   // CHANGED
 
         this.debug          = debug;
-        this.timeOrdered    = timeOrdered;
+        this.clientsMax     = clientsMax;
         this.standAlone     = standAlone;
         this.cloudPassword  = cloudPassword;
         this.clientPassword = clientPassword;
@@ -541,7 +536,7 @@ public class cMsgNameServer extends Thread {
 
         int debug = cMsgConstants.debugNone;
         int port = 0, udpPort = 0, domainPort=0;
-        boolean timeOrdered   = false;
+        int clientsMax = cMsgConstants.regimeLowMaxClients;
         boolean standAlone    = false;
         String serverToJoin   = null;
         String cloudPassword  = null;
@@ -600,6 +595,18 @@ public class cMsgNameServer extends Thread {
                     System.exit(-1);
                 }
             }
+            if (s.equalsIgnoreCase("lowRegimeSize")) {
+                try {
+                    clientsMax = Integer.parseInt(System.getProperty(s));
+System.out.println("Set clientsMax to " + clientsMax);
+                }
+                catch (NumberFormatException e) {
+                    System.out.println("\nBad maximum number of clients serviced by single thread in low regime");
+                }
+                if (domainPort > 100 || domainPort < 2) {
+                    System.out.println("\nBad maximum number of clients serviced by single thread in low regime");
+                }
+            }
             else if (s.equalsIgnoreCase("debug")) {
                 String arg = System.getProperty(s);
 
@@ -627,9 +634,6 @@ public class cMsgNameServer extends Thread {
             else if (s.equalsIgnoreCase("server")) {
                 serverToJoin = System.getProperty(s);
             }
-            else if (s.equalsIgnoreCase("timeorder")) {
-                timeOrdered = true;
-            }
             else if (s.equalsIgnoreCase("standalone")) {
                 standAlone = true;
             }
@@ -646,8 +650,8 @@ public class cMsgNameServer extends Thread {
         }
 
         // create server object
-        cMsgNameServer server = new cMsgNameServer(port, domainPort, udpPort, timeOrdered, standAlone,
-                                                   clientPassword, cloudPassword, debug);
+        cMsgNameServer server = new cMsgNameServer(port, domainPort, udpPort, standAlone,
+                                                   clientPassword, cloudPassword, debug, clientsMax);
 
         // start server
         server.startServer(serverToJoin);
@@ -1046,8 +1050,8 @@ public class cMsgNameServer extends Thread {
 
         // The following members are associated with server clients.
 
-        /** Does the client operate in a low throughput regime? */
-        boolean regimeLow;
+        /** Does the client operate in a low, medium, or high throughput regime? */
+        int regime;
 
         /** The relationship between the connecting server and the server cloud -
          * can be INCLOUD, NONCLOUD, or BECOMINGCLOUD.
@@ -1190,8 +1194,8 @@ public class cMsgNameServer extends Thread {
 //System.out.println(">> NS: IN handleServer");
 
             // Is client low throughput & small msg size?
-            // Server clients are never treated as low throughput so ignore.
-            regimeLow = in.readInt() == 1;
+            // Server clients are treated as medium throughput so ignore.
+            regime = in.readInt();
             // What relationship does the connecting server have to the server cloud?
             // Can be INCLOUD, NONCLOUD, or BECOMINGCLOUD.
             connectingCloudStatus = in.readByte();
@@ -1474,7 +1478,7 @@ public class cMsgNameServer extends Thread {
             subdomainHandler.registerServer(info);
 
             // Create a domain server thread, and get back its host & port
-            cMsgDomainServer dServer = new cMsgDomainServer(cMsgNameServer.this, info, timeOrdered, true, debug);
+            cMsgDomainServer dServer = new cMsgDomainServer(cMsgNameServer.this, info, true, debug);
 
             // accept 2 permanent connections from client
             synchronized (connectionThread) {
@@ -1517,8 +1521,8 @@ public class cMsgNameServer extends Thread {
                 System.out.println("  client sending port = " +  add.getPort());
             }
 
-            // is client low throughput & small msg size?
-            regimeLow = in.readInt() == 1;  // CHANGED
+            // is client low/med/high throughput ?
+            regime = in.readInt();
             // length of password
             int lengthPassword = in.readInt();
             // length of domain type client is expecting to connect to
@@ -1759,7 +1763,7 @@ public class cMsgNameServer extends Thread {
             cMsgDomainServer dServer = null;
             cMsgDomainServerSelect dsServer = null;
 
-            if (regimeLow) {
+            if (regime == cMsgConstants.regimeLow) {
                 // first look for an available domain server with room for another client
                 synchronized (availableDomainServers) {
                     if (availableDomainServers.size() > 0) {
@@ -1775,13 +1779,20 @@ public class cMsgNameServer extends Thread {
                     // Create a domain server thread, and get back its host & port
                     dsServer = new cMsgDomainServerSelect(cMsgNameServer.this,
                                                           cMsgNetworkConstants.domainServerUdpStartingPort,
-                                                          timeOrdered, debug);
+                                                          clientsMax, debug);
                 }
 
                 info.setDomainUdpPort(dsServer.getUdpPort());
             }
+            else if (regime == cMsgConstants.regimeMedium) {
+                dsServer = new cMsgDomainServerSelect(cMsgNameServer.this,
+                                                      cMsgNetworkConstants.domainServerUdpStartingPort,
+                                                       1, debug);
+
+                info.setDomainUdpPort(dsServer.getUdpPort());
+            }
             else {
-                dServer = new cMsgDomainServer(cMsgNameServer.this, info, timeOrdered, false, debug);
+                dServer = new cMsgDomainServer(cMsgNameServer.this, info, false, debug);
             }
 
 //System.out.println("registerClient: make 2 connections");
@@ -1802,7 +1813,7 @@ public class cMsgNameServer extends Thread {
 //System.out.println("registerClient: got 2 connections");
 
             // Start the domain server's threads.
-            if (regimeLow) {
+            if (regime != cMsgConstants.regimeHigh) {
                 // if threads haven't been started yet ...
                 if (!dsServer.isAlive()) {
                     // kill this thread too if name server thread quits

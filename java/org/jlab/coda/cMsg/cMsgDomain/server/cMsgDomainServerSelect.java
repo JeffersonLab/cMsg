@@ -33,11 +33,11 @@ import org.jlab.coda.cMsg.*;
  * Domain Server which services a number of clients through select and nonblocking sockets.
  */
 public class cMsgDomainServerSelect extends Thread {
-    /** Maximum number of clients to service simultaneously. */
-    static final int CLIENTS_MAX = 10;
-
     /** Type of domain this is. */
     static String domainType = "cMsg";
+
+    /** Maximum number of clients to service simultaneously. */
+    private int clientsMax;
 
     /** UDP Port this server is listening on. */
     private int udpPort;
@@ -121,19 +121,6 @@ public class cMsgDomainServerSelect extends Thread {
 
 
     /**
-     * Set the time ordering property of the server.
-     * If this is true, then all non-(un)subscribe commands sent to it
-     * are guaranteed to be passed to the subdomain handler object in
-     * the order in which they were received.
-     *
-     * @param timeOrdered set to true if timeordering of commands is desired
-     */
-    final public void setTimeOrdered(boolean timeOrdered) {
-        // this object is always time ordered
-    }
-
-
-    /**
      * Converts 4 bytes of a byte array into an integer.
      *
      * @param b   byte array
@@ -176,24 +163,23 @@ public class cMsgDomainServerSelect extends Thread {
      *
      * @param nameServer nameServer object which created (is creating) this object
      * @param startingPort suggested port on which to starting listening for connections
-     * @param timeOrdered  if true, all non-(un)subscribe requests sent to this object
-     *                     are guaranteed to be passed in the order in which they were received.
+     * @param clientsMax   maximum number of clients serviced by this object at one time
      * @param debug  level of debug output.
+     *
      * @throws cMsgException if listening socket could not be opened or a port to listen on could not be found
      * @throws IOException if selector cannot be opened
      */
     public cMsgDomainServerSelect(cMsgNameServer nameServer, int startingPort,
-                                  boolean timeOrdered, int debug)
+                                  int clientsMax, int debug)
             throws cMsgException, IOException {
 
-        // receive all requests in sequence or not
-        setTimeOrdered(timeOrdered);
+System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + clientsMax);
+        this.debug       = debug;
+        this.nameServer  = nameServer;
+        this.clientsMax  = clientsMax;
 
-        this.debug = debug;
-        this.nameServer = nameServer;
-
-        clients2register = new ConcurrentHashMap<cMsgClientData, String>(CLIENTS_MAX);
-        clients          = new ConcurrentHashMap<cMsgClientData, String>(CLIENTS_MAX);
+        clients2register = new ConcurrentHashMap<cMsgClientData, String>(clientsMax);
+        clients          = new ConcurrentHashMap<cMsgClientData, String>(clientsMax);
         bufferQ          = new LinkedBlockingQueue<cMsgHolder>(1000);
         sendAndGetters   = new ConcurrentHashMap<Integer, cMsgServerSendAndGetter>(10);
 
@@ -282,13 +268,13 @@ public class cMsgDomainServerSelect extends Thread {
     }
 
     synchronized private void makeDomainServerAvailable() {
-        if (clients.size() < CLIENTS_MAX && !nameServer.availableDomainServers.contains(this)) {
+        if (clients.size() < clientsMax && !nameServer.availableDomainServers.contains(this)) {
             nameServer.availableDomainServers.add(this);
         }
     }
 
     /**
-     * Method to allow another client to send to this domain server. Only {@link #CLIENTS_MAX}
+     * Method to allow another client to send to this domain server. Only {@link #clientsMax}
      * number of clients may use this domain server. Before this method is called, the client
      * has already created 2 permanent TCP sockets to this server.
      *
@@ -298,7 +284,7 @@ public class cMsgDomainServerSelect extends Thread {
     boolean addClient(cMsgClientData info) throws IOException {
 
         synchronized (this) {
-            if (clients.size() >= CLIENTS_MAX) {
+            if (clients.size() >= clientsMax) {
                 return false;
             }
 
