@@ -19,7 +19,7 @@
     </path>
 
     <!-- Version -->
-    <property name="cMsg.version" value="2.0" />
+    <property name="cMsg.version" value="3.0" />
     
     <!-- Debug -->
     <property name="javac.debug" value="off" />
