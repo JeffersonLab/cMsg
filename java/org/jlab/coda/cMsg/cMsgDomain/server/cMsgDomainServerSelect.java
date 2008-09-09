@@ -487,24 +487,23 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
 
         // go through Q and remove out-dated requests
 //System.out.println("buffer size = " + bufferQ.size());
-        cMsgHolder hldr;
-        for (Iterator it = bufferQ.iterator(); it.hasNext();) {
-            // pick out requests from current client
-            hldr = (cMsgHolder)it.next();
-            if (hldr.data != cd) continue;
-
-//            byte[] array = hldr.array;
-//            int msgId = bytesToInt(array, 0);
-//            // keep (eventually process) the following types of messages sent by now-dead client
-//            if (msgId == cMsgConstants.msgSendRequest ||
-//                    msgId == cMsgConstants.msgServerShutdownClients ||
-//                    msgId == cMsgConstants.msgShutdownClients ||
-//                    msgId == cMsgConstants.msgShutdownServers ||
-//                    msgId == cMsgConstants.msgServerRegistrationUnlock ||
-//                    msgId == cMsgConstants.msgServerCloudUnlock )  {
-//                continue;
-//            }
-            it.remove();
+        if (clientsMax == 1) {
+//System.out.println("clear bufferQ");
+            bufferQ.clear();
+        }
+        else {
+            cMsgHolder hldr;
+//System.out.println("Before iterator Q size = " + bufferQ.size());
+            for (Iterator it = bufferQ.iterator(); it.hasNext();) {
+                // pick out requests from current client
+                hldr = (cMsgHolder)it.next();
+                if (hldr == null) {
+//System.out.println("NULL IN ITERATOR !!! Q size = " + bufferQ.size());
+                    continue;
+                }
+                if (hldr.data != cd) continue;
+                it.remove();
+            }
         }
 
         // tell client's subdomain handler to shutdown
@@ -1116,13 +1115,16 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
                                 System.out.println("dServer handleClient: can't understand your message " + info.getName());
                             }
 //System.out.println("Remove connection to client " + info.getName() + " since unknown command received");
+//System.out.println("Call deleteClient 1");
                             deleteClient(info);
                     }
                 }
                 catch (cMsgException ex) {
+//System.out.println("Call deleteClient 2");
                     deleteClient(info);
                 }
                 catch (IOException ex) {
+//System.out.println("Call deleteClient 3");
                     deleteClient(info);
                 }
             }
