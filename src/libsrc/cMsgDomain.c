@@ -182,7 +182,7 @@ static int  parseUDL(const char *UDL, char **password,
                            char **UDLsubRemainder,
                            int   *broadcast,
                            int   *timeout,
-                           int   *regimeLow);
+                           int   *regime);
 static int  unSendAndGet(void *domainId, int id);
 static int  unSubscribeAndGet(void *domainId, const char *subject,
                               const char *type, int id);
@@ -449,7 +449,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
                             &domain->failovers[i].subRemainder,
                             &domain->failovers[i].mustBroadcast,
                             &domain->failovers[i].timeout,
-                            &domain->failovers[i].regimeLow )) != CMSG_OK ) {
+                            &domain->failovers[i].regime)) != CMSG_OK ) {
 
       /* There's been a parsing error, mark as invalid UDL */
       domain->failovers[i].valid = 0;
@@ -4105,7 +4105,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIn
   /* minor version number */
   outGoing[5] = htonl(CMSG_VERSION_MINOR);
   /* send regime value to server */
-  outGoing[6] = htonl(pUDL->regimeLow);
+  outGoing[6] = htonl(pUDL->regime);
   /* send length of password for connecting to server.*/
   if (pUDL->password == NULL) {
     lengthPassword = outGoing[7] = 0;
@@ -4656,9 +4656,9 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
  * 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
  *    if subdomainType is not cMsg, it is required
  * 4) remainder is past on to the subdomain plug-in
- * 5) tag/val of regime=low is looked for
- * 6) tag/val of broadcastTO=&lt;value&gt; is looked for
- * 7) tag/val of msgpassword=&lt;value&gt; is looke for
+ * 5) tag/val of broadcastTO=&lt;value&gt; is looked for
+ * 6) tag/val of msgpassword=&lt;value&gt; is looked for
+ * 7) tag/val of regime=low or regime=high is looked for
  *
  *
  * @param UDL      full udl to be parsed
@@ -4670,7 +4670,10 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
  * @param UDLsubRemainder pointer filled in with everything after subdomain portion of UDL
  * @param broadcast       pointer filled in with 1 if broadcast specified, else 0
  * @param timeout         pointer filled in with broadcast timeout if specified
- * @param regimeLow       pointer filled in with 1 if regime of client will be low data througput rate
+ * @param regime          pointer filled in with:
+ *                        CMSG_REGIME_LOW if regime of client will be low data througput rate
+ *                        CMSG_REGIME_HIGH if regime of client will be high data througput rate
+ *                        CMSG_REGIME_MEDIUM if regime of client will be medium data througput rate
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_FORMAT if UDL arg is not in the proper format
@@ -4685,7 +4688,7 @@ static int parseUDL(const char *UDL, char **password,
                           char **UDLsubRemainder,
                           int   *broadcast,
                           int   *timeout,
-                          int   *regimeLow) {
+                          int   *regime) {
 
     int        i, err, Port, index;
     int        mustBroadcast = 0;
@@ -4931,31 +4934,49 @@ printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
 /* printf("parseUDL: timeout = %d seconds\n", atoi(buffer)); */
           }
         }
-        
+                
         /* free up memory */
         cMsgRegfree(&compiled);
-                
+       
         /* find regime parameter if it exists */
-        /* look for ?regime=low& or &regime=low& */
-        pattern = "[&\\?]regime=low";
+        /* look for ?regime=value& or &regime=value& */
+        pattern = "[&\\?]regime=(low|high|medium)";
 
         /* compile regular expression */
         err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
         if (err != 0) {
-            break;
+          break;
         }
 
         /* find matches */
-        err = cMsgRegexec(&compiled, remain, 1, matches, 0);
+        err = cMsgRegexec(&compiled, remain, 2, matches, 0);
         /* if match */
         if (err == 0) {
-             if (regimeLow != NULL) *regimeLow = 1;
- printf("parseUDL: regime = %s\n", (regimeLow ? "low" : "high"));
+          /* find regime */
+          if (matches[1].rm_so >= 0) {
+            buffer[0] = 0;
+            len = matches[1].rm_eo - matches[1].rm_so;
+            strncat(buffer, remain+matches[1].rm_so, len);
+            if (regime != NULL) {
+              if (strcasecmp(buffer, "low") == 0) {
+                *regime = CMSG_REGIME_LOW;
+/*printf("parseUDL: regime = low\n");*/
+              }
+              else if (strcasecmp(buffer, "high") == 0) {
+                *regime = CMSG_REGIME_HIGH;
+/*printf("parseUDL: regime = high\n");*/
+              }
+              else {
+                *regime = CMSG_REGIME_MEDIUM;
+/*printf("parseUDL: regime = medium\n");*/
+              }
+            }
+          }
         }
         
         /* free up memory */
         cMsgRegfree(&compiled);
-                
+                                
         free(remain);
         break;
     }
