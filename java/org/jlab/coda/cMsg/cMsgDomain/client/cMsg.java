@@ -2775,7 +2775,7 @@ public class cMsg extends cMsgDomainAdapter {
 
         // look for ?broadcastTO=value& or &broadcastTO=value&
         int timeout=0;
-        pattern = Pattern.compile("[\\?&]broadcastTO=([0-9]+)");
+        pattern = Pattern.compile("[\\?&]broadcastTO=([0-9]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(udlSubRemainder);
         if (matcher.find()) {
             try {
@@ -2788,18 +2788,22 @@ public class cMsg extends cMsgDomainAdapter {
         }
 
         // look for ?regime=low& or &regime=low&
-        pattern = Pattern.compile("[\\?&]regime=(low|high)");
+        pattern = Pattern.compile("[\\?&]regime=(low|high|medium)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(udlSubRemainder);
         if (matcher.find()) {
 //System.out.println("regime = medium");
             try {
                 if (matcher.group(1).equalsIgnoreCase("low")) {
                     regime = cMsgConstants.regimeLow;
-System.out.println("regime = low");
+//System.out.println("regime = low");
+                }
+                else if (matcher.group(1).equalsIgnoreCase("high")) {
+                    regime = cMsgConstants.regimeHigh;
+//System.out.println("regime = high");
                 }
                 else {
-                    regime = cMsgConstants.regimeHigh;
-System.out.println("regime = high");
+                    regime = cMsgConstants.regimeMedium;
+//System.out.println("regime = medium");
                 }
             }
             catch (NumberFormatException e) {
@@ -2807,8 +2811,7 @@ System.out.println("regime = high");
             }
         }
         else {
-System.out.println("regime = medium");
-
+//System.out.println("regime = medium");
         }
 
         // store results in a class
