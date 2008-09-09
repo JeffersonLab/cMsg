@@ -104,10 +104,11 @@ public class cMsg extends cMsgDomainAdapter {
     boolean mustBroadcast;
 
     /**
-     * True if this client promises to send relative low rates of relatively small messages
-     * (message regime as opposed to daq regime). Else false.
+     * What throughput do we expect from this client? Values may be one of:
+     * {@link cMsgConstants#regimeHigh}, {@link cMsgConstants#regimeMedium},
+     * {@link cMsgConstants#regimeLow}.
      */
-    boolean regimeLow;
+    int regime;
 
     /** Signal to coordinate the broadcasting and waiting for responses. */
     CountDownLatch broadcastResponse;
@@ -2533,7 +2534,7 @@ public class cMsg extends cMsgDomainAdapter {
         out.writeInt(cMsgConstants.msgConnectRequest);
         out.writeInt(cMsgConstants.version);
         out.writeInt(cMsgConstants.minorVersion);
-        out.writeInt(regimeLow ? 1 : 0); // CHANGED
+        out.writeInt(regime);
         out.writeInt(password.length());
         out.writeInt(domain.length());
         out.writeInt(subdomain.length());
@@ -2615,6 +2616,26 @@ public class cMsg extends cMsgDomainAdapter {
 
     /**
      * Method to parse the Universal Domain Locator (UDL) into its various components.
+     * cMsg domain UDL is of the form:<p>
+     *       cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2 ... <p>
+     *
+     * Remember that for this domain:
+     * 1) port is not necessary
+     * 2) host can be "localhost" and may also be in dotted form (129.57.35.21)
+     * 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
+     *    if subdomainType is not cMsg, it is required
+     * 4) the domain name is case insensitive as is the subdomainType
+     * 5) remainder is past on to the subdomain plug-in
+     * 6) client's password is in tag=value part of UDL as cmsgpassword=&lt;password&gt;
+     * 7) broadcast timeout is in tag=value part of UDL as broadcastTO=&lt;time out in seconds&gt;
+     * 8) the tag=value part of UDL parsed here is given by regime=low or regime=high means:
+     *    - low message/data throughtput client if regime=low, meaning many clients are serviced
+     *      by a single server thread and all msgs retain time order,
+     *    - high message/data throughput client if regime=high, meaning each client is serviced
+     *      by multiple threads to maximize throughput. Msgs are NOT guaranteed to be handled in
+     *      time order
+     *    - if regime is not specified (default), it is assumed to be medium, where a single thread is
+     *      dedicated to a single client and msgs are guaranteed to be handled in time order
      *
      * @param udl UDL to parse
      * @return an object with all the parsed UDL information in it
@@ -2626,12 +2647,6 @@ public class cMsg extends cMsgDomainAdapter {
             throw new cMsgException("invalid UDL");
         }
 
-        // cMsg domain UDL is of the form:
-        //       cMsg:cMsg://<host>:<port>/<subdomainType>/<subdomain remainder>?tag=value&tag2=value2 ...
-        //
-        // where the domain name is case insensitive as is the subdomainType
-
-
         // strip off the cMsg:cMsg:// to begin with
         String udlLowerCase = udl.toLowerCase();
         int index = udlLowerCase.indexOf("cmsg://");
@@ -2640,21 +2655,11 @@ public class cMsg extends cMsgDomainAdapter {
         }
         String udlRemainder = udl.substring(index+7);
 
-        // Remember that for this domain:
-        // 1) port is not necessary
-        // 2) host can be "localhost" and may also be in dotted form (129.57.35.21)
-        // 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
-        //    if subdomainType is not cMsg, it is required
-        // 4) remainder is past on to the subdomain plug-in
-        // 5) client's password is in tag=value part of UDL as cmsgpassword=<password>
-        // 6) broadcast timeout is in tag=value part of UDL as broadcastTO=<time out in seconds>
-        // 7) small message, low throughtput client is in tag=value part of UDL as regime=low
-
         Pattern pattern = Pattern.compile("([\\w\\.\\-]+):?(\\d+)?/?(\\w+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
         String udlHost, udlPort, udlSubdomain, udlSubRemainder;
-        boolean regimeLow = false;
+        int regime = cMsgConstants.regimeMedium;
 
         if (matcher.find()) {
             // host
@@ -2783,16 +2788,32 @@ public class cMsg extends cMsgDomainAdapter {
         }
 
         // look for ?regime=low& or &regime=low&
-        pattern = Pattern.compile("[\\?&]regime=low");
+        pattern = Pattern.compile("[\\?&]regime=(low|high)");
         matcher = pattern.matcher(udlSubRemainder);
         if (matcher.find()) {
-            regimeLow = true;
-//System.out.println("regime = low");
+//System.out.println("regime = medium");
+            try {
+                if (matcher.group(1).equalsIgnoreCase("low")) {
+                    regime = cMsgConstants.regimeLow;
+System.out.println("regime = low");
+                }
+                else {
+                    regime = cMsgConstants.regimeHigh;
+System.out.println("regime = high");
+                }
+            }
+            catch (NumberFormatException e) {
+                // ignore error and keep default value
+            }
+        }
+        else {
+System.out.println("regime = medium");
+
         }
 
         // store results in a class
         return new ParsedUDL(udl, udlRemainder, udlSubdomain, udlSubRemainder,
-                             pswd, udlHost, udlPortInt, timeout, mustBroadcast, regimeLow);
+                             pswd, udlHost, udlPortInt, timeout, regime, mustBroadcast);
     }
 
 
@@ -2831,8 +2852,8 @@ public class cMsg extends cMsgDomainAdapter {
         String  nameServerHost;
         int     nameServerPort;
         int     broadcastTimeout;
+        int     regime;
         boolean mustBroadcast;
-        boolean regimeLow;
         boolean valid;
 
         /** Constructor. */
@@ -2843,7 +2864,7 @@ public class cMsg extends cMsgDomainAdapter {
 
         /** Constructor. */
         ParsedUDL(String s1, String s2, String s3, String s4, String s5, String s6,
-                  int i1, int i2, boolean b1, boolean b2) {
+                  int i1, int i2, int i3,  boolean b1) {
             UDL              = s1;
             UDLremainder     = s2;
             subdomain        = s3;
@@ -2852,8 +2873,8 @@ public class cMsg extends cMsgDomainAdapter {
             nameServerHost   = s6;
             nameServerPort   = i1;
             broadcastTimeout = i2;
+            regime           = i3;
             mustBroadcast    = b1;
-            regimeLow        = b2;
             valid            = true;
         }
 
@@ -2867,8 +2888,8 @@ public class cMsg extends cMsgDomainAdapter {
             cMsg.this.nameServerHost   = nameServerHost;
             cMsg.this.nameServerPort   = nameServerPort;
             cMsg.this.broadcastTimeout = broadcastTimeout;
+            cMsg.this.regime           = regime;
             cMsg.this.mustBroadcast    = mustBroadcast;
-            cMsg.this.regimeLow        = regimeLow;
             if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("Copy from stored parsed UDL to local :");
                 System.out.println("  UDL              = " + UDL);
@@ -2880,7 +2901,12 @@ public class cMsg extends cMsgDomainAdapter {
                 System.out.println("  nameServerPort   = " + nameServerPort);
                 System.out.println("  broadcastTimeout = " + broadcastTimeout);
                 System.out.println("  mustBroadcast    = " + mustBroadcast);
-                System.out.println("  regimeLow        = " + regimeLow);
+                if (regime == cMsgConstants.regimeHigh)
+                    System.out.println("  regime           = high");
+                else if (regime == cMsgConstants.regimeLow)
+                    System.out.println("  regime           = low");
+                else
+                    System.out.println("  regime           = medium");
             }
         }
 
@@ -2894,8 +2920,8 @@ public class cMsg extends cMsgDomainAdapter {
             cMsg.this.nameServerHost   = null;
             cMsg.this.nameServerPort   = 0;
             cMsg.this.broadcastTimeout = 0;
+            cMsg.this.regime           = cMsgConstants.regimeMedium;
             cMsg.this.mustBroadcast    = false;
-            cMsg.this.regimeLow        = false;
         }
     }
 
