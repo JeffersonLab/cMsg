@@ -234,10 +234,9 @@ int cmsg_rc_isConnected(void *domainId, int *connected) {
  *                            rc server once created, udp socket for broadcasting
  *                            could not be created, or socket options could not be set.
  *                            
- * @returns CMSG_NETWORK_ERROR if host name in UDL or rc server's host could not be
- *                             resolved, or
- *                             no connection to the rc server can be made,
- *                             or a communication error with server occurs.
+ * @returns CMSG_NETWORK_ERROR if host name in UDL or rc server's host could not be resolved, or
+ *                             no connection to the rc server can be made, or
+ *                             a communication error with server occurs.
  */   
 int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescription,
                     const char *UDLremainder, void **domainId) {

@@ -359,17 +359,17 @@ int cmsg_cmsg_isConnected(void *domainId, int *connected) {
  *        to this connection.
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if general error
- * @returns CMSG_TIMEOUT if broadcast connection attempt timed out
- * @returns CMSG_BAD_FORMAT if the UDL is malformed
- * @returns CMSG_BAD_ARGUMENT if no UDL given
+ * @returns CMSG_BAD_FORMAT if UDLremainder arg is not in the proper format or is NULL
  * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
- * @returns CMSG_SOCKET_ERROR if the listening thread finds all the ports it tries
- *                            to listen on are busy, or socket options could not be
- *                            set
- * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
- *                             or a communication error with either server occurs.
- */   
+ * @returns CMSG_TIMEOUT if timed out of wait for response to broadcast
+ * @returns CMSG_SOCKET_ERROR if udp socket for broadcasting could not be created,
+ *                            socket (TCP & UDP) to server could not be created or connected (UDP),
+ *                            or socket options could not be set
+ * 
+ * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made, or
+ *                             a communication error with server occurs (can't read or write), or
+ *                             a host name could not be resolved
+ */
 int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescription,
                       const char *UDLremainder, void **domainId) {
         
@@ -500,6 +500,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
 /*printf("Error trying to connect with Broadcast, err = %d\n", err);*/
           cMsgDomainFree(domain);
           free(domain);
+          /* err = CMSG_SOCKET_ERROR or CMSG_TIMEOUT */
           return(err);
         }
       }
@@ -509,7 +510,13 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
       if (err != CMSG_OK) {
           cMsgDomainFree(domain);
           free(domain);
-          return(err);            
+          /* err = CMSG_OUT_OF_MEMORY if the allocating memory failed
+                   CMSG_SOCKET_ERROR if socket (TCP & UDP) to server could not be created or connected (UDP),
+                                     or socket options could not be set
+                   CMSG_NETWORK_ERROR if host name could not be resolved or could not connect,
+                                      or a communication error with either server occurs (can't read or write).
+          */
+          return(err);
       }
   }
   else {
@@ -618,8 +625,9 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
     servaddr.sin_port   = htons((uint16_t) (domain->failovers[failoverIndex].nameServerPort));
     /* send packet to broadcast address */
     if ( (err = cMsgStringToNumericIPaddr("255.255.255.255", &servaddr)) != CMSG_OK ) {
-        close(sockfd);
-        return(err);
+      /* an error should never be returned here */
+      close(sockfd);
+      return(err);
     }
     
     /*
@@ -870,11 +878,10 @@ static void *broadcastThd(void *arg) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
- * @returns CMSG_SOCKET_ERROR if the listening thread finds all the ports it tries
- *                            to listen on are busy, socket options could not be
- *                            set, cannot create or set buffer size for udp socket
- * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
- *                             or a communication error with either server occurs.
+ * @returns CMSG_SOCKET_ERROR if socket (TCP & UDP) to server could not be created or connected (UDP),
+ *                            or socket options could not be set
+ * @returns CMSG_NETWORK_ERROR if host name could not be resolved or could not connect,
+ *                             or a communication error with either server occurs (can't read or write).
  */   
 static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIndex) {
 
@@ -896,6 +903,8 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIn
                              (unsigned short) domain->failovers[failoverIndex].nameServerPort,
                              0, 0, &serverfd)) != CMSG_OK) {
     cMsgRestoreSignals(domain);
+    /* err = CMSG_SOCKET_ERROR if socket could not be created or socket options could not be set.
+             CMSG_NETWORK_ERROR if host name could not be resolved or could not connect */
     return(err);
   }
   
@@ -908,6 +917,7 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIn
   if (err != CMSG_OK) {
     cMsgRestoreSignals(domain);
     close(serverfd);
+    /*returns CMSG_NETWORK_ERROR if error in communicating with the server (can't read or write) */
     return(err);
   }
   
@@ -1091,7 +1101,11 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIn
     pthread_cancel(domain->pendThread);
     pthread_join(domain->pendThread, NULL);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "connectDirect: host name error\n");
-    return(CMSG_SOCKET_ERROR);
+    /* err =  CMSG_BAD_ARGUMENT if domain->sendHost is null
+              CMSG_OUT_OF_MEMORY if out of memory
+              CMSG_NETWORK_ERROR if the numeric address could not be obtained/resolved
+    */
+    return(err);
   }
 
   err = connect(domain->sendUdpSocket, (SA *) &servaddr, (socklen_t) sizeof(servaddr));
@@ -4066,7 +4080,8 @@ int cmsg_cmsg_shutdownServers(void *domainId, const char *server, int flag) {
  * @param failoverIndex  index into the array of parsed UDLs of the current UDL.
  * 
  * @returns CMSG_OK if successful
- * @returns CMSG_NETWORK_ERROR if error in communicating with the server
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
+ * @returns CMSG_NETWORK_ERROR if error in communicating with the server (can't read or write)
  *
  */
 static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIndex) {
@@ -4190,7 +4205,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIn
       if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
         fprintf(stderr, "talkToNameServer: cannot allocate memory\n");
       }
-      exit(1);
+      return(CMSG_OUT_OF_MEMORY);
     }
       
     if (cMsgTcpRead(serverfd, (char*) string, len) != len) {
