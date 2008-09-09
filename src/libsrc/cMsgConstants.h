@@ -59,9 +59,9 @@
 /** Client has high data/message throughput. */
 #define CMSG_REGIME_HIGH   2
 /** Client has medium data/message throughput. */
-#define CMSG_REGIME_MEDIUM 1
+#define CMSG_REGIME_MEDIUM 0
 /** Client has low data/message throughput. */
-#define CMSG_REGIME_LOW    0
+#define CMSG_REGIME_LOW    1
 
 
 /* shutdown flags */
