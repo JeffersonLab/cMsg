@@ -97,6 +97,7 @@ public class rcUdpListeningThread extends Thread {
 
         this.server = server;
         debug = server.debug;
+        port  = server.localUdpPort;
         createUDPClientSocket();
         // die if no more non-daemon thds running
         setDaemon(true);
@@ -116,7 +117,7 @@ public class rcUdpListeningThread extends Thread {
              if (port > 0) {
                  try {
                      receiveSocket = new DatagramSocket(port);
-//System.out.println("Listening on UDP port " + port);
+System.out.println("rcUdpListeningThread: listening on UDP port " + port);
                      return;
                  }
                  catch (SocketException e) {}
@@ -124,13 +125,13 @@ public class rcUdpListeningThread extends Thread {
              receiveSocket = new DatagramSocket();
              port = receiveSocket.getLocalPort();
              receiveSocket.setReuseAddress(true);
-//System.out.println("Listening on UDP port " + port);
+System.out.println("rcUdpListeningThread: listening on UDP port " + port);
          }
          catch (SocketException e) {
              if (receiveSocket != null) receiveSocket.close();
              throw e;
          }
-//System.out.println("UDP on " + port);
+System.out.println("rcUdpListeningThread: UDP on " + port);
      }
 
 
