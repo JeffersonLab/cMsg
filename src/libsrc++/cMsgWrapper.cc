@@ -165,9 +165,9 @@ static void addSubscription(void *domainId, const string &subject, const string 
 static bool deleteSubscription(void *domainId, void *handle) {
 
   bool deleted = false;
-  vector<subscrStruct*>::iterator iter;
 
   pthread_mutex_lock(&subscrMutex);
+  vector<subscrStruct*>::iterator iter;
   for(iter=subscrVec.begin(); iter!=subscrVec.end(); iter++) {
     if(((*iter)->domainId==domainId)&&((*iter)->handle==handle)) {
       delete((*iter)->d);
@@ -180,6 +180,31 @@ static bool deleteSubscription(void *domainId, void *handle) {
   pthread_mutex_unlock(&subscrMutex);
 
   return(deleted);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+/** 
+ * Used internally, removes all subscriptions of a single connection.
+ *
+ * @param domainId Domain ID
+ */
+static void deleteSubscriptions(void *domainId) {
+
+  pthread_mutex_lock(&subscrMutex);
+  vector<subscrStruct*>::iterator iter;
+  for(iter=subscrVec.begin(); iter!=subscrVec.end(); iter++) {
+    if((*iter)->domainId==domainId) {
+      delete((*iter)->d);
+      delete(*iter);
+      subscrVec.erase(iter);
+    }
+  }
+  pthread_mutex_unlock(&subscrMutex);
+
+  return;
 }
 
 
@@ -1663,8 +1688,9 @@ void cMsg::disconnect(void) throw(cMsgException) {
 
   if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
 
-
   cMsgDisconnect(&myDomainId);
+
+  deleteSubscriptions(myDomainId);
 }
 
 
@@ -1786,7 +1812,10 @@ void *cMsg::subscribe(const string &subject, const string &type, cMsgCallback *c
 
 
   // check if subscription accepted
-  if(stat!=CMSG_OK) throw(cMsgException(cMsgPerror(stat),stat));
+  if(stat!=CMSG_OK) {
+    delete(d);
+    throw(cMsgException(cMsgPerror(stat),stat));
+  }
 
 
   // add this subscription to internal list
