@@ -122,7 +122,7 @@ public class RCBroadcastServer {
                 String rcsUDL = "cMsg:rcs://" + rcClientHost + ":" + rcClientTcpPort;
 
                 cMsg server = new cMsg(rcsUDL, "rc server", "connect trial");
-System.out.println("RC server: try to connect");
+//System.out.println("RC server: try to connect");
                 server.connect();
                 try {Thread.sleep(1000);}
                 catch (InterruptedException e) {}
