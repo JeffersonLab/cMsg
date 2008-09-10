@@ -566,7 +566,7 @@ public class RunControl extends cMsgDomainAdapter {
         }
 
         // look for ?expid=value& or &expid=value&
-        pattern = Pattern.compile("[\\?&]expid=([\\w\\-]+)");
+        pattern = Pattern.compile("[\\?&]expid=([\\w\\-]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
             expid = matcher.group(1);
@@ -581,7 +581,7 @@ public class RunControl extends cMsgDomainAdapter {
         }
 
         // now look for ?broadcastTO=value& or &broadcastTO=value&
-        pattern = Pattern.compile("[\\?&]broadcastTO=([0-9]+)");
+        pattern = Pattern.compile("[\\?&]broadcastTO=([0-9]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
             try {
@@ -594,7 +594,7 @@ public class RunControl extends cMsgDomainAdapter {
         }
 
         // now look for ?connectTO=value& or &connectTO=value&
-        pattern = Pattern.compile("[\\?&]connectTO=([0-9]+)");
+        pattern = Pattern.compile("[\\?&]connectTO=([0-9]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
             try {
