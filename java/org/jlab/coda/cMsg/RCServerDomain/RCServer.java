@@ -342,20 +342,8 @@ public class RCServer extends cMsgDomainAdapter {
      *
      * @param udlRemainder partial UDL to parse
      * @throws cMsgException if udlRemainder is null
-     */                           // RC Server domain UDL is of the form:
-        //       cMsg:rcs://<host>:<tcpPort>?port=<udpPort>
-        //
-        // The intial cMsg:rcs:// is stripped off by the top layer API
-        //
-        // Remember that for this domain:
-        // 1) host is NOT optional (must start with an alphabetic character according to "man hosts" or
-        //    may be in dotted form (129.57.35.21)
-        // 2) host can be "localhost"
-        // 3) tcp port is optional and defaults to 7654 (cMsgNetworkConstants.rcClientPort)
-        // 4) the udp port to listen on may be given by the optional port parameter.
-        //    if it's not given, the system assigns one
-
-     private void parseUDL(String udlRemainder) throws cMsgException, UnknownHostException {
+     */
+    private void parseUDL(String udlRemainder) throws cMsgException, UnknownHostException {
 
         if (udlRemainder == null) {
             throw new cMsgException("invalid UDL");
@@ -430,35 +418,16 @@ public class RCServer extends cMsgDomainAdapter {
 
         // Find our udp port in UDL if it exists ...
         if (remainder != null) {
-            boolean foundMatch = false;
-            // look for ?key=value& or &key=value& pairs
-            Pattern pat = Pattern.compile("(?:[&\\?](\\w+)=(\\w+)(?=&))");
-            Matcher mat = pat.matcher(remainder + "&");
-
-            loop: while (mat.find()) {
-                for (int i = 0; i < mat.groupCount() + 1; i++) {
-                    // if key = port ...
-                    if (mat.group(i).equalsIgnoreCase("port")) {
-                        // udp port must be value
-                        udpPort = mat.group(i + 1);
-                        if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("  udp port = " + udpPort);
-                        }
-                        foundMatch = true;
-                        break loop;
-                    }
-                }
-            }
-
-            // if udp port given in UDL ...
-            if (foundMatch) {
+            // now look for ?port=value& or &port=value&
+            pattern = Pattern.compile("[\\?&]port=([0-9]+)", Pattern.CASE_INSENSITIVE);
+            matcher = pattern.matcher(remainder);
+            if (matcher.find()) {
                 try {
-                    localUdpPort = Integer.parseInt(udpPort);
+                    localUdpPort = Integer.parseInt(matcher.group(1));
+//System.out.println("parseUDL: local udp port = " + localUdpPort);
                 }
                 catch (NumberFormatException e) {
-                    if (debug >= cMsgConstants.debugWarn) {
-                        System.out.println("parseUDL: non-integer given for udp port");
-                    }
+                    // ignore error and keep value of 0
                 }
             }
         }
