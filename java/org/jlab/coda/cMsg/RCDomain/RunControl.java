@@ -538,7 +538,7 @@ public class RunControl extends cMsgDomainAdapter {
             catch (UnknownHostException e) {}
         }
 
-        // get codaComponent port or guess if it's not given
+        // get broadcast server port or guess if it's not given
         if (udlPort != null && udlPort.length() > 0) {
             try { rcServerBroadcastPort = Integer.parseInt(udlPort); }
             catch (NumberFormatException e) {
