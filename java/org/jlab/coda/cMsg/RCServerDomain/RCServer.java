@@ -352,7 +352,7 @@ public class RCServer extends cMsgDomainAdapter {
         Pattern pattern = Pattern.compile("((?:[a-zA-Z]+[\\w\\.\\-]*)|(?:[\\d]+\\.[\\d\\.]+)):?(\\d+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
-        String udlHost, udlPort, remainder, udpPort=null;
+        String udlHost, udlPort, remainder;
 
         if (matcher.find()) {
             // host
