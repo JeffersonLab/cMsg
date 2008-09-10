@@ -350,7 +350,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
     /**
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      * RC Broadcast domain UDL is of the form:<p>
-     *       cMsg:rcb://&lt;udpPort&gt;?expid=&lt;expid&gt;&broadcastTO=&lt;timeout&gt;
+     *       cMsg:rcb://&lt;udpPort&gt;?expid=&lt;expid&gt;&broadcastTO=&lt;timeout&gt;<p>
      *
      * The intial cMsg:rcb:// is stripped off by the top layer API
      *
