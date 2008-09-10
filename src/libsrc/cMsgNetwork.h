@@ -136,25 +136,25 @@ extern "C" {
 
 
 
+/** Default TCP port at which a cMsg domain name server listens for client connections. */
+#define CMSG_NAME_SERVER_STARTING_PORT 45000
 
-/** TCP port at which a cMsg domain client starts looking for an unused listening port. */
-#define CMSG_CLIENT_LISTENING_PORT 2345
-/** TCP port at which a name server starts looking for an unused listening port. */
-#define CMSG_NAME_SERVER_STARTING_PORT 3456
-/** TCP port at which a name server looking for UDP broadcasts. */
-#define CMSG_NAME_SERVER_BROADCAST_PORT 7654
-/** TCP port at which a domain server starts looking for an unused listening port. */
-#define CMSG_DOMAIN_SERVER_STARTING_PORT 4567
+/** Default UDP port at which a cMsg name server listens for broadcasts. */
+#define CMSG_NAME_SERVER_BROADCAST_PORT 45000
+
+/** TCP port at which a run control client starts looking for a port to listen on and the port
+ * that a run control server assumes a client is waiting for connections on. */
+#define RC_CLIENT_LISTENING_PORT 45400
+
+/** Default UDP port at which a run control broadcast server listens for broadcasts
+ *  and at which a rc domain client looks for the broadcast server. */
+#define RC_BROADCAST_PORT 45200
+
 
 /** First int to send in UDP broadcast to server if cMsg domain. */
 #define CMSG_DOMAIN_BROADCAST 1
 /** First int to send in UDP broadcast to server if RC domain. */
 #define RC_DOMAIN_BROADCAST 2
-
-/** TCP port at which a rc domain client starts looking for an unused listening port. */
-#define RC_CLIENT_LISTENING_PORT 6543
-/** UDP port at which a rc domain client looks for its server. */
-#define RC_BROADCAST_PORT 6543
 
 /** The biggest single UDP packet size is 2^16 - IP 64 byte header - 8 byte UDP header. */
 #define BIGGEST_UDP_PACKET_SIZE 65463
