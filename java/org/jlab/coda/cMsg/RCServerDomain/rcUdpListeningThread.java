@@ -117,7 +117,7 @@ public class rcUdpListeningThread extends Thread {
              if (port > 0) {
                  try {
                      receiveSocket = new DatagramSocket(port);
-System.out.println("rcUdpListeningThread: listening on UDP port " + port);
+//System.out.println("rcUdpListeningThread: listening on UDP port " + port);
                      return;
                  }
                  catch (SocketException e) {}
@@ -125,13 +125,13 @@ System.out.println("rcUdpListeningThread: listening on UDP port " + port);
              receiveSocket = new DatagramSocket();
              port = receiveSocket.getLocalPort();
              receiveSocket.setReuseAddress(true);
-System.out.println("rcUdpListeningThread: listening on UDP port " + port);
+//System.out.println("rcUdpListeningThread: listening on UDP port " + port);
          }
          catch (SocketException e) {
              if (receiveSocket != null) receiveSocket.close();
              throw e;
          }
-System.out.println("rcUdpListeningThread: UDP on " + port);
+//System.out.println("rcUdpListeningThread: UDP on " + port);
      }
 
 
