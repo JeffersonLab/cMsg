@@ -355,8 +355,8 @@ public:
   virtual string getUDL(void)         const;
   virtual string getName(void)        const;
   virtual string getDescription(void) const;
-  virtual bool   isConnected(void)    const;
-  virtual bool   isReceiving(void)    const;
+  virtual bool   isConnected(void)    const throw(cMsgException);
+  virtual bool   isReceiving(void)    const throw(cMsgException);
   virtual void   setShutdownHandler(cMsgShutdownHandler *handler, void* userArg) throw(cMsgException);
   virtual void   shutdownClients(const string &client, int flag) throw(cMsgException);
   virtual void   shutdownServers(const string &server, int flag) throw(cMsgException);
