@@ -31,25 +31,29 @@ public class cMsgNetworkConstants {
     /** Ints representing ascii for "cMsg is cool", used to filter out portscanning software. */
     public static final int[] magicNumbers = {0x634d7367, 0x20697320, 0x636f6f6c};
 
-    /** TCP port at which a cMsg domain name server starts looking for an unused listening port. */
-    public static final int    nameServerPort = 3456;
-    /** TCP port at which a cMsg domain, domain server listens. */
-    public static final int    domainServerPort = 4567;
-    /** TCP port at which a cMsg domain, domain server starts looking for an unused UDP listening port. */
-    public static final int    domainServerUdpStartingPort = 4567;
-    /** TCP port at which a cMsg domain client starts looking for an unused listening port. */
-    public static final int    clientServerStartingPort = 23945;
-    /** TCP port at which a TCPServer server listens for connections. */
-    public static final int    tcpServerPort = 5432;
-    /** UDP port at which a RunControl server listens for broadcasts. */
-    public static final int    rcBroadcastPort = 6543;
-    /** TCP port at which a RunControl server listens for a client connection on. */
-    public static final int    rcServerPort = 6543;
-    /** TCP port at which a RunControl server assumes a client is waiting for connections on. */
-    public static final int    rcClientPort = 6543;
-    /** UDP port at which a cMsg name server listens for broadcasts. */
-    public static final int    nameServerBroadcastPort = 7654;
+    // There are very few officially used port #s in the 40,000s (only 5),
+    // so we'll chose ports in the 45,000 range to avoid potential conflicts.
 
+    /** Default TCP port at which a cMsg domain name server listens for client connections. */
+    public static final int    nameServerPort = 45000;
+    /** Default UDP port at which a cMsg name server listens for broadcasts. */
+    public static final int    nameServerBroadcastPort = 45000;
+    /** Default TCP port at which a cMsg domain, domain server listens for 2 client connections
+      * (after that client has connected to name server). */
+    public static final int    domainServerPort = 45100;
+    /** UDP port at which a cMsg domain, domain server starts looking for an unused listening port. */
+    public static final int    domainServerUdpStartingPort = 45100;
+    /** Default UDP port at which a run control broadcast server listens for broadcasts. */
+    public static final int    rcBroadcastPort = 45200;
+    /** TCP port at which a run control server starts looking for a port to listen
+     *  for a client connection on. */
+    public static final int    rcServerPort = 45300;
+    /** TCP port at which a run control client starts looking for a port to listen on and the port
+      * that a run control server assumes a client is waiting for connections on. */
+    public static final int    rcClientPort = 45400;
+
+    /** TCP port at which a TCPServer server listens for connections. */
+    public static final int    tcpServerPort = 45600;
 
     /** First int to send in UDP broadcast to server if cMsg domain. */
     public static final int    cMsgDomainBroadcast = 1;
