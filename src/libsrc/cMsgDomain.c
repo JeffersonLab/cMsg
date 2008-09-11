@@ -592,7 +592,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
                                 char **host, int *port) {    
     char   buffer[1024];
     int    err, status, len, passwordLen, sockfd;
-    int    outGoing[3], broadcastTO=0, gotResponse=0;
+    int    outGoing[5], broadcastTO=0, gotResponse=0;
     const int on=1;
     
     pthread_t rThread, bThread;
@@ -641,12 +641,14 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
     if (domain->failovers[failoverIndex].password != NULL) {
         passwordLen = strlen(domain->failovers[failoverIndex].password);
     }
-    /* magic int */
-    outGoing[0] = htonl(0xc0da1);
+    /* magic ints */
+    outGoing[0] = htonl(CMSG_MAGIC_INT1);
+    outGoing[1] = htonl(CMSG_MAGIC_INT2);
+    outGoing[2] = htonl(CMSG_MAGIC_INT3);
     /* type of broadcast */
-    outGoing[1] = htonl(CMSG_DOMAIN_BROADCAST);
+    outGoing[3] = htonl(CMSG_DOMAIN_BROADCAST);
     /* length of "password" string */
-    outGoing[2] = htonl(passwordLen);
+    outGoing[4] = htonl(passwordLen);
 
     /* copy data into a single buffer */
     memcpy(buffer, (void *)outGoing, sizeof(outGoing));
@@ -769,7 +771,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
  * the server due to our initial broadcast.
  */
 static void *receiverThd(void *arg) {
-    int port, nameLen, magicInt;
+    int port, nameLen, magicInt[3];
     thdArg *threadArg = (thdArg *) arg;
     char buf[1024], *pchar;
     ssize_t len;
@@ -789,29 +791,46 @@ printf("Broadcast response from: %s, on port %hu, with msg len = %hd\n",
                 inet_ntoa(threadArg->addr.sin_addr),
                 ntohs(threadArg->addr.sin_port), len); 
 */
-        /* server is sending 3 ints + string in java, len > 13 bytes */
-        if (len < 13) continue;
+        /* server is sending 5 ints + string */
+        if (len < 5*sizeof(int)) continue;
 
         /* The server is sending back its 1) port, 2) host name length, 3) host name */
-        memcpy(&magicInt, pchar, sizeof(int));
-        magicInt = ntohl(magicInt);
+        memcpy(&magicInt[0], pchar, sizeof(int));
+        magicInt[0] = ntohl(magicInt[0]);
         pchar += sizeof(int);
+        
+        memcpy(&magicInt[1], pchar, sizeof(int));
+        magicInt[1] = ntohl(magicInt[1]);
+        pchar += sizeof(int);
+        
+        memcpy(&magicInt[2], pchar, sizeof(int));
+        magicInt[2] = ntohl(magicInt[2]);
+        pchar += sizeof(int);
+        
+        if ((magicInt[0] != CMSG_MAGIC_INT1) ||
+            (magicInt[1] != CMSG_MAGIC_INT2) ||
+            (magicInt[2] != CMSG_MAGIC_INT3))  {
+/*printf("  Broadcast response has wrong magic numbers\n");*/
+          continue;
+        }
+       
         memcpy(&port, pchar, sizeof(int));
         port = ntohl(port);
         pchar += sizeof(int);
+        
         memcpy(&nameLen, pchar, sizeof(int));
         nameLen = ntohl(nameLen);
         pchar += sizeof(int);
-/*printf("  magic int = 0x%x, port = %d, len = %d\n", magicInt, port, nameLen);*/
+/*printf("  port = %d, len = %d\n", port, nameLen);*/
         
-        if ((magicInt != 0xc0da1) || 
-                (port < 1024 || port > 65535) ||
-                (nameLen < 0 || nameLen > 1024-12)) {
+        if ((port < 1024 || port > 65535) ||
+            (nameLen < 0 || nameLen > 1024-20)) {
             /* wrong format so ignore */
 /*printf("  Broadcast response has wrong format\n");*/
             continue;
         }
-        if (nameLen != strlen(pchar)) {
+        
+        if ((len != 5*sizeof(int) + nameLen) || (nameLen != strlen(pchar))) {
             /* wrong format so ignore */
 /*printf("  Broadcast response has wrong format, bad host name\n");*/
             continue;
