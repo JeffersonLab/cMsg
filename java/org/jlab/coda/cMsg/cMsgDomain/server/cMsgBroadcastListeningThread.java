@@ -105,13 +105,21 @@ public class cMsgBroadcastListeningThread extends Thread {
         DatagramPacket sendPacket  = null;
         ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);
         DataOutputStream out       = new DataOutputStream(baos);
-        String myHost              = "unknown";
-        try {myHost = InetAddress.getLocalHost().getCanonicalHostName();}
+        String myHost              = "";
+        // Send dotted decimal form of local host name.
+        // The canonical name may be associated with an address that
+        // is not relevant if, for example, host is disconnected from
+        // network. Thus we send a dotted decimal addr which will
+        // default to 127.0.0.1 if /etc/hosts is setup properly.
+        // Then we can still make things work on an isolated machine.
+        try {myHost = InetAddress.getLocalHost().getHostAddress();}
         catch (UnknownHostException e) { }
 
         try {
-            // Put our magic int, TCP listening port, and our host into byte array
-            out.writeInt(0xc0da1);
+            // Put our magic ints, TCP listening port, and our host into byte array
+            out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+            out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+            out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
             out.writeInt(serverTcpPort);
             out.writeInt(myHost.length());
             try {out.write(myHost.getBytes("US-ASCII"));}
@@ -145,22 +153,43 @@ public class cMsgBroadcastListeningThread extends Thread {
                 // pick apart byte array received
                 InetAddress clientAddress = packet.getAddress();
                 int clientUdpPort = packet.getPort();   // port to send response packet to
-                int magicInt      = bytesToInt(buf, 0); // magic number
-                int msgType       = bytesToInt(buf, 4); // what type of broadcast is this ?
-                int passwordLen   = bytesToInt(buf, 8); // password length
-//System.out.println("magic int = " + Integer.toHexString(magicInt) + ", msgtype = " + msgType + ", pswd len = " + passwordLen);
+
+                // if packet is smaller than 5 ints ...
+                if (packet.getLength() < 20) {
+                    continue;
+                }
+
+                // pick apart byte array received
+                int magicInt1  = cMsgUtilities.bytesToInt(buf, 0); // magic password
+                int magicInt2  = cMsgUtilities.bytesToInt(buf, 4); // magic password
+                int magicInt3  = cMsgUtilities.bytesToInt(buf, 8); // magic password
+
+                if ( (magicInt1 != cMsgNetworkConstants.magicNumbers[0]) ||
+                     (magicInt2 != cMsgNetworkConstants.magicNumbers[1]) ||
+                     (magicInt3 != cMsgNetworkConstants.magicNumbers[2]))  {
+//System.out.println("  Bad magic numbers for broadcast response packet");
+                     continue;
+                 }
+
+                int msgType       = bytesToInt(buf, 12); // what type of broadcast is this ?
+                int passwordLen   = bytesToInt(buf, 16); // password length
 
                 // sanity check
-                if (magicInt != 0xc0da1 || msgType != cMsgNetworkConstants.cMsgDomainBroadcast) {
+                if (msgType != cMsgNetworkConstants.cMsgDomainBroadcast) {
                     // ignore broadcasts from unknown sources
-//System.out.println("bad magic # or msgtype");
+//System.out.println("bad msgtype");
+                    continue;
+                }
+
+                // if packet is too small ...
+                if (packet.getLength() < 20 + passwordLen) {
                     continue;
                 }
 
                 // password
                 String pswd = null;
                 if (passwordLen > 0) {
-                    try { pswd = new String(buf, 12, passwordLen, "US-ASCII"); }
+                    try { pswd = new String(buf, 20, passwordLen, "US-ASCII"); }
                     catch (UnsupportedEncodingException e) {}
                 }
 
@@ -183,6 +212,10 @@ public class cMsgBroadcastListeningThread extends Thread {
                         }
                         continue;
                     }
+                }
+
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("packet passes all tests, send response");
                 }
 
                 // Send a reply to broadcast. This must contain this name server's
