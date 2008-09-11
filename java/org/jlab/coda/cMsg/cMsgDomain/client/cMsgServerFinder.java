@@ -17,7 +17,6 @@
 package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.*;
-
 import java.net.*;
 import java.io.*;
 import java.util.HashSet;
@@ -30,27 +29,32 @@ import java.util.HashSet;
  */
 public class cMsgServerFinder {
 
-    /** Port numbers to probe. */
-    int[] broadcastPorts;
-    int[] defaultPorts;
+    /** Port numbers provided by caller to probe. */
+    private int[] broadcastPorts;
+
+    /** Default list of port numbers to probe. */
+    private final int[] defaultPorts;
 
     /** Optional password included in UDL for connection to server requiring one. */
     private String password = "";
 
-    byte[] outBuffer;
+    /** Buffer for outgoing packets. */
+    private byte[] outBuffer;
 
-    InetAddress broadcastAddr;
+    /** Broadcast address. */
+    private InetAddress broadcastAddr;
 
     /** Socket over which to send UDP broadcast and receive response packets from server. */
-    DatagramSocket udpSocket;
+    private DatagramSocket udpSocket;
 
-    HashSet<String> responders;
+    /** Set of all responders' hosts and ports in a "host:port" string format. */
+    private HashSet<String> responders;
 
-    /** Time in milliseconds between sending monitor data / keep alives. */
-    final int sleepTime = 5000;
+    /** Time in milliseconds waiting for a response to the broadcasts. */
+    private final int sleepTime = 2000;
 
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugError;
+    private int debug = cMsgConstants.debugError;
 
 
 
@@ -171,6 +175,7 @@ public class cMsgServerFinder {
             // create socket to receive at anonymous port & all interfaces
             udpSocket = new DatagramSocket();
             udpSocket.setReceiveBufferSize(1024);
+            udpSocket.setSoTimeout(sleepTime);
 
             // create broadcast packet from the byte array
             outBuffer = baos.toByteArray();
@@ -204,10 +209,13 @@ public class cMsgServerFinder {
         try { Thread.sleep(200); }
         catch (InterruptedException e) { }
 
-        String[] bits;
+        String[] parts;
+        String host = "unknown";
         for (String s : responders) {
-            bits = s.split(":");
-            System.out.println("Host = " + bits[0] + ",  Port = " + bits[1]);
+            parts = s.split(":");
+            try { host = InetAddress.getByName(parts[0]).getHostName(); }
+            catch (UnknownHostException e) { }
+            System.out.println("host = " + host + ",  addr = " + parts[0] + ",  port = " + parts[1]);
         }
 
         return;
@@ -231,6 +239,7 @@ public class cMsgServerFinder {
                 try {
                     nameServerHost = "";
                     packet.setLength(1024);
+//System.out.println("Waiting to receive a packet");
                     udpSocket.receive(packet);
 
                     // if packet is smaller than 5 ints plus 1 really short string ...
@@ -238,7 +247,7 @@ public class cMsgServerFinder {
                         continue;
                     }
 
-System.out.println("RECEIVED BROADCAST RESPONSE PACKET !!!");
+//System.out.println("RECEIVED BROADCAST RESPONSE PACKET !!!");
                     // pick apart byte array received
                     int magicInt1  = cMsgUtilities.bytesToInt(buf, 0); // magic password
                     int magicInt2  = cMsgUtilities.bytesToInt(buf, 4); // magic password
@@ -247,7 +256,7 @@ System.out.println("RECEIVED BROADCAST RESPONSE PACKET !!!");
                     if ( (magicInt1 != cMsgNetworkConstants.magicNumbers[0]) ||
                          (magicInt2 != cMsgNetworkConstants.magicNumbers[1]) ||
                          (magicInt3 != cMsgNetworkConstants.magicNumbers[2]))  {
-System.out.println("  Bad magic numbers for broadcast response packet");
+//System.out.println("  Bad magic numbers for broadcast response packet");
                         continue;
                     }
 
@@ -257,19 +266,19 @@ System.out.println("  Bad magic numbers for broadcast response packet");
 
                     if ((nameServerPort < 1024 || nameServerPort > 65535) ||
                             (hostLength < 0 || hostLength > 1024 - 20)) {
-System.out.println("  Wrong port # or host length for broadcast response packet");
+//System.out.println("  Wrong port # or host length for broadcast response packet");
                         continue;
                     }
 
                     if (packet.getLength() != 4*5 + hostLength) {
-System.out.println("  Wrong length for broadcast response packet");
+//System.out.println("  Wrong length for broadcast response packet");
                         continue;
                     }
 
                     // cMsg name server host
                     try { nameServerHost = new String(buf, 20, hostLength, "US-ASCII"); }
                     catch (UnsupportedEncodingException e) {}
-System.out.println("  Got port = " + nameServerPort + ", host = " + nameServerHost);
+//System.out.println("  Got port = " + nameServerPort + ", host = " + nameServerHost);
 
                     // put in a unique item: "host:port"
                     if (nameServerHost.length() > 0) {
@@ -281,11 +290,11 @@ System.out.println("  Got port = " + nameServerPort + ", host = " + nameServerHo
                     }
                 }
                 catch (InterruptedIOException e) {
-System.out.println("  Interrupted receiving thread so return");
+//System.out.println("  Interrupted receiving thread so return");
                     return;
                 }
                 catch (IOException e) {
-System.out.println("  IO exception in receiving thread so return");
+//System.out.println("  IO exception in receiving thread so return");
                     return;
                 }
             }
@@ -305,13 +314,13 @@ System.out.println("  IO exception in receiving thread so return");
 
             try {
                 for (int broadcastPort : broadcastPorts) {
-System.out.println("Send broadcast packets on port " + broadcastPort);
+//System.out.println("Send broadcast packets on port " + broadcastPort);
                     packet = new DatagramPacket(outBuffer, outBuffer.length,
                                                 broadcastAddr, broadcastPort);
                     udpSocket.send(packet);
                 }
                 for (int broadcastPort : defaultPorts) {
-System.out.println("Send broadcast packets on port " + broadcastPort);
+//System.out.println("Send broadcast packets on port " + broadcastPort);
                     packet = new DatagramPacket(outBuffer, outBuffer.length,
                                                 broadcastAddr, broadcastPort);
                     udpSocket.send(packet);
