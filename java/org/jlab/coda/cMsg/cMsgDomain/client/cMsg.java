@@ -20,7 +20,6 @@ import org.jlab.coda.cMsg.*;
 
 import java.io.*;
 import java.net.*;
-import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.UnresolvedAddressException;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -88,7 +87,7 @@ public class cMsg extends cMsgDomainAdapter {
     /** Port number from which to start looking for a suitable listening port. */
     int startingPort;
 
-    /** Socket over which to UDP broadcast and receive response packets from server. */
+    /** Socket over which to send UDP broadcast and receive response packets from server. */
     DatagramSocket udpSocket;
 
     /** Socket over which to send messges with UDP. */
@@ -115,9 +114,6 @@ public class cMsg extends cMsgDomainAdapter {
 
     /** Timeout in milliseconds to wait for server to respond to broadcasts. */
     int broadcastTimeout;
-
-    /** Server channel (contains socket). */
-    ServerSocketChannel serverChannel;
 
     /** Name server's host. */
     String nameServerHost;
@@ -218,12 +214,6 @@ public class cMsg extends cMsgDomainAdapter {
     /** Lock for calling methods other than {@link #connect} or {@link #disconnect}. */
     Lock notConnectLock = methodLock.readLock();
 
-    /**
-     * Lock to ensure all calls requiring return communication
-     * (e.g. {@link #syncSend}) are sequential.
-     */
-    Lock returnCommunicationLock = new ReentrantLock();
-
     /** Lock to ensure {@link #subscribe} and {@link #unsubscribe} calls are sequential. */
     Lock subscribeLock = new ReentrantLock();
 
@@ -262,23 +252,6 @@ public class cMsg extends cMsgDomainAdapter {
     /** Numbers of commands sent from client to server. */
     long numTcpSends, numUdpSends, numSyncSends, numSendAndGets,
             numSubscribeAndGets, numSubscribes, numUnsubscribes;
-
-//-----------------------------------------------------------------------------
-
-    /**
-     * Converts 4 bytes of a byte array into an integer.
-     *
-     * @param b   byte array
-     * @param off offset into the byte array (0 = start at first element)
-     * @return integer value
-     */
-    private static final int bytesToInt(byte[] b, int off) {
-        return (((b[off]     & 0xff) << 24) |
-                ((b[off + 1] & 0xff) << 16) |
-                ((b[off + 2] & 0xff) << 8)  |
-                 (b[off + 3] & 0xff));
-    }
-
 
 //-----------------------------------------------------------------------------
 
@@ -495,8 +468,10 @@ public class cMsg extends cMsgDomainAdapter {
             DataOutputStream out = new DataOutputStream(baos);
 
             try {
-                // send our magic int
-                out.writeInt(0xc0da1);
+                // send our magic ints
+                out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+                out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+                out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
                 // int describing our message type: broadcast is from cMsg domain client
                 out.writeInt(cMsgNetworkConstants.cMsgDomainBroadcast);
                 out.writeInt(password.length());
@@ -585,24 +560,42 @@ public class cMsg extends cMsgDomainAdapter {
 
             while (true) {
                 try {
+                    packet.setLength(1024);
                     udpSocket.receive(packet);
+
+                    // if packet is smaller than 5 ints  ...
+                    if (packet.getLength() < 20) {
+                        continue;
+                    }
 
 //System.out.println("RECEIVED BROADCAST RESPONSE PACKET !!!");
                     // pick apart byte array received
-                    int magicInt   = bytesToInt(buf, 0); // magic password
-                    nameServerPort = bytesToInt(buf, 4); // port to do a direct connection to
-                    int hostLength = bytesToInt(buf, 8); // host to do a direct connection to
-//System.out.println("  magic int = " + Integer.toHexString(magicInt) + ", port = " + nameServerPort + ", len = " + hostLength);
+                    int magicInt1  = cMsgUtilities.bytesToInt(buf, 0); // magic password
+                    int magicInt2  = cMsgUtilities.bytesToInt(buf, 4); // magic password
+                    int magicInt3  = cMsgUtilities.bytesToInt(buf, 8); // magic password
 
-                    if ( (magicInt != 0xc0da1) ||
-                            (nameServerPort < 1024 || nameServerPort > 65535) ||
-                            (hostLength < 0 || hostLength > 1024 - 12)) {
+                    if ( (magicInt1 != cMsgNetworkConstants.magicNumbers[0]) ||
+                         (magicInt2 != cMsgNetworkConstants.magicNumbers[1]) ||
+                         (magicInt3 != cMsgNetworkConstants.magicNumbers[2]))  {
+//System.out.println("  Bad magic numbers for broadcast response packet");
+                         continue;
+                     }
+
+                    nameServerPort = cMsgUtilities.bytesToInt(buf, 12); // port to do a direct connection to
+                    int hostLength = cMsgUtilities.bytesToInt(buf, 16); // host to do a direct connection to
+
+                    if ((nameServerPort < 1024 || nameServerPort > 65535) ||
+                        (hostLength < 0 || hostLength > 1024 - 20)) {
 //System.out.println("  Wrong format for broadcast response packet");
                         continue;
                     }
 
+                    if (packet.getLength() != 4*5 + hostLength) {
+                        continue;
+                    }
+
                     // cMsg server host
-                    try { nameServerHost = new String(buf, 12, hostLength, "US-ASCII"); }
+                    try { nameServerHost = new String(buf, 20, hostLength, "US-ASCII"); }
                     catch (UnsupportedEncodingException e) {}
 //System.out.println("  Got port = " + nameServerPort + ", host = " + nameServerHost);
                     break;
@@ -2620,7 +2613,10 @@ public class cMsg extends cMsgDomainAdapter {
      *       cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2 ... <p>
      *
      * Remember that for this domain:
-     * 1) port is not necessary
+     * 1) port is not necessary to specify but is the name server's TCP port if connecting directly
+     *    or the server's UDP port if broadcasting. Defaults used if not specified are
+     *    {@link cMsgNetworkConstants#nameServerPort} if connecting directly, else
+     *    {@link cMsgNetworkConstants#nameServerBroadcastPort} if broadcasting
      * 2) host can be "localhost" and may also be in dotted form (129.57.35.21)
      * 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
      *    if subdomainType is not cMsg, it is required
@@ -2681,29 +2677,6 @@ public class cMsg extends cMsgDomainAdapter {
         }
         else {
             throw new cMsgException("invalid UDL");
-        }
-
-        // find cmsgpassword parameter if it exists
-        String pswd = "";
-        if (udlSubRemainder != null) {
-            // look for ?key=value& or &key=value& pairs
-            Pattern pat = Pattern.compile("(?:[&\\?](\\w+)=(\\w+)(?=&))");
-            Matcher mat = pat.matcher(udlSubRemainder+"&");
-
-            loop: while (mat.find()) {
-                    for (int i=0; i < mat.groupCount()+1; i++) {
-                       // if key = cmsgpassword ...
-                        if (mat.group(i).equalsIgnoreCase("cmsgpassword")) {
-                            // password must be value
-                            pswd = mat.group(i+1);
-                            if (debug >= cMsgConstants.debugInfo) {
-                                System.out.println("  cmsg password = " + pswd);
-                            }
-                            break loop;
-                        }
-                        //System.out.println("group("+ i + ") = " + s6);
-                    }
-                  }
         }
 
         // need at least host
@@ -2773,6 +2746,17 @@ public class cMsg extends cMsgDomainAdapter {
             udlSubRemainder = "";
         }
 
+
+        // find cmsgpassword parameter if it exists
+        String pswd = "";
+        pattern = Pattern.compile("[\\?&]cmsgpassword=(\\w+)", Pattern.CASE_INSENSITIVE);
+        matcher = pattern.matcher(udlSubRemainder);
+        if (matcher.find()) {
+            pswd = matcher.group(1);
+//System.out.println("  cmsg password = " + pswd);
+        }
+
+
         // look for ?broadcastTO=value& or &broadcastTO=value&
         int timeout=0;
         pattern = Pattern.compile("[\\?&]broadcastTO=([0-9]+)", Pattern.CASE_INSENSITIVE);
@@ -2787,6 +2771,7 @@ public class cMsg extends cMsgDomainAdapter {
             }
         }
 
+        
         // look for ?regime=low& or &regime=low&
         pattern = Pattern.compile("[\\?&]regime=(low|high|medium)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(udlSubRemainder);
