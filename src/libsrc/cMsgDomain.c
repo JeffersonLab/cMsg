@@ -762,7 +762,7 @@ static int connectWithMulticast(cMsgDomainInfo *domain, int failoverIndex,
  * the server due to our initial multicast.
  */
 static void *receiverThd(void *arg) {
-    int port, nameLen, magicInt[3];
+    int tcpPort, udpPort, nameLen, magicInt[3];
     thdArg *threadArg = (thdArg *) arg;
     char buf[1024], *pchar;
     ssize_t len;
@@ -782,8 +782,8 @@ printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
                 inet_ntoa(threadArg->addr.sin_addr),
                 ntohs(threadArg->addr.sin_port), len); 
 */
-        /* server is sending 5 ints + string */
-        if (len < 5*sizeof(int)) continue;
+        /* server is sending 6 ints + string */
+        if (len < 6*sizeof(int)) continue;
 
         /* The server is sending back its 1) port, 2) host name length, 3) host name */
         memcpy(&magicInt[0], pchar, sizeof(int));
@@ -805,23 +805,27 @@ printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
           continue;
         }
        
-        memcpy(&port, pchar, sizeof(int));
-        port = ntohl(port);
+        memcpy(&tcpPort, pchar, sizeof(int));
+        tcpPort = ntohl(tcpPort);
+        pchar += sizeof(int);
+        
+        memcpy(&udpPort, pchar, sizeof(int));
+        udpPort = ntohl(udpPort);
         pchar += sizeof(int);
         
         memcpy(&nameLen, pchar, sizeof(int));
         nameLen = ntohl(nameLen);
         pchar += sizeof(int);
-/*printf("  port = %d, len = %d\n", port, nameLen);*/
+printf("  TCP port = %d, UDP port = %d, len = %d\n", tcpPort, udpPort, nameLen);
         
-        if ((port < 1024 || port > 65535) ||
-            (nameLen < 0 || nameLen > 1024-20)) {
+        if ((tcpPort < 1024 || tcpPort > 65535) ||
+             (nameLen < 0 || nameLen > 1024-6*sizeof(int))) {
             /* wrong format so ignore */
 /*printf("  Multicast response has wrong format\n");*/
             continue;
         }
         
-        if ((len != 5*sizeof(int) + nameLen) || (nameLen != strlen(pchar))) {
+        if ((len != 6*sizeof(int) + nameLen) || (nameLen != strlen(pchar))) {
             /* wrong format so ignore */
 /*printf("  Multicast response has wrong format, bad host name\n");*/
             continue;
@@ -829,7 +833,7 @@ printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
         
         /* send info back to calling function */
         threadArg->buffer = strdup(pchar);
-        threadArg->port   = port;
+        threadArg->port   = tcpPort;
 /*printf("  Receiver thread: host = %s, port = %d\n", pchar, port);*/
         /* Tell main thread we are done. */
         pthread_cond_signal(&cond);
