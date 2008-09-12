@@ -56,8 +56,8 @@ public class cMsgNameServer extends Thread {
     /** This server's TCP listening port number. */
     private int port;
 
-    /** This server's UDP listening port number for receiving broadcasts. */
-    private int broadcastPort;
+    /** This server's UDP listening port number for receiving multicasts. */
+    private int multicastPort;
 
     /** The maximum number of clients to be serviced simultaneously by a cMsgDomainServerSelect object. */
     private int clientsMax = 10;
@@ -71,11 +71,11 @@ public class cMsgNameServer extends Thread {
     /** Server channel (contains socket). */
     private ServerSocketChannel serverChannel;
 
-    /** UDP socket on which to read broadcast packets sent from cMsg clients. */
-    private DatagramSocket broadcastSocket;
+    /** UDP socket on which to read multicast packets sent from cMsg clients. */
+    private MulticastSocket multicastSocket;
 
-    /** Thread which receives client broadcasts. */
-    private cMsgBroadcastListeningThread broadcastThread;
+    /** Thread which receives client multicasts. */
+    private cMsgBroadcastListeningThread multicastThread;
 
     /** Thread which handles the permanen client connections. */
     private cMsgConnectionHandler connectionThread;
@@ -322,7 +322,7 @@ public class cMsgNameServer extends Thread {
      *
      * @param port TCP listening port for communication from clients
      * @param domainPort  listening port for receiving 2 permanent connections from each client
-     * @param udpPort UDP listening port for receiving broadcasts from clients
+     * @param udpPort UDP listening port for receiving multicasts from clients
      * @param standAlone  if true no other cMsg servers are allowed to attached to this one and form a cloud
      * @param clientPassword password client needs to provide to connect to this server
      * @param cloudPassword  password server needs to provide to connect to this server to become part of a cloud
@@ -383,7 +383,7 @@ public class cMsgNameServer extends Thread {
         }
 
         if (port < 1) {
-            port = cMsgNetworkConstants.nameServerPort;
+            port = cMsgNetworkConstants.nameServerTcpPort;
         }
 
         // port #'s < 1024 are reserved
@@ -408,7 +408,7 @@ public class cMsgNameServer extends Thread {
         }
 
         if (udpPort < 1) {
-            udpPort = cMsgNetworkConstants.nameServerBroadcastPort;
+            udpPort = cMsgNetworkConstants.nameServerUdpPort;
         }
 
         // port #'s < 1024 are reserved
@@ -433,7 +433,8 @@ public class cMsgNameServer extends Thread {
         try {
             listeningSocket.setReuseAddress(true);
             // prefer low latency, short connection times, and high bandwidth in that order
-            listeningSocket.setPerformancePreferences(1,2,0);         // CHANGED
+            listeningSocket.setPerformancePreferences(1,2,0);
+System.out.println("Listening socket binding to port " + port);
             listeningSocket.bind(new InetSocketAddress(port));
         }
         catch (IOException ex) {
@@ -444,22 +445,31 @@ public class cMsgNameServer extends Thread {
 
         this.port = port;
 
-        // Create a UDP socket for accepting broadcasts from cMsg clients
+        // Create a UDP socket for accepting multicasts from cMsg clients
         try {
-            // create socket to receive at all interfaces
-            broadcastSocket = new DatagramSocket(udpPort);
-            broadcastSocket.setReceiveBufferSize(65535);
-//System.out.println("Created UDP broadcast listening socket at port " + udpPort);
+            // create multicast socket to receive at all interfaces
+
+            // Lots of bugs with multicast sockets:
+            //   http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4701650
+            //   http://wiki.jboss.org/wiki/CrossTalking
+            // Because there are so many problems with underlying operating systems,
+            // do NOT bind to the multicast address, only bind to the port.
+            // Practically that means other multicasts, broadcasts or unicasts to
+            // that port will get through. We'll have to implement our own filter.
+            multicastSocket = new MulticastSocket(udpPort);
+            multicastSocket.joinGroup(InetAddress.getByName(cMsgNetworkConstants.cMsgMulticast));
+            multicastSocket.setReceiveBufferSize(65535);
+            multicastSocket.setReuseAddress(true);
+//System.out.println("Created UDP multicast listening socket at port " + udpPort);
         }
-        catch (SocketException e) {
+        catch (IOException e) {
             System.out.println("UDP port number " + udpPort + " in use.");
             e.printStackTrace();
             System.exit(-1);
         }
-        broadcastPort = udpPort;
+        multicastPort = udpPort;
 
         // record our own name
-
         try {
             serverName = InetAddress.getLocalHost().getCanonicalHostName();
         }
@@ -489,7 +499,7 @@ public class cMsgNameServer extends Thread {
                              "            [-DlowRegimeSize=<size>]  cMsgNameServer\n");
         System.out.println("       port is the TCP port this server listens on");
         System.out.println("       domainPort is the TCP port this server listens on for connection to domain server");
-        System.out.println("       udp  is the UDP port this server listens on for broadcasts");
+        System.out.println("       udp  is the UDP port this server listens on for multicasts");
         System.out.println("       subdomainName  is the name of a subdomain and className is the");
         System.out.println("                      name of the java class used to implement the subdomain");
         System.out.println("       server         hostname is the name of another host on which a cMsg");
@@ -604,7 +614,7 @@ System.out.println("Set clientsMax to " + clientsMax);
                 catch (NumberFormatException e) {
                     System.out.println("\nBad maximum number of clients serviced by single thread in low regime");
                 }
-                if (domainPort > 100 || domainPort < 2) {
+                if (clientsMax > 100 || clientsMax < 2) {
                     System.out.println("\nBad maximum number of clients serviced by single thread in low regime");
                 }
             }
@@ -693,9 +703,9 @@ System.out.println("Set clientsMax to " + clientsMax);
         }
 
         // start UDP listening thread
-//System.out.println("Start Broadcast thd on port " );
-        broadcastThread = new cMsgBroadcastListeningThread(port, broadcastSocket, clientPassword, debug);
-        broadcastThread.start();
+//System.out.println("Start Multicast thd on port " );
+        multicastThread = new cMsgBroadcastListeningThread(port, multicastSocket, clientPassword, debug);
+        multicastThread.start();
 
         // Start thread to gather monitor info
 //System.out.println("Start KA monitor thread");
@@ -722,7 +732,7 @@ System.out.println("Set clientsMax to " + clientsMax);
         setKillAllThreads(true);
 
         // Shutdown UDP listening thread
-        broadcastThread.killThread();
+        multicastThread.killThread();
         // Shutdown connecting new clients thread
         connectionThread.killThread();
         // Shutdown monitoring clients thread
