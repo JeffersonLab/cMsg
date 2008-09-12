@@ -61,10 +61,10 @@ public class cMsgServerFinder {
 
     /** Constructor. */
     cMsgServerFinder(String[] args) {
-        decodeCommandLine(args);
         responders = new HashSet<String>(100);
         cmlLinePorts = new int[0];
         defaultPorts = new int[100];
+        decodeCommandLine(args);
         // set default ports to scan
         for (int i=0; i<100; i++) {
             defaultPorts[i] = 45000 + i;
@@ -98,6 +98,7 @@ public class cMsgServerFinder {
                         System.out.println("multicast port " + cmlLinePorts[j] + " must be > 1023 and < 65536");
                         System.exit(-1);
                     }
+//System.out.println("adding port[" + j + "] = " + cmlLinePorts[j]);
                 }
                 i++;
             }
