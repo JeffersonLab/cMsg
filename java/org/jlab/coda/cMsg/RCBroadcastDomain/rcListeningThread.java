@@ -185,19 +185,19 @@ public class rcListeningThread extends Thread {
                     continue;
                 }
 
-                int msgType = bytesToInt(buf, 12); // what type of broadcast is this ?
+                int msgType = bytesToInt(buf, 12); // what type of message is this ?
 
                 switch (msgType) {
                     // broadcasts from rc clients
-                    case cMsgNetworkConstants.rcDomainBroadcastClient:
+                    case cMsgNetworkConstants.rcDomainMulticastClient:
 //System.out.println("Client wants to connect");
                         break;
                     // broadcasts from rc servers
-                    case cMsgNetworkConstants.rcDomainBroadcastServer:
+                    case cMsgNetworkConstants.rcDomainMulticastServer:
 //System.out.println("Server wants to connect");
                         break;
                     // kill this server since one already exists on this port/expid
-                    case cMsgNetworkConstants.rcDomainBroadcastKillSelf:
+                    case cMsgNetworkConstants.rcDomainMulticastKillSelf:
 //System.out.println("I was told to kill myself");
                         server.respondingHost = broadcasterHost;
                         server.broadcastResponse.countDown();
@@ -209,17 +209,17 @@ public class rcListeningThread extends Thread {
                 }
 
                 int broadcasterTcpPort = bytesToInt(buf, 16); // tcp listening port
-                int nameLen            = bytesToInt(buf, 20); // length of broadcaster's name (# chars)
+                int nameLen            = bytesToInt(buf, 20); // length of sender's name (# chars)
                 int expidLen           = bytesToInt(buf, 24); // length of expid (# chars)
 
-                // rc broadcaster's name
+                // sender's name
                 String broadcasterName = null;
                 try {
                     broadcasterName = new String(buf, 28, nameLen, "US-ASCII");
                 }
                 catch (UnsupportedEncodingException e) {}
 
-                // rc broadcaster's EXPID
+                // sender's EXPID
                 String broadcasterExpid = null;
                 try {
                     broadcasterExpid = new String(buf, 28+nameLen, expidLen, "US-ASCII");
@@ -258,7 +258,7 @@ public class rcListeningThread extends Thread {
                 }
 
                 // if broadcast from client ...
-                if (msgType == cMsgNetworkConstants.rcDomainBroadcastClient) {
+                if (msgType == cMsgNetworkConstants.rcDomainMulticastClient) {
                     // Send a reply to broad/unicast - some integer, our broadcast port, host,
                     // and expid so the client can filter out any rogue responses.
                     // All we want to communicate is that the client
@@ -292,7 +292,7 @@ public class rcListeningThread extends Thread {
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[0], buf, 0);
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[1], buf, 4);
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[2], buf, 8);
-                        cMsgUtilities.intToBytes(cMsgNetworkConstants.rcDomainBroadcastKillSelf, buf, 12);
+                        cMsgUtilities.intToBytes(cMsgNetworkConstants.rcDomainMulticastKillSelf, buf, 12);
                         DatagramPacket pkt = new DatagramPacket(buf, 16, broadcasterAddress, server.broadcastPort);
 //System.out.println("Send reponse packet (kill yourself) to server");
                         broadcastSocket.send(pkt);
