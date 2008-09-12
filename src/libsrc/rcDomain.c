@@ -495,7 +495,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     outGoing[1] = htonl(CMSG_MAGIC_INT2);
     outGoing[2] = htonl(CMSG_MAGIC_INT3);
     /* type of broadcast */
-    outGoing[3] = htonl(RC_DOMAIN_BROADCAST);
+    outGoing[3] = htonl(RC_DOMAIN_MULTICAST);
     /* tcp port */
     outGoing[4] = htonl((int) domain->listenPort);
     /* length of "myName" string */
@@ -1896,7 +1896,7 @@ static int parseUDL(const char *UDLR,
     index = 4;
     if (matches[index].rm_so < 0) {
         /* no match for port so use default */
-        Port = RC_BROADCAST_PORT;
+        Port = RC_MULTICAST_PORT;
         if (cMsgDebug >= CMSG_DEBUG_WARN) {
             fprintf(stderr, "parseUDLregex: guessing that the name server port is %d\n",
                    Port);
