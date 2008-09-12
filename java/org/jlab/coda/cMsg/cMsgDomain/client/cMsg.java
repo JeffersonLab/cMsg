@@ -563,8 +563,8 @@ public class cMsg extends cMsgDomainAdapter {
                     packet.setLength(1024);
                     udpSocket.receive(packet);
 
-                    // if packet is smaller than 5 ints  ...
-                    if (packet.getLength() < 20) {
+                    // if packet is smaller than 6 ints  ...
+                    if (packet.getLength() < 24) {
                         continue;
                     }
 
@@ -582,20 +582,21 @@ public class cMsg extends cMsgDomainAdapter {
                      }
 
                     nameServerPort = cMsgUtilities.bytesToInt(buf, 12); // port to do a direct connection to
-                    int hostLength = cMsgUtilities.bytesToInt(buf, 16); // host to do a direct connection to
+                    // udpPort is next but we'll skip over it since we don't use it
+                    int hostLength = cMsgUtilities.bytesToInt(buf, 20); // host to do a direct connection to
 
                     if ((nameServerPort < 1024 || nameServerPort > 65535) ||
-                        (hostLength < 0 || hostLength > 1024 - 20)) {
+                        (hostLength < 0 || hostLength > 1024 - 24)) {
 //System.out.println("  Wrong format for multicast response packet");
                         continue;
                     }
 
-                    if (packet.getLength() != 4*5 + hostLength) {
+                    if (packet.getLength() != 4*6 + hostLength) {
                         continue;
                     }
 
                     // cMsg server host
-                    try { nameServerHost = new String(buf, 20, hostLength, "US-ASCII"); }
+                    try { nameServerHost = new String(buf, 24, hostLength, "US-ASCII"); }
                     catch (UnsupportedEncodingException e) {}
 //System.out.println("  Got port = " + nameServerTcpPort + ", host = " + nameServerHost);
                     break;

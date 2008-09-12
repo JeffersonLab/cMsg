@@ -22,15 +22,15 @@ import java.io.*;
 import java.util.HashSet;
 
 /**
- * This class implements a program to find cMsg domain servers and cMsg broadcast
+ * This class implements a program to find cMsg domain servers and cMsg multicast
  * domain servers which are listening on UDP sockets on the local subnet.
- * By convention, all cMsg Domain servers should have a broadcast port starting at
+ * By convention, all cMsg Domain servers should have a multicast port starting at
  * 45000 and not exceeding 45099. All these ports will be probed for servers.
  */
 public class cMsgServerFinder {
 
     /** Port numbers provided by caller to probe. */
-    private int[] broadcastPorts;
+    private int[] cmlLinePorts;
 
     /** Default list of port numbers to probe. */
     private final int[] defaultPorts;
@@ -41,16 +41,16 @@ public class cMsgServerFinder {
     /** Buffer for outgoing packets. */
     private byte[] outBuffer;
 
-    /** Broadcast address. */
-    private InetAddress broadcastAddr;
+    /** Multicast address. */
+    private InetAddress multicastAddr;
 
-    /** Socket over which to send UDP broadcast and receive response packets from server. */
+    /** Socket over which to send UDP multicast and receive response packets from server. */
     private DatagramSocket udpSocket;
 
     /** Set of all responders' hosts and ports in a "host:port" string format. */
     private HashSet<String> responders;
 
-    /** Time in milliseconds waiting for a response to the broadcasts. */
+    /** Time in milliseconds waiting for a response to the multicasts. */
     private final int sleepTime = 2000;
 
     /** Level of debug output for this class. */
@@ -63,7 +63,7 @@ public class cMsgServerFinder {
     cMsgServerFinder(String[] args) {
         decodeCommandLine(args);
         responders = new HashSet<String>(100);
-        broadcastPorts = new int[0];
+        cmlLinePorts = new int[0];
         defaultPorts = new int[100];
         // set default ports to scan
         for (int i=0; i<100; i++) {
@@ -91,11 +91,11 @@ public class cMsgServerFinder {
             }
             else if (args[i].equalsIgnoreCase("-p")) {
                 String[] strs = (args[i + 1]).split("\\p{Punct}");
-                broadcastPorts = new int[strs.length];
+                cmlLinePorts = new int[strs.length];
                 for (int j=0; j<strs.length; j++) {
-                    broadcastPorts[j] = Integer.parseInt(strs[j]);
-                    if (broadcastPorts[j] < 1024 || broadcastPorts[j] > 65535) {
-                        System.out.println("broadcast port " + broadcastPorts[j] + " must be > 1023 and < 65536");
+                    cmlLinePorts[j] = Integer.parseInt(strs[j]);
+                    if (cmlLinePorts[j] < 1024 || cmlLinePorts[j] > 65535) {
+                        System.out.println("multicast port " + cmlLinePorts[j] + " must be > 1023 and < 65536");
                         System.exit(-1);
                     }
                 }
@@ -117,7 +117,7 @@ public class cMsgServerFinder {
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage:\n\n" +
-            "   java cMsgServerFinder [-p colon-separated list of ports]\n" +
+            "   java cMsgServerFinder [-p colon-separated list of UDP ports]\n" +
             "                         [-pswd password]\n" +
             "                         [-h print this usage text]\n" +
             "                         [-debug]\n");
@@ -146,16 +146,16 @@ public class cMsgServerFinder {
     public void run() throws cMsgException {
 
         //-------------------------------------------------------
-        // broadcast on local subnet to find cMsg server
+        // multicast on local subnet to find cMsg server
         //-------------------------------------------------------
         try {
-            broadcastAddr = InetAddress.getByName("255.255.255.255");
+            multicastAddr = InetAddress.getByName(cMsgNetworkConstants.cMsgMulticast);
         }
         catch (UnknownHostException e) {
             e.printStackTrace();
         }
 
-        // create byte array for broadcast
+        // create byte array for multicast
         ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);
         DataOutputStream out = new DataOutputStream(baos);
 
@@ -164,7 +164,7 @@ public class cMsgServerFinder {
             out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
-            // int describing our message type: broadcast is from cMsg domain client
+            // int describing our message type: multicast is from cMsg domain client
             out.writeInt(cMsgNetworkConstants.cMsgDomainMulticast);
             out.writeInt(password.length());
             try {out.write(password.getBytes("US-ASCII"));}
@@ -177,26 +177,26 @@ public class cMsgServerFinder {
             udpSocket.setReceiveBufferSize(1024);
             udpSocket.setSoTimeout(sleepTime);
 
-            // create broadcast packet from the byte array
+            // create multicast packet from the byte array
             outBuffer = baos.toByteArray();
         }
         catch (IOException e) {
             try { out.close();} catch (IOException e1) {}
             try {baos.close();} catch (IOException e1) {}
             if (udpSocket != null) udpSocket.close();
-            throw new cMsgException("Cannot create broadcast packet", e);
+            throw new cMsgException("Cannot create multicast packet", e);
         }
 
-        // create a thread which will receive any responses to our broadcast
-        BroadcastReceiver receiver = new BroadcastReceiver();
+        // create a thread which will receive any responses to our multicast
+        MulticastReceiver receiver = new MulticastReceiver();
         receiver.start();
 
         // give receiver time to get started before we starting sending out packets
         try { Thread.sleep(200); }
         catch (InterruptedException e) { }
 
-        // create a thread which will send our broadcast
-        Broadcaster sender = new Broadcaster();
+        // create a thread which will send our multicast
+        Multicaster sender = new Multicaster();
         sender.start();
 
         // wait for responses
@@ -215,7 +215,9 @@ public class cMsgServerFinder {
             parts = s.split(":");
             try { host = InetAddress.getByName(parts[0]).getHostName(); }
             catch (UnknownHostException e) { }
-            System.out.println("host = " + host + ",  addr = " + parts[0] + ",  port = " + parts[1]);
+            System.out.println("host = " + host + ",  addr = " + parts[0] +
+                    ",  TCP port = " + parts[1] +
+                    ",  UDP port = " + parts[2]);
         }
 
         return;
@@ -224,13 +226,13 @@ public class cMsgServerFinder {
 //-----------------------------------------------------------------------------
 
     /**
-     * This class gets any response to our UDP broadcast.
+     * This class gets any response to our UDP multicast.
      */
-    class BroadcastReceiver extends Thread {
+    class MulticastReceiver extends Thread {
 
         public void run() {
             String nameServerHost;
-            int nameServerPort;
+            int nameServerTcpPort, nameServerUdpPort;
             StringBuffer id = new StringBuffer(1024);
             byte[] buf = new byte[1024];
             DatagramPacket packet = new DatagramPacket(buf, 1024);
@@ -242,8 +244,8 @@ public class cMsgServerFinder {
 //System.out.println("Waiting to receive a packet");
                     udpSocket.receive(packet);
 
-                    // if packet is smaller than 5 ints plus 1 really short string ...
-                    if (packet.getLength() < 21) {
+                    // if packet is smaller than 6 ints
+                    if (packet.getLength() < 24) {
                         continue;
                     }
 
@@ -256,36 +258,39 @@ public class cMsgServerFinder {
                     if ( (magicInt1 != cMsgNetworkConstants.magicNumbers[0]) ||
                          (magicInt2 != cMsgNetworkConstants.magicNumbers[1]) ||
                          (magicInt3 != cMsgNetworkConstants.magicNumbers[2]))  {
-//System.out.println("  Bad magic numbers for broadcast response packet");
+//System.out.println("  Bad magic numbers for multicast response packet");
                         continue;
                     }
 
                     // cMsg name server port
-                    nameServerPort = cMsgUtilities.bytesToInt(buf, 12); // port to do a direct connection to
-                    int hostLength = cMsgUtilities.bytesToInt(buf, 16); // host to do a direct connection to
+                    nameServerTcpPort = cMsgUtilities.bytesToInt(buf, 12); // port to do a direct connection to
+                    nameServerUdpPort = cMsgUtilities.bytesToInt(buf, 16); // port to do a direct connection to
+                    int hostLength = cMsgUtilities.bytesToInt(buf, 20); // host to do a direct connection to
 
-                    if ((nameServerPort < 1024 || nameServerPort > 65535) ||
-                            (hostLength < 0 || hostLength > 1024 - 20)) {
-//System.out.println("  Wrong port # or host length for broadcast response packet");
+                    if ((nameServerTcpPort < 1024 || nameServerTcpPort > 65535) ||
+                            (hostLength < 0 || hostLength > 1024 - 24)) {
+//System.out.println("  Wrong port # or host length for multicast response packet");
                         continue;
                     }
 
-                    if (packet.getLength() != 4*5 + hostLength) {
-//System.out.println("  Wrong length for broadcast response packet");
+                    if (packet.getLength() != 4*6 + hostLength) {
+//System.out.println("  Wrong length for multicast response packet");
                         continue;
                     }
 
                     // cMsg name server host
-                    try { nameServerHost = new String(buf, 20, hostLength, "US-ASCII"); }
+                    try { nameServerHost = new String(buf, 24, hostLength, "US-ASCII"); }
                     catch (UnsupportedEncodingException e) {}
 //System.out.println("  Got port = " + nameServerTcpPort + ", host = " + nameServerHost);
 
-                    // put in a unique item: "host:port"
+                    // put in a unique item: "host:tcpPort:udpPort"
                     if (nameServerHost.length() > 0) {
                         id.delete(0,1023);
                         id.append(nameServerHost);
                         id.append(":");
-                        id.append(nameServerPort);
+                        id.append(nameServerTcpPort);
+                        id.append(":");
+                        id.append(nameServerUdpPort);
                         responders.add(id.toString());
                     }
                 }
@@ -304,25 +309,25 @@ public class cMsgServerFinder {
 //-----------------------------------------------------------------------------
 
     /**
-     * This class defines a thread to broadcast a single UDP packet to
+     * This class defines a thread to multicast a single UDP packet to
      * cMsg name servers.
      */
-    class Broadcaster extends Thread {
+    class Multicaster extends Thread {
 
         public void run() {
             DatagramPacket packet;
 
             try {
-                for (int broadcastPort : broadcastPorts) {
-//System.out.println("Send broadcast packets on port " + broadcastPort);
+                for (int multicastPort : cmlLinePorts) {
+//System.out.println("Send multicast packets on port " + multicastPort);
                     packet = new DatagramPacket(outBuffer, outBuffer.length,
-                                                broadcastAddr, broadcastPort);
+                                                multicastAddr, multicastPort);
                     udpSocket.send(packet);
                 }
-                for (int broadcastPort : defaultPorts) {
-//System.out.println("Send broadcast packets on port " + broadcastPort);
+                for (int multicastPort : defaultPorts) {
+//System.out.println("Send multicast packets on port " + multicastPort);
                     packet = new DatagramPacket(outBuffer, outBuffer.length,
-                                                broadcastAddr, broadcastPort);
+                                                multicastAddr, multicastPort);
                     udpSocket.send(packet);
                 }
             }
