@@ -165,7 +165,7 @@ public class cMsgServerFinder {
             out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
             // int describing our message type: broadcast is from cMsg domain client
-            out.writeInt(cMsgNetworkConstants.cMsgDomainBroadcast);
+            out.writeInt(cMsgNetworkConstants.cMsgDomainMulticast);
             out.writeInt(password.length());
             try {out.write(password.getBytes("US-ASCII"));}
             catch (UnsupportedEncodingException e) { }
@@ -278,7 +278,7 @@ public class cMsgServerFinder {
                     // cMsg name server host
                     try { nameServerHost = new String(buf, 20, hostLength, "US-ASCII"); }
                     catch (UnsupportedEncodingException e) {}
-//System.out.println("  Got port = " + nameServerPort + ", host = " + nameServerHost);
+//System.out.println("  Got port = " + nameServerTcpPort + ", host = " + nameServerHost);
 
                     // put in a unique item: "host:port"
                     if (nameServerHost.length() > 0) {
