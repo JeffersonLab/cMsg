@@ -295,7 +295,7 @@ public class RunControl extends cMsgDomainAdapter {
                 out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
-                out.writeInt(cMsgNetworkConstants.rcDomainBroadcastClient); // broadcast is from rc domain client
+                out.writeInt(cMsgNetworkConstants.rcDomainMulticastClient); // broadcast is from rc domain client
                 out.writeInt(port);
                 out.writeInt(name.length());
                 out.writeInt(expid.length());
