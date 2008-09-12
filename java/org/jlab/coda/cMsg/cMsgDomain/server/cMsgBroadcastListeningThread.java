@@ -40,7 +40,7 @@ public class cMsgBroadcastListeningThread extends Thread {
      private String serverPassword;
 
      /** UDP socket on which to read packets sent from cMsg clients. */
-    private DatagramSocket broadcastSocket;
+    private MulticastSocket multicastSocket;
 
     /** Level of debug output for this class. */
     private int debug;
@@ -52,36 +52,21 @@ public class cMsgBroadcastListeningThread extends Thread {
     void killThread() {
         killThread = true;
         this.interrupt();
-        broadcastSocket.close();
+        multicastSocket.close();
     }
 
-
-    /**
-     * Converts 4 bytes of a byte array into an integer.
-     *
-     * @param b   byte array
-     * @param off offset into the byte array (0 = start at first element)
-     * @return integer value
-     */
-    private static final int bytesToInt(byte[] b, int off) {
-        int result = ((b[off] & 0xff) << 24)     |
-                     ((b[off + 1] & 0xff) << 16) |
-                     ((b[off + 2] & 0xff) << 8)  |
-                      (b[off + 3] & 0xff);
-        return result;
-    }
 
 
     /**
      * Constructor.
      *
      * @param port cMsg name server's main tcp listening port
-     * @param socket udp socket on which to receive broadcasts from cMsg clients
+     * @param socket udp socket on which to receive multicasts from cMsg clients
      * @param password cMsg server's client password
      * @param debug cMsg server's debug level
      */
-    public cMsgBroadcastListeningThread(int port, DatagramSocket socket, String password, int debug) {
-        broadcastSocket = socket;
+    public cMsgBroadcastListeningThread(int port, MulticastSocket socket, String password, int debug) {
+        multicastSocket = socket;
         serverTcpPort   = port;
         serverPassword  = password;
         this.debug      = debug;
@@ -94,7 +79,7 @@ public class cMsgBroadcastListeningThread extends Thread {
     public void run() {
 
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("Running cMsgNameserver Broadcast Listening Thread");
+            System.out.println("Running cMsgNameserver Multicast Listening Thread");
         }
 
         // create a packet to be written into
@@ -127,7 +112,7 @@ public class cMsgBroadcastListeningThread extends Thread {
             out.flush();
             out.close();
 
-            // create packet to broadcast from the byte array
+            // create packet to multicast from the byte array
             byte[] outBuf = baos.toByteArray();
             sendPacket = new DatagramPacket(outBuf, outBuf.length);
         }
@@ -137,15 +122,15 @@ public class cMsgBroadcastListeningThread extends Thread {
             }
         }
 
-        // listen for broadcasts and interpret packets
+        // listen for multicasts and interpret packets
         try {
             while (true) {
                 if (killThread) { return; }
 
                 packet.setLength(1024);
-                broadcastSocket.receive(packet);
+                multicastSocket.receive(packet);
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("RECEIVED CMSG DOMAIN BROADCAST PACKET !!!");
+                    System.out.println("RECEIVED CMSG DOMAIN MULTICAST PACKET !!!");
                 }
 
                 if (killThread) { return; }
@@ -153,6 +138,10 @@ public class cMsgBroadcastListeningThread extends Thread {
                 // pick apart byte array received
                 InetAddress clientAddress = packet.getAddress();
                 int clientUdpPort = packet.getPort();   // port to send response packet to
+
+                // Because there are so many problems with underlying operating systems,
+                // our use of multicasting allows other multicasts, broadcasts or unicasts to
+                // send to this UDP socket. We'll have to implement our own filter.
 
                 // if packet is smaller than 5 ints ...
                 if (packet.getLength() < 20) {
@@ -167,16 +156,17 @@ public class cMsgBroadcastListeningThread extends Thread {
                 if ( (magicInt1 != cMsgNetworkConstants.magicNumbers[0]) ||
                      (magicInt2 != cMsgNetworkConstants.magicNumbers[1]) ||
                      (magicInt3 != cMsgNetworkConstants.magicNumbers[2]))  {
-//System.out.println("  Bad magic numbers for broadcast response packet");
+//System.out.println("  Bad magic numbers for multicast response packet");
                      continue;
                  }
 
-                int msgType       = bytesToInt(buf, 12); // what type of broadcast is this ?
-                int passwordLen   = bytesToInt(buf, 16); // password length
+                int msgType     = cMsgUtilities.bytesToInt(buf, 12); // what type of multicast is this ?
+                int passwordLen = cMsgUtilities.bytesToInt(buf, 16); // password length
 
-                // sanity check
-                if (msgType != cMsgNetworkConstants.cMsgDomainBroadcast) {
-                    // ignore broadcasts from unknown sources
+                // Check to distinguish between this case and sending messages
+                // to the rc broadcast domain.
+                if (msgType != cMsgNetworkConstants.cMsgDomainMulticast) {
+                    // ignore multicasts from unknown sources
 //System.out.println("bad msgtype");
                     continue;
                 }
@@ -218,14 +208,14 @@ public class cMsgBroadcastListeningThread extends Thread {
                     System.out.println("packet passes all tests, send response");
                 }
 
-                // Send a reply to broadcast. This must contain this name server's
+                // Send a reply to multicast. This must contain this name server's
                 // host and tcp port so a regular connect can be done by the client.
                 try {
                     // set address and port for responding packet
                     sendPacket.setAddress(clientAddress);
                     sendPacket.setPort(clientUdpPort);
 //System.out.println("Send reponse packet");
-                    broadcastSocket.send(sendPacket);
+                    multicastSocket.send(sendPacket);
                 }
                 catch (IOException e) {
                     if (debug >= cMsgConstants.debugError) {
@@ -236,13 +226,14 @@ public class cMsgBroadcastListeningThread extends Thread {
         }
         catch (IOException e) {
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("cMsgBroadcastListenThread: I/O ERROR in rc broadcast server");
-                System.out.println("cMsgBroadcastListenThread: close broadcast socket, port = " + broadcastSocket.getLocalPort());
+                System.out.println("cMsgBroadcastListenThread: I/O ERROR in cMsg multicast server");
+                System.out.println("                         : close multicast socket, port = " +
+                                    multicastSocket.getLocalPort());
             }
         }
         finally {
             // We're here if there is an IO error. Close socket and kill this thread.
-            broadcastSocket.close();
+            multicastSocket.close();
         }
 
         return;
