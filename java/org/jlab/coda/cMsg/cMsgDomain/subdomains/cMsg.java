@@ -406,7 +406,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 
     /**
      * Method to register cMsg domain server as client.
-     * Name is of the form "nameServerHost:nameServerPort".
+     * Name is of the form "nameServerHost:nameServerTcpPort".
      *
      * @param info information about client
      */
