@@ -197,7 +197,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
                 out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
-                out.writeInt(cMsgNetworkConstants.rcDomainBroadcastServer);
+                out.writeInt(cMsgNetworkConstants.rcDomainMulticastServer);
                 // port is irrelevant
                 out.writeInt(0);
                 out.writeInt(name.length());
