@@ -75,7 +75,7 @@ public class cMsgNameServer extends Thread {
     private MulticastSocket multicastSocket;
 
     /** Thread which receives client multicasts. */
-    private cMsgBroadcastListeningThread multicastThread;
+    private cMsgMulticastListeningThread multicastThread;
 
     /** Thread which handles the permanen client connections. */
     private cMsgConnectionHandler connectionThread;
@@ -704,7 +704,7 @@ System.out.println("Set clientsMax to " + clientsMax);
 
         // start UDP listening thread
 //System.out.println("Start Multicast thd on port " );
-        multicastThread = new cMsgBroadcastListeningThread(port, multicastSocket, clientPassword, debug);
+        multicastThread = new cMsgMulticastListeningThread(port, multicastSocket, clientPassword, debug);
         multicastThread.start();
 
         // Start thread to gather monitor info
