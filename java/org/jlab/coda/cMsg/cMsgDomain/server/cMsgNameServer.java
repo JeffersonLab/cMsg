@@ -704,7 +704,8 @@ System.out.println("Set clientsMax to " + clientsMax);
 
         // start UDP listening thread
 //System.out.println("Start Multicast thd on port " );
-        multicastThread = new cMsgMulticastListeningThread(port, multicastSocket, clientPassword, debug);
+        multicastThread = new cMsgMulticastListeningThread(port, multicastPort, multicastSocket,
+                                                           clientPassword, debug);
         multicastThread.start();
 
         // Start thread to gather monitor info
