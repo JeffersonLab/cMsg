@@ -169,6 +169,12 @@ extern "C" {
 #define CMSG_MAGIC_INT2 0x20697320
 #define CMSG_MAGIC_INT3 0x636f6f6c
 
+/** Multicast address for run control broadcast domain server. */
+#define RC_MULTICAST_ADDR "239.210.0.0"
+    
+/** Multicast address for cMsg domain name server. */
+#define CMSG_MULTICAST_ADDR "239.220.0.0"
+
 /** The size (in bytes) of biggest buffers used to send UDP data from client to server. */
 #define CMSG_BIGGEST_UDP_BUFFER_SIZE 65536
 
