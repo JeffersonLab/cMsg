@@ -44,7 +44,6 @@ public class cMsg extends cMsgDomainAdapter {
     /** Port number to listen on. */
     int port;
 
-
     /** Subdomain being used. */
     private String subdomain;
 
@@ -87,8 +86,8 @@ public class cMsg extends cMsgDomainAdapter {
     /** Port number from which to start looking for a suitable listening port. */
     int startingPort;
 
-    /** Socket over which to send UDP broadcast and receive response packets from server. */
-    DatagramSocket udpSocket;
+    /** Socket over which to send UDP multicast and receive response packets from server. */
+    MulticastSocket udpSocket;
 
     /** Socket over which to send messges with UDP. */
     DatagramSocket sendUdpSocket;
@@ -97,10 +96,11 @@ public class cMsg extends cMsgDomainAdapter {
     DatagramPacket sendUdpPacket;
 
     /**
-     * True if the host given by the UDL is \"broadcast\" or \"255.255.255.255\".
-     * In this case we must broadcast to find the server. Else false.
+     * True if the host given by the UDL is \"multicast\"
+     * or the string {@link cMsgNetworkConstants#cMsgMulticast}.
+     * In this case we must multicast to find the server, else false.
      */
-    boolean mustBroadcast;
+    boolean mustMulticast;
 
     /**
      * What throughput do we expect from this client? Values may be one of:
@@ -109,11 +109,11 @@ public class cMsg extends cMsgDomainAdapter {
      */
     int regime;
 
-    /** Signal to coordinate the broadcasting and waiting for responses. */
-    CountDownLatch broadcastResponse;
+    /** Signal to coordinate the multicasting and waiting for responses. */
+    CountDownLatch multicastResponse;
 
-    /** Timeout in milliseconds to wait for server to respond to broadcasts. */
-    int broadcastTimeout;
+    /** Timeout in milliseconds to wait for server to respond to multicasts. */
+    int multicastTimeout;
 
     /** Name server's host. */
     String nameServerHost;
@@ -356,8 +356,8 @@ public class cMsg extends cMsgDomainAdapter {
             // store locally
             p.copyToLocal();
             // connect using that UDL
-            if (mustBroadcast) {
-                connectWithBroadcast();
+            if (mustMulticast) {
+                connectWithMulticast();
             }
             connectDirect();
             return;
@@ -415,8 +415,8 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             try {
-                if (mustBroadcast) {
-                    connectWithBroadcast();
+                if (mustMulticast) {
+                    connectWithMulticast();
                 }
                 connectDirect();
                 return;
@@ -435,16 +435,16 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * Method to broadcast in order to find the domain server from this client.
+     * Method to multicast in order to find the domain server from this client.
      * Once the server is found and returns its host and port, a direct connection
      * can be made.
      *
      * @throws cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server
      */
-    private void connectWithBroadcast() throws cMsgException {
+    private void connectWithMulticast() throws cMsgException {
         // Need a new latch for each go round - one shot deal
-        broadcastResponse = new CountDownLatch(1);
+        multicastResponse = new CountDownLatch(1);
 
         // cannot run this simultaneously with any other public method
         connectLock.lock();
@@ -452,18 +452,18 @@ public class cMsg extends cMsgDomainAdapter {
             if (connected) return;
 
             //-------------------------------------------------------
-            // broadcast on local subnet to find cMsg server
+            // multicast on local subnet to find cMsg server
             //-------------------------------------------------------
             DatagramPacket udpPacket;
-            InetAddress broadcastAddr = null;
+            InetAddress multicastAddr = null;
             try {
-                broadcastAddr = InetAddress.getByName("255.255.255.255");
+                multicastAddr = InetAddress.getByName(cMsgNetworkConstants.cMsgMulticast);
             }
             catch (UnknownHostException e) {
                 e.printStackTrace();
             }
 
-            // create byte array for broadcast
+            // create byte array for multicast
             ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);
             DataOutputStream out = new DataOutputStream(baos);
 
@@ -472,8 +472,8 @@ public class cMsg extends cMsgDomainAdapter {
                 out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
-                // int describing our message type: broadcast is from cMsg domain client
-                out.writeInt(cMsgNetworkConstants.cMsgDomainBroadcast);
+                // int describing our message type: multicast is from cMsg domain client
+                out.writeInt(cMsgNetworkConstants.cMsgDomainMulticast);
                 out.writeInt(password.length());
                 try {out.write(password.getBytes("US-ASCII"));}
                 catch (UnsupportedEncodingException e) { }
@@ -481,55 +481,55 @@ public class cMsg extends cMsgDomainAdapter {
                 out.close();
 
                 // create socket to receive at anonymous port & all interfaces
-                udpSocket = new DatagramSocket();
+                udpSocket = new MulticastSocket();
                 udpSocket.setReceiveBufferSize(1024);
 
-                // create broadcast packet from the byte array
+                // create multicast packet from the byte array
                 byte[] buf = baos.toByteArray();
-                udpPacket = new DatagramPacket(buf, buf.length, broadcastAddr, nameServerPort);
+                udpPacket = new DatagramPacket(buf, buf.length, multicastAddr, nameServerPort);
             }
             catch (IOException e) {
                 try { out.close();} catch (IOException e1) {}
                 try {baos.close();} catch (IOException e1) {}
                 if (udpSocket != null) udpSocket.close();
-                throw new cMsgException("Cannot create broadcast packet", e);
+                throw new cMsgException("Cannot create multicast packet", e);
             }
 
-            // create a thread which will receive any responses to our broadcast
-            BroadcastReceiver receiver = new BroadcastReceiver();
+            // create a thread which will receive any responses to our multicast
+            UdpReceiver receiver = new UdpReceiver();
             receiver.start();
 
-            // create a thread which will send our broadcast
-            Broadcaster sender = new Broadcaster(udpPacket);
+            // create a thread which will send our multicast
+            Multicaster sender = new Multicaster(udpPacket);
             sender.start();
 
-            // wait up to broadcast timeout
+            // wait up to multicast timeout
             boolean response = false;
-            if (broadcastTimeout > 0) {
+            if (multicastTimeout > 0) {
                 try {
-                    if (broadcastResponse.await(broadcastTimeout, TimeUnit.MILLISECONDS)) {
+                    if (multicastResponse.await(multicastTimeout, TimeUnit.MILLISECONDS)) {
                         response = true;
                     }
                 }
                 catch (InterruptedException e) {
-                    System.out.println("INTERRUPTING WAIT FOR BROADCAST RESPONSE, (timeout specified)");
+                    System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout specified)");
                 }
             }
             // wait forever
             else {
-                try { broadcastResponse.await(); response = true;}
+                try { multicastResponse.await(); response = true;}
                 catch (InterruptedException e) {
-                    System.out.println("INTERRUPTING WAIT FOR BROADCAST RESPONSE, (timeout NOT specified)");
+                    System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT specified)");
                 }
             }
 
             sender.interrupt();
 
             if (!response) {
-                throw new cMsgException("No response to UDP broadcast received");
+                throw new cMsgException("No response to UDP multicast received");
             }
 
-//System.out.println("Got a response!, broadcast part finished ...");
+//System.out.println("Got a response!, multicast part finished ...");
         }
         finally {
             connectLock.unlock();
@@ -541,15 +541,15 @@ public class cMsg extends cMsgDomainAdapter {
 //-----------------------------------------------------------------------------
 
     /**
-     * This class gets any response to our UDP broadcast.
+     * This class gets any response to our UDP multicast.
      */
-    class BroadcastReceiver extends Thread {
+    class UdpReceiver extends Thread {
 
         public void run() {
 
             /* A slight delay here will help the main thread (calling connect)
              * to be already waiting for a response from the server when we
-             * broadcast to the server here (prompting that response). This
+             * multicast to the server here (prompting that response). This
              * will help insure no responses will be lost.
              */
             try { Thread.sleep(200); }
@@ -568,7 +568,7 @@ public class cMsg extends cMsgDomainAdapter {
                         continue;
                     }
 
-//System.out.println("RECEIVED BROADCAST RESPONSE PACKET !!!");
+//System.out.println("RECEIVED MULTICAST RESPONSE PACKET !!!");
                     // pick apart byte array received
                     int magicInt1  = cMsgUtilities.bytesToInt(buf, 0); // magic password
                     int magicInt2  = cMsgUtilities.bytesToInt(buf, 4); // magic password
@@ -577,7 +577,7 @@ public class cMsg extends cMsgDomainAdapter {
                     if ( (magicInt1 != cMsgNetworkConstants.magicNumbers[0]) ||
                          (magicInt2 != cMsgNetworkConstants.magicNumbers[1]) ||
                          (magicInt3 != cMsgNetworkConstants.magicNumbers[2]))  {
-//System.out.println("  Bad magic numbers for broadcast response packet");
+//System.out.println("  Bad magic numbers for multicast response packet");
                          continue;
                      }
 
@@ -586,7 +586,7 @@ public class cMsg extends cMsgDomainAdapter {
 
                     if ((nameServerPort < 1024 || nameServerPort > 65535) ||
                         (hostLength < 0 || hostLength > 1024 - 20)) {
-//System.out.println("  Wrong format for broadcast response packet");
+//System.out.println("  Wrong format for multicast response packet");
                         continue;
                     }
 
@@ -597,38 +597,37 @@ public class cMsg extends cMsgDomainAdapter {
                     // cMsg server host
                     try { nameServerHost = new String(buf, 20, hostLength, "US-ASCII"); }
                     catch (UnsupportedEncodingException e) {}
-//System.out.println("  Got port = " + nameServerPort + ", host = " + nameServerHost);
+//System.out.println("  Got port = " + nameServerTcpPort + ", host = " + nameServerHost);
                     break;
                 }
                 catch (IOException e) {
                 }
             }
 
-            broadcastResponse.countDown();
+            multicastResponse.countDown();
         }
     }
 
 //-----------------------------------------------------------------------------
 
     /**
-     * This class defines a thread to broadcast a UDP packet to the
+     * This class defines a thread to multicast a UDP packet to the
      * cMsg name server every second.
      */
-    class Broadcaster extends Thread {
+    class Multicaster extends Thread {
 
         DatagramPacket packet;
 
-        Broadcaster(DatagramPacket udpPacket) {
+        Multicaster(DatagramPacket udpPacket) {
             packet = udpPacket;
         }
-
 
         public void run() {
 
             try {
                 /* A slight delay here will help the main thread (calling connect)
                 * to be already waiting for a response from the server when we
-                * broadcast to the server here (prompting that response). This
+                * multicast to the server here (prompting that response). This
                 * will help insure no responses will be lost.
                 */
                 Thread.sleep(100);
@@ -636,7 +635,7 @@ public class cMsg extends cMsgDomainAdapter {
                 while (true) {
 
                     try {
-//System.out.println("Send broadcast packet to RC Broadcast server");
+//System.out.println("Send multicast packet to RC Multicast server");
                         udpSocket.send(packet);
                     }
                     catch (IOException e) {
@@ -648,7 +647,7 @@ public class cMsg extends cMsgDomainAdapter {
             }
             catch (InterruptedException e) {
                 // time to quit
- //System.out.println("Interrupted sender");
+ System.out.println("Interrupted sender");
             }
         }
     }
@@ -1346,7 +1345,7 @@ public class cMsg extends cMsgDomainAdapter {
             throw new cMsgException("Too big a message for UDP to send");
         }
 
-        // create byte array for broadcast
+        // create byte array for multicast
         ByteArrayOutputStream baos = new ByteArrayOutputStream(totalLength);
         DataOutputStream out = new DataOutputStream(baos);
 
@@ -2614,16 +2613,16 @@ public class cMsg extends cMsgDomainAdapter {
      *
      * Remember that for this domain:
      * 1) port is not necessary to specify but is the name server's TCP port if connecting directly
-     *    or the server's UDP port if broadcasting. Defaults used if not specified are
-     *    {@link cMsgNetworkConstants#nameServerPort} if connecting directly, else
-     *    {@link cMsgNetworkConstants#nameServerBroadcastPort} if broadcasting
+     *    or the server's UDP port if multicasting. Defaults used if not specified are
+     *    {@link cMsgNetworkConstants#nameServerTcpPort} if connecting directly, else
+     *    {@link cMsgNetworkConstants#nameServerUdpPort} if multicasting
      * 2) host can be "localhost" and may also be in dotted form (129.57.35.21)
      * 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
      *    if subdomainType is not cMsg, it is required
      * 4) the domain name is case insensitive as is the subdomainType
      * 5) remainder is past on to the subdomain plug-in
      * 6) client's password is in tag=value part of UDL as cmsgpassword=&lt;password&gt;
-     * 7) broadcast timeout is in tag=value part of UDL as broadcastTO=&lt;time out in seconds&gt;
+     * 7) multicast timeout is in tag=value part of UDL as multicastTO=&lt;time out in seconds&gt;
      * 8) the tag=value part of UDL parsed here is given by regime=low or regime=high means:
      *    - low message/data throughtput client if regime=low, meaning many clients are serviced
      *      by a single server thread and all msgs retain time order,
@@ -2689,10 +2688,11 @@ public class cMsg extends cMsgDomainAdapter {
             udlSubdomain = "cMsg";
         }
 
-        boolean mustBroadcast = false;
-        if (udlHost.equalsIgnoreCase("broadcast") || udlHost.equals("255.255.255.255")) {
-            mustBroadcast = true;
-//System.out.println("set mustBroadcast to true (locally in parse method)");
+        boolean mustMulticast = false;
+        if (udlHost.equalsIgnoreCase("multicast") ||
+            udlHost.equals(cMsgNetworkConstants.cMsgMulticast)) {
+            mustMulticast = true;
+//System.out.println("set mustMulticast to true (locally in parse method)");
         }
         // if the host is "localhost", find the actual, fully qualified  host name
         else if (udlHost.equalsIgnoreCase("localhost")) {
@@ -2714,11 +2714,11 @@ public class cMsg extends cMsgDomainAdapter {
         if (udlPort != null && udlPort.length() > 0) {
             try {udlPortInt = Integer.parseInt(udlPort);}
             catch (NumberFormatException e) {
-                if (mustBroadcast) {
-                    udlPortInt = cMsgNetworkConstants.nameServerBroadcastPort;
+                if (mustMulticast) {
+                    udlPortInt = cMsgNetworkConstants.nameServerUdpPort;
                 }
                 else {
-                    udlPortInt = cMsgNetworkConstants.nameServerPort;
+                    udlPortInt = cMsgNetworkConstants.nameServerTcpPort;
                 }
                 if (debug >= cMsgConstants.debugWarn) {
                     System.out.println("parseUDL: non-integer port, guessing server port is " + udlPortInt);
@@ -2726,11 +2726,11 @@ public class cMsg extends cMsgDomainAdapter {
             }
         }
         else {
-            if (mustBroadcast) {
-                udlPortInt = cMsgNetworkConstants.nameServerBroadcastPort;
+            if (mustMulticast) {
+                udlPortInt = cMsgNetworkConstants.nameServerUdpPort;
             }
             else {
-                udlPortInt = cMsgNetworkConstants.nameServerPort;
+                udlPortInt = cMsgNetworkConstants.nameServerTcpPort;
             }
             if (debug >= cMsgConstants.debugWarn) {
                 System.out.println("parseUDL: guessing name server port is " + udlPortInt);
@@ -2757,14 +2757,14 @@ public class cMsg extends cMsgDomainAdapter {
         }
 
 
-        // look for ?broadcastTO=value& or &broadcastTO=value&
+        // look for ?multicastTO=value& or &multicastTO=value&
         int timeout=0;
-        pattern = Pattern.compile("[\\?&]broadcastTO=([0-9]+)", Pattern.CASE_INSENSITIVE);
+        pattern = Pattern.compile("[\\?&]multicastTO=([0-9]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(udlSubRemainder);
         if (matcher.find()) {
             try {
                 timeout = 1000 * Integer.parseInt(matcher.group(1));
-//System.out.println("broadcast TO = " + broadcastTimeout);
+//System.out.println("multicast TO = " + multicastTimeout);
             }
             catch (NumberFormatException e) {
                 // ignore error and keep value of 0
@@ -2801,7 +2801,7 @@ public class cMsg extends cMsgDomainAdapter {
 
         // store results in a class
         return new ParsedUDL(udl, udlRemainder, udlSubdomain, udlSubRemainder,
-                             pswd, udlHost, udlPortInt, timeout, regime, mustBroadcast);
+                             pswd, udlHost, udlPortInt, timeout, regime, mustMulticast);
     }
 
 
@@ -2839,9 +2839,9 @@ public class cMsg extends cMsgDomainAdapter {
         String  password;
         String  nameServerHost;
         int     nameServerPort;
-        int     broadcastTimeout;
+        int     multicastTimeout;
         int     regime;
-        boolean mustBroadcast;
+        boolean mustMulticast;
         boolean valid;
 
         /** Constructor. */
@@ -2860,9 +2860,9 @@ public class cMsg extends cMsgDomainAdapter {
             password         = s5;
             nameServerHost   = s6;
             nameServerPort   = i1;
-            broadcastTimeout = i2;
+            multicastTimeout = i2;
             regime           = i3;
-            mustBroadcast    = b1;
+            mustMulticast    = b1;
             valid            = true;
         }
 
@@ -2875,9 +2875,9 @@ public class cMsg extends cMsgDomainAdapter {
             cMsg.this.password         = password;
             cMsg.this.nameServerHost   = nameServerHost;
             cMsg.this.nameServerPort   = nameServerPort;
-            cMsg.this.broadcastTimeout = broadcastTimeout;
+            cMsg.this.multicastTimeout = multicastTimeout;
             cMsg.this.regime           = regime;
-            cMsg.this.mustBroadcast    = mustBroadcast;
+            cMsg.this.mustMulticast    = mustMulticast;
             if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("Copy from stored parsed UDL to local :");
                 System.out.println("  UDL              = " + UDL);
@@ -2886,9 +2886,9 @@ public class cMsg extends cMsgDomainAdapter {
                 System.out.println("  subRemainder     = " + subRemainder);
                 System.out.println("  password         = " + password);
                 System.out.println("  nameServerHost   = " + nameServerHost);
-                System.out.println("  nameServerPort   = " + nameServerPort);
-                System.out.println("  broadcastTimeout = " + broadcastTimeout);
-                System.out.println("  mustBroadcast    = " + mustBroadcast);
+                System.out.println("  nameServerTcpPort   = " + nameServerPort);
+                System.out.println("  multicastTimeout = " + multicastTimeout);
+                System.out.println("  mustMulticast    = " + mustMulticast);
                 if (regime == cMsgConstants.regimeHigh)
                     System.out.println("  regime           = high");
                 else if (regime == cMsgConstants.regimeLow)
@@ -2907,9 +2907,9 @@ public class cMsg extends cMsgDomainAdapter {
             cMsg.this.password         = null;
             cMsg.this.nameServerHost   = null;
             cMsg.this.nameServerPort   = 0;
-            cMsg.this.broadcastTimeout = 0;
+            cMsg.this.multicastTimeout = 0;
             cMsg.this.regime           = cMsgConstants.regimeMedium;
-            cMsg.this.mustBroadcast    = false;
+            cMsg.this.mustMulticast    = false;
         }
     }
 
@@ -3032,8 +3032,8 @@ public class cMsg extends cMsgDomainAdapter {
                     try {
                         // connect with another server
 //System.out.println("\nTrying to REconnect with UDL = " + p.UDL);
-                        if (mustBroadcast) {
-                            connectWithBroadcast();
+                        if (mustMulticast) {
+                            connectWithMulticast();
                         }
                         reconnect();
 
