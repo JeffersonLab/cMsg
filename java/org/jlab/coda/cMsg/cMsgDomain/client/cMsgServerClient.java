@@ -23,8 +23,6 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.concurrent.*;
 import java.io.*;
-import java.nio.channels.SocketChannel;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 
 /**
@@ -173,7 +171,7 @@ public class cMsgServerClient extends cMsg {
             // connect & talk to cMsg name server to check if name is unique
             Socket nsSocket = null;
             try {
-//System.out.println("        << CL: open socket to  " + nameServerHost + ":" + nameServerPort);
+//System.out.println("        << CL: open socket to  " + nameServerHost + ":" + nameServerTcpPort);
                 nsSocket = new Socket(nameServerHost, nameServerPort);
                 // Set tcpNoDelay so no packets are delayed
                 nsSocket.setTcpNoDelay(true);
@@ -292,7 +290,7 @@ public class cMsgServerClient extends cMsg {
             connectLock.unlock();
         }
 
-//System.out.println("        << CL: done connecting to  " + nameServerHost + ":" + nameServerPort);
+//System.out.println("        << CL: done connecting to  " + nameServerHost + ":" + nameServerTcpPort);
         return serverSet;
     }
 
