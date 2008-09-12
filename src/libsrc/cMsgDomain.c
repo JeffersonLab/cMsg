@@ -66,7 +66,7 @@
 
 
 /**
- * Structure for arg to be passed to receiver/broadcast threads.
+ * Structure for arg to be passed to receiver/multicast threads.
  * Allows data to flow back and forth with these threads.
  */
 typedef struct thdArg_t {
@@ -106,10 +106,10 @@ static int subjectTypeId = 1;
 /** Size of buffer in bytes for sending messages. */
 static int initialMsgBufferSize = 15000;
 
-/** Mutex for waiting for broadcast response.*/
+/** Mutex for waiting for multicast response.*/
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-/** Condition variable for waiting for broadcast response.*/
+/** Condition variable for waiting for multicast response.*/
 static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 
 /* Prototypes of the functions which implement the standard cMsg tasks in the cMsg domain. */
@@ -180,7 +180,7 @@ static int  parseUDL(const char *UDL, char **password,
                            char **UDLRemainder,
                            char **subdomainType,
                            char **UDLsubRemainder,
-                           int   *broadcast,
+                           int   *multicast,
                            int   *timeout,
                            int   *regime);
 static int  unSendAndGet(void *domainId, int id);
@@ -188,8 +188,8 @@ static int  unSubscribeAndGet(void *domainId, const char *subject,
                               const char *type, int id);
 static void  defaultShutdownHandler(void *userArg);
 static void *receiverThd(void *arg);
-static void *broadcastThd(void *arg);
-static int   connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
+static void *multicastThd(void *arg);
+static int   connectWithMulticast(cMsgDomainInfo *domain, int failoverIndex,
                                   char **host, int *port);
 
 
@@ -361,8 +361,8 @@ int cmsg_cmsg_isConnected(void *domainId, int *connected) {
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_FORMAT if UDLremainder arg is not in the proper format or is NULL
  * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
- * @returns CMSG_TIMEOUT if timed out of wait for response to broadcast
- * @returns CMSG_SOCKET_ERROR if udp socket for broadcasting could not be created,
+ * @returns CMSG_TIMEOUT if timed out of wait for response to multicast
+ * @returns CMSG_SOCKET_ERROR if udp socket for multicasting could not be created,
  *                            socket (TCP & UDP) to server could not be created or connected (UDP),
  *                            or socket options could not be set
  * 
@@ -447,7 +447,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
                             &domain->failovers[i].udlRemainder,
                             &domain->failovers[i].subdomain,
                             &domain->failovers[i].subRemainder,
-                            &domain->failovers[i].mustBroadcast,
+                            &domain->failovers[i].mustMulticast,
                             &domain->failovers[i].timeout,
                             &domain->failovers[i].regime)) != CMSG_OK ) {
 
@@ -490,14 +490,14 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
           return(CMSG_BAD_FORMAT);            
       }
       
-      if (domain->failovers[0].mustBroadcast == 1) {
+      if (domain->failovers[0].mustMulticast == 1) {
         free(domain->failovers[0].nameServerHost);
-/*printf("Trying to connect with Broadcast 1\n");*/
-        err = connectWithBroadcast(domain, 0,
+/*printf("Trying to connect with Multicast 1\n");*/
+        err = connectWithMulticast(domain, 0,
                              &domain->failovers[0].nameServerHost,
                              &domain->failovers[0].nameServerPort);
         if (err != CMSG_OK) {
-/*printf("Error trying to connect with Broadcast, err = %d\n", err);*/
+/*printf("Error trying to connect with Multicast, err = %d\n", err);*/
           cMsgDomainFree(domain);
           free(domain);
           /* err = CMSG_SOCKET_ERROR or CMSG_TIMEOUT */
@@ -536,14 +536,14 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
 
       /* connect using that UDL info */
 /*printf("\nTrying to connect with UDL = %s\n", domain->failovers[failoverIndex].udl);*/
-      if (domain->failovers[failoverIndex].mustBroadcast == 1) {
+      if (domain->failovers[failoverIndex].mustMulticast == 1) {
         free(domain->failovers[failoverIndex].nameServerHost);
-        printf("Trying to connect with Broadcast 2\n");
-        err = connectWithBroadcast(domain, failoverIndex,
+        printf("Trying to connect with Multicast 2\n");
+        err = connectWithMulticast(domain, failoverIndex,
                              &domain->failovers[failoverIndex].nameServerHost,
                              &domain->failovers[failoverIndex].nameServerPort);     
         if (err != CMSG_OK) {
-/*printf("Error trying to connect with Broadcast, err = %d\n", err);*/
+/*printf("Error trying to connect with Multicast, err = %d\n", err);*/
           connectFailures++;
           continue;
         }
@@ -583,18 +583,17 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
 
 
 /**
- * Method to broadcast in order to find the domain server from this client.
+ * Method to multicast in order to find the domain server from this client.
  * Once the server is found and returns its host and port, a direct connection
  * can be made.
  *
  */
-static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
+static int connectWithMulticast(cMsgDomainInfo *domain, int failoverIndex,
                                 char **host, int *port) {    
     char   buffer[1024];
     int    err, status, len, passwordLen, sockfd;
-    int    outGoing[5], broadcastTO=0, gotResponse=0;
-    const int on=1;
-    
+    int    outGoing[5], multicastTO=0, gotResponse=0;
+
     pthread_t rThread, bThread;
     thdArg    rArg,    bArg;
     
@@ -605,26 +604,18 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
     * Talk to cMsg server
     *------------------------*/
     
-    /* create UDP socket for broadcasting */
+    /* create UDP socket for multicasting */
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
-        return(CMSG_SOCKET_ERROR);
-    }
-/*printf("+udp broad %d\n", sockfd);*/
-
-    /* turn broadcasting on */
-    err = setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (char*) &on, sizeof(on));
-    if (err < 0) {
-        close(sockfd);
         return(CMSG_SOCKET_ERROR);
     }
        
     memset((void *)&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
-/*printf("Broadcast thd uses port %hu\n", ((uint16_t)domain->failovers[failoverIndex].nameServerPort));*/
+/*printf("Multicast thd uses port %hu\n", ((uint16_t)domain->failovers[failoverIndex].nameServerPort));*/
     servaddr.sin_port   = htons((uint16_t) (domain->failovers[failoverIndex].nameServerPort));
-    /* send packet to broadcast address */
-    if ( (err = cMsgStringToNumericIPaddr("255.255.255.255", &servaddr)) != CMSG_OK ) {
+    /* send packet to multicast address */
+    if ( (err = cMsgStringToNumericIPaddr(CMSG_MULTICAST_ADDR, &servaddr)) != CMSG_OK ) {
       /* an error should never be returned here */
       close(sockfd);
       return(err);
@@ -645,8 +636,8 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
     outGoing[0] = htonl(CMSG_MAGIC_INT1);
     outGoing[1] = htonl(CMSG_MAGIC_INT2);
     outGoing[2] = htonl(CMSG_MAGIC_INT3);
-    /* type of broadcast */
-    outGoing[3] = htonl(CMSG_DOMAIN_BROADCAST);
+    /* type of message */
+    outGoing[3] = htonl(CMSG_DOMAIN_MULTICAST);
     /* length of "password" string */
     outGoing[4] = htonl(passwordLen);
 
@@ -658,7 +649,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
         len += passwordLen;
     }
         
-    /* create and start a thread which will receive any responses to our broadcast */
+    /* create and start a thread which will receive any responses to our multicast */
     memset((void *)&rArg.addr, 0, sizeof(rArg.addr));
     rArg.len             = (socklen_t) sizeof(rArg.addr);
     rArg.port            = 0;
@@ -667,29 +658,29 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
     
     status = pthread_create(&rThread, NULL, receiverThd, (void *)(&rArg));
     if (status != 0) {
-        cmsg_err_abort(status, "Creating broadcast response receiving thread");
+        cmsg_err_abort(status, "Creating multicast response receiving thread");
     }
     
-    /* create and start a thread which will broadcast every second */
+    /* create and start a thread which will multicast every second */
     bArg.len       = (socklen_t) sizeof(servaddr);
     bArg.sockfd    = sockfd;
     bArg.paddr     = &servaddr;
     bArg.buffer    = buffer;
     bArg.bufferLen = len;
     
-    status = pthread_create(&bThread, NULL, broadcastThd, (void *)(&bArg));
+    status = pthread_create(&bThread, NULL, multicastThd, (void *)(&bArg));
     if (status != 0) {
-        cmsg_err_abort(status, "Creating broadcast sending thread");
+        cmsg_err_abort(status, "Creating multicast sending thread");
     }
     
-    /* Wait for a response. If broadcastTO is given in the UDL, that is used.
-     * The default wait or the wait if broadcastTO is set to 0, is forever.
-     * Round things to the nearest second since we're only broadcasting a
+    /* Wait for a response. If multicastTO is given in the UDL, that is used.
+     * The default wait or the wait if multicastTO is set to 0, is forever.
+     * Round things to the nearest second since we're only multicasting a
      * message every second anyway.
      */
-    broadcastTO = domain->failovers[failoverIndex].timeout;
-    if (broadcastTO > 0) {
-        wait.tv_sec  = broadcastTO;
+    multicastTO = domain->failovers[failoverIndex].timeout;
+    if (multicastTO > 0) {
+        wait.tv_sec  = multicastTO;
         wait.tv_nsec = 0;
         cMsgGetAbsoluteTime(&wait, &time);
         
@@ -698,7 +689,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
             cmsg_err_abort(status, "pthread_mutex_lock");
         }
  
-/*printf("Wait %d seconds for broadcast to be answered\n", broadcastTO);*/
+/*printf("Wait %d seconds for multicast to be answered\n", multicastTO);*/
         status = pthread_cond_timedwait(&cond, &mutex, &time);
         if (status == ETIMEDOUT) {
           /* stop receiving thread */
@@ -729,7 +720,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
             cmsg_err_abort(status, "pthread_mutex_lock");
         }
  
-/*printf("Wait forever for broadcast to be answered\n");*/
+/*printf("Wait forever for multicast to be answered\n");*/
         status = pthread_cond_wait(&cond, &mutex);
         if (status != 0) {
             cmsg_err_abort(status, "pthread_cond_timedwait");
@@ -750,10 +741,10 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
         }
     }
     
-    /* stop broadcasting thread */
+    /* stop multicasting thread */
     pthread_cancel(bThread);
     
-/*printf("-udp broad %d\n", sockfd);*/
+/*printf("-udp multi %d\n", sockfd);*/
     close(sockfd);
     
     if (!gotResponse) {
@@ -768,7 +759,7 @@ static int connectWithBroadcast(cMsgDomainInfo *domain, int failoverIndex,
 
 /**
  * This routine starts a thread to receive a return UDP packet from
- * the server due to our initial broadcast.
+ * the server due to our initial multicast.
  */
 static void *receiverThd(void *arg) {
     int port, nameLen, magicInt[3];
@@ -787,7 +778,7 @@ static void *receiverThd(void *arg) {
         len = recvfrom(threadArg->sockfd, (void *)buf, 1024, 0,
                        (SA *) &threadArg->addr, &(threadArg->len));
 /*
-printf("Broadcast response from: %s, on port %hu, with msg len = %hd\n",
+printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
                 inet_ntoa(threadArg->addr.sin_addr),
                 ntohs(threadArg->addr.sin_port), len); 
 */
@@ -810,7 +801,7 @@ printf("Broadcast response from: %s, on port %hu, with msg len = %hd\n",
         if ((magicInt[0] != CMSG_MAGIC_INT1) ||
             (magicInt[1] != CMSG_MAGIC_INT2) ||
             (magicInt[2] != CMSG_MAGIC_INT3))  {
-/*printf("  Broadcast response has wrong magic numbers\n");*/
+/*printf("  Multicast response has wrong magic numbers\n");*/
           continue;
         }
        
@@ -826,13 +817,13 @@ printf("Broadcast response from: %s, on port %hu, with msg len = %hd\n",
         if ((port < 1024 || port > 65535) ||
             (nameLen < 0 || nameLen > 1024-20)) {
             /* wrong format so ignore */
-/*printf("  Broadcast response has wrong format\n");*/
+/*printf("  Multicast response has wrong format\n");*/
             continue;
         }
         
         if ((len != 5*sizeof(int) + nameLen) || (nameLen != strlen(pchar))) {
             /* wrong format so ignore */
-/*printf("  Broadcast response has wrong format, bad host name\n");*/
+/*printf("  Multicast response has wrong format, bad host name\n");*/
             continue;
         }
         
@@ -853,10 +844,10 @@ printf("Broadcast response from: %s, on port %hu, with msg len = %hd\n",
 /*-------------------------------------------------------------------*/
 
 /**
- * This routine starts a thread to broadcast a UDP packet to the server
+ * This routine starts a thread to multicast a UDP packet to the server
  * every second in order to connect.
  */
-static void *broadcastThd(void *arg) {
+static void *multicastThd(void *arg) {
 
     thdArg *threadArg = (thdArg *) arg;
     struct timespec wait = {0, 100000000}; /* 0.1 sec */
@@ -866,13 +857,13 @@ static void *broadcastThd(void *arg) {
     
     /* A slight delay here will help the main thread (calling connect)
      * to be already waiting for a response from the server when we
-     * broadcast to the server here (prompting that response). This
+     * multicast to the server here (prompting that response). This
      * will help insure no responses will be lost.
      */
     nanosleep(&wait, NULL);
     
     while (1) {
-/*printf("Send broadcast to cMsg server on socket %d\n", threadArg->sockfd);*/
+/*printf("Send multicast to cMsg server on socket %d\n", threadArg->sockfd);*/
       sendto(threadArg->sockfd, (void *)threadArg->buffer, threadArg->bufferLen, 0,
              (SA *) threadArg->paddr, threadArg->len);
       
@@ -4434,9 +4425,9 @@ static void *keepAliveThread(void *arg) {
 /* printf("ka: trying to reconnect with UDL = %s\n",
             domain->failovers[failoverIndex].udl); */
 
-            if (domain->failovers[failoverIndex].mustBroadcast == 1) {
+            if (domain->failovers[failoverIndex].mustMulticast == 1) {
               free(domain->failovers[failoverIndex].nameServerHost);
-              connectWithBroadcast(domain, failoverIndex,
+              connectWithMulticast(domain, failoverIndex,
                                    &domain->failovers[failoverIndex].nameServerHost,
                                    &domain->failovers[failoverIndex].nameServerPort);     
             }
@@ -4675,7 +4666,7 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
  * 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
  *    if subdomainType is not cMsg, it is required
  * 4) remainder is past on to the subdomain plug-in
- * 5) tag/val of broadcastTO=&lt;value&gt; is looked for
+ * 5) tag/val of multicastTO=&lt;value&gt; is looked for
  * 6) tag/val of msgpassword=&lt;value&gt; is looked for
  * 7) tag/val of regime=low or regime=high is looked for
  *
@@ -4687,8 +4678,8 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
  * @param UDLRemainder    pointer filled in with UDl with cMsg:cMsg:// removed
  * @param subdomainType   pointer filled in with subdomain type
  * @param UDLsubRemainder pointer filled in with everything after subdomain portion of UDL
- * @param broadcast       pointer filled in with 1 if broadcast specified, else 0
- * @param timeout         pointer filled in with broadcast timeout if specified
+ * @param multicast       pointer filled in with 1 if multicast specified, else 0
+ * @param timeout         pointer filled in with multicast timeout if specified
  * @param regime          pointer filled in with:
  *                        CMSG_REGIME_LOW if regime of client will be low data througput rate
  *                        CMSG_REGIME_HIGH if regime of client will be high data througput rate
@@ -4705,12 +4696,12 @@ static int parseUDL(const char *UDL, char **password,
                           char **UDLRemainder,
                           char **subdomainType,
                           char **UDLsubRemainder,
-                          int   *broadcast,
+                          int   *multicast,
                           int   *timeout,
                           int   *regime) {
 
     int        i, err, Port, index;
-    int        mustBroadcast = 0;
+    int        mustMulticast = 0;
     size_t     len, bufLength;
     char       *p, *udl, *udlLowerCase, *udlRemainder, *remain;
     char       *buffer;
@@ -4791,10 +4782,14 @@ static int parseUDL(const char *UDL, char **password,
        len = matches[1].rm_eo - matches[1].rm_so;
        strncat(buffer, udlRemainder+matches[1].rm_so, len);
                 
-        if (strcasecmp(buffer, "broadcast") == 0 ||
-            strcmp(buffer, "255.255.255.255") == 0) {
-            mustBroadcast = 1;
-/* printf("set mustBroadcast to true (locally in parse method)"); */
+        if (strcasecmp(buffer, "multicast") == 0 ||
+            strcmp(buffer, CMSG_MULTICAST_ADDR) == 0) {
+            mustMulticast = 1;
+/* printf("set mustMulticast to true (locally in parse method)"); */
+        }
+        else if (strcasecmp(buffer, CMSG_MULTICAST_ADDR) == 0) {
+            mustMulticast = 1;
+/* printf("set mustMulticast to true (locally in parse method)"); */
         }
         /* if the host is "localhost", find the actual host name */
         else if (strcasecmp(buffer, "localhost") == 0) {
@@ -4811,20 +4806,20 @@ static int parseUDL(const char *UDL, char **password,
         if (host != NULL) {
             *host = (char *)strdup(buffer);
         }
-        if (broadcast != NULL) {
-            *broadcast = mustBroadcast;        
+        if (multicast != NULL) {
+            *multicast = mustMulticast;
         }
     }
 /*
 printf("parseUDL: host = %s\n", buffer);
-printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
+printf("parseUDL: mustMulticast = %d\n", mustMulticast);
  */
 
     /* find port */
     if (matches[2].rm_so < 0) {
         /* no match for port so use default */
-        if (mustBroadcast == 1) {
-            Port = CMSG_NAME_SERVER_BROADCAST_PORT;
+        if (mustMulticast == 1) {
+            Port = CMSG_NAME_SERVER_MULTICAST_PORT;
         }
         else {
             Port = CMSG_NAME_SERVER_STARTING_PORT;
@@ -4928,9 +4923,9 @@ printf("parseUDL: mustBroadcast = %d\n", mustBroadcast);
         /* free up memory */
         cMsgRegfree(&compiled);
        
-        /* find broadcast timeout parameter if it exists */
-        /* look for ?broadcastTO=value& or &broadcastTO=value& */
-        pattern = "[&\\?]broadcastTO=([0-9]+)?";
+        /* find multicast timeout parameter if it exists */
+        /* look for ?multicastTO=value& or &multicastTO=value& */
+        pattern = "[&\\?]multicastTO=([0-9]+)?";
 
         /* compile regular expression */
         err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
