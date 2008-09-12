@@ -33,8 +33,11 @@ import java.io.UnsupportedEncodingException;
  */
 public class cMsgMulticastListeningThread extends Thread {
 
-    /** cMsg name server's main tcp listening port. */
+    /** cMsg name server's main TCP listening port. */
      private int serverTcpPort;
+
+    /** cMsg name server's main UDP listening port. */
+     private int serverUdpPort;
 
     /** cMsg name server's client password. */
      private String serverPassword;
@@ -65,9 +68,11 @@ public class cMsgMulticastListeningThread extends Thread {
      * @param password cMsg server's client password
      * @param debug cMsg server's debug level
      */
-    public cMsgMulticastListeningThread(int port, MulticastSocket socket, String password, int debug) {
+    public cMsgMulticastListeningThread(int port, int multicastPort,
+                                        MulticastSocket socket, String password, int debug) {
         multicastSocket = socket;
         serverTcpPort   = port;
+        serverUdpPort   = multicastPort;
         serverPassword  = password;
         this.debug      = debug;
         // die if no more non-daemon thds running
@@ -106,6 +111,7 @@ public class cMsgMulticastListeningThread extends Thread {
             out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
             out.writeInt(serverTcpPort);
+            out.writeInt(serverUdpPort);
             out.writeInt(myHost.length());
             try {out.write(myHost.getBytes("US-ASCII"));}
             catch (UnsupportedEncodingException e) { }
