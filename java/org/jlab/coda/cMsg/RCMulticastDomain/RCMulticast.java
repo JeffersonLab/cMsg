@@ -14,7 +14,7 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg.RCBroadcastDomain;
+package org.jlab.coda.cMsg.RCMulticastDomain;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgGetHelper;

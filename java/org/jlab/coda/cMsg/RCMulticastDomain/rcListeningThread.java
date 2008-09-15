@@ -14,7 +14,7 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg.RCBroadcastDomain;
+package org.jlab.coda.cMsg.RCMulticastDomain;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgGetHelper;
@@ -264,11 +264,11 @@ public class rcListeningThread extends Thread {
                 }
                 // else if multicast from server ...
                 else {
-                    // Other RCBroadcast servers send "feelers" just trying see if another
-                    // RCBroadcast server is on the same port with the same EXPID. Don't
+                    // Other RCMulticast servers send "feelers" just trying see if another
+                    // RCMulticast server is on the same port with the same EXPID. Don't
                     // send this on as a message to subscriptions.
                     if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("Another RCBroadcast server probing this one");
+                        System.out.println("Another RCMulticast server probing this one");
                     }
 
                     // if this server was properly started, tell the one probing us to kill itself
