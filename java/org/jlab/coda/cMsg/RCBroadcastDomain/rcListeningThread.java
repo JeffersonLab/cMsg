@@ -62,21 +62,6 @@ public class rcListeningThread extends Thread {
     }
 
 
-    /**
-     * Converts 4 bytes of a byte array into an integer.
-     *
-     * @param b   byte array
-     * @param off offset into the byte array (0 = start at first element)
-     * @return integer value
-     */
-    private static final int bytesToInt(byte[] b, int off) {
-        int result = ((b[off] & 0xff) << 24)     |
-                     ((b[off + 1] & 0xff) << 16) |
-                     ((b[off + 2] & 0xff) << 8)  |
-                      (b[off + 3] & 0xff);
-        return result;
-    }
-
 
     /**
      * Constructor.
@@ -173,9 +158,9 @@ public class rcListeningThread extends Thread {
                     continue;
                 }
 
-                int magic1  = bytesToInt(buf, 0);
-                int magic2  = bytesToInt(buf, 4);
-                int magic3  = bytesToInt(buf, 8);
+                int magic1  = cMsgUtilities.bytesToInt(buf, 0);
+                int magic2  = cMsgUtilities.bytesToInt(buf, 4);
+                int magic3  = cMsgUtilities.bytesToInt(buf, 8);
                 if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
                     magic2 != cMsgNetworkConstants.magicNumbers[1] ||
                     magic3 != cMsgNetworkConstants.magicNumbers[2])  {
@@ -185,7 +170,7 @@ public class rcListeningThread extends Thread {
                     continue;
                 }
 
-                int msgType = bytesToInt(buf, 12); // what type of message is this ?
+                int msgType = cMsgUtilities.bytesToInt(buf, 12); // what type of message is this ?
 
                 switch (msgType) {
                     // broadcasts from rc clients
@@ -208,9 +193,9 @@ public class rcListeningThread extends Thread {
                         continue;
                 }
 
-                int broadcasterTcpPort = bytesToInt(buf, 16); // tcp listening port
-                int nameLen            = bytesToInt(buf, 20); // length of sender's name (# chars)
-                int expidLen           = bytesToInt(buf, 24); // length of expid (# chars)
+                int broadcasterTcpPort = cMsgUtilities.bytesToInt(buf, 16); // tcp listening port
+                int nameLen            = cMsgUtilities.bytesToInt(buf, 20); // length of sender's name (# chars)
+                int expidLen           = cMsgUtilities.bytesToInt(buf, 24); // length of expid (# chars)
 
                 // sender's name
                 String broadcasterName = null;
