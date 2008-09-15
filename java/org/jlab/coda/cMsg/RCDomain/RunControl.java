@@ -152,7 +152,7 @@ public class RunControl extends cMsgDomainAdapter {
     CountDownLatch connectCompletion;
 
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugNone;
+    int debug = cMsgConstants.debugInfo;
 
 
 
@@ -436,7 +436,7 @@ public class RunControl extends cMsgDomainAdapter {
       * Remember that for this domain:
       * 1) port is optional with a default of {@link cMsgNetworkConstants#rcMulticastPort}
       * 2) host is optional with a default of {@link cMsgNetworkConstants#rcMulticast}
-      *    and may be "localhost" or in dotted decimal form
+      *    and may be "multicast" (same as default), "localhost" or in dotted decimal form
       * 3) the experiment id or expid is optional, it is taken from the
       *    environmental variable EXPID
       * 4) multicastTO is the time to wait in seconds before connect returns a
@@ -496,6 +496,9 @@ public class RunControl extends cMsgDomainAdapter {
                                        udlHost);
                 }
             }
+            else if (udlHost.equalsIgnoreCase("multicast")) {
+                udlHost = cMsgNetworkConstants.rcMulticast;
+            }
             else {
                 try {
                     udlHost = InetAddress.getByName(udlHost).getCanonicalHostName();
@@ -519,7 +522,9 @@ public class RunControl extends cMsgDomainAdapter {
 //System.out.println("Will multicast to " + cMsgNetworkConstants.rcMulticast);
             try {
                 rcMulticastServerAddress = InetAddress.getByName(cMsgNetworkConstants.rcMulticast); }
-            catch (UnknownHostException e) {}
+            catch (UnknownHostException e) {
+                e.printStackTrace();
+            }
         }
 
         // get multicast server port or guess if it's not given
@@ -583,7 +588,7 @@ public class RunControl extends cMsgDomainAdapter {
         if (matcher.find()) {
             try {
                 connectTimeout = 1000 * Integer.parseInt(matcher.group(1));
-//System.out.println("multicast TO = " + connectTimeout);
+//System.out.println("connect TO = " + connectTimeout);
             }
             catch (NumberFormatException e) {
                 // ignore error and keep value of 0
