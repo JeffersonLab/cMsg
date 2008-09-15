@@ -89,7 +89,7 @@ public class rcListeningThread extends Thread {
     public void run() {
 
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("Running RC Broadcast Listening Thread");
+            System.out.println("Running RC Multicast Listening Thread");
         }
 
         // create a packet to be written into from client
@@ -141,7 +141,7 @@ public class rcListeningThread extends Thread {
                 packet.setLength(2048);
                 broadcastSocket.receive(packet);
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("RECEIVED RC DOMAIN BROADCAST PACKET !!!");
+                    System.out.println("RECEIVED RC DOMAIN MULTICAST PACKET !!!");
                 }
 
                 if (killThread) { return; }
@@ -153,7 +153,7 @@ public class rcListeningThread extends Thread {
 
                 if (packet.getLength() < 4*4) {
                     if (debug >= cMsgConstants.debugWarn) {
-                        System.out.println("got broadcast packet that's too small");
+                        System.out.println("got multicast packet that's too small");
                     }
                     continue;
                 }
@@ -165,7 +165,7 @@ public class rcListeningThread extends Thread {
                     magic2 != cMsgNetworkConstants.magicNumbers[1] ||
                     magic3 != cMsgNetworkConstants.magicNumbers[2])  {
                     if (debug >= cMsgConstants.debugWarn) {
-                        System.out.println("got broadcast packet with bad magic #s");
+                        System.out.println("got multicast packet with bad magic #s");
                     }
                     continue;
                 }
