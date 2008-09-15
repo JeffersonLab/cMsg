@@ -434,7 +434,7 @@ public class RunControl extends cMsgDomainAdapter {
       *        cMsg:rc://&lt;host&gt;:&lt;port&gt;/?expid=&lt;expid&gt;&broadcastTO=&lt;timeout&gt;&connectTO=&lt;timeout&gt;<p>
       *
       * Remember that for this domain:
-      * 1) port is optional with a default of cMsgNetworkConstants.rcBroadcastPort
+      * 1) port is optional with a default of cMsgNetworkConstants.rcMulticastPort
       * 2) host is optional with a default of 255.255.255.255 (broadcast)
       *    and may be "localhost" or in dotted decimal form
       * 3) the experiment id or expid is optional, it is taken from the
@@ -525,14 +525,14 @@ public class RunControl extends cMsgDomainAdapter {
         if (udlPort != null && udlPort.length() > 0) {
             try { rcServerBroadcastPort = Integer.parseInt(udlPort); }
             catch (NumberFormatException e) {
-                rcServerBroadcastPort = cMsgNetworkConstants.rcBroadcastPort;
+                rcServerBroadcastPort = cMsgNetworkConstants.rcMulticastPort;
                 if (debug >= cMsgConstants.debugWarn) {
                     System.out.println("parseUDL: non-integer port, guessing codaComponent port is " + rcServerBroadcastPort);
                 }
             }
         }
         else {
-            rcServerBroadcastPort = cMsgNetworkConstants.rcBroadcastPort;
+            rcServerBroadcastPort = cMsgNetworkConstants.rcMulticastPort;
             if (debug >= cMsgConstants.debugWarn) {
                 System.out.println("parseUDL: guessing codaComponent port is " + rcServerBroadcastPort);
             }
