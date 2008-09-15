@@ -47,7 +47,7 @@ public class rcListeningThread extends Thread {
     int multicastPort;
 
     /** UDP socket on which to read packets sent from rc clients. */
-     DatagramSocket multicastSocket;
+    MulticastSocket multicastSocket;
 
     /** Level of debug output for this class. */
     private int debug;
@@ -73,9 +73,12 @@ public class rcListeningThread extends Thread {
         // Create a UDP socket for accepting multi/unicasts from the RC client.
         multicastPort = port;
         try {
-            multicastSocket = new DatagramSocket(multicastPort);
+            multicastSocket = new MulticastSocket(multicastPort);
+            multicastSocket.joinGroup(InetAddress.getByName(cMsgNetworkConstants.rcMulticast));
+            multicastSocket.setReceiveBufferSize(65535);
+            multicastSocket.setReuseAddress(true);
         }
-        catch (SocketException e) {
+        catch (IOException e) {
             throw new cMsgException("Port " + multicastPort + " is taken", e);
         }
         this.server = server;
