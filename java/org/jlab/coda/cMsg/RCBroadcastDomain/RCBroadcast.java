@@ -405,16 +405,16 @@ public class RCBroadcast extends cMsgDomainAdapter {
             }
         }
 
-        // next, try the environmental variable RC_BROADCAST_PORT
+        // next, try the environmental variable RC_MULTICAST_PORT
         if (broadcastPort < 1) {
             try {
-                String env = System.getenv("RC_BROADCAST_PORT");
+                String env = System.getenv("RC_MULTICAST_PORT");
                 if (env != null) {
                     broadcastPort = Integer.parseInt(env);
                 }
             }
             catch (NumberFormatException ex) {
-                System.out.println("parseUDL: bad port number specified in CMSG_BROADCAST_PORT env variable");
+                System.out.println("parseUDL: bad port number specified in RC_MULTICAST_PORT env variable");
             }
         }
 
