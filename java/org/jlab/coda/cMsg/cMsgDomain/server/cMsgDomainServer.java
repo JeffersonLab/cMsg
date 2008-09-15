@@ -156,19 +156,6 @@ public class cMsgDomainServer extends Thread {
         return info.subdomainHandler;
     }
 
-    /**
-     * Converts 4 bytes of a byte array into an integer.
-     *
-     * @param b   byte array
-     * @param off offset into the byte array (0 = start at first element)
-     * @return integer value
-     */
-    private static final int bytesToInt(byte[] b, int off) {
-        return (((b[off]     & 0xff) << 24) |
-                ((b[off + 1] & 0xff) << 16) |
-                ((b[off + 2] & 0xff) << 8)  |
-                 (b[off + 3] & 0xff));
-    }
 
 
     /** This method prints out the sizes of all objects which store other objects. */
@@ -516,9 +503,9 @@ System.out.println("Creating cMsgDomainServer");
                     if (killSpawnedThreads) return;
 
                     // check magic #s coming in
-                    if (bytesToInt(buf,0) != cMsgNetworkConstants.magicNumbers[0] ||
-                        bytesToInt(buf,4) != cMsgNetworkConstants.magicNumbers[1] ||
-                        bytesToInt(buf,8) != cMsgNetworkConstants.magicNumbers[2]) {
+                    if (cMsgUtilities.bytesToInt(buf,0) != cMsgNetworkConstants.magicNumbers[0] ||
+                        cMsgUtilities.bytesToInt(buf,4) != cMsgNetworkConstants.magicNumbers[1] ||
+                        cMsgUtilities.bytesToInt(buf,8) != cMsgNetworkConstants.magicNumbers[2]) {
                         if (debug >= cMsgConstants.debugWarn) {
                             System.out.println("DS udpSendHandler: received bogus udp packet");
                         }
@@ -532,7 +519,7 @@ System.out.println("Creating cMsgDomainServer");
                     bufIndex = 12;
 
                     // skip first int which is size of data to come;
-                    int msgId = bytesToInt(buf, bufIndex += 4);
+                    int msgId = cMsgUtilities.bytesToInt(buf, bufIndex += 4);
 
                     if (msgId != cMsgConstants.msgSendRequest) {
                         // problems
@@ -592,30 +579,30 @@ System.out.println("Creating cMsgDomainServer");
 
             // pick apart byte array received
             bufIndex += 4; // skip for future use
-            msg.setUserInt(bytesToInt(buf, bufIndex+=4));
-            msg.setSysMsgId(bytesToInt(buf, bufIndex+=4));
-            msg.setSenderToken(bytesToInt(buf, bufIndex+=4));
+            msg.setUserInt(cMsgUtilities.bytesToInt(buf, bufIndex+=4));
+            msg.setSysMsgId(cMsgUtilities.bytesToInt(buf, bufIndex+=4));
+            msg.setSenderToken(cMsgUtilities.bytesToInt(buf, bufIndex+=4));
             // mark msg as having been sent over wire
-            msg.setInfo(bytesToInt(buf, bufIndex+=4) | cMsgMessage.wasSent);
+            msg.setInfo(cMsgUtilities.bytesToInt(buf, bufIndex+=4) | cMsgMessage.wasSent);
             // set info to mark msg as unexpanded
             msg.expandedPayload(false);
 
             // time message was sent = 2 ints (hightest byte first)
             // in milliseconds since midnight GMT, Jan 1, 1970
-            long time = ((long) (bytesToInt(buf, bufIndex+=4)) << 32) |
-                        ((long) (bytesToInt(buf, bufIndex+=4)) & 0x00000000FFFFFFFFL);
+            long time = ((long) (cMsgUtilities.bytesToInt(buf, bufIndex+=4)) << 32) |
+                        ((long) (cMsgUtilities.bytesToInt(buf, bufIndex+=4)) & 0x00000000FFFFFFFFL);
             msg.setSenderTime(new Date(time));
 
             // user time
-            time = ((long) (bytesToInt(buf, bufIndex+=4)) << 32) |
-                   ((long) (bytesToInt(buf, bufIndex+=4)) & 0x00000000FFFFFFFFL);
+            time = ((long) (cMsgUtilities.bytesToInt(buf, bufIndex+=4)) << 32) |
+                   ((long) (cMsgUtilities.bytesToInt(buf, bufIndex+=4)) & 0x00000000FFFFFFFFL);
             msg.setUserTime(new Date(time));
 
-            int lengthSubject    = bytesToInt(buf, bufIndex+=4);
-            int lengthType       = bytesToInt(buf, bufIndex+=4);
-            int lengthPayloadTxt = bytesToInt(buf, bufIndex+=4);
-            int lengthText       = bytesToInt(buf, bufIndex+=4);
-            int lengthBinary     = bytesToInt(buf, bufIndex+=4);
+            int lengthSubject    = cMsgUtilities.bytesToInt(buf, bufIndex+=4);
+            int lengthType       = cMsgUtilities.bytesToInt(buf, bufIndex+=4);
+            int lengthPayloadTxt = cMsgUtilities.bytesToInt(buf, bufIndex+=4);
+            int lengthText       = cMsgUtilities.bytesToInt(buf, bufIndex+=4);
+            int lengthBinary     = cMsgUtilities.bytesToInt(buf, bufIndex+=4);
 
             // read subject
             msg.setSubject(new String(buf, bufIndex += 4, lengthSubject, "US-ASCII"));

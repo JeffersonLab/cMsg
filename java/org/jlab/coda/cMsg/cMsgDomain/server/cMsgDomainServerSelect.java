@@ -120,20 +120,6 @@ public class cMsgDomainServerSelect extends Thread {
     }
 
 
-    /**
-     * Converts 4 bytes of a byte array into an integer.
-     *
-     * @param b   byte array
-     * @param off offset into the byte array (0 = start at first element)
-     * @return integer value
-     */
-    private static final int bytesToInt(byte[] b, int off) {
-        return (((b[off]     & 0xff) << 24) |
-                ((b[off + 1] & 0xff) << 16) |
-                ((b[off + 2] & 0xff) << 8)  |
-                 (b[off + 3] & 0xff));
-    }
-
 
     /** This method prints out the sizes of all objects which store other objects. */
     private void printSizes() {
@@ -867,7 +853,7 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
 
                     byte[] array = holder.array;
                     info = holder.data;
-                    msgId = bytesToInt(array, 0);
+                    msgId = cMsgUtilities.bytesToInt(array, 0);
 
                     switch (msgId) {
 
@@ -1065,7 +1051,7 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
 
                         case cMsgConstants.msgServerRegistrationLock: // grab lock for global registration  BUGBUG
                             // Grabbing this lock may take up to 1/2 second
-                            int delay = bytesToInt(array, 4);
+                            int delay = cMsgUtilities.bytesToInt(array, 4);
                             // Send yes (1) to indicate lock grabbed , or no (0) back as return value.
                             // This may block for up to 1/2 second.
                             boolean gotLock = info.cMsgSubdomainHandler.registrationLock(delay);
@@ -1087,7 +1073,7 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
 
                         case cMsgConstants.msgServerCloudLock: // grab lock for server cloud joining   BUGBUG
                             // Grabbing this lock may take up to 1/2 second
-                            delay = bytesToInt(array, 4);
+                            delay = cMsgUtilities.bytesToInt(array, 4);
                             // Send yes (1) to indicate lock grabbed , or no (0) back as return value.
                             // This may block for up to 0.2 seconds.
 //System.out.println("DOMAIN SERVER: Try to lock cloud ...");
@@ -1100,7 +1086,7 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
 
 
                         case cMsgConstants.msgServerCloudSetStatus: // server client is joining cMsg subdomain server cloud
-                            int status = bytesToInt(array, 4);
+                            int status = cMsgUtilities.bytesToInt(array, 4);
                             setCloudStatus(status, info);
                             break;
 
@@ -1281,32 +1267,32 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
             // skip size
             int index = 4;
             // first incoming integer used for syncSend id
-            int ssid = bytesToInt(array, index);          index += 4;
-            msg.setUserInt(bytesToInt(array, index));     index += 4;
-            msg.setSysMsgId(bytesToInt(array, index));    index += 4;
-            msg.setSenderToken(bytesToInt(array, index)); index += 4;
+            int ssid = cMsgUtilities.bytesToInt(array, index);          index += 4;
+            msg.setUserInt(cMsgUtilities.bytesToInt(array, index));     index += 4;
+            msg.setSysMsgId(cMsgUtilities.bytesToInt(array, index));    index += 4;
+            msg.setSenderToken(cMsgUtilities.bytesToInt(array, index)); index += 4;
             // mark msg as having been sent over wire
-            msg.setInfo(bytesToInt(array, index) | cMsgMessage.wasSent); index += 4;
+            msg.setInfo(cMsgUtilities.bytesToInt(array, index) | cMsgMessage.wasSent); index += 4;
             // mark msg as unexpanded
             msg.expandedPayload(false);
 
             // time message was sent = 2 ints (hightest byte first)
             // in milliseconds since midnight GMT, Jan 1, 1970
-            long time = ((long) bytesToInt(array, index) << 32) | ((long) bytesToInt(array, index+4) & 0x00000000FFFFFFFFL);
+            long time = ((long) cMsgUtilities.bytesToInt(array, index) << 32) | ((long) cMsgUtilities.bytesToInt(array, index+4) & 0x00000000FFFFFFFFL);
             msg.setSenderTime(new Date(time));
             index += 8;
 
             // user time
-            time = ((long) bytesToInt(array, index) << 32) | ((long) bytesToInt(array, index+4) & 0x00000000FFFFFFFFL);
+            time = ((long) cMsgUtilities.bytesToInt(array, index) << 32) | ((long) cMsgUtilities.bytesToInt(array, index+4) & 0x00000000FFFFFFFFL);
             msg.setUserTime(new Date(time));
             index += 8;
 
             // String lengths
-            int lengthSubject     = bytesToInt(array, index);    index += 4;
-            int lengthType        = bytesToInt(array, index);    index += 4;
-            int lengthPayloadTxt  = bytesToInt(array, index);    index += 4;
-            int lengthText        = bytesToInt(array, index);    index += 4;
-            int lengthBinary      = bytesToInt(array, index);    index += 4;
+            int lengthSubject     = cMsgUtilities.bytesToInt(array, index);    index += 4;
+            int lengthType        = cMsgUtilities.bytesToInt(array, index);    index += 4;
+            int lengthPayloadTxt  = cMsgUtilities.bytesToInt(array, index);    index += 4;
+            int lengthText        = cMsgUtilities.bytesToInt(array, index);    index += 4;
+            int lengthBinary      = cMsgUtilities.bytesToInt(array, index);    index += 4;
 
             // read subject
             msg.setSubject(new String(array, index, lengthSubject, "US-ASCII"));
@@ -1619,31 +1605,31 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
             // skip size, skip first incoming integer (for future use)
             int index = 8;
 
-            msg.setUserInt(bytesToInt(array, index));     index += 4;
-            msg.setSenderToken(bytesToInt(array, index)); index += 4;
+            msg.setUserInt(cMsgUtilities.bytesToInt(array, index));     index += 4;
+            msg.setSenderToken(cMsgUtilities.bytesToInt(array, index)); index += 4;
             // mark msg as having been sent over wire
-            msg.setInfo(bytesToInt(array, index) | cMsgMessage.wasSent); index += 4;
+            msg.setInfo(cMsgUtilities.bytesToInt(array, index) | cMsgMessage.wasSent); index += 4;
             // mark msg as unexpanded
             msg.expandedPayload(false);
 
             // time message was sent = 2 ints (hightest byte first)
             // in milliseconds since midnight GMT, Jan 1, 1970
-            long time = ((long) bytesToInt(array, index) << 32) | ((long) bytesToInt(array, index+4) & 0x00000000FFFFFFFFL);
+            long time = ((long) cMsgUtilities.bytesToInt(array, index) << 32) | ((long) cMsgUtilities.bytesToInt(array, index+4) & 0x00000000FFFFFFFFL);
             msg.setSenderTime(new Date(time));
             index += 8;
 
             // user time
-            time = ((long) bytesToInt(array, index) << 32) | ((long) bytesToInt(array, index+4) & 0x00000000FFFFFFFFL);
+            time = ((long) cMsgUtilities.bytesToInt(array, index) << 32) | ((long) cMsgUtilities.bytesToInt(array, index+4) & 0x00000000FFFFFFFFL);
             msg.setUserTime(new Date(time));
             index += 8;
 
             // String lengths
-            int lengthSubject     = bytesToInt(array, index);    index += 4;
-            int lengthType        = bytesToInt(array, index);    index += 4;
-            int lengthNamespace   = bytesToInt(array, index);    index += 4;
-            int lengthPayloadTxt  = bytesToInt(array, index);    index += 4;
-            int lengthText        = bytesToInt(array, index);    index += 4;
-            int lengthBinary      = bytesToInt(array, index);    index += 4;
+            int lengthSubject     = cMsgUtilities.bytesToInt(array, index);    index += 4;
+            int lengthType        = cMsgUtilities.bytesToInt(array, index);    index += 4;
+            int lengthNamespace   = cMsgUtilities.bytesToInt(array, index);    index += 4;
+            int lengthPayloadTxt  = cMsgUtilities.bytesToInt(array, index);    index += 4;
+            int lengthText        = cMsgUtilities.bytesToInt(array, index);    index += 4;
+            int lengthBinary      = cMsgUtilities.bytesToInt(array, index);    index += 4;
 
             // read subject
             msg.setSubject(new String(array, index, lengthSubject, "US-ASCII"));
@@ -1721,7 +1707,7 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
             // id of subject/type combination  (senderToken actually)
             cMsgHolder holder = new cMsgHolder();
             // id of subject/type combination  (receiverSubscribedId)
-            holder.id = bytesToInt(array, 4);
+            holder.id = cMsgUtilities.bytesToInt(array, 4);
 
             return holder;
         }
@@ -1741,13 +1727,13 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
             int index = 4;
 
             // id of subject/type combination  (receiverSubscribedId)
-            holder.id           = bytesToInt(array, index); index += 4;
+            holder.id           = cMsgUtilities.bytesToInt(array, index); index += 4;
             // length of subject
-            int lengthSubject   = bytesToInt(array, index); index += 4;
+            int lengthSubject   = cMsgUtilities.bytesToInt(array, index); index += 4;
             // length of type
-            int lengthType      = bytesToInt(array, index); index += 4;
+            int lengthType      = cMsgUtilities.bytesToInt(array, index); index += 4;
             // length of namespace
-            int lengthNamespace = bytesToInt(array, index); index += 4;
+            int lengthNamespace = cMsgUtilities.bytesToInt(array, index); index += 4;
 
             // read subject
             holder.subject = new String(array, index, lengthSubject, "US-ASCII");
@@ -1911,8 +1897,8 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
 
             // skip size
             int index = 4;
-            int flag         = bytesToInt(array, index); index += 4;
-            int lengthClient = bytesToInt(array, index); index += 4;
+            int flag         = cMsgUtilities.bytesToInt(array, index); index += 4;
+            int lengthClient = cMsgUtilities.bytesToInt(array, index); index += 4;
 
             // read client
             String client = new String(array, index, lengthClient, "US-ASCII");
