@@ -309,7 +309,7 @@ public class rcListeningThread extends Thread {
                             runCallbacks(msg);
                             break;
 
-                        // (rc broadcast) server bailing out of connect loop
+                        // (rc multicast) server bailing out of connect loop
                         case cMsgConstants.msgRcAbortConnect:
 //System.out.println("Got ABORT message!!!");
                             client.abandonConnection = true;
