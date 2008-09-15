@@ -73,22 +73,6 @@ public class rcUdpListeningThread extends Thread {
 
 
     /**
-        * Converts 4 bytes of a byte array into an integer.
-        *
-        * @param b byte array
-        * @param off offset into the byte array (0 = start at first element)
-        * @return integer value
-        */
-       private static final int bytesToInt(byte[] b, int off) {
-         int result = ((b[off]  &0xff) << 24) |
-                      ((b[off+1]&0xff) << 16) |
-                      ((b[off+2]&0xff) <<  8) |
-                       (b[off+3]&0xff);
-         return result;
-       }
-
-
-    /**
      * Constructor for regular clients.
      *
      * @param server RC server that created this object
@@ -152,7 +136,7 @@ public class rcUdpListeningThread extends Thread {
             cMsgMessageFull msg;
             // read in data packet
             byte[] buf = new byte[cMsgNetworkConstants.biggestUdpPacketSize];
-            DatagramPacket pkt = new DatagramPacket(buf, buf.length);
+            DatagramPacket packet = new DatagramPacket(buf, buf.length);
 
             // now listen for sends
             while (true) {
@@ -163,20 +147,47 @@ public class rcUdpListeningThread extends Thread {
 
                 if (killThread) return;
                 // enable the packet to receive all the data
-                pkt.setLength(cMsgNetworkConstants.biggestUdpPacketSize);
-                receiveSocket.receive(pkt);
+                packet.setLength(cMsgNetworkConstants.biggestUdpPacketSize);
+                receiveSocket.receive(packet);
 //System.out.println("RECEIVED UDP PACKET!!!");
                 if (killThread) return;
 
+                if (packet.getLength() < 5*4) {
+                    if (debug >= cMsgConstants.debugWarn) {
+                        System.out.println("got UDP packet that's too small");
+                    }
+                    continue;
+                }
+
+                // filter out garbage packets
+                int magic1  = cMsgUtilities.bytesToInt(buf, 0);
+                int magic2  = cMsgUtilities.bytesToInt(buf, 4);
+                int magic3  = cMsgUtilities.bytesToInt(buf, 8);
+                if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
+                    magic2 != cMsgNetworkConstants.magicNumbers[1] ||
+                    magic3 != cMsgNetworkConstants.magicNumbers[2])  {
+                    if (debug >= cMsgConstants.debugWarn) {
+                        System.out.println("got UDP packet with bad magic #s");
+                    }
+                    continue;
+                }
+
                 // read incoming message
-                int len   = bytesToInt(buf, 0);
-                int msgId = bytesToInt(buf, 4);
+                int len   = cMsgUtilities.bytesToInt(buf, 12);
+                int msgId = cMsgUtilities.bytesToInt(buf, 16);
+
+                if (packet.getLength() < 5*4 + len) {
+                    if (debug >= cMsgConstants.debugWarn) {
+                        System.out.println("got UDP packet that's too small");
+                    }
+                    continue;
+                }
 
                 switch (msgId) {
 
                     case cMsgConstants.msgSubscribeResponse: // receiving a message
 
-                        msg = readIncomingMessage(buf, 8);
+                        msg = readIncomingMessage(buf, 20);
                         // run callbacks for this message
                         runCallbacks(msg);
 
@@ -184,7 +195,7 @@ public class rcUdpListeningThread extends Thread {
 
                     case cMsgConstants.msgGetResponse: // receiving a message for sendAndGet
                         // read the message
-                        msg = readIncomingMessage(buf, 8);
+                        msg = readIncomingMessage(buf, 20);
                         msg.setGetResponse(true);
 
                         // wakeup caller with this message
@@ -226,34 +237,36 @@ public class rcUdpListeningThread extends Thread {
         // create a message
         cMsgMessageFull msg = new cMsgMessageFull();
 
-        msg.setVersion(bytesToInt(buf, index));
+        msg.setVersion(cMsgUtilities.bytesToInt(buf, index));
         index += 4;
-        msg.setUserInt(bytesToInt(buf, index));
+        msg.setUserInt(cMsgUtilities.bytesToInt(buf, index));
         index += 4;
         // mark the message as having been sent over the wire & having expanded payload
-        msg.setInfo(bytesToInt(buf, index) | cMsgMessage.wasSent | cMsgMessage.expandedPayload);
+        msg.setInfo(cMsgUtilities.bytesToInt(buf, index) | cMsgMessage.wasSent | cMsgMessage.expandedPayload);
         index += 4;
-        msg.setSenderToken(bytesToInt(buf, index));
+        msg.setSenderToken(cMsgUtilities.bytesToInt(buf, index));
         index += 4;
 
         // time message was sent = 2 ints (hightest byte first)
         // in milliseconds since midnight GMT, Jan 1, 1970
-        long time = ((long) bytesToInt(buf, index) << 32) | ((long) bytesToInt(buf, index + 4) & 0x00000000FFFFFFFFL);
+        long time = ((long) cMsgUtilities.bytesToInt(buf, index) << 32) |
+                    ((long) cMsgUtilities.bytesToInt(buf, index + 4) & 0x00000000FFFFFFFFL);
         msg.setSenderTime(new Date(time));
         index += 8;
 
         // user time
-        time = ((long) bytesToInt(buf, index) << 32) | ((long) bytesToInt(buf, index + 4) & 0x00000000FFFFFFFFL);
+        time = ((long) cMsgUtilities.bytesToInt(buf, index) << 32) |
+               ((long) cMsgUtilities.bytesToInt(buf, index + 4) & 0x00000000FFFFFFFFL);
         msg.setUserTime(new Date(time));
         index += 8;
 
         // String lengths
-        int lengthSender      = bytesToInt(buf, index);    index += 4;
-        int lengthSubject     = bytesToInt(buf, index);    index += 4;
-        int lengthType        = bytesToInt(buf, index);    index += 4;
-        int lengthPayloadTxt  = bytesToInt(buf, index);    index += 4;
-        int lengthText        = bytesToInt(buf, index);    index += 4;
-        int lengthBinary      = bytesToInt(buf, index);    index += 4;
+        int lengthSender      = cMsgUtilities.bytesToInt(buf, index);    index += 4;
+        int lengthSubject     = cMsgUtilities.bytesToInt(buf, index);    index += 4;
+        int lengthType        = cMsgUtilities.bytesToInt(buf, index);    index += 4;
+        int lengthPayloadTxt  = cMsgUtilities.bytesToInt(buf, index);    index += 4;
+        int lengthText        = cMsgUtilities.bytesToInt(buf, index);    index += 4;
+        int lengthBinary      = cMsgUtilities.bytesToInt(buf, index);    index += 4;
 
         // read sender
         msg.setSender(new String(buf, index, lengthSender, "US-ASCII"));
