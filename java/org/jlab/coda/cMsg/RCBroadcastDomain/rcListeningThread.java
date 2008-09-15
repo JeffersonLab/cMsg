@@ -30,7 +30,7 @@ import java.util.Set;
 
 /**
  * This class implements a thread to listen to runcontrol clients in the
- * runcontrol broadcast domain.
+ * runcontrol multicast domain.
  *
  * @author Carl Timmer
  * @version 1.0
@@ -40,14 +40,14 @@ public class rcListeningThread extends Thread {
     /** This domain's name. */
     private String domainType = "rcb";
 
-    /** RC broadcast server that created this object. */
+    /** RC multicast server that created this object. */
     private RCBroadcast server;
 
-    /** UDP port on which to listen for rc client broad/unicasts. */
-    int broadcastPort;
+    /** UDP port on which to listen for rc client multi/unicasts. */
+    int multicastPort;
 
     /** UDP socket on which to read packets sent from rc clients. */
-     DatagramSocket broadcastSocket;
+     DatagramSocket multicastSocket;
 
     /** Level of debug output for this class. */
     private int debug;
@@ -70,13 +70,13 @@ public class rcListeningThread extends Thread {
      */
     public rcListeningThread(RCBroadcast server, int port) throws cMsgException {
 
-        // Create a UDP socket for accepting broad/unicasts from the RC client.
-        broadcastPort = port;
+        // Create a UDP socket for accepting multi/unicasts from the RC client.
+        multicastPort = port;
         try {
-            broadcastSocket = new DatagramSocket(broadcastPort);
+            multicastSocket = new DatagramSocket(multicastPort);
         }
         catch (SocketException e) {
-            throw new cMsgException("Port " + broadcastPort + " is taken", e);
+            throw new cMsgException("Port " + multicastPort + " is taken", e);
         }
         this.server = server;
         debug = server.debug;
@@ -107,7 +107,7 @@ public class rcListeningThread extends Thread {
             out.writeInt(cMsgNetworkConstants.magicNumbers[0]);    // instead if 0xc0da
             out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
-            out.writeInt(broadcastPort);
+            out.writeInt(multicastPort);
             out.writeInt(server.getHost().length());
             out.writeInt(server.expid.length());
             try {
@@ -118,7 +118,7 @@ public class rcListeningThread extends Thread {
             out.flush();
             out.close();
 
-            // create buffer to broadcast from the byte array
+            // create buffer to multicast from the byte array
             outBuf = baos.toByteArray();
             baos.close();
         }
@@ -134,12 +134,12 @@ public class rcListeningThread extends Thread {
             notifyAll();
         }
 
-        // listen for broadcasts and interpret packets
+        // listen for multicasts and interpret packets
         try {
             while (true) {
                 if (killThread) { return; }
                 packet.setLength(2048);
-                broadcastSocket.receive(packet);
+                multicastSocket.receive(packet);
                 if (debug >= cMsgConstants.debugInfo) {
                     System.out.println("RECEIVED RC DOMAIN MULTICAST PACKET !!!");
                 }
@@ -147,9 +147,9 @@ public class rcListeningThread extends Thread {
                 if (killThread) { return; }
 
                 // pick apart byte array received
-                InetAddress broadcasterAddress = packet.getAddress();
-                String broadcasterHost = broadcasterAddress.getCanonicalHostName();
-                int broadcasterUdpPort = packet.getPort();   // port to send response packet to
+                InetAddress multicasterAddress = packet.getAddress();
+                String multicasterHost = multicasterAddress.getCanonicalHostName();
+                int multicasterUdpPort = packet.getPort();   // port to send response packet to
 
                 if (packet.getLength() < 4*4) {
                     if (debug >= cMsgConstants.debugWarn) {
@@ -173,52 +173,52 @@ public class rcListeningThread extends Thread {
                 int msgType = cMsgUtilities.bytesToInt(buf, 12); // what type of message is this ?
 
                 switch (msgType) {
-                    // broadcasts from rc clients
+                    // multicasts from rc clients
                     case cMsgNetworkConstants.rcDomainMulticastClient:
 //System.out.println("Client wants to connect");
                         break;
-                    // broadcasts from rc servers
+                    // multicasts from rc servers
                     case cMsgNetworkConstants.rcDomainMulticastServer:
 //System.out.println("Server wants to connect");
                         break;
                     // kill this server since one already exists on this port/expid
                     case cMsgNetworkConstants.rcDomainMulticastKillSelf:
 //System.out.println("I was told to kill myself");
-                        server.respondingHost = broadcasterHost;
+                        server.respondingHost = multicasterHost;
                         server.multicastResponse.countDown();
                         return;
-                    // ignore broadcasts from unknown sources
+                    // ignore packets from unknown sources
                     default:
 //System.out.println("Unknown command");
                         continue;
                 }
 
-                int broadcasterTcpPort = cMsgUtilities.bytesToInt(buf, 16); // tcp listening port
+                int multicasterTcpPort = cMsgUtilities.bytesToInt(buf, 16); // tcp listening port
                 int nameLen            = cMsgUtilities.bytesToInt(buf, 20); // length of sender's name (# chars)
                 int expidLen           = cMsgUtilities.bytesToInt(buf, 24); // length of expid (# chars)
 
                 // sender's name
-                String broadcasterName = null;
+                String multicasterName = null;
                 try {
-                    broadcasterName = new String(buf, 28, nameLen, "US-ASCII");
+                    multicasterName = new String(buf, 28, nameLen, "US-ASCII");
                 }
                 catch (UnsupportedEncodingException e) {}
 
                 // sender's EXPID
-                String broadcasterExpid = null;
+                String multicasterExpid = null;
                 try {
-                    broadcasterExpid = new String(buf, 28+nameLen, expidLen, "US-ASCII");
+                    multicasterExpid = new String(buf, 28+nameLen, expidLen, "US-ASCII");
                 }
                 catch (UnsupportedEncodingException e) {}
 
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("broadcaster's host = " + broadcasterHost + ", UDP port = " + broadcasterUdpPort +
-                        ", TCP port = " + broadcasterTcpPort + ", name = " + broadcasterName +
-                        ", expid = " + broadcasterExpid);
+                    System.out.println("multicaster's host = " + multicasterHost + ", UDP port = " + multicasterUdpPort +
+                        ", TCP port = " + multicasterTcpPort + ", name = " + multicasterName +
+                        ", expid = " + multicasterExpid);
                 }
 
                 // Check for conflicting expid's
-                if (!server.expid.equalsIgnoreCase(broadcasterExpid)) {
+                if (!server.expid.equalsIgnoreCase(multicasterExpid)) {
                     if (debug >= cMsgConstants.debugInfo) {
                         System.out.println("Conflicting EXPID's, ignoring");
                     }
@@ -227,42 +227,42 @@ public class rcListeningThread extends Thread {
 
                 // Before sending a reply, check to see if we simply got a packet
                 // from ourself when first connecting. Just ignore our own probing
-                // broadcast.
+                // multicast.
 
 //                System.out.println("accepting Clients = " + server.acceptingClients);
 //                System.out.println("our host = " + InetAddress.getLocalHost().getCanonicalHostName());
-//                System.out.println("broadcaster's host = " + broadcasterHost);
+//                System.out.println("multicaster's host = " + multicasterHost);
 //                System.out.println("our port = " + server.localTempPort);
-//                System.out.println("broadcaster's port = " + broadcasterUdpPort);
+//                System.out.println("multicaster's port = " + multicasterUdpPort);
 
                 if (!server.acceptingClients &&
-//                        InetAddress.getLocalHost().equals(broadcasterHost) &&
-                        broadcasterUdpPort == server.localTempPort) {
-//System.out.println("Ignore our own probing broadcast");
+//                        InetAddress.getLocalHost().equals(multicasterHost) &&
+                        multicasterUdpPort == server.localTempPort) {
+//System.out.println("Ignore our own probing multicast");
                     continue;
                 }
 
-                // if broadcast from client ...
+                // if multicast from client ...
                 if (msgType == cMsgNetworkConstants.rcDomainMulticastClient) {
-                    // Send a reply to broad/unicast - some integer, our broadcast port, host,
+                    // Send a reply - some integer, our multicast port, host,
                     // and expid so the client can filter out any rogue responses.
                     // All we want to communicate is that the client
-                    // was heard and can now stop broadcasting.
+                    // was heard and can now stop multicasting.
                     if (!server.acceptingClients) {
-//System.out.println("Server is not accepting clients right now, ignore broadcast");
+//System.out.println("Server is not accepting clients right now, ignore multicast");
                         continue;
                     }
 
                     try {
-                        sendPacket = new DatagramPacket(outBuf, outBuf.length, broadcasterAddress, broadcasterUdpPort);
+                        sendPacket = new DatagramPacket(outBuf, outBuf.length, multicasterAddress, multicasterUdpPort);
 //System.out.println("Send reponse packet to client");
-                        broadcastSocket.send(sendPacket);
+                        multicastSocket.send(sendPacket);
                     }
                     catch (IOException e) {
                         System.out.println("I/O Error: " + e);
                     }
                 }
-                // else if broadcast from server ...
+                // else if multicast from server ...
                 else {
                     // Other RCBroadcast servers send "feelers" just trying see if another
                     // RCBroadcast server is on the same port with the same EXPID. Don't
@@ -273,32 +273,32 @@ public class rcListeningThread extends Thread {
 
                     // if this server was properly started, tell the one probing us to kill itself
                     if (server.acceptingClients) {
-                        // create packet to respond to broadcast
+                        // create packet to respond to multicast
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[0], buf, 0);
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[1], buf, 4);
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[2], buf, 8);
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.rcDomainMulticastKillSelf, buf, 12);
-                        DatagramPacket pkt = new DatagramPacket(buf, 16, broadcasterAddress, server.udpPort);
+                        DatagramPacket pkt = new DatagramPacket(buf, 16, multicasterAddress, server.udpPort);
 //System.out.println("Send reponse packet (kill yourself) to server");
-                        broadcastSocket.send(pkt);
+                        multicastSocket.send(pkt);
                     }
                     else {
 //System.out.println("Still starting up but have been probed by starting server. So quit");
-                        server.respondingHost = broadcasterHost;
+                        server.respondingHost = multicasterHost;
                         server.multicastResponse.countDown();
                     }
                     continue;
                 }
 //System.out.println("Pass msg on to subscriptions");
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("Client " + broadcasterName + " is now connected");
+                    System.out.println("Client " + multicasterName + " is now connected");
                 }
 
                 // If expid's match, pass on messgage to subscribes and/or subscribeAndGets
                 cMsgMessageFull msg = new cMsgMessageFull();
-                msg.setSenderHost(broadcasterHost);
-                msg.setUserInt(broadcasterTcpPort);
-                msg.setSender(broadcasterName);
+                msg.setSenderHost(multicasterHost);
+                msg.setUserInt(multicasterTcpPort);
+                msg.setSender(multicasterName);
                 msg.setDomain(domainType);
                 msg.setReceiver(server.getName());
                 msg.setReceiverHost(server.getHost());
@@ -311,12 +311,12 @@ public class rcListeningThread extends Thread {
         }
         catch (IOException e) {
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("rcBroadcastListenThread: I/O ERROR in rc broadcast server");
-                System.out.println("rcBroadcastListenThread: close broadcast socket, port = " + broadcastSocket.getLocalPort());
+                System.out.println("rcMulticastListenThread: I/O ERROR in rc multicast server");
+                System.out.println("rcMulticastListenThread: close multicast socket, port = " + multicastSocket.getLocalPort());
             }
         }
         finally {
-            if (!broadcastSocket.isClosed())  broadcastSocket.close();
+            if (!multicastSocket.isClosed())  multicastSocket.close();
         }
 
         return;
