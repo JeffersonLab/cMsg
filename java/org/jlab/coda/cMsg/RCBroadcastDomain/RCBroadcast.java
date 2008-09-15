@@ -36,37 +36,37 @@ import java.util.HashSet;
 import java.io.*;
 
 /**
- * This class implements the runcontrol broadcast (rdb) domain.
+ * This class implements the runcontrol multicast (rcm) domain.
  *
  * @author Carl Timmer
  * @version 1.0
  */
 public class RCBroadcast extends cMsgDomainAdapter {
 
-    /** This runcontrol broadcast server's UDP listening port obtained from UDL or default value. */
-    int broadcastPort;
+    /** This runcontrol multicast server's UDP listening port obtained from UDL or default value. */
+    int udpPort;
 
-    /** The local port used temporarily while broadcasting for other RCBroadcast servers. */
+    /** The local port used temporarily while multicasting for other rc multicast servers. */
     int localTempPort;
 
-    /** Socket over which to UDP broadcast to and check for other RCBroadcast servers. */
+    /** Socket over which to UDP multicast to and check for other rc multicast servers. */
     DatagramSocket udpSocket;
 
-    /** Signal to coordinate the broadcasting and waiting for responses. */
-    CountDownLatch broadcastResponse = new CountDownLatch(1);
+    /** Signal to coordinate the multicasting and waiting for responses. */
+    CountDownLatch multicastResponse = new CountDownLatch(1);
 
-    /** The host of the responding server to initial broadcast probes of the local subnet. */
+    /** The host of the responding server to initial multicast probes of the local subnet. */
     String respondingHost;
 
     /** Runcontrol's experiment id. */
     String expid;
 
-    /** Timeout in milliseconds to wait for server to respond to broadcasts. Default is 2 sec. */
-    int broadcastTimeout = 2000;
+    /** Timeout in milliseconds to wait for server to respond to multicasts. Default is 2 sec. */
+    int multicastTimeout = 2000;
 
     volatile boolean acceptingClients;
 
-    /** Thread that listens for UDP broad/unicasts to this server and responds. */
+    /** Thread that listens for UDP multiunicasts to this server and responds. */
     rcListeningThread listener;
 
     /**
@@ -113,7 +113,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
 
 
     public RCBroadcast() throws cMsgException {
-        domain = "rcb";
+        domain = "rcm";
         subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
         subscribeAndGets = Collections.synchronizedSet(new HashSet<cMsgGetHelper>(20));
         unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
@@ -147,7 +147,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
     /**
      * Method to connect to rc clients from this server.
      *
-     * @throws org.jlab.coda.cMsg.cMsgException if there are problems parsing the UDL or
+     * @throws cMsgException if there are problems parsing the UDL or
      *                       creating the UDP socket
      */
     public void connect() throws cMsgException {
@@ -161,7 +161,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
             if (connected) return;
 
             // Start listening for udp packets
-            listener = new rcListeningThread(this, broadcastPort);
+            listener = new rcListeningThread(this, udpPort);
             listener.start();
 
             // Wait for indication listener thread is actually running before
@@ -178,14 +178,14 @@ public class RCBroadcast extends cMsgDomainAdapter {
                 }
             }
 
-            // First need to check to see if there is another RCBroadcastServer
+            // First need to check to see if there is another RCMulticastServer
             // on this port with this EXPID. If so, abandon ship.
             //-------------------------------------------------------
-            // broadcast on local subnet to find other servers
+            // multicast on local subnet to find other servers
             //-------------------------------------------------------
             DatagramPacket udpPacket;
 
-            // create byte array for broadcast
+            // create byte array for multicast
             ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);
             DataOutputStream out = new DataOutputStream(baos);
 
@@ -193,7 +193,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
                 // Put our TCP listening port, our name, and
                 // the EXPID (experiment id string) into byte array.
 
-                // this broadcast is from an rc broadcast domain server
+                // this multicast is from an rc multicast domain server
                 out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
@@ -211,19 +211,17 @@ public class RCBroadcast extends cMsgDomainAdapter {
                 out.flush();
                 out.close();
 
-                // create socket to send broadcasts to other RCBroadcast servers
+                // create socket to send multicasts to other RCMulticast servers
                 udpSocket = new DatagramSocket();
                 localTempPort = udpSocket.getLocalPort();
 
-                InetAddress rcServerBroadcastAddress=null;
-                try {rcServerBroadcastAddress = InetAddress.getByName("255.255.255.255"); }
+                InetAddress rcServerMulticastAddress=null;
+                try {rcServerMulticastAddress = InetAddress.getByName(cMsgNetworkConstants.rcMulticast); }
                 catch (UnknownHostException e) {}
 
-                // create packet to broadcast from the byte array
+                // create packet to multicast from the byte array
                 byte[] buf = baos.toByteArray();
-                udpPacket = new DatagramPacket(buf, buf.length,
-                                               rcServerBroadcastAddress,
-                                               broadcastPort);
+                udpPacket = new DatagramPacket(buf, buf.length, rcServerMulticastAddress, udpPort);
                 baos.close();
             }
             catch (IOException e) {
@@ -238,14 +236,14 @@ public class RCBroadcast extends cMsgDomainAdapter {
                 throw new cMsgException(e.getMessage());
             }
 
-            // create a thread which will send our broadcast
-            Broadcaster sender = new Broadcaster(udpPacket);
+            // create a thread which will send our multicast
+            Multicaster sender = new Multicaster(udpPacket);
             sender.start();
 
-            // wait up to broadcast timeout seconds
+            // wait up to multicast timeout seconds
             boolean response = false;
             try {
-                if (broadcastResponse.await(broadcastTimeout, TimeUnit.MILLISECONDS)) {
+                if (multicastResponse.await(multicastTimeout, TimeUnit.MILLISECONDS)) {
 //System.out.println("Got a response!");
                     response = true;
                 }
@@ -255,7 +253,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
             sender.interrupt();
 
             if (response) {
-//System.out.println("Another RCBroadcast server is running at port "  + broadcastPort +
+//System.out.println("Another RC Multicast server is running at port "  + udpPort +
 //                   " host " + respondingHost + " with EXPID = " + expid);
                 // stop listening thread
                 listener.killThread();
@@ -263,19 +261,19 @@ public class RCBroadcast extends cMsgDomainAdapter {
                 try {Thread.sleep(500);}
                 catch (InterruptedException e) {}
 
-                throw new cMsgException("Another RCBroadcast server is running at port " + broadcastPort +
+                throw new cMsgException("Another RC Multicast server is running at port " + udpPort +
                                         " host " + respondingHost + " with EXPID = " + expid);
             }
-//System.out.println("No other RCBroadcast server is running, so start this one up!");
+//System.out.println("No other RC Multicast server is running, so start this one up!");
             acceptingClients = true;
 
             // Releasing the socket after above line diminishes the chance that
             // a client on the same host will grab that port and be filtered
-            // out as being this same server's broadcast.
+            // out as being this same server's multicast.
             udpSocket.close();
 
             // reclaim memory
-            broadcastResponse = null;
+            multicastResponse = null;
 
             connected = true;
         }
@@ -349,18 +347,18 @@ public class RCBroadcast extends cMsgDomainAdapter {
 
     /**
      * Method to parse the Universal Domain Locator (UDL) into its various components.
-     * RC Broadcast domain UDL is of the form:<p>
-     *       cMsg:rcb://&lt;udpPort&gt;?expid=&lt;expid&gt;&broadcastTO=&lt;timeout&gt;<p>
+     * RC Multicast domain UDL is of the form:<p>
+     *       cMsg:rcb://&lt;udpPort&gt;?expid=&lt;expid&gt;&multicastTO=&lt;timeout&gt;<p>
      *
-     * The intial cMsg:rcb:// is stripped off by the top layer API
+     * The intial cMsg:rcm:// is stripped off by the top layer API
      *
      * Remember that for this domain:
-     * 1) udp listening port is optional and defaults to MsgNetworkConstants.rcBroadcastPort
+     * 1) udp listening port is optional and defaults to MsgNetworkConstants.rcMulticastPort
      * 2) the experiment id is given by the optional parameter expid. If none is
      *    given, the environmental variable EXPID is used. if that is not defined,
      *    an exception is thrown
-     * 3) the broadcast timeout is in seconds and sets the time of sending out broadcasts
-     *    trying to locate other rc broadcast servers already running on its port. Default
+     * 3) the multicast timeout is in seconds and sets the time of sending out multicasts
+     *    trying to locate other rc multicast servers already running on its port. Default
      *    is 2 seconds
      *
      * @param udlRemainder partial UDL to parse
@@ -393,10 +391,10 @@ public class RCBroadcast extends cMsgDomainAdapter {
             throw new cMsgException("invalid UDL");
         }
 
-        // get broadcast port or use env var or default if it's not given
+        // get multicast port or use env var or default if it's not given
         if (udlPort != null && udlPort.length() > 0) {
             try {
-                broadcastPort = Integer.parseInt(udlPort);
+                udpPort = Integer.parseInt(udlPort);
             }
             catch (NumberFormatException e) {
                 if (debug >= cMsgConstants.debugWarn) {
@@ -406,11 +404,11 @@ public class RCBroadcast extends cMsgDomainAdapter {
         }
 
         // next, try the environmental variable RC_MULTICAST_PORT
-        if (broadcastPort < 1) {
+        if (udpPort < 1) {
             try {
                 String env = System.getenv("RC_MULTICAST_PORT");
                 if (env != null) {
-                    broadcastPort = Integer.parseInt(env);
+                    udpPort = Integer.parseInt(env);
                 }
             }
             catch (NumberFormatException ex) {
@@ -419,14 +417,14 @@ public class RCBroadcast extends cMsgDomainAdapter {
         }
 
         // use default as last resort
-        if (broadcastPort < 1) {
-            broadcastPort = cMsgNetworkConstants.rcBroadcastPort;
+        if (udpPort < 1) {
+            udpPort = cMsgNetworkConstants.rcMulticastPort;
             if (debug >= cMsgConstants.debugWarn) {
-                System.out.println("parseUDL: using default broadcast port = " + broadcastPort);
+                System.out.println("parseUDL: using default multicast port = " + udpPort);
             }
         }
 
-        if (broadcastPort < 1024 || broadcastPort > 65535) {
+        if (udpPort < 1024 || udpPort > 65535) {
             throw new cMsgException("parseUDL: illegal port number");
         }
 
@@ -459,16 +457,16 @@ public class RCBroadcast extends cMsgDomainAdapter {
         }
 
 
-        // now look for ?broadcastTO=value& or &broadcastTO=value&
-        pattern = Pattern.compile("[\\?&]broadcastTO=([0-9]+)", Pattern.CASE_INSENSITIVE);
+        // now look for ?multicastTO=value& or &multicastTO=value&
+        pattern = Pattern.compile("[\\?&]multicastTO=([0-9]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
             try {
-                broadcastTimeout = 1000 * Integer.parseInt(matcher.group(1));
-                if (broadcastTimeout < 1) {
-                    broadcastTimeout = 2000;
+                multicastTimeout = 1000 * Integer.parseInt(matcher.group(1));
+                if (multicastTimeout < 1) {
+                    multicastTimeout = 2000;
                 }
-//System.out.println("broadcast TO = " + broadcastTimeout);
+//System.out.println("multicast TO = " + multicastTimeout);
             }
             catch (NumberFormatException e) {
                 // ignore error and keep default
@@ -615,10 +613,10 @@ public class RCBroadcast extends cMsgDomainAdapter {
     /**
      * This method is like a one-time subscribe. The rc server grabs an incoming
      * message and sends that to the caller. In this domain, subject and type are
-     * ignored and set to the preset values of "s" and "t".
+     * ignored.
      *
-     * @param subject ignored and set to "s"
-     * @param type ignored and set to "t"
+     * @param subject ignored
+     * @param type ignored
      * @param timeout time in milliseconds to wait for a message
      * @return response message
      * @throws cMsgException if there are communication problems with rc client;
@@ -628,10 +626,6 @@ public class RCBroadcast extends cMsgDomainAdapter {
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
             throws cMsgException, TimeoutException {
 
-        // Subject and type are ignored in this domain so just
-        // set them to some standard values
-        subject = "s";
-        type    = "t";
 
         cMsgGetHelper helper = null;
 
@@ -684,14 +678,14 @@ public class RCBroadcast extends cMsgDomainAdapter {
 
 
     /**
-     * This class defines a thread to broadcast a UDP packet to the
-     * RC Broadcast server every second.
+     * This class defines a thread to multicast a UDP packet to the
+     * RC Multicast server every second.
      */
-    class Broadcaster extends Thread {
+    class Multicaster extends Thread {
 
         DatagramPacket packet;
 
-        Broadcaster(DatagramPacket udpPacket) {
+        Multicaster(DatagramPacket udpPacket) {
             packet = udpPacket;
         }
 
@@ -701,7 +695,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
             try {
                 /* A slight delay here will help the main thread (calling connect)
                 * to be already waiting for a response from the server when we
-                * broadcast to the server here (prompting that response). This
+                * multicast to the server here (prompting that response). This
                 * will help insure no responses will be lost.
                 */
                 Thread.sleep(100);
@@ -709,7 +703,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
                 while (true) {
 
                     try {
-//System.out.println("  Send broadcast packet to RC Broadcast server");
+//System.out.println("  Send multicast packet to RC Multicast server");
                         udpSocket.send(packet);
                     }
                     catch (IOException e) {
