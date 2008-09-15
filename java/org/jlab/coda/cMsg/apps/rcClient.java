@@ -97,11 +97,11 @@ public class rcClient {
          System.out.println("Starting RC Client");
 
          /* Runcontrol domain UDL is of the form:
-          *        cMsg:rc://<host>:<port>/?expid=<expid>&broadcastTO=<timeout>&connectTO=<timeout>
+          *        cMsg:rc://<host>:<port>/?expid=<expid>&multicastTO=<timeout>&connectTO=<timeout>
           *
           * Remember that for this domain:
-          * 1) port is optional with a default of 6543 (cMsgNetworkConstants.rcBroadcastPort)
-          * 2) host is optional with a default of 255.255.255.255 (broadcast)
+          * 1) port is optional with a default of cMsgNetworkConstants.rcMulticastPort
+          * 2) host is optional with a default of cMsgNetworkConstants.rcMulticast
           *    and may be "localhost" or in dotted decimal form
           * 3) the experiment id or expid is optional, it is taken from the
           *    environmental variable EXPID
@@ -111,7 +111,7 @@ public class rcClient {
           *    timeout while waiting for the rc server to send a special (tcp)
           *    concluding connect message
           */
-         String UDL = "cMsg:rc://33444?expid=carlExp&broadcastTO=5&connectTO=5";
+         String UDL = "cMsg:rc://33444?expid=carlExp&multicastTO=5&connectTO=5";
          //String UDL = "cMsg:rc://33444?expid=carlExp";
 
          cmsg = new cMsg(UDL, "java rc client", "rc trial");
