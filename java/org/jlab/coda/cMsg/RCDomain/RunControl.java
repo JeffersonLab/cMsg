@@ -61,19 +61,19 @@ public class RunControl extends cMsgDomainAdapter {
     /** Coda experiment id under which this is running. */
     String expid;
 
-    /** Timeout in milliseconds to wait for server to respond to broadcasts. */
-    int broadcastTimeout;
+    /** Timeout in milliseconds to wait for server to respond to multicasts. */
+    int multicastTimeout;
 
     /**
      * Timeout in seconds to wait for RC server to finish connection
-     * once RC broadcast server responds.
+     * once RC multicast server responds.
      */
     int connectTimeout;
 
     /** Quit a connection in progress if true. */
     volatile boolean abandonConnection;
 
-    /** RunControl server's net address obtained from broadcast resonse. */
+    /** RunControl server's net address obtained from multicast resonse. */
     volatile InetAddress rcServerAddress;
 
     /** RunControl server's UDP listening port obtained from {@link #connect}. */
@@ -82,17 +82,17 @@ public class RunControl extends cMsgDomainAdapter {
     /** RunControl server's TCP listening port obtained from {@link #connect}. */
     volatile int rcTcpServerPort;
 
-    /** RunControl server's net address obtained from UDL. */
-    InetAddress rcServerBroadcastAddress;
+    /** RunControl multicast server's net address obtained from UDL. */
+    InetAddress rcMulticastServerAddress;
 
-    /** RunControl server's broadcast listening port obtained from UDL. */
-    int rcServerBroadcastPort;
+    /** RunControl multicast server's multicast listening port obtained from UDL. */
+    int rcMulticastServerPort;
 
     /** Packet to send over UDP to RC server to implement {@link #send}. */
     DatagramPacket sendUdpPacket;
 
-    /** Socket over which to UDP broadcast to and receive UDP packets from the RCBroadcast server. */
-    DatagramSocket broadcastUdpSocket;
+    /** Socket over which to UDP multicast to and receive UDP packets from the RCMulticast server. */
+    DatagramSocket multicastUdpSocket;
 
     /** Socket over which to end messages to the RC server over UDP. */
     DatagramSocket udpSocket;
@@ -145,8 +145,8 @@ public class RunControl extends cMsgDomainAdapter {
     /** Used to create unique id numbers associated with a specific message subject/type pair. */
     AtomicInteger uniqueId;
 
-    /** Signal to coordinate the broadcasting and waiting for responses. */
-    CountDownLatch broadcastResponse;
+    /** Signal to coordinate the multicasting and waiting for responses. */
+    CountDownLatch multicastResponse;
 
     /** Signal to coordinate the finishing of the 3-leg connect method. */
     CountDownLatch connectCompletion;
@@ -189,7 +189,7 @@ public class RunControl extends cMsgDomainAdapter {
 //System.out.println("Connecting");
 
             // set the latches
-            broadcastResponse = new CountDownLatch(1);
+            multicastResponse = new CountDownLatch(1);
             connectCompletion = new CountDownLatch(1);
 
             // read env variable for starting port number
@@ -263,12 +263,12 @@ public class RunControl extends cMsgDomainAdapter {
                 }
             }
 
-            //-------------------------------------------------------
-            // broadcast on local subnet to find RunControl server
-            //-------------------------------------------------------
+            //--------------------------------------------------------------
+            // multicast on local subnet to find RunControl Multicast server
+            //--------------------------------------------------------------
             DatagramPacket udpPacket;
 
-            // create byte array for broadcast
+            // create byte array for multicast
             ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);
             DataOutputStream out = new DataOutputStream(baos);
 
@@ -278,7 +278,7 @@ public class RunControl extends cMsgDomainAdapter {
                 out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
-                out.writeInt(cMsgNetworkConstants.rcDomainMulticastClient); // broadcast is from rc domain client
+                out.writeInt(cMsgNetworkConstants.rcDomainMulticastClient); // multicast is from rc domain client
                 out.writeInt(port);
                 out.writeInt(name.length());
                 out.writeInt(expid.length());
@@ -292,20 +292,20 @@ public class RunControl extends cMsgDomainAdapter {
                 out.close();
 
                 // create socket to receive at anonymous port & all interfaces
-                broadcastUdpSocket = new DatagramSocket();
+                multicastUdpSocket = new DatagramSocket();
 
-                // create packet to broadcast from the byte array
+                // create packet to multicast from the byte array
                 byte[] buf = baos.toByteArray();
                 udpPacket = new DatagramPacket(buf, buf.length,
-                                               rcServerBroadcastAddress,
-                                               rcServerBroadcastPort);
+                                               rcMulticastServerAddress,
+                                               rcMulticastServerPort);
                 baos.close();
             }
             catch (IOException e) {
                 listeningThread.killThread();
                 try { out.close();} catch (IOException e1) {}
                 try {baos.close();} catch (IOException e1) {}
-                if (broadcastUdpSocket != null) broadcastUdpSocket.close();
+                if (multicastUdpSocket != null) multicastUdpSocket.close();
 
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("I/O Error: " + e);
@@ -313,19 +313,19 @@ public class RunControl extends cMsgDomainAdapter {
                 throw new cMsgException(e.getMessage(), e);
             }
 
-            // create a thread which will receive any responses to our broadcast
-            BroadcastReceiver receiver = new BroadcastReceiver();
+            // create a thread which will receive any responses to our multicast
+            MulticastReceiver receiver = new MulticastReceiver();
             receiver.start();
 
-            // create a thread which will send our broadcast
-            Broadcaster sender = new Broadcaster(udpPacket);
+            // create a thread which will send our multicast
+            Multicaster sender = new Multicaster(udpPacket);
             sender.start();
 
-            // wait up to broadcast timeout seconds
+            // wait up to multicast timeout seconds
             boolean response = false;
-            if (broadcastTimeout > 0) {
+            if (multicastTimeout > 0) {
                 try {
-                    if (broadcastResponse.await(broadcastTimeout, TimeUnit.MILLISECONDS)) {
+                    if (multicastResponse.await(multicastTimeout, TimeUnit.MILLISECONDS)) {
                         response = true;
                     }
                 }
@@ -333,21 +333,21 @@ public class RunControl extends cMsgDomainAdapter {
             }
             // wait forever
             else {
-                try { broadcastResponse.await(); response = true;}
+                try { multicastResponse.await(); response = true;}
                 catch (InterruptedException e) {}
             }
 
-            broadcastUdpSocket.close();
+            multicastUdpSocket.close();
             sender.interrupt();
 
             if (!response) {
-                throw new cMsgException("No response to UDP broadcast received");
+                throw new cMsgException("No response to UDP multicast received");
             }
             else {
 //System.out.println("Got a response!");
             }
 
-            // Now that we got a response from the RC Broadcast server,
+            // Now that we got a response from the RC Multicast server,
             // wait for that server to pass its info on to the RC server
             // which should complete this connect by sending a "connect"
             // message to our listening thread.
@@ -368,9 +368,9 @@ public class RunControl extends cMsgDomainAdapter {
                 catch (InterruptedException e) {}
             }
 
-            // RC Broadcast server told me to abandon the connection attempt
+            // RC Multicast server told me to abandon the connection attempt
             if (abandonConnection) {
-                throw new cMsgException("RC Broadcast server says to quit the connect attempt");
+                throw new cMsgException("RC Multicast server says to quit the connect attempt");
             }
 
             if (!completed) {
@@ -431,16 +431,16 @@ public class RunControl extends cMsgDomainAdapter {
       * Method to parse the Universal Domain Locator (UDL) into its various components.
       *
       * Runcontrol domain UDL is of the form:<p>
-      *        cMsg:rc://&lt;host&gt;:&lt;port&gt;/?expid=&lt;expid&gt;&broadcastTO=&lt;timeout&gt;&connectTO=&lt;timeout&gt;<p>
+      *        cMsg:rc://&lt;host&gt;:&lt;port&gt;/?expid=&lt;expid&gt;&multicastTO=&lt;timeout&gt;&connectTO=&lt;timeout&gt;<p>
       *
       * Remember that for this domain:
-      * 1) port is optional with a default of cMsgNetworkConstants.rcMulticastPort
-      * 2) host is optional with a default of 255.255.255.255 (broadcast)
+      * 1) port is optional with a default of {@link cMsgNetworkConstants#rcMulticastPort}
+      * 2) host is optional with a default of {@link cMsgNetworkConstants#rcMulticast}
       *    and may be "localhost" or in dotted decimal form
       * 3) the experiment id or expid is optional, it is taken from the
       *    environmental variable EXPID
-      * 4) broadcastTO is the time to wait in seconds before connect returns a
-      *    timeout when a rc broadcast server does not answer
+      * 4) multicastTO is the time to wait in seconds before connect returns a
+      *    timeout when a rc multicast server does not answer
       * 5) connectTO is the time to wait in seconds before connect returns a
       *    timeout while waiting for the rc server to send a special (tcp)
       *    concluding connect message
@@ -505,43 +505,44 @@ public class RunControl extends cMsgDomainAdapter {
                 }
             }
 
-            // If the host is NOT given we broadcast on local subnet.
+            // If the host is NOT given we multicast on local subnet.
             // If the host is     given we unicast to this particular host.
             if (udlHost != null) {
                 // Note that a null arg to getByName gives the loopback address
                 // so we need to rule that out.
-                try { rcServerBroadcastAddress = InetAddress.getByName(udlHost); }
+                try { rcMulticastServerAddress = InetAddress.getByName(udlHost); }
                 catch (UnknownHostException e) {}
             }
 //System.out.println("Will unicast to host " + udlHost);
         }
         else {
-//System.out.println("Will broadcast to 255.255.255.25");
-            try {rcServerBroadcastAddress = InetAddress.getByName("255.255.255.255"); }
+//System.out.println("Will multicast to " + cMsgNetworkConstants.rcMulticast);
+            try {
+                rcMulticastServerAddress = InetAddress.getByName(cMsgNetworkConstants.rcMulticast); }
             catch (UnknownHostException e) {}
         }
 
-        // get broadcast server port or guess if it's not given
+        // get multicast server port or guess if it's not given
         if (udlPort != null && udlPort.length() > 0) {
-            try { rcServerBroadcastPort = Integer.parseInt(udlPort); }
+            try { rcMulticastServerPort = Integer.parseInt(udlPort); }
             catch (NumberFormatException e) {
-                rcServerBroadcastPort = cMsgNetworkConstants.rcMulticastPort;
+                rcMulticastServerPort = cMsgNetworkConstants.rcMulticastPort;
                 if (debug >= cMsgConstants.debugWarn) {
-                    System.out.println("parseUDL: non-integer port, guessing codaComponent port is " + rcServerBroadcastPort);
+                    System.out.println("parseUDL: non-integer port, guessing codaComponent port is " + rcMulticastServerPort);
                 }
             }
         }
         else {
-            rcServerBroadcastPort = cMsgNetworkConstants.rcMulticastPort;
+            rcMulticastServerPort = cMsgNetworkConstants.rcMulticastPort;
             if (debug >= cMsgConstants.debugWarn) {
-                System.out.println("parseUDL: guessing codaComponent port is " + rcServerBroadcastPort);
+                System.out.println("parseUDL: guessing codaComponent port is " + rcMulticastServerPort);
             }
         }
 
-        if (rcServerBroadcastPort < 1024 || rcServerBroadcastPort > 65535) {
+        if (rcMulticastServerPort < 1024 || rcMulticastServerPort > 65535) {
             throw new cMsgException("parseUDL: illegal port number");
         }
-//System.out.println("Port = " + rcServerBroadcastPort);
+//System.out.println("Port = " + rcMulticastServerPort);
 
         // if no remaining UDL to parse, return
         if (remainder == null) {
@@ -563,13 +564,13 @@ public class RunControl extends cMsgDomainAdapter {
 //System.out.println("env expid = " + expid);
         }
 
-        // now look for ?broadcastTO=value& or &broadcastTO=value&
-        pattern = Pattern.compile("[\\?&]broadcastTO=([0-9]+)", Pattern.CASE_INSENSITIVE);
+        // now look for ?multicastTO=value& or &multicastTO=value&
+        pattern = Pattern.compile("[\\?&]multicastTO=([0-9]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
             try {
-                broadcastTimeout = 1000 * Integer.parseInt(matcher.group(1));
-//System.out.println("broadcast TO = " + broadcastTimeout);
+                multicastTimeout = 1000 * Integer.parseInt(matcher.group(1));
+//System.out.println("multicast TO = " + multicastTimeout);
             }
             catch (NumberFormatException e) {
                 // ignore error and keep value of 0
@@ -582,7 +583,7 @@ public class RunControl extends cMsgDomainAdapter {
         if (matcher.find()) {
             try {
                 connectTimeout = 1000 * Integer.parseInt(matcher.group(1));
-//System.out.println("broadcast TO = " + connectTimeout);
+//System.out.println("multicast TO = " + connectTimeout);
             }
             catch (NumberFormatException e) {
                 // ignore error and keep value of 0
@@ -605,7 +606,7 @@ public class RunControl extends cMsgDomainAdapter {
             if (!connected) return;
 
             connected = false;
-            broadcastUdpSocket.close();
+            multicastUdpSocket.close();
             udpSocket.close();
             try {tcpSocket.close();} catch (IOException e) {}
             try {domainOut.close();} catch (IOException e) {}
@@ -640,118 +641,118 @@ public class RunControl extends cMsgDomainAdapter {
     }
 
 
-        /**
-         * Method to send a message to the domain server for further distribution.
-         *
-         * @param message message to send
-         * @throws cMsgException if there are communication problems with the server;
-         *                       subject and/or type is null
-         */
-        public void send(final cMsgMessage message) throws cMsgException {
+    /**
+     * Method to send a message to the domain server for further distribution.
+     *
+     * @param message message to send
+     * @throws cMsgException if there are communication problems with the server;
+     *                       subject and/or type is null
+     */
+    public void send(final cMsgMessage message) throws cMsgException {
 
-            if (!message.getContext().getReliableSend()) {
-                udpSend(message);
-                return;
-            }
-
-            String subject = message.getSubject();
-            String type    = message.getType();
-
-            // check message fields first
-            if (subject == null || type == null) {
-                throw new cMsgException("message subject and/or type is null");
-            }
-
-            // check for null text
-            String text = message.getText();
-            int textLen = 0;
-            if (text != null) {
-                textLen = text.length();
-            }
-
-            // Payload stuff. Do NOT keep track of sender history.
-            String payloadTxt = message.getPayloadText();
-            int payloadLen = 0;
-            if (payloadTxt != null) {
-                payloadLen = payloadTxt.length();
-            }
-
-            int msgType = cMsgConstants.msgSubscribeResponse;
-            if (message.isGetResponse()) {
-                msgType = cMsgConstants.msgGetResponse;
-            }
-
-            int binaryLength = message.getByteArrayLength();
-
-            // cannot run this simultaneously with connect, reconnect, or disconnect
-            notConnectLock.lock();
-            // protect communicatons over socket
-            socketLock.lock();
-            try {
-                if (!connected) {
-                    throw new IOException("not connected to server");
-                }
-
-                // length not including first int
-                int totalLength = (4 * 14) + name.length() + subject.length() +
-                                  type.length() + payloadLen + textLen + binaryLength;
-
-                // total length of msg (not including this int) is 1st item
-                domainOut.writeInt(totalLength);
-                domainOut.writeInt(msgType);
-                domainOut.writeInt(cMsgConstants.version);
-                domainOut.writeInt(message.getUserInt());
-                domainOut.writeInt(message.getInfo());
-                domainOut.writeInt(message.getSenderToken());
-
-                long now = new Date().getTime();
-                // send the time in milliseconds as 2, 32 bit integers
-                domainOut.writeInt((int) (now >>> 32)); // higher 32 bits
-                domainOut.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
-                domainOut.writeInt((int) (message.getUserTime().getTime() >>> 32));
-                domainOut.writeInt((int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL));
-
-                domainOut.writeInt(name.length());
-                domainOut.writeInt(subject.length());
-                domainOut.writeInt(type.length());
-                domainOut.writeInt(payloadLen);
-                domainOut.writeInt(textLen);
-                domainOut.writeInt(binaryLength);
-
-                // write strings & byte array
-                try {
-                    domainOut.write(name.getBytes("US-ASCII"));
-                    domainOut.write(subject.getBytes("US-ASCII"));
-                    domainOut.write(type.getBytes("US-ASCII"));
-                    if (payloadLen > 0) {
-                        domainOut.write(payloadTxt.getBytes("US-ASCII"));
-                    }
-                    if (textLen > 0) {
-                        domainOut.write(text.getBytes("US-ASCII"));
-                    }
-                    if (binaryLength > 0) {
-                        domainOut.write(message.getByteArray(),
-                                  message.getByteArrayOffset(),
-                                  binaryLength);
-                    }
-                }
-                catch (UnsupportedEncodingException e) {
-                }
-
-                domainOut.flush();
-
-            }
-            catch (IOException e) {
-                if (debug >= cMsgConstants.debugError) {
-                    System.out.println("send: " + e.getMessage());
-                }
-                throw new cMsgException(e.getMessage());
-            }
-            finally {
-                socketLock.unlock();
-                notConnectLock.unlock();
-            }
+        if (!message.getContext().getReliableSend()) {
+            udpSend(message);
+            return;
         }
+
+        String subject = message.getSubject();
+        String type    = message.getType();
+
+        // check message fields first
+        if (subject == null || type == null) {
+            throw new cMsgException("message subject and/or type is null");
+        }
+
+        // check for null text
+        String text = message.getText();
+        int textLen = 0;
+        if (text != null) {
+            textLen = text.length();
+        }
+
+        // Payload stuff. Do NOT keep track of sender history.
+        String payloadTxt = message.getPayloadText();
+        int payloadLen = 0;
+        if (payloadTxt != null) {
+            payloadLen = payloadTxt.length();
+        }
+
+        int msgType = cMsgConstants.msgSubscribeResponse;
+        if (message.isGetResponse()) {
+            msgType = cMsgConstants.msgGetResponse;
+        }
+
+        int binaryLength = message.getByteArrayLength();
+
+        // cannot run this simultaneously with connect, reconnect, or disconnect
+        notConnectLock.lock();
+        // protect communicatons over socket
+        socketLock.lock();
+        try {
+            if (!connected) {
+                throw new IOException("not connected to server");
+            }
+
+            // length not including first int
+            int totalLength = (4 * 14) + name.length() + subject.length() +
+                    type.length() + payloadLen + textLen + binaryLength;
+
+            // total length of msg (not including this int) is 1st item
+            domainOut.writeInt(totalLength);
+            domainOut.writeInt(msgType);
+            domainOut.writeInt(cMsgConstants.version);
+            domainOut.writeInt(message.getUserInt());
+            domainOut.writeInt(message.getInfo());
+            domainOut.writeInt(message.getSenderToken());
+
+            long now = new Date().getTime();
+            // send the time in milliseconds as 2, 32 bit integers
+            domainOut.writeInt((int) (now >>> 32)); // higher 32 bits
+            domainOut.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
+            domainOut.writeInt((int) (message.getUserTime().getTime() >>> 32));
+            domainOut.writeInt((int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL));
+
+            domainOut.writeInt(name.length());
+            domainOut.writeInt(subject.length());
+            domainOut.writeInt(type.length());
+            domainOut.writeInt(payloadLen);
+            domainOut.writeInt(textLen);
+            domainOut.writeInt(binaryLength);
+
+            // write strings & byte array
+            try {
+                domainOut.write(name.getBytes("US-ASCII"));
+                domainOut.write(subject.getBytes("US-ASCII"));
+                domainOut.write(type.getBytes("US-ASCII"));
+                if (payloadLen > 0) {
+                    domainOut.write(payloadTxt.getBytes("US-ASCII"));
+                }
+                if (textLen > 0) {
+                    domainOut.write(text.getBytes("US-ASCII"));
+                }
+                if (binaryLength > 0) {
+                    domainOut.write(message.getByteArray(),
+                                    message.getByteArrayOffset(),
+                                    binaryLength);
+                }
+            }
+            catch (UnsupportedEncodingException e) {
+            }
+
+            domainOut.flush();
+
+        }
+        catch (IOException e) {
+            if (debug >= cMsgConstants.debugError) {
+                System.out.println("send: " + e.getMessage());
+            }
+            throw new cMsgException(e.getMessage());
+        }
+        finally {
+            socketLock.unlock();
+            notConnectLock.unlock();
+        }
+    }
 
 //-----------------------------------------------------------------------------
 
@@ -804,7 +805,7 @@ public class RunControl extends cMsgDomainAdapter {
             throw new cMsgException("Too big a message for UDP to send");
         }
 
-        // create byte array for broadcast
+        // create byte array for multicast
         ByteArrayOutputStream baos = new ByteArrayOutputStream(8192);
         DataOutputStream out = new DataOutputStream(baos);
 
@@ -1049,17 +1050,17 @@ public class RunControl extends cMsgDomainAdapter {
 
 
     /**
-     * This class gets any response to our UDP broadcast. A response will
-     * stop the broadcast and tell us to wait for the completion of the
-     * connect call by the RC server (not RC Broadcast server).
+     * This class gets any response to our UDP multicast. A response will
+     * stop the multicast and tell us to wait for the completion of the
+     * connect call by the RC server (not RC Multicast server).
      */
-    class BroadcastReceiver extends Thread {
+    class MulticastReceiver extends Thread {
 
         public void run() {
 
             /* A slight delay here will help the main thread (calling connect)
              * to be already waiting for a response from the server when we
-             * broadcast to the server here (prompting that response). This
+             * multicast to the server here (prompting that response). This
              * will help insure no responses will be lost.
              */
             try { Thread.sleep(200); }
@@ -1075,15 +1076,15 @@ public class RunControl extends cMsgDomainAdapter {
                 index = 0;
 
                 try {
-                    broadcastUdpSocket.receive(packet);
+                    multicastUdpSocket.receive(packet);
                     // if we get too small of a packet, reject it
                     if (packet.getLength() < 6*4) {
                         if (debug >= cMsgConstants.debugWarn) {
-                                     System.out.println("Broadcast receiver: got packet that's too small");
+                                     System.out.println("Multicast receiver: got packet that's too small");
                         }
                         continue;
                     }
-//System.out.println("received broadcast packet");
+//System.out.println("received multicast packet");
                     int magic1 = cMsgUtilities.bytesToInt(buf, index);
                     index += 4;
                     int magic2 = cMsgUtilities.bytesToInt(buf, index);
@@ -1095,7 +1096,7 @@ public class RunControl extends cMsgDomainAdapter {
                         magic2 != cMsgNetworkConstants.magicNumbers[1] ||
                         magic3 != cMsgNetworkConstants.magicNumbers[2])  {
                         if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("Broadcast receiver: got bad magic # response to broadcast");
+                            System.out.println("Multicast receiver: got bad magic # response to multicast");
                         }
                         continue;
                     }
@@ -1103,9 +1104,9 @@ public class RunControl extends cMsgDomainAdapter {
                     int port = cMsgUtilities.bytesToInt(buf, index);
                     index += 4;
 
-                    if (port != rcServerBroadcastPort) {
+                    if (port != rcMulticastServerPort) {
                         if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("Broadcast receiver: got bad port response to broadcast (" + port + ")");
+                            System.out.println("Multicast receiver: got bad port response to multicast (" + port + ")");
                         }
                         continue;
                     }
@@ -1117,7 +1118,7 @@ public class RunControl extends cMsgDomainAdapter {
 
                     if (packet.getLength() < 4*6 + hostLen + expidLen) {
                         if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("Broadcast receiver: got packet that's too small");
+                            System.out.println("Multicast receiver: got packet that's too small");
                         }
                         continue;
                     }
@@ -1139,7 +1140,7 @@ public class RunControl extends cMsgDomainAdapter {
 //System.out.println("expid = " + serverExpid);
                         if (!expid.equals(serverExpid)) {
                             if (debug >= cMsgConstants.debugWarn) {
-                                System.out.println("Broadcast receiver: got bad expid response to broadcast (" + serverExpid + ")");
+                                System.out.println("Multicast receiver: got bad expid response to multicast (" + serverExpid + ")");
                             }
                             continue;
                         }
@@ -1147,26 +1148,26 @@ public class RunControl extends cMsgDomainAdapter {
                 }
                 catch (UnsupportedEncodingException e) {continue;}
                 catch (IOException e) {
-//System.out.println("Got IOException in broadcast receive, exiting");
+//System.out.println("Got IOException in multicast receive, exiting");
                     return;
                 }
                 break;
             }
 
-            broadcastResponse.countDown();
+            multicastResponse.countDown();
         }
     }
 
 
     /**
-     * This class defines a thread to broadcast a UDP packet to the
-     * RC Broadcast server every second.
+     * This class defines a thread to multicast a UDP packet to the
+     * RC Multicast server every second.
      */
-    class Broadcaster extends Thread {
+    class Multicaster extends Thread {
 
         DatagramPacket packet;
 
-        Broadcaster(DatagramPacket udpPacket) {
+        Multicaster(DatagramPacket udpPacket) {
             packet = udpPacket;
         }
 
@@ -1176,7 +1177,7 @@ public class RunControl extends cMsgDomainAdapter {
             try {
                 /* A slight delay here will help the main thread (calling connect)
                 * to be already waiting for a response from the server when we
-                * broadcast to the server here (prompting that response). This
+                * multicast to the server here (prompting that response). This
                 * will help insure no responses will be lost.
                 */
                 Thread.sleep(100);
@@ -1184,8 +1185,8 @@ public class RunControl extends cMsgDomainAdapter {
                 while (true) {
 
                     try {
-//System.out.println("Send broadcast packet to RC Broadcast server");
-                        broadcastUdpSocket.send(packet);
+//System.out.println("Send multicast packet to RC Multicast server");
+                        multicastUdpSocket.send(packet);
                     }
                     catch (IOException e) {
                         e.printStackTrace();
