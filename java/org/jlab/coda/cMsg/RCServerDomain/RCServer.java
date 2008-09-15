@@ -328,7 +328,7 @@ public class RCServer extends cMsgDomainAdapter {
     /**
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      * RC Server domain UDL is of the form:<p>
-     *       cMsg:rcs://host:tcpPort?port=udpPort<p>
+     *       cMsg:rcs://&lt;host&gt;:&lt;tcpPort&gt;?port=&lt;udpPort&gt;<p>
      *
      * The intial cMsg:rcs:// is stripped off by the top layer API
      *
