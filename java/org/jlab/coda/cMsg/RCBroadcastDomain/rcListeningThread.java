@@ -41,7 +41,7 @@ public class rcListeningThread extends Thread {
     private String domainType = "rcb";
 
     /** RC multicast server that created this object. */
-    private RCBroadcast server;
+    private RCMulticast server;
 
     /** UDP port on which to listen for rc client multi/unicasts. */
     int multicastPort;
@@ -68,7 +68,7 @@ public class rcListeningThread extends Thread {
      * @param server rc server that created this object
      * @param port udp port on which to receive transmissions from rc clients
      */
-    public rcListeningThread(RCBroadcast server, int port) throws cMsgException {
+    public rcListeningThread(RCMulticast server, int port) throws cMsgException {
 
         // Create a UDP socket for accepting multi/unicasts from the RC client.
         multicastPort = port;

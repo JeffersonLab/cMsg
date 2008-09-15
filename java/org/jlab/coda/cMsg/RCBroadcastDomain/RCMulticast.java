@@ -41,7 +41,7 @@ import java.io.*;
  * @author Carl Timmer
  * @version 1.0
  */
-public class RCBroadcast extends cMsgDomainAdapter {
+public class RCMulticast extends cMsgDomainAdapter {
 
     /** This runcontrol multicast server's UDP listening port obtained from UDL or default value. */
     int udpPort;
@@ -112,7 +112,7 @@ public class RCBroadcast extends cMsgDomainAdapter {
     private ConcurrentHashMap<Object, cMsgSubscription> unsubscriptions;
 
 
-    public RCBroadcast() throws cMsgException {
+    public RCMulticast() throws cMsgException {
         domain = "rcm";
         subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
         subscribeAndGets = Collections.synchronizedSet(new HashSet<cMsgGetHelper>(20));
