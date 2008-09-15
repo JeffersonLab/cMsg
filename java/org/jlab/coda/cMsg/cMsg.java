@@ -104,7 +104,7 @@ public class cMsg {
 
 
     /**
-     * This method ensures that: 1) in a semicolon separated list of UDLs, all the domains
+     * This method ensures that: 1) is a semicolon separated list of UDLs, all the domains
      * are the same, 2) any domain of type "configFile" is expanded before analysis, and
      * 3) no duplicate UDLs are in the list
      *
@@ -376,7 +376,7 @@ public class cMsg {
                 domainConnectionClass = "org.jlab.coda.cMsg.RCServerDomain.RCServer";
             }
             else if (domain.equalsIgnoreCase("rcb")) {
-                domainConnectionClass = "org.jlab.coda.cMsg.RCBroadcastDomain.RCBroadcast";
+                domainConnectionClass = "org.jlab.coda.cMsg.RCMulticastDomain.RCBroadcast";
             }
             else if (domain.equalsIgnoreCase("TCPS")) {
                 domainConnectionClass = "org.jlab.coda.cMsg.TCPSDomain.TCPS";
