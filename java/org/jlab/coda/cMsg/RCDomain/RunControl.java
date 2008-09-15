@@ -155,23 +155,6 @@ public class RunControl extends cMsgDomainAdapter {
     int debug = cMsgConstants.debugNone;
 
 
-    /**
-        * Converts 4 bytes of a byte array into an integer.
-        *
-        * @param b byte array
-        * @param off offset into the byte array (0 = start at first element)
-        * @return integer value
-        */
-       private static final int bytesToInt(byte[] b, int off) {
-         int result = ((b[off]  &0xff) << 24) |
-                      ((b[off+1]&0xff) << 16) |
-                      ((b[off+2]&0xff) <<  8) |
-                       (b[off+3]&0xff);
-         return result;
-       }
-
-
-
 
     /** Constructor. */
     public RunControl() throws cMsgException {
@@ -1097,11 +1080,11 @@ public class RunControl extends cMsgDomainAdapter {
                         continue;
                     }
 //System.out.println("received broadcast packet");
-                    int magic1 = bytesToInt(buf, index);
+                    int magic1 = cMsgUtilities.bytesToInt(buf, index);
                     index += 4;
-                    int magic2 = bytesToInt(buf, index);
+                    int magic2 = cMsgUtilities.bytesToInt(buf, index);
                     index += 4;
-                    int magic3 = bytesToInt(buf, index);
+                    int magic3 = cMsgUtilities.bytesToInt(buf, index);
                     index += 4;
                     
                     if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
@@ -1113,7 +1096,7 @@ public class RunControl extends cMsgDomainAdapter {
                         continue;
                     }
 
-                    int port = bytesToInt(buf, index);
+                    int port = cMsgUtilities.bytesToInt(buf, index);
                     index += 4;
 
                     if (port != rcServerBroadcastPort) {
@@ -1123,9 +1106,9 @@ public class RunControl extends cMsgDomainAdapter {
                         continue;
                     }
 
-                    int hostLen = bytesToInt(buf, index);
+                    int hostLen = cMsgUtilities.bytesToInt(buf, index);
                     index += 4;
-                    int expidLen = bytesToInt(buf, index);
+                    int expidLen = cMsgUtilities.bytesToInt(buf, index);
                     index += 4;
 
                     if (packet.getLength() < 4*6 + hostLen + expidLen) {
