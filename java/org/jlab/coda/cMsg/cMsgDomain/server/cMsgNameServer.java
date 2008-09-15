@@ -395,13 +395,13 @@ public class cMsgNameServer extends Thread {
         // read env variable for starting (desired) UDP port number
         if (udpPort < 1) {
             try {
-                String env = System.getenv("CMSG_BROADCAST_PORT");
+                String env = System.getenv("CMSG_MULTICAST_PORT");
                 if (env != null) {
                     udpPort = Integer.parseInt(env);
                 }
             }
             catch (NumberFormatException ex) {
-                System.out.println("Bad port number specified in CMSG_BROADCAST_PORT env variable");
+                System.out.println("Bad port number specified in CMSG_MULTICAST_PORT env variable");
                 ex.printStackTrace();
                 System.exit(-1);
             }
