@@ -51,8 +51,8 @@ public class cMsgNetworkConstants {
     public static final int    domainServerPort = 45100;
     /** UDP port at which a cMsg domain, domain server starts looking for an unused listening port. */
     public static final int    domainServerUdpStartingPort = 45100;
-    /** Default UDP port at which a run control broadcast server listens for broadcasts. */
-    public static final int    rcBroadcastPort = 45200;
+    /** Default UDP port at which a run control multicast server listens for multicasts. */
+    public static final int    rcMulticastPort = 45200;
     /** TCP port at which a run control server starts looking for a port to listen
      *  for a client connection on. */
     public static final int    rcServerPort = 45300;
