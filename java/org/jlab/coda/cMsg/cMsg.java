@@ -272,9 +272,10 @@ public class cMsg {
 
     /**
      * Method to parse the Universal Domain Locator (or UDL) into its various components.
-     * The UDL is of the form:
-     *   cMsg:<domainType>://<domain dependent remainder>
-     * where the initial "cMsg" is optional
+     * The UDL is of the form:<p>
+     *   cMsg:&lt;domainType&gt;://<&lt;omain dependent remainder&gt;<p>
+     * (1) initial cMsg: in not necessary
+     * (2) cMsg and domainType are case independent
      *
      * @param UDL Universal Domain Locator
      * @return array of 2 Strings, the first of which is the domain, the second
@@ -286,12 +287,6 @@ public class cMsg {
         if (UDL == null) {
             throw new cMsgException("invalid UDL");
         }
-
-        // cMsg domain UDL is of the form:
-        //       cMsg:<domainType>://<domain dependent remainder>
-        //
-        // (1) initial cMsg: in not necessary
-        // (2) cMsg and domainType are case independent
 
         Pattern pattern = Pattern.compile("(cMsg)?:?([\\w\\-]+)://(.*)", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(UDL);
@@ -375,8 +370,8 @@ public class cMsg {
             else if (domain.equalsIgnoreCase("rcs")) {
                 domainConnectionClass = "org.jlab.coda.cMsg.RCServerDomain.RCServer";
             }
-            else if (domain.equalsIgnoreCase("rcb")) {
-                domainConnectionClass = "org.jlab.coda.cMsg.RCMulticastDomain.RCBroadcast";
+            else if (domain.equalsIgnoreCase("rcm")) {
+                domainConnectionClass = "org.jlab.coda.cMsg.RCMulticastDomain.RCMulticast";
             }
             else if (domain.equalsIgnoreCase("TCPS")) {
                 domainConnectionClass = "org.jlab.coda.cMsg.TCPSDomain.TCPS";
