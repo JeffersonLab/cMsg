@@ -816,6 +816,10 @@ public class RunControl extends cMsgDomainAdapter {
                 throw new IOException("not connected to server");
             }
 
+            out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+            out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+            out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+
             out.writeInt(totalLength); // total length of msg (not including this int)
             out.writeInt(msgType);
             out.writeInt(cMsgConstants.version);
