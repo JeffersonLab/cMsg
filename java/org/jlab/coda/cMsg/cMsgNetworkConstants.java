@@ -67,9 +67,9 @@ public class cMsgNetworkConstants {
     public static final int    cMsgDomainMulticast = 1;
     /** Int to send in UDP packet to server if RC domain and sender is client. */
     public static final int    rcDomainMulticastClient = 2;
-    /** Int to send in UDP packet to rc broadcast server if RC domain and sernder is server. */
+    /** Int to send in UDP packet to rc multicast server if RC domain and sernder is server. */
     public static final int    rcDomainMulticastServer = 4;
-    /** Tell RCBroadcast server to kill himself since server at that port & expid already exists. */
+    /** Tell RCMulticast server to kill himself since server at that port & expid already exists. */
     public static final int    rcDomainMulticastKillSelf = 8;
 
     

@@ -20,7 +20,7 @@ package org.jlab.coda.cMsg;
 /**
  * This class is used to help in implementing some sendAndGet, subscribeAndGet, and
  * syncSend methods.
- * This is true in the cMsg domain for the client and in the RCBroadcast and RCServer
+ * This is true in the cMsg domain for the client and in the RCMulticast and RCServer
  * domains for servers.
  * An object of this class stores a msg from a sender to the method's caller and
  * is used to synchronize/wait/notify on. It also indicates whether the call timed
