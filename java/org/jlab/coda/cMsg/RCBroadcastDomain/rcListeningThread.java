@@ -185,7 +185,7 @@ public class rcListeningThread extends Thread {
                     case cMsgNetworkConstants.rcDomainMulticastKillSelf:
 //System.out.println("I was told to kill myself");
                         server.respondingHost = broadcasterHost;
-                        server.broadcastResponse.countDown();
+                        server.multicastResponse.countDown();
                         return;
                     // ignore broadcasts from unknown sources
                     default:
@@ -278,14 +278,14 @@ public class rcListeningThread extends Thread {
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[1], buf, 4);
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[2], buf, 8);
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.rcDomainMulticastKillSelf, buf, 12);
-                        DatagramPacket pkt = new DatagramPacket(buf, 16, broadcasterAddress, server.broadcastPort);
+                        DatagramPacket pkt = new DatagramPacket(buf, 16, broadcasterAddress, server.udpPort);
 //System.out.println("Send reponse packet (kill yourself) to server");
                         broadcastSocket.send(pkt);
                     }
                     else {
 //System.out.println("Still starting up but have been probed by starting server. So quit");
                         server.respondingHost = broadcasterHost;
-                        server.broadcastResponse.countDown();
+                        server.multicastResponse.countDown();
                     }
                     continue;
                 }
