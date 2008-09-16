@@ -20,6 +20,7 @@ import org.jlab.coda.cMsg.*;
 import java.net.*;
 import java.io.*;
 import java.util.HashSet;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * This class implements a program to find cMsg domain name servers and
@@ -32,10 +33,10 @@ import java.util.HashSet;
 public class cMsgServerFinder {
 
     /** Port numbers provided by caller to probe in cmsg domain. */
-    private int[] cmsgCmdlLinePorts;
+    private ConcurrentHashMap<Integer, Integer> cmsgPorts;
 
     /** Port numbers provided by caller to probe in rc domain. */
-    private int[] rcCmdlLinePorts;
+    private ConcurrentHashMap<Integer, Integer> rcPorts;
 
     /** Default list of port numbers to probe in cmsg domain. */
     private final int[] defaultCmsgPorts;
@@ -56,7 +57,7 @@ public class cMsgServerFinder {
     private HashSet<String> rcResponders;
 
     /** Time in milliseconds waiting for a response to the multicasts. */
-    private final int sleepTime = 2000;
+    private final int sleepTime = 1000;
 
     /** Are we attemping to find the rc multicast servers or not? */
     private boolean findingRcMulticastServers = true;
@@ -68,17 +69,15 @@ public class cMsgServerFinder {
 
 
     /** Constructor. */
-    cMsgServerFinder(String[] args) {
+    cMsgServerFinder() {
         rcResponders   = new HashSet<String>(100);
         cMsgResponders = new HashSet<String>(100);
 
-        rcCmdlLinePorts   = new int[0];
-        cmsgCmdlLinePorts = new int[0];
+        rcPorts   = new ConcurrentHashMap<Integer, Integer>(100);
+        cmsgPorts = new ConcurrentHashMap<Integer, Integer>(100);
 
         defaultRcPorts    = new int[100];
         defaultCmsgPorts  = new int[100];
-
-        decodeCommandLine(args);
 
         // set default ports to scan
         for (int i=0; i<100; i++) {
@@ -88,99 +87,28 @@ public class cMsgServerFinder {
     }
 
 
-    /**
-     * Method to decode the command line used to start this application.
-     * @param args command line arguments
-     */
-    public void decodeCommandLine(String[] args) {
-
-        // loop over all args
-        for (int i = 0; i < args.length; i++) {
-
-            if (args[i].equalsIgnoreCase("-h")) {
-                usage();
-                System.exit(-1);
-            }
-            else if (args[i].equalsIgnoreCase("-pswd")) {
-                password= args[i + 1];
-                i++;
-            }
-            else if (args[i].equalsIgnoreCase("-expid")) {
-                expid= args[i + 1];
-//System.out.println("Setting expid to " + expid);
-                i++;
-            }
-            else if (args[i].equalsIgnoreCase("-rc")) {
-                String[] strs = (args[i + 1]).split("\\p{Punct}");
-                rcCmdlLinePorts = new int[strs.length];
-                for (int j=0; j<strs.length; j++) {
-                    rcCmdlLinePorts[j] = Integer.parseInt(strs[j]);
-                    if (rcCmdlLinePorts[j] < 1024 || rcCmdlLinePorts[j] > 65535) {
-                        System.out.println("rc multicast port " + rcCmdlLinePorts[j] + " must be > 1023 and < 65536");
-                        System.exit(-1);
-                    }
-//System.out.println("adding rc port[" + j + "] = " + rcCmdlLinePorts[j]);
-                }
-                i++;
-            }
-            else if (args[i].equalsIgnoreCase("-cmsg")) {
-                String[] strs = (args[i + 1]).split("\\p{Punct}");
-                cmsgCmdlLinePorts = new int[strs.length];
-                for (int j=0; j<strs.length; j++) {
-                    cmsgCmdlLinePorts[j] = Integer.parseInt(strs[j]);
-                    if (cmsgCmdlLinePorts[j] < 1024 || cmsgCmdlLinePorts[j] > 65535) {
-                        System.out.println("cmsg multicast port " + cmsgCmdlLinePorts[j] + " must be > 1023 and < 65536");
-                        System.exit(-1);
-                    }
-//System.out.println("adding cmsg port[" + j + "] = " + cmsgCmdlLinePorts[j]);
-                }
-                i++;
-            }
-            else if (args[i].equalsIgnoreCase("-debug")) {
-                debug = cMsgConstants.debugInfo;
-            }
-            else {
-                usage();
-                System.exit(-1);
-            }
-        }
-
-        if (expid == null) {
-            expid = System.getenv("EXPID");
-            if (expid == null) {
-                System.out.println("Experiment ID (expid) needs to be set if finding rc multicast servers");
-                findingRcMulticastServers = false;
-            }
-            else {
-                System.out.println("Setting expid to " + expid);
-            }
-        }
-
-        return;
+    public void addRcPort(int port) {
+        // int value is not used
+        rcPorts.put(port, 0);
     }
 
 
-    /** Method to print out correct program command line usage. */
-    private static void usage() {
-        System.out.println("\nUsage:\n\n" +
-                "   java cMsgServerFinder [-cmsg colon-separated list of cmsg UDP ports]\n" +
-                "                         [-rc colon-separated list of rc UDP ports]\n" +
-                "                         [-pswd password]\n" +
-                "                         [-h print this usage text]\n" +
-                "                         [-debug]\n");
+    public void removeRcPort(int port) {
+        rcPorts.remove(port);
+    }
+
+    public void addCmsgPort(int port) {
+        // int value is not used
+        cmsgPorts.put(port, 0);
+    }
+
+    public void removeCmsgPort(int port) {
+        cmsgPorts.remove(port);
     }
 
 
-    /**
-     * Run as a stand-alone application.
-     */
-    public static void main(String[] args) {
-            cMsgServerFinder finder = new cMsgServerFinder(args);
-            finder.run();
-    }
+    synchronized public void find() {
 
-
-    public void run() {
         // start thread to find cMsg name servers
         cMsgFinder cFinder = new cMsgFinder();
         cFinder.start();
@@ -191,18 +119,22 @@ public class cMsgServerFinder {
             rFinder.start();
         }
 
-        // receiving threads must not be writing into hashsets when printing out, so wait a bit
+        // give receiving threads some time to get responses
         try { Thread.sleep(sleepTime + 200); }
         catch (InterruptedException e) { }
+    }
+
+
+    synchronized public void print() {
 
         String[] parts;
-        String host = "unknown";
 
         if (cMsgResponders.size() > 0) {
             System.out.println("\ncMsg name servers:");
         }
 
         for (String s : cMsgResponders) {
+            String host = "unknown";
             parts = s.split(":");
             try { host = InetAddress.getByName(parts[0]).getHostName(); }
             catch (UnknownHostException e) { }
@@ -216,6 +148,7 @@ public class cMsgServerFinder {
         }
 
         for (String s : rcResponders) {
+            String host = "unknown";
             parts = s.split(":");
             try { host = InetAddress.getByName(parts[0]).getHostName(); }
             catch (UnknownHostException e) { }
@@ -224,8 +157,43 @@ public class cMsgServerFinder {
         }
 
         System.out.println();
-
     }
+
+
+
+    synchronized public String toString() {
+
+        String[] parts;
+        StringBuilder buffer = new StringBuilder(1024);
+
+        for (String s : cMsgResponders) {
+            String host = "unknown";
+            parts = s.split(":");
+            try { host = InetAddress.getByName(parts[0]).getHostName(); }
+            catch (UnknownHostException e) { }
+            buffer.append("<cMsgNameServer ");
+            buffer.append("host = ");    buffer.append(host);
+            buffer.append("addr = ");    buffer.append(parts[0]);
+            buffer.append("udpPort = "); buffer.append(parts[1]);
+            buffer.append("tcpPort = "); buffer.append(parts[2]);
+            buffer.append(" />\n");
+        }
+
+        for (String s : rcResponders) {
+            String host = "unknown";
+            parts = s.split(":");
+            try { host = InetAddress.getByName(parts[0]).getHostName(); }
+            catch (UnknownHostException e) { }
+            buffer.append("<rcMulticastServer ");
+            buffer.append("host = ");    buffer.append(host);
+            buffer.append("addr = ");    buffer.append(parts[0]);
+            buffer.append("udpPort = "); buffer.append(parts[1]);
+            buffer.append(" />\n");
+        }
+
+        return buffer.toString();
+    }
+
 
 
     class cMsgFinder extends Thread {
@@ -360,14 +328,14 @@ public class cMsgServerFinder {
                     catch (UnsupportedEncodingException e) {}
 //System.out.println("  Got port = " + nameServerTcpPort + ", host = " + nameServerHost);
 
-                    // put in a unique item: "host:tcpPort:udpPort"
+                    // put in a unique item: "host:udpPort:tcpPort"
                     if (nameServerHost.length() > 0) {
                         id.delete(0,1023);
                         id.append(nameServerHost);
                         id.append(":");
-                        id.append(nameServerTcpPort);
-                        id.append(":");
                         id.append(nameServerUdpPort);
+                        id.append(":");
+                        id.append(nameServerTcpPort);
                         cMsgResponders.add(id.toString());
                     }
                 }
@@ -412,7 +380,7 @@ public class cMsgServerFinder {
             }
 
             try {
-                for (int port : cmsgCmdlLinePorts) {
+                for (int port : cmsgPorts.keySet()) {
 //System.out.println("Send multicast packets on port " + port);
                     packet = new DatagramPacket(buffer, buffer.length,
                                                 addr, port);
@@ -635,7 +603,7 @@ public class cMsgServerFinder {
 
 
             try {
-                for (int port : rcCmdlLinePorts) {
+                for (int port : rcPorts.keySet()) {
 //System.out.println("Send multicast packets on port " + port);
                     packet = new DatagramPacket(buffer, buffer.length,
                                                 addr, port);
