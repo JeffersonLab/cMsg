@@ -120,7 +120,15 @@ public class RCMulticast extends cMsgDomainAdapter {
 
         // store our host's name
         try {
-            host = InetAddress.getLocalHost().getCanonicalHostName();
+            // send dotted-decimal if possible
+            try {
+                host = InetAddress.getLocalHost().getHostAddress();
+//System.out.println("setting host to " + host);
+            }
+            catch (UnknownHostException e) {
+                host = InetAddress.getLocalHost().getCanonicalHostName();
+//System.out.println("setting host to " + host);
+            }
         }
         catch (UnknownHostException e) {
             throw new cMsgException("cMsg: cannot find host name", e);
