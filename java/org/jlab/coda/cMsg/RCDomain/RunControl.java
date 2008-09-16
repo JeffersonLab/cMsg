@@ -1134,9 +1134,6 @@ public class RunControl extends cMsgDomainAdapter {
 //System.out.println("host = " + host);
                         index += hostLen;
                     }
-                    else {
-                        hostLen = 0;
-                    }
 
                     // get expid
                     String serverExpid = null;
