@@ -59,9 +59,6 @@ public class cMsgServerFinder {
     /** Time in milliseconds waiting for a response to the multicasts. */
     private final int sleepTime = 1000;
 
-    /** Are we attemping to find the rc multicast servers or not? */
-    private boolean findingRcMulticastServers = true;
-
     /** Do changes to the expid or added ports necessitate finding rc multicast servers again? */
     private volatile boolean needToUpdateRc = true;
 
