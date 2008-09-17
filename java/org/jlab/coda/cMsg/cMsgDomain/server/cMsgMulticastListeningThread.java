@@ -194,19 +194,17 @@ public class cMsgMulticastListeningThread extends Thread {
                 if (serverPassword != null) {
                     if (pswd == null || !serverPassword.equals(pswd)) {
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("REJECTING PASSWORD server's (" + serverPassword +
-                            ") does not match client's (" + pswd + ")");
+                            System.out.println("REJECTING PASSWORD: server's does not match client's ("
+                                    + pswd + ")");
                         }
                         continue;
                     }
                 }
                 else {
                     if (pswd != null) {
-                        if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("REJECTING PASSWORD server's (" + serverPassword +
-                            ") does not match client's (" + pswd + ")");
+                        if (debug >= cMsgConstants.debugWarn) {
+                            System.out.println("Password given by client but not required by server");
                         }
-                        continue;
                     }
                 }
 
