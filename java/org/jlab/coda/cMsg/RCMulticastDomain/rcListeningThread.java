@@ -190,6 +190,11 @@ public class rcListeningThread extends Thread {
                         server.respondingHost = multicasterHost;
                         server.multicastResponse.countDown();
                         return;
+                    // Packet from client just trying to locate rc multicast servers.
+                    // Send back a normal response but don't do anything else.
+                    case cMsgNetworkConstants.rcDomainMulticastProbe:
+//System.out.println("I was probed");
+                        break;
                     // ignore packets from unknown sources
                     default:
 //System.out.println("Unknown command");
@@ -246,7 +251,18 @@ public class rcListeningThread extends Thread {
                 }
 
                 // if multicast from client ...
-                if (msgType == cMsgNetworkConstants.rcDomainMulticastClient) {
+                if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe) {
+                    try {
+                        sendPacket = new DatagramPacket(outBuf, outBuf.length, multicasterAddress, multicasterUdpPort);
+//System.out.println("Send response-to-probe packet to client");
+                        multicastSocket.send(sendPacket);
+                    }
+                    catch (IOException e) {
+                        System.out.println("I/O Error: " + e);
+                    }
+                }
+                // if multicast from client ...
+                else if (msgType == cMsgNetworkConstants.rcDomainMulticastClient) {
                     // Send a reply - some integer, our multicast port, host,
                     // and expid so the client can filter out any rogue responses.
                     // All we want to communicate is that the client
@@ -258,7 +274,7 @@ public class rcListeningThread extends Thread {
 
                     try {
                         sendPacket = new DatagramPacket(outBuf, outBuf.length, multicasterAddress, multicasterUdpPort);
-//System.out.println("Send reponse packet to client");
+//System.out.println("Send response packet to client");
                         multicastSocket.send(sendPacket);
                     }
                     catch (IOException e) {
