@@ -19,23 +19,23 @@ package org.jlab.coda.cMsg;
 import java.net.*;
 import java.io.*;
 import java.util.HashSet;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * This class implements a program to find cMsg domain name servers and
- * rc domain multicast servers which are listening on UDP sockets.
+ * This class finds cMsg domain name servers and rc domain multicast servers
+ * which are listening on UDP sockets.
  * By convention, all cMsg name servers should have a multicast port starting at
  * 45000 and not exceeding 45099. All these ports will be probed for servers.
  * By convention, all rc multicast servers should have a multicast port starting at
  * 45200 and not exceeding 45299. All these ports will be probed for servers.
+ * Additional ports may be specified.
  */
 public class cMsgServerFinder {
 
     /** Port numbers provided by caller to probe in cmsg domain. */
-    private ConcurrentHashMap<Integer, Integer> cmsgPorts;
+    private HashSet<Integer> cmsgPorts;
 
     /** Port numbers provided by caller to probe in rc domain. */
-    private ConcurrentHashMap<Integer, Integer> rcPorts;
+    private HashSet<Integer> rcPorts;
 
     /** Default list of port numbers to probe in cmsg domain. */
     private final int[] defaultCmsgPorts;
@@ -61,6 +61,12 @@ public class cMsgServerFinder {
     /** Are we attemping to find the rc multicast servers or not? */
     private boolean findingRcMulticastServers = true;
 
+    /** Do changes to the expid or added ports necessitate finding rc multicast servers again? */
+    private volatile boolean needToUpdateRc = true;
+
+    /** Do added ports necessitate finding cmsg name servers again? */
+    private volatile boolean needToUpdateCmsg = true;
+
     /** Level of debug output for this class. */
     private int debug = cMsgConstants.debugError;
 
@@ -72,11 +78,11 @@ public class cMsgServerFinder {
         rcResponders   = new HashSet<String>(100);
         cMsgResponders = new HashSet<String>(100);
 
-        rcPorts   = new ConcurrentHashMap<Integer, Integer>(100);
-        cmsgPorts = new ConcurrentHashMap<Integer, Integer>(100);
+        rcPorts   = new HashSet<Integer>(100);
+        cmsgPorts = new HashSet<Integer>(100);
 
-        defaultRcPorts    = new int[100];
-        defaultCmsgPorts  = new int[100];
+        defaultRcPorts   = new int[100];
+        defaultCmsgPorts = new int[100];
 
         // set default ports to scan
         for (int i=0; i<100; i++) {
@@ -86,44 +92,175 @@ public class cMsgServerFinder {
     }
 
 
-    public void addRcPort(int port) {
-        // int value is not used
-        rcPorts.put(port, 0);
+    /**
+     * Get the experimental ID for finding rc multicast servers.
+     * @return value for experimental ID
+     */
+    public String getExpid() {
+        return expid;
     }
 
 
-    public void removeRcPort(int port) {
+    /**
+     * Set the experimental ID for finding rc multicast servers.
+     * Using a null string as the arg will cause no servers to be found.
+     *
+     * @param expid value to set experimental ID with
+     */
+    synchronized public void setExpid(String expid) {
+        if (expid == null) {
+            if (this.expid == null) return;
+        }
+        else if (this.expid == null) {
+        }
+        else if (this.expid.equals(expid)) {
+            return;
+        }
+        this.expid = expid;
+        needToUpdateRc = true;
+    }
+
+
+    /**
+     * Add a UDP port to the list of ports to be probed for rc multicast servers.
+     * @param port UDP port to be probed for rc multicast servers
+     */
+    synchronized public void addRcPort(int port) {
+        if (port < 1024 || port > 65535) {
+            return;
+        }
+        if (rcPorts.contains(port)) {
+            return;
+        }
+        rcPorts.add(port);
+        needToUpdateRc = true;
+    }
+
+
+    /**
+     * Remove a UDP port from the list of ports to be probed for rc multicast servers.
+     * @param port UDP port to be removed from probing for rc multicast servers
+     */
+    synchronized public void removeRcPort(int port) {
         rcPorts.remove(port);
     }
 
-    public void addCmsgPort(int port) {
-        // int value is not used
-        cmsgPorts.put(port, 0);
+
+    /**
+     * Add a UDP port to the list of ports to be probed for cmsg name servers.
+     * @param port UDP port to be probed for cmsg name servers
+     */
+    synchronized public void addCmsgPort(int port) {
+        if (port < 1024 || port > 65535) {
+            return;
+        }
+        if (cmsgPorts.contains(port)) {
+            return;
+        }
+        cmsgPorts.add(port);
+        needToUpdateCmsg = true;
     }
 
-    public void removeCmsgPort(int port) {
+
+    /**
+     * Remove a UDP port from the list of ports to be probed for cmsg name servers.
+     * @param port UDP port to be removed from probing for cmsg name servers
+     */
+    synchronized public void removeCmsgPort(int port) {
         cmsgPorts.remove(port);
     }
 
 
-    synchronized public void find() {
+    /**
+     * Tells caller if {@link #find} needs to be called since the
+     * server search parameters (eg. expid, ports) have been changed or added to.
+     * @return true if "find" needs to be called again, else false
+     */
+    public boolean needsUpdate() {
+        return (needToUpdateCmsg || needToUpdateRc);
+    }
+
+
+    /**
+     * Find all reachable cmsg name servers by multicasting.
+     * Follow the calling of this method with {@link #toString} or
+     * {@link #getCmsgServers} in order to see the results of the search.
+     */
+    synchronized public void findCmsgServers() {
+        cMsgResponders.clear();
 
         // start thread to find cMsg name servers
         cMsgFinder cFinder = new cMsgFinder();
+        cFinder.setDaemon(true);
+        cFinder.start();
+
+        // give receiving threads some time to get responses
+        try { Thread.sleep(sleepTime + 200); }
+        catch (InterruptedException e) { }
+
+        needToUpdateCmsg = false;
+    }
+
+
+    /**
+     * Find all reachable rc multicast servers by multicasting.
+     * Follow the calling of this method with {@link #toString} or
+     * {@link #getRcServers} in order to see the results of the search.
+     */
+    synchronized public void findRcServers() {
+        rcResponders.clear();
+
+        // there can be nothing out there with no or blank expid so return nothing
+        if (expid == null || expid.length() < 1) {
+            needToUpdateRc = false;
+            return;
+        }
+
+        // start thread to find rc multicast servers
+        rcFinder rFinder = new rcFinder();
+        rFinder.setDaemon(true);
+        rFinder.start();
+
+        // give receiving threads some time to get responses
+        try { Thread.sleep(sleepTime + 200); }
+        catch (InterruptedException e) { }
+
+        needToUpdateRc = false;
+    }
+
+
+    /**
+     * Find all reachable cmsg name servers and rc multicast servers by multicasting.
+     * Follow the calling of this method with {@link #toString} in order to see the
+     * results of the search.
+     */
+    synchronized public void find() {
+
+        // start thread to find cMsg name servers
+        cMsgResponders.clear();
+        cMsgFinder cFinder = new cMsgFinder();
+        cFinder.setDaemon(true);
         cFinder.start();
 
         // start thread to find rc multicast servers
-        if (findingRcMulticastServers) {
+        rcResponders.clear();
+        if (!(expid == null || expid.length() < 1)) {
             rcFinder rFinder = new rcFinder();
+            rFinder.setDaemon(true);
             rFinder.start();
         }
 
         // give receiving threads some time to get responses
         try { Thread.sleep(sleepTime + 200); }
         catch (InterruptedException e) { }
+
+        needToUpdateCmsg = needToUpdateRc = false;
     }
 
 
+    /**
+     * Print out the cmsg name servers and rc multicast servers found in the last search.
+     */
     synchronized public void print() {
 
         String[] parts;
@@ -159,42 +296,88 @@ public class cMsgServerFinder {
     }
 
 
+    /**
+     * Return a string in XML format of the cmsg name servers and rc multicast servers
+     * found in the last search.
+     *
+     * @return XML format string listing all servers found
+     */
+    public String toString() {
+        return toXML(true,true);
+    }
 
-    synchronized public String toString() {
+
+    /**
+     * Return a string in XML format of the cmsg name servers
+     * found in the last search.
+     *
+     * @return XML format string listing all cmsg name servers found
+     */
+    public String getCmsgServers() {
+        return toXML(false,true);
+    }
+
+
+    /**
+     * Return a string in XML format of the rc multicast servers
+     * found in the last search.
+     *
+     * @return XML format string listing all rc multicast servers found
+     */
+    public String getRcServers() {
+        return toXML(true,false);
+    }
+
+
+    /**
+     * Return a string in XML format of the cmsg name servers and rc multicast servers
+     * found in the last search.
+     *
+     * @param rc if true, look for rc multicast servers
+     * @param cmsg rc if true, look for cmsg name servers
+     * @return XML format string listing all servers found
+     */
+    synchronized private String toXML(boolean rc, boolean cmsg) {
 
         String[] parts;
         StringBuilder buffer = new StringBuilder(1024);
 
-        for (String s : cMsgResponders) {
-            String host = "unknown";
-            parts = s.split(":");
-            try { host = InetAddress.getByName(parts[0]).getHostName(); }
-            catch (UnknownHostException e) { }
-            buffer.append("<cMsgNameServer ");
-            buffer.append("host = ");    buffer.append(host);
-            buffer.append("addr = ");    buffer.append(parts[0]);
-            buffer.append("udpPort = "); buffer.append(parts[1]);
-            buffer.append("tcpPort = "); buffer.append(parts[2]);
-            buffer.append(" />\n");
+        if (cmsg) {
+            for (String s : cMsgResponders) {
+                String host = "unknown";
+                parts = s.split(":");
+                try { host = InetAddress.getByName(parts[0]).getHostName(); }
+                catch (UnknownHostException e) { }
+                buffer.append("<cMsgNameServer ");
+                buffer.append("host = ");    buffer.append(host);
+                buffer.append("addr = ");    buffer.append(parts[0]);
+                buffer.append("udpPort = "); buffer.append(parts[1]);
+                buffer.append("tcpPort = "); buffer.append(parts[2]);
+                buffer.append(" />\n");
+            }
         }
 
-        for (String s : rcResponders) {
-            String host = "unknown";
-            parts = s.split(":");
-            try { host = InetAddress.getByName(parts[0]).getHostName(); }
-            catch (UnknownHostException e) { }
-            buffer.append("<rcMulticastServer ");
-            buffer.append("host = ");    buffer.append(host);
-            buffer.append("addr = ");    buffer.append(parts[0]);
-            buffer.append("udpPort = "); buffer.append(parts[1]);
-            buffer.append(" />\n");
+        if (rc) {
+            for (String s : rcResponders) {
+                String host = "unknown";
+                parts = s.split(":");
+                try { host = InetAddress.getByName(parts[0]).getHostName(); }
+                catch (UnknownHostException e) { }
+                buffer.append("<rcMulticastServer ");
+                buffer.append("host = ");    buffer.append(host);
+                buffer.append("addr = ");    buffer.append(parts[0]);
+                buffer.append("udpPort = "); buffer.append(parts[1]);
+                buffer.append(" />\n");
+            }
         }
 
         return buffer.toString();
     }
 
 
-
+    /**
+     * Class to find cmsg name servers.
+     */
     class cMsgFinder extends Thread {
 
         public void run() {
@@ -261,10 +444,9 @@ public class cMsgServerFinder {
         }
     }
 
-//-----------------------------------------------------------------------------
 
     /**
-     * This class gets any response to our UDP multicast.
+     * This class gets any response to our UDP multicast to cmsg name servers.
      */
     class cMsgMulticastReceiver extends Thread {
 
@@ -272,6 +454,7 @@ public class cMsgServerFinder {
 
         cMsgMulticastReceiver(DatagramSocket socket) {
             this.socket = socket;
+            Thread.currentThread().setDaemon(true);
         }
 
         public void run() {
@@ -350,11 +533,10 @@ public class cMsgServerFinder {
         }
     }
 
-//-----------------------------------------------------------------------------
 
     /**
      * This class defines a thread to multicast a single UDP packet to
-     * rc multicast servers.
+     * cmsg name servers.
      */
     class cMsgMulticaster extends Thread {
 
@@ -364,6 +546,7 @@ public class cMsgServerFinder {
         cMsgMulticaster(byte[] buffer, DatagramSocket socket) {
             this.socket = socket;
             this.buffer = buffer;
+            Thread.currentThread().setDaemon(true);
         }
 
         public void run() {
@@ -379,7 +562,7 @@ public class cMsgServerFinder {
             }
 
             try {
-                for (int port : cmsgPorts.keySet()) {
+                for (int port : cmsgPorts) {
 //System.out.println("Send multicast packets on port " + port);
                     packet = new DatagramPacket(buffer, buffer.length,
                                                 addr, port);
@@ -404,6 +587,9 @@ public class cMsgServerFinder {
 //-----------------------------------------------------------------------------
 
 
+    /**
+     * Class to find rc multicast servers.
+     */
     class rcFinder extends Thread {
 
         public void run() {
@@ -425,7 +611,7 @@ public class cMsgServerFinder {
                 out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
-                out.writeInt(cMsgNetworkConstants.rcDomainMulticastClient); // multicast is from rc domain client
+                out.writeInt(cMsgNetworkConstants.rcDomainMulticastProbe); // multicast is from rc domain prober
                 out.writeInt(44444);          // use any port number just to get a response
                 out.writeInt(name.length());  // use any client name just to get a response
                 out.writeInt(expid.length());
@@ -476,7 +662,7 @@ public class cMsgServerFinder {
 
 
     /**
-     * This class gets any response to our UDP multicast.
+     * This class gets any response to our UDP multicast to rc multicast servers.
      */
     class rcMulticastReceiver extends Thread {
 
@@ -484,6 +670,7 @@ public class cMsgServerFinder {
 
         rcMulticastReceiver(DatagramSocket socket) {
             this.socket = socket;
+            Thread.currentThread().setDaemon(true);
         }
 
         public void run() {
@@ -540,7 +727,7 @@ public class cMsgServerFinder {
                     }
 
                     // get expid
-                    String serverExpid = null;
+                    String serverExpid;
                     if (expidLen > 0) {
                         serverExpid = new String(buf, index, expidLen, "US-ASCII");
 //System.out.println("expid = " + serverExpid);
@@ -575,7 +762,7 @@ public class cMsgServerFinder {
         }
     }
 
-//-----------------------------------------------------------------------------
+
 
     /**
      * This class defines a thread to multicast a single UDP packet to
@@ -589,6 +776,7 @@ public class cMsgServerFinder {
         rcMulticaster(byte[] buffer, DatagramSocket socket) {
             this.socket = socket;
             this.buffer = buffer;
+            Thread.currentThread().setDaemon(true);
         }
 
         public void run() {
@@ -602,7 +790,7 @@ public class cMsgServerFinder {
 
 
             try {
-                for (int port : rcPorts.keySet()) {
+                for (int port : rcPorts) {
 //System.out.println("Send multicast packets on port " + port);
                     packet = new DatagramPacket(buffer, buffer.length,
                                                 addr, port);
