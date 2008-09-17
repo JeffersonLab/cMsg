@@ -71,6 +71,8 @@ public class cMsgNetworkConstants {
     public static final int    rcDomainMulticastServer = 4;
     /** Tell RCMulticast server to kill himself since server at that port & expid already exists. */
     public static final int    rcDomainMulticastKillSelf = 8;
+    /** Client is just trying to find RCMulticast servers. */
+    public static final int    rcDomainMulticastProbe = 16;
 
     
     /** The biggest single UDP packet size is 2^16 - IP(v6) 40 byte header - 8 byte UDP header. */
