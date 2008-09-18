@@ -375,24 +375,14 @@ public class cMsg extends cMsgDomainAdapter {
         ParsedUDL p;
         int viableUDLs = 0;
         for (String udl : failoverUDLs) {
-            try {
-                p = parseUDL(udl);
-            }
-            catch (cMsgException e) {
-                // invalid UDL
-                p = new ParsedUDL(udl, false);
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("UDL \"" + udl + "\" marked as invalid");
-                }
-            }
+            p = parseUDL(udl);
             failovers.add(p);
-            if (p.valid) viableUDLs++;
         }
 
         // If we have more than one valid UDL, we can implement waiting
         // for a successful failover before aborting commands to the server
         // that were interrupted due to server failure.
-        if (viableUDLs > 1) {
+        if (failovers.size() > 1) {
             useFailoverWaiting = true;
         }
 
@@ -401,12 +391,10 @@ public class cMsg extends cMsgDomainAdapter {
         do {
             // get parsed & stored UDL info
             p = failovers.get(++failoverIndex);
-            if (!p.valid) {
-                connectFailures++;
-                continue;
-            }
+
             // copy info locally
             p.copyToLocal();
+
             // connect using that UDL info
             if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("Trying to connect with UDL = " + p.UDL);
@@ -2633,7 +2621,7 @@ public class cMsg extends cMsgDomainAdapter {
      *
      * @param udl UDL to parse
      * @return an object with all the parsed UDL information in it
-     * @throws cMsgException if UDL is null, or no host given in UDL
+     * @throws cMsgException if UDL is null, no beginning cmsg://, no host given
      */
     ParsedUDL parseUDL(String udl) throws cMsgException {
 
@@ -2841,13 +2829,7 @@ public class cMsg extends cMsgDomainAdapter {
         int     multicastTimeout;
         int     regime;
         boolean mustMulticast;
-        boolean valid;
 
-        /** Constructor. */
-        ParsedUDL(String udl, boolean validUDL) {
-            UDL   = udl;
-            valid = validUDL;
-        }
 
         /** Constructor. */
         ParsedUDL(String s1, String s2, String s3, String s4, String s5, String s6,
@@ -2862,8 +2844,8 @@ public class cMsg extends cMsgDomainAdapter {
             multicastTimeout = i2;
             regime           = i3;
             mustMulticast    = b1;
-            valid            = true;
         }
+
 
         /** Take all of this object's parameters and copy to this client's members. */
         void copyToLocal() {
@@ -3021,10 +3003,7 @@ public class cMsg extends cMsgDomainAdapter {
 
                     // get parsed & stored UDL info
                     ParsedUDL p = failovers.get(failoverIndex++);
-                    if (!p.valid) {
-                        connectFailures++;
-                        continue;
-                    }
+
                     // copy info locally
                     p.copyToLocal();
 
