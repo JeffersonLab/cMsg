@@ -373,7 +373,6 @@ public class cMsg extends cMsgDomainAdapter {
 
         // parse the list of UDLs and store them
         ParsedUDL p;
-        int viableUDLs = 0;
         for (String udl : failoverUDLs) {
             p = parseUDL(udl);
             failovers.add(p);
