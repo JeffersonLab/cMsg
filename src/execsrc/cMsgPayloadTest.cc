@@ -8,6 +8,7 @@
 using namespace std;
 #include <iostream>
 #include <unistd.h>
+#include <strings.h>
 
 
 // for cMsg
