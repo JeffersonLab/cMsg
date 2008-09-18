@@ -56,7 +56,7 @@ public class cMsg extends cMsgDomainAdapter {
     //-- FAILOVER STUFF ---------------------------------------------------------------
 
     /** List of parsed UDL objects - one for each failover UDL. */
-    private ArrayList<ParsedUDL> failovers;
+    private LinkedList<ParsedUDL> failovers;
 
     /** Number of failures to connect to the given array of UDLs. */
     private int connectFailures;
@@ -269,7 +269,7 @@ public class cMsg extends cMsgDomainAdapter {
         syncSends        = new ConcurrentHashMap<Integer,cMsgGetHelper>(10);
         uniqueId         = new AtomicInteger();
         unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
-        failovers        = new ArrayList<ParsedUDL>(10);
+        failovers        = new LinkedList<ParsedUDL>();
 
         // store our host's name
         try {
@@ -372,8 +372,6 @@ public class cMsg extends cMsgDomainAdapter {
         }
 
         // parse the list of UDLs and store them
-        if (failoverUDLs.length > 10)
-            failovers = new ArrayList<ParsedUDL>(failoverUDLs.length);
         ParsedUDL p;
         int viableUDLs = 0;
         for (String udl : failoverUDLs) {
@@ -2933,7 +2931,7 @@ public class cMsg extends cMsgDomainAdapter {
         boolean implementFailovers;
 
         /** List of parsed UDL objects - one for each failover UDL. */
-        private ArrayList<cMsg.ParsedUDL> failovers;
+        private List<cMsg.ParsedUDL> failovers;
 
         /** Setting this to true will kill this thread. */
         private boolean killThread;
@@ -2964,7 +2962,7 @@ public class cMsg extends cMsgDomainAdapter {
          * @throws IOException if channel is closed
          */
         public KeepAlive(Socket socket, boolean implementFailovers,
-                         ArrayList<cMsg.ParsedUDL> failovers) throws IOException {
+                         List<cMsg.ParsedUDL> failovers) throws IOException {
             this.socket = socket;
             this.failovers = failovers;
             this.implementFailovers = implementFailovers;
