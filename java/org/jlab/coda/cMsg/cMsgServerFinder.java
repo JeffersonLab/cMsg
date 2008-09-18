@@ -172,14 +172,7 @@ public class cMsgServerFinder {
      */
     synchronized public void addRcPort(Collection<Integer> col) {
         for (Integer port : col) {
-            if (port < 1024 || port > 65535) {
-                continue;
-            }
-            if (rcPorts.contains(port)) {
-                continue;
-            }
-            rcPorts.add(port);
-            needToUpdateRc = true;
+            addRcPort(port);
         }
     }
 
@@ -215,14 +208,7 @@ public class cMsgServerFinder {
      */
     synchronized public void addCmsgPort(Collection<Integer> col) {
         for (Integer port : col) {
-            if (port < 1024 || port > 65535) {
-                continue;
-            }
-            if (cmsgPorts.contains(port)) {
-                continue;
-            }
-            cmsgPorts.add(port);
-            needToUpdateCmsg = true;
+            addCmsgPort(port);
         }
     }
 
