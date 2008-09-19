@@ -124,20 +124,20 @@ public class cMsgClientListeningThread extends Thread {
                 }
 
                 // read first int -- total size in bytes
-//System.out.println("handleClient: Try reading size");
+//System.out.println("cMsgClientListeningThread: Try reading size");
                 int size = in.readInt();
-//System.out.println("handleClient: size = " + size);
+//System.out.println("cMsgClientListeningThread: size = " + size);
 
                 // read client's request
                 int msgId = in.readInt();
-//System.out.println("handleClient: msgId = " + msgId);
+//System.out.println("cMsgClientListeningThread: msgId = " + msgId);
 
                 cMsgMessageFull msg;
 
                 switch (msgId) {
 
                     case cMsgConstants.msgSubscribeResponse: // receiving a message
-//System.out.println("handleClient: got msg from server");
+//System.out.println("cMsgClientListeningThread: got msg from server");
                         // read the message here
                         msg = readIncomingMessage();
 
@@ -148,9 +148,9 @@ public class cMsgClientListeningThread extends Thread {
 
                     case cMsgConstants.msgGetResponse:       // receiving a message for sendAndGet
                     case cMsgConstants.msgServerGetResponse: // server receiving a message for sendAndGet
-//System.out.println("handleClient: got sendAndGet response from server");
+//System.out.println("cMsgClientListeningThread: got sendAndGet response from server");
 //                        if (debug >= cMsgConstants.debugInfo) {
-//                            System.out.println("handleClient: got sendAndGet response from server");
+//                            System.out.println("cMsgClientListeningThread: got sendAndGet response from server");
 //                        }
                         // read the message here
                         msg = readIncomingMessage();
@@ -167,20 +167,20 @@ public class cMsgClientListeningThread extends Thread {
                         break;
 
                     case cMsgConstants.msgShutdownClients: // server told this client to shutdown
-//System.out.println("handleClient: got shutdown client response from server");
+//System.out.println("cMsgClientListeningThread: got shutdown client response from server");
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("handleClient: got shutdown from server");
+                            System.out.println("cMsgClientListeningThread: got shutdown from server");
                         }
 
                         if (client.getShutdownHandler() != null) {
-//System.out.println("handleClient: run client's shutdown handler");
+//System.out.println("cMsgClientListeningThread: run client's shutdown handler");
                             client.getShutdownHandler().handleShutdown();
                         }
                         break;
 
                     case cMsgConstants.msgSyncSendResponse: // receiving a couple ints for syncSend
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("handleClient: got syncSend response from server");
+                            System.out.println("cMsgClientListeningThread: got syncSend response from server");
                         }
                         int response = in.readInt();
                         int ssid = in.readInt();
@@ -190,7 +190,7 @@ public class cMsgClientListeningThread extends Thread {
 
                     case cMsgConstants.msgServerSendClientNamesResponse: // server told this server client its list of client names
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("handleClient: got getClientNamesAndNamespaces response from server");
+                            System.out.println("cMsgClientListeningThread: got getClientNamesAndNamespaces response from server");
                         }
                         String[] names = readClientNamesAndNamespaces();
                         // notify waiter that response is here
@@ -199,7 +199,7 @@ public class cMsgClientListeningThread extends Thread {
 
                     case cMsgConstants.msgServerCloudLockResponse: // server told this server client about grabbing cloud lock
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("handleClient: got clouldLock response from server");
+                            System.out.println("cMsgClientListeningThread: got clouldLock response from server");
                         }
                         response = in.readInt();
                         in.readInt();  // junk
@@ -209,7 +209,7 @@ public class cMsgClientListeningThread extends Thread {
 
                     case cMsgConstants.msgServerRegistrationLockResponse: // server told this server client about grabbing registration lock
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("handleClient: got registrationLock response from server");
+                            System.out.println("cMsgClientListeningThread: got registrationLock response from server");
                         }
                         response = in.readInt();
                         in.readInt();  // junk
@@ -219,7 +219,7 @@ public class cMsgClientListeningThread extends Thread {
 
                     default:
                         if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("handleClient: can't understand server message = " + msgId);
+                            System.out.println("cMsgClientListeningThread: can't understand server message = " + msgId);
                         }
                         break;
                 }
@@ -227,12 +227,12 @@ public class cMsgClientListeningThread extends Thread {
         }
         catch (InterruptedIOException e) {
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("handleClient: I/O interrupted in cMsg client");
+                System.out.println("cMsgClientListeningThread: I/O interrupted in cMsg client");
             }
         }
         catch (IOException e) {
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("handleClient: I/O ERROR in cMsg client");
+                System.out.println("cMsgClientListeningThread: I/O ERROR in cMsg client");
             }
         }
         finally {
