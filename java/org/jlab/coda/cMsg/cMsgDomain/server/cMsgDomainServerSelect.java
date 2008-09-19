@@ -607,13 +607,8 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
 
 
     /**
-     * This method is a thread which listens for TCP connections from the client.
-     * There are 3 connections from each client. The first is a socket for
-     * communication from this server back to the client and is used to send
-     * responses to various client requests. The second socket is for keep alives
-     * to be sent to the server. The third is for client request to be sent to
-     * this server.
-     * */
+     * This method is a thread which uses select to read messages from clients.
+     */
     public void run() {
 
         if (debug >= cMsgConstants.debugInfo) {
