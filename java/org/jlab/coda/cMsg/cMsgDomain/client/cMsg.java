@@ -146,7 +146,7 @@ public class cMsg extends cMsgDomainAdapter {
     /** Time in milliseconds between sending monitor data / keep alives. */
     final int sleepTime = 2000;
 
-    /** Thread listening for TCP connections and responding to domain server commands. */
+    /** Thread listening for messages and responding to domain server commands. */
     cMsgClientListeningThread listeningThread;
 
     /** Thread for sending keep alive commands to domain server to check its health. */
@@ -304,7 +304,8 @@ public class cMsg extends cMsgDomainAdapter {
     /**
      * Wait a while for a possible failover to a new cMsg server before
      * attempting to complete an interrupted command to the server or
-     * before throwing an exception.
+     * before throwing an exception. This method is only called when the
+     * notConnect lock is held.
      */
     private boolean failoverSuccessful(boolean waitForResubscribes) {
 
@@ -312,21 +313,29 @@ public class cMsg extends cMsgDomainAdapter {
         // waiting for failovers to complete before throwing
         // an exception.
         if (!useFailoverWaiting) return false;
+//System.out.println("failoverSuccessful: Wait for failover");
 
-        // Check every .1 seconds for 3 seconds for a new connection
+        // Check every .1 seconds for 5 seconds for a new connection
         // before giving up and throwing an exception.
-        for (int i=0; i < 30; i++) {
+        for (int i=0; i < 50; i++) {
             try { Thread.sleep(100); }
             catch (InterruptedException e) {}
 
             if (waitForResubscribes) {
-                if (connected && resubscriptionsComplete) return true;
+                if (connected && resubscriptionsComplete) {
+//System.out.println("failoverSuccessful: got new connection 1");
+                    return true;
+                }
             }
             else {
-                if (connected) return true;
+                if (connected) {
+//System.out.println("failoverSuccessful: got new connection 2");
+                    return true;
+                }
             }
         }
 
+//System.out.println("failoverSuccessful: no new connection");
         return false;
     }
 
@@ -953,8 +962,8 @@ public class cMsg extends cMsgDomainAdapter {
      */
     private void reconnect() throws cMsgException {
 
-        // cannot run this simultaneously with any other public method
-        connectLock.lock();
+        // cannot run this simultaneously with connect/disconnect
+        notConnectLock.lock();
 
         try {
             // KeepAlive thread needs to keep running.
@@ -1004,9 +1013,6 @@ public class cMsg extends cMsgDomainAdapter {
             }
             catch (IOException e) {
                 try {if (nsSocket != null) nsSocket.close();} catch (IOException e1) {}
-                if (debug >= cMsgConstants.debugError) {
-                    e.printStackTrace();
-                }
                 throw new cMsgException("reconnect: cannot create socket to name server", e);
             }
 
@@ -1063,14 +1069,15 @@ public class cMsg extends cMsgDomainAdapter {
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("connect: cannot create socket to domain server", e);
+                throw new cMsgException("reconnect: cannot create socket to domain server", e);
             }
 
 
-            // create keepAlive socket
+            // keepAlive thread exists, but replace keepAlive socket
             try {
                 keepAliveSocket = new Socket(domainServerHost, domainServerPort);
                 keepAliveSocket.setTcpNoDelay(true);
+                keepAliveThread.changeChannels(keepAliveSocket);
 
                 // send magic #s to foil port-scanning
                 DataOutputStream kaOut = new DataOutputStream(new BufferedOutputStream(
@@ -1080,25 +1087,19 @@ public class cMsg extends cMsgDomainAdapter {
                 kaOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
                 kaOut.flush();
 
-                // Create thread to handle dead server with failover capability.
-                keepAliveThread = new KeepAlive(keepAliveSocket, useFailoverWaiting, failovers);
-                keepAliveThread.start();
-                // Create thread to send periodic monitor data / keep alives
-                updateServerThread = new UpdateServer(keepAliveSocket);
-                updateServerThread.start();
+                // updateServer thread exists, but replace socket
+                updateServerThread.changeSockets(keepAliveSocket);
             }
             catch (IOException e) {
                 // undo everything we've just done so far
                 listeningThread.killThread();
                 try { domainOutSocket.close(); } catch (IOException e1) {}
                 try { if (keepAliveSocket != null) keepAliveSocket.close(); } catch (IOException e1) {}
-                if (keepAliveThread != null)    keepAliveThread.killThread();
-                if (updateServerThread != null) updateServerThread.killThread();
 
                 if (debug >= cMsgConstants.debugError) {
                     e.printStackTrace();
                 }
-                throw new cMsgException("connect: cannot create keepAlive socket to domain server", e);
+                throw new cMsgException("reconnect: cannot create keepAlive socket to domain server", e);
             }
 
 
@@ -1115,10 +1116,7 @@ public class cMsg extends cMsgDomainAdapter {
             }
             catch (UnknownHostException e) {
                 listeningThread.killThread();
-                keepAliveThread.killThread();
-                updateServerThread.killThread();
-                try {
-                    keepAliveSocket.close();} catch (IOException e1) {}
+                try {keepAliveSocket.close();} catch (IOException e1) {}
                 try {domainOutSocket.close();} catch (IOException e1) {}
                 if (sendUdpSocket != null) sendUdpSocket.close();
 
@@ -1129,10 +1127,7 @@ public class cMsg extends cMsgDomainAdapter {
             }
             catch (SocketException e) {
                 listeningThread.killThread();
-                keepAliveThread.killThread();
-                updateServerThread.killThread();
-                try {
-                    keepAliveSocket.close();} catch (IOException e1) {}
+                try {keepAliveSocket.close();} catch (IOException e1) {}
                 try {domainOutSocket.close();} catch (IOException e1) {}
                 if (sendUdpSocket != null) sendUdpSocket.close();
 
@@ -1145,7 +1140,7 @@ public class cMsg extends cMsgDomainAdapter {
             connected = true;
         }
         finally {
-            connectLock.unlock();
+            notConnectLock.unlock();
         }
 
         return;
@@ -1263,13 +1258,12 @@ public class cMsg extends cMsgDomainAdapter {
                 numTcpSends++;
             }
             catch (IOException e) {
-//System.out.println("send: error");
+//System.out.println("send: error, try failover");
                 // wait awhile for possible failover
                 if (failoverSuccessful(false)) {
                     continue;
                 }
                 throw new cMsgException(e.getMessage());
-
             }
             finally {
 //System.out.println("send: try unlocking mutexes");
@@ -2860,21 +2854,21 @@ public class cMsg extends cMsgDomainAdapter {
             cMsg.this.mustMulticast    = mustMulticast;
             if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("Copy from stored parsed UDL to local :");
-                System.out.println("  UDL              = " + UDL);
-                System.out.println("  UDLremainder     = " + UDLremainder);
-                System.out.println("  subdomain        = " + subdomain);
-                System.out.println("  subRemainder     = " + subRemainder);
-                System.out.println("  password         = " + password);
-                System.out.println("  nameServerHost   = " + nameServerHost);
-                System.out.println("  nameServerTcpPort   = " + nameServerPort);
-                System.out.println("  multicastTimeout = " + multicastTimeout);
-                System.out.println("  mustMulticast    = " + mustMulticast);
+                System.out.println("  UDL               = " + UDL);
+                System.out.println("  UDLremainder      = " + UDLremainder);
+                System.out.println("  subdomain         = " + subdomain);
+                System.out.println("  subRemainder      = " + subRemainder);
+                System.out.println("  password          = " + password);
+                System.out.println("  nameServerHost    = " + nameServerHost);
+                System.out.println("  nameServerTcpPort = " + nameServerPort);
+                System.out.println("  multicastTimeout  = " + multicastTimeout);
+                System.out.println("  mustMulticast     = " + mustMulticast);
                 if (regime == cMsgConstants.regimeHigh)
-                    System.out.println("  regime           = high");
+                    System.out.println("  regime            = high");
                 else if (regime == cMsgConstants.regimeLow)
-                    System.out.println("  regime           = low");
+                    System.out.println("  regime            = low");
                 else
-                    System.out.println("  regime           = medium");
+                    System.out.println("  regime            = medium");
             }
         }
 
@@ -2982,36 +2976,63 @@ public class cMsg extends cMsgDomainAdapter {
                     }
                 }
                 catch (IOException e) {
+//System.out.println("KA: IO error getting monitor info from server");
                     connected = false;
                     //e.printStackTrace();
                 }
 
                 // if we've reach here, there's an error
                 if (debug >= cMsgConstants.debugError) {
-                    System.out.println("\nKeepAlive Thread: domain server is probably dead, dis/reconnect");
+                    System.out.println("\nKA: domain server is probably dead, dis/reconnect");
                 }
 
-                // start by trying to connect to the first UDL on the list
-                failoverIndex = 0;
-                connectFailures = 0;
+                // remember which UDL has just failed
+                int failedFailoverIndex = failoverIndex;
+//System.out.println("KA: current failover index = " + failoverIndex);
+
+                // Start by trying to connect to the first UDL on the list that is
+                // different than the current UDL.
+                if (failedFailoverIndex > 0) {
+                    connectFailures = 0;
+                    failoverIndex = 0;
+//System.out.println("KA: set failover index = " + failoverIndex);
+                }
+                else {
+                    connectFailures = 1;
+                    failoverIndex = 1;
+//System.out.println("KA: set failover index = " + failoverIndex);
+                }
                 weGotAConnection = false;
                 resubscriptionsComplete = false;
 
                 while (implementFailovers && !weGotAConnection) {
-                    if (connectFailures >= failovers.size()) break;
+                    if (connectFailures >= failovers.size()) {
+//System.out.println("KA: ran out of UDLs to try");
+                        break;
+                    }
+
+                    // skip over UDL that failed
+                    if (failoverIndex == failedFailoverIndex) {
+//System.out.println("KA: skip over UDL that just failed");
+                        connectFailures++;
+                        failoverIndex++;
+                        continue;
+                    }
 
                     // get parsed & stored UDL info
-                    ParsedUDL p = failovers.get(failoverIndex++);
+//System.out.println("KA: use failover index = " + failoverIndex);
+                    ParsedUDL p = failovers.get(failoverIndex);
 
                     // copy info locally
                     p.copyToLocal();
 
                     try {
                         // connect with another server
-//System.out.println("\nTrying to REconnect with UDL = " + p.UDL);
                         if (mustMulticast) {
+//System.out.println("KA: trying to connect with multicast first = " + p.UDL);
                             connectWithMulticast();
                         }
+System.out.println("KA: trying to REconnect with UDL = " + p.UDL);
                         reconnect();
 
                         // restore subscriptions on the new server
@@ -3020,6 +3041,7 @@ public class cMsg extends cMsgDomainAdapter {
                             resubscriptionsComplete = true;
                         }
                         catch (cMsgException e) {
+//System.out.println("KA: new connection attempt failed");
                             // if subscriptions fail, then we do NOT use failover server
                             try { socket.close(); disconnect(); }
                             catch (Exception e1) { }
@@ -3033,12 +3055,13 @@ public class cMsg extends cMsgDomainAdapter {
                         // clear effects of p.copyToLocal()
                         p.clearLocal();
                         connectFailures++;
+                        failoverIndex++;
                     }
                 }
             }
 
             // disconnect (sockets closed here)
-//System.out.println("\nTrying running disconnect from this (KA) thread");
+//System.out.println("\nKA: trying running disconnect from this (KA) thread");
             disconnect();
         }
 
@@ -3048,15 +3071,14 @@ public class cMsg extends cMsgDomainAdapter {
          */
         synchronized private void getMonitorInfo() throws IOException {
             // read monitor info from server
-//System.out.println("     Try reading first KA int from server");
+//System.out.println("  getMonitorInfo: Try reading first KA int from server");
             int len = in.readInt();
             if (len > 0) {
                 // read all monitor data string
                 byte[] bytes = new byte[len];
                 in.readFully(bytes, 0, len);
                 monitorXML = new String(bytes, 0, len, "US-ASCII");
-//System.out.println("     Read KA from server");
-//System.out.println("...");
+//System.out.println("  getMonitorInfo:  read KA from server");
             }
         }
 
@@ -3112,41 +3134,37 @@ public class cMsg extends cMsgDomainAdapter {
          */
         public void run() {
             if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("Running client's monitor info sending thread");
+                System.out.println("Running update server thread");
             }
 
+            // periodically send monitor info to see if the domain server is alive
             while (true) {
                 try {
-                    // periodically send monitor info to see if the domain server is alive
-                    while (true) {
-                        try {
-                            // quit thread
-                            if (killThread) {
-                                return;
-                            }
-
-                            sendMonitorInfo();
-
-                            // sleep for 1 second and try again
-                            Thread.sleep(sleepTime);
+                    // quit thread
+                    if (killThread) {
+                        if (debug >= cMsgConstants.debugInfo) {
+                            System.out.println("UpdateServer Thread: exiting\n");
                         }
-                        catch (InterruptedException e) {
-                            //System.out.println("Interrupted Client during sleep");
-                        }
-                        catch (InterruptedIOException e) {
-                            //System.out.println("Interrupted Client during I/O");
-                        }
+                        return;
                     }
+
+                    sendMonitorInfo();
+
+                    // sleep for 1 second and try again
+                    Thread.sleep(sleepTime);
+                }
+                catch (InterruptedException e) {
+//System.out.println("Interrupted UpdateServer thread during sleep");
+                }
+                catch (InterruptedIOException e) {
+//System.out.println("Interrupted UpdateServer thread during I/O");
                 }
                 catch (IOException e) {
-                    //e.printStackTrace();
-                    // if we've reach here, there's an error
-                    if (debug >= cMsgConstants.debugError) {
-                        System.out.println("\nUpdateServer Thread: domain server is probably dead\n");
-                    }
-                    break;
+                    // if we've reach here, there's an error due to a dead server, wait for reconnection
+                    //if (debug >= cMsgConstants.debugError) {
+                    //    System.out.println("\nUpdateServer Thread: domain server probably dead, this thread exits\n");
+                    //}
                 }
-
             }
         }
 
