@@ -34,7 +34,6 @@ import java.text.DateFormat;
  * All resources associated with that client are recovered for reuse.
  *
  * @author Carl Timmer
- * @version 1.0
  */
 public class cMsgMonitorClient extends Thread {
 
@@ -339,9 +338,9 @@ public class cMsgMonitorClient extends Thread {
 
             tries++;
             if (tries >= maxTries) {
-                //if (debug >= cMsgConstants.debugInfo) {
+                if (debug >= cMsgConstants.debugInfo) {
                     System.out.println("readSocketBytes: called read " + tries + " times, read " + n + " bytes");
-                //}
+                }
                 throw new cMsgException("readSocketBytes: too many tries to read " + bytes + " bytes, read only " + n);
             }
 
