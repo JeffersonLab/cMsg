@@ -2614,7 +2614,7 @@ public class cMsg extends cMsgDomainAdapter {
      *
      * @param udl UDL to parse
      * @return an object with all the parsed UDL information in it
-     * @throws cMsgException if UDL is null, no beginning cmsg://, no host given
+     * @throws cMsgException if UDL is null, no beginning cmsg://, no host given, unknown host
      */
     ParsedUDL parseUDL(String udl) throws cMsgException {
 
@@ -2677,7 +2677,9 @@ public class cMsg extends cMsgDomainAdapter {
         // if the host is "localhost", find the actual, fully qualified  host name
         else if (udlHost.equalsIgnoreCase("localhost")) {
             try {udlHost = InetAddress.getLocalHost().getCanonicalHostName();}
-            catch (UnknownHostException e) {}
+            catch (UnknownHostException e) {
+                throw new cMsgException("cannot find localhost", e);
+            }
 
             if (debug >= cMsgConstants.debugWarn) {
                System.out.println("parseUDL: name server given as \"localhost\", substituting " +
@@ -2686,7 +2688,9 @@ public class cMsg extends cMsgDomainAdapter {
         }
         else {
             try {udlHost = InetAddress.getByName(udlHost).getCanonicalHostName();}
-            catch (UnknownHostException e) {}
+            catch (UnknownHostException e) {
+                throw new cMsgException("unknown host", e);
+            }
         }
 
         // get name server port or guess if it's not given
