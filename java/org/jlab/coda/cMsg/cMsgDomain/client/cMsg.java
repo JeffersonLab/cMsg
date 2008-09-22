@@ -2674,6 +2674,10 @@ public class cMsg extends cMsgDomainAdapter {
             mustMulticast = true;
 //System.out.println("set mustMulticast to true (locally in parse method)");
         }
+        // if the host is dotted decimal form of multicast address ...
+        else if (udlHost.equals(cMsgNetworkConstants.cMsgMulticast)) {
+            mustMulticast = true;
+        }
         // if the host is "localhost", find the actual, fully qualified  host name
         else if (udlHost.equalsIgnoreCase("localhost")) {
             try {udlHost = InetAddress.getLocalHost().getCanonicalHostName();}
