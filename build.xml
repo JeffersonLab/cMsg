@@ -84,7 +84,7 @@
 
     <!-- Create Jar file -->
     <target name="jar" depends="compile" description="Generates jar file.">
-        <jar jarfile="${build.lib}/cMsg-${cMsg.version}.jar">
+        <jar jarfile="${build.lib}/cMsg-${cMsg.version}.jar" manifest="${src.dir}/org/jlab/coda/cMsg/manifest.mf">
           <!-- Dont include Consumer, Producer, and StartET.class files -->
           <fileset dir="${build.classes}" excludes="*.class" />
         </jar>
