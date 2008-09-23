@@ -263,8 +263,8 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
      * before giving up and returning an error.
      */
     
+/* printf("   failoverSuccessful, waiting on latch\n"); */
     err = cMsgLatchAwait(&domain->syncLatch, &wait);
-/* printf("IN failoverSuccessful, cMsgLatchAwait return = %d\n", err); */
     /* if latch reset or timedout, return false */
     if (err < 1) {
       return 0;
@@ -374,7 +374,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
                       const char *UDLremainder, void **domainId) {
         
   char *p, *udl;
-  int failoverUDLCount = 0, failoverIndex=0, viableUDLs = 0;
+  int failoverUDLCount = 0, failoverIndex=0;
   int gotConnection = 0;        
   int i, err=CMSG_OK;
   char temp[CMSG_MAXHOSTNAMELEN];
@@ -418,12 +418,12 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
     p = strtok(NULL, ";");
   }
   free(udl);
-/*printf("Found %d UDLs\n", failoverUDLCount);*/
+printf("Found %d UDLs\n", failoverUDLCount);
 
   if (failoverUDLCount < 1) {
     cMsgDomainFree(domain);
     free(domain);
-    return(CMSG_BAD_ARGUMENT);        
+    return(CMSG_BAD_FORMAT);        
   }
 
   /* Now that we know how many UDLs there are, allocate array. */
@@ -451,45 +451,30 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
                             &domain->failovers[i].timeout,
                             &domain->failovers[i].regime)) != CMSG_OK ) {
 
-      /* There's been a parsing error, mark as invalid UDL */
-      domain->failovers[i].valid = 0;
-    }
-    else {
-      domain->failovers[i].valid = 1;
-      viableUDLs++;
+      /* There's been an error parsing a UDL */
+      cMsgDomainFree(domain);
+      free(domain);
+      free(udl);
+      return(CMSG_BAD_FORMAT);                              
     }
     domain->failovers[i].udl = strdup(p);
-/*printf("Found UDL = %s\n", domain->failovers[i].udl);*/
+printf("Found UDL = %s\n", domain->failovers[i].udl);
     p = strtok(NULL, ";");
     i++;
   }
   free(udl);
 
-
   /*-------------------------*/
   /* Make a real connection. */
   /*-------------------------*/
 
-  /* If there are no viable UDLs ... */
-  if (viableUDLs < 1) {
-      cMsgDomainFree(domain);
-      free(domain);
-      return(CMSG_BAD_FORMAT);            
-  }
-  /* Else if there's only 1 viable UDL ... */
-  else if (viableUDLs < 2) {
-/*printf("Only 1 UDL = %s\n", domain->failovers[0].udl);*/
+  /* if there's only 1 viable UDL ... */
+  if (failoverUDLCount < 2) {
+printf("Only 1 UDL = %s\n", domain->failovers[0].udl);
 
       /* Ain't using failovers */
       domain->implementFailovers = 0;
-      
-      /* connect using that UDL */
-      if (!domain->failovers[0].valid) {
-          cMsgDomainFree(domain);
-          free(domain);
-          return(CMSG_BAD_FORMAT);            
-      }
-      
+            
       if (domain->failovers[0].mustMulticast == 1) {
         free(domain->failovers[0].nameServerHost);
 /*printf("Trying to connect with Multicast 1\n");*/
@@ -528,17 +513,12 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
     /* Go through the UDL's until one works */
     failoverIndex = -1;
     do {
-      /* check to see if UDL valid for cMsg domain */
-      if (!domain->failovers[++failoverIndex].valid) {
-        connectFailures++;
-        continue;
-      }
-
+      failoverIndex++;
       /* connect using that UDL info */
 /*printf("\nTrying to connect with UDL = %s\n", domain->failovers[failoverIndex].udl);*/
       if (domain->failovers[failoverIndex].mustMulticast == 1) {
         free(domain->failovers[failoverIndex].nameServerHost);
-        printf("Trying to connect with Multicast 2\n");
+/*printf("Trying to connect with Multicast 2\n"); */
         err = connectWithMulticast(domain, failoverIndex,
                              &domain->failovers[failoverIndex].nameServerHost,
                              &domain->failovers[failoverIndex].nameServerPort);     
@@ -912,7 +892,7 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIn
   /* connect & talk to cMsg name server to check if name is unique */
   /*---------------------------------------------------------------*/
     
-  /* first connect to server host & port (default send & rcv buf sizes) */
+  /* first connect to server host & port (default send & rcv buf sizes) */  
   if ( (err = cMsgTcpConnect(domain->failovers[failoverIndex].nameServerHost,
                              (unsigned short) domain->failovers[failoverIndex].nameServerPort,
                              0, 0, &serverfd)) != CMSG_OK) {
@@ -1015,7 +995,7 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIn
     pthread_join(domain->pendThread, NULL);
     return(err);
   }
-  
+
   /* send magic #s over TCP socket */
   sendLen = cMsgTcpWrite(domain->keepAliveSocket, (void *) outGoing, sizeof(outGoing));
   if (sendLen != sizeof(outGoing)) {
@@ -1163,11 +1143,10 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIn
  */   
 static int reconnect(void **domainId, int failoverIndex) {
 
-  int i, err, serverfd, status, tblSize;
+  int i, err, serverfd, status, tblSize, sendLen, outGoing[3];
   getInfo *info;
   const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
   struct sockaddr_in  servaddr;
-  cMsgThreadInfo *threadArg;
   hashNode *entries = NULL;
   cMsgDomainInfo *domain = (cMsgDomainInfo *) (*domainId);
    
@@ -1271,7 +1250,7 @@ static int reconnect(void **domainId, int failoverIndex) {
   }
   
   /* done talking to server */
-  close(serverfd);
+    close(serverfd);
    
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "reconnect: closed name server socket\n");
@@ -1288,35 +1267,22 @@ static int reconnect(void **domainId, int failoverIndex) {
     return(err);
   }
 
+  /* first send magic #s to server which identifies us as real cMsg client */
+  outGoing[0] = htonl(CMSG_MAGIC_INT1);
+  outGoing[1] = htonl(CMSG_MAGIC_INT2);
+  outGoing[2] = htonl(CMSG_MAGIC_INT3);
+  /* send data over TCP socket */
+  sendLen = cMsgTcpWrite(domain->sendSocket, (void *) outGoing, sizeof(outGoing));
+  if (sendLen != sizeof(outGoing)) {
+    close(domain->sendSocket);
+    return(CMSG_NETWORK_ERROR);
+  }
+
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "reconnect: created sending/receiving socket fd = %d\n", domain->sendSocket);
   }  
 
-  /* launch pend thread and start listening on send socket */
-  threadArg = (cMsgThreadInfo *) malloc(sizeof(cMsgThreadInfo));
-  if (threadArg == NULL) {
-      return(CMSG_OUT_OF_MEMORY);
-  }
-  threadArg->isRunning   = 0;
-  threadArg->thdstarted  = 0;
-  threadArg->listenFd    = domain->sendSocket;
-  threadArg->blocking    = CMSG_NONBLOCKING;
-  threadArg->domain      = domain;
-
-  status = pthread_create(&domain->pendThread, NULL,
-                          cMsgClientListeningThread, (void *) threadArg);
-  if (status != 0) {
-    cmsg_err_abort(status, "Creating message listening thread");
-  }
-  
-  /*
-   * This thread DOES NOT NEED to be running before we talk to
-   * the name server. threadArg is used in cMsgClientListeningThread
-   * and its cleanup handler, so do NOT free its memory!
-   */  
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "reconnect: created listening thread\n");
-  }
+  /* pend thread should already be running */
 
   /* create keep alive socket and store (default send & rcv buf sizes) */
   if ( (err = cMsgTcpConnect(domain->sendHost,
@@ -1325,34 +1291,20 @@ static int reconnect(void **domainId, int failoverIndex) {
     close(domain->sendSocket);
     return(err);
   }
-  
+
+  /* send magic #s over TCP socket */
+  sendLen = cMsgTcpWrite(domain->keepAliveSocket, (void *) outGoing, sizeof(outGoing));
+  if (sendLen != sizeof(outGoing)) {
+    close(domain->sendSocket);
+    close(domain->keepAliveSocket);
+    return(CMSG_NETWORK_ERROR);
+  }
+
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "reconnect: created keepalive socket fd = %d\n",domain->keepAliveSocket );
   }
   
-  /* create thread to read periodic keep alives (monitoring data) and handle dead server */
-  status = pthread_create(&domain->keepAliveThread, NULL,
-                          keepAliveThread, (void *) domainId);
-  if (status != 0) {
-    cmsg_err_abort(status, "Creating keep alive thread");
-  }
-     
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "reconnect: created keep alive thread\n");
-  }
-
-
-  /* create thread to send periodic keep alives (monitor data) to server */
-  status = pthread_create(&domain->updateServerThread, NULL,
-                          updateServerThread, (void *)domain);
-  if (status != 0) {
-    cmsg_err_abort(status, "Creating update server thread");
-  }
-     
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "reconnect: created update server thread\n");
-  }
-
+  /* keep alive & update server threads are already running */
 
   /* create sending UDP socket */
   if ((domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -1393,7 +1345,7 @@ static int reconnect(void **domainId, int failoverIndex) {
     return(CMSG_SOCKET_ERROR);
   }
    
-/* printf("reconnect END\n"); */
+  /*printf("reconnect END\n");*/
   return(CMSG_OK);
 }
 
@@ -1589,7 +1541,6 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
       cMsgConnectReadUnlock(domain);
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
           fprintf(stderr, "cmsg_cmsg_send: write failure\n");
-          perror("cmsg_cmsg_send");
       }
       err = CMSG_NETWORK_ERROR;
       break;
@@ -4177,7 +4128,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIn
   iov[6].iov_base = (char*) domain->name;
   iov[6].iov_len  = lengthName;
   
-  iov[7].iov_base = (char*) domain->udl;
+  iov[7].iov_base = (char*) pUDL->udl;
   iov[7].iov_len  = lengthUDL;
   
   iov[8].iov_base = (char*) domain->description;
@@ -4198,7 +4149,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIn
     return(CMSG_NETWORK_ERROR);
   }
   err = ntohl(err);
-    
+
   /* if there's an error, read error string then quit */
   if (err != CMSG_OK) {
     int   len;
@@ -4327,12 +4278,10 @@ static void *keepAliveThread(void *arg) {
     kaThdArg *kaArg = (kaThdArg *) arg;
     void **domainId = kaArg->domainId;
     cMsgDomainInfo *domain = kaArg->domain;
-    int socket = domain->keepAliveSocket;
     int outGoing, err, len;
     
     int failoverIndex = domain->failoverIndex;
-    int connectFailures = 0;
-    int weGotAConnection = 1; /* true */
+    int failedFailoverIndex, connectFailures = 0, weGotAConnection = 1;
     struct timespec wait;
     void *p;
     
@@ -4352,7 +4301,8 @@ static void *keepAliveThread(void *arg) {
 
     /* periodically send a keep alive message and read response */
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "keepAliveThread: keep alive thread created, socket = %d\n", socket);
+      fprintf(stderr, "keepAliveThread: keep alive thread created, socket = %d\n",
+              domain->keepAliveSocket);
     }
   
     /* request to send */
@@ -4363,7 +4313,7 @@ static void *keepAliveThread(void *arg) {
         while(1) {       
 
            /* read len of monitoring data to come */
-           if ((err = cMsgTcpRead(socket, (char*) &len, sizeof(len))) != sizeof(len)) {
+           if ((err = cMsgTcpRead(domain->keepAliveSocket, (char*) &len, sizeof(len))) != sizeof(len)) {
                /*if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                    fprintf(stderr, "keepAliveThread: read failure\n");
                  }*/
@@ -4385,7 +4335,7 @@ static void *keepAliveThread(void *arg) {
            }
 
            /* read monitoring data */
-           if ((err = cMsgTcpRead(socket, domain->monitorXML, len)) !=  len) {
+           if ((err = cMsgTcpRead(domain->keepAliveSocket, domain->monitorXML, len)) !=  len) {
                /*if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                    fprintf(stderr, "keepAliveThread: read failure\n");
                  }*/
@@ -4397,37 +4347,46 @@ static void *keepAliveThread(void *arg) {
         close(domain->keepAliveSocket);
         close(domain->sendSocket);
         
+        /* don't let any other thread use the outdated sockets */
+        domain->keepAliveSocket = -1;
+        domain->sendSocket = -1;
+        
+        /* remember which UDL has just failed */
+        failedFailoverIndex = failoverIndex;
+        
         /* Start by trying to connect to the first UDL on the list.
          * If we've just been connected to that UDL, try the next. */
         if (failoverIndex != 0) {
             failoverIndex = -1;
+            connectFailures = 0;
         }
-        connectFailures = 0;
+        else {
+            connectFailures = 1;
+        }
         weGotAConnection = 0;
         domain->resubscribeComplete = 0;
 
         /* grab mutex to keep from conflicting with "disconnect" */
         cMsgConnectWriteLock(domain);
 
+        /* Go through the UDL's until one works */
         while (domain->implementFailovers && !weGotAConnection) {
             if (connectFailures >= domain->failoverSize) {
 /* printf("ka: Reached our limit of UDLs so quit\n"); */
               break;
             }
             
-            /* Go through the UDL's until one works */
+            failoverIndex++;
             
-            /* check to see if UDL valid for cMsg domain */
-            if (!domain->failovers[++failoverIndex].valid) {
+            /* skip over UDL that failed */
+            if (failoverIndex == failedFailoverIndex) {
+/* printf("ka: skip over UDL that just failed\n"); */
               connectFailures++;
-/* printf("ka: skip invalid UDL = %s\n",
-            domain->failovers[failoverIndex].udl); */
               continue;
             }
 
             /* connect using that UDL info */
-/* printf("ka: trying to reconnect with UDL = %s\n",
-            domain->failovers[failoverIndex].udl); */
+/* printf("ka: trying to reconnect with UDL = %s\n", domain->failovers[failoverIndex].udl); */
 
             if (domain->failovers[failoverIndex].mustMulticast == 1) {
               free(domain->failovers[failoverIndex].nameServerHost);
@@ -4449,14 +4408,11 @@ static void *keepAliveThread(void *arg) {
             if (err != CMSG_OK) {
               /* if subscriptions fail, then we do NOT use this failover server */
               connectFailures++;
-/* printf("ka: ERROR restoring subscriptions, continue\n"); */
               continue;
             }
             
             domain->failoverIndex = failoverIndex;
             domain->resubscribeComplete = 1;
-/* printf("ka: Set domain->keepaliveSocket to %d\n", domain->keepAliveSocket); */            
-            socket = domain->keepAliveSocket; 
 
             /* we got ourselves a new server, boys */
             weGotAConnection = 1;
@@ -4464,22 +4420,19 @@ static void *keepAliveThread(void *arg) {
             /* wait for up to 1.1 sec for waiters to respond */
             err = cMsgLatchCountDown(&domain->syncLatch, &wait);
             if (err != 1) {
-/* printf("ka: Problems with reporting back to countdowner\n"); */            
+/* printf("ka: Problems with reporting back to countdowner\n"); */
             }
             cMsgLatchReset(&domain->syncLatch, 1, NULL);
         }
         cMsgConnectWriteUnlock(domain);
     } /* while we gotta connection */
 
-    /* close communication socket */
-    close(socket);
-
     /* if we've reach here, there's an error, do a disconnect */
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "keepAliveThread: server is probably dead, disconnect\n");
     }
     
-/* printf("\n\n\nka: DISCONNECTING \n\n\n"); */            
+ printf("\n\n\nka: DISCONNECTING \n\n\n");
     p = (void *)domain; /* get rid of compiler warnings */
     disconnectFromKeepAlive(&p);
     
@@ -4487,7 +4440,7 @@ static void *keepAliveThread(void *arg) {
      * so no one else can use it.
      */
     *domainId = NULL;
- /*printf("ka: domainId = %p, p = %p, domain = %p, setting *domainId to NULL\n", domainId, p, domain);*/
+ printf("ka: domainId = %p, p = %p, domain = %p, setting *domainId to NULL\n", domainId, p, domain);
     
     sun_setconcurrency(con);
     
@@ -4523,7 +4476,8 @@ static void *updateServerThread(void *arg) {
     }
       
     while (1) {                
-      /* This may change if we've failed over to another server */      
+      /* This may change if we've failed over to another server */
+//printf("updateServer: set socket = %d\n", domain->keepAliveSocket);
       socket = domain->keepAliveSocket; 
 
       err = sendMonitorInfo(domain, socket);

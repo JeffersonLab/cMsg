@@ -153,7 +153,6 @@ typedef struct getInfo_t {
  */
 typedef struct parsedUDL_t {
   int   nameServerPort; /**< port of name server. */
-  int   valid;          /**< 1 if valid UDL for the cMsg domain, else 0. */
   int   mustMulticast;  /**< 1 if UDL specifies multicasting to find server, else 0. */
   int   timeout;        /**< time in seconds to wait for a broadcast response. */
   int   regime;         /**< CMSG_REGIME_LOW if low data rate regime, similarly can be

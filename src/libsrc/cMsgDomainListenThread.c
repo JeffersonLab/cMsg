@@ -92,7 +92,7 @@ void *cMsgClientListeningThread(void *arg)
   char *buffer;
   freeMem *pfreeMem=NULL;
   cMsgDomainInfo *domain;
-
+  struct timespec wait = {0, 20000000}; /* 0.02 sec */
   
   info   = (cMsgThreadInfo *) arg;
   domain = info->domain;
@@ -162,11 +162,9 @@ void *cMsgClientListeningThread(void *arg)
     /*pfreeMem->fd = connfd;*/
     
     if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
-      /*
-      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "clientThread: error reading command\n");
-      }
-      */
+      /* We're in the middle of failing over, wait
+       * so that we don't chew up the CPU. */
+      nanosleep(&wait, NULL);
       continue;
     }
     
@@ -190,8 +188,8 @@ void *cMsgClientListeningThread(void *arg)
       pfreeMem->buffer = buffer;
       if (buffer == NULL) {
         if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-          fprintf(stderr, "clientThread: cannot allocate %d amount of memory\n",
-                  bufSize);
+          fprintf(stderr, "clientThread: cannot allocate %d amount of memory\n", bufSize);
+          fprintf(stderr, "clientThread: int1,2 = 0x%x, 0x%x\n", size, ntohl(inComing[1]));
         }
         exit(1);
       }
