@@ -3620,6 +3620,7 @@ static int disconnectFromKeepAlive(void **pdomainId) {
   subInfo *sub;
   getInfo *info;
   struct timespec wait4thds = {0, 200000000}; /* 0.2 sec */
+  struct timespec wait      = {0, 10000000}; /* 0.01 sec */
   hashNode *entries = NULL;
   cMsgMessage_t *msg, *nextMsg;
   void *p;
@@ -3803,6 +3804,10 @@ static int disconnectFromKeepAlive(void **pdomainId) {
     }
     free(entries);
   }
+
+  /* "wakeup" all sends/syncSends that have failed and
+   * are waiting to failover in failoverSuccessful. */
+  cMsgLatchCountDown(&domain->syncLatch, &wait);
     
   /* Unblock SIGPIPE */
   cMsgRestoreSignals(domain);
