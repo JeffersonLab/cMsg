@@ -711,7 +711,7 @@ System.out.println("Set clientsMax to " + clientsMax);
                 System.exit(-1);
             }
 
-            new cMsgServerCloudJoiner(this, getPort(), serverToJoin, debug);
+            new cMsgServerCloudJoiner(this, port, multicastPort, serverToJoin, debug);
         }
         else {
             // if we're not joining a cloud, then we're by definition the nucleas of one
@@ -1091,8 +1091,11 @@ System.out.println("Set clientsMax to " + clientsMax);
         /** Is connecting server client originating connection or is this a reciprocal one? */
         boolean isReciprocalConnection;
 
-        /** Listening port of name server that server client is a part of. */
-        int nameServerListeningPort;
+        /** TCP listening port of name server that server client is a part of. */
+        int nsTcpPort;
+
+        /** UDP multicast listening port of name server that server client is a part of. */
+        int nsMulticastPort;
 
         /** Locally constructed name for server client. */
         String name;
@@ -1195,7 +1198,7 @@ System.out.println("Set clientsMax to " + clientsMax);
                     }
 
                     // Create object which holds all data concerning client
-                    info = new cMsgClientData(name, nameServerListeningPort, host);
+                    info = new cMsgClientData(name, nsTcpPort, host);
 
                     if (debug >= cMsgConstants.debugInfo) {
                         System.out.println(">> NS: try to register " + name);
@@ -1231,8 +1234,10 @@ System.out.println("Set clientsMax to " + clientsMax);
             connectingCloudStatus = in.readByte();
             // Is connecting server originating connection or is this a reciprocal one?
             isReciprocalConnection = in.readByte() == 0;
-            // listening port of name server that client is a part of
-            int nameServerListeningPort = in.readInt();
+            // TCP listening port of name server that client is a part of
+            nsTcpPort = in.readInt();
+            // UDP multicast listening port of name server that client is a part of
+            nsMulticastPort = in.readInt();
             // length of server client's host name
             int lengthHost = in.readInt();
             // length of server client's password
@@ -1261,7 +1266,7 @@ System.out.println("Set clientsMax to " + clientsMax);
             }
 
             // Make this client's name = "host:port"
-            name = host + ":" + nameServerListeningPort;
+            name = host + ":" + nsTcpPort;
 //System.out.println(">> NS: host name = " + host + ", client hame = " + name);
         }
 
@@ -1394,7 +1399,8 @@ System.out.println("Set clientsMax to " + clientsMax);
                 // If this is not a reciprocal connection, we need to make one.
                 if (!isReciprocalConnection) {
 //System.out.println(">> NS: Create reciprocal bridge to " + name);
-                    cMsgServerBridge b = new cMsgServerBridge(cMsgNameServer.this, name, port);
+                    cMsgServerBridge b = new cMsgServerBridge(cMsgNameServer.this, name,
+                                                              port, multicastPort);
                     // connect as reciprocal (originating = false)
                     b.connect(false, cloudPassword);
 //System.out.println(">> NS: Add " + name + " to bridges");
