@@ -428,7 +428,15 @@ public class cMsgMonitorClient extends Thread {
         // distribution to clients asking for it in XML format.
         xml.append("\n  <server  name=\"");
         xml.append(server.serverName);
-        xml.append("\">\n");
+        xml.append("\"  host=\"");
+        xml.append(server.getHost());
+        xml.append("\"  tcpPort=\"");
+        xml.append(server.getPort());
+        xml.append("\"  domainPort=\"");
+        xml.append(server.getDomainPort());
+        xml.append("\"  multicastPort=\"");
+        xml.append(server.getMulticastPort());
+        xml.append("\" >\n");
         String indent1 = "      ";
 
         for (cMsgDomainServer ds : server.domainServers.keySet()) {
@@ -645,9 +653,7 @@ public class cMsgMonitorClient extends Thread {
         server.nsMonitorXML = xml.toString();
 //System.out.println("       >>XML: NS xml size = " + xml.length());
 
-        xml.insert(0,"<cMsgMonitorData  domain=\"cmsg\">\n");
-        //  xml.insert(0, "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n\n");
-        xml.insert(0, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\n");
+        xml.insert(0,"<cMsgMonitorData  domain=\"cmsg\">\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\n");
 
         // allow no changes to "bridges" while iterating
         synchronized (server.bridges) {
