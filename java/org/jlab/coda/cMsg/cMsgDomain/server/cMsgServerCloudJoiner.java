@@ -32,8 +32,11 @@ import java.net.UnknownHostException;
  */
 public class cMsgServerCloudJoiner extends Thread {
 
-    /** The port this server is listening on. */
+    /** The TCP port this server is listening on. */
     private int port;
+
+    /** The UDP multicast port this server is listening on. */
+    private int multicastPort;
 
     /** The object which created this object. */
     private cMsgNameServer nameServer;
@@ -60,12 +63,15 @@ public class cMsgServerCloudJoiner extends Thread {
      * Constructor.
      *
      * @param nameServer this cMsg name server that is joining the cloud
-     * @param port TCP port this server is listening on
+     * @param nsTcpPort TCP port this server is listening on
+     * @param nsUdpPort UDP multicast port this server is listening on
      * @param server cMsg name server to connect to
      * @param debug level of debug output
      */
-    public cMsgServerCloudJoiner(cMsgNameServer nameServer, int port, String server, int debug) {
-        this.port = port;
+    public cMsgServerCloudJoiner(cMsgNameServer nameServer, int nsTcpPort,
+                                 int nsUdpPort, String server, int debug) {
+        this.port = nsTcpPort;
+        this.multicastPort = nsUdpPort;
         this.debug = debug;
         this.nameServer = nameServer;
         serversToConnectTo.add(server);
@@ -103,7 +109,8 @@ public class cMsgServerCloudJoiner extends Thread {
                 try {
 //System.out.println("    << JR: Creating bridge to: " + server);
                     // This throws cMsgException if cannot find localhost's name
-                    cMsgServerBridge bridge = new cMsgServerBridge(nameServer, server, port);
+                    cMsgServerBridge bridge = new cMsgServerBridge(nameServer, server,
+                                                                   port, multicastPort);
                     // Store reference to bridge so cMsgNameServer can use it when
                     // accepting reciprocal connection.
                     nameServer.bridgeBeingCreated = bridge;

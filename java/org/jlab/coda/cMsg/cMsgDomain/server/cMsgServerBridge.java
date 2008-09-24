@@ -44,8 +44,11 @@ public class cMsgServerBridge {
     /** The cloud status of the cMsg server this server is connected to. */
     private volatile int cloudStatus = cMsgNameServer.UNKNOWNCLOUD;
 
-    /** The port this name server is listening on. */
-    private int port;
+    /** The TCP port this name server is listening on. */
+    private int thisNsTcpPort;
+
+    /** The UDP multicast port this name server is listening on. */
+    private int thisNsUdpPort;
 
     /**
      * Map to store a sendAndGet id of the originating cMsg server and the corresponding
@@ -192,16 +195,19 @@ public class cMsgServerBridge {
      *
      * @param nameServer THIS name server (the one using this object)
      * @param serverName name of server to connect to in the form "host:port"
-     * @param thisNameServerPort the port THIS name server is listening on
+     * @param thisNsTcpPort the TCP port THIS name server is listening on
+     * @param thisNsUdpPort the Udp multicast port THIS name server is listening on
      * @throws cMsgException
      */
     public cMsgServerBridge(cMsgNameServer nameServer,
                             String serverName,
-                            int thisNameServerPort)
+                            int thisNsTcpPort,
+                            int thisNsUdpPort)
             throws cMsgException {
 
-        this.serverName = serverName;
-        port = thisNameServerPort;
+        this.serverName    = serverName;
+        this.thisNsTcpPort = thisNsTcpPort;
+        this.thisNsUdpPort = thisNsUdpPort;
         idStorage = new ConcurrentHashMap<Integer,Integer>(100);
 
         // Normally a client uses the top level API. That is unecessary
@@ -244,7 +250,7 @@ public class cMsgServerBridge {
     public Set<String> connect(boolean isOriginator, String cloudPassword) throws cMsgException {
         // create a connection to the UDL
         client.start();
-        return client.connect(port, isOriginator, cloudPassword);
+        return client.connect(thisNsTcpPort, thisNsUdpPort, isOriginator, cloudPassword);
     }
 
    /**
