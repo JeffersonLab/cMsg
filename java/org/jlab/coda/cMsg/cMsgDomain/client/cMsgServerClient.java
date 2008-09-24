@@ -143,7 +143,8 @@ public class cMsgServerClient extends cMsg {
      * Unfortunately, this is a method largely duplicated from the base class but
      * with a few small changes.
      *
-     * @param fromNameServerPort port of name server calling this method
+     * @param fromNsTcpPort TCP listening port of name server calling this method
+     * @param fromNsMulticastPort UDP multicast listening port of name server calling this method
      * @param isOriginator true if originating the connection between the 2 servers and
      *                     false if this is the response or reciprocal connection
      * @param cloudPassword password for connecting to a server in a particular cloud
@@ -152,8 +153,8 @@ public class cMsgServerClient extends cMsg {
      * @throws cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server
      */
-    public HashSet<String> connect(int fromNameServerPort, boolean isOriginator,
-                                   String cloudPassword) 
+    public HashSet<String> connect(int fromNsTcpPort, int fromNsMulticastPort,
+                                   boolean isOriginator, String cloudPassword)
             throws cMsgException {
         
         // list of servers that the server we're connecting to is already connected with
@@ -191,7 +192,8 @@ public class cMsgServerClient extends cMsg {
                 // connecting to is already connected with.
                 serverSet = talkToNameServerFromServer(nsSocket,
                                                        nameServer.getCloudStatus(),
-                                                       fromNameServerPort,
+                                                       fromNsTcpPort,
+                                                       fromNsMulticastPort,
                                                        isOriginator,
                                                        cloudPassword);
             }
@@ -866,7 +868,8 @@ public class cMsgServerClient extends cMsg {
      * ints the same. That way the server can reliably check for mismatched versions.
      *
      * @param socket socket communication to server
-     * @param fromNameServerPort port of name server calling this method
+     * @param fromNSTcpPort TCP listening port of name server calling this method
+     * @param fromNSMulticastPort UDP multicast listening port of name server calling this method
      * @param isOriginator true if originating the connection between the 2 servers and
      *                     false if this is the response or reciprocal connection.
      * @param cloudPassword password for connecting to a server in a particular cloud
@@ -875,7 +878,8 @@ public class cMsgServerClient extends cMsg {
      */
     HashSet<String> talkToNameServerFromServer(Socket socket,
                                                int cloudStatus,
-                                               int fromNameServerPort,
+                                               int fromNSTcpPort,
+                                               int fromNSMulticastPort,
                                                boolean isOriginator,
                                                String cloudPassword)
             throws IOException, cMsgException {
@@ -896,8 +900,10 @@ public class cMsgServerClient extends cMsg {
         out.writeByte(cloudStatus);
         // Is this client originating the connection or making a reciprocal one?
         out.writeByte(isOriginator ? 1 : 0);
-        // This name server's listening port
-        out.writeInt(fromNameServerPort);
+        // This name server's TCP listening port
+        out.writeInt(fromNSTcpPort);
+        // This name server's UDP multicast listening port
+        out.writeInt(fromNSMulticastPort);
         // Length of local host name
         out.writeInt(host.length());
         // Length of password
