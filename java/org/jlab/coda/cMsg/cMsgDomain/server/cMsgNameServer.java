@@ -300,6 +300,15 @@ public class cMsgNameServer extends Thread {
 
 
     /**
+     * Get the host this server is running on.
+     * @return server's name
+     */
+    public String getHost() {
+         return host;
+     }
+
+
+    /**
      * Get the name server's listening port.
      * @return name server's listening port
      */
@@ -314,6 +323,15 @@ public class cMsgNameServer extends Thread {
      */
     public int getDomainPort() {
         return domainServerPort;
+    }
+
+
+    /**
+     * Get the domain server's multicast listening port.
+     * @return domain server's multicast listening port
+     */
+    public int getMulticastPort() {
+        return multicastPort;
     }
 
 
@@ -1556,7 +1574,7 @@ System.out.println("Set clientsMax to " + clientsMax);
             int bytesToRead = lengthPassword + lengthDomainType + lengthSubdomainType +
                               lengthUDLRemainder + lengthHost + lengthName + lengthUDL +
                               lengthDescription;
-//System.out.println("getClientInfo: bytesToRead = " + bytesToRead);
+System.out.println("getClientInfo: bytesToRead = " + bytesToRead);
             int offset = 0;
 
             // read all string bytes
@@ -1625,6 +1643,7 @@ System.out.println("Set clientsMax to " + clientsMax);
 
             // if this is not the domain of server the client is expecting, return an error
             if (!domainType.equalsIgnoreCase(this.domain)) {
+System.out.println("ERROR coming back to client, bad domain");
                 // send error to client
                 out.writeInt(cMsgConstants.errorWrongDomainType);
                 // send error string to client
@@ -1643,16 +1662,16 @@ System.out.println("Set clientsMax to " + clientsMax);
             // if the client does not provide the correct password if required, return an error
             if (clientPassword != null) {
 
-                if (debug >= cMsgConstants.debugInfo) {
+//                if (debug >= cMsgConstants.debugInfo) {
                     System.out.println("  local password = " + clientPassword);
                     System.out.println("  given password = " + password);
-                }
+//                }
 
                 if (password.length() < 1 || !clientPassword.equals(password)) {
 
-                    if (debug >= cMsgConstants.debugError) {
+//                    if (debug >= cMsgConstants.debugError) {
                         System.out.println("  wrong password sent");
-                    }
+//                    }
 
                     // send error to client
                     out.writeInt(cMsgConstants.errorWrongPassword);
@@ -1675,14 +1694,15 @@ System.out.println("Set clientsMax to " + clientsMax);
             info = new cMsgClientData(name, port, domainServerPort, host,
                                       add.getAddress().getHostAddress(),
                                       subdomainType, UDLRemainder, UDL, description);
-            if (debug >= cMsgConstants.debugInfo) {
+//            if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("name server try to register " + name);
-            }
+//            }
 
             try {
                 registerClient();
             }
             catch (cMsgException ex) {
+System.out.println("ERROR coming back to client, failed to register");
                 // send int error code to client
                 out.writeInt(ex.getReturnCode());
                 // send error string to client
@@ -1807,7 +1827,7 @@ System.out.println("Set clientsMax to " + clientsMax);
                 dServer = new cMsgDomainServer(cMsgNameServer.this, info, false, debug);
             }
 
-//System.out.println("registerClient: make 2 connections");
+System.out.println("registerClient: make 2 connections");
             // accept 2 permanent connections from client
             synchronized (connectionThread) {
                 // get ready to accept a couple connections from client
@@ -1816,13 +1836,14 @@ System.out.println("Set clientsMax to " + clientsMax);
                 sendClientConnectionInfo(subdomainHandler);
                 // client should make a couple connections to domain server (1 sec timeout)
                 if (!connectionThread.gotConnections()) {
+System.out.println("client did not make connections to domain server, throw exception");
                     // failed to get proper connections from client, so abort
                     cMsgException ex = new cMsgException("client did not make connections to domain server");
                     ex.setReturnCode(cMsgConstants.errorLostConnection);
                     throw ex;
                 }
             }
-//System.out.println("registerClient: got 2 connections");
+System.out.println("registerClient: got 2 connections");
 
             // Start the domain server's threads.
             if (regime != cMsgConstants.regimeHigh) {
@@ -1862,7 +1883,7 @@ System.out.println("Set clientsMax to " + clientsMax);
          */
         private void sendClientConnectionInfo(cMsgSubdomainInterface handler)
                 throws IOException {
-
+System.out.println("Send OK back to client");
             // send ok back as acknowledgment
             out.writeInt(cMsgConstants.ok);
 
@@ -1876,10 +1897,11 @@ System.out.println("Set clientsMax to " + clientsMax);
             atts[4] = handler.hasSubscribe() ? (byte) 1 : (byte) 0;
             atts[5] = handler.hasUnsubscribe() ? (byte) 1 : (byte) 0;
             atts[6] = handler.hasShutdown() ? (byte) 1 : (byte) 0;
+System.out.println("Send hases back to client");
             out.write(atts);
 
             // send cMsg domain host & port contact info back to client
-//System.out.println("Sending to client: domain udp port = " + info.getDomainUdpPort());
+System.out.println("Sending to client: domain udp port = " + info.getDomainUdpPort());
             out.writeInt(info.getDomainPort());
             out.writeInt(info.getDomainUdpPort());
             out.writeInt(info.getDomainHost().length());
@@ -1889,7 +1911,9 @@ System.out.println("Set clientsMax to " + clientsMax);
             catch (UnsupportedEncodingException e) {
             }
 
+System.out.println("Sending to client: try flushing");
             out.flush();
+System.out.println("Sending to client: flushed");
         }
 
 
