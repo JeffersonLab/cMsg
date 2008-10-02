@@ -33,19 +33,18 @@ import java.net.UnknownHostException;
 public class cMsgUtilities {
 
     /**
-        * Converts 4 bytes of a byte array into an integer.
-        *
-        * @param b byte array
-        * @param off offset into the byte array (0 = start at first element)
-        * @return integer value
-        */
-       static public final int bytesToInt(byte[] b, int off) {
-         int result = ((b[off]  &0xff) << 24) |
-                      ((b[off+1]&0xff) << 16) |
-                      ((b[off+2]&0xff) <<  8) |
-                       (b[off+3]&0xff);
-         return result;
-       }
+     * Converts 4 bytes of a byte array into an integer.
+     *
+     * @param b byte array
+     * @param off offset into the byte array (0 = start at first element)
+     * @return integer value
+     */
+    static public final int bytesToInt(byte[] b, int off) {
+        return (((b[off]  &0xff) << 24) |
+                ((b[off+1]&0xff) << 16) |
+                ((b[off+2]&0xff) <<  8) |
+                 (b[off+3]&0xff));
+    }
 
     /**
       * Copies an integer value into 4 bytes of a byte array.
@@ -58,6 +57,33 @@ public class cMsgUtilities {
        b[off+1] = (byte) ((intVal & 0x00ff0000) >>> 16);
        b[off+2] = (byte) ((intVal & 0x0000ff00) >>>  8);
        b[off+3] = (byte)  (intVal & 0x000000ff);
+     }
+
+
+    /**
+      * Determine whether a given host name refers to the local host.
+      * @param hostName host name that is checked to see if its local or not
+      */
+     public static final boolean isHostLocal(String hostName) {
+        if (hostName == null || hostName.length() < 1) return false;
+
+        try {
+            // get all local IP addresses
+            InetAddress[] localAddrs = InetAddress.getAllByName(
+                                            InetAddress.getLocalHost().getCanonicalHostName());
+            // get all hostName's IP addresses
+            InetAddress[] hostAddrs  = InetAddress.getAllByName(hostName);
+
+            // see if any 2 addresses are identical
+            for (InetAddress lAddr : localAddrs) {
+                for (InetAddress hAddr : hostAddrs) {
+                    if (lAddr.equals(hAddr)) return true;
+                }
+            }
+        }
+        catch (UnknownHostException e) {}
+
+        return false;
      }
 
 
@@ -340,16 +366,30 @@ public class cMsgUtilities {
         }
 
         // See if this host is recognizable. To do that
-        InetAddress address;
+        boolean doingMulticast = false;
+        InetAddress address = null;
         try {
-            address = InetAddress.getByName(sName);
+            if (sName.equalsIgnoreCase("localhost")) {
+                address = InetAddress.getLocalHost();
+            }
+            else if (sName.equalsIgnoreCase("multicast")) {
+                doingMulticast = true;
+            }
+            else {
+                address = InetAddress.getByName(sName);
+            }
         }
         catch (UnknownHostException e) {
             throw new cMsgException("specified server is unknown");
         }
 
         // put everything in canonical form if possible
-        s = address.getCanonicalHostName() + ":" + sPort;
+        if (doingMulticast) {
+            s = "multicast" + ":" + sPort;
+        }
+        else {
+            s = address.getCanonicalHostName() + ":" + sPort;
+        }
 
         return s;
     }
