@@ -24,6 +24,8 @@ import java.util.HashSet;
 import java.util.concurrent.*;
 import java.io.*;
 import java.net.Socket;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 /**
  * This class implements a cMsg client which is created in a cMsg server for the
@@ -148,13 +150,16 @@ public class cMsgServerClient extends cMsg {
      * @param isOriginator true if originating the connection between the 2 servers and
      *                     false if this is the response or reciprocal connection
      * @param cloudPassword password for connecting to a server in a particular cloud
+     * @param clientPassword password for a client connecting to this server
      * @return set of servers (names of form "host:port") that the server
      *         we're connecting to is already connected with
+     * @param multicasting true if multicasting to find server since host unknown
      * @throws cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server
      */
     public HashSet<String> connect(int fromNsTcpPort, int fromNsMulticastPort,
-                                   boolean isOriginator, String cloudPassword)
+                                   boolean isOriginator, String cloudPassword,
+                                   String clientPassword, boolean multicasting)
             throws cMsgException {
         
         // list of servers that the server we're connecting to is already connected with
@@ -163,6 +168,21 @@ public class cMsgServerClient extends cMsg {
         // parse the UDL (Uniform Domain Locator)
         ParsedUDL p = parseUDL(UDL);
         p.copyToLocal();
+
+        // if multicasting ...
+        if (multicasting) {
+            connectWithMulticast();
+
+            // correct our name
+            try {
+                String canonicalHost =  InetAddress.getByName(nameServerHost).getCanonicalHostName();
+                name = canonicalHost + ":" + nameServerPort;
+            }
+            catch (UnknownHostException e) {
+                name = nameServerHost + ":" + nameServerPort;
+            }
+//System.out.println("\nRESETTING client name to " + name + "\n");
+        }
 
         // cannot run this simultaneously with any other public method
         connectLock.lock();
@@ -180,9 +200,9 @@ public class cMsgServerClient extends cMsg {
             }
             catch (IOException e) {
                 try {if (nsSocket != null) nsSocket.close();} catch (IOException e1) {}
-                if (debug >= cMsgConstants.debugError) {
-                    e.printStackTrace();
-                }
+//                if (debug >= cMsgConstants.debugError) {
+//                    e.printStackTrace();
+//                }
                 throw new cMsgException("connect: cannot create socket to name server", e);
             }
 
@@ -195,15 +215,16 @@ public class cMsgServerClient extends cMsg {
                                                        fromNsTcpPort,
                                                        fromNsMulticastPort,
                                                        isOriginator,
-                                                       cloudPassword);
+                                                       cloudPassword,
+                                                       clientPassword);
             }
             catch (IOException e) {
                 // undo everything we've just done
                 try {nsSocket.close();} catch (IOException e1) {}
 
-                if (debug >= cMsgConstants.debugError) {
-                    e.printStackTrace();
-                }
+//                if (debug >= cMsgConstants.debugError) {
+//                    e.printStackTrace();
+//                }
                 throw new cMsgException("connect: cannot talk to name server");
             }
 
@@ -214,7 +235,7 @@ public class cMsgServerClient extends cMsg {
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("connect: cannot close channel to name server, continue on");
-                    e.printStackTrace();
+//                    e.printStackTrace();
                 }
             }
 
@@ -244,9 +265,9 @@ public class cMsgServerClient extends cMsg {
                 try {if (domainOutSocket != null) domainOutSocket.close();} catch (IOException e1) {}
                 if (listeningThread != null) listeningThread.killThread();
 
-                if (debug >= cMsgConstants.debugError) {
-                    e.printStackTrace();
-                }
+//                if (debug >= cMsgConstants.debugError) {
+//                    e.printStackTrace();
+//                }
                 throw new cMsgException("connect: cannot create channel to domain server", e);
             }
 
@@ -280,9 +301,9 @@ public class cMsgServerClient extends cMsg {
                 if (keepAliveThread != null)    keepAliveThread.killThread();
                 if (updateServerThread != null) updateServerThread.killThread();
 
-                if (debug >= cMsgConstants.debugError) {
-                    e.printStackTrace();
-                }
+//                if (debug >= cMsgConstants.debugError) {
+//                    e.printStackTrace();
+//                }
                 throw new cMsgException("connect: cannot create keepAlive channel to domain server", e);
             }
 
@@ -873,6 +894,7 @@ public class cMsgServerClient extends cMsg {
      * @param isOriginator true if originating the connection between the 2 servers and
      *                     false if this is the response or reciprocal connection.
      * @param cloudPassword password for connecting to a server in a particular cloud
+     * @param clientPassword password for a client connecting to this server
      * @throws cMsgException error returned from server
      * @throws IOException if there are communication problems with the name server
      */
@@ -881,7 +903,8 @@ public class cMsgServerClient extends cMsg {
                                                int fromNSTcpPort,
                                                int fromNSMulticastPort,
                                                boolean isOriginator,
-                                               String cloudPassword)
+                                               String cloudPassword,
+                                               String clientPassword)
             throws IOException, cMsgException {
         byte[] buf = new byte[512];
 
@@ -906,17 +929,23 @@ public class cMsgServerClient extends cMsg {
         out.writeInt(fromNSMulticastPort);
         // Length of local host name
         out.writeInt(host.length());
-        // Length of password
+        // Length of cloud password
         if (cloudPassword == null) {
             cloudPassword = "";
         }
 //System.out.println("length of cloud password = " + cloudPassword.length());
         out.writeInt(cloudPassword.length());
+        // Length of client password
+        if (clientPassword == null) {
+            clientPassword = "";
+        }
+        out.writeInt(clientPassword.length());
 
         // write strings & byte array
         try {
             out.write(host.getBytes("US-ASCII"));
             out.write(cloudPassword.getBytes("US-ASCII"));
+            out.write(clientPassword.getBytes("US-ASCII"));
         }
         catch (UnsupportedEncodingException e) {}
 
