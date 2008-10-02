@@ -32,7 +32,7 @@ public class cMsgClientInfo {
     /** Client's name. */
     protected String  name;
     /** Client's address in dotted decimal form. */
-    private String  dottedDecimalAddr;
+    protected String  dottedDecimalAddr;
     /** Client supplied description. */
     protected String  description;
     /** Client supplied UDL. */
@@ -55,12 +55,20 @@ public class cMsgClientInfo {
 
     /** Is this client another cMsg server? */
     protected boolean isServer;
+
     /**
-     * If this client is a cMsg server, this quantity is the name server's port
+     * If this client is a cMsg server, this quantity is the TCP listening port
      * of the server which has just become a client of cMsg server where this
      * object lives. (I hope you got that).
      */
     protected int serverPort;
+
+    /**
+     * If this client is a cMsg server, this quantity is the UDP multicast port
+     * of the server which has just become a client of cMsg server where this
+     * object lives. (I hope you got that).
+     */
+    protected int multicastPort;
 
     /** Socket channel used to get messages to and receive messages/requests from client. */
     protected SocketChannel messageChannel;
@@ -108,14 +116,16 @@ public class cMsgClientInfo {
      * Used in nameServer for a connecting server client.
      *
      * @param name  client's name
-     * @param nsPort name server's listening port
+     * @param nsPort name server's TCP listening port
+     * @param mPort name server's UDP multicast listening port
      * @param host  client's host
      */
-    public cMsgClientInfo(String name, int nsPort, String host) {
-        this.name  = name;
-        serverPort = nsPort;
-        clientHost = host;
-        isServer   = true;
+    public cMsgClientInfo(String name, int nsPort, int mPort, String host) {
+        this.name     = name;
+        serverPort    = nsPort;
+        multicastPort = mPort;
+        clientHost    = host;
+        isServer      = true;
     }
 
 
@@ -247,6 +257,13 @@ public class cMsgClientInfo {
      * @return TCP port connecting name server is listening on
      */
     public int getServerPort() {return serverPort;}
+
+    /**
+     * Gets the UDP multicasting port the connecting name server (client of this server)
+     * is listening on.
+     * @return TCP port connecting name server is listening on
+     */
+    public int getServerMulticastPort() {return multicastPort;}
 
     //-----------------------------------------------------------------------------------
 
