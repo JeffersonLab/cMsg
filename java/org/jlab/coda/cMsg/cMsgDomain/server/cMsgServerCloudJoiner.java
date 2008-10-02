@@ -48,13 +48,12 @@ public class cMsgServerCloudJoiner extends Thread {
     private HashSet<String> serversToConnectTo = new HashSet<String>(20);
 
     /**
-      * This hashmap stores all servers this server is connected to.
-      * The String "server:port" is the key and cMsgServerStatistics is the value.
-      * If this map contains a key, that server is connected to. One can also
-      * obtains that server's operating statistics by looking up it value object.
-      */
-    private ConcurrentHashMap<String,cMsgServerStatistics> connectedServers =
-            new ConcurrentHashMap<String,cMsgServerStatistics>(30);
+     * This is a set of servers (host:port) from which this server will attempt to
+     * connect to ONE and so become a part of its cloud. An attempt will be made to
+     * servers based on list order. First connection wins.
+     */
+    private HashSet<String> cloudServers = new HashSet<String>(20);
+
 
     /** Level of debug output. */
      private int debug;
@@ -65,16 +64,17 @@ public class cMsgServerCloudJoiner extends Thread {
      * @param nameServer this cMsg name server that is joining the cloud
      * @param nsTcpPort TCP port this server is listening on
      * @param nsUdpPort UDP multicast port this server is listening on
-     * @param server cMsg name server to connect to
+     * @param servers list of cMsg name servers from which to attempt to
+     *                connect to one
      * @param debug level of debug output
      */
     public cMsgServerCloudJoiner(cMsgNameServer nameServer, int nsTcpPort,
-                                 int nsUdpPort, String server, int debug) {
+                                 int nsUdpPort, Set<String> servers, int debug) {
         this.port = nsTcpPort;
         this.multicastPort = nsUdpPort;
         this.debug = debug;
         this.nameServer = nameServer;
-        serversToConnectTo.add(server);
+        this.cloudServers.addAll(servers);
         start();
     }
 
@@ -82,119 +82,158 @@ public class cMsgServerCloudJoiner extends Thread {
     public void run() {
         HashSet<String> unknownServers = new HashSet<String>(10);
 
-        do {
+        // Wait until this name server is ready to accept connections
+        // before going out and connecting to servers that will turn
+        // around and connect back to this one.
+        try {
+            nameServer.listeningThreadStartedSignal.await();
+        }
+        catch (InterruptedException e) {
+        }
 
-            // Wait until this name server is ready to accept connections
-            // before going out and connecting to servers that will turn
-            // around and connect back to this one.
-            try {
-                nameServer.listeningThreadStartedSignal.await();
-            }
-            catch (InterruptedException e) {
-            }
+        // not made first connection yet
+        boolean madeFirstConnection = false;
+        // using multicasting to connect
+        boolean multicasting;
 
-            // Start with clean slate - no servers we don't know about.
-            // (We know about all servers.)
-            unknownServers.clear();
+        // Find an initial server whose cloud we'll join.
+        // To do that, go thru this list.
+        for (String startServer : cloudServers) {
 
-            // Connect to all known servers in "connect to" list
-            for (String server : serversToConnectTo) {
-
-                // Check to see if already connected to server
-                if (connectedServers.containsKey(server)) {
-                    continue;
-                }
-
-                Set<String> serverNames = null;
-                try {
-//System.out.println("    << JR: Creating bridge to: " + server);
-                    // This throws cMsgException if cannot find localhost's name
-                    cMsgServerBridge bridge = new cMsgServerBridge(nameServer, server,
-                                                                   port, multicastPort);
-                    // Store reference to bridge so cMsgNameServer can use it when
-                    // accepting reciprocal connection.
-                    nameServer.bridgeBeingCreated = bridge;
-                    // Connect returns set of servers that "server" is connected to
-                    serverNames = bridge.connect(true, nameServer.cloudPassword);
-                    // After our first successful connect (currently NONCLOUD status),
-                    // we are now in the BECOMINGCLOUD status.
-                    if (nameServer.getCloudStatus() == cMsgNameServer.NONCLOUD) {
-//System.out.println("    << JR: Now in BECOMINGCLOUD status");
-                        nameServer.setCloudStatus(cMsgNameServer.BECOMINGCLOUD);
-                    }
-//System.out.println("    << JR: Adding bridge (" + bridge + ") to bridges map");
-                    nameServer.bridges.put(server, bridge);
-                }
-                // Throws cMsgException if there are problems parsing the UDL or
-                // communication problems with the server.
-                catch (cMsgException e) {
-                    // If we have not yet connected to the very first incloud server
-                    // (given on command line), then exit with error.
-                    if (nameServer.getCloudStatus() == cMsgNameServer.NONCLOUD) {
-//System.out.println("      << JR: Cannot connect to given server: " + server);
-                        System.out.println(e.getMessage());
-                        System.exit(-1);
-                    }
-                }
-
-                // If there are servers that the server we are connecting to right now
-                // knows about that we don't (aren't in serversToConnectTo list or the
-                // bridges list), put 'em in the "unknownServers" list.
-                if (serverNames != null) {
-                    for (String s : serverNames) {
-
-                        // When comparing server names we need to be careful of
-                        // comparing fully qualifed names to those that are not.
-                        // So look to see if either type is in the collection of
-                        // established connections.
-                        String alternateName = null;
-                        String sPort = s.substring(s.lastIndexOf(":")+1);
-                        int index = s.indexOf(".");
-
-                        // If the name has a dot (is qualified), create unqualified name
-                        if (index > -1) {
-                            alternateName = s.substring(0,index) + ":" + sPort;
-//System.out.println("    << JR: alternateName (unqualified) = " + alternateName);
-                        }
-                        // else create qualified name
-                        else {
-                            try {
-                                // take off ending port
-                                alternateName = s.substring(0, s.lastIndexOf(":"));
-                                alternateName = InetAddress.getByName(alternateName).getCanonicalHostName();
-                                alternateName = alternateName + ":" + sPort;
-//System.out.println("    << JR: alternateName (qualified) = " + alternateName);
-                            }
-                            catch (UnknownHostException e) {
-//System.out.println("    << JR: error qualifing " + s);
-                                alternateName = s;
-                            }
-                        }
-
-                        if (!nameServer.bridges.keySet().contains(s) &&
-                            !nameServer.bridges.keySet().contains(alternateName) &&
-                            !serversToConnectTo.contains(s) &&
-                            !serversToConnectTo.contains(alternateName)) {
-
-                            unknownServers.add(s);
-//System.out.println("    << JR: Added unknown server " + s + " to list (size = " + unknownServers.size() + ")");
-                        }
-                        else {
-//System.out.println("    << JR: Already connected (or will connect) to server \"" + s + "\"");
-                        }
-                    }
-                }
-            }
-
-            // we've connected to all known servers
+//System.out.println("    << JR: Try joining cloud of server = " + startServer);
             serversToConnectTo.clear();
+            serversToConnectTo.add(startServer);
 
-            // now connect to the previously unknown servers
-            serversToConnectTo.addAll(unknownServers);
+            do {
+                // Start with clean slate - no servers we don't know about.
+                // (We know about all servers.)
+                unknownServers.clear();
+
+                // Connect to all known servers in "connect to" list
+                for (String server : serversToConnectTo) {
+
+                    Set<String> serverNames = null;
+                    try {
+//System.out.println("    << JR: Creating bridge to: " + server);
+                        // If we're multicasting, we don't know server's host yet.
+                        // Once we find out, we must change the server's name so
+                        // that it is unique (host:port) since "multicast:<port>"
+                        // is not. First see if we're multicasting.
+                        multicasting = false;
+                        if (server.startsWith("multicast:")) {
+                            multicasting = true;
+                        }
+
+                        // This throws cMsgException if cannot find localhost's name
+                        cMsgServerBridge bridge = new cMsgServerBridge(nameServer, server,
+                                                                       port, multicastPort);
+                        // Store reference to bridge so cMsgNameServer can use it when
+                        // accepting reciprocal connection.
+                        nameServer.bridgeBeingCreated = bridge;
+                        // Connect returns set of servers that "server" is connected to
+                        serverNames = bridge.connect(true, nameServer.cloudPassword,
+                                                     nameServer.clientPassword, multicasting);
+                        // Bridge's client has changed its name now that the server's host
+                        // is known so now change server name to the new name
+                        if (multicasting) {
+                            server = bridge.client.getName();
+                            bridge.setServerName(server);
+//System.out.println("    << JR: Set client name and bridge server name to " + server);
+                        }
+                        madeFirstConnection = true;
+                        // After our first successful connect (currently NONCLOUD status),
+                        // we are now in the BECOMINGCLOUD status.
+                        if (nameServer.getCloudStatus() == cMsgNameServer.NONCLOUD) {
+//System.out.println("    << JR: Now in BECOMINGCLOUD status");
+                            nameServer.setCloudStatus(cMsgNameServer.BECOMINGCLOUD);
+                        }
+//System.out.println("    << JR: Adding bridge to map for server = " + server);
+                        nameServer.bridges.put(server, bridge);
+                    }
+                    // Throws cMsgException if there are problems parsing the UDL or
+                    // communication problems with the server.
+                    catch (cMsgException e) {
+                        // If we have not yet connected to the very first incloud server
+                        // (given on command line), then exit with error.
+                        if (nameServer.getCloudStatus() == cMsgNameServer.NONCLOUD) {
+//System.out.println("      << JR: Cannot connect to given server: " + server + ", so continue");
+//                            System.out.println(e.getMessage());
+                            continue;
+                        }
+                    }
+
+                    // If there are servers that the server we are connecting to right now
+                    // knows about that we don't (aren't in serversToConnectTo list or the
+                    // bridges list), put 'em in the "unknownServers" list.
+                    if (serverNames != null) {
+                        for (String s : serverNames) {
+
+                            // When comparing server names we need to be careful of
+                            // comparing fully qualifed names to those that are not.
+                            // So look to see if either type is in the collection of
+                            // established connections.
+                            String alternateName = null;
+                            String sPort = s.substring(s.lastIndexOf(":")+1);
+                            int index = s.indexOf(".");
+
+                            // If the name has a dot (is qualified), create unqualified name
+                            if (index > -1) {
+                                alternateName = s.substring(0,index) + ":" + sPort;
+//System.out.println("    << JR: alternateName (unqualified) = " + alternateName);
+                            }
+                            // else create qualified name
+                            else {
+                                try {
+                                    // take off ending port
+                                    alternateName = s.substring(0, s.lastIndexOf(":"));
+                                    alternateName = InetAddress.getByName(alternateName).getCanonicalHostName();
+                                    alternateName = alternateName + ":" + sPort;
+//System.out.println("    << JR: alternateName (qualified) = " + alternateName);
+                                }
+                                catch (UnknownHostException e) {
+//System.out.println("    << JR: error qualifing " + s);
+                                    alternateName = s;
+                                }
+                            }
+
+                            if (!nameServer.bridges.keySet().contains(s) &&
+                                !nameServer.bridges.keySet().contains(alternateName) &&
+                                !serversToConnectTo.contains(s) &&
+                                !serversToConnectTo.contains(alternateName)) {
+
+                                unknownServers.add(s);
+//System.out.println("    << JR: Added unknown server " + s + " to list (size = " + unknownServers.size() + ")");
+                            }
+                            else {
+//System.out.println("    << JR: Already connected (or will connect) to server \"" + s + "\"");
+                            }
+                        }
+                    }
+                }
+
+                // we've connected to all known servers
+                serversToConnectTo.clear();
+
+                // now connect to the previously unknown servers
+                serversToConnectTo.addAll(unknownServers);
 
 //System.out.println("    << JR: Size of serversToConnectTo map: " + serversToConnectTo.size());
-        } while (serversToConnectTo.size() > 0);
+            } while (serversToConnectTo.size() > 0);
 
+            if (madeFirstConnection) {
+                break;
+            }
+        }
+
+        // nothing worked so we're NOT part of any cloud
+        if (!madeFirstConnection) {
+//System.out.println("    << JR: Could not connect to any given server");
+            // Set our new status as part of our own cloud
+            nameServer.setCloudStatus(cMsgNameServer.INCLOUD);
+            // Allow client and server connections
+            nameServer.allowConnectionsSignal.countDown();
+            return;
+        }
 
         int     grabLockTries = 0;
         boolean gotSelfLock   = false;
@@ -430,7 +469,7 @@ public class cMsgServerCloudJoiner extends Thread {
             System.out.println("    << JR: *******************************************************************");
             System.out.println("    << JR: Cannot join the specified cloud, becoming the center of a new cloud");
             System.out.println("    << JR: *******************************************************************");
-            System.exit(-1);
+            //System.exit(-1);
         }
 
         // Set our new status as part of the cloud
