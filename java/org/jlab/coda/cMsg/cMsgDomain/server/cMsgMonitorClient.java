@@ -118,19 +118,75 @@ public class cMsgMonitorClient extends Thread {
             // Prepare 2 buffers. One is for regular clients and the other is
             // for server clients.
             ByteBuffer outBuf;
-
-            // create outBuffer with data to be sent to regular clients
+            String passwd;
             int dataLength = server.fullMonitorXML.length();
-            if (dataLength + 4 > outBuffer.capacity()) {
-                // give outBuffer 1k more space than needed
-                outBuffer = ByteBuffer.allocateDirect(dataLength + 1024);
-            }
-            outBuffer.clear();
-//System.out.println("Buffer capacity = " + outBuffer.capacity());
-            // put size first
 
-//System.out.println("KA xml data length = " + dataLength);
-            outBuffer.putInt(dataLength);
+            // Create outBuffer with data to be sent to regular clients.
+            // Send:
+            //      1) len of xml
+            //      2) xml (state of system)
+            //      3) how many other types of items to follow.
+            //         This allows us to expand the info sent in future
+            //         with messing up protocol (making it backwards compatible).
+            //      4) how many cloud hosts
+            //      for each cloud host send:
+            //          5) tcpPort
+            //          6) multicastPort
+            //          7) len of host
+            //          8) len of password
+            //          9) host
+            //         10) password
+            while (true) {
+                int totalLength = dataLength + 8;
+                for (cMsgClientData cd : server.nameServers.values()) {
+                    passwd = cd.getPassword();
+                    if (passwd == null) passwd = "";
+                    totalLength += 20 + cd.getServerHost().length() + passwd.length();
+                }
+
+                if (totalLength > outBuffer.capacity()) {
+                    outBuffer = ByteBuffer.allocateDirect(totalLength + 1024);
+                }
+                outBuffer.clear();
+
+//System.out.println("cMsgMonitorClient 1: xml data length = " + dataLength + ", total length = " + totalLength);
+                try {
+                    // put xml size first
+                    outBuffer.putInt(dataLength);
+                    // xml string comes next
+                    outBuffer.put(server.fullMonitorXML.getBytes("US-ASCII"));
+                    int size = server.nameServers.size();
+                    // how types of info to follow (just one - cloud servers)
+                    outBuffer.putInt(1);
+                    // how many servers
+                    outBuffer.putInt(size);
+//System.out.println("cMsgMonitorClient 1: buffer pos (after len,xml,#servers) = " + outBuffer.position());
+                    if (size > 0) {
+                        int count=0;
+                        for (cMsgClientData cd : server.nameServers.values()) {
+                            outBuffer.putInt(cd.getServerPort());
+                            outBuffer.putInt(cd.getServerMulticastPort());
+                            outBuffer.putInt(cd.getServerHost().length());
+                            passwd = cd.getPassword();
+                            if (passwd == null) passwd = "";
+                            outBuffer.putInt(passwd.length());
+                            outBuffer.put(cd.getServerHost().getBytes("US-ASCII"));
+                            outBuffer.put(passwd.getBytes("US-ASCII"));
+//System.out.println("cMsgMonitorClient 1: buffer pos = " + outBuffer.position());
+                            count++;
+                        }
+                        if (count != size) {
+                            // another thread messed us up, do it again
+//System.out.println("cMsgMonitorClient 1: messed up try again");
+                            continue;
+                        }
+                    }
+                }
+                catch (UnsupportedEncodingException e) {/* never get here */}
+                break;
+            }
+
+
 
             // create outBuffer with data to be sent to server clients
             dataLength = server.nsMonitorXML.length();
@@ -143,14 +199,12 @@ public class cMsgMonitorClient extends Thread {
             // put size first
             outBuffer2.putInt(dataLength);
 
-
             // string comes next
-            try {
-//System.out.println("putting array of bytes of len = " + server.fullMonitorXML.getBytes("US-ASCII").length);
-                outBuffer.put(server.fullMonitorXML.getBytes("US-ASCII"));
-                outBuffer2.put(server.nsMonitorXML.getBytes("US-ASCII"));
-            }
+            try { outBuffer2.put(server.nsMonitorXML.getBytes("US-ASCII")); }
             catch (UnsupportedEncodingException e) {/* never get here */}
+
+            // how types of info to follow - nothing
+            outBuffer2.putInt(0);
 
             // get outBuffer ready for writing
             outBuffer.flip();
@@ -273,7 +327,7 @@ public class cMsgMonitorClient extends Thread {
                 }
             }
 
-            // wait 1 second between rounds
+            // wait 2 seconds between rounds
             try { Thread.sleep(updatePeriod); }
             catch (InterruptedException e) {}
 
