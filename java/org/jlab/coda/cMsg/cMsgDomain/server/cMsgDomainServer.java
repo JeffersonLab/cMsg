@@ -195,7 +195,7 @@ public class cMsgDomainServer extends Thread {
                             boolean noUdp, int debug) throws cMsgException {
 
 
-System.out.println("Creating cMsgDomainServer");
+//System.out.println("Creating cMsgDomainServer");
         this.info = info;
         this.noUdp = noUdp;
         this.debug = debug;
@@ -435,11 +435,11 @@ System.out.println("Creating cMsgDomainServer");
                     b.client.cleanup();
                 }
 
-                // remove client from "nameServers" (hashset is synchronized)
-                boolean removed = nameServer.nameServers.remove(info.getName());
+                // remove client from "nameServers" (hashmap is concurrent)
+                cMsgClientData cd = nameServer.nameServers.remove(info.getName());
 
                 if (debug >= cMsgConstants.debugInfo) {
-                    if (b != null && removed) {
+                    if (b != null && cd != null) {
                         System.out.println(">>    DS: DELETED server client FROM BRIDGES AND NAMESERVERS");
                     }
                     else {
