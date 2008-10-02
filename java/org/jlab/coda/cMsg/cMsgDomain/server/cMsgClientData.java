@@ -30,6 +30,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class cMsgClientData extends cMsgClientInfo {
 
+    /** For server clients, the password clients must use to connect to that server. */
+    String clientPassword;
 
     /** Socket to receive UDP sends from the client. */
     DatagramSocket udpSocket;
@@ -56,6 +58,7 @@ public class cMsgClientData extends cMsgClientInfo {
     /** Is this client in the cMsg domain? */
     boolean inCmsgSubdomain;
 
+    /** Internal bookkeeping. */
     boolean readingSize = true;
     
     /**
@@ -68,8 +71,6 @@ public class cMsgClientData extends cMsgClientInfo {
     /** Direct buffer for reading TCP nonblocking IO. */
     ByteBuffer buffer = ByteBuffer.allocateDirect(16384);
 
-//    /** Reference to byte array used for reading TCP and UDP nonblocking IO. */
-//    byte[] bArray;
 
 
 
@@ -92,6 +93,12 @@ public class cMsgClientData extends cMsgClientInfo {
 
     long updateTime;
 
+
+    /**
+     * Gets server client's client-connect password.
+     * @return server client's client-connect password
+     */
+    public String getPassword() {return clientPassword;}
 
 
 
@@ -119,11 +126,14 @@ public class cMsgClientData extends cMsgClientInfo {
      * Constructor used when cMsg server acts as a client and connects a to cMsg server.
      * Used in nameServer for a connecting server client.
      *
-     * @param name  client's name
-     * @param nsPort name server's listening port
-     * @param host  client's host
+     * @param name  server client's name
+     * @param nsPort name server's TCP listening port
+     * @param mPort name server's UDP multicast listening port
+     * @param host  server client's host
+     * @param password  server client's password that its clients use to connect
      */
-    public cMsgClientData(String name, int nsPort, String host) {
-        super(name, nsPort, host);
+    public cMsgClientData(String name, int nsPort, int mPort, String host, String password) {
+        super(name, nsPort, mPort, host);
+        this.clientPassword = password;
     }
 }
