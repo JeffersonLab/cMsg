@@ -199,9 +199,12 @@ public class cMsgNameServer extends Thread {
 
     /**
      * Keep track of all name servers which have connected to this server.
-     * This hashset stores the server name (host:port).
+     * This hashmap stores the server name (host:port) as the index and the
+     * cMsgClientData object as the value.
      */
-    Set<String> nameServers = Collections.synchronizedSet(new HashSet<String>(20));
+    ConcurrentHashMap<String, cMsgClientData> nameServers =
+            new ConcurrentHashMap<String, cMsgClientData>(20);
+//    Set<String> nameServers = Collections.synchronizedSet(new HashSet<String>(20));
 
     /**
      * Keep track of all the cMsgServerBridge objects in the cMsg subdomain.
@@ -452,7 +455,7 @@ public class cMsgNameServer extends Thread {
             listeningSocket.setReuseAddress(true);
             // prefer low latency, short connection times, and high bandwidth in that order
             listeningSocket.setPerformancePreferences(1,2,0);
-System.out.println("Listening socket binding to port " + port);
+//System.out.println("Listening socket binding to port " + port);
             listeningSocket.bind(new InetSocketAddress(port));
         }
         catch (IOException ex) {
@@ -515,22 +518,23 @@ System.out.println("Listening socket binding to port " + port);
                              "            [-Dpassword=<password>]\n" +
                              "            [-Dcloudpassword=<password>]\n" +
                              "            [-DlowRegimeSize=<size>]  cMsgNameServer\n");
-        System.out.println("       port is the TCP port this server listens on");
-        System.out.println("       domainPort is the TCP port this server listens on for connection to domain server");
-        System.out.println("       udp  is the UDP port this server listens on for multicasts");
+        System.out.println("       port           is the TCP port this server listens on");
+        System.out.println("       domainPort     is the TCP port this server listens on for connection to domain server");
+        System.out.println("       udp            is the UDP port this server listens on for multicasts");
         System.out.println("       subdomainName  is the name of a subdomain and className is the");
         System.out.println("                      name of the java class used to implement the subdomain");
         System.out.println("       server         hostname is the name of another host on which a cMsg");
         System.out.println("                      server is running whose cMsg subdomain you want to join");
         System.out.println("                      and serverport is that server's port");
         System.out.println("       debug level has acceptable values of:");
-        System.out.println("               info   for full output");
-        System.out.println("               warn   for severity of warning or greater");
-        System.out.println("               error  for severity of error or greater");
-        System.out.println("               severe for severity of \"cannot go on\"");
-        System.out.println("               none   for no debug output (default)");
-        System.out.println("       standalone     means no other servers may connect or vice versa");
-        System.out.println("       password       is used to block clients without this password in their UDL's");
+        System.out.println("                      info   for full output");
+        System.out.println("                      warn   for severity of warning or greater");
+        System.out.println("                      error  for severity of error or greater");
+        System.out.println("                      severe for severity of \"cannot go on\"");
+        System.out.println("                      none   for no debug output (default)");
+        System.out.println("       standalone     means no other servers may connect or vice versa,");
+        System.out.println("                      is incompatible with \"server\" option");
+        System.out.println("       password       is used to block clients without this myCloudpassword in their UDL's");
         System.out.println("       cloudpassword  is used to join a password-protected cloud or to allow");
         System.out.println("                      servers with this password to join this cloud");
         System.out.println("       DlowRegimeSize for clients of \"regime=low\" type, this sets the number of");
@@ -627,7 +631,7 @@ System.out.println("Listening socket binding to port " + port);
             if (s.equalsIgnoreCase("lowRegimeSize")) {
                 try {
                     clientsMax = Integer.parseInt(System.getProperty(s));
-System.out.println("Set clientsMax to " + clientsMax);
+//System.out.println("Set clientsMax to " + clientsMax);
                 }
                 catch (NumberFormatException e) {
                     System.out.println("\nBad maximum number of clients serviced by single thread in low regime");
@@ -661,9 +665,19 @@ System.out.println("Set clientsMax to " + clientsMax);
                 }
             }
             else if (s.equalsIgnoreCase("server")) {
+                if (standAlone) {
+                    System.out.println("\nCannot specify \"server\" and \"standalone\" options simultaneously");
+                    usage();
+                    System.exit(-1);
+                }
                 serverToJoin = System.getProperty(s);
             }
             else if (s.equalsIgnoreCase("standalone")) {
+                if (serverToJoin != null) {
+                    System.out.println("\nCannot specify \"server\" and \"standalone\" options simultaneously");
+                    usage();
+                    System.exit(-1);
+                }
                 standAlone = true;
             }
             else if (s.equalsIgnoreCase("cloudpassword")) {
@@ -674,16 +688,12 @@ System.out.println("Set clientsMax to " + clientsMax);
             }
         }
 
-        if (standAlone) {
-            serverToJoin = null;
-        }
-
         // create server object
         cMsgNameServer server = new cMsgNameServer(port, domainPort, udpPort, standAlone,
                                                    clientPassword, cloudPassword, debug, clientsMax);
 
         // start server
-        server.startServer(serverToJoin);
+        server.startServer(serverToJoin, standAlone);
     }
 
 
@@ -693,25 +703,51 @@ System.out.println("Set clientsMax to " + clientsMax);
      * server is the nucleas of a new server cloud.
      *
      * @param serverToJoin server whose cloud this server is to be joined to
+     * @param standAlone true if this server will not join a cloud and will not
+     *                   allow any server to join this one
      */
-    public void startServer(String serverToJoin) {
+    private void startServer(String serverToJoin, boolean standAlone) {
         // start this server
         start();
 //System.out.println("startServer; IN");
+        if (standAlone) {
+//System.out.println("Server is STANDING ALONE");
+            // if we're not joining a cloud, and we're not letting anyone join us
+            cloudStatus = NONCLOUD;
+            // allow client connections
+            allowConnectionsSignal.countDown();
+        }
         // Create a bridge to another server (if specified) which
         // will also generate a connection to this server from that
         // server in response.
-        if (serverToJoin != null) {
-            // first make sure the given server name is of the right format (host:port)
-            try {
-                serverToJoin = cMsgUtilities.constructServerName(serverToJoin);
-            }
-            catch (cMsgException e) {
-                System.out.println("Name of server to join not in \"host:port\" format");
-                System.exit(-1);
+        else if (serverToJoin != null) {
+            // This string is a punc (not colon) or white space separated list of servers
+            // to try to connect to in order to gain entry to a cloud of servers.
+            // The first successful connection is used. If no connections are made,
+            // no error is indicated.
+            // First make sure that each given server name is of the right format (host:port)
+            LinkedHashSet<String> serverSet = new LinkedHashSet<String>();
+            String[] strs = serverToJoin.split("[\\p{Punct}\\p{Space}&&[^:\\.]]");
+            for (String s : strs) {
+                if (s.length() < 1) continue;
+                try {
+//System.out.println("Adding server " + s);
+                    serverSet.add(cMsgUtilities.constructServerName(s));
+                }
+                catch (cMsgException e) {
+//System.out.println("Server to join not in \"host:port\" format:\n" + e.getMessage());
+                }
             }
 
-            new cMsgServerCloudJoiner(this, port, multicastPort, serverToJoin, debug);
+            if (serverSet.size() < 1) {
+                // since we're not joining a cloud, then we're by definition the nucleas of one
+                cloudStatus = INCLOUD;
+                // allow client connections
+                allowConnectionsSignal.countDown();
+            }
+            else {
+                new cMsgServerCloudJoiner(this, port, multicastPort, serverSet, debug);
+            }
         }
         else {
             // if we're not joining a cloud, then we're by definition the nucleas of one
@@ -1100,8 +1136,14 @@ System.out.println("Set clientsMax to " + clientsMax);
         /** Locally constructed name for server client. */
         String name;
 
-        /** Server client's given password. */
-        String password;
+        /** Server client's given cloud password. */
+        String myCloudPassword;
+
+        /** Server client's given client password. */
+        String myClientPassword;
+
+        /** Server client's host. */
+        String clientHost;
 
         /**
          * Constructor.
@@ -1197,8 +1239,8 @@ System.out.println("Set clientsMax to " + clientsMax);
                         return;
                     }
 
-                    // Create object which holds all data concerning client
-                    info = new cMsgClientData(name, nsTcpPort, host);
+                    // Create object which holds all data concerning server client
+                    info = new cMsgClientData(name, nsTcpPort, nsMulticastPort, clientHost, myClientPassword);
 
                     if (debug >= cMsgConstants.debugInfo) {
                         System.out.println(">> NS: try to register " + name);
@@ -1240,11 +1282,13 @@ System.out.println("Set clientsMax to " + clientsMax);
             nsMulticastPort = in.readInt();
             // length of server client's host name
             int lengthHost = in.readInt();
-            // length of server client's password
-            int lengthPassword = in.readInt();
+            // length of server client's cloud password
+            int lengthCloudPassword = in.readInt();
+            // length of server client's client password
+            int lengthClientPassword = in.readInt();
 
             // bytes expected
-            int bytesToRead = lengthHost + lengthPassword;
+            int bytesToRead = lengthHost + lengthCloudPassword + lengthClientPassword;
             int offset = 0;
 
             // read all string bytes
@@ -1252,22 +1296,29 @@ System.out.println("Set clientsMax to " + clientsMax);
             in.readFully(bytes, 0, bytesToRead);
 
             // read host
-            String host = new String(bytes, offset, lengthHost, "US-ASCII");
+            clientHost = new String(bytes, offset, lengthHost, "US-ASCII");
             offset += lengthHost;
             if (debug >= cMsgConstants.debugInfo) {
-                System.out.println(">> NS: host = " + host);
+                System.out.println(">> NS: host = " + clientHost);
             }
 
-            // read password
-            password = new String(bytes, offset, lengthPassword, "US-ASCII");
-            offset += lengthPassword;
+            // read cloud password
+            myCloudPassword = new String(bytes, offset, lengthCloudPassword, "US-ASCII");
+            offset += lengthCloudPassword;
             if (debug >= cMsgConstants.debugInfo) {
-                System.out.println(">> NS: given cloud password = " + password);
+                System.out.println(">> NS: given cloud password = " + myCloudPassword);
+            }
+
+            // read client password
+            myClientPassword = new String(bytes, offset, lengthClientPassword, "US-ASCII");
+            offset += lengthClientPassword;
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println(">> NS: given client password = " + myClientPassword);
             }
 
             // Make this client's name = "host:port"
-            name = host + ":" + nsTcpPort;
-//System.out.println(">> NS: host name = " + host + ", client hame = " + name);
+            name = clientHost + ":" + nsTcpPort;
+//System.out.println(">> NS: host name = " + clientHost + ", client hame = " + name);
         }
 
 
@@ -1284,8 +1335,8 @@ System.out.println("Set clientsMax to " + clientsMax);
             try {
                 // First, check to see if password matches.
 //System.out.println("local cloudpassword = " + cloudPassword +
-//                   ", given password = " + password);
-                if (cloudPassword != null && !cloudPassword.equals(password)) {
+//                   ", given password = " + myCloudpassword);
+                if (cloudPassword != null && !cloudPassword.equals(myCloudPassword)) {
 //System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                     cMsgException ex = new cMsgException("wrong password - connection refused");
                     ex.setReturnCode(cMsgConstants.errorWrongPassword);
@@ -1402,7 +1453,7 @@ System.out.println("Set clientsMax to " + clientsMax);
                     cMsgServerBridge b = new cMsgServerBridge(cMsgNameServer.this, name,
                                                               port, multicastPort);
                     // connect as reciprocal (originating = false)
-                    b.connect(false, cloudPassword);
+                    b.connect(false, cloudPassword, clientPassword, false);
 //System.out.println(">> NS: Add " + name + " to bridges");
                     bridges.put(name, b);
                     // If status was NONCLOUD, it is now BECOMINGCLOUD,
@@ -1442,12 +1493,10 @@ System.out.println("Set clientsMax to " + clientsMax);
                 out.writeInt(nameServers.size());
 
                 // for each cloud server, send name length, then name
-                synchronized (nameServers) {
-                    for (String serverName : nameServers) {
-                        System.out.println(">>    - " + serverName);
-                        out.writeInt(serverName.length());
-                        out.write(serverName.getBytes("US-ASCII"));
-                    }
+                for (String serverName : nameServers.keySet()) {
+                    System.out.println(">>    - " + serverName);
+                    out.writeInt(serverName.length());
+                    out.write(serverName.getBytes("US-ASCII"));
                 }
             }
             else {
@@ -1464,7 +1513,7 @@ System.out.println("Set clientsMax to " + clientsMax);
                 connectingCloudStatus = BECOMINGCLOUD;
             }
 //System.out.println(">> NS: Add " + name + " to nameServers with status = " + connectingCloudStatus);
-            nameServers.add(name);
+            nameServers.put(name, info);
 
 //System.out.println("");
         }
@@ -1580,7 +1629,7 @@ System.out.println("Set clientsMax to " + clientsMax);
             int bytesToRead = lengthPassword + lengthDomainType + lengthSubdomainType +
                               lengthUDLRemainder + lengthHost + lengthName + lengthUDL +
                               lengthDescription;
-System.out.println("getClientInfo: bytesToRead = " + bytesToRead);
+//System.out.println("getClientInfo: bytesToRead = " + bytesToRead);
             int offset = 0;
 
             // read all string bytes
@@ -1649,7 +1698,7 @@ System.out.println("getClientInfo: bytesToRead = " + bytesToRead);
 
             // if this is not the domain of server the client is expecting, return an error
             if (!domainType.equalsIgnoreCase(this.domain)) {
-System.out.println("ERROR coming back to client, bad domain");
+//System.out.println("ERROR coming back to client, bad domain");
                 // send error to client
                 out.writeInt(cMsgConstants.errorWrongDomainType);
                 // send error string to client
@@ -1668,16 +1717,16 @@ System.out.println("ERROR coming back to client, bad domain");
             // if the client does not provide the correct password if required, return an error
             if (clientPassword != null) {
 
-//                if (debug >= cMsgConstants.debugInfo) {
+                if (debug >= cMsgConstants.debugInfo) {
                     System.out.println("  local password = " + clientPassword);
                     System.out.println("  given password = " + password);
-//                }
+                }
 
                 if (password.length() < 1 || !clientPassword.equals(password)) {
 
-//                    if (debug >= cMsgConstants.debugError) {
+                    if (debug >= cMsgConstants.debugError) {
                         System.out.println("  wrong password sent");
-//                    }
+                    }
 
                     // send error to client
                     out.writeInt(cMsgConstants.errorWrongPassword);
@@ -1700,15 +1749,15 @@ System.out.println("ERROR coming back to client, bad domain");
             info = new cMsgClientData(name, port, domainServerPort, host,
                                       add.getAddress().getHostAddress(),
                                       subdomainType, UDLRemainder, UDL, description);
-//            if (debug >= cMsgConstants.debugInfo) {
+            if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("name server try to register " + name);
-//            }
+            }
 
             try {
                 registerClient();
             }
             catch (cMsgException ex) {
-System.out.println("ERROR coming back to client, failed to register");
+//System.out.println("ERROR coming back to client, failed to register");
                 // send int error code to client
                 out.writeInt(ex.getReturnCode());
                 // send error string to client
@@ -1833,7 +1882,7 @@ System.out.println("ERROR coming back to client, failed to register");
                 dServer = new cMsgDomainServer(cMsgNameServer.this, info, false, debug);
             }
 
-System.out.println("registerClient: make 2 connections");
+//System.out.println("registerClient: make 2 connections");
             // accept 2 permanent connections from client
             synchronized (connectionThread) {
                 // get ready to accept a couple connections from client
@@ -1842,14 +1891,14 @@ System.out.println("registerClient: make 2 connections");
                 sendClientConnectionInfo(subdomainHandler);
                 // client should make a couple connections to domain server (1 sec timeout)
                 if (!connectionThread.gotConnections()) {
-System.out.println("client did not make connections to domain server, throw exception");
+//System.out.println("client did not make connections to domain server, throw exception");
                     // failed to get proper connections from client, so abort
                     cMsgException ex = new cMsgException("client did not make connections to domain server");
                     ex.setReturnCode(cMsgConstants.errorLostConnection);
                     throw ex;
                 }
             }
-System.out.println("registerClient: got 2 connections");
+//System.out.println("registerClient: got 2 connections");
 
             // Start the domain server's threads.
             if (regime != cMsgConstants.regimeHigh) {
@@ -1889,7 +1938,7 @@ System.out.println("registerClient: got 2 connections");
          */
         private void sendClientConnectionInfo(cMsgSubdomainInterface handler)
                 throws IOException {
-System.out.println("Send OK back to client");
+
             // send ok back as acknowledgment
             out.writeInt(cMsgConstants.ok);
 
@@ -1903,11 +1952,9 @@ System.out.println("Send OK back to client");
             atts[4] = handler.hasSubscribe() ? (byte) 1 : (byte) 0;
             atts[5] = handler.hasUnsubscribe() ? (byte) 1 : (byte) 0;
             atts[6] = handler.hasShutdown() ? (byte) 1 : (byte) 0;
-System.out.println("Send hases back to client");
             out.write(atts);
 
             // send cMsg domain host & port contact info back to client
-System.out.println("Sending to client: domain udp port = " + info.getDomainUdpPort());
             out.writeInt(info.getDomainPort());
             out.writeInt(info.getDomainUdpPort());
             out.writeInt(info.getDomainHost().length());
@@ -1917,9 +1964,7 @@ System.out.println("Sending to client: domain udp port = " + info.getDomainUdpPo
             catch (UnsupportedEncodingException e) {
             }
 
-System.out.println("Sending to client: try flushing");
             out.flush();
-System.out.println("Sending to client: flushed");
         }
 
 
