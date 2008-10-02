@@ -56,24 +56,25 @@ public class cMsg extends cMsgDomainAdapter {
     //-- FAILOVER STUFF ---------------------------------------------------------------
 
     /** List of parsed UDL objects - one for each failover UDL. */
-    private LinkedList<ParsedUDL> failovers;
+    private LinkedList<ParsedUDL> failoverUdls;
 
     /** Number of failures to connect to the given array of UDLs. */
     private int connectFailures;
 
     /**
-     * Index into the {@link #failovers} list corressponding to the UDL
+     * Index into the {@link #failoverUdls} list corressponding to the UDL
      * currently being used.
      */
     private byte failoverIndex;
 
     /**
-     * If more than one viable failover UDL is given, then this is true meaning
+     * If more than one viable failover UDL is given or failover to a cloud is
+     * indicated, then this is true, meaning
      * if any request to the server is interrupted, that method will wait a short
      * while for the failover to complete before throwing an exception or continuing
      * on.
      */
-    private boolean useFailoverWaiting;
+    private boolean useFailovers;
 
     /**
      * Have all the existing subscriptions been successfully resubscribed on the
@@ -81,7 +82,40 @@ public class cMsg extends cMsgDomainAdapter {
      */
     private volatile boolean resubscriptionsComplete;
 
-    //----------------------------------------------------------------------------------
+    /** Does this client have a local server in a cloud to failover to? */
+    private boolean haveLocalCloudServer;
+
+    /** Is this client connected to a local server? */
+    private boolean serverIsLocal;
+
+    /**
+     * Manner in which to failover. Set to {@link cMsgConstants#failoverAny} if
+     * failover of client can go to any of the UDLs given in {@link #connect} (default).
+     * Set to {@link cMsgConstants#failoverCloud} if failover of client will go to
+     * servers in the cloud first, and if none are available, then go to any of
+     * the UDLs given in connect. Set to {@link cMsgConstants#failoverCloudOnly}
+     * if failover of client will only go to servers in the cloud. 
+     */
+    private int failover;
+
+    /**
+     * Manner in which to failover to a cloud. Set to {@link cMsgConstants#cloudAny}
+     * if failover of client to a server in the cloud will go to any of the cloud servers
+     * (default). Set to {@link cMsgConstants#cloudLocal} if failover of client to a server
+     * in the cloud will go to a local cloud server first before others are considered.
+     * Set to {@link cMsgConstants#cloudLocalForce} if a client is connected to a remote
+     * server which is a member of a cloud, and once a local cloud server becomes available,
+     * immediately switches to the local server even if the original server is healthy.
+     */
+    private int cloud;
+
+    /**
+     * Synchronized map of all cMsg name servers in the same cloud as this client's server.
+     */
+    Map<String, ParsedUDL> cloudServers;
+
+    //------------------------------------------------------------------------------
+
 
     /** Port number from which to start looking for a suitable listening port. */
     int startingPort;
@@ -269,7 +303,8 @@ public class cMsg extends cMsgDomainAdapter {
         syncSends        = new ConcurrentHashMap<Integer,cMsgGetHelper>(10);
         uniqueId         = new AtomicInteger();
         unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
-        failovers        = new LinkedList<ParsedUDL>();
+        failoverUdls     = new LinkedList<ParsedUDL>();
+        cloudServers     = Collections.synchronizedMap(new LinkedHashMap<String,ParsedUDL>(20));
 
         // store our host's name
         try {
@@ -312,7 +347,7 @@ public class cMsg extends cMsgDomainAdapter {
         // If only 1 valid UDL is given by client, forget about
         // waiting for failovers to complete before throwing
         // an exception.
-        if (!useFailoverWaiting) return false;
+        if (!useFailovers) return false;
 //System.out.println("failoverSuccessful: Wait for failover");
 
         // Check every .1 seconds for 5 seconds for a new connection
@@ -354,23 +389,9 @@ public class cMsg extends cMsgDomainAdapter {
     public void connect() throws cMsgException {
 
         // If the UDL is a semicolon separated list of UDLs, separate them and
-        // store them for future use in failovers.
+        // store them for future use in failoverUdls.
         /** An array of UDLs given by user to failover to if connection to server fails. */
         String[] failoverUDLs = UDL.split(";");
-
-        // If there's only 1 UDL ...
-        if (failoverUDLs.length < 2) {
-            // parse UDL
-            ParsedUDL p = parseUDL(failoverUDLs[0]);
-            // store locally
-            p.copyToLocal();
-            // connect using that UDL
-            if (mustMulticast) {
-                connectWithMulticast();
-            }
-            connectDirect();
-            return;
-        }
 
         // else if there's a bunch of UDL's
         if (debug >= cMsgConstants.debugInfo) {
@@ -384,21 +405,23 @@ public class cMsg extends cMsgDomainAdapter {
         ParsedUDL p;
         for (String udl : failoverUDLs) {
             p = parseUDL(udl);
-            failovers.add(p);
+            failoverUdls.add(p);
         }
 
         // If we have more than one valid UDL, we can implement waiting
         // for a successful failover before aborting commands to the server
         // that were interrupted due to server failure.
-        if (failovers.size() > 1) {
-            useFailoverWaiting = true;
+        if (failoverUdls.size() > 1 ||
+            failoverUdls.getFirst().failover == cMsgConstants.failoverCloud ||
+            failoverUdls.getFirst().failover == cMsgConstants.failoverCloudOnly) {
+            useFailovers = true;
         }
 
         // Go through the UDL's until one works
         failoverIndex = -1;
         do {
             // get parsed & stored UDL info
-            p = failovers.get(++failoverIndex);
+            p = failoverUdls.get(++failoverIndex);
 
             // copy info locally
             p.copyToLocal();
@@ -420,7 +443,7 @@ public class cMsg extends cMsgDomainAdapter {
                 p.clearLocal();
                 connectFailures++;
             }
-        } while (connectFailures < failovers.size());
+        } while (connectFailures < failoverUdls.size());
 
         throw new cMsgException("connect: all UDLs failed");
     }
@@ -436,7 +459,7 @@ public class cMsg extends cMsgDomainAdapter {
      * @throws cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server
      */
-    private void connectWithMulticast() throws cMsgException {
+    protected void connectWithMulticast() throws cMsgException {
         // Need a new latch for each go round - one shot deal
         multicastResponse = new CountDownLatch(1);
 
@@ -521,6 +544,13 @@ public class cMsg extends cMsgDomainAdapter {
 
             if (!response) {
                 throw new cMsgException("No response to UDP multicast received");
+            }
+
+            // Record whether this server is local or not.
+            // If server client, nothing in failoverUdls so null pointer exception in get
+            if (failoverIndex < failoverUdls.size()) {
+                ParsedUDL p = failoverUdls.get(failoverIndex);
+                p.local = cMsgUtilities.isHostLocal(nameServerHost);
             }
 
 //System.out.println("Got a response!, multicast part finished ...");
@@ -642,7 +672,7 @@ public class cMsg extends cMsgDomainAdapter {
             }
             catch (InterruptedException e) {
                 // time to quit
- System.out.println("Interrupted sender");
+// System.out.println("Interrupted sender");
             }
         }
     }
@@ -757,7 +787,7 @@ public class cMsg extends cMsgDomainAdapter {
                 kaOut.flush();
 
                 // Create thread to handle dead server with failover capability.
-                keepAliveThread = new KeepAlive(keepAliveSocket, useFailoverWaiting, failovers);
+                keepAliveThread = new KeepAlive(keepAliveSocket, useFailovers, failoverUdls);
                 keepAliveThread.start();
                 // Create thread to send periodic monitor data / keep alives
                 updateServerThread = new UpdateServer(keepAliveSocket);
@@ -854,8 +884,6 @@ public class cMsg extends cMsgDomainAdapter {
         connectLock.lock();
 
         try {
-            if (!connected) return;
-
             connected = false;
 
             // Stop keep alive threads & close channel so when domain server
@@ -886,11 +914,11 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             // close all our streams and sockets
-            try {domainOut.close();}        catch (IOException e) {}
+            try {domainOut.close();}       catch (IOException e) {}
             try {domainOutSocket.close();} catch (IOException e) {}
-            try {
-                keepAliveSocket.close();} catch (IOException e) {}
-            sendUdpSocket.close();
+            try {keepAliveSocket.close();} catch (IOException e) {}
+            // object never created for server client
+            if  (sendUdpSocket != null) sendUdpSocket.close();
 
             // give server a chance to shutdown
             try { Thread.sleep(100); }
@@ -945,7 +973,7 @@ public class cMsg extends cMsgDomainAdapter {
             sendAndGets.clear();
             subscribeAndGets.clear();
             unsubscriptions.clear();
-            failovers.clear();
+            failoverUdls.clear();
         }
         finally {
             connectLock.unlock();
@@ -2600,7 +2628,7 @@ public class cMsg extends cMsgDomainAdapter {
      * 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
      *    if subdomainType is not cMsg, it is required
      * 4) the domain name is case insensitive as is the subdomainType
-     * 5) remainder is past on to the subdomain plug-in
+     * 5) remainder is passed on to the subdomain plug-in
      * 6) client's password is in tag=value part of UDL as cmsgpassword=&lt;password&gt;
      * 7) multicast timeout is in tag=value part of UDL as multicastTO=&lt;time out in seconds&gt;
      * 8) the tag=value part of UDL parsed here is given by regime=low or regime=high means:
@@ -2634,7 +2662,7 @@ public class cMsg extends cMsgDomainAdapter {
         Matcher matcher = pattern.matcher(udlRemainder);
 
         String udlHost, udlPort, udlSubdomain, udlSubRemainder;
-        int regime = cMsgConstants.regimeMedium;
+        boolean isLocal;
 
         if (matcher.find()) {
             // host
@@ -2672,11 +2700,13 @@ public class cMsg extends cMsgDomainAdapter {
         if (udlHost.equalsIgnoreCase("multicast") ||
             udlHost.equals(cMsgNetworkConstants.cMsgMulticast)) {
             mustMulticast = true;
+            isLocal = false; // this must be determined after connection, set it false for now
 //System.out.println("set mustMulticast to true (locally in parse method)");
         }
         // if the host is dotted decimal form of multicast address ...
         else if (udlHost.equals(cMsgNetworkConstants.cMsgMulticast)) {
             mustMulticast = true;
+            isLocal = false; // this must be determined after connection, set it false for now
         }
         // if the host is "localhost", find the actual, fully qualified  host name
         else if (udlHost.equalsIgnoreCase("localhost")) {
@@ -2684,6 +2714,7 @@ public class cMsg extends cMsgDomainAdapter {
             catch (UnknownHostException e) {
                 throw new cMsgException("cannot find localhost", e);
             }
+            isLocal = true;
 
             if (debug >= cMsgConstants.debugWarn) {
                System.out.println("parseUDL: name server given as \"localhost\", substituting " +
@@ -2695,6 +2726,7 @@ public class cMsg extends cMsgDomainAdapter {
             catch (UnknownHostException e) {
                 throw new cMsgException("unknown host", e);
             }
+            isLocal = cMsgUtilities.isHostLocal(udlHost);
         }
 
         // get name server port or guess if it's not given
@@ -2734,62 +2766,129 @@ public class cMsg extends cMsgDomainAdapter {
             udlSubRemainder = "";
         }
 
+        // don't allow multiple, identical tags
+        int counter = 0;
 
         // find cmsgpassword parameter if it exists
         String pswd = "";
-        pattern = Pattern.compile("[\\?&]cmsgpassword=(\\w+)", Pattern.CASE_INSENSITIVE);
+        pattern = Pattern.compile("[\\?&]cmsgpassword=([^&]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(udlSubRemainder);
-        if (matcher.find()) {
+        while (matcher.find()) {
             pswd = matcher.group(1);
+            counter++;
 //System.out.println("  cmsg password = " + pswd);
         }
 
+        if (counter > 1) {
+            throw new cMsgException("parseUDL: only 1 password allowed");
+        }
 
-        // look for ?multicastTO=value& or &multicastTO=value&
+        // look for multicastTO=value
+        counter=0;
         int timeout=0;
-        pattern = Pattern.compile("[\\?&]multicastTO=([0-9]+)", Pattern.CASE_INSENSITIVE);
+        pattern = Pattern.compile("[\\?&]multicastTO=([^&]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(udlSubRemainder);
-        if (matcher.find()) {
+        while (matcher.find()) {
+//System.out.println("multicast timeout = " + matcher.group(1));
             try {
                 timeout = 1000 * Integer.parseInt(matcher.group(1));
-//System.out.println("multicast TO = " + multicastTimeout);
+                if (timeout < 0) {
+                    throw new cMsgException("parseUDL: multicast timeout must be integer >= 0");
+                }
+                counter++;
             }
             catch (NumberFormatException e) {
                 // ignore error and keep value of 0
+                throw new cMsgException("parseUDL: multicast timeout must be integer >= 0");
             }
         }
 
-        
-        // look for ?regime=low& or &regime=low&
-        pattern = Pattern.compile("[\\?&]regime=(low|high|medium)", Pattern.CASE_INSENSITIVE);
-        matcher = pattern.matcher(udlSubRemainder);
-        if (matcher.find()) {
-//System.out.println("regime = medium");
-            try {
-                if (matcher.group(1).equalsIgnoreCase("low")) {
-                    regime = cMsgConstants.regimeLow;
-//System.out.println("regime = low");
-                }
-                else if (matcher.group(1).equalsIgnoreCase("high")) {
-                    regime = cMsgConstants.regimeHigh;
-//System.out.println("regime = high");
-                }
-                else {
-                    regime = cMsgConstants.regimeMedium;
-//System.out.println("regime = medium");
-                }
-            }
-            catch (NumberFormatException e) {
-                // ignore error and keep default value
-            }
+        if (counter > 1) {
+            throw new cMsgException("parseUDL: only 1 multicast timeout allowed");
         }
-        else {
-//System.out.println("regime = medium");
+
+        // look for regime=low, medium, or high
+        counter=0;
+        int regime = cMsgConstants.regimeMedium;
+        pattern = Pattern.compile("[\\?&]regime=([^&]+)", Pattern.CASE_INSENSITIVE);
+        matcher = pattern.matcher(udlSubRemainder);
+        while (matcher.find()) {
+//System.out.println("regime = " + matcher.group(1));
+            if (matcher.group(1).equalsIgnoreCase("low")) {
+                regime = cMsgConstants.regimeLow;
+            }
+            else if (matcher.group(1).equalsIgnoreCase("high")) {
+                regime = cMsgConstants.regimeHigh;
+            }
+            else if (matcher.group(1).equalsIgnoreCase("medium")) {
+                regime = cMsgConstants.regimeMedium;
+            }
+            else {
+                throw new cMsgException("parseUDL: regime must be low, medium or high");
+            }
+            counter++;
+        }
+
+        if (counter > 1) {
+            throw new cMsgException("parseUDL: only 1 regime value allowed");
+        }
+
+        // look for failover=cloud, cloudonly, any
+        counter=0;
+        int failover = cMsgConstants.failoverAny;
+        pattern = Pattern.compile("[\\?&]failover=([^&]+)", Pattern.CASE_INSENSITIVE);
+        matcher = pattern.matcher(udlSubRemainder);
+        while (matcher.find()) {
+//System.out.println("failover = " + matcher.group(1));
+            if (matcher.group(1).equalsIgnoreCase("cloud")) {
+                failover = cMsgConstants.failoverCloud;
+            }
+            else if (matcher.group(1).equalsIgnoreCase("cloudonly")) {
+                failover = cMsgConstants.failoverCloudOnly;
+            }
+            else if (matcher.group(1).equalsIgnoreCase("any")) {
+                failover = cMsgConstants.failoverAny;
+            }
+            else {
+                throw new cMsgException("parseUDL: failover must be any, cloud or cloudonly");
+            }
+            counter++;
+        }
+
+        if (counter > 1) {
+            throw new cMsgException("parseUDL: only 1 failover value allowed");
+        }
+
+        // look for cloud=local, localnow, any
+        counter=0;
+        int cloud = cMsgConstants.cloudAny;
+        pattern = Pattern.compile("[\\?&]cloud=([^&]+)", Pattern.CASE_INSENSITIVE);
+        matcher = pattern.matcher(udlSubRemainder);
+        while (matcher.find()) {
+//System.out.println("cloud = " + matcher.group(1));
+            if (matcher.group(1).equalsIgnoreCase("local")) {
+                cloud = cMsgConstants.cloudLocal;
+            }
+            else if (matcher.group(1).equalsIgnoreCase("localnow")) {
+                cloud = cMsgConstants.cloudLocalForce;
+            }
+            else if (matcher.group(1).equalsIgnoreCase("any")) {
+                failover = cMsgConstants.cloudAny;
+            }
+            else {
+                throw new cMsgException("parseUDL: cloud must be any, local or localnow");
+            }
+            counter++;
+        }
+
+        if (counter > 1) {
+            throw new cMsgException("parseUDL: only 1 cloud value allowed");
         }
 
         // store results in a class
         return new ParsedUDL(udl, udlRemainder, udlSubdomain, udlSubRemainder,
-                             pswd, udlHost, udlPortInt, timeout, regime, mustMulticast);
+                             pswd, udlHost, udlPortInt, timeout, regime, failover,
+                             cloud, mustMulticast, isLocal);
     }
 
 
@@ -2818,8 +2917,14 @@ public class cMsg extends cMsgDomainAdapter {
 //-----------------------------------------------------------------------------
 
 
-    /** This class simply holds information obtained from parsing a UDL. */
+    /** This class simply holds information obtained from parsing a UDL or
+     *  information about an available cMsg server in a server cloud. */
     class ParsedUDL {
+        // used only for cloud server spec
+        String  serverName;
+        int     nameServerUdpPort;
+
+        // all used in parsed UDL, some in cloud server spec
         String  UDL;
         String  UDLremainder;
         String  subdomain;
@@ -2829,12 +2934,35 @@ public class cMsg extends cMsgDomainAdapter {
         int     nameServerPort;
         int     multicastTimeout;
         int     regime;
+        int     failover;
+        int     cloud;
         boolean mustMulticast;
+        boolean local;
 
 
-        /** Constructor. */
+        /**
+         * Constructor for storing info about cloud server and used in
+         *  failing over to cloud server.
+         *
+         * @param name name of cloud server (host:port)
+         * @param pswrd password to connect to cloud server
+         * @param host host cloud server is running on
+         * @param tcpPort TCP port cloud server is listening on
+         * @param udpPort UDP multicasting port cloud server is listening on
+         * @param isLocal is cloud server running on localhost
+         */
+        ParsedUDL(String name, String pswrd, String host, int tcpPort, int udpPort, boolean isLocal) {
+            serverName        = name;
+            password          = pswrd == null ? "" : pswrd;
+            nameServerHost    = host;
+            nameServerPort    = tcpPort;
+            nameServerUdpPort = udpPort;
+            local             = isLocal;
+        }
+
+        /** Constructor used in parsing UDL. */
         ParsedUDL(String s1, String s2, String s3, String s4, String s5, String s6,
-                  int i1, int i2, int i3,  boolean b1) {
+                  int i1, int i2, int i3, int i4, int i5, boolean b1, boolean b2) {
             UDL              = s1;
             UDLremainder     = s2;
             subdomain        = s3;
@@ -2844,7 +2972,10 @@ public class cMsg extends cMsgDomainAdapter {
             nameServerPort   = i1;
             multicastTimeout = i2;
             regime           = i3;
+            failover         = i4;
+            cloud            = i5;
             mustMulticast    = b1;
+            local            = b2;
         }
 
 
@@ -2859,7 +2990,10 @@ public class cMsg extends cMsgDomainAdapter {
             cMsg.this.nameServerPort   = nameServerPort;
             cMsg.this.multicastTimeout = multicastTimeout;
             cMsg.this.regime           = regime;
+            cMsg.this.failover         = failover;
+            cMsg.this.cloud            = cloud;
             cMsg.this.mustMulticast    = mustMulticast;
+            cMsg.this.serverIsLocal    = local;
             if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("Copy from stored parsed UDL to local :");
                 System.out.println("  UDL               = " + UDL);
@@ -2871,12 +3005,29 @@ public class cMsg extends cMsgDomainAdapter {
                 System.out.println("  nameServerTcpPort = " + nameServerPort);
                 System.out.println("  multicastTimeout  = " + multicastTimeout);
                 System.out.println("  mustMulticast     = " + mustMulticast);
+                System.out.println("  isLocal           = " + local);
+
                 if (regime == cMsgConstants.regimeHigh)
                     System.out.println("  regime            = high");
                 else if (regime == cMsgConstants.regimeLow)
                     System.out.println("  regime            = low");
                 else
                     System.out.println("  regime            = medium");
+                
+                if (failover == cMsgConstants.failoverAny)
+                    System.out.println("  failover          = any");
+                else if (failover == cMsgConstants.failoverCloud)
+                    System.out.println("  failover          = cloud");
+                else
+                    System.out.println("  failover          = cloud only");
+
+                if (cloud == cMsgConstants.cloudAny)
+                    System.out.println("  cloud             = any");
+                else if (cloud == cMsgConstants.cloudLocal)
+                    System.out.println("  cloud             = local");
+                else
+                    System.out.println("  cloud             = local now");
+
             }
         }
 
@@ -2891,7 +3042,10 @@ public class cMsg extends cMsgDomainAdapter {
             cMsg.this.nameServerPort   = 0;
             cMsg.this.multicastTimeout = 0;
             cMsg.this.regime           = cMsgConstants.regimeMedium;
+            cMsg.this.failover         = cMsgConstants.failoverAny;
+            cMsg.this.cloud            = cMsgConstants.cloudAny;
             cMsg.this.mustMulticast    = false;
+            cMsg.this.serverIsLocal    = false;
         }
     }
 
@@ -2957,6 +3111,7 @@ public class cMsg extends cMsgDomainAdapter {
             setDaemon(true);
         }
 
+
         /**
          * This method is executed as a thread.
          */
@@ -2967,6 +3122,7 @@ public class cMsg extends cMsgDomainAdapter {
 
             boolean weGotAConnection = true;
 
+            top:
             while (weGotAConnection) {
                 try {
                     // periodically send monitor info to see if the domain server is alive
@@ -2979,99 +3135,226 @@ public class cMsg extends cMsgDomainAdapter {
                             getMonitorInfo();
                         }
                         catch (InterruptedIOException e) {
-                            //System.out.println("Interrupted Client during I/O");
                         }
                     }
                 }
                 catch (IOException e) {
-//System.out.println("KA: IO error getting monitor info from server");
                     connected = false;
-                    //e.printStackTrace();
                 }
+
+                weGotAConnection = false;
 
                 // if we've reach here, there's an error
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("\nKA: domain server is probably dead, dis/reconnect");
                 }
+//System.out.println("KA: implement failovers = " + implementFailovers);
 
-                // remember which UDL has just failed
-                int failedFailoverIndex = failoverIndex;
+                if (implementFailovers) {
+
+                    boolean noMoreCloudServers = false;
+                    // if no servers in cloud ...
+                    if (cloudServers.size() < 1) {
+                        noMoreCloudServers = true;
+                    }
+
+                    while (!weGotAConnection) {
+
+                        // If NOT we're failing over to the cloud first, skip this part
+                        if (failover != cMsgConstants.failoverCloud &&
+                            failover != cMsgConstants.failoverCloudOnly) {
+                            break;
+                        }
+//System.out.println("KA: trying to failover to cloud member");
+
+                        // If we want to failover locally, but there is no local cloud server,
+                        // or there are no cloud servers of any kind ...
+                        if ((cloud == cMsgConstants.cloudLocal && !haveLocalCloudServer) ||
+                                noMoreCloudServers) {
+//System.out.println("KA: No cloud members to failover to (else not the desired local ones)");
+                            // try the next UDL
+                            if (failover == cMsgConstants.failoverCloud) {
+//System.out.println("KA: so go to next UDL");
+                                break;
+                            }
+                            // if we must failover locally, disconnect
+                            else {
+//System.out.println("KA: so just disconnect");
+                                try { disconnect(); }
+                                catch (Exception e) { }
+                                return;
+                            }
+                        }
+
+                        // name of server we were just connected to
+                        String sName = nameServerHost + ":" + nameServerPort;
+                        // look through list of cloud servers
+                        for (Map.Entry<String,ParsedUDL> entry : cloudServers.entrySet()) {
+                            String n = entry.getKey();
+                            ParsedUDL pUdl = entry.getValue();
+                            // If we were connected to one of the cloud servers
+                            // (which just failed), go to next one.
+                            if (n.equals(sName)) {
+                                continue;
+                            }
+
+                            // if we can failover to anything or this cloud server is local
+                            if ((cloud == cMsgConstants.cloudAny) || pUdl.local) {
+                                // Add to our own "parsed" UDL using server's name and
+                                // current values of other parameters.
+
+                                // Be careful with the password which, I believe, is the
+                                // only server-dependent part of "subRemainder" and must
+                                // be explicitly substituted for.
+                                String newSubRemainder = subRemainder;
+                                // if existing UDL has a password in remainder ...
+                                if (password.length() > 0) {
+                                    Pattern pattern = Pattern.compile("([\\?&])cmsgpassword=([^&]+)", Pattern.CASE_INSENSITIVE);
+                                    Matcher matcher = pattern.matcher(subRemainder);
+
+                                    if (pUdl.password.length() > 0) {
+//System.out.println("Replacing old pswd with new one");
+                                        newSubRemainder = matcher.replaceFirst("$1cmsgpassword=" + pUdl.password);
+                                    }
+                                    else {
+//System.out.println("Eliminating pswd");
+                                        newSubRemainder = matcher.replaceFirst("");
+                                    }
+                                }
+                                // else if existing UDL has no password, put one on end if necessary
+                                else if (pUdl.password.length() > 0) {
+//System.out.println("No cmsgpassword= in udl, CONCAT");
+                                    if (subRemainder.contains("?")) {
+                                        newSubRemainder = subRemainder.concat("&cmsgpassword="+pUdl.password);
+                                    }
+                                    else {
+                                        newSubRemainder = subRemainder.concat("?cmsgpassword="+pUdl.password);
+                                    }
+                                }
+
+                                pUdl.UDL = "cMsg://"+ n + "/" + subdomain + "/" + newSubRemainder;
+//System.out.println("KA: Construct new UDL as:\n" + pUdl.UDL);
+                                pUdl.subdomain = subdomain;
+                                pUdl.subRemainder = subRemainder;
+                                pUdl.regime = regime;
+                                pUdl.failover = failover;
+                                pUdl.cloud = cloud;
+                                pUdl.copyToLocal();
+
+                                try {
+                                    // connect with server
+                                    connectToServer();
+                                    // we got ourselves a new server, boys
+                                    weGotAConnection = true;
+                                    continue top;
+                                }
+                                catch (cMsgException e) {
+                                    // clear effects of p.copyToLocal()
+                                    pUdl.clearLocal();
+                                }
+                            }
+                        }
+                        // Went thru list of cloud servers with nothing to show for it,
+                        // so try next UDL in list
+                    }
+
+                    // If we're here then we did NOT failover to a server in a cloud
+
+                    // remember which UDL has just failed
+                    int failedFailoverIndex = failoverIndex;
 //System.out.println("KA: current failover index = " + failoverIndex);
 
-                // Start by trying to connect to the first UDL on the list that is
-                // different than the current UDL.
-                if (failedFailoverIndex > 0) {
-                    connectFailures = 0;
-                    failoverIndex = 0;
+                    // Since we're NOT failing over to a cloud, go to next UDL
+                    // Start by trying to connect to the first UDL on the list that is
+                    // different than the current UDL.
+                    if (failedFailoverIndex > 0) {
+                        connectFailures = 0;
+                        failoverIndex = 0;
 //System.out.println("KA: set failover index = " + failoverIndex);
-                }
-                else {
-                    connectFailures = 1;
-                    failoverIndex = 1;
+                    }
+                    else {
+                        connectFailures = 1;
+                        failoverIndex = 1;
 //System.out.println("KA: set failover index = " + failoverIndex);
-                }
-                weGotAConnection = false;
-                resubscriptionsComplete = false;
+                    }
 
-                while (implementFailovers && !weGotAConnection) {
-                    if (connectFailures >= failovers.size()) {
+                    resubscriptionsComplete = false;
+
+                    while (!weGotAConnection) {
+
+                        // Go to next UDL
+                        ParsedUDL p = null;
+
+                        if (connectFailures >= failovers.size()) {
 //System.out.println("KA: ran out of UDLs to try");
-                        break;
-                    }
-
-                    // skip over UDL that failed
-                    if (failoverIndex == failedFailoverIndex) {
-//System.out.println("KA: skip over UDL that just failed");
-                        connectFailures++;
-                        failoverIndex++;
-                        continue;
-                    }
-
-                    // get parsed & stored UDL info
-//System.out.println("KA: use failover index = " + failoverIndex);
-                    ParsedUDL p = failovers.get(failoverIndex);
-
-                    // copy info locally
-                    p.copyToLocal();
-
-                    try {
-                        // connect with another server
-                        if (mustMulticast) {
-//System.out.println("KA: trying to connect with multicast first = " + p.UDL);
-                            connectWithMulticast();
+                            break;
                         }
-System.out.println("KA: trying to REconnect with UDL = " + p.UDL);
-                        reconnect();
 
-                        // restore subscriptions on the new server
+                        // skip over UDL that failed
+                        if (failoverIndex == failedFailoverIndex) {
+//System.out.println("KA: skip over UDL that just failed");
+                            connectFailures++;
+                            failoverIndex++;
+                            continue;
+                        }
+
+                        // get parsed & stored UDL info
+//System.out.println("KA: use failover index = " + failoverIndex);
+                        p = failovers.get(failoverIndex);
+                        // copy info locally
+                        p.copyToLocal();
+
+
                         try {
-                            restoreSubscriptions();
-                            resubscriptionsComplete = true;
+                            // connect with another server
+                            connectToServer();
+                            // we got ourselves a new server, boys
+                            weGotAConnection = true;
                         }
                         catch (cMsgException e) {
-//System.out.println("KA: new connection attempt failed");
-                            // if subscriptions fail, then we do NOT use failover server
-                            try { socket.close(); disconnect(); }
-                            catch (Exception e1) { }
-                            throw e;
+//System.out.println("KA: FAILED with index = " + failoverIndex);
+                            // clear effects of p.copyToLocal()
+                            if (p != null) p.clearLocal();
+                            connectFailures++;
+                            failoverIndex++;
                         }
-
-                        // we got ourselves a new server, boys
-                        weGotAConnection = true;
-                    }
-                    catch (cMsgException e) {
-                        // clear effects of p.copyToLocal()
-                        p.clearLocal();
-                        connectFailures++;
-                        failoverIndex++;
                     }
                 }
             }
 
             // disconnect (sockets closed here)
-//System.out.println("\nKA: trying running disconnect from this (KA) thread");
+//System.out.println("\nKA: trying running DISCONNECT from this (KA) thread");
             disconnect();
         }
+
+
+
+
+        /**
+         * Try to connect to new server.
+         * @throws cMsgException if cannot connect or restore subscriptions
+         */
+        private void connectToServer() throws cMsgException {
+                // connect with another server
+                if (mustMulticast) {
+                    connectWithMulticast();
+                }
+                reconnect();
+
+                // restore subscriptions on the new server
+                try {
+                    restoreSubscriptions();
+                    resubscriptionsComplete = true;
+                }
+                catch (cMsgException e) {
+//System.out.println("KA: new connection attempt failed");
+                    // if subscriptions fail, then we do NOT use failover server
+                    try { disconnect(); }
+                    catch (Exception e1) { }
+                    throw e;
+                }
+        }
+
 
         /**
          * This method reads monitoring data from the server.
@@ -3080,17 +3363,74 @@ System.out.println("KA: trying to REconnect with UDL = " + p.UDL);
         synchronized private void getMonitorInfo() throws IOException {
             // read monitor info from server
 //System.out.println("  getMonitorInfo: Try reading first KA int from server");
+            byte[] bytes = new byte[4096];
             int len = in.readInt();
+//System.out.println("  getMonitorInfo: len xml = " + len);
             if (len > 0) {
                 // read all monitor data string
-                byte[] bytes = new byte[len];
+                if (len > bytes.length) bytes = new byte[len];
                 in.readFully(bytes, 0, len);
                 monitorXML = new String(bytes, 0, len, "US-ASCII");
-//System.out.println("  getMonitorInfo:  read KA from server");
+//System.out.println("  getMonitorInfo:  read KA from server (len = " + monitorXML.length() + "):");
+//System.out.println(monitorXML);
+            }
+
+            int itemsToFollow = in.readInt();
+
+            if (itemsToFollow > 0) {
+
+                // read info about servers in the cloud (for failing over to cloud members)
+                synchronized(cloudServers) {
+                    cloudServers.clear();
+                    haveLocalCloudServer = false;
+                    boolean isLocal;
+                    String s, name, passwd=null;
+                    int tcpPort, udpPort, hlen, plen;
+
+                    int numServers = in.readInt();
+//System.out.println("  getMonitorInfo: num servers = " + numServers);
+                    if (numServers > 0) {
+                        for (int i=0; i<numServers; i++) {
+                            s = "";
+                            isLocal = false;
+
+                            tcpPort = in.readInt();
+                            udpPort = in.readInt();
+                            hlen    = in.readInt(); // host string len
+                            plen    = in.readInt(); // password string len
+
+//System.out.println("  getMonitorInfo: cloud server => tcpPort = " +
+//                                    Integer.toHexString(tcpPort) +
+//                                    ", udpPort =" + Integer.toHexString(udpPort) +
+//                                    ", hlen = " + Integer.toHexString(hlen) +
+//                                    ", plen = " + Integer.toHexString(plen));
+                            if (hlen > 0) {
+                                if (hlen > bytes.length) bytes = new byte[hlen];
+                                in.readFully(bytes, 0, hlen);
+                                s = new String(bytes, 0, hlen, "US-ASCII");
+                                isLocal = cMsgUtilities.isHostLocal(s);
+                                haveLocalCloudServer |= isLocal;
+                            }
+                            if (plen > 0) {
+                                if (plen > bytes.length) bytes = new byte[plen];
+                                in.readFully(bytes, 0, plen);
+                                passwd = new String(bytes, 0, plen, "US-ASCII");
+                            }
+                            name = s+":"+tcpPort;
+//System.out.println("  getMonitorInfo: cloud server => tcpPort = " +tcpPort +
+//                   ", udpPort = " + udpPort + ", host = " + s + ", passwd = " + passwd);
+                            ParsedUDL p = new ParsedUDL(name, passwd, s, tcpPort, udpPort, isLocal);
+                            cloudServers.put(name,p);
+                        }
+                    }
+                }
             }
         }
 
+
     }
+
+
 
 //-----------------------------------------------------------------------------
 
@@ -3142,7 +3482,7 @@ System.out.println("KA: trying to REconnect with UDL = " + p.UDL);
          */
         public void run() {
             if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("Running update server thread");
+                System.out.println("UpdateServer: Running thread");
             }
 
             // periodically send monitor info to see if the domain server is alive
@@ -3151,7 +3491,7 @@ System.out.println("KA: trying to REconnect with UDL = " + p.UDL);
                     // quit thread
                     if (killThread) {
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("UpdateServer Thread: exiting\n");
+                            System.out.println("UpdateServer: EXITING\n");
                         }
                         return;
                     }
@@ -3162,16 +3502,13 @@ System.out.println("KA: trying to REconnect with UDL = " + p.UDL);
                     Thread.sleep(sleepTime);
                 }
                 catch (InterruptedException e) {
-//System.out.println("Interrupted UpdateServer thread during sleep");
+//System.out.println("UpdateServer: interrupted thread during sleep");
                 }
                 catch (InterruptedIOException e) {
-//System.out.println("Interrupted UpdateServer thread during I/O");
+//System.out.println("UpdateServer: interrupted thread during I/O");
                 }
                 catch (IOException e) {
-                    // if we've reach here, there's an error due to a dead server, wait for reconnection
-                    //if (debug >= cMsgConstants.debugError) {
-                    //    System.out.println("\nUpdateServer Thread: domain server probably dead, this thread exits\n");
-                    //}
+//System.out.println("UpdateServer: I/O error, wait and resend, our name = " + cMsg.this.getName());
                 }
             }
         }
@@ -3194,6 +3531,7 @@ System.out.println("KA: trying to REconnect with UDL = " + p.UDL);
 
                 // for each subscription of this client ...
                 for (cMsgSubscription sub : subscriptions) {
+                    System.out.println("     sendMonitorInfo: ANOTHER SUB");
 
                     xml.append(indent1);
                     xml.append("<subscription  subject=\"");
@@ -3219,7 +3557,7 @@ System.out.println("KA: trying to REconnect with UDL = " + p.UDL);
                     xml.append("</subscription>\n");
                 }
             }
-//System.out.println("     TRY SENDING KA TO SERVER");
+//System.out.println("     sendMonitorInfo: TRY SENDING KA TO SERVER");
             int size = xml.length() + 4*4 + 8*7;
             out.writeInt(size);
             out.writeInt(xml.length());
@@ -3237,7 +3575,7 @@ System.out.println("KA: trying to REconnect with UDL = " + p.UDL);
 
             out.write(xml.toString().getBytes("US-ASCII"));
             out.flush();
-//System.out.println("     SENT KA TO SERVER");
+//System.out.println("     sendMonitorInfo: SENT KA TO SERVER");
         }
 
     }
