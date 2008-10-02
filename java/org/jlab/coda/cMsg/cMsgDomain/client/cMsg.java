@@ -3058,8 +3058,6 @@ public class cMsg extends cMsgDomainAdapter {
      * If there is an IOException, server is assumed dead and a disconnect is done.
      */
     class KeepAlive extends Thread {
-        /** Socket communication channel with domain server. */
-        private Socket socket;
 
         /** Socket input stream associated with channel. */
         private DataInputStream in;
@@ -3086,7 +3084,6 @@ public class cMsg extends cMsgDomainAdapter {
          * @throws IOException if channel is closed
          */
         synchronized public void changeChannels(Socket socket) throws IOException {
-            this.socket = socket;
             // buffered communication streams for efficiency
             in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
         }
@@ -3100,7 +3097,6 @@ public class cMsg extends cMsgDomainAdapter {
          */
         public KeepAlive(Socket socket, boolean implementFailovers,
                          List<cMsg.ParsedUDL> failovers) throws IOException {
-            this.socket = socket;
             this.failovers = failovers;
             this.implementFailovers = implementFailovers;
 
@@ -3283,7 +3279,7 @@ public class cMsg extends cMsgDomainAdapter {
                     while (!weGotAConnection) {
 
                         // Go to next UDL
-                        ParsedUDL p = null;
+                        ParsedUDL p;
 
                         if (connectFailures >= failovers.size()) {
 //System.out.println("KA: ran out of UDLs to try");
