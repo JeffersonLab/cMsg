@@ -159,7 +159,7 @@ public class cMsgDomainServerSelect extends Thread {
                                   int clientsMax, int debug)
             throws cMsgException, IOException {
 
-System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + clientsMax);
+//System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + clientsMax);
         this.debug       = debug;
         this.nameServer  = nameServer;
         this.clientsMax  = clientsMax;
@@ -440,11 +440,11 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
                     b.client.cleanup();
                 }
 
-                // remove client from "nameServers" (hashset is synchronized)
-                boolean removed = nameServer.nameServers.remove(cd.getName());
+                // remove client from "nameServers" (hashsmap is concurrent)
+                cMsgClientData cDat = nameServer.nameServers.remove(cd.getName());
 
                 if (debug >= cMsgConstants.debugInfo) {
-                    if (b != null && removed) {
+                    if (b != null && cDat != null) {
                         System.out.println(">>    DS: DELETED server client FROM BRIDGES AND NAMESERVERS");
                     }
                     else {
@@ -588,11 +588,11 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
                 b.client.cleanup();
             }
 
-            // remove client from "nameServers" (hashset is synchronized)
-            boolean removed = nameServer.nameServers.remove(cd.getName());
+            // remove client from "nameServers" (hashmap is concurrent)
+            cMsgClientData cDat = nameServer.nameServers.remove(cd.getName());
 
             if (debug >= cMsgConstants.debugInfo) {
-                if (b != null && removed) {
+                if (b != null && cDat != null) {
                     System.out.println(">>    DS: DELETED server client FROM BRIDGES AND NAMESERVERS");
                 }
                 else {
@@ -702,8 +702,8 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
                             // read the rest of the data
                             if (!info.readingSize) {
 //System.out.println("  try reading rest of udpBuffer");
-//                            System.out.println("  udpBuffer capacity = " + info.udpBuffer.capacity() + ", limit = " + info.udpBuffer.limit()
-//                             + ", position = " + info.udpBuffer.position() );
+//System.out.println("  udpBuffer capacity = " + info.buffer.capacity() + ", limit = " +
+//                      info.buffer.limit() + ", position = " + info.buffer.position() );
                                 bytes = sockChannel.read(info.buffer);
                                 // for End-of-stream ...
                                 if (bytes == -1) {
@@ -723,9 +723,9 @@ System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + client
                                         info.buffer.flip();
                                         info.buffer.get(b, 0, info.bytesRead);
 //System.out.println("  read request, putting udpBuffer in Q");
-                                        //if (bufferQ.remainingCapacity() == 0) {
-                                        //    System.out.println("   " + info.getName() + " has a FULL Q -> blocking");
-                                        //}
+//                                        if (bufferQ.remainingCapacity() == 0) {
+//                                            System.out.println("   " + info.getName() + " has a FULL Q -> blocking");
+//                                        }
                                         bufferQ.put(new cMsgHolder(b, info, false));
                                     }
                                     catch (InterruptedException e) {
