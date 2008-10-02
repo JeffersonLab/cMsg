@@ -58,14 +58,34 @@ public class cMsgConstants {
     public static final int    endianSwitch        = 4;
 
 
-    /** Client has high data/message throughput. */
-    public static final int    regimeHigh          = 2;
-    /** Client has medium data/message throughput. */
+    /** Client has medium data/message throughput (default). */
     public static final int    regimeMedium        = 0;
     /** Client has low data/message throughput. */
     public static final int    regimeLow           = 1;
+    /** Client has high data/message throughput. */
+    public static final int    regimeHigh          = 2;
     /** Default maximum number of clients per cMsgDomainServerSelect object in regimeLow mode. */
     public static final int    regimeLowMaxClients = 10;
+
+
+    /** Failover of client can go to any of the UDLs given in connect (default). */
+    public static final int    failoverAny         = 0;
+    /** Failover of client will go to servers in the cloud first, if none are available,
+     *  the client can go to any of the UDLs given in connect. */
+    public static final int    failoverCloud       = 1;
+    /** Failover of client will only go to servers in the cloud. */
+    public static final int    failoverCloudOnly   = 2;
+
+
+    /** Failover of client to a server in the cloud will go to any of the cloud servers (default). */
+    public static final int    cloudAny            = 0;
+    /** Failover of client to a server in the cloud will go to a local cloud server first
+     *  before others are considered. */
+    public static final int    cloudLocal          = 1;
+    /** If a client is connected to a remote server which is a member of a cloud,
+     *  once a local cloud server becomes available, immediately force a switch
+     *  to the local server even if the original server is healthy. */
+    public static final int    cloudLocalForce     = 2;
 
 
     /** No error. */
