@@ -242,16 +242,32 @@ public class cMsgServerBridge {
      * @param isOriginator true if originating the connection between the 2 servers and
      *                     false if this is the response or reciprocal connection
      * @param cloudPassword password for connecting to a server in a particular cloud
+     * @param clientPassword password for a client connecting to this server
      * @return set of servers (names of form "host:port") that the server
      *         we're connecting to is already connected with
+     * @param multicasting true if multicasting to find server since host unknown
      * @throws cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server
      */
-    public Set<String> connect(boolean isOriginator, String cloudPassword) throws cMsgException {
+    public Set<String> connect(boolean isOriginator, String cloudPassword,
+                               String clientPassword, boolean multicasting) throws cMsgException {
         // create a connection to the UDL
         client.start();
-        return client.connect(thisNsTcpPort, thisNsUdpPort, isOriginator, cloudPassword);
+        return client.connect(thisNsTcpPort, thisNsUdpPort, isOriginator, cloudPassword,
+                              clientPassword, multicasting);
     }
+
+
+    /**
+     * Sets the name of the server this bridge's client is connected to.
+     * This is used when multicasting to find the server and the host is not
+     * immediately known in order to construct the name (as host:port).
+     * @param serverName
+     */
+    public void setServerName(String serverName) {
+        this.serverName = serverName;
+    }
+    
 
    /**
     * This method gets the cloud status of the server this server is
