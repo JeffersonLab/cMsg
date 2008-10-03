@@ -56,12 +56,30 @@
 
 
 /* regime values */
-/** Client has high data/message throughput. */
-#define CMSG_REGIME_HIGH   2
 /** Client has medium data/message throughput. */
 #define CMSG_REGIME_MEDIUM 0
 /** Client has low data/message throughput. */
 #define CMSG_REGIME_LOW    1
+/** Client has high data/message throughput. */
+#define CMSG_REGIME_HIGH   2
+
+/* failover values */
+/** Client fails over to any server. */
+#define CMSG_FAILOVER_ANY        0
+/** Client fails over to cloud servers first, then any. */
+#define CMSG_FAILOVER_CLOUD      1
+/** Client fails over to only cloud servers. */
+#define CMSG_FAILOVER_CLOUD_ONLY  2
+
+/* cloud values */
+/** Client fails over to any cloud server. */
+#define CMSG_CLOUD_ANY      0
+/** Client fails over to local cloud servers first. */
+#define CMSG_CLOUD_LOCAL        1
+/** If a client is connected to a remote server which is a member of a cloud,
+ *  once a local cloud server becomes available, immediately force a switch
+ *  to the local server even if the original server is healthy. */
+#define CMSG_CLOUD_LOCAL_FORCE   2
 
 
 /* shutdown flags */

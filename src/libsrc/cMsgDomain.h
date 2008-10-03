@@ -154,9 +154,15 @@ typedef struct getInfo_t {
 typedef struct parsedUDL_t {
   int   nameServerPort; /**< port of name server. */
   int   mustMulticast;  /**< 1 if UDL specifies multicasting to find server, else 0. */
-  int   timeout;        /**< time in seconds to wait for a broadcast response. */
+  int   timeout;        /**< time in seconds to wait for a multicast response. */
   int   regime;         /**< CMSG_REGIME_LOW if low data rate regime, similarly can be
                              can be CMSG_REGIME_MEDIUM, or CMSG_REGIME_HIGH. */
+  int   failover;       /**< Failover to any server = CMSG_FAILOVER_ANY,
+                             to cloud server first and any server after = CMSG_FAILOVER_CLOUD,
+                             to cloud server only = CMSG_FAILOVER_CLOUD_ONLY. */
+  int   cloud;          /**< Failover to any cloud server = CMSG_CLOUD_ANY,
+                             to local cloud server first = CMSG_CLOUD_LOCAL. */
+  int   isLocal;        /**< Is the server we're connected to local? (1-y, 0-n). */
   char *udl;            /**< whole UDL for name server */
   char *udlRemainder;   /**< domain specific part of the UDL. */
   char *subdomain;      /**< subdomain name. */

@@ -109,7 +109,7 @@ static const char *excludedChars = "`\'\"";
 
 
 /** Global debug level. */
-int cMsgDebug = CMSG_DEBUG_NONE;
+int cMsgDebug = CMSG_DEBUG_INFO;
 
 /** For domain implementations. */
 extern domainTypeInfo cmsgDomainTypeInfo;

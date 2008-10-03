@@ -193,6 +193,8 @@ extern int   cMsgLocalHost(char *host, int length);
 
 extern int   cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr);
 extern int   cMsgLocalByteOrder(int *endian);
+extern int   cMsgNodeSame(const char *node1, const char *node2, int *same);
+extern int   cMsgNodeIsLocal(const char *host, int *isLocal);
 extern const char *cMsgHstrerror(int err);
 
 #ifdef	__cplusplus
