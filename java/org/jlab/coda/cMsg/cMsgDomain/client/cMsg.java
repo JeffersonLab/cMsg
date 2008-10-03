@@ -2662,7 +2662,6 @@ public class cMsg extends cMsgDomainAdapter {
         Matcher matcher = pattern.matcher(udlRemainder);
 
         String udlHost, udlPort, udlSubdomain, udlSubRemainder;
-        boolean isLocal;
 
         if (matcher.find()) {
             // host
@@ -2696,17 +2695,18 @@ public class cMsg extends cMsgDomainAdapter {
             udlSubdomain = "cMsg";
         }
 
+        boolean isLocal = false;
         boolean mustMulticast = false;
         if (udlHost.equalsIgnoreCase("multicast") ||
             udlHost.equals(cMsgNetworkConstants.cMsgMulticast)) {
             mustMulticast = true;
-            isLocal = false; // this must be determined after connection, set it false for now
+            // "isLocal" must be determined after connection, set it false for now
 //System.out.println("set mustMulticast to true (locally in parse method)");
         }
         // if the host is dotted decimal form of multicast address ...
         else if (udlHost.equals(cMsgNetworkConstants.cMsgMulticast)) {
             mustMulticast = true;
-            isLocal = false; // this must be determined after connection, set it false for now
+            // "isLocal" must be determined after connection, set it false for now
         }
         // if the host is "localhost", find the actual, fully qualified  host name
         else if (udlHost.equalsIgnoreCase("localhost")) {
@@ -2721,8 +2721,15 @@ public class cMsg extends cMsgDomainAdapter {
                                   udlHost);
             }
         }
+//        else {
+//            try {udlHost = InetAddress.getByName(udlHost).getCanonicalHostName();}
+//            catch (UnknownHostException e) {
+//                throw new cMsgException("unknown host", e);
+//            }
+//            isLocal = cMsgUtilities.isHostLocal(udlHost);
+//        }
         else {
-            try {udlHost = InetAddress.getByName(udlHost).getCanonicalHostName();}
+            try {InetAddress.getByName(udlHost);}
             catch (UnknownHostException e) {
                 throw new cMsgException("unknown host", e);
             }
@@ -2869,14 +2876,14 @@ public class cMsg extends cMsgDomainAdapter {
             if (matcher.group(1).equalsIgnoreCase("local")) {
                 cloud = cMsgConstants.cloudLocal;
             }
-            else if (matcher.group(1).equalsIgnoreCase("localnow")) {
+            else if (matcher.group(1).equalsIgnoreCase("localforce")) {
                 cloud = cMsgConstants.cloudLocalForce;
             }
             else if (matcher.group(1).equalsIgnoreCase("any")) {
                 failover = cMsgConstants.cloudAny;
             }
             else {
-                throw new cMsgException("parseUDL: cloud must be any, local or localnow");
+                throw new cMsgException("parseUDL: cloud must be any, local or localforce");
             }
             counter++;
         }
