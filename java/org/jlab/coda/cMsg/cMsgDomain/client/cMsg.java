@@ -3527,8 +3527,6 @@ public class cMsg extends cMsgDomainAdapter {
 
                 // for each subscription of this client ...
                 for (cMsgSubscription sub : subscriptions) {
-                    System.out.println("     sendMonitorInfo: ANOTHER SUB");
-
                     xml.append(indent1);
                     xml.append("<subscription  subject=\"");
                     xml.append(sub.getSubject());
