@@ -1563,7 +1563,7 @@ public class cMsgNameServer extends Thread {
             subdomainHandler.registerServer(info);
 
             // Create a domain server thread, and get back its host & port
-            cMsgDomainServer dServer = new cMsgDomainServer(cMsgNameServer.this, info, true, debug);
+            cMsgDomainServerSelect dsServer = new cMsgDomainServerSelect(cMsgNameServer.this, 1, debug, true);
 
             // accept 2 permanent connections from client
             synchronized (connectionThread) {
@@ -1582,10 +1582,11 @@ public class cMsgNameServer extends Thread {
             }
 
             // kill this thread too if name server thread quits
-            dServer.setDaemon(true);
-            dServer.startThreads();
+            dsServer.setDaemon(true);
+            dsServer.startThreads();
+            dsServer.addClient(info);
             // store ref to this domain server
-            domainServers.put(dServer, "");
+            domainServersSelect.put(dsServer, "");
         }
 
 
@@ -1865,16 +1866,14 @@ public class cMsgNameServer extends Thread {
                 if (dsServer == null) {
                     // Create a domain server thread, and get back its host & port
                     dsServer = new cMsgDomainServerSelect(cMsgNameServer.this,
-                                                          cMsgNetworkConstants.domainServerUdpStartingPort,
-                                                          clientsMax, debug);
+                                                          clientsMax, debug, false);
                 }
 
                 info.setDomainUdpPort(dsServer.getUdpPort());
             }
             else if (regime == cMsgConstants.regimeMedium) {
                 dsServer = new cMsgDomainServerSelect(cMsgNameServer.this,
-                                                      cMsgNetworkConstants.domainServerUdpStartingPort,
-                                                       1, debug);
+                                                       1, debug, false);
 
                 info.setDomainUdpPort(dsServer.getUdpPort());
             }

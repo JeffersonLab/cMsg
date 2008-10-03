@@ -55,6 +55,9 @@ public class cMsgDomainServerSelect extends Thread {
      */
     cMsgClientData info;
 
+    /** Boolean specifying if this object creates and listens on a udp socket. */
+    private boolean noUdp;
+
     /**
      * Set of all clients in this domain server. The value is just a dummy
      * so the concurrent hashmap could be used.
@@ -148,19 +151,20 @@ public class cMsgDomainServerSelect extends Thread {
      * Constructor.
      *
      * @param nameServer nameServer object which created (is creating) this object
-     * @param startingPort suggested port on which to starting listening for connections
      * @param clientsMax   maximum number of clients serviced by this object at one time
      * @param debug  level of debug output.
+     * @param noUdp  if true, do not create and listen on a udp socket.
      *
      * @throws cMsgException if listening socket could not be opened or a port to listen on could not be found
      * @throws IOException if selector cannot be opened
      */
-    public cMsgDomainServerSelect(cMsgNameServer nameServer, int startingPort,
-                                  int clientsMax, int debug)
+    public cMsgDomainServerSelect(cMsgNameServer nameServer, int clientsMax,
+                                  int debug, boolean noUdp)
             throws cMsgException, IOException {
 
 //System.out.println("Creating cMsgDomainServerSelect with clientsMax = " + clientsMax);
         this.debug       = debug;
+        this.noUdp       = noUdp;
         this.nameServer  = nameServer;
         this.clientsMax  = clientsMax;
 
@@ -196,30 +200,25 @@ public class cMsgDomainServerSelect extends Thread {
                                        new SynchronousQueue<Runnable>(),
                                        new RejectHandler());
 
-        // For the client wants to do sends with udp, create a socket on an available udp port
-        try {
-            // Create socket to receive at all interfaces
-            udpChannel = DatagramChannel.open();
-            udpSocket  = udpChannel.socket();
-        }
-        catch (IOException ex) {
-            ex.printStackTrace();
-            cMsgException e = new cMsgException("Exiting Server: cannot create socket to listen on");
-            e.setReturnCode(cMsgConstants.errorSocket);
-            throw e;
+        // For the client who wants to do sends with udp,
+        // create a socket on an available udp port.
+        if (!noUdp) {
+            // For the client wants to do sends with udp, create a socket on an available udp port
+            try {
+                // Create socket to receive at all interfaces
+                udpChannel = DatagramChannel.open();
+                udpSocket  = udpChannel.socket();
+                udpPort    = udpSocket.getLocalPort();
+                udpSocket.setReceiveBufferSize(cMsgNetworkConstants.biggestUdpBufferSize);
+            }
+            catch (IOException ex) {
+                ex.printStackTrace();
+                cMsgException e = new cMsgException("Exiting Server: cannot create socket to listen on");
+                e.setReturnCode(cMsgConstants.errorSocket);
+                throw e;
+            }
         }
 
-        udpPort = startingPort;
-        while (true) {
-            try {
-                udpSocket.bind(new InetSocketAddress(udpPort));
-                udpSocket.setReceiveBufferSize(cMsgNetworkConstants.biggestUdpBufferSize);
-                break;
-            }
-            catch (SocketException ex) {
-                udpPort++;
-            }
-        }
 //System.out.println("udp channel port = " + udpSocket.getLocalPort());
         // allow clients to be registered with the selector
         selector = Selector.open();
@@ -279,12 +278,10 @@ public class cMsgDomainServerSelect extends Thread {
 
         this.info = info;
 
-        // For the client who wants to do sends with udp (MAY NOT BE USEFUL !!)
-        info.udpSocket = udpSocket;
-
         // Fill in info members so this data can be sent back
-        info.setDomainUdpPort(udpSocket.getLocalPort());
-
+        if (!noUdp) {
+            info.setDomainUdpPort(udpSocket.getLocalPort());
+        }
         // Finish making the "deliverer" object. Use this channel
         // to communicate back to the client.
         info.getDeliverer().createClientConnection(info.getMessageChannel(), false);
@@ -620,14 +617,14 @@ public class cMsgDomainServerSelect extends Thread {
         SocketChannel sockChannel;
 
         try {
-            // get things ready for a select call
-            //selector = Selector.open();
 
-            // set nonblocking mode for the udp socket
-            udpChannel.configureBlocking(false);
-
-            // register the channel with the selector for reading
-            udpChannel.register(selector, SelectionKey.OP_READ, info);
+            // No UDP use if we're handling a server client
+            if (!noUdp) {
+                // set nonblocking mode for the udp socket
+                udpChannel.configureBlocking(false);
+                // register the channel with the selector for reading
+                udpChannel.register(selector, SelectionKey.OP_READ, info);
+            }
 
             // direct byte Buffer for UDP IO use
             ByteBuffer udpBuffer = ByteBuffer.allocateDirect(cMsgNetworkConstants.biggestUdpBufferSize);
