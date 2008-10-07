@@ -155,9 +155,9 @@ public class cMsgConsumer {
 //            catch (InterruptedException e) {}
 
 //System.out.println("Cue size = " + msg.getContext().getCueSize());
-//            System.out.println("Received msg has subject = " + msg.getSubject());
-//            System.out.println("                    type = " + msg.getType());
-            //System.out.println("Has payload = " + msg.hasPayload());
+            System.out.println("Received msg has subject = " + msg.getSubject());
+            System.out.println("                    type = " + msg.getType());
+            System.out.println("Has payload = " + msg.hasPayload());
 /*
             cMsgPayloadItem item = msg.getPayloadItem("INT");
             if (item != null) {
