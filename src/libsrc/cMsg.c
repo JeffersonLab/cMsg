@@ -241,6 +241,25 @@ int strncasecmp(const char *s1, const char *s2, size_t n) {
 #endif
 
 /*-------------------------------------------------------------------*/
+#ifdef Darwin
+int clock_gettime(int clk_id /*ignored*/, struct timespec *tp)
+{
+  struct timeval now;
+    
+  int rv = gettimeofday(&now, NULL);
+    
+  if (rv != 0) {
+    return rv;
+  }
+    
+  tp->tv_sec = now.tv_sec;
+  tp->tv_nsec = now.tv_usec * 1000;
+    
+  return 0;
+}
+#endif
+
+/*-------------------------------------------------------------------*/
 
 /**
  * Routine to read a configuration file and return the cMsg UDL stored there.
