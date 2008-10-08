@@ -3203,14 +3203,14 @@ public class cMsg extends cMsgDomainAdapter {
 
                             // if we can failover to anything or this cloud server is local
                             if ((cloud == cMsgConstants.cloudAny) || pUdl.local) {
-                                // Add to our own "parsed" UDL using server's name and
+                                // Construct our own "parsed" UDL using server's name and
                                 // current values of other parameters.
 
                                 // Be careful with the password which, I believe, is the
                                 // only server-dependent part of "subRemainder" and must
                                 // be explicitly substituted for.
                                 String newSubRemainder = subRemainder;
-                                // if existing UDL has a password in remainder ...
+                                // if current UDL has a password in remainder ...
                                 if (password.length() > 0) {
                                     Pattern pattern = Pattern.compile("([\\?&])cmsgpassword=([^&]+)", Pattern.CASE_INSENSITIVE);
                                     Matcher matcher = pattern.matcher(subRemainder);
