@@ -152,23 +152,25 @@ typedef struct getInfo_t {
  * into its consituent parts.
  */
 typedef struct parsedUDL_t {
-  int   nameServerPort; /**< port of name server. */
-  int   mustMulticast;  /**< 1 if UDL specifies multicasting to find server, else 0. */
-  int   timeout;        /**< time in seconds to wait for a multicast response. */
-  int   regime;         /**< CMSG_REGIME_LOW if low data rate regime, similarly can be
-                             can be CMSG_REGIME_MEDIUM, or CMSG_REGIME_HIGH. */
-  int   failover;       /**< Failover to any server = CMSG_FAILOVER_ANY,
-                             to cloud server first and any server after = CMSG_FAILOVER_CLOUD,
-                             to cloud server only = CMSG_FAILOVER_CLOUD_ONLY. */
-  int   cloud;          /**< Failover to any cloud server = CMSG_CLOUD_ANY,
-                             to local cloud server first = CMSG_CLOUD_LOCAL. */
-  int   isLocal;        /**< Is the server we're connected to local? (1-y, 0-n). */
-  char *udl;            /**< whole UDL for name server */
-  char *udlRemainder;   /**< domain specific part of the UDL. */
-  char *subdomain;      /**< subdomain name. */
-  char *subRemainder;   /**< subdomain specific part of the UDL. */
-  char *password;       /**< password of name server. */
-  char *nameServerHost; /**< host of name server. */
+  int   nameServerPort;    /**< TCP port of name server. */
+  int   nameServerUdpPort; /**< UDP port of name server. */
+  int   mustMulticast;     /**< 1 if UDL specifies multicasting to find server, else 0. */
+  int   timeout;           /**< time in seconds to wait for a multicast response. */
+  int   regime;            /**< CMSG_REGIME_LOW if low data rate regime, similarly can be
+                                can be CMSG_REGIME_MEDIUM, or CMSG_REGIME_HIGH. */
+  int   failover;          /**< Failover to any server = CMSG_FAILOVER_ANY,
+                                to cloud server first and any server after = CMSG_FAILOVER_CLOUD,
+                                to cloud server only = CMSG_FAILOVER_CLOUD_ONLY. */
+  int   cloud;             /**< Failover to any cloud server = CMSG_CLOUD_ANY,
+                                to local cloud server first = CMSG_CLOUD_LOCAL. */
+  int   isLocal;           /**< Is the server we're connected to local? (1-y, 0-n). */
+  char *udl;               /**< whole UDL for name server */
+  char *udlRemainder;      /**< domain specific part of the UDL. */
+  char *subdomain;         /**< subdomain name. */
+  char *subRemainder;      /**< subdomain specific part of the UDL. */
+  char *password;          /**< password of name server. */
+  char *nameServerHost;    /**< host of name server. */
+  char *serverName;        /**< name of server (nameServerHost:nameServerPort). */
 } parsedUDL;
 
 
@@ -210,11 +212,15 @@ typedef struct cMsgDomainInfo_t {
   char *description;  /**< User description. */
   char *password;     /**< User password. */
   
-  /** Array of parsedUDL structures for failover purposes obtained from parsing udl. */  
+  parsedUDL currentUDL;      /**< Store info about current connection to server. */
+
+  /* failover stuff */
+  /** Array of parsedUDL structures for failover purposes obtained from parsing udl. */
   parsedUDL *failovers;
   int failoverSize;          /**< Size of the failover array. */
   int failoverIndex;         /**< Index into the failover array for the UDL currently being used. */
   int implementFailovers;    /**< Boolean telling if failovers are being used. */
+  int haveLocalCloudServer;  /**< Boolean telling if any cloud failover server is local. */
   int resubscribeComplete;   /**< Boolean telling if resubscribe is complete in failover process. */
   int killClientThread;      /**< Boolean telling if client thread receiving messages should be killed. */
   countDownLatch syncLatch;  /**< Latch used to synchronize the failover. */
@@ -264,6 +270,9 @@ typedef struct cMsgDomainInfo_t {
   hashTable subAndGetTable;  
   /** Hashtable of subscriptions. */
   hashTable subscribeTable;
+  
+  /** Hashtable of cloud servers. */
+  hashTable cloudServerTable;
   
   /** Shutdown handler function. */
   cMsgShutdownHandler *shutdownHandler;
@@ -359,8 +368,11 @@ void  cMsgDomainClear(cMsgDomainInfo *domain);
 void  cMsgDomainFree(cMsgDomainInfo *domain);
 void  cMsgGetInfoInit(getInfo *info);
 void  cMsgGetInfoFree(getInfo *info);
+void  cMsgParsedUDLInit(parsedUDL *p);
+void  cMsgParsedUDLFree(parsedUDL *p);
+int   cMsgParsedUDLCopy(parsedUDL *dest, parsedUDL *src);
 
-/* misc */
+  /* misc */
 int   cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg);
 int   cMsgRunCallbacks(cMsgDomainInfo *domain, void *msg);
 int   cMsgCheckString(const char *s);

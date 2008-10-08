@@ -53,7 +53,6 @@
 static const char *excludedChars = "`\'\"";
 
 /* local prototypes */
-static void  parsedUDLFree(parsedUDL *p);
 
 
 /*-------------------------------------------------------------------*/
@@ -318,6 +317,42 @@ void cMsgSubscribeMutexUnlock(cMsgDomainInfo *domain) {
 
 
 /**
+ * This routine returns the number of digits in an integer
+ * including a minus sign.
+ *
+ * @param number integer
+ * @param isUint64 is number an unsigned 64 bit integer (0=no)
+ * @return number of digits in the integer argument including a minus sign
+ */
+int cMsgNumDigits(int64_t number, int isUint64) {
+  int digits = 1;
+  uint64_t step = 10;
+  
+  if (isUint64) {
+    uint64_t num = (uint64_t) number;
+    while (step <= num) {
+      if (++digits >= 20) return 20; /* 20 digits at most in uint64_t */
+      step *= 10;
+    }
+    return digits;
+  }
+  
+  if (number < 0) {
+    digits++;
+    number *= -1;
+  }
+  
+  while (step <= number) {
+    digits++;
+    step *= 10;
+  }
+  return digits;
+}
+
+/*-------------------------------------------------------------------*/
+
+
+/**
  * This routine checks a string given as a function argument.
  * It returns an error if it is NULL, or contains an unprintable character
  * or any character from a list of excluded characters (`'").
@@ -482,6 +517,39 @@ void cMsgGetInfoInit(getInfo *info) {
 
 
 /**
+ * This routine frees allocated memory in a structure used to handle
+ * subscribeAndGet/sendAndGet/syncSend information.
+ *
+ * @param info pointer to structure holding send&Get, sub&Get or syncSend info
+ */
+void cMsgGetInfoFree(getInfo *info) {
+  void *p = (void *)info->msg;
+
+#ifdef VXWORKS
+    /* cannot destroy mutexes and cond vars in vxworks & Linux(?) */
+    int status;
+    
+    status = pthread_cond_destroy (&info->cond);
+    if (status != 0) {
+      cmsg_err_abort(status, "cMsgGetInfoFree: destroying cond var");
+    }
+    
+    status = pthread_mutex_destroy(&info->mutex);
+    if (status != 0) {
+      cmsg_err_abort(status, "cMsgGetInfoFree: destroying cond var");
+    }
+#endif
+    
+    if (info->type != NULL)    {free(info->type);    info->type    = NULL;}
+    if (info->subject != NULL) {free(info->subject); info->subject = NULL;}
+    if (info->msg != NULL)     {cMsgFreeMessage(&p); info->msg     = NULL;}
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
  * This routine initializes the structure used to handle a subscription's callback
  * with the exception of the mutex and condition variable.
  * 
@@ -535,6 +603,44 @@ void cMsgCallbackInfoInit(subscribeCbInfo *info) {
 /*-------------------------------------------------------------------*/
 
 
+/**
+ * This routine free any resources taken by mutexes and condition
+ * variables.
+ *
+ * @param info pointer to subscription callback structure
+ */
+void cMsgCallbackInfoFree(subscribeCbInfo *info) {
+#ifndef VXWORKS
+    /* cannot destroy mutexes and cond vars in vxworks & apparently Linux */
+    int status;
+
+      status = pthread_cond_destroy (&info->cond);
+      if (status != 0) {
+        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var");
+      }
+  
+      status = pthread_cond_destroy (&info->cond2);
+      if (status != 0) {
+        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var2");
+      }
+  
+      status = pthread_cond_destroy (&info->cond3);
+      if (status != 0) {
+        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var3");
+      }
+  
+      status = pthread_mutex_destroy(&info->mutex);
+      if (status != 0) {
+        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying mutex");
+      }
+  
+#endif
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
 /** This routine initializes the structure used to handle a subscribe. */
 void cMsgSubscribeInfoInit(subInfo *info) {
     info->id                = 0;
@@ -553,6 +659,36 @@ void cMsgSubscribeInfoInit(subInfo *info) {
 
     hashInit(&info->subjectTable,  256);
     hashInit(&info->typeTable,     256);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine frees allocated memory in a structure used to hold
+ * subscribe information.
+ *
+ * @param info pointer to subscription information structure
+ */
+void cMsgSubscribeInfoFree(subInfo *info) {
+  if (info->type != NULL)           {free(info->type);          info->type          = NULL;}
+  if (info->subject != NULL)        {free(info->subject);       info->subject       = NULL;}
+  if (info->typeRegexp != NULL)     {free(info->typeRegexp);    info->typeRegexp    = NULL;}
+  if (info->subjectRegexp != NULL)  {free(info->subjectRegexp); info->subjectRegexp = NULL;}
+  cMsgRegfree(&info->compTypeRegexp);
+  cMsgRegfree(&info->compSubRegexp);
+
+  cMsgNumberRangeFree(info->subRange);
+  cMsgNumberRangeFree(info->typeRange);
+  info->subRange  = NULL;
+  info->typeRange = NULL;
+    
+  hashDestroy(&info->subjectTable, NULL, NULL);
+  hashDestroy(&info->typeTable,    NULL, NULL);
+
+  /* the mutexes and condition variables are all freed by cMsgCallbackInfoFree
+  * individually in the code. */
 }
 
 
@@ -601,10 +737,13 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
   domain->description         = NULL;
   domain->password            = NULL;
   
+  cMsgParsedUDLInit(&domain->currentUDL);
+
   domain->failovers           = NULL;
   domain->failoverSize        = 0;
   domain->failoverIndex       = 0;
   domain->implementFailovers  = 0;
+  domain->haveLocalCloudServer= 0;
   domain->resubscribeComplete = 0;
   domain->killClientThread    = 0;
   
@@ -625,7 +764,8 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
   hashInit(&domain->syncSendTable,   128);
   hashInit(&domain->sendAndGetTable, 128);
   hashInit(&domain->subAndGetTable,  128);
-  hashInit(&domain->subscribeTable,  128); /* new */
+  hashInit(&domain->subscribeTable,  128);
+  hashInit(&domain->cloudServerTable, 32);
 
   cMsgCountDownLatchInit(&domain->syncLatch, 1);
     
@@ -676,148 +816,6 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
       
 }
 
-/*-------------------------------------------------------------------*/
-
-/**
- * This routine frees allocated memory in a structure used to hold
- * parsed subscription's subject and type information.
- * 
- * @param r the head of a linked list of linked lists containing
- *          parsed subscription information
- */
-void cMsgNumberRangeFree(numberRange *r) {
-    numberRange *head, *range, *nextHead, *next;
-    if (r == NULL) return;
-    
-    /* go from linked list head to linked list head */
-    head = r;
-    while (head != NULL) {
-        nextHead = head->nextHead;
-        /* free a sinle linked list */
-        range = head;
-        while (range != NULL) {
-            next = range->next;
-            free(range);
-            range = next;
-        }
-        head = nextHead;
-  }
-}
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine free any resources taken by mutexes and condition
- * variables.
- *
- * @param info pointer to subscription callback structure
- */
-void cMsgCallbackInfoFree(subscribeCbInfo *info) {
-#ifndef VXWORKS
-    /* cannot destroy mutexes and cond vars in vxworks & apparently Linux */
-    int status;
-
-      status = pthread_cond_destroy (&info->cond);
-      if (status != 0) {
-        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var");
-      }
-  
-      status = pthread_cond_destroy (&info->cond2);
-      if (status != 0) {
-        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var2");
-      }
-  
-      status = pthread_cond_destroy (&info->cond3);
-      if (status != 0) {
-        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var3");
-      }
-  
-      status = pthread_mutex_destroy(&info->mutex);
-      if (status != 0) {
-        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying mutex");
-      }
-  
-#endif
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine frees allocated memory in a structure used to hold
- * subscribe information.
- * 
- * @param info pointer to subscription information structure
- */
-void cMsgSubscribeInfoFree(subInfo *info) {
-  if (info->type != NULL)           {free(info->type);          info->type          = NULL;}
-  if (info->subject != NULL)        {free(info->subject);       info->subject       = NULL;}
-  if (info->typeRegexp != NULL)     {free(info->typeRegexp);    info->typeRegexp    = NULL;}
-  if (info->subjectRegexp != NULL)  {free(info->subjectRegexp); info->subjectRegexp = NULL;}
-  cMsgRegfree(&info->compTypeRegexp);
-  cMsgRegfree(&info->compSubRegexp);
-
-  cMsgNumberRangeFree(info->subRange);
-  cMsgNumberRangeFree(info->typeRange);
-  info->subRange  = NULL;
-  info->typeRange = NULL;
-    
-  hashDestroy(&info->subjectTable, NULL, NULL);
-  hashDestroy(&info->typeTable,    NULL, NULL);
-
-  /* the mutexes and condition variables are all freed by cMsgCallbackInfoFree
-   * individually in the code. */
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine frees allocated memory in a structure used to handle
- * subscribeAndGet/sendAndGet/syncSend information.
- *
- * @param info pointer to structure holding send&Get, sub&Get or syncSend info
- */
-void cMsgGetInfoFree(getInfo *info) {
-    void *p = (void *)info->msg;
-
-#ifdef VXWORKS
-    /* cannot destroy mutexes and cond vars in vxworks & Linux(?) */
-    int status;
-    
-    status = pthread_cond_destroy (&info->cond);
-    if (status != 0) {
-      cmsg_err_abort(status, "cMsgGetInfoFree: destroying cond var");
-    }
-    
-    status = pthread_mutex_destroy(&info->mutex);
-    if (status != 0) {
-      cmsg_err_abort(status, "cMsgGetInfoFree: destroying cond var");
-    }
-#endif
-    
-    if (info->type != NULL)    {free(info->type);    info->type    = NULL;}
-    if (info->subject != NULL) {free(info->subject); info->subject = NULL;}
-    if (info->msg != NULL)     {cMsgFreeMessage(&p); info->msg     = NULL;}
-}
-
-
-/*-------------------------------------------------------------------*/
-/**
- * This routine frees allocated memory in a structure used to hold
- * parsed UDL information.
- */
-static void parsedUDLFree(parsedUDL *p) {  
-       if (p->udl            != NULL) {free(p->udl);            p->udl            = NULL;}
-       if (p->udlRemainder   != NULL) {free(p->udlRemainder);   p->udlRemainder   = NULL;}
-       if (p->subdomain      != NULL) {free(p->subdomain);      p->subdomain      = NULL;}
-       if (p->subRemainder   != NULL) {free(p->subRemainder);   p->subRemainder   = NULL;}
-       if (p->password       != NULL) {free(p->password);       p->password       = NULL;}
-       if (p->nameServerHost != NULL) {free(p->nameServerHost); p->nameServerHost = NULL;}   
-}
 
 /*-------------------------------------------------------------------*/
 
@@ -843,9 +841,11 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
   if (domain->msgBuffer      != NULL) {free(domain->msgBuffer);      domain->msgBuffer      = NULL;}
   if (domain->monitorXML     != NULL) {free(domain->monitorXML);     domain->monitorXML     = NULL;}
   
+  cMsgParsedUDLFree(&domain->currentUDL);
+
   if (domain->failovers != NULL) {
-    for (i=0; i<domain->failoverSize; i++) {       
-      parsedUDLFree(&domain->failovers[i]);
+    for (i=0; i<domain->failoverSize; i++) {
+      cMsgParsedUDLFree(&domain->failovers[i]);
     }
     free(domain->failovers);
   }
@@ -893,6 +893,16 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
     free(entries);
   }
   
+  hashDestroy(&domain->cloudServerTable, &entries, &size);
+  if (entries != NULL) {
+    for (i=0; i<size; i++) {
+      free(entries[i].key);
+      cMsgParsedUDLFree((parsedUDL *)entries[i].data);
+      free(entries[i].data);
+    }
+    free(entries);
+  }
+
 #ifndef VXWORKS
   /* cannot destroy mutexes in vxworks & Linux(?) */
   status = pthread_mutex_destroy(&domain->socketMutex);
@@ -938,15 +948,150 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
   /*  
   status = rwl_destroy (&domain->connectLock);
   if (status != 0) {
-    cmsg_err_abort(status, "cMsgDomainFree:destroying connect read/write lock");
-  }
-  */  
+  cmsg_err_abort(status, "cMsgDomainFree:destroying connect read/write lock");
+}
+  */
 #endif
 
   cMsgCountDownLatchFree(&domain->syncLatch);
     
 }
 
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine initializes memory in a structure used to hold
+ * parsed UDL information.
+ */
+void cMsgParsedUDLInit(parsedUDL *p) {
+  if (p == NULL) return;
+  
+  p->nameServerPort    = 0;
+  p->nameServerUdpPort = 0;
+  p->mustMulticast     = 0;
+  p->timeout           = 0;
+  p->regime            = CMSG_REGIME_MEDIUM;
+  p->failover          = CMSG_FAILOVER_ANY;
+  p->cloud             = CMSG_CLOUD_ANY;
+  p->isLocal           = 0;
+  p->udl               = NULL;
+  p->udlRemainder      = NULL;
+  p->subdomain         = NULL;
+  p->subRemainder      = NULL;
+  p->password          = NULL;
+  p->nameServerHost    = NULL;
+  p->serverName        = NULL;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine copies memory in a structure used to hold
+ * parsed UDL information to another structure.
+ */
+int cMsgParsedUDLCopy(parsedUDL *dest, parsedUDL *src) {
+  if (dest == NULL || src == NULL) return;
+  
+  dest->nameServerPort    = src->nameServerPort;
+  dest->nameServerUdpPort = src->nameServerUdpPort;
+  dest->mustMulticast     = src->mustMulticast;
+  dest->timeout           = src->timeout;
+  dest->regime            = src->regime;
+  dest->failover          = src->failover;
+  dest->cloud             = src->cloud;
+  dest->isLocal           = src->isLocal;
+  
+  cMsgParsedUDLFree(dest);
+  
+  if (src->udl != NULL) {
+    dest->udl = strdup(src->udl);
+    if (dest->udl == NULL) return CMSG_OUT_OF_MEMORY;
+  }
+  
+  if (src->udlRemainder != NULL) {
+    dest->udlRemainder = strdup(src->udlRemainder);
+    if (dest->udlRemainder == NULL) return CMSG_OUT_OF_MEMORY;
+  }
+  
+  if (src->subdomain != NULL) {
+    dest->subdomain = strdup(src->subdomain);
+    if (dest->subdomain == NULL) return CMSG_OUT_OF_MEMORY;
+  }
+  
+  if (src->subRemainder != NULL) {
+    dest->subRemainder = strdup(src->subRemainder);
+    if (dest->subRemainder == NULL) return CMSG_OUT_OF_MEMORY;
+  }
+  
+  if (src->password != NULL) {
+    dest->password = strdup(src->password);
+    if (dest->password == NULL) return CMSG_OUT_OF_MEMORY;
+  }
+  
+  if (src->nameServerHost != NULL) {
+    dest->nameServerHost = strdup(src->nameServerHost);
+    if (dest->nameServerHost == NULL) return CMSG_OUT_OF_MEMORY;
+  }
+  
+  if (src->serverName != NULL) {
+    dest->serverName = strdup(src->serverName);
+    if (dest->serverName == NULL) return CMSG_OUT_OF_MEMORY;
+  }
+  
+  return CMSG_OK;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine frees allocated memory in a structure used to hold
+ * parsed UDL information.
+ */
+void cMsgParsedUDLFree(parsedUDL *p) {
+  if (p == NULL) return;
+  
+  if (p->udl             != NULL) {free(p->udl);             p->udl             = NULL;}
+  if (p->udlRemainder    != NULL) {free(p->udlRemainder);    p->udlRemainder    = NULL;}
+  if (p->subdomain       != NULL) {free(p->subdomain);       p->subdomain       = NULL;}
+  if (p->subRemainder    != NULL) {free(p->subRemainder);    p->subRemainder    = NULL;}
+  if (p->password        != NULL) {free(p->password);        p->password        = NULL;}
+  if (p->nameServerHost  != NULL) {free(p->nameServerHost);  p->nameServerHost  = NULL;}
+  if (p->serverName      != NULL) {free(p->serverName);      p->serverName      = NULL;}
+}
+
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine frees allocated memory in a structure used to hold
+ * parsed subscription's subject and type information.
+ *
+ * @param r the head of a linked list of linked lists containing
+ *          parsed subscription information
+ */
+void cMsgNumberRangeFree(numberRange *r) {
+  numberRange *head, *range, *nextHead, *next;
+  if (r == NULL) return;
+    
+  /* go from linked list head to linked list head */
+  head = r;
+  while (head != NULL) {
+    nextHead = head->nextHead;
+    /* free a sinle linked list */
+    range = head;
+    while (range != NULL) {
+      next = range->next;
+      free(range);
+      range = next;
+    }
+    head = nextHead;
+  }
+}
 
 /*-------------------------------------------------------------------*/
 
