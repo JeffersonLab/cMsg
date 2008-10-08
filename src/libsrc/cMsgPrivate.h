@@ -432,6 +432,7 @@ unsigned int cMsg_b64_encode_len    (const char *src, unsigned int srclen);
 unsigned int cMsg_b64_decode_len    (const char *src, unsigned int srclen);
 unsigned int cMsg_b64_encode_len_est(const char *src, unsigned int srclen);
 unsigned int cMsg_b64_decode_len_est(const char *src, unsigned int srclen);
+         int cMsgNumDigits          (int64_t number, int isUint64);
 
 
 #ifdef	__cplusplus
