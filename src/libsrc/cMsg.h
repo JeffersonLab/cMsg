@@ -125,7 +125,7 @@ extern "C" {
 
 #ifdef Darwin
 #define CLOCK_REALTIME 0
-void clock_gettime(int dummy, struct timespec *t1);
+int clock_gettime(int dummy, struct timespec *t1);
 #endif
 
 #ifdef VXWORKS
