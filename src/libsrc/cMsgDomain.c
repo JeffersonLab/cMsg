@@ -168,14 +168,16 @@ static void *updateServerThread(void *arg);
 static int restoreSubscriptions(cMsgDomainInfo *domain) ;
 static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes);
 static int resubscribe(cMsgDomainInfo *domain, subInfo *sub);
+static int reconnect(cMsgDomainInfo *domain);
+static int connectToServer(void **domainId);
 
 /* misc */
 static int  udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static int  sendMonitorInfo(cMsgDomainInfo *domain, int connfd);
 static int  getMonitorInfo(cMsgDomainInfo *domain);
 static int  disconnectFromKeepAlive(void **pdomainId);
-static int  connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIndex);
-static int  talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIndex);
+static int  connectDirect(cMsgDomainInfo *domain, void **domainId, const char *host, int port);
+static int  talkToNameServer(cMsgDomainInfo *domain, int serverfd);
 static int  parseUDL(const char *UDL,parsedUDL *parsedUdl);
 static int  unSendAndGet(void *domainId, int id);
 static int  unSubscribeAndGet(void *domainId, const char *subject,
@@ -183,7 +185,7 @@ static int  unSubscribeAndGet(void *domainId, const char *subject,
 static void  defaultShutdownHandler(void *userArg);
 static void *receiverThd(void *arg);
 static void *multicastThd(void *arg);
-static int   connectWithMulticast(cMsgDomainInfo *domain, int failoverIndex,
+static int   connectWithMulticast(cMsgDomainInfo *domain,
                                   char **host, int *port);
 
 
@@ -471,15 +473,18 @@ printf("Found UDL = %s\n", domain->failovers[i].udl);
   /* Go through the UDL's until one works */
   failoverIndex = -1;
   do {
+    /* try next UDL in list */
     failoverIndex++;
+    /* copy this UDL's specifics into main structure */
+    cMsgParsedUDLCopy(&domain->currentUDL, &domain->failovers[failoverIndex]);
+    
     /* connect using that UDL info */
     /*printf("\nTrying to connect with UDL = %s\n", domain->failovers[failoverIndex].udl);*/
-    if (domain->failovers[failoverIndex].mustMulticast == 1) {
-      free(domain->failovers[failoverIndex].nameServerHost);
+    if (domain->currentUDL.mustMulticast) {
+      free(domain->currentUDL.nameServerHost);
       /*printf("Trying to connect with Multicast\n"); */
-      err = connectWithMulticast(domain, failoverIndex,
-                                 &domain->failovers[failoverIndex].nameServerHost,
-                                 &domain->failovers[failoverIndex].nameServerPort);
+      err = connectWithMulticast(domain, &domain->currentUDL.nameServerHost,
+                                 &domain->currentUDL.nameServerPort);
       if (err != CMSG_OK) {
         /*printf("Error trying to connect with Multicast, err = %d\n", err);*/
         connectFailures++;
@@ -487,7 +492,8 @@ printf("Found UDL = %s\n", domain->failovers[i].udl);
       }
     }
 
-    err = connectDirect(domain, domainId, failoverIndex);
+    err = connectDirect(domain, domainId, domain->currentUDL.nameServerHost,
+                        domain->currentUDL.nameServerPort);
     if (err == CMSG_OK) {
       domain->failoverIndex = failoverIndex;
       gotConnection = 1;
@@ -495,22 +501,20 @@ printf("Found UDL = %s\n", domain->failovers[i].udl);
       break;
     }
 
-    /* copy this UDL's specifics into main structure */
-    cMsgParsedUDLCopy(&domain->currentUDL, &domain->failovers[failoverIndex]);
     
     /* Store the host & port we used to make a connection
      * in the form of a server name (host:port) which will
      * be useful later. */
-    len = strlen(domain->failovers[failoverIndex].nameServerHost) +
-          cMsgNumDigits(domain->failovers[failoverIndex].nameServerPort, 0) + 2;
+    len = strlen(domain->currentUDL.nameServerHost) +
+        cMsgNumDigits(domain->currentUDL.nameServerPort, 0) + 2;
     domain->currentUDL.serverName = (char *)malloc(len);
     if (domain->currentUDL.serverName == NULL) {
       cMsgDomainFree(domain);
       free(domain);
       return CMSG_OUT_OF_MEMORY;
     }
-    sprintf(domain->currentUDL.serverName, "%s:%d",domain->failovers[failoverIndex].nameServerHost,
-                                           domain->failovers[failoverIndex].nameServerPort);
+    sprintf(domain->currentUDL.serverName, "%s:%d",domain->currentUDL.nameServerHost,
+            domain->currentUDL.nameServerPort);
     domain->currentUDL.serverName[len] = 0;
 
     connectFailures++;
@@ -543,9 +547,8 @@ printf("Found UDL = %s\n", domain->failovers[i].udl);
  * can be made.
  *
  */
-static int connectWithMulticast(cMsgDomainInfo *domain, int failoverIndex,
-                                char **host, int *port) {    
-    char   buffer[1024];
+static int connectWithMulticast(cMsgDomainInfo *domain, char **host, int *port) {
+    char   *buffer;
     int    err, status, len, passwordLen, sockfd, isLocal;
     int    outGoing[5], multicastTO=0, gotResponse=0;
 
@@ -567,8 +570,8 @@ static int connectWithMulticast(cMsgDomainInfo *domain, int failoverIndex,
        
     memset((void *)&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
-/*printf("Multicast thd uses port %hu\n", ((uint16_t)domain->failovers[failoverIndex].nameServerUdpPort));*/
-    servaddr.sin_port   = htons((uint16_t) (domain->failovers[failoverIndex].nameServerUdpPort));
+/*printf("Multicast thd uses port %hu\n", ((uint16_t)domain->currentUDL.nameServerUdpPort));*/
+    servaddr.sin_port   = htons((uint16_t) (domain->currentUDL.nameServerUdpPort));
     /* send packet to multicast address */
     if ( (err = cMsgStringToNumericIPaddr(CMSG_MULTICAST_ADDR, &servaddr)) != CMSG_OK ) {
       /* an error should never be returned here */
@@ -577,15 +580,16 @@ static int connectWithMulticast(cMsgDomainInfo *domain, int failoverIndex,
     }
     
     /*
-     * We send 2 items explicitly:
-     *   1) int describing action to be done
-     *   2) password
+     * We send these items explicitly:
+    *   1) 3 magic ints for connection protection
+    *   2) ints describing action to be done + password len
+    *   3) password
      * The host we're sending from gets sent for free
      * as does the UDP port we're sending from.
      */
     passwordLen = 0;
-    if (domain->failovers[failoverIndex].password != NULL) {
-        passwordLen = strlen(domain->failovers[failoverIndex].password);
+    if (domain->currentUDL.password != NULL) {
+      passwordLen = strlen(domain->currentUDL.password);
     }
     /* magic ints */
     outGoing[0] = htonl(CMSG_MAGIC_INT1);
@@ -597,11 +601,16 @@ static int connectWithMulticast(cMsgDomainInfo *domain, int failoverIndex,
     outGoing[4] = htonl(passwordLen);
 
     /* copy data into a single buffer */
-    memcpy(buffer, (void *)outGoing, sizeof(outGoing));
     len = sizeof(outGoing);
+    buffer = (char *) malloc(len + passwordLen);
+    if (buffer == NULL) {
+      close(sockfd);
+      return CMSG_OUT_OF_MEMORY;
+    }
+    memcpy(buffer, (void *)outGoing, len);
     if (passwordLen > 0) {
-        memcpy(buffer+len, (const void *)domain->failovers[failoverIndex].password, passwordLen);
-        len += passwordLen;
+      memcpy(buffer+len, (const void *)domain->currentUDL.password, passwordLen);
+      len += passwordLen;
     }
         
     /* create and start a thread which will receive any responses to our multicast */
@@ -633,7 +642,7 @@ static int connectWithMulticast(cMsgDomainInfo *domain, int failoverIndex,
      * Round things to the nearest second since we're only multicasting a
      * message every second anyway.
      */
-    multicastTO = domain->failovers[failoverIndex].timeout;
+    multicastTO = domain->currentUDL.timeout;
     if (multicastTO > 0) {
         wait.tv_sec  = multicastTO;
         wait.tv_nsec = 0;
@@ -701,6 +710,7 @@ static int connectWithMulticast(cMsgDomainInfo *domain, int failoverIndex,
     
 /*printf("-udp multi %d\n", sockfd);*/
     close(sockfd);
+    free(buffer);
     
     if (!gotResponse) {
 /*printf("Got no response\n");*/
@@ -709,7 +719,7 @@ static int connectWithMulticast(cMsgDomainInfo *domain, int failoverIndex,
 
     /* Record whether this server is local or not. */    
     cMsgNodeIsLocal(rArg.buffer, &isLocal);
-    domain->failovers[domain->failoverIndex].isLocal = isLocal;
+    domain->currentUDL.isLocal = isLocal;
 
     return(CMSG_OK);
 }
@@ -847,7 +857,8 @@ static void *multicastThd(void *arg) {
  * 
  * @param domain pointer to connection information structure.
  * @param domain pointer to pointer given to cmsg_cmsg_connect.
- * @param failoverIndex index into array of valid URL info
+ * @param host host to connect to
+ * @param port TCP port to connect to
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
@@ -856,7 +867,7 @@ static void *multicastThd(void *arg) {
  * @returns CMSG_NETWORK_ERROR if host name could not be resolved or could not connect,
  *                             or a communication error with either server occurs (can't read or write).
  */   
-static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIndex) {
+static int connectDirect(cMsgDomainInfo *domain, void **domainId, const char *host, int port) {
 
   int err, serverfd, sendLen, status, outGoing[3];
   cMsgThreadInfo *threadArg;
@@ -872,8 +883,7 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIn
   /*---------------------------------------------------------------*/
     
   /* first connect to server host & port (default send & rcv buf sizes) */  
-  if ( (err = cMsgTcpConnect(domain->failovers[failoverIndex].nameServerHost,
-                             (unsigned short) domain->failovers[failoverIndex].nameServerPort,
+  if ( (err = cMsgTcpConnect(host, (unsigned short) port,
                              0, 0, &serverfd)) != CMSG_OK) {
     cMsgRestoreSignals(domain);
     /* err = CMSG_SOCKET_ERROR if socket could not be created or socket options could not be set.
@@ -886,7 +896,7 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIn
   }
   
   /* get host & port (domain->sendHost,sendPort) to send messages to */
-  err = talkToNameServer(domain, serverfd, failoverIndex);
+  err = talkToNameServer(domain, serverfd);
   if (err != CMSG_OK) {
     cMsgRestoreSignals(domain);
     close(serverfd);
@@ -1111,8 +1121,6 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIn
  * by cMsgConnectWriteLock() when called in keepAlive thread.
  * 
  * @param domain pointer to connection info structure
- * @param failoverIndex index into the array of parsed UDLs to which
- *                      a connection is to be attempted with this function
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_OUT_OF_MEMOERY if the allocating memory failed
@@ -1120,22 +1128,21 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, int failoverIn
  * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
  *                             or a communication error with either server occurs.
  */   
-static int reconnect(void **domainId, int failoverIndex) {
+static int reconnect(cMsgDomainInfo *domain) {
 
   int i, err, serverfd, status, tblSize, sendLen, outGoing[3];
   getInfo *info;
   const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
   struct sockaddr_in  servaddr;
   hashNode *entries = NULL;
-  cMsgDomainInfo *domain = (cMsgDomainInfo *) (*domainId);
-   
+
   /*--------------------------------------------------------------------*/
   /* Connect to cMsg name server to check if server can be connected to.
    * If not, don't waste any more time and try the next one.            */
   /*--------------------------------------------------------------------*/
   /* connect to server host & port */
-  if ( (err = cMsgTcpConnect(domain->failovers[failoverIndex].nameServerHost,
-                             (unsigned short) domain->failovers[failoverIndex].nameServerPort,
+  if ( (err = cMsgTcpConnect(domain->currentUDL.nameServerHost,
+                            (unsigned short) domain->currentUDL.nameServerPort,
                              0, 0, &serverfd)) != CMSG_OK) {
     return(err);
   }  
@@ -1216,7 +1223,7 @@ static int reconnect(void **domainId, int failoverIndex) {
   /* talk to cMsg name server to check if name is unique */
   /*-----------------------------------------------------*/
   /* get host & port (domain->sendHost,sendPort) to send messages to */
-  err = talkToNameServer(domain, serverfd, failoverIndex);
+  err = talkToNameServer(domain, serverfd);
   if (err != CMSG_OK) {
     close(serverfd);
     return(err);
@@ -1229,7 +1236,7 @@ static int reconnect(void **domainId, int failoverIndex) {
   }
   
   /* done talking to server */
-    close(serverfd);
+  close(serverfd);
    
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "reconnect: closed name server socket\n");
@@ -4033,7 +4040,7 @@ int cmsg_cmsg_shutdownServers(void *domainId, const char *server, int flag) {
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server (can't read or write)
  *
  */
-static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIndex) {
+static int talkToNameServer(cMsgDomainInfo *domain, int serverfd) {
 
   int  err, lengthDomain, lengthSubdomain, lengthRemainder, lengthPassword;
   int  lengthHost, lengthName, lengthUDL, lengthDescription;
@@ -4041,7 +4048,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIn
   char temp[CMSG_MAXHOSTNAMELEN], atts[7];
   const char *domainType = "cMsg";
   struct iovec iov[9];
-  parsedUDL *pUDL = &domain->failovers[failoverIndex];
+  parsedUDL *pUDL = &domain->currentUDL;
 
   /* first send magic #s to server which identifies us as real cMsg client */
   outGoing[0] = htonl(CMSG_MAGIC_INT1);
@@ -4244,7 +4251,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int failoverIn
 /*-------------------------------------------------------------------*/
 /**
  * This method reads monitoring data from the server.
- * @throws IOException if communication error
+ * @returns if communication error
  */
 static int getMonitorInfo(cMsgDomainInfo *domain) {
 
@@ -4407,6 +4414,44 @@ printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, host = %s, p
 }
 
 
+ /**
+  * Try to connect to new failover server. It may or may not be part
+  * of a cloud.
+  * @returns if cannot connect or restore subscriptions
+  */
+static int connectToServer(void **domainId) {
+  int err;
+  cMsgDomainInfo *domain = (cMsgDomainInfo *) (*domainId);
+  if (domain == NULL) return(CMSG_BAD_ARGUMENT);
+
+  if (domain->currentUDL.mustMulticast) {
+    if (domain->currentUDL.nameServerHost != NULL) free(domain->currentUDL.nameServerHost);
+printf("KA: trying to connect with Multicast\n");
+    err = connectWithMulticast(domain, &domain->currentUDL.nameServerHost,
+                               &domain->currentUDL.nameServerPort);
+    if (err != CMSG_OK) {
+printf("KA: error trying to connect with Multicast, err = %d\n", err);
+      return err;
+    }
+  }
+
+  if ((err = reconnect(domain)) != CMSG_OK) {
+    return err;
+  }
+
+  /*printf("connectToServer: Connected!!\n");*/
+
+  /* restore subscriptions on the new server */
+  if ( (err = restoreSubscriptions(domain)) != CMSG_OK) {
+printf("KA: new connection attempt failed");
+    /* if subscriptions fail, then we do NOT use failover server */
+    /* BUGBUG this will block */
+    disconnectFromKeepAlive(domainId);
+    return err;
+  }
+  domain->resubscribeComplete = 1;
+  return CMSG_OK;
+}
 
 
 
@@ -4499,14 +4544,15 @@ printf("KA: so go to next UDL\n");
               /* if we must failover locally, disconnect */
               else {
 printf("KA: so just disconnect\n");
-                cmsg_cmsg_disconnect(domainId);
+                disconnectFromKeepAlive(domainId);
                 return NULL;
               }
             }
             
             /* look through list of cloud servers */
             if (hashGetAll(&domain->cloudServerTable, &entries, &size) == 0) {
-              return CMSG_ERROR;
+              disconnectFromKeepAlive(domainId);
+              return NULL;
             }
             
             if (entries != NULL) {
@@ -4542,7 +4588,6 @@ printf("KA: so just disconnect\n");
                     const char *pattern = "[&\\?]cmsgpassword=([^&]+)";
                     regmatch_t matches[2]; /* we have 2 potential matches: 1 whole, 1 sub */
                     regex_t    compiled;
-                    int foundMatch = 0;
 
                     /* compile regular expression */
                     err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
@@ -4555,21 +4600,23 @@ printf("KA: so just disconnect\n");
                     /* if no match found ... */
                     if (err != 0 || matches[1].rm_so < 0) {
                       // self-contradictory results
-                      return CMSG_ERROR;
-                    }       
+                      disconnectFromKeepAlive(domainId);
+                      return NULL;
+                    }
 
                     /* replace old with new password */
-                    if (pUdl->password.length() > 0) {
+                    if (pUdl->password != NULL && strlen(pUdl->password) > 0) {
 printf("Replacing old pswd with new one\n");
                       /* length of existing password */
                       plen = matches[1].rm_eo - matches[1].rm_so;
                       /* len of new subRemainder string with substituted/new password */
-                      len = strlen(domain->currentUDL.subRemainder) - plen + strlen(pUdl->password);
+                      len = strlen(domain->currentUDL.subRemainder) - plen + strlen(pUdl->password) + 1;
 
                       /* now create the new subRemainder string w/ new password */
                       newSubRemainder = (char *)calloc(1,len);
                       if (newSubRemainder == NULL) {
-                        return CMSG_ERROR;
+                        disconnectFromKeepAlive(domainId);
+                        return NULL;
                       }
                       strncat(newSubRemainder, domain->currentUDL.subRemainder, matches[1].rm_so);
                       strcat (newSubRemainder, pUdl->password);
@@ -4583,12 +4630,13 @@ printf("Eliminating pswd\n");
                       plen = matches[0].rm_eo - matches[0].rm_so;
                       
                       /* len of new subRemainder string with substituted/new password */
-                      len = strlen(domain->currentUDL.subRemainder) - plen;
+                      len = strlen(domain->currentUDL.subRemainder) - plen + 1;
 
                       /* now create the new subRemainder string w/ new password */
                       newSubRemainder = (char *)calloc(1,len);
                       if (newSubRemainder == NULL) {
-                        return CMSG_ERROR;
+                        disconnectFromKeepAlive(domainId);
+                        return NULL;
                       }
                       strncat(newSubRemainder, domain->currentUDL.subRemainder, matches[0].rm_so);
                       strcat (newSubRemainder, domain->currentUDL.subRemainder+matches[0].rm_eo);
@@ -4600,111 +4648,52 @@ printf("new subRemainder = %s\n", newSubRemainder);
                   }
                   
                   // else if existing UDL has no password, put one on end if necessary
-                  else if (pUdl->password.length() > 0) {
-print("No cmsgpassword= in udl, CONCAT\n");
-                    if (str(domain->currentUDL.subRemainder.contains("?")) {
-                      newSubRemainder = subRemainder.concat("&cmsgpassword="+pUdl.password);
+                  else if (pUdl->password != NULL && strlen(pUdl->password) > 0) {
+printf("No cmsgpassword= in udl, CONCAT\n");
+                    /* len of new subRemainder string added password */
+                    len = strlen(domain->currentUDL.subRemainder) + 15 + strlen(pUdl->password);
+
+                    /* now create the new subRemainder string w/ password */
+                    newSubRemainder = (char *)calloc(1,len);
+                    if (newSubRemainder == NULL) {
+                      disconnectFromKeepAlive(domainId);
+                      return NULL;
+                    }
+
+                    if (strstr(domain->currentUDL.subRemainder, "?") != NULL) {
+                      sprintf(newSubRemainder, "%s&cmsgpassword=%s", domain->currentUDL.subRemainder, pUdl->password);
                     }
                     else {
-                      newSubRemainder = subRemainder.concat("?cmsgpassword="+pUdl.password);
+                      sprintf(newSubRemainder, "%s?cmsgpassword=%s", domain->currentUDL.subRemainder, pUdl->password);
                     }
                   }
 
+                  /* In failing over to a cloud member, only the udl and subRemainder may change -
+                   * due to possibly needing a (different) password to connect to the new server. */
+                  if (domain->currentUDL.udl != NULL) free(domain->currentUDL.udl);
+                  len = strlen(sName) + strlen(domain->currentUDL.subdomain) + strlen(newSubRemainder) + 10;
+                  domain->currentUDL.udl = (char *)calloc(1,len);
+                  if (domain->currentUDL.udl == NULL) {
+                    disconnectFromKeepAlive(domainId);
+                    return NULL;
+                  }
+                  sprintf(domain->currentUDL.udl, "cMsg://%s/%s/%s", sName, domain->currentUDL.subdomain, newSubRemainder);
+printf("KA: Construct new UDL as:\n%s\n", domain->currentUDL.udl);
 
-
-
-
-
-
-                
-              }
-              free(entries);
+                  if (domain->currentUDL.subRemainder != NULL) free(domain->currentUDL.subRemainder);
+                  domain->currentUDL.subRemainder = newSubRemainder;
+                 
+                  /* connect with server */
+                  if ((err = connectToServer(domainId)) == CMSG_OK) {
+                    /* we got ourselves a new server, boys */
+                    weGotAConnection = 1;
+                    goto top;
+                  }
+               }
             }
-            
-            // look through list of cloud servers
-            for (Map.Entry<String,ParsedUDL> entry : cloudServers.entrySet()) {
-              String n = entry.getKey();
-              ParsedUDL pUdl = entry.getValue();
-              // If we were connected to one of the cloud servers
-              // (which just failed), go to next one.
-              if (n.equals(sName)) {
-                continue;
-              }
-
-              // if we can failover to anything or this cloud server is local
-              if ((cloud == cMsgConstants.cloudAny) || pUdl.local) {
-                // Add to our own "parsed" UDL using server's name and
-                // current values of other parameters.
-
-                // Be careful with the password which, I believe, is the
-                // only server-dependent part of "subRemainder" and must
-                // be explicitly substituted for.
-                String newSubRemainder = subRemainder;
-                // if existing UDL has a password in remainder ...
-                if (password.length() > 0) {
-                  Pattern pattern = Pattern.compile("([\\?&])cmsgpassword=([^&]+)", Pattern.CASE_INSENSITIVE);
-                  Matcher matcher = pattern.matcher(subRemainder);
-
-                  if (pUdl.password.length() > 0) {
-//System.out.println("Replacing old pswd with new one");
-                    newSubRemainder = matcher.replaceFirst("$1cmsgpassword=" + pUdl.password);
-                  }
-                  else {
-//System.out.println("Eliminating pswd");
-                    newSubRemainder = matcher.replaceFirst("");
-                  }
-                }
-                // else if existing UDL has no password, put one on end if necessary
-                else if (pUdl.password.length() > 0) {
-//System.out.println("No cmsgpassword= in udl, CONCAT");
-                  if (subRemainder.contains("?")) {
-                    newSubRemainder = subRemainder.concat("&cmsgpassword="+pUdl.password);
-                  }
-                  else {
-                    newSubRemainder = subRemainder.concat("?cmsgpassword="+pUdl.password);
-                  }
-                }
-
-                pUdl.UDL = "cMsg://"+ n + "/" + subdomain + "/" + newSubRemainder;
-//System.out.println("KA: Construct new UDL as:\n" + pUdl.UDL);
-                pUdl.subdomain = subdomain;
-                pUdl.subRemainder = subRemainder;
-                pUdl.regime = regime;
-                pUdl.failover = failover;
-                pUdl.cloud = cloud;
-                pUdl.copyToLocal();
-
-                try {
-                  // connect with server
-                  connectToServer();
-                  // we got ourselves a new server, boys
-                  weGotAConnection = 1;
-                  goto top;
-                }
-                catch (cMsgException e) {
-                  // clear effects of p.copyToLocal()
-                  pUdl.clearLocal();
-                }
-              }
-            }
-            // Went thru list of cloud servers with nothing to show for it,
-            // so try next UDL in list
-        }
-
-
-
-
-
-
-
-        
-        /* clean up */
-        close(domain->keepAliveSocket);
-        close(domain->sendSocket);
-        
-        /* don't let any other thread use the outdated sockets */
-        domain->keepAliveSocket = -1;
-        domain->sendSocket = -1;
+            free(entries);
+          } /* if entries != NULL */
+        } /* while no connection */
         
         /* remember which UDL has just failed */
         failedFailoverIndex = failoverIndex;
@@ -4720,13 +4709,10 @@ print("No cmsgpassword= in udl, CONCAT\n");
         }
         domain->resubscribeComplete = 0;
 
-        /* grab mutex to keep from conflicting with "disconnect" */
-        cMsgConnectWriteLock(domain);
-
         /* Go through the UDL's until one works */
-        while (domain->implementFailovers && !weGotAConnection) {
+        while (!weGotAConnection) {
             if (connectFailures >= domain->failoverSize) {
-/* printf("ka: Reached our limit of UDLs so quit\n"); */
+              /* printf("ka: Reached our limit of UDLs so quit\n"); */
               break;
             }
             
@@ -4734,58 +4720,43 @@ print("No cmsgpassword= in udl, CONCAT\n");
             
             /* skip over UDL that failed */
             if (failoverIndex == failedFailoverIndex) {
-/* printf("ka: skip over UDL that just failed\n"); */
-              connectFailures++;
-              continue;
-            }
-
-            /* connect using that UDL info */
-/* printf("ka: trying to reconnect with UDL = %s\n", domain->failovers[failoverIndex].udl); */
-
-            if (domain->failovers[failoverIndex].mustMulticast == 1) {
-              free(domain->failovers[failoverIndex].nameServerHost);
-              connectWithMulticast(domain, failoverIndex,
-                                   &domain->failovers[failoverIndex].nameServerHost,
-                                   &domain->failovers[failoverIndex].nameServerPort);     
-            }
-
-            err = reconnect(domainId, failoverIndex);
-            if (err != CMSG_OK) {
-              connectFailures++;
-/* printf("ka: ERROR reconnecting, continue\n"); */
-              continue;
-            }
-/* printf("ka: Connected!!, now restore subscriptions\n"); */
-
-            /* restore subscriptions on the new server */
-            err = restoreSubscriptions(domain);            
-            if (err != CMSG_OK) {
-              /* if subscriptions fail, then we do NOT use this failover server */
+              /* printf("ka: skip over UDL that just failed\n"); */
               connectFailures++;
               continue;
             }
             
+            /* copy next UDL's specifics into main structure */
+            cMsgParsedUDLCopy(&domain->currentUDL, &domain->failovers[failoverIndex]);
+
+            /* connect with server */
+            if ((err = connectToServer(domainId)) == CMSG_OK) {
+              /* we got ourselves a new server, boys */
+              weGotAConnection = 1;
+            }
+            else {
+              connectFailures++;
+printf("ka: ERROR reconnecting, continue\n");
+              continue;
+            }
+
             domain->failoverIndex = failoverIndex;
-            domain->resubscribeComplete = 1;
 
-            /* we got ourselves a new server, boys */
-            weGotAConnection = 1;
-            
             /* wait for up to 1.1 sec for waiters to respond */
             err = cMsgLatchCountDown(&domain->syncLatch, &wait);
             if (err != 1) {
-/* printf("ka: Problems with reporting back to countdowner\n"); */
+              /* printf("ka: Problems with reporting back to countdowner\n"); */
             }
             cMsgLatchReset(&domain->syncLatch, 1, NULL);
-        }
-        cMsgConnectWriteUnlock(domain);
-    } /* while we gotta connection */
+            
+        } /* while we have no connection */
+      } /* if implementing failovers  */
+    } /* while we have a connection */
 
     /* if we've reach here, there's an error, do a disconnect */
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "keepAliveThread: server is probably dead, disconnect\n");
     }
-    
+        
  printf("\n\n\nka: DISCONNECTING \n\n\n");
     p = (void *)domain; /* get rid of compiler warnings */
     disconnectFromKeepAlive(&p);
@@ -4799,194 +4770,6 @@ print("No cmsgpassword= in udl, CONCAT\n");
     sun_setconcurrency(con);
     
     return NULL;
-}
-
-
-/**
- * This routine is run as a thread which is used to read keep alive
- * communication (monitoring info in XML format) from a cMsg server.
- * If there is an I/O error, the other end of the socket & the server
- * is presumed dead.
- *
- * NOTE: When creating a new thread and passing the domain structure,
- * pass the original pointer to the pointer to the struct (see domainId
- * below)!! Thus when disconnect is done and the pointer to struct is
- * set to NULL, all threads will see it. This allows calls to other
- * cMsg functions detect a NULL pointer and return an error instead of
- * seg faulting.
- */
-static void *keepAliveThreadOrig(void *arg) {
-
-  kaThdArg *kaArg = (kaThdArg *) arg;
-  void **domainId = kaArg->domainId;
-  cMsgDomainInfo *domain = kaArg->domain;
-  int outGoing, err, len;
-    
-  int failoverIndex = domain->failoverIndex;
-  int failedFailoverIndex, connectFailures = 0, weGotAConnection = 1;
-  struct timespec wait;
-  void *p;
-    
-  /* increase concurrency for this thread for early Solaris */
-  int  con;
-  con = sun_getconcurrency();
-  sun_setconcurrency(con + 1);
-
-  free(arg);
-
-  /*printf("ka: arg = %p, domainId = %p, domain = %p\n", arg, domainId, domain);*/
-  wait.tv_sec  = 1;
-  wait.tv_nsec = 100000000; /* 1.1 sec */
-
-  /* release system resources when thread finishes */
-  pthread_detach(pthread_self());
-
-  /* periodically send a keep alive message and read response */
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "keepAliveThread: keep alive thread created, socket = %d\n",
-            domain->keepAliveSocket);
-  }
-  
-  /* request to send */
-  outGoing = htonl(CMSG_KEEP_ALIVE);
-    
-  while (weGotAConnection) {
-    
-    while(1) {
-
-      /* read len of monitoring data to come */
-      if ((err = cMsgTcpRead(domain->keepAliveSocket, (char*) &len, sizeof(len))) != sizeof(len)) {
-               /*if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "keepAliveThread: read failure\n");
-      }*/
-        break;
-      }
-      len = ntohl(len);
-           
-      /* check for room in memory */
-      if (len > domain->monitorXMLSize) {
-        if (domain->monitorXML != NULL) free(domain->monitorXML);
-        domain->monitorXML = (char *) calloc(1, len+1);
-        domain->monitorXMLSize = len;
-        if (domain->monitorXML == NULL) {
-          if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-            fprintf(stderr, "keepAliveThread: no memory for size %d\n", (len+1));
-          }
-          exit(-1);
-        }
-      }
-
-      /* read monitoring data */
-      if ((err = cMsgTcpRead(domain->keepAliveSocket, domain->monitorXML, len)) !=  len) {
-               /*if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "keepAliveThread: read failure\n");
-      }*/
-        break;
-      }
-    }
-
-    /* clean up */
-    close(domain->keepAliveSocket);
-    close(domain->sendSocket);
-        
-    /* don't let any other thread use the outdated sockets */
-    domain->keepAliveSocket = -1;
-    domain->sendSocket = -1;
-        
-    /* remember which UDL has just failed */
-    failedFailoverIndex = failoverIndex;
-        
-        /* Start by trying to connect to the first UDL on the list.
-        * If we've just been connected to that UDL, try the next. */
-    if (failoverIndex != 0) {
-      failoverIndex = -1;
-      connectFailures = 0;
-    }
-    else {
-      connectFailures = 1;
-    }
-    weGotAConnection = 0;
-    domain->resubscribeComplete = 0;
-
-    /* grab mutex to keep from conflicting with "disconnect" */
-    cMsgConnectWriteLock(domain);
-
-    /* Go through the UDL's until one works */
-    while (domain->implementFailovers && !weGotAConnection) {
-      if (connectFailures >= domain->failoverSize) {
-        /* printf("ka: Reached our limit of UDLs so quit\n"); */
-        break;
-      }
-            
-      failoverIndex++;
-            
-      /* skip over UDL that failed */
-      if (failoverIndex == failedFailoverIndex) {
-        /* printf("ka: skip over UDL that just failed\n"); */
-        connectFailures++;
-        continue;
-      }
-
-      /* connect using that UDL info */
-      /* printf("ka: trying to reconnect with UDL = %s\n", domain->failovers[failoverIndex].udl); */
-
-      if (domain->failovers[failoverIndex].mustMulticast == 1) {
-        free(domain->failovers[failoverIndex].nameServerHost);
-        connectWithMulticast(domain, failoverIndex,
-                             &domain->failovers[failoverIndex].nameServerHost,
-                             &domain->failovers[failoverIndex].nameServerPort);
-      }
-
-      err = reconnect(domainId, failoverIndex);
-      if (err != CMSG_OK) {
-        connectFailures++;
-        /* printf("ka: ERROR reconnecting, continue\n"); */
-        continue;
-      }
-      /* printf("ka: Connected!!, now restore subscriptions\n"); */
-
-      /* restore subscriptions on the new server */
-      err = restoreSubscriptions(domain);
-      if (err != CMSG_OK) {
-        /* if subscriptions fail, then we do NOT use this failover server */
-        connectFailures++;
-        continue;
-      }
-            
-      domain->failoverIndex = failoverIndex;
-      domain->resubscribeComplete = 1;
-
-      /* we got ourselves a new server, boys */
-      weGotAConnection = 1;
-            
-      /* wait for up to 1.1 sec for waiters to respond */
-      err = cMsgLatchCountDown(&domain->syncLatch, &wait);
-      if (err != 1) {
-        /* printf("ka: Problems with reporting back to countdowner\n"); */
-      }
-      cMsgLatchReset(&domain->syncLatch, 1, NULL);
-    }
-    cMsgConnectWriteUnlock(domain);
-  } /* while we gotta connection */
-
-  /* if we've reach here, there's an error, do a disconnect */
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "keepAliveThread: server is probably dead, disconnect\n");
-  }
-    
-  printf("\n\n\nka: DISCONNECTING \n\n\n");
-  p = (void *)domain; /* get rid of compiler warnings */
-  disconnectFromKeepAlive(&p);
-    
-    /* Will set the id returned by cmsg_cmsg_connect to NULL,
-  * so no one else can use it.
-    */
-  *domainId = NULL;
-  printf("ka: domainId = %p, p = %p, domain = %p, setting *domainId to NULL\n", domainId, p, domain);
-    
-  sun_setconcurrency(con);
-    
-  return NULL;
 }
 
 
