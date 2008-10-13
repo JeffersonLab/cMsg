@@ -854,8 +854,6 @@ public class cMsg extends cMsgDomainAdapter {
         finally {
             connectLock.unlock();
         }
-
-        return;
     }
 
 
@@ -868,7 +866,6 @@ public class cMsg extends cMsgDomainAdapter {
      * @param timeout ignored in this domain
      */
     public void flush(int timeout) {
-        return;
     }
 
 
@@ -2357,7 +2354,6 @@ public class cMsg extends cMsgDomainAdapter {
      *
      * @param  command directive for monitoring process
      * @return response message containing monitoring information
-     * @throws cMsgException
      */
     @Override
     public cMsgMessage monitor(String command) {
@@ -2458,7 +2454,7 @@ public class cMsg extends cMsgDomainAdapter {
 
         // make sure null args are sent as blanks
         if (server == null) {
-            server = new String("");
+            server = "";
         }
 
         int flag = includeMyServer ? cMsgConstants.includeMyServer : 0;
@@ -3160,6 +3156,7 @@ public class cMsg extends cMsgDomainAdapter {
                     if (cloudServers.size() < 1) {
                         noMoreCloudServers = true;
                     }
+                    resubscriptionsComplete = false;
 
                     while (!weGotAConnection) {
 
@@ -3235,14 +3232,9 @@ public class cMsg extends cMsgDomainAdapter {
                                     }
                                 }
 
-                                pUdl.UDL = "cMsg://"+ n + "/" + subdomain + "/" + newSubRemainder;
+                                UDL = "cMsg://"+ n + "/" + subdomain + "/" + newSubRemainder;
 //System.out.println("KA: Construct new UDL as:\n" + pUdl.UDL);
-                                pUdl.subdomain = subdomain;
-                                pUdl.subRemainder = subRemainder;
-                                pUdl.regime = regime;
-                                pUdl.failover = failover;
-                                pUdl.cloud = cloud;
-                                pUdl.copyToLocal();
+                                subRemainder = newSubRemainder;
 
                                 try {
                                     // connect with server
@@ -3281,12 +3273,7 @@ public class cMsg extends cMsgDomainAdapter {
 //System.out.println("KA: set failover index = " + failoverIndex);
                     }
 
-                    resubscriptionsComplete = false;
-
                     while (!weGotAConnection) {
-
-                        // Go to next UDL
-                        ParsedUDL p;
 
                         if (connectFailures >= failovers.size()) {
 //System.out.println("KA: ran out of UDLs to try");
@@ -3303,7 +3290,7 @@ public class cMsg extends cMsgDomainAdapter {
 
                         // get parsed & stored UDL info
 //System.out.println("KA: use failover index = " + failoverIndex);
-                        p = failovers.get(failoverIndex);
+                        ParsedUDL p = failovers.get(failoverIndex);
                         // copy info locally
                         p.copyToLocal();
 
