@@ -3251,6 +3251,7 @@ System.out.println("KA: Construct new UDL as:\n" + UDL);
                                 password          = pUdl.password;
                                 nameServerHost    = pUdl.nameServerHost;
                                 nameServerTcpPort = pUdl.nameServerTcpPort;
+                                mustMulticast     = false;
 
                                 try {
                                     // connect with server
