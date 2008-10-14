@@ -261,7 +261,7 @@ printf("IN failoverSuccessful\n");
     
 printf("   failoverSuccessful, waiting on latch\n");
     err = cMsgLatchAwait(&domain->syncLatch, &wait);
-    printf("   failoverSuccessful, err = %d\n", err);
+printf("   failoverSuccessful, err = %d\n", err);
 printf("   failoverSuccessful, DONE waiting on latch, gotConnection = %d\n", domain->gotConnection);
     /* if latch reset or timedout, return false */
     if (err < 1) {
@@ -503,8 +503,8 @@ printf("Found UDL = %s\n", domain->failovers[i].udl);
        * in the form of a server name (host:port) which will
        * be useful later. */
       len = strlen(domain->currentUDL.nameServerHost) +
-          cMsgNumDigits(domain->currentUDL.nameServerPort, 0) + 2;
-      domain->currentUDL.serverName = (char *)malloc(len);
+            cMsgNumDigits(domain->currentUDL.nameServerPort, 0) + 1;
+      domain->currentUDL.serverName = (char *)malloc(len+1);
       if (domain->currentUDL.serverName == NULL) {
         cMsgDomainFree(domain);
         free(domain);
@@ -512,7 +512,7 @@ printf("Found UDL = %s\n", domain->failovers[i].udl);
       }
       sprintf(domain->currentUDL.serverName, "%s:%d",domain->currentUDL.nameServerHost,
               domain->currentUDL.nameServerPort);
-      domain->currentUDL.serverName[len] = 0;
+      domain->currentUDL.serverName[len] = '\0';
 printf("Connected!!\n");
       break;
     }
@@ -3544,12 +3544,14 @@ int cmsg_cmsg_disconnect(void **domainId) {
   
   int outGoing[2];
   cMsgDomainInfo *domain;
+printf("cmsg_cmsg_disconnect: in\n");
 
   if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
   domain = (cMsgDomainInfo *) (*domainId);
   if (domain == NULL) return(CMSG_BAD_ARGUMENT);
         
   cMsgConnectWriteLock(domain);
+printf("cmsg_cmsg_disconnect: past lock\n");
 
   if (!domain->gotConnection) {
     cMsgConnectWriteUnlock(domain);
@@ -3565,6 +3567,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
   /* make send socket communications thread-safe */
   cMsgSocketMutexLock(domain);
   
+printf("cmsg_cmsg_disconnect: talk to server\n");
   /* send int */
   if (cMsgTcpWrite(domain->sendSocket, (char*) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
     /* if there is an error we are most likely in the process of disconnecting */
@@ -3581,6 +3584,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
   
   cMsgSocketMutexUnlock(domain);
   cMsgConnectWriteUnlock(domain);
+printf("cmsg_cmsg_disconnect: done\n");
   
   return(CMSG_OK);
 }
@@ -3626,6 +3630,7 @@ static int disconnectFromKeepAlive(void **pdomainId) {
   domain->gotConnection = 0;
 
   /* stop msg receiving thread */
+fprintf(stderr, "disconnectFromKeepAlive: cancel pend thread\n");
   pthread_cancel(domain->pendThread);
    
   /* stop thread writing keep alives to server */
@@ -3795,6 +3800,7 @@ static int disconnectFromKeepAlive(void **pdomainId) {
 
   /* "wakeup" all sends/syncSends that have failed and
    * are waiting to failover in failoverSuccessful. */
+fprintf(stderr, "disconnectFromKeepAlive: trigger count down latch\n");
   cMsgLatchCountDown(&domain->syncLatch, &wait);
     
   /* Unblock SIGPIPE */
@@ -3815,9 +3821,9 @@ static int disconnectFromKeepAlive(void **pdomainId) {
   }
 
   /* Clean up memory */
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+//  if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "disconnectFromKeepAlive: free domain memory at %p\n", domain);
-  }
+//  }
   cMsgDomainFree(domain);
   free(domain);
   
@@ -4174,7 +4180,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd) {
       return(CMSG_NETWORK_ERROR);
     }
     /* add null terminator to C string */
-    string[len] = 0;
+    string[len] = '\0';
     
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "talkToNameServer: %s\n", string);
@@ -4240,7 +4246,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd) {
     return(CMSG_NETWORK_ERROR);
   }
   /* be sure to null-terminate string */
-  temp[lengthHost] = 0;
+  temp[lengthHost] = '\0';
   domain->sendHost = (char *) strdup(temp);
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "talkToNameServer: host = %s\n", domain->sendHost);
@@ -4361,7 +4367,7 @@ printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, hlen = %d, p
           }
 
           /* be sure to null-terminate string */
-          p->nameServerHost[hlen] = 0;
+          p->nameServerHost[hlen] = '\0';
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
             fprintf(stderr, "getMonitorInfo: host = %s\n", p->nameServerHost);
           }
@@ -4387,20 +4393,20 @@ printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, hlen = %d, p
           }
 
           /* be sure to null-terminate string */
-          p->password[plen] = 0;
+          p->password[plen] = '\0';
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
             fprintf(stderr, "getMonitorInfo: password = %s\n", p->password);
           }
         }
 
         /* construct cloud server name */
-        len = strlen(p->nameServerHost) + cMsgNumDigits(tcpPort,0) + 2;
-        p->serverName = (char *)malloc(len);
+        len = strlen(p->nameServerHost) + cMsgNumDigits(tcpPort,0) + 1;
+        p->serverName = (char *)malloc(len+1);
         if (p->serverName == NULL) {
           return CMSG_OUT_OF_MEMORY;
         }
         sprintf(p->serverName, "%s:%d",p->nameServerHost, tcpPort);
-        p->nameServerHost[len] = 0;
+        p->serverName[len] = '\0';
 
 printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, host = %s, passwd = %s\n",
         tcpPort, udpPort, p->nameServerHost, p->password);
@@ -4609,6 +4615,7 @@ printf("KA: try name = %s, current server name = %s\n", sName,domain->currentUDL
                     if (err != 0 || matches[1].rm_so < 0) {
                       // self-contradictory results
                       disconnectFromKeepAlive(domainId);
+                      free(entries);
                       return NULL;
                     }
 
@@ -4624,6 +4631,7 @@ printf("Replacing old pswd with new one\n");
                       newSubRemainder = (char *)calloc(1,len);
                       if (newSubRemainder == NULL) {
                         disconnectFromKeepAlive(domainId);
+                        free(entries);
                         return NULL;
                       }
                       strncat(newSubRemainder, domain->currentUDL.subRemainder, matches[1].rm_so);
@@ -4644,6 +4652,7 @@ printf("Eliminating pswd\n");
                       newSubRemainder = (char *)calloc(1,len);
                       if (newSubRemainder == NULL) {
                         disconnectFromKeepAlive(domainId);
+                        free(entries);
                         return NULL;
                       }
                       strncat(newSubRemainder, domain->currentUDL.subRemainder, matches[0].rm_so);
@@ -4665,6 +4674,7 @@ printf("No cmsgpassword= in udl, CONCAT\n");
                     newSubRemainder = (char *)calloc(1,len);
                     if (newSubRemainder == NULL) {
                       disconnectFromKeepAlive(domainId);
+                      free(entries);
                       return NULL;
                     }
 
@@ -4683,6 +4693,7 @@ printf("No cmsgpassword= in udl, CONCAT\n");
                   domain->currentUDL.udl = (char *)calloc(1,len);
                   if (domain->currentUDL.udl == NULL) {
                     disconnectFromKeepAlive(domainId);
+                    free(entries);
                     return NULL;
                   }
                   sprintf(domain->currentUDL.udl, "cMsg://%s/%s/%s", sName, domain->currentUDL.subdomain, newSubRemainder);
@@ -4719,6 +4730,7 @@ printf("KA: Construct new UDL as:\n%s\n", domain->currentUDL.udl);
                       /* printf("ka: Problems with reporting back to countdowner\n"); */
                     }
                     cMsgLatchReset(&domain->syncLatch, 1, NULL);
+                    free(entries);
                     goto top;
                   }
                   else {
