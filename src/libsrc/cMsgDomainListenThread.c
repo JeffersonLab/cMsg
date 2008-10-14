@@ -45,10 +45,9 @@ static void  cleanUpHandler(void *arg);
 static int   cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static int   cMsgWakeSyncSend(cMsgDomainInfo *domain, int response, int ssid);
 
-/** Structure for freeing memory and closing socket in cleanUpHandler. */
+/** Structure for freeing memory in cleanUpHandler. */
 typedef struct freeMem_t {
     char *buffer;
-    int   fd;
 } freeMem;
 
 
