@@ -247,7 +247,7 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
     wait.tv_sec  = 3;
     wait.tv_nsec = 0; /* 3 secs */
 
-/* printf("IN failoverSuccessful\n"); */
+printf("IN failoverSuccessful\n");
     /*
      * If only 1 viable UDL is given by client, forget about
      * waiting for failovers to complete before returning an error.
@@ -259,8 +259,10 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
      * before giving up and returning an error.
      */
     
-/* printf("   failoverSuccessful, waiting on latch\n"); */
+printf("   failoverSuccessful, waiting on latch\n");
     err = cMsgLatchAwait(&domain->syncLatch, &wait);
+    printf("   failoverSuccessful, err = %d\n", err);
+printf("   failoverSuccessful, DONE waiting on latch, gotConnection = %d\n", domain->gotConnection);
     /* if latch reset or timedout, return false */
     if (err < 1) {
       return 0;
@@ -497,25 +499,25 @@ printf("Found UDL = %s\n", domain->failovers[i].udl);
     if (err == CMSG_OK) {
       domain->failoverIndex = failoverIndex;
       gotConnection = 1;
-      /*printf("Connected!!\n");*/
+      /* Store the host & port we used to make a connection
+       * in the form of a server name (host:port) which will
+       * be useful later. */
+      len = strlen(domain->currentUDL.nameServerHost) +
+          cMsgNumDigits(domain->currentUDL.nameServerPort, 0) + 2;
+      domain->currentUDL.serverName = (char *)malloc(len);
+      if (domain->currentUDL.serverName == NULL) {
+        cMsgDomainFree(domain);
+        free(domain);
+        return CMSG_OUT_OF_MEMORY;
+      }
+      sprintf(domain->currentUDL.serverName, "%s:%d",domain->currentUDL.nameServerHost,
+              domain->currentUDL.nameServerPort);
+      domain->currentUDL.serverName[len] = 0;
+printf("Connected!!\n");
       break;
     }
 
     
-    /* Store the host & port we used to make a connection
-     * in the form of a server name (host:port) which will
-     * be useful later. */
-    len = strlen(domain->currentUDL.nameServerHost) +
-        cMsgNumDigits(domain->currentUDL.nameServerPort, 0) + 2;
-    domain->currentUDL.serverName = (char *)malloc(len);
-    if (domain->currentUDL.serverName == NULL) {
-      cMsgDomainFree(domain);
-      free(domain);
-      return CMSG_OUT_OF_MEMORY;
-    }
-    sprintf(domain->currentUDL.serverName, "%s:%d",domain->currentUDL.nameServerHost,
-            domain->currentUDL.nameServerPort);
-    domain->currentUDL.serverName[len] = 0;
 
     connectFailures++;
 
@@ -1331,7 +1333,7 @@ static int reconnect(cMsgDomainInfo *domain) {
     return(CMSG_SOCKET_ERROR);
   }
    
-  /*printf("reconnect END\n");*/
+printf("reconnect END\n");
   return(CMSG_OK);
 }
 
@@ -4424,6 +4426,9 @@ static int connectToServer(void **domainId) {
   cMsgDomainInfo *domain = (cMsgDomainInfo *) (*domainId);
   if (domain == NULL) return(CMSG_BAD_ARGUMENT);
 
+  /* No multicast is ever done if failing over to cloud server
+   * since all cloud servers' info contains real host name and
+   * TCP port only. */
   if (domain->currentUDL.mustMulticast) {
     if (domain->currentUDL.nameServerHost != NULL) free(domain->currentUDL.nameServerHost);
 printf("KA: trying to connect with Multicast\n");
@@ -4554,6 +4559,7 @@ printf("KA: so just disconnect\n");
               disconnectFromKeepAlive(domainId);
               return NULL;
             }
+printf("KA: look thru list of cloud servers:\n");
             
             if (entries != NULL) {
               parsedUDL *pUdl;
@@ -4562,6 +4568,8 @@ printf("KA: so just disconnect\n");
                 
                 sName = entries[i].key;
                 pUdl  = (parsedUDL *)entries[i].data;
+                
+printf("KA: try name = %s, current server name = %s\n", sName,domain->currentUDL.serverName);
 
                 // If we were connected to one of the cloud servers
                 // (which just failed), go to next one.
@@ -4682,17 +4690,49 @@ printf("KA: Construct new UDL as:\n%s\n", domain->currentUDL.udl);
 
                   if (domain->currentUDL.subRemainder != NULL) free(domain->currentUDL.subRemainder);
                   domain->currentUDL.subRemainder = newSubRemainder;
+                  
+                  if (domain->currentUDL.password != NULL) free(domain->currentUDL.password);
+                  if (pUdl->password != NULL) {
+                    domain->currentUDL.password = strdup(pUdl->password);
+                  }
+                  else {
+                    domain->currentUDL.password = NULL;
+                  }
+                 
+                  if (domain->currentUDL.nameServerHost != NULL) free(domain->currentUDL.nameServerHost);
+                  if (pUdl->nameServerHost != NULL) {
+                    domain->currentUDL.nameServerHost = strdup(pUdl->nameServerHost);
+                  }
+                  else {
+                    domain->currentUDL.nameServerHost = NULL;
+                  }
+                 
+                  domain->currentUDL.nameServerPort = pUdl->nameServerPort;
                  
                   /* connect with server */
                   if ((err = connectToServer(domainId)) == CMSG_OK) {
                     /* we got ourselves a new server, boys */
                     weGotAConnection = 1;
+                    /* wait for up to 1.1 sec for waiters to respond */
+                    err = cMsgLatchCountDown(&domain->syncLatch, &wait);
+                    if (err != 1) {
+                      /* printf("ka: Problems with reporting back to countdowner\n"); */
+                    }
+                    cMsgLatchReset(&domain->syncLatch, 1, NULL);
                     goto top;
+                  }
+                  else {
+                    /* clear effects of copying params to currentUDL */ 
                   }
                }
             }
             free(entries);
           } /* if entries != NULL */
+          
+          /* Went thru list of cloud servers with nothing to show for it,
+           * so try next UDL in list */
+          break;
+          
         } /* while no connection */
         
         /* remember which UDL has just failed */
