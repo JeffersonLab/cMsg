@@ -247,7 +247,7 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
     wait.tv_sec  = 3;
     wait.tv_nsec = 0; /* 3 secs */
 
-printf("IN failoverSuccessful\n");
+    /*printf("IN failoverSuccessful\n");*/
     /*
      * If only 1 viable UDL is given by client, forget about
      * waiting for failovers to complete before returning an error.
@@ -259,10 +259,8 @@ printf("IN failoverSuccessful\n");
      * before giving up and returning an error.
      */
     
-printf("   failoverSuccessful, waiting on latch\n");
     err = cMsgLatchAwait(&domain->syncLatch, &wait);
-printf("   failoverSuccessful, err = %d\n", err);
-printf("   failoverSuccessful, DONE waiting on latch, gotConnection = %d\n", domain->gotConnection);
+/*printf("   failoverSuccessful, DONE waiting on latch, gotConnection = %d\n", domain->gotConnection);*/
     /* if latch reset or timedout, return false */
     if (err < 1) {
       return 0;
@@ -544,10 +542,19 @@ printf("Connected!!\n");
 
 
 /**
- * Method to multicast in order to find the domain server from this client.
+ * Routine to multicast in order to find the domain server from this client.
  * Once the server is found and returns its host and port, a direct connection
  * can be made.
  *
+ * @param domainId id of the domain connection
+ * @param host pointer to be filled in with cMsg server host found through multicasting
+ * @param port pointer to be filled in with cMsg server TCP port found through multicasting
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_FORMAT if UDLremainder arg is not in the proper format or is NULL
+ * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
+ * @returns CMSG_TIMEOUT if timed out of wait for response to multicast
+ * @returns CMSG_SOCKET_ERROR if udp socket for multicasting could not be created
  */
 static int connectWithMulticast(cMsgDomainInfo *domain, char **host, int *port) {
     char   *buffer;
@@ -583,9 +590,9 @@ static int connectWithMulticast(cMsgDomainInfo *domain, char **host, int *port) 
     
     /*
      * We send these items explicitly:
-    *   1) 3 magic ints for connection protection
-    *   2) ints describing action to be done + password len
-    *   3) password
+     *   1) 3 magic ints for connection protection
+     *   2) ints describing action to be done + password len
+     *   3) password
      * The host we're sending from gets sent for free
      * as does the UDP port we're sending from.
      */
@@ -787,7 +794,7 @@ printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
         memcpy(&nameLen, pchar, sizeof(int));
         nameLen = ntohl(nameLen);
         pchar += sizeof(int);
-printf("  TCP port = %d, UDP port = %d, len = %d\n", tcpPort, udpPort, nameLen);
+/*printf("  TCP port = %d, UDP port = %d, len = %d\n", tcpPort, udpPort, nameLen);*/
         
         if ((tcpPort < 1024 || tcpPort > 65535) ||
              (nameLen < 0 || nameLen > 1024-6*sizeof(int))) {
@@ -1125,7 +1132,7 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, const char *ho
  * @param domain pointer to connection info structure
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_OUT_OF_MEMOERY if the allocating memory failed
+ * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
  * @returns CMSG_SOCKET_ERROR if socket options could not be set
  * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
  *                             or a communication error with either server occurs.
@@ -1333,7 +1340,7 @@ static int reconnect(cMsgDomainInfo *domain) {
     return(CMSG_SOCKET_ERROR);
   }
    
-printf("reconnect END\n");
+/*printf("reconnect END\n");*/
   return(CMSG_OK);
 }
 
@@ -3544,14 +3551,12 @@ int cmsg_cmsg_disconnect(void **domainId) {
   
   int outGoing[2];
   cMsgDomainInfo *domain;
-printf("cmsg_cmsg_disconnect: in\n");
 
   if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
   domain = (cMsgDomainInfo *) (*domainId);
   if (domain == NULL) return(CMSG_BAD_ARGUMENT);
         
   cMsgConnectWriteLock(domain);
-printf("cmsg_cmsg_disconnect: past lock\n");
 
   if (!domain->gotConnection) {
     cMsgConnectWriteUnlock(domain);
@@ -3567,7 +3572,6 @@ printf("cmsg_cmsg_disconnect: past lock\n");
   /* make send socket communications thread-safe */
   cMsgSocketMutexLock(domain);
   
-printf("cmsg_cmsg_disconnect: talk to server\n");
   /* send int */
   if (cMsgTcpWrite(domain->sendSocket, (char*) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
     /* if there is an error we are most likely in the process of disconnecting */
@@ -3584,8 +3588,7 @@ printf("cmsg_cmsg_disconnect: talk to server\n");
   
   cMsgSocketMutexUnlock(domain);
   cMsgConnectWriteUnlock(domain);
-printf("cmsg_cmsg_disconnect: done\n");
-  
+
   return(CMSG_OK);
 }
 
@@ -3630,7 +3633,6 @@ static int disconnectFromKeepAlive(void **pdomainId) {
   domain->gotConnection = 0;
 
   /* stop msg receiving thread */
-fprintf(stderr, "disconnectFromKeepAlive: cancel pend thread\n");
   pthread_cancel(domain->pendThread);
    
   /* stop thread writing keep alives to server */
@@ -3800,7 +3802,6 @@ fprintf(stderr, "disconnectFromKeepAlive: cancel pend thread\n");
 
   /* "wakeup" all sends/syncSends that have failed and
    * are waiting to failover in failoverSuccessful. */
-fprintf(stderr, "disconnectFromKeepAlive: trigger count down latch\n");
   cMsgLatchCountDown(&domain->syncLatch, &wait);
     
   /* Unblock SIGPIPE */
@@ -3821,9 +3822,9 @@ fprintf(stderr, "disconnectFromKeepAlive: trigger count down latch\n");
   }
 
   /* Clean up memory */
-//  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "disconnectFromKeepAlive: free domain memory at %p\n", domain);
-//  }
+  }
   cMsgDomainFree(domain);
   free(domain);
   
@@ -4259,7 +4260,10 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd) {
 /*-------------------------------------------------------------------*/
 /**
  * This method reads monitoring data from the server.
- * @returns if communication error
+ * @param domain  pointer to element in domain info array
+ * @returns CMSG_OK if successful
+ * @returns CMSG_NETWORK_ERROR if network read error
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
  */
 static int getMonitorInfo(cMsgDomainInfo *domain) {
 
@@ -4267,9 +4271,9 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
 
   /* read len of monitoring data to come */
   if ((err = cMsgTcpRead(domain->keepAliveSocket, &len, sizeof(len))) != sizeof(len)) {
-    /*if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-    fprintf(stderr, "getMonitorInfo: read failure\n");
-      }*/
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "getMonitorInfo: read failure\n");
+    }
     return CMSG_NETWORK_ERROR;
   }
   len = ntohl(len);
@@ -4286,17 +4290,17 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
 
   /* read monitoring data */
   if ((err = cMsgTcpRead(domain->keepAliveSocket, domain->monitorXML, len)) !=  len) {
-    /*if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-    fprintf(stderr, "getMonitorInfo: read failure\n");
-      }*/
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "getMonitorInfo: read failure\n");
+    }
     return CMSG_NETWORK_ERROR;
   }
     
   /* read number of items to come */
   if ((err = cMsgTcpRead(domain->keepAliveSocket, &items, sizeof(items))) != sizeof(items)) {
-    /*if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-    fprintf(stderr, "getMonitorInfo: read failure\n");
-  }*/
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "getMonitorInfo: read failure\n");
+    }
     return CMSG_NETWORK_ERROR;
   }
   items = ntohl(items);
@@ -4322,7 +4326,8 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
     domain->haveLocalCloudServer = 0;
     
     /* read number of servers to come */
-    if ((err = cMsgTcpRead(domain->keepAliveSocket, &numServers, sizeof(numServers))) != sizeof(numServers)) {
+    if ((err = cMsgTcpRead(domain->keepAliveSocket, &numServers, sizeof(numServers))) !=
+               sizeof(numServers)) {
       return CMSG_NETWORK_ERROR;
     }
     numServers = ntohl(numServers);
@@ -4332,7 +4337,8 @@ printf("getMonitorInfo: num servers = %d\n", numServers);
       for (i=0; i<numServers; i++) {
         isLocal = 0;
 
-        if ((err = cMsgTcpRead(domain->keepAliveSocket, inComing, sizeof(inComing))) != sizeof(inComing)) {
+        if ((err = cMsgTcpRead(domain->keepAliveSocket, inComing, sizeof(inComing))) !=
+                   sizeof(inComing)) {
           return CMSG_NETWORK_ERROR;
         }
 
@@ -4341,8 +4347,6 @@ printf("getMonitorInfo: num servers = %d\n", numServers);
         hlen    = ntohl(inComing[2]); /* host string len */
         plen    = ntohl(inComing[3]); /* password string len */
 
-printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, hlen = %d, plen = %d\n",
-                                          tcpPort, udpPort,hlen,plen);
         parsedUDL *p = (parsedUDL *) calloc(1, sizeof(parsedUDL));
         if (p == NULL) {
           return CMSG_OUT_OF_MEMORY;
@@ -4355,6 +4359,7 @@ printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, hlen = %d, p
         if (hlen > 0) {
           p->nameServerHost = (char *) malloc(hlen+1);
           if (p->nameServerHost == NULL) {
+            free(p);
             return CMSG_OUT_OF_MEMORY;
           }
 
@@ -4363,6 +4368,8 @@ printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, hlen = %d, p
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "getMonitorInfo: read failure\n");
             }
+            free(p->nameServerHost);
+            free(p);
             return(CMSG_NETWORK_ERROR);
           }
 
@@ -4381,6 +4388,8 @@ printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, hlen = %d, p
         if (plen > 0) {
           p->password = (char *) malloc(plen+1);
           if (p->password == NULL) {
+            if (p->nameServerHost != NULL) free(p->nameServerHost);
+            free(p);
             return CMSG_OUT_OF_MEMORY;
           }
 
@@ -4389,6 +4398,9 @@ printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, hlen = %d, p
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "getMonitorInfo: read failure\n");
             }
+            if (p->nameServerHost != NULL) free(p->nameServerHost);
+            free(p->password);
+            free(p);
             return(CMSG_NETWORK_ERROR);
           }
 
@@ -4403,6 +4415,9 @@ printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, hlen = %d, p
         len = strlen(p->nameServerHost) + cMsgNumDigits(tcpPort,0) + 1;
         p->serverName = (char *)malloc(len+1);
         if (p->serverName == NULL) {
+          if (p->nameServerHost != NULL) free(p->nameServerHost);
+          if (p->password != NULL) free(p->password);
+          free(p);
           return CMSG_OUT_OF_MEMORY;
         }
         sprintf(p->serverName, "%s:%d",p->nameServerHost, tcpPort);
@@ -4422,13 +4437,25 @@ printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, host = %s, p
 }
 
 
- /**
-  * Try to connect to new failover server. It may or may not be part
-  * of a cloud.
-  * @returns if cannot connect or restore subscriptions
-  */
+/**
+ * Try to connect to new failover server. It may or may not be part
+ * of a cloud.
+ * @param domainId address of pointer to connection data.
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if arg or what arg points to is NULL
+ * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
+ * @returns CMSG_TIMEOUT if timed out of wait for response to multicast
+ * @returns CMSG_SOCKET_ERROR if udp socket for multicasting could not be created,
+ *                            or if socket options to TCP server connection could not be set
+ * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
+ *                             or a communication error with either server occurs.
+ * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed while
+ *                               restoring subscriptions
+ */
 static int connectToServer(void **domainId) {
   int err;
+  
+  if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
   cMsgDomainInfo *domain = (cMsgDomainInfo *) (*domainId);
   if (domain == NULL) return(CMSG_BAD_ARGUMENT);
 
@@ -4442,11 +4469,23 @@ printf("KA: trying to connect with Multicast\n");
                                &domain->currentUDL.nameServerPort);
     if (err != CMSG_OK) {
 printf("KA: error trying to connect with Multicast, err = %d\n", err);
-      return err;
+     /* returns CMSG_OK if successful
+                CMSG_BAD_FORMAT if UDLremainder arg is not in the proper format or is NULL
+                CMSG_OUT_OF_MEMORY if the allocating memory failed
+                CMSG_TIMEOUT if timed out of wait for response to multicast
+                CMSG_SOCKET_ERROR if udp socket for multicasting could not be created
+     */
+     return err;
     }
   }
 
   if ((err = reconnect(domain)) != CMSG_OK) {
+    /* @returns CMSG_OK if successful
+                CMSG_OUT_OF_MEMORY if the allocating memory failed
+                CMSG_SOCKET_ERROR if socket options could not be set
+                CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
+                                      or a communication error with either server occurs.
+    */
     return err;
   }
 
@@ -4454,10 +4493,13 @@ printf("KA: error trying to connect with Multicast, err = %d\n", err);
 
   /* restore subscriptions on the new server */
   if ( (err = restoreSubscriptions(domain)) != CMSG_OK) {
-printf("KA: new connection attempt failed");
     /* if subscriptions fail, then we do NOT use failover server */
     /* BUGBUG this will block */
     disconnectFromKeepAlive(domainId);
+    /* @returns CMSG_OK if successful
+                CMSG_NETWORK_ERROR if error in communicating with the server
+                CMSG_LOST_CONNECTION if the network connection to the server was closed
+    */
     return err;
   }
   domain->resubscribeComplete = 1;
@@ -4625,7 +4667,8 @@ printf("Replacing old pswd with new one\n");
                       /* length of existing password */
                       plen = matches[1].rm_eo - matches[1].rm_so;
                       /* len of new subRemainder string with substituted/new password */
-                      len = strlen(domain->currentUDL.subRemainder) - plen + strlen(pUdl->password) + 1;
+                      len = strlen(domain->currentUDL.subRemainder) -
+                            plen + strlen(pUdl->password) + 1;
 
                       /* now create the new subRemainder string w/ new password */
                       newSubRemainder = (char *)calloc(1,len);
@@ -4679,24 +4722,28 @@ printf("No cmsgpassword= in udl, CONCAT\n");
                     }
 
                     if (strstr(domain->currentUDL.subRemainder, "?") != NULL) {
-                      sprintf(newSubRemainder, "%s&cmsgpassword=%s", domain->currentUDL.subRemainder, pUdl->password);
+                      sprintf(newSubRemainder, "%s&cmsgpassword=%s",
+                              domain->currentUDL.subRemainder, pUdl->password);
                     }
                     else {
-                      sprintf(newSubRemainder, "%s?cmsgpassword=%s", domain->currentUDL.subRemainder, pUdl->password);
+                      sprintf(newSubRemainder, "%s?cmsgpassword=%s",
+                              domain->currentUDL.subRemainder, pUdl->password);
                     }
                   }
 
                   /* In failing over to a cloud member, only the udl and subRemainder may change -
                    * due to possibly needing a (different) password to connect to the new server. */
                   if (domain->currentUDL.udl != NULL) free(domain->currentUDL.udl);
-                  len = strlen(sName) + strlen(domain->currentUDL.subdomain) + strlen(newSubRemainder) + 10;
+                  len = strlen(sName) + strlen(domain->currentUDL.subdomain) +
+                        strlen(newSubRemainder) + 10;
                   domain->currentUDL.udl = (char *)calloc(1,len);
                   if (domain->currentUDL.udl == NULL) {
                     disconnectFromKeepAlive(domainId);
                     free(entries);
                     return NULL;
                   }
-                  sprintf(domain->currentUDL.udl, "cMsg://%s/%s/%s", sName, domain->currentUDL.subdomain, newSubRemainder);
+                  sprintf(domain->currentUDL.udl, "cMsg://%s/%s/%s", sName,
+                          domain->currentUDL.subdomain, newSubRemainder);
 printf("KA: Construct new UDL as:\n%s\n", domain->currentUDL.udl);
 
                   if (domain->currentUDL.subRemainder != NULL) free(domain->currentUDL.subRemainder);
@@ -4719,7 +4766,9 @@ printf("KA: Construct new UDL as:\n%s\n", domain->currentUDL.udl);
                   }
                  
                   domain->currentUDL.nameServerPort = pUdl->nameServerPort;
-                 
+                  /* never multicast since we get real host & TCP port from cMsg server */
+                  domain->currentUDL.mustMulticast  = 0;
+
                   /* connect with server */
                   if ((err = connectToServer(domainId)) == CMSG_OK) {
                     /* we got ourselves a new server, boys */
