@@ -176,10 +176,10 @@ public class cMsgServerClient extends cMsg {
             // correct our name
             try {
                 String canonicalHost =  InetAddress.getByName(nameServerHost).getCanonicalHostName();
-                name = canonicalHost + ":" + nameServerPort;
+                name = canonicalHost + ":" + nameServerTcpPort;
             }
             catch (UnknownHostException e) {
-                name = nameServerHost + ":" + nameServerPort;
+                name = nameServerHost + ":" + nameServerTcpPort;
             }
 //System.out.println("\nRESETTING client name to " + name + "\n");
         }
@@ -193,7 +193,7 @@ public class cMsgServerClient extends cMsg {
             Socket nsSocket = null;
             try {
 //System.out.println("        << CL: open socket to  " + nameServerHost + ":" + nameServerTcpPort);
-                nsSocket = new Socket(nameServerHost, nameServerPort);
+                nsSocket = new Socket(nameServerHost, nameServerTcpPort);
                 // Set tcpNoDelay so no packets are delayed
                 nsSocket.setTcpNoDelay(true);
                 // no need to set buffer sizes
