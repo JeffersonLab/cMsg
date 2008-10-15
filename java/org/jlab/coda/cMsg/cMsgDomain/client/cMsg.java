@@ -506,7 +506,7 @@ public class cMsg extends cMsgDomainAdapter {
 
                 // create multicast packet from the byte array
                 byte[] buf = baos.toByteArray();
-                udpPacket = new DatagramPacket(buf, buf.length, multicastAddr, nameServerTcpPort);
+                udpPacket = new DatagramPacket(buf, buf.length, multicastAddr, nameServerUdpPort);
             }
             catch (IOException e) {
                 try { out.close();} catch (IOException e1) {}
