@@ -17,7 +17,7 @@ ifndef BMS_HOME
   $(error "Need to define BMS_HOME")
 endif
 
-ifeq ($(OS), vxworks)
+ifeq ($(BMS_OS), vxworks)
   $(error "This makefile is for unix, use Makefile.vxworks-ppc")
 endif
 
