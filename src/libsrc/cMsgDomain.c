@@ -4453,7 +4453,7 @@ printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, host = %s, p
  *                               restoring subscriptions
  */
 static int connectToServer(void **domainId) {
-  int err;
+  int err, len;
   
   if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
   cMsgDomainInfo *domain = (cMsgDomainInfo *) (*domainId);
@@ -4503,6 +4503,22 @@ printf("KA: error trying to connect with Multicast, err = %d\n", err);
     return err;
   }
   domain->resubscribeComplete = 1;
+
+  /* Now that we're reconnected, we must recreate the name
+   * of the server that we just connected to. */
+  if (domain->currentUDL.serverName != NULL) {
+    free(domain->currentUDL.serverName);
+  }
+  len = strlen(domain->currentUDL.nameServerHost) +
+        cMsgNumDigits(domain->currentUDL.nameServerPort, 0) + 1;
+  domain->currentUDL.serverName = (char *)malloc(len+1);
+  if (domain->currentUDL.serverName == NULL) {
+    return CMSG_OUT_OF_MEMORY;
+  }
+  sprintf(domain->currentUDL.serverName, "%s:%d",domain->currentUDL.nameServerHost,
+          domain->currentUDL.nameServerPort);
+  domain->currentUDL.serverName[len] = '\0';
+  
   return CMSG_OK;
 }
 
@@ -4619,8 +4635,15 @@ printf("KA: look thru list of cloud servers:\n");
                 
 printf("KA: try name = %s, current server name = %s\n", sName,domain->currentUDL.serverName);
 
-                // If we were connected to one of the cloud servers
-                // (which just failed), go to next one.
+                // If we were connected to one of the cloud servers,
+                // and had time to receive a monitor packet from it,
+                // the list of cloud servers should NOT contain that
+                // server (the one that just failed). If there was not
+                // sufficient connection time (2 sec) to get a monitor
+                // packet before the connection died, then we have the
+                // old list of cloud servers which could contain the
+                // one that just failed. Be sure to filter that one out
+                // now and try the next one.
                 if (strcmp(sName, domain->currentUDL.serverName) == 0) {
                   continue;
                 }
