@@ -994,7 +994,7 @@ void cMsgParsedUDLInit(parsedUDL *p) {
  * parsed UDL information to another structure.
  */
 int cMsgParsedUDLCopy(parsedUDL *dest, parsedUDL *src) {
-  if (dest == NULL || src == NULL) return;
+  if (dest == NULL || src == NULL) return CMSG_OK;
   
   dest->nameServerPort    = src->nameServerPort;
   dest->nameServerUdpPort = src->nameServerUdpPort;
