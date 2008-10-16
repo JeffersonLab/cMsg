@@ -1100,6 +1100,7 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, const char *ho
     return(err);
   }
 
+#ifndef Darwin
   err = connect(domain->sendUdpSocket, (SA *) &servaddr, (socklen_t) sizeof(servaddr));
   if (err < 0) {
     cMsgRestoreSignals(domain);
@@ -1115,7 +1116,8 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, const char *ho
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "connectDirect: UDP connect error\n");
     return(CMSG_SOCKET_ERROR);
   }
-
+#endif
+  
   return(CMSG_OK);
 }
 
@@ -1331,6 +1333,7 @@ static int reconnect(cMsgDomainInfo *domain) {
     return(CMSG_SOCKET_ERROR);
   }
 
+#ifndef Darwin
   err = connect(domain->sendUdpSocket, (SA *) &servaddr, (socklen_t) sizeof(servaddr));
   if (err < 0) {
     close(domain->keepAliveSocket);
@@ -1339,6 +1342,7 @@ static int reconnect(cMsgDomainInfo *domain) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "reconnect: UDP connect error\n");
     return(CMSG_SOCKET_ERROR);
   }
+#endif
    
 /*printf("reconnect END\n");*/
   return(CMSG_OK);
@@ -4272,7 +4276,7 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
   /* read len of monitoring data to come */
   if ((err = cMsgTcpRead(domain->keepAliveSocket, &len, sizeof(len))) != sizeof(len)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getMonitorInfo: read failure\n");
+      fprintf(stderr, "getMonitorInfo: read failure 1\n");
     }
     return CMSG_NETWORK_ERROR;
   }
@@ -4291,7 +4295,7 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
   /* read monitoring data */
   if ((err = cMsgTcpRead(domain->keepAliveSocket, domain->monitorXML, len)) !=  len) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getMonitorInfo: read failure\n");
+      fprintf(stderr, "getMonitorInfo: read failure 2\n");
     }
     return CMSG_NETWORK_ERROR;
   }
@@ -4299,7 +4303,7 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
   /* read number of items to come */
   if ((err = cMsgTcpRead(domain->keepAliveSocket, &items, sizeof(items))) != sizeof(items)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "getMonitorInfo: read failure\n");
+      fprintf(stderr, "getMonitorInfo: read failure 3\n");
     }
     return CMSG_NETWORK_ERROR;
   }
@@ -4328,6 +4332,9 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
     /* read number of servers to come */
     if ((err = cMsgTcpRead(domain->keepAliveSocket, &numServers, sizeof(numServers))) !=
                sizeof(numServers)) {
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+        fprintf(stderr, "getMonitorInfo: read failure 4\n");
+      }
       return CMSG_NETWORK_ERROR;
     }
     numServers = ntohl(numServers);
@@ -4339,6 +4346,9 @@ printf("getMonitorInfo: num servers = %d\n", numServers);
 
         if ((err = cMsgTcpRead(domain->keepAliveSocket, inComing, sizeof(inComing))) !=
                    sizeof(inComing)) {
+          if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+            fprintf(stderr, "getMonitorInfo: read failure 5\n");
+          }
           return CMSG_NETWORK_ERROR;
         }
 
@@ -4366,7 +4376,7 @@ printf("getMonitorInfo: num servers = %d\n", numServers);
           /* read host name */
           if (cMsgTcpRead(domain->keepAliveSocket, p->nameServerHost, hlen) != hlen) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "getMonitorInfo: read failure\n");
+              fprintf(stderr, "getMonitorInfo: read failure 6\n");
             }
             free(p->nameServerHost);
             free(p);
@@ -4396,7 +4406,7 @@ printf("getMonitorInfo: num servers = %d\n", numServers);
           /* read host name */
           if (cMsgTcpRead(domain->keepAliveSocket, p->password, plen) != plen) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "getMonitorInfo: read failure\n");
+              fprintf(stderr, "getMonitorInfo: read failure 7\n");
             }
             if (p->nameServerHost != NULL) free(p->nameServerHost);
             free(p->password);
