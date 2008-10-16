@@ -1101,6 +1101,7 @@ static int connectDirect(cMsgDomainInfo *domain, void **domainId, const char *ho
   }
 
 #ifndef Darwin
+  /* limits incoming packets to the host and port given - protection against port scanning */
   err = connect(domain->sendUdpSocket, (SA *) &servaddr, (socklen_t) sizeof(servaddr));
   if (err < 0) {
     cMsgRestoreSignals(domain);
