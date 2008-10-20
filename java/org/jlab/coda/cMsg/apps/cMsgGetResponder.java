@@ -30,7 +30,7 @@ public class cMsgGetResponder {
 
     String  name = "getResponder";
     String  description = "java getResponder";
-    String  UDL = "cMsg://localhost:3456/cMsg/test/?regime=low";
+    String  UDL = "cMsg://localhost/cMsg/test";
     String  subject = "SUBJECT";
     String  type = "TYPE";
     boolean debug;
@@ -151,6 +151,7 @@ public class cMsgGetResponder {
          */
         public void callback(cMsgMessage msg, Object userObject) {
             try {
+ System.out.println("GOT MSG in callback, making get response!");
                 cMsgMessage sendMsg = msg.response();
                 //cMsgMessage sendMsg = msg.nullResponse();
                 sendMsg.setSubject("RESPONDING");
