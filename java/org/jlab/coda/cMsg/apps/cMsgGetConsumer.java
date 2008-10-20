@@ -30,7 +30,7 @@ public class cMsgGetConsumer {
 
     String  name = "getConsumer";
     String  description = "java getConsumer";
-    String  UDL = "cMsg://localhost:3456/cMsg/test/?regime=low";
+    String  UDL = "cMsg://localhost/cMsg/test/?regime=low";
     String  subject = "SUBJECT";
     String  type = "TYPE";
     boolean send;
