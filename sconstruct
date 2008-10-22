@@ -100,8 +100,9 @@ if platform == 'Darwin':
 # SHCCFLAGS = '-m32'
 
 # make these available to lower level scons files
-Export('env incDir libDir binDir installDir')
+Export('env incDir libDir binDir installDir archDir')
 
 # run lower level scons files
 env.SConscript('src/libsrc/sconscript', variant_dir='src/libsrc/'+archDir, duplicate=0)
 env.SConscript('src/regexp/sconscript', variant_dir='src/regexp/'+archDir, duplicate=0)
+env.SConscript('src/examples/sconscript', variant_dir='src/examples/'+archDir, duplicate=0)
