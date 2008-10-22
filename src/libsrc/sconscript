@@ -1,0 +1,21 @@
+# try scons as build system for cmsg
+Import('env', 'libDir', 'incDir')
+
+fileList = ['cMsg.c',
+            'cMsgCompoundPayload.c',
+            'cMsgDomain.c',
+            'cMsgDomainListenThread.c',
+            'cMsgDomainUtil.c',
+            'cMsgMatching.c',
+            'cMsgNetwork.c',
+            'encode.c',
+            'fileDomain.c',
+            'hash.c',
+            'rcDomain.c',
+            'rcDomainListenThread.c',
+            'rwlock.c',
+            'sunConcurrency.c']
+
+cmsgLib = env.SharedLibrary(target = 'cmsg', source = fileList, CPPPATH = ['.', '#src/regexp'])
+Install(dir = incDir, source = 'cMsg.h')
+Install(dir = libDir, source = cmsgLib)
