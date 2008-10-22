@@ -4004,8 +4004,8 @@ static int cMsgToStringImpl(const void *vmsg, char **string, int level, int marg
   char *buffer=NULL, *pchar, *indent;
   time_t now;
   char nowBuf[32],userTimeBuf[32],senderTimeBuf[32],receiverTimeBuf[32];
-#ifdef VXWORKS
-  size_t vxlen=sizeof(nowBuf);
+#if defined VXWORKS || defined sun
+  size_t buflen = sizeof(nowBuf);
 #endif
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
@@ -4013,11 +4013,16 @@ static int cMsgToStringImpl(const void *vmsg, char **string, int level, int marg
 
   /* get times in ascii and remove newlines */
   now=time(NULL);
-#ifdef VXWORKS
-  ctime_r(&now,nowBuf,&vxlen);                                nowBuf[strlen(nowBuf)-1]='\0';
-  ctime_r(&msg->senderTime.tv_sec,senderTimeBuf,&vxlen);      senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
-  ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf,&vxlen);  receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
-  ctime_r(&msg->userTime.tv_sec,userTimeBuf,&vxlen);          userTimeBuf[strlen(userTimeBuf)-1]='\0';
+#if defined VXWORKS
+  ctime_r(&now,nowBuf,&buflen);                                nowBuf[strlen(nowBuf)-1]='\0';
+  ctime_r(&msg->senderTime.tv_sec,senderTimeBuf,&buflen);      senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
+  ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf,&buflen);  receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
+  ctime_r(&msg->userTime.tv_sec,userTimeBuf,&buflen);          userTimeBuf[strlen(userTimeBuf)-1]='\0';
+#elif defined sun
+  ctime_r(&now,nowBuf,buflen);                                nowBuf[strlen(nowBuf)-1]='\0';
+  ctime_r(&msg->senderTime.tv_sec,senderTimeBuf,buflen);      senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
+  ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf,buflen);  receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
+  ctime_r(&msg->userTime.tv_sec,userTimeBuf,buflen);          userTimeBuf[strlen(userTimeBuf)-1]='\0';
 #else
   ctime_r(&now,nowBuf);                               nowBuf[strlen(nowBuf)-1]='\0';
   ctime_r(&msg->senderTime.tv_sec,senderTimeBuf);     senderTimeBuf[strlen(senderTimeBuf)-1]='\0';

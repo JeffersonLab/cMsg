@@ -226,7 +226,7 @@ int cmsg_file_send(void *domainId, void *vmsg) {
   char *s;
   time_t now;
   char nowBuf[32];
-#ifdef VXWORKS
+#if defined VXWORKS || defined sun
   size_t nowLen=sizeof(nowBuf);
 #endif
   int stat;
@@ -262,6 +262,8 @@ int cmsg_file_send(void *domainId, void *vmsg) {
     now=time(NULL);
 #ifdef VXWORKS
     ctime_r(&now,nowBuf,&nowLen);
+#elif defined sun
+    ctime_r(&now,nowBuf,nowLen);
 #else
     ctime_r(&now,nowBuf);
 #endif
