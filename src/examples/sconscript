@@ -19,7 +19,7 @@ fileList = ['consumer.c',
 execList = ['']*13
 for i in range(12):
     execList[i] = env.Program(source = fileList[i],
-                              LIBS = ['cmsg', 'cmsgRegex', 'pthread', 'dl', 'ieee', 'rt', 'z', 'm', 'nsl', 'resolv'],
+                              LIBS    = ['cmsg', 'cmsgRegex', 'pthread', 'dl', 'rt'],
                               LIBPATH = ['#src/regexp/'+archDir, '#src/libsrc/'+archDir],
                               CPPPATH = ['.', '#src/regexp', '#src/libsrc'])
 
