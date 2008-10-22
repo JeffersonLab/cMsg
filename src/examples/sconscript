@@ -1,0 +1,26 @@
+# try scons as build system for cmsg
+Import('env', 'binDir', 'archDir')
+
+fileList = ['consumer.c',
+            'consumer2.c',
+#            'cpptest.cc',
+            'dummy.c',
+            'getConsumer.c',
+            'getConsumer2.c',
+            'getResponder.c',
+            'monitor.c',
+            'payload.c',
+            'producer.c',
+            'producerMsg.c',
+            'rcClient.c',
+            'shutdowner.c']
+
+# loop over files, creating executable of the same name
+execList = ['']*13
+for i in range(12):
+    execList[i] = env.Program(source = fileList[i],
+                              LIBS = ['cmsg', 'cmsgRegex', 'pthread', 'dl', 'ieee', 'rt', 'z', 'm', 'nsl', 'resolv'],
+                              LIBPATH = ['#src/regexp/'+archDir, '#src/libsrc/'+archDir],
+                              CPPPATH = ['.', '#src/regexp', '#src/libsrc'])
+
+#Install(dir = binDir, source = execList)
