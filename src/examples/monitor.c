@@ -24,6 +24,7 @@
 int main(int argc,char **argv) {  
   char *myName = "monie";
   char *myDescription = "C-monitor";
+  char *UDL = "cMsg:cMsg://localhost/cMsg/test";
   char *text;
   int err, debug=1,loops=10;
   void *domainId;
@@ -38,7 +39,7 @@ int main(int argc,char **argv) {
   }
   
   /* connect to cMsg server */
-  err = cMsgConnect("cMsg:cMsg://aslan:3456/cMsg/test/", myName, myDescription, &domainId);
+  err = cMsgConnect(UDL, myName, myDescription, &domainId);
   if (err != CMSG_OK) {
       printf("cMsgConnect: %s\n",cMsgPerror(err));
       exit(1);
@@ -51,7 +52,7 @@ int main(int argc,char **argv) {
       break;
     }
     cMsgGetText(msg, &text);
-    printf("%s\n",text);
+    if (text != NULL) printf("%s\n",text);
     sleep(3);
   }
     
