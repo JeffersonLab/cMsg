@@ -39,9 +39,10 @@ static void callback(void *msg, void *arg) {
   char *p;
   
   count++;
+  /*
   printf("Print out payload:\n");
   cMsgPayloadPrint(msg);
-  
+  */
   /*
   cMsgToString(msg, &p, 1);
   printf("XML message:\n%s", p);
