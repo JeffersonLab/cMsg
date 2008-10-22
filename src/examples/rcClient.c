@@ -91,8 +91,8 @@ int main(int argc,char **argv) {
      *    timeout while waiting for the rc server to send a special (tcp)
      *    concluding connect message
      */
-  char *UDL     = "cMsg:rc://33444?expid=carlExp&broadcastTO=3";
-  /*char *UDL     = "cMsg://broadcast/&broadcastTO=3";*/
+  char *UDL     = "cMsg:rc://33444?expid=carlExp&multicastTO=3";
+  /*char *UDL     = "cMsg://multicast/&multicastTO=3";*/
 
   int   err, debug = 1;
   cMsgSubscribeConfig *config;
