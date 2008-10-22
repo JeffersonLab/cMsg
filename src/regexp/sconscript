@@ -1,0 +1,11 @@
+# try scons as build system for cmsg
+Import('env', 'incDir', 'libDir')
+
+fileList = ['regcomp.c',
+            'regerror.c',
+            'regexec.c',
+            'regfree.c']
+
+regexpLib = env.SharedLibrary(target = 'cmsgRegex', source = fileList, CPPPATH = '.')
+Install(dir = incDir, source = 'regex.h')
+Install(dir = libDir, source = regexpLib)
