@@ -1,0 +1,107 @@
+# SCons build system file
+
+# get operating system info
+import os
+
+os.umask(022)
+
+# determine the os and machine names
+uname    = os.uname();
+platform = uname[0]
+machine  = uname[4]
+osname   = platform + '_' +  machine
+archDir  = '.' + osname
+
+# we will overwrite the default osname if using vxworks
+# look for command line option -vx
+
+
+print "OSNAME = ", osname
+
+# determine install directories
+installDir    = ""
+codaDirEnv    = os.getenv('CODA_HOME',"")
+installDirEnv = os.getenv('INSTALL_DIR', "")
+
+if installDirEnv == "":
+    if codaDirEnv == "":
+        print "Need to define either CODA_HOME or INSTALL_DIR"
+        raise SystemExit
+    else:
+        installDir = codaDirEnv        
+else:
+    installDir = installDirEnv
+
+print "Install directory = ", installDir
+
+incDir = installDir + "/include"
+libDir = installDir + "/" + osname + "/lib"
+binDir = installDir + "/" + osname + "/bin"
+
+# create an environment
+env = Environment()
+
+# add command line options (try scons -h)
+AddOption('--dbg',
+           dest='cmsgDebug',
+           default=False,
+           action='store_true')
+debug = GetOption('cmsgDebug')
+print "debug =", debug
+Help('--dbg     compile with debug flag\n')
+
+AddOption('--vx',
+           dest='doVX',
+           default=False,
+           action='store_true')
+doVX = GetOption('doVX')
+print "doVX =", doVX
+Help('--vx      cross compile for vxworks\n')
+
+AddOption('--64bits',
+           dest='use64bits',
+           default=False,
+           action='store_true')
+use64bits = GetOption('use64bits')
+print "use64bits =", use64bits
+Help('--64bits  compile 64 bit libs and executables\n')
+
+# use "install" on command line to do the install
+env.Alias('install', incDir)
+env.Alias('install', libDir)
+env.Alias('install', binDir)
+Help('install   install libs, headers, & executables\n')
+
+
+# create needed install directories
+if not os.path.exists(incDir):
+    Execute(Mkdir(incDir))
+if not os.path.exists(libDir):
+    Execute(Mkdir(libDir))
+if not os.path.exists(binDir):
+    Execute(Mkdir(binDir))
+
+# debug/optimization flags
+if debug:
+    env.Append(CCFLAGS = '-g')
+
+# platform dependent quantities
+if platform == 'SunOS':
+    env.Append(CCFLAGS = '-mt')
+    
+if platform == 'Darwin':
+    env.Append(CPPDEFINES = 'Darwin', SHLINKFLAGS = '-multiply_defined suppress -flat_namespace -undefined suppress')
+
+
+#    env.Append(CCFLAGS = '-O3')
+
+#if not use64bits:
+#    env.Append(CCFLAGS = '-m32', LINKFLAGS = '-m32')
+# SHCCFLAGS = '-m32'
+
+# make these available to lower level scons files
+Export('env incDir libDir binDir installDir')
+
+# run lower level scons files
+env.SConscript('src/libsrc/sconscript', variant_dir='src/libsrc/'+archDir, duplicate=0)
+env.SConscript('src/regexp/sconscript', variant_dir='src/regexp/'+archDir, duplicate=0)
