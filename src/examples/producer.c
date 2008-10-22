@@ -33,12 +33,13 @@
 
 /******************************************************************/
 static void usage() {
-    printf("Usage:  producer [-a <size> | -b <size>] -u <UDL> -s <subject> -t <type>\n");
+    printf("Usage:  producer [-a <size> | -b <size>] -u <UDL> -s <subject> -t <type> -d\n");
     printf("                  -a sets the byte size for ascii data, or\n");
     printf("                  -b sets the byte size for binary data\n");
     printf("                  -s sets the subscription subject\n");
     printf("                  -t sets the subscription type\n");
     printf("                  -u sets the connection UDL\n");
+    printf("                  -d turns on debug output\n");
 }
 
 /******************************************************************/
@@ -52,7 +53,7 @@ int main(int argc,char **argv) {
   char *bytes         = NULL;
   char *UDL           = "cMsg:cmsg://localhost:3456/cMsg/test";
   char *p;
-  int   i, j, err, debug=1, msgSize=0, mainloops=200;
+  int   i, j, err, debug=0, msgSize=0, mainloops=2000;
 //  int8_t    i1vals[3];
 //  int16_t   i2vals[3];
 //  int32_t   i3vals[3];
@@ -67,7 +68,7 @@ int main(int argc,char **argv) {
   void *msg, *domainId;
   
   /* msg rate measuring variables */
-  int             dostring=1, count, delay=0, loops=20000, ignore=0;
+  int             dostring=1, count, delay=0, loops=200000, ignore=0;
   struct timespec t1, t2, sleeep;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
@@ -141,7 +142,10 @@ printf("using array msg size %d\n", msgSize);
            return(-1);
          }
          UDL = argv[++i];
-printf("Setting UDP = %s\n", UDL);
+printf("Setting UDL = %s\n", UDL);
+       }
+       else if (strcmp(argv[i], "-d") == 0) {
+         debug = 1;
        }
        else if (strcmp(argv[i], "-h") == 0) {
          usage();
@@ -158,7 +162,7 @@ printf("Setting UDP = %s\n", UDL);
   
   if (debug) {
     printf("Running the cMsg producer, \"%s\"\n", myName);
-    cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
+    cMsgSetDebugLevel(CMSG_DEBUG_INFO);
   }
   
   /* connect to cMsg server */
@@ -174,7 +178,7 @@ printf("Setting UDP = %s\n", UDL);
   msg = cMsgCreateMessage();    /* allocating mem here */
   cMsgSetSubject(msg, subject); /* allocating mem here */
   cMsgSetType(msg, type);       /* allocating mem here */
-  cMsgSetReliableSend(msg, 0);
+  /*cMsgSetReliableSend(msg, 0);*/
   
   /* set compound payload fields */
 
@@ -301,7 +305,7 @@ printf("Setting UDP = %s\n", UDL);
   } 
   
   end:
-printf("producer: will free msg\n");  
+printf("producer: will free msg, msg = %p, &msg = %p\n", msg, &msg);  
   cMsgFreeMessage(&msg);
 printf("producer: will disconnect\n");  
   err = cMsgDisconnect(&domainId);
