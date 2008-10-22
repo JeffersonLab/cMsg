@@ -35,12 +35,12 @@ int main(int argc,char **argv) {
   char *type    = "TYPE";
   char *text    = "TEXT";
   char *bytes   = NULL;
-  char *UDL     = "cMsg:cMsg://localhost:3456/cMsg/test";
-  int   err, debug=1, msgSize=0;
+  char *UDL     = "cMsg://localhost/cMsg/test";
+  int   err, debug=2, msgSize=0;
   void *msg, *replyMsg, *domainId;
   
   /* msg rate measuring variables */
-  int             dostring=1, count, i, delay=0, loops=5000;
+  int             dostring=1, count, i, delay=1, loops=5000;
   struct timespec timeout, t1, t2, sleeep;
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
@@ -101,7 +101,7 @@ int main(int argc,char **argv) {
 
   if (debug) {
     printf("Running the cMsg C getConsumer, \"%s\"\n", myName);
-    cMsgSetDebugLevel(CMSG_DEBUG_ERROR);
+    cMsgSetDebugLevel(CMSG_DEBUG_INFO);
   }
 
   /* connect to cMsg server */
