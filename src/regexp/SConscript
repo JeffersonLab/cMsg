@@ -1,11 +1,11 @@
 # scons build file for cmsg
-Import('env', 'incDir', 'libDir')
+Import('env', 'incDir', 'libDir', 'vxInc')
 
 fileList = ['regcomp.c',
             'regerror.c',
             'regexec.c',
             'regfree.c']
 
-regexpLib = env.SharedLibrary(target = 'cmsgRegex', source = fileList, CPPPATH = '.')
+regexpLib = env.SharedLibrary(target = 'cmsgRegex', source = fileList, CPPPATH = [vxInc, '.'])
 env.Alias("install", env.Install(target = incDir, source = 'regex.h'))
 env.Alias("install", env.Install(target = libDir, source = regexpLib))

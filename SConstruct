@@ -134,6 +134,7 @@ vxInc = ''
 if doVX:
     env.Append(CPPDEFINES = ['CPU=PPC604', 'VXWORKS', '_GNU_TOOL', 'VXWORKSPPC', 'POSIX_MISTAKE'])
     env.Append(CCFLAGS = '-fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -mcpu=604')
+    execLibs = ['']
     vxInc = vxbase + '/target/h'
     env['CC']     = 'ccppc'
     env['CXX']    = 'g++ppc'
@@ -157,5 +158,10 @@ Export('env incDir libDir binDir archDir execLibs doVX vxInc')
 env.SConscript('src/regexp/SConscript',   variant_dir='src/regexp/'+archDir,   duplicate=0)
 env.SConscript('src/libsrc/SConscript',   variant_dir='src/libsrc/'+archDir,   duplicate=0)
 env.SConscript('src/libsrc++/SConscript', variant_dir='src/libsrc++/'+archDir, duplicate=0)
-env.SConscript('src/examples/SConscript', variant_dir='src/examples/'+archDir, duplicate=0)
-env.SConscript('src/execsrc/SConscript',  variant_dir='src/execsrc/'+archDir,  duplicate=0)
+
+# for vxworks only make libs and examples
+if doVX:
+    env.SConscript('src/examples/sconscript', variant_dir='src/examples/'+archDir, duplicate=0)
+else:
+    env.SConscript('src/examples/SConscript', variant_dir='src/examples/'+archDir, duplicate=0)
+    env.SConscript('src/execsrc/SConscript',  variant_dir='src/execsrc/'+archDir,  duplicate=0)
