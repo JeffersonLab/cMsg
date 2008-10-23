@@ -1,24 +1,19 @@
 # scons build file for cmsg
-Import('env', 'binDir', 'archDir', 'execLibs', 'doVX', 'vxInc')
+Import('env', 'binDir', 'archDir', 'execLibs')
 
-# All vxworks examples start by convention with 'vx'.
-# Don't compile these if not using vxworks and don't
-# compile regular C/C++ files if using vxworks.
+# All vxworks examples start by convention with 'vx', don't compile these
 vx_cfileList  = Glob('vx*.c')  + Glob('VX*.c')  + Glob('vX*.c')  + Glob('Vx*.c')
 vx_ccfileList = Glob('vx*.cc') + Glob('VX*.cc') + Glob('vX*.cc') + Glob('Vx*.cc')
 
-# Remove any vxworks files from C file list
+# All C files
 cfileList = Glob('*.c')
 
-if doVX:
-    cfileList = vx_cfileList
-    print "lower vx includes = ", vxInc
-else:
-    for vxname in vx_cfileList:
-        for fname in cfileList:
-           if vxname == fname:
-                cfileList.remove(vxname)
-                break
+# Remove any vxworks files from C file list
+for vxname in vx_cfileList:
+    for fname in cfileList:
+       if vxname == fname:
+            cfileList.remove(vxname)
+            break
 
 # For each C file, create executable of the same name,
 # and install that executable if "scons examples" is command
@@ -26,7 +21,7 @@ for fileName in cfileList:
     compiledFile = env.Program(source  = fileName,
                                LIBS    = ['cmsgRegex', 'cmsg'] + execLibs,
                                LIBPATH = ['#src/regexp/'+archDir, '#src/libsrc/'+archDir],
-                               CPPPATH = [vxInc, '.', '#src/regexp', '#src/libsrc'])
+                               CPPPATH = ['.', '#src/regexp', '#src/libsrc'])
     env.Alias('examples', env.Install(target = binDir, source = compiledFile))
 
 # If we store all compiled programs in a list and then
@@ -36,16 +31,13 @@ for fileName in cfileList:
 
 # Now do C++ files
 ccfileList = Glob('*.cc')
+
 # Remove any vxworks files from C++ file list
-if doVX:
-    ccfileList = vx_ccfileList
-    print "forget compiling C++ for vxworks"
-else:
-    for vxname in vx_ccfileList:
-        for fname in ccfileList:
-            if vxname == fname:
-                ccfileList.remove(vxname)
-                break
+for vxname in vx_ccfileList:
+    for fname in ccfileList:
+        if vxname == fname:
+            ccfileList.remove(vxname)
+            break
 
 # compile and install
 for fileName in ccfileList:

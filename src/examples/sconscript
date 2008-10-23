@@ -7,6 +7,7 @@ Import('env', 'binDir', 'vxInc')
 vxfileList = Glob('vx*.c')  + Glob('VX*.c')  + Glob('vX*.c')  + Glob('Vx*.c') + \
              Glob('vx*.cc') + Glob('VX*.cc') + Glob('vX*.cc') + Glob('Vx*.cc')
 
+# for vxworks all we need is the object
 for fileName in vxfileList:
     objectFile = env.Object(source  = fileName,
                             CPPPATH = [vxInc, '.', '#src/regexp', '#src/libsrc', '#src/libsrc++'])

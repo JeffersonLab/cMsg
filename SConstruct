@@ -134,7 +134,6 @@ vxInc = ''
 if doVX:
     env.Append(CPPDEFINES = ['CPU=PPC604', 'VXWORKS', '_GNU_TOOL', 'VXWORKSPPC', 'POSIX_MISTAKE'])
     env.Append(CCFLAGS = '-fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -mcpu=604')
-    execLibs = ['']
     vxInc = vxbase + '/target/h'
     env['CC']     = 'ccppc'
     env['CXX']    = 'g++ppc'

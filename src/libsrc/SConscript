@@ -16,6 +16,7 @@ fileList = ['cMsg.c',
             'rwlock.c',
             'sunConcurrency.c']
 
-cmsgLib = env.SharedLibrary(target = 'cmsg', source = fileList, CPPPATH = [vxInc, '.', '#src/regexp'])
+cmsgLib = env.SharedLibrary(target = 'cmsg', source = fileList,
+                            CPPPATH = [vxInc, '.', '#src/regexp'])
 env.Alias("install", env.Install(target = incDir, source = 'cMsg.h'))
 env.Alias("install", env.Install(target = libDir, source = cmsgLib))
