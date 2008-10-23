@@ -13,8 +13,9 @@ osname   = platform + '_' +  machine
 archDir  = '.' + osname
 print "OSNAME = ", osname
 
-# create an environment
-env = Environment()
+# Create an environment while importing the user's PATH.
+# This allows us to get to the vxworks compiler for example.
+env = Environment(ENV = {'PATH' : os.environ['PATH']})
 
 #########################################
 # add command line options (try scons -h)
@@ -107,9 +108,8 @@ if not os.path.exists(binDir):
     Execute(Mkdir(binDir))
 
 ###############
-# COMPILE STUFF
+# COMPILE FLAGS
 ###############
-
 # debug/optimization flags
 if debug:
     env.Append(CCFLAGS = '-g')
@@ -118,22 +118,42 @@ if debug:
 execLibs = ['pthread', 'dl', 'rt']  # default to standard Unix libs
 if platform == 'SunOS':
     env.Append(CCFLAGS = '-mt')    
+    if doVX:
+        vxbase = os.getenv('WIND_BASE', '/site/vxworks/5.5/ppc')
+        vxbin = vxbase + '/sun4-solaris/bin'
 #    env.Append(CCFLAGS = '{-mt}')    
 elif platform == 'Darwin':
     env.Append(CPPDEFINES = 'Darwin', SHLINKFLAGS = '-multiply_defined suppress -flat_namespace -undefined suppress')
 elif platform == 'Linux':
-    pass
+    if doVX:
+        vxbase = os.getenv('WIND_BASE', '/site/vxworks/5.5/ppc')
+        vxbin = vxbase + '/x86-linux/bin'
 
+
+vxInc = ''
+if doVX:
+    env.Append(CPPDEFINES = ['CPU=PPC604', 'VXWORKS', '_GNU_TOOL', 'VXWORKSPPC', 'POSIX_MISTAKE'])
+    env.Append(CCFLAGS = '-fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -mcpu=604')
+    vxInc = vxbase + '/target/h'
+    env['CC']     = 'ccppc'
+    env['CXX']    = 'g++ppc'
+    env['SHLINK'] = 'ldppc'
+    env['AR']     = 'arppc'
+    env['RANLIB'] = 'ranlibppc'
+    
 #    env.Append(CCFLAGS = '-O3')
-
 #if not use64bits:
 #    env.Append(CCFLAGS = '-m32', LINKFLAGS = '-m32')
 # SHCCFLAGS = '-m32'
 
-# make these available to lower level scons files
-Export('env incDir libDir binDir archDir execLibs doVX')
+#########################
+# lower level scons files
+#########################
 
-# run lower level scons files
+# make available to lower level scons files
+Export('env incDir libDir binDir archDir execLibs doVX vxInc')
+
+# run lower level build files
 env.SConscript('src/regexp/SConscript',   variant_dir='src/regexp/'+archDir,   duplicate=0)
 env.SConscript('src/libsrc/SConscript',   variant_dir='src/libsrc/'+archDir,   duplicate=0)
 env.SConscript('src/libsrc++/SConscript', variant_dir='src/libsrc++/'+archDir, duplicate=0)

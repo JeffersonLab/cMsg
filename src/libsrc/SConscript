@@ -1,5 +1,5 @@
 # scons build file for cmsg
-Import('env', 'libDir', 'incDir')
+Import('env', 'libDir', 'incDir', 'vxInc')
 
 fileList = ['cMsg.c',
             'cMsgCompoundPayload.c',
@@ -16,6 +16,6 @@ fileList = ['cMsg.c',
             'rwlock.c',
             'sunConcurrency.c']
 
-cmsgLib = env.SharedLibrary(target = 'cmsg', source = fileList, CPPPATH = ['.', '#src/regexp'])
+cmsgLib = env.SharedLibrary(target = 'cmsg', source = fileList, CPPPATH = [vxInc, '.', '#src/regexp'])
 env.Alias("install", env.Install(target = incDir, source = 'cMsg.h'))
 env.Alias("install", env.Install(target = libDir, source = cmsgLib))
