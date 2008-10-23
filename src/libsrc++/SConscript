@@ -1,0 +1,8 @@
+# scons build file for cmsg
+Import('env', 'libDir', 'incDir')
+
+fileList = ['cMsgWrapper.cc', 'cMsgPayload.cc']
+
+cmsgxxLib = env.SharedLibrary(target = 'cmsgxx', source = fileList, CPPPATH = ['.', '#src/regexp', '#src/libsrc'])
+env.Alias("install", env.Install(target = incDir, source = 'cMsg.hxx'))
+env.Alias("install", env.Install(target = libDir, source = cmsgxxLib))
