@@ -4343,6 +4343,7 @@ printf("getMonitorInfo: num servers = %d\n", numServers);
 
     if (numServers > 0) {
       for (i=0; i<numServers; i++) {
+        parsedUDL *p;
         isLocal = 0;
 
         if ((err = cMsgTcpRead(domain->keepAliveSocket, inComing, sizeof(inComing))) !=
@@ -4358,7 +4359,7 @@ printf("getMonitorInfo: num servers = %d\n", numServers);
         hlen    = ntohl(inComing[2]); /* host string len */
         plen    = ntohl(inComing[3]); /* password string len */
 
-        parsedUDL *p = (parsedUDL *) calloc(1, sizeof(parsedUDL));
+        p = (parsedUDL *) calloc(1, sizeof(parsedUDL));
         if (p == NULL) {
           return CMSG_OUT_OF_MEMORY;
         }
@@ -4465,9 +4466,10 @@ printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, host = %s, p
  */
 static int connectToServer(void **domainId) {
   int err, len;
+  cMsgDomainInfo *domain;
   
   if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
-  cMsgDomainInfo *domain = (cMsgDomainInfo *) (*domainId);
+  domain = (cMsgDomainInfo *) (*domainId);
   if (domain == NULL) return(CMSG_BAD_ARGUMENT);
 
   /* No multicast is ever done if failing over to cloud server
