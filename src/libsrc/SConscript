@@ -1,4 +1,4 @@
-# try scons as build system for cmsg
+# scons build file for cmsg
 Import('env', 'libDir', 'incDir')
 
 fileList = ['cMsg.c',
@@ -17,7 +17,5 @@ fileList = ['cMsg.c',
             'sunConcurrency.c']
 
 cmsgLib = env.SharedLibrary(target = 'cmsg', source = fileList, CPPPATH = ['.', '#src/regexp'])
-env.Alias("install", env.Install(dir = incDir, source = 'cMsg.h'))
-env.Alias("install", env.Install(dir = libDir, source = cmsgLib))
-#Install(dir = incDir, source = 'cMsg.h')
-#Install(dir = libDir, source = cmsgLib)
+env.Alias("install", env.Install(target = incDir, source = 'cMsg.h'))
+env.Alias("install", env.Install(target = libDir, source = cmsgLib))

@@ -1,36 +1,47 @@
-# try scons as build system for cmsg
+# scons build file for cmsg
 Import('env', 'binDir', 'archDir', 'execLibs', 'doVX')
 
-
-vxfileList = Glob('vx*', source=True, strings=True)
-print 'vxfileList = ', vxfileList                
-fileList = Glob('*.c', source=True, strings=True)
+# All vxworks examples start by convention with 'vx'.
+# Don't compile these if not using vxworks and don't
+# compile regular C files if using vxworks.
+vxfileList = Glob('vx*') + Glob('VX*') + Glob('vX*') + Glob('Vx*')
+# Remove any vxworks files from C file list
+cfileList = Glob('*.c')
 for vxname in vxfileList:
-    for fname in fileList:
+    for fname in cfileList:
         if vxname == fname:
-            fileList.remove(vxname)
-            print "removing " + vxname + " from file list"
+            cfileList.remove(vxname)
             break
-print 'fileList = ', fileList                
 
-# loop over files, creating executable of the same name
-execList_c = ['']
-for fileName in fileList:
-    print "adding file ", fileName, " to list"
-    execList_c.append(env.Program(source = fileName,
-                              LIBS    = ['cmsg', 'cmsgRegex'] + execLibs,
-                              LIBPATH = ['#src/regexp/'+archDir, '#src/libsrc/'+archDir],
-                              CPPPATH = ['.', '#src/regexp', '#src/libsrc']))
-installed = env.Install(target = binDir, source = execList_c)
-env.Alias("install", installed)
-print "Installed stuff = ", installed
-#env.Install(dir = binDir, source = execList_c)
+# For each C file, create executable of the same name,
+# and install that executable if "scons examples" is command
+for fileName in cfileList:
+    compiledFile = env.Program(source  = fileName,
+                               LIBS    = ['cmsgRegex', 'cmsg'] + execLibs,
+                               LIBPATH = ['#src/regexp/'+archDir, '#src/libsrc/'+archDir],
+                               CPPPATH = ['.', '#src/regexp', '#src/libsrc'])
+    env.Alias('examples', env.Install(target = binDir, source = compiledFile))
 
-#execList_cc = ['']
-#for fileName in ccfileList:
-    #execList.append(env.Program(source = fileName,
-                              #LIBS    = ['cmsg', 'cmsgRegex', 'cmsgxx'] + execLibs,
-                              #LIBPATH = ['#src/regexp/'+archDir, '#src/libsrc/'+archDir],
-                              #CPPPATH = ['.', '#src/regexp', '#src/libsrc']))
+# If we store all compiled programs in a list and then
+# install the list itself, for some unknown reason the
+# whole variant library is copied into the install directory.
+# So we do things individual file by individual file.
 
-#Install(dir = binDir, source = execList_cc)
+# Now do C++ files
+ccfileList = Glob('*.cc') + Glob('*.CC') + Glob('*.C') + Glob('*.cxx')
+# Remove any vxworks files from C++ file list
+for vxname in vxfileList:
+    for fname in ccfileList:
+        if vxname == fname:
+            ccfileList.remove(vxname)
+            break
+
+# compile and install
+for fileName in ccfileList:
+    compiledFile = env.Program(source  = fileName,
+                               LIBS    = ['cmsgRegex', 'cmsg', 'cmsgxx'] + execLibs,
+                               LIBPATH = ['#src/regexp/'+archDir,
+                                          '#src/libsrc/'+archDir,
+                                          '#src/libsrc++/'+archDir],
+                               CPPPATH = ['.', '#src/regexp', '#src/libsrc', '#src/libsrc++'])
+    env.Alias('examples', env.Install(target = binDir, source = compiledFile))

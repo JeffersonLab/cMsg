@@ -92,11 +92,11 @@ print 'binDir = ', binDir
 print 'libDir = ', libDir
 print 'incDir = ', incDir
 
-# use "install" on command line to do the install
-#env.Alias('install', incDir)
-#env.Alias('install', libDir)
-#env.Alias('install', binDir)
-Help('install             install libs, headers, & executables\n')
+# use "install" on command line to install libs & headers
+Help('install             install libs & headers\n')
+
+# use "examples" on command line to install executable examples
+Help('examples            install executable examples\n')
 
 # create needed install directories
 if not os.path.exists(incDir):
@@ -134,6 +134,8 @@ elif platform == 'Linux':
 Export('env incDir libDir binDir archDir execLibs doVX')
 
 # run lower level scons files
-env.SConscript('src/libsrc/sconscript', variant_dir='src/libsrc/'+archDir, duplicate=0)
-env.SConscript('src/regexp/sconscript', variant_dir='src/regexp/'+archDir, duplicate=0)
-env.SConscript('src/examples/sconscript', variant_dir='src/examples/'+archDir, duplicate=0)
+env.SConscript('src/regexp/SConscript',   variant_dir='src/regexp/'+archDir,   duplicate=0)
+env.SConscript('src/libsrc/SConscript',   variant_dir='src/libsrc/'+archDir,   duplicate=0)
+env.SConscript('src/libsrc++/SConscript', variant_dir='src/libsrc++/'+archDir, duplicate=0)
+env.SConscript('src/examples/SConscript', variant_dir='src/examples/'+archDir, duplicate=0)
+env.SConscript('src/execsrc/SConscript',  variant_dir='src/execsrc/'+archDir,  duplicate=0)
