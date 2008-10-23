@@ -1,0 +1,13 @@
+# scons build file for cmsg - vxworks
+Import('env', 'binDir', 'vxInc')
+
+# All vxworks examples start by convention with 'vx'.
+# Don't compile these if not using vxworks and don't
+# compile regular C/C++ files if using vxworks.
+vxfileList = Glob('vx*.c')  + Glob('VX*.c')  + Glob('vX*.c')  + Glob('Vx*.c') + \
+             Glob('vx*.cc') + Glob('VX*.cc') + Glob('vX*.cc') + Glob('Vx*.cc')
+
+for fileName in vxfileList:
+    objectFile = env.Object(source  = fileName,
+                            CPPPATH = [vxInc, '.', '#src/regexp', '#src/libsrc', '#src/libsrc++'])
+    env.Alias('examples', env.Install(target = binDir, source = objectFile))
