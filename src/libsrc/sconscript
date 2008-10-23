@@ -17,5 +17,7 @@ fileList = ['cMsg.c',
             'sunConcurrency.c']
 
 cmsgLib = env.SharedLibrary(target = 'cmsg', source = fileList, CPPPATH = ['.', '#src/regexp'])
-Install(dir = incDir, source = 'cMsg.h')
-Install(dir = libDir, source = cmsgLib)
+env.Alias("install", env.Install(dir = incDir, source = 'cMsg.h'))
+env.Alias("install", env.Install(dir = libDir, source = cmsgLib))
+#Install(dir = incDir, source = 'cMsg.h')
+#Install(dir = libDir, source = cmsgLib)

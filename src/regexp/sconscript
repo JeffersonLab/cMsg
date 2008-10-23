@@ -7,5 +7,7 @@ fileList = ['regcomp.c',
             'regfree.c']
 
 regexpLib = env.SharedLibrary(target = 'cmsgRegex', source = fileList, CPPPATH = '.')
-Install(dir = incDir, source = 'regex.h')
-Install(dir = libDir, source = regexpLib)
+env.Alias("install", env.Install(dir = incDir, source = 'regex.h'))
+env.Alias("install", env.Install(dir = libDir, source = regexpLib))
+#Install(dir = incDir, source = 'regex.h')
+#Install(dir = libDir, source = regexpLib)

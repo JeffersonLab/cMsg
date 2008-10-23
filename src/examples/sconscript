@@ -1,26 +1,36 @@
 # try scons as build system for cmsg
-Import('env', 'binDir', 'archDir')
+Import('env', 'binDir', 'archDir', 'execLibs', 'doVX')
 
-fileList = ['consumer.c',
-            'consumer2.c',
-#            'cpptest.cc',
-            'dummy.c',
-            'getConsumer.c',
-            'getConsumer2.c',
-            'getResponder.c',
-            'monitor.c',
-            'payload.c',
-            'producer.c',
-            'producerMsg.c',
-            'rcClient.c',
-            'shutdowner.c']
+
+vxfileList = Glob('vx*', source=True, strings=True)
+print 'vxfileList = ', vxfileList                
+fileList = Glob('*.c', source=True, strings=True)
+for vxname in vxfileList:
+    for fname in fileList:
+        if vxname == fname:
+            fileList.remove(vxname)
+            print "removing " + vxname + " from file list"
+            break
+print 'fileList = ', fileList                
 
 # loop over files, creating executable of the same name
-execList = ['']*13
-for i in range(12):
-    execList[i] = env.Program(source = fileList[i],
-                              LIBS    = ['cmsg', 'cmsgRegex', 'pthread', 'dl', 'rt'],
+execList_c = ['']
+for fileName in fileList:
+    print "adding file ", fileName, " to list"
+    execList_c.append(env.Program(source = fileName,
+                              LIBS    = ['cmsg', 'cmsgRegex'] + execLibs,
                               LIBPATH = ['#src/regexp/'+archDir, '#src/libsrc/'+archDir],
-                              CPPPATH = ['.', '#src/regexp', '#src/libsrc'])
+                              CPPPATH = ['.', '#src/regexp', '#src/libsrc']))
+installed = env.Install(target = binDir, source = execList_c)
+env.Alias("install", installed)
+print "Installed stuff = ", installed
+#env.Install(dir = binDir, source = execList_c)
 
-#Install(dir = binDir, source = execList)
+#execList_cc = ['']
+#for fileName in ccfileList:
+    #execList.append(env.Program(source = fileName,
+                              #LIBS    = ['cmsg', 'cmsgRegex', 'cmsgxx'] + execLibs,
+                              #LIBPATH = ['#src/regexp/'+archDir, '#src/libsrc/'+archDir],
+                              #CPPPATH = ['.', '#src/regexp', '#src/libsrc']))
+
+#Install(dir = binDir, source = execList_cc)
