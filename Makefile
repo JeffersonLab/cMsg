@@ -6,7 +6,7 @@ MAKEFILE = Makefile
 
 # if using vxworks, use different set of the lowest level makefiles
 ifeq ($(BMS_OS), vxworks)
-  ifdef ARCH
+  ifdef BMS_ARCH
     MAKEFILE = Makefile.$(BMS_OS)-$(BMS_ARCH)
   else
     $(error "Need to define BMS_ARCH if using BMS_OS = vxworks")
