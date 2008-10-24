@@ -4018,11 +4018,13 @@ static int cMsgToStringImpl(const void *vmsg, char **string, int level, int marg
   ctime_r(&msg->senderTime.tv_sec,senderTimeBuf,&buflen);      senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
   ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf,&buflen);  receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
   ctime_r(&msg->userTime.tv_sec,userTimeBuf,&buflen);          userTimeBuf[strlen(userTimeBuf)-1]='\0';
+/*
 #elif defined sun
   ctime_r(&now,nowBuf,buflen);                                nowBuf[strlen(nowBuf)-1]='\0';
   ctime_r(&msg->senderTime.tv_sec,senderTimeBuf,buflen);      senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
   ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf,buflen);  receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
   ctime_r(&msg->userTime.tv_sec,userTimeBuf,buflen);          userTimeBuf[strlen(userTimeBuf)-1]='\0';
+*/
 #else
   ctime_r(&now,nowBuf);                               nowBuf[strlen(nowBuf)-1]='\0';
   ctime_r(&msg->senderTime.tv_sec,senderTimeBuf);     senderTimeBuf[strlen(senderTimeBuf)-1]='\0';

@@ -262,8 +262,10 @@ int cmsg_file_send(void *domainId, void *vmsg) {
     now=time(NULL);
 #ifdef VXWORKS
     ctime_r(&now,nowBuf,&nowLen);
+/*
 #elif defined sun
     ctime_r(&now,nowBuf,nowLen);
+*/
 #else
     ctime_r(&now,nowBuf);
 #endif
