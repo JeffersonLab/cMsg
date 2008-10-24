@@ -2,6 +2,7 @@
 
 # get operating system info
 import os
+import string
 
 os.umask(022)
 
@@ -11,12 +12,26 @@ platform = uname[0]
 machine  = uname[4]
 osname   = platform + '_' +  machine
 archDir  = '.' + osname
-print "OSNAME = ", osname
 
 # Create an environment while importing the user's PATH.
-# This allows us to get to the vxworks compiler for example.
+# This allows us to get to the vxworks compiler for example,
+# so for vxworks, make sure the tools are in your PATH
 env = Environment(ENV = {'PATH' : os.environ['PATH']})
 
+# How many bits is the operating system?
+# For 64 bit x86 machines, the "machine' variable is x86_64, but ...
+# Output of "file" command tells if given file is 32 or 64 bits.
+# Pick some Unix command like "rm".
+output = os.popen('file `which rm`').read()
+ans = string.find(output, '64-bit')
+is64bits = True
+if ans < 0:
+    is64bits = False
+    print "32 Bit operating system"
+else:
+    print "64 Bit operating system"
+if osname == 'SunOS_i86pc':
+    is64bits = True
 #########################################
 # add command line options (try scons -h)
 #########################################
@@ -40,14 +55,14 @@ doVX = GetOption('doVX')
 print "doVX =", doVX
 Help('--vx                cross compile for vxworks\n')
 
-# 64 bit option
-AddOption('--64bits',
-           dest='use64bits',
+# 32 bit option
+AddOption('--32bits',
+           dest='use32bits',
            default=False,
            action='store_true')
-use64bits = GetOption('use64bits')
-print "use64bits =", use64bits
-Help('--64bits            compile 64 bit libs and executables\n')
+use32bits = GetOption('use32bits')
+print "use32bits =", use32bits
+Help('--32bits            compile 32bit libs & executables on 64bit system\n')
 
 # install directory option
 AddOption('--prefix',
@@ -85,6 +100,8 @@ if doVX:
     archDir = '.' + osname
     print "\nDoing vxworks\n"
 
+print "OSNAME = ", osname
+
 # set our install directories
 libDir = prefix + "/" + osname + '/lib'
 binDir = prefix + "/" + osname + '/bin'
@@ -113,25 +130,25 @@ if not os.path.exists(binDir):
 # debug/optimization flags
 if debug:
     env.Append(CCFLAGS = '-g')
+#    env.Append(CCFLAGS = '-O3')
 
-# platform dependent quantities
-execLibs = ['pthread', 'dl', 'rt']  # default to standard Unix libs
-if platform == 'SunOS':
-    env.Append(CCFLAGS = '-mt')    
-    if doVX:
-        vxbase = os.getenv('WIND_BASE', '/site/vxworks/5.5/ppc')
-        vxbin = vxbase + '/sun4-solaris/bin'
-#    env.Append(CCFLAGS = '{-mt}')    
-elif platform == 'Darwin':
-    env.Append(CPPDEFINES = 'Darwin', SHLINKFLAGS = '-multiply_defined suppress -flat_namespace -undefined suppress')
-elif platform == 'Linux':
-    if doVX:
-        vxbase = os.getenv('WIND_BASE', '/site/vxworks/5.5/ppc')
-        vxbin = vxbase + '/x86-linux/bin'
-
-
+# vxworks
 vxInc = ''
 if doVX:
+    if platform == 'Linux':
+        vxbase = os.getenv('WIND_BASE', '/site/vxworks/5.5/ppc')
+        vxbin = vxbase + '/x86-linux/bin'
+    elif platform == 'SunOS':
+        vxbase = os.getenv('WIND_BASE', '/site/vxworks/5.5/ppc')
+        print "WIND_BASE = ", vxbase
+        vxbin = vxbase + '/sun4-solaris/bin'
+        if machine == 'i86pc':
+            print '\nVxworks compilation not allowed on x86 solaris\n'
+            raise SystemExit
+    else:
+        print '\nVxworks compilation not allowed on ' + platform + '\n'
+        raise SystemExit
+                    
     env.Append(CPPDEFINES = ['CPU=PPC604', 'VXWORKS', '_GNU_TOOL', 'VXWORKSPPC', 'POSIX_MISTAKE'])
     env.Append(CCFLAGS = '-fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -mcpu=604')
     vxInc = vxbase + '/target/h'
@@ -141,10 +158,33 @@ if doVX:
     env['AR']     = 'arppc'
     env['RANLIB'] = 'ranlibppc'
     
-#    env.Append(CCFLAGS = '-O3')
-#if not use64bits:
-#    env.Append(CCFLAGS = '-m32', LINKFLAGS = '-m32')
-# SHCCFLAGS = '-m32'
+
+# platform dependent quantities
+execLibs = ['pthread', 'dl', 'rt']  # default to standard Unix libs
+if platform == 'SunOS':
+    env.Append(CCFLAGS = '-mt')
+    env.Append(CPPDEFINES = ['_REENTRANT', '_POSIX_PTHREAD_SEMANTICS', '_GNU_SOURCE', 'SunOS'])
+    execLibs = ['m', 'posix4', 'pthread', 'socket', 'dl']
+    if is64bits and not use32bits:
+        if machine == 'sun4u':
+            env.Append(CCFLAGS = '-xarch=native64 -xcode=pic32',
+                       LIBPATH = '/lib/64',
+                       LINKFLAGS = '-xarch=native64 -xcode=pic32')
+        else:
+            env.Append(CCFLAGS = '-xarch=amd64',
+                       LIBPATH = ['/lib/64', '/usr/ucblib/amd64'],
+                       LINKFLAGS = '-xarch=amd64')
+elif platform == 'Darwin':
+    env.Append(CPPDEFINES = 'Darwin', SHLINKFLAGS = '-multiply_defined suppress -flat_namespace -undefined suppress')
+    env.Append(CCFLAGS = '-fmessage-length=0')
+    if is64bits and not use32bits:
+        env.Append(CCFLAGS = '-arch x86_64',
+                   LINKFLAGS = '-arch x86_64 -Wl,-bind_at_load', # untested
+                   SHLINKFLAGS = '-arch x86_64') #untested
+elif platform == 'Linux':
+    if is64bits and use32bits:
+        env.Append(CCFLAGS = '-m32', LINKFLAGS = '-m32')
+            
 
 #########################
 # lower level scons files
