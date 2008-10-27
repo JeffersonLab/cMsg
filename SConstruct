@@ -215,19 +215,21 @@ if platform == 'SunOS':
     if is64bits and not use32bits:
         if machine == 'sun4u':
             env.Append(CCFLAGS = '-xarch=native64 -xcode=pic32',
-                       LIBPATH = '/lib/64',
+                       #LIBPATH = '/lib/64',
                        LINKFLAGS = '-xarch=native64 -xcode=pic32')
         else:
             env.Append(CCFLAGS = '-xarch=amd64',
-                       LIBPATH = ['/lib/64', '/usr/ucblib/amd64'],
+                       #LIBPATH = ['/lib/64', '/usr/ucblib/amd64'],
                        LINKFLAGS = '-xarch=amd64')
+
 elif platform == 'Darwin':
+    execLibs = ['pthread', 'dl']
     env.Append(CPPDEFINES = 'Darwin', SHLINKFLAGS = '-multiply_defined suppress -flat_namespace -undefined suppress')
     env.Append(CCFLAGS = '-fmessage-length=0')
     if is64bits and not use32bits:
         env.Append(CCFLAGS = '-arch x86_64',
-                   LINKFLAGS = '-arch x86_64 -Wl,-bind_at_load', # untested
-                   SHLINKFLAGS = '-arch x86_64') #untested
+                   LINKFLAGS = '-arch x86_64 -Wl,-bind_at_load')
+
 elif platform == 'Linux':
     if is64bits and use32bits:
         env.Append(CCFLAGS = '-m32', LINKFLAGS = '-m32')
