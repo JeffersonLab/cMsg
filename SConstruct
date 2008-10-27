@@ -18,20 +18,64 @@ archDir  = '.' + osname
 # so for vxworks, make sure the tools are in your PATH
 env = Environment(ENV = {'PATH' : os.environ['PATH']})
 
+################################
+# 64 or 32 bit operating system?
+################################
+    
+# Define configure-type test function to
+# see if operating system is 64 or 32 bits
+def CheckHas64Bits(context, flags):
+    context.Message( 'Checking for 64/32 bits ...' )
+    lastCCFLAGS = context.env['CCFLAGS']
+    lastLFLAGS  = context.env['LINKFLAGS']
+    context.env.Append(CCFLAGS = flags, LINKFLAGS = flags)
+    # (C) program to run to check for bits
+    ret = context.TryRun("""
+#include <stdio.h>
+int main(int argc, char **argv) {
+  printf(\"%d\", 8*sizeof(0L));
+  return 0;
+}
+""", '.c')
+    # restore original flags
+    context.env.Replace(CCFLAGS = lastCCFLAGS, LINKFLAGS = lastLFLAGS)
+    # if program successfully ran ...
+    if ret[0]:
+        context.Result(ret[1])
+        if ret[1] == '64':
+            return 64
+        return 32
+    # else if program did not run ...
+    else:
+        # Don't know if it's a 32 or 64 bit operating system
+        context.Result('failed')
+        return 0
+
 # How many bits is the operating system?
-# For 64 bit x86 machines, the "machine' variable is x86_64, but ...
-# Output of "file" command tells if given file is 32 or 64 bits.
-# Pick some Unix command like "rm".
-output = os.popen('file `which rm`').read()
-ans = string.find(output, '64-bit')
-is64bits = True
-if ans < 0:
-    is64bits = False
-    print "32 Bit operating system"
-else:
-    print "64 Bit operating system"
-if osname == 'SunOS_i86pc':
-    is64bits = True
+# For Linux 64 bit x86 machines, the "machine' variable is x86_64,
+# but for Darwin or Solaris there is no obvious check so run
+# a configure-type test.
+is64bits = False
+if platform == 'Linux':
+    if machine == 'x86_64':
+        is64bits = True
+elif platform == 'Darwin' or platform == 'SunOS':
+    ccflags = '-xarch=amd64'
+    if platform == 'Darwin':
+        ccflags = '-arch x86_64'
+    # run the test
+    conf = Configure( env, custom_tests = { 'CheckBits' : CheckHas64Bits } )
+    ret = conf.CheckBits(ccflags)
+    env = conf.Finish()
+    if ret < 1:
+        print 'Cannot run test, assume 32 bit system'
+    elif ret == 64:
+        print 'Found 64 bit system'
+        is64bits = True;
+    else:
+        print 'Found 32 bit system'
+
+
 #########################################
 # add command line options (try scons -h)
 #########################################
@@ -130,7 +174,10 @@ if not os.path.exists(binDir):
 # debug/optimization flags
 if debug:
     env.Append(CCFLAGS = '-g')
-#    env.Append(CCFLAGS = '-O3')
+elif platform == 'SunOS':
+    env.Append(CCFLAGS = '-xO3')
+else:
+    env.Append(CCFLAGS = '-O3')
 
 # vxworks
 vxInc = ''
