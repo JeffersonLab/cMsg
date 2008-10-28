@@ -1,11 +1,17 @@
 # scons build file for cmsg - vxworks
 Import('env', 'binDir', 'vxInc')
+import re
 
 # All vxworks examples start by convention with 'vx'.
-# Don't compile these if not using vxworks and don't
-# compile regular C/C++ files if using vxworks.
-vxfileList = Glob('vx*.c')  + Glob('VX*.c')  + Glob('vX*.c')  + Glob('Vx*.c') + \
-             Glob('vx*.cc') + Glob('VX*.cc') + Glob('vX*.cc') + Glob('Vx*.cc')
+# Don't compile regular C/C++ files if using vxworks.
+fileList = Glob('*.c', strings=True) + Glob('*.cc', strings=True)
+
+# only choose files beginning with vx, case independent
+vxfileList = []
+pattern = re.compile('vx', re.IGNORECASE)
+for fileName in fileList:
+    if pattern.match(fileName) is not None:
+        vxfileList.append(fileName)
 
 # for vxworks all we need is the object
 for fileName in vxfileList:
