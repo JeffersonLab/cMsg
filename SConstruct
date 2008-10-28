@@ -170,7 +170,7 @@ else:
         if is64bits and not use32bits:
             if machine == 'sun4u':
                 env.Append(CCFLAGS = '-xarch=native64 -xcode=pic32',
-                           #LIBPATH = '/lib/64',
+                           #LIBPATH = '/lib/64', # to do this we need to pass LIBPATH to lower level
                            LINKFLAGS = '-xarch=native64 -xcode=pic32')
             else:
                 env.Append(CCFLAGS = '-xarch=amd64',
