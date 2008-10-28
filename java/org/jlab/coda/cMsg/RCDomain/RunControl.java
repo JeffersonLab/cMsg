@@ -190,6 +190,19 @@ public class RunControl extends cMsgDomainAdapter {
 
 
     /**
+     * Method to force cMsg client to send pending communications with domain server.
+     * Does nothing in this domain.
+     *
+     * @param timeout time in milliseconds to wait for completion
+     * @throws cMsgException never thrown
+     */
+    public void flush(int timeout) throws cMsgException {
+        return;
+    }
+
+
+
+    /**
      * Method to connect to the codaComponent server from this client.
      *
      * @throws org.jlab.coda.cMsg.cMsgException if there are problems parsing the UDL or
