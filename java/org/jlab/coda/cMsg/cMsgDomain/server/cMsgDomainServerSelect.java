@@ -206,8 +206,8 @@ public class cMsgDomainServerSelect extends Thread {
             // For the client wants to do sends with udp, create a socket on an available udp port
             try {
                 // Create socket to receive at all interfaces
-                udpChannel = DatagramChannel.open();
-                udpSocket  = udpChannel.socket();
+                udpSocket  = new DatagramSocket();
+                udpChannel = udpSocket.getChannel();
                 udpPort    = udpSocket.getLocalPort();
                 udpSocket.setReceiveBufferSize(cMsgNetworkConstants.biggestUdpBufferSize);
             }
