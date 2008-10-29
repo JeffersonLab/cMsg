@@ -1,5 +1,5 @@
 # scons build file for cmsg
-Import('env', 'incDir', 'libDir', 'tarfile')
+Import('env', 'incDir', 'libDir', 'tarfile', 'debugSuffix')
 
 libFiles = ['regcomp.c',
             'regerror.c',
@@ -7,7 +7,7 @@ libFiles = ['regcomp.c',
             'regfree.c']
 
 env.AppendUnique(CPPPATH = '.')
-regexpLib = env.SharedLibrary(target = 'cmsgRegex', source = libFiles)
+regexpLib = env.SharedLibrary(target = 'cmsgRegex'+debugSuffix, source = libFiles)
 
 env.Alias("install", env.Install(target = incDir, source = 'regex.h'))
 env.Alias("install", env.Install(target = libDir, source = regexpLib))

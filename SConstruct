@@ -132,15 +132,20 @@ uninstall = GetOption('uninstall')
 Help('--uninstall         uninstall libs, headers, & examples\n')
 
 
-###############
+#########################
 # Compile flags
-###############
+#########################
 
 # debug/optimization flags
+debugSuffix = ''
 if debug:
-    env.Append(CCFLAGS = '-g')
+    debugSuffix = '_dbg'
+    # compile with -g and add debugSuffix to all executable names
+    env.Append(CCFLAGS = '-g', PROGSUFFIX = debugSuffix)
+
 elif platform == 'SunOS':
     env.Append(CCFLAGS = '-xO3')
+
 else:
     env.Append(CCFLAGS = '-O3')
 
@@ -214,11 +219,13 @@ if not use32bits:
 
 print "OSNAME = ", osname
 archDir  = '.' + osname
+if debug:
+    archDir = archDir + '-dbg'
 
-###############
+#########################
 # Install stuff
-###############
-    
+#########################
+
 # Any user specifed command line installation path overrides default
 if prefix == '':
     # determine install directories since nothing on command line
@@ -288,7 +295,7 @@ Help('tar                 create tar file (in cmsg/tar)\n')
 #########################
 
 # make available to lower level scons files
-Export('env incDir libDir binDir archDir execLibs tarfile')
+Export('env incDir libDir binDir archDir execLibs tarfile debugSuffix')
 
 # run lower level build files
 env.SConscript('src/regexp/SConscript',   variant_dir='src/regexp/'+archDir,   duplicate=0)

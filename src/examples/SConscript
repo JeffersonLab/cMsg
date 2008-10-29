@@ -1,5 +1,5 @@
 # scons build file for cmsg
-Import('env', 'binDir', 'archDir', 'execLibs')
+Import('env', 'binDir', 'archDir', 'execLibs', 'debugSuffix')
 import re
 
  # lists of all C and C++ files
@@ -22,7 +22,7 @@ for fileName in all_ccfileList:
 # and install that executable if "scons examples" is command
 for fileName in cfileList:
     compiledFile = env.Program(source  = fileName,
-                               LIBS    = ['cmsgRegex', 'cmsg'] + execLibs,
+                               LIBS    = ['cmsgRegex'+debugSuffix, 'cmsg'+debugSuffix] + execLibs,
                                LIBPATH = ['#src/regexp/'+archDir, '#src/libsrc/'+archDir],
                                CPPPATH = ['.', '#src/regexp', '#src/libsrc'])
     env.Alias('examples', env.Install(target = binDir, source = compiledFile))
@@ -35,7 +35,9 @@ for fileName in cfileList:
 # compile and install
 for fileName in ccfileList:
     compiledFile = env.Program(source  = fileName,
-                               LIBS    = ['cmsgRegex', 'cmsg', 'cmsgxx'] + execLibs,
+                               LIBS    = ['cmsgRegex'+debugSuffix,
+                                          'cmsg'+debugSuffix,
+                                          'cmsgxx'+debugSuffix] + execLibs,
                                LIBPATH = ['#src/regexp/'+archDir,
                                           '#src/libsrc/'+archDir,
                                           '#src/libsrc++/'+archDir],

@@ -1,5 +1,5 @@
 # scons build file for cmsg
-Import('env', 'binDir', 'archDir', 'execLibs')
+Import('env', 'binDir', 'archDir', 'execLibs', 'debugSuffix')
 
 # list of files to compile (don't compile Channel Access files)
 ccfileList = ['cMsgCommand.cc',
@@ -10,7 +10,9 @@ ccfileList = ['cMsgCommand.cc',
 # compile and install
 for fileName in ccfileList:
     compiledFile = env.Program(source  = fileName,
-                               LIBS    = ['cmsgRegex', 'cmsg', 'cmsgxx'] + execLibs,
+                               LIBS    = ['cmsgRegex'+debugSuffix,
+                                          'cmsg'+debugSuffix,
+                                          'cmsgxx'+debugSuffix] + execLibs,
                                LIBPATH = ['#src/regexp/'+archDir,
                                           '#src/libsrc/'+archDir,
                                           '#src/libsrc++/'+archDir],
