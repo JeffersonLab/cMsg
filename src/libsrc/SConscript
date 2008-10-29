@@ -18,8 +18,6 @@ fileList = ['cMsg.c',
 
 env.AppendUnique(CPPPATH = ['.', '#src/regexp'])
 cmsgLib = env.SharedLibrary(target = 'cmsg', source = fileList)
-installedLib = env.Install(target = libDir, source = cmsgLib)
+
 env.Alias("install", env.Install(target = incDir, source = 'cMsg.h'))
-env.Alias("install", installedLib)
-#env.Alias('uninstall', env.Command ([], [], [Delete (installedLib),
-#                                             Delete (incDir+'/cMsg.h')]))
+env.Alias("install", env.Install(target = libDir, source = cmsgLib))

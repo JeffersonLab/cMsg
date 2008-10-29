@@ -81,8 +81,10 @@ elif platform == 'Darwin' or platform == 'SunOS':
 
 
 #########################################
-# add command line options (try scons -h)
+# Command line options (try scons -h)
 #########################################
+
+Help('\n-D                  build from subdirectory of cmsg\n')
 
 # debug option
 AddOption('--dbg',
@@ -121,9 +123,19 @@ AddOption('--prefix',
 prefix = GetOption('prefix')
 Help('--prefix=<dir>      use base directory <dir> when doing install\n')
 
+# uninstall option
+AddOption('--uninstall',
+           dest='uninstall',
+           default=False,
+           action='store_true')
+uninstall = GetOption('uninstall')
+Help('--uninstall         uninstall libs, headers, & examples\n')
+
+
 ###############
-# COMPILE FLAGS
+# Compile flags
 ###############
+
 # debug/optimization flags
 if debug:
     env.Append(CCFLAGS = '-g')
@@ -204,7 +216,7 @@ print "OSNAME = ", osname
 archDir  = '.' + osname
 
 ###############
-# INSTALL STUFF
+# Install stuff
 ###############
     
 # Any user specifed command line installation path overrides default
@@ -272,7 +284,7 @@ env.Alias('tar', env.Tarball(target = tarfile, source = []))
 Help('tar                 create tar file (in cmsg/tar)\n')
 
 #########################
-# lower level scons files
+# Lower level scons files
 #########################
 
 # make available to lower level scons files
@@ -289,3 +301,13 @@ if useVxworks:
 else:
     env.SConscript('src/examples/SConscript', variant_dir='src/examples/'+archDir, duplicate=0)
     env.SConscript('src/execsrc/SConscript',  variant_dir='src/execsrc/'+archDir,  duplicate=0)
+
+#########################
+# Uninstall stuff
+#########################
+
+# This needs to be AFTER reading the scons files
+# since now we know what the installed files are.
+if uninstall:
+    for fileName in env.FindInstalledFiles():
+        Execute(Delete(fileName))
