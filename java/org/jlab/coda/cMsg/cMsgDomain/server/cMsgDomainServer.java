@@ -208,6 +208,22 @@ public class cMsgDomainServer extends Thread {
 
 
     /**
+     * Set the time ordering property of the server.
+     * If this is true, then all non-(un)subscribe commands sent to it
+     * are guaranteed to be passed to the subdomain handler object in
+     * the order in which they were received.
+     *
+     * @param timeOrdered set to true if timeordering of commands is desired
+     */
+    final public void setTimeOrdered(boolean timeOrdered) {
+        if (timeOrdered) {
+            permanentCommandHandlingThreads = 1;
+            tempThreadsMax = 0;
+        }
+    }
+
+
+    /**
      * Converts 4 bytes of a byte array into an integer.
      *
      * @param b   byte array
@@ -256,13 +272,17 @@ public class cMsgDomainServer extends Thread {
      * @param info object containing information about the client for which this
      *                    domain server was started
      * @param startingPort suggested port on which to starting listening for connections
+     * @param timeOrdered  if true, all non-(un)subscribe requests sent to this object
+     *                     are guaranteed to be passed in the order in which they were received.
      * @throws cMsgException if listening socket could not be opened or a port to listen on could not be found
      */
     public cMsgDomainServer(cMsgNameServer nameServer, cMsgSubdomainInterface handler,
-                            cMsgClientInfo info, int startingPort)
+                            cMsgClientInfo info, int startingPort, boolean timeOrdered)
             throws cMsgException {
 
         subdomainHandler = handler;
+        // receive all requests in sequence or not
+        setTimeOrdered(timeOrdered);
 
         // If we're in the cMsg subdomain, create an object that has access
         // to methods besides those in the cMsgSubdomainInterface.
