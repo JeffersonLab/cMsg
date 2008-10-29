@@ -130,6 +130,7 @@ AddOption('--uninstall',
            action='store_true')
 uninstall = GetOption('uninstall')
 Help('--uninstall         uninstall libs, headers, & examples\n')
+Help('-c  install         uninstall libs, headers, examples, and remove all generated files\n')
 
 
 #########################
@@ -218,7 +219,9 @@ if not use32bits:
     osname = osname + '-64'
 
 print "OSNAME = ", osname
-archDir  = '.' + osname + debugSuffix
+
+# hidden sub directory into which variant builds go
+archDir = '.' + osname + debugSuffix
 
 #########################
 # Install stuff
