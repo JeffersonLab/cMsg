@@ -139,7 +139,7 @@ Help('--uninstall         uninstall libs, headers, & examples\n')
 # debug/optimization flags
 debugSuffix = ''
 if debug:
-    debugSuffix = '_dbg'
+    debugSuffix = '-dbg'
     # compile with -g and add debugSuffix to all executable names
     env.Append(CCFLAGS = '-g', PROGSUFFIX = debugSuffix)
 
@@ -218,9 +218,7 @@ if not use32bits:
     osname = osname + '-64'
 
 print "OSNAME = ", osname
-archDir  = '.' + osname
-if debug:
-    archDir = archDir + '-dbg'
+archDir  = '.' + osname + debugSuffix
 
 #########################
 # Install stuff
