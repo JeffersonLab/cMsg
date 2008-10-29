@@ -3,8 +3,13 @@
 # get operating system info
 import os
 import string
+import SCons.Node.FS
 
 os.umask(022)
+
+# cMsg version
+versionMajor = '3'
+versionMinor = '0'
 
 # determine the os and machine names
 uname    = os.uname();
@@ -149,9 +154,9 @@ if useVxworks:
         print '\nVxworks compilation not allowed on ' + platform + '\n'
         raise SystemExit
                     
-    env.Append(CPPDEFINES = ['CPU=PPC604', 'VXWORKS', '_GNU_TOOL', 'VXWORKSPPC', 'POSIX_MISTAKE'])
+    env.Append(CPPPATH = vxbase + '/target/h')
     env.Append(CCFLAGS = '-fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -mcpu=604')
-    vxInc = vxbase + '/target/h'
+    env.Append(CPPDEFINES = ['CPU=PPC604', 'VXWORKS', '_GNU_TOOL', 'VXWORKSPPC', 'POSIX_MISTAKE'])
     env['CC']     = 'ccppc'
     env['CXX']    = 'g++ppc'
     env['SHLINK'] = 'ldppc'
@@ -230,6 +235,9 @@ print 'incDir = ', incDir
 # use "install" on command line to install libs & headers
 Help('install             install libs & headers\n')
 
+# use "uninstall" on command line to uninstall libs, headers, and executables
+#Help('uninstall           uninstall everything that was installed\n')
+
 # use "examples" on command line to install executable examples
 Help('examples            install executable examples\n')
 
@@ -241,13 +249,34 @@ if not os.path.exists(libDir):
 if not os.path.exists(binDir):
     Execute(Mkdir(binDir))
 
+#########################
+# Tar file
+#########################
+
+# function that does the tar
+def tarballer(target, source, env):
+    dirname = os.path.basename(os.path.abspath('.'))
+    cmd = 'tar -X tar/tarexclude -C .. -c -z -f ' + str(target[0]) + ' ./' + dirname
+    p = os.popen(cmd)
+    return p.close()
+
+# name of tarfile
+tarfile = 'tar/cMsg-' + versionMajor + '.' + versionMinor + '.tgz'
+
+# tarfile builder
+tarBuild = Builder(action = tarballer)
+env.Append(BUILDERS = {'Tarball' : tarBuild})
+env.Alias('tar', env.Tarball(target = tarfile, source = []))
+
+# use "tar" on command line to create tar file
+Help('tar                 create tar file (in cmsg/tar)\n')
 
 #########################
 # lower level scons files
 #########################
 
 # make available to lower level scons files
-Export('env incDir libDir binDir archDir execLibs vxInc')
+Export('env incDir libDir binDir archDir execLibs tarfile')
 
 # run lower level build files
 env.SConscript('src/regexp/SConscript',   variant_dir='src/regexp/'+archDir,   duplicate=0)
