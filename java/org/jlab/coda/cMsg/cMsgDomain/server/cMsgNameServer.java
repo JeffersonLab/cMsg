@@ -59,6 +59,14 @@ public class cMsgNameServer extends Thread {
     /** The maximum value for the cMsgDomainServer's listening port number. */
     static int domainPortMax = 65535;
 
+    /**
+     * This is the time ordering property of the server.
+     * If this is true, then all non-(un)subscribe commands sent to it
+     * are guaranteed to be passed to the subdomain handler objects in
+     * the order in which they were received.
+     */
+    private boolean timeOrdered;
+
     /** Server channel (contains socket). */
     private ServerSocketChannel serverChannel;
 
@@ -279,19 +287,21 @@ public class cMsgNameServer extends Thread {
      * Constructor which reads environmental variables and opens listening sockets.
      *
      * @param port TCP listening port for communication from clients
-     * @param udpPort UDP listening port for receiving multicasts from clients
+     * @param udpPort UDP listening port for receiving broadcasts from clients
+     * @param timeOrdered if true all client commands are processed in the order received
      * @param standAlone  if true no other cMsg servers are allowed to attached to this one and form a cloud
      * @param clientPassword password client needs to provide to connect to this server
      * @param cloudPassword  password server needs to provide to connect to this server to become part of a cloud
      * @param debug desired level of debug output
      */
-    public cMsgNameServer(int port, int udpPort, boolean standAlone,
+    public cMsgNameServer(int port, int udpPort, boolean timeOrdered, boolean standAlone,
                           String clientPassword, String cloudPassword, int debug) {
 
         domainServers  = new ConcurrentHashMap<cMsgDomainServer,String>(20);
         handlerThreads = new ArrayList<ClientHandler>(10);
 
         this.debug          = debug;
+        this.timeOrdered    = timeOrdered;
         this.standAlone     = standAlone;
         this.cloudPassword  = cloudPassword;
         this.clientPassword = clientPassword;
@@ -541,6 +551,9 @@ public class cMsgNameServer extends Thread {
             else if (s.equalsIgnoreCase("server")) {
                 serverToJoin = System.getProperty(s);
             }
+            else if (s.equalsIgnoreCase("timeorder")) {
+                timeOrdered = true;
+            }
             else if (s.equalsIgnoreCase("standalone")) {
                 standAlone = true;
             }
@@ -557,7 +570,7 @@ public class cMsgNameServer extends Thread {
         }
 
         // create server object
-        cMsgNameServer server = new cMsgNameServer(port, udpPort, standAlone,
+        cMsgNameServer server = new cMsgNameServer(port, udpPort, timeOrdered, standAlone,
                                                    clientPassword, cloudPassword, debug);
 
         // start server
@@ -992,7 +1005,8 @@ public class cMsgNameServer extends Thread {
 
             // Create a domain server thread, and get back its host & port
             cMsgDomainServer server = new cMsgDomainServer(cMsgNameServer.this, subdomainHandler, info,
-                                                           cMsgNetworkConstants.domainServerStartingPort);
+                                                           cMsgNetworkConstants.domainServerStartingPort,
+                                                           timeOrdered);
 
             // kill this thread too if name server thread quits
             server.setDaemon(true);
@@ -1045,7 +1059,8 @@ public class cMsgNameServer extends Thread {
 
             // Create a domain server thread, and get back its host & port
             cMsgDomainServer server = new cMsgDomainServer(cMsgNameServer.this, subdomainHandler, info,
-                                                           cMsgNetworkConstants.domainServerStartingPort);
+                                                           cMsgNetworkConstants.domainServerStartingPort,
+                                                           timeOrdered);
 
             // kill this thread too if name server thread quits
             server.setDaemon(true);
