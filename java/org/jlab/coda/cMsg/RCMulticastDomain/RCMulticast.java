@@ -86,7 +86,7 @@ public class RCMulticast extends cMsgDomainAdapter {
     Lock subscribeLock = new ReentrantLock();
 
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugError;
+    int debug = cMsgConstants.debugNone;
 
    /**
      * Collection of all of this server's subscriptions which are

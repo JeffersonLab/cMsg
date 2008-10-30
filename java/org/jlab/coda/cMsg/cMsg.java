@@ -32,7 +32,7 @@ import java.io.*;
  */
 public class cMsg {
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugError;
+    int debug = cMsgConstants.debugNone;
 
     /** String containing the whole UDL. */
     private String UDL;

@@ -66,7 +66,7 @@ public class cMsgServerFinder {
     private volatile boolean needToUpdateCmsg = true;
 
     /** Level of debug output for this class. */
-    private int debug = cMsgConstants.debugError;
+    private int debug = cMsgConstants.debugNone;
 
 
 

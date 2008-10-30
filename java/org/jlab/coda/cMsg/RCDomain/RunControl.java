@@ -152,7 +152,7 @@ public class RunControl extends cMsgDomainAdapter {
     CountDownLatch connectCompletion;
 
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugError;
+    int debug = cMsgConstants.debugNone;
 
 
 
