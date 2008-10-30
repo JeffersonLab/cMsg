@@ -706,7 +706,7 @@ public class cMsgNameServer extends Thread {
      * @param standAlone true if this server will not join a cloud and will not
      *                   allow any server to join this one
      */
-    private void startServer(String serverToJoin, boolean standAlone) {
+    public void startServer(String serverToJoin, boolean standAlone) {
         // start this server
         start();
 //System.out.println("startServer; IN");
