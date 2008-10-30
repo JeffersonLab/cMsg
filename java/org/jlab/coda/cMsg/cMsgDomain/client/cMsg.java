@@ -289,7 +289,7 @@ public class cMsg extends cMsgDomainAdapter {
     boolean hasShutdown;
 
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugInfo;
+    int debug = cMsgConstants.debugNone;
 
     // For statistics/monitoring
 
@@ -519,7 +519,7 @@ public class cMsg extends cMsgDomainAdapter {
 
                 // create multicast packet from the byte array
                 byte[] buf = baos.toByteArray();
-System.out.println("connectWithMulticast: send mcast packets to port " + nameServerUdpPort);
+//System.out.println("connectWithMulticast: send mcast packets to port " + nameServerUdpPort);
                 udpPacket = new DatagramPacket(buf, buf.length, multicastAddr, nameServerUdpPort);
             }
             catch (IOException e) {
@@ -1009,7 +1009,6 @@ System.out.println("connectWithMulticast: send mcast packets to port " + nameSer
 
         // cannot run this simultaneously with disconnect
         notConnectLock.lock();
-System.out.println("reconnect: got past lock");
 
         try {
             // KeepAlive thread needs to keep running.
@@ -1048,26 +1047,26 @@ System.out.println("reconnect: got past lock");
             // connect & talk to cMsg name server to check if name is unique
             Socket nsSocket = null;
             try {
-System.out.println("reconnect:  try connecting to host " + nameServerHost + " and port " + nameServerTcpPort);
+//System.out.println("reconnect:  try connecting to host " + nameServerHost + " and port " + nameServerTcpPort);
                 nsSocket = new Socket(nameServerHost, nameServerTcpPort);
                 // Set tcpNoDelay so no packets are delayed
                 nsSocket.setTcpNoDelay(true);
                 // no need to set buffer sizes
             }
             catch (UnresolvedAddressException e) {
-System.out.println("reconnect:  cannot create socket to name server, unresolved addr");
+//System.out.println("reconnect:  cannot create socket to name server, unresolved addr");
                 try {if (nsSocket != null) nsSocket.close();} catch (IOException e1) {}
                 throw new cMsgException("reconnect: cannot create socket to name server", e);
             }
             catch (IOException e) {
-System.out.println("reconnect:  cannot create socket to name server");
+//System.out.println("reconnect:  cannot create socket to name server");
                 try {if (nsSocket != null) nsSocket.close();} catch (IOException e1) {}
                 throw new cMsgException("reconnect: cannot create socket to name server", e);
             }
 
             // get host & port to send messages & other info from name server
             try {
- System.out.println("reconnect: talk to name server");
+//System.out.println("reconnect: talk to name server");
                 talkToNameServerFromClient(nsSocket);
             }
             catch (IOException e) {
@@ -3177,7 +3176,7 @@ System.out.println("reconnect:  cannot create socket to name server");
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("\nKA: domain server is probably dead, dis/reconnect");
                 }
-System.out.println("KA: implement failovers = " + implementFailovers);
+//System.out.println("KA: implement failovers = " + implementFailovers);
 
                 if (implementFailovers) {
 
@@ -3195,21 +3194,21 @@ System.out.println("KA: implement failovers = " + implementFailovers);
                             failover != cMsgConstants.failoverCloudOnly) {
                             break;
                         }
-System.out.println("KA: trying to failover to cloud member");
+//System.out.println("KA: trying to failover to cloud member");
 
                         // If we want to failover locally, but there is no local cloud server,
                         // or there are no cloud servers of any kind ...
                         if ((cloud == cMsgConstants.cloudLocal && !haveLocalCloudServer) ||
                                 noMoreCloudServers) {
-System.out.println("KA: No cloud members to failover to (else not the desired local ones)");
+//System.out.println("KA: No cloud members to failover to (else not the desired local ones)");
                             // try the next UDL
                             if (failover == cMsgConstants.failoverCloud) {
-System.out.println("KA: so go to next UDL");
+//System.out.println("KA: so go to next UDL");
                                 break;
                             }
                             // if we must failover locally, disconnect
                             else {
-System.out.println("KA: so just disconnect");
+//System.out.println("KA: so just disconnect");
                                 try { disconnect(); }
                                 catch (Exception e) { }
                                 return;
@@ -3243,17 +3242,17 @@ System.out.println("KA: so just disconnect");
                                     Matcher matcher = pattern.matcher(subRemainder);
 
                                     if (pUdl.password.length() > 0) {
-System.out.println("Replacing old pswd with new one");
+//System.out.println("Replacing old pswd with new one");
                                         newSubRemainder = matcher.replaceFirst("$1cmsgpassword=" + pUdl.password);
                                     }
                                     else {
-System.out.println("Eliminating pswd");
+//System.out.println("Eliminating pswd");
                                         newSubRemainder = matcher.replaceFirst("");
                                     }
                                 }
                                 // else if existing UDL has no password, put one on end if necessary
                                 else if (pUdl.password.length() > 0) {
-System.out.println("No cmsgpassword= in udl, CONCAT");
+//System.out.println("No cmsgpassword= in udl, CONCAT");
                                     if (subRemainder.contains("?")) {
                                         newSubRemainder = subRemainder.concat("&cmsgpassword="+pUdl.password);
                                     }
@@ -3263,7 +3262,7 @@ System.out.println("No cmsgpassword= in udl, CONCAT");
                                 }
 
                                 UDL = "cMsg://"+ n + "/" + subdomain + "/" + newSubRemainder;
-System.out.println("KA: Construct new UDL as:\n" + UDL);
+//System.out.println("KA: Construct new UDL as:\n" + UDL);
                                 subRemainder      = newSubRemainder;
                                 password          = pUdl.password;
                                 nameServerHost    = pUdl.nameServerHost;
@@ -3289,7 +3288,7 @@ System.out.println("KA: Construct new UDL as:\n" + UDL);
 
                     // remember which UDL has just failed
                     int failedFailoverIndex = failoverIndex;
-System.out.println("KA: current failover index = " + failoverIndex);
+//System.out.println("KA: current failover index = " + failoverIndex);
 
                     // Since we're NOT failing over to a cloud, go to next UDL
                     // Start by trying to connect to the first UDL on the list that is
@@ -3297,31 +3296,31 @@ System.out.println("KA: current failover index = " + failoverIndex);
                     if (failedFailoverIndex > 0) {
                         connectFailures = 0;
                         failoverIndex = 0;
-System.out.println("KA: set failover index = " + failoverIndex);
+//System.out.println("KA: set failover index = " + failoverIndex);
                     }
                     else {
                         connectFailures = 1;
                         failoverIndex = 1;
-System.out.println("KA: set failover index = " + failoverIndex);
+//System.out.println("KA: set failover index = " + failoverIndex);
                     }
 
                     while (!weGotAConnection) {
 
                         if (connectFailures >= failovers.size()) {
-System.out.println("KA: ran out of UDLs to try");
+//System.out.println("KA: ran out of UDLs to try");
                             break;
                         }
 
                         // skip over UDL that failed
                         if (failoverIndex == failedFailoverIndex) {
-System.out.println("KA: skip over UDL that just failed");
+//System.out.println("KA: skip over UDL that just failed");
                             connectFailures++;
                             failoverIndex++;
                             continue;
                         }
 
                         // get parsed & stored UDL info
-System.out.println("KA: use failover index = " + failoverIndex);
+//System.out.println("KA: use failover index = " + failoverIndex);
                         ParsedUDL p = failovers.get(failoverIndex);
                         // copy info locally
                         p.copyToLocal();
@@ -3333,7 +3332,7 @@ System.out.println("KA: use failover index = " + failoverIndex);
                             weGotAConnection = true;
                         }
                         catch (cMsgException e) {
-System.out.println("KA: FAILED with index = " + failoverIndex);
+//System.out.println("KA: FAILED with index = " + failoverIndex);
                             // clear effects of p.copyToLocal()
                             if (p != null) p.clearLocal();
                             connectFailures++;
@@ -3344,7 +3343,7 @@ System.out.println("KA: FAILED with index = " + failoverIndex);
             }
 
             // disconnect (sockets closed here)
-System.out.println("\nKA: trying running DISCONNECT from this (KA) thread");
+//System.out.println("\nKA: trying running DISCONNECT from this (KA) thread");
             disconnect();
         }
 
@@ -3361,14 +3360,14 @@ System.out.println("\nKA: trying running DISCONNECT from this (KA) thread");
                 // No multicast is ever done if failing over to cloud server
                 // since all cloud servers' info contains real host name and
                 // TCP port only.
-System.out.println("KA: try reconnect, mustMulticast = " + mustMulticast);
+//System.out.println("KA: try reconnect, mustMulticast = " + mustMulticast);
                 if (mustMulticast) {
-System.out.println("KA: try connect w/ multicast");
+//System.out.println("KA: try connect w/ multicast");
                     connectWithMulticast();
                 }
-System.out.println("KA: try reconnect");
+//System.out.println("KA: try reconnect");
                 reconnect();
-System.out.println("KA: reconnect worked");
+//System.out.println("KA: reconnect worked");
 
                 // restore subscriptions on the new server
                 try {
@@ -3376,7 +3375,7 @@ System.out.println("KA: reconnect worked");
                     resubscriptionsComplete = true;
                 }
                 catch (cMsgException e) {
-System.out.println("KA: restoring subscriptions failed");
+//System.out.println("KA: restoring subscriptions failed");
                     // if subscriptions fail, then we do NOT use failover server
                     try { disconnect(); }
                     catch (Exception e1) { }
