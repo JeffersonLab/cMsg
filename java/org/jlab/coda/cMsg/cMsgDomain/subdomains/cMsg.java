@@ -137,7 +137,7 @@ public class cMsg extends cMsgSubdomainAdapter {
     private HashSet<cMsgClientInfo> sendToSet = new HashSet<cMsgClientInfo>(100);
 
     /** Level of debug output for this class. */
-    private int debug = cMsgConstants.debugError;
+    private int debug = cMsgConstants.debugNone;
 
     /** Remainder of UDL client used to connect to domain server. */
     private String UDLRemainder;
