@@ -1767,7 +1767,7 @@ if (debug) System.out.println("  skipped field");
         // since we don't really need it in java
         int index2 = txt.indexOf('\n', index1);
         if (index2 < 1) throw new cMsgException("bad format");
-        int skip = index2 - index1 + 1;
+        int skip = index2 - index1 + 2;
 
         // next is string value of this payload item
         index1 = index2 + 1;
