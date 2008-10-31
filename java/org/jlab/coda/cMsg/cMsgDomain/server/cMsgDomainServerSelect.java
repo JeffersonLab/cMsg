@@ -1298,18 +1298,13 @@ public class cMsgDomainServerSelect extends Thread {
             //System.out.println("type = " + msg.getType());
             index += lengthType;
 
-            // read payload text       BUGBUG: expand payload??
+            // read payload text, do NOT expand payload
             if (lengthPayloadTxt > 0) {
                 String s = new String(array, index, lengthPayloadTxt, "US-ASCII");
-                // setting the payload text is done by setFieldsFromText
                 //System.out.println("payload text = " + s);
                 index += lengthPayloadTxt;
-                try {
-                    msg.setFieldsFromText(s, cMsgMessage.allFields);
-                }
-                catch (cMsgException e) {
-                    System.out.println("msg payload is in the wrong format: " + e.getMessage());
-                }
+                msg.setPayloadText(s);
+                msg.expandedPayload(false);
             }
 
             // read text
