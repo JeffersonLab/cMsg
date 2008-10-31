@@ -1304,7 +1304,6 @@ public class cMsgDomainServerSelect extends Thread {
                 //System.out.println("payload text = " + s);
                 index += lengthPayloadTxt;
                 msg.setPayloadText(s);
-                msg.expandedPayload(false);
             }
 
             // read text
