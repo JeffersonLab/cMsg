@@ -127,7 +127,7 @@
         
         <target name="-then" if="prefixDefined">
             <echo>Install ${jarName} into ${prefix}</echo>
-            <copy file="${jarName}" todir="${prefix}"/>
+            <copy file="${jarName}" todir="${prefix}/jar"/>
         </target>
         
         <target name="-else" unless="prefixDefined">
@@ -141,7 +141,7 @@
         
         <target name="-inner.then" if="installDirDefined">
             <echo>Install ${jarName} into ${env.INSTALL_DIR}</echo>
-            <copy file="${jarName}" todir="${env.INSTALL_DIR}"/>
+            <copy file="${jarName}" todir="${env.INSTALL_DIR}/jar"/>
         </target>
         
         <target name="-inner.else" unless="installDirDefined">
@@ -155,7 +155,7 @@
         
             <target name="-inner.inner.then" if="codaHomeDefined">
                 <echo>Install ${jarName} into ${env.CODA_HOME}</echo>
-                <copy file="${jarName}" todir="${env.CODA_HOME}"/>
+                <copy file="${jarName}" todir="${env.CODA_HOME}/jar"/>
             </target>
             
             <target name="-inner.inner.else" unless="codaHomeDefined">
