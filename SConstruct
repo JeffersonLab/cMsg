@@ -1,4 +1,5 @@
-# SCons build system file
+# scons build system file
+#execfile('boilerplate.scons')
 
 # get operating system info
 import os
@@ -18,8 +19,8 @@ machine  = uname[4]
 osname   = platform + '-' +  machine
 
 # Create an environment while importing the user's PATH.
-# This allows us to get to the vxworks compiler for example,
-# so for vxworks, make sure the tools are in your PATH
+# This allows us to get to the vxworks compiler for example.
+# So for vxworks, make sure the tools are in your PATH
 env = Environment(ENV = {'PATH' : os.environ['PATH']})
 
 ################################
@@ -88,10 +89,10 @@ Help('\n-D                  build from subdirectory of cmsg\n')
 
 # debug option
 AddOption('--dbg',
-           dest='cmsgDebug',
+           dest='ddebug',
            default=False,
            action='store_true')
-debug = GetOption('cmsgDebug')
+debug = GetOption('ddebug')
 print "debug =", debug
 Help('\ncmsg scons OPTIONS:\n')
 Help('--dbg               compile with debug flag\n')
@@ -305,7 +306,7 @@ env.SConscript('src/libsrc++/SConscript', variant_dir='src/libsrc++/'+archDir, d
 
 # for vxworks only make libs and examples
 if useVxworks:
-    env.SConscript('src/examples/sconscript', variant_dir='src/examples/'+archDir, duplicate=0)
+    env.SConscript('src/examples/SConscript.vx', variant_dir='src/examples/'+archDir, duplicate=0)
 else:
     env.SConscript('src/examples/SConscript', variant_dir='src/examples/'+archDir, duplicate=0)
     env.SConscript('src/execsrc/SConscript',  variant_dir='src/execsrc/'+archDir,  duplicate=0)
