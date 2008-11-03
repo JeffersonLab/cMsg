@@ -1,5 +1,16 @@
+################################
 # scons build system file
-#execfile('boilerplate.scons')
+################################
+#
+# Most of this file can be used as a boilerplate build file.
+# The only parts that are dependent on the details of the
+# software package being compiled are the name of the tar file
+# and the list of scons files to be run in the lower level
+# directories.
+# NOTE: to include other scons files, use the python command
+#       execfile('fileName')
+#
+################################
 
 # get operating system info
 import os
@@ -281,7 +292,7 @@ def tarballer(target, source, env):
     p = os.popen(cmd)
     return p.close()
 
-# name of tarfile
+# name of tarfile (software package dependent)
 tarfile = 'tar/cMsg-' + versionMajor + '.' + versionMinor + '.tgz'
 
 # tarfile builder
@@ -292,9 +303,9 @@ env.Alias('tar', env.Tarball(target = tarfile, source = []))
 # use "tar" on command line to create tar file
 Help('tar                 create tar file (in cmsg/tar)\n')
 
-#########################
-# Lower level scons files
-#########################
+######################################################
+# Lower level scons files (software package dependent)
+######################################################
 
 # make available to lower level scons files
 Export('env incDir libDir binDir archDir execLibs tarfile debugSuffix')
