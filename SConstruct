@@ -19,7 +19,7 @@ import SCons.Node.FS
 
 os.umask(022)
 
-# cMsg version
+# Software version
 versionMajor = '3'
 versionMinor = '0'
 
@@ -96,7 +96,7 @@ elif platform == 'Darwin' or platform == 'SunOS':
 # Command line options (try scons -h)
 #########################################
 
-Help('\n-D                  build from subdirectory of cmsg\n')
+Help('\n-D                  build from subdirectory of package\n')
 
 # debug option
 AddOption('--dbg',
@@ -105,7 +105,7 @@ AddOption('--dbg',
            action='store_true')
 debug = GetOption('ddebug')
 print "debug =", debug
-Help('\ncmsg scons OPTIONS:\n')
+Help('\nlocal scons OPTIONS:\n')
 Help('--dbg               compile with debug flag\n')
 
 # vxworks option
@@ -301,7 +301,7 @@ env.Append(BUILDERS = {'Tarball' : tarBuild})
 env.Alias('tar', env.Tarball(target = tarfile, source = []))
 
 # use "tar" on command line to create tar file
-Help('tar                 create tar file (in cmsg/tar)\n')
+Help('tar                 create tar file (in ./tar)\n')
 
 ######################################################
 # Lower level scons files (software package dependent)
