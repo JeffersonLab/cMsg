@@ -1,5 +1,5 @@
 # scons build file for cmsg
-Import('env', 'incDir', 'libDir', 'tarfile', 'debugSuffix')
+Import('env', 'incDir', 'libDir', 'debugSuffix')
 
 libFiles = ['regcomp.c',
             'regerror.c',

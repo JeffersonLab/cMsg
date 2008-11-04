@@ -1,5 +1,5 @@
 # scons build file for cmsg
-Import('env', 'libDir', 'incDir', 'tarfile', 'debugSuffix')
+Import('env', 'libDir', 'incDir', 'debugSuffix')
 
 fileList = ['cMsg.c',
             'cMsgCompoundPayload.c',
