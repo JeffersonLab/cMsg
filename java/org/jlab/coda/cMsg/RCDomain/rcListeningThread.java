@@ -60,7 +60,7 @@ public class rcListeningThread extends Thread {
 
         client = myClient;
         serverChannel = channel;
-        debug = client.debug;
+        debug = client.getDebug();
         handlerThreads = new ArrayList<ClientHandler>(2);
         // die if no more non-daemon thds running
         setDaemon(true);
