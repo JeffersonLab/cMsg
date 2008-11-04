@@ -151,9 +151,6 @@ public class RunControl extends cMsgDomainAdapter {
     /** Signal to coordinate the finishing of the 3-leg connect method. */
     CountDownLatch connectCompletion;
 
-    /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugNone;
-
 
 
     /** Constructor. */

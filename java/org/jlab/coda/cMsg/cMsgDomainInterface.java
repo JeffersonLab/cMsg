@@ -239,7 +239,7 @@ public interface cMsgDomainInterface {
 
     /**
      * Get the client's UDL remainder.
-     * @return client's DUL remainder
+     * @return client's UDL remainder
      */
     public String getUDLRemainder();
 
@@ -270,4 +270,17 @@ public interface cMsgDomainInterface {
      * @return true if callbacks are activated, false if they are not
      */
     public boolean isReceiving();
+
+    /**
+     * Set client's level of debug output.
+     * @param debug client's level of debug output
+     */
+    public void setDebug(int debug);
+
+    /**
+     * Get client's level of debug output.
+     * @return client's level of debug output
+     */
+    public int getDebug();
+
 }

@@ -288,9 +288,6 @@ public class cMsg extends cMsgDomainAdapter {
     /** The subdomain server object or client handler implements {@link #shutdownClients}. */
     boolean hasShutdown;
 
-    /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugNone;
-
     // For statistics/monitoring
 
     /** Numbers of commands sent from client to server. */

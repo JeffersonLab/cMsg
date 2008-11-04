@@ -85,9 +85,6 @@ public class RCMulticast extends cMsgDomainAdapter {
     /** Lock to ensure {@link #subscribe} and {@link #unsubscribe} calls are sequential. */
     Lock subscribeLock = new ReentrantLock();
 
-    /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugNone;
-
    /**
      * Collection of all of this server's subscriptions which are
      * {@link cMsgSubscription} objects. This set is synchronized.

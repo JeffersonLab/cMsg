@@ -59,6 +59,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
     /** Handler for client shutdown command sent by server. */
     protected cMsgShutdownHandlerInterface shutdownHandler;
 
+    /** Level of debug output for this class. */
+    protected int debug;
 //-----------------------------------------------------------------------------
 
 
@@ -439,9 +441,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      * Get a string that the implementing class wants to send back to the user.
      * @return a string
      */
-    public String getString() {
-        return null;
-    }
+    public String getString() {return null;}
 
 //-----------------------------------------------------------------------------
 
@@ -451,7 +451,23 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      * start and stop methods activate and deactivate the callbacks.
      * @return true if callbacks are activated, false if they are not
      */
-    public boolean isReceiving() {return(receiving);}
+    public boolean isReceiving() {return receiving;}
 
+
+//-----------------------------------------------------------------------------
+
+    
+    /**
+     * Set client's level of debug output.
+     * @param debug client's level of debug output
+     */
+    public void setDebug(int debug) {this.debug = debug;}
+
+
+    /**
+     * Get client's level of debug output.
+     * @return client's level of debug output
+     */
+    public int getDebug() {return debug;}
 
 }

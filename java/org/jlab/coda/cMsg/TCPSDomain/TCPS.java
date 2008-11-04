@@ -65,9 +65,6 @@ public class TCPS extends cMsgDomainAdapter {
      /** Lock to ensure that methods using the socket, write in sequence. */
      Lock socketLock = new ReentrantLock();
 
-     /** Level of debug output for this class. */
-     int debug = cMsgConstants.debugNone;
-
 
 
     /** Constructor. */

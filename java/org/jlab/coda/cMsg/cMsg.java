@@ -24,15 +24,15 @@ import java.util.concurrent.TimeoutException;
 import java.io.*;
 
 /**
- * This class is instantiated by a client in order to connect to a cMsg server.
+ * This class is instantiated by a client in order to connect to a cMsg domain.
  * The instantiated object will be the main means by which the client will
  * interact with cMsg.</p>
- * This class acts as a multiplexor to direct a cMsg client to the proper
- * subdomain based on the UDL given.
+ * This class is the "top level" API and acts as a multiplexor to direct a cMsg
+ * client to the proper domain based on the UDL given.
  */
 public class cMsg {
     /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugNone;
+    private int debug;
 
     /** String containing the whole UDL. */
     private String UDL;
@@ -54,14 +54,16 @@ public class cMsg {
 
 
     /** Constructor. */
-    private cMsg() { }
+    private cMsg() {
+        debug = cMsgConstants.debugNone;
+    }
 
 
     /**
      * Constructor which automatically tries to connect to the name server specified.
      *
-     * @param UDL semicolon separated list of Uniform Domain Locators - each of which specifies
-     *            a server to connect to
+     * @param UDL semicolon separated list of Uniform Domain Locators. These UDLs have different specifics
+     *            in each domain. In the cMsg domain each of the UDLs specifies a server to connect to
      * @param name name of this client which must be unique in this domain
      * @param description description of this client
      * @throws cMsgException if domain in not implemented;
@@ -86,7 +88,7 @@ public class cMsg {
         this.name = name;
         this.description = description;
 
-        // create real connection object to server of specific domain
+        // create real connection object in specified domain
         connection = createDomainConnection();
 
         // Since the connection object is created with a no-arg constructor,
@@ -100,6 +102,34 @@ public class cMsg {
         connection.setDescription(description);
         // Pass in the UDL remainder
         connection.setUDLRemainder(UDLremainder);
+        // Pass in the debug value
+        connection.setDebug(debug);
+    }
+
+
+    /**
+     * Set level of debug output.
+     * Argument may be one of:
+     * <ul>
+     * <li>{@link cMsgConstants#debugNone} for no outuput<p>
+     * <li>{@link cMsgConstants#debugSevere} for severe error output<p>
+     * <li>{@link cMsgConstants#debugError} for all error output<p>
+     * <li>{@link cMsgConstants#debugWarn} for warning and error output<p>
+     * <li>{@link cMsgConstants#debugInfo} for information, warning, and error output<p>
+     * </ul>
+     *
+     * @param debug level of debug output
+     */
+    public void setDebug(int debug) {
+        if (debug != cMsgConstants.debugError &&
+            debug != cMsgConstants.debugInfo &&
+            debug != cMsgConstants.debugNone &&
+            debug != cMsgConstants.debugSevere &&
+            debug != cMsgConstants.debugWarn) {
+            return;
+        }
+        this.debug = debug;
+        connection.setDebug(debug);
     }
 
 

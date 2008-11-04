@@ -95,9 +95,6 @@ public class RCServer extends cMsgDomainAdapter {
     /** Used to create unique id numbers associated with a specific message subject/type pair. */
     AtomicInteger uniqueId;
 
-    /** Level of debug output for this class. */
-    int debug = cMsgConstants.debugNone;
-
     /**
      * Collection of all of this client's message subscriptions which are
      * {@link cMsgSubscription} objects. This set is synchronized.
