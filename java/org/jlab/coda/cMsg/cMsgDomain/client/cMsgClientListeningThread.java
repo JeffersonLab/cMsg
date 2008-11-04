@@ -78,7 +78,7 @@ public class cMsgClientListeningThread extends Thread {
 
         client = myClient;
         socket = sock;
-        debug = client.debug;
+        debug = client.getDebug();
 
         // buffered communication streams for efficiency
         in  = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 65536));

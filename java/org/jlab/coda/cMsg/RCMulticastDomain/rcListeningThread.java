@@ -82,7 +82,7 @@ public class rcListeningThread extends Thread {
             throw new cMsgException("Port " + multicastPort + " is taken", e);
         }
         this.server = server;
-        debug = server.debug;
+        debug = server.getDebug();
         // die if no more non-daemon thds running
         setDaemon(true);
     }

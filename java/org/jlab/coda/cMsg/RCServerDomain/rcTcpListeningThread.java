@@ -82,7 +82,7 @@ public class rcTcpListeningThread extends Thread {
     public rcTcpListeningThread(RCServer server) throws cMsgException {
 
         this.server = server;
-        debug = server.debug;
+        debug = server.getDebug();
         createTCPServerChannel();
         // die if no more non-daemon thds running
         setDaemon(true);

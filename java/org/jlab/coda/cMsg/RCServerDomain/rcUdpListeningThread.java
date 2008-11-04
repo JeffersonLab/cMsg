@@ -80,7 +80,7 @@ public class rcUdpListeningThread extends Thread {
     public rcUdpListeningThread(RCServer server) throws IOException {
 
         this.server = server;
-        debug = server.debug;
+        debug = server.getDebug();
         port  = server.localUdpPort;
         createUDPClientSocket();
         // die if no more non-daemon thds running
