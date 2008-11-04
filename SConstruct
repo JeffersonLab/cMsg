@@ -197,11 +197,11 @@ if useVxworks:
 # else if NOT using vxworks
 else:
     # platform dependent quantities
-    execLibs = ['pthread', 'dl', 'rt']  # default to standard Linux libs
+    execLibs = ['m', 'pthread', 'dl', 'rt']  # default to standard Linux libs
     if platform == 'SunOS':
         env.Append(CCFLAGS = '-mt')
-        env.Append(CPPDEFINES = ['_REENTRANT', '_POSIX_PTHREAD_SEMANTICS', '_GNU_SOURCE', 'SunOS'])
-        execLibs = ['m', 'posix4', 'pthread', 'socket', 'dl']
+        env.Append(CPPDEFINES = ['_GNU_SOURCE', '_REENTRANT', '_POSIX_PTHREAD_SEMANTICS', 'SunOS'])
+        execLibs = ['m', 'posix4', 'pthread', 'socket', 'resolv', 'nsl', 'dl']
         if is64bits and not use32bits:
             if machine == 'sun4u':
                 env.Append(CCFLAGS = '-xarch=native64 -xcode=pic32',
@@ -285,8 +285,14 @@ if not os.path.exists(binDir):
 # Tar file
 #########################
 
-# function that does the tar
+# Function that does the tar. Note that tar on Solaris is different
+# (more primitive) than tar on Linux and MacOS. Solaris tar has no -z option
+# and the exclude file does not allow wildcards. Thus, stick to Linux for
+# creating the tar file.
 def tarballer(target, source, env):
+    if platform == 'SunOS':
+        print '\nMake tar file from Linux or MacOS please\n'
+        return
     dirname = os.path.basename(os.path.abspath('.'))
     cmd = 'tar -X tar/tarexclude -C .. -c -z -f ' + str(target[0]) + ' ./' + dirname
     p = os.popen(cmd)
@@ -298,7 +304,7 @@ tarfile = 'tar/cMsg-' + versionMajor + '.' + versionMinor + '.tgz'
 # tarfile builder
 tarBuild = Builder(action = tarballer)
 env.Append(BUILDERS = {'Tarball' : tarBuild})
-env.Alias('tar', env.Tarball(target = tarfile, source = []))
+env.Alias('tar', env.Tarball(target = tarfile, source = None))
 
 # use "tar" on command line to create tar file
 Help('tar                 create tar file (in ./tar)\n')
