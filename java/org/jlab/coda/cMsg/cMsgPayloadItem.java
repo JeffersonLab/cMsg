@@ -149,23 +149,6 @@ public final class cMsgPayloadItem implements Cloneable {
      "e0", "e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8", "e9", "ea", "eb", "ec", "ed", "ee", "ef",
      "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "fa", "fb", "fc", "fd", "fe", "ff"};
 
-    /**
-     * Map the value of an ascii character (index) to the numerical
-     * value it represents. The only characters of interest are 0-9,a-f,
-     * and Z for converting hex strings back to numbers.
-     */
-    private static final int toByte[] =
-    { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /*  0-9  */
-      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 10-19 */
-      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 20-29 */
-      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 30-39 */
-      -1, -1, -1, -1, -1, -1, -1, -1,  0,  1,  /* 40-49 */
-       2,  3,  4,  5,  6,  7,  8,  9, -1, -1,  /* 50-59 */
-      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 60-69 */
-      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 70-79 */
-      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  /* 80-89 */
-      -2, -1, -1, -1, -1, -1, -1, 10, 11, 12,  /* 90-99, Z maps to 90 */
-      13, 14, 15}; /* 100-102 */
 
     /**
      * Clone this object.
@@ -3429,55 +3412,6 @@ public final class cMsgPayloadItem implements Cloneable {
          }
          throw new cMsgException("Wrong type");
      }
-
-
-    //----------------------------------------------------
-    // METHODS TO DECODE TEXT INTO cMsgPayloadItem OBJECTS
-    //----------------------------------------------------
-
-
-    /**
-     * This method decodes text (in the format of a cMsgPayloadItem
-     * textual representation) to a float.
-     *
-     * @param txt text representation of a float cMsgPayloadItem
-     * @throws cMsgException if txt is in a bad format or not of float type
-     *
-     */
-    static float decodeFloatText(String txt)  throws cMsgException {
-
-        // find header line
-        int index1 = 0;
-        int index2 = txt.indexOf('\n');
-        if (index2 < 1) throw new cMsgException("bad format");
-        String sub = txt.substring(index1, index2);
-
-        // dissect header line into 5 values
-        String[] tokens = sub.split(" ");
-        if (tokens.length != 5) throw new cMsgException("bad format");
-        int dataType = Integer.parseInt(tokens[1]);
-
-        if (dataType != cMsgConstants.payloadFlt) throw new cMsgException("wrong type");
-
-        // next is string value of this payload item
-        index1 = index2 + 1;
-        index2 = txt.indexOf('\n', index1);
-        if (index2 < 1) throw new cMsgException("bad format");
-        String val = txt.substring(index1, index2);
-
-        // convert from 8 chars (representing hex) to float
-        int ival = ((toByte[val.charAt(0)] << 28) |
-                    (toByte[val.charAt(1)] << 24) |
-                    (toByte[val.charAt(2)] << 20) |
-                    (toByte[val.charAt(3)] << 16) |
-                    (toByte[val.charAt(4)] << 12) |
-                    (toByte[val.charAt(5)] <<  8) |
-                    (toByte[val.charAt(6)] <<  4) |
-                    (toByte[val.charAt(7)]));
-
-        // now convert int (4 bytes of IEEE-754 format) into float
-        return Float.intBitsToFloat(ival);
-    }
 
 
 }
