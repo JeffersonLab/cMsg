@@ -66,13 +66,20 @@ public class cMsgServerFinder {
     private volatile boolean needToUpdateCmsg = true;
 
     /** Level of debug output for this class. */
-    private int debug = cMsgConstants.debugNone;
+    private int debug;
 
 
 
 
     /** Constructor. */
     public cMsgServerFinder() {
+        this(cMsgConstants.debugNone);
+    }
+
+    /** Constructor. */
+    public cMsgServerFinder(int debug) {
+        this.debug = debug;
+
         rcResponders   = new HashSet<String>(100);
         cMsgResponders = new HashSet<String>(100);
 
@@ -87,9 +94,31 @@ public class cMsgServerFinder {
             defaultRcPorts[i]   = cMsgNetworkConstants.rcMulticastPort   + i;
             defaultCmsgPorts[i] = cMsgNetworkConstants.nameServerUdpPort + i;
         }
+    }                                                                           
+
+    /**
+     * Set level of debug output.
+     * Argument may be one of:
+     * <ul>
+     * <li>{@link cMsgConstants#debugNone} for no outuput<p>
+     * <li>{@link cMsgConstants#debugSevere} for severe error output<p>
+     * <li>{@link cMsgConstants#debugError} for all error output<p>
+     * <li>{@link cMsgConstants#debugWarn} for warning and error output<p>
+     * <li>{@link cMsgConstants#debugInfo} for information, warning, and error output<p>
+     * </ul>
+     *
+     * @param debug level of debug output
+     */
+    void setDebug(int debug) {
+        if (debug != cMsgConstants.debugError &&
+            debug != cMsgConstants.debugInfo &&
+            debug != cMsgConstants.debugNone &&
+            debug != cMsgConstants.debugSevere &&
+            debug != cMsgConstants.debugWarn) {
+            return;
+        }
+        this.debug = debug;
     }
-
-
 
     /**
      * Get the password for connecting to a cmsg name server.
