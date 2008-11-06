@@ -29,7 +29,7 @@ import org.xml.sax.*;
  * no need of. This class is for use only by packages that are part of the cMsg
  * implementation. This whole class is really a private form of the cMsgMessage class.
  */
-public class cMsgMessageFull extends cMsgMessage {
+public class cMsgMessageFull extends cMsgMessage implements Serializable {
 
     /** Constructor. */
     public cMsgMessageFull() {
