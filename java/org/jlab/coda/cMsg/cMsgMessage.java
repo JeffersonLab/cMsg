@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.io.UnsupportedEncodingException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.io.Serializable;
 import java.math.BigInteger;
 
 
@@ -100,7 +101,7 @@ import java.math.BigInteger;
   * @author Carl Timmer
   * @version 1.0
   */
-public class cMsgMessage implements Cloneable {
+public class cMsgMessage implements Cloneable, Serializable {
 
     /**
      * Is message a sendAndGet request? -- stored in 1st bit of info.
