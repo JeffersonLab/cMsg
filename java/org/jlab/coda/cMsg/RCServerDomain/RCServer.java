@@ -555,10 +555,6 @@ public class RCServer extends cMsgDomainAdapter {
     /**
      * This is a method to subscribe to receive messages of a subject and type from the rc client.
      *
-     * If the subject and type are both null, a "default" subscription is made, meaning any
-     * received messages which do not match any other subscription are given to the default
-     * subscription.
-     *
      * @param subject message subject
      * @param type    message type
      * @param cb      callback object whose single method is called upon receiving a message
