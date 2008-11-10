@@ -14,36 +14,30 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg.apps;
+package org.jlab.coda.cMsg.test;
 
 import org.jlab.coda.cMsg.*;
 
 /**
- * This class implements a run control client.
+ * This class implements a run control client that works with cMsgTextRcServer.
  */
-public class rcClient {
+public class cMsgTestRcClient {
 
     int count;
     cMsg cmsg;
 
+
     public static void main(String[] args) throws cMsgException {
-         rcClient client = new rcClient();
+         cMsgTestRcClient client = new cMsgTestRcClient();
          client.run();
      }
+
 
     /**
      * This class defines the callback to be run when a message matching
      * our subscription arrives.
      */
     class myCallback extends cMsgCallbackAdapter {
-        /**
-         * Callback method definition.
-         *
-         * @param msg message received from domain server
-         * @param userObject object passed as an argument which was set when the
-         *                   client orginally subscribed to a subject and type of
-         *                   message.
-         */
         public void callback(cMsgMessage msg, Object userObject) {
             count++;
             System.out.println("Got msg with sub = " + msg.getSubject() + ", typ = " + msg.getType() +
@@ -55,33 +49,32 @@ public class rcClient {
 
     /** This class defines our callback object. */
     class sAndGCallback extends cMsgCallbackAdapter {
-
-        /**
-         * Callback method definition.
-         *
-         * @param msg message received from domain server
-         * @param userObject object passed as an argument which was set when the
-         *                   client orginally subscribed to a subject and type of
-         *                   message.
-         */
         public void callback(cMsgMessage msg, Object userObject) {
+
+            if (!msg.isGetRequest()) {
+                System.out.println("Callback received non-sendAndGet msg - ignoring");
+                return;
+            }
+
             try {
                 cMsgMessage sendMsg;
                 try {
-                    System.out.println("Callback received sendAndGet msg - responding");
+                    System.out.println("Callback received sendAndGet msg (" + msg.getSubject() +
+                            ", " + msg.getType() + ") - responding");
                     sendMsg = msg.response();
                     // Create Compound Payload
-                    cMsgPayloadItem item = new cMsgPayloadItem("severity", "really severe");
+                    cMsgPayloadItem item = new cMsgPayloadItem("payloadItem", "any string you want");
                     sendMsg.addPayloadItem(item);
                 }
                 catch (cMsgException e) {
-                    System.out.println("Callback received non-sendAndGet msg - ignoring");
+                    e.printStackTrace();
                     return;
                 }
                 sendMsg.setSubject("RESPONDING");
                 sendMsg.setType("TO MESSAGE");
                 sendMsg.setText("responder's text");
-                sendMsg.getContext().setReliableSend(false);
+                // to send with UDP, uncomment following line
+                // sendMsg.getContext().setReliableSend(false);
                 cmsg.send(sendMsg);
                 count++;
             }
@@ -89,12 +82,12 @@ public class rcClient {
                 e.printStackTrace();
             }
         }
-     }
+    }
 
 
-     public void run() throws cMsgException {
+    public void run() throws cMsgException {
 
-         System.out.println("Starting RC Client");
+         System.out.println("Starting RC domain test client");
 
          /* Runcontrol domain UDL is of the form:
           *        cMsg:rc://<host>:<port>/?expid=<expid>&multicastTO=<timeout>&connectTO=<timeout>
@@ -105,14 +98,13 @@ public class rcClient {
           *    and may be "localhost" or in dotted decimal form
           * 3) the experiment id or expid is optional, it is taken from the
           *    environmental variable EXPID
-          * 4) broadcastTO is the time to wait in seconds before connect returns a
-          *    timeout when a rc broadcast server does not answer
+          * 4) multicastTO is the time to wait in seconds before connect returns a
+          *    timeout when a rc multicast server does not answer
           * 5) connectTO is the time to wait in seconds before connect returns a
           *    timeout while waiting for the rc server to send a special (tcp)
           *    concluding connect message
           */
-         String UDL = "cMsg:rc://33444?expid=carlExp&multicastTO=5&connectTO=5";
-         //String UDL = "cMsg:rc://33444?expid=carlExp";
+         String UDL = "cMsg:rc://?expid=carlExp&multicastTO=5&connectTO=5";
 
          cmsg = new cMsg(UDL, "java rc client", "rc trial");
          cmsg.connect();
@@ -120,11 +112,11 @@ public class rcClient {
          // enable message reception
          cmsg.start();
 
-         // subscribe to subject/type to receive from RC Server
+         // subscribe to subject/type to receive from RC Server send
          cMsgCallbackInterface cb = new myCallback();
          Object unsub = cmsg.subscribe("rcSubject", "rcType", cb, null);
 
-         // subscribe to subject/type to receive from RC Server
+         // subscribe to subject/type to receive from RC Server sendAndGet
          cMsgCallbackInterface cb2 = new sAndGCallback();
          Object unsub2 = cmsg.subscribe("sAndGSubject", "sAndGType", cb2, null);
 
@@ -145,13 +137,6 @@ public class rcClient {
          msg.setText("Send with UDP");
          msg.getContext().setReliableSend(false);
          System.out.println("Send subby, typey with UDP");
-         cmsg.send(msg);
-
-         msg.setText("Send to other subs/types");
-         msg.setSubject("blah");
-         msg.setType("yech");
-         msg.getContext().setReliableSend(true);
-         System.out.println("Send blah, yech with TCP");
          cmsg.send(msg);
 
          System.out.println("Sleep for 12 sec");
