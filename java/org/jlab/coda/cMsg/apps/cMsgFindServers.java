@@ -23,12 +23,18 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * 
+ * This is an example class which creates a cMsg server finder. It is useful in and of itself.
+ * This class will find cMsg domain servers and rc multicast servers -- each of which may be
+ * operating at different ports. By default, the cMsgServerFinder class (which this
+ * class uses) probes ports starting from {@link org.jlab.coda.cMsg.cMsgNetworkConstants#rcMulticastPort
+ * and the next 99 values for rc multicast server, and it also probes ports starting from
+ * {@link org.jlab.coda.cMsg.cMsgNetworkConstants#nameServerUdpPort} and the next 99 values
+ * for cmsg domain servers. Additional ports to probe can be included on the command line.
  */
 public class cMsgFindServers {
 
     /** Object to find servers with. */
-    cMsgServerFinder finder;
+    private cMsgServerFinder finder;
 
     /** Port numbers provided by caller to probe in cmsg domain. */
     private HashSet<Integer> cmsgPorts;
@@ -37,7 +43,7 @@ public class cMsgFindServers {
     private HashSet<Integer> rcPorts;
 
     /** Level of debug output for this class. */
-    private int debug = cMsgConstants.debugError;
+    private int debug = cMsgConstants.debugInfo;
 
 
     /** Constructor. */
@@ -52,16 +58,16 @@ public class cMsgFindServers {
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage:\n\n" +
-                "   java cMsgServerFinder [-cmsg <list of cmsg UDP ports>]\n" +
-                "                         [-rc <list of rc UDP ports>]\n" +
-                "                         [-pswd <password>]\n" +
-                "                         [-expid <experimental ID>]\n" +
-                "                         [-debug]\n" +
-                "                         [-h]\n");
-        System.out.println("       A port list is a single string with ports separated by");
-        System.out.println("       white space or punctuation with the exception of dashes.");
-        System.out.println("       Two ports joined by a single dash are taken as a range of ports.");
-        System.out.println("       No white space allowed in defining ranges.");
+                "   java cMsgServerFinder\n" +
+                "        [-cmsg <UDP ports list>]   list of cMsg domain UDP ports to probe\n" +
+                "        [-rc   <UDP ports list>]   list of rc domain UDP ports to probe\n" +
+                "        [-pswd <password>]         password for connecting to cMsg domain server\n" +
+                "        [-expid <experimental ID>] expid for connecting to rc multicast server\n" +
+                "        [-h]                       print this help\n");
+        System.out.println("        A port list is a single string with ports separated by");
+        System.out.println("        white space or punctuation with the exception of dashes.");
+        System.out.println("        Two ports joined by a single dash are taken as a range of ports.");
+        System.out.println("        No white space allowed in defining ranges.\n");
     }
 
 
@@ -77,63 +83,62 @@ public class cMsgFindServers {
     public void run() {
         // start thread to find cMsg name servers
         finder.find();
+        System.out.println();
         System.out.println(finder.toString());
     }
 
 
-   /**
-    * This method decodes the command line used to start this application.
-    * @param args command line arguments
-    */
-   public void decodeCommandLine(String[] args) {
+    /**
+     * This method decodes the command line used to start this application.
+     * @param args command line arguments
+     */
+    private void decodeCommandLine(String[] args) {
 
-       // loop over all args
-       for (int i = 0; i < args.length; i++) {
+        // loop over all args
+        for (int i = 0; i < args.length; i++) {
 
-           if (args[i].equalsIgnoreCase("-h")) {
-               usage();
-               System.exit(-1);
-           }
-           else if (args[i].equalsIgnoreCase("-pswd")) {
-               String password = args[i + 1];
-               finder.setPassword(password);
-//System.out.println("Setting password to " + password);
-               i++;
-           }
-           else if (args[i].equalsIgnoreCase("-expid")) {
-               String expid = args[i + 1];
-               finder.setExpid(expid);
-//System.out.println("Setting expid to " + expid);
-               i++;
-           }
-           else if (args[i].equalsIgnoreCase("-rc")) {
-//System.out.println("Finding rc ports:");
-               parsePortList(args[i+1], rcPorts);
-               if (rcPorts.size() > 0) {
-                   finder.addRcPort(rcPorts);
-               }
-               i++;
-           }
-           else if (args[i].equalsIgnoreCase("-cmsg")) {
-//System.out.println("Finding cmsg ports:");
-               parsePortList(args[i+1], cmsgPorts);
-               if (cmsgPorts.size() > 0) {
-                   finder.addCmsgPort(cmsgPorts);
-               }
-               i++;
-           }
-           else if (args[i].equalsIgnoreCase("-debug")) {
-//System.out.println("Turning debug on");
-               debug = cMsgConstants.debugInfo;
-           }
-           else {
-               usage();
-               System.exit(-1);
-           }
-       }
+            if (args[i].equalsIgnoreCase("-h")) {
+                usage();
+                System.exit(-1);
+            }
+            else if (args[i].equalsIgnoreCase("-pswd")) {
+                String password = args[i + 1];
+                finder.setPassword(password);
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("Setting password to " + password);
+                }
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-expid")) {
+                String expid = args[i + 1];
+                finder.setExpid(expid);
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("Setting expid to " + expid);
+                }
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-rc")) {
+                parsePortList(args[i+1], "rc", rcPorts);
+                if (rcPorts.size() > 0) {
+                    finder.addRcPort(rcPorts);
+                }
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-cmsg")) {
+                parsePortList(args[i+1], "cmsg", cmsgPorts);
+                if (cmsgPorts.size() > 0) {
+                    finder.addCmsgPort(cmsgPorts);
+                }
+                i++;
+            }
+            else {
+                usage();
+                System.exit(-1);
+            }
+        }
 
-       return;
-   }
+        return;
+    }
 
 
     /**
@@ -144,16 +149,17 @@ public class cMsgFindServers {
      * are ignored.
      *
      * @param s string to parse
+     * @param type string describing type of port list (eg. cmsg or rc)
      * @param set set in which to store port numbers (ints)
      */
-    private void parsePortList(String s, Set<Integer> set) {
+    private void parsePortList(String s, String type, Set<Integer> set) {
         int port, port1, port2;
 
         // split string at punctuation and spaces, except dashes
         String[] strs = s.split("[\\p{Punct}\\s&&[^-]]");
         if (strs.length < 1) {
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("no valid ports specified");
+                System.out.println("no valid " + type + " ports specified");
             }
             return;
         }
@@ -166,7 +172,7 @@ public class cMsgFindServers {
                 String[] ports = str.split("-");
                 if (ports.length != 2) {
                     if (debug >= cMsgConstants.debugError) {
-                        System.out.println("wrong # of ports defining range");
+                        System.out.println("wrong # of " + type + " ports defining range");
                     }
                     continue;
                 }
@@ -177,14 +183,14 @@ public class cMsgFindServers {
                     if (port1 < 1024 || port1 > 65535 ||
                         port2 < 1024 || port2 > 65535) {
                         if (debug >= cMsgConstants.debugError) {
-                            System.out.println("ports must be > 1023 and < 65536");
+                            System.out.println(type + " ports must be > 1023 and < 65536");
                         }
                         continue;
                     }
                 }
                 catch (NumberFormatException e) {
                     if (debug >= cMsgConstants.debugError) {
-                        System.out.println("bad port format in range");
+                        System.out.println("bad " + type + " port format in range");
                     }
                     continue;
                 }
@@ -196,7 +202,7 @@ public class cMsgFindServers {
                 }
                 for (int k = port1; k <= port2; k++) {
                     if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("adding port " + k);
+                        System.out.println("adding " + type + " port " + k);
                     }
                     set.add(k);
                 }
@@ -209,20 +215,20 @@ public class cMsgFindServers {
                 }
                 catch (NumberFormatException e) {
                     if (debug >= cMsgConstants.debugError) {
-                        System.out.println("bad port format");
+                        System.out.println("bad " + type + " port format");
                     }
                     continue;
                 }
 
                 if (port < 1024 || port > 65535) {
                     if (debug >= cMsgConstants.debugError) {
-                        System.out.println("ports must be > 1023 and < 65536");
+                        System.out.println(type + " ports must be > 1023 and < 65536");
                     }
                     continue;
                 }
 
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("adding port " + port);
+                    System.out.println("adding " + type + " port " + port);
                 }
                 set.add(port);
             }

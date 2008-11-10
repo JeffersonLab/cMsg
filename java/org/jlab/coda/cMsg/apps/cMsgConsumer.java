@@ -8,9 +8,9 @@
  *    C. Timmer,       2004, Jefferson Lab                                    *
  *                                                                            *
  *     Author: Carl Timmer                                                    *
- *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
+ *             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
  *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
- *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *             Fax:   (757) 269-6248             Newport News, VA 23606       *
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
@@ -18,23 +18,20 @@ package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
 
-import java.math.BigInteger;
-
 
 /**
- * An example class which creates a cMsg message consumer.
+ * This is an example class which creates a cMsg message consumer.
  */
 public class cMsgConsumer {
 
-    String  name = "consumer";
-    String  description = "java consumer";
-    //String  UDL = "cMsg:configFile://configgy;cMsg://aslan:3456/cMsg/test";
-    //String  UDL = "cMsg:cmsg://broadcast/cMsg/test";
-    String  UDL = "cMsg:cMsg://localhost:3456/cMsg/test";
-    String  subject = "SUBJECT";
-    String  type = "TYPE";
-    boolean debug;
-    long    count;
+    private String  subject = "SUBJECT";
+    private String  type = "TYPE";
+    private String  name = "consumer";
+    private String  description = "java consumer";
+    private String  UDL = "cMsg://localhost/cMsg/myNameSpace";
+    //private String  UDL = "cMsg://multicast/cMsg/myNameSpace";
+    private boolean debug;
+    private long    count;
 
 
     /** Constructor. */
@@ -47,7 +44,7 @@ public class cMsgConsumer {
      * Method to decode the command line used to start this application.
      * @param args command line arguments
      */
-    public void decodeCommandLine(String[] args) {
+    private void decodeCommandLine(String[] args) {
 
         // loop over all args
         for (int i = 0; i < args.length; i++) {
@@ -92,8 +89,14 @@ public class cMsgConsumer {
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage:\n\n" +
-            "   java cMsgConsumer [-n name] [-d description] [-u UDL]\n" +
-            "                     [-s subject] [-t type] [-debug]\n");
+                "   java cMsgConsumer\n" +
+                "        [-n <name>]          set client name\n"+
+                "        [-d <description>]   set description of client\n" +
+                "        [-u <UDL>]           set UDL to connect to cMsg\n" +
+                "        [-s <subject>]       set subject of sent messages\n" +
+                "        [-t <type>]          set type of sent messages\n" +
+                "        [-debug]             turn on printout\n" +
+                "        [-h]                 print this help\n");
     }
 
 
@@ -151,216 +154,38 @@ public class cMsgConsumer {
          *                   message.
          */
         public void callback(cMsgMessage msg, Object userObject) {
-//            try {Thread.sleep(10);}
-//            catch (InterruptedException e) {}
-
-//System.out.println("Cue size = " + msg.getContext().getCueSize());
-//            System.out.println("Received msg has subject = " + msg.getSubject());
-//            System.out.println("                    type = " + msg.getType());
-            //System.out.println("Has payload = " + msg.hasPayload());
-/*
-            cMsgPayloadItem item = msg.getPayloadItem("INT");
-            if (item != null) {
-                try {
-                    int j = item.getInt();
-                    System.out.println("int = " + j);
-                }
-                catch (cMsgException e) {  }
-            }
-
-            item = msg.getPayloadItem("BYTE");
-            if (item != null) {
-                try {
-                    byte j = item.getByte();
-                    System.out.println("byte = " + j);
-                }
-                catch (cMsgException e) {  }
-            }
-
-            item = msg.getPayloadItem("SHORT");
-            if (item != null) {
-                try {
-                    short j = item.getShort();
-                    System.out.println("short = " + j);
-                }
-                catch (cMsgException e) {  }
-            }
-
-            item = msg.getPayloadItem("LONG");
-            if (item != null) {
-                try {
-                    long j = item.getLong();
-                    System.out.println("long = " + j);
-                }
-                catch (cMsgException e) {  }
-            }
-            item = msg.getPayloadItem("BIGINT");
-            if (item != null) {
-                try {
-                    BigInteger j = item.getBigInt();
-                    System.out.println("BigInt = " + j.toString());
-                }
-                catch (cMsgException e) {
-                    e.printStackTrace();
-                }
-            }
-            item = msg.getPayloadItem("BIGINT_ARRAY");
-            if (item != null) {
-                try {
-                    BigInteger[] l = item.getBigIntArray();
-                    for (int i=0; i<l.length; i++) {
-                        System.out.println("big[" + i + "] = " + l[i]);
-                    }
-                }
-                catch (cMsgException e) {
-                    e.printStackTrace();
-                }
-            }
-*/
-/*
-            item = msg.getPayloadItem("LONG_ARRAY_ZERO");
-            if (item != null) {
-                try {
-                    long[] l = item.getLongArray();
-                    for (int i=0; i<l.length; i++) {
-                        System.out.println("long[" + i + "] = " + l[i]);
-                    }
-                }
-                catch (cMsgException e) {
-                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-                }
-            }
-*/
-
-/*
-            cMsgPayloadItem item = msg.getPayloadItem("ARRAY_ZERO");
-            if (item != null) {
-                try {
-                    byte[] b = item.getByteArray();
-                    for (int i=0; i<b.length; i++) {
-                        System.out.println("byte[" + i + "] = " + b[i]);
-                    }
-                    short[] s = item.getShortArray();
-                    for (int i=0; i<s.length; i++) {
-                        System.out.println("short[" + i + "] = " + s[i]);
-                    }
-                    int[] j = item.getIntArray();
-                    for (int i=0; i<j.length; i++) {
-                        System.out.println("int[" + i + "] = " + j[i]);
-                    }
-                    long[] l = item.getLongArray();
-                    for (int i=0; i<l.length; i++) {
-                        System.out.println("long[" + i + "] = " + l[i]);
-                    }
-                    BigInteger[] bi = item.getBigIntArray();
-                    for (int i=0; i<l.length; i++) {
-                        System.out.println("bigint[" + i + "] = " + bi[i].toString());
-                    }
-                }
-                catch (cMsgException e) {
-                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-                }
-            }
-*/
-
-/*
-            cMsgPayloadItem item = msg.getPayloadItem("FLT");
-            if (item != null) {
-                try {
-                    float j = item.getFloat();
-                    System.out.println("float = " + j);
-                }
-                catch (cMsgException e) {  }
-            }
-
-            item = msg.getPayloadItem("DBL");
-            if (item != null) {
-                try {
-                    double j = item.getDouble();
-                    System.out.println("double = " + j);
-                }
-                catch (cMsgException e) {  }
-            }
-
-            item = msg.getPayloadItem("FLT_ARRAY");
-            if (item != null) {
-                try {
-                    float[] l = item.getFloatArray();
-                    for (int i=0; i<l.length; i++) {
-                        System.out.println("float[" + i + "] = " + l[i]);
-                    }
-                    double[] d = item.getDoubleArray();
-                    for (int i=0; i<d.length; i++) {
-                        System.out.println("flt as double[" + i + "] = " + d[i]);
-                    }
-                }
-                catch (cMsgException e) {
-                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-                }
-            }
-
-            item = msg.getPayloadItem("DBL_ARRAY");
-            if (item != null) {
-                try {
-                    float[] f = item.getFloatArray();
-                    for (int i=0; i<f.length; i++) {
-                        System.out.println("dbl as float[" + i + "] = " + f[i]);
-                    }
-                    double[] l = item.getDoubleArray();
-                    for (int i=0; i<l.length; i++) {
-                        System.out.println("double[" + i + "] = " + l[i]);
-                    }
-                }
-                catch (cMsgException e) {
-                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-                }
-            }
-*/
-
-/*
-            cMsgPayloadItem item = msg.getPayloadItem("MSG_ARRAY");
-            if (item != null) {
-                try {
-                    cMsgMessage[] m = item.getMessageArray();
-                    System.out.println("msg[0] = " + m[0]);
-                    item = m[0].getPayloadItem("DBL");
-                    if (item != null) {
-                        try {
-                            double j = item.getDouble();
-                            System.out.println("double in embedded msg 0 = " + j);
-                        }
-                        catch (cMsgException e) {  }
-                    }
-                    item = m[1].getPayloadItem("INT");
-                    if (item != null) {
-                        try {
-                            int j = item.getInt();
-                            System.out.println("int in embedded msg 1 = " + j);
-                        }
-                        catch (cMsgException e) {  }
-                    }
-                }
-                catch (cMsgException e) {
-                    System.out.println("Error getting msg field from payload");
-                }
-            }
-
-            msg.payloadPrintout(0);
-*/
-
-          //  System.out.println("MESSAGE IN XML:\n" + msg);
-
-
+            // keep track of how many messages we receive
             count++;
+            /*
+            System.out.println("Received msg has subject = " + msg.getSubject());
+            System.out.println("                    type = " + msg.getType());
+            if (msg.hasPayload()) {
+                System.out.println("                 payload = ");
+                msg.payloadPrintout(0);
+            }
+
+            System.out.println("MESSAGE IN XML:\n" + msg);
+            */
         }
 
+        // Define behavior of callback by overriding methods of cMsgCallbackAdapter
+        /*
+        // Maximum number of unprocessed messages kept locally
+        // before things "back up" (potentially slowing or stopping
+        // senders of messages of this subject and type). Default = 1000.
         public int getMaximumCueSize() {return 10000;}
 
-        public boolean maySkipMessages() {return false;}
+        // Oldest messages may be skipped if queue is full. Default = false.
+        public boolean maySkipMessages() {return true;}
 
-        public boolean mustSerializeMessages() {return true;}
+        // Messages to this callback must be processed by a single thread and in order.
+        // Default = true;
+        public boolean mustSerializeMessages() {return false;}
 
-        public int  getMaximumThreads() {return 200;}
+        // Allow up to 20 threads to process messages to this callback if the method
+        // mustSerializeMessages returns false. Default = 100.
+        public int getMaximumThreads() {return 20;}
+        */
      }
 
 
@@ -387,7 +212,7 @@ public class cMsgConsumer {
         Object unsub  = coda.subscribe(subject, type, cb, null);
 
         // variables to track incoming message rate
-        double freq=0., freqAvg=0.;
+        double freq, freqAvg;
         long   totalT=0, totalC=0, period = 5000; // millisec
 
         while (true) {
@@ -409,12 +234,12 @@ public class cMsgConsumer {
             }
 
             if (!coda.isConnected()) {
-                // wait 2 seconds for failover before declaring us dead-in-the-water
-                try {
-                    Thread.sleep(2000);
-                }
-                catch (InterruptedException e) {
-                }
+                // Allow 2 seconds for failover to new cMsg server (in cMsg domain)
+                // before declaring us dead-in-the-water.
+                try { Thread.sleep(2000); }
+                catch (InterruptedException e) {}
+
+                // if still not connected, quit
                 if (!coda.isConnected()) {
                     System.out.println("No longer connected to domain server, quitting");
                     System.exit(-1);

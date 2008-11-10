@@ -8,9 +8,9 @@
  *    C. Timmer,       2004, Jefferson Lab                                    *
  *                                                                            *
  *     Author: Carl Timmer                                                    *
- *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
+ *             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
  *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
- *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *             Fax:   (757) 269-6248             Newport News, VA 23606       *
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
@@ -19,30 +19,30 @@ package org.jlab.coda.cMsg.apps;
 import org.jlab.coda.cMsg.*;
 
 import java.util.Arrays;
-import java.util.Map;
 
 /**
- * An example class which creates a cMsg message producer.
+ * This is an example class which creates a cMsg message producer.
  */
 public class cMsgProducer {
-    String  name = "producer";
-    String  description = "java producer";
-    String  UDL = "cMsg:cMsg://localhost:3456/cMsg/test";
-    //String  UDL = "cMsg:cmsg://broadcast/cMsg/test";
-    String  subject = "SUBJECT";
-    String  type = "TYPE";
 
-    String  text;
-    char[]  textChars;
-    int     textSize;
-    boolean sendText;
+    private String  subject = "SUBJECT";
+    private String  type = "TYPE";
+    private String  name = "producer";
+    private String  description = "java producer";
+    private String  UDL = "cMsg://localhost/cMsg/myNameSpace";
+    //private String  UDL = "cMsg://multicast/cMsg/myNameSpace";
 
-    byte[]  binArray;
-    int     binSize;
-    boolean sendBinary;
+    private String  text;
+    private char[]  textChars;
+    private int     textSize;
+    private boolean sendText;
 
-    int     delay, count = 50000;
-    boolean debug;
+    private byte[]  binArray;
+    private int     binSize;
+    private boolean sendBinary;
+
+    private int     delay, count = 50000;
+    private boolean debug, useSyncSend;
 
 
     /** Constructor. */
@@ -55,7 +55,7 @@ public class cMsgProducer {
      * Method to decode the command line used to start this application.
      * @param args command line arguments
      */
-    public void decodeCommandLine(String[] args) {
+    private void decodeCommandLine(String[] args) {
 
         // loop over all args
         for (int i = 0; i < args.length; i++) {
@@ -63,6 +63,9 @@ public class cMsgProducer {
             if (args[i].equalsIgnoreCase("-h")) {
                 usage();
                 System.exit(-1);
+            }
+            else if (args[i].equalsIgnoreCase("-ss")) {
+                useSyncSend = true;
             }
             else if (args[i].equalsIgnoreCase("-n")) {
                 name = args[i + 1];
@@ -134,10 +137,20 @@ public class cMsgProducer {
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage:\n\n" +
-            "   java cMsgProducer [-n name] [-d description] [-u UDL]\n" +
-            "                     [-s subject] [-t type] [-text text]\n" +
-            "                     [-textsize size in bytes]\n" +
-            "                     [-delay millisec] [-debug]\n");
+            "   java cMsgProducer\n" +
+            "        [-n <name>]          set client name\n"+
+            "        [-d <description>]   set description of client\n" +
+            "        [-u <UDL>]           set UDL to connect to cMsg\n" +
+            "        [-s <subject>]       set subject of sent messages\n" +
+            "        [-t <type>]          set type of sent messages\n" +
+            "        [-c <count>]         set # of messages to send before printing output\n" +
+            "        [-text <text>]       set text of sent messages\n" +
+            "        [-textsize <size>]   set text to 'size' number of ASCII chars (bytes)\n" +
+            "        [-binsize <size>]    set binary array to 'size' number of bytes\n" +
+            "        [-delay <time>]      set time in millisec between sending of each message\n" +
+            "        [-debug]             turn on printout\n" +
+            "        [-ss]                use syncSend instead of send\n" +
+            "        [-h]                 print this help\n");
     }
 
 
@@ -150,7 +163,7 @@ public class cMsgProducer {
             producer.run();
         }
         catch (cMsgException e) {
-            e.printStackTrace();
+            System.out.println(e.toString());
             System.exit(-1);
         }
     }
@@ -182,55 +195,6 @@ public class cMsgProducer {
 
 
 
-
-      /**
-     * This class defines the callback to be run when a message matching
-     * our subscription arrives.
-     */
-    class myCallback extends cMsgCallbackAdapter {
-        /**
-         * Callback method definition.
-         *
-         * @param msg message received from domain server
-         * @param userObject object passed as an argument which was set when the
-         *                   client orginally subscribed to a subject and type of
-         *                   message.
-         */
-        public void callback(cMsgMessage msg, Object userObject) {
-//            System.out.println("Got msg, sub = " + msg.getSubject() + ", type = " + msg.getType());
-
-//            try {
-//                if (msg.hasPayload()) {
-//                    Map<String, cMsgPayloadItem> map = msg.getPayloadItems();
-//                    if (map.containsKey("STR_ARRAY")) {
-//                        String[] sa = msg.getPayloadItem("STR_ARRAY").getStringArray();
-//                        for (String s : sa) {
-//                            System.out.println("str = " + s);
-//                        }
-//                    }
-//                    if (map.containsKey("INT_ARRAY")) {
-//                        int[] ia = msg.getPayloadItem("INT_ARRAY").getIntArray();
-//                        for (int i : ia) {
-//                            System.out.println("int = " + i);
-//                        }
-//                    }
-//                }
-//            }
-//            catch (cMsgException e) {
-//                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-//            }
-        }
-
-        public int getMaximumCueSize() {return 10000;}
-
-        public boolean maySkipMessages() {return false;}
-
-        public boolean mustSerializeMessages() {return true;}
-
-        public int  getMaximumThreads() {return 200;}
-     }
-
-
     /**
      * This method is executed as a thread.
      */
@@ -238,7 +202,7 @@ public class cMsgProducer {
 
         if (debug) {
             System.out.println("Running cMsg producer sending to:\n" +
-                               "    subject = " + subject +
+                                 "    subject = " + subject +
                                "\n    type    = " + type);
         }
 
@@ -249,57 +213,52 @@ public class cMsgProducer {
         // enable message reception
         coda.start();
 
-        // subscribe to subject/type
-//        cMsgCallbackInterface cb = new myCallback();
-//        Object unsub  = coda.subscribe(subject, type, cb, null);
-
         // create a message
         cMsgMessage msg = new cMsgMessage();
         msg.setSubject(subject);
         msg.setType(type);
-        msg.setText("blah");
-        msg.getContext().setReliableSend(false);
 
-
-//        String[] ses = new String[]{"one", "two", "three"};
-//        cMsgPayloadItem item = new cMsgPayloadItem("STR_ARRAY", ses);
-//        msg.addPayloadItem(item);
-//
-//        int ii = 123456789;
-//        cMsgPayloadItem item3 = new cMsgPayloadItem("INT", ii);
-//        msg.addPayloadItem(item3);
-//
-//        int[] ia = {1,2,3};
-//        cMsgPayloadItem item4 = new cMsgPayloadItem("INT_ARRAY", ia);
-//        msg.addPayloadItem(item4);
-
-
-        // set for UDP send
-        //msg.getContext().setReliableSend(false);
         if (sendText) {
-          System.out.println("Sending text\n");
           msg.setText(text);
         }
         if (sendBinary) {
-          System.out.println("Sending byte array\n");
           msg.setByteArrayNoCopy(binArray);
         }
 
+        // send using UDP instead of TCP
+        // msg.getContext().setReliableSend(false);
+
+        // Add 2 payload items
+        String[] ses = new String[]{"one", "two", "three"};
+        cMsgPayloadItem item1 = new cMsgPayloadItem("myStringArray", ses);
+        msg.addPayloadItem(item1);
+
+        int j = 123456789;
+        cMsgPayloadItem item2 = new cMsgPayloadItem("myInt", j);
+        msg.addPayloadItem(item2);
+
+
         // variables to track message rate
         double freq=0., freqAvg=0.;
-        long t1, t2, deltaT, totalT=0, totalC=0, ignore=0;
+        long t1, t2, deltaT, totalT=0, totalC=0;
 
-        // delay between messages
-        //if (delay != 0) rcCount = rcCount/(20 + delay);
+        // Ignore the first N values found for freq in order
+        // to get better avg statistics. Since the JIT compiler in java
+        // takes some time to analyze & compile code, freq may initially be low.
+        long ignore=0;
 
         while (true) {
             t1 = System.currentTimeMillis();
             for (int i = 0; i < count; i++) {
-                coda.send(msg);
-                //System.out.print("Try syncSend number " + (i+1));
-                //int a = coda.syncSend(msg, 1000);
-                //System.out.println("Got syncSend val = " + a);
+                if (useSyncSend) {
+                    j = coda.syncSend(msg, 1000);
+                    //System.out.println("Got syncSend val = " + j);
+                }
+                else {
+                    coda.send(msg);
+                }
                 coda.flush(0);
+
                 // delay between messages sent
                 if (delay != 0) {
                     try {Thread.sleep(delay);}
@@ -323,7 +282,6 @@ public class cMsgProducer {
             else {
                 ignore--;
             }
-
         }
     }
 

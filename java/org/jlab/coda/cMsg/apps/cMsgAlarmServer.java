@@ -1,9 +1,3 @@
-//  general purpose cMsg alarm server
-
-//      -url jdbc:mysql://xdaq/test -driver com.mysql.jdbc.Driver -account fred
-
-
-
 /*----------------------------------------------------------------------------*
 *  Copyright (c) 2004        Southeastern Universities Research Association, *
 *                            Thomas Jefferson National Accelerator Facility  *
@@ -32,41 +26,35 @@ import java.util.Date;
 import java.net.*;
 
 
-//-----------------------------------------------------------------------------
-
 
 /**
- * Logs special cMsg alarm messages to screen, file, and/or database.
+ * This is a general purpose cMsg alarm server which logs special cMsg alarm
+ * messages to screen, file, and/or database. Example command line options:<p>
+ * <b>-url jdbc:mysql://xdaq/test -driver com.mysql.jdbc.Driver -account fred</b>
  *
  * @version 1.0
  */
 public class cMsgAlarmServer {
 
-
     /** Universal Domain Locator and cMsg system object. */
-    private static String udl = "cMsg:cMsg://ollie/cMsg";
+    private static String udl = "cMsg://localhost/cMsg/myNameSpace";
     private static cMsg cmsg  = null;
 
-
-    /** name,description of client, generally must be unique within domain. */
+    /** name of client must be unique within cMsg domain. */
     private static String name = null;
     private static String description = "cMsg Alarm Server";
 
-
     /** alarm subject. */
     private static String alarmSubject = "cMsgAlarm";
-
 
     /** toScreen true to log to screen. */
     private static boolean toScreen = false;
     private static String format = "%-8d   %-24s   %25s   %2d   %s";
 
-
     /** filename not null to log to file. */
     private static boolean noAppend    = false;
     private static String fileName     = null;
     private static PrintWriter pWriter = null;
-
 
     /** url not null to log to database. */
     private static String url                = null;
@@ -93,7 +81,6 @@ public class cMsgAlarmServer {
     private static PreparedStatement latestPStmt2     = null;
     private static PreparedStatement latestPStmt3     = null;
 
-
     // misc
     private static int count           = 0;
     private static boolean force       = false;
@@ -101,6 +88,7 @@ public class cMsgAlarmServer {
     private static boolean debug       = false;
 
 
+    
     /** Class to implement the callback. */
     static class cb extends cMsgCallbackAdapter {
         /**
@@ -304,14 +292,14 @@ public class cMsgAlarmServer {
                     dbrs = con.createStatement().executeQuery(sql);
                     while(dbrs.next()) {
                         if(dbrs.getInt(2)>1) {
-                            System.out.print("\n\n   *** Existing change table " + changeTable +
+                            if (debug) System.out.print("\n\n   *** Existing change table " + changeTable +
                                              " contains multiple entries for some channels ***\n" +
                                              "       This table looks like a history table!\n\n");
                             if(!force) {
                                 System.out.print("       Specify -force on command line to ignore this\n\n\n" );
                                 System.exit(-1);
                             } else {
-                                System.out.print("       -force specified...continuing...\n\n" );
+                                if (debug) System.out.print("       -force specified...continuing...\n\n" );
                                 break;
                             }
                         }
@@ -331,14 +319,14 @@ public class cMsgAlarmServer {
                     dbrs = con.createStatement().executeQuery(sql);
                     while(dbrs.next()) {
                         if(dbrs.getInt(2)>1) {
-                            System.out.print("\n\n   *** Existing latest table " + latestTable +
+                            if (debug) System.out.print("\n\n   *** Existing latest table " + latestTable +
                                              " contains multiple entries for some channels ***\n" +
                                              "       This table looks like a history table!\n\n");
                             if(!force) {
                                 System.out.print("       Specify -force on command line to ignore this\n\n\n" );
                                 System.exit(-1);
                             } else {
-                                System.out.print("       -force specified...continuing...\n\n" );
+                                if (debug) System.out.print("       -force specified...continuing...\n\n" );
                                 break;
                             }
                         }
@@ -503,27 +491,45 @@ public class cMsgAlarmServer {
 //-----------------------------------------------------------------------------
 
 
+    /** Method to print out correct program command line usage. */
+    static private void usage() {
+        System.out.println("\nUsage:\n\n" +
+                "   java cMsgAlarmServer\n" +
+                "        [-name <name>]             name of this cmsg client\n" +
+                "        [-udl <udl>]               UDL for cmsg connection\n" +
+                "        [-descr <description>]     string describing this cmsg client\n" +
+                "        [-subject <alarmSubject>]  cmsg clients send alarm messages to this subject\n" +
+                "        [-screen]                  display alarms on screen\n" +
+                "        [-file <fileName>]         log to this file\n" +
+                "        [-noAppend]                alarm messages written to beginning of file\n" +
+                "        [-fullHistory <table>]     db table for all messages\n" +
+                "        [-history <table>]         db table for msgs of new channels or update severity\n" +
+                "        [-change <table>]          db table for msgs of new channels or update state\n" +
+                "        [-latest <table>]          db table for msgs of new channels or update if channel exists\n" +
+                "        [-url <url>]               database url (for connection to db)\n" +
+                "        [-driver <driver>]         database driver (for connection to db)\n" +
+                "        [-account <account>]       database account (for connection to db)\n" +
+                "        [-pwd <password>]          database password (for connection to db)\n" +
+                "        [-force]                   continue if using change/latest table(s) with multiple entries per channel\n" +
+                "        [-debug]                   enable debug output\n" +
+                "        [-h]                       print this help\n");
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
     /**
-     * decodes command line parameters
+     * Decodes command line parameters.
      * @param args command line arguments
      */
-    static public void decode_command_line(String[] args) {
-
-        String help = "\nUsage:\n\n" +
-            "   java cMsgAlarmServer [-name name] [-udl udl] [-descr description]\n" +
-            "                   [-subject alarmSubject]\n" +
-            "                   [-screen] [-file fileName] [-noAppend]\n" +
-            "                   [-fullHistory fullHistoryTable] [-history historyTable]\n" +
-            "                   [-change changeTable] [-latest latestTable]\n" +
-            "                   [-url url] [-driver driver] [-account account] [-pwd password]\n" +
-            "                   [-force] [-debug]\n\n";
-
+    static private void decode_command_line(String[] args) {
 
         // loop over all args
         for (int i = 0; i < args.length; i++) {
 
             if (args[i].equalsIgnoreCase("-h")) {
-                System.out.println(help);
+                usage();
                 System.exit(-1);
             }
             else if (args[i].equalsIgnoreCase("-name")) {
@@ -532,6 +538,10 @@ public class cMsgAlarmServer {
 
             } else if (args[i].equalsIgnoreCase("-descr")) {
                 description = args[i + 1];
+                i++;
+
+            } else if (args[i].equalsIgnoreCase("-subject")) {
+                alarmSubject = args[i + 1];
                 i++;
 
             } else if (args[i].equalsIgnoreCase("-udl")) {
@@ -586,13 +596,13 @@ public class cMsgAlarmServer {
             } else if (args[i].equalsIgnoreCase("-force")) {
                 force = true;
             }
+            else {
+                usage();
+                System.exit(-1);                
+            }
         }
 
         return;
     }
 
-
-//-----------------------------------------------------------------------------
-//  end class definition:  cMsgAlarmServer
-//-----------------------------------------------------------------------------
 }

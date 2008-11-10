@@ -8,9 +8,9 @@
  *    C. Timmer,        2005, Jefferson Lab                                   *
  *                                                                            *
  *     Author: Carl Timmer                                                    *
- *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
+ *             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
  *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
- *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *             Fax:   (757) 269-6248             Newport News, VA 23606       *
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
@@ -18,29 +18,30 @@ package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
 
-import java.util.Date;
 import java.util.Arrays;
 import java.util.concurrent.TimeoutException;
 
 /**
- * This is an example class which creates a cMsg client that sends and
- * receives messages by calling sendAndGet.
+ * This is an example class which creates a cMsg client that synchronously either
+ * sends and receives messages by calling {@link cMsg#sendAndGet} or subscribes to a
+ * subject & type and receives a response by calling {@link cMsg#subscribeAndGet}.
+ * To receive a response to a sendAndGet's send, the {@link cMsgGetResponder} must also
+ * be running.
  */
 public class cMsgGetConsumer {
 
-    String  name = "getConsumer";
-    String  description = "java getConsumer";
-    String  UDL = "cMsg://localhost/cMsg/test/?regime=low";
-    String  subject = "SUBJECT";
-    String  type = "TYPE";
-    boolean send;
+    private String  subject = "SUBJECT";
+    private String  type = "TYPE";
+    private String  name = "getConsumer";
+    private String  description = "java getConsumer";
+    private String  UDL = "cMsg://localhost/cMsg/myNameSpace";
 
-    String  text = "TEXT";
-    char[]  textChars;
-    int     textSize;
+    private String  text = "TEXT";
+    private char[]  textChars;
+    private int     textSize;
 
-    int     timeout = 3000; // 3 second default timeout
-    boolean debug;
+    private int     delay, count = 5000, timeout = 3000; // 3 second default timeout
+    private boolean send, debug;
 
 
     /** Constructor. */
@@ -53,7 +54,7 @@ public class cMsgGetConsumer {
      * Method to decode the command line used to start this application.
      * @param args command line arguments
      */
-    public void decodeCommandLine(String[] args) {
+    private void decodeCommandLine(String[] args) {
 
         // loop over all args
         for (int i = 0; i < args.length; i++) {
@@ -82,6 +83,12 @@ public class cMsgGetConsumer {
                 type= args[i + 1];
                 i++;
             }
+            else if (args[i].equalsIgnoreCase("-c")) {
+                count = Integer.parseInt(args[i + 1]);
+                if (count < 1)
+                    System.exit(-1);
+                i++;
+            }
             else if (args[i].equalsIgnoreCase("-text")) {
                 text = args[i + 1];
                 i++;
@@ -96,6 +103,10 @@ public class cMsgGetConsumer {
             }
             else if (args[i].equalsIgnoreCase("-to")) {
                 timeout = Integer.parseInt(args[i + 1]);
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-delay")) {
+                delay = Integer.parseInt(args[i + 1]);
                 i++;
             }
             else if (args[i].equalsIgnoreCase("-debug")) {
@@ -117,10 +128,20 @@ public class cMsgGetConsumer {
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage:\n\n" +
-            "   java cMsgGetConsumer [-n name] [-d description] [-u UDL]\n" +
-            "                        [-s subject] [-t type] [-text text]\n" +
-            "                        [-textsize size in bytes]\n" +
-            "                        [-to timeout] [-debug]\n");
+            "   java cMsgGetConsumer\n" +
+            "        [-n <name>]          set client name\n"+
+            "        [-d <description>]   set description of client\n" +
+            "        [-u <UDL>]           set UDL to connect to cMsg\n" +
+            "        [-s <subject>]       set subject of subscription/sent messages\n" +
+            "        [-t <type>]          set type of subscription/sent messages\n" +
+            "        [-c <count>]         set # of messages to get before printing output\n" +
+            "        [-text <text>]       set text of sent messages\n" +
+            "        [-textsize <size>]   set text to 'size' number of ASCII chars (bytes)\n" +
+            "        [-to <time>]         set timeout\n" +
+            "        [-delay <time>]      set time in millisec between sending of each message\n" +
+            "        [-debug]             turn on printout\n" +
+            "        [-send]              use sendAndGet instead of subscribeAndGet\n" +
+            "        [-h]                 print this help\n");
     }
 
 
@@ -170,7 +191,7 @@ public class cMsgGetConsumer {
     public void run() throws cMsgException {
 
         if (debug) {
-            System.out.println("Running cMsg getConsumer subscribed to:\n" +
+            System.out.println("Running cMsg getConsumer sending or subscribed to:\n" +
                                "    subject = " + subject +
                                "\n    type    = " + type);
         }
@@ -182,33 +203,23 @@ public class cMsgGetConsumer {
         // enable message reception
         coda.start();
 
-        // create a message to send to a responder
+        // create a message to send to a responder (for sendAndGet only)
         cMsgMessage msg = null;
         cMsgMessage sendMsg = new cMsgMessage();
         sendMsg.setSubject(subject);
         sendMsg.setType(type);
         sendMsg.setText(text);
 
-/*
-        byte[] bin = new byte[10000];
-        for (int i=0; i< bin.length; i++) {
-            bin[i] = 1;
-        }
-        sendMsg.setByteArrayNoCopy(bin);
-*/
-
         // variables to track incoming message rate
-        double freq=0., freqAvg=0.;
-        long   t1, t2, deltaT, totalT=0, totalC=0, count;
+        double freq, freqAvg;
+        long   t1, t2, deltaT, totalT=0, totalC=0;
 
         while (true) {
-            count = 0;
 
-            t1 = (new Date()).getTime();
+            t1 = System.currentTimeMillis();
 
-            // do a bunch of gets
-            for (int i=0; i < 5000; i++) {
-
+            // do some gets
+            for (int i=0; i < count; i++) {
                 try {
                     if (send) {
                         msg = coda.sendAndGet(sendMsg, timeout);
@@ -226,22 +237,22 @@ public class cMsgGetConsumer {
                     }
                     continue;
                 }
+
                 if (msg == null) {
-                    System.out.println("Got null msg");
+                    System.out.println("Got null message");
                 }
 //                else {
-//                    System.out.println("CLIENT GOT MESSAGE!!!");
-//                    System.out.println("    sub =  " + msg.getSubject());
-//                    System.out.println("    typ =  " + msg.getType());
-//                    System.out.println("    txt =  " + msg.getText());
+//                    System.out.println("Got message");
 //                }
-                count++;
+
                 // delay between messages sent
-//               try {Thread.sleep(20);}
-//               catch (InterruptedException e) {}
+                if (delay != 0) {
+                    try {Thread.sleep(delay);}
+                    catch (InterruptedException e) {}
+                }
             }
 
-            t2 = (new Date()).getTime();
+            t2 = System.currentTimeMillis();
 
             deltaT  = t2 - t1; // millisec
             freq    = (double)count/deltaT*1000;

@@ -1,6 +1,3 @@
-//  general purpose cMsg gateway
-
-
 /*----------------------------------------------------------------------------*
 *  Copyright (c) 2004        Southeastern Universities Research Association, *
 *                            Thomas Jefferson National Accelerator Facility  *
@@ -11,14 +8,14 @@
 *    E.Wolin, 6-Jan-2005, Jefferson Lab                                      *
 *                                                                            *
 *    Authors: Elliott Wolin                                                  *
-*             wolin@jlab.org                    Jefferson Lab, MS-6B         *
+*             wolin@jlab.org                    Jefferson Lab, MS-12B3       *
 *             Phone: (757) 269-7365             12000 Jefferson Ave.         *
-*             Fax:   (757) 269-5800             Newport News, VA 23606       *
+*             Fax:   (757) 269-6248             Newport News, VA 23606       *
 *                                                                            *
 *             Carl Timmer                                                    *
-*             timmer@jlab.org                   Jefferson Lab, MS-6B         *
+*             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
 *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
-*             Fax:   (757) 269-5800             Newport News, VA 23606       *
+*             Fax:   (757) 269-6248             Newport News, VA 23606       *
 *                                                                            *
 *----------------------------------------------------------------------------*/
 
@@ -29,12 +26,9 @@ import org.jlab.coda.cMsg.*;
 
 
 
-//-----------------------------------------------------------------------------
-
-
 /**
- * Cross-posts message between two domains.
- * subject and type defaults to * and *, can be set via command line parameters.
+ * This is a general purpose cMsg gateway which cross-posts message between two domains.
+ * Subject and type defaults to * and *. They can be set via command line parameters.
  *
  * @version 1.0
  */
@@ -47,8 +41,8 @@ public class cMsgGateway {
 
 
     /** cMsg system objects. */
-    private static cMsg cmsg1  = null;
-    private static cMsg cmsg2  = null;
+    private static cMsg cmsg1;
+    private static cMsg cmsg2;
 
 
     /** Names, generally must be unique within domain. */
@@ -57,8 +51,8 @@ public class cMsgGateway {
 
 
     /** UDL's. */
-    private static String UDL1 = "cMsg:cMsg://ollie/cMsg";
-    private static String UDL2 = "cMsg:cMsg://ollie/cMsg";
+    private static String UDL1 = "cMsg://localhost/cMsg/myNameSpace";
+    private static String UDL2 = "cMsg://localhost/cMsg/myNameSpace";
 
 
     /** Descriptions. */
@@ -75,7 +69,8 @@ public class cMsgGateway {
     private static int delay     = 500;
 
 
-    /** callbacks for cross-posting. */
+
+    /** Callback for cross-posting. */
     static class cb1 extends cMsgCallbackAdapter {
 
         public void callback(cMsgMessage msg, Object userObject) {
@@ -102,6 +97,8 @@ public class cMsgGateway {
         }
     }
 
+
+    /** Callback for cross-posting. */
     static class cb2 extends cMsgCallbackAdapter {
 
         public void callback(cMsgMessage msg, Object userObject) {
@@ -130,15 +127,17 @@ public class cMsgGateway {
 
 
 
-//-----------------------------------------------------------------------------
-
-
     static public void main(String[] args) {
 
 
         // decode command line
         decode_command_line(args);
 
+        // simplistic check since different UDLs can connect to the same system/server
+        if (UDL1.equals(UDL2)) {
+            System.out.println("Gateway from cMsg system to itself is unnecessary");
+            System.exit(-1);
+        }
 
         // connect to both cMsg systems
         try {
@@ -194,29 +193,36 @@ public class cMsgGateway {
     }
 
 
-//-----------------------------------------------------------------------------
+    /** Method to print out correct program command line usage. */
+    static private void usage() {
+        System.out.println("\nUsage:\n\n" +
+                "   java cMsgGateway\n" +
+                "        [-name1 <name>]            name of client connected to udl1\n" +
+                "        [-name2 <name>]            name of client connected to udl2\n" +
+                "        [-udl1 <udl>]              UDL for first cmsg connection\n" +
+                "        [-udl2 <udl>]              UDL for second cmsg connection\n" +
+                "        [-descr1 <description>]    string describing client connected to udl1\n" +
+                "        [-descr2 <description>]    string describing client connected to udl2\n" +
+                "        [-subject <subject>]       subject of messages to cross post\n" +
+                "        [-type <type>]             type of messages to cross post\n" +
+                "        [-debug]                   enable debug output\n" +
+                "        [-h]                       print this help\n");
+    }
+
 
 
     /**
      * Method to decode the command line used to start this application.
      * @param args command line arguments
      */
-    static public void decode_command_line(String[] args) {
-
-        String help = "\nUsage:\n\n" +
-            "   java cMsgGateway [-subject subject] [-type type]\n" +
-            "                    [-name1 name1] [-udl1 udl1] [-descr1 descr1]\n" +
-            "                    [-name2 name2] [-udl2 udl2] [-descr2 descr2]\n" +
-            "                    [-debug]\n\n";
-
+    static private void decode_command_line(String[] args) {
 
         // loop over all args
         for (int i = 0; i < args.length; i++) {
 
             if (args[i].equalsIgnoreCase("-h")) {
-                System.out.println(help);
+                usage();
                 System.exit(-1);
-
             }
             else if (args[i].equalsIgnoreCase("-subject")) {
                 subject = args[i + 1];
@@ -261,13 +267,13 @@ public class cMsgGateway {
             else if (args[i].equalsIgnoreCase("-debug")) {
                 debug = true;
             }
+            else {
+                usage();
+                System.exit(-1);
+            }
         }
 
         return;
     }
 
-
-//-----------------------------------------------------------------------------
-//  end class definition:  cMsgLogger
-//-----------------------------------------------------------------------------
 }

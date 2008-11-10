@@ -1,3 +1,19 @@
+/*----------------------------------------------------------------------------*
+ *  Copyright (c) 2008        Southeastern Universities Research Association, *
+ *                            Jefferson Science Associates                    *
+ *                                                                            *
+ *    This software was developed under a United States Government license    *
+ *    described in the NOTICE file included as part of this distribution.     *
+ *                                                                            *
+ *    C.Timmer, 6-Nov-2006, Jefferson Lab                                     *
+ *                                                                            *
+ *    Authors: Carl Timmer                                                    *
+ *             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
+ *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
+ *             Fax:   (757) 269-6248             Newport News, VA 23606       *
+ *                                                                            *
+ *----------------------------------------------------------------------------*/
+
 package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
@@ -5,14 +21,17 @@ import org.jlab.coda.cMsg.*;
 /**
  * This is an example class which creates a cMsg client that shutsdown
  * other specified cMsg clients (possibly including itself).
+ * In the cMsg domain the name of clients to be shutdown implements a
+ * simple wildcard matching scheme where "*" means any or no characters,
+ * "?" means exactly 1 character, and "#" means 1 or no positive integer.
  */
 public class cMsgShutdowner {
 
-    String  name = "shutdowner";
-    String  description = "java shutdowner";
-    String  UDL = "cMsg:cMsg://aslan:3456/cMsg/test";
-    String  client = "defaultClientNameHere";
-    boolean debug;
+    private String  name = "shutdowner";
+    private String  description = "java shutdowner";
+    private String  UDL = "cMsg://localhost/cMsg/myNameSpace";
+    private String  client = "defaultClientNameHere";
+    private boolean debug, shutMeDown;
 
 
     /** Constructor. */
@@ -50,6 +69,9 @@ public class cMsgShutdowner {
                 client = args[i + 1];
                 i++;
             }
+            else if (args[i].equalsIgnoreCase("-me")) {
+                shutMeDown = true;
+            }
             else if (args[i].equalsIgnoreCase("-debug")) {
                 debug = true;
             }
@@ -66,8 +88,15 @@ public class cMsgShutdowner {
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage:\n\n" +
-            "   java cMsgGetConsumer [-n name] [-d description] [-u UDL]\n" +
-            "                        [-c client] [-debug]\n");
+                "   java cMsgShutdowner\n" +
+                "        [-n <name>]          set client name\n"+
+                "        [-d <description>]   set description of client\n" +
+                "        [-u <UDL>]           set UDL to connect to cMsg\n" +
+                "        [-c <client name>]   name of client(s) to shutdown (in cMsg domain, wildcards allowed where\n" +
+                "                             * matches everything, ? matches 1 char, # matches 1 or 0 pos int)\n" +
+                "        [-me]                allow this cmsg client to be shutdown\n" +
+                "        [-debug]             turn on printout\n" +
+                "        [-h]                 print this help\n");
     }
 
 
@@ -112,16 +141,20 @@ public class cMsgShutdowner {
         // add shutdown handler
         coda.setShutdownHandler(new myShutdownHandler());
 
-        try {Thread.sleep(4000);}
+        // wait 2 seconds
+        try {
+            if (debug) System.out.println("Wait 3 seconds, then shutdown " + client);
+            Thread.sleep(3000);
+        }
         catch (InterruptedException e) {}
 
-        // if we want to shutdown ourselves, then call ...
-        coda.shutdownClients(name, true);
-
         // shutdown specified client
-        //coda.shutdownClients(client, 0);
+        coda.shutdownClients(client, shutMeDown);
 
-        try {Thread.sleep(5000);}
+        try {
+            if (debug) System.out.println("Wait 3 more seconds, then disconnect");
+            Thread.sleep(3000);
+        }
         catch (InterruptedException e) {}
 
         coda.disconnect();

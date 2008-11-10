@@ -1,6 +1,3 @@
-//  general purpose cMsg queue utility
-
-
 /*----------------------------------------------------------------------------*
 *  Copyright (c) 2004        Southeastern Universities Research Association, *
 *                            Thomas Jefferson National Accelerator Facility  *
@@ -13,12 +10,12 @@
 *    Authors: Elliott Wolin                                                  *
 *             wolin@jlab.org                    Jefferson Lab, MS-6B         *
 *             Phone: (757) 269-7365             12000 Jefferson Ave.         *
-*             Fax:   (757) 269-5800             Newport News, VA 23606       *
+*             Fax:   (757) 269-6248             Newport News, VA 23606       *
 *                                                                            *
 *             Carl Timmer                                                    *
-*             timmer@jlab.org                   Jefferson Lab, MS-6B         *
+*             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
 *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
-*             Fax:   (757) 269-5800             Newport News, VA 23606       *
+*             Fax:   (757) 269-6248             Newport News, VA 23606       *
 *                                                                            *
 *----------------------------------------------------------------------------*/
 
@@ -31,9 +28,7 @@ import org.jlab.coda.cMsg.*;
 import java.lang.*;
 import java.io.*;
 import java.sql.*;
-import java.util.Date;
 import java.net.*;
-import java.nio.*;
 import java.nio.channels.*;
 
 
@@ -41,9 +36,9 @@ import java.nio.channels.*;
 
 
 /**
- * Queues messages to file or MySQL database.
- * Only stores user-settable information.
- * I.e. subject,type,text,userTime,userInt.
+ * This class is a general purpose cMsg queue utility that
+ * queues messages to a file or MySQL database. It only stores
+ * user-settable information (i.e. subject, type, text, userTime, userInt).
  *
  * To use, e.g, with a database queue:
  *   java cMsgQueue -udl cMsg:cMsg://ollie/cMsg -name myQueue
@@ -60,7 +55,7 @@ public class cMsgQueue {
 
 
     /** Universal Domain Locator and cMsg system object. */
-    private static String UDL = "cMsg:cMsg://ollie/cMsg";
+    private static String UDL = "cMsg://localhost/cMsg/myNameSpace";
     private static cMsg cmsg  = null;
 
 
@@ -171,7 +166,6 @@ public class cMsgQueue {
             if(url!=null) {
                 try {
                     int i = 1;
-//                    pStmt.setString(i++,    msg.getCreator());
                     pStmt.setString(i++,    msg.getSubject());
                     pStmt.setString(i++,    msg.getType());
                     pStmt.setString(i++,    msg.getText());
@@ -277,7 +271,6 @@ public class cMsgQueue {
 
                         int id = rs.getInt("id");
 
-//                        response.setCreator(rs.getString("creator"));
                         response.setSubject(rs.getString("subject"));
                         response.setType(rs.getString("type"));
                         response.setText(rs.getString("text"));
@@ -495,26 +488,49 @@ public class cMsgQueue {
 //-----------------------------------------------------------------------------
 
 
+    /** Method to print out correct program command line usage. */
+    static private void usage() {
+        System.out.println("\nUsage:\n\n" +
+                "   java cMsgQueue\n" +
+                "        [-name <name>]             name of this cmsg client\n" +
+                "        [-udl <udl>]               UDL for cmsg connection\n" +
+                "        [-descr <description>]     string describing this cmsg client\n" +
+                "        [-subject <subject>]       subject of messages being queued\n" +
+                "        [-type <type>]             type of messages being queued\n" +
+                "        [-getSubject <subject>]    subject of sendAndGet msgs for retrieving a msg from queue\n" +
+                "        [-getType <type>]          type of sendAndGet msgs for retrieving a msg from queue\n" +
+                "        [-queue <name>]            used to generate name, description, getSubject, base, and table\n" +
+                "                                   if any not given, (default = \"default\"\n" +
+                "        [-dir <dir>]               directory of queue files\n" +
+                "        [-base <name>]             base of queue file names\n" +
+                "        [-broadcast]               when oldest queue msg is sent in response to sendAndGet,\n" +
+                "                                   same message sent to all subscribed to getSubject, getType\n" +
+                "        [-table <table>]           db table storing messages\n" +
+                "        [-url <url>]               database url (for connection to db)\n" +
+                "        [-driver <driver>]         database driver (for connection to db)\n" +
+                "        [-account <account>]       database account (for connection to db)\n" +
+                "        [-pwd <password>]          database password (for connection to db)\n" +
+                "        [-debug]                   enable debug output\n" +
+                "        [-h]                       print this help\n");
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to decode the command line used to start this application.
      * @param args command line arguments
      */
-    static public void decode_command_line(String[] args) {
-
-        String help = "\nUsage:\n\n" +
-            "   java cMsgQueue [-name name] [-descr description] [-udl domain] [-subject subject] [-type type]\n" +
-            "                  [-queue queueName] [-getSubject getSubject] [-getType getType] [-broadcast]\n" +
-            "                  [-dir dir] [-base base]\n" +
-            "                  [-url url] [-driver driver] [-account account] [-pwd password] [-table table]\n";
+    static private void decode_command_line(String[] args) {
 
 
         // loop over all args
         for (int i = 0; i < args.length; i++) {
 
             if (args[i].equalsIgnoreCase("-h")) {
-                System.out.println(help);
+                usage();
                 System.exit(-1);
-
             }
             else if (args[i].equalsIgnoreCase("-name")) {
                 name = args[i + 1];
@@ -598,13 +614,13 @@ public class cMsgQueue {
             else if (args[i].equalsIgnoreCase("-debug")) {
                 debug = true;
             }
+            else {
+                usage();
+                System.exit(-1);
+            }
         }
 
         return;
     }
 
-
-//-----------------------------------------------------------------------------
-//  end class definition:  cMsgQueue
-//-----------------------------------------------------------------------------
 }

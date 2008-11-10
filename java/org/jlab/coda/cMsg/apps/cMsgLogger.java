@@ -1,9 +1,5 @@
-//  general purpose cMsg logger
-
 // still to do:
 //   compound payload
-
-
 
 
 /*----------------------------------------------------------------------------*
@@ -21,9 +17,9 @@
 *             Fax:   (757) 269-5800             Newport News, VA 23606       *
 *                                                                            *
 *             Carl Timmer                                                    *
-*             timmer@jlab.org                   Jefferson Lab, MS-6B         *
+*             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
 *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
-*             Fax:   (757) 269-5800             Newport News, VA 23606       *
+*             Fax:   (757) 269-6248             Newport News, VA 23606       *
 *                                                                            *
 *----------------------------------------------------------------------------*/
 
@@ -43,8 +39,9 @@ import java.net.*;
 
 
 /**
- * Logs cMsg messages to screen, file, and/or database.
- * subject/type specified on command line, defaults to *.
+ * This class is a general purpose message logger which logs cMsg messages to screen,
+ * file, and/or database. Subject and type are specified on the command line and default
+ * to "*".
  *
  * @version 1.0
  */
@@ -52,7 +49,7 @@ public class cMsgLogger {
 
 
     /** Universal Domain Locator and cMsg system object. */
-    private static String UDL = "cMsg:cMsg://aslan/cMsg";
+    private static String UDL = "cMsg://localhost/cMsg/myNameSpace";
     private static cMsg cmsg  = null;
 
 
@@ -409,27 +406,48 @@ public class cMsgLogger {
 //-----------------------------------------------------------------------------
 
 
+    /** Method to print out correct program command line usage. */
+    static private void usage() {
+        System.out.println("\nUsage:\n\n" +
+                "   java cMsgLogger\n" +
+                "        [-name <name>]             name of this cmsg client\n" +
+                "        [-udl <udl>]               UDL for cmsg connection\n" +
+                "        [-descr <description>]     string describing this cmsg client\n" +
+                "        [-subject <subject>]       subject of messages being logged\n" +
+                "        [-type <type>]             type of messages being logged\n" +
+                "        [-screen]                  display messages on screen\n" +
+                "        [-file <fileName>]         log messages to this file\n" +
+                "        [-verbose]                 prints full msg to screen (dfault = msg count)\n" +
+                "        [-header]                  prints header line (use with -verbose flag)\n" +
+                "        [-wide]                    prints more msg fields (use with -verbose flag)\n" +
+                "        [-table <table>]           db table storing messages\n" +
+                "        [-url <url>]               database url (for connection to db)\n" +
+                "        [-driver <driver>]         database driver (for connection to db)\n" +
+                "        [-account <account>]       database account (for connection to db)\n" +
+                "        [-pwd <password>]          database password (for connection to db)\n" +
+                "        [-maxText <size>]          maximum size of text fields in kBytes\n" +
+                "        [-maxByteArray <size>]     maximum size of byte array fields in kBytes\n" +
+                "        [-debug]                   enable debug output\n" +
+                "        [-h]                       print this help\n");
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
     /**
      * Method to decode the command line used to start this application.
      * @param args command line arguments
      */
-    static public void decode_command_line(String[] args) {
-
-        String help = "\nUsage:\n\n" +
-            "   java cMsgLogger [-name name] [-descr description] [-udl domain] [-subject subject] [-type type]\n" +
-            "                   [-screen] [-file filename] [-verbose] [-header] [-wide]\n" +
-            "                   [-url url] [-table table] [-driver driver] [-account account] [-pwd password]\n" +
-            "                   [-maxText maxText] [-maxByteArray maxByteArray]\n" +
-            "                   [-debug]\n\n";
+    static private void decode_command_line(String[] args) {
 
 
         // loop over all args
         for (int i = 0; i < args.length; i++) {
 
             if (args[i].equalsIgnoreCase("-h")) {
-                System.out.println(help);
+                usage();
                 System.exit(-1);
-
             }
             else if (args[i].equalsIgnoreCase("-name")) {
                 name = args[i + 1];
@@ -515,13 +533,13 @@ public class cMsgLogger {
             else if (args[i].equalsIgnoreCase("-debug")) {
                 debug = true;
             }
+            else {
+                usage();
+                System.exit(-1);                
+            }
         }
 
         return;
     }
 
-
-//-----------------------------------------------------------------------------
-//  end class definition:  cMsgLogger
-//-----------------------------------------------------------------------------
 }
