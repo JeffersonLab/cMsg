@@ -95,7 +95,7 @@ public class cMsgTestRcServer {
         // The intial cMsg:rcb:// is stripped off by the top layer API
         //
         // Remember that for this domain:
-        // 1) udp listening port is optional and defaults to 6543 (cMsgNetworkConstants.rcBroadcastPort)
+        // 1) udp listening port is optional and defaults to 6543 (cMsgNetworkConstants.rcMulticastPort)
         // 2) the experiment id is given by the optional parameter expid. If none is
         //    given, the environmental variable EXPID is used. if that is not defined,
         //    an exception is thrown

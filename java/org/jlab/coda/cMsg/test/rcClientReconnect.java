@@ -57,7 +57,7 @@ public class rcClientReconnect {
           *        cMsg:rc://<host>:<port>/?expid=<expid>&broadcastTO=<timeout>&connectTO=<timeout>
           *
           * Remember that for this domain:
-          * 1) port is optional with a default of 6543 (cMsgNetworkConstants.rcBroadcastPort)
+          * 1) port is optional with a default of 6543 (cMsgNetworkConstants.rcMulticastPort)
           * 2) host is optional with a default of 255.255.255.255 (broadcast)
           *    and may be "localhost" or in dotted decimal form
           * 3) the experiment id or expid is optional, it is taken from the
