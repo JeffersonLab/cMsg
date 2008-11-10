@@ -14,12 +14,13 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg.apps;
+package org.jlab.coda.cMsg.test;
 
 import org.jlab.coda.cMsg.*;
 
 /**
- * This class implements a run control client that reconnects.
+ * This class implements a run control client that reconnects with a server that
+ * comes and goes - RCMulticastServer.
  */
 public class rcClientReconnect {
 
@@ -35,14 +36,6 @@ public class rcClientReconnect {
      * our subscription arrives.
      */
     class myCallback extends cMsgCallbackAdapter {
-        /**
-         * Callback method definition.
-         *
-         * @param msg message received from domain server
-         * @param userObject object passed as an argument which was set when the
-         *                   client orginally subscribed to a subject and type of
-         *                   message.
-         */
         public void callback(cMsgMessage msg, Object userObject) {
             System.out.println("Got msg " + msg.getUserInt() + " from server");
         }
