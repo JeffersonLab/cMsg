@@ -24,7 +24,7 @@ import java.math.BigInteger;
  * An example class which creates a cMsg message producer whose messges
  * contain many and varied payload items.
  */
-public class payloadTest {
+public class cMsgPayloadProducer {
 
     private String  subject = "SUBJECT";
     private String  type = "TYPE";
@@ -38,7 +38,7 @@ public class payloadTest {
 
 
     /** Constructor. */
-    payloadTest(String[] args) {
+    cMsgPayloadProducer(String[] args) {
         decodeCommandLine(args);
     }
 
@@ -120,7 +120,7 @@ public class payloadTest {
      */
     public static void main(String[] args) {
         try {
-            payloadTest producer = new payloadTest(args);
+            cMsgPayloadProducer producer = new cMsgPayloadProducer(args);
             producer.run();
         }
         catch (cMsgException e) {
