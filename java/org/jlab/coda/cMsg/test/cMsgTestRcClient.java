@@ -23,8 +23,7 @@ import org.jlab.coda.cMsg.*;
  */
 public class cMsgTestRcClient {
 
-    int count;
-    cMsg cmsg;
+    private cMsg cmsg;
 
 
     public static void main(String[] args) throws cMsgException {
@@ -39,7 +38,6 @@ public class cMsgTestRcClient {
      */
     class myCallback extends cMsgCallbackAdapter {
         public void callback(cMsgMessage msg, Object userObject) {
-            count++;
             System.out.println("Got msg with sub = " + msg.getSubject() + ", typ = " + msg.getType() +
                     ", msg # = " + msg.getUserInt());
             msg.payloadPrintout(0);
@@ -76,7 +74,6 @@ public class cMsgTestRcClient {
                 // to send with UDP, uncomment following line
                 // sendMsg.getContext().setReliableSend(false);
                 cmsg.send(sendMsg);
-                count++;
             }
             catch (cMsgException e) {
                 e.printStackTrace();
