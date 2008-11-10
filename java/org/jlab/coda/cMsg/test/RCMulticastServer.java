@@ -14,12 +14,14 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg.apps;
+package org.jlab.coda.cMsg.test;
 
 import org.jlab.coda.cMsg.*;
 
 /**
- * Simulates an rc multicast server and rc server together. It dies and them comes back.
+ * This class implements an RC Multicast server and RC Server server together.
+ * The RC Server part dies and then comes back in order to test its ability
+ * to reconnect to clients.
  */
 public class RCMulticastServer {
 
@@ -29,17 +31,16 @@ public class RCMulticastServer {
              int    port = msg.getUserInt();
              String name = msg.getSender();
              
-             System.out.println("Ran multicast cb, host = " + host +
+             System.out.println("Running RC Multicast domain callback, host = " + host +
                                 ", port = " + port +
                                 ", name = " + name);
 
-             // now that we have the message, we know what TCP host and port
+             // Now that we have the message, we know what TCP host and port
              // to connect to in the RC Server domain.
-             System.out.println("Starting RC Server");
+             System.out.println("Starting RC Server domain server");
 
              RcServerReconnectThread rcserver  = new RcServerReconnectThread(host, port);
              //ConnectDisconnectThread rcserver = new ConnectDisconnectThread(host, port);
-             //RcServerThread rcserver = new RcServerThread(host, port);
              rcserver.start();
         }
     }
@@ -48,7 +49,7 @@ public class RCMulticastServer {
     class rcCallback extends cMsgCallbackAdapter {
         public void callback(cMsgMessage msg, Object userObject) {
             String s = (String) userObject;
-            System.out.println("RAN CALLBACK, msg sub = " + msg.getSubject() +
+            System.out.println("Running regular cb, msg sub = " + msg.getSubject() +
                     ", type " + msg.getType() + ", text = " + msg.getText() + ", for " + s);
         }
     }
@@ -56,7 +57,7 @@ public class RCMulticastServer {
     class starCallback extends cMsgCallbackAdapter {
         public void callback(cMsgMessage msg, Object userObject) {
             String s = (String) userObject;
-            System.out.println("RAN CALLBACK, for STAR subscription, msg sub = " + msg.getSubject() +
+            System.out.println("Running star cb, msg sub = " + msg.getSubject() +
                     ", type " + msg.getType() + ", text = " + msg.getText() + ", for " + s);
         }
     }
@@ -73,7 +74,8 @@ public class RCMulticastServer {
 
 
     public void run() throws cMsgException {
-        System.out.println("Starting RC Multicast Server");
+
+        System.out.println("Starting RC Multicast domain server");
 
         // RC Multicast domain UDL is of the form:
         //       cMsg:rcm://<udpPort>?expid=<expid>
@@ -86,7 +88,7 @@ public class RCMulticastServer {
         //    given, the environmental variable EXPID is used. if that is not defined,
         //    an exception is thrown
 
-        String UDL = "cMsg:rcm://33444?expid=carlExp";
+        String UDL = "cMsg:rcm://?expid=carlExp";
 
         cMsg cmsg = new cMsg(UDL, "multicast listener", "udp trial");
         try {cmsg.connect();}
@@ -104,41 +106,11 @@ public class RCMulticastServer {
 
     }
 
-    /**
-     * Class for handling client which does endless connects and disconnects.
-     */
-    class RcServerThread extends Thread{
-
-        String rcClientHost;
-        int rcClientTcpPort;
-
-        RcServerThread(String host, int port) {
-            rcClientHost = host;
-            rcClientTcpPort = port;
-        }
-
-        public void run() {
-            try {
-                String rcsUDL = "cMsg:rcs://" + rcClientHost + ":" + rcClientTcpPort;
-
-                cMsg server = new cMsg(rcsUDL, "rc server", "connect trial");
-//System.out.println("RC server: try to connect");
-                server.connect();
-                try {Thread.sleep(1000);}
-                catch (InterruptedException e) {}
-                server.disconnect();
-            }
-            catch (cMsgException e) {
-                e.printStackTrace();
-            }
-        }
-
-    }
 
     /**
      * Class for handling client which does endless connects and disconnects.
      */
-    class ConnectDisconnectThread extends Thread{
+    class ConnectDisconnectThread extends Thread {
 
         String rcClientHost;
         int rcClientTcpPort;
@@ -169,7 +141,7 @@ public class RCMulticastServer {
     /**
      * Class for client testing message sending after server disconnects then reconnects.
      */
-    class RcServerReconnectThread extends Thread{
+    class RcServerReconnectThread extends Thread {
 
         String rcClientHost;
         int rcClientTcpPort;
@@ -181,7 +153,7 @@ public class RCMulticastServer {
 
         public void run() {
             try {
-                System.out.println("Starting RC Multicast Server");
+
                 // RC Server domain UDL is of the form:
                 //       cMsg:rcs://<host>:<tcpPort>?port=<udpPort>
                 //
@@ -194,7 +166,8 @@ public class RCMulticastServer {
                 // 3) tcp port is optional and defaults to 7654 (cMsgNetworkConstants.rcClientPort)
                 // 4) the udp port to listen on may be given by the optional port parameter.
                 //    if it's not given, the system assigns one
-                String rcsUDL = "cMsg:rcs://" + rcClientHost + ":" + rcClientTcpPort + "/?port=5859";
+
+                String rcsUDL = "cMsg:rcs://" + rcClientHost + ":" + rcClientTcpPort;
 
                 cMsg server = new cMsg(rcsUDL, "rc server", "udp trial");
                 server.connect();

@@ -22,12 +22,12 @@ import org.jlab.coda.cMsg.*;
  * This class implements a run control client that reconnects with a server that
  * comes and goes - RCMulticastServer.
  */
-public class rcClientReconnect {
+public class RCClientReconnect {
 
     int count;
 
     public static void main(String[] args) throws cMsgException {
-         rcClientReconnect client = new rcClientReconnect();
+         RCClientReconnect client = new RCClientReconnect();
          client.run();
      }
 
