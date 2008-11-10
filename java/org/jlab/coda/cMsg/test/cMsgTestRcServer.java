@@ -140,7 +140,6 @@ public class cMsgTestRcServer {
         // and thereby conclude the client's complicated connection process.
         cMsg server = new cMsg(rcsUDL, "rc server", "udp trial");
         server.connect();
-
         server.start();
 
         // register callback to get messages from rc client
