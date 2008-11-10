@@ -164,7 +164,7 @@ public class cMsgConsumer {
                 msg.payloadPrintout(0);
             }
 
-            System.out.println("MESSAGE IN XML:\n" + msg);
+            System.out.println("\n\nMESSAGE IN XML:\n" + msg);
             */
         }
 
