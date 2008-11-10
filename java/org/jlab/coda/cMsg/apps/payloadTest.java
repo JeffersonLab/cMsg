@@ -18,30 +18,23 @@ package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
 
-import java.util.Arrays;
+import java.math.BigInteger;
 
 /**
- * An example class which creates a cMsg message producer.
+ * An example class which creates a cMsg message producer whose messges
+ * contain many and varied payload items.
  */
 public class payloadTest {
-    String  name = "producer";
-    String  description = "java producer";
-    String  UDL = "cMsg:cMsg://localhost:3456/cMsg/test";
-    //String  UDL = "cMsg:cmsg://broadcast/cMsg/test";
-    String  subject = "SUBJECT";
-    String  type = "TYPE";
 
-    String  text;
-    char[]  textChars;
-    int     textSize;
-    boolean sendText;
+    private String  subject = "SUBJECT";
+    private String  type = "TYPE";
+    private String  name = "producer";
+    private String  description = "java producer";
+    private String  UDL = "cMsg://localhost/cMsg/myNameSpace";
+    //private String  UDL = "cMsg://multicast/cMsg/myNameSpace";
 
-    byte[]  binArray;
-    int     binSize;
-    boolean sendBinary;
-
-    int     delay;
-    boolean debug;
+    private int delay, count = 50000;
+    private boolean debug;
 
 
     /** Constructor. */
@@ -54,7 +47,7 @@ public class payloadTest {
      * Method to decode the command line used to start this application.
      * @param args command line arguments
      */
-    public void decodeCommandLine(String[] args) {
+    private void decodeCommandLine(String[] args) {
 
         // loop over all args
         for (int i = 0; i < args.length; i++) {
@@ -83,28 +76,10 @@ public class payloadTest {
                 type = args[i + 1];
                 i++;
             }
-            else if (args[i].equalsIgnoreCase("-text")) {
-                text = args[i + 1];
-                sendText = true;
-                i++;
-            }
-            else if (args[i].equalsIgnoreCase("-textsize")) {
-                textSize  = Integer.parseInt(args[i + 1]);
-                textChars = new char[textSize];
-                Arrays.fill(textChars, 'A');
-                text = new String(textChars);
-                System.out.println("text len = " + text.length());
-                sendText = true;
-                i++;
-            }
-            else if (args[i].equalsIgnoreCase("-binsize")) {
-                binSize  = Integer.parseInt(args[i + 1]);
-                binArray = new byte[binSize];
-                for (int j=0; j < binSize; j++) {
-                  binArray[j] = (byte)(j%255);
-                }
-                System.out.println("binary size = " + binSize);
-                sendBinary = true;
+            else if (args[i].equalsIgnoreCase("-c")) {
+                count = Integer.parseInt(args[i + 1]);
+                if (count < 1)
+                    System.exit(-1);
                 i++;
             }
             else if (args[i].equalsIgnoreCase("-delay")) {
@@ -127,11 +102,17 @@ public class payloadTest {
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage:\n\n" +
-            "   java payloadTest [-n name] [-d description] [-u UDL]\n" +
-            "                     [-s subject] [-t type] [-text text]\n" +
-            "                     [-textsize size in bytes]\n" +
-            "                     [-delay millisec] [-debug]\n");
+            "   java cMsgPayloadProducer\n" +
+            "        [-n <name>]          set client name\n"+
+            "        [-d <description>]   set description of client\n" +
+            "        [-u <UDL>]           set UDL to connect to cMsg\n" +
+            "        [-s <subject>]       set subject of sent messages\n" +
+            "        [-t <type>]          set type of sent messages\n" +
+            "        [-delay <time>]      set time in millisec between sending of each message\n" +
+            "        [-debug]             turn on printout\n" +
+            "        [-h]                 print this help\n");
     }
+
 
 
     /**
@@ -188,16 +169,25 @@ public class payloadTest {
         cMsg coda = new cMsg(UDL, name, description);
         coda.connect();
 
-        // create a message
+        // Create a message
         cMsgMessage msg = new cMsgMessage();
         msg.setSubject(subject);
         msg.setType(type);
 
-        // play with payload
+        // Get rid of sender history stored in msg by calling:
+        // msg.setHistoryLengthMax(0);
 
+        // Set for using UDP to send call:
+        // msg.getContext().setReliableSend(false);
+
+        //----------------------------------------
+        // Add different types of items to payload
+        //----------------------------------------
+
+        // Integers
         String[] ses = new String[]{"one", "two", "three"};
-        cMsgPayloadItem item = new cMsgPayloadItem("STR_ARRAY", ses);
-        msg.addPayloadItem(item);
+        cMsgPayloadItem item1 = new cMsgPayloadItem("STR_ARRAY", ses);
+        msg.addPayloadItem(item1);
 
         cMsgPayloadItem item2 = new cMsgPayloadItem("STR", "hey you");
         msg.addPayloadItem(item2);
@@ -235,53 +225,37 @@ public class payloadTest {
         msg.addPayloadItem(item10);
 
 
-/*
-        byte[] ba = {1,2,3};
+        // Send byte array as binary
         cMsgPayloadItem item11 = new cMsgPayloadItem("BIN", ba, cMsgConstants.endianLocal);
         msg.addPayloadItem(item11);
 
-        // test zero suppression
-        long[] la = new long[30];
-        la[0] = 1; la[15] = 2; la[29] = 3;
-        cMsgPayloadItem item10 = new cMsgPayloadItem("LONG_ARRAY_ZERO", la);
-        msg.addPayloadItem(item10);
 
-        int[] ia = new int[30];
-        ia[0] = 1; ia[15] = 2; ia[29] = 3;
-        cMsgPayloadItem item12 = new cMsgPayloadItem("INT_ARRAY_ZERO", ia);
-        msg.addPayloadItem(item12);
+        // Test zero compression
+        long[] lb = new long[30];
+        lb[0] = 1; lb[15] = 2; lb[29] = 3;
+        cMsgPayloadItem item20 = new cMsgPayloadItem("LONG_ARRAY_ZERO", lb);
+        msg.addPayloadItem(item20);
 
-        short[] sa = new short[30];
-        sa[0] = 1; sa[15] = 2; sa[29] = 3;
-        cMsgPayloadItem item8 = new cMsgPayloadItem("SHORT_ARRAY_ZERO", sa);
-        msg.addPayloadItem(item8);
+        int[] ib = new int[30];
+        ib[0] = 1; ib[15] = 2; ib[29] = 3;
+        cMsgPayloadItem item21 = new cMsgPayloadItem("INT_ARRAY_ZERO", ib);
+        msg.addPayloadItem(item21);
 
-        byte[] ba = new byte[30];
-        ba[0] = 1; ba[15] = 2; ba[29] = 3;
-        cMsgPayloadItem item6 = new cMsgPayloadItem("BYTE_ARRAY_ZERO", ba);
-        msg.addPayloadItem(item6);
-*/
+        short[] sb = new short[30];
+        sb[0] = 1; sb[15] = 2; sb[29] = 3;
+        cMsgPayloadItem item22 = new cMsgPayloadItem("SHORT_ARRAY_ZERO", sb);
+        msg.addPayloadItem(item22);
 
-/*
-        Integer ii = 123456789;
-        cMsgPayloadItem item3 = new cMsgPayloadItem("INT", ii);
-        msg.addPayloadItem(item3);
+        byte[] bb = new byte[30];
+        bb[0] = 1; bb[15] = 2; bb[29] = 3;
+        cMsgPayloadItem item23 = new cMsgPayloadItem("BYTE_ARRAY_ZERO", bb);
+        msg.addPayloadItem(item23);
 
-        Byte bt = 123;
-        cMsgPayloadItem item5 = new cMsgPayloadItem("BYTE", bt);
-        msg.addPayloadItem(item5);
 
-        Short st = 12345;
-        cMsgPayloadItem item7 = new cMsgPayloadItem("SHORT", st);
-        msg.addPayloadItem(item7);
-
-        Long lt = 123456789123456789L;
-        cMsgPayloadItem item9 = new cMsgPayloadItem("LONG", lt);
-        msg.addPayloadItem(item9);
-        
+        // BigInteger class
         BigInteger bi = new BigInteger("18446744073709551614");
-        cMsgPayloadItem item1 = new cMsgPayloadItem("BIGINT", bi);
-        msg.addPayloadItem(item1);
+        cMsgPayloadItem item30 = new cMsgPayloadItem("BIGINT", bi);
+        msg.addPayloadItem(item30);
 
         BigInteger[] big = new BigInteger[10];
         big[0] = BigInteger.ONE;
@@ -289,97 +263,67 @@ public class payloadTest {
         big[5] = BigInteger.TEN;
         big[6] = big[7] = big[8] = BigInteger.ZERO;
         big[9] = BigInteger.ONE;
-        cMsgPayloadItem item2 = new cMsgPayloadItem("BIGINT_ARRAY", big);
-        msg.addPayloadItem(item2);
-*/
+        cMsgPayloadItem item31 = new cMsgPayloadItem("BIGINT_ARRAY", big);
+        msg.addPayloadItem(item31);
 
-        //short[] sa = new short[8];
-        //byte[] sa = new byte[8];
-        //int[] sa = new int[8];
-        //long[] sa = new long[8];
-        //sa[0] = 1; sa[3] = 2; sa[7] = 3;
-/*
-        BigInteger[] sa = new BigInteger[8];
-        sa[0] = BigInteger.ONE;
-        sa[1] = sa[2] = BigInteger.ZERO;
-        sa[3] = new BigInteger("2");
-        sa[4] = sa[5] = sa[6] = BigInteger.ZERO;
-        sa[7] = new BigInteger("3");
-        cMsgPayloadItem item8 = new cMsgPayloadItem("ARRAY_ZERO", sa);
-        msg.addPayloadItem(item8);
-*/
 
-/*
+        // Real Numbers
         float f = 12345.12345f;
-        cMsgPayloadItem item3 = new cMsgPayloadItem("FLT", f);
-        msg.addPayloadItem(item3);
+        cMsgPayloadItem item40 = new cMsgPayloadItem("FLT", f);
+        msg.addPayloadItem(item40);
 
         float[] ff = {1.f, 0.f, 0.f, 2.f, 0.f, 0.f, 0.f, 3.f};
-        cMsgPayloadItem item4 = new cMsgPayloadItem("FLT_ARRAY", ff);
-        msg.addPayloadItem(item4);
+        cMsgPayloadItem item41 = new cMsgPayloadItem("FLT_ARRAY", ff);
+        msg.addPayloadItem(item41);
 
         double d = 123456789.123456789;
-        cMsgPayloadItem item5 = new cMsgPayloadItem("DBL", d);
-        msg.addPayloadItem(item5);
+        cMsgPayloadItem item42 = new cMsgPayloadItem("DBL", d);
+        msg.addPayloadItem(item42);
 
         double[] dd = {1., 0., 0., 2., 0., 0., 0., 3.};
-        cMsgPayloadItem item6 = new cMsgPayloadItem("DBL_ARRAY", dd);
-        msg.addPayloadItem(item6);
-*/
+        cMsgPayloadItem item43 = new cMsgPayloadItem("DBL_ARRAY", dd);
+        msg.addPayloadItem(item43);
+
+        //-------------------------------
+        // cMsg messages as payload items
+        //-------------------------------
+
+        // Define array of cMsg messages
         cMsgMessage[] ma = new cMsgMessage[2];
 
-/*
-        // create a message as payload
+        // In first message of array ...
         ma[0] = new cMsgMessage();
-        ma[0].setSubject(subject);
-        ma[0].setType(type);
-*/
+        ma[0].setSubject("sub1");
+        ma[0].setType("type1");
 
-        double d = 1.23e-123;
-        cMsgPayloadItem item15 = new cMsgPayloadItem("DBL", d);
-        //ma[0].addPayloadItem(item15);
-        msg.addPayloadItem(item15);
+        cMsgPayloadItem item50 = new cMsgPayloadItem("DBL", d);
+        ma[0].addPayloadItem(item50);
 
-        // get rid of history
-        //msg.setHistoryLengthMax(0);
-
-/*
-        // create a message as payload
+        // In second message of array ...
         ma[1] = new cMsgMessage();
-        ma[1].setSubject("subbie");
-        ma[1].setType("typie");
+        ma[1].setSubject("sub2");
+        ma[1].setType("type2");
 
-        int j = 123456789;
-        cMsgPayloadItem item1 = new cMsgPayloadItem("INT", j);
-        ma[1].addPayloadItem(item1);
-*/
+        cMsgPayloadItem item51 = new cMsgPayloadItem("INT", ii);
+        ma[1].addPayloadItem(item51);
 
-       // cMsgPayloadItem item6 = new cMsgPayloadItem("MSG_ARRAY", ma);
-      //  msg.addPayloadItem(item6);
+        // Add array of cMsg messages to original message as a payload item
+        cMsgPayloadItem item52 = new cMsgPayloadItem("MSG_ARRAY", ma);
+        msg.addPayloadItem(item52);
 
-        // set for UDP send
-        //msg.getContext().setReliableSend(false);
-        if (sendText) {
-          System.out.println("Sending text\n");
-          msg.setText(text);
-        }
-        if (sendBinary) {
-          System.out.println("Sending byte array\n");
-          msg.setByteArrayNoCopy(binArray);
-        }
+        //-------------------------------
+        // End of payload
+        //-------------------------------
+
 
         // variables to track message rate
-        double freq=0., freqAvg=0.;
-        long t1, t2, deltaT, totalT=0, totalC=0, count=50000, ignore=0;
-
-        // delay between messages
-        //if (delay != 0) rcCount = rcCount/(20 + delay);
+        double freq, freqAvg;
+        long t1, t2, deltaT, totalT=0, totalC=0, ignore=0;
 
         while (true) {
             t1 = System.currentTimeMillis();
             for (int i = 0; i < count; i++) {
                 coda.send(msg);
-                //int a = coda.syncSend(msg);
                 coda.flush(0);
                 // delay between messages sent
                 if (delay != 0) {
