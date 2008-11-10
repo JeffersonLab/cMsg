@@ -25,7 +25,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Simulates an rc Multicast server and an rc server together.
+ * This class implements an RC Multicast server and an RC Server server together
+ * and works with cMsgTestRcClient as a client.
  */
 public class cMsgTestRcServer {
 
