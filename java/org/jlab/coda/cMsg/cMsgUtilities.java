@@ -46,6 +46,7 @@ public class cMsgUtilities {
                  (b[off+3]&0xff));
     }
 
+
     /**
       * Copies an integer value into 4 bytes of a byte array.
       * @param intVal integer value
@@ -58,6 +59,31 @@ public class cMsgUtilities {
        b[off+2] = (byte) ((intVal & 0x0000ff00) >>>  8);
        b[off+3] = (byte)  (intVal & 0x000000ff);
      }
+
+
+    /**
+     * Converts 2 bytes of a byte array into a short.
+     *
+     * @param b   byte array
+     * @param off offset into the byte array (0 = start at first element)
+     * @return integer value
+     */
+    public static final short bytesToShort(byte[] b, int off) {
+        return  (short) ( ((b[off+1] & 0xff) << 8)  | (b[off] & 0xff) );
+    }
+
+
+    /**
+     * Copies a short value into 2 bytes of a byte array.
+     * @param val short value
+     * @param b byte array
+     * @param off offset into the byte array
+     */
+    public static final void shortToBytes(short val, byte[] b, int off) {
+      b[off]   = (byte) ((val & 0x0000ff00) >>>  8);
+      b[off+1] = (byte)  (val & 0x000000ff);
+    }
+
 
 
     /**
