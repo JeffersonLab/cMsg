@@ -30,7 +30,7 @@ import java.net.UnknownHostException;
  * cloud of connected cMsg servers in the cMsg subdomain
  * to become part of that cloud.
  */
-public class cMsgServerCloudJoiner extends Thread {
+class cMsgServerCloudJoiner extends Thread {
 
     /** The TCP port this server is listening on. */
     private int port;

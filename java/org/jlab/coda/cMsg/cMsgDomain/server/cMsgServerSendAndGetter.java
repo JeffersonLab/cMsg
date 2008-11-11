@@ -28,7 +28,7 @@ import java.io.IOException;
  * that to the client as well as cancelling the request to servers after the first
  * response is received.
  */
-public class cMsgServerSendAndGetter implements Runnable {
+class cMsgServerSendAndGetter implements Runnable {
     /** Name server object that this thread is run by. */
     private cMsgNameServer nameServer;
 

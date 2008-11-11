@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Need to store a little extra info not covered in the super class.
  */
-public class cMsgClientData extends cMsgClientInfo {
+class cMsgClientData extends cMsgClientInfo {
 
     /** For server clients, the password clients must use to connect to that server. */
     String clientPassword;

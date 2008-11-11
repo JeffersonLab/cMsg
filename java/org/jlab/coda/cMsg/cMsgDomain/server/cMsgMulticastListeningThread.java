@@ -31,7 +31,7 @@ import java.io.UnsupportedEncodingException;
  * @author Carl Timmer
  * @version 1.0
  */
-public class cMsgMulticastListeningThread extends Thread {
+class cMsgMulticastListeningThread extends Thread {
 
     /** cMsg name server's main TCP listening port. */
      private int serverTcpPort;

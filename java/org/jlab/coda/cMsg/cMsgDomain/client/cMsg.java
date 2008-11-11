@@ -2015,12 +2015,7 @@ public class cMsg extends cMsgDomainAdapter {
                 throw new cMsgException("not connected to server");
             }
 
-            // First generate a unique id for the receiveSubscribeId and senderToken field.
-            //
-            // The receiverSubscribeId is sent back by the domain server in the future when
-            // messages of this subject and type are sent to this cMsg client. This helps
-            // eliminate the need to parse subject and type each time a message arrives.
-
+            // First generate a unique id for the msg.
             id = uniqueId.getAndIncrement();
 
             // create cMsgSubscription object (not callback thread object)

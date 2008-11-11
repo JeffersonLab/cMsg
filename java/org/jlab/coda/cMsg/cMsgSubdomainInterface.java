@@ -163,70 +163,70 @@ public interface cMsgSubdomainInterface {
 
     /**
      * Method to tell if the "send" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendRequest}
+     * by this interface implementation in the "handleSendRequest"
      * method.
      *
-     * @return true if send implemented in {@link #handleSendRequest}
+     * @return true if send implemented in "handleSendRequest"
      */
     public boolean hasSend();
 
 
     /**
      * Method to tell if the "syncSend" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSyncSendRequest}
+     * by this interface implementation in the "handleSyncSendRequest"
      * method.
      *
-     * @return true if send implemented in {@link #handleSyncSendRequest}
+     * @return true if send implemented in "handleSyncSendRequest"
      */
     public boolean hasSyncSend();
 
 
     /**
      * Method to tell if the "subscribeAndGet" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSubscribeAndGetRequest}
+     * by this interface implementation in the "handleSubscribeAndGetRequest"
      * method.
      *
-     * @return true if subscribeAndGet implemented in {@link #handleSubscribeAndGetRequest}
+     * @return true if subscribeAndGet implemented in "handleSubscribeAndGetRequest"
      */
     public boolean hasSubscribeAndGet();
 
 
     /**
      * Method to tell if the "sendAndGet" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendAndGetRequest}
+     * by this interface implementation in the "handleSendAndGetRequest"
      * method.
      *
-     * @return true if sendAndGet implemented in {@link #handleSendAndGetRequest}
+     * @return true if sendAndGet implemented in "handleSendAndGetRequest"
      */
     public boolean hasSendAndGet();
 
 
     /**
      * Method to tell if the "subscribe" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSubscribeRequest}
+     * by this interface implementation in the "handleSubscribeRequest"
      * method.
      *
-     * @return true if subscribe implemented in {@link #handleSubscribeRequest}
+     * @return true if subscribe implemented in "handleSubscribeRequest"
      */
     public boolean hasSubscribe();
 
 
     /**
      * Method to tell if the "unsubscribe" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleUnsubscribeRequest}
+     * by this interface implementation in the "handleUnsubscribeRequest"
      * method.
      *
-     * @return true if unsubscribe implemented in {@link #handleUnsubscribeRequest}
+     * @return true if unsubscribe implemented in "handleUnsubscribeRequest"
      */
     public boolean hasUnsubscribe();
 
 
     /**
      * Method to tell if the "shutdown" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleShutdownClientsRequest}
+     * by this interface implementation in the "handleShutdownClientsRequest"
      * method.
      *
-     * @return true if shutdown implemented in {@link #handleShutdownClientsRequest}
+     * @return true if shutdown implemented in "handleShutdownClientsRequest"
      */
     public boolean hasShutdown();
 }

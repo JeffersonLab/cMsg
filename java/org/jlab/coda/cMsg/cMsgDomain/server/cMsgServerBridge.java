@@ -27,7 +27,7 @@ import java.io.IOException;
  * This class acts to bridge two cMsg domain servers by existing in one server
  * and becoming a client of another cMsg domain server.
  */
-public class cMsgServerBridge {
+class cMsgServerBridge {
 
     /** Reference to subdomain handler object for use by all bridges in this server. */
     static private org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg subdomainHandler = new org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg();

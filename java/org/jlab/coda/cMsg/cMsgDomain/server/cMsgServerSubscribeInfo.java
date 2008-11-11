@@ -30,7 +30,7 @@ import java.util.HashMap;
  * @author Carl Timmer
  * @version 1.0
  */
-public class cMsgServerSubscribeInfo {
+class cMsgServerSubscribeInfo {
     /** Subject subscribed to. */
     String subject;
 

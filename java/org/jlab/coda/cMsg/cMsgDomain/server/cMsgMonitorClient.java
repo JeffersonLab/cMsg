@@ -35,7 +35,7 @@ import java.text.DateFormat;
  *
  * @author Carl Timmer
  */
-public class cMsgMonitorClient extends Thread {
+class cMsgMonitorClient extends Thread {
 
     /** Domain server object. */
     private cMsgNameServer server;

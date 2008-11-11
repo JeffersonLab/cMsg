@@ -23,7 +23,7 @@ import org.jlab.coda.cMsg.cMsgMessageFull;
  * along with subject, type, id, and request (or client, server, flag for a shutdown)
  * for later action by a thread from the thread pool.
  */
-public class cMsgHolder {
+class cMsgHolder {
     /** Message object. */
     cMsgMessageFull message;
 

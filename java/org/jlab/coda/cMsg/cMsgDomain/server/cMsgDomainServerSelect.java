@@ -32,7 +32,7 @@ import org.jlab.coda.cMsg.*;
 /**
  * Domain Server which services a number of clients through select and nonblocking sockets.
  */
-public class cMsgDomainServerSelect extends Thread {
+class cMsgDomainServerSelect extends Thread {
     /** Type of domain this is. */
     static String domainType = "cMsg";
 

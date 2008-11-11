@@ -32,7 +32,7 @@ import java.util.Iterator;
  * This class creates all permanent connections to clients and passes these sockets
  * to either a cMsgDomainServer or cMsgDomainServerSelect object.
  */
-public class cMsgConnectionHandler extends Thread {
+class cMsgConnectionHandler extends Thread {
 
     /**
      * Object containing information about the client this object is connected to.

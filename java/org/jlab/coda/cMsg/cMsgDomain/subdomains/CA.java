@@ -156,11 +156,9 @@ public class CA extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "send" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendRequest}
-     * method.
+     * {@inheritDoc}
      *
-     * @return true if get implemented in {@link #handleSendRequest}
+     * @return {@inheritDoc}
      */
     public boolean hasSend() {
         return true;
@@ -171,11 +169,9 @@ public class CA extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "syncSend" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSyncSendRequest}
-     * method.
+     * {@inheritDoc}
      *
-     * @return true if send implemented in {@link #handleSyncSendRequest}
+     * @return {@inheritDoc}
      */
     public boolean hasSyncSend() {
         return true;
@@ -186,11 +182,9 @@ public class CA extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "subscribeAndGet" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSubscribeAndGetRequest}
-     * method.
+     * {@inheritDoc}
      *
-     * @return true if subscribeAndGet implemented in {@link #handleSubscribeAndGetRequest}
+     * @return {@inheritDoc}
      */
     public boolean hasSubscribeAndGet() {
         return true;
@@ -201,11 +195,9 @@ public class CA extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "subscribe" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSubscribeRequest}
-     * method.
+     * {@inheritDoc}
      *
-     * @return true if subscribe implemented in {@link #handleSubscribeRequest}
+     * @return {@inheritDoc}
      */
     public boolean hasSubscribe() {
         return true;
@@ -216,11 +208,9 @@ public class CA extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "unsubscribe" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleUnsubscribeRequest}
-     * method.
+     * {@inheritDoc}
      *
-     * @return true if unsubscribe implemented in {@link #handleUnsubscribeRequest}
+     * @return {@inheritDoc}
      */
     public boolean hasUnsubscribe() {
         return true;
@@ -231,10 +221,9 @@ public class CA extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to give the subdomain handler the appropriate part
-     * of the UDL the client used to talk to the domain server.
+     * {@inheritDoc}
      *
-     * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
+     * @param UDLRemainder {@inheritDoc}
      * @throws cMsgException
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
@@ -245,11 +234,11 @@ public class CA extends cMsgSubdomainAdapter {
 //-----------------------------------------------------------------------------
 
     /**
-     * Method to register domain client.
+     * {@inheritDoc}
      *
      * Creates JCA, context, and channel objects.
      *
-     * @param info information about client
+     * @param info {@inheritDoc}
      * @throws cMsgException if unable to register
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
@@ -326,9 +315,9 @@ public class CA extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle message sent by client.
+     * {@inheritDoc}
      *
-     * @param msg message from sender
+     * @param msg {@inheritDoc}
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                          or socket properties cannot be set
      */
@@ -354,12 +343,12 @@ public class CA extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle message sent by domain client in synchronous mode.
-     * It requries an integer response from the subdomain handler.
+     * {@inheritDoc}
      *
-     * @param msg message from sender
-     * @return response from subdomain handler
-     * @throws cMsgException
+     * @param msg {@inheritDoc}
+     * @return {@inheritDoc}
+     * @throws cMsgException if a channel to the client is closed, cannot be created,
+     *                          or socket properties cannot be set
      */
     public int handleSyncSendRequest(cMsgMessageFull msg) throws cMsgException {
         handleSendRequest(msg);
@@ -371,13 +360,12 @@ public class CA extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to synchronously get a single message from the server for a one-time
-     * subscription of a subject and type.
+     * {@inheritDoc}
      *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id      message id refering to these specific subject and type values
-     * @throws cMsgException
+     * @param subject {@inheritDoc}
+     * @param type    {@inheritDoc}
+     * @param id      {@inheritDoc}
+     * @throws cMsgException if message delivery to client fails
      */
     public void handleSubscribeAndGetRequest(String subject, String type, int id)
             throws cMsgException {
@@ -429,13 +417,13 @@ public class CA extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle subscribe request sent by domain client.
+     * {@inheritDoc}
      *
      * Performs CA monitorOn.
      *
-     * @param subject message subject to subscribe to
-     * @param type message type to subscribe to
-     * @param receiverSubscribeId message id refering to these specific subject and type values
+     * @param subject {@inheritDoc}
+     * @param type {@inheritDoc}
+     * @param receiverSubscribeId {@inheritDoc}
      * @throws cMsgException if no client information is available or a subscription for this
      *                          subject and type already exists
      */
@@ -467,13 +455,13 @@ public class CA extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle sunsubscribe request sent by domain client.
-     * This method is run after all exchanges between domain server and client.
+     * {@inheritDoc}
      *
      * Performs CA monitorOff.
      *
-     * @param subject message subject subscribed to
-     * @param type message type subscribed to
+     * @param subject {@inheritDoc}
+     * @param type {@inheritDoc}
+     * @param receiverSubscribeId {@inheritDoc}
      */
     public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId)
         throws cMsgException {
@@ -501,7 +489,7 @@ public class CA extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle a client shutdown.
+     * {@inheritDoc}
      *
      * @throws cMsgException
      */
