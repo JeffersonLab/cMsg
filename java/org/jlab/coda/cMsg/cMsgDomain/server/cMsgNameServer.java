@@ -40,7 +40,7 @@ import org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsgMessageDeliverer;
  * a single JVM and they both service clients in the cMsg subdomain,
  * then there will be undesirable effects. In other words, the
  * cMsg subdomain uses static data in some of its implementing
- * classes (cMsgServerBridge & subdomains.cMsg).
+ * classes ({@link cMsgServerBridge} & {@link org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg}).
  *
  * @author Carl Timmer
  * @version 1.0
@@ -233,7 +233,7 @@ public class cMsgNameServer extends Thread {
      * This method locks a lock used in adding servers to the server cloud and in adding
      * clients to servers. This is used only in the cMsg subdomain.
      */
-    public void cloudLock() {
+    void cloudLock() {
 //System.out.println(">> NS: try to lock cloud (blocking)");
         cloudLock.lock();
     }
@@ -244,7 +244,7 @@ public class cMsgNameServer extends Thread {
      * @param delay time in milliseconds to wait for the lock before timing out
      * @return true if locked, false otherwise
      */
-    public boolean cloudLock(int delay) {
+    boolean cloudLock(int delay) {
         try {
 //System.out.println(">> NS: try to lock cloud (timeout = " + delay + " ms)");
             return cloudLock.tryLock(delay, TimeUnit.MILLISECONDS);
@@ -258,7 +258,7 @@ public class cMsgNameServer extends Thread {
      * This method unlocks a lock used in adding servers to the server cloud and in adding
      * clients to servers. This is used only in the cMsg subdomain.
      */
-    public void cloudUnlock() {
+    void cloudUnlock() {
 //System.out.println(">> NS: try to unlock cloud");
         cloudLock.unlock();
 //System.out.println(">> NS: unlocked cloud");
@@ -281,7 +281,7 @@ public class cMsgNameServer extends Thread {
      * @param status status of the relationship of this server to the cMsg subdomain
      *               server cloud
      */
-    public void setCloudStatus(int status) {
+    void setCloudStatus(int status) {
         if ((status != INCLOUD) &&
             (status != NONCLOUD) &&
             (status != BECOMINGCLOUD)) {
