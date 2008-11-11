@@ -27,9 +27,9 @@ public class cMsgConstants {
 
     // constants from cMsgPrivate.h
 
-    /** Major cMsg version number. */
+    /** Major cMsg version number = {@value} */
     public static final int    version      = 3;
-    /** Minor cMsg version number. */
+    /** Minor cMsg version number = {@value} */
     public static final int    minorVersion = 0;
 
     // constants from cMsgConstants.h
