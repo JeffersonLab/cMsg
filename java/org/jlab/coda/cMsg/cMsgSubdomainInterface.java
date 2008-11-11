@@ -77,9 +77,9 @@ public interface cMsgSubdomainInterface {
      * Method to synchronously get a single message from the server for a one-time
      * subscription of a subject and type.
      *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id      message intVal
+     * @param subject subject subscribed to
+     * @param type    type subscribed to
+     * @param id      unique id
      * @throws cMsgException
      */
     public void handleSubscribeAndGetRequest(String subject, String type, int id)
@@ -89,9 +89,9 @@ public interface cMsgSubdomainInterface {
     /**
      * Method to remove a subscribeAndGet request previously sent by a domain client.
      *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id      message intVal
+     * @param subject subject subscribed to
+     * @param type    type subscribed to
+     * @param id      unique id
      * @throws cMsgException
      */
     public void handleUnsubscribeAndGetRequest(String subject, String type, int id)
@@ -102,7 +102,7 @@ public interface cMsgSubdomainInterface {
      * Method to synchronously get a single message by sending out a
      * message which is responded to by its receiver(s).
      *
-     * @param message message requesting what sort of response message to get
+     * @param message message requesting a response message
      * @throws cMsgException
      */
     public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException;
@@ -111,7 +111,7 @@ public interface cMsgSubdomainInterface {
     /**
      * Method to remove a sendAndGet request previously sent by a domain client.
      *
-     * @param id message intVal refering to these specific subject and type values
+     * @param id unique (senderToken) id refering to specific sendAndGet
      * @throws cMsgException
      */
     public void handleUnSendAndGetRequest(int id) throws cMsgException;
@@ -120,9 +120,9 @@ public interface cMsgSubdomainInterface {
     /**
      * Method to handle a subscribe request sent by a domain client.
      *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id      message intVal
+     * @param subject subject subscribed to
+     * @param type    type subscribed to
+     * @param id      unique id
      * @throws cMsgException
      */
     public void handleSubscribeRequest(String subject, String type, int id)
@@ -132,9 +132,9 @@ public interface cMsgSubdomainInterface {
     /**
      * Method to handle an unsubscribe request sent by a domain client.
      *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id      message intVal
+     * @param subject  subject of subscription
+     * @param type     type of subscription
+     * @param id       unique id
      * @throws cMsgException
      */
     public void handleUnsubscribeRequest(String subject, String type, int id)

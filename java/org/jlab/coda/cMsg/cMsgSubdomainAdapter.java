@@ -38,11 +38,10 @@ package org.jlab.coda.cMsg;
  */
 public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
     /**
-     * Method to give the subdomain handler the appropriate part
-     * of the UDL the client used to talk to the domain server.
+     * {@inheritDoc}
      *
-     * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
-     * @throws org.jlab.coda.cMsg.cMsgException
+     * @param UDLRemainder {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      *
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
@@ -52,10 +51,10 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to register domain client.
+     * {@inheritDoc}
      *
-     * @param info information about client
-     * @throws cMsgException
+     * @param info {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
         throw new cMsgException("registerClient is not implemented");
@@ -63,10 +62,10 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle message sent by domain client.
+     * {@inheritDoc}
      *
-     * @param message message from sender
-     * @throws cMsgException
+     * @param message {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void handleSendRequest(cMsgMessageFull message) throws cMsgException {
         throw new cMsgException("handleSendRequest is not implemented");
@@ -74,12 +73,11 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle message sent by domain client in synchronous mode.
-     * It requries an integer response from the subdomain handler.
+     * {@inheritDoc}
      *
-     * @param message message from sender
-     * @return response from subdomain handler
-     * @throws cMsgException
+     * @param message {@inheritDoc}
+     * @return {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public int handleSyncSendRequest(cMsgMessageFull message) throws cMsgException {
         throw new cMsgException("handleSyncSendRequest is not implemented");
@@ -87,13 +85,12 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to synchronously get a single message from the server for a one-time
-     * subscription of a subject and type.
+     * {@inheritDoc}
      *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id      message intVal refering to these specific subject and type values
-     * @throws cMsgException
+     * @param subject {@inheritDoc}
+     * @param type    {@inheritDoc}
+     * @param id      {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void handleSubscribeAndGetRequest(String subject, String type, int id)
             throws cMsgException {
@@ -102,11 +99,10 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to synchronously get a single message from a receiver by sending out a
-     * message to be responded to.
+     * {@inheritDoc}
      *
-     * @param message message requesting what sort of message to get
-     * @throws cMsgException
+     * @param message {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException {
         throw new cMsgException("handleSendAndGetRequest is not implemented");
@@ -114,11 +110,10 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle remove sendAndGet request sent by domain client
-     * (hidden from user).
+     * {@inheritDoc}
      *
-     * @param id message intVal refering to these specific subject and type values
-     * @throws cMsgException
+     * @param id {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void handleUnSendAndGetRequest(int id) throws cMsgException {
         throw new cMsgException("handleUnSendAndGetRequest is not implemented");
@@ -126,13 +121,12 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle remove subscribeAndGet request sent by domain client
-     * (hidden from user).
+     * {@inheritDoc}
      *
-     * @param subject message subject subscribed to
-     * @param type    message type subscribed to
-     * @param id message intVal refering to these specific subject and type values
-     * @throws cMsgException
+     * @param subject {@inheritDoc}
+     * @param type    {@inheritDoc}
+     * @param id      {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void handleUnsubscribeAndGetRequest(String subject, String type, int id)
             throws cMsgException {
@@ -141,12 +135,12 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle subscribe request sent by domain client.
+     * {@inheritDoc}
      *
-     * @param subject  message subject to subscribe to
-     * @param type     message type to subscribe to
-     * @param id       message intVal refering to these specific subject and type values
-     * @throws cMsgException
+     * @param subject  {@inheritDoc}
+     * @param type     {@inheritDoc}
+     * @param id       {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void handleSubscribeRequest(String subject, String type, int id)
             throws cMsgException {
@@ -154,12 +148,12 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
     }
 
     /**
-     * Method to handle unsubscribe request sent by domain client.
+     * {@inheritDoc}
      *
-     * @param subject  message subject to subscribe to
-     * @param type     message type to subscribe to
-     * @param id       message intVal refering to these specific subject and type values
-     * @throws cMsgException
+     * @param subject  {@inheritDoc}
+     * @param type     {@inheritDoc}
+     * @param id       {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void handleUnsubscribeRequest(String subject, String type, int id)
             throws cMsgException {
@@ -168,11 +162,11 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle request to shutdown clients sent by domain client.
+     * {@inheritDoc}
      *
-     * @param client client(s) to be shutdown
-     * @param includeMe   if true, this client may be shutdown too
-     * @throws cMsgException
+     * @param client     {@inheritDoc}
+     * @param includeMe  {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void handleShutdownClientsRequest(String client, boolean includeMe)
             throws cMsgException {
@@ -181,20 +175,18 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle a client or domain server shutdown.
+     * {@inheritDoc}
      *
-     * @throws cMsgException
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void handleClientShutdown() throws cMsgException {
     }
 
 
     /**
-     * Method to tell if the "send" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendRequest}
-     * method.
+     * {@inheritDoc}
      *
-     * @return true if send implemented in {@link #handleSendRequest}
+     * @return {@inheritDoc}
      */
     public boolean hasSend() {
         return false;
@@ -202,11 +194,9 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to tell if the "syncSend" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSyncSendRequest}
-     * method.
+     * {@inheritDoc}
      *
-     * @return true if send implemented in {@link #handleSyncSendRequest}
+     * @return {@inheritDoc}
      */
     public boolean hasSyncSend() {
         return false;
@@ -214,11 +204,9 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to tell if the "subscribeAndGet" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSubscribeAndGetRequest}
-     * method.
+     * {@inheritDoc}
      *
-     * @return true if subscribeAndGet implemented in {@link #handleSubscribeAndGetRequest}
+     * @return {@inheritDoc}
      */
     public boolean hasSubscribeAndGet() {
         return false;
@@ -226,11 +214,9 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to tell if the "sendAndGet" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendAndGetRequest}
-     * method.
+     * {@inheritDoc}
      *
-     * @return true if sendAndGet implemented in {@link #handleSendAndGetRequest}
+     * @return {@inheritDoc}
      */
     public boolean hasSendAndGet() {
         return false;
@@ -238,11 +224,9 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to tell if the "subscribe" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSubscribeRequest}
-     * method.
+     * {@inheritDoc}
      *
-     * @return true if subscribe implemented in {@link #handleSubscribeRequest}
+     * @return {@inheritDoc}
      */
     public boolean hasSubscribe() {
         return false;
@@ -250,11 +234,9 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to tell if the "unsubscribe" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleUnsubscribeRequest}
-     * method.
+     * {@inheritDoc}
      *
-     * @return true if unsubscribe implemented in {@link #handleUnsubscribeRequest}
+     * @return {@inheritDoc}
      */
     public boolean hasUnsubscribe() {
         return false;
@@ -262,11 +244,9 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to tell if the "shutdown" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleShutdownClientsRequest}
-     * method.
+     * {@inheritDoc}
      *
-     * @return true if shutdown implemented in {@link #handleShutdownClientsRequest}
+     * @return {@inheritDoc}
      */
     public boolean hasShutdown() {
         return false;
