@@ -22,7 +22,7 @@ import java.io.IOException;
  * Classes that implement this interface provide a means for a subdomain handler
  * object to talk to its client - providing the client with responses to its requests.
  * It is assumed that a single object of this type talks to one specific client. Thus
- * the deliverMessage and deliverMessageAndAcknowledge methods do not have an argument
+ * the deliverMessage method does not have an argument
  * specifying the client. The implementing class should store and use this information
  * aside from the use of this interface.<p>
  */
@@ -45,7 +45,7 @@ public interface cMsgDeliverMessageInterface {
             throws cMsgException, IOException;
 
     /**
-     * Method to deliver an array of string from a domain server's subdomain handler to a client.
+     * Method to deliver an array of strings from a domain server's subdomain handler to a client.
      *
      * @param strs array of strings to sent to client
      * @param msgType type of communication with the client
