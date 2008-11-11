@@ -2636,28 +2636,32 @@ public class cMsg extends cMsgDomainAdapter {
     /**
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      * cMsg domain UDL is of the form:<p>
-     *       cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2 ... <p>
      *
-     * Remember that for this domain:
-     * 1) port is not necessary to specify but is the name server's TCP port if connecting directly
+     *   <b>cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2 ...</b><p>
+     *
+     * <ul>
+     * <li>port is not necessary to specify but is the name server's TCP port if connecting directly
      *    or the server's UDP port if multicasting. Defaults used if not specified are
      *    {@link cMsgNetworkConstants#nameServerTcpPort} if connecting directly, else
-     *    {@link cMsgNetworkConstants#nameServerUdpPort} if multicasting
-     * 2) host can be "localhost" and may also be in dotted form (129.57.35.21)
-     * 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
-     *    if subdomainType is not cMsg, it is required
-     * 4) the domain name is case insensitive as is the subdomainType
-     * 5) remainder is passed on to the subdomain plug-in
-     * 6) client's password is in tag=value part of UDL as cmsgpassword=&lt;password&gt;
-     * 7) multicast timeout is in tag=value part of UDL as multicastTO=&lt;time out in seconds&gt;
-     * 8) the tag=value part of UDL parsed here is given by regime=low or regime=high means:
-     *    - low message/data throughtput client if regime=low, meaning many clients are serviced
-     *      by a single server thread and all msgs retain time order,
-     *    - high message/data throughput client if regime=high, meaning each client is serviced
-     *      by multiple threads to maximize throughput. Msgs are NOT guaranteed to be handled in
-     *      time order
-     *    - if regime is not specified (default), it is assumed to be medium, where a single thread is
-     *      dedicated to a single client and msgs are guaranteed to be handled in time order
+     *    {@link cMsgNetworkConstants#nameServerUdpPort} if multicasting<p>
+     * <li>host can be "localhost" and may also be in dotted form (129.57.35.21)<p>
+     * <li>if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
+     *    if subdomainType is not cMsg, it is required<p>
+     * <li>the domain name is case insensitive as is the subdomainType<p>
+     * <li>remainder is passed on to the subdomain plug-in<p>
+     * <li>client's password is in tag=value part of UDL as cmsgpassword=&lt;password&gt;<p>
+     * <li>multicast timeout is in tag=value part of UDL as multicastTO=&lt;time out in seconds&gt;<p>
+     * <li>the tag=value part of UDL parsed here is given by regime=low or regime=high means:<p>
+     *   <ul>
+     *   <li>low message/data throughtput client if regime=low, meaning many clients are serviced
+     *       by a single server thread and all msgs retain time order<p>
+     *   <li>high message/data throughput client if regime=high, meaning each client is serviced
+     *       by multiple threads to maximize throughput. Msgs are NOT guaranteed to be handled in
+     *       time order<p>
+     *   <li>if regime is not specified (default), it is assumed to be medium, where a single thread is
+     *       dedicated to a single client and msgs are guaranteed to be handled in time order<p>
+     *   </ul>
+     * </ul>
      *
      * @param udl UDL to parse
      * @return an object with all the parsed UDL information in it

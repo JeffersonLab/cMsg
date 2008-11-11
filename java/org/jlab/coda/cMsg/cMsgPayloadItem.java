@@ -22,7 +22,7 @@ import java.util.Collection;
 import java.util.Arrays;
 
 /**
- * <b>This class represents an item in a cMsg message's payload.
+ * This class represents an item in a cMsg message's payload.
  * The value of each item is stored in this class along with a text
  * representation of that item. Following is the text format of various
  * types of payload items where [nl] means newline.<p>
@@ -30,7 +30,7 @@ import java.util.Arrays;
  * Note that there is only 1 space or newline between all entries. The only exception
  * to the 1 space spacing is between the last two entries on each "header" line (the line
  * that contains the item_name). There may be several spaces between the last 2
- * entries on these lines.<p></b>
+ * entries on these lines.<p>
  *
  *<b><i>for string items:</i></b><p>
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
@@ -346,7 +346,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param sb StringBuilder object into which the characters are written
      * @param zeros the number of zeros to be encoded/compressed
      */
-    public static final void zerosToIntStr(StringBuilder sb, int zeros) {
+    private void zerosToIntStr(StringBuilder sb, int zeros) {
         sb.append("Z");
         sb.append( toASCII[ zeros >> 24 & 0xff ].charAt(1) );
         sb.append( toASCII[ zeros >> 16 & 0xff ] );
@@ -362,7 +362,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param sb StringBuilder object into which the characters are written
      * @param zeros the number of zeros to be encoded/compressed
      */
-    public static final void zerosToLongStr(StringBuilder sb, int zeros) {
+    private void zerosToLongStr(StringBuilder sb, int zeros) {
         sb.append("Z00000000");
         sb.append( toASCII[ zeros >> 24 & 0xff ].charAt(1) );
         sb.append( toASCII[ zeros >> 16 & 0xff ] );
@@ -377,7 +377,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param sb StringBuilder object into which the characters are written
      * @param l the number to transform
      */
-    public static final void longToStr(StringBuilder sb, long l) {
+    private void longToStr(StringBuilder sb, long l) {
         sb.append( toASCII[ (int) (l>>56 & 0xffL) ] );
         sb.append( toASCII[ (int) (l>>48 & 0xffL) ] );
         sb.append( toASCII[ (int) (l>>40 & 0xffL) ] );
@@ -395,7 +395,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param sb StringBuilder object into which the characters are written
      * @param i the number to transform
      */
-    public static final void intToStr(StringBuilder sb, int i) {
+    private final void intToStr(StringBuilder sb, int i) {
         sb.append( toASCII[ i>>24 & 0xff ] );
         sb.append( toASCII[ i>>16 & 0xff ] );
         sb.append( toASCII[ i>> 8 & 0xff ] );

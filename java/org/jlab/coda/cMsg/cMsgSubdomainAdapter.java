@@ -20,7 +20,7 @@ package org.jlab.coda.cMsg;
 /**
  * This class provides a very basic (non-functional/dummy) implementation
  * of the cMsgSubdomainInterface interface. This class is used
- * by a domain server to respond to client demands. It contains
+ * by a cMsg domain server to respond to client demands. It contains
  * some methods that hide the details of communication
  * with the client. A fully implementated subclass of this
  * class must handle all communication with a particular subdomain
@@ -181,7 +181,7 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
 
 
     /**
-     * Method to handle a client or domain server down.
+     * Method to handle a client or domain server shutdown.
      *
      * @throws cMsgException
      */

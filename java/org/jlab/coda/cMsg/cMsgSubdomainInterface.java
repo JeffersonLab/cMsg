@@ -18,7 +18,7 @@ package org.jlab.coda.cMsg;
 
 
 /**
- * This interface is an API for an object that a domain server
+ * This interface is an API for an object that a cMsg domain server
  * uses to respond to client demands. An implementation of this
  * interface handles all communication with a particular subdomain
  * (such as SmartSockets or JADE agents).

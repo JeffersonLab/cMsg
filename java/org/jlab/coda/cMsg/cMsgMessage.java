@@ -34,23 +34,24 @@ import java.math.BigInteger;
 
 
 /**
-  * <b>This class implements a message in the cMsg messaging system.
-  * Each cMsgMessage object contains many different fields. The most complex field
-  * (and thus deserving a full explanation) is the compound payload. In short,
-  * the payload allows the text field of the message to store messages of arbitrary
-  * length and complexity. All types of ints (1,2,4,8 bytes), 4,8-byte floats,
+  * This class implements a message in the cMsg messaging system.
+  * Each cMsgMessage object contains many different fields. User-settable fields
+  * include a time, an int, a text, and a binary array field. However, the most
+  * complex field (and thus deserving a full explanation) is the compound payload.
+  * In short, the payload allows a string to store messages of arbitrary
+  * length and complexity. All types of ints (1,2,4,8 bytes, BigInteger), 4,8-byte floats,
   * strings, binary, whole messages and arrays of all these types can be stored
   * and retrieved from the compound payload. These methods are thread-safe.<p>
   *
-  * Although XML would be a format well-suited to this task, cMsg should stand
-  * alone - not requiring an XML parser to work. It takes more memory and time
+  * Although XML would be a format well-suited to this task, it takes more time and memory
   * to decode XML than a simple format. Thus, a simple, easy-to-parse format
-  * was developed to implement this interface.<p>
+  * was developed to implement the payload. A side benefit is no external XML parsing
+  * package is needed.<p>
   *
   * Following is the text format of a complete compound payload (where [nl] means
   * newline). Each payload consists of a number of items. The very first line is the
   * number of items in the payload. That is followed by the text representation of
-  * each item. The first line of each item consists of 5 entries.<p>
+  * each item. The first line of each item consists of 5 entries.
   *
   * Note that there is only 1 space or newline between all entries. The only exception
   * to the 1 space spacing is between the last two entries on each "header" line (the line
@@ -92,10 +93,10 @@ import java.math.BigInteger;
   *        .
   *    message_N_in_compound_payload_text_format[nl]</pre><p>
   *
-  * <b>Notice that this format allows a message to store a message which stores a message
+  * Notice that this format allows a message to store a message which stores a message
   * which stores a message, ad infinitum. In other words, recursive message storing.
   * The item_length in each case is the length in bytes of the rest of the item (not
-  * including the newline at the end). Note that accessor methods can return null objects.</b>
+  * including the newline at the end). Note that accessor methods can return null objects.
   *
   * @author Elliott Wolin
   * @author Carl Timmer

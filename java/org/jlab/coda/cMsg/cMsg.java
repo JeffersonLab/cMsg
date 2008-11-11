@@ -8,9 +8,9 @@
  *    C. Timmer, 17-Nov-2004, Jefferson Lab                                   *
  *                                                                            *
  *     Author: Carl Timmer                                                    *
- *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
+ *             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
  *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
- *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *             Fax:   (757) 269-6248             Newport News, VA 23606       *
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
@@ -24,11 +24,45 @@ import java.util.concurrent.TimeoutException;
 import java.io.*;
 
 /**
- * This class is instantiated by a client in order to connect to a cMsg domain.
+ * This class is instantiated by a client in order to connect to a domain.
  * The instantiated object will be the main means by which the client will
- * interact with cMsg.</p>
+ * interact with cMsg.<p>
  * This class is the "top level" API and acts as a multiplexor to direct a cMsg
- * client to the proper domain based on the UDL given.
+ * client to the proper domain based on the Uniform Domain Locator (UDL) given.
+ * Note that not all of the methods of this object are implemented in a particular
+ * domain and thus may return an exeception.
+ * The UDL has the general form:<p>
+ *   <b>cMsg:&lt;domainType&gt;://&lt;domain dependent remainder&gt;</b><p>
+ * <ul>
+ * <li>initial cMsg: is not necessary<p>
+ * <li>cMsg and domainType are case independent<p>
+ * </ul><p>
+ * For the cMsg domain the UDL has the more specific form:<p>
+ *   <b>cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2 ...</b><p>
+ *
+ * <ul>
+ * <li>port is not necessary to specify but is the name server's TCP port if connecting directly
+ *    or the server's UDP port if multicasting. Defaults used if not specified are
+ *    {@link cMsgNetworkConstants#nameServerTcpPort} if connecting directly, else
+ *    {@link cMsgNetworkConstants#nameServerUdpPort} if multicasting<p>
+ * <li>host can be "localhost" and may also be in dotted form (129.57.35.21)<p>
+ * <li>if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
+ *    if subdomainType is not cMsg, it is required<p>
+ * <li>the domain name is case insensitive as is the subdomainType<p>
+ * <li>remainder is passed on to the subdomain plug-in<p>
+ * <li>client's password is in tag=value part of UDL as cmsgpassword=&lt;password&gt;<p>
+ * <li>multicast timeout is in tag=value part of UDL as multicastTO=&lt;time out in seconds&gt;<p>
+ * <li>the tag=value part of UDL parsed here is given by regime=low or regime=high means:<p>
+ *   <ul>
+ *   <li>low message/data throughtput client if regime=low, meaning many clients are serviced
+ *       by a single server thread and all msgs retain time order<p>
+ *   <li>high message/data throughput client if regime=high, meaning each client is serviced
+ *       by multiple threads to maximize throughput. Msgs are NOT guaranteed to be handled in
+ *       time order<p>
+ *   <li>if regime is not specified (default), it is assumed to be medium, where a single thread is
+ *       dedicated to a single client and msgs are guaranteed to be handled in time order<p>
+ *   </ul>
+ * </ul>
  */
 public class cMsg {
     /** Level of debug output for this class. */
@@ -60,14 +94,14 @@ public class cMsg {
 
 
     /**
-     * Constructor which automatically tries to connect to the name server specified.
+     * Constructor which automatically tries to connect to the UDL (domain) specified.
      *
      * @param UDL semicolon separated list of Uniform Domain Locators. These UDLs have different specifics
      *            in each domain. In the cMsg domain each of the UDLs specifies a server to connect to
      * @param name name of this client which must be unique in this domain
      * @param description description of this client
      * @throws cMsgException if domain in not implemented;
-     *                          there are problems communicating with the name/domain server;
+     *                          there are problems communicating with the domain;
      *                          name contains colon;
      *                          the UDL is invalid;
      *                          the UDL contains an unreadable file;
@@ -303,9 +337,11 @@ public class cMsg {
     /**
      * Method to parse the Universal Domain Locator (or UDL) into its various components.
      * The UDL is of the form:<p>
-     *   cMsg:&lt;domainType&gt;://<&lt;omain dependent remainder&gt;<p>
-     * (1) initial cMsg: in not necessary
-     * (2) cMsg and domainType are case independent
+     *   cMsg:&lt;domainType&gt;://<&lt;domain dependent remainder&gt;<p>
+     * <ul>
+     * <li>initial cMsg: is not necessary<p>
+     * <li>cMsg and domainType are case independent<p>
+     * </ul>
      *
      * @param UDL Universal Domain Locator
      * @return array of 2 Strings, the first of which is the domain, the second
@@ -454,7 +490,7 @@ public class cMsg {
 
     
     /**
-      * Method to connect to a particular domain server.
+      * Method to connect to a particular domain.
       *
       * @throws cMsgException
       */
@@ -464,7 +500,7 @@ public class cMsg {
 
 
     /**
-     * Method to close the connection to the domain server. This method results in this object
+     * Method to close the connection to the domain. This method results in this object
      * becoming functionally useless.
      *
      * @throws cMsgException
@@ -474,16 +510,16 @@ public class cMsg {
     }
 
     /**
-     * Method to determine if this object is still connected to the domain server or not.
+     * Method to determine if this object is still connected to the domain or not.
      *
-     * @return true if connected to domain server, false otherwise
+     * @return true if connected to domain, false otherwise
      */
     public boolean isConnected() {
         return connection.isConnected();
     }
 
     /**
-     * Method to send a message to the domain server for further distribution.
+     * Method to send a message to the domain for further distribution.
      *
      * @param message message
      * @throws cMsgException
@@ -493,12 +529,12 @@ public class cMsg {
     }
 
     /**
-     * Method to send a message to the domain server for further distribution
-     * and wait for a response from the subdomain handler that got it.
+     * Method to send a message to the domain for further distribution
+     * and wait for a response from the domain that got it.
      *
      * @param message message
      * @param timeout time in milliseconds to wait for a response
-     * @return response from subdomain handler
+     * @return response from domain
      * @throws cMsgException
      */
     public int syncSend(cMsgMessage message, int timeout) throws cMsgException {
@@ -506,7 +542,7 @@ public class cMsg {
     }
 
     /**
-     * Method to force cMsg client to send pending communications with domain server.
+     * Method to force cMsg client to send pending communications with domain.
      * @param timeout time in milliseconds to wait for completion
      * @throws cMsgException
      */
@@ -515,11 +551,11 @@ public class cMsg {
     }
 
     /**
-     * This method is like a one-time subscribe. The server grabs the first incoming
-     * message of the requested subject and type and sends that to the caller.
+     * This method is like a one-time subscribe. The domain sends the first incoming
+     * message of the requested subject and type to the caller.
      *
-     * @param subject subject of message desired from server
-     * @param type type of message desired from server
+     * @param subject subject of message desired from domain
+     * @param type type of message desired from domain
      * @param timeout time in milliseconds to wait for a message
      * @return response message
      * @throws cMsgException
@@ -531,13 +567,13 @@ public class cMsg {
     }
 
     /**
-     * The message is sent as it would be in the {@link #send} method. The server notes
+     * The message is sent as it would be in the {@link #send} method. The domain notes
      * the fact that a response to it is expected, and sends it to all subscribed to its
      * subject and type. When a marked response is received from a client, it sends that
      * first response back to the original sender regardless of its subject or type.
      * The response may be null.
      *
-     * @param message message sent to server
+     * @param message message sent to domain
      * @param timeout time in milliseconds to wait for a reponse message
      * @return response message
      * @throws cMsgException
@@ -549,9 +585,7 @@ public class cMsg {
     }
 
     /**
-     * Method to subscribe to receive messages of a subject and type from the domain server.
-     * The combination of arguments must be unique. In other words, only 1 subscription is
-     * allowed for a given set of subject, type, callback, and userObj.
+     * Method to subscribe to receive messages of a subject and type from the domain.
      *
      * @param subject message subject
      * @param type    message type
@@ -569,10 +603,10 @@ public class cMsg {
 
     /**
      * Method to unsubscribe a previous subscription to receive messages of a subject and type
-     * from the domain server.
+     * from the domain.
      *
      * @param obj the object "handle" returned from a subscribe call
-     * @throws cMsgException if there are communication problems with the server
+     * @throws cMsgException if there are communication problems with the domain
      */
     public void unsubscribe(Object obj)
             throws cMsgException {
@@ -581,7 +615,10 @@ public class cMsg {
 
     /**
      * This method is a synchronous call to receive a message containing monitoring data
-     * which describes the state of the cMsg domain the user is connected to.
+     * which describes the state of the domain the user is connected to. This method, by
+     * nature, is highly dependent on the specifics of the domain the client is connected
+     * to. In the cMsg domain (the only one in which this method is currently implemented),
+     * the argument is ignored and an XML string is returned in the message's text field.
      *
      * @param  command directive for monitoring process
      * @return response message containing monitoring information
@@ -608,7 +645,9 @@ public class cMsg {
 
     /**
      * Method to shutdown the given clients.
-     * Wildcards used to match client names with the given string.
+     * In the cMsg domain, wildcards used to match client names with the given string.
+     * Specifically, "*" means any or no characters, "?" means exactly 1 character,
+     * and "#" means 1 or no positive integer.
      *
      * @param client client(s) to be shutdown
      * @param includeMe  if true, it is permissible to shutdown calling client
@@ -621,11 +660,13 @@ public class cMsg {
 
     /**
      * Method to shutdown the given servers.
-     * Wildcards used to match server names with the given string.
+     * In the cMsg domain, wildcards used to match server names with the given string.
+     * Specifically, "*" means any or no characters, "?" means exactly 1 character,
+     * and "#" means 1 or no positive integer.
      *
      * @param server server(s) to be shutdown
      * @param includeMyServer  if true, it is permissible to shutdown calling client's
-     *                         cMsg server
+     *                         cMsg domain server
      * @throws cMsgException
      */
     public void shutdownServers(String server, boolean includeMyServer) throws cMsgException {
@@ -651,7 +692,7 @@ public class cMsg {
         return connection.getShutdownHandler();
     }
 
-        /**
+    /**
      * Get the name of the domain connected to.
      * @return domain name
      */
