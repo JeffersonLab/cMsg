@@ -24,69 +24,47 @@ package org.jlab.coda.cMsg;
 public class cMsgCallbackAdapter implements cMsgCallbackInterface {
 
     /**
-     * Callback method definition.
+     * {@inheritDoc}
      *
-     * @param msg message received from domain server
-     * @param userObject object passed as an argument which was set when the
-     *                   client orginally subscribed to a subject and type of
-     *                   message.
+     * @param msg {@inheritDoc}
+     * @param userObject {@inheritDoc}
      */
-    public void callback(cMsgMessage msg, Object userObject) {
-        return;
-    }
+    public void callback(cMsgMessage msg, Object userObject) { return; }
 
     /**
-     * Method telling whether messages may be skipped or not.
-     * @return true if messages can be skipped without error, false otherwise
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
-    public boolean maySkipMessages() {
-        return false;
-    }
+    public boolean maySkipMessages() { return false; }
 
     /**
-     * Method telling whether messages must serialized -- processed in the order
-     * received.
-     * @return true if messages must be processed in the order received, false otherwise
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
-    public boolean mustSerializeMessages() {
-        return true;
-    }
+    public boolean mustSerializeMessages() { return true; }
 
     /**
-     * Method to get the maximum number of messages to cue for the callback.
-     * @return maximum number of messages to cue for the callback
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
-    public int getMaximumCueSize() {
-        return 1000;
-    }
+    public int getMaximumCueSize() { return 1000; }
 
     /**
-     * Method to get the maximum number of messages to skip over (delete) from
-     * the cue for the callback when the cue size has reached it limit.
-     * This is only used when the {@link #maySkipMessages} method returns true;
-     * @return maximum number of messages to skip over from the cue
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
-    public int getSkipSize() {
-        return 200;
-    }
+    public int getSkipSize() { return 200; }
 
     /**
-     * Method to get the maximum number of supplemental threads to use for running
-     * the callback if {@link #mustSerializeMessages} returns false.
-     * @return maximum number of supplemental threads to start
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
-    public int getMaximumThreads() {
-        return 100;
-    }
+    public int getMaximumThreads() { return 100; }
 
     /**
-     * Method to get the maximum number of unprocessed messages per supplemental thread.
-     * This number is a target for dynamically adjusting server.
-     * This is only used when the {@link #mustSerializeMessages} method returns false;
-     * @return maximum number of messages per supplemental thread
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
-    public int getMessagesPerThread() {
-        return 50;
-    }
+    public int getMessagesPerThread() { return 50; }
 
 }

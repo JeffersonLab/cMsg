@@ -61,14 +61,14 @@ public interface cMsgCallbackInterface {
     /**
      * Method to get the maximum number of messages to skip over (delete) from
      * the cue for the callback when the cue size has reached it limit.
-     * This is only used when the {@link #maySkipMessages} method returns true;
+     * This is only used when the "maySkipMessages" method returns true.
      * @return maximum number of messages to skip over from the cue
      */
     public int getSkipSize();
 
     /**
      * Method to get the maximum number of supplemental threads to use for running
-     * the callback if {@link #mustSerializeMessages} returns false.
+     * the callback if "ustSerializeMessages" returns false.
      * @return maximum number of supplemental threads to start
      */
     public int getMaximumThreads();
@@ -76,7 +76,7 @@ public interface cMsgCallbackInterface {
     /**
      * Method to get the maximum number of unprocessed messages per supplemental thread.
      * This number is a target for dynamically adjusting server.
-     * This is only used when the {@link #mustSerializeMessages} method returns false;
+     * This is only used when the "mustSerializeMessages" method returns false.
      * @return maximum number of messages per supplemental thread
      */
     public int getMessagesPerThread();
