@@ -18,8 +18,7 @@ package org.jlab.coda.cMsg;
 
 import java.net.*;
 import java.io.*;
-import java.util.HashSet;
-import java.util.Collection;
+import java.util.*;
 
 /**
  * This class finds cMsg domain name servers and rc domain multicast servers
@@ -53,8 +52,9 @@ public class cMsgServerFinder {
     /** Set of all cMsg domain responders' hosts and ports in a "host:tcpPort:udpPort" string format. */
     private HashSet<String> cMsgResponders;
 
-    /** Set of all rc domain responders' hosts and ports in a "host:tcpPort:udpPort" string format. */
-    private HashSet<String> rcResponders;
+    /** Map of all rc domain responders' hosts, ports, and expids
+     *  with key = "host:udpPort" and value = expid. */
+    private HashMap<String, String> rcResponders;
 
     /** Time in milliseconds waiting for a response to the multicasts. */
     private final int sleepTime = 1000;
@@ -80,7 +80,7 @@ public class cMsgServerFinder {
     public cMsgServerFinder(int debug) {
         this.debug = debug;
 
-        rcResponders   = new HashSet<String>(100);
+        rcResponders   = new HashMap<String, String>(100);
         cMsgResponders = new HashSet<String>(100);
 
         rcPorts   = new HashSet<Integer>(100);
@@ -263,8 +263,9 @@ public class cMsgServerFinder {
 
     /**
      * Find all reachable cmsg name servers by multicasting.
-     * Follow the calling of this method with {@link #toString} or
-     * {@link #getCmsgServers} in order to see the results of the search.
+     * Follow the calling of this method with {@link #toString},
+     * {@link #getCmsgServers}, or {@link #getCmsgServersXML}
+     * in order to see the results of the search.
      */
     synchronized public void findCmsgServers() {
         cMsgResponders.clear();
@@ -284,7 +285,8 @@ public class cMsgServerFinder {
     /**
      * Find all reachable rc multicast servers by multicasting.
      * Follow the calling of this method with {@link #toString} or
-     * {@link #getRcServers} in order to see the results of the search.
+     * {@link #getRcServers}, or {@link #getRcServersXML}
+     * in order to see the results of the search.
      */
     synchronized public void findRcServers() {
         rcResponders.clear();
@@ -359,13 +361,13 @@ public class cMsgServerFinder {
             System.out.println("\nrc multicast servers:");
         }
 
-        for (String s : rcResponders) {
+        for (Map.Entry<String,String> entry :  rcResponders.entrySet()) {
             String host = "unknown";
-            parts = s.split(":");
+            parts = entry.getKey().split(":");
             try { host = InetAddress.getByName(parts[0]).getHostName(); }
             catch (UnknownHostException e) { }
             System.out.println("host = " + host + ",  addr = " + parts[0] +
-                    ",  UDP port = " + parts[1]);
+                    ",  UDP port = " + parts[1] + ", expid = " + entry.getValue());
         }
 
         System.out.println();
@@ -389,7 +391,7 @@ public class cMsgServerFinder {
      *
      * @return XML format string listing all cmsg name servers found
      */
-    public String getCmsgServers() {
+    public String getCmsgServersXML() {
         return toXML(false,true);
     }
 
@@ -400,7 +402,7 @@ public class cMsgServerFinder {
      *
      * @return XML format string listing all rc multicast servers found
      */
-    public String getRcServers() {
+    public String getRcServersXML() {
         return toXML(true,false);
     }
 
@@ -434,21 +436,110 @@ public class cMsgServerFinder {
         }
 
         if (rc) {
-            for (String s : rcResponders) {
+            for (Map.Entry<String,String> entry :  rcResponders.entrySet()) {
                 String host = "unknown";
-                parts = s.split(":");
+                parts = entry.getKey().split(":");
                 try { host = InetAddress.getByName(parts[0]).getHostName(); }
                 catch (UnknownHostException e) { }
                 buffer.append("<rcMulticastServer");
                 buffer.append("\"  host=\"");    buffer.append(host);
                 buffer.append("\"  addr=\"");    buffer.append(parts[0]);
                 buffer.append("\"  udpPort=\""); buffer.append(parts[1]);
+                buffer.append("\"  expid=\"");   buffer.append(entry.getValue());
                 buffer.append("\" />\n");
             }
         }
 
         return buffer.toString();
     }
+
+    /**
+     * Return an array of cMsg messages contains payload items of the cmsg name servers
+     * information found in the last search. One message for each server.
+     *
+     * @return array of cMsg messages contains payload items of the cmsg name servers
+     *         information, one message for each server
+     */
+    synchronized public cMsgMessage[] getCmsgServers() {
+
+        if (cMsgResponders.size() < 1) return null;
+
+        int i=0;
+        String[] parts;
+        cMsgMessage[] msgs = new cMsgMessage[cMsgResponders.size()];
+
+        for (String s : cMsgResponders) {
+
+            String host = "unknown";
+            parts = s.split(":");
+            try { host = InetAddress.getByName(parts[0]).getHostName(); }
+            catch (UnknownHostException e) { }
+
+            cMsgMessage msg = new cMsgMessage();
+
+            try {
+                cMsgPayloadItem item1 = new cMsgPayloadItem("host",    host);
+                cMsgPayloadItem item2 = new cMsgPayloadItem("address", parts[0]);
+                cMsgPayloadItem item3 = new cMsgPayloadItem("udpPort", Integer.parseInt(parts[1]));
+                cMsgPayloadItem item4 = new cMsgPayloadItem("tcpPort", Integer.parseInt(parts[2]));
+
+                msg.addPayloadItem(item1);
+                msg.addPayloadItem(item2);
+                msg.addPayloadItem(item3);
+                msg.addPayloadItem(item4);
+            }
+            catch (cMsgException e) { /* never happen */ }
+
+            msgs[i++] = msg;
+        }
+
+        return msgs;
+    }
+
+
+    /**
+     * Return an array of cMsg messages contains payload items of the rc multicast servers
+     * information found in the last search. One message for each server.
+     *
+     * @return array of cMsg messages contains payload items of the rc multicast servers
+     *         information, one message for each server
+     */
+    synchronized public cMsgMessage[] getRcServers() {
+
+        if (rcResponders.size() < 1) return null;
+
+        int i=0;
+        String[] parts;
+        cMsgMessage[] msgs = new cMsgMessage[rcResponders.size()];
+
+        for (Map.Entry<String,String> entry :  rcResponders.entrySet()) {
+
+            String host = "unknown";
+            parts = entry.getKey().split(":");
+            try { host = InetAddress.getByName(parts[0]).getHostName(); }
+            catch (UnknownHostException e) { }
+
+            cMsgMessage msg = new cMsgMessage();
+
+            try {
+                cMsgPayloadItem item1 = new cMsgPayloadItem("host",    host);
+                cMsgPayloadItem item2 = new cMsgPayloadItem("address", parts[0]);
+                cMsgPayloadItem item3 = new cMsgPayloadItem("udpPort", Integer.parseInt(parts[1]));
+                cMsgPayloadItem item4 = new cMsgPayloadItem("expid",   entry.getValue());
+
+                msg.addPayloadItem(item1);
+                msg.addPayloadItem(item2);
+                msg.addPayloadItem(item3);
+                msg.addPayloadItem(item4);
+            }
+            catch (cMsgException e) { /* never happen */ }
+
+            msgs[i++] = msg;
+        }
+
+        return msgs;
+    }
+
 
 
     /**
@@ -818,7 +909,7 @@ public class cMsgServerFinder {
                         id.append(host);
                         id.append(":");
                         id.append(port);
-                        rcResponders.add(id.toString());
+                        rcResponders.put(id.toString(), expid);
                     }
 
                 }
