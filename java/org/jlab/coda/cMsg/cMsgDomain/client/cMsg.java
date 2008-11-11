@@ -2391,7 +2391,9 @@ public class cMsg extends cMsgDomainAdapter {
 
     /**
      * Method to shutdown the given clients.
-     * Wildcards used to match client names with the given string.
+     * Wildcards used to match client names with the given string where "*" means
+     * any or no characters, "?" means exactly 1 character, and "#" means
+     * 1 or no positive integer.
      * No failover done here because you do not want to automatically
      * shutdown clients on the new server. It's better to have this
      * call fail.
