@@ -103,12 +103,12 @@ public class cMsgNameServer extends Thread {
      * handleServerShutdown methods when this name server is being
      * shutdown or also when creating monitoring data strings.
      */
-    ConcurrentHashMap<cMsgDomainServerSelect,String> domainServersSelect;   // CHANGED
+    ConcurrentHashMap<cMsgDomainServerSelect,String> domainServersSelect;
 
     /**
      * List of all cMsgDomainServerSelect objects that have room for more clients.
      */
-    List<cMsgDomainServerSelect> availableDomainServers;   // CHANGED
+    List<cMsgDomainServerSelect> availableDomainServers;
 
     /** Level of debug output for this class. */
     private int debug;
@@ -130,13 +130,13 @@ public class cMsgNameServer extends Thread {
      * Sets boolean to kill this and all spawned threads.
      * @param b setting to true will kill this and all spawned threads
      */
-    public void setKillAllThreads(boolean b) {killAllThreads = b;}
+    private void setKillAllThreads(boolean b) {killAllThreads = b;}
 
     /**
      * Gets boolean value specifying whether to kill this and all spawned threads.
      * @return boolean value specifying whether to kill this and all spawned threads
      */
-    public boolean getKillAllThreads() {return killAllThreads;}
+    private boolean getKillAllThreads() {return killAllThreads;}
 
     /**
      * List of all ClientHandler objects. This list is used to
@@ -204,7 +204,6 @@ public class cMsgNameServer extends Thread {
      */
     ConcurrentHashMap<String, cMsgClientData> nameServers =
             new ConcurrentHashMap<String, cMsgClientData>(20);
-//    Set<String> nameServers = Collections.synchronizedSet(new HashSet<String>(20));
 
     /**
      * Keep track of all the cMsgServerBridge objects in the cMsg subdomain.
