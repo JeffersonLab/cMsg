@@ -26,7 +26,8 @@ import java.util.Set;
  * This is an example class which creates a cMsg server finder. It is useful in and of itself.
  * This class will find cMsg domain servers and rc multicast servers -- each of which may be
  * operating at different ports. By default, the cMsgServerFinder class (which this
- * class uses) probes ports starting from {@link org.jlab.coda.cMsg.cMsgNetworkConstants#rcMulticastPort
+ * class uses) probes ports starting from
+ * {@link org.jlab.coda.cMsg.cMsgNetworkConstants#rcMulticastPort}
  * and the next 99 values for rc multicast server, and it also probes ports starting from
  * {@link org.jlab.coda.cMsg.cMsgNetworkConstants#nameServerUdpPort} and the next 99 values
  * for cmsg domain servers. Additional ports to probe can be included on the command line.
