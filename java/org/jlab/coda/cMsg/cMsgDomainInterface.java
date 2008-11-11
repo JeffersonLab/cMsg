@@ -97,9 +97,10 @@ public interface cMsgDomainInterface {
             throws cMsgException, TimeoutException;
 
     /**
-     * The message is sent as it would be in the {@link #send} method. The server notes
-     * the fact that a response to it is expected, and sends it to all subscribed to its
-     * subject and type. When a marked response is received from a client, it sends that
+     * The message is sent as it would be in the {@link #send} method and a single synchronous
+     * response is received. The server notes the fact that a response to it is expected,
+     * and sends it to all subscribed to its subject and type.
+     * When a marked response is received from a client, it sends that
      * first response back to the original sender regardless of its subject or type.
      * The response may be null.
      *
