@@ -18,6 +18,8 @@ package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.cMsgConstants;
 import org.jlab.coda.cMsg.cMsgServerFinder;
+import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgException;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -46,6 +48,9 @@ public class cMsgFindServers {
     /** Level of debug output for this class. */
     private int debug = cMsgConstants.debugInfo;
 
+    /** Level of debug output for this class. */
+    private boolean inXML;
+
 
     /** Constructor. */
     cMsgFindServers(String[] args) {
@@ -64,6 +69,7 @@ public class cMsgFindServers {
                 "        [-rc   <UDP ports list>]   list of rc domain UDP ports to probe\n" +
                 "        [-pswd <password>]         password for connecting to cMsg domain server\n" +
                 "        [-expid <experimental ID>] expid for connecting to rc multicast server\n" +
+                "        [-xml]                     output in XML\n" +
                 "        [-h]                       print this help\n");
         System.out.println("        A port list is a single string with ports separated by");
         System.out.println("        white space or punctuation with the exception of dashes.");
@@ -85,7 +91,47 @@ public class cMsgFindServers {
         // start thread to find cMsg name servers
         finder.find();
         System.out.println();
-        System.out.println(finder.toString());
+
+        if (inXML) {
+            System.out.println(finder.toString());
+            return;
+        }
+
+        cMsgMessage[] rcServers   = finder.getRcServers();
+        cMsgMessage[] cmsgServers = finder.getCmsgServers();
+        int i=0;
+        if (rcServers != null) {
+            System.out.println("rcServers:");
+            for (cMsgMessage msg : rcServers) {
+                System.out.println("    server #" + (i+1));
+                try {
+                    System.out.println("        host    = " + msg.getPayloadItem("host").getString());
+                    System.out.println("        address = " + msg.getPayloadItem("address").getString());
+                    System.out.println("        udpPort = " + msg.getPayloadItem("udpPort").getInt());
+                    System.out.println("        expid   = " + msg.getPayloadItem("expid").getString());
+                }
+                catch (cMsgException e) { /* never happen */ }
+
+                i++;
+            }
+        }
+
+        i=0;
+        if (cmsgServers != null) {
+            System.out.println("cMsgServers:");
+            for (cMsgMessage msg : cmsgServers) {
+                System.out.println("    server #" + (i+1));
+                try {
+                    System.out.println("        host    = " + msg.getPayloadItem("host").getString());
+                    System.out.println("        address = " + msg.getPayloadItem("address").getString());
+                    System.out.println("        udpPort = " + msg.getPayloadItem("udpPort").getInt());
+                    System.out.println("        tcpPort = " + msg.getPayloadItem("tcpPort").getInt());
+                }
+                catch (cMsgException e) { /* never happen */ }
+
+                i++;
+            }
+        }
     }
 
 
@@ -131,6 +177,9 @@ public class cMsgFindServers {
                     finder.addCmsgPort(cmsgPorts);
                 }
                 i++;
+            }
+            else if (args[i].equalsIgnoreCase("-xml")) {
+                inXML = true;
             }
             else {
                 usage();
