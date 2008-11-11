@@ -246,7 +246,7 @@ public final class cMsgPayloadItem implements Cloneable {
 
     /**
      * This method checks a string to see if it is a valid payload item name.
-     * It returns false if it is not, or true if it is. A check is made to see if
+     * It throws an exeception if it is not. A check is made to see if
      * it contains any character from a list of excluded characters.
      * All names starting with "cmsg", independent of case,
      * are reserved for use by the cMsg system itself. Names may not be
@@ -255,11 +255,10 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param name string to check
      * @param isSystem if true, allows names starting with "cmsg", else not
      *
-     * @return true if string is OK, else false
-     * @throws cMsgException if string is null, contains illegal characters, starts with
+     * @throws cMsgException if name is null, contains illegal characters, starts with
      *                       "cmsg" if not isSystem, or is too long
      */
-    public void validName(String name, boolean isSystem) throws cMsgException {
+    private void validName(String name, boolean isSystem) throws cMsgException {
         if (name == null) {
             throw new cMsgException("name argument is null");
         }
