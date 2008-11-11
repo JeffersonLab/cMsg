@@ -27,7 +27,7 @@ package org.jlab.coda.cMsg;
  * client using cMsg will have its own handler object from a class
  * implementing this interface. Several clients may concurrently use
  * objects of the same class. Thus implementations must be thread-safe.
- * Furthermore, when the name server shuts dowm, the method handleServerShutdown
+ * Furthermore, when the name server shuts down, the method handleServerShutdown
  * may be executed more than once for the same reason.
  *
  * @author Carl Timmer
