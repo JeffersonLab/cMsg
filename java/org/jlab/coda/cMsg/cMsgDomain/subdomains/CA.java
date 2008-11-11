@@ -158,7 +158,7 @@ public class CA extends cMsgSubdomainAdapter {
     /**
      * {@inheritDoc}
      *
-     * @return {@inheritDoc}
+     * @return true
      */
     public boolean hasSend() {
         return true;
@@ -171,7 +171,7 @@ public class CA extends cMsgSubdomainAdapter {
     /**
      * {@inheritDoc}
      *
-     * @return {@inheritDoc}
+     * @return true
      */
     public boolean hasSyncSend() {
         return true;
@@ -184,7 +184,7 @@ public class CA extends cMsgSubdomainAdapter {
     /**
      * {@inheritDoc}
      *
-     * @return {@inheritDoc}
+     * @return true
      */
     public boolean hasSubscribeAndGet() {
         return true;
@@ -197,7 +197,7 @@ public class CA extends cMsgSubdomainAdapter {
     /**
      * {@inheritDoc}
      *
-     * @return {@inheritDoc}
+     * @return true
      */
     public boolean hasSubscribe() {
         return true;
@@ -210,7 +210,7 @@ public class CA extends cMsgSubdomainAdapter {
     /**
      * {@inheritDoc}
      *
-     * @return {@inheritDoc}
+     * @return true
      */
     public boolean hasUnsubscribe() {
         return true;
@@ -234,8 +234,6 @@ public class CA extends cMsgSubdomainAdapter {
 //-----------------------------------------------------------------------------
 
     /**
-     * {@inheritDoc}
-     *
      * Creates JCA, context, and channel objects.
      *
      * @param info {@inheritDoc}
@@ -346,7 +344,7 @@ public class CA extends cMsgSubdomainAdapter {
      * {@inheritDoc}
      *
      * @param msg {@inheritDoc}
-     * @return {@inheritDoc}
+     * @return 0
      * @throws cMsgException if a channel to the client is closed, cannot be created,
      *                          or socket properties cannot be set
      */
@@ -417,8 +415,6 @@ public class CA extends cMsgSubdomainAdapter {
 
 
     /**
-     * {@inheritDoc}
-     *
      * Performs CA monitorOn.
      *
      * @param subject {@inheritDoc}
@@ -455,8 +451,6 @@ public class CA extends cMsgSubdomainAdapter {
 
 
     /**
-     * {@inheritDoc}
-     *
      * Performs CA monitorOff.
      *
      * @param subject {@inheritDoc}

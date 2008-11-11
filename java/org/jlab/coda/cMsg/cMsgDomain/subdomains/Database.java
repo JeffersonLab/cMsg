@@ -1,7 +1,3 @@
-// still to do:
-
-
-
 /*----------------------------------------------------------------------------*
  *  Copyright (c) 2004        Southeastern Universities Research Association, *
  *                            Thomas Jefferson National Accelerator Facility  *
@@ -56,19 +52,17 @@ public class Database extends cMsgSubdomainAdapter {
 
 
     /** database access objects. */
-    Connection myCon         = null;
-    Statement myStmt         = null;
+    Connection myCon = null;
+    Statement myStmt = null;
 
 
 //-----------------------------------------------------------------------------
 
 
     /**
-     * Method to tell if the "send" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendRequest}
-     * method.
+     * {@inheritDoc}
      *
-     * @return true if get implemented in {@link #handleSendRequest}
+     * @return true
      */
     public boolean hasSend() {
         return true;
@@ -79,11 +73,9 @@ public class Database extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "syncSend" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSyncSendRequest}
-     * method.
+     * {@inheritDoc}
      *
-     * @return true if send implemented in {@link #handleSyncSendRequest}
+     * @return true
      */
     public boolean hasSyncSend() {
         return true;
@@ -94,11 +86,10 @@ public class Database extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to give the subdomain handler the appropriate part
-     * of the UDL the client used to talk to the domain server.
+     * {@inheritDoc}
      *
-     * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
-     * @throws cMsgException
+     * @param UDLRemainder {@inheritDoc}
+     * @throws cMsgException never
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
         myUDLRemainder=UDLRemainder;
@@ -109,12 +100,11 @@ public class Database extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to register domain client.
      * Creates separate database connection for each client connection.
      * UDL contains driver name, database JDBC URL, account, and password
      * Column names are fixed (domain, sender, subject, etc.).
      *
-     * @param info information about client
+     * @param info {@inheritDoc}
      * @throws cMsgException upon error
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
@@ -214,8 +204,8 @@ public class Database extends cMsgSubdomainAdapter {
     /**
      * Executes sql insert or update statement from message payload.
      *
-     * @param msg message from sender.
-     * @throws cMsgException
+     * @param msg {@inheritDoc}
+     * @throws cMsgException for sql error
      */
     synchronized public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
 
@@ -251,12 +241,11 @@ public class Database extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle message sent by domain client in synchronous mode.
-     * It requries an integer response from the subdomain handler.
+     * Executes sql insert or update statement from message payload.
      *
-     * @param msg message from sender
-     * @return response from subdomain handler
-     * @throws cMsgException
+     * @param msg {@inheritDoc}
+     * @return 0
+     * @throws cMsgException for sql error
      */
     public int handleSyncSendRequest(cMsgMessageFull msg) throws cMsgException {
         handleSendRequest(msg);
@@ -268,9 +257,9 @@ public class Database extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle a client shutdown.
+     * {@inheritDoc}
      *
-     * @throws cMsgException
+     * @throws cMsgException if sql error
      */
     synchronized public void handleClientShutdown() throws cMsgException {
         try {

@@ -81,9 +81,7 @@ public class Et extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "send" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendRequest}
-     * method.
+     * {@inheritDoc}
      *
      * @return true
      */
@@ -94,9 +92,7 @@ public class Et extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "syncSend" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSyncSendRequest}
-     * method.
+     * {@inheritDoc}
      *
      * @return true
      */
