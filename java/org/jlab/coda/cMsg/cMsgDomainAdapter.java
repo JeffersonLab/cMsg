@@ -74,9 +74,9 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Method to determine if this object is still connected to the domain or not.
+     * {@inheritDoc}
      *
-     * @return true if connected to domain server, false otherwise
+     * @return {@inheritDoc}
      */
     public boolean isConnected() {
         return connected;
@@ -87,7 +87,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Method to connect to the domain.
+     * {@inheritDoc}
      *
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
@@ -100,8 +100,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Method to close the connection to the domain. This method results in this object
-     * becoming functionally useless.
+     * {@inheritDoc}
      *
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
@@ -114,7 +113,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Method to send a message to the domain for further distribution.
+     * {@inheritDoc}
      *
      * @param message message
      * @throws cMsgException always throws an exception since this is a dummy implementation
@@ -127,13 +126,12 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 //-----------------------------------------------------------------------------
 
     /**
-     * Method to send a message to the domain for further distribution
-     * and wait for a response from the domain that got it.
+     * {@inheritDoc}
      *
-     * @param message message
-     * @param timeout time in milliseconds to wait for a response
-     * @return response from domain
-     * @throws cMsgException
+     * @param message {@inheritDoc}
+     * @param timeout {@inheritDoc}
+     * @return {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public int syncSend(cMsgMessage message, int timeout) throws cMsgException {
         throw new cMsgException("syncSend is not implemented");
@@ -144,9 +142,9 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Method to force cMsg client to send pending communications with domain.
+     * {@inheritDoc}
      *
-     * @param timeout time in milliseconds to wait for completion
+     * @param timeout {@inheritDoc}
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void flush(int timeout) throws cMsgException {
@@ -158,16 +156,14 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * This method is like a one-time subscribe. The domain sends the first incoming
-     * message of the requested subject and type and to the caller.
-     * A return of null means a timeout has occurred.
+     * {@inheritDoc}
      *
-     * @param subject subject of message desired from domain
-     * @param type type of message desired from domain
-     * @param timeout time in milliseconds to wait for a message
-     * @return response message
-     * @throws cMsgException
-     * @throws TimeoutException if timeout occurs
+     * @param subject {@inheritDoc}
+     * @param type {@inheritDoc}
+     * @param timeout {@inheritDoc}
+     * @return {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
+     * @throws TimeoutException {@inheritDoc}
      */
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
             throws cMsgException, TimeoutException {
@@ -179,17 +175,13 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * The message is sent as it would be in the {@link #send} method. The domain notes
-     * the fact that a response to it is expected, and sends it to all subscribed to its
-     * subject and type. When a marked response is received from a client, it sends that
-     * first response back to the original sender regardless of its subject or type.
-     * The response may be null.
+     * {@inheritDoc}
      *
-     * @param message message sent to domain
-     * @param timeout time in milliseconds to wait for a reponse message
-     * @return response message
-     * @throws cMsgException
-     * @throws TimeoutException if timeout occurs
+     * @param message {@inheritDoc}
+     * @param timeout {@inheritDoc}
+     * @return {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
+     * @throws TimeoutException {@inheritDoc}
      */
     public cMsgMessage sendAndGet(cMsgMessage message, int timeout)
             throws cMsgException, TimeoutException {
@@ -201,14 +193,13 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Method to subscribe to receive messages of a subject and type from the domain.
+     * {@inheritDoc}
      *
-     * @param subject message subject
-     * @param type    message type
-     * @param cb      callback object whose {@link cMsgCallbackInterface#callback(cMsgMessage, Object)}
-     *                method is called upon receiving a message of subject and type
-     * @param userObj any user-supplied object to be given to the callback method as an argument
-     * @return handle object to be used for unsubscribing
+     * @param subject {@inheritDoc}
+     * @param type    {@inheritDoc}
+     * @param cb      {@inheritDoc}
+     * @param userObj {@inheritDoc}
+     * @return {@inheritDoc}
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
@@ -221,10 +212,9 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Method to unsubscribe a previous subscription to receive messages of a subject and type
-     * from the domain.
+     * {@inheritDoc}
      *
-     * @param obj the object "handle" returned from a subscribe call
+     * @param obj {@inheritDoc}
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void unsubscribe(Object obj)
@@ -237,12 +227,11 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * This method is a synchronous call to receive a message containing monitoring data
-     * which describes the state of the cMsg domain the user is connected to.
+     * {@inheritDoc}
      *
-     * @param  command directive for monitoring process
-     * @return response message containing monitoring information
-     * @throws cMsgException
+     * @param  command {@inheritDoc}
+     * @return {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public cMsgMessage monitor(String command)
             throws cMsgException {
@@ -254,7 +243,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Method to start or activate the subscription callbacks.
+     * {@inheritDoc}
      */
     public void start() {
 	    receiving = true;
@@ -265,7 +254,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Method to stop or deactivate the subscription callbacks.
+     * {@inheritDoc}
      */
     public void stop() {
         receiving = false;
@@ -276,11 +265,11 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Method to shutdown the given clients.
+     * {@inheritDoc}
      *
-     * @param client client(s) to be shutdown
-     * @param includeMe  if true, it is permissible to shutdown calling client
-     * @throws cMsgException
+     * @param client {@inheritDoc}
+     * @param includeMe {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void shutdownClients(String client, boolean includeMe) throws cMsgException {
         throw new cMsgException("shutdownClients is not implemented");
@@ -288,12 +277,11 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Method to shutdown the given servers.
+     * {@inheritDoc}
      *
-     * @param server server(s) to be shutdown
-     * @param includeMyServer  if true, it is permissible to shutdown calling client's
-     *                         cMsg server
-     * @throws cMsgException
+     * @param server {@inheritDoc}
+     * @param includeMyServer  {@inheritDoc}
+     * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void shutdownServers(String server, boolean includeMyServer) throws cMsgException {
         throw new cMsgException("shutdownServers is not implemented");
@@ -304,9 +292,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Method to set the shutdown handler of the client.
-     *
-     * @param handler shutdown handler
+     * {@inheritDoc}
+     * @param handler {@inheritDoc}
      */
     public void setShutdownHandler(cMsgShutdownHandlerInterface handler) {
         shutdownHandler = handler;
@@ -317,9 +304,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Method to get the shutdown handler of the client.
-     *
-     * @return shutdown handler object
+     * {@inheritDoc}
+     * @return shutdown {@inheritDoc}
      */
     public cMsgShutdownHandlerInterface getShutdownHandler() {
         return shutdownHandler;
@@ -330,8 +316,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Get the name of the domain connected to.
-     * @return domain name
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
     public String getDomain() {return(domain);}
 
@@ -340,8 +326,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Get the name of the client.
-     * @return client's name
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
     public String getName() {return(name);}
 
@@ -350,8 +336,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Set the name of the client.
-     * @param name name of client
+     * {@inheritDoc}
+     * @param name {@inheritDoc}
      */
     public void setName(String name) {this.name = name;}
 
@@ -360,8 +346,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Get the client's description.
-     * @return client's description
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
     public String getDescription() {return(description);}
 
@@ -370,8 +356,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Set the description of the client.
-     * @param description description of client
+     * {@inheritDoc}
+     * @param description {@inheritDoc}
      */
     public void setDescription(String description) {this.description = description;}
 
@@ -380,8 +366,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Get the client's UDL remainder.
-     * @return client's DUL remainder
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
     public String getUDLRemainder() {return(UDLremainder);}
 
@@ -390,11 +376,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
    /**
-     * Set the UDL remainder of the client. The cMsg class parses the
-     * UDL and strips off the beginning domain information. The remainder is
-     * passed on to the domain implementations (implementors of this interface).
-     *
-     * @param UDLremainder UDL remainder of client UDL
+     * {@inheritDoc}
+     * @param UDLremainder {@inheritDoc}
      */
     public void setUDLRemainder(String UDLremainder) {this.UDLremainder = UDLremainder;}
 
@@ -403,8 +386,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Get the client's UDL.
-     * @return client's DUL
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
     public String getUDL() {return(UDL);}
 
@@ -413,9 +396,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Set the UDL of the client.
-     *
-     * @param UDL UDL of client UDL
+     * {@inheritDoc}
+     * @param UDL {@inheritDoc}
      */
     public void setUDL(String UDL) {this.UDL = UDL;}
 
@@ -424,8 +406,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Get the host the client is running on.
-     * @return client's host
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
     public String getHost() {return(host);}
 
@@ -434,8 +416,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Get a string that the implementing class wants to send back to the user.
-     * @return a string
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
     public String getString() {return null;}
 
@@ -443,9 +425,8 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
 
     /**
-     * Method telling whether callbacks are activated or not. The
-     * start and stop methods activate and deactivate the callbacks.
-     * @return true if callbacks are activated, false if they are not
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
     public boolean isReceiving() {return receiving;}
 
@@ -454,15 +435,15 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
     
     /**
-     * Set client's level of debug output.
-     * @param debug client's level of debug output
+     * {@inheritDoc}
+     * @param debug {@inheritDoc}
      */
     public void setDebug(int debug) {this.debug = debug;}
 
 
     /**
-     * Get client's level of debug output.
-     * @return client's level of debug output
+     * {@inheritDoc}
+     * @return {@inheritDoc}
      */
     public int getDebug() {return debug;}
 
