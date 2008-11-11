@@ -33,32 +33,32 @@ public class cMsgNetworkConstants {
     /** Ints representing ascii for "cMsg is cool", used to filter out portscanning software. */
     public static final int[] magicNumbers = {0x634d7367, 0x20697320, 0x636f6f6c};
 
-    /** Multicast address used in runcontrol domain. */
+    /** Multicast address used in runcontrol domain = {@value} */
     public static final String rcMulticast = "239.210.0.0";
     
-    /** Multicast address used in cMsg domain. */
+    /** Multicast address used in cMsg domain = {@value} */
     public static final String cMsgMulticast = "239.220.0.0";
 
     // There are very few officially used port #s in the 40,000s (only 5),
     // so we'll chose ports in the 45,000 range to avoid potential conflicts.
 
-    /** Default TCP port at which a cMsg domain name server listens for client connections. */
+    /** Default TCP port at which a cMsg domain name server listens for client connections = {@value} */
     public static final int    nameServerTcpPort = 45000;
-    /** Default UDP port at which a cMsg name server listens for multicasts. */
+    /** Default UDP port at which a cMsg name server listens for multicasts = {@value} */
     public static final int    nameServerUdpPort = 45000;
     /** Default TCP port at which a cMsg domain, domain server listens for 2 client connections
-      * (after that client has connected to name server). */
+      * (after that client has connected to name server) = {@value} */
     public static final int    domainServerPort = 45100;
-    /** Default UDP port at which a run control multicast server listens for multicasts. */
+    /** Default UDP port at which a run control multicast server listens for multicasts = {@value} */
     public static final int    rcMulticastPort = 45200;
     /** TCP port at which a run control server starts looking for a port to listen
-     *  for a client connection on. */
+     *  for a client connection on = {@value} */
     public static final int    rcServerPort = 45300;
     /** TCP port at which a run control client starts looking for a port to listen on and the port
-      * that a run control server assumes a client is waiting for connections on. */
+      * that a run control server assumes a client is waiting for connections on = {@value} */
     public static final int    rcClientPort = 45400;
 
-    /** TCP port at which a TCPServer server listens for connections. */
+    /** TCP port at which a TCPServer server listens for connections = {@value} */
     public static final int    tcpServerPort = 45600;
 
     /** Int to send in UDP packet to cMsg name server if cMsg domain. */
