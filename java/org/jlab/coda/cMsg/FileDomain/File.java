@@ -1,6 +1,3 @@
-// still to do:
-
-
 /*----------------------------------------------------------------------------*
  *  Copyright (c) 2004        Southeastern Universities Research Association, *
  *                            Thomas Jefferson National Accelerator Facility  *
@@ -11,9 +8,9 @@
  *    E. Wolin, 12-Nov-2004, Jefferson Lab                                    *
  *                                                                            *
  *     Author: Elliott Wolin                                                  *
- *             wolin@jlab.org                    Jefferson Lab, MS-6B         *
+ *             wolin@jlab.org                    Jefferson Lab, MS-12B3       *
  *             Phone: (757) 269-7365             12000 Jefferson Ave.         *
- *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *             Fax:   (757) 269-6248             Newport News, VA 23606       *
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
@@ -33,7 +30,8 @@ import java.util.regex.Pattern;
 
 
 /**
- * This class implements a client in the cMsg File domain.
+ * This class implements a client in the cMsg File domain which stores messages
+ * in files.
  *
  * @author Elliott Wolin
  * @version 1.0
@@ -49,17 +47,14 @@ public class File extends cMsgDomainAdapter {
 
 
     /**
-     * Constructor for File domain.
-     * <p/>
+     * Constructor for File domain. <p>
      *
-     *  UDL:  cMsg:cMsg://fileName?textOnly=value.
+     *  UDL:  cMsg:file//fileName?textOnly=value.<p>
      *
      * Default is to print entire message to file.
      * If textOnly=true then only print timestamp and message text to file.
-     *
-     * @throws cMsgException if domain in not implemented or there are problems
      */
-    public File() throws cMsgException {
+    public File() {
 
         try {
             this.host = InetAddress.getLocalHost().getHostName();
@@ -75,9 +70,9 @@ public class File extends cMsgDomainAdapter {
 
 
     /**
-     * Opens file.
+     * Opens a file.
      *
-     * @throws cMsgException if there are communication problems
+     * @throws cMsgException if cannot open file or domain specific part of UDL is null
      */
     synchronized public void connect() throws cMsgException {
 
@@ -103,10 +98,7 @@ public class File extends cMsgDomainAdapter {
 //-----------------------------------------------------------------------------
 
 
-    /**
-     * Closes file.
-     *
-     */
+    /** Closes file. */
     synchronized public void disconnect() {
         if (!connected) return;
 
@@ -123,7 +115,7 @@ public class File extends cMsgDomainAdapter {
     /**
      * Writes to file.
      *
-     * @param msg message to send
+     * @param msg message to write to file
      * @throws cMsgException if file is closed (connect was not called, or disconnect was called)
      */
     synchronized public void send(cMsgMessage msg) throws cMsgException {
@@ -139,7 +131,6 @@ public class File extends cMsgDomainAdapter {
             if((msg.getDomain()==null)||(msg.getDomain().length()<=0)) {
                 cMsgMessageFull msgFull = new cMsgMessageFull(msg);
                 msgFull.setDomain(domain);
-//                msgFull.setCreator(name);
                 msgFull.setSender(name);
                 msgFull.setSenderHost(host);
                 msgFull.setSenderTime(now);
@@ -160,9 +151,9 @@ public class File extends cMsgDomainAdapter {
     /**
      * Calls send to write to file.
      *
-     * @param message message
+     * @param message message to write to file
      * @param timeout time in milliseconds to wait for a response
-     * @return response from subdomain handler
+     * @return 0
      * @throws cMsgException if file is closed (connect was not called, or disconnect was called)
      */
     public int syncSend(cMsgMessage message, int timeout) throws cMsgException {
@@ -177,7 +168,7 @@ public class File extends cMsgDomainAdapter {
     /**
      * Flushes output.
      * 
-     * @param timeout time in milliseconds to wait for completion
+     * @param timeout ignored
      * @throws cMsgException if file is closed (connect was not called, or disconnect was called)
      */
     synchronized public void flush(int timeout) throws cMsgException {
@@ -196,7 +187,7 @@ public class File extends cMsgDomainAdapter {
      * Method to parse the domain-specific portion of the Universal Domain Locator
      * (UDL) into its various components.
      *
-     * @throws cMsgException if UDL is null, or no host given in UDL
+     * @throws cMsgException if UDL is null
      */
     private void parseUDL() throws cMsgException {
 
@@ -228,7 +219,4 @@ public class File extends cMsgDomainAdapter {
         }
     }
 
-
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
 }
