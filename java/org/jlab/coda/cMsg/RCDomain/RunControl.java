@@ -172,10 +172,9 @@ public class RunControl extends cMsgDomainAdapter {
 
 
     /**
-     * Method to force cMsg client to send pending communications with domain server.
      * Does nothing in this domain.
      *
-     * @param timeout time in milliseconds to wait for completion
+     * @param timeout {@inheritDoc}
      * @throws cMsgException never thrown
      */
     public void flush(int timeout) throws cMsgException {
@@ -187,7 +186,7 @@ public class RunControl extends cMsgDomainAdapter {
     /**
      * Method to connect to the codaComponent server from this client.
      *
-     * @throws org.jlab.coda.cMsg.cMsgException if there are problems parsing the UDL or
+     * @throws cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server(s)
      */
     public void connect() throws cMsgException {
@@ -661,7 +660,7 @@ public class RunControl extends cMsgDomainAdapter {
     /**
      * Method to send a message to the domain server for further distribution.
      *
-     * @param message message to send
+     * @param message {@inheritDoc}
      * @throws cMsgException if there are communication problems with the server;
      *                       subject and/or type is null
      */
@@ -914,12 +913,11 @@ public class RunControl extends cMsgDomainAdapter {
      * However, this routine will recover from an IO error during the subscribe itself
      * if the failover is successful.
      *
-     * @param subject message subject
-     * @param type    message type
-     * @param cb      callback object whose single method is called upon receiving a message
-     *                of subject and type
-     * @param userObj any user-supplied object to be given to the callback method as an argument
-     * @return handle object to be used for unsubscribing
+     * @param subject {@inheritDoc}
+     * @param type    {@inheritDoc}
+     * @param cb      {@inheritDoc}
+     * @param userObj {@inheritDoc}
+     * @return {@inheritDoc}
      * @throws cMsgException if the callback, subject and/or type is null or blank;
      *                       an identical subscription already exists; there are
      *                       communication problems with the server
@@ -1009,7 +1007,7 @@ public class RunControl extends cMsgDomainAdapter {
      * sense on the failover server, we must wait until all existing subscriptions have been
      * successfully resubscribed on the new server.
      *
-     * @param obj the object "handle" returned from a subscribe call
+     * @param obj {@inheritDoc}
      * @throws cMsgException if there are communication problems with the server; object arg is null
      */
     public void unsubscribe(Object obj)
