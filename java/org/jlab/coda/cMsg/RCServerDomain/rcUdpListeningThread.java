@@ -34,7 +34,7 @@ import java.net.SocketException;
  * @author Carl Timmer
  * @version 1.0
  */
-public class rcUdpListeningThread extends Thread {
+class rcUdpListeningThread extends Thread {
 
     /** Type of domain this is. */
     private String domainType = "rcs";

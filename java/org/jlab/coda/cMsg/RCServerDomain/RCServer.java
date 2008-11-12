@@ -10,7 +10,7 @@
  *     Author: Carl Timmer                                                    *
  *             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
  *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
- *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *             Fax:   (757) 269-6248             Newport News, VA 23606       *
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
@@ -329,13 +329,15 @@ public class RCServer extends cMsgDomainAdapter {
      *
      * The intial cMsg:rcs:// is stripped off by the top layer API
      *
-     * Remember that for this domain:
-     * 1) host is NOT optional (must start with an alphabetic character according to "man hosts" or
-     *    may be in dotted form (129.57.35.21)
-     * 2) host can be "localhost"
-     * 3) tcp port is optional and defaults to cMsgNetworkConstants.rcClientPort
-     * 4) the udp port to listen on may be given by the optional port parameter.
-     *    if it's not given, the system assigns one
+     * Remember that for this domain:<p>
+     * <ul>
+     * <li>host is NOT optional (must start with an alphabetic character according to "man hosts" or
+     *     may be in dotted form (129.57.35.21)<p>
+     * <li>host can be "localhost"<p>
+     * <li>tcp port is optional and defaults to cMsgNetworkConstants.rcClientPort<p>
+     * <li>the udp port to listen on may be given by the optional port parameter.
+     *     if it's not given, the system assigns one<p>
+     * </ul>
      *
      * @param udlRemainder partial UDL to parse
      * @throws cMsgException if udlRemainder is null
@@ -435,7 +437,7 @@ public class RCServer extends cMsgDomainAdapter {
      * Method to send a message/command to the rc client. The command is sent as a
      * string in the message's text field.
      *
-     * @param message message to send
+     * @param message {@inheritDoc}
      * @throws cMsgException if there are communication problems with the server;
      *                       text is null or blank
      */
@@ -555,12 +557,11 @@ public class RCServer extends cMsgDomainAdapter {
     /**
      * This is a method to subscribe to receive messages of a subject and type from the rc client.
      *
-     * @param subject message subject
-     * @param type    message type
-     * @param cb      callback object whose single method is called upon receiving a message
-     *                of subject and type
-     * @param userObj any user-supplied object to be given to the callback method as an argument
-     * @return handle object to be used for unsubscribing
+     * @param subject {@inheritDoc}
+     * @param type    {@inheritDoc}
+     * @param cb      {@inheritDoc}
+     * @param userObj {@inheritDoc}
+     * @return {@inheritDoc}
      * @throws cMsgException if the subject, type, or callback is null;
      *                       an identical subscription already exists;
      *                       if not connected to an rc client
@@ -641,7 +642,7 @@ public class RCServer extends cMsgDomainAdapter {
     /**
      * Method to unsubscribe a previous subscription.
      *
-     * @param obj the object "handle" returned from a subscribe call
+     * @param obj {@inheritDoc}
      * @throws cMsgException if there is no connection with the rc client; obj is null
      */
     public void unsubscribe(Object obj)
@@ -700,13 +701,13 @@ public class RCServer extends cMsgDomainAdapter {
      * thread to block forever. It is best to always use a timeout with subscribeAndGet so the thread
      * is assured of eventually resuming execution.
      *
-     * @param subject subject of message desired from server
-     * @param type type of message desired from server
-     * @param timeout time in milliseconds to wait for a message
-     * @return response message
+     * @param subject {@inheritDoc}
+     * @param type    {@inheritDoc}
+     * @param timeout {@inheritDoc}
+     * @return {@inheritDoc}
      * @throws cMsgException if there are communication problems with rc client;
      *                       subject and/or type is null or blank
-     * @throws java.util.concurrent.TimeoutException if timeout occurs
+     * @throws TimeoutException if timeout occurs
      */
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
             throws cMsgException, TimeoutException {
@@ -781,8 +782,8 @@ public class RCServer extends cMsgDomainAdapter {
      * is assured of eventually resuming execution.
      *
      * @param message message sent to client
-     * @param timeout time in milliseconds to wait for a reponse message
-     * @return response message
+     * @param timeout {@inheritDoc}
+     * @return {@inheritDoc}
      * @throws cMsgException if there are communication problems with the client;
      *                       subject and/or type is null or blank
      * @throws TimeoutException if timeout occurs

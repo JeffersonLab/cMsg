@@ -34,7 +34,7 @@ import java.net.InetSocketAddress;
  * This class implements a thread to listen to runcontrol clients in the
  * runcontrol server domain over TCP.
  */
-public class rcTcpListeningThread extends Thread {
+class rcTcpListeningThread extends Thread {
 
     /** Type of domain this is. */
     private String domainType = "rcs";
