@@ -35,7 +35,7 @@ import java.util.Set;
  * @author Carl Timmer
  * @version 1.0
  */
-public class rcListeningThread extends Thread {
+class rcListeningThread extends Thread {
 
     /** This domain's name. */
     private String domainType = "rcb";
