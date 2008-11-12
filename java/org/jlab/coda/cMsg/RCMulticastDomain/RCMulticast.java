@@ -10,7 +10,7 @@
  *     Author: Carl Timmer                                                    *
  *             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
  *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
- *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *             Fax:   (757) 269-6248             Newport News, VA 23606       *
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
@@ -311,7 +311,7 @@ public class RCMulticast extends cMsgDomainAdapter {
      * Method to send an abort command to the rc client. Fill in the senderHost
      * with the host and the userInt with the port of the rc client to abort.
      *
-     * @param message message to send
+     * @param message {@inheritDoc}
      * @throws cMsgException if there are communication problems with the rc client
      */
     public void send(cMsgMessage message) throws cMsgException {
@@ -357,14 +357,16 @@ public class RCMulticast extends cMsgDomainAdapter {
      *
      * The intial cMsg:rcm:// is stripped off by the top layer API
      *
-     * Remember that for this domain:
-     * 1) udp listening port is optional and defaults to MsgNetworkConstants.rcMulticastPort
-     * 2) the experiment id is given by the optional parameter expid. If none is
-     *    given, the environmental variable EXPID is used. if that is not defined,
-     *    an exception is thrown
-     * 3) the multicast timeout is in seconds and sets the time of sending out multicasts
-     *    trying to locate other rc multicast servers already running on its port. Default
-     *    is 2 seconds
+     * Remember that for this domain:<p>
+     * <ul>
+     * <li>udp listening port is optional and defaults to MsgNetworkConstants.rcMulticastPort<p>
+     * <li>the experiment id is given by the optional parameter expid. If none is
+     *     given, the environmental variable EXPID is used. if that is not defined,
+     *     an exception is thrown<p>
+     * <li>the multicast timeout is in seconds and sets the time of sending out multicasts
+     *     trying to locate other rc multicast servers already running on its port. Default
+     *     is 2 seconds<p>
+     * </ul>
      *
      * @param udlRemainder partial UDL to parse
      * @throws cMsgException if udlRemainder is null
@@ -489,11 +491,10 @@ public class RCMulticast extends cMsgDomainAdapter {
      * subject and type are ignored and set to the preset values of "s" and "t".
      *
      * @param subject ignored and set to "s"
-     * @param type ignored and set to "t"
-     * @param cb      callback object whose single method is called upon receiving a message
-     *                of subject and type
-     * @param userObj any user-supplied object to be given to the callback method as an argument
-     * @return handle object to be used for unsubscribing
+     * @param type    ignored and set to "t"
+     * @param cb      {@inheritDoc}
+     * @param userObj {@inheritDoc}
+     * @return {@inheritDoc}
      * @throws cMsgException if the callback, subject and/or type is null or blank;
      *                       an identical subscription already exists; if not connected
      *                       to an rc client
@@ -563,9 +564,9 @@ public class RCMulticast extends cMsgDomainAdapter {
 
 
     /**
-     * Method to unsubscribe a previous subscription.
+     * {@inheritDoc}
      *
-     * @param obj the object "handle" returned from a subscribe call
+     * @param obj {@inheritDoc}
      * @throws cMsgException if there is no connection with rc clients; object is null
      */
     public void unsubscribe(Object obj) throws cMsgException {
@@ -622,11 +623,11 @@ public class RCMulticast extends cMsgDomainAdapter {
      *
      * @param subject ignored
      * @param type ignored
-     * @param timeout time in milliseconds to wait for a message
-     * @return response message
+     * @param timeout {@inheritDoc}
+     * @return {@inheritDoc}
      * @throws cMsgException if there are communication problems with rc client;
      *                       subject and/or type is null or blank
-     * @throws java.util.concurrent.TimeoutException if timeout occurs
+     * @throws TimeoutException if timeout occurs
      */
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
             throws cMsgException, TimeoutException {
