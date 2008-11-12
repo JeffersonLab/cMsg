@@ -24,7 +24,6 @@ package org.jlab.coda.cMsg.cMsgDomain.subdomains;
 
 import org.jlab.coda.cMsg.*;
 
-import java.net.*;
 import java.io.IOException;
 import java.sql.*;
 import java.util.regex.*;
@@ -36,16 +35,15 @@ import java.util.regex.*;
 
 
 /**
- * cMsg subdomain handler for Queue subdomain.
+ * cMsg subdomain handler for Queue subdomain.<p>
  *
- * UDL:  cMsg:cMsg://host:port/Queue/myQueueName?driver=myDriver&url=myURL&account=myAccount&password=myPassword
+ * UDL:  cMsg://host:port/Queue/myQueueName?driver=myDriver&url=myURL&account=myAccount&password=myPassword<p>
  *
- * e.g. cMsg:cMsg://ollie/Queue/ejw?driver=com.mysql.jdbc.Driver&url=jdbc:mysql://xdaq/test&user=davidl
+ * e.g. cMsg://ollie/Queue/ejw?driver=com.mysql.jdbc.Driver&url=jdbc:mysql://xdaq/test&user=davidl<p>
  *
- * stores/retrieves cMsgMessageFull messages from SQL database.
+ * Stores/retrieves cMsgMessageFull messages from SQL database.
  * Gets database parameters from UDL.
- *
- * Supported database so far:  mySQL, PostgreSQL (not tested yet...)
+ * Supported databases so far:  mySQL, PostgreSQL (not tested yet...).
  *
  * @author Elliiott Wolin
  * @version 1.0
@@ -78,11 +76,8 @@ public class Queue extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "send" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendRequest}
-     * method.
-     *
-     * @return true if get implemented in {@link #handleSendRequest}
+     * {@inheritDoc}
+     * @return true
      */
     public boolean hasSend() {
         return true;
@@ -93,11 +88,8 @@ public class Queue extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "sendAndGet" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendAndGetRequest}
-     * method.
-     *
-     * @return true if sendAndGet implemented in {@link #handleSendAndGetRequest}
+     * {@inheritDoc}
+     * @return true
      */
     public boolean hasSendAndGet() {
         return true;
@@ -108,11 +100,8 @@ public class Queue extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "syncSend" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSyncSendRequest}
-     * method.
-     *
-     * @return true if send implemented in {@link #handleSyncSendRequest}
+     * {@inheritDoc}
+     * @return true
      */
     public boolean hasSyncSend() {
         return true;
@@ -123,11 +112,10 @@ public class Queue extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to give the subdomain handler the appropriate part
-     * of the UDL the client used to talk to the domain server.
+     * {@inheritDoc}
      *
-     * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
-     * @throws cMsgException
+     * @param UDLRemainder {@inheritDoc}
+     * @throws cMsgException never
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
         myUDLRemainder=UDLRemainder;
@@ -138,13 +126,13 @@ public class Queue extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to register domain client.
      * Creates separate database connection for each client connection.
      * UDL contains driver name, database JDBC URL, account, password, and table name to use.
      * Column names are fixed (domain, sender, subject, etc.).
      *
      * @param info information about client
-     * @throws cMsgException upon error
+     * @throws cMsgException if improper UDL, cannot connect to database,
+     *                       cannot get database metadata
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
 
@@ -288,12 +276,10 @@ public class Queue extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle message sent by client.
      * Inserts message into SQL database table via JDBC.
      *
-     * @param msg message from sender
-     * @throws cMsgException if a channel to the client is closed, cannot be created,
-     *                       or socket properties cannot be set
+     * @param msg {@inheritDoc}
+     * @throws cMsgException if sql error
      */
     synchronized public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
 
@@ -338,12 +324,11 @@ public class Queue extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle message sent by domain client in synchronous mode.
-     * It requries an integer response from the subdomain handler.
+     * Inserts message into SQL database table via JDBC.
      *
-     * @param msg message from sender
-     * @return response from subdomain handler
-     * @throws cMsgException
+     * @param msg {@inheritDoc}
+     * @return 0 if successful, else 1
+     * @throws cMsgException never
      */
     public int handleSyncSendRequest(cMsgMessageFull msg) throws cMsgException {
         try {
@@ -359,12 +344,10 @@ public class Queue extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to synchronously get a single message from a receiver by sending out a
-     * message to be responded to.
+     * Returns message at head of queue.
      *
-     * Currently just returns message at head of queue.
-     *
-     * @param message message requesting what sort of message to get
+     * @param message message to generate sendAndGet response to (contents ignored)
+     * @throws cMsgException if error reading database or delivering message to client
      */
     synchronized public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException {
 
@@ -444,9 +427,9 @@ public class Queue extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle a client shutdown.
+     * Close connection to database.
      *
-     * @throws cMsgException
+     * @throws cMsgException if close fails.
      */
     synchronized public void handleClientShutdown() throws cMsgException {
         try {
@@ -536,9 +519,5 @@ public class Queue extends cMsgSubdomainAdapter {
         }
     }
 
-
-//-----------------------------------------------------------------------------
-//  end class
-//-----------------------------------------------------------------------------
 }
 

@@ -1,6 +1,3 @@
-// still to do:
-
-
 /*----------------------------------------------------------------------------*
  *  Copyright (c) 2004        Southeastern Universities Research Association, *
  *                            Thomas Jefferson National Accelerator Facility  *
@@ -11,9 +8,9 @@
  *     E.Wolin, 5-oct-2004                                                    *
  *                                                                            *
  *     Author: Elliott Wolin                                                  *
- *             wolin@jlab.org                    Jefferson Lab, MS-6B         *
+ *             wolin@jlab.org                    Jefferson Lab, MS-12B3       *
  *             Phone: (757) 269-7365             12000 Jefferson Ave.         *
- *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *             Fax:   (757) 269-6248             Newport News, VA 23606       *
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
@@ -37,8 +34,7 @@ import java.util.regex.*;
 
 
 /**
- * cMsg subdomain handler for LogFile subdomain.
- *
+ * cMsg subdomain handler for LogFile subdomain which stores messages in a file.
  * Current implementation uses a PrintWriter.
  *
  * @author Elliott Wolin
@@ -81,11 +77,8 @@ public class LogFile extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "send" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendRequest}
-     * method.
-     *
-     * @return true if get implemented in {@link #handleSendRequest}
+     * {@inheritDoc}
+     * @return true
      */
     public boolean hasSend() {
         return true;
@@ -96,11 +89,8 @@ public class LogFile extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "syncSend" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSyncSendRequest}
-     * method.
-     *
-     * @return true if send implemented in {@link #handleSyncSendRequest}
+     * {@inheritDoc}
+     * @return true
      */
     public boolean hasSyncSend() {
         return true;
@@ -111,11 +101,10 @@ public class LogFile extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to give the subdomain handler the appropriate part
-     * of the UDL the client used to talk to the domain server.
+     * {@inheritDoc}
      *
-     * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
-     * @throws cMsgException
+     * @param UDLRemainder {@inheritDoc}
+     * @throws cMsgException never
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
         myUDLRemainder=UDLRemainder;
@@ -126,10 +115,10 @@ public class LogFile extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to register domain client.
+     * Open file in which to store messages using append mode.
      *
-     * @param info information about client
-     * @throws cMsgException if unable to register
+     * @param info {@inheritDoc}
+     * @throws cMsgException if cannot find or read file
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
 
@@ -194,11 +183,10 @@ public class LogFile extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle message sent by client.
+     * Write message to a file.
      *
-     * @param msg message from sender
-     * @throws cMsgException if a channel to the client is closed, cannot be created,
-     *                       or socket properties cannot be set
+     * @param msg {@inheritDoc}
+     * @throws cMsgException never
      */
     public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
         msg.setReceiver("cMsg:LogFile");
@@ -210,12 +198,11 @@ public class LogFile extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle message sent by domain client in synchronous mode.
-     * It requries an integer response from the subdomain handler.
+     * Write message to a file.
      *
-     * @param msg message from sender
-     * @return response from subdomain handler
-     * @throws cMsgException
+     * @param msg {@inheritDoc}
+     * @return 0
+     * @throws cMsgException never
      */
     public int handleSyncSendRequest(cMsgMessageFull msg) throws cMsgException {
         handleSendRequest(msg);
@@ -227,9 +214,9 @@ public class LogFile extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle a client shutdown.
+     * Close file if no one else is using it.
      *
-     * @throws cMsgException
+     * @throws cMsgException never
      */
     public void handleClientShutdown() throws cMsgException {
         synchronized (openFiles) {

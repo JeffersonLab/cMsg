@@ -1,6 +1,3 @@
-// still to do:
-
-
 /*----------------------------------------------------------------------------*
  *  Copyright (c) 2004        Southeastern Universities Research Association, *
  *                            Thomas Jefferson National Accelerator Facility  *
@@ -11,9 +8,9 @@
  *     E.Wolin, 5-oct-2004                                                    *
  *                                                                            *
  *     Author: Elliott Wolin                                                  *
- *             wolin@jlab.org                    Jefferson Lab, MS-6B         *
+ *             wolin@jlab.org                    Jefferson Lab, MS-12B3       *
  *             Phone: (757) 269-7365             12000 Jefferson Ave.         *
- *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *             Fax:   (757) 269-6248             Newport News, VA 23606       *
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
@@ -23,7 +20,6 @@ package org.jlab.coda.cMsg.cMsgDomain.subdomains;
 import org.jlab.coda.cMsg.*;
 
 import java.io.*;
-import java.nio.ByteBuffer;
 import java.net.*;
 import java.net.Socket;
 
@@ -34,9 +30,9 @@ import java.net.Socket;
 
 
 /**
- * cMsg subdomain handler to access tcpserver processes
+ * cMsg subdomain handler to access tcpserver processes<p>
  *
- *  UDL:   cMsg:cMsg://host:port/TcpServer/srvHost:srvPort
+ *  UDL:   cMsg://host:port/TcpServer/srvHost:srvPort<p>
  *
  * @author Elliott Wolin
  * @version 1.0
@@ -71,11 +67,8 @@ public class TcpServer extends cMsgSubdomainAdapter{
 
 
     /**
-     * Method to tell if the "sendAndGet" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendAndGetRequest}
-     * method.
-     *
-     * @return true if sendAndGet implemented in {@link #handleSendAndGetRequest}
+     * {@inheritDoc}
+     * @return true
      */
     public boolean hasSendAndGet() {
         return true;
@@ -86,11 +79,10 @@ public class TcpServer extends cMsgSubdomainAdapter{
 
 
     /**
-     * Method to give the subdomain handler the appropriate part
-     * of the UDL the client used to talk to the domain server.
+     * {@inheritDoc}
      *
-     * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
-     * @throws cMsgException
+     * @param UDLRemainder {@inheritDoc}
+     * @throws cMsgException never
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
         myUDLRemainder=UDLRemainder;
@@ -101,12 +93,10 @@ public class TcpServer extends cMsgSubdomainAdapter{
 
 
     /**
-     * Method to register domain client.
-     *
      * Connects to tcpserver.
      *
-     * @param info information about client
-     * @throws cMsgException if unable to register
+     * @param info {@inheritDoc}
+     * @throws cMsgException never
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
 
@@ -155,12 +145,16 @@ public class TcpServer extends cMsgSubdomainAdapter{
     /**
      * Sends text string to server to execute, returns result.
      * Uses stateless transaction.
+     *
+     * @param msg {@inheritDoc}
+     * @throws cMsgException if cannot connect to server, cannot send/receive to/from server,
+     *                       cannot deliver msg to client
      */
     public void handleSendAndGetRequest(cMsgMessageFull msg) throws cMsgException {
 
-        Socket socket            = null;
-        DataOutputStream request = null;
-        BufferedReader response  = null;
+        Socket           socket;
+        DataOutputStream request;
+        BufferedReader   response;
 
 
         // establish connection to server
@@ -217,7 +211,6 @@ public class TcpServer extends cMsgSubdomainAdapter{
         // return result
         try {
             cMsgMessageFull responseMsg = new cMsgMessageFull();
-//            responseMsg.setCreator(myName);
             responseMsg.setSubject(msg.getSubject());
             responseMsg.setType(msg.getType());
             responseMsg.setText(sb.toString());
@@ -238,8 +231,5 @@ public class TcpServer extends cMsgSubdomainAdapter{
         }
     }
 
-
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
 }
 

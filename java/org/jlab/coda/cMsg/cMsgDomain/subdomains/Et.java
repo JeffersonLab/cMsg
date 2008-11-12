@@ -102,11 +102,10 @@ public class Et extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to give the subdomain handler the appropriate part
-     * of the UDL the client used to talk to the domain server.
+     * Parse arg to get ET system file, method to open ET system, chunk size.
      *
-     * @param udlRemainder last part of the UDL appropriate to the subdomain handler
-     * @throws org.jlab.coda.cMsg.cMsgException
+     * @param udlRemainder {@inheritDoc}
+     * @throws cMsgException if invalid arg
      */
     public void setUDLRemainder(String udlRemainder) throws cMsgException {
         myUDLRemainder=udlRemainder;
@@ -261,10 +260,10 @@ public class Et extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to register domain client.
+     * Open ET system and attach to GrandCentral station.
      *
-     * @param info information about client
-     * @throws cMsgException upon error
+     * @param info {@inheritDoc}
+     * @throws cMsgException upon IO error, bad arg, too many valid responses
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
         //System.out.println("Registering client");
@@ -322,10 +321,12 @@ public class Et extends cMsgSubdomainAdapter {
 
 
     /**
-     * Executes sql insert or update statement from message payload.
+     * If there are no events to work with, get chunk number of empty events from
+     * the ET system. Take the binary array of the message argument, copy it into
+     * a single event, and put that event back into the ET system.
      *
-     * @param msg message from sender.
-     * @throws cMsgException
+     * @param msg {@inheritDoc}
+     * @throws cMsgException if errors talking to ET system
      */
     synchronized public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
         if (shutDown) return;
@@ -374,12 +375,13 @@ public class Et extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle message sent by domain client in synchronous mode.
-     * It requries an integer response from the subdomain handler.
+     * If there are no events to work with, get chunk number of empty events from
+     * the ET system. Take the binary array of the message argument, copy it into
+     * a single event, and put that event back into the ET system.
      *
-     * @param msg message from sender
-     * @return response from subdomain handler
-     * @throws cMsgException
+     * @param msg {@inheritDoc}
+     * @return 0
+     * @throws cMsgException if errors talking to ET system
      */
     public int handleSyncSendRequest(cMsgMessageFull msg) throws cMsgException {
         handleSendRequest(msg);
@@ -388,9 +390,9 @@ public class Et extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle a client shutdown.
+     * Dump leftover events, then close the ET system.
      *
-     * @throws cMsgException
+     * @throws cMsgException never
      */
     synchronized public void handleClientShutdown() throws cMsgException {
         //System.out.println("Shutting down client");

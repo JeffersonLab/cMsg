@@ -38,9 +38,9 @@ import com.smartsockets.*;
 /**
  * cMsg subdomain handler for smartsockets subdomain.
  *
- * Implements proxy smartsockets server.
+ * Implements proxy smartsockets server.<p>
  *
- *  UDL:    cMsg:cMsg://host:port/SmartSockets/projectName
+ *  UDL:    cMsg:cMsg://host:port/SmartSockets/projectName<p>
  *
  * @author Elliott Wolin
  * @version 1.0
@@ -126,7 +126,7 @@ public class SmartSockets extends cMsgSubdomainAdapter {
     }
 
 
-    // for counting subscriptions in subject hash
+    /** For counting subscriptions in subject hash. */
     private class MyInt {
         int count;
     }
@@ -137,11 +137,8 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "send" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSendRequest}
-     * method.
-     *
-     * @return true if get implemented in {@link #handleSendRequest}
+     * {@inheritDoc}
+     * @return true
      */
     public boolean hasSend() {
         return true;
@@ -152,11 +149,8 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "subscribe" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleSubscribeRequest}
-     * method.
-     *
-     * @return true if subscribe implemented in {@link #handleSubscribeRequest}
+     * {@inheritDoc}
+     * @return true
      */
     public boolean hasSubscribe() {
         return true;
@@ -167,11 +161,8 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to tell if the "unsubscribe" cMsg API function is implemented
-     * by this interface implementation in the {@link #handleUnsubscribeRequest}
-     * method.
-     *
-     * @return true if unsubscribe implemented in {@link #handleUnsubscribeRequest}
+     * {@inheritDoc}
+     * @return true
      */
     public boolean hasUnsubscribe() {
         return true;
@@ -182,11 +173,10 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to give the subdomain handler the appropriate part
-     * of the UDL the client used to talk to the domain server.
+     * {@inheritDoc}
      *
-     * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
-     * @throws cMsgException
+     * @param UDLRemainder {@inheritDoc}
+     * @throws cMsgException never
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {
         myUDLRemainder=UDLRemainder;
@@ -197,10 +187,10 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to register domain client.
+     * Connect to smartsockets server.
      *
      * @param info contains all client info
-     * @throws cMsgException upon error
+     * @throws cMsgException if cannot connect to smartsockets server
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException {
 
@@ -253,8 +243,8 @@ public class SmartSockets extends cMsgSubdomainAdapter {
     /**
      * Forwards message to smartsockets system.
      *
-     * @param msg message from sender.
-     * @throws cMsgException
+     * @param msg {@inheritDoc}
+     * @throws cMsgException if cannot forward message
      */
     public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
 
@@ -307,13 +297,12 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle subscribe request sent by domain client.
+     * Subscribe to receive smartsockets messages.
      *
-     * @param subject message subject to subscribe to
-     * @param type message type to subscribe to
-     * @param receiverSubscribeId message id refering to these specific subject and type values
-     * @throws cMsgException if no client information is available or a subscription for this
-     *                          subject and type already exists
+     * @param subject {@inheritDoc}
+     * @param type {@inheritDoc}
+     * @param receiverSubscribeId {@inheritDoc}
+     * @throws cMsgException if cannot subscribe
      */
     public void handleSubscribeRequest(String subject, String type,
                                        int receiverSubscribeId) throws cMsgException {
@@ -386,12 +375,11 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method to handle sunsubscribe request sent by domain client.
-     * This method is run after all exchanges between domain server and client.
+     * Unsubscribe smartsockets subscription.
      *
-     * @param subject message subject subscribed to
-     * @param type message type subscribed to
-     * @param receiverSubscribeId receiver subscribe id
+     * @param subject {@inheritDoc}
+     * @param type {@inheritDoc}
+     * @param receiverSubscribeId {@inheritDoc}
      */
     public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId) {
         try {
@@ -425,9 +413,9 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 //-----------------------------------------------------------------------------
 
     /**
-     * Method to handle a client shutdown.
+     * Close connection to smartsockets server.
      *
-     * @throws cMsgException
+     * @throws cMsgException never
      */
     public void handleClientShutdown() throws cMsgException {
         done=true;

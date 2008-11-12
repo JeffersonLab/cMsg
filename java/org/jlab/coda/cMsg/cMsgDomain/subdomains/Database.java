@@ -37,8 +37,8 @@ import java.util.regex.*;
  * Executes sql statement from msg payload.
  * Gets database parameters from UDL.
  *
- *  UDL:
- *    cMsg:cMsg://host:port/Database?driver=myDriver&url=myURL&account=myAccount&password=myPassword
+ *  UDL:<p>
+ *    cMsg:cMsg://host:port/Database?driver=myDriver&url=myURL&account=myAccount&password=myPassword<p>
  *
  * @author Elliott Wolin
  * @version 1.0
