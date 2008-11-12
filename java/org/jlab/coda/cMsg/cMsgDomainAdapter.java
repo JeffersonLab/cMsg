@@ -115,7 +115,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
     /**
      * {@inheritDoc}
      *
-     * @param message message
+     * @param message {@inheritDoc}
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
     public void send(cMsgMessage message) throws cMsgException {

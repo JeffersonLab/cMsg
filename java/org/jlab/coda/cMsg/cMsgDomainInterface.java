@@ -59,7 +59,7 @@ public interface cMsgDomainInterface {
     /**
      * Method to send a message to the domain server for further distribution.
      *
-     * @param message message
+     * @param message message to send
      * @throws cMsgException
      */
     public void send(cMsgMessage message) throws cMsgException;
@@ -68,7 +68,7 @@ public interface cMsgDomainInterface {
      * Method to send a message to the domain server for further distribution
      * and wait for a response from the subdomain handler that got it.
      *
-     * @param message message
+     * @param message message to send
      * @param timeout time in milliseconds to wait for a response
      * @return response from subdomain handler
      * @throws cMsgException
