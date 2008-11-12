@@ -19,7 +19,9 @@
 *                                                                            *
 *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.common;
+
+import org.jlab.coda.cMsg.cMsgMessage;
 
 /**
  * This interface provides an API for the client callbacks in the cMsg system.

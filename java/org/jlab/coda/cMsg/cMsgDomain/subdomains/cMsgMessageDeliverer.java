@@ -17,14 +17,14 @@
 package org.jlab.coda.cMsg.cMsgDomain.subdomains;
 
 import org.jlab.coda.cMsg.*;
+import org.jlab.coda.cMsg.common.cMsgClientInfo;
+import org.jlab.coda.cMsg.common.cMsgDeliverMessageInterface;
 
 import java.io.*;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.ByteChannel;
 import java.nio.channels.Channels;
 import java.nio.ByteBuffer;
-import java.net.InetSocketAddress;
-import java.net.Socket;
 
 /**
  * This class delivers messages from the subdomain handler objects in the cMsg

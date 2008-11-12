@@ -17,8 +17,9 @@
 package org.jlab.coda.cMsg.RCMulticastDomain;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgGetHelper;
-import org.jlab.coda.cMsg.cMsgCallbackThread;
+import org.jlab.coda.cMsg.common.cMsgGetHelper;
+import org.jlab.coda.cMsg.common.cMsgCallbackThread;
+import org.jlab.coda.cMsg.common.cMsgSubscription;
 
 import java.net.*;
 import java.io.IOException;

@@ -32,6 +32,7 @@ import java.nio.ByteBuffer;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgNetworkConstants;
+import org.jlab.coda.cMsg.common.cMsgSubdomainInterface;
 import org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsgMessageDeliverer;
 
 /**

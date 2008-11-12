@@ -17,6 +17,10 @@
 package org.jlab.coda.cMsg;
 
 
+import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
+import org.jlab.coda.cMsg.common.cMsgDomainInterface;
+import org.jlab.coda.cMsg.common.cMsgShutdownHandlerInterface;
+
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.*;

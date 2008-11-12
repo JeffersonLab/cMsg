@@ -16,8 +16,8 @@
 
 package org.jlab.coda.cMsg.cMsgDomain.server;
 
-import org.jlab.coda.cMsg.cMsgClientInfo;
-import org.jlab.coda.cMsg.cMsgSubdomainInterface;
+import org.jlab.coda.cMsg.common.cMsgClientInfo;
+import org.jlab.coda.cMsg.common.cMsgSubdomainInterface;
 
 import java.nio.channels.SocketChannel;
 import java.nio.ByteBuffer;

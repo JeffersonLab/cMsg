@@ -14,7 +14,7 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.common;
 
 /**
  * The class defines the default context that a message starts with when it's created.

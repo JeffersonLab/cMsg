@@ -17,6 +17,8 @@
 package org.jlab.coda.cMsg.test;
 
 import org.jlab.coda.cMsg.*;
+import org.jlab.coda.cMsg.common.cMsgCallbackAdapter;
+import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
 
 /**
  * This class implements a run control client that reconnects with a server that

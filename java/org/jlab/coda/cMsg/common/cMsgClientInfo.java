@@ -14,7 +14,7 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.common;
 
 import org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsgMessageDeliverer;
 

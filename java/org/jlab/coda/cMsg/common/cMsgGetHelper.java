@@ -14,7 +14,10 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.common;
+
+import org.jlab.coda.cMsg.cMsgMessageFull;
+import org.jlab.coda.cMsg.cMsgConstants;
 
 
 /**

@@ -17,6 +17,10 @@
 package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.*;
+import org.jlab.coda.cMsg.common.cMsgGetHelper;
+import org.jlab.coda.cMsg.common.cMsgSubscription;
+import org.jlab.coda.cMsg.common.cMsgCallbackThread;
+import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
 import org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer;
 
 import java.util.Date;

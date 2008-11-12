@@ -17,6 +17,7 @@
 package org.jlab.coda.cMsg.TCPSDomain;
 
 import org.jlab.coda.cMsg.*;
+import org.jlab.coda.cMsg.common.cMsgDomainAdapter;
 
 import java.nio.channels.SocketChannel;
 import java.io.*;

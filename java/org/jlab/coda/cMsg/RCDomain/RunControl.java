@@ -17,7 +17,8 @@
 package org.jlab.coda.cMsg.RCDomain;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgCallbackThread;
+import org.jlab.coda.cMsg.common.cMsgCallbackThread;
+import org.jlab.coda.cMsg.common.*;
 
 import java.io.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;

@@ -22,6 +22,9 @@
 package org.jlab.coda.cMsg.cMsgDomain.subdomains;
 
 import org.jlab.coda.cMsg.*;
+import org.jlab.coda.cMsg.common.cMsgClientInfo;
+import org.jlab.coda.cMsg.common.cMsgDeliverMessageInterface;
+import org.jlab.coda.cMsg.common.cMsgSubdomainAdapter;
 
 import java.io.*;
 import java.nio.channels.*;

@@ -17,7 +17,7 @@
 package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.cMsgConstants;
-import org.jlab.coda.cMsg.cMsgServerFinder;
+import org.jlab.coda.cMsg.common.cMsgServerFinder;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgException;
 

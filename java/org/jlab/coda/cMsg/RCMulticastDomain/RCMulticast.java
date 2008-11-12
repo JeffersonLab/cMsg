@@ -17,8 +17,8 @@
 package org.jlab.coda.cMsg.RCMulticastDomain;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgGetHelper;
-import org.jlab.coda.cMsg.cMsgCallbackThread;
+import org.jlab.coda.cMsg.common.cMsgGetHelper;
+import org.jlab.coda.cMsg.common.*;
 
 import java.net.*;
 import java.util.regex.Pattern;
@@ -95,7 +95,7 @@ public class RCMulticast extends cMsgDomainAdapter {
      * Collection of all of this server's {@link #subscribeAndGet} calls currently in execution.
      * SubscribeAndGets are very similar to subscriptions and can be thought of as
      * one-shot subscriptions. This set is synchronized and contains objects of class
-     * {@link org.jlab.coda.cMsg.cMsgGetHelper}.
+     * {@link org.jlab.coda.cMsg.common.cMsgGetHelper}.
      */
     Set<cMsgGetHelper> subscribeAndGets;
 

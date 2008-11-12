@@ -14,7 +14,9 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.common;
+
+import org.jlab.coda.cMsg.*;
 
 import java.net.*;
 import java.io.*;

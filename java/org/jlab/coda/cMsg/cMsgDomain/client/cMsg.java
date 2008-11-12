@@ -8,15 +8,16 @@
  *    C. Timmer, 14-Jul-2004, Jefferson Lab                                   *
  *                                                                            *
  *     Author: Carl Timmer                                                    *
- *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
+ *             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
  *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
- *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *             Fax:   (757) 269-6248             Newport News, VA 23606       *
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
 package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.*;
+import org.jlab.coda.cMsg.common.*;
 
 import java.io.*;
 import java.net.*;
@@ -875,9 +876,8 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * Method to force cMsg client to send pending communications with domain server.
-     * In the cMsg domain implementation, this method does nothing.
-     * @param timeout ignored in this domain
+     * This method does nothing.
+     * @param timeout ignored
      */
     public void flush(int timeout) {
     }
@@ -1197,9 +1197,9 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * Method to send a message to the domain server for further distribution.
+     * {@inheritDoc}
      *
-     * @param message message to send
+     * @param message {@inheritDoc}
      * @throws cMsgException if there are communication problems with the server;
      *                       subject and/or type is null; message is too big for
      *                       UDP packet size if doing UDP send
@@ -1459,12 +1459,11 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * Method to send a message to the domain server for further distribution
-     * and wait for a response from the subdomain handler that got it.
+     * {@inheritDoc}
      *
-     * @param message message
-     * @param timeout ignored in this domain
-     * @return response from subdomain handler (0 in this subdomain)
+     * @param message {@inheritDoc}
+     * @param timeout ignored
+     * @return 0
      * @throws cMsgException if there are communication problems with the server;
      *                       subject and/or type is null
      */
@@ -1614,19 +1613,18 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * Method to subscribe to receive messages of a subject and type from the domain server.
+     * {@inheritDoc}
      *
      * Note about the server failing and an IOException being thrown. All existing
      * subscriptions are resubscribed on the new failover server by the keepAlive thread.
      * However, this routine will recover from an IO error during the subscribe itself
      * if the failover is successful.
      *
-     * @param subject message subject
-     * @param type    message type
-     * @param cb      callback object whose single method is called upon receiving a message
-     *                of subject and type
-     * @param userObj any user-supplied object to be given to the callback method as an argument
-     * @return handle object to be used for unsubscribing
+     * @param subject {@inheritDoc}
+     * @param type    {@inheritDoc}
+     * @param cb      {@inheritDoc}
+     * @param userObj {@inheritDoc}
+     * @return {@inheritDoc}
      * @throws cMsgException if the callback, subject and/or type is null or blank;
      *                       an identical subscription already exists; there are
      *                       communication problems with the server
@@ -1768,14 +1766,13 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * Method to unsubscribe a previous subscription to receive messages of a subject and type
-     * from the domain server.
+     * {@inheritDoc}
      *
      * Note about the server failing and an IOException being thrown. To have "unsubscribe" make
      * sense on the failover server, we must wait until all existing subscriptions have been
      * successfully resubscribed on the new server.
      *
-     * @param obj the object "handle" returned from a subscribe call
+     * @param obj {@inheritDoc}
      * @throws cMsgException if there are communication problems with the server; object arg is null
      */
     public void unsubscribe(Object obj)
@@ -1973,17 +1970,16 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * This method is like a one-time subscribe. The server grabs the first incoming
-     * message of the requested subject and type and sends that to the caller.
+     * {@inheritDoc}
      *
      * NOTE: Disconnecting when one thread is in the waiting part of a subscribeAndGet may cause that
      * thread to block forever. It is best to always use a timeout with subscribeAndGet so the thread
      * is assured of eventually resuming execution.
      *
-     * @param subject subject of message desired from server
-     * @param type type of message desired from server
-     * @param timeout time in milliseconds to wait for a message
-     * @return response message
+     * @param subject {@inheritDoc}
+     * @param type    {@inheritDoc}
+     * @param timeout {@inheritDoc}
+     * @return {@inheritDoc}
      * @throws cMsgException if there are communication problems with the server;
      *                       server dies; subject and/or type is null or blank
      * @throws TimeoutException if timeout occurs
@@ -2152,18 +2148,15 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * The message is sent as it would be in the {@link #send} method. The server notes
-     * the fact that a response to it is expected, and sends it to all subscribed to its
-     * subject and type. When a marked response is received from a client, it sends the
-     * first response back to the original sender regardless of its subject or type.
+     * {@inheritDoc}
      *
      * NOTE: Disconnecting when one thread is in the waiting part of a sendAndGet may cause that
      * thread to block forever. It is best to always use a timeout with sendAndGet so the thread
      * is assured of eventually resuming execution.
      *
-     * @param message message sent to server
-     * @param timeout time in milliseconds to wait for a reponse message
-     * @return response message
+     * @param message {@inheritDoc}
+     * @param timeout {@inheritDoc}
+     * @return {@inheritDoc}
      * @throws cMsgException if there are communication problems with the server;
      *                       server died; subject and/or type is null
      * @throws TimeoutException if timeout occurs
@@ -2365,11 +2358,10 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * This method is a synchronous call to receive a message containing monitoring data
-     * which describes the state of the cMsg domain the user is connected to.
+     * {@inheritDoc}
      *
-     * @param  command directive for monitoring process
-     * @return response message containing monitoring information
+     * @param  command ignored
+     * @return {@inheritDoc}
      */
     @Override
     public cMsgMessage monitor(String command) {
@@ -2385,7 +2377,7 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * Method to shutdown the given clients.
+     * {@inheritDoc}
      * Wildcards used to match client names with the given string where "*" means
      * any or no characters, "?" means exactly 1 character, and "#" means
      * 1 or no positive integer.
@@ -2393,8 +2385,8 @@ public class cMsg extends cMsgDomainAdapter {
      * shutdown clients on the new server. It's better to have this
      * call fail.
      *
-     * @param client client(s) to be shutdown
-     * @param includeMe  if true, it is permissible to shutdown calling client
+     * @param client {@inheritDoc}
+     * @param includeMe  {@inheritDoc}
      * @throws cMsgException if there are communication problems with the server
      */
     @Override
@@ -2452,14 +2444,14 @@ public class cMsg extends cMsgDomainAdapter {
 
 
     /**
-     * Method to shutdown the given servers.
+     * {@inheritDoc}
      * Wildcards used to match server names with the given string.
      * No failover done here because you do not want to automatically
      * shutdown servers connected to the new server. It's better to
      * have this call fail.
      *
-     * @param server server(s) to be shutdown
-     * @param includeMyServer if true, it is permissible to shutdown calling client's cMsg server
+     * @param server {@inheritDoc}
+     * @param includeMyServer {@inheritDoc}
      * @throws cMsgException if server arg is not in the correct form (host:port),
      *                       the host is unknown, client not connected to server,
      *                       or IO error.

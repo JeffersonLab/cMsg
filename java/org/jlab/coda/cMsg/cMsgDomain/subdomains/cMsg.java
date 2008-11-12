@@ -16,8 +16,8 @@
 
 package org.jlab.coda.cMsg.cMsgDomain.subdomains;
 
-import org.jlab.coda.cMsg.cMsgSubscription;
-import org.jlab.coda.cMsg.cMsgNotifier;
+import org.jlab.coda.cMsg.common.cMsgSubscription;
+import org.jlab.coda.cMsg.common.*;
 import org.jlab.coda.cMsg.*;
 
 import java.util.*;

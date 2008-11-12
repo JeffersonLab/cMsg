@@ -17,7 +17,9 @@
 package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgSubscription;
+import org.jlab.coda.cMsg.common.cMsgSubscription;
+import org.jlab.coda.cMsg.common.cMsgCallbackThread;
+import org.jlab.coda.cMsg.common.cMsgGetHelper;
 
 import java.io.*;
 import java.util.*;
@@ -36,7 +38,7 @@ import java.net.Socket;
  * @author Carl Timmer
  * @version 1.0
  */
-public class cMsgClientListeningThread extends Thread {
+class cMsgClientListeningThread extends Thread {
 
     /** Type of domain this is. */
     private String domainType = "cMsg";

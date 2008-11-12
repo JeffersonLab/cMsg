@@ -14,7 +14,10 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.common;
+
+import org.jlab.coda.cMsg.cMsgException;
+import org.jlab.coda.cMsg.cMsgMessageFull;
 
 
 /**
@@ -41,7 +44,7 @@ public class cMsgSubdomainAdapter implements cMsgSubdomainInterface {
      * {@inheritDoc}
      *
      * @param UDLRemainder {@inheritDoc}
-     * @throws cMsgException always throws an exception since this is a dummy implementation
+     * @throws org.jlab.coda.cMsg.cMsgException always throws an exception since this is a dummy implementation
      *
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException {

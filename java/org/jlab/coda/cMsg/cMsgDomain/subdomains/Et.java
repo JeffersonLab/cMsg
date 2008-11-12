@@ -17,6 +17,8 @@
 package org.jlab.coda.cMsg.cMsgDomain.subdomains;
 
 import org.jlab.coda.cMsg.*;
+import org.jlab.coda.cMsg.common.cMsgSubdomainAdapter;
+import org.jlab.coda.cMsg.common.cMsgClientInfo;
 
 import org.jlab.coda.et.*;
 import java.util.regex.*;

@@ -14,7 +14,7 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.common;
 
 /**
  * Classes implementing this interface are used as cMsg clients' shutdown handlers.

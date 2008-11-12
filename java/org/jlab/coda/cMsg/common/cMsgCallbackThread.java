@@ -14,11 +14,11 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.common;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
-import org.jlab.coda.cMsg.cMsgCallbackInterface;
-import org.jlab.coda.cMsg.cMsgMessageContextDefault;
+import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
+import org.jlab.coda.cMsg.common.cMsgMessageContextDefault;
 
 import java.util.ArrayList;
 import java.util.concurrent.LinkedBlockingQueue;

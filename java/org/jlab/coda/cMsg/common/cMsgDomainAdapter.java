@@ -14,7 +14,10 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.common;
+
+import org.jlab.coda.cMsg.cMsgException;
+import org.jlab.coda.cMsg.cMsgMessage;
 
 import java.util.concurrent.TimeoutException;
 
@@ -89,7 +92,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
     /**
      * {@inheritDoc}
      *
-     * @throws cMsgException always throws an exception since this is a dummy implementation
+     * @throws org.jlab.coda.cMsg.cMsgException always throws an exception since this is a dummy implementation
      */
     public void connect() throws cMsgException {
         throw new cMsgException("connect is not implemented");

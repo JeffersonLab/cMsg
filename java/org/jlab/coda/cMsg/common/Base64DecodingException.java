@@ -15,7 +15,7 @@
  *
  * See COPYING.TXT for details.
  */
-package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.common;
 
 import java.io.*;
 

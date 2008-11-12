@@ -17,8 +17,8 @@
 package org.jlab.coda.cMsg.RCServerDomain;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.cMsgCallbackThread;
-import org.jlab.coda.cMsg.cMsgGetHelper;
+import org.jlab.coda.cMsg.common.cMsgGetHelper;
+import org.jlab.coda.cMsg.common.*;
 
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
@@ -114,7 +114,7 @@ public class RCServer extends cMsgDomainAdapter {
      * Collection of all of this client's {@link #subscribeAndGet} calls currently in execution.
      * SubscribeAndGets are very similar to subscriptions and can be thought of as
      * one-shot subscriptions.
-     * Key is receiverSubscribeId object, value is {@link org.jlab.coda.cMsg.cMsgSubscription}
+     * Key is receiverSubscribeId object, value is {@link org.jlab.coda.cMsg.common.cMsgSubscription}
      * object.
      */
     ConcurrentHashMap<Integer,cMsgSubscription> subscribeAndGets;
@@ -140,7 +140,7 @@ public class RCServer extends cMsgDomainAdapter {
         domain = "rcs";
         subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
         subscribeAndGets = new ConcurrentHashMap<Integer,cMsgSubscription>(20);
-        sendAndGets      = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
+        sendAndGets      = new ConcurrentHashMap<Integer, cMsgGetHelper>(20);
         unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
         uniqueId         = new AtomicInteger();
 

@@ -16,8 +16,8 @@
 
 package org.jlab.coda.cMsg.cMsgDomain.server;
 
-import org.jlab.coda.cMsg.cMsgNotifier;
-import org.jlab.coda.cMsg.cMsgCallbackAdapter;
+import org.jlab.coda.cMsg.common.cMsgNotifier;
+import org.jlab.coda.cMsg.common.cMsgCallbackAdapter;
 
 import java.util.Set;
 import java.io.IOException;

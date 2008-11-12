@@ -18,6 +18,9 @@
 package org.jlab.coda.cMsg.cMsgDomain.subdomains;
 
 import org.jlab.coda.cMsg.*;
+import org.jlab.coda.cMsg.common.cMsgSubdomainAdapter;
+import org.jlab.coda.cMsg.common.cMsgClientInfo;
+import org.jlab.coda.cMsg.common.cMsgDeliverMessageInterface;
 
 import java.io.*;
 import java.net.*;
@@ -37,7 +40,7 @@ import java.net.Socket;
  * @author Elliott Wolin
  * @version 1.0
  */
-public class TcpServer extends cMsgSubdomainAdapter{
+public class TcpServer extends cMsgSubdomainAdapter {
 
 
     /** registration params. */

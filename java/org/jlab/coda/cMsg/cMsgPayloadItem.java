@@ -16,6 +16,8 @@
 
 package org.jlab.coda.cMsg;
 
+import org.jlab.coda.cMsg.common.Base64;
+
 import java.math.BigInteger;
 import java.lang.Number;
 import java.util.Collection;

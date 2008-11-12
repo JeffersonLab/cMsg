@@ -15,7 +15,9 @@
  *
  * See COPYING.TXT for details.
  */
-package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.common;
+
+import org.jlab.coda.cMsg.common.FileHelper;
 
 import java.io.*;
 import java.text.MessageFormat;

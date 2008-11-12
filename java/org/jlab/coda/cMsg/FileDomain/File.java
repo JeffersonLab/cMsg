@@ -17,6 +17,7 @@
 package org.jlab.coda.cMsg.FileDomain;
 
 import org.jlab.coda.cMsg.*;
+import org.jlab.coda.cMsg.common.cMsgDomainAdapter;
 
 import java.io.*;
 import java.util.*;

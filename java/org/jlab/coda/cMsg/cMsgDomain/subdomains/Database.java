@@ -20,8 +20,8 @@ package org.jlab.coda.cMsg.cMsgDomain.subdomains;
 
 import org.jlab.coda.cMsg.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgSubdomainAdapter;
-import org.jlab.coda.cMsg.cMsgClientInfo;
+import org.jlab.coda.cMsg.common.cMsgSubdomainAdapter;
+import org.jlab.coda.cMsg.common.cMsgClientInfo;
 
 import java.sql.*;
 import java.util.regex.*;

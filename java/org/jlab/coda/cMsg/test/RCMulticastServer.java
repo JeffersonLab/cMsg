@@ -17,6 +17,7 @@
 package org.jlab.coda.cMsg.test;
 
 import org.jlab.coda.cMsg.*;
+import org.jlab.coda.cMsg.common.cMsgCallbackAdapter;
 
 /**
  * This class implements an RC Multicast server and RC Server server together.

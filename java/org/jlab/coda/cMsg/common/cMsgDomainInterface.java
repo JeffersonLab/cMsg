@@ -19,7 +19,10 @@
 *                                                                            *
 *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.common;
+
+import org.jlab.coda.cMsg.cMsgException;
+import org.jlab.coda.cMsg.cMsgMessage;
 
 import java.lang.*;
 import java.util.concurrent.TimeoutException;
@@ -37,7 +40,7 @@ public interface cMsgDomainInterface {
     /**
      * Method to connect to a particular domain.
      *
-     * @throws cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException
      */
     public void connect() throws cMsgException;
 

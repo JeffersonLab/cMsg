@@ -14,7 +14,10 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg;
+package org.jlab.coda.cMsg.common;
+
+import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgException;
 
 import java.io.IOException;
 
@@ -38,7 +41,7 @@ public interface cMsgDeliverMessageInterface {
      *
      * @param msg     message to sent to client
      * @param msgType type of communication with the client
-     * @throws cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException
      * @throws java.io.IOException
      */
     public void deliverMessage(cMsgMessage msg, int msgType)

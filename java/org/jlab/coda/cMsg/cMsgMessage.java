@@ -23,6 +23,10 @@
 package org.jlab.coda.cMsg;
 
 
+import org.jlab.coda.cMsg.common.Base64;
+import org.jlab.coda.cMsg.common.cMsgMessageContextDefault;
+import org.jlab.coda.cMsg.common.cMsgMessageContextInterface;
+
 import java.lang.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
