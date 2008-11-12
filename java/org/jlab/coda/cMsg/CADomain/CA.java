@@ -43,9 +43,9 @@ import java.util.regex.Pattern;
 
 
 /**
- * This class implements a client in the cMsg Channel Access (CA) domain.
+ * This class implements a client in the cMsg Channel Access (CA) domain.<p>
  *
- * UDL:  cMsg:CA://channelName?addr_list=list.
+ * UDL:  cMsg:CA://channelName?addr_list=list.<p>
  *
  * where addr_list specifies the UDP broadcast address list.
  *
@@ -86,7 +86,6 @@ public class CA extends cMsgDomainAdapter {
                 //  get cMsg and fill common fields
                 cMsgMessageFull cmsg = new cMsgMessageFull();
                 cmsg.setDomain(domain);
-//                cmsg.setCreator(myChannelName);
                 cmsg.setSender(myChannelName);
                 cmsg.setSenderHost(myAddrList);
                 cmsg.setSenderTime(new Date());
@@ -101,7 +100,7 @@ public class CA extends cMsgDomainAdapter {
                     for(SubInfo s : mySubList) {
                         cmsg.setSubject(s.subject);
                         cmsg.setType(s.type);
-                        new Thread(new DispatchCB(s,(cMsgMessage)cmsg)).start();
+                        new Thread(new DispatchCB(s,cmsg)).start();
                     }
                 }
 
@@ -151,12 +150,8 @@ public class CA extends cMsgDomainAdapter {
 //-----------------------------------------------------------------------------
 
 
-    /**
-     * Constructor for CADomain.
-     *
-     * @throws cMsgException if domain in not implemented or there are problems
-     */
-    public CA() throws cMsgException {
+    /** Constructor for CA domain. */
+    public CA() {
         try {
             host = InetAddress.getLocalHost().getHostName();
         }
@@ -171,7 +166,7 @@ public class CA extends cMsgDomainAdapter {
 
 
     /**
-     * Connects to channel after parsing UDL.
+     * Connects to CA channel after parsing UDL.
      *
      * @throws cMsgException if there are communication problems
      */
@@ -183,7 +178,7 @@ public class CA extends cMsgDomainAdapter {
 
         if (connected) return;
 
-        domain="CA";
+        domain = "CA";
 
         if(UDLremainder==null) throw new cMsgException("?invalid UDL");
 
@@ -249,10 +244,9 @@ public class CA extends cMsgDomainAdapter {
 
 
     /**
-     * Method to close the connection to the domain server. This method results in this object
-     * becoming functionally useless.
+     * Disconnects from CA channel.
      *
-     * @throws cMsgException always throws an exception since this is a dummy implementation
+     * @throws cMsgException if destroying channel failed
      */
     synchronized public void disconnect() throws cMsgException {
         if (!connected) return;
@@ -275,10 +269,10 @@ public class CA extends cMsgDomainAdapter {
 
 
     /**
-     * Method to send a message to the domain server for further distribution.
+     * Set double value of channel from message's text field.
      *
-     * @param msg message
-     * @throws cMsgException always throws an exception since this is a dummy implementation
+     * @param msg message containing the text form of a double value
+     * @throws cMsgException if not connected to or cannot write to channel
      */
     synchronized public void send(cMsgMessage msg) throws cMsgException {
         if (!connected) {
@@ -304,10 +298,11 @@ public class CA extends cMsgDomainAdapter {
 
 
     /**
-     * Method to force cMsg client to send pending communications with domain server.
+     * Complete what the "send" method started -- write the double value to channel
+     * for real.
      *
-     * @param timeout time in milliseconds to wait for completion
-     * @throws cMsgException always throws an exception since this is a dummy implementation
+     * @param timeout {@inheritDoc}
+     * @throws cMsgException if error in CA flushIO or not connected to channel
      */
     synchronized public void flush(int timeout) throws cMsgException {
         if (!connected) {
@@ -329,30 +324,19 @@ public class CA extends cMsgDomainAdapter {
 
 
     /**
-     * This method does two separate things depending on the specifics of message in the
-     * argument. If the message to be sent has its "getRequest" field set to be true using
-     * {@link cMsgMessage#isGetRequest()}, then the message is sent as it would be in the
-     * {@link #send} method. The server notes the fact that a response to it is expected,
-     * and sends it to all subscribed to its subject and type. When a marked response is
-     * received from a client, it sends that first response back to the original sender
-     * regardless of its subject or type.
+     * Get the channel's value and place it in the return message's text field.
      *
-     * In a second usage, if the message did NOT set its "getRequest" field to be true,
-     * then the server grabs the first incoming message of the requested subject and type
-     * and sends that to the original sender in response to the get.
-     *
-     * @param subject subject of message desired from server
-     * @param type type of message desired from server
-     * @param timeout time in milliseconds to wait for a reponse message
-     * @return response message
-     * @throws cMsgException always throws an exception since this is a dummy implementation
+     * @param subject subject of return msg
+     * @param type    type of return msg
+     * @param timeout {@inheritDoc}
+     * @return message with new double value in text field
+     * @throws cMsgException if not connected to channel or cannot get channel value
      */
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout) throws cMsgException {
 
 
         cMsgMessageFull response = new cMsgMessageFull();
         response.setDomain(domain);
-//        response.setCreator(myChannelName);
         response.setSender(myChannelName);
         response.setSenderHost(myAddrList);
         response.setSenderTime(new Date());
@@ -362,7 +346,7 @@ public class CA extends cMsgDomainAdapter {
         response.setSubject(subject);
         response.setType(type);
 
-        DBR dbr = null;
+        DBR dbr;
 
         synchronized (this) {
             if (!connected) {
@@ -375,7 +359,7 @@ public class CA extends cMsgDomainAdapter {
             catch (CAException e) {
                 response.setText(null);
                 e.printStackTrace();
-                return((cMsgMessage)response);
+                return response;
             }
         }
 
@@ -391,7 +375,7 @@ public class CA extends cMsgDomainAdapter {
             e.printStackTrace();
         }
 
-        return((cMsgMessage)response);
+        return response;
     }
 
 
@@ -399,15 +383,16 @@ public class CA extends cMsgDomainAdapter {
 
 
     /**
-     * Method to subscribe to receive messages of a subject and type from the domain server.
+     * Does a CA "monitor on" for this channel. Runs the given callback when the channel's
+     * value changes. Subject, type, and userObj are passed right through in message/args sent to
+     * callback.
      *
-     * @param subject message subject
-     * @param type    message type
-     * @param cb      callback object whose single method is called upon receiving a message
-     *                of subject and type
-     * @param userObj any user-supplied object to be given to the callback method as an argument
-     * @return handle object to be used for unsubscribing
-     * @throws cMsgException always throws an exception since this is a dummy implementation
+     * @param subject {@inheritDoc}
+     * @param type    {@inheritDoc}
+     * @param cb      {@inheritDoc}
+     * @param userObj {@inheritDoc}
+     * @return {@inheritDoc}
+     * @throws cMsgException if channel not connected or "monitor on" failed
      */
     synchronized public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
@@ -443,13 +428,10 @@ public class CA extends cMsgDomainAdapter {
 
 
     /**
-     * Method to unsubscribe a previous subscription to receive messages of a subject and type
-     * from the domain server. Since many subscriptions may be made to the same subject and type
-     * values, but with different callbacks, the callback must be specified so the correct
-     * subscription can be removed.
+     * Does a CA "monitor off" for this channel.
      *
-     * @param obj the object "handle" returned from a subscribe call
-     * @throws cMsgException always throws an exception since this is a dummy implementation
+     * @param obj {@inheritDoc}
+     * @throws cMsgException if channel not connected or "monitor off" failed
      */
     synchronized public void unsubscribe(Object obj)
             throws cMsgException {
@@ -458,7 +440,7 @@ public class CA extends cMsgDomainAdapter {
             throw new cMsgException("Not connected, Call \"connect\" first");
         }
 
-        int cnt=0;
+        int cnt;
         SubInfo info = (SubInfo)obj;
 
         // remove subscrition from list
@@ -483,7 +465,4 @@ public class CA extends cMsgDomainAdapter {
 
     }
 
-
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
 }
