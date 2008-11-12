@@ -35,14 +35,14 @@ import java.util.concurrent.TimeoutException;
 public interface cMsgDomainInterface {
 
     /**
-     * Method to connect to a particular domain server.
+     * Method to connect to a particular domain.
      *
      * @throws cMsgException
      */
     public void connect() throws cMsgException;
 
     /**
-     * Method to close the connection to the domain server. This method results in this object
+     * Method to close the connection to the domain. This method results in this object
      * becoming functionally useless.
      *
      * @throws cMsgException
@@ -50,14 +50,14 @@ public interface cMsgDomainInterface {
     public void disconnect() throws cMsgException;
 
     /**
-     * Method to determine if this object is still connected to the domain server or not.
+     * Method to determine if this object is still connected to the domain or not.
      *
      * @return true if connected to domain server, false otherwise
      */
     public boolean isConnected();
 
     /**
-     * Method to send a message to the domain server for further distribution.
+     * Method to send a message to the domain for further distribution.
      *
      * @param message message to send
      * @throws cMsgException
@@ -65,7 +65,7 @@ public interface cMsgDomainInterface {
     public void send(cMsgMessage message) throws cMsgException;
 
     /**
-     * Method to send a message to the domain server for further distribution
+     * Method to send a message to the domain for further distribution
      * and wait for a response from the subdomain handler that got it.
      *
      * @param message message to send
@@ -76,14 +76,14 @@ public interface cMsgDomainInterface {
     public int syncSend(cMsgMessage message, int timeout) throws cMsgException;
 
     /**
-     * Method to force cMsg client to send pending communications with domain server.
+     * Method to force cMsg client to send pending communications with domain.
      * @param timeout time in milliseconds to wait for completion
      * @throws cMsgException
      */
     public void flush(int timeout) throws cMsgException;
 
     /**
-     * This method is like a one-time subscribe. The server grabs the first incoming
+     * This method is like a one-time subscribe. The domain grabs the first incoming
      * message of the requested subject and type and sends that to the caller.
      *
      * @param subject subject of message desired from server
@@ -98,7 +98,7 @@ public interface cMsgDomainInterface {
 
     /**
      * The message is sent as it would be in the {@link #send} method and a single synchronous
-     * response is received. The server notes the fact that a response to it is expected,
+     * response is received. The domain notes the fact that a response to it is expected,
      * and sends it to all subscribed to its subject and type.
      * When a marked response is received from a client, it sends that
      * first response back to the original sender regardless of its subject or type.
@@ -114,9 +114,7 @@ public interface cMsgDomainInterface {
             throws cMsgException, TimeoutException;
 
     /**
-     * Method to subscribe to receive messages of a subject and type from the domain server.
-     * The combination of arguments must be unique. In other words, only 1 subscription is
-     * allowed for a given set of subject, type, callback, and userObj.
+     * Method to subscribe to receive messages of a subject and type from the domain.
      *
      * @param subject message subject
      * @param type    message type
@@ -131,7 +129,7 @@ public interface cMsgDomainInterface {
 
     /**
      * Method to unsubscribe a previous subscription to receive messages of a subject and type
-     * from the domain server.
+     * from the domain.
      *
      * @param obj the object "handle" returned from a subscribe call
      * @throws cMsgException
@@ -161,8 +159,7 @@ public interface cMsgDomainInterface {
     public void stop();
 
     /**
-     * Method to shutdown the given clients.
-     * Wildcards used to match client names with the given string.
+     * Method to shutdown the given client(s).
      *
      * @param client client(s) to be shutdown
      * @param includeMe  if true, it is permissible to shutdown calling client
@@ -171,8 +168,7 @@ public interface cMsgDomainInterface {
     public void shutdownClients(String client, boolean includeMe) throws cMsgException;
 
     /**
-     * Method to shutdown the given servers.
-     * Wildcards used to match server names with the given string.
+     * Method to shutdown the given server(s).
      *
      * @param server server(s) to be shutdown
      * @param includeMyServer  if true, it is permissible to shutdown calling client's
@@ -233,7 +229,6 @@ public interface cMsgDomainInterface {
 
     /**
      * Set the UDL of the client.
-     *
      * @param UDL UDL of client UDL
      */
     public void setUDL(String UDL);
