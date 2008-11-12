@@ -21,7 +21,7 @@ import java.net.*;
  * and changes here must be made there. In the C cmsg implementation, both
  * the cMsg client code and this domain use the identical code.
  */
-public class rcListeningThread extends Thread {
+class rcListeningThread extends Thread {
 
     /** Type of domain this is. */
     private String domainType = "rc";
