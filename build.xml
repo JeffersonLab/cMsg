@@ -34,19 +34,20 @@
         <echo message="Usage: ant [ant options] &lt;target1&gt; [target2 | target3 | ...]" />
         <echo message="" />
         <echo message="       targets:" />
-        <echo message="       help     - print out usage" />
-        <echo message="       env      - print out build file variables' values" />
-        <echo message="       compile  - compile java files" />
-        <echo message="       clean    - remove class files" />
-        <echo message="       cleanall - remove all generated files" />
-        <echo message="       jar      - compile and create jar file" />
-        <echo message="       install  - create jar file and install into 'prefix'" />
-        <echo message="                  if given on command line by -Dprefix=dir'," />
-        <echo message="                  else install into INSTALL_DIR or CODA_HOME" />
-        <echo message="                  if defined (in that order)" />
-        <echo message="       all      - clean, compile and create jar file" />
-        <echo message="       javadoc  - create javadoc documentation" />
-        <echo message="       prepare  - create necessary directories" />
+        <echo message="       help       - print out usage" />
+        <echo message="       env        - print out build file variables' values" />
+        <echo message="       compile    - compile java files" />
+        <echo message="       clean      - remove class files" />
+        <echo message="       cleanall   - remove all generated files" />
+        <echo message="       jar        - compile and create jar file" />
+        <echo message="       install    - create jar file and install into 'prefix'" />
+        <echo message="                    if given on command line by -Dprefix=dir'," />
+        <echo message="                    else install into INSTALL_DIR or CODA_HOME" />
+        <echo message="                    if defined (in that order)" />
+        <echo message="       all        - clean, compile and create jar file" />
+        <echo message="       javadoc    - create javadoc documentation" />
+        <echo message="       developdoc - create javadoc documentation for developer" />
+        <echo message="       prepare    - create necessary directories" />
     </target>
 
     <!-- Environment -->
@@ -100,7 +101,19 @@
             <classpath refid="classpath" />
         </javadoc>
     </target>
-    
+
+    <!-- Javadoc for developer -->
+    <target name="developdoc" description="Create javadoc for developer.">
+        <mkdir dir="${doc.dir}" />
+        <javadoc packagenames="org.jlab.coda.*"
+                 sourcepath="java"
+                 access="package"
+                 destdir="${doc.dir}"
+                 use="true" >
+            <classpath refid="classpath" />
+        </javadoc>
+    </target>
+
     <!-- Create Jar file -->
     <target name="jar" depends="compile" description="Generates jar file.">
         <jar jarfile="${jarName}" manifest="${src.dir}/org/jlab/coda/cMsg/manifest.mf">
