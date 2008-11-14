@@ -20,6 +20,7 @@ import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.common.cMsgCallbackThread;
 import org.jlab.coda.cMsg.common.cMsgSubscription;
 import org.jlab.coda.cMsg.common.cMsgGetHelper;
+import org.jlab.coda.cMsg.common.cMsgMessageFull;
 
 
 import java.util.Iterator;

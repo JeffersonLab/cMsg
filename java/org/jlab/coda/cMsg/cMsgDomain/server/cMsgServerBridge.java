@@ -19,6 +19,7 @@ package org.jlab.coda.cMsg.cMsgDomain.server;
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.common.cMsgCallbackAdapter;
 import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
+import org.jlab.coda.cMsg.common.cMsgMessageFull;
 
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;

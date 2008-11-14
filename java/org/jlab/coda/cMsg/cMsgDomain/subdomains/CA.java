@@ -34,6 +34,7 @@ import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.common.cMsgDeliverMessageInterface;
 import org.jlab.coda.cMsg.common.cMsgClientInfo;
 import org.jlab.coda.cMsg.common.cMsgSubdomainAdapter;
+import org.jlab.coda.cMsg.common.cMsgMessageFull;
 
 import gov.aps.jca.*;
 import gov.aps.jca.dbr.DOUBLE;

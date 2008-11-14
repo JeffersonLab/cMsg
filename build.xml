@@ -92,8 +92,9 @@
     <!-- Javadoc -->
     <target name="javadoc" description="Create javadoc.">
         <mkdir dir="${doc.dir}" />
-        <javadoc packagenames="org.jlab.coda.*"
+        <javadoc packagenames="org.jlab.coda.cMsg,org.jlab.coda.cMsg.apps,org.jlab.coda.cMsg.cMsgDomain.server"
                  sourcepath="java"
+                 access="public"
                  destdir="${doc.dir}"
                  use="true" >
             <classpath refid="classpath" />

@@ -17,7 +17,7 @@
 package org.jlab.coda.cMsg.common;
 
 import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgMessageFull;
+import org.jlab.coda.cMsg.common.cMsgMessageFull;
 
 
 /**

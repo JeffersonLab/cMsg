@@ -16,7 +16,7 @@
 
 package org.jlab.coda.cMsg.common;
 
-import org.jlab.coda.cMsg.cMsgMessageFull;
+import org.jlab.coda.cMsg.common.cMsgMessageFull;
 import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
 import org.jlab.coda.cMsg.common.cMsgMessageContextDefault;
 

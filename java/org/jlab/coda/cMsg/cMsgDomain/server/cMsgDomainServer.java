@@ -27,10 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.nio.channels.*;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.common.cMsgSubscription;
-import org.jlab.coda.cMsg.common.cMsgNotifier;
-import org.jlab.coda.cMsg.common.cMsgCallbackAdapter;
-import org.jlab.coda.cMsg.common.cMsgSubdomainInterface;
+import org.jlab.coda.cMsg.common.*;
 
 
 /**

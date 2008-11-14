@@ -16,7 +16,7 @@
 
 package org.jlab.coda.cMsg.cMsgDomain.server;
 
-import org.jlab.coda.cMsg.cMsgMessageFull;
+import org.jlab.coda.cMsg.common.cMsgMessageFull;
 
 /**
  * This class is used to implement the cMsg domain server by storing an incoming message
