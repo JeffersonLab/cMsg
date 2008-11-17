@@ -537,7 +537,7 @@ public class cMsgNameServer extends Thread {
         System.out.println("       password       is used to block clients without this myCloudpassword in their UDL's");
         System.out.println("       cloudpassword  is used to join a password-protected cloud or to allow");
         System.out.println("                      servers with this password to join this cloud");
-        System.out.println("       DlowRegimeSize for clients of \"regime=low\" type, this sets the number of");
+        System.out.println("       lowRegimeSize  for clients of \"regime=low\" type, this sets the number of");
         System.out.println("                      clients serviced by a single thread");
         System.out.println();
     }
