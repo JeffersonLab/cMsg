@@ -21,6 +21,7 @@ import java.util.Date;
 import javax.xml.parsers.* ;
 import org.w3c.dom.*;
 import org.xml.sax.*;
+import org.jlab.coda.cMsg.common.cMsgMessageContextInterface;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgException;
 
@@ -455,7 +456,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
      * @param ep boolean which is true if msg has an expanded payload, else false
      */
     public void expandedPayload(boolean ep) {
-      info = ep ? info | expandedPayload  :  info & ~expandedPayload;
+        info = ep ? info | expandedPayload  :  info & ~expandedPayload;
     }
 
 
@@ -474,6 +475,17 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
             // should not be thrown if internal code is bug-free
             expandedPayload(false);
         }
+    }
+
+
+    /**
+     * If this message is expanded (has items in its payload hashmap),
+     * then unexpand or compress the payload by removing all payload hashmap items.
+     */
+    public void compressPayload() {
+        expandedPayload(false);
+        if (!expandedPayload() || items.size() > 0) return;
+        items.clear();
     }
 
 
