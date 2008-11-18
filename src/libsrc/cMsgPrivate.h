@@ -424,15 +424,17 @@ typedef struct subscribeConfig_t {
 } subscribeConfig;
 
 /* private prototype used in multiple files */
-         int cMsgPayloadSetFieldPointer(const void *vmsg, const char *name, void *p);
-         int cMsgPayloadGetFieldPointer(const void *vmsg, const char *name, void **p);
-unsigned int cMsg_b64_encode        (const char *src, unsigned int len, char *dst);
-         int cMsg_b64_decode        (const char *src, unsigned int len, char *dst);
-unsigned int cMsg_b64_encode_len    (const char *src, unsigned int srclen);
-unsigned int cMsg_b64_decode_len    (const char *src, unsigned int srclen);
-unsigned int cMsg_b64_encode_len_est(const char *src, unsigned int srclen);
-unsigned int cMsg_b64_decode_len_est(const char *src, unsigned int srclen);
-         int cMsgNumDigits          (int64_t number, int isUint64);
+         int  cMsgPayloadSetFieldPointer(const void *vmsg, const char *name, void *p);
+         int  cMsgPayloadGetFieldPointer(const void *vmsg, const char *name, void **p);
+unsigned int  cMsg_b64_encode        (const char *src, unsigned int len, char *dst);
+         int  cMsg_b64_decode        (const char *src, unsigned int len, char *dst);
+unsigned int  cMsg_b64_encode_len    (const char *src, unsigned int srclen);
+unsigned int  cMsg_b64_decode_len    (const char *src, unsigned int srclen);
+unsigned int  cMsg_b64_encode_len_est(const char *src, unsigned int srclen);
+unsigned int  cMsg_b64_decode_len_est(const char *src, unsigned int srclen);
+         int  cMsgNumDigits          (int64_t number, int isUint64);
+         void cMsgPayloadReset_r     (void *vmsg);
+         int  cMsgFreeMessage_r      (void **vmsg);
 
 
 #ifdef	__cplusplus

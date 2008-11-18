@@ -129,6 +129,7 @@ static void  connectMutexLock(void);
 static void  connectMutexUnlock(void);
 static void  initMessage(cMsgMessage_t *msg);
 static int   freeMessage(void *vmsg);
+static int   freeMessage_r(void *vmsg);
 static int   messageStringSize(const void *vmsg, int margin, int binary, int compactPayload);
 static int   cMsgToStringImpl(const void *vmsg, char **string, int level, int margin,
                               int binary, int compactPayload);
@@ -2380,6 +2381,51 @@ static int freeMessage(void *vmsg) {
 
 
 /**
+ * This routine frees the memory of the components of a message,
+ * but in a way which avoids mutex deadlock when recursively freeing a
+ * payload's cMsgMessage items.
+ *
+ * @param vmsg address of pointer to message structure being freed
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if msg is NULL
+ */   
+static int freeMessage_r(void *vmsg) {
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+   
+  if (msg->domain       != NULL) {free(msg->domain);       msg->domain       = NULL;}
+  if (msg->subject      != NULL) {free(msg->subject);      msg->subject      = NULL;}
+  if (msg->type         != NULL) {free(msg->type);         msg->type         = NULL;}
+  if (msg->text         != NULL) {free(msg->text);         msg->text         = NULL;}
+  if (msg->sender       != NULL) {free(msg->sender);       msg->sender       = NULL;}
+  if (msg->senderHost   != NULL) {free(msg->senderHost);   msg->senderHost   = NULL;}
+  if (msg->receiver     != NULL) {free(msg->receiver);     msg->receiver     = NULL;}
+  if (msg->receiverHost != NULL) {free(msg->receiverHost); msg->receiverHost = NULL;}
+  
+  if (msg->context.domain  != NULL) {free(msg->context.domain);  msg->context.domain  = NULL;}
+  if (msg->context.subject != NULL) {free(msg->context.subject); msg->context.subject = NULL;}
+  if (msg->context.type    != NULL) {free(msg->context.type);    msg->context.type    = NULL;}
+  if (msg->context.udl     != NULL) {free(msg->context.udl);     msg->context.udl     = NULL;}
+  if (msg->context.cueSize != NULL) {                            msg->context.cueSize = NULL;}
+  
+  /* remove compound payload */
+  cMsgPayloadReset_r(vmsg);
+  
+  /* only free byte array if it was copied into the msg */
+  if ((msg->byteArray != NULL) && ((msg->bits & CMSG_BYTE_ARRAY_IS_COPIED) > 0)) {
+    free(msg->byteArray);
+  }
+  
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
  * This routine frees the memory allocated in the creation of a message.
  * The cMsg client must call this routine on any messages created to avoid
  * memory leaks.
@@ -2394,6 +2440,33 @@ int cMsgFreeMessage(void **vmsg) {
   cMsgMessage_t *msg = (cMsgMessage_t *) (*vmsg);
 
   if ( (err = freeMessage(msg)) != CMSG_OK) {
+    return err;
+  }
+  free(msg);
+  *vmsg = NULL;
+
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine frees the memory allocated in the creation of a message,
+ * but in a way which avoids mutex deadlock when recursively freeing a
+ * payload's cMsgMessage items.
+ *
+ * @param vmsg address of pointer to message structure being freed
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if msg is NULL
+ */   
+int cMsgFreeMessage_r(void **vmsg) {
+  int err;
+  cMsgMessage_t *msg = (cMsgMessage_t *) (*vmsg);
+
+  if ( (err = freeMessage_r(msg)) != CMSG_OK) {
     return err;
   }
   free(msg);

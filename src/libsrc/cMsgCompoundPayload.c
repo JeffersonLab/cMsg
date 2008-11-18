@@ -558,14 +558,14 @@ static void payloadItemFree(payloadItem *item) {
       item->array = NULL;
   }
   else if (item->type == CMSG_CP_MSG) {
-      cMsgFreeMessage(&item->array); item->array = NULL;
+      cMsgFreeMessage_r(&item->array); item->array = NULL;
   }
   else if (item->type == CMSG_CP_MSG_A) {
       int i;
       void **myArray = (void **)item->array;
       
       for (i=0; i<item->count; i++) {
-        cMsgFreeMessage(&myArray[i]);
+        cMsgFreeMessage_r(&myArray[i]);
       }
       free(myArray);
       item->array = NULL;
@@ -574,6 +574,46 @@ static void payloadItemFree(payloadItem *item) {
       free(item->array);
       item->array = NULL;
   }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine resets the payload to its initial condition (no payload),
+ * but in a way which avoids mutex deadlock when recursively freeing a
+ * payload's cMsgMessage items (ie. doesn't call {@link grabMutex}).
+ *
+ * @param vmsg pointer to message
+ */   
+void cMsgPayloadReset_r(void *vmsg) {
+  payloadItem *item, *next;
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+  
+  if (msg == NULL || msg->payload == NULL)  {
+    releaseMutex();
+    return;
+  }
+
+  item = msg->payload;
+  while (item != NULL) {
+    next = item->next;
+    payloadItemFree(item);
+    free(item);
+    item = next;
+  }
+  msg->payload = NULL;
+  
+  if (msg->payloadText != NULL) {
+      free(msg->payloadText);
+      msg->payloadText = NULL;
+  }
+  
+  msg->payloadCount = 0;
+  
+  /* write that we no longer have a payload */
+  setPayload(msg, 0);
 }
 
 
