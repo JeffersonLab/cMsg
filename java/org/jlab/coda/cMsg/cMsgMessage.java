@@ -233,7 +233,7 @@ public class cMsgMessage implements Cloneable, Serializable {
     // payload quantities
 
     /** List of payload items. */
-    ConcurrentHashMap<String, cMsgPayloadItem> items;
+    protected ConcurrentHashMap<String, cMsgPayloadItem> items;
     /** Buffer to help build the text represenation of the payload to send over network. */
     private StringBuilder buffer;
     /** String representation of the entire payload (including hidden system payload items). */
@@ -309,31 +309,59 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @param msg message to be copied
      */
     public cMsgMessage(cMsgMessage msg) {
-        sysMsgId            = msg.sysMsgId;
-        domain              = msg.domain;
-        info                = msg.info;
-        version             = msg.version;
-        subject             = msg.subject;
-        type                = msg.type;
-        text                = msg.text;
-        bytes               = msg.bytes.clone();
-        reserved            = msg.reserved;
-        userInt             = msg.userInt;
-        userTime            = msg.userTime;
-        sender              = msg.sender;
-        senderHost          = msg.senderHost;
-        senderTime          = msg.senderTime;
-        senderToken         = msg.senderToken;
-        receiver            = msg.receiver;
-        receiverHost        = msg.receiverHost;
-        receiverTime        = msg.receiverTime;
-        receiverSubscribeId = msg.receiverSubscribeId;
-        historyLengthMax    = msg.historyLengthMax;
-        buffer              = new StringBuilder(512);
-        items               = new ConcurrentHashMap<String, cMsgPayloadItem>();
-        for (Map.Entry<String, cMsgPayloadItem> entry : msg.items.entrySet()) {
-            items.put(entry.getKey(), (cMsgPayloadItem)entry.getValue().clone());
+        copy(msg, this);
+    }
+
+
+    /**
+     * Turns the destination message into a complete copy of the source message.
+     * @param src message to be copied
+     * @param dst message to be copied to
+     */
+    public static void copy(cMsgMessage src, cMsgMessage dst) {
+
+        // general
+        dst.sysMsgId            = src.sysMsgId;
+        dst.domain              = src.domain;
+        dst.info                = src.info;
+        dst.version             = src.version;
+        dst.reserved            = src.reserved;
+        dst.historyLengthMax    = src.historyLengthMax;
+
+        // user-settable
+        dst.subject             = src.subject;
+        dst.type                = src.type;
+        dst.text                = src.text;
+        dst.userInt             = src.userInt;
+        dst.userTime            = src.userTime;
+        if (src.bytes != null) {
+            dst.bytes           = src.bytes.clone();
+            dst.offset          = src.offset;
+            dst.length          = src.length;
         }
+
+        // payload
+        dst.payloadText         = src.payloadText;
+        dst.buffer              = new StringBuilder(512);
+        dst.items               = new ConcurrentHashMap<String, cMsgPayloadItem>();
+        for (Map.Entry<String, cMsgPayloadItem> entry : src.items.entrySet()) {
+            dst.items.put(entry.getKey(), (cMsgPayloadItem)entry.getValue().clone());
+        }
+
+        // sender
+        dst.sender              = src.sender;
+        dst.senderHost          = src.senderHost;
+        dst.senderTime          = src.senderTime;
+        dst.senderToken         = src.senderToken;
+
+        // receiver
+        dst.receiver            = src.receiver;
+        dst.receiverHost        = src.receiverHost;
+        dst.receiverTime        = src.receiverTime;
+        dst.receiverSubscribeId = src.receiverSubscribeId;
+
+        // context
+        dst.context.setReliableSend(src.context.getReliableSend());
     }
 
 
@@ -346,6 +374,7 @@ public class cMsgMessage implements Cloneable, Serializable {
         return (cMsgMessage) this.clone();
     }
 
+    
     /**
      * Creates a proper response message to this message which was sent by a client calling
      * sendAndGet.
@@ -603,7 +632,9 @@ public class cMsgMessage implements Cloneable, Serializable {
     }
 
     /**
-     * Set byte array of message by copying the array argument.
+     * Create or overwrite the byte array of message by copying "length" number
+     * of elements starting at "offset". The local offset will be set to zero,
+     * and the local length will be set to "length".
      * If the byte array is null, both the offset and length get set to 0.
      * @param b byte array of message.
      * @param offset index into byte array to bytes of interest.
@@ -643,6 +674,8 @@ public class cMsgMessage implements Cloneable, Serializable {
     /**
      * Set byte array of message to the given argument without
      * copying the byte array itself - only the reference is copied.
+     * The local offset will be set to zero, and the local length will be
+     * set to length of the array.
      * If the byte array is null, both the offset and length get set to 0.
      * @param b byte array of message.
      */
@@ -661,6 +694,8 @@ public class cMsgMessage implements Cloneable, Serializable {
     /**
      * Set byte array of message to the given argument without
      * copying the byte array itself - only the reference is copied.
+     * The local offset will be set to "offset", and the local length will be
+     * set to "length".
      * If the byte array is null, both the offset and length get set to 0.
      * @param b byte array of message.
      * @param offset index into byte array to bytes of interest.
@@ -721,6 +756,17 @@ public class cMsgMessage implements Cloneable, Serializable {
             throw new cMsgException("offset + length is out of array bounds");
         }
         this.length = length;
+    }
+    /**
+     * Reset the byte array length to the full length of the array or zero if
+     * there is none.
+     */
+    public void resetByteArrayLength() {
+        if (bytes == null) {
+            this.length = 0;
+            return;
+        }
+        this.length = bytes.length;
     }
 
 
