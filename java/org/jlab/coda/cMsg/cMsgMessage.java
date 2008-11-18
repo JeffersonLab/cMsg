@@ -310,7 +310,11 @@ public class cMsgMessage implements Cloneable {
         subject             = msg.subject;
         type                = msg.type;
         text                = msg.text;
-        bytes               = msg.bytes.clone();
+        if (msg.bytes != null) {
+            bytes           = msg.bytes.clone();
+            offset          = msg.offset;
+            length          = msg.length;
+        }
         reserved            = msg.reserved;
         userInt             = msg.userInt;
         userTime            = msg.userTime;
@@ -324,6 +328,7 @@ public class cMsgMessage implements Cloneable {
         receiverSubscribeId = msg.receiverSubscribeId;
         historyLengthMax    = msg.historyLengthMax;
         buffer              = new StringBuilder(512);
+        payloadText         = msg.payloadText;
         items               = new ConcurrentHashMap<String, cMsgPayloadItem>();
         for (Map.Entry<String, cMsgPayloadItem> entry : msg.items.entrySet()) {
             items.put(entry.getKey(), (cMsgPayloadItem)entry.getValue().clone());
