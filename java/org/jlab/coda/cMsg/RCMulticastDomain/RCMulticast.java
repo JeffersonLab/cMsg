@@ -353,7 +353,7 @@ public class RCMulticast extends cMsgDomainAdapter {
     /**
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      * RC Multicast domain UDL is of the form:<p>
-     *       cMsg:rcb://&lt;udpPort&gt;?expid=&lt;expid&gt;&multicastTO=&lt;timeout&gt;<p>
+     *       cMsg:rcm://&lt;udpPort&gt;?expid=&lt;expid&gt;&multicastTO=&lt;timeout&gt;<p>
      *
      * The intial cMsg:rcm:// is stripped off by the top layer API
      *
