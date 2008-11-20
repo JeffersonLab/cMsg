@@ -270,8 +270,7 @@ public class cMsgMessage implements Cloneable, Serializable {
     transient protected cMsgMessageContextInterface context = new cMsgMessageContextDefault();
 
     /**
-     * Cloning this object does not pass on the context except for the value
-     * of reliableSend and copies the byte array if it exists.
+     * Cloning this object does not pass on the context and copies the byte array if it exists.
      * @return a cMsgMessage object which is a copy of this message
      */
     public Object clone() {
@@ -336,9 +335,9 @@ public class cMsgMessage implements Cloneable, Serializable {
         dst.userTime            = src.userTime;
         if (src.bytes != null) {
             dst.bytes           = src.bytes.clone();
-            dst.offset          = src.offset;
-            dst.length          = src.length;
         }
+        dst.offset              = src.offset;
+        dst.length              = src.length;
 
         // payload
         dst.payloadText         = src.payloadText;
