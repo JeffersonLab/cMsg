@@ -1692,9 +1692,8 @@ class cMsgDomainServerSelect extends Thread {
          */
         private cMsgHolder readUngetInfo(byte[] array) throws IOException {
 
-            // id of subject/type combination  (senderToken actually)
             cMsgHolder holder = new cMsgHolder();
-            // id of subject/type combination  (receiverSubscribedId)
+            // id of subject/type combination  (senderToken actually)
             holder.id = cMsgUtilities.bytesToInt(array, 4);
 
             return holder;
@@ -1714,7 +1713,7 @@ class cMsgDomainServerSelect extends Thread {
             // skip size
             int index = 4;
 
-            // id of subject/type combination  (receiverSubscribedId)
+            // id of subject/type combination
             holder.id           = cMsgUtilities.bytesToInt(array, index); index += 4;
             // length of subject
             int lengthSubject   = cMsgUtilities.bytesToInt(array, index); index += 4;
