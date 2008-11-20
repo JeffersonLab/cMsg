@@ -523,18 +523,19 @@ public class cMsgNameServer extends Thread {
         System.out.println("       udp            is the UDP port this server listens on for multicasts");
         System.out.println("       subdomainName  is the name of a subdomain and className is the");
         System.out.println("                      name of the java class used to implement the subdomain");
-        System.out.println("       server         hostname is the name of another host on which a cMsg");
-        System.out.println("                      server is running whose cMsg subdomain you want to join");
-        System.out.println("                      and serverport is that server's port");
-        System.out.println("       debug level has acceptable values of:");
-        System.out.println("                      info   for full output");
-        System.out.println("                      warn   for severity of warning or greater");
-        System.out.println("                      error  for severity of error or greater");
-        System.out.println("                      severe for severity of \"cannot go on\"");
-        System.out.println("                      none   for no debug output (default)");
+        System.out.println("       server         punctuation (not colon) or white space separated list of servers\n" +
+                           "                      in host:port format to connect to in order to gain entry to cloud\n" +
+                           "                      of servers. First successful connection used. If no connections made,\n" +
+                           "                      no error indicated.");
+        System.out.println("       debug          debug output level has acceptable values of:");
+        System.out.println("                          info   for full output");
+        System.out.println("                          warn   for severity of warning or greater");
+        System.out.println("                          error  for severity of error or greater");
+        System.out.println("                          severe for severity of \"cannot go on\"");
+        System.out.println("                          none   for no debug output (default)");
         System.out.println("       standalone     means no other servers may connect or vice versa,");
         System.out.println("                      is incompatible with \"server\" option");
-        System.out.println("       password       is used to block clients without this myCloudpassword in their UDL's");
+        System.out.println("       password       is used to block clients without this password in their UDL's");
         System.out.println("       cloudpassword  is used to join a password-protected cloud or to allow");
         System.out.println("                      servers with this password to join this cloud");
         System.out.println("       lowRegimeSize  for clients of \"regime=low\" type, this sets the number of");
@@ -861,7 +862,7 @@ public class cMsgNameServer extends Thread {
         // If it wasn't given on the command line,
         // check the appropriate environmental variable.
         if (clientHandlerClass == null) {
-            clientHandlerClass = System.getenv("CMSG_HANDLER");
+            clientHandlerClass = System.getenv("CMSG_SUBDOMAIN");
         }
 
         // If there is still no handler class look in predefined classes.
