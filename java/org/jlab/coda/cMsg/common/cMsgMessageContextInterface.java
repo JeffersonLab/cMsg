@@ -48,22 +48,4 @@ public interface cMsgMessageContextInterface {
      */
     public int getCueSize();
 
-
-    /**
-     * Sets whether the send will be reliable (default, TCP)
-     * or will be allowed to be unreliable (UDP).
-     *
-     * @param b false if using UDP, or true if using TCP
-     */
-    public void setReliableSend(boolean b);
-
-
-    /**
-     * Gets whether the send will be reliable (default, TCP)
-     * or will be allowed to be unreliable (UDP).
-     *
-     * @return value true if using TCP, else false
-     */
-    public boolean getReliableSend();
-
 }

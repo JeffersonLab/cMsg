@@ -21,15 +21,6 @@ package org.jlab.coda.cMsg.common;
  */
 public class cMsgMessageContextDefault implements cMsgMessageContextInterface {
 
-    boolean reliableSend = true;
-
-    public cMsgMessageContextDefault() {
-    }
-
-    public cMsgMessageContextDefault(boolean reliableSend) {
-        this.reliableSend = reliableSend;
-    }
-    
     /**
      * Gets the domain this callback is running in.
      * @return domain this callback is running in.
@@ -56,27 +47,5 @@ public class cMsgMessageContextDefault implements cMsgMessageContextInterface {
      * @return value of this callback's cue size, -1 if no info available
      */
     public int getCueSize() {return -1;}
-
-
-    /**
-     * Sets whether the send will be reliable (default, TCP)
-     * or will be allowed to be unreliable (UDP).
-     *
-     * @param b false if using UDP, or true if using TCP
-     */
-    public void setReliableSend(boolean b) {
-        reliableSend = b;
-    }
-
-
-    /**
-     * Gets whether the send will be reliable (default, TCP)
-     * or will be allowed to be unreliable (UDP).
-     *
-     * @return value true if using TCP, else false
-     */
-    public boolean getReliableSend() {
-        return reliableSend;
-    }
 
 }
