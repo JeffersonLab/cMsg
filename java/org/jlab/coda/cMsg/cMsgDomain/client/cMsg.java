@@ -2026,7 +2026,7 @@ public class cMsg extends cMsgDomainAdapter {
                 // total length of msg (not including this int) is 1st item
                 domainOut.writeInt(5*4 + subject.length() + type.length());
                 domainOut.writeInt(cMsgConstants.msgSubscribeAndGetRequest);
-                domainOut.writeInt(id); // reserved for future use
+                domainOut.writeInt(id);
                 domainOut.writeInt(subject.length());
                 domainOut.writeInt(type.length());
                 domainOut.writeInt(0); // namespace length (we don't send this from
@@ -2123,7 +2123,7 @@ public class cMsg extends cMsgDomainAdapter {
             // total length of msg (not including this int) is 1st item
             domainOut.writeInt(5*4 + subject.length() + type.length());
             domainOut.writeInt(cMsgConstants.msgUnsubscribeAndGetRequest);
-            domainOut.writeInt(id); // reseved for future use
+            domainOut.writeInt(id);
             domainOut.writeInt(subject.length());
             domainOut.writeInt(type.length());
             domainOut.writeInt(0); // no namespace being sent
