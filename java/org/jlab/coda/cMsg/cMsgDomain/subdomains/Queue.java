@@ -297,7 +297,6 @@ public class Queue extends cMsgSubdomainAdapter {
             myPStmt.setInt(i++,       (msg.isGetResponse()?1:0));
             myPStmt.setInt(i++,       (msg.isNullGetResponse()?1:0));
 
-//            myPStmt.setString(i++,    msg.getCreator());
             myPStmt.setString(i++,    msg.getSender());
             myPStmt.setString(i++,    msg.getSenderHost());
             myPStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getSenderTime().getTime()));
@@ -309,7 +308,6 @@ public class Queue extends cMsgSubdomainAdapter {
             myPStmt.setString(i++,    msg.getReceiver());
             myPStmt.setString(i++,    msg.getReceiverHost());
             myPStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getReceiverTime().getTime()));
-            myPStmt.setInt(i++,       msg.getReceiverSubscribeId());
 
             myPStmt.setString(i++,    msg.getSubject());
             myPStmt.setString(i++,    msg.getType());
@@ -376,7 +374,6 @@ public class Queue extends cMsgSubdomainAdapter {
 
                 response.setSysMsgId(rs.getInt("sysMsgId"));
 
-//                response.setCreator(rs.getString("creator"));
                 response.setSender(rs.getString("sender"));
                 response.setSenderHost(rs.getString("senderHost"));
                 response.setSenderTime(rs.getTimestamp("senderTime"));
@@ -465,9 +462,9 @@ public class Queue extends cMsgSubdomainAdapter {
                 sql="create table " + myTableName + " (id int not null primary key auto_increment" +
                     "version int, domain varchar(255), sysMsgId int," +
                     "getRequest int, getResponse int, nullGetResponse int," +
-                    "creator varcher(128, sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
+                    "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
                     "userInt int, userTime datetime," +
-                    "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
+                    "receiver varchar(128), receiverHost varchar(128), receiverTime datetime," +
                     "subject  varchar(255), type varchar(128), text text)";
                 myStmt.executeUpdate(sql);
 
@@ -477,9 +474,9 @@ public class Queue extends cMsgSubdomainAdapter {
                 sql="create table " + myTableName + " (id int not null primary key default nextval('" + seq + "')," +
                     "version int, domain varchar(255), sysMsgId int," +
                     "getRequest int, getResponse int, nullGetResponse int," +
-                    "creator varchar(128), sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
+                    "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
                     "userInt int, userTime datetime," +
-                    "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
+                    "receiver varchar(128), receiverHost varchar(128), receiverTime datetime," +
                     "subject  varchar(255), type varchar(128), text text)";
                 myStmt.executeUpdate(sql);
 
@@ -501,9 +498,9 @@ public class Queue extends cMsgSubdomainAdapter {
         String sql = "insert into " + myTableName + " (" +
             "version,domain,sysMsgId," +
             "getRequest,getResponse,nullGetResponse," +
-            "creator,sender,senderHost,senderTime,senderToken," +
+            "sender,senderHost,senderTime,senderToken," +
             "userInt,userTime," +
-            "receiver,receiverHost,receiverTime,receiverSubscribeId," +
+            "receiver,receiverHost,receiverTime," +
             "subject,type,text" +
             ") values (" +
             "?,?,?," +
