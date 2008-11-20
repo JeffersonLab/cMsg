@@ -667,7 +667,7 @@ public class RunControl extends cMsgDomainAdapter {
      */
     public void send(final cMsgMessage message) throws cMsgException {
 
-        if (!message.getContext().getReliableSend()) {
+        if (!message.getReliableSend()) {
             udpSend(message);
             return;
         }

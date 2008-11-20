@@ -1210,7 +1210,7 @@ public class cMsg extends cMsgDomainAdapter {
             throw new cMsgException("send is not implemented by this subdomain");
         }
 
-        if (!message.getContext().getReliableSend()) {
+        if (!message.getReliableSend()) {
             udpSend(message);
             return;
         }

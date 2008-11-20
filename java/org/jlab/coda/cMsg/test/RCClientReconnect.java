@@ -92,7 +92,7 @@ public class RCClientReconnect {
          msg.setText("Send with UDP");
          msg.setSubject("junk");
          msg.setType("junk");
-         msg.getContext().setReliableSend(false);
+         msg.setReliableSend(false);
          loops=5;
          while (loops-->0) {
              cmsg.send(msg);
@@ -112,7 +112,7 @@ public class RCClientReconnect {
          msg.setText("Send with TCP");
          msg.setSubject("subby");
          msg.setType("typey");
-         msg.getContext().setReliableSend(true);
+         msg.setReliableSend(true);
          loops=5;
          while (loops-->0) {
              cmsg.send(msg);

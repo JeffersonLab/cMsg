@@ -134,7 +134,7 @@ public class cMsgTestRcClient {
          cmsg.send(msg);
 
          msg.setText("Send with UDP");
-         msg.getContext().setReliableSend(false);
+         msg.setReliableSend(false);
          System.out.println("Send subby, typey with UDP");
          cmsg.send(msg);
 
