@@ -181,7 +181,6 @@ public class cMsgLogger {
                     pStmt.setString(i++,    msg.getReceiver());
                     pStmt.setString(i++,    msg.getReceiverHost());
                     pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getReceiverTime().getTime()));
-                    pStmt.setInt(i++,       msg.getReceiverSubscribeId());
 
                     pStmt.setString(i++,    msg.getSubject());
                     pStmt.setString(i++,    msg.getType());
@@ -267,7 +266,7 @@ public class cMsgLogger {
         if(verbose)header=false;
         if(toScreen&&header) {
             System.out.println(String.format(wide?wideHeader:normalHeader,
-                                             "Count","Creator","SenderHost","SenderTime      ","UserInt","Subject","Type","Text"));
+                                             "Count","Payload","SenderHost","SenderTime      ","UserInt","Subject","Type","Text"));
             System.out.println(String.format(wide?wideHeader:normalHeader,
                                              "-----","-------","----------","----------      ","-------","-------","----","----"));
         }
@@ -310,10 +309,10 @@ public class cMsgLogger {
                 if((!dbrs.next())||(!dbrs.getString(3).equalsIgnoreCase(table))) {
                     String sql="create table " + table + " (" +
                         "version int, domain varchar(255), sysMsgId int," +
-                        "getRequest int, getResponse int, isNullGetResponse int, creator varchar(128)," +
+                        "getRequest int, getResponse int, isNullGetResponse int, payload varchar(128)," +
                         "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
                         "userInt int, userTime datetime," +
-                        "receiver varchar(128), receiverHost varchar(128), receiverTime datetime, receiverSubscribeId int," +
+                        "receiver varchar(128), receiverHost varchar(128), receiverTime datetime," +
                         "subject  varchar(255), type varchar(128), text text," +
                         "byteArrayEndian int, byteArray " + getBlobName(dbmeta) +
                         ")";
@@ -328,10 +327,10 @@ public class cMsgLogger {
             try {
                 String sql = "insert into " + table + " (" +
                     "version,domain,sysMsgId," +
-                    "getRequest,getResponse,isNullGetResponse,creator," +
+                    "getRequest,getResponse,isNullGetResponse,payload," +
                     "sender,senderHost,senderTime,senderToken," +
                     "userInt,userTime," +
-                    "receiver,receiverHost,receiverTime,receiverSubscribeId," +
+                    "receiver,receiverHost,receiverTime," +
                     "subject,type,text," +
                     "byteArrayEndian,byteArray" +
                     ") values (" +
