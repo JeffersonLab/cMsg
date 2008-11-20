@@ -93,7 +93,7 @@ public class SmartSockets extends cMsgSubdomainAdapter {
                 cmsg.setReceiver(myClientInfo.getName());
                 cmsg.setReceiverHost(myClientInfo.getClientHost());
                 cmsg.setReceiverTime(new Date());
-                cmsg.setReceiverSubscribeId((Integer)arg);
+                cmsg.setSenderToken((Integer)arg); // change receiverSubscribeId to senderToken
 
                 cmsg.setSubject(msg.getDest());
                 cmsg.setType(msg.getType().getName());
@@ -305,11 +305,11 @@ public class SmartSockets extends cMsgSubdomainAdapter {
      *
      * @param subject {@inheritDoc}
      * @param type {@inheritDoc}
-     * @param receiverSubscribeId {@inheritDoc}
+     * @param id {@inheritDoc}
      * @throws cMsgException if cannot subscribe
      */
-    public void handleSubscribeRequest(String subject, String type,
-                                       int receiverSubscribeId) throws cMsgException {
+    public void handleSubscribeRequest(String subject, String type, int id)
+                    throws cMsgException {
 
         TipcMt mt;
         TipcCb cb;
@@ -338,7 +338,7 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
 
         // create and register callback
-        cb=mySrv.addProcessCb(new ProcessCb(),mt,subject,receiverSubscribeId);
+        cb=mySrv.addProcessCb(new ProcessCb(),mt,subject,id);
         if(cb==null) {
             cMsgException ce = new cMsgException("?unable to create callback");
             ce.setReturnCode(1);
@@ -369,7 +369,7 @@ public class SmartSockets extends cMsgSubdomainAdapter {
 
 
         // hash callbacks by id
-        callbacks.put(receiverSubscribeId,cb);
+        callbacks.put(id,cb);
 
         return;
     }
@@ -383,13 +383,13 @@ public class SmartSockets extends cMsgSubdomainAdapter {
      *
      * @param subject {@inheritDoc}
      * @param type {@inheritDoc}
-     * @param receiverSubscribeId {@inheritDoc}
+     * @param id {@inheritDoc}
      */
-    public void handleUnsubscribeRequest(String subject, String type, int receiverSubscribeId) {
+    public void handleUnsubscribeRequest(String subject, String type, int id) {
         try {
-            if(callbacks.containsKey(receiverSubscribeId)) {
-                mySrv.removeProcessCb(callbacks.get(receiverSubscribeId));
-                callbacks.remove(receiverSubscribeId);
+            if(callbacks.containsKey(id)) {
+                mySrv.removeProcessCb(callbacks.get(id));
+                callbacks.remove(id);
             }
         } catch (TipcException e) {
             System.err.println("?unable to unsubscribe from subject " + subject);
