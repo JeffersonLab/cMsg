@@ -119,10 +119,12 @@ public:
   virtual bool   isGetRequest(void)             const throw(cMsgException);
   virtual bool   isGetResponse(void)            const throw(cMsgException);
   virtual bool   isNullGetResponse(void)        const throw(cMsgException);
-  virtual void   makeNullResponse(cMsgMessage &msg)   throw(cMsgException);
-  virtual void   makeNullResponse(cMsgMessage *msg)   throw(cMsgException);
-  virtual void   makeResponse(cMsgMessage &msg)       throw(cMsgException);
-  virtual void   makeResponse(cMsgMessage *msg)       throw(cMsgException);
+
+  virtual void   makeNullResponse(const cMsgMessage &msg)   throw(cMsgException);
+  virtual void   makeNullResponse(const cMsgMessage *msg)   throw(cMsgException);
+  virtual void   makeResponse(const cMsgMessage &msg)       throw(cMsgException);
+  virtual void   makeResponse(const cMsgMessage *msg)       throw(cMsgException);
+
   virtual void   setGetResponse(bool b)               throw(cMsgException);
   virtual void   setNullGetResponse(bool b)           throw(cMsgException);
   virtual string toString(void)                 const throw(cMsgException);
@@ -355,8 +357,8 @@ public:
   virtual string getUDL(void)         const;
   virtual string getName(void)        const;
   virtual string getDescription(void) const;
-  virtual bool   isConnected(void)    const throw(cMsgException);
-  virtual bool   isReceiving(void)    const throw(cMsgException);
+  virtual bool   isConnected(void)    const;
+  virtual bool   isReceiving(void)    const;
   virtual void   setShutdownHandler(cMsgShutdownHandler *handler, void* userArg) throw(cMsgException);
   virtual void   shutdownClients(const string &client, int flag) throw(cMsgException);
   virtual void   shutdownServers(const string &server, int flag) throw(cMsgException);
