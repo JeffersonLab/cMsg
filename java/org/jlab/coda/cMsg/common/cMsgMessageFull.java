@@ -171,7 +171,6 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
         catch (NumberFormatException ex) {
             this.setReceiverTime(new Date());
         }
-        this.setReceiverSubscribeId(Integer.parseInt(e.getAttribute("receiverSubscribeId")));
 
         this.setSubject(e.getAttribute("subject"));
         this.setType(e.getAttribute("type"));
@@ -203,7 +202,6 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
         this.setReceiver(m.getReceiver());
         this.setReceiverHost(m.getReceiverHost());
         this.setReceiverTime(m.getReceiverTime());
-        this.setReceiverSubscribeId(m.getReceiverSubscribeId());
 
         this.setSubject(m.getSubject());
         this.setType(m.getType());
@@ -400,19 +398,6 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
       */
     public void setReceiverTime(Date time) {this.receiverTime = time.getTime();}
 
-
-    /**
-     * Get receiverSubscribe intVal number.
-     * @return intVal number
-     */
-    public int getReceiverSubscribeId() {return receiverSubscribeId;}
-    /**
-     * Set receiverSubscribe intVal number.
-     * @param receiverSubscribeId  intVal number
-     */
-    public void setReceiverSubscribeId(int receiverSubscribeId) {
-        this.receiverSubscribeId = receiverSubscribeId;
-    }
 
 
     // context quantities
