@@ -203,8 +203,10 @@ int clock_gettime(int dummy, struct timespec *t1);
   int    cMsgGetReceiverHost      (const void *vmsg, const char  **receiverHost);
   int    cMsgGetReceiverTime      (const void *vmsg, struct timespec *receiverTime);
   
-  int    cMsgSetByteArrayLength   (      void *vmsg, int  length);
-  int    cMsgGetByteArrayLength   (const void *vmsg, int *length);
+  int    cMsgSetByteArrayLength    (      void *vmsg, int  length);
+  int    cMsgResetByteArrayLength  (      void *vmsg);
+  int    cMsgGetByteArrayLength    (const void *vmsg, int *length);
+  int    cMsgGetByteArrayLengthFull(const void *vmsg, int *length);
   
   int    cMsgSetByteArrayOffset   (      void *vmsg, int  offset);
   int    cMsgGetByteArrayOffset   (const void *vmsg, int *offset);
@@ -213,11 +215,10 @@ int clock_gettime(int dummy, struct timespec *t1);
   int    cMsgGetByteArrayEndian   (const void *vmsg, int *endian);
   int    cMsgNeedToSwap           (const void *vmsg, int *swap);
   
-  int    cMsgSetByteArray         (      void *vmsg, char  *array);
+  int    cMsgSetByteArray         (      void *vmsg, char *array, int length);
+  int    cMsgSetByteArrayNoCopy   (      void *vmsg, char *array, int length);
   int    cMsgGetByteArray         (const void *vmsg, char **array);
   
-  int    cMsgSetByteArrayAndLimits(      void *vmsg, char *array, int offset, int length);
-  int    cMsgCopyByteArray        (      void *vmsg, char *array, int offset, int length);
   /* message context stuff */
   int    cMsgGetSubscriptionDomain (const void *vmsg, const char **domain);
   int    cMsgGetSubscriptionSubject(const void *vmsg, const char **subject);

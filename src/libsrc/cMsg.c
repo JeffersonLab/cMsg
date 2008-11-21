@@ -2303,12 +2303,13 @@ static void initMessage(cMsgMessage_t *msg) {
     msg->text        = NULL;
     msg->byteArray   = NULL;
     
-    msg->byteArrayOffset  = 0;
-    msg->byteArrayLength  = 0;
-    msg->reserved         = 0;
-    msg->userInt          = 0;
-    msg->userTime.tv_sec  = 0;
-    msg->userTime.tv_nsec = 0;
+    msg->byteArrayOffset     = 0;
+    msg->byteArrayLength     = 0;
+    msg->byteArrayLengthFull = 0;
+    msg->reserved            = 0;
+    msg->userInt             = 0;
+    msg->userTime.tv_sec     = 0;
+    msg->userTime.tv_nsec    = 0;
 
     msg->sender             = NULL;
     msg->senderHost         = NULL;
@@ -3340,90 +3341,16 @@ int cMsgGetUserTime(const void *vmsg, struct timespec *userTime) {
 /*-------------------------------------------------------------------*/
 
 /**
- * This routine sets the length of a message's byte array.
- *
- * @param vmsg pointer to message
- * @param length byte array's length (in bytes)
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL or length is negative
- */   
-int cMsgSetByteArrayLength(void *vmsg, int length) {
-
-  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
-
-  if (length < 0)  return(CMSG_BAD_ARGUMENT);
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  
-  msg->byteArrayLength = length;
-
-  return(CMSG_OK);
-}
-
-/**
- * This routine gets the length of a message's byte array.
- *
- * @param vmsg pointer to message
- * @param length int pointer to be filled with byte array length (in bytes)
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if either arg is NULL
- */   
-int cMsgGetByteArrayLength(const void *vmsg, int *length) {
-
-  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
-
-  if (msg == NULL || length == NULL) return(CMSG_BAD_ARGUMENT);
-  *length = msg->byteArrayLength;
-  return (CMSG_OK);
-}
-
-/*-------------------------------------------------------------------*/
-/*-------------------------------------------------------------------*/
-
-/**
- * This routine sets the offset of a message's byte array.
- *
- * @param vmsg pointer to message
- * @param offset byte array's offset index
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL
- */   
-int cMsgSetByteArrayOffset(void *vmsg, int offset) {
-
-  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
-
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  
-  msg->byteArrayOffset = offset;
-
-  return(CMSG_OK);
-}
-
-/**
- * This routine gets the offset of a message's byte array.
- *
- * @param vmsg pointer to message
- * @param offset int pointer to be filled with byte array offset index
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if either arg is NULL
- */   
-int cMsgGetByteArrayOffset(const void *vmsg, int *offset) {
-
-  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
-
-  if (msg == NULL || offset == NULL) return(CMSG_BAD_ARGUMENT);
-  *offset = msg->byteArrayOffset;
-  return (CMSG_OK);
-}
-
-/*-------------------------------------------------------------------*/
-/*-------------------------------------------------------------------*/
-
-/**
  * This routine sets the endianness of the byte array data.
+ * Valid values are:
+ *<ul>
+ *<li>{@link CMSG_ENDIAN_BIG}
+ *<li>{@link CMSG_ENDIAN_LITTLE}
+ *<li>{@link CMSG_ENDIAN_LOCAL}
+ *<li>{@link CMSG_ENDIAN_NOTLOCAL}
+ *<li>{@link CMSG_ENDIAN_SWITCH}
+ *</ul>
+ *
  * @param vmsg pointer to message
  * @param endian byte array's endianness
  *
@@ -3496,6 +3423,11 @@ int cMsgSetByteArrayEndian(void *vmsg, int endian) {
 
 /**
  * This routine gets the endianness of the byte array data.
+ * Valid returned values are:
+ *<ul>
+ *<li>{@link CMSG_ENDIAN_BIG}
+ *<li>{@link CMSG_ENDIAN_LITTLE}
+ *</ul>
  *
  * @param vmsg pointer to message
  * @param endian int pointer to be filled with byte array data endianness
@@ -3563,86 +3495,242 @@ int cMsgNeedToSwap(const void *vmsg, int *swap) {
 /*-------------------------------------------------------------------*/
 
 /**
- * This routine sets a message's byte array by setting the pointer
- * and NOT copying the data.
+ * This routine sets the region-of-interest length of a message's byte array.
+ * This may be smaller than the full length of the array if the user is
+ * only interested in a portion of the array. If the byte array is null,
+ * all non-negative values are accepted.
  *
  * @param vmsg pointer to message
- * @param array byte array
+ * @param length byte array's length (in bytes)
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_OUT_OF_RANGE if offset + length is beyond array bounds
+ * @returns CMSG_BAD_ARGUMENT if message is NULL or length < 0
+ */   
+int cMsgSetByteArrayLength(void *vmsg, int length) {
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+
+  if (length < 0 || msg == NULL) return(CMSG_BAD_ARGUMENT);
+  
+  if (msg->byteArray == NULL) {
+    msg->byteArrayLength = length;
+    return(CMSG_OK);
+  }
+    
+  if ((msg->byteArrayOffset + length) > msg->byteArrayLengthFull) {
+    return(CMSG_OUT_OF_RANGE);
+  }
+  
+  msg->byteArrayLength = length;
+  return(CMSG_OK);
+}
+
+/**
+ * This routine resets the region-of-interest length of a message's byte array
+ * to its total length or zero if there is none.
+ *
+ * @param vmsg pointer to message
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  */   
-int cMsgSetByteArray(void *vmsg, char *array) {
+int cMsgResetByteArrayLength(void *vmsg) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  msg->bits &= ~CMSG_BYTE_ARRAY_IS_COPIED; /* byte array is NOT copied */
-  msg->byteArray = array;
 
+  if (msg->byteArray == NULL) {
+    msg->byteArrayLength = 0;
+    return(CMSG_OK);
+  }
+   
+  msg->byteArrayLength = msg->byteArrayLengthFull;
   return(CMSG_OK);
 }
 
-
 /**
- * This routine sets a message's byte array by setting the pointer
- * and NOT copying the data. It also sets the offset index into and
- * length of the array.
+ * This routine gets the region-of-interest length of a message's byte array.
  *
  * @param vmsg pointer to message
- * @param array byte array
- * @param offset offset of index into array
- * @param length number of bytes in array
+ * @param length int pointer to be filled with byte array length (in bytes)
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message is NULL or length is negative
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
  */   
-int cMsgSetByteArrayAndLimits(void *vmsg, char *array, int offset, int length) {
+int cMsgGetByteArrayLength(const void *vmsg, int *length) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (length < 0)  return(CMSG_BAD_ARGUMENT);
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || length == NULL) return(CMSG_BAD_ARGUMENT);
+  *length = msg->byteArrayLength;
+  return (CMSG_OK);
+}
+
+/**
+ * This routine gets the total length of a message's byte array.
+ *
+ * @param vmsg pointer to message
+ * @param length int pointer to be filled with byte array's total length (in bytes)
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
+ */   
+int cMsgGetByteArrayLengthFull(const void *vmsg, int *length) {
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+
+  if (msg == NULL || length == NULL) return(CMSG_BAD_ARGUMENT);
+  *length = msg->byteArrayLengthFull;
+  return (CMSG_OK);
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine sets the region-of-interest offset of a message's byte array.
+ * This may be non-zero if the user is only interested in a portion of
+ * the array. If the byte array is null, all non-negative values are accepted.
+ *
+ * @param vmsg pointer to message
+ * @param offset byte array's offset index
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_OUT_OF_RANGE if offset + length is beyond array bounds
+ * @returns CMSG_BAD_ARGUMENT if message is NULL or offset < 0
+ */   
+int cMsgSetByteArrayOffset(void *vmsg, int offset) {
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+
+  if (offset < 0 || msg == NULL) return(CMSG_BAD_ARGUMENT);
   
-  msg->bits &= ~CMSG_BYTE_ARRAY_IS_COPIED; /* byte array is NOT copied */
-  msg->byteArray       = array;
+  if (msg->byteArray == NULL) {
+    msg->byteArrayOffset = offset;
+    return(CMSG_OK);
+  }
+    
+  if ((msg->byteArrayLength + offset) > msg->byteArrayLengthFull) {
+    return(CMSG_OUT_OF_RANGE);
+  }
+    
   msg->byteArrayOffset = offset;
-  msg->byteArrayLength = length;
+
+  return(CMSG_OK);
+}
+
+/**
+ * This routine gets the region-of-interest offset of a message's byte array.
+ *
+ * @param vmsg pointer to message
+ * @param offset int pointer to be filled with byte array offset index
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
+ */   
+int cMsgGetByteArrayOffset(const void *vmsg, int *offset) {
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+
+  if (msg == NULL || offset == NULL) return(CMSG_BAD_ARGUMENT);
+  *offset = msg->byteArrayOffset;
+  return (CMSG_OK);
+}
+
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine sets a message's byte array by copying the array arg
+ * pointer but <b>NOT</b> the data pointed to. The length arg sets the total
+ * length of the array in bytes. Any pre-existing byte array data is freed
+ * if it was copied into the given message. If the given array is null,
+ * the message's byte array is set to null and both offset & length are
+ * set to 0.
+ *
+ * @param vmsg pointer to message
+ * @param array byte array
+ * @param length number of bytes in array
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message is NULL or length is < 0
+ */   
+int cMsgSetByteArrayNoCopy(void *vmsg, char *array, int length) {
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+
+  if (msg == NULL || length < 0) return(CMSG_BAD_ARGUMENT);
+
+  /* if there is a pre-existing array that was copied in, free it */
+  if (msg->bits & CMSG_BYTE_ARRAY_IS_COPIED == CMSG_BYTE_ARRAY_IS_COPIED) {
+    if (msg->byteArray != NULL) free(msg->byteArray);
+  }
+
+  if (array == NULL) {
+    msg->byteArray           = NULL;
+    msg->byteArrayOffset     = 0;
+    msg->byteArrayLength     = 0;
+    msg->byteArrayLengthFull = 0;
+    return(CMSG_OK);
+  }
+  
+  msg->bits &= ~CMSG_BYTE_ARRAY_IS_COPIED; /* byte array is NOT copied */
+  msg->byteArray           = array;
+  msg->byteArrayOffset     = 0;
+  msg->byteArrayLength     = length;
+  msg->byteArrayLengthFull = length;
 
   return(CMSG_OK);
 }
 
 
 /**
- * This routine sets a message's byte array by copying the data
- * into a newly allocated array using the given offset and length
- * values. No existing byte array memory is freed. The offset is
- * reset to zero while length is set to the given value.
+ * This routine sets a message's byte array by copying "length" number
+ * of bytes into a newly allocated array. The offset is reset to 0
+ * while the length is set to the given value. Any pre-existing byte array
+ * memory is freed if it was copied into the given message. If the given
+ * array is null, the message's byte array is set to null and both
+ * offset & length are set to 0.
  *
  * @param vmsg pointer to message
  * @param array byte array
- * @param offset offset of index into array
  * @param length number of bytes in array
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if message or array is NULL, or length is negative
- */   
-int cMsgCopyByteArray(void *vmsg, char *array, int offset, int length) {
+ * @returns CMSG_BAD_ARGUMENT if message is NULL, or length < 0
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
+ */
+int cMsgSetByteArray(void *vmsg, char *array, int length) {
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (length < 0)  return(CMSG_BAD_ARGUMENT);
-  if (msg == NULL || array == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || length < 0) return(CMSG_BAD_ARGUMENT);
+
+  /* if there is a pre-existing array that was copied in, free it */
+  if (msg->bits & CMSG_BYTE_ARRAY_IS_COPIED == CMSG_BYTE_ARRAY_IS_COPIED) {
+    if (msg->byteArray != NULL) free(msg->byteArray);
+  }
   
-  msg->byteArray = (char *) malloc(msg->byteArrayLength);
+  if (array == NULL) {
+    msg->byteArray           = NULL;
+    msg->byteArrayOffset     = 0;
+    msg->byteArrayLength     = 0;
+    msg->byteArrayLengthFull = 0;
+    return(CMSG_OK);
+  }
+  
+  msg->byteArray = (char *) malloc(length);
   if (msg->byteArray == NULL) {
     return (CMSG_OUT_OF_MEMORY);
   }
 
-  memcpy(msg->byteArray, &(array[offset]), (size_t) length);
+  memcpy(msg->byteArray, (void *)array, (size_t)length);
   msg->bits |= CMSG_BYTE_ARRAY_IS_COPIED; /* byte array IS copied */
-  msg->byteArrayOffset = 0;
-  msg->byteArrayLength = length;
+  msg->byteArrayOffset     = 0;
+  msg->byteArrayLength     = length;
+  msg->byteArrayLengthFull = length;
 
   return(CMSG_OK);
 }
@@ -3929,7 +4017,7 @@ static char *format1a =
     "%s     <text>\n"
     "<![CDATA[%s]]>\n"
     "%s     </text>\n"
-    "%s     <binary endian=\"%s\" nbytes=\"%d\" />\n"
+    "%s     <binary endian=\"%s\" nbytes=\"%d\">\n"
     "<![CDATA[%n";
     
 static char *format1b =
@@ -4073,10 +4161,10 @@ static int messageStringSize(const void *vmsg, int margin, int binary, int compa
 static int cMsgToStringImpl(const void *vmsg, char **string, int level, int margin,
                             int binary, int compactPayload) {
 
-  int j, slen, len, count;  
-  char *buffer=NULL, *pchar, *indent;
   time_t now;
-  char nowBuf[32],userTimeBuf[32],senderTimeBuf[32],receiverTimeBuf[32];
+  int    j, slen, len, count, endian;
+  char   *buffer=NULL, *pchar, *indent, *endianTxt;
+  char   nowBuf[32],userTimeBuf[32],senderTimeBuf[32],receiverTimeBuf[32];
 #if defined VXWORKS || defined sun
   size_t buflen = sizeof(nowBuf);
 #endif
@@ -4139,14 +4227,13 @@ static int cMsgToStringImpl(const void *vmsg, char **string, int level, int marg
       buffer = pchar;    
   }
 
+  /* find endian of byte array (if no byte array, default is local endian) */
+  cMsgGetByteArrayEndian(vmsg, &endian);
+  if (endian == CMSG_ENDIAN_BIG) endianTxt = "big";
+  else endianTxt = "little";
+  
   /* fill buffer with everything except payload and ending XML */
-  if (binary && msg->byteArray != NULL && msg->byteArrayLength > 0) {
-    int   endian;
-    char *endianTxt;
-    
-    cMsgGetByteArrayEndian(vmsg, &endian);
-    if (endian == CMSG_ENDIAN_BIG) endianTxt = "big";
-    else endianTxt = "little";
+  if (binary && msg->byteArray != NULL && msg->byteArrayLength > 0) {    
     
     sprintf(pchar, format1a,
             indent, nowBuf, indent, msg->version, indent, msg->domain,
@@ -4176,7 +4263,7 @@ static int cMsgToStringImpl(const void *vmsg, char **string, int level, int marg
             indent, msg->userInt, indent, userTimeBuf,
             indent, msg->receiver,indent, msg->receiverHost, indent, receiverTimeBuf,
             indent, msg->subject, indent, msg->type, indent, msg->text, indent,
-            indent, "big", msg->byteArrayLength, &len);  
+            indent, endianTxt, msg->byteArrayLength, &len);
   }
   
   pchar += len;

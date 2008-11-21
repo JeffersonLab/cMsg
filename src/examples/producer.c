@@ -262,7 +262,7 @@ printf("Setting UDL = %s\n", UDL);
   }
   else {
     printf("  setting byte array\n");
-    cMsgSetByteArrayAndLimits(msg, bytes, 0, msgSize);
+    cMsgSetByteArrayNoCopy(msg, bytes, msgSize);
   }
    
   while (mainloops-- > 0) {

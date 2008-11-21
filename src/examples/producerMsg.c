@@ -249,7 +249,7 @@ int main(int argc,char **argv) {
   }
   else {
     printf("  setting byte array\n");
-    cMsgSetByteArrayAndLimits(msg1, bytes, 0, msgSize);
+    cMsgSetByteArrayNoCopy(msg1, bytes, msgSize);
   }
    
   while (mainloops-- > 0) {
