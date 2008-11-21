@@ -668,7 +668,7 @@ void cMsgPayloadReset(void *vmsg) {
  * This routine removes all the user-added items in the given message's payload.
  * The payload may still contain fields added by the cMsg system.
  * If there are no items left in the payload, this routine is equivalent to
- * {@link cMsgPayloadWipeout}. 
+ * {@link cMsgPayloadReset}. 
  *
  * @param vmsg pointer to message
  */   
