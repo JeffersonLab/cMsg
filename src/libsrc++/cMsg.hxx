@@ -93,17 +93,20 @@ public:
   virtual void   setType(const string &type)          throw(cMsgException);
   virtual string getText(void)                  const throw(cMsgException);
   virtual void   setText(const string &text)          throw(cMsgException);
+  
   virtual void   setByteArrayLength(int length)       throw(cMsgException);
-  virtual int    getByteArrayLength(void)       const throw(cMsgException);
+  virtual void   resetByteArrayLength();
+  virtual int    getByteArrayLength(void);
+  virtual int    getByteArrayLengthFull(void);
   virtual void   setByteArrayOffset(int offset)       throw(cMsgException);
-  virtual int    getByteArrayOffset(void)       const throw(cMsgException);
-  virtual int    getByteArrayEndian(void)       const throw(cMsgException);
+  virtual int    getByteArrayOffset(void);  
+  virtual int    getByteArrayEndian(void);
   virtual void   setByteArrayEndian(int endian)       throw(cMsgException);
-  virtual bool   needToSwap(void)               const throw(cMsgException);
-  virtual void   setByteArray(char *array)            throw(cMsgException);
-  virtual char*  getByteArray(void)             const throw(cMsgException);
-  virtual void   setByteArrayAndLimits(char *array, int offset, int length) throw(cMsgException);
-  virtual void   copyByteArray(char* array, int offset, int length) throw(cMsgException);
+  virtual bool   needToSwap(void)               const throw(cMsgException);  
+  virtual char*  getByteArray(void);
+  virtual void   setByteArray(char *array, int length)       throw(cMsgException);
+  virtual void   setByteArrayNoCopy(char* array, int length) throw(cMsgException);
+
   virtual int    getUserInt(void)               const throw(cMsgException);
   virtual void   setUserInt(int i)                    throw(cMsgException);
   virtual struct timespec getUserTime(void)     const throw(cMsgException);
