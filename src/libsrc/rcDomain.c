@@ -937,7 +937,7 @@ int cmsg_rc_send(void *domainId, void *vmsg) {
   }
 
   /* use UDP to send to rc Server */
-  if (msg->context.udpSend) {
+  if (msg->udpSend) {
     return udpSend(domain, msg);
   }
 

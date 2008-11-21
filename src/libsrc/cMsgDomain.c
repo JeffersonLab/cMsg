@@ -1408,7 +1408,7 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
   }
 
   /* send using udp socket */
-  if (msg->context.udpSend) {
+  if (msg->udpSend) {
     return udpSend(domain, msg);
   }
 
@@ -1701,7 +1701,7 @@ static int udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
           lenPayloadText + lenText + lenByteArray;
     outGoing[3] = htonl(len);
 
-    if (msg->context.udpSend && len > CMSG_BIGGEST_UDP_BUFFER_SIZE) {
+    if (msg->udpSend && len > CMSG_BIGGEST_UDP_BUFFER_SIZE) {
       cMsgConnectReadUnlock(domain);
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         printf("cmsg_cmsg_send: message is too big for UDP packet\n");
