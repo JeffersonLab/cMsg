@@ -21,7 +21,6 @@ import java.util.Date;
 import javax.xml.parsers.* ;
 import org.w3c.dom.*;
 import org.xml.sax.*;
-import org.jlab.coda.cMsg.common.cMsgMessageContextInterface;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgException;
 
