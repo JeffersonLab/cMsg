@@ -431,7 +431,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
      * not been expanded.
      * @return true if message has an expanded payload, else false.
      */
-    public boolean expandedPayload() {
+    public boolean isExpandedPayload() {
         return ((info & expandedPayload) == expandedPayload);
     }
 
@@ -440,7 +440,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
      * Set the "expanded-payload" bit of a message.
      * @param ep boolean which is true if msg has an expanded payload, else false
      */
-    public void expandedPayload(boolean ep) {
+    public void setExpandedPayload(boolean ep) {
         info = ep ? info | expandedPayload  :  info & ~expandedPayload;
     }
 
@@ -451,14 +451,18 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
      * a hashmap containing all cMsgPayloadItems.
      */
     public void expandPayload() {
-        expandedPayload(true);
-        if (expandedPayload() || payloadText == null) return;
+        if (isExpandedPayload() || payloadText == null) {
+            setExpandedPayload(true);
+            return;
+        }
+        
         try {
             setFieldsFromText(payloadText, allFields);
+            setExpandedPayload(true);
         }
         catch (cMsgException e) {
             // should not be thrown if internal code is bug-free
-            expandedPayload(false);
+            setExpandedPayload(false);
         }
     }
 
@@ -468,9 +472,12 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
      * then unexpand or compress the payload by removing all payload hashmap items.
      */
     public void compressPayload() {
-        expandedPayload(false);
-        if (!expandedPayload() || items.size() > 0) return;
+        if (!isExpandedPayload() || items.size() < 1) {
+            setExpandedPayload(false);
+            return;
+        }
         items.clear();
+        setExpandedPayload(false);
     }
 
 

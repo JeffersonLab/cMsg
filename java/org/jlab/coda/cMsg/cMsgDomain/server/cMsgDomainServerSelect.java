@@ -1268,7 +1268,7 @@ class cMsgDomainServerSelect extends Thread {
             // mark msg as having been sent over wire
             msg.setInfo(cMsgUtilities.bytesToInt(array, index) | cMsgMessage.wasSent); index += 4;
             // mark msg as unexpanded
-            msg.expandedPayload(false);
+            msg.setExpandedPayload(false);
 
             // time message was sent = 2 ints (hightest byte first)
             // in milliseconds since midnight GMT, Jan 1, 1970
@@ -1598,7 +1598,7 @@ class cMsgDomainServerSelect extends Thread {
             // mark msg as having been sent over wire
             msg.setInfo(cMsgUtilities.bytesToInt(array, index) | cMsgMessage.wasSent); index += 4;
             // mark msg as unexpanded
-            msg.expandedPayload(false);
+            msg.setExpandedPayload(false);
 
             // time message was sent = 2 ints (hightest byte first)
             // in milliseconds since midnight GMT, Jan 1, 1970
