@@ -1195,7 +1195,7 @@ public class cMsgMessage implements Cloneable, Serializable {
                       indent, userInt, indent, useTime,
                       indent, receiver, indent, receiverHost, indent, receiveTime,
                       indent, subject, indent, type, indent, text, indent,
-                      indent, "big", bytes.length, indent);
+                      indent, "big", 0, indent);
             }
             else {
                 wr.printf(format1,
@@ -1207,7 +1207,7 @@ public class cMsgMessage implements Cloneable, Serializable {
                       indent, userInt, indent, useTime,
                       indent, receiver, indent, receiverHost, indent, receiveTime,
                       indent, subject, indent, type, indent, text, indent,
-                      indent, "big", bytes.length, indent);
+                      indent, "big", 0, indent);
             }
         }
 
