@@ -2323,12 +2323,12 @@ static void initMessage(cMsgMessage_t *msg) {
     msg->receiverTime.tv_nsec = 0;
     msg->receiverSubscribeId  = 0;
     
+    msg->udpSend = 0;
     msg->context.domain  = NULL;
     msg->context.subject = NULL;
     msg->context.type    = NULL;
     msg->context.udl     = NULL;
     msg->context.cueSize = NULL;
-    msg->context.udpSend = 0;
 
     return;
   }
@@ -2482,12 +2482,11 @@ int cMsgFreeMessage_r(void **vmsg) {
 
 /**
  * This routine copies a message. Memory is allocated with this
- * function and can be freed by cMsgFreeMessage(). Note that the
- * copy of the byte array will only have byteArrayLength number of
- * bytes. Since in C the original size of the array in unknown,
- * a whole copy cannot be guaranteed unless the orginial message
- * has its offset at zero and its length to be the total length
- * of its array.
+ * function and can be freed by cMsgFreeMessage().
+ * If the given message has a byte array that was copied in, it
+ * is copied again into the new message. Otherwise, if it has a
+ * byte array whose pointer was copied, the new message will point
+ * to the same byte array.
  *
  * @param vmsg pointer to message structure being copied
  *
@@ -2525,15 +2524,16 @@ int cMsgFreeMessage_r(void **vmsg) {
     newMsg->byteArrayOffset     = msg->byteArrayOffset;
     newMsg->byteArrayLength     = msg->byteArrayLength;
     newMsg->historyLengthMax    = msg->historyLengthMax;
-    
+    newMsg->udpSend             = msg->udpSend;
+
     /*-------------------*/
     /* copy over strings */
     /*-------------------*/
     
     /* copy domain */
     if (msg->domain != NULL) {
-        newMsg->domain = (char *) strdup(msg->domain);
-        if (newMsg->domain == NULL) {
+        if ( (newMsg->domain = (char *) strdup(msg->domain)) == NULL) {
+            freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
         }
@@ -2545,9 +2545,8 @@ int cMsgFreeMessage_r(void **vmsg) {
         
     /* copy subject */
     if (msg->subject != NULL) {
-        newMsg->subject = (char *) strdup(msg->subject);
-        if (newMsg->subject == NULL) {
-            if (newMsg->domain != NULL) free(newMsg->domain);
+        if ( (newMsg->subject = (char *) strdup(msg->subject)) == NULL) {
+            freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
         }
@@ -2558,10 +2557,8 @@ int cMsgFreeMessage_r(void **vmsg) {
         
     /* copy type */
     if (msg->type != NULL) {
-        newMsg->type = (char *) strdup(msg->type);
-        if (newMsg->type == NULL) {
-            if (newMsg->domain  != NULL) free(newMsg->domain);
-            if (newMsg->subject != NULL) free(newMsg->subject);
+        if ( (newMsg->type = (char *) strdup(msg->type)) == NULL) {
+            freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
         }
@@ -2572,11 +2569,8 @@ int cMsgFreeMessage_r(void **vmsg) {
         
     /* copy text */
     if (msg->text != NULL) {
-        newMsg->text = (char *) strdup(msg->text);
-        if (newMsg->text == NULL) {
-            if (newMsg->domain  != NULL) free(newMsg->domain);
-            if (newMsg->subject != NULL) free(newMsg->subject);
-            if (newMsg->type    != NULL) free(newMsg->type);
+        if ( (newMsg->text = (char *) strdup(msg->text)) == NULL) {
+            freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
         }
@@ -2587,12 +2581,8 @@ int cMsgFreeMessage_r(void **vmsg) {
     
     /* copy sender */
     if (msg->sender != NULL) {
-        newMsg->sender = (char *) strdup(msg->sender);
-        if (newMsg->sender == NULL) {
-            if (newMsg->domain  != NULL) free(newMsg->domain);
-            if (newMsg->subject != NULL) free(newMsg->subject);
-            if (newMsg->type    != NULL) free(newMsg->type);
-            if (newMsg->text    != NULL) free(newMsg->text);
+        if ( (newMsg->sender = (char *) strdup(msg->sender)) == NULL) {
+            freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
         }
@@ -2603,13 +2593,8 @@ int cMsgFreeMessage_r(void **vmsg) {
     
     /* copy senderHost */
     if (msg->senderHost != NULL) {
-        newMsg->senderHost = (char *) strdup(msg->senderHost);
-        if (newMsg->senderHost == NULL) {
-            if (newMsg->domain  != NULL) free(newMsg->domain);
-            if (newMsg->subject != NULL) free(newMsg->subject);
-            if (newMsg->type    != NULL) free(newMsg->type);
-            if (newMsg->text    != NULL) free(newMsg->text);
-            if (newMsg->sender  != NULL) free(newMsg->sender);
+        if ( (newMsg->senderHost = (char *) strdup(msg->senderHost)) == NULL) {
+            freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
         }
@@ -2617,18 +2602,11 @@ int cMsgFreeMessage_r(void **vmsg) {
     else {
         newMsg->senderHost = NULL;
     }
-    
-    
+        
     /* copy receiver */
     if (msg->receiver != NULL) {
-        newMsg->receiver = (char *) strdup(msg->receiver);
-        if (newMsg->receiver == NULL) {
-            if (newMsg->domain     != NULL) free(newMsg->domain);
-            if (newMsg->subject    != NULL) free(newMsg->subject);
-            if (newMsg->type       != NULL) free(newMsg->type);
-            if (newMsg->text       != NULL) free(newMsg->text);
-            if (newMsg->sender     != NULL) free(newMsg->sender);
-            if (newMsg->senderHost != NULL) free(newMsg->senderHost);
+        if ( (newMsg->receiver = (char *) strdup(msg->receiver)) == NULL) {
+            freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
         }
@@ -2639,15 +2617,8 @@ int cMsgFreeMessage_r(void **vmsg) {
         
     /* copy receiverHost */
     if (msg->receiverHost != NULL) {
-        newMsg->receiverHost = (char *) strdup(msg->receiverHost);
-        if (newMsg->receiverHost == NULL) {
-            if (newMsg->domain     != NULL) free(newMsg->domain);
-            if (newMsg->subject    != NULL) free(newMsg->subject);
-            if (newMsg->type       != NULL) free(newMsg->type);
-            if (newMsg->text       != NULL) free(newMsg->text);
-            if (newMsg->sender     != NULL) free(newMsg->sender);
-            if (newMsg->senderHost != NULL) free(newMsg->senderHost);
-            if (newMsg->receiver   != NULL) free(newMsg->receiver);
+        if ( (newMsg->receiverHost = (char *) strdup(msg->receiverHost)) == NULL) {
+            freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
         }
@@ -2663,14 +2634,7 @@ int cMsgFreeMessage_r(void **vmsg) {
     if (err == CMSG_OK && hasPayload) {
       err = cMsgPayloadCopy(vmsg, newMsg);
       if (err != CMSG_OK) {
-          if (newMsg->domain       != NULL) free(newMsg->domain);
-          if (newMsg->subject      != NULL) free(newMsg->subject);
-          if (newMsg->type         != NULL) free(newMsg->type);
-          if (newMsg->text         != NULL) free(newMsg->text);
-          if (newMsg->sender       != NULL) free(newMsg->sender);
-          if (newMsg->senderHost   != NULL) free(newMsg->senderHost);
-          if (newMsg->receiver     != NULL) free(newMsg->receiver);
-          if (newMsg->receiverHost != NULL) free(newMsg->receiverHost);
+          freeMessage((void *)newMsg);
           free(newMsg);
           return NULL;         
       }
@@ -2680,27 +2644,18 @@ int cMsgFreeMessage_r(void **vmsg) {
     /* copy over binary data */
     /*-----------------------*/
     
-   /* copy byte array */
+    /* copy byte array */
     if (msg->byteArray != NULL) {
       /* if byte array was copied into msg, copy it again */
       if ((msg->bits & CMSG_BYTE_ARRAY_IS_COPIED) > 0) {
-        newMsg->byteArray = (char *) malloc(msg->byteArrayLength);
+        newMsg->byteArray = (char *) malloc(msg->byteArrayLengthFull);
         if (newMsg->byteArray == NULL) {
-            if (newMsg->domain       != NULL) free(newMsg->domain);
-            if (newMsg->subject      != NULL) free(newMsg->subject);
-            if (newMsg->type         != NULL) free(newMsg->type);
-            if (newMsg->text         != NULL) free(newMsg->text);
-            if (newMsg->sender       != NULL) free(newMsg->sender);
-            if (newMsg->senderHost   != NULL) free(newMsg->senderHost);
-            if (newMsg->receiver     != NULL) free(newMsg->receiver);
-            if (newMsg->receiverHost != NULL) free(newMsg->receiverHost);
+            freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
         }
-        memcpy(newMsg->byteArray,
-               &((msg->byteArray)[msg->byteArrayOffset]),
-               (size_t) msg->byteArrayLength);
-        newMsg->byteArrayOffset = 0;
+        memcpy(newMsg->byteArray, (void *)msg->byteArray,
+                                  (size_t)msg->byteArrayLengthFull);
       }
       /* else copy pointer only */
       else {
@@ -2709,6 +2664,40 @@ int cMsgFreeMessage_r(void **vmsg) {
     }
     else {
       newMsg->byteArray = NULL;
+    }
+
+    /*-------------------------------------------------------*/
+    /* copy over context (only important inside of callback) */
+    /*-------------------------------------------------------*/
+    
+    newMsg->context.cueSize = msg->context.cueSize;
+    if (msg->context.domain != NULL) {
+      if ( (newMsg->context.domain = (char *) strdup(msg->context.domain)) == NULL) {
+        freeMessage((void *)newMsg);
+        free(newMsg);
+        return NULL;
+      }
+    }
+    if (msg->context.subject != NULL) {
+      if ( (newMsg->context.subject = (char *) strdup(msg->context.subject)) == NULL) {
+        freeMessage((void *)newMsg);
+        free(newMsg);
+        return NULL;
+      }
+    }
+    if (msg->context.type != NULL) {
+      if ( (newMsg->context.type = (char *) strdup(msg->context.type)) == NULL) {
+        freeMessage((void *)newMsg);
+        free(newMsg);
+        return NULL;
+      }
+    }
+    if (msg->context.udl != NULL) {
+      if ( (newMsg->context.udl = (char *) strdup(msg->context.udl)) == NULL) {
+        freeMessage((void *)newMsg);
+        free(newMsg);
+        return NULL;
+      }
     }
 
     return (void *)newMsg;
@@ -4834,7 +4823,7 @@ int cMsgSetReliableSend(void *vmsg, int boolean) {
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
   
-  msg->context.udpSend = boolean == 0 ? 1 : 0;
+  msg->udpSend = boolean == 0 ? 1 : 0;
 
   return(CMSG_OK);
 }
@@ -4855,7 +4844,7 @@ int cMsgGetReliableSend(void *vmsg, int *boolean) {
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL || boolean == NULL) return(CMSG_BAD_ARGUMENT);
-  *boolean = msg->context.udpSend == 1 ? 0 : 1;
+  *boolean = msg->udpSend == 1 ? 0 : 1;
   return (CMSG_OK);
 }
 

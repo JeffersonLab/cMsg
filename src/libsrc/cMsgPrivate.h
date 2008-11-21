@@ -273,10 +273,6 @@ typedef struct cMsgMessageContext_t {
   char *type;     /**< Subscription's type. */
   char *udl;      /**< UDL of connection. */
   int  *cueSize;  /**< Callback's cue size. */
-  
-  /* sending context stuff */  
-  int udpSend;    /**< if true (non-zero) use udp to send, else use TCP */
-  
 } cMsgMessageContext;
 
 
@@ -372,6 +368,7 @@ typedef struct cMsg_t {
   int     receiverSubscribeId; /**< Unique id used by system in subscribes and subscribeAndGets. */  
 
   /* context */
+  int udpSend;                /**< if true (non-zero) use UDP to send, else use TCP */
   cMsgMessageContext context; /**< struct with info about context of this message. */
   
   struct cMsg_t *next; /**< For using messages in a linked list. */
