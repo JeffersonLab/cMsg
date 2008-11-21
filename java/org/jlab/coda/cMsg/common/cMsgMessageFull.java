@@ -426,30 +426,35 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
 
     
     /**
-     * Does this message have a payload that consists of objects in a hashmap
-     * (ie. is "expanded")? Or does it simply have a payloadText field which has
-     * not been expanded.
-     * @return true if message has an expanded payload, else false.
+     * {@inheritDoc}<p/>
+     * This method makes the protected method {@link cMsgMessage#isExpandedPayload}
+     * available to others.
+     * @return {@inheritDoc}
      */
+    @Override
     public boolean isExpandedPayload() {
         return ((info & expandedPayload) == expandedPayload);
     }
 
 
     /**
-     * Set the "expanded-payload" bit of a message.
-     * @param ep boolean which is true if msg has an expanded payload, else false
+     * {@inheritDoc}
+     * @param ep {@inheritDoc}<p/>
+     * This method makes the protected method {@link cMsgMessage#setExpandedPayload}
+     * available to others.
      */
+    @Override
     public void setExpandedPayload(boolean ep) {
         info = ep ? info | expandedPayload  :  info & ~expandedPayload;
     }
 
 
     /**
-     * If this message is unexpanded (has a non-null payloadText field but
-     * no items in its payload hashmap), then expand the payload text into
-     * a hashmap containing all cMsgPayloadItems.
+     * {@inheritDoc}<p/>
+     * This method makes the protected method {@link cMsgMessage#expandPayload}
+     * available to others.
      */
+    @Override
     public void expandPayload() {
         if (isExpandedPayload() || payloadText == null) {
             setExpandedPayload(true);
@@ -482,15 +487,14 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
 
 
     /**
-     * This method makes the protected method {@link cMsgMessage#setFieldsFromText} available
-     * to other cMsg system classes.
+     * {@inheritDoc}<p/>
+     * This method makes the protected method {@link cMsgMessage#setFieldsFromText}
+     * available to others.
      *
-     * @param text string sent over network to be unmarshalled
-     * @param flag if {@link cMsgMessage#systemFieldsOnly}, set system msg fields only,
-     *             if {@link cMsgMessage#payloadFieldsOnly} set payload msg fields only,
-     *             and if {@link cMsgMessage#allFields} set both
-     * @return index index pointing just past last character in text that was parsed
-     * @throws cMsgException if the text is in a bad format or the text arg is null
+     * @param text {@inheritDoc}
+     * @param flag {@inheritDoc}
+     * @return {@inheritDoc}
+     * @throws {@inheritDoc}
      */
     @Override
     public int setFieldsFromText(String text, int flag) throws cMsgException {

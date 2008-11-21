@@ -1546,10 +1546,55 @@ public class cMsgMessage implements Cloneable, Serializable {
     }
 
     /**
+     * Does this message have a payload that consists of objects in a hashmap
+     * (ie. is "expanded")? Or does it simply have a payloadText field which has
+     * not been expanded.
+     * @return true if message has an expanded payload, else false.
+     */
+    protected boolean isExpandedPayload() {
+        return ((info & expandedPayload) == expandedPayload);
+    }
+
+
+    /**
+     * Set the "expanded-payload" bit of a message.
+     * @param ep boolean which is true if msg has an expanded payload, else false
+     */
+    protected void setExpandedPayload(boolean ep) {
+        info = ep ? info | expandedPayload  :  info & ~expandedPayload;
+    }
+
+
+    /**
+     * If this message is unexpanded (has a non-null payloadText field but
+     * no items in its payload hashmap), then expand the payload text into
+     * a hashmap containing all cMsgPayloadItems.
+     */
+    protected void expandPayload() {
+        if (isExpandedPayload() || payloadText == null) {
+            setExpandedPayload(true);
+            return;
+        }
+
+        try {
+            setFieldsFromText(payloadText, allFields);
+            setExpandedPayload(true);
+        }
+        catch (cMsgException e) {
+            // should not be thrown if internal code is bug-free
+            setExpandedPayload(false);
+        }
+    }
+
+
+    /**
      * Gets an unmodifiable (read only) hashmap of all payload items.
      * @return a hashmap of all payload items.
      */
     public Map<String,cMsgPayloadItem> getPayloadItems() {
+        if (!isExpandedPayload()) {
+            expandPayload();
+        }
         return Collections.unmodifiableMap(items);
     }
 
