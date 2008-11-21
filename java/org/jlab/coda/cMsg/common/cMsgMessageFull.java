@@ -433,7 +433,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
      */
     @Override
     public boolean isExpandedPayload() {
-        return ((info & expandedPayload) == expandedPayload);
+        return super.isExpandedPayload();
     }
 
 
@@ -445,7 +445,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
      */
     @Override
     public void setExpandedPayload(boolean ep) {
-        info = ep ? info | expandedPayload  :  info & ~expandedPayload;
+        super.setExpandedPayload(ep);
     }
 
 
@@ -456,19 +456,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
      */
     @Override
     public void expandPayload() {
-        if (isExpandedPayload() || payloadText == null) {
-            setExpandedPayload(true);
-            return;
-        }
-        
-        try {
-            setFieldsFromText(payloadText, allFields);
-            setExpandedPayload(true);
-        }
-        catch (cMsgException e) {
-            // should not be thrown if internal code is bug-free
-            setExpandedPayload(false);
-        }
+        super.expandPayload();
     }
 
 
