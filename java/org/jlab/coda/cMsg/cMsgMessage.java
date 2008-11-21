@@ -180,6 +180,14 @@ public class cMsgMessage implements Cloneable, Serializable {
     /** Initial maximum number of entries a message keeps when recording the history of various parameters. */
     private static final int historyLengthInit = 20;
 
+    // private/local quantities
+
+    /** Was the byte array copied in or only a reference assigned? */
+    boolean byteArrayCopied;
+
+    /** Maximum number of entries a message keeps when recording the history of various parameters. */
+    private int historyLengthMax;
+
     // general quantities
 
     /**
@@ -208,8 +216,6 @@ public class cMsgMessage implements Cloneable, Serializable {
     protected int version;
     /** Class member reserved for future use. */
     protected int reserved;
-    /** Maximum number of entries a message keeps when recording the history of various parameters. */
-    private int historyLengthMax;
 
     // user-settable quantities
 
@@ -282,6 +288,8 @@ public class cMsgMessage implements Cloneable, Serializable {
                 result.items.put(entry.getKey(), (cMsgPayloadItem)entry.getValue().clone());
             }
             if (bytes != null) {
+                // Making a clone means this object must be independent
+                // of the object being cloned. Thus we MUST copy the byte array.
                 result.bytes = bytes.clone();
             }
             return result;
@@ -313,7 +321,11 @@ public class cMsgMessage implements Cloneable, Serializable {
 
 
     /**
-     * Turns the destination message into a complete copy of the source message.
+     * This method turns the destination message into a complete copy of the source message.
+     * If the source msg has a byte array it is copied into the dest msg
+     * only if it was originally copied into the source msg, else only the reference
+     * is copied.
+     * 
      * @param src message to be copied
      * @param dst message to be copied to
      */
@@ -334,7 +346,12 @@ public class cMsgMessage implements Cloneable, Serializable {
         dst.userInt             = src.userInt;
         dst.userTime            = src.userTime;
         if (src.bytes != null) {
-            dst.bytes           = src.bytes.clone();
+            if (src.byteArrayCopied) {
+                dst.bytes       = src.bytes.clone();
+            }
+            else {
+                dst.bytes       = src.bytes;
+            }
         }
         dst.offset              = src.offset;
         dst.length              = src.length;
@@ -368,11 +385,9 @@ public class cMsgMessage implements Cloneable, Serializable {
      *
      * @return copy of this message.
      */
-    public cMsgMessage copy() {
-        return (cMsgMessage) this.clone();
-    }
+    public cMsgMessage copy() { return (cMsgMessage) this.clone(); }
 
-    
+
     /**
      * Creates a proper response message to this message which was sent by a client calling
      * sendAndGet.
@@ -630,6 +645,7 @@ public class cMsgMessage implements Cloneable, Serializable {
         bytes  = b.clone();
         offset = 0;
         length = b.length;
+        byteArrayCopied = true;
     }
 
     /**
@@ -670,6 +686,7 @@ public class cMsgMessage implements Cloneable, Serializable {
         this.offset = 0;
         this.length = length;
         bytes = new byte[length];
+        byteArrayCopied = true;
 
         System.arraycopy(b, offset, bytes, 0, length);
     }
@@ -694,6 +711,7 @@ public class cMsgMessage implements Cloneable, Serializable {
         bytes  = b;
         offset = 0;
         length = b.length;
+        byteArrayCopied = false;
     }
 
     /**
@@ -730,6 +748,7 @@ public class cMsgMessage implements Cloneable, Serializable {
         bytes = b;
         this.offset = offset;
         this.length = length;
+        byteArrayCopied = false;
     }
 
 
@@ -1125,7 +1144,6 @@ public class cMsgMessage implements Cloneable, Serializable {
             indent = new String(c);
         }
 
-        Date now = new Date();
         Date useTime = new Date(userTime);
         Date sendTime = new Date(senderTime);
         Date receiveTime = new Date(receiverTime);
