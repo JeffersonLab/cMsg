@@ -60,9 +60,8 @@ int main(int argc, char **argv) {
     m.setType(type);
     m.setUserInt(userInt);
     m.setText(text);
-    m.setByteArray(bytes);
-    m.setByteArrayLength(sizeof(bytes));
-    
+    m.setByteArray(bytes, sizeof(bytes));
+
 
     // add payload
     m.add("anInt",123);
