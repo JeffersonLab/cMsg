@@ -1,7 +1,3 @@
-// still to do:
-//   compound payload
-
-
 /*----------------------------------------------------------------------------*
 *  Copyright (c) 2004        Southeastern Universities Research Association, *
 *                            Thomas Jefferson National Accelerator Facility  *
@@ -50,7 +46,7 @@ public class cMsgLogger {
 
 
     /** Universal Domain Locator and cMsg system object. */
-    private static String UDL = "cMsg://localhost/cMsg/myNameSpace";
+    private static String UDL = "cMsg://localhost/cMsg";
     private static cMsg cmsg  = null;
 
 
@@ -70,14 +66,15 @@ public class cMsgLogger {
     /** toScreen true to log to screen. */
     private static boolean toScreen = false;
     private static boolean verbose  = false;
+    private static boolean payload  = false;
     private static boolean header   = false;
     private static boolean wide     = false;
 
-    private static String normalFormat    = "%-6d  %18s  %18s  %24s    %9d    %-18s  %-18s    %s";
-    private static String normalHeader    = "%-6s  %18s  %18s  %24s    %9s    %-18s  %-18s    %s";
+    private static String normalFormat    = "%-6d  %18s  %24s    %9d    %-18s  %-18s    %s";
+    private static String normalHeader    = "%-6s  %18s  %24s    %9s    %-18s  %-18s    %s";
 
-    private static String wideFormat      = "%-6d  %18s  %18s  %24s    %9d    %-30s  %-30s    %s";
-    private static String wideHeader      = "%-6s  %18s  %18s  %24s    %9s    %-30s  %-30s    %s";
+    private static String wideFormat      = "%-6d  %18s  %24s    %9d    %-30s  %-30s    %s";
+    private static String wideHeader      = "%-6s  %18s  %24s    %9s    %-30s  %-30s    %s";
 
 
 
@@ -124,16 +121,24 @@ public class cMsgLogger {
                 if(!verbose) {
                     System.out.println(String.format(wide?wideFormat:normalFormat,
                                                      count,
-                                                     msg.getPayloadText(),
                                                      msg.getSenderHost(),
                                                      new java.sql.Timestamp(msg.getSenderTime().getTime()),
                                                      msg.getUserInt(),
                                                      msg.getSubject(),
                                                      msg.getType(),
                                                      msg.getText()));
+
+                    if(payload) {
+                        System.out.println();
+                        msg.payloadPrintout(1);
+                        System.out.println();
+                        System.out.println();
+                    }
+
+
                 } else {
                     System.out.println("msg count is: " + count);
-                    System.out.println(msg.toString());
+                    System.out.println(msg);
                 }
             }
 
@@ -143,12 +148,20 @@ public class cMsgLogger {
                 if(!verbose) {
                     pWriter.println(String.format(wide?wideFormat:normalFormat,
                                                   count,
-                                                  msg.getPayloadText(),
                                                   msg.getSenderHost(),
                                                   new java.sql.Timestamp(msg.getSenderTime().getTime()),
                                                   msg.getSubject(),
                                                   msg.getType(),
                                                   msg.getText()));
+
+                    if(payload) {
+                        System.out.println();
+                        msg.payloadPrintout(1);
+                        System.out.println();
+                        System.out.println();
+                    }
+
+
                 } else {
                     pWriter.println("msg count is: " + count);
                     pWriter.println(msg);
@@ -266,9 +279,9 @@ public class cMsgLogger {
         if(verbose)header=false;
         if(toScreen&&header) {
             System.out.println(String.format(wide?wideHeader:normalHeader,
-                                             "Count","Payload","SenderHost","SenderTime      ","UserInt","Subject","Type","Text"));
+                                             "Count","SenderHost","SenderTime      ","UserInt","Subject","Type","Text"));
             System.out.println(String.format(wide?wideHeader:normalHeader,
-                                             "-----","-------","----------","----------      ","-------","-------","----","----"));
+                                             "-----","----------","----------      ","-------","-------","----","----"));
         }
 
 
@@ -309,11 +322,11 @@ public class cMsgLogger {
                 if((!dbrs.next())||(!dbrs.getString(3).equalsIgnoreCase(table))) {
                     String sql="create table " + table + " (" +
                         "version int, domain varchar(255), sysMsgId int," +
-                        "getRequest int, getResponse int, isNullGetResponse int, payload varchar(128)," +
+                        "getRequest int, getResponse int, isNullGetResponse int, payload " + getClobName(dbmeta) + ", " +
                         "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
                         "userInt int, userTime datetime," +
                         "receiver varchar(128), receiverHost varchar(128), receiverTime datetime," +
-                        "subject  varchar(255), type varchar(128), text text," +
+                        "subject  varchar(255), type varchar(128), text " + getClobName(dbmeta) + ", " +
                         "byteArrayEndian int, byteArray " + getBlobName(dbmeta) +
                         ")";
                     con.createStatement().executeUpdate(sql);
@@ -406,6 +419,32 @@ public class cMsgLogger {
 //-----------------------------------------------------------------------------
 
 
+    static String getClobName(DatabaseMetaData dbmeta) {
+
+        String type;
+
+        try {
+            type = dbmeta.getDatabaseProductName();
+            if(type.equalsIgnoreCase("mysql")) {
+                return("text");
+            } else if(type.equalsIgnoreCase("oracle")) {
+                return("text");
+            } else if(type.equalsIgnoreCase("postgresql")) {
+                return("text");
+            } else {
+                System.out.println("?getClobName...unknown database type " + type + ", trying text");
+                return("text");
+            }
+        } catch (Exception e) {
+            System.out.println("?getClobName...unable to get database product name, trying text");
+            return("text");
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
     /** Method to print out correct program command line usage. */
     static private void usage() {
         System.out.println("\nUsage:\n\n" +
@@ -418,6 +457,7 @@ public class cMsgLogger {
                 "        [-screen]                  display messages on screen\n" +
                 "        [-file <fileName>]         log messages to this file\n" +
                 "        [-verbose]                 prints full msg to screen (dfault = msg count)\n" +
+                "        [-payload]                 prints payload to screen if -verbose not set\n" +
                 "        [-header]                  prints header line (use with -verbose flag)\n" +
                 "        [-wide]                    prints more msg fields (use with -verbose flag)\n" +
                 "        [-table <table>]           db table storing messages\n" +
@@ -482,6 +522,10 @@ public class cMsgLogger {
                 verbose=true;
 
             }
+            else if (args[i].equalsIgnoreCase("-payload")) {
+                payload=true;
+
+            }
             else if (args[i].equalsIgnoreCase("-header")) {
                 header=true;
 
@@ -535,7 +579,7 @@ public class cMsgLogger {
             }
             else {
                 usage();
-                System.exit(-1);                
+                System.exit(-1);
             }
         }
 
