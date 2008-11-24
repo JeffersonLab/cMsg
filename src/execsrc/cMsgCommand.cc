@@ -10,6 +10,7 @@
 using namespace std;
 #include <iostream>
 #include <unistd.h>
+#include <sstream>
 
 
 // for cMsg
@@ -23,7 +24,7 @@ using namespace cmsg;
 
 // connection parameters
 static string udl;
-static string name;
+static string name = "";
 static string description;
 
 
@@ -35,7 +36,7 @@ static int userInt;
 
 
 // misc parameters
-static int sleepTime = 10000;  // units are micro-sec
+static int sleepTime = 100000;  // units are micro-sec
 
 
 // prototypes
@@ -50,9 +51,9 @@ int main(int argc, char **argv) {
 
 
   // set defaults
-  udl           = "cMsg://ollie:3456/cMsg/vmeTest";       // universal domain locator
-  name          = "cMsgCommand";                          // unique name
-  description   = "cMsgCommand utility";                  // description is arbitrary
+  udl           = "cMsg://localhost/cMsg";
+  name          = "";
+  description   = "cMsgCommand utility";
   subject       = "mySubject";
   type          = "myType";
   userInt       = 0;
@@ -61,6 +62,17 @@ int main(int argc, char **argv) {
 
   // decode command line parameters
   decodeCommandLine(argc,argv);
+
+
+  // generate name if not set
+  if(name.size()<=0) {
+    char namec[128];
+    int pid = getpid();
+    gethostname(namec,sizeof(namec));
+    stringstream ss;
+    ss << "cMsgCommand@" << string(namec) << ":" << pid << ends;
+    name=ss.str();
+  }
 
 
   // connect to cMsg server
@@ -81,6 +93,7 @@ int main(int argc, char **argv) {
     // send message
     try {
       c.send(m);
+      c.flush();
     } catch (cMsgException e) {
       cerr << endl << "  ?unable to send message" << endl << endl;
     }
@@ -98,6 +111,7 @@ int main(int argc, char **argv) {
   
   // done
   c.disconnect();
+  exit(EXIT_SUCCESS);
 }
 
 
