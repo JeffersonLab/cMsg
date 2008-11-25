@@ -422,6 +422,21 @@ public final class cMsgPayloadItem implements Cloneable {
     }
 
     /**
+     * Constructor for hidden system fields.
+     * Used internally when adding system fields to a payload
+     * (e.g. cMsgCreator) just before sending.
+     *
+     * @param name name of item
+     * @param s string to be part of the payload
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
+     * @throws cMsgException if invalid name
+     */
+    cMsgPayloadItem(String name, String s, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addString(name, s, isSystem);
+    }
+
+    /**
      * Construct a payload item from a String object.
      * Used internally when decoding a text representation
      * of the payload into cMsgPayloadItems.
@@ -430,11 +445,12 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param s string to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, String s, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addString(name, s, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, String s, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addString(name, s, txt, isSystem, noHeadLen);
     }
 
     /**
@@ -513,12 +529,13 @@ public final class cMsgPayloadItem implements Cloneable {
      *            {@link cMsgConstants#endianNotLocal})
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name or endian value
      */
-    cMsgPayloadItem(String name, byte[] b, int end, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
+    cMsgPayloadItem(String name, byte[] b, int end, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
         endian = checkEndian(end);
-        addBinary(name, b, txt, false, noHeadLen);
+        addBinary(name, b, txt, isSystem, noHeadLen);
     }
 
     //--------------------------
@@ -545,11 +562,12 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param msg cMsgMessage object to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, cMsgMessage msg, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addMessage(name, msg, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, cMsgMessage msg, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addMessage(name, msg, txt, isSystem, noHeadLen);
     }
 
     /**
@@ -573,16 +591,19 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param msgs array of cMsgMessage objects to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, cMsgMessage[] msgs, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addMessage(name, msgs, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, cMsgMessage[] msgs, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addMessage(name, msgs, txt, isSystem, noHeadLen);
     }
 
     //-------------------
     // Constructors, Ints
     //-------------------
+
+    // 8 bit
 
     /**
      * Construct a payload item from an 8-bit integer.
@@ -605,12 +626,15 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param b byte (8-bit integer) to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, byte b, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addByte(name, b, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, byte b, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addByte(name, b, txt, isSystem, noHeadLen);
     }
+
+    // 16 bit
 
     /**
      * Construct a payload item from a 16-bit integer.
@@ -633,12 +657,15 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param s short (16-bit integer) to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, short s, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addShort(name, s, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, short s, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addShort(name, s, txt, isSystem, noHeadLen);
     }
+
+    // 32 bit
 
     /**
      * Construct a payload item from a 32-bit integer.
@@ -653,6 +680,21 @@ public final class cMsgPayloadItem implements Cloneable {
     }
 
     /**
+     * Constructor for hidden system fields.
+     * Used internally when adding system fields to a payload (e.g.
+     * cMsgHistoryLengthMax) just before sending.
+     *
+     * @param name name of item
+     * @param i int (32-bit integer) to be part of the payload
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
+     * @throws cMsgException if invalid name
+     */
+    public cMsgPayloadItem(String name, int i, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addInt(name, i, isSystem);
+    }
+
+    /**
      * Construct a payload item from a 32-bit integer.
      * Used internally when decoding a text representation
      * of the payload into cMsgPayloadItems.
@@ -661,12 +703,15 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param i int (32-bit integer) to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, int i, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addInt(name, i, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, int i, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addInt(name, i, txt, isSystem, noHeadLen);
     }
+
+    // 64 bit
 
     /**
      * Construct a payload item from a 64-bit integer.
@@ -689,11 +734,12 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param l long (64-bit integer) to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, long l, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addLong(name, l, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, long l, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addLong(name, l, txt, isSystem, noHeadLen);
     }
 
     /**
@@ -719,11 +765,12 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param big BigInteger object (containing an unsigned 64-bit integer) to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, BigInteger big, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addBigInt(name, big, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, BigInteger big, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addBigInt(name, big, txt, isSystem, noHeadLen);
     }
 
     /**
@@ -772,6 +819,8 @@ public final class cMsgPayloadItem implements Cloneable {
     // Constructors, Ints Arrays
     //--------------------------
 
+    // 8 bit
+
     /**
      * Construct a payload item from an array of 8-bit integers.
      *
@@ -793,12 +842,15 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param b byte array (array of 8-bit integers) to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, byte[] b, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addByte(name, b, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, byte[] b, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addByte(name, b, txt, isSystem, noHeadLen);
     }
+
+    // 16 bit
 
     /**
      * Construct a payload item from an array of 16-bit integers.
@@ -821,12 +873,15 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param s short array (array of 16-bit integers) to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, short[] s, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addShort(name, s, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, short[] s, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addShort(name, s, txt, isSystem, noHeadLen);
     }
+
+    // 32 bit
 
     /**
      * Construct a payload item from an array of 32-bit integers.
@@ -849,12 +904,15 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param i int array (array of 32-bit integers) to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, int[] i, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addInt(name, i, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, int[] i, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addInt(name, i, txt, isSystem, noHeadLen);
     }
+
+    // 64 bit
 
     /**
      * Construct a payload item from an array of 64-bit integers.
@@ -869,6 +927,21 @@ public final class cMsgPayloadItem implements Cloneable {
     }
 
     /**
+     * Constructor for hidden system fields like cMsgSenderTimeHistory.
+     * Used internally when adding system fields to a payload (e.g. sender
+     * time history) just before sending.
+     *
+     * @param name name of item
+     * @param l long array (array of 64-bit integers) to be part of the payload
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
+     * @throws cMsgException if invalid name
+     */
+    public cMsgPayloadItem(String name, long[] l, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addLong(name, l, isSystem);
+    }
+
+    /**
      * Construct a payload item from an array of 64-bit integers.
      * Used internally when decoding a text representation
      * of the payload into cMsgPayloadItems.
@@ -877,11 +950,12 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param l long array (array of 64-bit integers) to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, long[] l, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addLong(name, l, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, long[] l, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addLong(name, l, txt, isSystem, noHeadLen);
     }
 
     /**
@@ -912,12 +986,15 @@ public final class cMsgPayloadItem implements Cloneable {
      *            to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, BigInteger[] bigs, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addBigInt(name, bigs, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, BigInteger[] bigs, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addBigInt(name, bigs, txt, isSystem, noHeadLen);
     }
+
+    // Objects
 
     /**
      * Construct a payload item from an array of objects implementing the Number interface.
@@ -989,11 +1066,12 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param f float to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, float f, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addFloat(name, f, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, float f, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addFloat(name, f, txt, isSystem, noHeadLen);
     }
 
     /**
@@ -1017,11 +1095,12 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param d double to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, double d, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addDouble(name, d, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, double d, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addDouble(name, d, txt, isSystem, noHeadLen);
     }
 
     //------------
@@ -1049,11 +1128,12 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param f float array to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, float[] f, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addFloat(name, f, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, float[] f, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addFloat(name, f, txt, isSystem, noHeadLen);
     }
 
     /**
@@ -1077,11 +1157,12 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param d double array to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, double[] d, String txt, int noHeadLen) throws cMsgException {
-        validName(name, false);
-        addDouble(name, d, txt, false, noHeadLen);
+    cMsgPayloadItem(String name, double[] d, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        addDouble(name, d, txt, isSystem, noHeadLen);
     }
 
 

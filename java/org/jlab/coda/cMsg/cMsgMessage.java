@@ -1622,52 +1622,6 @@ public class cMsgMessage implements Cloneable, Serializable {
      }
 
     /**
-     * Adds a name to the history of senders of this message (in the payload).
-     * This method only keeps {@link #historyLengthMax} number of the most recent names.
-     * This method is reserved for system use only.
-     * @param name name of sender to add to the history of senders
-     */
-    public void addSenderToHistory(String name) {
-        // if set not to record history, just return
-        if (historyLengthMax < 1) {
-            return;
-        }
-
-        cMsgPayloadItem item = items.get("cMsgSenderHistory");
-        try {
-            if (item == null) {
-                String[] newNames = {name};
-                cMsgPayloadItem it = new cMsgPayloadItem("cMsgSenderHistory", newNames, true);
-                addPayloadItem(it);
-            }
-            else {
-                // get existing history
-                String[] names = item.getStringArray();
-
-                // Don't repeat names consecutively. That just means that a msg producer
-                // is sending the same message repeatedly.
-                if (name.equals(names[names.length-1])) return;
-
-                // keep only historyLengthMax number of the latest names
-                int index = 0, len = names.length;
-                if (names.length >= historyLengthMax) {
-                    len   = historyLengthMax - 1;
-                    index = names.length - len;
-                }
-                String[] newNames = new String[len + 1];
-                System.arraycopy(names, index, newNames, 0, len);
-                newNames[len] = name;
-                cMsgPayloadItem it = new cMsgPayloadItem("cMsgSenderHistory", newNames, true);
-                addPayloadItem(it);
-            }
-        }
-        catch (cMsgException e) {/* should never happen */}
-
-        hasPayload(true);
-        updatePayloadText();
-    }
-
-    /**
      * Remove an item from the payload.
      * @param item item to remove from the payload
      * @return true if item removed, else false
@@ -1732,15 +1686,25 @@ public class cMsgMessage implements Cloneable, Serializable {
      * This string is used for sending the payload over the network.
      */
     public void updatePayloadText() {
+        payloadText = createPayloadText(items);
+    }
+
+
+    /**
+     * This method creates a string representation out of a given map of payload items
+     * with names as keys.
+     * @param map a map of payload items to be turned into a string representation
+     * @return string representation of given map of payload items
+     */
+    String createPayloadText(Map<String, cMsgPayloadItem> map) {
         int count = 0, totalLen = 0;
 
-        if (items.size() < 1) {
-            payloadText = null;
-            return;
+        if (map.size() < 1) {
+            return null;
         }
 
         // find total length of text representations of all payload items
-        for (cMsgPayloadItem item : items.values()) {
+        for (cMsgPayloadItem item : map.values()) {
             totalLen += item.text.length();
             count++;
         }
@@ -1756,13 +1720,145 @@ public class cMsgMessage implements Cloneable, Serializable {
         buffer.append("\n");
 
         // add payload fields
-        for (cMsgPayloadItem item : items.values()) {
+        for (cMsgPayloadItem item : map.values()) {
             if (count-- < 1) break;
             buffer.append(item.text);
         }
 
-        payloadText = buffer.toString();
-        return;
+        return buffer.toString();
+    }
+
+
+    /**
+     * This method creates a string representation out of the existing payload text and the
+     * given payload items together. Used when generating a text representation of the payload
+     * to be sent over the network containing additions for sender history of names, times, etc.
+     *
+     * @param sendersName
+     * @param sendersHost
+     * @param sendersTime
+     * @return string representation of existing payload text and the given payload items together
+     */
+    public String addHistoryToPayloadText(String sendersName, String sendersHost, long sendersTime) {
+        int count = 0, totalLen = 0;
+        // 3 items in history: sender, senderHost, senderTime
+        cMsgPayloadItem[] history = new cMsgPayloadItem[3];
+
+        // first add creator if necessary
+        if (!items.containsKey("cMsgCreator")) {
+            try {
+                cMsgPayloadItem it = new cMsgPayloadItem("cMsgCreator", sendersName, true);
+                addPayloadItem(it);
+            }
+            catch (cMsgException e) { /* never happens */ }
+        }
+
+        // set max history length if it isn't set and is NOT the default
+        if (!items.containsKey("cMsgHistoryLengthMax") &&
+                historyLengthMax != historyLengthInit) {
+            try {
+                cMsgPayloadItem it = new cMsgPayloadItem("cMsgHistoryLengthMax", historyLengthMax, true);
+                addPayloadItem(it);
+            }
+            catch (cMsgException e) { /* never happens */ }
+        }
+
+        // if set not to record history, just return
+        if (historyLengthMax < 1) {
+            return payloadText;
+        }
+
+        cMsgPayloadItem item_n = items.get("cMsgSenderNameHistory");
+        cMsgPayloadItem item_h = items.get("cMsgSenderHostHistory");
+        cMsgPayloadItem item_t = items.get("cMsgSenderTimeHistory");
+
+        try {
+            if (item_n == null) {
+                String[] newNames = {sendersName};
+                history[0] = new cMsgPayloadItem("cMsgSenderNameHistory", newNames, true);
+
+                String[] newHosts = {sendersHost};
+                history[1] = new cMsgPayloadItem("cMsgSenderHostHistory", newHosts, true);
+
+                long[] newTimes = {sendersTime};
+                history[2] = new cMsgPayloadItem("cMsgSenderTimeHistory", newTimes, true);
+            }
+            else {
+                // get existing historys in senders and senderTimes
+                String[] names = item_n.getStringArray();
+                String[] hosts = item_h.getStringArray();
+                long[]   times = item_t.getLongArray();
+
+                // keep only historyLengthMax number of the latest names
+                int index = 0, len = names.length;
+                if (names.length >= historyLengthMax) {
+                    len   = historyLengthMax - 1;
+                    index = names.length - len;
+                }
+                String[] newNames = new String[len + 1];
+                String[] newHosts = new String[len + 1];
+                long[]   newTimes = new long  [len + 1];
+
+                System.arraycopy(names, index, newNames, 0, len);
+                System.arraycopy(hosts, index, newHosts, 0, len);
+                System.arraycopy(times, index, newTimes, 0, len);
+
+                newNames[len] = sendersName;
+                newHosts[len] = sendersHost;
+                newTimes[len] = sendersTime;
+
+                history[0] = new cMsgPayloadItem("cMsgSenderNameHistory", newNames, true);
+                history[1] = new cMsgPayloadItem("cMsgSenderHostHistory", newHosts, true);
+                history[2] = new cMsgPayloadItem("cMsgSenderTimeHistory", newTimes, true);
+            }
+        }
+        catch (cMsgException e) {/* should never happen */}
+
+
+        // Find total length of text representations of all existing payload items
+        // except for history items which will be replaced.
+        for (Map.Entry<String,cMsgPayloadItem> entry : items.entrySet()) {
+            String key = entry.getKey();
+            if (key.equals("cMsgSenderNameHistory") ||
+                key.equals("cMsgSenderTimeHistory") ||
+                key.equals("cMsgSenderHostHistory"))  {
+                continue;
+            }
+            totalLen += entry.getValue().text.length();
+            count++;
+        }
+        for (cMsgPayloadItem item : history) {
+            totalLen += item.text.length();
+            count++;
+        }
+
+        totalLen += cMsgPayloadItem.numDigits(count) + 1; // send count & newline first
+
+        // ensure buffer size, and clear it
+        if (buffer.capacity() < totalLen) buffer.ensureCapacity(totalLen + 512);
+        buffer.delete(0,buffer.capacity());
+
+        // first item is number of fields to come (count) & newline
+        buffer.append(count);
+        buffer.append("\n");
+
+        // add payload fields
+        for (cMsgPayloadItem item : history) {
+            if (count-- < 1) break;
+            buffer.append(item.text);
+        }
+        for (Map.Entry<String,cMsgPayloadItem> entry : items.entrySet()) {
+            String key = entry.getKey();
+            if (key.equals("cMsgSenderNameHistory") ||
+                key.equals("cMsgSenderTimeHistory") ||
+                key.equals("cMsgSenderHostHistory"))  {
+                continue;
+            }
+            if (count-- < 1) break;
+            buffer.append(entry.getValue().text);
+        }
+
+        return buffer.toString();
     }
 
 
@@ -1817,7 +1913,7 @@ public class cMsgMessage implements Cloneable, Serializable {
         boolean debug = false;
 
         if (text == null) throw new cMsgException("bad argument");
-//System.out.println("Text to decode:\n" + text);
+//System.out.println("Text to decode:\n" + text + "\n\n");
         // read number of fields to come
         index1 = 0;
         index2 = text.indexOf('\n');
@@ -1943,7 +2039,8 @@ if (debug) System.out.println("  skipped field");
                     // call to setFieldsFromText to fill msg's fields
                     index1 += newMsgs[j].setFieldsFromText(text.substring(index1), allFields);
                 }
-                addMessagesFromText(name, dataType, newMsgs, text, firstIndex, noHeaderLen, totalItemLen);
+                addMessagesFromText(name, dataType, isSystem, newMsgs, text,
+                                    firstIndex, noHeaderLen, totalItemLen);
             }
 
             else {
@@ -1992,6 +2089,8 @@ if (debug) System.out.println("  skipped field");
 
         // is regular field in msg
         if (isSystem) {
+            // Normally don't stick system stuff in payload
+            boolean putInPayload = false;
             if      (name.equals("cMsgText"))         text = val;
             else if (name.equals("cMsgSubject"))      subject = val;
             else if (name.equals("cMsgType"))         type = val;
@@ -2000,7 +2099,8 @@ if (debug) System.out.println("  skipped field");
             else if (name.equals("cMsgSenderHost"))   senderHost = val;
             else if (name.equals("cMsgReceiver"))     receiver = val;
             else if (name.equals("cMsgReceiverHost")) receiverHost = val;
-            return;
+            else putInPayload = true;
+            if (!putInPayload) return;
         }
 
         // get full text representation of item so it doesn't need to be recalculated
@@ -2008,7 +2108,7 @@ if (debug) System.out.println("  skipped field");
         String textRep = txt.substring(fullIndex, index2+1);
 
         // create payload item to add to msg  & store in payload
-        addPayloadItem(new cMsgPayloadItem(name, val, textRep, noHeadLen));
+        addPayloadItem(new cMsgPayloadItem(name, val, textRep, noHeadLen, isSystem));
 
         return;
     }
@@ -2120,7 +2220,7 @@ if (debug) System.out.println("  skipped field");
         String textRep = txt.substring(fullIndex, index2+1);
 
         // create payload item to add to msg  & store in payload
-        addPayloadItem(new cMsgPayloadItem(name, b, endian, textRep, noHeadLen));
+        addPayloadItem(new cMsgPayloadItem(name, b, endian, textRep, noHeadLen, isSystem));
 
         return;
     }
@@ -2163,7 +2263,7 @@ if (debug) System.out.println("  skipped field");
             double d = Double.longBitsToDouble(lval);
 
             // create payload item to add to msg  & store in payload
-            addPayloadItem(new cMsgPayloadItem(name, d, textRep, noHeadLen));
+            addPayloadItem(new cMsgPayloadItem(name, d, textRep, noHeadLen, isSystem));
         }
         else {
             // convert from 8 chars (representing hex) to float
@@ -2172,7 +2272,7 @@ if (debug) System.out.println("  skipped field");
             float f = Float.intBitsToFloat(ival);
 
             // create payload item to add to msg  & store in payload
-            addPayloadItem(new cMsgPayloadItem(name, f, textRep, noHeadLen));
+            addPayloadItem(new cMsgPayloadItem(name, f, textRep, noHeadLen, isSystem));
         }
 
         return;
@@ -2247,7 +2347,7 @@ if (debug) System.out.println("  skipped field");
             }
 
             // create payload item to add to msg  & store in payload
-            addPayloadItem(new cMsgPayloadItem(name, darray, textRep, noHeadLen));
+            addPayloadItem(new cMsgPayloadItem(name, darray, textRep, noHeadLen, isSystem));
         }
 
         else if (dataType == cMsgConstants.payloadFltA) {
@@ -2283,7 +2383,7 @@ if (debug) System.out.println("  skipped field");
             }
 
             // create payload item to add to msg  & store in payload
-            addPayloadItem(new cMsgPayloadItem(name, farray, textRep, noHeadLen));
+            addPayloadItem(new cMsgPayloadItem(name, farray, textRep, noHeadLen, isSystem));
          }
 
         return;
@@ -2317,38 +2417,44 @@ if (debug) System.out.println("  skipped field");
         if (index2 < 1) throw new cMsgException("bad format");
         String val = txt.substring(index1, index2);
 //System.out.println("add Int = " + val);
+
         // get full text representation of item so it doesn't need to be recalculated
         // when creating the payload item
         String textRep = txt.substring(fullIndex, index2+1);
 
+        // system field used to set the max # of history entries in msg
+        if (isSystem && name.equals("cMsgHistoryLengthMax")) {
+            historyLengthMax = Integer.parseInt(val);
+        }
+
         if (dataType == cMsgConstants.payloadInt8) {
             // create payload item to add to msg  & store in payload
-            addPayloadItem(new cMsgPayloadItem(name, Byte.parseByte(val), textRep, noHeadLen));
+            addPayloadItem(new cMsgPayloadItem(name, Byte.parseByte(val), textRep, noHeadLen, isSystem));
         }
         else if (dataType == cMsgConstants.payloadInt16) {
-            addPayloadItem(new cMsgPayloadItem(name, Short.parseShort(val), textRep, noHeadLen));
+            addPayloadItem(new cMsgPayloadItem(name, Short.parseShort(val), textRep, noHeadLen, isSystem));
         }
         else if (dataType == cMsgConstants.payloadInt32) {
-            addPayloadItem(new cMsgPayloadItem(name, Integer.parseInt(val), textRep, noHeadLen));
+            addPayloadItem(new cMsgPayloadItem(name, Integer.parseInt(val), textRep, noHeadLen, isSystem));
         }
         else if (dataType == cMsgConstants.payloadInt64) {
-            addPayloadItem(new cMsgPayloadItem(name, Long.parseLong(val), textRep, noHeadLen));
+            addPayloadItem(new cMsgPayloadItem(name, Long.parseLong(val), textRep, noHeadLen, isSystem));
         }
         // upgrade unsigned char to short for java
         else if (dataType == cMsgConstants.payloadUint8) {
-            addPayloadItem(new cMsgPayloadItem(name, Short.parseShort(val), textRep, noHeadLen));
+            addPayloadItem(new cMsgPayloadItem(name, Short.parseShort(val), textRep, noHeadLen, isSystem));
         }
         // upgrade unsigned short to int for java
         else if (dataType == cMsgConstants.payloadUint16) {
-            addPayloadItem(new cMsgPayloadItem(name, Integer.parseInt(val), textRep, noHeadLen));
+            addPayloadItem(new cMsgPayloadItem(name, Integer.parseInt(val), textRep, noHeadLen, isSystem));
         }
         // upgrade unsigned int to long for java
         else if (dataType == cMsgConstants.payloadUint32) {
-            addPayloadItem(new cMsgPayloadItem(name, Long.parseLong(val), textRep, noHeadLen));
+            addPayloadItem(new cMsgPayloadItem(name, Long.parseLong(val), textRep, noHeadLen, isSystem));
         }
         // upgrade unsigned long to BigInteger for java
         else if (dataType == cMsgConstants.payloadUint64) {
-            addPayloadItem(new cMsgPayloadItem(name, new BigInteger(val), textRep, noHeadLen));
+            addPayloadItem(new cMsgPayloadItem(name, new BigInteger(val), textRep, noHeadLen, isSystem));
         }
 
         return;
@@ -2381,6 +2487,7 @@ if (debug) System.out.println("  skipped field");
         if (index2 < 1) throw new cMsgException("bad format");
         String val = txt.substring(index1, index2);
 //System.out.println("add Int array = " + val);
+
         // get full text representation of item so it doesn't need to be recalculated
         // when creating the payload item
         String textRep = txt.substring(fullIndex, index2+1);
@@ -2442,21 +2549,19 @@ if (debug) System.out.println("  skipped field");
                 }
             }
 
-            if (isSystem) {
-                if (name.equals("cMsgTimes")) {
-                  if (count != 6) throw new cMsgException("bad format");
-                  userTime      = larray[0]*1000 + larray[1]/1000000;
-                  senderTime    = larray[2]*1000 + larray[3]/1000000;
-                  receiverTime  = larray[4]*1000 + larray[5]/1000000;
-                }
+            if (isSystem && name.equals("cMsgTimes")) {
+                if (count != 6) throw new cMsgException("bad format");
+                userTime      = larray[0]*1000 + larray[1]/1000000;
+                senderTime    = larray[2]*1000 + larray[3]/1000000;
+                receiverTime  = larray[4]*1000 + larray[5]/1000000;
                 return;
             }
             else {
                 if (bigInt) {
-                    addPayloadItem(new cMsgPayloadItem(name, b, textRep, noHeadLen));
+                    addPayloadItem(new cMsgPayloadItem(name, b, textRep, noHeadLen, isSystem));
                 }
                 else {
-                    addPayloadItem(new cMsgPayloadItem(name, larray, textRep, noHeadLen));
+                    addPayloadItem(new cMsgPayloadItem(name, larray, textRep, noHeadLen, isSystem));
                 }
             }
         }
@@ -2507,23 +2612,21 @@ if (debug) System.out.println("  skipped field");
                 }
             }
 
-            if (isSystem) {
-                if (name.equals("cMsgInts")) {
-                  if (count != 5) throw new cMsgException("bad format");
-                    version   = iarray[0];
-                    info      = iarray[1];
-                    reserved  = iarray[2];
-                    length    = iarray[3];
-                    userInt   = iarray[4];
-                }
+            if (isSystem && name.equals("cMsgInts")) {
+                if (count != 5) throw new cMsgException("bad format");
+                version   = iarray[0];
+                info      = iarray[1];
+                reserved  = iarray[2];
+                length    = iarray[3];
+                userInt   = iarray[4];
                 return;
             }
             else {
                 if (unsigned32) {
-                    addPayloadItem(new cMsgPayloadItem(name, larray, textRep, noHeadLen));
+                    addPayloadItem(new cMsgPayloadItem(name, larray, textRep, noHeadLen, isSystem));
                 }
                 else {
-                    addPayloadItem(new cMsgPayloadItem(name, iarray, textRep, noHeadLen));
+                    addPayloadItem(new cMsgPayloadItem(name, iarray, textRep, noHeadLen, isSystem));
                 }
             }
          }
@@ -2574,10 +2677,10 @@ if (debug) System.out.println("  skipped field");
             }
 
             if (unsigned16) {
-                addPayloadItem(new cMsgPayloadItem(name, iarray, textRep, noHeadLen));
+                addPayloadItem(new cMsgPayloadItem(name, iarray, textRep, noHeadLen, isSystem));
             }
             else {
-                addPayloadItem(new cMsgPayloadItem(name, sarray, textRep, noHeadLen));
+                addPayloadItem(new cMsgPayloadItem(name, sarray, textRep, noHeadLen, isSystem));
             }
          }
 
@@ -2608,10 +2711,10 @@ if (debug) System.out.println("  skipped field");
             }
 
             if (unsigned8) {
-                addPayloadItem(new cMsgPayloadItem(name, sarray, textRep, noHeadLen));
+                addPayloadItem(new cMsgPayloadItem(name, sarray, textRep, noHeadLen, isSystem));
             }
             else {
-                addPayloadItem(new cMsgPayloadItem(name, barray, textRep, noHeadLen));
+                addPayloadItem(new cMsgPayloadItem(name, barray, textRep, noHeadLen, isSystem));
             }
          }
 
@@ -2626,6 +2729,7 @@ if (debug) System.out.println("  skipped field");
      *
      * @param name name of field to add
      * @param dataType either {@link cMsgConstants#payloadMsg} or {@link cMsgConstants#payloadMsgA}
+     * @param isSystem if false, add item to payload, else set system parameters
      * @param newMsgs array of cMsgMessage objects
      * @param txt string read in over wire for message's text field
      * @param fullIndex index into txt at beginning of item (before header line)
@@ -2634,7 +2738,8 @@ if (debug) System.out.println("  skipped field");
      *
      * @throws cMsgException if txt is in a bad format
      */
-    private void addMessagesFromText(String name, int dataType, cMsgMessage[] newMsgs, String txt,
+    private void addMessagesFromText(String name, int dataType, boolean isSystem,
+                                     cMsgMessage[] newMsgs, String txt,
                                      int fullIndex, int noHeadLen, int totalItemLen)
             throws cMsgException {
 
@@ -2643,10 +2748,10 @@ if (debug) System.out.println("  skipped field");
         String textRep = txt.substring(fullIndex, fullIndex+totalItemLen);
 
         if (dataType == cMsgConstants.payloadMsg) {
-            addPayloadItem(new cMsgPayloadItem(name, newMsgs[0], textRep, noHeadLen));
+            addPayloadItem(new cMsgPayloadItem(name, newMsgs[0], textRep, noHeadLen, isSystem));
         }
         else {
-            addPayloadItem(new cMsgPayloadItem(name, newMsgs, textRep, noHeadLen));
+            addPayloadItem(new cMsgPayloadItem(name, newMsgs, textRep, noHeadLen, isSystem));
         }
 
         return;
