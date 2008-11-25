@@ -1731,13 +1731,14 @@ public class cMsgMessage implements Cloneable, Serializable {
 
     /**
      * This method creates a string representation out of the existing payload text and the
-     * given payload items together. Used when generating a text representation of the payload
-     * to be sent over the network containing additions for sender history of names, times, etc.
+     * given history parameters made into payload items together. Used when generating a text
+     * representation of the payload to be sent over the network containing additions for sender
+     * history of names, times, hosts.
      *
-     * @param sendersName
-     * @param sendersHost
-     * @param sendersTime
-     * @return string representation of existing payload text and the given payload items together
+     * @param sendersName name to be added to history of senders
+     * @param sendersHost host to be added to history of sender hosts
+     * @param sendersTime time to be added to history of sender times
+     * @return string representation of existing payload text and the given history payload items together
      */
     public String addHistoryToPayloadText(String sendersName, String sendersHost, long sendersTime) {
         int count = 0, totalLen = 0;
