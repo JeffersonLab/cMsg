@@ -1233,8 +1233,8 @@ public class cMsg extends cMsgDomainAdapter {
         // Payload stuff. Include the name of this sender as part of a history
         // of senders in the cMsgSenderHistory payload field. Note that msg may
         // be set not to record any history.
-        message.addSenderToHistory(name);
-        String payloadTxt = message.getPayloadText();
+        long now = System.currentTimeMillis();
+        String payloadTxt = message.addHistoryToPayloadText(name, host, now);
         int payloadLen = 0;
         if (payloadTxt != null) {
             payloadLen = payloadTxt.length();
@@ -1266,7 +1266,6 @@ public class cMsg extends cMsgDomainAdapter {
                 domainOut.writeInt(message.getSenderToken());
                 domainOut.writeInt(message.getInfo());
 
-                long now = new Date().getTime();
                 // send the time in milliseconds as 2, 32 bit integers
                 domainOut.writeInt((int) (now >>> 32)); // higher 32 bits
                 domainOut.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
@@ -1355,8 +1354,8 @@ public class cMsg extends cMsgDomainAdapter {
         // Payload stuff. Include the name of this sender as part of a history
         // of senders in the cMsgSenderHistory payload field. Note that msg may
         // be set not to record any history.
-        message.addSenderToHistory(name);
-        String payloadTxt = message.getPayloadText();
+        long now = System.currentTimeMillis();
+        String payloadTxt = message.addHistoryToPayloadText(name, host, now);
         int payloadLen = 0;
         if (payloadTxt != null) {
             payloadLen = payloadTxt.length();
@@ -1393,7 +1392,6 @@ public class cMsg extends cMsgDomainAdapter {
                 out.writeInt(message.getSenderToken());
                 out.writeInt(message.getInfo());
 
-                long now = new Date().getTime();
                 // send the time in milliseconds as 2, 32 bit integers
                 out.writeInt((int) (now >>> 32)); // higher 32 bits
                 out.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
@@ -1491,8 +1489,8 @@ public class cMsg extends cMsgDomainAdapter {
         // Payload stuff. Include the name of this sender as part of a history
         // of senders in the cMsgSenderHistory payload field. Note that msg may
         // be set not to record any history.
-        message.addSenderToHistory(name);
-        String payloadTxt = message.getPayloadText();
+        long now = System.currentTimeMillis();
+        String payloadTxt = message.addHistoryToPayloadText(name, host, now);
         int payloadLen = 0;
         if (payloadTxt != null) {
             payloadLen = payloadTxt.length();
@@ -1532,7 +1530,6 @@ public class cMsg extends cMsgDomainAdapter {
                     domainOut.writeInt(message.getSenderToken());
                     domainOut.writeInt(message.getInfo());
 
-                    long now = new Date().getTime();
                     // send the time in milliseconds as 2, 32 bit integers
                     domainOut.writeInt((int) (now >>> 32)); // higher 32 bits
                     domainOut.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
@@ -2186,8 +2183,8 @@ public class cMsg extends cMsgDomainAdapter {
         // Payload stuff. Include the name of this sender as part of a history
         // of senders in the cMsgSenderHistory payload field. Note that msg may
         // be set not to record any history.
-        message.addSenderToHistory(name);
-        String payloadTxt = message.getPayloadText();
+        long now = System.currentTimeMillis();
+        String payloadTxt = message.addHistoryToPayloadText(name, host, now);
         int payloadLen = 0;
         if (payloadTxt != null) {
             payloadLen = payloadTxt.length();
@@ -2233,7 +2230,6 @@ public class cMsg extends cMsgDomainAdapter {
                 domainOut.writeInt(id);
                 domainOut.writeInt(message.getInfo() | cMsgMessage.isGetRequest);
 
-                long now = new Date().getTime();
                 // send the time in milliseconds as 2, 32 bit integers
                 domainOut.writeInt((int) (now >>> 32)); // higher 32 bits
                 domainOut.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
