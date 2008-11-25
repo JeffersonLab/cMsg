@@ -31,7 +31,10 @@ public class cMsgCallbackAdapter implements cMsgCallbackInterface {
      * @param msg {@inheritDoc}
      * @param userObject {@inheritDoc}
      */
-    public void callback(cMsgMessage msg, Object userObject) { return; }
+    public void callback(cMsgMessage msg, Object userObject) {
+        System.out.println("Called adapter's default callback, did not properly extend cMsgCallbackAdapter class!!!");
+        return;
+    }
 
     /**
      * {@inheritDoc}
