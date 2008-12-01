@@ -89,7 +89,7 @@ public class cMsgAlarmServer {
     private static boolean debug       = false;
 
 
-    
+
     /** Class to implement the callback. */
     static class cb extends cMsgCallbackAdapter {
         /**
@@ -437,7 +437,7 @@ public class cMsgAlarmServer {
             }
 
 
-            // change mode...log if channel does not exist or update if state changed
+            // change mode...log if channel does not exist or update if severity changed
             if(changeTable!=null) {
                 changePStmt1.setString(1,chan);
                 rs = changePStmt1.executeQuery();
@@ -503,10 +503,10 @@ public class cMsgAlarmServer {
                 "        [-screen]                  display alarms on screen\n" +
                 "        [-file <fileName>]         log to this file\n" +
                 "        [-noAppend]                alarm messages written to beginning of file\n" +
-                "        [-fullHistory <table>]     db table for all messages\n" +
-                "        [-history <table>]         db table for msgs of new channels or update severity\n" +
-                "        [-change <table>]          db table for msgs of new channels or update state\n" +
-                "        [-latest <table>]          db table for msgs of new channels or update if channel exists\n" +
+                "        [-fullHistory <table>]     db table for full history\n" +
+                "        [-history <table>]         db table for history for new channels or if severity changed\n" +
+                "        [-change <table>]          db table for new channels or if severity changed\n" +
+                "        [-latest <table>]          db table for new channesl or latest values\n" +
                 "        [-url <url>]               database url (for connection to db)\n" +
                 "        [-driver <driver>]         database driver (for connection to db)\n" +
                 "        [-account <account>]       database account (for connection to db)\n" +
@@ -599,7 +599,7 @@ public class cMsgAlarmServer {
             }
             else {
                 usage();
-                System.exit(-1);                
+                System.exit(-1);
             }
         }
 
