@@ -36,7 +36,9 @@ static int userInt;
 
 
 // misc parameters
-static int sleepTime = 100000;  // units are micro-sec
+static int sleepTime  = 100000;  // units are micro-sec
+static int sendAndGet = false;
+static int timeout    = 3;       // units are seconds
 
 
 // prototypes
@@ -91,17 +93,28 @@ int main(int argc, char **argv) {
     
     
     // send message
-    try {
-      c.send(m);
-      c.flush();
-    } catch (cMsgException e) {
-      cerr << endl << "  ?unable to send message" << endl << endl;
+    if(sendAndGet) {
+      try {
+        timespec ts = {timeout,0};
+        cMsgMessage *response = c.sendAndGet(m,&ts);
+        if(response!=NULL) {
+          cout << endl << "Response: " <<  endl << response->toString() << endl;
+        } else {
+          cerr << endl << "?No sendAndGet response within " << timeout << " seconds" << endl << endl;
+        }
+      } catch (cMsgException e) {
+        cerr << endl << "?No sendAndGet response within " << timeout << " seconds" << endl << endl;
+      }
+
+    } else {
+      try {
+        c.send(m);
+        c.flush();
+        usleep(sleepTime);
+      } catch (cMsgException e) {
+        cerr << endl << "?unable to send message" << endl << endl;
+      }
     }
-    
-    
-    // allow some time for message to be transferred before disconnecting
-    usleep(sleepTime);
-    
 
   } catch (cMsgException e) {
     cerr << endl << e.toString() << endl << endl;
@@ -123,7 +136,7 @@ void decodeCommandLine(int argc, char **argv) {
 
   const char *help = 
     "\nusage:\n\n   cMsgCommand [-u udl] [-n name] [-d description] [-sleep sleepTime]\n"
-    "              [-s subject] [-type type] [-i userInt] [-text text]\n\n";
+    "              [-s subject] [-type type] [-i userInt] [-text text] [-sendAndGet] [-timeout timeout]\n\n";
   
   
 
@@ -144,6 +157,14 @@ void decodeCommandLine(int argc, char **argv) {
 
     } else if (strncasecmp(argv[i],"-sleep",6)==0) {
       sleepTime=atoi(argv[i+1]);
+      i=i+2;
+
+    } else if (strncasecmp(argv[i],"-sendAndGet",11)==0) {
+      sendAndGet=true;
+      i=i+1;
+
+    } else if (strncasecmp(argv[i],"-timeout",8)==0) {
+      timeout=atoi(argv[i+1]);
       i=i+2;
 
     } else if (strncasecmp(argv[i],"-u",2)==0) {
