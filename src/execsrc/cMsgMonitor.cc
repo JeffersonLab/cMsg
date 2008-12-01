@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
 
 
   // set defaults
-  udl           = "cMsg://broadcast/cMsg";
+  udl           = "cMsg://localhost/cMsg";
   name          = "cMsgMonitor";
   description   = "cMsgMonitor Utility ";
 
