@@ -870,20 +870,23 @@ public class cMsgNameServer extends Thread {
             if (subdomain.equalsIgnoreCase("CA")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.CA";
             }
+            if (subdomain.equalsIgnoreCase("Et")) {
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.Et";
+            }
             else if (subdomain.equalsIgnoreCase("Database")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.database";
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.Database";
             }
             else if (subdomain.equalsIgnoreCase("LogFile")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.LogFile";
             }
             else if (subdomain.equalsIgnoreCase("Queue")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.queue";
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.Queue";
             }
             else if (subdomain.equalsIgnoreCase("SmartSockets")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.smartsockets";
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.SmartSockets";
             }
             else if (subdomain.equalsIgnoreCase("TcpServer")) {
-                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.tcpserver";
+                clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.TcpServer";
             }
             else if (subdomain.equalsIgnoreCase("FileQueue")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.FileQueue";
