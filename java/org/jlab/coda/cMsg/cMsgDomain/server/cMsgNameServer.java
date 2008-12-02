@@ -870,7 +870,7 @@ public class cMsgNameServer extends Thread {
             if (subdomain.equalsIgnoreCase("CA")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.CA";
             }
-            if (subdomain.equalsIgnoreCase("Et")) {
+            else if (subdomain.equalsIgnoreCase("Et")) {
                 clientHandlerClass = "org.jlab.coda.cMsg.cMsgDomain.subdomains.Et";
             }
             else if (subdomain.equalsIgnoreCase("Database")) {
