@@ -243,10 +243,6 @@ int cmsg_file_send(void *domainId, void *vmsg) {
   msg->domain=strdup(fdi->domain);
 
 
-  /* update history here */
-  cMsgAddSenderToHistory(vmsg, fdi->name);
-   
-
   /* set sender,senderTime,senderHost */
   msg->sender            = strdup(fdi->name);
   msg->senderHost        = strdup(fdi->host);
