@@ -102,7 +102,10 @@ extern "C" {
     
 /** The absolute maximum number of entries a message keeps
  * when recording the history of various parameters. */
-#define CMSG_MAX_HISTORY_LENGTH 200
+#define CMSG_HISTORY_LENGTH_ABS_MAX 200
+/** The maximum number of entries a message keeps
+ * when recording the history of various parameters. */
+#define CMSG_HISTORY_LENGTH_MAX 20
     
 /** Is byte array copied in? -- is stored in 1st bit. */
 #define CMSG_BYTE_ARRAY_IS_COPIED 0x1
@@ -291,7 +294,7 @@ typedef struct singleStringItem_t {
  * This structure is used to form a compound payload.
  * It is an item that represents a number, a string, an array of either,
  * binary data, or another cMsg message.
- * It is designed to allowing the mnarshalling of its string(s) and/or number(s)
+ * It is designed to allowing the marshalling of its string(s) and/or number(s)
  * to a simple format text string. This format allows easy unmarshalling of the
  * text back into its constituent parts.
  */
