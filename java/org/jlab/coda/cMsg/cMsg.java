@@ -387,12 +387,6 @@ public class cMsg {
             else if (domain.equalsIgnoreCase("CA")) {
                 domainConnectionClass = "org.jlab.coda.cMsg.CADomain.CA";
             }
-            else if (domain.equalsIgnoreCase("smartsockets")) {
-                domainConnectionClass = "org.jlab.coda.cMsg.smartsocketsDomain.smartsockets";
-            }
-            else if (domain.equalsIgnoreCase("database")) {
-                domainConnectionClass = "org.jlab.coda.cMsg.databaseDomain.database";
-            }
         }
 
         // all options are exhaused, throw error
