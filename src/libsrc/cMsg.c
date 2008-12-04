@@ -2278,12 +2278,12 @@ static void initMessage(cMsgMessage_t *msg) {
     int endian;
     if (msg == NULL) return;
     
-    msg->version       = CMSG_VERSION_MAJOR;
-    msg->sysMsgId      = 0;
-    msg->bits          = 0;
-    msg->info          = 0;
-    msg->historyLengthMax = 20;
-    msg->payloadCount  = 0;
+    msg->version          = CMSG_VERSION_MAJOR;
+    msg->sysMsgId         = 0;
+    msg->bits             = 0;
+    msg->info             = 0;
+    msg->historyLengthMax = CMSG_HISTORY_LENGTH_MAX;
+    msg->payloadCount     = 0;
     
     /* default is local endian */
     if (cMsgLocalByteOrder(&endian) == CMSG_OK) {
@@ -2853,7 +2853,53 @@ void *cMsgCreateNullResponseMessage(const void *vmsg) {
     return (void *)newMsg;
 }
 
+/*-------------------------------------------------------------------*/
+/*-------------------------------------------------------------------*/
 
+
+/**
+ * This routine gets the maximum number of entries this message keeps
+ * of its history of various parameters (sender's name, host, time).
+ *
+ * @param vmsg pointer to message
+ * @param len integer pointer to be filled inwith max number of entries this
+ *            message keeps of its history of various parameters
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
+ */   
+int cMsgGetHistoryLengthMax(const void *vmsg, int *len) {
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+
+  if (msg == NULL || len == NULL) return(CMSG_BAD_ARGUMENT);
+  *len = msg->historyLengthMax;
+  return(CMSG_OK);
+}
+
+/**
+ * This routine sets the maximum number of entries this message keeps
+ * of its history of various parameters (sender's name, host, time).
+ *
+ * @param vmsg pointer to message
+ * @param len max number of entries this message keeps
+ *            of its history of various parameters
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if message argument is NULL
+ * @returns CMSG_OUT_OF_RANGE if len < 0 or > CMSG_HISTORY_LENGTH_ABS_MAX
+ */
+int cMsgSetHistoryLengthMax(void *vmsg, int len) {
+
+  cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
+
+  if (len < 0 || len > CMSG_HISTORY_LENGTH_ABS_MAX) {
+    return(CMSG_OUT_OF_RANGE);
+  }
+  msg->historyLengthMax = len;
+  
+  return(CMSG_OK);
+}
+
+    
 /*-------------------------------------------------------------------*/
 /*-------------------------------------------------------------------*/
 
@@ -4893,6 +4939,7 @@ cMsgSubscribeConfig *cMsgSubscribeConfigCreate(void) {
                             * if mustSerialize = 0 */
   sc->msgsPerThread = 150; /* enough supplemental threads are started so that there are
                             * at most this many unprocessed messages for each thread */
+  sc->stackSize     = 0;   /* normally only used in vxworks  */
 
   return (cMsgSubscribeConfig*) sc;
 

@@ -1382,6 +1382,7 @@ static int reconnect(cMsgDomainInfo *domain) {
  */
 int cmsg_cmsg_send(void *domainId, void *vmsg) {
 
+  char *payloadText;
   int err, len, lenSubject, lenType, lenPayloadText, lenText, lenByteArray;
   int fd, highInt, lowInt, outGoing[16];
   ssize_t sendLen;
@@ -1435,15 +1436,26 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
       lenText = strlen(msg->text);
     }
 
+    /* time message sent (right now) */
+    clock_gettime(CLOCK_REALTIME, &now);
+    /* convert to milliseconds */
+    llTime  = ((uint64_t)now.tv_sec * 1000) +
+              ((uint64_t)now.tv_nsec/1000000);
+    
     /* update history here */
-    cMsgAddSenderToHistory(vmsg, domain->name);
+    err = cMsgAddHistoryToPayloadText(vmsg, domain->name, domain->myHost,
+                                      llTime, &payloadText);
+    if (err != CMSG_OK) {
+      cMsgConnectReadUnlock(domain);
+      break;
+    }
     
     /* length of "payloadText" string */
-    if (msg->payloadText == NULL) {
+    if (payloadText == NULL) {
       lenPayloadText = 0;
     }
     else {
-      lenPayloadText = strlen(msg->payloadText);
+      lenPayloadText = strlen(payloadText);
     }
 
     /* message id (in network byte order) to domain server */
@@ -1459,11 +1471,6 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
     /* bit info */
     outGoing[6] = htonl(msg->info);
 
-    /* time message sent (right now) */
-    clock_gettime(CLOCK_REALTIME, &now);
-    /* convert to milliseconds */
-    llTime  = ((uint64_t)now.tv_sec * 1000) +
-              ((uint64_t)now.tv_nsec/1000000);
     highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
     lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
     outGoing[7] = htonl(highInt);
@@ -1513,6 +1520,7 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
       if (domain->msgBuffer == NULL) {
         cMsgSocketMutexUnlock(domain);
         cMsgConnectReadUnlock(domain);
+        if (payloadText != NULL) free(payloadText);
         return(CMSG_OUT_OF_MEMORY);
       }
     }
@@ -1524,12 +1532,14 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
     len += lenSubject;
     memcpy(domain->msgBuffer+len, (void *)msg->type, lenType);
     len += lenType;
-    memcpy(domain->msgBuffer+len, (void *)msg->payloadText, lenPayloadText);
+    memcpy(domain->msgBuffer+len, (void *)payloadText, lenPayloadText);
     len += lenPayloadText;
     memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
     len += lenText;
     memcpy(domain->msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
     len += lenByteArray;   
+    
+    if (payloadText != NULL) free(payloadText);
     
     /* send data over TCP socket */
     sendLen = cMsgTcpWrite(fd, (void *) domain->msgBuffer, len);
@@ -1602,6 +1612,7 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
  */   
 static int udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
   
+  char *payloadText;
   int err, len, lenSubject, lenType, lenPayloadText, lenText, lenByteArray;
   int fd, highInt, lowInt, outGoing[19];
   ssize_t sendLen;
@@ -1631,17 +1642,28 @@ static int udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
       lenText = strlen(msg->text);
     }
 
+    /* time message sent (right now) */
+    clock_gettime(CLOCK_REALTIME, &now);
+    /* convert to milliseconds */
+    llTime  = ((uint64_t)now.tv_sec * 1000) +
+              ((uint64_t)now.tv_nsec/1000000);
+    
     /* update history here */
-    cMsgAddSenderToHistory(msg, domain->name);
+    err = cMsgAddHistoryToPayloadText((void *)msg, domain->name, domain->myHost,
+                                      llTime, &payloadText);
+    if (err != CMSG_OK) {
+      cMsgConnectReadUnlock(domain);
+      break;
+    }
     
     /* length of "payloadText" string */
-    if (msg->payloadText == NULL) {
+    if (payloadText == NULL) {
       lenPayloadText = 0;
     }
     else {
-      lenPayloadText = strlen(msg->payloadText);
+      lenPayloadText = strlen(payloadText);
     }
-
+    
     /* send magic integers first to protect against port scanning */
     outGoing[0] = htonl(CMSG_MAGIC_INT1); /* cMsg */
     outGoing[1] = htonl(CMSG_MAGIC_INT2); /*  is  */
@@ -1660,11 +1682,6 @@ static int udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
     /* bit info */
     outGoing[9] = htonl(msg->info);
 
-    /* time message sent (right now) */
-    clock_gettime(CLOCK_REALTIME, &now);
-    /* convert to milliseconds */
-    llTime  = ((uint64_t)now.tv_sec * 1000) +
-              ((uint64_t)now.tv_nsec/1000000);
     highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
     lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
     outGoing[10] = htonl(highInt);
@@ -1706,6 +1723,7 @@ static int udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         printf("cmsg_cmsg_send: message is too big for UDP packet\n");
       }
+      if (payloadText != NULL) free(payloadText);
       return(CMSG_OUT_OF_RANGE);
     }
 
@@ -1722,6 +1740,7 @@ static int udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
       if (domain->msgBuffer == NULL) {
         cMsgSocketMutexUnlock(domain);
         cMsgConnectReadUnlock(domain);
+        if (payloadText != NULL) free(payloadText);
         return(CMSG_OUT_OF_MEMORY);
       }
     }
@@ -1733,12 +1752,14 @@ static int udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
     len += lenSubject;
     memcpy(domain->msgBuffer+len, (void *)msg->type, lenType);
     len += lenType;
-    memcpy(domain->msgBuffer+len, (void *)msg->payloadText, lenPayloadText);
+    memcpy(domain->msgBuffer+len, (void *)payloadText, lenPayloadText);
     len += lenPayloadText;
     memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
     len += lenText;
     memcpy(domain->msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
     len += lenByteArray;   
+    
+    if (payloadText != NULL) free(payloadText);
     
     /* send data over UDP socket */
     sendLen = send(fd, (void *)domain->msgBuffer, len, 0);      
@@ -1806,6 +1827,7 @@ static int udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
  */   
 int cmsg_cmsg_syncSend(void *domainId, void *vmsg, const struct timespec *timeout, int *response) {
   
+  char *payloadText;
   int err, len, lenSubject, lenType, lenPayloadText, lenText, lenByteArray;
   int uniqueId, status, fd, highInt, lowInt, outGoing[16];
   cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
@@ -1854,15 +1876,26 @@ int cmsg_cmsg_syncSend(void *domainId, void *vmsg, const struct timespec *timeou
       lenText = strlen(msg->text);
     }
 
+    /* time message sent (right now) */
+    clock_gettime(CLOCK_REALTIME, &now);
+    /* convert to milliseconds */
+    llTime  = ((uint64_t)now.tv_sec * 1000) +
+              ((uint64_t)now.tv_nsec/1000000);
+
     /* update history here */
-    cMsgAddSenderToHistory(vmsg, domain->name);
+    err = cMsgAddHistoryToPayloadText(vmsg, domain->name, domain->myHost,
+                                      llTime, &payloadText);
+    if (err != CMSG_OK) {
+      cMsgConnectReadUnlock(domain);
+      break;
+    }
     
     /* length of "payloadText" string */
-    if (msg->payloadText == NULL) {
+    if (payloadText == NULL) {
       lenPayloadText = 0;
     }
     else {
-      lenPayloadText = strlen(msg->payloadText);
+      lenPayloadText = strlen(payloadText);
     }
     
     /*
@@ -1879,6 +1912,7 @@ int cmsg_cmsg_syncSend(void *domainId, void *vmsg, const struct timespec *timeou
     info = (getInfo *)malloc(sizeof(getInfo));
     if (info == NULL) {
       cMsgConnectReadUnlock(domain);
+      if (payloadText != NULL) free(payloadText);
       return(CMSG_OUT_OF_MEMORY);      
     }
     cMsgGetInfoInit(info);
@@ -1890,6 +1924,7 @@ int cmsg_cmsg_syncSend(void *domainId, void *vmsg, const struct timespec *timeou
       cMsgConnectReadUnlock(domain);
       cMsgGetInfoFree(info); 
       free(info);
+      if (payloadText != NULL) free(payloadText);
       return(CMSG_OUT_OF_MEMORY);      
     }
     
@@ -1906,6 +1941,7 @@ int cmsg_cmsg_syncSend(void *domainId, void *vmsg, const struct timespec *timeou
         cMsgConnectReadUnlock(domain);
         cMsgGetInfoFree(info);
         free(info);
+        if (payloadText != NULL) free(payloadText);
         return(CMSG_OUT_OF_MEMORY);
       }      
     }
@@ -1923,10 +1959,6 @@ int cmsg_cmsg_syncSend(void *domainId, void *vmsg, const struct timespec *timeou
     /* bit info */
     outGoing[6] = htonl(msg->info);
 
-    /* time message sent (right now) */
-    clock_gettime(CLOCK_REALTIME, &now);
-    /* convert to milliseconds */
-    llTime  = ((uint64_t)now.tv_sec * 1000) + ((uint64_t)now.tv_nsec/1000000);
     highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
     lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
     outGoing[7] = htonl(highInt);
@@ -1979,6 +2011,7 @@ int cmsg_cmsg_syncSend(void *domainId, void *vmsg, const struct timespec *timeou
         cMsgGetInfoFree(info);
         free(info);
         free(idString);
+        if (payloadText != NULL) free(payloadText);
         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
           fprintf(stderr, "cmsg_cmsg_syncSend: out of memory\n");
         }
@@ -1993,13 +2026,15 @@ int cmsg_cmsg_syncSend(void *domainId, void *vmsg, const struct timespec *timeou
     len += lenSubject;
     memcpy(domain->msgBuffer+len, (void *)msg->type, lenType);
     len += lenType;
-    memcpy(domain->msgBuffer+len, (void *)msg->payloadText, lenPayloadText);
+    memcpy(domain->msgBuffer+len, (void *)payloadText, lenPayloadText);
     len += lenPayloadText;
     memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
     len += lenText;
     memcpy(domain->msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
     len += lenByteArray;   
 
+    if (payloadText != NULL) free(payloadText);
+    
     /* send data over socket */
     if (cMsgTcpWrite(fd, (void *) domain->msgBuffer, len) != len) {
       cMsgSocketMutexUnlock(domain);
@@ -2461,6 +2496,7 @@ static int unSubscribeAndGet(void *domainId, const char *subject, const char *ty
 int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
                          void **replyMsg) {
   
+  char *payloadText;
   cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
   cMsgMessage_t *msg = (cMsgMessage_t *) sendMsg;
   int err, uniqueId, status;
@@ -2504,15 +2540,26 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *t
     lenText = strlen(msg->text);
   }
   
+  /* time message sent (right now) */
+  clock_gettime(CLOCK_REALTIME, &now);
+  /* convert to milliseconds */
+  llTime  = ((uint64_t)now.tv_sec * 1000) +
+            ((uint64_t)now.tv_nsec/1000000);
+
   /* update history here */
-  cMsgAddSenderToHistory(sendMsg, domain->name);
-  
+  err = cMsgAddHistoryToPayloadText(sendMsg, domain->name, domain->myHost,
+                                    llTime, &payloadText);
+  if (err != CMSG_OK) {
+    cMsgConnectReadUnlock(domain);
+    return(err);
+  }
+
   /* length of "payloadText" string */
-  if (msg->payloadText == NULL) {
+  if (payloadText == NULL) {
     lenPayloadText = 0;
   }
   else {
-    lenPayloadText = strlen(msg->payloadText);
+    lenPayloadText = strlen(payloadText);
   }
 
   staticMutexLock();
@@ -2523,6 +2570,7 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *t
   info = (getInfo *)malloc(sizeof(getInfo));
   if (info == NULL) {
     cMsgConnectReadUnlock(domain);
+    if (payloadText != NULL) free(payloadText);
     return(CMSG_OUT_OF_MEMORY);
   }
   cMsgGetInfoInit(info);
@@ -2540,6 +2588,7 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *t
     cMsgConnectReadUnlock(domain);
     cMsgGetInfoFree(info);
     free(info);
+    if (payloadText != NULL) free(payloadText);
     return(CMSG_OUT_OF_MEMORY);
   }
 
@@ -2556,6 +2605,7 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *t
       cMsgConnectReadUnlock(domain);
       cMsgGetInfoFree(info);
       free(info);
+      if (payloadText != NULL) free(payloadText);
       return(CMSG_OUT_OF_MEMORY);
     }
   }
@@ -2573,11 +2623,6 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *t
   /* bit info */
   outGoing[5] = htonl(msg->info | CMSG_IS_GET_REQUEST);
 
-  /* time message sent (right now) */
-  clock_gettime(CLOCK_REALTIME, &now);
-  /* convert to milliseconds */
-  llTime  = ((uint64_t)now.tv_sec * 1000) +
-            ((uint64_t)now.tv_nsec/1000000);
   highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
   lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
   outGoing[6] = htonl(highInt);
@@ -2633,6 +2678,7 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *t
       cMsgGetInfoFree(info);
       free(info);
       free(idString);
+      if (payloadText != NULL) free(payloadText);
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "cmsg_cmsg_sendAndGet: out of memory\n");
       }
@@ -2647,13 +2693,15 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg, const struct timespec *t
   len += lenSubject;
   memcpy(domain->msgBuffer+len, (void *)msg->type, lenType);
   len += lenType;
-  memcpy(domain->msgBuffer+len, (void *)msg->payloadText, lenPayloadText);
+  memcpy(domain->msgBuffer+len, (void *)payloadText, lenPayloadText);
   len += lenPayloadText;
   memcpy(domain->msgBuffer+len, (void *)msg->text, lenText);
   len += lenText;
   memcpy(domain->msgBuffer+len, (void *)&((msg->byteArray)[msg->byteArrayOffset]), lenByteArray);
   len += lenByteArray;   
     
+  if (payloadText != NULL) free(payloadText);
+  
   /* send data over socket */
   if (cMsgTcpWrite(fd, (void *) domain->msgBuffer, len) != len) {
     cMsgSocketMutexUnlock(domain);
@@ -3073,7 +3121,11 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type,
 #endif
     /* if stack size of this thread is set, include in attribute */
     if (cb->config.stackSize > 0) {
+printf("Setting stack size to %d\n", (int)cb->config.stackSize);
       pthread_attr_setstacksize(&threadAttribute, cb->config.stackSize);
+    }
+    else {
+printf("Stack size is %d\n", (int)cb->config.stackSize);
     }
 
     /* start callback thread now */

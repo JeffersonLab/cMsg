@@ -219,14 +219,16 @@ int clock_gettime(int dummy, struct timespec *t1);
   int    cMsgSetByteArrayNoCopy   (      void *vmsg, char *array, int length);
   int    cMsgGetByteArray         (const void *vmsg, char **array);
   
+  int    cMsgSetReliableSend      (      void *vmsg, int boolean);
+  int    cMsgGetReliableSend      (      void *vmsg, int *boolean);
+  
   /* message context stuff */
   int    cMsgGetSubscriptionDomain (const void *vmsg, const char **domain);
   int    cMsgGetSubscriptionSubject(const void *vmsg, const char **subject);
   int    cMsgGetSubscriptionType   (const void *vmsg, const char **type);
   int    cMsgGetSubscriptionUDL    (const void *vmsg, const char **udl);
   int    cMsgGetSubscriptionCueSize(const void *vmsg, int   *size);
-  int    cMsgSetReliableSend       (      void *vmsg, int boolean);
-  int    cMsgGetReliableSend       (      void *vmsg, int *boolean);
+  
   /*  misc. */
   int    cMsgToString              (const void *vmsg, char **string);
   int    cMsgToString2             (const void *vmsg, char **string, int binary, int compactPayload);
@@ -235,7 +237,9 @@ int clock_gettime(int dummy, struct timespec *t1);
   /* ***************************************** */
   /* compound payload stuff - 66 user routines */
   /* ***************************************** */
-  void   cMsgAddSenderToHistory      (void *vmsg, char *name);
+  int    cMsgAddHistoryToPayloadText (      void *vmsg, char *name, char *host, int64_t time, char **pTxt);
+  int    cMsgSetHistoryLengthMax     (      void *vmsg, int len);
+  int    cMsgGetHistoryLengthMax     (const void *vmsg, int *len);
   
   int    cMsgPayloadGet              (const void *vmsg, char **names,  int *types,  int len);
   int    cMsgPayloadGetInfo          (const void *vmsg, char ***names, int **types, int *len);
