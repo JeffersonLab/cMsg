@@ -284,6 +284,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         }
         else {
             /* if expid not defined anywhere, return error */
+printf("EXPID is not set!\n");
             return(CMSG_ERROR);
         }
     }
