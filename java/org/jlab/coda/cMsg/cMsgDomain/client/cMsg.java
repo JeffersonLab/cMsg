@@ -2664,7 +2664,7 @@ public class cMsg extends cMsgDomainAdapter {
         }
         String udlRemainder = udl.substring(index+7);
 
-        Pattern pattern = Pattern.compile("([^:]+):?(\\d+)?/?(\\w+)?/?(.*)");
+        Pattern pattern = Pattern.compile("([^:/]+):?(\\d+)?/?(\\w+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
         String udlHost, udlPort, udlSubdomain, udlSubRemainder;
