@@ -346,7 +346,6 @@ public class RCServer extends cMsgDomainAdapter {
             throw new cMsgException("invalid UDL");
         }
 
-        //Pattern pattern = Pattern.compile("((?:[a-zA-Z]+[\\w\\.\\-]*)|(?:[\\d]+\\.[\\d\\.]+)):?(\\d+)?/?(.*)");
         Pattern pattern = Pattern.compile("([^:/]+):?(\\d+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
