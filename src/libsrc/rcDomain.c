@@ -1670,7 +1670,7 @@ static int parseUDL(const char *UDLR,
     size_t     len, bufLength;
     char       *udlRemainder, *val;
     char       *buffer;
-    const char *pattern = "(([a-zA-Z]+[a-zA-Z0-9\\.\\-]*)|([0-9]+\\.[0-9\\.]+))?:?([0-9]+)?/?(.*)";
+    const char *pattern = "(([^:/]+)?:?([0-9]+)?/?(.*)";
     regmatch_t matches[6]; /* we have 6 potential matches: 1 whole, 5 sub */
     regex_t    compiled;
     
