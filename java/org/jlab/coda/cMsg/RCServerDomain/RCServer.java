@@ -325,15 +325,13 @@ public class RCServer extends cMsgDomainAdapter {
     /**
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      * RC Server domain UDL is of the form:<p>
-     *       cMsg:rcs://&lt;host&gt;:&lt;tcpPort&gt;?port=&lt;udpPort&gt;<p>
+     *       cMsg:rcs://&lt;host&gt;:&lt;tcpPort&gt;/?port=&lt;udpPort&gt;<p>
      *
      * The intial cMsg:rcs:// is stripped off by the top layer API
      *
      * Remember that for this domain:<p>
      * <ul>
-     * <li>host is NOT optional (must start with an alphabetic character according to "man hosts" or
-     *     may be in dotted form (129.57.35.21)<p>
-     * <li>host can be "localhost"<p>
+     * <li>host is NOT optional, may be in dotted form (129.57.35.21) or "localhost"<p>
      * <li>tcp port is optional and defaults to cMsgNetworkConstants.rcClientPort<p>
      * <li>the udp port to listen on may be given by the optional port parameter.
      *     if it's not given, the system assigns one<p>
@@ -348,7 +346,8 @@ public class RCServer extends cMsgDomainAdapter {
             throw new cMsgException("invalid UDL");
         }
 
-        Pattern pattern = Pattern.compile("((?:[a-zA-Z]+[\\w\\.\\-]*)|(?:[\\d]+\\.[\\d\\.]+)):?(\\d+)?/?(.*)");
+        //Pattern pattern = Pattern.compile("((?:[a-zA-Z]+[\\w\\.\\-]*)|(?:[\\d]+\\.[\\d\\.]+)):?(\\d+)?/?(.*)");
+        Pattern pattern = Pattern.compile("([^:/]+):?(\\d+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
         String udlHost, udlPort, remainder;
