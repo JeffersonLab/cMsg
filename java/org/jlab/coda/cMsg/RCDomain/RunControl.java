@@ -482,7 +482,7 @@ public class RunControl extends cMsgDomainAdapter {
          *    concluding connect message
          */
 
-        Pattern pattern = Pattern.compile("((?:[a-zA-Z]+[\\w\\.\\-]*)|(?:[\\d]+\\.[\\d\\.]+))?:?(\\d+)?/?(.*)");
+        Pattern pattern = Pattern.compile("([^:/]+)?:?(\\d+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
         String udlHost, udlPort, remainder;
