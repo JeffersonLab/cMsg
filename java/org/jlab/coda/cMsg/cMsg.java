@@ -117,6 +117,10 @@ public class cMsg {
             throw new cMsgException("a cMsg constructor argument is null");
         }
 
+        if (badString(name) || badString(UDL) || badString(description))  {
+            throw new cMsgException("improper character(s) in argument");
+        }
+
         // do not allow colons in the name string
         if (name.contains(":")) {
             throw new cMsgException("invalid name - contains \":\"");
@@ -168,6 +172,33 @@ public class cMsg {
         }
         this.debug = debug;
         connection.setDebug(debug);
+    }
+
+
+    /**
+     * This method checks a string given as a function argument.
+     * It returns true if it contains an unprintable character or any
+     * character from a list of excluded characters (`'").
+     *
+     * @param s string to check
+     *
+     * @returns false if string is OK
+     * @returns true if string contains excluded or unprintable characters
+     */
+    static private boolean badString(String s) {
+
+        if (s == null) return(true);
+
+        // check for non-printable characters & quotes
+        char c;
+        for (int i=0; i < s.length(); i++) {
+            c = s.charAt(i);
+            if (c < ' ' || c > '~') return(true);
+            if (c == '\'' || c == '"' || c == '`') return(true);
+        }
+
+        // string ok
+        return(false);
     }
 
 
@@ -451,12 +482,6 @@ public class cMsg {
             }
             else if (domain.equalsIgnoreCase("CA")) {
                 domainConnectionClass = "org.jlab.coda.cMsg.CADomain.CA";
-            }
-            else if (domain.equalsIgnoreCase("smartsockets")) {
-                domainConnectionClass = "org.jlab.coda.cMsg.smartsocketsDomain.smartsockets";
-            }
-            else if (domain.equalsIgnoreCase("database")) {
-                domainConnectionClass = "org.jlab.coda.cMsg.databaseDomain.database";
             }
         }
 
