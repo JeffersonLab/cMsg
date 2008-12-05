@@ -2627,7 +2627,7 @@ public class cMsg extends cMsgDomainAdapter {
      *    or the server's UDP port if multicasting. Defaults used if not specified are
      *    {@link cMsgNetworkConstants#nameServerTcpPort} if connecting directly, else
      *    {@link cMsgNetworkConstants#nameServerUdpPort} if multicasting<p>
-     * <li>host can be "localhost" and may also be in dotted form (129.57.35.21)<p>
+     * <li>host can be "localhost" and may also be in dotted form (129.57.35.21), but may not contain a colon<p>
      * <li>if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
      *    if subdomainType is not cMsg, it is required<p>
      * <li>the domain name is case insensitive as is the subdomainType<p>
@@ -2664,7 +2664,7 @@ public class cMsg extends cMsgDomainAdapter {
         }
         String udlRemainder = udl.substring(index+7);
 
-        Pattern pattern = Pattern.compile("([\\w\\.\\-]+):?(\\d+)?/?(\\w+)?/?(.*)");
+        Pattern pattern = Pattern.compile("([^:]+):?(\\d+)?/?(\\w+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
         String udlHost, udlPort, udlSubdomain, udlSubRemainder;
