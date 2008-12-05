@@ -846,8 +846,8 @@ int cMsgConnect(const char *myUDL, const char *myName,
   for (i=0; i<CMSG_MAX_DOMAIN_TYPES; i++) {
     if (dTypeInfo[i].type != NULL) {
       if (strcasecmp(dTypeInfo[i].type, domain->type) == 0) {
-	domain->functions = dTypeInfo[i].functions;
-	break;
+        domain->functions = dTypeInfo[i].functions;
+        break;
       }
     }
   }
