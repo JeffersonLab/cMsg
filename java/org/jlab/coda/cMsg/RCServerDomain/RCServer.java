@@ -337,14 +337,14 @@ public class RCServer extends cMsgDomainAdapter {
         // The intial cMsg:rcs:// is stripped off by the top layer API
         //
         // Remember that for this domain:
-        // 1) host is NOT optional (must start with an alphabetic character according to "man hosts" or
-        //    may be in dotted form (129.57.35.21)
+        // 1) host is NOT optional, may be in dotted form (129.57.35.21)
         // 2) host can be "localhost"
         // 3) tcp port is optional and defaults to 7654 (cMsgNetworkConstants.rcClientPort)
         // 4) the udp port to listen on may be given by the optional port parameter.
         //    if it's not given, the system assigns one
 
-        Pattern pattern = Pattern.compile("((?:[a-zA-Z]+[\\w\\.\\-]*)|(?:[\\d]+\\.[\\d\\.]+)):?(\\d+)?/?(.*)");
+        //Pattern pattern = Pattern.compile("((?:[a-zA-Z]+[\\w\\.\\-]*)|(?:[\\d]+\\.[\\d\\.]+)):?(\\d+)?/?(.*)");
+        Pattern pattern = Pattern.compile("([^:/]+):?(\\d+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
         String udlHost, udlPort, remainder, udpPort=null;
