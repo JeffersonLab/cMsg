@@ -3957,7 +3957,7 @@ int cMsgGetReceiverTime(const void *vmsg, struct timespec *receiverTime) {
 
 /**
  * This routine converts the message to an XML string.
- * Binary is not displayed, everything else is.
+ * Everything is displayed including binary.
  *
  * @param vmsg pointer to message
  * @param string is pointer to char* that will hold the malloc'd string
@@ -3969,7 +3969,7 @@ int cMsgGetReceiverTime(const void *vmsg, struct timespec *receiverTime) {
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  */   
 int cMsgToString(const void *vmsg, char **string) {
-  return cMsgToStringImpl(vmsg, string, 0, 0, 0, 0);
+  return cMsgToStringImpl(vmsg, string, 0, 0, 1, 0);
 }
 
 
