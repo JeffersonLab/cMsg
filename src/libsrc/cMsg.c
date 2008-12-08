@@ -734,7 +734,7 @@ static int reconstructUDL(char *domainType, parsedUDL *pList, char **UDL) {
 int cMsgConnect(const char *myUDL, const char *myName,
                 const char *myDescription, void **domainId) {
 
-  int     i, err, listSize=0;
+  int     i, err, len, listSize=0;
   char  *domainType=NULL, *newUDL=NULL;
   cMsgDomain *domain;
   parsedUDL  *pList;
@@ -745,6 +745,12 @@ int cMsgConnect(const char *myUDL, const char *myName,
        (checkString(myDescription) != CMSG_OK) ||
        (domainId                   == NULL   ))  {
     return(CMSG_BAD_ARGUMENT);
+  }
+  
+  /* check for colon in name */
+  len = strlen(myName);
+  for (i=0; i<len; i++) {
+    if (myName[i] == ':') return(CMSG_BAD_ARGUMENT);
   }
 
   /* The UDL may be a semicolon separated list, so put elements into a linked list */
