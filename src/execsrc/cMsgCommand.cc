@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
     int pid = getpid();
     gethostname(namec,sizeof(namec));
     stringstream ss;
-    ss << "cMsgCommand@" << string(namec) << ":" << pid << ends;
+    ss << "cMsgCommand@" << string(namec) << "-" << pid << ends;
     name=ss.str();
   }
 
@@ -117,7 +117,8 @@ int main(int argc, char **argv) {
     }
 
   } catch (cMsgException e) {
-    cerr << endl << e.toString() << endl << endl;
+    cerr << endl << "?unable to connect, udl = " << udl << ",  name = " << name << endl << endl 
+         << e.toString() << endl << endl;
     exit(EXIT_FAILURE);
   }
   
