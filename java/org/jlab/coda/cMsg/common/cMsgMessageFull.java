@@ -434,7 +434,16 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
 
     // payload quantities
 
-    
+
+    /**
+     * Sets the message to NOT record sender history if arg is true,
+     * even if the history length max is not exceeded.
+     * @param noHistoryAdditions if true the message does NOT record sender history
+     */
+    public void setNoHistoryAdditions(boolean noHistoryAdditions) {
+        this.noHistoryAdditions = noHistoryAdditions;
+    }
+
     /**
      * Sets the String representation of the compound payload of this message.
      * @param payloadText payloadText of this message.
