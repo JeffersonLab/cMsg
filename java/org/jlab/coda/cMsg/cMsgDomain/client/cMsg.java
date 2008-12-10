@@ -1232,10 +1232,16 @@ public class cMsg extends cMsgDomainAdapter {
 
         // Payload stuff. Include the name of this sender as part of a history
         // of senders in the cMsgSenderHistory payload field. Note that msg may
-        // be set not to record any history.
+        // be set not to record any history or add any history.
         long now = System.currentTimeMillis();
-        String payloadTxt = message.addHistoryToPayloadText(name, host, now);
+        String payloadTxt;
         int payloadLen = 0;
+        if (message.noHistoryAdditions()) {
+            payloadTxt = message.getPayloadText();
+        }
+        else {
+            payloadTxt = message.addHistoryToPayloadText(name, host, now);
+        }
         if (payloadTxt != null) {
             payloadLen = payloadTxt.length();
         }
@@ -1353,10 +1359,16 @@ public class cMsg extends cMsgDomainAdapter {
 
         // Payload stuff. Include the name of this sender as part of a history
         // of senders in the cMsgSenderHistory payload field. Note that msg may
-        // be set not to record any history.
+        // be set not to record any history or add any history.
         long now = System.currentTimeMillis();
-        String payloadTxt = message.addHistoryToPayloadText(name, host, now);
+        String payloadTxt;
         int payloadLen = 0;
+        if (message.noHistoryAdditions()) {
+            payloadTxt = message.getPayloadText();
+        }
+        else {
+            payloadTxt = message.addHistoryToPayloadText(name, host, now);
+        }
         if (payloadTxt != null) {
             payloadLen = payloadTxt.length();
         }
@@ -1488,10 +1500,16 @@ public class cMsg extends cMsgDomainAdapter {
 
         // Payload stuff. Include the name of this sender as part of a history
         // of senders in the cMsgSenderHistory payload field. Note that msg may
-        // be set not to record any history.
+        // be set not to record any history or add any history.
         long now = System.currentTimeMillis();
-        String payloadTxt = message.addHistoryToPayloadText(name, host, now);
+        String payloadTxt;
         int payloadLen = 0;
+        if (message.noHistoryAdditions()) {
+            payloadTxt = message.getPayloadText();
+        }
+        else {
+            payloadTxt = message.addHistoryToPayloadText(name, host, now);
+        }
         if (payloadTxt != null) {
             payloadLen = payloadTxt.length();
         }
@@ -2182,10 +2200,16 @@ public class cMsg extends cMsgDomainAdapter {
 
         // Payload stuff. Include the name of this sender as part of a history
         // of senders in the cMsgSenderHistory payload field. Note that msg may
-        // be set not to record any history.
+        // be set not to record any history or add any history.
         long now = System.currentTimeMillis();
-        String payloadTxt = message.addHistoryToPayloadText(name, host, now);
+        String payloadTxt;
         int payloadLen = 0;
+        if (message.noHistoryAdditions()) {
+            payloadTxt = message.getPayloadText();
+        }
+        else {
+            payloadTxt = message.addHistoryToPayloadText(name, host, now);
+        }
         if (payloadTxt != null) {
             payloadLen = payloadTxt.length();
         }
