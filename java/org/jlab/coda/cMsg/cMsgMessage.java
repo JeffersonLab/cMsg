@@ -2704,7 +2704,7 @@ if (debug) System.out.println("  skipped field");
                     addPayloadItem(new cMsgPayloadItem(name, b, textRep, noHeadLen, isSystem));
                 }
                 else {
-                    addPayloadItem(new cMsgPayloadItem(name, larray, textRep, noHeadLen, isSystem));
+                    addPayloadItem(new cMsgPayloadItem(name, larray, textRep, noHeadLen, isSystem, false));
                 }
             }
         }
@@ -2766,10 +2766,10 @@ if (debug) System.out.println("  skipped field");
             }
             else {
                 if (unsigned32) {
-                    addPayloadItem(new cMsgPayloadItem(name, larray, textRep, noHeadLen, isSystem));
+                    addPayloadItem(new cMsgPayloadItem(name, larray, textRep, noHeadLen, isSystem, unsigned32));
                 }
                 else {
-                    addPayloadItem(new cMsgPayloadItem(name, iarray, textRep, noHeadLen, isSystem));
+                    addPayloadItem(new cMsgPayloadItem(name, iarray, textRep, noHeadLen, isSystem, unsigned32));
                 }
             }
          }
@@ -2820,10 +2820,10 @@ if (debug) System.out.println("  skipped field");
             }
 
             if (unsigned16) {
-                addPayloadItem(new cMsgPayloadItem(name, iarray, textRep, noHeadLen, isSystem));
+                addPayloadItem(new cMsgPayloadItem(name, iarray, textRep, noHeadLen, isSystem, unsigned16));
             }
             else {
-                addPayloadItem(new cMsgPayloadItem(name, sarray, textRep, noHeadLen, isSystem));
+                addPayloadItem(new cMsgPayloadItem(name, sarray, textRep, noHeadLen, isSystem, unsigned16));
             }
          }
 
@@ -2854,7 +2854,7 @@ if (debug) System.out.println("  skipped field");
             }
 
             if (unsigned8) {
-                addPayloadItem(new cMsgPayloadItem(name, sarray, textRep, noHeadLen, isSystem));
+                addPayloadItem(new cMsgPayloadItem(name, sarray, textRep, noHeadLen, isSystem, unsigned8));
             }
             else {
                 addPayloadItem(new cMsgPayloadItem(name, barray, textRep, noHeadLen, isSystem));

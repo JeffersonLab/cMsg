@@ -111,6 +111,13 @@ public final class cMsgPayloadItem implements Cloneable {
      */
     private int type;
 
+    /** If type was originally unsigned and then promoted in Java, this stores that unsigned type. */
+    private int originalType;
+
+    /** If type was originally unsigned and then promoted in Java, this stores the
+      * original string representation for this item. */
+    private String originalText;
+
     /** Number of items in array if array, else 1. */
     private int count = 1;
 
@@ -689,7 +696,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    public cMsgPayloadItem(String name, int i, boolean isSystem) throws cMsgException {
+    cMsgPayloadItem(String name, int i, boolean isSystem) throws cMsgException {
         validName(name, isSystem);
         addInt(name, i, isSystem);
     }
@@ -845,7 +852,8 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, byte[] b, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+    cMsgPayloadItem(String name, byte[] b, String txt, int noHeadLen, boolean isSystem)
+            throws cMsgException {
         validName(name, isSystem);
         addByte(name, b, txt, isSystem, noHeadLen);
     }
@@ -874,11 +882,13 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
      * @param isSystem is the item a system field (name starts with "cmsg") ?
+     * @param unsigned did the item originally come from an unsigned 8 bit int array?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, short[] s, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+    cMsgPayloadItem(String name, short[] s, String txt, int noHeadLen, boolean isSystem, boolean unsigned)
+            throws cMsgException {
         validName(name, isSystem);
-        addShort(name, s, txt, isSystem, noHeadLen);
+        addShort(name, s, txt, isSystem, unsigned, noHeadLen);
     }
 
     // 32 bit
@@ -905,11 +915,13 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
      * @param isSystem is the item a system field (name starts with "cmsg") ?
+     * @param unsigned did the item originally come from an unsigned 16 bit int array?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, int[] i, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+    cMsgPayloadItem(String name, int[] i, String txt, int noHeadLen, boolean isSystem, boolean unsigned)
+            throws cMsgException {
         validName(name, isSystem);
-        addInt(name, i, txt, isSystem, noHeadLen);
+        addInt(name, i, txt, isSystem, unsigned, noHeadLen);
     }
 
     // 64 bit
@@ -933,10 +945,10 @@ public final class cMsgPayloadItem implements Cloneable {
      *
      * @param name name of item
      * @param l long array (array of 64-bit integers) to be part of the payload
-     * @param isSystem is the item a system field (name starts with "cmsg") ?
+     * @param isSystem is the item a system field (name starts with "cmsg")?
      * @throws cMsgException if invalid name
      */
-    public cMsgPayloadItem(String name, long[] l, boolean isSystem) throws cMsgException {
+    cMsgPayloadItem(String name, long[] l, boolean isSystem) throws cMsgException {
         validName(name, isSystem);
         addLong(name, l, isSystem);
     }
@@ -950,13 +962,17 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param l long array (array of 64-bit integers) to be part of the payload
      * @param txt text representation of the payload item
      * @param noHeadLen length of the text representation NOT including the header line
-     * @param isSystem is the item a system field (name starts with "cmsg") ?
+     * @param isSystem is the item a system field (name starts with "cmsg")?
+     * @param unsigned did the item originally come from an unsigned 32 bit int array?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, long[] l, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+    cMsgPayloadItem(String name, long[] l, String txt, int noHeadLen,
+                    boolean isSystem, boolean unsigned) throws cMsgException {
         validName(name, isSystem);
-        addLong(name, l, txt, isSystem, noHeadLen);
+        addLong(name, l, txt, isSystem, unsigned, noHeadLen);
     }
+
+    // BigIntegers
 
     /**
      * Construct a payload item from an array of unsigned 64-bit integers.
@@ -989,7 +1005,8 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param isSystem is the item a system field (name starts with "cmsg") ?
      * @throws cMsgException if invalid name
      */
-    cMsgPayloadItem(String name, BigInteger[] bigs, String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+    cMsgPayloadItem(String name, BigInteger[] bigs, String txt, int noHeadLen, boolean isSystem)
+            throws cMsgException {
         validName(name, isSystem);
         addBigInt(name, bigs, txt, isSystem, noHeadLen);
     }
@@ -2107,9 +2124,19 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param s short array (16-bit integer array) to be part of the payload
      * @param txt text representation of the payload item
      * @param isSystem is the given string a system field?
+     * @param unsigned did the item originally come from an unsigned 8 bit int array?
      * @param noHeadLen length of the text representation NOT including the header line
      */
-    private void addShort(String name, short[] s, String txt, boolean isSystem, int noHeadLen) {
+    private void addShort(String name, short[] s, String txt, boolean isSystem, boolean unsigned, int noHeadLen) {
+        // The original text rep is no longer valid since in Java the
+        // unsigned types are now represented by a larger int type.
+        if (unsigned) {
+            originalText = txt;
+            originalType = cMsgConstants.payloadUint8A;
+            addShort(name, s, isSystem);
+            return;
+        }
+
         item  = s;
         count = s.length;
         type  = cMsgConstants.payloadInt16A;
@@ -2212,9 +2239,19 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param i int array (32-bit integer array) to be part of the payload
      * @param txt text representation of the payload item
      * @param isSystem is the given string a system field?
+     * @param unsigned did the item originally come from an unsigned 16 bit int array?
      * @param noHeadLen length of the text representation NOT including the header line
      */
-    private void addInt(String name, int[] i, String txt, boolean isSystem, int noHeadLen) {
+    private void addInt(String name, int[] i, String txt, boolean isSystem, boolean unsigned, int noHeadLen) {
+        // The original text rep is no longer valid since in Java the
+        // unsigned types are now represented by a larger int type.
+        if (unsigned) {
+            originalText = txt;
+            originalType = cMsgConstants.payloadUint16A;
+            addInt(name, i, isSystem);
+            return;
+        }
+
         item  = i;
         count = i.length;
         type  = cMsgConstants.payloadInt32A;
@@ -2320,9 +2357,19 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param l long array (64-bit integer array) to be part of the payload
      * @param txt text representation of the payload item
      * @param isSystem is the given string a system field?
+     * @param unsigned did the item originally come from an unsigned 32 bit int array?
      * @param noHeadLen length of the text representation NOT including the header line
      */
-    private void addLong(String name, long[] l, String txt, boolean isSystem, int noHeadLen) {
+    private void addLong(String name, long[] l, String txt, boolean isSystem, boolean unsigned, int noHeadLen) {
+        // The original text rep is no longer valid since in Java the
+        // unsigned types are now represented by a larger int type.
+        if (unsigned) {
+            originalText = txt;
+            originalType = cMsgConstants.payloadUint32A;
+            addLong(name, l, isSystem);
+            return;
+        }
+
         item  = l;
         count = l.length;
         type  = cMsgConstants.payloadInt64A;
@@ -2331,7 +2378,6 @@ public final class cMsgPayloadItem implements Cloneable {
         text = txt;
         noHeaderLen = noHeadLen;
     }
-
 
     /**
      * This method creates a String (text representation) of a payload item consisting of
@@ -2424,6 +2470,120 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = (16+1)*(l.length - suppressed);
         addArray(sb);
     }
+
+    /**
+     * This method stores a String (text representation) of a payload item consisting of
+     * a BigInteger object (unsigned 64-bit integer) array.
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param bigs BigInteger object (unsigned 64-bit integer) array to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
+    private void addBigInt(String name, BigInteger[] bigs, String txt,  boolean isSystem,int noHeadLen) {
+        item  = bigs;
+        count = bigs.length;
+        type  = cMsgConstants.payloadUint64A;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
+    }
+
+    /**
+     * This method creates a String (text representation) of a payload item consisting of
+     * a BigInteger object (unsigned 64-bit integer) array.
+     *
+     * @param name name of item
+     * @param bigs BigInteger object (unsigned 64-bit integer) array to be part of the payload
+     * @param isSystem is the given string a system field?
+     */
+    private void addBigInt(String name, BigInteger[] bigs, boolean isSystem) {
+        item  = bigs;
+        count = bigs.length;
+        type  = cMsgConstants.payloadUint64A;
+        this.name = name;
+        this.isSystem = isSystem;
+
+        // guess at how much memory we need
+        int lenGuess = (16+1)*bigs.length; // (length - 1)spaces + 1 newline
+        StringBuilder sb = new StringBuilder(lenGuess + 100);
+
+        // Add each array element as a string of 16 hex characters.
+        // Do zero suppression as well.
+        int zeros=0, suppressed=0;
+        boolean thisOneZero=false;
+        long j64;
+
+        for (int i = 0; i < bigs.length; i++) {
+            j64 = bigs[i].longValue();
+
+            if (j64 == 0L) {
+                if ((++zeros < 0xfffffff) && (i < bigs.length-1)) {
+                    continue;
+                }
+                thisOneZero = true;
+            }
+
+            // If the # of zero have reached their limit or the current # is not zero,
+            // write out the accumulated zeros as Z00000000-------
+            if (zeros > 0) {
+                // how many longs did we not write?
+                suppressed += zeros - 1;
+//System.out.println("SUPPRESSED %u\n",suppressed);
+
+                // don't use 'Z' for only 1 zero
+                if (zeros == 1) {
+                    sb.append("0000000000000000");
+                }
+                else {
+                    sb.append("Z00000000");
+                    sb.append( toASCII[ zeros >> 24 & 0xff ].charAt(1) );
+                    sb.append( toASCII[ zeros >> 16 & 0xff ] );
+                    sb.append( toASCII[ zeros >>  8 & 0xff ] );
+                    sb.append( toASCII[ zeros       & 0xff ] );
+                }
+
+                if (thisOneZero) {
+                    if (i < bigs.length - 1) {
+                        sb.append(" ");
+                        zeros = 0;
+                        thisOneZero = false;
+                        continue;
+                    }
+                    else {
+                        sb.append("\n");
+                        break;
+                    }
+                }
+                // this one is NOT zero, just wrote out the accumumlated zeros
+                sb.append(" ");
+                zeros = 0;
+                thisOneZero = false;
+            }
+
+            sb.append( toASCII[ (int) (j64>>56 & 0xffL) ] );
+            sb.append( toASCII[ (int) (j64>>48 & 0xffL) ] );
+            sb.append( toASCII[ (int) (j64>>40 & 0xffL) ] );
+            sb.append( toASCII[ (int) (j64>>32 & 0xffL) ] );
+            sb.append( toASCII[ (int) (j64>>24 & 0xffL) ] );
+            sb.append( toASCII[ (int) (j64>>16 & 0xffL) ] );
+            sb.append( toASCII[ (int) (j64>> 8 & 0xffL) ] );
+            sb.append( toASCII[ (int) (j64     & 0xffL) ] );
+
+            if (i < bigs.length-1) {
+                sb.append(" ");
+            } else {
+                sb.append("\n");
+            }
+        }
+
+        noHeaderLen = (16+1)*(bigs.length - suppressed);
+        addArray(sb);
+    }
+
 
     /**
      * This method stores a String (text representation) of a payload item consisting of
@@ -2651,120 +2811,6 @@ public final class cMsgPayloadItem implements Cloneable {
         noHeaderLen = (16+1)*(d.length - suppressed);
         addArray(sb);
     }
-
-    /**
-     * This method stores a String (text representation) of a payload item consisting of
-     * a BigInteger object (unsigned 64-bit integer) array.
-     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
-     *
-     * @param name name of item
-     * @param bigs BigInteger object (unsigned 64-bit integer) array to be part of the payload
-     * @param txt text representation of the payload item
-     * @param isSystem is the given string a system field?
-     * @param noHeadLen length of the text representation NOT including the header line
-     */
-    private void addBigInt(String name, BigInteger[] bigs, String txt, boolean isSystem, int noHeadLen) {
-        item  = bigs;
-        count = bigs.length;
-        type  = cMsgConstants.payloadUint64A;
-        this.name = name;
-        this.isSystem = isSystem;
-        text = txt;
-        noHeaderLen = noHeadLen;
-    }
-
-    /**
-     * This method creates a String (text representation) of a payload item consisting of
-     * a BigInteger object (unsigned 64-bit integer) array.
-     *
-     * @param name name of item
-     * @param bigs BigInteger object (unsigned 64-bit integer) array to be part of the payload
-     * @param isSystem is the given string a system field?
-     */
-    private void addBigInt(String name, BigInteger[] bigs, boolean isSystem) {
-        item  = bigs;
-        count = bigs.length;
-        type  = cMsgConstants.payloadUint64A;
-        this.name = name;
-        this.isSystem = isSystem;
-
-        // guess at how much memory we need
-        int lenGuess = (16+1)*bigs.length; // (length - 1)spaces + 1 newline
-        StringBuilder sb = new StringBuilder(lenGuess + 100);
-
-        // Add each array element as a string of 16 hex characters.
-        // Do zero suppression as well.
-        int zeros=0, suppressed=0;
-        boolean thisOneZero=false;
-        long j64;
-
-        for (int i = 0; i < bigs.length; i++) {
-            j64 = bigs[i].longValue();
-
-            if (j64 == 0L) {
-                if ((++zeros < 0xfffffff) && (i < bigs.length-1)) {
-                    continue;
-                }
-                thisOneZero = true;
-            }
-
-            // If the # of zero have reached their limit or the current # is not zero,
-            // write out the accumulated zeros as Z00000000-------
-            if (zeros > 0) {
-                // how many longs did we not write?
-                suppressed += zeros - 1;
-//System.out.println("SUPPRESSED %u\n",suppressed);
-
-                // don't use 'Z' for only 1 zero
-                if (zeros == 1) {
-                    sb.append("0000000000000000");
-                }
-                else {
-                    sb.append("Z00000000");
-                    sb.append( toASCII[ zeros >> 24 & 0xff ].charAt(1) );
-                    sb.append( toASCII[ zeros >> 16 & 0xff ] );
-                    sb.append( toASCII[ zeros >>  8 & 0xff ] );
-                    sb.append( toASCII[ zeros       & 0xff ] );
-                }
-
-                if (thisOneZero) {
-                    if (i < bigs.length - 1) {
-                        sb.append(" ");
-                        zeros = 0;
-                        thisOneZero = false;
-                        continue;
-                    }
-                    else {
-                        sb.append("\n");
-                        break;
-                    }
-                }
-                // this one is NOT zero, just wrote out the accumumlated zeros
-                sb.append(" ");
-                zeros = 0;
-                thisOneZero = false;
-            }
-
-            sb.append( toASCII[ (int) (j64>>56 & 0xffL) ] );
-            sb.append( toASCII[ (int) (j64>>48 & 0xffL) ] );
-            sb.append( toASCII[ (int) (j64>>40 & 0xffL) ] );
-            sb.append( toASCII[ (int) (j64>>32 & 0xffL) ] );
-            sb.append( toASCII[ (int) (j64>>24 & 0xffL) ] );
-            sb.append( toASCII[ (int) (j64>>16 & 0xffL) ] );
-            sb.append( toASCII[ (int) (j64>> 8 & 0xffL) ] );
-            sb.append( toASCII[ (int) (j64     & 0xffL) ] );
-
-            if (i < bigs.length-1) {
-                sb.append(" ");
-            } else {
-                sb.append("\n");
-            }
-        }
-
-        noHeaderLen = (16+1)*(bigs.length - suppressed);
-        addArray(sb);
-    }
-
 
     /**
      * This is a utility method which takes a StringBuilder representation of any type of array
