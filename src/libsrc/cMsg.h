@@ -231,8 +231,8 @@ int clock_gettime(int dummy, struct timespec *t1);
   
   /*  misc. */
   int    cMsgToString              (const void *vmsg, char **string);
-  int    cMsgToString2             (const void *vmsg, char **string, int binary, int compactPayload);
-  int    cMsgPayloadToString       (const void *vmsg, char **string, int binary, int compactPayload);
+  int    cMsgToString2             (const void *vmsg, char **string, int binary, int compact);
+  int    cMsgPayloadToString       (const void *vmsg, char **string, int binary, int compact);
   
   /* ***************************************** */
   /* compound payload stuff - 66 user routines */
