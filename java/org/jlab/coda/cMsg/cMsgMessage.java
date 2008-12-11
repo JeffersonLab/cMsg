@@ -2226,11 +2226,11 @@ if (debug) System.out.println("  skipped field");
         // since we don't really need it in java
         int index2 = txt.indexOf('\n', index1);
         if (index2 < 1) throw new cMsgException("bad format");
-        int skip = index2 - index1 + 2;
+        int secondLineLen = index2 - index1 + 1;
 
         // next is string value of this payload item
         index1 = index2 + 1;
-        index2 = index1 + noHeadLen - skip; // don't look for \n's !!!
+        index2 = index1 + noHeadLen - secondLineLen - 1; // don't look for \n's !!!
 
         if (index2 < 1) throw new cMsgException("bad format");
         String val = txt.substring(index1, index2);
@@ -2338,13 +2338,13 @@ if (debug) System.out.println("  skipped field");
         int index2 = txt.indexOf('\n', index1);
         if (index2 < 1) throw new cMsgException("bad format");
         String[] stuff = txt.substring(index1, index2).split(" ");
-//System.out.println("addBinFromText: stuff = " + txt.substring(index1, index2));
+        int base64StrLen = Integer.parseInt(stuff[0]);
+        if (base64StrLen < 1) throw new cMsgException("bad format");
         int endian = Integer.parseInt(stuff[1]);
 
         // next is string value of this payload item
         index1 = index2 + 1;
-        index2 = txt.indexOf('\n', index1);
-        if (index2 < 1) throw new cMsgException("bad format");
+        index2 = index1 + base64StrLen;
         String val = txt.substring(index1, index2);
 
         // decode string into binary (wrong characters are ignored)
