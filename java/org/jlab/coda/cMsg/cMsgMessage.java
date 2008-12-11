@@ -1016,27 +1016,26 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @return a blank string if any error occurs
      */
     public String toString() {
-        return toStringImpl(0, 0, true, false, false, false, null);
+        return toStringImpl(0, true, false, false, false, null);
     }
 
 
     /**
      * This method converts the message to a printable string in XML format.
      *
-     * @param level the level of recursive messaging (0 = none)
      * @param margin number of spaces in the indent
      * @param binary includes binary as ASCII if true, else binary is ignored
      * @param compact if true, do not include attributes with null or default integer values
-     * @param hasName if true, this message is in the payload and has a name
      * @param compactPayload if true includes payload only as a single string (internal format)
+     * @param hasName if true, this message is in the payload and has a name
      * @param pItemName if in payload, name of payload item
      *
      * @return message as XML String object
      * @return a blank string if any error occurs
      */
-    private String toStringImpl(int level, int margin,
+    private String toStringImpl(int margin,
                                 boolean binary, boolean compact,
-                                boolean hasName, boolean compactPayload,
+                                boolean compactPayload, boolean hasName,
                                 String pItemName) {
         
         StringBuilder sb = new StringBuilder(2048);
@@ -1053,8 +1052,8 @@ public class cMsgMessage implements Cloneable, Serializable {
             indent = new String(c);
         }
 
-        // attributes offset 5 spaces from element
-        char[] c = new char[5];
+        // attributes offset margin+5 spaces
+        char[] c = new char[margin+5];
         Arrays.fill(c, ' ');
         String offsett = new String(c);
 
@@ -1071,104 +1070,104 @@ public class cMsgMessage implements Cloneable, Serializable {
         // print all attributes in a pretty form first
         //--------------------------------------------
 
-        sb.append(indent); sb.append(offsett);
+        sb.append(offsett);
         sb.append("version           = \""); sb.append(version); sb.append("\"\n");
 
         // check if getRequest, if so, it cannot also be a getResponse
         if ( (info & isGetRequest) != 0 ) {
-            sb.append(indent); sb.append(offsett);
-            sb.append("getRequest        = \""); sb.append(((info & isGetRequest) != 0) ? "true" : "false"); sb.append("\"\n");
+            sb.append(offsett);
+            sb.append("getRequest        = \"true\"\n");
         }
         // check if nullGetResponse, if so, then it's a getResponse too (no need to print)
         else if ( (info & isNullGetResponse) != 0 ) {
-            sb.append(indent); sb.append(offsett);
-            sb.append("isNullGetResponse = \""); sb.append("true"); sb.append("\"\n");
+            sb.append(offsett);
+            sb.append("isNullGetResponse = \"true\"\n");
         }
         else {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("isGetResponse     = \""); sb.append(((info & isGetResponse) != 0) ? "true" : "false"); sb.append("\"\n");
         }
 
         if (domain != null) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("domain            = \""); sb.append(domain); sb.append("\"\n");
         }
         else if (!compact) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("domain            = \"(null)\"\n");
         }
 
         if (sender != null) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("sender            = \""); sb.append(sender); sb.append("\"\n");
         }
         else if (!compact) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("sender            = \"(null)\"\n");
         }
 
         if (senderHost != null) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("senderHost        = \""); sb.append(senderHost); sb.append("\"\n");
         }
         else if (!compact) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("senderHost        = \"(null)\"\n");
         }
 
         if (!compact || senderTime > 0L) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("senderTime        = \""); sb.append(new Date(senderTime)); sb.append("\"\n");
         }
 
         if (receiver != null) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("receiver          = \""); sb.append(receiver); sb.append("\"\n");
         }
         else if (!compact) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("receiver          = \"(null)\"\n");
         }
 
         if (receiverHost != null) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("receiverHost      = \""); sb.append(receiverHost); sb.append("\"\n");
         }
         else if (!compact) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("receiverHost      = \"(null)\"\n");
         }
 
         if (!compact || receiverTime > 0L) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("receiverTime      = \""); sb.append(new Date(receiverTime)); sb.append("\"\n");
         }
 
         if (!compact || userTime > 0L) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("userTime          = \""); sb.append(new Date(userTime)); sb.append("\"\n");
         }
 
         if (subject != null) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("subject           = \""); sb.append(subject); sb.append("\"\n");
         }
         else if (!compact) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("subject           = \"(null)\"\n");
         }
 
         if (type != null) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("type              = \""); sb.append(type); sb.append("\"\n");
         }
         else if (!compact) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("type              = \"(null)\"\n");
         }
 
         if (hasPayload() && isExpandedPayload()) {
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("payloadItemCount  = \""); sb.append(items.size()); sb.append("\"\n");
         }
 
@@ -1181,13 +1180,10 @@ public class cMsgMessage implements Cloneable, Serializable {
 
         // Text
         if (text != null) {
-            sb.append(indent); sb.append(offsett); sb.append("<text><![CDATA[");
-            sb.append(text); sb.append("]]></text>\n");
+            sb.append(offsett);
+            sb.append("<text><![CDATA["); sb.append(text); sb.append("]]></text>\n");
         }
-//        else if (!compact) {
-//            sb.append(indent); sb.append(offsett); sb.append("<text><![CDATA[(null)]]></text>\n");
-//        }
-        
+
 
         // Binary array
         if (binary && (bytes != null) && (length > 0)) {
@@ -1196,29 +1192,32 @@ public class cMsgMessage implements Cloneable, Serializable {
             if (endian == cMsgConstants.endianBig) endianTxt = "big";
             else endianTxt = "little";
 
-            sb.append(indent); sb.append(offsett);
+            sb.append(offsett);
             sb.append("<binary endian=\""); sb.append(endianTxt);
             sb.append("\" nbytes=\""); sb.append(bytes.length);sb.append("\">\n");
             sb.append(Base64.encodeToString(bytes, offset, length, true));
-            sb.append(indent); sb.append(offsett); sb.append("</binary>\n");
+            sb.append(offsett);
+            sb.append("</binary>\n");
         }
 
         // Payload
         if (hasPayload()) {
             if (compactPayload) {
-                sb.append(indent); sb.append(offsett); sb.append("<payload compact=\"true\">\n");
-                sb.append(payloadText);
-                sb.append(indent); sb.append(offsett); sb.append("</payload>\n");
+                sb.append(offsett);
+                sb.append("<payload compact=\"true\">\n"); sb.append(payloadText);
+                sb.append(offsett);
+                sb.append("</payload>\n");
             }
             else {
                 try {
-                    sb.append(payloadToStringImpl(level, margin+5, binary, compact));
+                    sb.append(payloadToStringImpl(margin+5, binary, compact));
                 }
                 catch (cMsgException e) {
                     // payload is not expanded
-                    sb.append(indent); sb.append(offsett); sb.append("<payload expanded=\"false\">\n");
-                    sb.append(payloadText);
-                    sb.append(indent); sb.append(offsett); sb.append("</payload>\n");
+                    sb.append(offsett);
+                    sb.append("<payload expanded=\"false\">\n"); sb.append(payloadText);
+                    sb.append(offsett);
+                    sb.append("</payload>\n");
                 }
             }
         }
@@ -1238,7 +1237,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @throws cMsgException if payload is not expanded
      */
     public String payloadToString() throws cMsgException {
-        return payloadToStringImpl(0, 0, true, false).toString();
+        return payloadToStringImpl(0, true, false).toString();
     }
 
 
@@ -1246,7 +1245,6 @@ public class cMsgMessage implements Cloneable, Serializable {
      * This method converts the payload of a message to a printable string in XML format.
      * Returns null if there is no payload and an exception if the payload is not expanded.
      *
-     * @param level the level of recursive messaging (0 = none)
      * @param margin number of spaces in the indent
      * @param binary includes binary as ASCII if true, else binary is ignored
      * @param compact if true, do not include attributes with null or default integer values
@@ -1254,7 +1252,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @return payload as XML in StringBuilder object
      * @throws cMsgException if payload is not expanded
      */
-    private StringBuilder payloadToStringImpl(int level, int margin,
+    private StringBuilder payloadToStringImpl(int margin,
                                               boolean binary, boolean compact) throws cMsgException {
 
         // no payload so return
@@ -1272,7 +1270,7 @@ public class cMsgMessage implements Cloneable, Serializable {
         StringBuilder sb = new StringBuilder(2048);
 
         // Create the indent since a message may contain a message, etc.
-        String indent = "";
+        String indent;
         if (margin < 1) {
             margin = 0;
             indent = "";
@@ -1362,12 +1360,16 @@ public class cMsgMessage implements Cloneable, Serializable {
                    case cMsgConstants.payloadBin:
                      {   byte[] b   = item.getBinary();
                          int endian = item.getEndian();
-                         String endianTxt = (endian == cMsgConstants.endianBig) ? "big" : "little";
 
                          sb.append(indent); sb.append(offsett);
                          sb.append("<binary name=\""); sb.append(name);
-                         sb.append("\" endian=\""); sb.append(endianTxt);
-                         sb.append("\" size=\""); sb.append(b.length);
+                         if (endian == cMsgConstants.endianBig) {
+                            sb.append("\" endian=\"big\"");
+                         }
+                         else {
+                            sb.append("\" endian=\"little\"");
+                         }
+                         sb.append("\" nbytes=\""); sb.append(b.length);
                          if (!binary) {
                             sb.append("\" />\n");
                          }
@@ -1381,7 +1383,7 @@ public class cMsgMessage implements Cloneable, Serializable {
                    case cMsgConstants.payloadMsg:
                      {   cMsgMessage m = item.getMessage();
                          // recursion
-                         sb.append(m.toStringImpl(level+1, margin+offsett.length(), binary, compact, true, false, item.name));
+                         sb.append(m.toStringImpl(margin+offsett.length(), binary, compact, false, true, item.name));
                      } break;
 
                    //-------
@@ -1395,7 +1397,7 @@ public class cMsgMessage implements Cloneable, Serializable {
                          sb.append(msgs.length); sb.append("\">\n");
                          for (cMsgMessage m : msgs) {
                              // recursion, individual msg in an array has no name of its own
-                             sb.append(m.toStringImpl(level+1, margin+5+offsett.length(), binary, compact, false, false, null));
+                             sb.append(m.toStringImpl(margin+5+offsett.length(), binary, compact, false, false, null));
                          }
                          sb.append(indent); sb.append(offsett);
                          sb.append("</cMsgMessage_array>\n");
@@ -1443,8 +1445,9 @@ public class cMsgMessage implements Cloneable, Serializable {
                          sb.append("<int32_array name=\""); sb.append(name); sb.append("\" count=\"");
                          sb.append(i.length); sb.append("\">\n");
                          for(int j=0; j<i.length; j++) {
-                           if (j%5 == 0) {sb.append(indent);sb.append(offsett);sb.append(offsett);sb.append(i[j]);}
-                           else {sb.append(" "); sb.append(i[j]);}
+                           if (j%5 == 0) {sb.append(indent);sb.append(offsett);sb.append(offsett);}
+                           else {sb.append(" ");}
+                           sb.append(i[j]);
                            if (j%5 == 4 || j == i.length-1) {sb.append("\n");}
                          }
                          sb.append(indent); sb.append(offsett);
@@ -1457,8 +1460,9 @@ public class cMsgMessage implements Cloneable, Serializable {
                          sb.append("<int64_array name=\""); sb.append(name); sb.append("\" count=\"");
                          sb.append(i.length); sb.append("\">\n");
                          for(int j=0; j<i.length; j++) {
-                           if (j%5 == 0) {sb.append(indent);sb.append(offsett);sb.append(offsett);sb.append(i[j]);}
-                           else {sb.append(" "); sb.append(i[j]);}
+                           if (j%5 == 0) {sb.append(indent);sb.append(offsett);sb.append(offsett);}
+                           else {sb.append(" ");}
+                           sb.append(i[j]);
                            if (j%5 == 4 || j == i.length-1) {sb.append("\n");}
                          }
                          sb.append(indent); sb.append(offsett);
@@ -1471,8 +1475,9 @@ public class cMsgMessage implements Cloneable, Serializable {
                          sb.append("<uint64_array name=\""); sb.append(name); sb.append("\" count=\"");
                          sb.append(i.length); sb.append("\">\n");
                          for(int j=0; j<i.length; j++) {
-                           if (j%5 == 0) {sb.append(indent);sb.append(offsett);sb.append(offsett);sb.append(i[j]);}
-                           else {sb.append(" "); sb.append(i[j]);}
+                           if (j%5 == 0) {sb.append(indent);sb.append(offsett);sb.append(offsett);}
+                           else {sb.append(" ");}
+                           sb.append(i[j]);
                            if (j%5 == 4 || j == i.length-1) {sb.append("\n");}
                          }
                          sb.append(indent); sb.append(offsett);
