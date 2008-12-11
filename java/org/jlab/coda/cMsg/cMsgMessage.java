@@ -2213,7 +2213,8 @@ if (debug) System.out.println("  skipped field");
      * @param txt string read in over wire for message's text field
      * @param index1 index into txt after the item's header line
      * @param fullIndex index into txt at beginning of item (before header line)
-     * @param noHeadLen len of txt in ASCII chars NOT including header (first) line
+     * @param noHeadLen len of txt in ASCII chars NOT including header (first) line,
+     *                  includes last "\n"
      *
      * @throws cMsgException if txt is in a bad format
      *
@@ -2281,22 +2282,19 @@ if (debug) System.out.println("  skipped field");
                                    int index1, int fullIndex, int noHeadLen)
             throws cMsgException {
 
-        int index2;
+        int index2, len;
         String[] vals = new String[count];
 //System.out.println("addStringArrayFromText Inn" + txt);
         for (int i = 0; i < count; i++) {
-            // first item is length of string but we'll skip over it
-            // since we don't really need it in java
+            // first item is length of string
             index2 = txt.indexOf('\n', index1);
             if (index2 < 1) throw new cMsgException("bad format");
+            len = Integer.parseInt(txt.substring(index1,index2));
+            if (len < 1) throw new cMsgException("bad format");
 
             // next is string value of this payload item
             index1 = index2 + 1;
-            index2 = txt.indexOf('\n', index1);
-            if (index2 < 1) {
-//System.out.println("Cannot find ending <nl> in string array text");
-                throw new cMsgException("bad format");
-            }
+            index2 = index1 + len;
             vals[i] = txt.substring(index1, index2);
             index1 = index2 + 1;
         }
