@@ -1374,9 +1374,18 @@ public class cMsgMessage implements Cloneable, Serializable {
                             sb.append("\" />\n");
                          }
                          else {
-                            sb.append("\">");
-                            sb.append(Base64.encodeToString(b));
-                            sb.append("</binary>\n");
+                            // put in line breaks after 76 chars (57bytes)
+                            if (b.length > 57) {
+                                sb.append("\">\n");
+                                sb.append(Base64.encodeToString(b, true));
+                                sb.append(indent); sb.append(offsett);
+                                sb.append("</binary>\n");
+                            }
+                            else {
+                                sb.append("\">");
+                                sb.append(Base64.encodeToString(b, false));
+                                sb.append("</binary>\n");
+                            }
                          }
                      } break;
 
