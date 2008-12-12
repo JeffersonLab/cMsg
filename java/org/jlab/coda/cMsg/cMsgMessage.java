@@ -1379,7 +1379,7 @@ public class cMsgMessage implements Cloneable, Serializable {
                          else {
                             sb.append("\" endian=\"little\"");
                          }
-                         sb.append("\" nbytes=\""); sb.append(b.length);
+                         sb.append(" nbytes=\""); sb.append(b.length);
                          if (!binary) {
                             sb.append("\" />\n");
                          }
