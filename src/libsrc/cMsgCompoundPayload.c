@@ -6181,7 +6181,7 @@ int cMsgAddMessageArray(void *vmsg, const char *name, const void *vmessage[], in
 static int addBinaryFromText(void *vmsg, char *name, int type, int count, int isSystem,
                              const char *pVal, const char *pText, int textLen, int noHeaderLen) {
   char *s;
-  int numBytes, debug=1, len, endian;
+  int numBytes, debug=0, len, endian;
   payloadItem *item;
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
