@@ -2073,7 +2073,7 @@ public class cMsgMessage implements Cloneable, Serializable {
         if (fields < 1) throw new cMsgException("bad format2");
         if (debug) System.out.println("# fields = " + fields);
 
-        // get rid of any existing payload
+        // get rid of any existing non-system payload items
         clearPayload();
 
         String name, tokens[];
@@ -2186,6 +2186,7 @@ if (debug) System.out.println("  skipped field");
                     newMsgs[j] = new cMsgMessage();
                     // call to setFieldsFromText to fill msg's fields
                     index1 += newMsgs[j].setFieldsFromText(text.substring(index1), allFields);
+                    newMsgs[j].setExpandedPayload(true);
                 }
                 addMessagesFromText(name, dataType, isSystem, newMsgs, text,
                                     firstIndex, noHeaderLen, totalItemLen);
@@ -2761,7 +2762,7 @@ if (debug) System.out.println("  skipped field");
             if (isSystem && name.equals("cMsgInts")) {
                 if (count != 5) throw new cMsgException("bad format");
                 version   = iarray[0];
-                info      = iarray[1];
+                info      = iarray[1]; // generally this will say the payload is unexpanded
                 reserved  = iarray[2];
                 length    = iarray[3];
                 userInt   = iarray[4];
