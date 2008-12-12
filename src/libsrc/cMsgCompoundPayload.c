@@ -1559,7 +1559,7 @@ if(debug) printf("# fields = %d\n", fields);
   if (s == NULL) return(CMSG_BAD_FORMAT);
   
   /* get rid of any existing payload */
-  cMsgPayloadClear(vmsg);
+  cMsgPayloadReset(vmsg);
   
   for (i=0; i<fields; i++) {
     /* read line */
@@ -6181,7 +6181,7 @@ int cMsgAddMessageArray(void *vmsg, const char *name, const void *vmessage[], in
 static int addBinaryFromText(void *vmsg, char *name, int type, int count, int isSystem,
                              const char *pVal, const char *pText, int textLen, int noHeaderLen) {
   char *s;
-  int numBytes, debug=0, len, endian;
+  int numBytes, debug=1, len, endian;
   payloadItem *item;
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   
@@ -6267,7 +6267,7 @@ if (debug) printf("addBinaryFromString: will reserve %d bytes, calculation shows
     return(CMSG_BAD_FORMAT);
   }
   else if (numBytes != count) {
-if (debug) printf("addBinaryFromString: decoded string len = %d, should be %d\n", numBytes, count);
+    if (debug) printf("addBinaryFromString: decoded string len = %d, should be %d\n", numBytes, count);
     payloadItemFree(item);
     free(item);
     return(CMSG_BAD_FORMAT);
