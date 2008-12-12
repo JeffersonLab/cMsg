@@ -1448,7 +1448,7 @@ public class cMsgMessage implements Cloneable, Serializable {
                          for(int j=0; j<i.length; j++) {
                              // format little ints neatly
                              if (j%5 == 0) {wr.printf("%s%s%s%6d", indent, offsett, offsett, i[j]);}
-                             else          {wr.printf(" %4d", i[j]);}
+                             else          {wr.printf(" %6d", i[j]);}
                              if (j%5 == 4 || j == i.length-1) {wr.printf("\n");}
                          }
                          wr.flush();
