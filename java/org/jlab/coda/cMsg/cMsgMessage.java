@@ -1764,6 +1764,12 @@ public class cMsgMessage implements Cloneable, Serializable {
         return Collections.unmodifiableMap(items);
     }
 
+    /** Clears the payload of all items including system items.  */
+    public void resetPayload() {
+        items.clear();
+        updatePayloadText();
+    }
+
     /** Clears the payload of all user-added items.  */
     public void clearPayload() {
         for (String name : items.keySet()) {
@@ -2092,8 +2098,8 @@ public class cMsgMessage implements Cloneable, Serializable {
         if (fields < 1) throw new cMsgException("bad format2");
         if (debug) System.out.println("# fields = " + fields);
 
-        // get rid of any existing non-system payload items
-        clearPayload();
+        // get rid of any existing payload
+        resetPayload();
 
         String name, tokens[];
         int dataType, count, noHeaderLen=0, headerLen, totalItemLen;
