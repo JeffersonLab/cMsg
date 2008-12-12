@@ -1325,7 +1325,7 @@ public final class cMsgPayloadItem implements Cloneable {
         StringBuffer buf = new StringBuffer(noHeaderLen + 100);
         buf.append(name);                 buf.append(" ");
         buf.append(type);                 buf.append(" ");
-        buf.append(count);                buf.append(" ");
+        buf.append(bin.length);           buf.append(" ");
         buf.append(isSystem ? 1 : 0);     buf.append(" ");
         buf.append(noHeaderLen);          buf.append("\n");
         buf.append(encodedBin.length());  buf.append(" ");
