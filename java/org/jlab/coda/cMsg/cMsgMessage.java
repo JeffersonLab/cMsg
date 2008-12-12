@@ -1194,10 +1194,20 @@ public class cMsgMessage implements Cloneable, Serializable {
 
             sb.append(offsett);
             sb.append("<binary endian=\""); sb.append(endianTxt);
-            sb.append("\" nbytes=\""); sb.append(bytes.length);sb.append("\">\n");
-            sb.append(Base64.encodeToString(bytes, offset, length, true));
-            sb.append(offsett);
-            sb.append("</binary>\n");
+            sb.append("\" nbytes=\""); sb.append(length);
+
+            // put in line breaks after 76 chars (57bytes)
+            if (length > 57) {
+                sb.append("\">\n");
+                sb.append(Base64.encodeToString(bytes, offset, length, true));
+                sb.append(offsett);
+                sb.append("</binary>\n");
+            }
+            else {
+                sb.append("\">");
+                sb.append(Base64.encodeToString(bytes, offset, length, false));
+                sb.append("</binary>\n");
+            }
         }
 
         // Payload
