@@ -4159,28 +4159,20 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   time_t now;
   int    j, err, len, slen, count, endian, hasPayload, indentLen, offsetLen;
   char   *buf, *pchar, *indent, *offsett;
-  char   nowBuf[32],userTimeBuf[32],senderTimeBuf[32],receiverTimeBuf[32];
-#if defined VXWORKS || defined sun
-  size_t buflen = sizeof(nowBuf);
-#endif
+  char   userTimeBuf[32],senderTimeBuf[32],receiverTimeBuf[32];
+  struct tm tBuf;
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
 
-  /* get times in ascii and remove newlines */
-  now=time(NULL);
-#if defined VXWORKS
-  ctime_r(&now,nowBuf,&buflen);                                nowBuf[strlen(nowBuf)-1]='\0';
-  ctime_r(&msg->senderTime.tv_sec,senderTimeBuf,&buflen);      senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
-  ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf,&buflen);  receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
-  ctime_r(&msg->userTime.tv_sec,userTimeBuf,&buflen);          userTimeBuf[strlen(userTimeBuf)-1]='\0';
-#else
-  ctime_r(&now,nowBuf);                               nowBuf[strlen(nowBuf)-1]='\0';
-  ctime_r(&msg->senderTime.tv_sec,senderTimeBuf);     senderTimeBuf[strlen(senderTimeBuf)-1]='\0';
-  ctime_r(&msg->receiverTime.tv_sec,receiverTimeBuf); receiverTimeBuf[strlen(receiverTimeBuf)-1]='\0';
-  ctime_r(&msg->userTime.tv_sec,userTimeBuf);         userTimeBuf[strlen(userTimeBuf)-1]='\0';
-#endif
-  
+  /* get times in ascii */
+  localtime_r(&msg->userTime.tv_sec, &tBuf);
+  strftime(userTimeBuf, 32, CMSG_TIME_FORMAT, &tBuf);     userTimeBuf[strlen(userTimeBuf)]='\0';
+  localtime_r(&msg->senderTime.tv_sec, &tBuf);
+  strftime(senderTimeBuf, 32, CMSG_TIME_FORMAT, &tBuf);   senderTimeBuf[strlen(senderTimeBuf)]='\0';
+  localtime_r(&msg->receiverTime.tv_sec, &tBuf);
+  strftime(receiverTimeBuf, 32, CMSG_TIME_FORMAT, &tBuf); receiverTimeBuf[strlen(receiverTimeBuf)]='\0';
+
   /* Create the indent since a message may contain a message, etc. */
   if (margin < 1) {
       margin = 0;
