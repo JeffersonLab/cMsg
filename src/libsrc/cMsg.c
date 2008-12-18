@@ -4250,15 +4250,15 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   // check if nullGetResponse, if so, then it's a getResponse too (no need to print)
   else if ( msg->info & CMSG_IS_NULL_GET_RESPONSE ) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
-      strncpy(pchar,"isNullGetResponse = \"true\"\n",27); pchar+=27;
+      strncpy(pchar,"nullGetResponse = \"true\"\n",25); pchar+=25;
   }
   else {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
       if ( msg->info & CMSG_IS_GET_RESPONSE ) {
-          strncpy(pchar,"isGetResponse     = \"true\"\n",27); pchar+=27;
+          strncpy(pchar,"getResponse     = \"true\"\n",25); pchar+=25;
       }
       else {
-          strncpy(pchar,"isGetResponse     = \"false\"\n",28); pchar+=28;
+          strncpy(pchar,"getResponse     = \"false\"\n",26); pchar+=26;
       }
   }
 
