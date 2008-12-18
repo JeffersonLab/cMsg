@@ -99,6 +99,9 @@ extern "C" {
  * Stored in the 7th bit of info.
  */
 #define CMSG_EXPANDED_PAYLOAD 0x40
+
+/** Time format in XML. */
+#define CMSG_TIME_FORMAT "%a %b %d %H:%M:%S %Z %Y"
     
 /** The absolute maximum number of entries a message keeps
  * when recording the history of various parameters. */
