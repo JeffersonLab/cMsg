@@ -1,5 +1,4 @@
 // still to do:
-//   check file permissions
 
 
 /*----------------------------------------------------------------------------*
@@ -22,10 +21,7 @@
 package org.jlab.coda.cMsg.cMsgDomain.subdomains;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.common.cMsgClientInfo;
-import org.jlab.coda.cMsg.common.cMsgDeliverMessageInterface;
-import org.jlab.coda.cMsg.common.cMsgSubdomainAdapter;
-import org.jlab.coda.cMsg.common.cMsgMessageFull;
+import org.jlab.coda.cMsg.common.*;
 
 import java.io.*;
 import java.nio.channels.*;
@@ -155,6 +151,7 @@ public class FileQueue extends cMsgSubdomainAdapter {
         // with only this client in this cMsg subdomain.
         myDeliverer = info.getDeliverer();
 
+
         // extract queue name from UDL remainder
         String myQueueName;
         if(myUDLRemainder.indexOf("?")>0) {
@@ -254,6 +251,20 @@ public class FileQueue extends cMsgSubdomainAdapter {
         long hi;
 
 
+        // get creator before payload compression
+        String creator = null;
+        try {
+            cMsgPayloadItem creatorItem = msg.getPayloadItem("cMsgCreator");
+            if(creatorItem!=null)creator=creatorItem.getString();
+        } catch (cMsgException e) {
+            System.err.println("?cMsgQueue...message has no creator!");
+        }
+
+
+        // compress payload
+        msg.compressPayload();
+
+
         // write message to queue
         synchronized(mySyncObject) {
 
@@ -270,10 +281,14 @@ public class FileQueue extends cMsgSubdomainAdapter {
                 r.seek(0);
                 r.writeBytes(hi+"\n");
 
-                // write message to queue file
-                FileWriter fw = new FileWriter(String.format("%s%08d",myFileNameBase,hi));
-                fw.write(msg.toString());
-                fw.close();
+                // serialize compressed message, then write to file
+                FileOutputStream fos = null;
+                ObjectOutputStream oos = null;
+                fos = new FileOutputStream(String.format("%s%08d",myFileNameBase,hi));
+                oos = new ObjectOutputStream(fos);
+                oos.writeObject(msg);
+                oos.close();
+
 
                 // unlock and close hi file
                 l.release();
@@ -322,10 +337,11 @@ public class FileQueue extends cMsgSubdomainAdapter {
      */
     public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException {
 
-        cMsgMessageFull response;
         RandomAccessFile rHi,rLo;
         long hi,lo;
-        boolean null_response = false;
+
+
+        cMsgMessageFull response = null;
 
 
         // get message off queue
@@ -353,22 +369,32 @@ public class FileQueue extends cMsgSubdomainAdapter {
                     rLo.seek(0);
                     rLo.writeBytes(lo+"\n");
 
-                    // create response from file
-                    File f = new File(String.format("%s%08d",myFileNameBase,lo));
-                    if(f.exists()) {
-                        response = new cMsgMessageFull(f);
-                        f.delete();
-                    } else {
+
+                    // create response from file if it exists
+                    FileInputStream fis = null;
+                    ObjectInputStream oin = null;
+                    try {
+                        fis = new FileInputStream(String.format("%s%08d",myFileNameBase,lo));
+                        oin = new ObjectInputStream(fis);
+                        response = (cMsgMessageFull) oin.readObject();
+                        oin.close();
+                        response.expandPayload();
+                        response.makeResponse(message);
+                        fis.close();
+                        new File(String.format("%s%08d",myFileNameBase,lo)).delete();
+
+                    } catch (FileNotFoundException e) {
                         System.err.println("?missing message file " + lo + " in queue " + myQueueNameFull);
-                        null_response=true;
-                        response = new cMsgMessageFull();
+
+                    } catch (ClassNotFoundException e) {
+                        e.printStackTrace();
+                        System.exit(-1);
+
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        System.exit(-1);
                     }
-
-                } else {
-                    null_response=true;
-                    response = new cMsgMessageFull();
                 }
-
 
                 // unlock and close files
                 lLo.release();
@@ -376,25 +402,24 @@ public class FileQueue extends cMsgSubdomainAdapter {
                 rHi.close();
                 rLo.close();
 
-
             } catch (IOException e) {
                 e.printStackTrace();
                 cMsgException ce = new cMsgException(e.toString());
                 ce.setReturnCode(1);
                 throw ce;
+
             }
         }
 
 
-        // mark as (possibly null) response to message
-        if(null_response) {
+        // create null response if needed
+        if(response==null) {
+            response = cMsgMessageFull.createDeliverableMessage();
             response.makeNullResponse(message);
-        } else {
-            response.makeResponse(message);
         }
 
 
-        // send response to client
+        // deliver response to client
         try {
             myDeliverer.deliverMessage(response, cMsgConstants.msgGetResponse);
         } catch (IOException e) {
@@ -408,3 +433,5 @@ public class FileQueue extends cMsgSubdomainAdapter {
 
 }
 
+
+//-----------------------------------------------------------------------------

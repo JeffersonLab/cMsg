@@ -1,6 +1,4 @@
 // still to do:
-//   what if exiting table incompatible with current message format?
-//   does user have select/insert/delete privs?
 
 
 /*----------------------------------------------------------------------------*
@@ -28,9 +26,11 @@ import org.jlab.coda.cMsg.common.cMsgClientInfo;
 import org.jlab.coda.cMsg.common.cMsgDeliverMessageInterface;
 import org.jlab.coda.cMsg.common.cMsgMessageFull;
 
-import java.io.IOException;
+import java.io.*;
 import java.sql.*;
 import java.util.regex.*;
+import java.net.*;
+import java.nio.channels.*;
 
 
 
@@ -43,7 +43,7 @@ import java.util.regex.*;
  *
  * UDL:  cMsg://host:port/Queue/myQueueName?driver=myDriver&url=myURL&account=myAccount&password=myPassword<p>
  *
- * e.g. cMsg://ollie/Queue/ejw?driver=com.mysql.jdbc.Driver&url=jdbc:mysql://xdaq/test&user=davidl<p>
+ * e.g. cMsg://localhost/Queue/ejw?driver=com.mysql.jdbc.Driver&url=jdbc:mysql://halldweb1/test&account=wolin<p>
  *
  * Stores/retrieves cMsgMessageFull messages from SQL database.
  * Gets database parameters from UDL.
@@ -132,7 +132,6 @@ public class Queue extends cMsgSubdomainAdapter {
     /**
      * Creates separate database connection for each client connection.
      * UDL contains driver name, database JDBC URL, account, password, and table name to use.
-     * Column names are fixed (domain, sender, subject, etc.).
      *
      * @param info information about client
      * @throws cMsgException if improper UDL, cannot connect to database,
@@ -287,37 +286,46 @@ public class Queue extends cMsgSubdomainAdapter {
      */
     synchronized public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
 
+        // get creator before payload compression
+        String creator = null;
         try {
-            int i=1;
-            myPStmt.setInt(i++,       msg.getVersion());
-            myPStmt.setString(i++,    msg.getDomain());
-            myPStmt.setInt(i++,       msg.getSysMsgId());
+            cMsgPayloadItem creatorItem = msg.getPayloadItem("cMsgCreator");
+            if(creatorItem!=null)creator=creatorItem.getString();
+        } catch (cMsgException e) {
+            System.err.println("?Queue domain...message has no creator!");
+        }
 
-            myPStmt.setInt(i++,       (msg.isGetRequest()?1:0));
-            myPStmt.setInt(i++,       (msg.isGetResponse()?1:0));
-            myPStmt.setInt(i++,       (msg.isNullGetResponse()?1:0));
 
-            myPStmt.setString(i++,    msg.getSender());
-            myPStmt.setString(i++,    msg.getSenderHost());
-            myPStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getSenderTime().getTime()));
-            myPStmt.setInt(i++,       msg.getSenderToken());
+        // compress payload
+        msg.compressPayload();
 
-            myPStmt.setInt(i++,       msg.getUserInt());
-            myPStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getUserTime().getTime()));
 
-            myPStmt.setString(i++,    msg.getReceiver());
-            myPStmt.setString(i++,    msg.getReceiverHost());
+        // serialize compressed message, then send to database
+        try {
+            ByteArrayOutputStream baos;
+            ObjectOutputStream oos;
+
+            baos = new ByteArrayOutputStream();
+            oos = new ObjectOutputStream(baos);
+            oos.writeObject(msg);
+            oos.close();
+
+            int i = 1;
             myPStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getReceiverTime().getTime()));
-
+            myPStmt.setString(i++,    creator);
             myPStmt.setString(i++,    msg.getSubject());
             myPStmt.setString(i++,    msg.getType());
-            myPStmt.setString(i++,    msg.getText());
-
+            myPStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getUserTime().getTime()));
+            myPStmt.setInt(i++,       msg.getUserInt());
+            myPStmt.setBytes(i++,     baos.toByteArray());
             myPStmt.executeUpdate();
 
         } catch (SQLException e) {
             e.printStackTrace();
             throw new cMsgException("?handleSendRequest: unable to insert into queue");
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(-1);
         }
     }
 
@@ -351,13 +359,9 @@ public class Queue extends cMsgSubdomainAdapter {
      * @param message message to generate sendAndGet response to (contents ignored)
      * @throws cMsgException if error reading database or delivering message to client
      */
-    synchronized public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException {
+    synchronized public void handleSendAndGetRequest(cMsgMessageFull msg) throws cMsgException {
 
-        boolean null_response = false;
-
-
-        // create msg
-        cMsgMessageFull response = new cMsgMessageFull();
+        cMsgMessageFull response = null;
 
 
         // retrieve oldest entry and delete
@@ -370,29 +374,28 @@ public class Queue extends cMsgSubdomainAdapter {
             // get oldest row
             ResultSet rs = myStmt.executeQuery("select * from " + myTableName + " order by id limit 1");
             if(rs.next()) {
-                int id=rs.getInt("id");
+                byte[] buf = rs.getBytes("message");
+                if(buf!=null) {
+                    try {
+                        ObjectInputStream ois= new ObjectInputStream(new ByteArrayInputStream(buf));
+                        response = (cMsgMessageFull) ois.readObject();
+                        response.expandPayload();
+                        response.makeResponse(msg);
+                        myStmt.execute("delete from " + myTableName + " where id=" + rs.getInt("id"));
 
-                response.setSysMsgId(rs.getInt("sysMsgId"));
+                    } catch (ClassNotFoundException e) {
+                        e.printStackTrace();
+                        System.exit(-1);
 
-                response.setSender(rs.getString("sender"));
-                response.setSenderHost(rs.getString("senderHost"));
-                response.setSenderTime(rs.getTimestamp("senderTime"));
-
-                response.setUserInt(rs.getInt("userInt"));
-                response.setUserTime(rs.getTimestamp("userTime"));
-
-                response.setSubject(rs.getString("subject"));
-                response.setType(rs.getString("type"));
-                response.setText(rs.getString("text"));
-
-                // delete row
-                myStmt.execute("delete from " + myTableName + " where id=" + id);
-
-            } else {
-                null_response=true;
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        System.exit(-1);
+                    }
+                }
             }
 
-            // unlock table
+            // close result and unlock table
+            rs.close();
             myStmt.execute("unlock tables");
 
 
@@ -404,15 +407,14 @@ public class Queue extends cMsgSubdomainAdapter {
         }
 
 
-        // mark as (possibly null) response to message
-        if(null_response) {
-            response.makeNullResponse(message);
-        } else {
-            response.makeResponse(message);
+        // create null response if needed
+        if(response==null) {
+            response = cMsgMessageFull.createDeliverableMessage();
+            response.makeNullResponse(msg);
         }
 
 
-        // send message
+        // deliver message
         try {
             myDeliverer.deliverMessage(response, cMsgConstants.msgGetResponse);
         } catch (IOException e) {
@@ -459,27 +461,25 @@ public class Queue extends cMsgSubdomainAdapter {
         String sql;
         try {
             if(type.equalsIgnoreCase("mysql")) {
-                sql="create table " + myTableName + " (id int not null primary key auto_increment" +
-                    "version int, domain varchar(255), sysMsgId int," +
-                    "getRequest int, getResponse int, nullGetResponse int," +
-                    "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
-                    "userInt int, userTime datetime," +
-                    "receiver varchar(128), receiverHost varchar(128), receiverTime datetime," +
-                    "subject  varchar(255), type varchar(128), text text)";
+                sql="create table " + myTableName + " (id int not null primary key auto_increment," +
+                    "msgTime dateTime, creator varchar(255), subject varchar(255), type varchar(128), " +
+                    " userTime datetime, userInt int, message blob" +
+                    ")";
                 myStmt.executeUpdate(sql);
 
             } else if(type.equalsIgnoreCase("postgresql")) {
                 String seq = "cMsgQueueSeq_" + myQueueName;
                 myStmt.executeUpdate("create sequence " + seq);
                 sql="create table " + myTableName + " (id int not null primary key default nextval('" + seq + "')," +
-                    "version int, domain varchar(255), sysMsgId int," +
-                    "getRequest int, getResponse int, nullGetResponse int," +
-                    "sender varchar(128), senderHost varchar(128),senderTime datetime, senderToken int," +
-                    "userInt int, userTime datetime," +
-                    "receiver varchar(128), receiverHost varchar(128), receiverTime datetime," +
-                    "subject  varchar(255), type varchar(128), text text)";
+                    "msgTime dateTime, creator varchar(255), subject varchar(255), type varchar(128), " +
+                    " userTime datetime, userInt int, message blob"  +
+                    ")";
                 myStmt.executeUpdate(sql);
 
+            } else {
+                cMsgException ce = new cMsgException("?createTable: unknown database type " + type);
+                ce.setReturnCode(1);
+                throw ce;
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -496,17 +496,9 @@ public class Queue extends cMsgSubdomainAdapter {
     private void createPreparedStatement(String type) throws cMsgException {
 
         String sql = "insert into " + myTableName + " (" +
-            "version,domain,sysMsgId," +
-            "getRequest,getResponse,nullGetResponse," +
-            "sender,senderHost,senderTime,senderToken," +
-            "userInt,userTime," +
-            "receiver,receiverHost,receiverTime," +
-            "subject,type,text" +
+            "msgTime,creator,subject,type," +
+            "userTime,userInt,message" +
             ") values (" +
-            "?,?,?," +
-            "?,?,?," +
-            "?,?,?,?,?," +
-            "?,?," +
             "?,?,?,?," +
             "?,?,?" +
             ")";
@@ -522,3 +514,5 @@ public class Queue extends cMsgSubdomainAdapter {
 
 }
 
+
+//-----------------------------------------------------------------------------
