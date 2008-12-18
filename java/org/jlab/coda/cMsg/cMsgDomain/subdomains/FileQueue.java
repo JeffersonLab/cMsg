@@ -378,10 +378,10 @@ public class FileQueue extends cMsgSubdomainAdapter {
                         oin = new ObjectInputStream(fis);
                         response = (cMsgMessageFull) oin.readObject();
                         oin.close();
-                        response.expandPayload();
-                        response.makeResponse(message);
                         fis.close();
                         new File(String.format("%s%08d",myFileNameBase,lo)).delete();
+                        response.expandPayload();
+                        response.makeResponse(message);
 
                     } catch (FileNotFoundException e) {
                         System.err.println("?missing message file " + lo + " in queue " + myQueueNameFull);
