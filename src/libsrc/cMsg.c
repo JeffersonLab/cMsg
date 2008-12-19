@@ -4040,7 +4040,7 @@ static int messageStringSize(const void *vmsg, int margin, int binary, int compa
     /* non-payload stuff */
     int formatItemTxtLen   = 40 + margin;   /* Max XML chars surrounding text element */
     int formatItemBALen    = 65 + 2*margin; /* Max XML chars surrounding binary array element */
-    int formatAttributeLen = 27*16;         /* XML chars in attributes and begin & end XML
+    int formatAttributeLen = 27*17;         /* XML chars in attributes and begin & end XML
                                               (not including values and text, bin array, payload) */
 
     cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
@@ -4240,6 +4240,11 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
   strncpy(pchar,"version           = \"",21); pchar+=21;
   sprintf(pchar, "%d%n", msg->version, &len); pchar+=len;
+  strncpy(pchar,"\"\n",2); pchar+=2;
+
+  strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+  strncpy(pchar,"userInt           = \"",21); pchar+=21;
+  sprintf(pchar, "%d%n", msg->userInt, &len); pchar+=len;
   strncpy(pchar,"\"\n",2); pchar+=2;
 
   // check if getRequest, if so, it cannot also be a getResponse
