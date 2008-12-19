@@ -26,15 +26,12 @@ package org.jlab.coda.cMsg;
 import org.jlab.coda.cMsg.common.Base64;
 import org.jlab.coda.cMsg.common.cMsgMessageContextDefault;
 import org.jlab.coda.cMsg.common.cMsgMessageContextInterface;
-
 import java.lang.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.io.UnsupportedEncodingException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.io.Serializable;
+import java.io.*;
 import java.math.BigInteger;
+import java.text.SimpleDateFormat;
 
 
 /**
@@ -156,6 +153,15 @@ public class cMsgMessage implements Cloneable, Serializable {
     /** When converting text to message fields, convert all fields. */
     public static final int allFields = 2;
 
+    /** Format to use when turning times into XML or when parsing time strings. */
+    private static final String timeFormat = "EE MMM dd kk:mm:ss zz yyyy";
+
+    /** Object to format and parse date strings. */
+    transient protected static final SimpleDateFormat dateFormatter;
+    static {
+        dateFormatter = new SimpleDateFormat(timeFormat);
+    }
+
     /**
      * Map the value of an ascii character (index) to the numerical
      * value it represents. The only characters of interest are 0-9,a-f,
@@ -239,9 +245,10 @@ public class cMsgMessage implements Cloneable, Serializable {
     // payload quantities
 
     /** List of payload items. */
-    transient protected ConcurrentHashMap<String, cMsgPayloadItem> items;
+    transient protected ConcurrentHashMap<String, cMsgPayloadItem> items =
+                             new ConcurrentHashMap<String, cMsgPayloadItem>();
     /** Buffer to help build the text represenation of the payload to send over network. */
-    transient private StringBuilder buffer;
+    transient private StringBuilder buffer = new StringBuilder(512);
     /** String representation of the entire payload (including hidden system payload items). */
     protected String payloadText;
     /** If true, do NOT add current sender to message history in payload. */
@@ -284,8 +291,6 @@ public class cMsgMessage implements Cloneable, Serializable {
     public Object clone() {
         try {
             cMsgMessage result = (cMsgMessage) super.clone();
-            result.buffer = new StringBuilder(512);
-            result.items  = new ConcurrentHashMap<String, cMsgPayloadItem>();
             for (Map.Entry<String, cMsgPayloadItem> entry : items.entrySet()) {
                 result.items.put(entry.getKey(), (cMsgPayloadItem)entry.getValue().clone());
             }
@@ -1072,6 +1077,7 @@ public class cMsgMessage implements Cloneable, Serializable {
 
         sb.append(offsett);
         sb.append("version           = \""); sb.append(version); sb.append("\"\n");
+        sb.append("userInt           = \""); sb.append(userInt); sb.append("\"\n");
 
         // check if getRequest, if so, it cannot also be a getResponse
         if ( (info & isGetRequest) != 0 ) {
@@ -1081,11 +1087,11 @@ public class cMsgMessage implements Cloneable, Serializable {
         // check if nullGetResponse, if so, then it's a getResponse too (no need to print)
         else if ( (info & isNullGetResponse) != 0 ) {
             sb.append(offsett);
-            sb.append("isNullGetResponse = \"true\"\n");
+            sb.append("nullGetResponse = \"true\"\n");
         }
         else {
             sb.append(offsett);
-            sb.append("isGetResponse     = \""); sb.append(((info & isGetResponse) != 0) ? "true" : "false"); sb.append("\"\n");
+            sb.append("getResponse     = \""); sb.append(((info & isGetResponse) != 0) ? "true" : "false"); sb.append("\"\n");
         }
 
         if (domain != null) {
@@ -1117,7 +1123,8 @@ public class cMsgMessage implements Cloneable, Serializable {
 
         if (!compact || senderTime > 0L) {
             sb.append(offsett);
-            sb.append("senderTime        = \""); sb.append(new Date(senderTime)); sb.append("\"\n");
+            sb.append("senderTime        = \"");
+            sb.append(dateFormatter.format(new Date(senderTime))); sb.append("\"\n");
         }
 
         if (receiver != null) {
@@ -1140,12 +1147,14 @@ public class cMsgMessage implements Cloneable, Serializable {
 
         if (!compact || receiverTime > 0L) {
             sb.append(offsett);
-            sb.append("receiverTime      = \""); sb.append(new Date(receiverTime)); sb.append("\"\n");
+            sb.append("receiverTime      = \"");
+            sb.append(dateFormatter.format(new Date(receiverTime))); sb.append("\"\n");
         }
 
         if (!compact || userTime > 0L) {
             sb.append(offsett);
-            sb.append("userTime          = \""); sb.append(new Date(userTime)); sb.append("\"\n");
+            sb.append("userTime          = \"");
+            sb.append(dateFormatter.format(new Date(userTime))); sb.append("\"\n");
         }
 
         if (subject != null) {
@@ -1743,7 +1752,14 @@ public class cMsgMessage implements Cloneable, Serializable {
         }
 
         try {
+            // if expanding a serialized message, certain objects will be null
+            if (buffer  == null) buffer  = new StringBuilder(512);
+            if (items   == null) items   = new ConcurrentHashMap<String, cMsgPayloadItem>();
+            if (context == null) context = new cMsgMessageContextDefault();
+  
+            // create real payload items from text
             setFieldsFromText(payloadText, allFields);
+
             setExpandedPayload(true);
         }
         catch (cMsgException e) {
@@ -3044,6 +3060,4 @@ if (debug) System.out.println("  skipped field");
         }
         return;
     }
-
-
 }
