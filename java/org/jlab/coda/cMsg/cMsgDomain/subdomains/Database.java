@@ -1,8 +1,8 @@
 // to do:
 
 //  add byte[][] to payload
-//  exceptions?
-//  synchronized?
+//  check for nulls
+//  exceptions, synchronized?
 
 
 
@@ -386,7 +386,8 @@ public class Database extends cMsgSubdomainAdapter {
             case Types.CHAR:
             case Types.VARCHAR:
             case Types.LONGVARCHAR:
-                al.add(rs.getString(col));
+                String s = rs.getString(col);
+                al.add(rs.wasNull()?"null":s);
                 break;
 
             case Types.BINARY:
@@ -396,15 +397,18 @@ public class Database extends cMsgSubdomainAdapter {
                 break;
 
             case Types.DATE:
-                al.add(rs.getDate(col));
+                java.sql.Date d = rs.getDate(col);
+                al.add(rs.wasNull()?"null":d);
                 break;
 
             case Types.TIME:
-                al.add(rs.getTime(col));
+                java.sql.Time t = rs.getTime(col);
+                al.add(rs.wasNull()?"null":t);
                 break;
 
             case Types.TIMESTAMP:
-                al.add(rs.getTimestamp(col));
+                java.sql.Timestamp ts = rs.getTimestamp(col);
+                al.add(rs.wasNull()?"null":ts);
                 break;
 
             default:
