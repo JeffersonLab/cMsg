@@ -1,3 +1,9 @@
+// still to do:
+
+//   sender and history?
+//   broadcast?
+
+
 /*----------------------------------------------------------------------------*
 *  Copyright (c) 2004        Southeastern Universities Research Association, *
 *                            Thomas Jefferson National Accelerator Facility  *
@@ -23,8 +29,7 @@
 package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.common.cMsgCallbackAdapter;
-import org.jlab.coda.cMsg.common.cMsgMessageFull;
+import org.jlab.coda.cMsg.common.*;
 
 
 import java.lang.*;
@@ -38,17 +43,20 @@ import java.nio.channels.*;
 
 
 /**
- * This class is a general purpose cMsg queue utility that
- * queues messages to a file or MySQL database. It only stores
- * user-settable information (i.e. subject, type, text, userTime, userInt).
+ * This class is a general purpose cMsg queue utility that queues messages to
+ *  a file OR a database.  It stores the entire message in serialized binary,
+ *  after payload compression.  Payload is uncompressed when retrieving messages.
  *
- * To use, e.g, with a database queue:
- *   java cMsgQueue -udl cMsg:cMsg://ollie/cMsg -name myQueue
- *                  -url jdbc:mysql://xdaq/test -driver com.mysql.jdbc.Driver -account fred
+ * For databases it additionally stores receipt time, creator, subject, type, userTime and userInt,
+ *  allowing for selection criteria at some future date.
  *
- * To use, e.g, with a file-based queue:
- *   java cMsgQueue -udl cMsg:cMsg://ollie/cMsg  -name myQueue
- *                  -dir myDir -base myFileBaseName
+ * To use with a database queue:
+ *   java cMsgQueue -udl cMsg:cMsg://localhost/cMsg  -name myQueue
+ *                  -url jdbc:mysql://halldweb1/test  -driver com.mysql.jdbc.Driver  -account fred
+ *
+ * To use with a file-based queue:
+ *   java cMsgQueue -udl cMsg:cMsg://localhost/cMsg  -name myQueue
+ *                  -dir myDir  -base myFileBaseName
  *
  *
  * @version 1.0
@@ -57,7 +65,7 @@ public class cMsgQueue {
 
 
     /** Universal Domain Locator and cMsg system object. */
-    private static String UDL = "cMsg://localhost/cMsg/myNameSpace";
+    private static String UDL = "cMsg://localhost/cMsg";
     private static cMsg cmsg  = null;
 
 
@@ -113,12 +121,15 @@ public class cMsgQueue {
 
 
 
-    /** Class to implement subscribe callback. */
+    /** Inner class to implement subscribe callback. */
     static class subscribeCB extends cMsgCallbackAdapter {
         /**
          *  Queues message to file or database.
          */
-        public void callback(cMsgMessage msg, Object userObject) {
+        public void callback(cMsgMessage m, Object userObject) {
+
+            cMsgMessageFull msg = (cMsgMessageFull)m;
+
 
             // do not queue sendAndGet() traffic
             if(msg.isGetRequest()) return;
@@ -132,10 +143,24 @@ public class cMsgQueue {
             recvCount++;
 
 
-            // queue to files
-            if(dir!=null) {
-                try {
+            // get creator before payload compression
+            String creator = null;
+            try {
+                cMsgPayloadItem creatorItem = msg.getPayloadItem("cMsgCreator");
+                if(creatorItem!=null)creator=creatorItem.getString();
+            } catch (cMsgException e) {
+                System.err.println("?cMsgQueue...message has no creator!");
+            }
 
+
+            // compress payload
+            msg.compressPayload();
+
+
+            // queue to file
+            if(dir!=null) {
+
+                try {
                     // lock hi file
                     RandomAccessFile r = new RandomAccessFile(hiSeqFile,"rw");
                     FileChannel c = r.getChannel();
@@ -147,51 +172,72 @@ public class cMsgQueue {
                     r.seek(0);
                     r.writeBytes(hi+"\n");
 
-                    // write message to queue file
-                    FileWriter fw = new FileWriter(String.format("%s%08d",fileBase,hi));
-                    fw.write(msg.toString());
-                    fw.close();
+                    // serialize compressed message, then write to queue file
+                    FileOutputStream fos = null;
+                    ObjectOutputStream oos = null;
+                    fos = new FileOutputStream(String.format("%s%08d",fileBase,hi));
+                    oos = new ObjectOutputStream(fos);
+                    oos.writeObject(msg);
+                    oos.close();
 
                     // unlock and close hi file
                     l.release();
                     r.close();
 
-
                 } catch (IOException e) {
                     e.printStackTrace();
                     System.exit(-1);
                 }
-            }
+            }  // queue to file
 
 
             // queue to database
             if(url!=null) {
+
+                // serialize compressed message, then send to database
+                ByteArrayOutputStream baos;
+                ObjectOutputStream oos;
                 try {
+                    baos = new ByteArrayOutputStream();
+                    oos = new ObjectOutputStream(baos);
+                    oos.writeObject(msg);
+                    oos.close();
+
                     int i = 1;
+                    pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getReceiverTime().getTime()));
+                    pStmt.setString(i++,    creator);
                     pStmt.setString(i++,    msg.getSubject());
                     pStmt.setString(i++,    msg.getType());
-                    pStmt.setString(i++,    msg.getText());
                     pStmt.setTimestamp(i++, new java.sql.Timestamp(msg.getUserTime().getTime()));
                     pStmt.setInt(i++,       msg.getUserInt());
+                    pStmt.setBytes(i++,     baos.toByteArray());
                     pStmt.executeUpdate();
+
                 } catch (SQLException e) {
                     e.printStackTrace();
                     System.exit(-1);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    System.exit(-1);
                 }
-            }
+            }  // queue to database
+
         }
     }
 
 
+//-----------------------------------------------------------------------------
 
-    /** Class to implement sendAndGet() callback. */
+
+    /** Inner class to implement sendAndGet() callback. */
     static class getCB extends cMsgCallbackAdapter {
         /**
          *  Retrieves oldest entry in file or database queue and returns as getResponse.
-         *  If broadcast==true then also broadcasts the message via send.
+         *  If broadcast==true then also broadcasts the message.
          */
-        public void callback(cMsgMessage msg, Object userObject) {
+        public void callback(cMsgMessage m, Object userObject) {
 
+            cMsgMessageFull msg = (cMsgMessageFull)m;
 
             // only handle sendAndGet() requests
             if(!msg.isGetRequest()) return;
@@ -219,28 +265,41 @@ public class cMsgQueue {
                     long hi = Long.parseLong(rHi.readLine());
                     long lo = Long.parseLong(rLo.readLine());
 
+
                     // message file exists only if hi>lo
                     if(hi>lo) {
                         lo++;
                         rLo.seek(0);
                         rLo.writeBytes(lo+"\n");
 
-                        // create response from file
-                        File f = new File(String.format("%s%08d",fileBase,lo));
-                        if(f.exists()) {
-                            response = new cMsgMessageFull(f);
+                        // create response from file if it exists
+                        FileInputStream fis = null;
+                        ObjectInputStream oin = null;
+                        try {
+                            fis = new FileInputStream(String.format("%s%08d",fileBase,lo));
+                            oin = new ObjectInputStream(fis);
+                            response = (cMsgMessageFull) oin.readObject();
+                            oin.close();
+                            fis.close();
+                            new File(String.format("%s%08d",fileBase,lo)).delete();
+                            response.expandPayload();
+                            response.setNoHistoryAdditions(true);   // ??? sender too
                             response.makeResponse(msg);
-                            f.delete();
-                        } else {
-                            response = new cMsgMessageFull();
-                            response.makeNullResponse(msg);
-                            System.err.println("?missing message file " + lo + " in queue " + queueName);
-                        }
 
-                    } else {
-                        response = new cMsgMessageFull();
-                        response.makeNullResponse(msg);
+
+                        } catch (FileNotFoundException e) {
+                            System.err.println("?missing message file " + lo + " in queue " + queueName);
+
+                        } catch (ClassNotFoundException e) {
+                            e.printStackTrace();
+                            System.exit(-1);
+
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                            System.exit(-1);
+                        }
                     }
+
 
                     // unlock and close files
                     lLo.release();
@@ -248,20 +307,19 @@ public class cMsgQueue {
                     rHi.close();
                     rLo.close();
 
-                } catch (cMsgException e) {
-                    e.printStackTrace();
-                    System.exit(-1);
                 } catch (IOException e) {
                     e.printStackTrace();
                     System.exit(-1);
                 }
-            }
+
+            }  // retrieve from file
+
+
 
 
             // retrieve from database
             if(url!=null) {
                 try {
-                    response = new cMsgMessageFull();
 
                     // lock table
                     stmt.execute("lock tables " + table + " write");
@@ -269,39 +327,57 @@ public class cMsgQueue {
                     // get oldest row, then delete
                     ResultSet rs = stmt.executeQuery("select * from " + table + " order by id limit 1");
                     if(rs.next()) {
-                        response.makeResponse(msg);
+                        byte[] buf = rs.getBytes("message");
+                        if(buf!=null) {
+                            try {
+                                ObjectInputStream ois= new ObjectInputStream(new ByteArrayInputStream(buf));
+                                response = (cMsgMessageFull) ois.readObject();
+                                response.expandPayload();
+                                response.setNoHistoryAdditions(true);
+                                response.makeResponse(msg);
+                                stmt.execute("delete from " + table + " where id=" + rs.getInt("id"));
 
-                        int id = rs.getInt("id");
+                            } catch (ClassNotFoundException e) {
+                                e.printStackTrace();
+                                System.exit(-1);
 
-                        response.setSubject(rs.getString("subject"));
-                        response.setType(rs.getString("type"));
-                        response.setText(rs.getString("text"));
-                        response.setUserTime(rs.getTimestamp("userTime"));
-                        response.setUserInt(rs.getInt("userInt"));
-
-                        stmt.execute("delete from " + table + " where id=" + id);
-                    } else {
-                        response.makeNullResponse(msg);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                                System.exit(-1);
+                            }
+                        }
                     }
 
-                    // unlock table
+                    // close result set and unlock table
+                    rs.close();
                     stmt.execute("unlock tables");
 
                 } catch (SQLException e) {
                     e.printStackTrace();
+                    System.exit(-1);
                 }
 
-            }   // database
+            }   // retrieve from database
 
 
-            // send response
-            if(response!=null) {
-                try {
-                    cmsg.send(response);
-                    if(broadcast) cmsg.send(response);  // send second copy
-                    cmsg.flush(0);
-                } catch (cMsgException e) {
+
+            // create null response if needed
+            if(response==null) {
+                response = cMsgMessageFull.createDeliverableMessage();
+                response.makeNullResponse(msg);
+            }
+
+
+            // send response and broadcast if requested
+            try {
+                cmsg.send(response);
+                if(broadcast) {
+                    cmsg.send(response);  // send second copy, what about isGetResponse???
                 }
+                cmsg.flush(0);
+            } catch (cMsgException e) {
+                e.printStackTrace();
+                System.exit(-1);
             }
 
         }
@@ -311,7 +387,7 @@ public class cMsgQueue {
 //-----------------------------------------------------------------------------
 
 
-    static public void main(String[] args) {
+    public static void main(String[] args) {
 
 
         // decode command line
@@ -339,7 +415,7 @@ public class cMsgQueue {
 
         // generate name if not set
         if(name==null) {
-            name = "cMsgQueue:" + queueName;
+            name = "cMsgQueue/" + queueName;
         }
 
 
@@ -411,8 +487,9 @@ public class cMsgQueue {
                 if((!dbrs.next())||(!dbrs.getString(3).equalsIgnoreCase(table))) {
                     String sql = "create table " + table +
                         "(id int not null primary key auto_increment, " +
-                        "creator varchar(128),subject varchar(255), type varchar(128), text text," +
-                        "userTime datetime, userInt int)";
+                        "msgTime datetime, creator varchar(255), subject varchar(255), type varchar(128), " +
+                        " userTime datetime, userInt int, message " + getBlobName(con) +
+                        ")";
                     con.createStatement().executeUpdate(sql);
                 }
             } catch (SQLException e) {
@@ -425,10 +502,12 @@ public class cMsgQueue {
                 stmt = con.createStatement();
 
                 String sql = "insert into " + table + " (" +
-                    "creator,subject,type,text," +
-                    "userTime,userInt" +
+                    "msgTime,creator,subject,type," +
+                    "userTime,userInt,message" +
                     ") values (" +
-                    "?,?,?,?," + "?,?" + ")";
+                    "?,?,?,?," +
+                    "?,?,?" +
+                    ")";
                 pStmt = con.prepareStatement(sql);
             } catch (SQLException e) {
                 System.err.println("?unable to prepare statement\n" + e);
@@ -480,6 +559,7 @@ public class cMsgQueue {
             if(url!=null)con.close();
             cmsg.disconnect();
         } catch (Exception e) {
+            e.printStackTrace();
             System.exit(-1);
         }
         System.exit(0);
@@ -514,6 +594,37 @@ public class cMsgQueue {
                 "        [-pwd <password>]          database password (for connection to db)\n" +
                 "        [-debug]                   enable debug output\n" +
                 "        [-h]                       print this help\n");
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /** Gets blob name for this particular database.
+     * @param  Database connection
+     * @return String containing blob name
+     */
+    static String getBlobName(Connection conn) {
+
+        String type;
+
+        try {
+            DatabaseMetaData dbmeta = conn.getMetaData();
+            type = dbmeta.getDatabaseProductName();
+            if(type.equalsIgnoreCase("mysql")) {
+                return("blob");
+            } else if(type.equalsIgnoreCase("oracle")) {
+                return("blob");
+            } else if(type.equalsIgnoreCase("postgresql")) {
+                return("bytea");
+            } else {
+                System.out.println("?getBlobName...unknown database type " + type + ", trying blob");
+                return("blob");
+            }
+        } catch (Exception e) {
+            System.out.println("?getBlobName...unable to get database product name, trying blob");
+            return("blob");
+        }
     }
 
 
@@ -626,3 +737,6 @@ public class cMsgQueue {
     }
 
 }
+
+
+//-----------------------------------------------------------------------------
