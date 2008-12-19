@@ -4391,7 +4391,7 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
       return CMSG_NETWORK_ERROR;
     }
     numServers = ntohl(numServers);
-printf("getMonitorInfo: num servers = %d\n", numServers);
+/*printf("getMonitorInfo: num servers = %d\n", numServers);*/
 
     if (numServers > 0) {
       for (i=0; i<numServers; i++) {
@@ -4486,10 +4486,10 @@ printf("getMonitorInfo: num servers = %d\n", numServers);
         }
         sprintf(p->serverName, "%s:%d",p->nameServerHost, tcpPort);
         p->serverName[len] = '\0';
-
+/*
 printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, host = %s, passwd = %s\n",
         tcpPort, udpPort, p->nameServerHost, p->password);
-
+*/
         /* store info in hash table */
         hashInsert(&domain->cloudServerTable, p->serverName, (void *)p, NULL);
 
