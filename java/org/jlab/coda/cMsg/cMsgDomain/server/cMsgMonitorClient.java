@@ -137,7 +137,7 @@ class cMsgMonitorClient extends Thread {
             //          9) host
             //         10) password
             while (true) {
-                int totalLength = dataLength + 8;
+                int totalLength = dataLength + 3*8;
                 for (cMsgClientData cd : server.nameServers.values()) {
                     passwd = cd.getPassword();
                     if (passwd == null) passwd = "";
