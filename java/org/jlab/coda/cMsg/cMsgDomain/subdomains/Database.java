@@ -1,3 +1,11 @@
+// to do:
+
+//  add byte[][] to payload
+//  exceptions?
+//  synchronized?
+
+
+
 /*----------------------------------------------------------------------------*
  *  Copyright (c) 2004        Southeastern Universities Research Association, *
  *                            Thomas Jefferson National Accelerator Facility  *
@@ -17,14 +25,13 @@
 
 package org.jlab.coda.cMsg.cMsgDomain.subdomains;
 
+import org.jlab.coda.cMsg.*;
+import org.jlab.coda.cMsg.common.*;
 
-import org.jlab.coda.cMsg.common.cMsgMessageFull;
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.common.cMsgSubdomainAdapter;
-import org.jlab.coda.cMsg.common.cMsgClientInfo;
-
+import java.io.*;
 import java.sql.*;
 import java.util.regex.*;
+import java.util.*;
 
 
 //-----------------------------------------------------------------------------
@@ -34,7 +41,9 @@ import java.util.regex.*;
 /**
  * cMsg subdomain handler for database subdomain.
  *
- * Executes sql statement from msg payload.
+ * Executes insert,update,delete sql statement from msg payload.
+ * Select not supported as there is no mechanism to respond.
+ *
  * Gets database parameters from UDL.
  *
  *  UDL:<p>
@@ -44,7 +53,13 @@ import java.util.regex.*;
  * @version 1.0
  *
  */
+
+
 public class Database extends cMsgSubdomainAdapter {
+
+
+    /** Object used to deliver messages to the client. */
+    private cMsgDeliverMessageInterface myDeliverer;
 
 
     /** UDL remainder for this subdomain handler. */
@@ -64,7 +79,7 @@ public class Database extends cMsgSubdomainAdapter {
      *
      * @return true
      */
-    public boolean hasSend() {
+    public boolean hasSyncSend() {
         return true;
     };
 
@@ -74,12 +89,11 @@ public class Database extends cMsgSubdomainAdapter {
 
     /**
      * {@inheritDoc}
-     *
      * @return true
      */
-    public boolean hasSyncSend() {
+    public boolean hasSendAndGet() {
         return true;
-    };
+    }
 
 
 //-----------------------------------------------------------------------------
@@ -114,6 +128,11 @@ public class Database extends cMsgSubdomainAdapter {
         String URL = null;
         String account = null;
         String password = null;
+
+
+        // Get an object enabling this handler to communicate
+        // with only this client in this cMsg subdomain.
+        myDeliverer = info.getDeliverer();
 
 
         // extract db params from UDL
@@ -202,35 +221,118 @@ public class Database extends cMsgSubdomainAdapter {
 
 
     /**
-     * Executes sql insert or update statement from message payload.
+     * Executes sql statement in message text field.
      *
      * @param msg {@inheritDoc}
-     * @throws cMsgException for sql error
+     * @return zero on success, non-zero on error
      */
-    synchronized public void handleSendRequest(cMsgMessageFull msg) throws cMsgException {
+    synchronized public int handleSyncSendRequest(cMsgMessageFull msg) throws cMsgException {
 
         String sql = msg.getText();
 
-        Pattern p1 = Pattern.compile("^\\s*insert\\s+", Pattern.CASE_INSENSITIVE);
-        Pattern p2 = Pattern.compile("^\\s*update\\s+", Pattern.CASE_INSENSITIVE);
-        Pattern p3 = Pattern.compile("^\\s*delete\\s+", Pattern.CASE_INSENSITIVE);
+        try {
+            myStmt.executeUpdate(sql);
 
-        Matcher m1 = p1.matcher(sql);
-        Matcher m2 = p2.matcher(sql);
-        Matcher m3 = p3.matcher(sql);
-
-        if (m1.find() || m2.find() || m3.find()) {
-            try {
-                myStmt.executeUpdate(sql);
-            }
-            catch (SQLException e) {
-                System.out.println(e);
-                e.printStackTrace();
-                throw new cMsgException("handleSendRequest: unable to execute: " + sql);
-            }
+        } catch (SQLException e) {
+            System.out.println("?Database::handleSyncSendRequest: error executing: " + sql);
+            System.out.println(e);
+            return(1);
         }
-        else {
-            cMsgException ce = new cMsgException("handleSendRequest: illegal sql: " + msg.getText());
+
+        // success
+        return(0);
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Executes sql statement in message text field, returns resultset as payload arrays.
+     *
+     * @param message Message to respond to
+     * @throws cMsgException if error reading database or delivering message to client
+     */
+    synchronized public void handleSendAndGetRequest(cMsgMessageFull msg) throws cMsgException {
+
+        int i;
+        cMsgMessageFull response = null;
+
+        int maxRow = msg.getUserInt();
+        String sql = msg.getText();
+
+        try {
+
+            // query and get metadata, fill arrays
+            ResultSet rs = myStmt.executeQuery(sql);
+            if(rs!=null) {
+
+                int ncol = 0;
+                int nrow = 0;
+                String [] colNames   = null;
+                int [] colTypes      = null;
+                ArrayList[] colData  = null;
+
+                // loop over query results
+                while(rs.next()) {
+
+                    // get column info
+                    if(ncol==0) {
+                        ResultSetMetaData rsmd = rs.getMetaData();
+                        ncol     = rsmd.getColumnCount();
+                        colNames = new String[ncol];
+                        colTypes = new int[ncol];
+                        colData  = new ArrayList[ncol];
+                        for(i=0; i<ncol; i++) {
+                            colNames[i] = rsmd.getColumnName(i+1);
+                            colTypes[i] = rsmd.getColumnType(i+1);
+                            colData[i]  = new ArrayList();
+                        }
+                    }
+
+
+                    // too many rows?
+                    if((maxRow>0)&&(nrow>=maxRow))break;
+
+
+                    // fill array of ArrayList with query results
+                    nrow++;
+                    for(i=0; i<ncol; i++) addDataToArrayList(rs,i+1,colTypes[i],colData[i]);
+
+                }
+                rs.close();
+
+
+                // create and fill response message, store query results in payload
+                if(nrow>0) {
+                    response = cMsgMessageFull.createDeliverableMessage();
+                    response.setUserInt(nrow);
+                    response.makeResponse(msg);
+                    for(i=0; i<ncol; i++) addArrayListToPayload(colNames[i],colTypes[i],colData[i],response);
+                }
+            }
+
+
+        } catch (SQLException e) {
+            System.out.println("?Database::handleSendAndGetRequest: illegal sql: " + sql);
+            System.out.println(e);
+        }
+
+
+        // create null response if needed
+        if(response==null) {
+            response = cMsgMessageFull.createDeliverableMessage();
+            response.setUserInt(0);
+            response.makeNullResponse(msg);
+        }
+
+
+        // send response
+        try {
+            myDeliverer.deliverMessage(response, cMsgConstants.msgGetResponse);
+        } catch (IOException e) {
+            e.printStackTrace();
+            cMsgException ce = new cMsgException(e.toString());
             ce.setReturnCode(1);
             throw ce;
         }
@@ -241,15 +343,185 @@ public class Database extends cMsgSubdomainAdapter {
 
 
     /**
-     * Executes sql insert or update statement from message payload.
+     * Adds query result data to ArrayList.
      *
-     * @param msg {@inheritDoc}
-     * @return 0
-     * @throws cMsgException for sql error
+     * @param rs ResultSet containing results
+     * @param col Column number
+     * @param type JDBC data type
+     * @param al ArrayList to add to
      */
-    public int handleSyncSendRequest(cMsgMessageFull msg) throws cMsgException {
-        handleSendRequest(msg);
-        return (0);
+    public void addDataToArrayList(ResultSet rs, int col, int type, ArrayList al) {
+
+        if(rs==null)return;
+
+        try {
+
+            switch (type) {
+
+            case Types.TINYINT:
+                al.add(rs.getByte(col));
+                break;
+
+            case Types.SMALLINT:
+                al.add(rs.getShort(col));
+                break;
+
+            case Types.INTEGER:
+                al.add(rs.getInt(col));
+                break;
+
+            case Types.BIGINT:
+                al.add(rs.getLong(col));
+                break;
+
+            case Types.FLOAT:
+            case Types.REAL:
+                al.add(rs.getFloat(col));
+                break;
+
+            case Types.DOUBLE:
+                al.add(rs.getDouble(col));
+                break;
+
+            case Types.CHAR:
+            case Types.VARCHAR:
+            case Types.LONGVARCHAR:
+                al.add(rs.getString(col));
+                break;
+
+            case Types.BINARY:
+            case Types.VARBINARY:
+            case Types.LONGVARBINARY:
+                al.add(rs.getBytes(col));
+                break;
+
+            case Types.DATE:
+                al.add(rs.getDate(col));
+                break;
+
+            case Types.TIME:
+                al.add(rs.getTime(col));
+                break;
+
+            case Types.TIMESTAMP:
+                al.add(rs.getTimestamp(col));
+                break;
+
+            default:
+                System.out.println("?Database::addDataToArrayList...illegal type: " + type);
+                return;
+            }
+
+        } catch (SQLException e) {
+            System.out.println(e);
+        }
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Adds ArrayList to message payload.
+     *
+     * @param name Column name
+     * @param type JDBC data type
+     * @param al ArrayList containing results
+     * @param msg Message
+     */
+    public void addArrayListToPayload(String name, int type, ArrayList al, cMsgMessageFull msg) {
+
+        int nrow     = al.size();
+        Object[] ala = al.toArray();
+
+        try {
+
+            switch (type) {
+
+            case Types.TINYINT:
+                {
+                    byte[] a = new byte[nrow];
+                    for(int i=0; i<nrow; i++) a[i]=(Byte)(ala[i]);
+                    msg.addPayloadItem(new cMsgPayloadItem(name,a));
+                }
+                break;
+
+            case Types.SMALLINT:
+                {
+                    short[] a = new short[nrow];
+                    for(int i=0; i<nrow; i++) a[i]=(Short)(ala[i]);
+                    msg.addPayloadItem(new cMsgPayloadItem(name,a));
+                }
+                break;
+
+            case Types.INTEGER:
+                {
+                    int[] a = new int[nrow];
+                    for(int i=0; i<nrow; i++) a[i]=(Integer)(ala[i]);
+                    msg.addPayloadItem(new cMsgPayloadItem(name,a));
+                }
+                break;
+
+            case Types.BIGINT:
+                {
+                    long[] a = new long[nrow];
+                    for(int i=0; i<nrow; i++) a[i]=(Long)(ala[i]);
+                    msg.addPayloadItem(new cMsgPayloadItem(name,a));
+                }
+                break;
+
+            case Types.FLOAT:
+            case Types.REAL:
+                {
+                    float[] a = new float[nrow];
+                    for(int i=0; i<nrow; i++) a[i]=(Float)(ala[i]);
+                    msg.addPayloadItem(new cMsgPayloadItem(name,a));
+                }
+                break;
+
+            case Types.DOUBLE:
+                {
+                    double[] a = new double[nrow];
+                    for(int i=0; i<nrow; i++) a[i]=(Double)(ala[i]);
+                    msg.addPayloadItem(new cMsgPayloadItem(name,a));
+                }
+                break;
+
+            case Types.CHAR:
+            case Types.VARCHAR:
+            case Types.LONGVARCHAR:
+                {
+                    String[] a = new String[nrow];
+                    for(int i=0; i<nrow; i++) a[i]=(String)(ala[i]);
+                    msg.addPayloadItem(new cMsgPayloadItem(name,a));
+                }
+                break;
+
+            case Types.DATE:
+            case Types.TIME:
+            case Types.TIMESTAMP:
+                {
+                    String[] a = new String[nrow];
+                    for(int i=0; i<nrow; i++) a[i]=(ala[i]).toString();
+                    msg.addPayloadItem(new cMsgPayloadItem(name,a));
+                }
+                break;
+
+            case Types.BINARY:
+            case Types.VARBINARY:
+            case Types.LONGVARBINARY:
+                //  ???  need byte[][]
+                break;
+
+            default:
+                System.out.println("?Database::addArrayListToPayload...illegal type: " + type);
+                return;
+            }
+
+        } catch (cMsgException e) {
+            System.out.println(e);
+        }
+
     }
 
 
