@@ -2214,7 +2214,7 @@ static void payloadPrintout(const void *msg, int level) {
       case CMSG_CP_DBL:
         {double d;   ok=cMsgGetDouble(msg, name, &d); if(ok==CMSG_OK) printf(" (double): %.17g\n", d);} break;
       case CMSG_CP_FLT:
-        {float f;    ok=cMsgGetFloat(msg, name, &f);  if(ok==CMSG_OK) printf(" (float): %.7g\n", f);}    break;
+        {float f;    ok=cMsgGetFloat(msg, name, &f);  if(ok==CMSG_OK) printf(" (float): %.8g\n", f);}    break;
       case CMSG_CP_STR:
         {const char *s; ok=cMsgGetString(msg, name, &s); if(ok==CMSG_OK) printf(" (string): %s\n", s);}     break;
       case CMSG_CP_INT8_A:
@@ -2246,7 +2246,7 @@ static void payloadPrintout(const void *msg, int level) {
          for(j=0; j<len;j++) printf("%s  double[%d] = %.17g\n", indent, j,i[j]);} break;
       case CMSG_CP_FLT_A:
         {const float *i; ok=cMsgGetFloatArray(msg, name, &i, &len); if(ok!=CMSG_OK) break; printf(":\n");
-         for(j=0; j<len;j++) printf("%s  float[%d] = %.7g\n", indent, j,i[j]);} break;
+         for(j=0; j<len;j++) printf("%s  float[%d] = %.8g\n", indent, j,i[j]);} break;
       case CMSG_CP_STR_A:
         {const char **i; ok=cMsgGetStringArray(msg, name, &i, &len); if(ok!=CMSG_OK) break; printf(":\n");
          for(j=0; j<len;j++) printf("%s  string[%d] = %s\n", indent, j,i[j]);} break;
@@ -6936,7 +6936,7 @@ if(debug) printf("  unpacking %d zeros\n", int32);
         /* we have int32 number of zeros */
         for (k=0; k<int32; k++) {
           myArray[j+k] = 0.;
-if(debug) printf("  float[%d] = %.7g\n", j+k, myArray[j+k]);
+if(debug) printf("  float[%d] = %.8g\n", j+k, myArray[j+k]);
         }
         j += int32 - 1;
         pVal += 9;
@@ -6953,7 +6953,7 @@ if(debug) printf("  float[%d] = %.7g\n", j+k, myArray[j+k]);
                (toByte[(int)(*(pVal+7))]    ));
       myArray[j] = fun.f;
       pVal+=9;
-if(debug) printf("  float[%d] = %.7g\n", j, myArray[j]);
+if(debug) printf("  float[%d] = %.8g\n", j, myArray[j]);
     }
 
     item->array = (void *)myArray;
