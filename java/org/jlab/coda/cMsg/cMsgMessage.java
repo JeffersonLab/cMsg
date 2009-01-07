@@ -1077,6 +1077,7 @@ public class cMsgMessage implements Cloneable, Serializable {
 
         sb.append(offsett);
         sb.append("version           = \""); sb.append(version); sb.append("\"\n");
+        sb.append(offsett);
         sb.append("userInt           = \""); sb.append(userInt); sb.append("\"\n");
 
         // check if getRequest, if so, it cannot also be a getResponse
@@ -1087,11 +1088,11 @@ public class cMsgMessage implements Cloneable, Serializable {
         // check if nullGetResponse, if so, then it's a getResponse too (no need to print)
         else if ( (info & isNullGetResponse) != 0 ) {
             sb.append(offsett);
-            sb.append("nullGetResponse = \"true\"\n");
+            sb.append("nullGetResponse   = \"true\"\n");
         }
         else {
             sb.append(offsett);
-            sb.append("getResponse     = \""); sb.append(((info & isGetResponse) != 0) ? "true" : "false"); sb.append("\"\n");
+            sb.append("getResponse       = \""); sb.append(((info & isGetResponse) != 0) ? "true" : "false"); sb.append("\"\n");
         }
 
         if (domain != null) {
@@ -1519,8 +1520,8 @@ public class cMsgMessage implements Cloneable, Serializable {
                          sb.append(d.length); sb.append("\">\n");
                          for(int j=0; j<d.length; j++) {
                              // format doubles (16 significant digits minimum)
-                             if (j%5 == 0) {wr.printf("%s%s%s%.16g", indent, offsett, offsett, d[j]);}
-                             else          {wr.printf(" %.16g", d[j]);}
+                             if (j%5 == 0) {wr.printf("%s%s%s%.17g", indent, offsett, offsett, d[j]);}
+                             else          {wr.printf(" %.17g", d[j]);}
                              if (j%5 == 4 || j == d.length-1) {wr.printf("\n");}
                          }
                          wr.flush();
@@ -1537,8 +1538,8 @@ public class cMsgMessage implements Cloneable, Serializable {
                          sb.append(f.length); sb.append("\">\n");
                          for(int j=0; j<f.length; j++) {
                              // format floats (7 significant digits minimum)
-                             if (j%5 == 0) {wr.printf("%s%s%s%.7g", indent, offsett, offsett, f[j]);}
-                             else          {wr.printf(" %.7g", f[j]);}
+                             if (j%5 == 0) {wr.printf("%s%s%s%.8g", indent, offsett, offsett, f[j]);}
+                             else          {wr.printf(" %.8g", f[j]);}
                              if (j%5 == 4 || j == f.length-1) {wr.printf("\n");}
                          }
                          wr.flush();
