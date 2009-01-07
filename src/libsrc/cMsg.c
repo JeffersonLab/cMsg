@@ -4678,7 +4678,7 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
          slen = strlen(name);
          strncpy(pchar,name,slen);             pchar+=slen;
          strncpy(pchar,"\"> ",3);              pchar+=3;
-         sprintf(pchar,"%.16g%n",d,&len);      pchar+=len;
+         sprintf(pchar,"%.17g%n",d,&len);      pchar+=len;
          strncpy(pchar," </double>\n",11);     pchar+=11;
         } break;
       case CMSG_CP_FLT:
@@ -4917,8 +4917,8 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
          sprintf(pchar,"%d%n",count,&len);            pchar+=len;
          strncpy(pchar,"\">\n",3);                    pchar+=3;
          for(j=0;j<count;j++) {
-             if (j%5 == 0) {sprintf(pchar, "%s%s%.16g%n", offsett, offset5, d[j], &len); pchar+=len;}
-             else          {sprintf(pchar, " %.16g%n", d[j], &len); pchar+=len;}
+             if (j%5 == 0) {sprintf(pchar, "%s%s%.17g%n", offsett, offset5, d[j], &len); pchar+=len;}
+             else          {sprintf(pchar, " %.17g%n", d[j], &len); pchar+=len;}
              if (j%5==4 || j==count-1) {strncpy(pchar,"\n",1); pchar++;}
          }
          strncpy(pchar,offsett,offsetLen);       pchar+=offsetLen;
