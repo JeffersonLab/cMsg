@@ -1012,6 +1012,96 @@ public class cMsgMessage implements Cloneable, Serializable {
     // printing
     /////////////
 
+    /**
+     * This method escapes the chars <, >, " for putting strings into XML.
+     * @param s string to be escaped
+     * @return escaped string
+     */
+    static final String escapeAllForXML(String s) {
+        StringBuilder sb = new StringBuilder(s);
+        for (int i=0; i<sb.length(); i++) {
+            if (sb.charAt(i) == '<') {
+                sb.replace(i,i+1,"&lt;");
+                i += 3;
+            }
+            else if (sb.charAt(i) == '>') {
+                sb.replace(i,i+1,"&gt;");
+                i += 3;
+            }
+            else if (sb.charAt(i) == '"') {
+                sb.replace(i,i+1,"&#34;");
+                i += 4;
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * This method escapes the " char for putting strings into XML.
+     * @param s string to be escaped
+     * @return escaped string
+     */
+    static final String escapeQuotesForXML(String s) {
+        StringBuilder sb = new StringBuilder(s);
+        for (int i=0; i<sb.length(); i++) {
+            if (sb.charAt(i) == '"') {
+                sb.replace(i,i+1,"&#34;");
+                i += 4;
+            }
+        }
+        return sb.toString();
+    }
+
+    /*
+             A<![CDATA[B]]>C
+    <![CDATA[A<![CDATA[B]]>C]]>
+    <![CDATA[A<![CDATA[B]]><![CDATA[]]]]><![CDATA[>C]]>
+             A<![CDATA[B             ]]           >C
+             A<![CDATA[B]]>C
+
+             A<![CDATA[B]]><![CDATA[C]]>D
+    <![CDATA[A<![CDATA[B]]><![CDATA[C]]>D]]>
+    <![CDATA[A<![CDATA[B]]><![CDATA[]]]]><![CDATA[><![CDATA[C]]><![CDATA[]]]]><![CDATA[>D]]>
+             A<![CDATA[B             ]]           ><![CDATA[C            ]]            >D
+             A<![CDATA[B]]><![CDATA[C]]>D
+     */
+
+    /**
+     * This method escapes CDATA constructs which will appear inside of XML CDATA sections.
+     * It is not possible to have nested cdata sections. Actually the CDATA ending
+     * sequence, ]]> , is what cannot be containing in a surrounding CDATA section.
+     * This restriction can be
+     * cleverly circumvented by inserting "<![CDATA[]]]]><![CDATA[>" after each CDATA ending
+     * sequence. This creates independent CDATA sections which are not nested.</p>
+     *
+     * This method assumes that there are no nested cdata sections in the input string.
+     * If a particular <![CDATA[ has no corresponding ]]>, then nothing is done after that point.
+     * If no <![CDATA[ exists, nothing is done.
+     *
+     * @param s string to be escaped
+     * @return escaped string
+     */
+    static final String escapeCdataForXML(String s) {
+        if (!s.contains("]]>")) return s;
+
+        int index1=0, index2=0;
+        StringBuilder sb = new StringBuilder(s);
+        String sub = "<![CDATA[]]]]><![CDATA[>";
+
+        while (index1 < sb.length()) {
+            index1 = sb.indexOf("<![CDATA[", index1);
+            if (index1 < 0) return sb.toString();
+
+            index2 = sb.indexOf("]]>", index1+9);
+            if (index2 < 0) return sb.toString();
+            sb.insert(index2+3,sub);
+
+            index1 = index2+sub.length();
+        }
+
+        return sb.toString();
+    }
+
 
     /**
      * This method converts the message to a printable string in XML format.
@@ -1106,7 +1196,7 @@ public class cMsgMessage implements Cloneable, Serializable {
 
         if (sender != null) {
             sb.append(offsett);
-            sb.append("sender            = \""); sb.append(sender); sb.append("\"\n");
+            sb.append("sender            = \""); sb.append(escapeQuotesForXML(sender)); sb.append("\"\n");
         }
         else if (!compact) {
             sb.append(offsett);
@@ -1115,7 +1205,7 @@ public class cMsgMessage implements Cloneable, Serializable {
 
         if (senderHost != null) {
             sb.append(offsett);
-            sb.append("senderHost        = \""); sb.append(senderHost); sb.append("\"\n");
+            sb.append("senderHost        = \""); sb.append(escapeQuotesForXML(senderHost)); sb.append("\"\n");
         }
         else if (!compact) {
             sb.append(offsett);
@@ -1130,7 +1220,7 @@ public class cMsgMessage implements Cloneable, Serializable {
 
         if (receiver != null) {
             sb.append(offsett);
-            sb.append("receiver          = \""); sb.append(receiver); sb.append("\"\n");
+            sb.append("receiver          = \""); sb.append(escapeQuotesForXML(receiver)); sb.append("\"\n");
         }
         else if (!compact) {
             sb.append(offsett);
@@ -1139,7 +1229,7 @@ public class cMsgMessage implements Cloneable, Serializable {
 
         if (receiverHost != null) {
             sb.append(offsett);
-            sb.append("receiverHost      = \""); sb.append(receiverHost); sb.append("\"\n");
+            sb.append("receiverHost      = \""); sb.append(escapeQuotesForXML(receiverHost)); sb.append("\"\n");
         }
         else if (!compact) {
             sb.append(offsett);
@@ -1160,7 +1250,7 @@ public class cMsgMessage implements Cloneable, Serializable {
 
         if (subject != null) {
             sb.append(offsett);
-            sb.append("subject           = \""); sb.append(subject); sb.append("\"\n");
+            sb.append("subject           = \""); sb.append(escapeQuotesForXML(subject)); sb.append("\"\n");
         }
         else if (!compact) {
             sb.append(offsett);
@@ -1169,7 +1259,7 @@ public class cMsgMessage implements Cloneable, Serializable {
 
         if (type != null) {
             sb.append(offsett);
-            sb.append("type              = \""); sb.append(type); sb.append("\"\n");
+            sb.append("type              = \""); sb.append(escapeQuotesForXML(type)); sb.append("\"\n");
         }
         else if (!compact) {
             sb.append(offsett);
@@ -1191,9 +1281,8 @@ public class cMsgMessage implements Cloneable, Serializable {
         // Text
         if (text != null) {
             sb.append(offsett);
-            sb.append("<text><![CDATA["); sb.append(text); sb.append("]]></text>\n");
+            sb.append("<text><![CDATA["); sb.append(escapeCdataForXML(text)); sb.append("]]></text>\n");
         }
-
 
         // Binary array
         if (binary && (bytes != null) && (length > 0)) {
@@ -1374,7 +1463,7 @@ public class cMsgMessage implements Cloneable, Serializable {
                      {   String s = item.getString();
                          sb.append(indent); sb.append(offsett);
                          sb.append("<string name=\""); sb.append(name); sb.append("\">");
-                         sb.append("<![CDATA["); sb.append(s); sb.append("]]></string>\n");
+                         sb.append("<![CDATA["); sb.append(escapeCdataForXML(s)); sb.append("]]></string>\n");
                      } break;
 
                    case cMsgConstants.payloadBin:
@@ -1556,7 +1645,7 @@ public class cMsgMessage implements Cloneable, Serializable {
                          sb.append(sa.length); sb.append("\">\n");
                          for(String s : sa) {
                              sb.append(indent);sb.append(offsett);sb.append(offsett);
-                             sb.append("<string><![CDATA["); sb.append(s); sb.append("]]></string>\n");
+                             sb.append("<string><![CDATA["); sb.append(escapeCdataForXML(s)); sb.append("]]></string>\n");
                          }
                          sb.append(indent); sb.append(offsett);
                          sb.append("</string_array>\n");
