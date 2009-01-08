@@ -652,6 +652,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
                 }
 
                 else {
+                    if (debug) System.out.println("Payload unknown node \"" + itemType + "\"");
                     continue;
                 }
 
@@ -659,6 +660,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
                 msg.addPayloadItem(payloadItem);
             }
             catch (cMsgException e) {
+                if (debug) System.out.println("Payload node has bad name \"" + itemName + "\"");
                 // ignore bad names
             }
         }
