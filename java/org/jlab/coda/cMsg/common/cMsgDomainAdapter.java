@@ -18,6 +18,7 @@ package org.jlab.coda.cMsg.common;
 
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgConstants;
 
 import java.util.concurrent.TimeoutException;
 
@@ -63,7 +64,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
     protected cMsgShutdownHandlerInterface shutdownHandler;
 
     /** Level of debug output for this class. */
-    protected int debug;
+    protected int debug = cMsgConstants.debugNone;
 //-----------------------------------------------------------------------------
 
 
