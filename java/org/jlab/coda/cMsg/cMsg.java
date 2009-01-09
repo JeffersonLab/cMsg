@@ -70,7 +70,7 @@ import java.io.*;
  */
 public class cMsg {
     /** Level of debug output for this class. */
-    private int debug;
+    private int debug = cMsgConstants.debugNone;
 
     /** String containing the whole UDL. */
     private String UDL;
@@ -91,10 +91,8 @@ public class cMsg {
     private cMsgDomainInterface connection;
 
 
-    /** Constructor. */
-    private cMsg() {
-        debug = cMsgConstants.debugNone;
-    }
+    /** Constructor. Never used. */
+    private cMsg() {    }
 
 
     /**
@@ -144,7 +142,7 @@ public class cMsg {
         connection.setDescription(description);
         // Pass in the UDL remainder
         connection.setUDLRemainder(UDLremainder);
-        // Pass in the debug value
+        // Pass in the default debug value
         connection.setDebug(debug);
     }
 
