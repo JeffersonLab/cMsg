@@ -431,8 +431,10 @@ public class cMsg extends cMsgDomainAdapter {
             useFailovers = true;
         }
 
-        // Go through the UDL's until one works
         failoverIndex = -1;
+        cMsgException ex;
+
+        // Go through the UDL's until one works
         do {
             // get parsed & stored UDL info
             p = failoverUdls.get(++failoverIndex);
@@ -456,10 +458,12 @@ public class cMsg extends cMsgDomainAdapter {
                 // clear effects of p.copyToLocal()
                 p.clearLocal();
                 connectFailures++;
+                ex = e;
             }
+
         } while (connectFailures < failoverUdls.size());
 
-        throw new cMsgException("connect: all UDLs failed");
+        throw new cMsgException("connect: all UDLs failed", ex);
     }
 
 //-----------------------------------------------------------------------------
