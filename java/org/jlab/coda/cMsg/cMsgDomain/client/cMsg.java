@@ -995,7 +995,7 @@ public class cMsg extends cMsgDomainAdapter {
         }
 
         // allow connect to work again
-        mayConnect.set(false);
+        mayConnect.set(true);
 //System.out.println("\nReached end of disconnect method");
     }
 
@@ -3404,7 +3404,7 @@ public class cMsg extends cMsgDomainAdapter {
          */
         synchronized private void getMonitorInfo() throws IOException {
             // read monitor info from server
-//System.out.println("  getMonitorInfo: Try reading first KA int from server");
+System.out.println("  getMonitorInfo: Try reading first KA int from server");
             byte[] bytes = new byte[4096];
             int len = in.readInt();
 //System.out.println("  getMonitorInfo: len xml = " + len);
