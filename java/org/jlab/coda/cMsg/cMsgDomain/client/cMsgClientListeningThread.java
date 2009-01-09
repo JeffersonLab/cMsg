@@ -230,12 +230,12 @@ class cMsgClientListeningThread extends Thread {
         }
         catch (InterruptedIOException e) {
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("cMsgClientListeningThread: I/O interrupted in cMsg client");
+                System.out.println("cMsgClientListeningThread: I/O interrupted reading from server");
             }
         }
         catch (IOException e) {
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("cMsgClientListeningThread: I/O ERROR in cMsg client");
+                System.out.println("cMsgClientListeningThread: I/O ERROR reading from server");
             }
         }
         finally {
