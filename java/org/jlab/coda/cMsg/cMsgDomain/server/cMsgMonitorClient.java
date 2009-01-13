@@ -24,6 +24,7 @@ import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.text.DateFormat;
+import java.util.Date;
 
 /**
  * This class implements an object to monitor the health of all cMsg clients connected
@@ -127,21 +128,21 @@ class cMsgMonitorClient extends Thread {
             //      2) xml (state of system)
             //      3) how many other types of items to follow.
             //         This allows us to expand the info sent in future
-            //         with messing up protocol (making it backwards compatible).
+            //         without messing up protocol (making it backwards compatible).
             //      4) how many cloud hosts
-            //      for each cloud host send:
-            //          5) tcpPort
-            //          6) multicastPort
-            //          7) len of host
-            //          8) len of password
-            //          9) host
-            //         10) password
+            //         for each cloud host send:
+            //            5) tcpPort
+            //            6) multicastPort
+            //            7) len of host
+            //            8) len of password
+            //            9) host
+            //           10) password
             while (true) {
                 int totalLength = dataLength + 3*8;
                 for (cMsgClientData cd : server.nameServers.values()) {
                     passwd = cd.getPassword();
                     if (passwd == null) passwd = "";
-                    totalLength += 20 + cd.getServerHost().length() + passwd.length();
+                    totalLength += 16 + cd.getServerHost().length() + passwd.length();
                 }
 
                 if (totalLength > outBuffer.capacity()) {
@@ -186,11 +187,9 @@ class cMsgMonitorClient extends Thread {
                 break;
             }
 
-
-
             // create outBuffer with data to be sent to server clients
             dataLength = server.nsMonitorXML.length();
-            if (dataLength + 4 > outBuffer2.capacity()) {
+            if (dataLength + 8 > outBuffer2.capacity()) {
                 // give outBuffer 1k more space than needed
                 outBuffer2 = ByteBuffer.allocateDirect(dataLength + 1024);
             }
@@ -211,18 +210,26 @@ class cMsgMonitorClient extends Thread {
             outBuffer2.flip();
 
             for (cMsgDomainServerSelect dss : server.domainServersSelect.keySet()) {
+
+                if (dss.info.isServer()) {
+                    outBuf = outBuffer2;
+                }
+                else {
+                    outBuf = outBuffer;
+                }
+
                 // concurrent hashmap so no sync required
                 for (cMsgClientData cd : dss.clients.keySet()) {
                     // send monitor info to client
                     // BUGBUG don't send time first as before
 
                     // get outBuffer ready for writing
-                    outBuffer.rewind();
+                    outBuf.rewind();
                     try {
                         // write
-                        while (outBuffer.hasRemaining()) {
+                        while (outBuf.hasRemaining()) {
 //System.out.println("Write KA buffer to " + cd.getName());
-                            cd.keepAliveChannel.write(outBuffer);
+                            cd.keepAliveChannel.write(outBuf);
                         }
                     }
                     catch (IOException e) {
@@ -241,9 +248,9 @@ class cMsgMonitorClient extends Thread {
                             // do something
                             if (debug >= cMsgConstants.debugError) {
                                 System.out.println("cMsgMonitorClient: client " + cd.getName() +
-                                        " is not responding so consider it dead");
+                                        " has not responded for " + (deadTime/1000) + "seconds, so consider it dead");
                             }
-//System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
+System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                             dss.deleteClient(cd);
                         }
                     }
@@ -251,7 +258,7 @@ class cMsgMonitorClient extends Thread {
                         // during read: internal cMsg protocol error, or too many tries to read data
                         if (debug >= cMsgConstants.debugError) {
                             System.out.println("cMsgMonitorClient: client " + cd.getName() +
-                                    " gives keepalive protocol error or too many tries to read data");
+                                    " has keepalive protocol error or too many tries to read data");
                         }
 //System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                         dss.deleteClient(cd);
@@ -289,7 +296,7 @@ class cMsgMonitorClient extends Thread {
                 catch (IOException e) {
                     // cannot write
                     if (debug >= cMsgConstants.debugWarn) {
-                        System.out.println("cMsgMonitorClient: cannot write keepalive data to client " + ds.info.getName());
+                        System.out.println("cMsgMonitorClient: cannot write keepalive data to (ds) client " + ds.info.getName());
                     }
                 }
 
@@ -301,8 +308,8 @@ class cMsgMonitorClient extends Thread {
                     if (clientDead(ds.info)) {
                         // do something
                         if (debug >= cMsgConstants.debugError) {
-                            System.out.println("cMsgMonitorClient: client " + ds.info.getName() +
-                                    " is not responding so consider it dead");
+                            System.out.println("cMsgMonitorClient: (ds) client " + ds.info.getName() +
+                                    " has not responded for " + (deadTime/1000) + "seconds, so consider it dead");
                         }
 //System.out.println("cMsgMonitorClient: run deleteClient for " + ds.info.getName());
                         ds.shutdown();
@@ -311,8 +318,8 @@ class cMsgMonitorClient extends Thread {
                 catch (cMsgException e) {
                     // during read: internal cMsg protocol error, or too many tries to read data
                     if (debug >= cMsgConstants.debugError) {
-                        System.out.println("cMsgMonitorClient: client " + ds.info.getName() +
-                                " gives keepalive protocol error or too many tries to read data");
+                        System.out.println("cMsgMonitorClient: (ds) client " + ds.info.getName() +
+                                " has keepalive protocol error or too many tries to read data");
                     }
 //System.out.println("cMsgMonitorClient: run deleteClient for " + ds.info.getName());
                     ds.shutdown();
@@ -320,7 +327,7 @@ class cMsgMonitorClient extends Thread {
                 catch (IOException e) {
                     // socket & therefore client dead
                     if (debug >= cMsgConstants.debugError) {
-                        System.out.println("cMsgMonitorClient: client " + ds.info.getName() + " is dead");
+                        System.out.println("cMsgMonitorClient: (ds) client " + ds.info.getName() + " is dead");
                     }
 //System.out.println("cMsgMonitorClient: run deleteClient for " + ds.info.getName());
                     ds.shutdown();
@@ -425,7 +432,10 @@ class cMsgMonitorClient extends Thread {
                 if (cd.updateTime == 0L) {
                     cd.updateTime = System.currentTimeMillis();                    
                 }
-//System.out.println("Nothing to read so go to next cli");
+                if (debug >= cMsgConstants.debugWarn) {
+                    System.out.println("cMsgMonitorClient: nothing to read from client " + cd.getName() + " at " +
+                            (new Date()).toString() + ", go to next client");
+                }
                 return;
             }
 //System.out.println("Read KA int from " + cd.getName());
