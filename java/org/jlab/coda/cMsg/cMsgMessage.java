@@ -630,9 +630,17 @@ public class cMsgMessage implements Cloneable, Serializable {
     public Date getUserTime() {return new Date(userTime);}
     /**
      * Set time.
-     * @param time time.
+     * @param time time ad Date object.
      */
     public void setUserTime(Date time) {this.userTime = time.getTime();}
+    /**
+     * Set time.
+     * @param time time as long (amount of millisec since Jan 1 1970, 12am, GMT)
+     */
+    public void setUserTime(long time) {
+        if (time < 0) return;
+        this.userTime = time;
+    }
 
     // byte array stuff
 
@@ -1053,6 +1061,12 @@ public class cMsgMessage implements Cloneable, Serializable {
     }
 
     /*
+             A]]>B<![CDATA[C]]>D
+    <![CDATA[A]]>B<![CDATA[C]]>D]]>
+    <![CDATA[A]]><![CDATA[]]]]><![CDATA[>B<![CDATA[C]]><![CDATA[]]]]><![CDATA[>D]]>
+             A]]><![CDATA[]]            >B<![CDATA[C            ]]            >D
+             A]]><![CDATA[]]>B<![CDATA[C]]>D
+
              A<![CDATA[B]]>C
     <![CDATA[A<![CDATA[B]]>C]]>
     <![CDATA[A<![CDATA[B]]><![CDATA[]]]]><![CDATA[>C]]>
@@ -1075,28 +1089,44 @@ public class cMsgMessage implements Cloneable, Serializable {
      * sequence. This creates independent CDATA sections which are not nested.</p>
      *
      * This method assumes that there are no nested cdata sections in the input string.
-     * If a particular <![CDATA[ has no corresponding ]]>, then nothing is done after that point.
-     * If no <![CDATA[ exists, nothing is done.
+     * Nothing is done to the string if:
+     * <UL>
+     * <LI>there is no ]]> so no escaping is necessary
+     * <LI>there is no <![CDATA[ so s contains malformed XML
+     * <LI>a particular <![CDATA[ has no corresponding ]]> so s contains malformed XML
+     * <LI>]]> comes before <![CDATA[ so s contains malformed XML
+     * </UL>
      *
      * @param s string to be escaped
      * @return escaped string
      */
     static final String escapeCdataForXML(String s) {
-        if (!s.contains("]]>")) return s;
+        // don't need to escape anything
+        int index1 = s.indexOf("]]>");
+        if (index1 < 0) return s;
+        int index;
 
-        int index1=0, index2=0;
+        // ignore since malformed XML in s
+        int index2 = s.indexOf("<![CDATA[");
+        if (index2 < 0 || index1 < index2) return s;
+
         StringBuilder sb = new StringBuilder(s);
         String sub = "<![CDATA[]]]]><![CDATA[>";
+        index1 = index2;
 
         while (index1 < sb.length()) {
-            index1 = sb.indexOf("<![CDATA[", index1);
-            if (index1 < 0) return sb.toString();
+            index = sb.indexOf("<![CDATA[", index1);
+            if (index < 0) {
+                index2 = sb.indexOf("]]>", index1);
+                if (index2 > -1) return s;
+                break;
+            }
 
-            index2 = sb.indexOf("]]>", index1+9);
-            if (index2 < 0) return sb.toString();
+            index2 = sb.indexOf("]]>", index+9);
+            if (index2 < 0) return s;
             sb.insert(index2+3,sub);
 
-            index1 = index2+sub.length();
+            index1 = index2+3+sub.length();
         }
 
         return sb.toString();
