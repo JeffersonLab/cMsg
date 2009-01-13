@@ -134,7 +134,6 @@ int clock_gettime(int dummy, struct timespec *t1);
   int   strncasecmp(const char *s1, const char *s2, size_t n);
 #endif
 
-
   /* basic functions */
   int 	cMsgConnect           (const char *myUDL, const char *myName, const char *myDescription,
                                void **domainId);

@@ -4028,7 +4028,8 @@ int cMsgPayloadToString(const void *vmsg, char **string, int binary, int compact
  * @returns number of bytes if successful
  * @returns -1 if error
  */   
-static int messageStringSize(const void *vmsg, int margin, int binary, int compactPayload, int onlyPayload) {
+static int messageStringSize(const void *vmsg, int margin, int binary,
+                             int compactPayload, int onlyPayload) {
     payloadItem *item;
     int i, totalLen=0, len, hasPayload;
       
@@ -4125,6 +4126,142 @@ static int messageStringSize(const void *vmsg, int margin, int binary, int compa
     return(totalLen);
 }
 
+                    
+/*-------------------------------------------------------------------*/
+
+                    
+/**
+ * This routine escapes the " char for putting strings into XML.
+ * If no quotes are found, the original string is returned
+ * (no memory is allocated). If quotes are found, a new string
+ * is returned which must be freed by the caller.
+ * 
+ * @param s string to be escaped
+ * @return escaped string, NULL if no memory or arg is NULL
+ */
+char* escapeQuotesForXML(char *s) {
+    char *pchar=s, *newString, *pcharDest, *sub="&#34;";
+    int i, slen, lenLeft, index, count=0;
+    
+    if (s == NULL) return NULL;
+    slen = strlen(s);
+    
+    /* count quotes */
+    while ( (pchar = strpbrk(pchar,"\"")) != NULL) {
+        pchar++;
+        count++;
+    }
+    if (count == 0) return s;
+
+/*printf("escapeQuotesForXML: found %d quote(s) in string %s\n",count,s);*/
+    newString = (char *) calloc(1, slen + count*4 + 1);
+    if (newString == NULL) return NULL;
+    
+    pchar = s;
+    pcharDest = newString;
+    for (i=0; i<count; i++) {
+        index = strcspn(pchar, "\"");
+        memcpy(pcharDest, pchar, index);
+        pcharDest += index;
+        memcpy(pcharDest, sub, 5);
+        pcharDest += 5;
+        pchar += index + 1;
+    }
+    lenLeft = s+slen-pchar;
+    if (lenLeft > 0) {
+        memcpy(pcharDest, pchar, lenLeft);
+    }
+/*printf("escapeQuotesForXML: new string = %s\n", newString);*/
+    
+    return newString;
+}
+
+            
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine escapes CDATA constructs which will appear inside of XML CDATA sections.
+ * It is not possible to have nested cdata sections. Actually the CDATA ending
+ * sequence, ]]> , is what cannot be containing in a surrounding CDATA section.
+ * This restriction can be
+ * cleverly circumvented by inserting "<![CDATA[]]]]><![CDATA[>" after each CDATA ending
+ * sequence. This creates independent CDATA sections which are not nested.</p>
+ *
+ * This routine assumes that there are no nested cdata sections in the input string.
+ * Nothing is done to the string if:
+ * <UL>
+ * <LI>there is no ]]> so no escaping is necessary
+ * <LI>there is no <![CDATA[ so s contains malformed XML
+ * <LI>a particular <![CDATA[ has no corresponding ]]> so s contains malformed XML
+ * <LI>]]> comes before <![CDATA[ so s contains malformed XML
+ * </UL>
+ *
+ * @param s string to be escaped
+ * @return escaped string, NULL if no memory or arg is NULL
+ */
+char* escapeCdataForXML(char *s) {
+    char *p1, *p2, *pchar=s, *newString, *pcharDest, *sub="<![CDATA[]]]]><![CDATA[>";
+    int i, slen, lenLeft, index1=0, index2=0, count=0;
+    
+    if (s == NULL) return NULL;
+    
+    /* don't need to escape anything */
+    if ( (p1 = strstr(s, "]]>")) == NULL ) return s;
+    
+    /* ignore since malformed XML in s */
+    if ( (p2 = strstr(s, "<![CDATA[")) == NULL ) return s;
+    if (  p2 > p1 ) return s;
+   
+    slen = strlen(s);
+
+    /* 1) count # of places we need to insert string, 2) check XML format */
+    pchar = p2;
+    while (pchar < s+slen) {
+        p1 = strstr(pchar, "<![CDATA[");
+        if (p1 == NULL) {
+            /* check for another ]]>, if there is one, bad XML */
+            p2 = strstr(pchar, "]]>");
+            if (p2 != NULL) return s;
+            break;
+        }
+
+        p2 = strstr(p1+9, "]]>");
+        if (p2 == NULL) {
+            /* no matching CDATA ending, malformed XML in s */
+            return s;
+        }
+
+        count++;
+        pchar = p2+3;
+    }
+    if (count == 0) return s;
+
+/*printf("escapeCdataForXML: found %d CDATA structures(s) in string %s, allocate %d chars\n",
+    count, s,slen + count*24 );*/
+    newString = (char *) calloc(1, slen + count*24 + 1);
+    if (newString == NULL) return NULL;
+
+    p1 = s;
+    pcharDest = newString;
+    for (i=0; i<count; i++) {
+        p2 = strstr(p1, "]]>") + 3;
+        memcpy(pcharDest, p1, p2-p1);
+        pcharDest += p2-p1;
+        memcpy(pcharDest, sub, 24);
+        pcharDest += 24;
+        p1 = p2;
+    }
+    
+    lenLeft = s+slen-p1;
+    if (lenLeft > 0) {
+        memcpy(pcharDest, p1, lenLeft);
+    }
+/*printf("escapeCdataForXML: new string = %s\n", newString);*/
+
+    return newString;
+}
+
 
 /*-------------------------------------------------------------------*/
 
@@ -4158,7 +4295,7 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
 
   time_t now;
   int    j, err, len, slen, count, endian, hasPayload, indentLen, offsetLen;
-  char   *buf, *pchar, *indent, *offsett;
+  char   *buf, *pchar, *indent, *offsett, *str;
   char   userTimeBuf[32],senderTimeBuf[32],receiverTimeBuf[32];
   struct tm tBuf;
 
@@ -4255,15 +4392,15 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   // check if nullGetResponse, if so, then it's a getResponse too (no need to print)
   else if ( msg->info & CMSG_IS_NULL_GET_RESPONSE ) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
-      strncpy(pchar,"nullGetResponse = \"true\"\n",25); pchar+=25;
+      strncpy(pchar,"nullGetResponse   = \"true\"\n",27); pchar+=27;
   }
   else {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
       if ( msg->info & CMSG_IS_GET_RESPONSE ) {
-          strncpy(pchar,"getResponse     = \"true\"\n",25); pchar+=25;
+          strncpy(pchar,"getResponse       = \"true\"\n",27); pchar+=27;
       }
       else {
-          strncpy(pchar,"getResponse     = \"false\"\n",26); pchar+=26;
+          strncpy(pchar,"getResponse       = \"false\"\n",28); pchar+=28;
       }
   }
 
@@ -4284,9 +4421,16 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   if (msg->sender != NULL) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
       strncpy(pchar,"sender            = \"",21);  pchar+=21;
-      slen = strlen(msg->sender);
-      strncpy(pchar,msg->sender,slen); pchar+=slen;
+      str = escapeQuotesForXML(msg->sender);
+      if (str == NULL) {
+          if (margin > 0) free(indent);
+          free(offsett);
+          return CMSG_OUT_OF_MEMORY;
+      }
+      slen = strlen(str);
+      strncpy(pchar,str,slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
+      if (str != msg->sender) free(str);
   }
   else if (!compact) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
@@ -4297,9 +4441,16 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   if (msg->senderHost != NULL) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
       strncpy(pchar,"senderHost        = \"",21);  pchar+=21;
-      slen = strlen(msg->senderHost);
-      strncpy(pchar,msg->senderHost,slen); pchar+=slen;
+      str = escapeQuotesForXML(msg->senderHost);
+      if (str == NULL) {
+          if (margin > 0) free(indent);
+          free(offsett);
+          return CMSG_OUT_OF_MEMORY;
+      }
+      slen = strlen(str);
+      strncpy(pchar,str,slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
+      if (str != msg->senderHost) free(str);
   }
   else if (!compact) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
@@ -4319,9 +4470,16 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   if (msg->receiver != NULL) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
       strncpy(pchar,"receiver          = \"",21);  pchar+=21;
-      slen = strlen(msg->receiver);
-      strncpy(pchar,msg->receiver,slen); pchar+=slen;
+      str = escapeQuotesForXML(msg->receiver);
+      if (str == NULL) {
+          if (margin > 0) free(indent);
+          free(offsett);
+          return CMSG_OUT_OF_MEMORY;
+      }
+      slen = strlen(str);
+      strncpy(pchar,str,slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
+      if (str != msg->receiver) free(str);
   }
   else if (!compact) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
@@ -4332,9 +4490,16 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   if (msg->receiverHost != NULL) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
       strncpy(pchar,"receiverHost      = \"",21);  pchar+=21;
-      slen = strlen(msg->receiverHost);
-      strncpy(pchar,msg->receiverHost,slen); pchar+=slen;
+      str = escapeQuotesForXML(msg->receiverHost);
+      if (str == NULL) {
+          if (margin > 0) free(indent);
+          free(offsett);
+          return CMSG_OUT_OF_MEMORY;
+      }
+      slen = strlen(str);
+      strncpy(pchar,str,slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
+      if (str != msg->receiverHost) free(str);
   }
   else if (!compact) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
@@ -4362,9 +4527,16 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   if (msg->subject != NULL) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
       strncpy(pchar,"subject           = \"",21);  pchar+=21;
-      slen = strlen(msg->subject);
-      strncpy(pchar,msg->subject,slen); pchar+=slen;
+      str = escapeQuotesForXML(msg->subject);
+      if (str == NULL) {
+          if (margin > 0) free(indent);
+          free(offsett);
+          return CMSG_OUT_OF_MEMORY;
+      }
+      slen = strlen(str);
+      strncpy(pchar,str,slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
+      if (str != msg->subject) free(str);
   }
   else if (!compact) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
@@ -4374,10 +4546,17 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   /* type */
   if (msg->type != NULL) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
-      strncpy(pchar,"type              = \"",21);  pchar+=21;
-      slen = strlen(msg->type);
-      strncpy(pchar,msg->type,slen); pchar+=slen;
+      strncpy(pchar,"type              = \"",21);  pchar+=21;      
+      str = escapeQuotesForXML(msg->type);
+      if (str == NULL) {
+          if (margin > 0) free(indent);
+          free(offsett);
+          return CMSG_OUT_OF_MEMORY;
+      }
+      slen = strlen(str);
+      strncpy(pchar,str,slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
+      if (str != msg->type) free(str);
   }
   else if (!compact) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
@@ -4404,9 +4583,16 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   if (msg->text != NULL) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
       strncpy(pchar,"<text><![CDATA[",15); pchar+=15;
-      slen = strlen(msg->text);
-      strncpy(pchar,msg->text,slen); pchar+=slen;
+      str = escapeCdataForXML(msg->text);
+      if (str == NULL) {
+          if (margin > 0) free(indent);
+          free(offsett);
+          return CMSG_OUT_OF_MEMORY;
+      }
+      slen = strlen(str);
+      strncpy(pchar,str,slen); pchar+=slen;
       strncpy(pchar,"]]></text>\n",11); pchar+=11;
+      if (str != msg->text) free(str);
   }
         
   /* Binary array */
@@ -4693,16 +4879,22 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
          strncpy(pchar," </float>\n",10);      pchar+=10;
         } break;
       case CMSG_CP_STR:
-        {const char *s; ok=cMsgGetString(msg, name, &s); if(ok!=CMSG_OK) {
+      {char *s,*str; ok=cMsgGetString(msg, name, &s); if(ok!=CMSG_OK) {
          if(level < 1){free(buffer);} free(offsett);free(offset5); if(margin>0){free(indent);} return(CMSG_ERROR);}
          strncpy(pchar,offsett,offsetLen);     pchar+=offsetLen;
          strncpy(pchar,"<string name=\"",14);  pchar+=14;
          slen = strlen(name);
          strncpy(pchar,name,slen);             pchar+=slen;
          strncpy(pchar,"\"><![CDATA[",11);     pchar+=11;
-         slen = strlen(s);
-         strncpy(pchar,s,slen);                pchar+=slen;
+         str = escapeCdataForXML(s);
+         if (str == NULL) {
+             if(level < 1){free(buffer);} free(offsett);free(offset5); if(margin>0){free(indent);}
+             return(CMSG_OUT_OF_MEMORY);
+         }
+         slen = strlen(str);
+         strncpy(pchar,str,slen);              pchar+=slen;
          strncpy(pchar,"]]></string>\n",13);   pchar+=13;
+         if (str != s) free(str);
         } break;
         
       case CMSG_CP_BIN:
@@ -4943,7 +5135,7 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
          strncpy(pchar,"</float_array>\n",15);   pchar+=15;
         } break;
       case CMSG_CP_STR_A:
-        {const char **s; ok=cMsgGetStringArray(msg, name, &s, &count); if(ok!=CMSG_OK) {
+      {const char **s;char *str; ok=cMsgGetStringArray(msg, name, &s, &count); if(ok!=CMSG_OK) {
         if(level < 1){free(buffer);} free(offsett);free(offset5);if(margin>0){free(indent);} return(CMSG_ERROR);}
          strncpy(pchar,offsett,offsetLen);            pchar+=offsetLen;
          strncpy(pchar,"<string_array name=\"",20);   pchar+=20;
@@ -4956,9 +5148,15 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
              strncpy(pchar,offsett,offsetLen);        pchar+=offsetLen;
              strncpy(pchar,offset5,offset5Len);       pchar+=offset5Len;
              strncpy(pchar,"<string><![CDATA[",17);   pchar+=17;
-             slen = strlen(s[j]);
-             strncpy(pchar,s[j],slen);                pchar+=slen;
+             str = escapeCdataForXML(s[j]);
+             if (str == NULL) {
+                 if(level < 1){free(buffer);} free(offsett);free(offset5); if(margin>0){free(indent);}
+                 return(CMSG_OUT_OF_MEMORY);
+             }
+             slen = strlen(str);
+             strncpy(pchar,str,slen);                 pchar+=slen;
              strncpy(pchar,"]]></string>\n",13);      pchar+=13;
+             if (str != s[j]) free(str);
          }
          strncpy(pchar,offsett,offsetLen);            pchar+=offsetLen;
          strncpy(pchar,"</string_array>\n",16);       pchar+=16;
