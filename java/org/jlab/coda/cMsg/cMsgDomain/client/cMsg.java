@@ -3202,10 +3202,12 @@ public class cMsg extends cMsgDomainAdapter {
                             getMonitorInfo();
                         }
                         catch (InterruptedIOException e) {
+System.out.println("keepAliveThread: interrupted IO with cMsg server, try reading monitor info again");
                         }
                     }
                 }
                 catch (IOException e) {
+System.out.println("keepAliveThread: lost connection with cMsg server (IOException)");
                     connected = false;
                 }
 
@@ -3389,7 +3391,7 @@ public class cMsg extends cMsgDomainAdapter {
             }
 
             // disconnect (sockets closed here)
-//System.out.println("\nkeepAliveThread: trying running DISCONNECT from this thread");
+System.out.println("keepAliveThread: run localDisconnect from this thread");
             localDisconnect();
         }
 
@@ -3576,13 +3578,13 @@ public class cMsg extends cMsgDomainAdapter {
                     Thread.sleep(sleepTime);
                 }
                 catch (InterruptedException e) {
-//System.out.println("UpdateServer: interrupted thread during sleep");
+System.out.println("UpdateServer: interrupted thread during sleep");
                 }
                 catch (InterruptedIOException e) {
-//System.out.println("UpdateServer: interrupted thread during I/O");
+System.out.println("UpdateServer: interrupted thread during I/O");
                 }
                 catch (IOException e) {
-//System.out.println("UpdateServer: I/O error, wait and resend, our name = " + cMsg.this.getName());
+System.out.println("UpdateServer: I/O error, wait and resend, our name = " + cMsg.this.getName());
                 }
             }
         }
