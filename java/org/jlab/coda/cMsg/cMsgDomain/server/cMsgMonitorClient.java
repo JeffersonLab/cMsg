@@ -157,7 +157,7 @@ class cMsgMonitorClient extends Thread {
                     // xml string comes next
                     outBuffer.put(server.fullMonitorXML.getBytes("US-ASCII"));
                     int size = server.nameServers.size();
-                    // how types of info to follow (just one - cloud servers)
+                    // how many types of info to follow (just one - cloud servers)
                     outBuffer.putInt(1);
                     // how many servers
                     outBuffer.putInt(size);
