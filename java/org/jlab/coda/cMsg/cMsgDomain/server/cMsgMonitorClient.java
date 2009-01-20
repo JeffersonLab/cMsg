@@ -248,7 +248,7 @@ class cMsgMonitorClient extends Thread {
                             // do something
                             if (debug >= cMsgConstants.debugError) {
                                 System.out.println("cMsgMonitorClient: client " + cd.getName() +
-                                        " has not responded for " + (deadTime/1000) + "seconds, so consider it dead");
+                                        " has not responded for " + (deadTime/1000) + " seconds, so consider it dead");
                             }
 System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                             dss.deleteClient(cd);
@@ -309,7 +309,7 @@ System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                         // do something
                         if (debug >= cMsgConstants.debugError) {
                             System.out.println("cMsgMonitorClient: (ds) client " + ds.info.getName() +
-                                    " has not responded for " + (deadTime/1000) + "seconds, so consider it dead");
+                                    " has not responded for " + (deadTime/1000) + " seconds, so consider it dead");
                         }
 //System.out.println("cMsgMonitorClient: run deleteClient for " + ds.info.getName());
                         ds.shutdown();
