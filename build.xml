@@ -9,7 +9,7 @@
     <property name="cMsg.version" value="3.0" />
     
     <!-- Debug -->
-    <property name="javac.debug" value="off" />
+    <property name="javac.debug" value="on" />
     
     <!-- Directories/Files -->
     <property name="src.dir"       value="java" />
@@ -18,8 +18,9 @@
     <property name="build.lib"     value="${build.dir}/lib" />
     <property name="doc.dir"       value="doc/javadoc" />
     <property name="jarName"       value="${build.lib}/cMsg-${cMsg.version}.jar" />
-
-    <!-- Classpath -->
+    
+    <!-- Set Classpath, ignore caller's classpath -->
+    <property name="build.sysclasspath" value="ignore" />
     <path id="classpath">
         <fileset dir="java/jars">
             <include name="**/*.jar" />
