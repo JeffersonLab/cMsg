@@ -241,7 +241,6 @@ class cMsgMonitorClient extends Thread {
 
                     try {
                         // read monitor info from client
-                        System.out.println("Write KA info to " + cd.getName() + "\n");
                         readMonitorInfo(cd);
 
                         // check for non-responding client
