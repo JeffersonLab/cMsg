@@ -441,7 +441,7 @@ System.out.println("  update time = 0, so set it to current time");
 System.out.println();
                 return;
             }
-//System.out.println("Read KA int from " + cd.getName());
+System.out.println("Read KA int from " + cd.getName());
             inBuffer.flip();
             int size = inBuffer.getInt();          // size of buffer data in bytes
             if (size > inBuffer.capacity()) {
@@ -475,7 +475,7 @@ System.out.println();
                 // record when keepalive info received
                 cd.updateTime = System.currentTimeMillis();
                 // System.out.println("Print XML:\n" + server.monData.monXML);
-//System.out.println("Read KA XML from " + cd.getName());
+System.out.println("Read KA XML from " + cd.getName());
             }
         }
     }
