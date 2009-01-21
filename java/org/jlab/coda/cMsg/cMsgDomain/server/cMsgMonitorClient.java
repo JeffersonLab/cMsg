@@ -54,7 +54,7 @@ class cMsgMonitorClient extends Thread {
     private int debug;
 
     /** Time in milliseconds to write keepalive to, and read keepalive from clients. */
-    private final long updatePeriod = 2000;
+    private final long updatePeriod = 2200;
 
     /** Time in milliseconds elapsed between client keepalives received before calling client dead. */
     private final long deadTime = 5000;
