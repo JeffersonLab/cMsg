@@ -228,7 +228,7 @@ class cMsgMonitorClient extends Thread {
                     try {
                         // write
                         while (outBuf.hasRemaining()) {
-System.out.println("Write KA info to " + cd.getName());
+//System.out.println("Write KA info to " + cd.getName());
                             cd.keepAliveChannel.write(outBuf);
                         }
                     }
@@ -426,22 +426,20 @@ System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
         // read as much as possible, since we don't want keepalive signals to pile up
         while (true) {
             // read 1 int of data
-System.out.println("Try reading KA int from " + cd.getName());
+//System.out.println("Try reading KA int from " + cd.getName());
             int n = readSocketBytes(inBuffer, cd.keepAliveChannel, 4, true);
             if (n == 0) {
                 // if brand new client, pretend things are OK
                 if (cd.updateTime == 0L) {
-System.out.println("  update time = 0, so set it to current time");
                     cd.updateTime = System.currentTimeMillis();
                 }
-                if (debug >= cMsgConstants.debugWarn) {
-                    System.out.println("cMsgMonitorClient: nothing to read from client " + cd.getName() + " at " +
-                            (new Date()).toString() + ", go to next client");
-                }
-System.out.println();
+//                if (debug >= cMsgConstants.debugWarn) {
+//                    System.out.println("cMsgMonitorClient: nothing to read from client " + cd.getName() + " at " +
+//                            (new Date()).toString() + ", go to next client");
+//                }
                 return;
             }
-System.out.println("Read KA int from " + cd.getName());
+//System.out.println("Read KA int from " + cd.getName());
             inBuffer.flip();
             int size = inBuffer.getInt();          // size of buffer data in bytes
             if (size > inBuffer.capacity()) {
@@ -475,7 +473,7 @@ System.out.println("Read KA int from " + cd.getName());
                 // record when keepalive info received
                 cd.updateTime = System.currentTimeMillis();
                 // System.out.println("Print XML:\n" + server.monData.monXML);
-System.out.println("Read KA XML from " + cd.getName());
+//System.out.println("Read KA XML from " + cd.getName());
             }
         }
     }
