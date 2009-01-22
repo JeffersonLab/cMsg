@@ -54,7 +54,7 @@ class cMsgMonitorClient extends Thread {
     private int debug;
 
     /** Time in milliseconds to write keepalive to, and read keepalive from clients. */
-    private final long updatePeriod = 2200;
+    private final long updatePeriod = 2100;
 
     /** Time in milliseconds elapsed between client keepalives received before calling client dead. */
     private final long deadTime = 5000;
@@ -226,20 +226,12 @@ class cMsgMonitorClient extends Thread {
                     // get outBuffer ready for writing
                     outBuf.rewind();
                     try {
-                        // write
+                        // write monitor info to client
                         while (outBuf.hasRemaining()) {
 //System.out.println("Write KA info to " + cd.getName());
                             cd.keepAliveChannel.write(outBuf);
                         }
-                    }
-                    catch (IOException e) {
-                        // cannot write
-                        if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("cMsgMonitorClient: cannot write keepalive data to client " + cd.getName());
-                        }
-                    }
 
-                    try {
                         // read monitor info from client
                         readMonitorInfo(cd);
 
@@ -266,7 +258,7 @@ System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                     catch (IOException e) {
                         // socket & therefore client dead
                         if (debug >= cMsgConstants.debugError) {
-                            System.out.println("cMsgMonitorClient: client " + cd.getName() + " is dead");
+                            System.out.println("cMsgMonitorClient: IO error, client " + cd.getName() + " is dead");
                         }
 //System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                         dss.deleteClient(cd);
@@ -288,19 +280,11 @@ System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                 // get outBuffer ready for writing
                 outBuf.rewind();
                 try {
-                    // write
+                    // write monitor info to client
                     while (outBuf.hasRemaining()) {
                         ds.info.keepAliveChannel.write(outBuf);
                     }
-                }
-                catch (IOException e) {
-                    // cannot write
-                    if (debug >= cMsgConstants.debugWarn) {
-                        System.out.println("cMsgMonitorClient: cannot write keepalive data to (ds) client " + ds.info.getName());
-                    }
-                }
 
-                try {
                     // read monitor info from client
                     readMonitorInfo(ds.info);
 
@@ -327,7 +311,7 @@ System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                 catch (IOException e) {
                     // socket & therefore client dead
                     if (debug >= cMsgConstants.debugError) {
-                        System.out.println("cMsgMonitorClient: (ds) client " + ds.info.getName() + " is dead");
+                        System.out.println("cMsgMonitorClient: IO error, (ds) client " + ds.info.getName() + " is dead");
                     }
 //System.out.println("cMsgMonitorClient: run deleteClient for " + ds.info.getName());
                     ds.shutdown();
