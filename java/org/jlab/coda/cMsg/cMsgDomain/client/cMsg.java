@@ -3522,6 +3522,10 @@ System.out.println("keepAliveThread: run localDisconnect from this thread");
         /** Setting this to true will kill this thread. */
         private boolean killThread;
 
+        private boolean init = true;
+
+        private long lastTime;
+
         /** Kill this thread. */
         public void killThread() {
             killThread = true;
@@ -3571,6 +3575,19 @@ System.out.println("keepAliveThread: run localDisconnect from this thread");
                         }
                         return;
                     }
+
+                    long now = System.currentTimeMillis();
+                    if (!init) {
+                        long deltaT = now - lastTime;
+                        // if over 3 seconds since last sent update, print error message
+                        if (deltaT > 3000) {
+                            System.out.println("WARNING: " + (deltaT/1000) + " seconds since update last sent to server");
+                        }
+                    }
+                    else {
+                        init = false;
+                    }
+                    lastTime = now;
 
                     sendMonitorInfo();
 
