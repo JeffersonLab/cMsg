@@ -3581,7 +3581,8 @@ System.out.println("keepAliveThread: run localDisconnect from this thread");
                         long deltaT = now - lastTime;
                         // if over 3 seconds since last sent update, print error message
                         if (deltaT > 3000) {
-                            System.out.println("WARNING: " + (deltaT/1000) + " seconds since update last sent to server");
+                            System.out.println("WARNING: " + (deltaT/1000) + " seconds since update last sent to server, now time is" +
+                            (new Date()));
                         }
                     }
                     else {
