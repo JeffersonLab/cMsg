@@ -389,6 +389,10 @@ public class cMsgNameServer extends Thread {
             System.exit(-1);
         }
 
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("Domain server port = " + domainServerPort);
+        }
+
         // read env variable for starting (desired) port number
         if (port < 1) {
             try {
@@ -411,6 +415,10 @@ public class cMsgNameServer extends Thread {
         if (port < 1024) {
             System.out.println("Port number must be > 1023");
             System.exit(-1);
+        }
+
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("Name server TCP port = " + port);
         }
 
         // read env variable for starting (desired) UDP port number
@@ -436,6 +444,10 @@ public class cMsgNameServer extends Thread {
         if (udpPort < 1024) {
             System.out.println("\nPort number must be > 1023");
             System.exit(-1);
+        }
+
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("Name server UDP port = " + udpPort);
         }
 
         // At this point, bind to the TCP listening port. If that isn't possible, throw
