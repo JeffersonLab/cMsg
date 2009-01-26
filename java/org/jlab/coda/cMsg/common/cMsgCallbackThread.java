@@ -8,17 +8,13 @@
  *    C. Timmer, 10-Sep-2004, Jefferson Lab                                   *
  *                                                                            *
  *     Author: Carl Timmer                                                    *
- *             timmer@jlab.org                   Jefferson Lab, MS-6B         *
+ *             timmer@jlab.org                   Jefferson Lab, MS-12B3       *
  *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
- *             Fax:   (757) 269-5800             Newport News, VA 23606       *
+ *             Fax:   (757) 269-6248             Newport News, VA 23606       *
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
 package org.jlab.coda.cMsg.common;
-
-import org.jlab.coda.cMsg.common.cMsgMessageFull;
-import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
-import org.jlab.coda.cMsg.common.cMsgMessageContextDefault;
 
 import java.util.ArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
