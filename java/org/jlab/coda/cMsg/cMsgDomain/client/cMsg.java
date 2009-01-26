@@ -27,7 +27,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -60,14 +59,11 @@ public class cMsg extends cMsgDomainAdapter {
     /** List of parsed UDL objects - one for each failover UDL. */
     private LinkedList<ParsedUDL> failoverUdls;
 
-    /** Number of failures to connect to the given array of UDLs. */
-    private int connectFailures;
-
     /**
      * Index into the {@link #failoverUdls} list corressponding to the UDL
      * currently being used.
      */
-    private byte failoverIndex;
+    volatile private byte failoverIndex;
 
     /**
      * If more than one viable failover UDL is given or failover to a cloud is
@@ -179,12 +175,6 @@ public class cMsg extends cMsgDomainAdapter {
     /** Socket for checking to see that the domain server is still alive. */
     Socket keepAliveSocket;
 
-    /**
-     * True if the method {@link #disconnect} was called.
-     * Used in keepAliveThread to determine printout.
-     */
-    volatile boolean disconnectCalled;
-
     /** String containing monitor data received from a cMsg server as a keep alive response. */
     public String monitorXML;
 
@@ -243,7 +233,19 @@ public class cMsg extends cMsgDomainAdapter {
      * is called explicitly or the client disconnects when detecting a dead server.
      * This member keeps track of the state.
      */
-    private AtomicBoolean mayConnect;
+    volatile private boolean mayConnect;
+
+    /**
+     * True if the UDLs given in the constructor have been parsed by the
+     * {@link #connect} method. Need to do this only once.
+     */
+    private boolean udlsParsed;
+
+    /**
+     * True if the method {@link #disconnect} was called.
+     * Used in keepAliveThread to determine printout.
+     */
+    volatile boolean disconnectCalled;
 
     /**
      * This lock is for controlling access to the methods of this class.
@@ -319,7 +321,7 @@ public class cMsg extends cMsgDomainAdapter {
         unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
         failoverUdls     = new LinkedList<ParsedUDL>();
         cloudServers     = Collections.synchronizedMap(new LinkedHashMap<String,ParsedUDL>(20));
-        mayConnect       = new AtomicBoolean(true);
+        mayConnect       = true;
 
         // store our host's name
         try {
@@ -404,28 +406,26 @@ public class cMsg extends cMsgDomainAdapter {
     public void connect() throws cMsgException {
 
         // may only run this once until disconnect is done
-        if (!mayConnect.compareAndSet(true, false)) {
+        if (!mayConnect) {
             throw new cMsgException("Already connected");
         }
 
-        // If the UDL is a semicolon separated list of UDLs, separate them and
-        // store them for future use in failoverUdls.
-        /** An array of UDLs given by user to failover to if connection to server fails. */
-        String[] failoverUDLs = UDL.split(";");
+        // The UDL is a semicolon separated list of UDLs, separate them and
+        // store them for future use in failoverUdls. Only need to do this once.
+        if (!udlsParsed) {
+            String[] failoverUDLs = UDL.split(";");
 
-        // else if there's a bunch of UDL's
-        if (debug >= cMsgConstants.debugInfo) {
-            int i=0;
-            for (String s : failoverUDLs) {
-                System.out.println("UDL" + (i++) + " = " + s);
+            if (debug >= cMsgConstants.debugInfo) {
+                for (int i=0; i<failoverUDLs.length; i++) {
+                    System.out.println("UDL #" + i + " = " + failoverUDLs[i]);
+                }
             }
-        }
 
-        // parse the list of UDLs and store them
-        ParsedUDL p;
-        for (String udl : failoverUDLs) {
-            p = parseUDL(udl);
-            failoverUdls.add(p);
+            // parse the list of UDLs and store them
+            for (String udl : failoverUDLs) {
+                failoverUdls.add(parseUDL(udl));
+            }
+            udlsParsed = true;
         }
 
         // If we have more than one valid UDL, we can implement waiting
@@ -443,7 +443,7 @@ public class cMsg extends cMsgDomainAdapter {
         // Go through the UDL's until one works
         do {
             // get parsed & stored UDL info
-            p = failoverUdls.get(++failoverIndex);
+            ParsedUDL p = failoverUdls.get(++failoverIndex);
 
             // copy info locally
             p.copyToLocal();
@@ -458,16 +458,25 @@ public class cMsg extends cMsgDomainAdapter {
                     connectWithMulticast();
                 }
                 connectDirect();
+
+                // If connect is being called for the 2nd time (with no disconnect call in between),
+                // then, subscriptions are retained locally and must be propogated to the new
+                // server we just connected to. In this case the subscriptions hash table will not
+                // be empty. If connect is not being called for the 2nd time (ie. disconnect has
+                // been called), then all subscriptions have been erased and the following call
+                // does nothing.
+                restoreSubscriptions();
+
+                mayConnect = false;
                 return;
             }
             catch (cMsgException e) {
                 // clear effects of p.copyToLocal()
                 p.clearLocal();
-                connectFailures++;
                 ex = e;
             }
 
-        } while (connectFailures < failoverUdls.size());
+        } while (failoverIndex < failoverUdls.size() - 1);
 
         throw new cMsgException("connect: all UDLs failed", ex);
     }
@@ -965,18 +974,21 @@ public class cMsg extends cMsgDomainAdapter {
             // stop listening and client communication thread & close channel
             listeningThread.killThread();
 
-            // stop all callback threads
-            synchronized (subscriptions) {
-                for (cMsgSubscription sub : subscriptions) {
-                    // run through all callbacks
-                    for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
-                        // Tell the callback thread(s) to wakeup and die
-                        if (Thread.currentThread() == cbThread) {
-                            //System.out.println("Don't interrupt my own thread!!!");
-                            cbThread.dieNow(false);
-                        }
-                        else {
-                            cbThread.dieNow(true);
+            // don't stop callback threads if disconnect not called by user
+            if (disconnectCalled) {
+                // stop all callback threads
+                synchronized (subscriptions) {
+                    for (cMsgSubscription sub : subscriptions) {
+                        // run through all callbacks
+                        for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
+                            // Tell the callback thread(s) to wakeup and die
+                            if (Thread.currentThread() == cbThread) {
+                                //System.out.println("Don't interrupt my own thread!!!");
+                                cbThread.dieNow(false);
+                            }
+                            else {
+                                cbThread.dieNow(true);
+                            }
                         }
                     }
                 }
@@ -1006,12 +1018,16 @@ public class cMsg extends cMsgDomainAdapter {
                 }
             }
 
-            // empty all hash tables
-            subscriptions.clear();
+            // Empty hash tables for sendAndGets and subAndGets.
             sendAndGets.clear();
             subscribeAndGets.clear();
-            unsubscriptions.clear();
-            failoverUdls.clear();
+
+            // Keep hash tables with subscriptions if server died.
+            // Get rid of that stuff if the user explicitly called disconnect.
+            if (disconnectCalled) {
+                subscriptions.clear();
+                unsubscriptions.clear();
+            }
         }
         finally {
             connectLock.unlock();
@@ -1020,7 +1036,7 @@ public class cMsg extends cMsgDomainAdapter {
         disconnectCalled = false;
 
         // allow connect to work again
-        mayConnect.set(true);
+        mayConnect = true;
 //System.out.println("\nReached end of disconnect method");
     }
 
@@ -3083,7 +3099,7 @@ public class cMsg extends cMsgDomainAdapter {
                     System.out.println("  regime            = low");
                 else
                     System.out.println("  regime            = medium");
-                
+
                 if (failover == cMsgConstants.failoverAny)
                     System.out.println("  failover          = any");
                 else if (failover == cMsgConstants.failoverCloud)
@@ -3341,19 +3357,17 @@ System.out.println("keepAliveThread: lost connection with cMsg server (IOExcepti
                     // Start by trying to connect to the first UDL on the list that is
                     // different than the current UDL.
                     if (failedFailoverIndex > 0) {
-                        connectFailures = 0;
                         failoverIndex = 0;
 //System.out.println("keepAliveThread: set failover index = " + failoverIndex);
                     }
                     else {
-                        connectFailures = 1;
                         failoverIndex = 1;
 //System.out.println("keepAliveThread: set failover index = " + failoverIndex);
                     }
 
                     while (!weGotAConnection) {
 
-                        if (connectFailures >= failovers.size()) {
+                        if (failoverIndex >= failovers.size()) {
 //System.out.println("keepAliveThread: ran out of UDLs to try");
                             break;
                         }
@@ -3361,7 +3375,6 @@ System.out.println("keepAliveThread: lost connection with cMsg server (IOExcepti
                         // skip over UDL that failed
                         if (failoverIndex == failedFailoverIndex) {
 //System.out.println("keepAliveThread: skip over UDL that just failed");
-                            connectFailures++;
                             failoverIndex++;
                             continue;
                         }
@@ -3383,7 +3396,6 @@ System.out.println("keepAliveThread: lost connection with cMsg server (IOExcepti
 //System.out.println("keepAliveThread: FAILED with index = " + failoverIndex);
                             // clear effects of p.copyToLocal()
                             if (p != null) p.clearLocal();
-                            connectFailures++;
                             failoverIndex++;
                         }
                     }
