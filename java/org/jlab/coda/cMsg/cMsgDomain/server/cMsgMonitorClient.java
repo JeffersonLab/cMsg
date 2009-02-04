@@ -242,7 +242,6 @@ class cMsgMonitorClient extends Thread {
                                 System.out.println("cMsgMonitorClient: client " + cd.getName() +
                                         " has not responded for " + (deadTime/1000) + " seconds at " + (new Date()) + ", so consider it dead");
                             }
-System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                             dss.deleteClient(cd);
                         }
                     }
@@ -252,7 +251,6 @@ System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                             System.out.println("cMsgMonitorClient: client " + cd.getName() +
                                     " has keepalive protocol error or too many tries to read data");
                         }
-//System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                         dss.deleteClient(cd);
                     }
                     catch (IOException e) {
@@ -260,9 +258,7 @@ System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                         if (debug >= cMsgConstants.debugError) {
                             System.out.println("cMsgMonitorClient: IO error, client " + cd.getName() + " is dead");
                         }
-//System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                         dss.deleteClient(cd);
-//System.out.println("cMsgMonitorClient: RAN deleteClient for " + cd.getName());
                     }
                 }
             }
@@ -295,7 +291,6 @@ System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                             System.out.println("cMsgMonitorClient: (ds) client " + ds.info.getName() +
                                     " has not responded for " + (deadTime/1000) + " seconds, so consider it dead");
                         }
-//System.out.println("cMsgMonitorClient: run deleteClient for " + ds.info.getName());
                         ds.shutdown();
                     }
                 }
@@ -305,7 +300,6 @@ System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                         System.out.println("cMsgMonitorClient: (ds) client " + ds.info.getName() +
                                 " has keepalive protocol error or too many tries to read data");
                     }
-//System.out.println("cMsgMonitorClient: run deleteClient for " + ds.info.getName());
                     ds.shutdown();
                 }
                 catch (IOException e) {
@@ -313,7 +307,6 @@ System.out.println("cMsgMonitorClient: run deleteClient for " + cd.getName());
                     if (debug >= cMsgConstants.debugError) {
                         System.out.println("cMsgMonitorClient: IO error, (ds) client " + ds.info.getName() + " is dead");
                     }
-//System.out.println("cMsgMonitorClient: run deleteClient for " + ds.info.getName());
                     ds.shutdown();
                 }
             }
