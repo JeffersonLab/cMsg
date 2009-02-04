@@ -269,30 +269,38 @@ class cMsgConnectionHandler extends Thread {
                             Socket socket = channel.socket();
                             // Set tcpNoDelay so no packets are delayed
                             socket.setTcpNoDelay(true);
- 
+
 //System.out.println(">>    CCH: new connection, num = " + connectionNumber);
 
                             // The 1st connection is for a client request handling thread
                             if (connectionNumber == 1) {
                                 // set recv buffer size
                                 socket.setReceiveBufferSize(131072);
+//System.out.println(">>    CCH: channel 1 = " + channel);
                                 // save it in info object
                                 info.setMessageChannel(channel);
                                 // record when client connected
                                 info.monData.birthday = System.currentTimeMillis();
                                 // next connection should be 2nd from this client
                                 connectionNumber = 2;
-                            }
+                                if (debug >= cMsgConstants.debugInfo) {
+                                    System.out.println(">>    CCH: new connection 1 from " + info.getName());
+                                }
+                           }
                             // The 2nd connection is for a keep alive thread
                             else if (connectionNumber == 2) {
                                 // set recv buffer size
                                 socket.setReceiveBufferSize(4096);
                                 // save it in info object
                                 info.keepAliveChannel = channel;
+//System.out.println(">>    CCH: channel 2 = " + channel);
                                 // if there is a spurious connection to this port, ignore it
                                 connectionNumber = 0;
                                 // done with this client
                                 finishedConnectionsLatch.countDown();
+                                if (debug >= cMsgConstants.debugInfo) {
+                                    System.out.println(">>    CCH: new connection 2 from " + info.getName());
+                                }
                             }
                             // spurious connection (ie. port-scanning)
                             else if (connectionNumber == 0) {
@@ -300,11 +308,6 @@ class cMsgConnectionHandler extends Thread {
                                 if (debug >= cMsgConstants.debugInfo) {
                                     System.out.println(">>    CCH: attempt at spurious connection");
                                 }
-                            }
-
-                            if (debug >= cMsgConstants.debugInfo) {
-                                System.out.println(">>    CCH: new connection " + (connectionNumber - 1) + " from " +
-                                        info.getName());
                             }
                         }
 
