@@ -221,22 +221,25 @@ public class cMsgCallbackThread extends Thread {
     public void sendMessage(cMsgMessageFull message) {
         // if the cue is full ...
         if (!messageCue.offer(message)) {
-System.out.println("CUE FULL");
+System.out.println("CUE FULL, may skip messages = " + callback.maySkipMessages());
             // if messages may not be skipped ...
             if (!callback.maySkipMessages()) {
                 try {
                     // Block trying to put msg on cue. That should propagate
                     // back pressure through the whole cmsg system.
+System.out.println("Waiting to put one more message on cue");
                     messageCue.put(message);
                 }
                 catch (InterruptedException e) {
                 }
             }
             else {
+System.out.println("Try to drain cue of " + callback.getSkipSize() + " messages");
                 messageCue.drainTo(dumpList, callback.getSkipSize());
                 dumpList.clear();
-                messageCue.offer(message);
 System.out.println("CUE DRAINED");
+System.out.println("Put latest message in cue");
+                messageCue.offer(message);
             }
         }
 //            try {Thread.sleep(1);}
