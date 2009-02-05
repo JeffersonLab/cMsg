@@ -221,7 +221,7 @@ public class cMsgCallbackThread extends Thread {
     public void sendMessage(cMsgMessageFull message) {
         // if the cue is full ...
         if (!messageCue.offer(message)) {
-//System.out.println("CUE FULL");
+System.out.println("CUE FULL");
             // if messages may not be skipped ...
             if (!callback.maySkipMessages()) {
                 try {
@@ -236,15 +236,15 @@ public class cMsgCallbackThread extends Thread {
                 messageCue.drainTo(dumpList, callback.getSkipSize());
                 dumpList.clear();
                 messageCue.offer(message);
-//System.out.println("CUE DRAINED");
+System.out.println("CUE DRAINED");
             }
         }
 //            try {Thread.sleep(1);}
 //            catch (InterruptedException e) {}
 
-//if (messageCue.size() > 0 && messageCue.size() % 100 == 0) {
-    //System.out.println("" + messageCue.size());
-//}
+if (messageCue.size() > 0 && messageCue.size() % 100 == 0) {
+    System.out.println("CUE SIZE = " + messageCue.size());
+}
     }
 
 
