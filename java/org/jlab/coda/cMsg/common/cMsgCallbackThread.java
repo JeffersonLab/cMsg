@@ -66,7 +66,7 @@ public class cMsgCallbackThread extends Thread {
 
     /**
      * This method kills this thread as soon as possible. If unsubscribe or disconnect
-     * is called in a callback using the same connection, then the subscribe
+     * is called in a callback using the same connection, then the unsubscribe
      * or disconnect will interrupt the callback currently calling them.
      * To avoid this, set the argument to false.
      *
@@ -108,6 +108,21 @@ public class cMsgCallbackThread extends Thread {
      */
     public int getCueSize() {
         return messageCue.size();
+    }
+
+    /**
+     * Returns true if cue is full.
+     * @return true if cue is full
+     */
+    public boolean cueIsFull() {
+        return messageCue.remainingCapacity() < 1;
+    }
+
+    /**
+     * Clears the cue of all messages.
+     */
+    public void clearCue() {
+        messageCue.clear();
     }
 
     /**
@@ -210,9 +225,6 @@ public class cMsgCallbackThread extends Thread {
         count         = 1;
         context       = new myContext();
 
-        System.out.println("cMsgCallbackThread constructor: may skip messages = " + callback.maySkipMessages());
-        System.out.println("                              : cue size = " + callback.getMaximumCueSize());
-
         start();
     }
 
@@ -222,36 +234,36 @@ public class cMsgCallbackThread extends Thread {
      * @param message message to be passed to callback
      */
     public void sendMessage(cMsgMessageFull message) {
+        // If we're being terminated, don't bother with add msg to cue.
+        // This way, we won't risk blocking.
+        if (dieNow) return;
+
         // if the cue is full ...
         if (!messageCue.offer(message)) {
-System.out.println("CUE FULL, may skip messages = " + callback.maySkipMessages() +
-                   ", cue size = " + callback.getMaximumCueSize());
+//System.out.println("CUE FULL");
             // if messages may not be skipped ...
             if (!callback.maySkipMessages()) {
                 try {
                     // Block trying to put msg on cue. That should propagate
                     // back pressure through the whole cmsg system.
-System.out.println("Waiting to put one more message on cue");
                     messageCue.put(message);
                 }
                 catch (InterruptedException e) {
                 }
             }
             else {
-System.out.println("Try to drain cue of " + callback.getSkipSize() + " messages");
                 messageCue.drainTo(dumpList, callback.getSkipSize());
                 dumpList.clear();
-System.out.println("CUE DRAINED");
-System.out.println("Put latest message in cue");
                 messageCue.offer(message);
+//System.out.println("CUE DRAINED");
             }
         }
 //            try {Thread.sleep(1);}
 //            catch (InterruptedException e) {}
 
-if (messageCue.size() > 0 && messageCue.size() % 100 == 0) {
-    System.out.println("CUE SIZE = " + messageCue.size());
-}
+//if (messageCue.size() > 0 && messageCue.size() % 100 == 0) {
+//    System.out.println("" + messageCue.size());
+//}
     }
 
 
@@ -305,7 +317,7 @@ if (messageCue.size() > 0 && messageCue.size() % 100 == 0) {
                 }
 
                 // Cannot do a messageCue.poll(1000, TimeUnit.MILLISECONDS)
-                // because of a bug in Java 1.5 of a memory for a timeout in
+                // because of a bug in Java 1.5 of a memory leak for a timeout in
                 // a LinkedBlockingQueue.
                 // BUGBUG
                 try {
