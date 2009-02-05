@@ -210,6 +210,9 @@ public class cMsgCallbackThread extends Thread {
         count         = 1;
         context       = new myContext();
 
+        System.out.println("cMsgCallbackThread constructor: may skip messages = " + callback.maySkipMessages());
+        System.out.println("                              : cue size = " + callback.getMaximumCueSize());
+
         start();
     }
 
@@ -221,7 +224,8 @@ public class cMsgCallbackThread extends Thread {
     public void sendMessage(cMsgMessageFull message) {
         // if the cue is full ...
         if (!messageCue.offer(message)) {
-System.out.println("CUE FULL, may skip messages = " + callback.maySkipMessages());
+System.out.println("CUE FULL, may skip messages = " + callback.maySkipMessages() +
+                   ", cue size = " + callback.getMaximumCueSize());
             // if messages may not be skipped ...
             if (!callback.maySkipMessages()) {
                 try {
