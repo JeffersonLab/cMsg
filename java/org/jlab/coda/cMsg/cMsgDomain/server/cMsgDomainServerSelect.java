@@ -203,7 +203,6 @@ class cMsgDomainServerSelect extends Thread {
         // For the client who wants to do sends with udp,
         // create a socket on an available udp port.
         if (!noUdp) {
-            // For the client wants to do sends with udp, create a socket on an available udp port
             try {
                 // Create socket to receive at all interfaces
                 udpChannel = DatagramChannel.open();
@@ -287,7 +286,6 @@ class cMsgDomainServerSelect extends Thread {
         // Finish making the "deliverer" object. Use this channel
         // to communicate back to the client.
         info.getDeliverer().createClientConnection(info.getMessageChannel(), false);
-        //info.messageChannel.configureBlocking(false);
 
         // Put client's channel in list to be registered with the selector for reading
         // (once selector is woken up).
@@ -466,7 +464,7 @@ class cMsgDomainServerSelect extends Thread {
      * @param cd client data object
      */
     synchronized void deleteClient(cMsgClientData cd) {
-//System.out.println("Try deleting client " + cd.getName());
+//System.out.println("DELETING CLIENT " + cd.getName());
         // remove from hashmap (otherwise the cMsgMonitorClient object will try to run this method)
         removeClient(cd);
 
@@ -639,7 +637,7 @@ class cMsgDomainServerSelect extends Thread {
                 // register any clients waiting for it
                 if (clients2register.size() > 0) {
                     for (cMsgClientData cli : clients2register.keySet()) {
-//System.out.println("Registering client " + cli.getName());
+//System.out.println("DSS: Registering client " + cli.getName() + " with selector");
                         cli.getMessageChannel().register(selector, SelectionKey.OP_READ, cli);
                         clients2register.remove(cli);
                     }
@@ -678,6 +676,7 @@ class cMsgDomainServerSelect extends Thread {
                                 // for End-of-stream ...
                                 if (bytes == -1) {
                                     // error handling
+//System.out.println("  Error reading size for channel = " + sockChannel);
                                     deleteClient(info);
                                     it.remove();
                                     continue;
@@ -700,13 +699,14 @@ class cMsgDomainServerSelect extends Thread {
 
                             // read the rest of the data
                             if (!info.readingSize) {
-//System.out.println("  try reading rest of udpBuffer");
-//System.out.println("  udpBuffer capacity = " + info.buffer.capacity() + ", limit = " +
+//System.out.println("  try reading rest of buffer");
+//System.out.println("  buffer capacity = " + info.buffer.capacity() + ", limit = " +
 //                      info.buffer.limit() + ", position = " + info.buffer.position() );
                                 bytes = sockChannel.read(info.buffer);
                                 // for End-of-stream ...
                                 if (bytes == -1) {
                                     // error handling
+//System.out.println("  Error reading data for channel = " + sockChannel);
                                     deleteClient(info);
                                     it.remove();
                                     continue;
@@ -721,7 +721,7 @@ class cMsgDomainServerSelect extends Thread {
                                         byte[] b = new byte[info.bytesRead];
                                         info.buffer.flip();
                                         info.buffer.get(b, 0, info.bytesRead);
-//System.out.println("  read request, putting udpBuffer in Q");
+//System.out.println("  read request, putting buffer in Q");
 //                                        if (bufferQ.remainingCapacity() == 0) {
 //                                            System.out.println("   " + info.getName() + " has a FULL Q -> blocking");
 //                                        }
@@ -800,6 +800,7 @@ class cMsgDomainServerSelect extends Thread {
         finally {
             try {selector.close();}
             catch (IOException e) { }
+//System.out.println("DSS selector closed for " + info.getName());
         }
 
         return;
@@ -841,7 +842,7 @@ class cMsgDomainServerSelect extends Thread {
                     // Grab item off cue. Can't use timeout due to bug in Java library (v4, v5).
                     try { holder = bufferQ.take(); }
                     catch (InterruptedException e) {
-//System.out.println("RequestHandler thread ending");
+//System.out.println("RequestHandler: thread ending");
                         return;
                     }
 
@@ -933,6 +934,7 @@ class cMsgDomainServerSelect extends Thread {
 
                         case cMsgConstants.msgSubscribeRequest: // subscribing to subject & type
                             holder = readSubscribeInfo(array);
+//System.out.println("Domain Server: got msgSubscribeRequest from client, " + holder.namespace);
                             info.monData.subscribes++;
                             info.subdomainHandler.handleSubscribeRequest(holder.subject,
                                                                          holder.type,
