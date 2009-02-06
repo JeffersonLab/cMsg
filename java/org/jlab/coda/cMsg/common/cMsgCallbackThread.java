@@ -16,6 +16,8 @@
 
 package org.jlab.coda.cMsg.common;
 
+import org.jlab.coda.cMsg.cMsgSubscriptionHandle;
+
 import java.util.ArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -26,7 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * The thread is self-starting and waits to execute the callback.
  * All it needs is a notify.
  */
-public class cMsgCallbackThread extends Thread {
+public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle {
     /** Subscription's domain. */
     String domain;
 
@@ -103,6 +105,24 @@ public class cMsgCallbackThread extends Thread {
     }
 
     /**
+     * Gets the domain in which this subscription lives.
+     * @return the domain in which this subscription lives
+     */
+    public String getDomain()  { return domain; }
+
+    /**
+     * Gets the subject of this subscription.
+     * @return the subject of this subscription
+     */
+    public String getSubject() { return subject; }
+
+    /**
+     * Gets the type of this subscription.
+     * @return the type of this subscription
+     */
+    public String getType()    { return type; }
+
+    /**
      * Gets the number of messages in the cue.
      * @return number of messages in the cue
      */
@@ -134,10 +154,10 @@ public class cMsgCallbackThread extends Thread {
     }
 
     /**
-     * Gets the user argument.
-     * @return user argument object
+     * Gets the subscription's user object argument.
+     * @return subscription's user object argument
      */
-    public Object getArg() {
+    public Object getUserObject() {
         return arg;
     }
 
