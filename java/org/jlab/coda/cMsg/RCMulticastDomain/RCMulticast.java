@@ -499,7 +499,7 @@ public class RCMulticast extends cMsgDomainAdapter {
      *                       an identical subscription already exists; if not connected
      *                       to an rc client
      */
-    public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+    public cMsgSubscriptionHandle subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
 
         // Subject and type are ignored in this domain so just
