@@ -564,7 +564,7 @@ public class RCServer extends cMsgDomainAdapter {
      *                       an identical subscription already exists;
      *                       if not connected to an rc client
      */
-    public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+    public cMsgSubscriptionHandle subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
 
         // check args first
