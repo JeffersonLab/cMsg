@@ -923,7 +923,7 @@ public class RunControl extends cMsgDomainAdapter {
      *                       an identical subscription already exists; there are
      *                       communication problems with the server
      */
-    public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+    public cMsgSubscriptionHandle subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
 
         // check args first
