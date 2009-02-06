@@ -431,10 +431,10 @@ class cMsgClientListeningThread extends Thread {
             }
         }
 
-        // handle subscriptions
-        Set<cMsgSubscription> set = client.subscriptions;
+        // handle subscriptions, map not modified here
+        Map<cMsgSubscription, String> map = client.subscriptions;
 
-        if (set.size() > 0) {
+        if (map.size() > 0) {
             // if callbacks have been stopped, return
             if (!client.isReceiving()) {
                 if (debug >= cMsgConstants.debugInfo) {
@@ -443,21 +443,17 @@ class cMsgClientListeningThread extends Thread {
                 return;
             }
 
-            // set is NOT modified here
-//BUGBUG sendMessage can block forever!! then no new subscriptions can be made !!
-            synchronized (set) {
-                // for each subscription of this client ...
-                for (cMsgSubscription sub : set) {
-                    // if subject & type of incoming message match those in subscription ...
-                    if (sub.matches(msg.getSubject(), msg.getType())) {
-                        //if (cMsgMessageMatcher.matches(msg.getSubject(), msg.getType(), sub)) {
-                        // run through all callbacks
-                        for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
-                            // The callback thread copies the message given
-                            // to it before it runs the callback method on it.
+            // for each subscription of this client ...
+            for (cMsgSubscription sub : map.keySet()) {
+                // if subject & type of incoming message match those in subscription ...
+                if (sub.matches(msg.getSubject(), msg.getType())) {
+                    //if (cMsgMessageMatcher.matches(msg.getSubject(), msg.getType(), sub)) {
+                    // run through all callbacks
+                    for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
+                        // The callback thread copies the message given
+                        // to it before it runs the callback method on it.
 //System.out.println("runCallbacks: send msg to " + cbThread.getName());
-                            cbThread.sendMessage(msg);
-                        }
+                        cbThread.sendMessage(msg);
                     }
                 }
             }
