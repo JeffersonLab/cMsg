@@ -146,8 +146,6 @@ public class cMsgServerClient extends cMsg {
      * Method to connect to the domain server from a cMsg server acting as a bridge.
      * This method is only called by the bridge object
      * {@link org.jlab.coda.cMsg.cMsgDomain.server.cMsgServerBridge}.
-     * Unfortunately, this is a method largely duplicated from the base class but
-     * with a few small changes.
      *
      * @param fromNsTcpPort TCP listening port of name server calling this method
      * @param fromNsMulticastPort UDP multicast listening port of name server calling this method
@@ -169,35 +167,36 @@ public class cMsgServerClient extends cMsg {
         // list of servers that the server we're connecting to is already connected with
         HashSet<String> serverSet = null;
 
-        // parse the UDL (Uniform Domain Locator)
-        ParsedUDL p = parseUDL(UDL);
-        p.copyToLocal();
-
-        // if multicasting ...
-        if (multicasting) {
-            connectWithMulticast();
-
-            // correct our name
-            try {
-                String canonicalHost =  InetAddress.getByName(nameServerHost).getCanonicalHostName();
-                name = canonicalHost + ":" + nameServerTcpPort;
-            }
-            catch (UnknownHostException e) {
-                name = nameServerHost + ":" + nameServerTcpPort;
-            }
-//System.out.println("\nRESETTING client name to " + name + "\n");
-        }
-
         // cannot run this simultaneously with any other public method
         connectLock.lock();
         try {
             if (connected) return null;
 
+            // parse the UDL (Uniform Domain Locator)
+            currentParsedUDL = parseUDL(UDL);
+            useFailovers = false;
+
+            // if multicasting ...
+            if (multicasting) {
+                connectWithMulticast();
+
+                // correct our name
+                try {
+                    String canonicalHost =  InetAddress.getByName(currentParsedUDL.nameServerHost).getCanonicalHostName();
+                    name = canonicalHost + ":" + currentParsedUDL.nameServerTcpPort;
+                }
+                catch (UnknownHostException e) {
+                    name = currentParsedUDL.nameServerHost + ":" + currentParsedUDL.nameServerTcpPort;
+                }
+//System.out.println("\nRESETTING client name to " + name + "\n");
+            }
+
             // connect & talk to cMsg name server to check if name is unique
             Socket nsSocket = null;
             try {
-//System.out.println("        << CL: open socket to  " + nameServerHost + ":" + nameServerTcpPort);
-                nsSocket = new Socket(nameServerHost, nameServerTcpPort);
+//System.out.println("        << CL: open socket to  " + currentParsedUDL.nameServerHost + ":"
+//                                                     + currentParsedUDL.nameServerTcpPort);
+                nsSocket = new Socket(currentParsedUDL.nameServerHost, currentParsedUDL.nameServerTcpPort);
                 // Set tcpNoDelay so no packets are delayed
                 nsSocket.setTcpNoDelay(true);
                 // no need to set buffer sizes
@@ -291,10 +290,10 @@ public class cMsgServerClient extends cMsg {
 
                 // Create thread to send periodic keep alives and handle dead server
                 // but with no failover capability.
-                keepAliveThread = new KeepAlive(keepAliveSocket, false, null);
+                keepAliveThread = new KeepAlive(keepAliveSocket);
                 keepAliveThread.start();
                 // Create thread to send periodic monitor data / keep alives
-                updateServerThread = new UpdateServer(keepAliveSocket);
+                updateServerThread = new UpdateServer(kaOut);
                 updateServerThread.start();
             }
             catch (IOException e) {
@@ -525,7 +524,7 @@ public class cMsgServerClient extends cMsg {
                 synchronized (subscriptions) {
 
                     // for each subscription ...
-                    for (cMsgSubscription sub : subscriptions) {
+                    for (cMsgSubscription sub : subscriptions.keySet()) {
                         // If subscription to subject, type & namespace exist already, keep track of it
                         // locally and don't bother the server since any matching message will be delivered
                         // to this client anyway. The clients who call subscribe will never call
@@ -550,7 +549,7 @@ public class cMsgServerClient extends cMsg {
                                 // on other cloud servers. In this case, the client calls the regular
                                 // subscribe which will not allow duplicate subscriptions. Thus, passing
                                 // that on to other servers will also NOT result in duplicate subscriptions.
-                                if ((cbt.getCallback() == cb) && (cbt.getArg() == userObj)) {
+                                if ((cbt.getCallback() == cb) && (cbt.getUserObject() == userObj)) {
                                     // increment a count which will be decremented during an unsubscribe
 //System.out.println("bridge cli sub: count = " + cbt.getCount() + " -> " +
 //(cbt.getCount() + 1));
@@ -580,7 +579,7 @@ public class cMsgServerClient extends cMsg {
                     newSub.setNamespace(namespace);
                     // client listening thread may be interating thru subscriptions concurrently
                     // and we're changing the set structure
-                    subscriptions.add(newSub);
+                    subscriptions.put(newSub,"");
                     addedHashEntry = true;
                 }
 //System.out.println("bridge client sub to server, size = " + subscriptions.size());
@@ -674,7 +673,7 @@ public class cMsgServerClient extends cMsg {
             synchronized (subscriptions) {
 
                 // for each subscription ...
-                for (cMsgSubscription sub : subscriptions) {
+                for (cMsgSubscription sub : subscriptions.keySet()) {
                     // If subscription to subject, type & namespace exist already, we may be
                     // able to take care of it locally and not bother the server.
                     // The clients who call unsubscribe will never call serverUnsubscribe and
@@ -686,7 +685,7 @@ public class cMsgServerClient extends cMsg {
 
                         // for each callback listed ...
                         for (cMsgCallbackThread cbt : sub.getCallbacks()) {
-                            if ((cbt.getCallback() == cb) && (cbt.getArg() == userObj)) {
+                            if ((cbt.getCallback() == cb) && (cbt.getUserObject() == userObj)) {
                                 // Found our cb & userArg pair to get rid of.
                                 // However, don't kill the thread and remove it from
                                 // the callback set until the server is notified or
@@ -778,9 +777,9 @@ public class cMsgServerClient extends cMsg {
             // callback which is doing this unsubscribe (which is always
             // the case in subscribeAndGets.
 //System.out.println("br cli serverUnsubscribe: KILL serverClient cb thread");
-            cbThread.dieNow(false);
 
             synchronized (subscriptions) {
+                cbThread.dieNow(false);
                 oldSub.getCallbacks().remove(cbThread);
                 subscriptions.remove(oldSub);
             }
