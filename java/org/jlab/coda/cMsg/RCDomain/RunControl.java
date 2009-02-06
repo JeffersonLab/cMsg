@@ -106,10 +106,7 @@ public class RunControl extends cMsgDomainAdapter {
 
     /**
      * Collection of all of this client's message subscriptions which are
-     * {@link cMsgSubscription} objects. This set is synchronized. A client is either
-     * a regular client or a bridge but not both. That means it does not matter that
-     * a bridge client will add namespace data to the stored subscription but a regular
-     * client will not.
+     * {@link cMsgSubscription} objects. This set is synchronized.
      */
     public Set<cMsgSubscription> subscriptions;
 
@@ -157,7 +154,7 @@ public class RunControl extends cMsgDomainAdapter {
     /** Constructor. */
     public RunControl() throws cMsgException {
         domain = "rc";
-        subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
+        subscriptions    = new HashSet<cMsgSubscription>(20);
         uniqueId         = new AtomicInteger();
         unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
 
@@ -646,11 +643,10 @@ public class RunControl extends cMsgDomainAdapter {
                         }
                     }
                 }
+                // empty all hash tables
+                subscriptions.clear();
+                unsubscriptions.clear();
             }
-
-            // empty all hash tables
-            subscriptions.clear();
-            unsubscriptions.clear();
         }
         finally {
             connectLock.unlock();
@@ -1040,19 +1036,17 @@ public class RunControl extends cMsgDomainAdapter {
 
             // If there are still callbacks left,
             // don't unsubscribe for this subject/type
-            if (sub.numberOfCallbacks() > 1) {
-                // kill callback thread
-                cbThread.dieNow(false);
-                // remove this callback from the set
-                synchronized (subscriptions) {
-                    sub.getCallbacks().remove(cbThread);
-                }
-                return;
-            }
-
-            // Delete stuff from hashes & kill threads
-            cbThread.dieNow(false);
             synchronized (subscriptions) {
+                if (sub.numberOfCallbacks() > 1) {
+                    // kill callback thread
+                    cbThread.dieNow(false);
+                    // remove this callback from the set
+                    sub.getCallbacks().remove(cbThread);
+                    return;
+                }
+
+                // Delete stuff from hashes & kill threads
+                cbThread.dieNow(false);
                 sub.getCallbacks().remove(cbThread);
                 subscriptions.remove(sub);
             }
