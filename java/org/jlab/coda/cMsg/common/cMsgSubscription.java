@@ -21,6 +21,7 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.List;
 import java.util.LinkedList;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * This class stores a client's subscription to a particular message subject and type.
@@ -79,10 +80,11 @@ public class cMsgSubscription extends cMsgGetHelper {
     private HashSet<cMsgNotifier> notifiers;
 
     /**
-     * This set contains all of the callback thread objects
+     * This map contains all of the callback thread objects
      * {@link cMsgCallbackThread} used on the client side.
+     * The string values are dummies and not used.
      */
-    private HashSet<cMsgCallbackThread> callbacks;
+    private ConcurrentHashMap<cMsgCallbackThread, String> callbacks;
 
     /**
      * This set contains all clients (regular and bridge) subscribed to this exact subject, type,
@@ -246,8 +248,8 @@ public class cMsgSubscription extends cMsgGetHelper {
         clientSubAndGetters  = new HashMap<cMsgClientInfo, Integer>(30);
         allSubscribers       = new HashSet<cMsgClientInfo>(30);
         clientSubscribers    = new HashSet<cMsgClientInfo>(30);
-        callbacks            = new HashSet<cMsgCallbackThread>(30);
-        callbacks.add(cbThread);
+        callbacks            = new ConcurrentHashMap<cMsgCallbackThread,String>(30);
+        callbacks.put(cbThread,"");
     }
 
 
@@ -995,11 +997,11 @@ public class cMsgSubscription extends cMsgGetHelper {
     //-----------------------------------------------------
 
     /**
-     * Gets the hashset storing callback threads.
-     * @return hashset storing callback threads
+     * Gets the set storing callback threads.
+     * @return set storing callback threads
      */
-    public HashSet<cMsgCallbackThread> getCallbacks() {
-        return callbacks;
+    public Set<cMsgCallbackThread> getCallbacks() {
+        return callbacks.keySet();
     }
 
 
@@ -1009,7 +1011,7 @@ public class cMsgSubscription extends cMsgGetHelper {
      *                  and the thread to run it
      */
     public void addCallback(cMsgCallbackThread cbThread) {
-        callbacks.add(cbThread);
+        callbacks.put(cbThread,"");
     }
 
 
