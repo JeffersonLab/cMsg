@@ -30,10 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
-import java.util.Set;
-import java.util.Date;
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.*;
 import java.net.*;
 import java.nio.channels.ServerSocketChannel;
 
@@ -117,7 +114,7 @@ public class RunControl extends cMsgDomainAdapter {
      * passed as the single argument of an unsubscribe, a quick lookup of the
      * subscription is done using this hashmap.
      */
-    private ConcurrentHashMap<Object, cMsgSubscription> unsubscriptions;
+    private Map<Object, cMsgSubscription> unsubscriptions;
 
     /**
      * This lock is for controlling access to the methods of this class.
@@ -156,7 +153,7 @@ public class RunControl extends cMsgDomainAdapter {
         domain = "rc";
         subscriptions    = new HashSet<cMsgSubscription>(20);
         uniqueId         = new AtomicInteger();
-        unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
+        unsubscriptions  = Collections.synchronizedMap(new HashMap<Object, cMsgSubscription>(20));
 
         try {
             localHost = InetAddress.getLocalHost().getCanonicalHostName();
