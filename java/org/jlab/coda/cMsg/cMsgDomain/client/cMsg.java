@@ -160,7 +160,7 @@ public class cMsg extends cMsgDomainAdapter {
      * passed as the single argument of an unsubscribe, a quick lookup of the
      * subscription is done using this hashmap.
      */
-    private ConcurrentHashMap<Object, cMsgSubscription> unsubscriptions;
+    private Map<Object, cMsgSubscription> unsubscriptions;
 
     /**
      * Collection of all of this client's {@link #subscribeAndGet} calls currently in execution.
@@ -275,7 +275,7 @@ public class cMsg extends cMsgDomainAdapter {
         sendAndGets      = new ConcurrentHashMap<Integer,cMsgGetHelper>(20);
         syncSends        = new ConcurrentHashMap<Integer,cMsgGetHelper>(10);
         uniqueId         = new AtomicInteger();
-        unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
+        unsubscriptions  = Collections.synchronizedMap(new HashMap<Object, cMsgSubscription>(20));
         failoverUdls     = Collections.synchronizedList(new LinkedList<ParsedUDL>());
         cloudServers     = Collections.synchronizedMap(new LinkedHashMap<String,ParsedUDL>(20));
         mayConnect       = true;
