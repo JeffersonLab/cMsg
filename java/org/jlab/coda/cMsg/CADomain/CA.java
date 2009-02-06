@@ -134,7 +134,7 @@ public class CA extends cMsgDomainAdapter {
 
 
     /** holds subscription info */
-    private class SubInfo {
+    private class SubInfo implements cMsgSubscriptionHandle {
 
         String subject;
         String type;
@@ -147,6 +147,65 @@ public class CA extends cMsgDomainAdapter {
             cb      = c;
             userObj = o;
         }
+
+        // BUG BUG some of the first 4 following methods need to be implemented, Timmer, 2/6/09
+
+        /**
+         * Gets the number of messages in the cue.
+         * Not relevant in this domain.
+         * @return number of messages in the cue
+         */
+        public int getCueSize() {return 0;}
+
+        /**
+         * Returns true if cue is full.
+         * Not relevant in this domain.
+         * @return true if cue is full
+         */
+        public boolean cueIsFull() {return false;}
+
+        /**
+         * Clears the cue of all messages.
+         * Not relevant in this domain.
+         */
+        public void clearCue() {return;}
+
+        /**
+         * Gets the total number of messages passed to the callback.
+         * Not relevant in this domain.
+         * @return total number of messages passed to the callback
+         */
+        public long getMsgCount() {return 0L;}
+
+        /**
+         * Gets the domain in which this subscription lives.
+         * @return the domain in which this subscription lives
+         */
+        public String getDomain() {return domain;}
+
+        /**
+          * Gets the subject of this subscription.
+          * @return the subject of this subscription
+          */
+        public String getSubject() {return subject;}
+
+        /**
+         * Gets the type of this subscription.
+         * @return the type of this subscription
+         */
+        public String getType() {return type;}
+
+        /**
+         * Gets the callback object.
+         * @return user callback object
+         */
+        public cMsgCallbackInterface getCallback() {return cb;}
+
+        /**
+         * Gets the subscription's user argument.
+         * @return subscription's user argument object
+         */
+        public Object getUserObject() {return userObj;}
     }
 
 
@@ -155,6 +214,7 @@ public class CA extends cMsgDomainAdapter {
 
     /** Constructor for CA domain. */
     public CA() {
+        domain = "CA";
         try {
             host = InetAddress.getLocalHost().getHostName();
         }
@@ -181,7 +241,6 @@ public class CA extends cMsgDomainAdapter {
 
         if (connected) return;
 
-        domain = "CA";
 
         if(UDLremainder==null) throw new cMsgException("?invalid UDL");
 
@@ -397,7 +456,7 @@ public class CA extends cMsgDomainAdapter {
      * @return {@inheritDoc}
      * @throws cMsgException if channel not connected or "monitor on" failed
      */
-    synchronized public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+    synchronized public cMsgSubscriptionHandle subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
 
         if (!connected) {
