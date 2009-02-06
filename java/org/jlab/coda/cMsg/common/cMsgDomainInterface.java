@@ -23,6 +23,7 @@ package org.jlab.coda.cMsg.common;
 
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.cMsgSubscriptionHandle;
 
 import java.lang.*;
 import java.util.concurrent.TimeoutException;
@@ -127,7 +128,7 @@ public interface cMsgDomainInterface {
      * @return handle object to be used for unsubscribing
      * @throws cMsgException
      */
-    public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+    public cMsgSubscriptionHandle subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException;
 
     /**
@@ -232,9 +233,16 @@ public interface cMsgDomainInterface {
 
     /**
      * Set the UDL of the client.
-     * @param UDL UDL of client UDL
+     * @param UDL UDL of client
+     * @throws cMsgException
      */
-    public void setUDL(String UDL);
+    public void setUDL(String UDL) throws cMsgException;
+
+    /**
+     * Get the UDL the client is currently connected to.
+     * @return UDL the client is currently connected to
+     */
+    public String getCurrentUDL();
 
     /**
      * Get the client's UDL remainder.

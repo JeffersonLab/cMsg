@@ -19,6 +19,7 @@ package org.jlab.coda.cMsg.common;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgConstants;
+import org.jlab.coda.cMsg.cMsgSubscriptionHandle;
 
 import java.util.concurrent.TimeoutException;
 
@@ -206,7 +207,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
      * @return {@inheritDoc}
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+    public cMsgSubscriptionHandle subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
         throw new cMsgException("subscribe is not implemented");
     }
@@ -402,8 +403,19 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
     /**
      * {@inheritDoc}
      * @param UDL {@inheritDoc}
+     * @throws cMsgException never in this adapter
      */
-    public void setUDL(String UDL) {this.UDL = UDL;}
+    public void setUDL(String UDL) throws cMsgException {this.UDL = UDL;}
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * {@inheritDoc}
+     * @return {@inheritDoc}
+     */
+    public String getCurrentUDL() {return(UDL);}
 
 
 //-----------------------------------------------------------------------------
