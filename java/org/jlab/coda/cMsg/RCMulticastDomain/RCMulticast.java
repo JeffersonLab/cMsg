@@ -30,9 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CountDownLatch;
-import java.util.Set;
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.*;
 import java.io.*;
 
 /**
@@ -106,14 +104,14 @@ public class RCMulticast extends cMsgDomainAdapter {
      * passed as the single argument of an unsubscribe, a quick lookup of the
      * subscription is done using this hashmap.
      */
-    private ConcurrentHashMap<Object, cMsgSubscription> unsubscriptions;
+    private Map<Object, cMsgSubscription> unsubscriptions;
 
 
     public RCMulticast() throws cMsgException {
         domain = "rcm";
-        subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
+        subscriptions    = new HashSet<cMsgSubscription>(20);
         subscribeAndGets = Collections.synchronizedSet(new HashSet<cMsgGetHelper>(20));
-        unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
+        unsubscriptions  = Collections.synchronizedMap(new HashMap<Object, cMsgSubscription>(20));
 
         // store our host's name
         try {
@@ -596,9 +594,8 @@ public class RCMulticast extends cMsgDomainAdapter {
             // Delete stuff from hashes & kill threads.
             // If there are still callbacks left,
             // don't unsubscribe for this subject/type.
-            cbThread.dieNow(false);
-
             synchronized (subscriptions) {
+                cbThread.dieNow(false);
                 sub.getCallbacks().remove(cbThread);
                 if (sub.numberOfCallbacks() < 1) {
                     subscriptions.remove(sub);
