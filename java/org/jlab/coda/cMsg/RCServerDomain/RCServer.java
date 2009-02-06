@@ -28,10 +28,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.Date;
-import java.util.Set;
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.*;
 import java.net.*;
 import java.io.*;
 
@@ -108,7 +105,7 @@ public class RCServer extends cMsgDomainAdapter {
      * passed as the single argument of an unsubscribe, a quick lookup of the
      * subscription is done using this hashmap.
      */
-    private ConcurrentHashMap<Object, cMsgSubscription> unsubscriptions;
+    private Map<Object, cMsgSubscription> unsubscriptions;
 
     /**
      * Collection of all of this client's {@link #subscribeAndGet} calls currently in execution.
@@ -141,7 +138,7 @@ public class RCServer extends cMsgDomainAdapter {
         subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));
         subscribeAndGets = new ConcurrentHashMap<Integer,cMsgSubscription>(20);
         sendAndGets      = new ConcurrentHashMap<Integer, cMsgGetHelper>(20);
-        unsubscriptions  = new ConcurrentHashMap<Object, cMsgSubscription>(20);
+        unsubscriptions  = Collections.synchronizedMap(new HashMap<Object, cMsgSubscription>(20));
         uniqueId         = new AtomicInteger();
 
         // store our host's name
@@ -671,8 +668,8 @@ public class RCServer extends cMsgDomainAdapter {
             // Delete stuff from hashes & kill threads.
             // If there are still callbacks left,
             // don't unsubscribe for this subject/type.
-            cbThread.dieNow(false);
             synchronized (subscriptions) {
+                cbThread.dieNow(false);
                 sub.getCallbacks().remove(cbThread);
                 if (sub.numberOfCallbacks() < 1) {
                     subscriptions.remove(sub);
