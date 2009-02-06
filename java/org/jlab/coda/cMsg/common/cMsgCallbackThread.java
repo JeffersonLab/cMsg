@@ -254,12 +254,11 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
      * @param message message to be passed to callback
      */
     public void sendMessage(cMsgMessageFull message) {
-        // If we're being terminated, don't bother with add msg to cue.
-        // This way, we won't risk blocking.
-        if (dieNow) return;
-
         // if the cue is full ...
         if (!messageCue.offer(message)) {
+            // If we're being terminated, return. This way, we won't block.
+            if (dieNow) return;
+
 //System.out.println("CUE FULL");
             // if messages may not be skipped ...
             if (!callback.maySkipMessages()) {
