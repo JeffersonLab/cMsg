@@ -24,6 +24,18 @@ import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
  */
 public interface cMsgSubscriptionHandle {
     /**
+     * This method stops any further calling of the callback. Any threads currently running
+     * the callback continue normally. Messages are still being delivered to this callback's
+     * queue.
+     */
+    public void pause();
+
+    /**
+     * This method resumes any calling of the callback delayed by the {@link #pause} method.
+     */
+    public void restart();
+
+    /**
      * Gets the number of messages in the queue.
      * @return number of messages in the queue
      */
