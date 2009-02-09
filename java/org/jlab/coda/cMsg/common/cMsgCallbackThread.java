@@ -39,7 +39,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
     String type;
 
     /** List of messages to be passed to the callback. */
-    private LinkedBlockingQueue<cMsgMessageFull> messageCue;
+    private LinkedBlockingQueue<cMsgMessageFull> messageQueue;
 
     /** List of messages that need to be dumped. */
     private ArrayList<cMsgMessageFull> dumpList;
@@ -90,7 +90,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
         public String getDomain()  { return domain; }
         public String getSubject() { return subject; }
         public String getType()    { return type; }
-        public int getCueSize()    { return messageCue.size(); }
+        public int getQueueSize()  { return messageQueue.size(); }
     }
 
     /** Object that tells callback user the context info including the cue size. */
@@ -123,26 +123,26 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
     public String getType()    { return type; }
 
     /**
-     * Gets the number of messages in the cue.
-     * @return number of messages in the cue
+     * Gets the number of messages in the queue.
+     * @return number of messages in the queue
      */
-    public int getCueSize() {
-        return messageCue.size();
+    public int getQueueSize() {
+        return messageQueue.size();
     }
 
     /**
-     * Returns true if cue is full.
-     * @return true if cue is full
+     * Returns true if queue is full.
+     * @return true if queue is full
      */
-    public boolean cueIsFull() {
-        return messageCue.remainingCapacity() < 1;
+    public boolean isQueueFull() {
+        return messageQueue.remainingCapacity() < 1;
     }
 
     /**
-     * Clears the cue of all messages.
+     * Clears the queue of all messages.
      */
-    public void clearCue() {
-        messageCue.clear();
+    public void clearQueue() {
+        messageQueue.clear();
     }
 
     /**
@@ -205,7 +205,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                     }
 
                     try {
-                        message = messageCue.poll(200, TimeUnit.MILLISECONDS);
+                        message = messageQueue.poll(200, TimeUnit.MILLISECONDS);
                         message.setContext(context);
                     }
                     catch (InterruptedException e) {
@@ -240,7 +240,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
         this.domain   = domain;
         this.subject  = subject;
         this.type     = type;
-        messageCue    = new LinkedBlockingQueue<cMsgMessageFull>(callback.getMaximumCueSize());
+        messageQueue = new LinkedBlockingQueue<cMsgMessageFull>(callback.getMaximumCueSize());
         dumpList      = new ArrayList<cMsgMessageFull>(callback.getSkipSize());
         count         = 1;
         context       = new myContext();
@@ -255,7 +255,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
      */
     public void sendMessage(cMsgMessageFull message) {
         // if the cue is full ...
-        if (!messageCue.offer(message)) {
+        if (!messageQueue.offer(message)) {
             // If we're being terminated, return. This way, we won't block.
             if (dieNow) return;
 
@@ -265,15 +265,15 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 try {
                     // Block trying to put msg on cue. That should propagate
                     // back pressure through the whole cmsg system.
-                    messageCue.put(message);
+                    messageQueue.put(message);
                 }
                 catch (InterruptedException e) {
                 }
             }
             else {
-                messageCue.drainTo(dumpList, callback.getSkipSize());
+                messageQueue.drainTo(dumpList, callback.getSkipSize());
                 dumpList.clear();
-                messageCue.offer(message);
+                messageQueue.offer(message);
 //System.out.println("CUE DRAINED");
             }
         }
@@ -298,10 +298,10 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
 
             if (!callback.mustSerializeMessages() &&
                 threadsExisting < callback.getMaximumCueSize() &&
-                messageCue.size() > callback.getMessagesPerThread()) {
+                messageQueue.size() > callback.getMessagesPerThread()) {
 
                 // find number of threads needed
-                need = messageCue.size()/callback.getMessagesPerThread();
+                need = messageQueue.size()/callback.getMessagesPerThread();
 
                 // at this point, threads may only decrease, it is only increased below
 
@@ -340,7 +340,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 // a LinkedBlockingQueue.
                 // BUGBUG
                 try {
-                    message = messageCue.take();
+                    message = messageQueue.take();
                     message.setContext(context);
                 }
                 catch (InterruptedException e) {
