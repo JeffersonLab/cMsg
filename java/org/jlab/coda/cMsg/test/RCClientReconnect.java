@@ -73,7 +73,7 @@ public class RCClientReconnect {
 
          // subscribe to subject/type to receive from RC Server
          cMsgCallbackInterface cb = new myCallback();
-         Object unsub = cmsg.subscribe("rcSubject", "rcType", cb, null);
+         cMsgSubscriptionHandle unsub = cmsg.subscribe("rcSubject", "rcType", cb, null);
 
          // send stuff to RC Server
          cMsgMessage msg = new cMsgMessage();
