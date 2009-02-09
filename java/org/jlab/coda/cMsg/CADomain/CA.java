@@ -151,24 +151,24 @@ public class CA extends cMsgDomainAdapter {
         // BUG BUG some of the first 4 following methods need to be implemented, Timmer, 2/6/09
 
         /**
-         * Gets the number of messages in the cue.
+         * Gets the number of messages in the queue.
          * Not relevant in this domain.
-         * @return number of messages in the cue
+         * @return number of messages in the queue
          */
-        public int getCueSize() {return 0;}
+        public int getQueueSize() {return 0;}
 
         /**
-         * Returns true if cue is full.
+         * Returns true if queue is full.
          * Not relevant in this domain.
-         * @return true if cue is full
+         * @return true if queue is full
          */
-        public boolean cueIsFull() {return false;}
+        public boolean isQueueFull() {return false;}
 
         /**
-         * Clears the cue of all messages.
+         * Clears the queue of all messages.
          * Not relevant in this domain.
          */
-        public void clearCue() {return;}
+        public void clearQueue() {return;}
 
         /**
          * Gets the total number of messages passed to the callback.
