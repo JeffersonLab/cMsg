@@ -20,6 +20,7 @@ import org.jlab.coda.cMsg.cMsg;
 import org.jlab.coda.cMsg.common.cMsgCallbackAdapter;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgException;
+import org.jlab.coda.cMsg.cMsgSubscriptionHandle;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
@@ -144,7 +145,7 @@ public class cMsgTestRcServer {
 
         // register callback to get messages from rc client
         rcCallback cb2 = new rcCallback();
-        Object unsub = server.subscribe("subby", "typey", cb2, null);
+        cMsgSubscriptionHandle unsub = server.subscribe("subby", "typey", cb2, null);
 
         System.out.println("wait 2 sec");
         try {Thread.sleep(2000);}
