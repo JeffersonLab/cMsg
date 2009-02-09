@@ -240,7 +240,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
         this.domain   = domain;
         this.subject  = subject;
         this.type     = type;
-        messageQueue = new LinkedBlockingQueue<cMsgMessageFull>(callback.getMaximumCueSize());
+        messageQueue  = new LinkedBlockingQueue<cMsgMessageFull>(callback.getMaximumQueueSize());
         dumpList      = new ArrayList<cMsgMessageFull>(callback.getSkipSize());
         count         = 1;
         context       = new myContext();
@@ -250,7 +250,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
 
 
     /**
-     * Put message on a cue of messages waiting to be taken by the callback.
+     * Put message on a queue of messages waiting to be taken by the callback.
      * @param message message to be passed to callback
      */
     public void sendMessage(cMsgMessageFull message) {
@@ -297,7 +297,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
             message = null;
 
             if (!callback.mustSerializeMessages() &&
-                threadsExisting < callback.getMaximumCueSize() &&
+                threadsExisting < callback.getMaximumQueueSize() &&
                 messageQueue.size() > callback.getMessagesPerThread()) {
 
                 // find number of threads needed
