@@ -135,10 +135,10 @@ public interface cMsgDomainInterface {
      * Method to unsubscribe a previous subscription to receive messages of a subject and type
      * from the domain.
      *
-     * @param obj the object "handle" returned from a subscribe call
+     * @param handle the object returned from a subscribe call
      * @throws cMsgException
      */
-    public void unsubscribe(Object obj)
+    public void unsubscribe(cMsgSubscriptionHandle handle)
            throws cMsgException;
 
     /**

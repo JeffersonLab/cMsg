@@ -219,10 +219,10 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
     /**
      * {@inheritDoc}
      *
-     * @param obj {@inheritDoc}
+     * @param handle {@inheritDoc}
      * @throws cMsgException always throws an exception since this is a dummy implementation
      */
-    public void unsubscribe(Object obj)
+    public void unsubscribe(cMsgSubscriptionHandle handle)
             throws cMsgException {
         throw new cMsgException("unsubscribe is not implemented");
     }
