@@ -52,7 +52,7 @@ public class cMsgCallbackAdapter implements cMsgCallbackInterface {
      * {@inheritDoc}
      * @return {@inheritDoc}
      */
-    public int getMaximumCueSize() { return 1000; }
+    public int getMaximumQueueSize() { return 1000; }
 
     /**
      * {@inheritDoc}
