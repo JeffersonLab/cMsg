@@ -148,7 +148,17 @@ public class CA extends cMsgDomainAdapter {
             userObj = o;
         }
 
-        // BUG BUG some of the first 4 following methods need to be implemented, Timmer, 2/6/09
+        // BUG BUG some of the first 6 following methods need to be implemented, Timmer, 2/6/09
+
+        /**
+         * This method stops any further calling of the callback.
+         */
+        synchronized public void pause() {return;}
+
+        /**
+         * This method resumes any calling of the callback delayed by the {@link #pause} method.
+         */
+        synchronized public void restart() {return;}
 
         /**
          * Gets the number of messages in the queue.
