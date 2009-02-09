@@ -1874,6 +1874,7 @@ public class cMsgNameServer extends Thread {
                         // Take this domain server out of list so other clients cannot use
                         // it simultaneously. It will be added back to the list if it
                         // hasn't hit the max # of clients (in server.add method)
+//System.out.println("GRAB EXISTING Subdomain Server Select Object for " + info.getName());
                         dsServer = availableDomainServers.remove(0);
                     }
                 }
@@ -1890,11 +1891,13 @@ public class cMsgNameServer extends Thread {
             else if (regime == cMsgConstants.regimeMedium) {
                 dsServer = new cMsgDomainServerSelect(cMsgNameServer.this,
                                                        1, debug, false);
+//System.out.println("Create new Subdomain Server Select Object for " + info.getName() + ", p = " + dsServer);
 
                 info.setDomainUdpPort(dsServer.getUdpPort());
             }
             else {
                 dServer = new cMsgDomainServer(cMsgNameServer.this, info, false, debug);
+//System.out.println("Create new Subdomain Server Object for " + info.getName());
             }
 
 //System.out.println("registerClient: make 2 connections");
@@ -1906,11 +1909,14 @@ public class cMsgNameServer extends Thread {
                 sendClientConnectionInfo(subdomainHandler);
                 // client should make a couple connections to domain server (1 sec timeout)
                 if (!connectionThread.gotConnections()) {
-//System.out.println("client did not make connections to domain server, throw exception");
+//System.out.println("registerClient: client did not make connections to domain server, throw exception");
                     // failed to get proper connections from client, so abort
-                    cMsgException ex = new cMsgException("client did not make connections to domain server");
-                    ex.setReturnCode(cMsgConstants.errorLostConnection);
-                    throw ex;
+                    try {
+                        if (info.keepAliveChannel    != null) info.keepAliveChannel.close();
+                        if (info.getMessageChannel() != null) info.getMessageChannel().close();
+                    }
+                    catch (IOException e) {}
+                    throw new cMsgException("client did not make connections to domain server");
                 }
             }
 //System.out.println("registerClient: got 2 connections");
@@ -1922,6 +1928,7 @@ public class cMsgNameServer extends Thread {
                     // kill this thread too if name server thread quits
                     dsServer.setDaemon(true);
                     //dsServer.start();
+//System.out.println("Start Subdomain Server Select Object's threads for " + info.getName() + ", p = " + dsServer);
                     dsServer.startThreads();
                     // store ref to this domain server
                     domainServersSelect.put(dsServer, "");
@@ -1933,6 +1940,7 @@ public class cMsgNameServer extends Thread {
                 // kill this thread too if name server thread quits
                 dServer.setDaemon(true);
                 //dServer.start();
+//System.out.println("Create new Subdomain Server Object's threads for " + info.getName());
                 dServer.startThreads();
                 // store ref to this domain server
                 domainServers.put(dServer, "");
@@ -2002,8 +2010,8 @@ public class cMsgNameServer extends Thread {
 //System.out.println(">> NS: IN subdomainRegistration");
             // If there are no connections to other servers (bridges), do local registration only
             if (bridges.size() < 1) {
-//System.out.println(">> NS: no bridges so do regular registration of client");
                 subdomainHandler.registerClient(info);
+//System.out.println(">> NS: no bridges so DID regular registration of client in subdomain handler");
                 return;
             }
 
@@ -2175,6 +2183,7 @@ public class cMsgNameServer extends Thread {
                         }
 
                         // FINALLY, REGISTER CLIENT!!!
+//System.out.println(">> NS: TRY REGISTERING CLIENT (in subdomain handler)");
                         subdomainHandler.registerClient(info);
                     }
                     finally {
