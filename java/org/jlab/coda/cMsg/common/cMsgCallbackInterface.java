@@ -55,10 +55,10 @@ public interface cMsgCallbackInterface {
     public boolean mustSerializeMessages();
 
     /**
-     * Method to get the maximum number of messages to cue for the callback.
-     * @return maximum number of messages to cue for the callback
+     * Method to get the maximum number of messages to queue for the callback.
+     * @return maximum number of messages to queue for the callback
      */
-    public int getMaximumCueSize();
+    public int getMaximumQueueSize();
 
     /**
      * Method to get the maximum number of messages to skip over (delete) from
