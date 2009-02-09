@@ -97,7 +97,7 @@ class cMsgServerBridge {
         }
 
         // Increase cue size from 1000 to 3000 for server smoothness.
-        public int getMaximumCueSize() {return 3000;}
+        public int getMaximumQueueSize() {return 3000;}
     }
 
 
