@@ -254,16 +254,16 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
      * @param message message to be passed to callback
      */
     public void sendMessage(cMsgMessageFull message) {
-        // if the cue is full ...
+        // if the queue is full ...
         if (!messageQueue.offer(message)) {
             // If we're being terminated, return. This way, we won't block.
             if (dieNow) return;
 
-//System.out.println("CUE FULL");
+//System.out.println("QUEUE FULL");
             // if messages may not be skipped ...
             if (!callback.maySkipMessages()) {
                 try {
-                    // Block trying to put msg on cue. That should propagate
+                    // Block trying to put msg on queue. That should propagate
                     // back pressure through the whole cmsg system.
                     messageQueue.put(message);
                 }
@@ -274,14 +274,14 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 messageQueue.drainTo(dumpList, callback.getSkipSize());
                 dumpList.clear();
                 messageQueue.offer(message);
-//System.out.println("CUE DRAINED");
+//System.out.println("QUEUE DRAINED");
             }
         }
 //            try {Thread.sleep(1);}
 //            catch (InterruptedException e) {}
 
-//if (messageCue.size() > 0 && messageCue.size() % 100 == 0) {
-//    System.out.println("" + messageCue.size());
+//if (messageQueue.size() > 0 && messageQueue.size() % 100 == 0) {
+//    System.out.println("" + messageQueue.size());
 //}
     }
 
@@ -327,7 +327,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 }
             }
 
-            // While loop only necessary when calling messageCue.poll.
+            // While loop only necessary when calling messageQueue.poll.
             // That call was replaced as it had a mem leak in Java 1.5.
             while (message == null) {
                 // die immediately if commanded to
@@ -335,7 +335,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                     return;
                 }
 
-                // Cannot do a messageCue.poll(1000, TimeUnit.MILLISECONDS)
+                // Cannot do a messageQueue.poll(1000, TimeUnit.MILLISECONDS)
                 // because of a bug in Java 1.5 of a memory leak for a timeout in
                 // a LinkedBlockingQueue.
                 // BUGBUG
@@ -344,7 +344,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                     message.setContext(context);
                 }
                 catch (InterruptedException e) {
-                    //System.out.println("CallbackThd: Interrupted a messageCue take");
+                    //System.out.println("CallbackThd: Interrupted a messageQueue take");
                 }
             }
 
