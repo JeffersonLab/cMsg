@@ -622,7 +622,7 @@ public class cMsg {
      * @return handle object to be used for unsubscribing
      * @throws cMsgException
      */
-    public Object subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
+    public cMsgSubscriptionHandle subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
         return connection.subscribe(subject, type, cb, userObj);
     }
@@ -632,12 +632,12 @@ public class cMsg {
      * Method to unsubscribe a previous subscription to receive messages of a subject and type
      * from the domain.
      *
-     * @param obj the object "handle" returned from a subscribe call
+     * @param handle the object returned from a subscribe call
      * @throws cMsgException if there are communication problems with the domain
      */
-    public void unsubscribe(Object obj)
+    public void unsubscribe(cMsgSubscriptionHandle handle)
             throws cMsgException {
-        connection.unsubscribe(obj);
+        connection.unsubscribe(handle);
     }
 
     /**
@@ -733,6 +733,23 @@ public class cMsg {
      */
     public String getUDL() {
         return UDL;
+    }
+
+    /**
+     * Set the UDL of the client.
+     * @param UDL UDL of client
+     * @throws cMsgException
+     */
+    public void setUDL(String UDL) throws cMsgException {
+        connection.setUDL(UDL);
+    }
+
+    /**
+     * Get the UDL the client is currently connected to.
+     * @return UDL the client is currently connected to
+     */
+    public String getCurrentUDL() {
+        return connection.getCurrentUDL();
     }
 
     /**
