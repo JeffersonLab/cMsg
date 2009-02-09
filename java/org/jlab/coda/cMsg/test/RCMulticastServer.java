@@ -175,10 +175,10 @@ public class RCMulticastServer {
                 server.start();
 
                 rcCallback cb2 = new rcCallback();
-                Object unsub = server.subscribe("subby", "typey", cb2, "1st sub");
+                cMsgSubscriptionHandle unsub = server.subscribe("subby", "typey", cb2, "1st sub");
 
                 starCallback starCb = new starCallback();
-                Object unsub2 = server.subscribe("*", "*", starCb, "2nd sub");
+                cMsgSubscriptionHandle unsub2 = server.subscribe("*", "*", starCb, "2nd sub");
 
                 // send stuff to rc client
                 cMsgMessage msg = new cMsgMessage();
