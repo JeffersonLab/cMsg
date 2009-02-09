@@ -21,6 +21,7 @@ import org.jlab.coda.cMsg.cMsgSubscriptionHandle;
 import java.util.ArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -65,6 +66,9 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
     /** Setting this to true will kill this thread as soon as possible. */
     private volatile boolean dieNow;
 
+    private CountDownLatch latch;
+    private volatile boolean pause;
+
 
     /**
      * This method kills this thread as soon as possible. If unsubscribe or disconnect
@@ -95,6 +99,29 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
 
     /** Object that tells callback user the context info including the cue size. */
     private myContext context;
+
+    /**
+     * This method stops any further calling of the callback. Any threads currently running
+     * the callback continue normally. Messages are still being delivered to this callback's
+     * queue.
+     */
+    synchronized public void pause() {
+        if (pause) return;
+        // this object is good for only 1 pause/resume cycle
+        latch = new CountDownLatch(1);
+        pause = true;
+    }
+
+    /**
+     * This method (re)starts any calling of the callback delayed by the {@link #pause} method.
+     * Would like to call this method "resume", but that name is taken by the "Thread" class.
+     */
+    synchronized public void restart() {
+        if (!pause) return;
+        pause = false;
+        // tell things to finish waiting
+        latch.countDown();
+    }
 
     /**
      * Gets the number of messages passed to the callback.
@@ -216,6 +243,16 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                     return;
                 }
 
+                // pause if necessary
+                if (pause) {
+                    try {
+                        // wait till restart is called
+                        latch.await();
+                    }
+                    catch (InterruptedException e) {
+                        if (dieNow) return;
+                    }
+                }
                 // run callback with copied msg so multiple callbacks don't clobber each other
                 msgCount++;
                 callback.callback(message.copy(), arg);
@@ -350,6 +387,17 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
 
             if (dieNow) {
                 return;
+            }
+
+            // pause if necessary
+            if (pause) {
+                try {
+                    // wait till restart is called
+                    latch.await();
+                }
+                catch (InterruptedException e) {
+                    if (dieNow) return;
+                }
             }
 
             // run callback with copied msg so multiple callbacks don't clobber each other
