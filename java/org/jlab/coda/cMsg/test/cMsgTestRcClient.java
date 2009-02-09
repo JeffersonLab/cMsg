@@ -113,11 +113,11 @@ public class cMsgTestRcClient {
 
          // subscribe to subject/type to receive from RC Server send
          cMsgCallbackInterface cb = new myCallback();
-         Object unsub = cmsg.subscribe("rcSubject", "rcType", cb, null);
+         cMsgSubscriptionHandle unsub = cmsg.subscribe("rcSubject", "rcType", cb, null);
 
          // subscribe to subject/type to receive from RC Server sendAndGet
          cMsgCallbackInterface cb2 = new sAndGCallback();
-         Object unsub2 = cmsg.subscribe("sAndGSubject", "sAndGType", cb2, null);
+         cMsgSubscriptionHandle unsub2 = cmsg.subscribe("sAndGSubject", "sAndGType", cb2, null);
 
          try {Thread.sleep(1000); }
          catch (InterruptedException e) {}
