@@ -1590,10 +1590,13 @@ public class cMsgNameServer extends Thread {
                 replyToServerClient();
                 // client should make a couple connections to domain server (1 sec timeout)
                 if (!connectionThread.gotConnections()) {
+                    try {
+                        if (info.keepAliveChannel    != null) info.keepAliveChannel.close();
+                        if (info.getMessageChannel() != null) info.getMessageChannel().close();
+                    }
+                    catch (IOException e) {}
                     // failed to get proper connections from server client, so abort
-                    cMsgException ex = new cMsgException("server client did not make connections to domain server");
-                    ex.setReturnCode(cMsgConstants.errorLostConnection);
-                    throw ex;
+                    throw new cMsgException("server client did not make connections to domain server");
                 }
             }
 
