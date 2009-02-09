@@ -1111,8 +1111,7 @@ System.out.println("connect: Done!");
 
         // wakeup all syncSends - they can't be saved
         for (cMsgGetHelper helper : syncSends.values()) {
-            helper.setMessage(null);
-            helper.setErrorCode(cMsgConstants.errorServerDied);
+            helper.setErrorCode(cMsgConstants.errorAbort);
             synchronized (helper) {
                 helper.notify();
             }
@@ -1136,7 +1135,8 @@ System.out.println("connect: Done!");
             }
         }
 
-        // Empty hash tables for sendAndGets and subAndGets.
+        // Empty hash tables for subAndGets, sendAndGets, and syncSends
+        syncSends.clear();
         sendAndGets.clear();
         subscribeAndGets.clear();
 
@@ -3747,7 +3747,7 @@ System.out.println("keepAliveThread" + this + ": IO Exception with cMsg server, 
                     xml.append("\"  received=\"");
                     xml.append(cbThread.getMsgCount());
                     xml.append("\"  cueSize=\"");
-                    xml.append(cbThread.getCueSize());
+                    xml.append(cbThread.getQueueSize());
                     xml.append("\"/>\n");
                 }
 
