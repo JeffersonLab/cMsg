@@ -43,9 +43,9 @@ public class cMsgMessageContextDefault implements cMsgMessageContextInterface {
 
 
     /**
-     * Gets the value of this callback's cue size.
-     * @return value of this callback's cue size, -1 if no info available
+     * Gets the value of this callback's queue size.
+     * @return value of this callback's queue size, -1 if no info available
      */
-    public int getCueSize() {return -1;}
+    public int getQueueSize() {return -1;}
 
 }
