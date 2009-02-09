@@ -24,21 +24,21 @@ import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
  */
 public interface cMsgSubscriptionHandle {
     /**
-     * Gets the number of messages in the cue.
-     * @return number of messages in the cue
+     * Gets the number of messages in the queue.
+     * @return number of messages in the queue
      */
-    public int getCueSize();
+    public int getQueueSize();
 
     /**
-     * Returns true if cue is full.
-     * @return true if cue is full
+     * Returns true if queue is full.
+     * @return true if queue is full
      */
-    public boolean cueIsFull();
+    public boolean isQueueFull();
 
     /**
-     * Clears the cue of all messages.
+     * Clears the queue of all messages.
      */
-    public void clearCue();
+    public void clearQueue();
 
     /**
      * Gets the total number of messages passed to the callback.
