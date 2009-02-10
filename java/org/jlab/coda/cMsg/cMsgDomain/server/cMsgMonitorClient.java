@@ -57,7 +57,7 @@ class cMsgMonitorClient extends Thread {
     private final long updatePeriod = 2100;
 
     /** Time in milliseconds elapsed between client keepalives received before calling client dead. */
-    private final long deadTime = 5000;
+    private final long deadTime = 7000;
 
     /** Kill this thread if true. */
     volatile boolean killThisThread;
@@ -362,6 +362,7 @@ class cMsgMonitorClient extends Thread {
         while (count < bytes) {
 //System.out.println("readSocketBytes: try reading, channel is blocking = " + channel.isBlocking());
             if ((n = channel.read(buffer)) < 0) {
+System.out.println("readSocketBytes: client's socket is dead");
                 throw new IOException("readSocketBytes: client's socket is dead");
             }
 //System.out.println("readSocketBytes: done reading");
@@ -377,15 +378,15 @@ class cMsgMonitorClient extends Thread {
             tries++;
             if (tries >= maxTries) {
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("readSocketBytes: called read " + tries + " times, read " + n + " bytes");
+                    System.out.println("readSocketBytes: called read " + tries + " times, read " + count + " bytes");
                 }
-                throw new cMsgException("readSocketBytes: too many tries to read " + bytes + " bytes, read only " + n);
+                throw new cMsgException("readSocketBytes: too many tries to read " + bytes + " bytes, read only " + count);
             }
 
             // wait minimum amount
             try { Thread.sleep(1); }
             catch (InterruptedException e) {}
-            System.out.println("readSocketBytes: called read again");
+//System.out.println("readSocketBytes: called read again");
         }
         return count;
     }
