@@ -180,19 +180,20 @@ typedef struct parsedUDL_t {
  */
 typedef struct cMsgDomainInfo_t {  
   
-  int receiveState;    /**< Boolean telling if messages are being delivered to
-                            callbacks (1) or if they are being igmored (0). */
-  int gotConnection;   /**< Boolean telling if connection to cMsg server is good. */
-  
-  int sendSocket;      /**< File descriptor for TCP socket to send/receive messages/requests on. */
-  int sendUdpSocket;   /**< File descriptor for UDP socket to send messages on. */
-  int keepAliveSocket; /**< File descriptor for socket to tell if server is still alive or not. */
-  int receiveSocket;   /**< File descriptor for TCP socket to receive request responses on (rcDomain). */
-  int listenSocket;    /**< File descriptor for socket this program listens on for TCP connections (rc Domain). */
+  int receiveState;     /**< Boolean telling if messages are being delivered to
+                             callbacks (1) or if they are being igmored (0). */
+  int gotConnection;    /**< Boolean telling if connection to cMsg server is good. */
+  int disconnectCalled; /**< Boolean telling if user called disconnect function. */
 
-  int sendPort;        /**< Port to send messages to. */
-  int sendUdpPort;     /**< Port to send messages to with UDP protocol. */
-  int listenPort;      /**< Port this program listens on for this domain's TCP connections (rcDomain). */
+  int sendSocket;       /**< File descriptor for TCP socket to send/receive messages/requests on. */
+  int sendUdpSocket;    /**< File descriptor for UDP socket to send messages on. */
+  int keepAliveSocket;  /**< File descriptor for socket to tell if server is still alive or not. */
+  int receiveSocket;    /**< File descriptor for TCP socket to receive request responses on (rcDomain). */
+  int listenSocket;     /**< File descriptor for socket this program listens on for TCP connections (rc Domain). */
+
+  int sendPort;         /**< Port to send messages to. */
+  int sendUdpPort;      /**< Port to send messages to with UDP protocol. */
+  int listenPort;       /**< Port this program listens on for this domain's TCP connections (rcDomain). */
    
   /* subdomain handler attributes */
   int hasSend;            /**< Does this subdomain implement a send function? (1-y, 0-n) */
