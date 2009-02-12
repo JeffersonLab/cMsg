@@ -147,7 +147,8 @@ enum {
   CMSG_CP_UINT16_A,    /**< unsigned 16 bit int array. */
   CMSG_CP_UINT32_A,    /**< unsigned 32 bit int array. */
   CMSG_CP_UINT64_A,    /**< unsigned 64 bit int array. */
-  CMSG_CP_MSG_A        /**< cMsg message array. */
+  CMSG_CP_MSG_A,       /**< cMsg message array. */
+  CMSG_CP_BIN_A        /**< array of binary items. */
 };
 
 
