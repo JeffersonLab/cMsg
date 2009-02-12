@@ -115,6 +115,7 @@ static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 /* Prototypes of the functions which implement the standard cMsg tasks in the cMsg domain. */
 int   cmsg_cmsg_connect           (const char *myUDL, const char *myName, const char *myDescription,
                                    const char *UDLremainder,void **domainId);
+int   cmsg_cmsg_reconnect         (void **domainId);
 int   cmsg_cmsg_send              (void *domainId, void *msg);
 int   cmsg_cmsg_syncSend          (void *domainId, void *msg, const struct timespec *timeout, int *response);
 int   cmsg_cmsg_flush             (void *domainId, const struct timespec *timeout);
@@ -133,18 +134,20 @@ int   cmsg_cmsg_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
 int   cmsg_cmsg_shutdownClients   (void *domainId, const char *client, int flag);
 int   cmsg_cmsg_shutdownServers   (void *domainId, const char *server, int flag);
 int   cmsg_cmsg_isConnected       (void *domainId, int *connected);
+int   cmsg_cmsg_setUDL            (void *domainId, const char *udl, const char *remainder);
+int   cmsg_cmsg_getCurrentUDL     (void *domainId, char **udl);
 
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
-static domainFunctions functions = {cmsg_cmsg_connect, cmsg_cmsg_send,
-                                    cmsg_cmsg_syncSend, cmsg_cmsg_flush,
+static domainFunctions functions = {cmsg_cmsg_connect, cmsg_cmsg_reconnect,
+                                    cmsg_cmsg_send, cmsg_cmsg_syncSend, cmsg_cmsg_flush,
                                     cmsg_cmsg_subscribe, cmsg_cmsg_unsubscribe,
                                     cmsg_cmsg_subscribeAndGet, cmsg_cmsg_sendAndGet,
                                     cmsg_cmsg_monitor, cmsg_cmsg_start,
                                     cmsg_cmsg_stop, cmsg_cmsg_disconnect,
                                     cmsg_cmsg_shutdownClients, cmsg_cmsg_shutdownServers,
-                                    cmsg_cmsg_setShutdownHandler,
-                                    cmsg_cmsg_isConnected};
+                                    cmsg_cmsg_setShutdownHandler, cmsg_cmsg_isConnected,
+                                    cmsg_cmsg_setUDL, cmsg_cmsg_getCurrentUDL};
 
 /* cMsg domain type */
 domainTypeInfo cmsgDomainTypeInfo = {
@@ -176,6 +179,7 @@ static int  udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static int  sendMonitorInfo(cMsgDomainInfo *domain, int connfd);
 static int  getMonitorInfo(cMsgDomainInfo *domain);
 static int  disconnectFromKeepAlive(void **pdomainId);
+static int  connectionShutdown(void **pdomainId, int unlock);
 static int  connectDirect(cMsgDomainInfo *domain, void **domainId, const char *host, int port);
 static int  talkToNameServer(cMsgDomainInfo *domain, int serverfd);
 static int  parseUDL(const char *UDL,parsedUDL *parsedUdl);
@@ -212,7 +216,7 @@ static int restoreSubscriptions(cMsgDomainInfo *domain)  {
     for (i=0; i < size; i++) {
       sub = (subInfo *)entries[i].data;  /* val = subscription struct */
 
-/* printf("Restore Subscription to sub = %s, type = %s\n", subject, type); */
+printf("\nRestore Subscription to sub = %s, type = %s\n\n", sub->subject, sub->type);
       err = resubscribe(domain, sub);    
       if (err != CMSG_OK) {
         free(entries);
@@ -317,6 +321,127 @@ int cmsg_cmsg_isConnected(void *domainId, int *connected) {
 
 
 /**
+ * This routine resets the UDL (may be a semicolon separated list of single UDLs).
+ * If a reconnect is done, the new UDLs will be used in the connection(s).
+ *
+ * @param domainId id of the domain connection
+ * @param newUDL new UDL
+ * @param newRemainder new UDL remainder (not used in this routine/domain)
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_FORMAT if newUDL is not in proper format
+ * @returns CMSG_BAD_ARGUMENT if domainId arg is NULL
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
+ */
+int cmsg_cmsg_setUDL(void *domainId, const char *newUDL, const char *newRemainder) {
+    char *p, *udl;
+    int i, err;
+    int failoverUDLCount = 0, failoverIndex=0;
+    parsedUDL *pUDL;
+    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+
+    if (domain == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+    
+    /*
+     * The UDL may be a semicolon separated list of UDLs, separate them and
+     * store them for future use in failovers.
+     */
+
+    /* On first pass, just do a count. */
+    udl = (char *)strdup(newUDL);
+    p = strtok(udl, ";");
+    while (p != NULL) {
+        failoverUDLCount++;
+        p = strtok(NULL, ";");
+    }
+    free(udl);
+printf("Found %d UDLs\n", failoverUDLCount);
+
+    if (failoverUDLCount < 1) {
+        return(CMSG_BAD_FORMAT);
+    }
+
+    /* Now that we know how many UDLs there are, allocate array. */
+    pUDL = (parsedUDL *) calloc(failoverUDLCount, sizeof(parsedUDL));
+    if (pUDL == NULL) {
+        return(CMSG_OUT_OF_MEMORY);
+    }
+    domain->failovers = pUDL;
+    domain->failoverSize = failoverUDLCount;
+
+    /* On second pass, stored parsed UDLs. */
+    udl = (char *)strdup(newUDL);
+    p   = strtok(udl, ";");
+    i   = 0;
+    while (p != NULL) {
+        cMsgParsedUDLInit(&domain->failovers[i]);
+        /* Parse the UDL (Uniform Domain Locator) */
+        if ( (err = parseUDL(p, &domain->failovers[i])) != CMSG_OK ) {
+            /* There's been an error parsing a UDL */
+            free(udl);
+            return(CMSG_BAD_FORMAT);
+        }
+        domain->failovers[i].udl = strdup(p);
+printf("Found UDL = %s\n", domain->failovers[i].udl);
+        p = strtok(NULL, ";");
+        i++;
+    }
+    free(udl);
+
+    domain->implementFailovers = 0;
+  
+    /* If we have more than one valid UDL, we can implement waiting
+     * for a successful failover before aborting commands to the server
+     * that were interrupted due to server failure. */
+    if (failoverUDLCount > 1 ||
+        domain->failovers[0].failover == CMSG_FAILOVER_CLOUD ||
+        domain->failovers[0].failover == CMSG_FAILOVER_CLOUD_ONLY ) {
+
+        /* Using failovers */
+        domain->implementFailovers = 1;
+    }
+
+    return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine gets the UDL current used in the existing connection.
+ *
+ * @param domainId id of the domain connection
+ * @param udl pointer filled in with current UDL
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if domainId arg is NULL
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
+ */
+int cmsg_cmsg_getCurrentUDL(void *domainId, char **udl) {
+    char *p;
+    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+    /* check args */
+    if (domain == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+    if (domain->currentUDL.udl == NULL) {
+        if ( udl != NULL) *udl = NULL;
+        return(CMSG_OK);
+    }
+    if ( udl != NULL) *udl = strdup(domain->currentUDL.udl);
+    if (*udl == NULL) return(CMSG_OUT_OF_MEMORY);
+    return(CMSG_OK);
+}
+
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
  * This routine is called once to connect to a cMsg domain. It is called
  * by the user through top-level cMsg API, "cMsgConnect()".
  * The argument "myUDL" is the Universal Domain Locator (or can be a semicolon
@@ -350,7 +475,8 @@ int cmsg_cmsg_isConnected(void *domainId, int *connected) {
  * @param myName name of this client
  * @param myDescription description of this client
  * @param UDLremainder partially parsed (initial cMsg:domainType:// stripped off)
- *                     UDL which gets passed down from the API level (cMsgConnect())
+ *                     UDL which gets passed down from the top API level,
+ *                     (not used in this routine/domain)
  * @param domainId pointer to integer which gets filled with a unique id referring
  *        to this connection.
  *
@@ -369,9 +495,8 @@ int cmsg_cmsg_isConnected(void *domainId, int *connected) {
 int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescription,
                       const char *UDLremainder, void **domainId) {
         
-  char *p, *udl;
-  int i, len, err=CMSG_OK;
-  int failoverUDLCount = 0, failoverIndex=0, gotConnection = 0, connectFailures = 0;
+  int i, len, err;
+  int failoverIndex=0, gotConnection = 0;
   char temp[CMSG_MAXHOSTNAMELEN];
   cMsgDomainInfo *domain;
 
@@ -400,57 +525,132 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
   domain->udl         = (char *) strdup(myUDL);
   domain->description = (char *) strdup(myDescription);
 
-  /*
-   * The UDL may be a semicolon separated list of UDLs, separate them and
-   * store them for future use in failovers.
-   */
-
-  /* On first pass, just do a count. */
-  udl = (char *)strdup(myUDL);        
-  p = strtok(udl, ";");
-  while (p != NULL) {
-    failoverUDLCount++;
-    p = strtok(NULL, ";");
-  }
-  free(udl);
-printf("Found %d UDLs\n", failoverUDLCount);
-
-  if (failoverUDLCount < 1) {
-    cMsgDomainFree(domain);
-    free(domain);
-    return(CMSG_BAD_FORMAT);        
-  }
-
-  /* Now that we know how many UDLs there are, allocate array. */
-  domain->failoverSize = failoverUDLCount;
-  domain->failovers = (parsedUDL *) calloc(failoverUDLCount, sizeof(parsedUDL));
-  if (domain->failovers == NULL) {
-    cMsgDomainFree(domain);
-    free(domain);
-    return(CMSG_OUT_OF_MEMORY);
-  }
-
-  /* On second pass, stored parsed UDLs. */
-  udl = (char *)strdup(myUDL);        
-  p   = strtok(udl, ";");
-  i   = 0;
-  while (p != NULL) {
-    cMsgParsedUDLInit(&domain->failovers[i]);
-    /* Parse the UDL (Uniform Domain Locator) */
-    if ( (err = parseUDL(p, &domain->failovers[i])) != CMSG_OK ) {
-
-      /* There's been an error parsing a UDL */
+  /* Parse the UDL */
+  if ( (err = cmsg_cmsg_setUDL(domain, myUDL, UDLremainder)) != CMSG_OK ) {
       cMsgDomainFree(domain);
       free(domain);
-      free(udl);
-      return(CMSG_BAD_FORMAT);                              
-    }
-    domain->failovers[i].udl = strdup(p);
-printf("Found UDL = %s\n", domain->failovers[i].udl);
-    p = strtok(NULL, ";");
-    i++;
+      return(err);
   }
-  free(udl);
+  
+  /*-------------------------*/
+  /* Make a real connection. */
+  /*-------------------------*/
+
+  /* Go through the UDL's until one works */
+  failoverIndex = -1;
+  do {
+    /* try next UDL in list */
+    failoverIndex++;
+    /* copy this UDL's specifics into main structure */
+    cMsgParsedUDLCopy(&domain->currentUDL, &domain->failovers[failoverIndex]);
+    
+    /* connect using that UDL info */
+/*printf("\nTrying to connect with UDL = %s\n", domain->failovers[failoverIndex].udl);*/
+    if (domain->currentUDL.mustMulticast) {
+      free(domain->currentUDL.nameServerHost);
+/*printf("Trying to connect with Multicast\n"); */
+      err = connectWithMulticast(domain, &domain->currentUDL.nameServerHost,
+                                 &domain->currentUDL.nameServerPort);
+      if (err != CMSG_OK) {
+/*printf("Error trying to connect with Multicast, err = %d\n", err);*/
+        cMsgParsedUDLFree(&domain->currentUDL);
+        continue;
+      }
+    }
+
+    err = connectDirect(domain, domainId, domain->currentUDL.nameServerHost,
+                        domain->currentUDL.nameServerPort);
+    if (err != CMSG_OK) {
+        cMsgParsedUDLFree(&domain->currentUDL);
+    }
+    else {
+      domain->failoverIndex = failoverIndex;
+      gotConnection = 1;
+      /* Store the host & port we used to make a connection
+       * in the form of a server name (host:port) which will
+       * be useful later. */
+      len = strlen(domain->currentUDL.nameServerHost) +
+            cMsgNumDigits(domain->currentUDL.nameServerPort, 0) + 1;
+      domain->currentUDL.serverName = (char *)malloc(len+1);
+      if (domain->currentUDL.serverName == NULL) {
+        cMsgDomainFree(domain);
+        free(domain);
+        return CMSG_OUT_OF_MEMORY;
+      }
+      sprintf(domain->currentUDL.serverName, "%s:%d",domain->currentUDL.nameServerHost,
+              domain->currentUDL.nameServerPort);
+      domain->currentUDL.serverName[len] = '\0';
+/*printf("Connected!!\n");*/
+      break;
+    }
+    
+  } while (failoverIndex < domain->failoverSize - 1);
+
+  if (!gotConnection) {
+    cMsgDomainFree(domain);
+    free(domain);
+    return(err);
+  }        
+
+  /* connection is complete */
+  *domainId = (void *) domain;
+
+  /* install default shutdown handler (exits program) */
+  cmsg_cmsg_setShutdownHandler((void *)domain, defaultShutdownHandler, NULL);
+  
+  domain->gotConnection = 1;
+
+  return(CMSG_OK);
+}
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine is called to reconnect to a cMsg domain that has already been
+ * previously connected to. For a call to this routine to make sense, the connection
+ * to the cMsg server must have been broken.
+ *
+ * The actual connecting to the name server is done in "connectDirect".
+ * 
+ * @param domainId id of the domain connection
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
+ * @returns CMSG_TIMEOUT if timed out of wait for response to multicast
+ * @returns CMSG_SOCKET_ERROR if udp socket for multicasting could not be created,
+ *                            socket (TCP & UDP) to server could not be created or connected (UDP),
+ *                            or socket options could not be set
+ * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made, or
+ *                             a communication error with server occurs (can't read or write), or
+ *                             a host name could not be resolved
+ * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed when trying to
+ *                               resubscribe to subscriptions
+ */
+int cmsg_cmsg_reconnect(void **domainId) {
+        
+  char *p, *udl;
+  int i, len, err=CMSG_OK;
+  int failoverUDLCount = 0, failoverIndex=0, gotConnection = 0;
+  char temp[CMSG_MAXHOSTNAMELEN];
+
+  cMsgDomainInfo *domain = (cMsgDomainInfo *) (*domainId);
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "cmsg_cmsg_reconnect: IN, domainId = %p, *domainId = %p\n",
+              domainId, *domainId);
+  }
+
+  if (domain == NULL) {
+    return(CMSG_BAD_ARGUMENT);
+  }
+
+  /* Cannot run this with other functions */
+  cMsgConnectWriteLock(domain);
+
+  if (domain->gotConnection) {
+      cMsgConnectWriteUnlock(domain);
+      return(CMSG_OK);
+  }
 
   /*-------------------------*/
   /* Make a real connection. */
@@ -479,15 +679,14 @@ printf("Found UDL = %s\n", domain->failovers[i].udl);
     cMsgParsedUDLCopy(&domain->currentUDL, &domain->failovers[failoverIndex]);
     
     /* connect using that UDL info */
-    /*printf("\nTrying to connect with UDL = %s\n", domain->failovers[failoverIndex].udl);*/
+/*printf("\nTrying to connect with UDL = %s\n", domain->failovers[failoverIndex].udl);*/
     if (domain->currentUDL.mustMulticast) {
       free(domain->currentUDL.nameServerHost);
-      /*printf("Trying to connect with Multicast\n"); */
+/*printf("Trying to connect with Multicast\n"); */
       err = connectWithMulticast(domain, &domain->currentUDL.nameServerHost,
                                  &domain->currentUDL.nameServerPort);
       if (err != CMSG_OK) {
-        /*printf("Error trying to connect with Multicast, err = %d\n", err);*/
-        connectFailures++;
+/*printf("Error trying to connect with Multicast, err = %d\n", err);*/
         continue;
       }
     }
@@ -496,7 +695,7 @@ printf("Found UDL = %s\n", domain->failovers[i].udl);
                         domain->currentUDL.nameServerPort);
     if (err == CMSG_OK) {
       domain->failoverIndex = failoverIndex;
-      gotConnection = 1;
+      domain->gotConnection = 1;
       /* Store the host & port we used to make a connection
        * in the form of a server name (host:port) which will
        * be useful later. */
@@ -504,40 +703,35 @@ printf("Found UDL = %s\n", domain->failovers[i].udl);
             cMsgNumDigits(domain->currentUDL.nameServerPort, 0) + 1;
       domain->currentUDL.serverName = (char *)malloc(len+1);
       if (domain->currentUDL.serverName == NULL) {
-        cMsgDomainFree(domain);
-        free(domain);
+        cMsgConnectWriteUnlock(domain);
         return CMSG_OUT_OF_MEMORY;
       }
       sprintf(domain->currentUDL.serverName, "%s:%d",domain->currentUDL.nameServerHost,
               domain->currentUDL.nameServerPort);
       domain->currentUDL.serverName[len] = '\0';
-printf("Connected!!\n");
+/*printf("Connected!!\n");*/
+      /* restore subscriptions which were lost when server died */
+      err = restoreSubscriptions(domain);
+      if (err != CMSG_OK) {
+          /*printf("Error restoring subscriptions, connection broken again, err = %d\n", err);*/
+          domain->gotConnection = 0;
+          continue;
+      }
+  
       break;
     }
-
     
+  } while (failoverIndex < failoverUDLCount - 1);
 
-    connectFailures++;
-
-  } while (connectFailures < failoverUDLCount);
-
-  if (!gotConnection) {
-    cMsgDomainFree(domain);
-    free(domain);
+  if (!domain->gotConnection) {
+    cMsgConnectWriteUnlock(domain);
     return(err);
   }        
-
-  /* connection is complete */
-  *domainId = (void *) domain;
-
-  /* install default shutdown handler (exits program) */
-  cmsg_cmsg_setShutdownHandler((void *)domain, defaultShutdownHandler, NULL);
   
-  domain->gotConnection = 1;
+  cMsgConnectWriteUnlock(domain);
 
   return(CMSG_OK);
 }
-
 /*-------------------------------------------------------------------*/
 
 
@@ -3257,10 +3451,13 @@ static int resubscribe(cMsgDomainInfo *domain, subInfo *sub) {
   struct iovec iov[3];
   int uniqueId, len, lenSubject, lenType, outGoing[6];
   int fd = domain->sendSocket;
-
+  
+printf("resubscribe: using socket %d\n",fd);
   if (domain->gotConnection != 1) {
-    return(CMSG_LOST_CONNECTION);
+printf("resubscribe: NOT connected\n");
+      return(CMSG_LOST_CONNECTION);
   }
+printf("resubscribe: talk to server\n");
   
   /* Pick a unique identifier for the subject/type pair. */
   staticMutexLock();
@@ -3613,12 +3810,26 @@ int cmsg_cmsg_disconnect(void **domainId) {
   domain = (cMsgDomainInfo *) (*domainId);
   if (domain == NULL) return(CMSG_BAD_ARGUMENT);
         
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "cmsg_cmsg_disconnect: IN, domainId = %p, *domainId = %p\n",
+              domainId, *domainId);
+  }
+
   cMsgConnectWriteLock(domain);
 
   if (!domain->gotConnection) {
-    cMsgConnectWriteUnlock(domain);
-    return(CMSG_OK);
+      /* There is no connection which means that the keepalive thread
+       * has detected the server death and has run disconnectFromKeepAlive.
+       * If disconnect was not called before (it shouldn't have been),
+       * clean things up. */
+      if (!domain->disconnectCalled) {
+          connectionShutdown(domainId, 0);
+      }
+      cMsgConnectWriteUnlock(domain);
+      return(CMSG_OK);
   }
+
+  domain->disconnectCalled = 1;
   
   /* Tell server we're disconnecting */  
   /* size of msg */
@@ -3656,26 +3867,17 @@ int cmsg_cmsg_disconnect(void **domainId) {
  * This routine disconnects the client from the cMsg server when
  * called by the keepAlive thread.
  *
- * @param domainId id of the domain connection
+ * @param domainId pointer to id of the domain connection
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId or the pointer it points to is NULL
- * @returns CMSG_NETWORK_ERROR if error in communicating with the server
- * @returns CMSG_NOT_INITIALIZED if the connection to the server was never made
- *                               since cMsgConnect() was never called
- */   
+ */
 static int disconnectFromKeepAlive(void **pdomainId) {
   
   int i, status, tblSize;
   cMsgDomainInfo *domain;
-  subscribeCbInfo *cb, *cbNext;
-  subInfo *sub;
   getInfo *info;
-  struct timespec wait4thds = {0, 200000000}; /* 0.2 sec */
-  struct timespec wait      = {0, 10000000}; /* 0.01 sec */
   hashNode *entries = NULL;
-  cMsgMessage_t *msg, *nextMsg;
-  void *p;
 
   if (pdomainId == NULL) return(CMSG_BAD_ARGUMENT);
   domain = (cMsgDomainInfo *) (*pdomainId);
@@ -3697,82 +3899,7 @@ static int disconnectFromKeepAlive(void **pdomainId) {
    
   /* close sending socket */
   close(domain->sendSocket);
-    
-  /* terminate all callback threads */
-  
-  /* Don't want incoming msgs to be delivered to callbacks will removing them. */
-  cMsgSubscribeMutexLock(domain);
-
-  /* get client subscriptions */
-  hashClear(&domain->subscribeTable, &entries, &tblSize);
-  
-  /* if there are subscriptions ... */
-  if (entries != NULL) {
-    /* for each client subscription ... */
-    for (i=0; i<tblSize; i++) {
-      sub = (subInfo *)entries[i].data;
-      /* if the subject & type's match, run callbacks */
-      cb = sub->callbacks;
-
-      /* for each callback ... */
-      while (cb != NULL) {
-        /*
-        if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          fprintf(stderr, "cmsg_cmsg_disconnect: callback thread = %p\n", cb);
-        }
-        */
-        /* ensure new value of cb->quit is picked up by callback thread */
-        cMsgMutexLock(&cb->mutex);
-    
-        /* Release all messages held in callback thread's queue.
-         * Do that now, so we don't have to deal with full Q's
-         * causing all kinds of delays.*/
-        msg = cb->head; /* get first message in linked list */
-        while (msg != NULL) {
-          nextMsg = msg->next;
-          p = (void *)msg; /* get rid of compiler warnings */
-          cMsgFreeMessage(&p);
-          msg = nextMsg;
-        }
-        cb->messages = 0;
       
-        /* once the callback thread is woken up, it will free cb memory,
-         * so store anything from that struct locally, NOW. */
-        cbNext = cb->next;
-
-        /* tell callback thread to end gracefully */
-        cb->quit = 1;
-
-        /* Kill callback thread. Plays same role as pthread_cond_signal.
-         * Thread's cleanup handler will free cb memory, handle cb cleanup.
-         */
-        pthread_cancel(cb->thread);
-    
-        cMsgMutexUnlock(&cb->mutex);
-
-        cb = cbNext;
-      } /* next callback */
-      
-      free(entries[i].key);
-      cMsgSubscribeInfoFree(sub);
-      free(sub);
-    } /* next subscription */
-    
-    free(entries);
-  } /* if there are subscriptions */
-
-  /* Pthread_cancelling the callback threads will not allow them to wake up
-   * the runCallbacks (msg receiving) thread, which must be done in case it
-   * is stuck with a full Q. Do it now.
-   */
-  status = pthread_cond_signal(&domain->subscribeCond);
-  if (status != 0) {
-    cmsg_err_abort(status, "Failed subscribe condition signal");
-  }
-
-  cMsgSubscribeMutexUnlock(domain);
-  sched_yield();
-  
   /* wakeup all sub&gets */
   cMsgSubAndGetMutexLock(domain);
   hashClear(&domain->subAndGetTable, &entries, &tblSize);
@@ -3857,35 +3984,156 @@ static int disconnectFromKeepAlive(void **pdomainId) {
     free(entries);
   }
 
-  /* "wakeup" all sends/syncSends that have failed and
-   * are waiting to failover in failoverSuccessful. */
-  cMsgLatchCountDown(&domain->syncLatch, &wait);
-    
-  /* Unblock SIGPIPE */
-  cMsgRestoreSignals(domain);
-
-  cMsgConnectWriteUnlock(domain);
-
-  /* There may be other threads that have simultaneously called send, syncSend,
-   * sub&Get, send&Get, etc. They must be currently waiting on the domain->connectLock.
-   * This sleep allows these threads to wake up and figure out that there is no more
-   * connection before we free the memory of that lock.
-   */
-  nanosleep(&wait4thds, NULL);
-    
-  status = rwl_destroy (&domain->connectLock);
-  if (status != 0) {
-    cmsg_err_abort(status, "disconnectFromKeepAlive: destroying connect read/write lock");
+  if (domain->disconnectCalled) {
+    connectionShutdown(pdomainId, 1);
+  }
+  else {
+    cMsgConnectWriteUnlock(domain);
   }
 
-  /* Clean up memory */
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "disconnectFromKeepAlive: free domain memory at %p\n", domain);
-  }
-  cMsgDomainFree(domain);
-  free(domain);
-  
   return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+/**
+ * This routine is called when disconnecting a client permanently.
+ * It removes subscriptions, stops callback threads, wakes up sends,
+ * restores original signals, and frees critical memory.
+ *
+ * @param domainId pointer to id of the domain connection
+ * @param unlock if true, unlock connectWriteLock
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if domainId or the pointer it points to is NULL
+ */
+static int connectionShutdown(void **pdomainId, int unlock) {
+  
+    int i, status, tblSize;
+    cMsgDomainInfo *domain;
+    subscribeCbInfo *cb, *cbNext;
+    subInfo *sub;
+    struct timespec wait4thds = {0, 200000000}; /* 0.2 sec */
+    struct timespec wait      = {0, 10000000}; /* 0.01 sec */
+    hashNode *entries = NULL;
+    cMsgMessage_t *msg, *nextMsg;
+    void *p;
+
+    if (pdomainId == NULL) return(CMSG_BAD_ARGUMENT);
+    domain = (cMsgDomainInfo *) (*pdomainId);
+    if (domain == NULL) return(CMSG_BAD_ARGUMENT);
+      
+    if (cMsgDebug >= CMSG_DEBUG_INFO) {
+        fprintf(stderr, "connectionShutdown: IN, pdomainId = %p, *pdomainId = %p\n",
+                pdomainId, *pdomainId);
+    }
+
+    /* Don't want incoming msgs to be delivered to callbacks, remove them. */
+    cMsgSubscribeMutexLock(domain);
+
+    /* get client subscriptions */
+    hashClear(&domain->subscribeTable, &entries, &tblSize);
+
+    /* if there are subscriptions ... */
+    if (entries != NULL) {
+        /* for each client subscription ... */
+        for (i=0; i<tblSize; i++) {
+            sub = (subInfo *)entries[i].data;
+            /* if the subject & type's match, run callbacks */
+            cb = sub->callbacks;
+
+            /* for each callback ... */
+            while (cb != NULL) {
+                /*
+                if (cMsgDebug >= CMSG_DEBUG_INFO) {
+                fprintf(stderr, "cmsg_cmsg_disconnect: callback thread = %p\n", cb);
+                }
+                */
+                /* ensure new value of cb->quit is picked up by callback thread */
+                cMsgMutexLock(&cb->mutex);
+    
+                /* Release all messages held in callback thread's queue.
+                 * Do that now, so we don't have to deal with full Q's
+                 * causing all kinds of delays.*/
+                msg = cb->head; /* get first message in linked list */
+                while (msg != NULL) {
+                    nextMsg = msg->next;
+                    p = (void *)msg; /* get rid of compiler warnings */
+                    cMsgFreeMessage(&p);
+                    msg = nextMsg;
+                }
+                cb->messages = 0;
+    
+                /* once the callback thread is woken up, it will free cb memory,
+                 * so store anything from that struct locally, NOW. */
+                cbNext = cb->next;
+    
+                /* tell callback thread to end gracefully */
+                cb->quit = 1;
+    
+                /* Kill callback thread. Plays same role as pthread_cond_signal.
+                 * Thread's cleanup handler will free cb memory, handle cb cleanup. */
+                pthread_cancel(cb->thread);
+    
+                cMsgMutexUnlock(&cb->mutex);
+    
+                cb = cbNext;
+            } /* next callback */
+
+            free(entries[i].key);
+            cMsgSubscribeInfoFree(sub);
+            free(sub);
+        } /* next subscription */
+
+        free(entries);
+    } /* if there are subscriptions */
+
+    /* Pthread_cancelling the callback threads will not allow them to wake up
+    * the runCallbacks (msg receiving) thread, which must be done in case it
+    * is stuck with a full Q. Do it now.
+    */
+    status = pthread_cond_signal(&domain->subscribeCond);
+    if (status != 0) {
+        cmsg_err_abort(status, "Failed subscribe condition signal");
+    }
+
+    cMsgSubscribeMutexUnlock(domain);
+    sched_yield();
+
+
+    /* "wakeup" all sends/syncSends that have failed and
+     * are waiting to failover in failoverSuccessful. */
+    cMsgLatchCountDown(&domain->syncLatch, &wait);
+        
+    /* Unblock SIGPIPE */
+    cMsgRestoreSignals(domain);
+    
+    if (unlock) cMsgConnectWriteUnlock(domain);
+
+    /* There may be other threads that have simultaneously called send, syncSend,
+     * sub&Get, send&Get, etc. They must be currently waiting on the domain->connectLock.
+     * This sleep allows these threads to wake up and figure out that there is no more
+     * connection before we free the memory of that lock.
+     */
+    nanosleep(&wait4thds, NULL);
+        
+    status = rwl_destroy (&domain->connectLock);
+    if (status != 0) {
+        cmsg_err_abort(status, "connectionShutdown: destroying connect read/write lock");
+    }
+    
+    /* Clean up memory */
+    if (cMsgDebug >= CMSG_DEBUG_INFO) {
+        fprintf(stderr, "connectionShutdown: free domain memory at %p\n", domain);
+    }
+    cMsgDomainFree(domain);
+    free(domain);
+
+    /* set id to NULL so no one can use it again. */
+    *pdomainId = NULL;
+
+    return(CMSG_OK);
 }
 
 
@@ -4610,8 +4858,7 @@ static void *keepAliveThread(void *arg) {
     int outGoing, err, i, size, len, plen;
     hashNode *entries = NULL;
     
-    int failoverIndex = domain->failoverIndex;
-    int failedFailoverIndex, connectFailures = 0, weGotAConnection = 1;
+    int failoverIndex, failedFailoverIndex, weGotAConnection = 1;
     struct timespec wait;
     void *p;
     
@@ -4861,6 +5108,7 @@ printf("KA: Construct new UDL as:\n%s\n", domain->currentUDL.udl);
                   if ((err = connectToServer(domainId)) == CMSG_OK) {
                     /* we got ourselves a new server, boys */
                     weGotAConnection = 1;
+                    domain->disconnectCalled = 0;
                     /* wait for up to 1.1 sec for waiters to respond */
                     err = cMsgLatchCountDown(&domain->syncLatch, &wait);
                     if (err != 1) {
@@ -4885,32 +5133,30 @@ printf("KA: Construct new UDL as:\n%s\n", domain->currentUDL.udl);
         } /* while no connection */
         
         /* remember which UDL has just failed */
-        failedFailoverIndex = failoverIndex;
+        failedFailoverIndex = domain->failoverIndex;
         
         /* Start by trying to connect to the first UDL on the list.
          * If we've just been connected to that UDL, try the next. */
-        if (failoverIndex != 0) {
-            failoverIndex = -1;
-            connectFailures = 0;
+        if (failedFailoverIndex != 0) {
+            failoverIndex = 0;
         }
         else {
-            connectFailures = 1;
+            failoverIndex = 1;
         }
         domain->resubscribeComplete = 0;
 
         /* Go through the UDL's until one works */
         while (!weGotAConnection) {
-            if (connectFailures >= domain->failoverSize) {
-              /* printf("ka: Reached our limit of UDLs so quit\n"); */
-              break;
+
+            if (failoverIndex >= domain->failoverSize) {
+                /* printf("ka: Ran out of UDLs to try so quit\n"); */
+                break;
             }
-            
-            failoverIndex++;
             
             /* skip over UDL that failed */
             if (failoverIndex == failedFailoverIndex) {
               /* printf("ka: skip over UDL that just failed\n"); */
-              connectFailures++;
+              failoverIndex++;
               continue;
             }
             
@@ -4921,9 +5167,10 @@ printf("KA: Construct new UDL as:\n%s\n", domain->currentUDL.udl);
             if ((err = connectToServer(domainId)) == CMSG_OK) {
               /* we got ourselves a new server, boys */
               weGotAConnection = 1;
+              domain->disconnectCalled = 0;
             }
             else {
-              connectFailures++;
+              failoverIndex++;
 printf("ka: ERROR reconnecting, continue\n");
               continue;
             }
@@ -4947,15 +5194,16 @@ printf("ka: ERROR reconnecting, continue\n");
     }
         
  printf("\n\n\nka: DISCONNECTING \n\n\n");
-    p = (void *)domain; /* get rid of compiler warnings */
-    disconnectFromKeepAlive(&p);
-    
+   //p = (void *)domain; /* get rid of compiler warnings */
+   //disconnectFromKeepAlive(&p);
+ printf("ka: domainId = %p, p = %p, domain = %p, setting *domainId to NULL\n", domainId, p, domain);
+ disconnectFromKeepAlive(domainId);
+
     /* Will set the id returned by cmsg_cmsg_connect to NULL,
      * so no one else can use it.
      */
-    *domainId = NULL;
- printf("ka: domainId = %p, p = %p, domain = %p, setting *domainId to NULL\n", domainId, p, domain);
-    
+    //*domainId = NULL;
+
     sun_setconcurrency(con);
     
     return NULL;
