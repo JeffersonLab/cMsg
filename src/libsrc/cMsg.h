@@ -137,6 +137,7 @@ int clock_gettime(int dummy, struct timespec *t1);
   /* basic functions */
   int 	cMsgConnect           (const char *myUDL, const char *myName, const char *myDescription,
                                void **domainId);
+  int   cMsgReconnect         (void **domainId);
   int 	cMsgSend              (void *domainId, void *msg);
   int   cMsgSyncSend          (void *domainId, void *msg, const struct timespec *timeout, int *response);
   int 	cMsgFlush             (void *domainId, const struct timespec *timeout);
@@ -154,6 +155,8 @@ int clock_gettime(int dummy, struct timespec *t1);
   int   cMsgShutdownClients   (void *domainId, const char *client, int flag);
   int   cMsgShutdownServers   (void *domainId, const char *server, int flag);
   int   cMsgGetConnectState   (void *domainId,  int *connectState);
+  int   cMsgSetUDL            (void *domainId, const char *udl);
+  int   cMsgGetCurrentUDL     (void *domainId, char **udl);
   char *cMsgPerror            (int errorCode);
   
   
