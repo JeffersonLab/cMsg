@@ -176,6 +176,12 @@ typedef int (*SET_SHUTDOWN_HANDLER_PTR) (void *domainId, cMsgShutdownHandler *ha
 /** Typedef for a domain's isConnected function */
 typedef int (*ISCONNECTED_PTR)          (void *domainId, int *connected);
 
+/** Typedef for a domain's setUDL function */
+typedef int (*SETUDL_PTR)               (void *domainId, const char *udl, const char *udlRemainder);
+
+/** Typedef for a domain's getCurrentUDL function */
+typedef int (*GETUDL_PTR)               (void *domainId, char **udl);
+
 
 
 
@@ -184,6 +190,9 @@ typedef struct domainFunctions_t {
 
   /** This function connects to a cMsg server. */
   CONNECT_PTR connect; 
+  
+  /** This function enables reconnection to a cMsg server. */
+  DISCONNECT_PTR reconnect;
   
   /** This function sends a message to a cMsg server. */
   SEND_PTR send;
@@ -238,6 +247,12 @@ typedef struct domainFunctions_t {
 
   /** This function tells whether a client is connected or not. */
   ISCONNECTED_PTR isConnected;
+  
+  /** This function resets the UDL. */
+  SETUDL_PTR setUDL;
+  
+  /** This function gets the UDL currently used. */
+  GETUDL_PTR getCurrentUDL;
   
 } domainFunctions;
 
