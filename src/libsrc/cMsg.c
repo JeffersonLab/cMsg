@@ -115,10 +115,29 @@ int cMsgDebug = CMSG_DEBUG_ERROR;
 extern domainTypeInfo cmsgDomainTypeInfo;
 extern domainTypeInfo fileDomainTypeInfo;
 extern domainTypeInfo   rcDomainTypeInfo;
+//extern domainTypeInfo   dummyDomainTypeInfo;
+
+/**
+ * This structure contains the components of a given UDL broken down
+ * into its consituent parts.
+ */
+typedef struct parsedUDL_t {
+    char *udl;                /**< whole UDL for name server. */
+    char *domain;             /**< domain name. */
+    char *remainder;          /**< domain specific part of the UDL. */
+    struct parsedUDL_t *next; /**< next element in linked list. */
+} parsedUDL;
 
 
 /* local prototypes */
 static int   readConfigFile(char *fileName, char **newUDL);
+static int   splitUDL(const char *myUDL, parsedUDL** list, int *count);
+static int   expandConfigFileUDLs(parsedUDL **list, int *count);
+static int   isSameDomain(parsedUDL *list);
+static int   reconstructUDL(parsedUDL *pList, char **UDL);
+static int   processUDL(const char *myUDL, char **newUDL, char **domainType,
+                        char **remainderFirstUDL);
+
 static int   checkString(const char *s);
 static int   registerPermanentDomains();
 static int   registerDynamicDomains(char *domainType);
@@ -263,7 +282,36 @@ int clock_gettime(int clk_id /*ignored*/, struct timespec *tp)
 }
 #endif
 
+
 /*-------------------------------------------------------------------*/
+/**
+ * Routine to free a single element of structure parsedUDL.
+ * @param p pointer to element to be freed
+ */
+static void freeElement(parsedUDL *p) {
+    if (p->udl       != NULL) {free(p->udl);       p->udl = NULL;}
+    if (p->domain    != NULL) {free(p->domain);    p->domain = NULL;}
+    if (p->remainder != NULL) {free(p->remainder); p->remainder = NULL;}
+}
+
+/**
+ * Routine to free a linked list of elements of structure parsedUDL.
+ * @param p pointer to head of list to be freed
+ */
+static void freeList(parsedUDL *p) {
+    parsedUDL *pPrev=NULL;
+    
+    while (p != NULL) {
+        freeElement(p);
+        pPrev = p;
+        p = p->next;
+        free(pPrev);
+    }
+}
+
+
+/*-------------------------------------------------------------------*/
+
 
 /**
  * Routine to read a configuration file and return the cMsg UDL stored there.
@@ -337,46 +385,6 @@ static int readConfigFile(char *fileName, char **newUDL) {
 }
 
 
-/*-------------------------------------------------------------------*/
-/**
- * This structure contains the components of a given UDL broken down
- * into its consituent parts.
- */
-typedef struct parsedUDL_t {
-  char *udl;                /**< whole UDL for name server. */
-  char *domain;             /**< domain name. */
-  char *remainder;          /**< domain specific part of the UDL. */
-  struct parsedUDL_t *next; /**< next element in linked list. */
-} parsedUDL;
-
-
-/**
- * Routine to free a single element of structure parsedUDL.
- * @param p pointer to element to be freed
- */
-static void freeElement(parsedUDL *p) {
-    if (p->udl       != NULL) {free(p->udl);       p->udl = NULL;}
-    if (p->domain    != NULL) {free(p->domain);    p->domain = NULL;}
-    if (p->remainder != NULL) {free(p->remainder); p->remainder = NULL;}
-}
-
-/**
- * Routine to free a linked list of elements of structure parsedUDL.
- * @param p pointer to head of list to be freed
- */
-static void freeList(parsedUDL *p) {
-    parsedUDL *pPrev=NULL;
-    
-    while (p != NULL) {
-        freeElement(p);
-        pPrev = p;
-        p = p->next;
-        free(pPrev);
-    }
-}
-
-
-
 /**
  * Routine to split a string of semicolon separated UDLs into a linked list
  * of parsedUDL structures. Each structure contains easily accessible info
@@ -385,15 +393,13 @@ static void freeList(parsedUDL *p) {
  * @param myUDL UDL to be split
  * @param list pointer to parsedUDL pointer that gets filled with the head of
  *             the linked list
- * @param firstDomain pointer to char pointer which gets filled with the domain
- *                    of the first element in the list
  * @param count pointer to int which gets filled with number of items in list
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_FORMAT if one of the UDLs is not in the correct format
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  */
-static int splitUDL(const char *myUDL, parsedUDL** list, char **firstDomain, int *count) {
+static int splitUDL(const char *myUDL, parsedUDL** list, int *count) {
 
   char *p, *udl, *domain, *remainder;
   int udlCount=0, err, gotFirst=0; 
@@ -427,9 +433,6 @@ static int splitUDL(const char *myUDL, parsedUDL** list, char **firstDomain, int
     /* bookkeeping */
     if (!gotFirst) {
         firstUDL = pUDL;
-        if (firstDomain != NULL) {
-            *firstDomain = (char *)strdup(domain);
-        }
         gotFirst = 1;
     }
     udlCount++;
@@ -441,7 +444,7 @@ static int splitUDL(const char *myUDL, parsedUDL** list, char **firstDomain, int
   if (count != NULL) *count = udlCount;
   
   if (list != NULL) {
-    *list  = firstUDL;
+    *list = firstUDL;
   }
   else if (firstUDL != NULL) {
     freeList(firstUDL);
@@ -455,30 +458,27 @@ static int splitUDL(const char *myUDL, parsedUDL** list, char **firstDomain, int
  * Routine to check a linked list of parsedUDL structures to see if all the
  * elements' domains are the same.
  *
- * @param domain domain to compare everything to
  * @param list pointer to head of parsedUDL linked list
  *
  * @returns CMSG_OK if successful or list is NULL
  * @returns CMSG_BAD_ARGUMENT if domain arg is NULL
  * @returns CMSG_WRONG_DOMAIN_TYPE one of the domains is of the wrong type
  */
-static int isSameDomain(const char *domain, parsedUDL *list) {
-  
-  parsedUDL *pUDL;
+static int isSameDomain(parsedUDL *list) {
+    parsedUDL *pUDL;
 
-  if (domain == NULL) return(CMSG_BAD_ARGUMENT);
-  if (list   == NULL) return(CMSG_OK);
-    
-  /* first make sure all domains are the same */
-  pUDL = list;
-  while (pUDL != NULL) {
-    if (strcasecmp(pUDL->domain, domain) != 0) {
-        return(CMSG_WRONG_DOMAIN_TYPE);
+    if (list == NULL) return(CMSG_OK);
+
+    /* first make sure all domains are the same as the first one */
+    pUDL = list;
+    while (pUDL != NULL) {
+        if (strcasecmp(pUDL->domain, list->domain) != 0) {
+            return(CMSG_WRONG_DOMAIN_TYPE);
+        }
+        pUDL = pUDL->next;
     }
-    pUDL = pUDL->next;
-  }
     
-  return(CMSG_OK);
+    return(CMSG_OK);
 }
 
 
@@ -532,14 +532,15 @@ static void removeDuplicateUDLs(parsedUDL *list) {
 }
 
 
+/*-------------------------------------------------------------------*/
+
+
 /**
  * Routine to expand all the UDLs in the given list in the configFile domain.
  * Each config file UDL in the original list has its file read to obtain its
  * UDL which is then substituted for the original UDL.
  *
  * @param list pointer to the linked list
- * @param firstDomain pointer to char pointer which gets filled with the domain
- *                    of the first element in the list
  * @param count pointer to int which gets filled with number of items in list
  *
  * @returns CMSG_OK if successful or list is NULL
@@ -548,7 +549,7 @@ static void removeDuplicateUDLs(parsedUDL *list) {
  *                          if one of the UDLs is not in the correct format
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  */
-static int expandConfigFileUDLs(parsedUDL **list, char **firstDomain, int *count) {
+static int expandConfigFileUDLs(parsedUDL **list, int *count) {
   
   int i, err, len=0, size;
   parsedUDL *pUDL, *newList, *pLast, *pTmp, *pPrev=NULL, *pFirst;
@@ -599,7 +600,7 @@ static int expandConfigFileUDLs(parsedUDL **list, char **firstDomain, int *count
     free(udlLowerCase);
 
     /* The UDL may be a semicolon separated list, so put elements into a linked list */
-    if ( (err = splitUDL(newUDL, &newList, NULL, &size)) != CMSG_OK) {
+    if ( (err = splitUDL(newUDL, &newList, &size)) != CMSG_OK) {
         free(newUDL);
         return(err);
     }
@@ -636,7 +637,6 @@ static int expandConfigFileUDLs(parsedUDL **list, char **firstDomain, int *count
     
   }
   
-  if (firstDomain != NULL) *firstDomain = (char *) strdup(pFirst->domain);
   if (list  != NULL) *list  = pFirst;
   if (count != NULL) *count = len;
   
@@ -644,31 +644,36 @@ static int expandConfigFileUDLs(parsedUDL **list, char **firstDomain, int *count
 }
 
 
+/*-------------------------------------------------------------------*/
+
+
 /**
  * Routine to create a single, semicolon-separated UDL from the given linked
  * list of parsedUDL structures.
  *
  * @param pList pointer to the head of the linked list
- * @param domainType domain of each UDL
  * @param UDL pointer to char pointer which gets filled with the resultant list
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if pList arg is NULL
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  */
-static int reconstructUDL(char *domainType, parsedUDL *pList, char **UDL) {
+static int reconstructUDL(parsedUDL *pList, char **UDL) {
   int  prefixLen, totalLen=0;
   char *udl, *prefix;
   parsedUDL *pUDL;
 
+  if (pList == NULL) return (CMSG_BAD_ARGUMENT);
+  
  /* Reconstruct the UDL for passing on to the proper domain (if necessary).
    * Do that by first scanning thru the list to get the length of string
    * we'll be dealing with. Then scan again to construct the string. */
-  prefixLen = 8+strlen(domainType); /* length of cMsg:<domainType>:// */
+  prefixLen = 8+strlen(pList->domain); /* length of cMsg:<domainType>:// */
   prefix = (char *) calloc(1, prefixLen+1);
   if (prefix == NULL) {
     return(CMSG_OUT_OF_MEMORY);
   }
-  sprintf(prefix, "%s%s%s", "cMsg:", domainType, "://");
+  sprintf(prefix, "%s%s%s", "cMsg:", pList->domain, "://");
   
   pUDL = pList;
   while (pUDL != NULL) {
@@ -705,6 +710,153 @@ static int reconstructUDL(char *domainType, parsedUDL *pList, char **UDL) {
 }
 
 
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine takes a UDL (which may be a semicolon-separated list
+ * of UDLs) and remakes it into a new UDL that has configFile domain
+ * UDLs expanded, duplicated UDLs removed, and ensures all UDLs in the
+ * new list are in the same domain. The returned strings have had their
+ * memory allocated in this routine and thus must be freed by the caller.
+ *
+ * @param myUDL the Universal Domain Locator used to uniquely identify the cMsg
+ *              server to connect to
+ * @param newUDL pointer to char pointer which gets filled with the new UDL (mem allocated)
+ * @param domainTYpe pointer to char pointer which gets filled with the domain (mem allocated)
+ * @param remainderFirstUDL pointer to char pointer which gets filled with the
+ *                          remainder (beginning cMsg:&lt;domain&gt;:// stripped off)
+ *                          of the first UDL in the new list (mem allocated)
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if not successful reading file for configFile domain UDL
+ * @returns CMSG_BAD_FORMAT if configFile domain file contains UDL of configFile
+ *                          domain or if one of the UDLs is not in the correct format
+ * @returns CMSG_BAD_ARGUMENT if myUDL or remainderFirstUDL are NULL or
+ *                            myUDL arg has illegal characters
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
+ * @returns CMSG_WRONG_DOMAIN_TYPE one of the domains is of the wrong type
+ */
+static int processUDL(const char *myUDL, char **newUDL, char **domainType,
+                      char **remainderFirstUDL) {  
+    int err, listSize=0;
+    parsedUDL *pList;
+
+    /* check args */
+    if (newUDL == NULL || checkString(myUDL) != CMSG_OK) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+
+    /* The UDL may be a semicolon separated list, so put elements into a linked list */
+    if ( (err = splitUDL(myUDL, &pList, NULL)) != CMSG_OK) {
+        return(err);
+    }
+  
+   /* Expand any elements referring to a configFile UDL.
+    * The expansion is only done at one level, i.e. no
+    * files referring to other files. */
+    if ( (err = expandConfigFileUDLs(&pList, &listSize)) != CMSG_OK) {
+        freeList(pList);
+        return(err);
+    }
+
+    if (listSize > 1) {
+        /* Make sure that all UDLs in the list are of the same domain */
+        if ( (err = isSameDomain(pList)) != CMSG_OK) {
+            freeList(pList);
+            return(err);
+        }
+
+        /* Remove duplicate UDLs from list. A warning is printed to stderr 
+         * if the debug was set and any UDLs were removed. */
+        removeDuplicateUDLs(pList);
+    }
+  
+    /* Take the linked list and turn it into a semicolon separated string */
+    if ( (err = reconstructUDL(pList, newUDL)) != CMSG_OK) {
+        freeList(pList);
+        return(err);
+    }
+    /*printf("processUDL: reconstructed udl = %s\n", *newUDL);*/
+
+    /* return values */
+    if (domainType != NULL) *domainType = (char *) strdup(pList->domain);
+    if (remainderFirstUDL != NULL) *remainderFirstUDL = (char *) strdup(pList->remainder);
+  
+    freeList(pList);
+
+    return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine resets the UDL (may be a semicolon separated list of single UDLs).
+ * If a reconnect is done, the new UDLs will be used in the connection(s).
+ *
+ * @param domainId id of the domain connection
+ * @param udl new UDL
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if not successful reading file for configFile domain UDL
+ * @returns CMSG_BAD_FORMAT if configFile domain file contains UDL of configFile
+ *                          domain or if one of the UDLs is not in the correct format
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL or UDL arg has illegal characters
+ * @returns CMSG_OUT_OF_MEMORY if out of memory
+ * @returns CMSG_WRONG_DOMAIN_TYPE one of the domains is of the wrong type
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgSetUDL
+ */
+int cMsgSetUDL(void *domainId, const char *UDL) {
+    int   err;
+    char  *domainType=NULL, *newUDL=NULL, *remainder=NULL;
+    cMsgDomain *domain = (cMsgDomain *) domainId;
+
+    /* check args */
+    if (domainId == NULL || UDL == NULL)  {
+        return(CMSG_BAD_ARGUMENT);
+    }
+  
+    /* chew on the UDL, transform it */
+    if (err = processUDL(UDL, &newUDL, &domainType, &remainder) != CMSG_OK ) {
+        return(err);
+    }
+
+    if (strcasecmp(domainType, domain->type) != 0) {
+        free(newUDL); free(remainder); free(domainType);
+        return(CMSG_WRONG_DOMAIN_TYPE);
+    }
+
+    return(domain->functions->setUDL(domain->implId, newUDL, remainder));
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine gets the UDL current used in the existing connection.
+ *
+ * @param domainId id of the domain connection
+ * @param udl pointer filled in with current UDL
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if either arg is NULL
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgGetConnectState
+ */
+int cMsgGetCurrentUDL(void *domainId, char **udl) {
+    cMsgDomain *domain = (cMsgDomain *) domainId;
+    /* check args */
+    if (domain == NULL || udl == NULL) return(CMSG_BAD_ARGUMENT);
+    return(domain->functions->getCurrentUDL(domain->implId, udl));
+}
+
+
+/*-------------------------------------------------------------------*/
+
 
 /**
  * This routine is called once to connect to a domain.
@@ -737,14 +889,12 @@ static int reconstructUDL(char *domainType, parsedUDL *pList, char **UDL) {
 int cMsgConnect(const char *myUDL, const char *myName,
                 const char *myDescription, void **domainId) {
 
-  int     i, err, len, listSize=0;
-  char  *domainType=NULL, *newUDL=NULL;
+  int     i, err, len;
+  char  *domainType=NULL, *newUDL=NULL, *remainder=NULL;
   cMsgDomain *domain;
-  parsedUDL  *pList;
-  
+
   /* check args */
   if ( (checkString(myName)        != CMSG_OK) ||
-       (checkString(myUDL)         != CMSG_OK) ||
        (checkString(myDescription) != CMSG_OK) ||
        (domainId                   == NULL   ))  {
     return(CMSG_BAD_ARGUMENT);
@@ -756,40 +906,10 @@ int cMsgConnect(const char *myUDL, const char *myName,
     if (myName[i] == ':') return(CMSG_BAD_ARGUMENT);
   }
 
-  /* The UDL may be a semicolon separated list, so put elements into a linked list */
-  if ( (err = splitUDL(myUDL, &pList, NULL, NULL)) != CMSG_OK) {
+  /* chew on the UDL, transform it, and extract info from it */
+  if (err = processUDL(myUDL, &newUDL, &domainType, &remainder) != CMSG_OK ) {
       return(err);
   }
-  
-  /* Expand any elements referring to a configFile UDL.
-   * The expansion is only done at one level, i.e. no
-   * files referring to other files. */
-  if ( (err = expandConfigFileUDLs(&pList, &domainType, &listSize)) != CMSG_OK) {
-      free(domainType);
-      freeList(pList);
-      return(err);
-  }
-
-  if (listSize > 1) {
-    /* Make sure that all UDLs in the list are of the same domain */
-    if ( (err = isSameDomain(domainType, pList)) != CMSG_OK) {
-        free(domainType);
-        freeList(pList);
-        return(err);  
-    }
-
-    /* Remove duplicate UDLs from list. A warning is printed to stderr 
-     * if the debug was set and any UDLs were removed. */
-    removeDuplicateUDLs(pList);
-  }  
-  
-  /* Take the linked list and turn it into a semicolon separated string */
-  if ( (err = reconstructUDL(domainType, pList, &newUDL)) != CMSG_OK) {
-        free(domainType);
-        freeList(pList);
-        return(err);  
-  }
-/*printf("Reconstructed udl = %s\n", newUDL);*/
 
   /* First, grab mutex for thread safety. This mutex must be held until
    * the initialization is completely finished.
@@ -807,9 +927,7 @@ int cMsgConnect(const char *myUDL, const char *myName,
     /* register domain types */
     if ( (err = registerPermanentDomains()) != CMSG_OK ) {
       /* if we can't find the domain lib, or run out of memory, return error */
-      free(newUDL);
-      free(domainType);
-      freeList(pList);
+      free(newUDL); free(remainder); free(domainType);
       connectMutexUnlock();
       return(err);
     }
@@ -823,9 +941,7 @@ int cMsgConnect(const char *myUDL, const char *myName,
   /* register dynamic domain types */
   if ( (err = registerDynamicDomains(domainType)) != CMSG_OK ) {
     /* if we can't find the domain lib, or run out of memory, return error */
-      free(newUDL);
-      free(domainType);
-      freeList(pList);
+      free(newUDL); free(remainder); free(domainType);
       return(err);
   }
   
@@ -833,10 +949,8 @@ int cMsgConnect(const char *myUDL, const char *myName,
   /* allocate struct to hold connection info */
   domain = (cMsgDomain *) calloc(1, sizeof(cMsgDomain));
   if (domain == NULL) {
-      free(newUDL);
-      free(domainType);
-      freeList(pList);
-      return(CMSG_OUT_OF_MEMORY);  
+      free(newUDL); free(remainder); free(domainType);
+      return(CMSG_OUT_OF_MEMORY);
   }
   domainInit(domain);  
 
@@ -846,10 +960,9 @@ int cMsgConnect(const char *myUDL, const char *myName,
   domain->udl          = newUDL;
   domain->description  = (char *) strdup(myDescription);
   domain->type         = domainType;
-  domain->UDLremainder = (char *) strdup(pList->remainder);
-  
-  freeList(pList);
+  domain->UDLremainder = remainder;
 
+  
   /* if such a domain type exists, store pointer to functions */
   domain->functions = NULL;
   for (i=0; i<CMSG_MAX_DOMAIN_TYPES; i++) {
@@ -865,7 +978,7 @@ int cMsgConnect(const char *myUDL, const char *myName,
 
   /* dispatch to connect function registered for this domain type */
   err = domain->functions->connect(newUDL, myName, myDescription,
-                                   domain->UDLremainder, &domain->implId);
+                                  remainder, &domain->implId);
   if (err != CMSG_OK) {
       domainFree(domain);
       free(domain);
@@ -875,6 +988,30 @@ int cMsgConnect(const char *myUDL, const char *myName,
   *domainId = (void *)domain;
   
   return CMSG_OK;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine tries to reconnect to the server if a connection is broken.
+ * The domainId argument is created by first calling cMsgConnect()
+ * and establishing a connection to a cMsg server
+ *
+ * @param domainId pointer to id of the domain connection
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgReconnect
+ */
+int cMsgReconnect(void **domainId) {
+    cMsgDomain *domain = (cMsgDomain *) (*domainId);
+  
+    if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
+    /* dispatch to function registered for this domain type */
+    return(domain->functions->reconnect(&domain->implId));
 }
 
 
@@ -897,13 +1034,13 @@ int cMsgConnect(const char *myUDL, const char *myName,
  * @returns CMSG_BAD_ARGUMENT if domainId is NULL
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSend
- */   
+ */
 int cMsgSend(void *domainId, void *msg) {
-  cMsgDomain *domain = (cMsgDomain *) domainId;
+    cMsgDomain *domain = (cMsgDomain *) domainId;
   
-  if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  /* dispatch to function registered for this domain type */
-  return(domain->functions->send(domain->implId, msg));
+    if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
+    /* dispatch to function registered for this domain type */
+    return(domain->functions->send(domain->implId, msg));
 }
 
 
@@ -1529,10 +1666,16 @@ static int registerPermanentDomains() {
 
 
   /* for file domain */
-  dTypeInfo[2].type = (char *)strdup(fileDomainTypeInfo.type); 
+  dTypeInfo[2].type = (char *)strdup(fileDomainTypeInfo.type);
   dTypeInfo[2].functions = fileDomainTypeInfo.functions;
-     
-  return(CMSG_OK);  
+  
+  
+  /* for dummy domain */
+  /*
+  dTypeInfo[3].type = (char *)strdup(dummyDomainTypeInfo.type);
+  dTypeInfo[3].functions = fileDomainTypeInfo.functions;
+  */
+  return(CMSG_OK);
 }
 
 
@@ -1611,6 +1754,15 @@ static int registerDynamicDomains(char *domainType) {
     return(CMSG_ERROR);
   }
   funcs->connect = (CONNECT_PTR) pValue;
+  
+  /* get "reconnect" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_reconnect", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+      free(funcs);
+      free(lowerCase);
+      return(CMSG_ERROR);
+  }
+  funcs->reconnect = (DISCONNECT_PTR) pValue;
   
   /* get "send" function from global symbol table */
   sprintf(functionName, "cmsg_%s_send", lowerCase);
@@ -1732,11 +1884,29 @@ static int registerDynamicDomains(char *domainType) {
   /* get "isConnected" function from global symbol table */
   sprintf(functionName, "cmsg_%s_isConnected", lowerCase);
   if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
+      free(funcs);
+      free(lowerCase);
+      return(CMSG_ERROR);
   }
   funcs->isConnected = (ISCONNECTED_PTR) pValue;
+
+  /* get "setUDL" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_setUDL", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+      free(funcs);
+      free(lowerCase);
+      return(CMSG_ERROR);
+  }
+  funcs->setUDL = (SETUDL_PTR) pValue;
+
+  /* get "getCurrentUDL" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_getCurrentUDL", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+      free(funcs);
+      free(lowerCase);
+      return(CMSG_ERROR);
+  }
+  funcs->getCurrentUDL = (SETUDL_PTR) pValue;
 
 
 #else 
@@ -1763,6 +1933,17 @@ static int registerDynamicDomains(char *domainType) {
     return(CMSG_ERROR);
   }
   funcs->connect = (CONNECT_PTR) sym;
+
+  /* get "reconnect" function */
+  sprintf(functionName, "cmsg_%s_reconnect", lowerCase);
+  sym = dlsym(libHandle, functionName);
+  if (sym == NULL) {
+      free(funcs);
+      free(lowerCase);
+      dlclose(libHandle);
+      return(CMSG_ERROR);
+  }
+  funcs->reconnect = (DISCONNECT_PTR) sym;
 
   /* get "send" function */
   sprintf(functionName, "cmsg_%s_send", lowerCase);
@@ -1917,6 +2098,28 @@ static int registerDynamicDomains(char *domainType) {
     return(CMSG_ERROR);
   }
   funcs->isConnected = (ISCONNECTED_PTR) sym;
+
+  /* get "setUDL" function */
+  sprintf(functionName, "cmsg_%s_setUDL", lowerCase);
+  sym = dlsym(libHandle, functionName);
+  if (sym == NULL) {
+      free(funcs);
+      free(lowerCase);
+      dlclose(libHandle);
+      return(CMSG_ERROR);
+  }
+  funcs->setUDL = (SETUDL_PTR) sym;
+
+  /* get "getCurrentUDL" function */
+  sprintf(functionName, "cmsg_%s_getCurrentUDL", lowerCase);
+  sym = dlsym(libHandle, functionName);
+  if (sym == NULL) {
+      free(funcs);
+      free(lowerCase);
+      dlclose(libHandle);
+      return(CMSG_ERROR);
+  }
+  funcs->getCurrentUDL = (SETUDL_PTR) sym;
 
 
 #endif  
@@ -4872,7 +5075,7 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
          if(level < 1){free(buffer);} free(offsett);free(offset5); if(margin>0){free(indent);} return(CMSG_ERROR);}
          strncpy(pchar,offsett,offsetLen);     pchar+=offsetLen;
          strncpy(pchar,"<float name=\"",13);   pchar+=13;
-         slen = strlen(name);
+         slen = strlen(name);   
          strncpy(pchar,name,slen);             pchar+=slen;
          strncpy(pchar,"\"> ",3);              pchar+=3;
          sprintf(pchar,"%.8g%n",f,&len);       pchar+=len;
