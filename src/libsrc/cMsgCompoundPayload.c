@@ -121,7 +121,7 @@ static int  isValidFieldName(const char *s, int isSystem);
 static int  isValidSystemFieldName(const char *s);
 static void setPayload(cMsgMessage_t *msg, int hasPayload);
 static void payloadItemInit(payloadItem *item);
-static void payloadItemFree(payloadItem *item);
+static void payloadItemFree(payloadItem *item, int freeData);
 static payloadItem *copyPayloadItem(const payloadItem *from);
 static void payloadPrintout(const void *msg, int level);
 static int  createPayloadText(const cMsgMessage_t *msg, payloadItem **pItems,
@@ -546,13 +546,15 @@ static void payloadItemInit(payloadItem *item) {
  * data structure. 
  *
  * @param item pointer to structure holding payload item info
- */   
-static void payloadItemFree(payloadItem *item) {
+ * @param freeData if true, free data held in payload item
+ */
+static void payloadItemFree(payloadItem *item, int freeData) {
   if (item == NULL) return;
   
   if (item->text != NULL) {free(item->text);  item->text  = NULL;}
   if (item->name != NULL) {free(item->name);  item->name  = NULL;}
-  if (item->array == NULL) return;
+
+  if (!freeData || item->array == NULL) return;
   
   if (item->type == CMSG_CP_STR_A) {
       /* with string array, first free individual strings, then array */
@@ -605,7 +607,7 @@ void cMsgPayloadReset_r(void *vmsg) {
   item = msg->payload;
   while (item != NULL) {
     next = item->next;
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     item = next;
   }
@@ -647,7 +649,7 @@ void cMsgPayloadReset(void *vmsg) {
   item = msg->payload;
   while (item != NULL) {
     next = item->next;
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     item = next;
   }
@@ -707,7 +709,7 @@ void cMsgPayloadClear(void *vmsg) {
             sysFieldCount++;
             continue;
         }
-        payloadItemFree(item);
+        payloadItemFree(item, 1);
         free(item);
         item = next;
     }
@@ -916,13 +918,16 @@ int cMsgPayloadGetType(const void *vmsg, const char *name, int *type) {
  * the names of the items in the payload, and the second contains the
  * corresponding data types of those items. Each element of the array
  * of characters points to a string in the message itself which must
- * not be freed or written to.
+ * not be freed or written to. The difference between this routine and
+ * {@link cMsgPayloadGetInfo} is that this routine allocates no memory
+ * so nothing needs to be freed.
  *
  * @param vmsg pointer to message
  * @param names pointer which gets filled with the array of names in a payload
  * @param types pointer to an array of ints which gets filled with type of data
  *              associated with each field name in "names"
- * @param len pointer to int which gives the length of the returned arrays
+ * @param len length of each of the given arrays, if arrays are different lengths
+ *             give the smallest of the lengths
  *
  * @return CMSG_OK if successful
  * @return CMSG_ERROR if no payload is found
@@ -968,7 +973,9 @@ int cMsgPayloadGet(const void *vmsg, char **names, int *types, int len) {
  * of those items. It also returns the length of both arrays. Both arrays
  * use allocated memory and must be freed by the caller. Each element of
  * the array of characters points to a string in the message itself which
- * must not be freed or written to.
+ * must not be freed or written to. The difference between this routine and
+ * {@link cMsgPayloadGet} is that the other routine allocates no memory
+ * so nothing needs to be freed.
  *
  * @param vmsg pointer to message
  * @param names pointer which gets filled with the array of names in a payload
@@ -1140,7 +1147,7 @@ static int removeItem(cMsgMessage_t *msg, const char *name, payloadItem **pItem)
 
       /* free allocated memory or return item */
       if (pItem == NULL) {
-        payloadItemFree(item);
+        payloadItemFree(item, 1);
         free(item);
       } else {
         *pItem = item;
@@ -1209,7 +1216,9 @@ int cMsgPayloadUpdateText(const void *vmsg) {
 
 /**
  * This routine returns a text representation of a message's payload -
- * including payload items given as an argument.
+ * including payload items given as an argument. If there already are
+ * items of those names in the payload, those existing items are omitted
+ * (those given in the arg list are used instead).
  *
  * @param msg message handle
  * @param pItems array of pointers to payload items to be included in text rep of msg payload
@@ -1222,36 +1231,45 @@ int cMsgPayloadUpdateText(const void *vmsg) {
  */
 static int createPayloadText(const cMsgMessage_t *msg, payloadItem **pItems, int count, char **pTxt) {
   char *s, *pBuf;
-  int i, len, noMsg=0, noItems=0, totalCount;
+  int i, len, gotMsg=1, gotItems=1, totalCount;
   size_t totalLen=0;
   payloadItem *item;  
   
   if (msg == NULL || msg->payload == NULL) {
-    noMsg = 1;
+    gotMsg = 0;
   }
   
   if (pItems == NULL) {
-    noItems = 1;
-    count   = 0;
+    gotItems = 0;
+    count    = 0;
   }
 
   /* nothing to make text out of */
-  if (noMsg && noItems) {
+  if (!gotMsg && !gotItems) {
     *pTxt = NULL;
     return(CMSG_OK);
   }
       
   /* add each msg payload item's length to total */
-  if (!noMsg) {
+  if (gotMsg) {
     item = msg->payload;
     while (item != NULL) {
+      /* ignore duplicates (eg history items) */
+      if (gotItems) {
+        for (i=0; i<count; i++) {
+          if (strcmp(item->name, pItems[i]->name) == 0) {
+            item = item->next;
+            continue;
+          }
+        }
+      }
       totalLen += item->length;
       item = item->next;
     }
   }
   
   /* include additional payload item's length in total */
-  if (!noItems) {
+  if (gotItems) {
     for (i=0; i<count; i++) {
       totalLen += pItems[i]->length;
     }
@@ -1273,9 +1291,18 @@ static int createPayloadText(const cMsgMessage_t *msg, payloadItem **pItems, int
   s += len;
     
   /* add message payload fields */
-  if (!noMsg) {
+  if (gotMsg) {
     item = msg->payload;
     while (item != NULL) {
+      /* ignore duplicates (eg history items) */
+      if (gotItems) {
+        for (i=0; i<count; i++) {
+          if (strcmp(item->name, pItems[i]->name) == 0) {
+            item = item->next;
+            continue;
+          }
+        }
+      }
       sprintf(s, "%s%n", item->text, &len);
       s += len;
       item = item->next;
@@ -1283,7 +1310,7 @@ static int createPayloadText(const cMsgMessage_t *msg, payloadItem **pItems, int
   }
   
   /* add extra fields */
-  if (!noItems) {
+  if (gotItems) {
     for (i=0; i<count; i++) {
       sprintf(s, "%s%n", pItems[i]->text, &len);
       s += len;
@@ -1302,28 +1329,36 @@ static int createPayloadText(const cMsgMessage_t *msg, payloadItem **pItems, int
  * of this message (in the payload).
  * This method only keeps {@link cMsgMessage_t.historyLengthMax} number of
  * the most recent names.
- * This method is reserved for system use only.
+ * This method is reserved for system use only.<p>
+ * When a client sends the same message over and over again, we do <b>NOT</b> want the history
+ * to change. To ensure this, we follow a simple principle: the sender history needs to go
+ * into the sent message (ie. over the wire), but must not be added to the local one.
+ * Thus, if I send a message, its local sender history will not change.
  * 
  * @param vmsg pointer to message
  * @param name name of sender to add to the history of senders
  * @param host name of sender host to add to the history of hosts
  * @param time sender time to add to the history of times
  * @param pTxt pointer filled with text representation of payload with the history items added
+ *             (memory is allocated)
  *
  * @return CMSG_OK if successful
+ * @return CMSG_ERROR if error in internal details of existing history payload items
  * @return CMSG_OUT_OF_MEMORY if out of memory
  */
 int cMsgAddHistoryToPayloadText(void *vmsg, char *name, char *host,
                                 int64_t time, char **pTxt) {
 
     cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
-    payloadItem *oldItems[3], *newItems[3];
-    int err, len, i, index, exists=1;
-    char **oldNames, **oldHosts;
+    payloadItem *newItems[3];
+    int err, len, len1, len2, len3, i, index, exists=1;
     const char **nameArray, **hostArray;
     const int64_t *timeArray;
-    int64_t *oldTimes;
-    struct timespec now;
+    const int64_t times[] = { time };
+    const char *names[]   = { name };
+    const char *hosts[]   = { host };
+    int64_t *newTimes=NULL;
+    char **newNames=NULL, **newHosts=NULL;
 
     *pTxt = NULL;
         
@@ -1353,150 +1388,123 @@ int cMsgAddHistoryToPayloadText(void *vmsg, char *name, char *host,
     }
     
     /* is there a history already? */
-    cMsgGetInt64Array(vmsg, "cMsgSenderTimeHistory", &timeArray, &len);
-    cMsgGetStringArray(vmsg, "cMsgSenderHostHistory", &hostArray, &len);
-    err = cMsgGetStringArray(vmsg, "cMsgSenderNameHistory", &nameArray, &len);
+    cMsgGetInt64Array(vmsg, "cMsgSenderTimeHistory", &timeArray, &len1);
+    cMsgGetStringArray(vmsg, "cMsgSenderHostHistory", &hostArray, &len2);
+    err = cMsgGetStringArray(vmsg, "cMsgSenderNameHistory", &nameArray, &len3);
     if (err == CMSG_ERROR) {
         exists = 0;
     }
-    else if (err != CMSG_OK) return(err);
+    else if (err != CMSG_OK) {
+        return(err);
+    }
+    else if (len1 != len2 || len1 != len3) {
+        return(CMSG_ERROR);
+    }
     
     
     if (!exists) {
-        const int64_t times[] = { time };
-        const char *names[]   = { name };
-        const char *hosts[]   = { host };
-        
-        err = createStringArrayItem("cMsgSenderNameHistory", names, 1, 1, 1, &newItems[0]);
+        err = createStringArrayItem("cMsgSenderNameHistory", names, 1, 1, 0, &newItems[0]);
         if (err != CMSG_OK) {return(err);}
 
-        err = createStringArrayItem("cMsgSenderHostHistory", hosts, 1, 1, 1, &newItems[1]);
-        if (err != CMSG_OK) {return(err);}
+        err = createStringArrayItem("cMsgSenderHostHistory", hosts, 1, 1, 0, &newItems[1]);
+        if (err != CMSG_OK) {
+            payloadItemFree(newItems[0], 0);
+            free(newItems[0]);
+            return(err);
+        }
 
         err = createIntArrayItem("cMsgSenderTimeHistory", (int *)times,
-                                 CMSG_CP_INT64_A, 1, 1, 1, &newItems[2]);
-        if (err != CMSG_OK) {return(err);}
+                                 CMSG_CP_INT64_A, 1, 1, 0, &newItems[2]);
+        if (err != CMSG_OK) {
+            payloadItemFree(newItems[0], 0);
+            payloadItemFree(newItems[1], 0);
+            free(newItems[0]);
+            free(newItems[1]);
+            return(err);
+        }
     }
     else {
-        int64_t *newTimes;
-        char **newNames, **newHosts;
- 
-        /* now, remove the history and recreate it */
-        removeItem(msg, "cMsgSenderNameHistory", &oldItems[0]);
-        removeItem(msg, "cMsgSenderHostHistory", &oldItems[1]);
-        removeItem(msg, "cMsgSenderTimeHistory", &oldItems[2]);
-
-        oldNames =   (char **)oldItems[0]->array;
-        oldHosts =   (char **)oldItems[1]->array;
-        oldTimes = (int64_t *)oldItems[2]->array;
-        len = oldItems[0]->count;
-
         /* keep only historyLength number of the latest names */
         index = 0;
-        if (oldItems[0]->count >= msg->historyLengthMax) {
+        if (len1 >= msg->historyLengthMax) {
             len = msg->historyLengthMax - 1;
-            index = oldItems[0]->count - len;
+            index = len1 - len;
         }
         
         /* create space for list of names */
         newNames = (char **) calloc(1, (len+1)*sizeof(char *));
         if (newNames == NULL) {
-            addItem(msg, oldItems[0]);
-            addItem(msg, oldItems[1]);
-            addItem(msg, oldItems[2]);
             return(CMSG_OUT_OF_MEMORY);
         }
         
         /* create space for list of hosts */
         newHosts = (char **) calloc(1, (len+1)*sizeof(char *));
         if (newHosts == NULL) {
-            addItem(msg, oldItems[0]);
-            addItem(msg, oldItems[1]);
-            addItem(msg, oldItems[2]);
+            free(newNames);
             return(CMSG_OUT_OF_MEMORY);
         }
         
         /* create space for list of times */
         newTimes = (int64_t *) calloc(1, (len+1)*sizeof(int64_t));
         if (newTimes == NULL) {
-            addItem(msg, oldItems[0]);
-            addItem(msg, oldItems[1]);
-            addItem(msg, oldItems[2]);
+            free(newNames); free(newHosts);
             return(CMSG_OUT_OF_MEMORY);
         }
         
         /* copy over old names/hosts/times */
         for (i=index; i<len+index; i++) {
-            newNames[i-index] = oldNames[i];
-            newHosts[i-index] = oldHosts[i];
-            newTimes[i-index] = oldTimes[i];
+            newNames[i-index] = nameArray[i];
+            newHosts[i-index] = hostArray[i];
+            newTimes[i-index] = timeArray[i];
         }
         
-        /* add new name/host/time to end */
+        /* add new name/host/time to end (don't copy strings) */
         newTimes[len] = time;
-        
-        newNames[len] = strdup(name);
-        if (newNames[len] == NULL ) {
-            free(newNames); free(newHosts); free(newTimes);
-            addItem(msg, oldItems[0]);
-            addItem(msg, oldItems[1]);
-            addItem(msg, oldItems[2]);
-            return(CMSG_OUT_OF_MEMORY);
-        }
-        
-        newHosts[len] = strdup(host);
-        if (newHosts[len] == NULL ) {
-            free(newNames[len]); free(newNames); free(newHosts); free(newTimes);
-            addItem(msg, oldItems[0]);
-            addItem(msg, oldItems[1]);
-            addItem(msg, oldItems[2]);
-            return(CMSG_OUT_OF_MEMORY);
-        }
-       
-        /* put new sender history back into msg */
+        newNames[len] = name;
+        newHosts[len] = host;
+                                 
+        /* create payload new items, but don't copy data in, just copy pointer */
         err = createStringArrayItem("cMsgSenderNameHistory", newNames, len+1, 1, 0, &newItems[0]);
         if (err != CMSG_OK) {
-            free(newNames[len]); free(newHosts[len]);
             free(newNames); free(newHosts); free(newTimes);
-            addItem(msg, oldItems[0]);
-            addItem(msg, oldItems[1]);
-            addItem(msg, oldItems[2]);
             return(err);
         }
 
         err = createStringArrayItem("cMsgSenderHostHistory", newHosts, len+1, 1, 0, &newItems[1]);
         if (err != CMSG_OK) {
-            removeItem(msg, "cMsgSenderNameHistory", NULL);
-            free(newHosts[len]); free(newHosts); free(newTimes);
-            addItem(msg, oldItems[0]);
-            addItem(msg, oldItems[1]);
-            addItem(msg, oldItems[2]);
+            free(newNames); free(newHosts); free(newTimes);
+            // free payload item but not data it contains
+            payloadItemFree(newItems[0], 0);
+            free(newItems[0]);
             return(err);
         }
 
         err = createIntArrayItem("cMsgSenderTimeHistory", newTimes,
                                  CMSG_CP_INT64_A, len+1, 1, 0, &newItems[2]);
         if (err != CMSG_OK) {
-            removeItem(msg, "cMsgSenderNameHistory", NULL);
-            removeItem(msg, "cMsgSenderHostHistory", NULL);
-            free(newTimes);
-            addItem(msg, oldItems[0]);
-            addItem(msg, oldItems[1]);
-            addItem(msg, oldItems[2]);
+            free(newNames); free(newHosts); free(newTimes);
+            // free payload item but not data it contains
+            payloadItemFree(newItems[0], 0);
+            payloadItemFree(newItems[1], 0);
+            free(newItems[0]);
+            free(newItems[1]);
             return(err);
         }
-
-        payloadItemFree(oldItems[0]);
-        payloadItemFree(oldItems[1]);
-        payloadItemFree(oldItems[2]);
-        
-        free(oldItems[0]);
-        free(oldItems[1]);
-        free(oldItems[2]);
     }
 
-    /* create a string from these 3 items */
+    /* create a string from these 3 items plus existing payload items (mem allocated) */
     err = createPayloadText(msg, newItems, 3, pTxt);
+
+    /* free up memory */
+    payloadItemFree(newItems[0], 0);
+    payloadItemFree(newItems[1], 0);
+    payloadItemFree(newItems[2], 0);
+    free(newItems[0]);
+    free(newItems[1]);
+    free(newItems[2]);
+    if (newTimes != NULL) free(newTimes);
+    if (newNames != NULL) free(newNames);
+    if (newHosts != NULL) free(newHosts);
 
     return(err);
 }
@@ -1769,7 +1777,7 @@ static payloadItem *copyPayloadItem(const payloadItem *from) {
   
   item->text = strdup(from->text);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(NULL);
   }
@@ -1787,16 +1795,16 @@ static payloadItem *copyPayloadItem(const payloadItem *from) {
   switch (from->type) {
     case CMSG_CP_STR:
       item->array = (void *)strdup((char *)from->array);
-      if (item->array == NULL) {payloadItemFree(item); free(item); return(NULL);}
+      if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
       break;
     case CMSG_CP_STR_A:
       item->array = malloc(len*sizeof(char *));
-      if (item->array == NULL) {payloadItemFree(item); free(item); return(NULL);}
+      if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
       /* copy all strings */
       for (i=0; i < len; i++) {
           s = strdup( ((char **)from->array)[i] );
           /* being lazy here, should free strings allocated - possible mem leak */
-          if (s == NULL) {payloadItemFree(item); free(item); return(NULL);}
+          if (s == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
           ((char **)(item->array))[i] = s;
       }
       break;
@@ -1823,35 +1831,35 @@ static payloadItem *copyPayloadItem(const payloadItem *from) {
     case CMSG_CP_UINT8_A:
     case CMSG_CP_INT8_A:
       item->array = malloc(len*sizeof(int8_t));
-      if (item->array == NULL) {payloadItemFree(item); free(item); return(NULL);}
+      if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
       memcpy((void *)item->array, (const void *)from->array, len*sizeof(int8_t));
       break;
     case CMSG_CP_UINT16_A:
     case CMSG_CP_INT16_A:
       item->array = malloc(len*sizeof(int16_t));
-      if (item->array == NULL) {payloadItemFree(item); free(item); return(NULL);}
+      if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
       memcpy((void *)item->array, (const void *)from->array, len*sizeof(int16_t));
       break;
     case CMSG_CP_UINT32_A:
     case CMSG_CP_INT32_A:
       item->array = malloc(len*sizeof(int32_t));
-      if (item->array == NULL) {payloadItemFree(item); free(item); return(NULL);}
+      if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
       memcpy((void *)item->array, (const void *)from->array, len*sizeof(int32_t));
       break;
     case CMSG_CP_UINT64_A:
     case CMSG_CP_INT64_A:
       item->array = malloc(len*sizeof(int64_t));
-      if (item->array == NULL) {payloadItemFree(item); free(item); return(NULL);}
+      if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
       memcpy((void *)item->array, (const void *)from->array, len*sizeof(int64_t));
       break;
     case CMSG_CP_FLT_A:
       item->array = malloc(len*sizeof(float));
-      if (item->array == NULL) {payloadItemFree(item); free(item); return(NULL);}
+      if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
       memcpy((void *)item->array, (const void *)from->array, len*sizeof(float));
       break;
     case CMSG_CP_DBL_A:
       item->array = malloc(len*sizeof(double));
-      if (item->array == NULL) {payloadItemFree(item); free(item); return(NULL);}
+      if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
       memcpy((void *)item->array, (const void *)from->array, len*sizeof(double));
       break;
       
@@ -1859,7 +1867,7 @@ static payloadItem *copyPayloadItem(const payloadItem *from) {
     case CMSG_CP_BIN:
       if (from->array == NULL) break;
       item->array = malloc(from->count);
-      if (item->array == NULL) {payloadItemFree(item); free(item); return(NULL);}
+      if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
       item->array = memcpy(item->array, from->array, from->count);
       break;
       
@@ -1867,7 +1875,7 @@ static payloadItem *copyPayloadItem(const payloadItem *from) {
     case CMSG_CP_MSG:
       if (from->array == NULL) break;
       item->array = cMsgCopyMessage(from->array);
-      if (item->array == NULL) {payloadItemFree(item); free(item); return(NULL);}
+      if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
       break;
     case CMSG_CP_MSG_A:
       if (from->array == NULL) break;
@@ -1941,7 +1949,7 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
     item = msgTo->payload;
     while (item != NULL) {
       next = item->next;
-      payloadItemFree(item);
+      payloadItemFree(item, 1);
       free(item);
       item = next;
     }
@@ -1977,7 +1985,7 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
         toArray = (char **) calloc(1, len*sizeof(char *));
         if (toArray == NULL) {
             /*releaseMutex();*/
-            payloadItemFree(firstCopied);
+            payloadItemFree(firstCopied, 1);
             return(CMSG_OUT_OF_MEMORY);          
         }
         
@@ -1987,7 +1995,7 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
         err = createStringArrayItem(item->name, (const char **)toArray, len, 1, 1, &copiedItem);
         if (err != CMSG_OK) {
             /*releaseMutex();*/
-            payloadItemFree(firstCopied);
+            payloadItemFree(firstCopied, 1);
             return(CMSG_OUT_OF_MEMORY);                      
         }
     }
@@ -1995,7 +2003,7 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
         copiedItem = copyPayloadItem(item);       
         if (copiedItem == NULL) {
             /*releaseMutex();*/
-            payloadItemFree(firstCopied);
+            payloadItemFree(firstCopied, 1);
             return(CMSG_OUT_OF_MEMORY);
         }
     }
@@ -2017,7 +2025,7 @@ int cMsgPayloadCopy(const void *vmsgFrom, void *vmsgTo) {
   item = msgTo->payload;
   while (item != NULL) {
     next = item->next;
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     item = next;
   }
@@ -3526,7 +3534,7 @@ static int addBinary(void *vmsg, const char *name, const char *src, int size,
   /* store original data */
   item->array = (void *) malloc(size);
   if (item->array == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -3556,7 +3564,7 @@ static int addBinary(void *vmsg, const char *name, const char *src, int size,
 /*printf("addBinary: encoded bin len = %u, allocate = %d\n", binLen, totalLen);*/
   s = item->text = (char *) malloc(totalLen);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -3571,7 +3579,7 @@ static int addBinary(void *vmsg, const char *name, const char *src, int size,
   numChars = cMsg_b64_encode(src, size, s);
   s+= numChars;
   if (binLen != numChars) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_BAD_FORMAT);  
   }
@@ -3692,7 +3700,7 @@ static int addReal(void *vmsg, const char *name, double val, int type, int isSys
   
   s = item->text = (char *) calloc(1, totalLen);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -3867,7 +3875,7 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
 
   s = item->text = (char *) calloc(1, totalLen);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -3966,7 +3974,7 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
     /* Store the values */
     if (copy) {
       array = malloc(len*sizeof(float));
-      if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+      if (array == NULL) {payloadItemFree(item, 1); free(item); return(CMSG_OUT_OF_MEMORY);}
       memcpy(array, vals, len*sizeof(float));
       item->array = (void *)array;
     }
@@ -4069,7 +4077,7 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
     /* Store the values */
     if (copy) {
       array = malloc(len*sizeof(double));
-      if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+      if (array == NULL) {payloadItemFree(item, 1); free(item); return(CMSG_OUT_OF_MEMORY);}
       memcpy(array, vals, len*sizeof(double));
       item->array = (void *)array;
     }
@@ -4207,7 +4215,7 @@ static int addInt(void *vmsg, const char *name, int64_t val, int type, int isSys
 
   item->text = (char *) calloc(1, totalLen);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -4560,7 +4568,7 @@ static int createIntArrayItem(const char *name, const int *vals, int type,
 
   s = item->text = (char *) calloc(1, totalLen);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -4584,7 +4592,7 @@ static int createIntArrayItem(const char *name, const int *vals, int type,
             /* Store the values */
             if (copy) {
               array = malloc(len*sizeof(int8_t));
-              if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+              if (array == NULL) {payloadItemFree(item, 1); free(item); return(CMSG_OUT_OF_MEMORY);}
               memcpy(array, vals, len*sizeof(int8_t));
               item->array = (void *)array;
             }
@@ -4663,7 +4671,7 @@ static int createIntArrayItem(const char *name, const int *vals, int type,
             /* Store the values */
             if (copy) {
               array = malloc(len*sizeof(int16_t));
-              if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+              if (array == NULL) {payloadItemFree(item, 1); free(item); return(CMSG_OUT_OF_MEMORY);}
               memcpy(array, vals, len*sizeof(int16_t));
               item->array = (void *)array;
             }
@@ -4751,7 +4759,7 @@ static int createIntArrayItem(const char *name, const int *vals, int type,
             /* Store the values */
             if (copy) {
               array = malloc(len*sizeof(int32_t));
-              if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+              if (array == NULL) {payloadItemFree(item, 1); free(item); return(CMSG_OUT_OF_MEMORY);}
               memcpy(array, vals, len*sizeof(int32_t));
               item->array = (void *)array;
             }
@@ -4852,7 +4860,7 @@ static int createIntArrayItem(const char *name, const int *vals, int type,
             /* Store the values */
             if (copy) {
               array = malloc(len*sizeof(uint64_t));
-              if (array == NULL) {payloadItemFree(item); free(item); return(CMSG_OUT_OF_MEMORY);}
+              if (array == NULL) {payloadItemFree(item, 1); free(item); return(CMSG_OUT_OF_MEMORY);}
               memcpy(array, vals, len*sizeof(uint64_t));
               item->array = (void *)array;
             }
@@ -5097,7 +5105,7 @@ static int addString(void *vmsg, const char *name, const char *val, int isSystem
   if (copy) {
     item->array = (void *)strdup(val);
     if (item->array == NULL) {
-      payloadItemFree(item);
+      payloadItemFree(item, 1);
       free(item);
       return(CMSG_OUT_OF_MEMORY);
     }
@@ -5127,7 +5135,7 @@ static int addString(void *vmsg, const char *name, const char *val, int isSystem
 
   item->text = (char *) calloc(1, totalLen);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -5210,7 +5218,7 @@ static int createStringArrayItem(const char *name, const char **vals, int len,
     /* allocate memory to store "len" number of pointers */
     item->array = malloc(len*sizeof(char *));
     if (item->array == NULL) {
-      payloadItemFree(item);
+      payloadItemFree(item, 1);
       free(item);
       return(CMSG_OUT_OF_MEMORY);
     }
@@ -5247,7 +5255,7 @@ static int createStringArrayItem(const char *name, const char **vals, int len,
 
   s = item->text = (char *) calloc(1, totalLen);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -5390,7 +5398,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   /* store original data */
   item->array = cMsgCopyMessage(vmessage);
   if (item->array == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -5527,7 +5535,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
  
   s = item->text = (char *) malloc(totalLen);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -5671,7 +5679,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
     numChars = cMsg_b64_encode(message->byteArray + message->byteArrayOffset, message->byteArrayLength, s);
     s += numChars;
     if (binLen != numChars) {
-      payloadItemFree(item);
+      payloadItemFree(item, 1);
       free(item);
       return(CMSG_BAD_FORMAT);  
     }
@@ -5775,7 +5783,7 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
 
   item->name = strdup(name);
   if (item->name == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -5785,7 +5793,7 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
   /* store original data */
   msgArray = (void **) malloc(number*sizeof(void *));
   if (msgArray == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -5797,7 +5805,7 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
         cMsgFreeMessage(&msgArray[j]);
       }
       free(msgArray);
-      payloadItemFree(item);
+      payloadItemFree(item, 1);
       free(item);
       return(CMSG_OUT_OF_MEMORY);
     }
@@ -5944,7 +5952,7 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
       cMsgFreeMessage(&msgArray[j]);
     }
     free(msgArray);
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -6096,7 +6104,7 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
           cMsgFreeMessage(&msgArray[j]);
         }
         free(msgArray);
-        payloadItemFree(item);
+        payloadItemFree(item, 1);
         free(item);
         return(CMSG_BAD_FORMAT);  
       }
@@ -6254,7 +6262,7 @@ if (debug) printf("addBinaryFromString: will reserve %d bytes, calculation shows
         cMsg_b64_decode_len(pVal, len));
   item->array = (void *)malloc(count);
   if (item->array == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -6262,13 +6270,13 @@ if (debug) printf("addBinaryFromString: will reserve %d bytes, calculation shows
   /* decode text into binary */
   numBytes = cMsg_b64_decode(pVal, len, (char *)item->array);
   if (numBytes < 0) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_BAD_FORMAT);
   }
   else if (numBytes != count) {
     if (debug) printf("addBinaryFromString: decoded string len = %d, should be %d\n", numBytes, count);
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_BAD_FORMAT);
   }
@@ -6276,7 +6284,7 @@ if (debug) printf("addBinaryFromString: will reserve %d bytes, calculation shows
   /* space for text rep */
   s = item->text = (char *) malloc(textLen+1);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -6362,7 +6370,7 @@ if(debug) printf("read int as %lld\n", int64);
 
   s = item->text = (char *) malloc(textLen+1);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -6436,7 +6444,7 @@ static int addIntArrayFromText(void *vmsg, char *name, int type, int count, int 
     uint8_t *myArray;
     myArray = (uint8_t *)malloc(count*sizeof(uint8_t));
     if (myArray == NULL) {
-      payloadItemFree(item);
+      payloadItemFree(item, 1);
       free(item);
       return(CMSG_OUT_OF_MEMORY);
     }
@@ -6459,7 +6467,7 @@ if(debug) {
     uint16_t *myArray;
     myArray = (uint16_t *)malloc(count*sizeof(uint16_t));
     if (myArray == NULL) {
-      payloadItemFree(item);
+      payloadItemFree(item, 1);
       free(item);
       return(CMSG_OUT_OF_MEMORY);
     }
@@ -6509,7 +6517,7 @@ if(debug) {
     int32_t *myArray;
     myArray = (int32_t *)malloc(count*sizeof(int32_t));
     if (myArray == NULL) {
-      payloadItemFree(item);
+      payloadItemFree(item, 1);
       free(item);
       return(CMSG_OUT_OF_MEMORY);
     }
@@ -6583,7 +6591,7 @@ if(debug) {
     int64_t *myArray;
     myArray = (int64_t *)malloc(count*sizeof(int64_t));
     if (myArray == NULL) {
-      payloadItemFree(item);
+      payloadItemFree(item, 1);
       free(item);
       return(CMSG_OUT_OF_MEMORY);
     }
@@ -6671,7 +6679,7 @@ if(debug) {
 
   s = item->text = (char *) malloc(textLen+1);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -6774,7 +6782,7 @@ static int addRealFromText(void *vmsg, char *name, int type, int count, int isSy
   
   s = item->text = (char *) malloc(textLen+1);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -6849,7 +6857,7 @@ static int addRealArrayFromText(void *vmsg, char *name, int type, int count, int
     double *myArray;
     myArray = (double *)malloc(count*sizeof(double));
     if (myArray == NULL) {
-      payloadItemFree(item);
+      payloadItemFree(item, 1);
       free(item);
       return(CMSG_OUT_OF_MEMORY);
     }
@@ -6915,7 +6923,7 @@ if(debug) printf("  double[%d] = %.17g\n", j, myArray[j]);
     float *myArray;
     myArray = (float *)malloc(count*sizeof(float));
     if (myArray == NULL) {
-      payloadItemFree(item);
+      payloadItemFree(item, 1);
       free(item);
       return(CMSG_OUT_OF_MEMORY);
     }
@@ -6961,7 +6969,7 @@ if(debug) printf("  float[%d] = %.8g\n", j, myArray[j]);
 
   s = item->text = (char *) malloc(textLen+1);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -7085,7 +7093,7 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
 
   item->name = strdup(name);
   if (item->name == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -7095,7 +7103,7 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
   
   s = item->text = (char *) malloc(textLen+1);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -7195,7 +7203,7 @@ static int addStringArrayFromText(void *vmsg, char *name, int type, int count, i
   
   item->name = strdup(name);
   if (item->name == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -7205,7 +7213,7 @@ static int addStringArrayFromText(void *vmsg, char *name, int type, int count, i
   
   s = item->text = (char *) malloc(textLen+1);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -7275,7 +7283,7 @@ static int addMessagesFromText(void *vmsg, const char *name, int type, int count
   item->array = vmessages;
   s = item->text = (char *) malloc(textLen+1);
   if (item->text == NULL) {
-    payloadItemFree(item);
+    payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
