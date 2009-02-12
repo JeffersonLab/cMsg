@@ -114,10 +114,11 @@ static int   parseUDL(const char *UDLR, char **host,
                       unsigned short *port, char **expid,
                       int  *multicastTO, int *connectTO, char **junk);
                       
-/* Prototypes of the 14 functions which implement the standard tasks in cMsg. */
+/* Prototypes of the 17 functions which implement the standard tasks in cMsg. */
 int   cmsg_rc_connect           (const char *myUDL, const char *myName,
                                  const char *myDescription,
                                  const char *UDLremainder, void **domainId);
+int   cmsg_rc_reconnect         (void **domainId);
 int   cmsg_rc_send              (void *domainId, void *msg);
 int   cmsg_rc_syncSend          (void *domainId, void *msg, const struct timespec *timeout, int *response);
 int   cmsg_rc_flush             (void *domainId, const struct timespec *timeout);
@@ -137,23 +138,68 @@ int   cmsg_rc_shutdownClients   (void *domainId, const char *client, int flag);
 int   cmsg_rc_shutdownServers   (void *domainId, const char *server, int flag);
 int   cmsg_rc_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
 int   cmsg_rc_isConnected       (void *domainId, int *connected);
+int   cmsg_rc_setUDL            (void *domainId, const char *udl, const char *remainder);
+int   cmsg_rc_getCurrentUDL     (void *domainId, char **udl);
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
-static domainFunctions functions = {cmsg_rc_connect, cmsg_rc_send,
-                                    cmsg_rc_syncSend, cmsg_rc_flush,
+static domainFunctions functions = {cmsg_rc_connect, cmsg_rc_reconnect,
+                                    cmsg_rc_send, cmsg_rc_syncSend, cmsg_rc_flush,
                                     cmsg_rc_subscribe, cmsg_rc_unsubscribe,
                                     cmsg_rc_subscribeAndGet, cmsg_rc_sendAndGet,
                                     cmsg_rc_monitor, cmsg_rc_start,
                                     cmsg_rc_stop, cmsg_rc_disconnect,
                                     cmsg_rc_shutdownClients, cmsg_rc_shutdownServers,
-                                    cmsg_rc_setShutdownHandler,
-                                    cmsg_rc_isConnected};
+                                    cmsg_rc_setShutdownHandler, cmsg_rc_isConnected,
+                                    cmsg_rc_setUDL, cmsg_rc_getCurrentUDL};
 
 /* CC domain type */
 domainTypeInfo rcDomainTypeInfo = {
   "rc",
   &functions
 };
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine resets the UDL, but is <b>NOT</b> implemented in this domain.
+ *
+ * @param domainId id of the domain connection
+ * @param newUDL new UDL
+ * @param newRemainder new UDL remainder
+ *
+ * @returns CMSG_NOT_IMPLEMENTED this routine is not implemented
+ */
+int cmsg_rc_setUDL(void *domainId, const char *newUDL, const char *newRemainder) {
+    return(CMSG_NOT_IMPLEMENTED);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine gets the UDL current used in the existing connection.
+ *
+ * @param domainId id of the domain connection
+ * @param udl pointer filled in with current UDL (do not write to this
+              pointer)
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if domainId arg is NULL
+ */
+int cmsg_rc_getCurrentUDL(void *domainId, char **udl) {
+    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+    
+    /* check args */
+    if (domain == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+    if (udl != NULL) *udl = domain->udl;
+    return(CMSG_OK);
+}
+
+
 
 /*-------------------------------------------------------------------*/
 
@@ -727,6 +773,36 @@ printf("EXPID is not set!\n");
     
     return(CMSG_OK);
 }
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine reconnects the client to the RC server.
+ *
+ * @param domainId id of the domain connection
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if domainId or the pointer it points to is NULL
+ */   
+int cmsg_rc_reconnect(void **domainId) {
+
+    cMsgDomainInfo *domain;
+
+    domain = (cMsgDomainInfo *) (*domainId);
+    if (domain == NULL) return(CMSG_BAD_ARGUMENT);
+    
+    /* When changing connection status, protect it */
+    cMsgConnectWriteLock(domain);
+
+    /* domain->gotConnection = 1; */
+
+    cMsgConnectWriteUnlock(domain);
+    
+    return(CMSG_OK);
+}
+
 
 /*-------------------------------------------------------------------*/
 

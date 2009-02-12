@@ -50,9 +50,10 @@
 
 
 
-/* Prototypes of the 14 functions which implement the standard cMsg tasks in the cMsg domain. */
+/* Prototypes of the 17 functions which implement the standard cMsg tasks in the cMsg domain. */
 int   cmsg_file_connect(const char *myUDL, const char *myName, const char *myDescription,
                         const char *UDLremainder, void **domainId);
+int   cmsg_file_reconnect(void **domainId);
 int   cmsg_file_send(void *domainId, void *msg);
 int   cmsg_file_syncSend(void *domainId, void *msg, const struct timespec *timeout, int *response);
 int   cmsg_file_flush(void *domainId, const struct timespec *timeout);
@@ -70,19 +71,20 @@ int   cmsg_file_shutdownClients(void *domainId, const char *client, int flag);
 int   cmsg_file_shutdownServers(void *domainId, const char *server, int flag);
 int   cmsg_file_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
 int   cmsg_file_isConnected(void *domainId, int *connected);
+int   cmsg_file_setUDL(void *domainId, const char *udl, const char *remainder);
+int   cmsg_file_getCurrentUDL(void *domainId, char **udl);
 
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
-static domainFunctions functions = { cmsg_file_connect, cmsg_file_send,
-                                     cmsg_file_syncSend, cmsg_file_flush,
+static domainFunctions functions = { cmsg_file_connect, cmsg_file_reconnect,
+                                     cmsg_file_send, cmsg_file_syncSend, cmsg_file_flush,
                                      cmsg_file_subscribe, cmsg_file_unsubscribe,
                                      cmsg_file_subscribeAndGet, cmsg_file_sendAndGet,
                                      cmsg_file_monitor, cmsg_file_start,
                                      cmsg_file_stop, cmsg_file_disconnect,
                                      cmsg_file_shutdownClients, cmsg_file_shutdownServers,
-                                     cmsg_file_setShutdownHandler,
-                                     cmsg_file_isConnected
-};
+                                     cmsg_file_setShutdownHandler, cmsg_file_isConnected,
+                                     cmsg_file_setUDL, cmsg_file_getCurrentUDL};
 
 
 /* for registering the domain */
@@ -91,6 +93,7 @@ domainTypeInfo fileDomainTypeInfo = {"file",&functions};
 
 /* local domain info */
 typedef struct {
+  char *udl;
   char *domain;
   char *host;
   char *name;
@@ -123,6 +126,49 @@ static void mutexUnlock(pthread_mutex_t *mutex) {
     cmsg_err_abort(status, "Failed mutex unlock");
   }
 }
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine resets the UDL, but is <b>NOT</b> implemented in this domain.
+ *
+ * @param domainId id of the domain connection
+ * @param newUDL new UDL
+ * @param newRemainder new UDL remainder
+ *
+ * @returns CMSG_NOT_IMPLEMENTED this routine is not implemented
+ */
+int cmsg_file_setUDL(void *domainId, const char *newUDL, const char *newRemainder) {
+    return(CMSG_NOT_IMPLEMENTED);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine gets the UDL current used in the existing connection.
+ *
+ * @param domainId id of the domain connection
+ * @param udl pointer filled in with current UDL (do not write to this
+              pointer)
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if domainId arg is NULL
+ */
+int cmsg_file_getCurrentUDL(void *domainId, char **udl) {
+    fileDomainInfo *fdi = (fileDomainInfo*)domainId;
+    
+    /* check args */
+    if (fdi == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+    if (udl != NULL) *udl = fdi->udl;
+    return(CMSG_OK);
+}
+
 
 
 /*-------------------------------------------------------------------*/
@@ -175,6 +221,7 @@ int cmsg_file_connect(const char *myUDL, const char *myName, const char *myDescr
   if (status != 0) {
     cmsg_err_abort(status, "cmsg_file_connect: initializing mutex");
   }
+  fdi->udl      = strdup("myUDL");
   fdi->domain   = strdup("file");
   fdi->host     = (char*)malloc(256);
   cMsgLocalHost(fdi->host,256);
@@ -186,6 +233,17 @@ int cmsg_file_connect(const char *myUDL, const char *myName, const char *myDescr
 
 
   /* done */
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * No server is involved so reconnect does nothing.
+ */
+int cmsg_file_reconnect(void **domainId) {
   return(CMSG_OK);
 }
 
