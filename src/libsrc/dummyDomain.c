@@ -35,30 +35,70 @@
 
 
 
-/* Prototypes of the 14 functions which implement the standard cMsg tasks. */
-int   cmsgd_connect(const char *myUDL, const char *myName, const char *myDescription,
+/* Prototypes of the 17 functions which implement the standard cMsg tasks. */
+int   cmsg_dummy_connect(const char *myUDL, const char *myName, const char *myDescription,
               const char *UDLremainder, void **domainId);
-int   cmsgd_send(void *domainId, void *msg);
-int   cmsgd_syncSend(void *domainId, void *msg, int *response);
-int   cmsgd_flush(void *domainId);
-int   cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
+int   cmsg_dummy_reconnect(void **domainId);
+int   cmsg_dummy_send(void *domainId, void *msg);
+int   cmsg_dummy_syncSend(void *domainId, void *msg, int *response);
+int   cmsg_dummy_flush(void *domainId);
+int   cmsg_dummy_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                            void *userArg, cMsgSubscribeConfig *config, void **handle);
-int   cmsgd_unsubscribe(void *domainId, void *handle);
-int   cmsgd_subscribeAndGet(void *domainId, const char *subject, const char *type,
+int   cmsg_dummy_unsubscribe(void *domainId, void *handle);
+int   cmsg_dummy_subscribeAndGet(void *domainId, const char *subject, const char *type,
                                  const struct timespec *timeout, void **replyMsg);
-int   cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
-int   cmsgd_start(void *domainId);
-int   cmsgd_stop(void *domainId);
-int   cmsgd_disconnect(void *domainId);
-int   cmsgd_shutdownClients(void *domainId, const char *client, int flag);
-int   cmsgd_shutdownServers(void *domainId, const char *server, int flag);
-int   cmsgd_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
+int   cmsg_dummy_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
+int   cmsg_dummy_monitor(void *domainId, const char *command, void **replyMsg);
+int   cmsg_dummy_start(void *domainId);
+int   cmsg_dummy_stop(void *domainId);
+int   cmsg_dummy_disconnect(void *domainId);
+int   cmsg_dummy_shutdownClients(void *domainId, const char *client, int flag);
+int   cmsg_dummy_shutdownServers(void *domainId, const char *server, int flag);
+int   cmsg_dummy_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
+int   cmsg_dummy_isConnected(void *domainId, int *connected);
+int   cmsg_dummy_setUDL(void *domainId, const char *udl, const char *remainder);
+int   cmsg_dummy_getCurrentUDL(void *domainId, char **udl);
+
+
+/** List of the functions which implement the standard tasks in this domain. */
+static domainFunctions functions = { cmsg_dummy_connect, cmsg_dummy_reconnect,
+                                     cmsg_dummy_send, cmsg_dummy_syncSend, cmsg_dummy_flush,
+                                     cmsg_dummy_subscribe, cmsg_dummy_unsubscribe,
+                                     cmsg_dummy_subscribeAndGet, cmsg_dummy_sendAndGet,
+                                     cmsg_dummy_monitor, cmsg_dummy_start,
+                                     cmsg_dummy_stop, cmsg_dummy_disconnect,
+                                     cmsg_dummy_shutdownClients, cmsg_dummy_shutdownServers,
+                                     cmsg_dummy_setShutdownHandler, cmsg_dummy_isConnected
+                                     cmsg_dummy_setUDL, cmsg_dummy_getCurrentUDL
+};
+
+
+/* for registering the domain */
+domainTypeInfo dummyDomainTypeInfo = {"dummy",&functions};
+
+/*-------------------------------------------------------------------*/
+
+
+int cmsg_dummy_setUDL(void *domainId, const char *newUDL, const char *newRemainder) {
+  printf("setUDL\n");
+  return(CMSG_OK);
+}
 
 
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_connect(const char *myUDL, const char *myName, const char *myDescription,
+int cmsg_dummy_getCurrentUDL(void *domainId, char **udl) {
+  printf("getCurrentUDL\n");
+  return(CMSG_OK);
+}
+
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cmsg_dummy_connect(const char *myUDL, const char *myName, const char *myDescription,
                   const char *UDLremainder, void **domainId) {
   printf("Connect, my name is %s\n", myName);
   return(CMSG_OK);
@@ -68,7 +108,16 @@ int cmsgd_connect(const char *myUDL, const char *myName, const char *myDescripti
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_send(void *domainId, void *vmsg) {  
+int cmsg_dummy_reconnect(void **domainId) {
+  printf("Reconnect\n");
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cmsg_dummy_send(void *domainId, void *vmsg) {
   printf("Send\n");
   return(CMSG_OK);
 }
@@ -77,17 +126,17 @@ int cmsgd_send(void *domainId, void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_syncSend(void *domainId, void *vmsg, int *response) {
+int cmsg_dummy_syncSend(void *domainId, void *vmsg, int *response) {
   *response=0;
   printf("SyncSend\n");
-  return(cmsgd_send(domainId, vmsg));
+  return(cmsg_dummy_send(domainId, vmsg));
 }
 
 
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_subscribeAndGet(void *domainId, const char *subject, const char *type,
+int cmsg_dummy_subscribeAndGet(void *domainId, const char *subject, const char *type,
                           const struct timespec *timeout, void **replyMsg) {
   printf("SubscribeAndGet\n");
   return(CMSG_OK);
@@ -97,7 +146,7 @@ int cmsgd_subscribeAndGet(void *domainId, const char *subject, const char *type,
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
+int cmsg_dummy_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
                      void **replyMsg) {
   printf("SendAndGet\n");
   return(CMSG_OK);
@@ -107,7 +156,7 @@ int cmsgd_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeo
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_flush(void *domainId) {  
+int cmsg_dummy_flush(void *domainId) {
   printf("Flush\n");
   return(CMSG_OK);
 }
@@ -116,7 +165,7 @@ int cmsgd_flush(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
+int cmsg_dummy_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                     void *userArg, cMsgSubscribeConfig *config, void **handle) {
   printf("Subscribe\n");
   return(CMSG_OK);
@@ -126,7 +175,7 @@ int cmsgd_subscribe(void *domainId, const char *subject, const char *type, cMsgC
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_unsubscribe(void *domainId, void *handle) {
+int cmsg_dummy_unsubscribe(void *domainId, void *handle) {
   printf("Unsubscribe\n");
   return(CMSG_OK);
 }
@@ -135,7 +184,16 @@ int cmsgd_unsubscribe(void *domainId, void *handle) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_start(void *domainId) {
+int cmsg_dummy_monitor(void *domainId, const char *command, void **replyMsg) {
+  printf("Monitor\n");
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cmsg_dummy_start(void *domainId) {
   printf("Start\n");
   return(CMSG_OK);
 }
@@ -144,7 +202,7 @@ int cmsgd_start(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_stop(void *domainId) {
+int cmsg_dummy_stop(void *domainId) {
   printf("Stop\n");
   return(CMSG_OK);
 }
@@ -153,8 +211,17 @@ int cmsgd_stop(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_disconnect(void *domainId) {
+int cmsg_dummy_disconnect(void *domainId) {
   printf("Disconnect\n");
+  return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cmsg_dummy_isConnected(void *domainId, int *connected) {
+  printf("IsConnected\n");
   return(CMSG_OK);
 }
 
@@ -164,7 +231,7 @@ int cmsgd_disconnect(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg) {
+int cmsg_dummy_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg) {
   printf("SetShutdownHandler\n");
   return(CMSG_OK);
 }
@@ -173,7 +240,7 @@ int cmsgd_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void 
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_shutdownClients(void *domainId, const char *client, int flag) {
+int cmsg_dummy_shutdownClients(void *domainId, const char *client, int flag) {
   printf("ShutdownClients\n");
   return(CMSG_OK);
 }
@@ -182,10 +249,9 @@ int cmsgd_shutdownClients(void *domainId, const char *client, int flag) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsgd_shutdownServers(void *domainId, const char *server, int flag) {
+int cmsg_dummy_shutdownServers(void *domainId, const char *server, int flag) {
   printf("ShutdownServers\n");
   return(CMSG_OK);
 }
 
 
-/*-------------------------------------------------------------------*/
