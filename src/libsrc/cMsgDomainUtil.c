@@ -706,7 +706,8 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
  
   domain->receiveState        = 0;
   domain->gotConnection       = 0;
-      
+  domain->disconnectCalled    = 0;
+
   domain->sendSocket          = 0;
   domain->sendUdpSocket       = -1;
   domain->keepAliveSocket     = 0;
