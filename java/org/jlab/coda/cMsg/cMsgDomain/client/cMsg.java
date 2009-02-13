@@ -3325,7 +3325,10 @@ System.out.println("keepAliveThread" + this + ": IO Exception with cMsg server, 
                         if (debug >= cMsgConstants.debugError) {
                             System.out.println("\nkeepAliveThread: user called disconnect and server terminated connection");
                         }
-//localDisconnect(disconnectCalled);
+                        // Only get rid of subscriptions & end callbacks if disconnect called.
+                        // If server is gone (event if we have no failovers), it's still possible
+                        // for the user to call "connect" again and retain his subscriptions.
+                        localDisconnect(disconnectCalled);
                         return;
                     }
 
