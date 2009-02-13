@@ -3323,7 +3323,7 @@ System.out.println("keepAliveThread" + this + ": IO Exception with cMsg server, 
                     // if the user called "disconnect" or only 1 UDL, do NOT do any failovers
                     if (disconnectCalled || !useFailovers) {
                         if (debug >= cMsgConstants.debugError) {
-                            System.out.println("\nkeepAliveThread: user called disconnect and server terminated connection");
+                            System.out.println("\nkeepAliveThread: user called disconnect and/or server terminated connection");
                         }
                         // Only get rid of subscriptions & end callbacks if disconnect called.
                         // If server is gone (event if we have no failovers), it's still possible
@@ -3340,8 +3340,9 @@ System.out.println("keepAliveThread" + this + ": IO Exception with cMsg server, 
                         noMoreCloudServers = true;
                     }
                     resubscriptionsComplete = false;
-                    if (currentParsedUDL == null)
-//System.out.println("keepAliveThread: currentParsedUDL = null !!!");
+//                    if (currentParsedUDL == null) {
+//                        System.out.println("keepAliveThread: currentParsedUDL = null !!!");
+//                    }
 
                     while (!weGotAConnection && currentParsedUDL != null) {
 
