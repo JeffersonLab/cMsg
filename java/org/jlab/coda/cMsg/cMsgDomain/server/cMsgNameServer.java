@@ -1039,6 +1039,8 @@ public class cMsgNameServer extends Thread {
                             bytes = channel.read(buffer);
                             // for End-of-stream ...
                             if (bytes == -1) {
+System.out.println("cMsgNameServer: closing bad channel");
+                                channel.close();
                                 it.remove();
                                 continue keyLoop;
                             }
@@ -1061,6 +1063,8 @@ public class cMsgNameServer extends Thread {
                                     buffer.flip();
                                     channel.write(buffer);
 
+System.out.println("cMsgNameServer: closing bad channel");
+                                    channel.close();
                                     it.remove();
                                     continue keyLoop;
                                 }
@@ -1100,9 +1104,10 @@ public class cMsgNameServer extends Thread {
             }
         }
         catch (IOException ex) {
-            if (debug >= cMsgConstants.debugError) {
-                //ex.printStackTrace();
-            }
+            //if (debug >= cMsgConstants.debugError) {
+System.out.println("Main server IO error");
+                ex.printStackTrace();
+            //}
         }
         finally {
             try {serverChannel.close();} catch (IOException e) {}
@@ -1619,12 +1624,12 @@ public class cMsgNameServer extends Thread {
         private void handleRegularClient() throws IOException {
 //System.out.println("getClientInfo: IN");
             InetSocketAddress add = (InetSocketAddress)(channel.socket().getRemoteSocketAddress());
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("connecting client:\n  client sending addr = " + add);
-                System.out.println("  client host = " +  add.getHostName());
-                System.out.println("  client addr = " +  add.getAddress().getHostAddress());
-                System.out.println("  client sending port = " +  add.getPort());
-            }
+//            if (debug >= cMsgConstants.debugInfo) {
+//                System.out.println("connecting client:\n  client sending addr = " + add);
+//                System.out.println("  client host = " +  add.getHostName());
+//                System.out.println("  client addr = " +  add.getAddress().getHostAddress());
+//                System.out.println("  client sending port = " +  add.getPort());
+//            }
 
             // is client low/med/high throughput ?
             regime = in.readInt();
@@ -1659,62 +1664,62 @@ public class cMsgNameServer extends Thread {
             // read password
             String password = new String(bytes, offset, lengthPassword, "US-ASCII");
             offset += lengthPassword;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  password = " + password);
-            }
+//            if (debug >= cMsgConstants.debugInfo) {
+//                System.out.println("  password = " + password);
+//            }
 
             // read domain
             String domainType = new String(bytes, offset, lengthDomainType, "US-ASCII");
             offset += lengthDomainType;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  domain = " + domainType);
-            }
+//            if (debug >= cMsgConstants.debugInfo) {
+//                System.out.println("  domain = " + domainType);
+//            }
 
             // read subdomain
             String subdomainType = new String(bytes, offset, lengthSubdomainType, "US-ASCII");
             offset += lengthSubdomainType;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  subdomain = " + subdomainType);
-            }
+//            if (debug >= cMsgConstants.debugInfo) {
+//                System.out.println("  subdomain = " + subdomainType);
+//            }
 
             // Elliott wanted this printed out
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  server port = " + port);
-            }
+//            if (debug >= cMsgConstants.debugInfo) {
+//                System.out.println("  server port = " + port);
+//            }
 
             // read UDL remainder
             String UDLRemainder = new String(bytes, offset, lengthUDLRemainder, "US-ASCII");
             offset += lengthUDLRemainder;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  remainder = " + UDLRemainder);
-            }
+//            if (debug >= cMsgConstants.debugInfo) {
+//                System.out.println("  remainder = " + UDLRemainder);
+//            }
 
             // read host
             String host = new String(bytes, offset, lengthHost, "US-ASCII");
             offset += lengthHost;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  host = " + host);
-            }
+//            if (debug >= cMsgConstants.debugInfo) {
+//                System.out.println("  host = " + host);
+//            }
 
             // read name
             String name = new String(bytes, offset, lengthName, "US-ASCII");
             offset += lengthName;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  name = " + name);
-            }
+//            if (debug >= cMsgConstants.debugInfo) {
+//                System.out.println("  name = " + name);
+//            }
 
             // read UDL
             String UDL = new String(bytes, offset, lengthUDL, "US-ASCII");
             offset += lengthUDL;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  UDL = " + UDL);
-            }
+//            if (debug >= cMsgConstants.debugInfo) {
+//                System.out.println("  UDL = " + UDL);
+//            }
 
             // read description
             String description = new String(bytes, offset, lengthDescription, "US-ASCII");
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("  description = " + description);
-            }
+//            if (debug >= cMsgConstants.debugInfo) {
+//                System.out.println("  description = " + description);
+//            }
 
             // if this is not the domain of server the client is expecting, return an error
             if (!domainType.equalsIgnoreCase(this.domain)) {
@@ -1917,6 +1922,8 @@ public class cMsgNameServer extends Thread {
                     try {
                         if (info.keepAliveChannel    != null) info.keepAliveChannel.close();
                         if (info.getMessageChannel() != null) info.getMessageChannel().close();
+                        subdomainHandler.handleClientShutdown();
+                        deliverer.close();
                     }
                     catch (IOException e) {}
                     throw new cMsgException("client did not make connections to domain server");
