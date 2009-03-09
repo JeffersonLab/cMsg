@@ -1000,7 +1000,8 @@ System.out.println("connect: Done!");
 
 
     /**
-     * Method to clean up after the connection to the domain server is closed/broken.
+     * Method to clean up after the connection to the domain server is closed/broken
+     * and no failover is being done.
      * @param removeSubscriptions remove all subscriptions and stop all existing callback threads
      */
     private void localDisconnect(boolean removeSubscriptions) {
