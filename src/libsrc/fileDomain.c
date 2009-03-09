@@ -1,5 +1,6 @@
-// to do:
-//   textOnly
+/* to do:
+ *   textOnly
+ */
 
 
 
@@ -53,12 +54,13 @@
 /* Prototypes of the 17 functions which implement the standard cMsg tasks in the cMsg domain. */
 int   cmsg_file_connect(const char *myUDL, const char *myName, const char *myDescription,
                         const char *UDLremainder, void **domainId);
-int   cmsg_file_reconnect(void **domainId);
+int   cmsg_file_reconnect(void *domainId);
 int   cmsg_file_send(void *domainId, void *msg);
 int   cmsg_file_syncSend(void *domainId, void *msg, const struct timespec *timeout, int *response);
 int   cmsg_file_flush(void *domainId, const struct timespec *timeout);
-int   cmsg_file_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
-                          void *userArg, cMsgSubscribeConfig *config, void **handle);
+int   cmsg_file_subscribe(void *domainId, const char *subject, const char *type,
+                          cMsgCallbackFunc *callback, void *userArg,
+                          cMsgSubscribeConfig *config, void **handle);
 int   cmsg_file_unsubscribe(void *domainId, void *handle);
 int   cmsg_file_subscribeAndGet(void *domainId, const char *subject, const char *type,
                                 const struct timespec *timeout, void **replyMsg);
@@ -243,7 +245,7 @@ int cmsg_file_connect(const char *myUDL, const char *myName, const char *myDescr
 /**
  * No server is involved so reconnect does nothing.
  */
-int cmsg_file_reconnect(void **domainId) {
+int cmsg_file_reconnect(void *domainId) {
   return(CMSG_OK);
 }
 
@@ -344,7 +346,7 @@ int cmsg_file_send(void *domainId, void *vmsg) {
 
 int cmsg_file_syncSend(void *domainId, void *vmsg, const struct timespec *timeout, int *response) {
   *response=0;
-  return(cmsg_file_send(domainId,vmsg));
+  return(cmsg_file_send(domainId, vmsg));
 }
 
 
@@ -352,7 +354,7 @@ int cmsg_file_syncSend(void *domainId, void *vmsg, const struct timespec *timeou
 
 
 int cmsg_file_subscribeAndGet(void *domainId, const char *subject, const char *type,
-                           const struct timespec *timeout, void **replyMsg) {
+                              const struct timespec *timeout, void **replyMsg) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 
@@ -379,7 +381,7 @@ int cmsg_file_monitor(void *domainId, const char *command, void **replyMsg) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_flush(void *domainId, const struct timespec *timeout) {  
+int cmsg_file_flush(void *domainId, const struct timespec *timeout) {
   return(CMSG_OK);
 }
 
@@ -387,7 +389,9 @@ int cmsg_file_flush(void *domainId, const struct timespec *timeout) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_file_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback, void *userArg, cMsgSubscribeConfig *config, void **handle) {
+int cmsg_file_subscribe(void *domainId, const char *subject, const char *type,
+                       cMsgCallbackFunc *callback, void *userArg,
+                       cMsgSubscribeConfig *config, void **handle) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 

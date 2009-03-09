@@ -118,7 +118,7 @@ static int   parseUDL(const char *UDLR, char **host,
 int   cmsg_rc_connect           (const char *myUDL, const char *myName,
                                  const char *myDescription,
                                  const char *UDLremainder, void **domainId);
-int   cmsg_rc_reconnect         (void **domainId);
+int   cmsg_rc_reconnect         (void *domainId);
 int   cmsg_rc_send              (void *domainId, void *msg);
 int   cmsg_rc_syncSend          (void *domainId, void *msg, const struct timespec *timeout, int *response);
 int   cmsg_rc_flush             (void *domainId, const struct timespec *timeout);
@@ -152,7 +152,7 @@ static domainFunctions functions = {cmsg_rc_connect, cmsg_rc_reconnect,
                                     cmsg_rc_setShutdownHandler, cmsg_rc_isConnected,
                                     cmsg_rc_setUDL, cmsg_rc_getCurrentUDL};
 
-/* CC domain type */
+/* rc domain type */
 domainTypeInfo rcDomainTypeInfo = {
   "rc",
   &functions
@@ -181,7 +181,6 @@ int cmsg_rc_setUDL(void *domainId, const char *newUDL, const char *newRemainder)
 /**
  * This routine gets the UDL current used in the existing connection.
  *
- * @param domainId id of the domain connection
  * @param udl pointer filled in with current UDL (do not write to this
               pointer)
  *
@@ -291,7 +290,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     unsigned short serverPort;
     char  *serverHost, *expid=NULL, buffer[1024];
     int    err, status, len, expidLen, nameLen;
-    int    i, outGoing[7], multicastTO=0, connectTO=0;
+    int    i, index=0, outGoing[7], multicastTO=0, connectTO=0;
     char   temp[CMSG_MAXHOSTNAMELEN];
     char  *portEnvVariable=NULL;
     unsigned short startingPort;
@@ -783,24 +782,10 @@ printf("EXPID is not set!\n");
  *
  * @param domainId id of the domain connection
  *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId or the pointer it points to is NULL
- */   
-int cmsg_rc_reconnect(void **domainId) {
-
-    cMsgDomainInfo *domain;
-
-    domain = (cMsgDomainInfo *) (*domainId);
-    if (domain == NULL) return(CMSG_BAD_ARGUMENT);
-    
-    /* When changing connection status, protect it */
-    cMsgConnectWriteLock(domain);
-
-    /* domain->gotConnection = 1; */
-
-    cMsgConnectWriteUnlock(domain);
-    
-    return(CMSG_OK);
+ * @returns CMSG_NOT_IMPLEMENTED this routine is not implemented
+ */
+int cmsg_rc_reconnect(void *domainId) {
+    return(CMSG_NOT_IMPLEMENTED);
 }
 
 
@@ -1170,7 +1155,7 @@ int cmsg_rc_send(void *domainId, void *vmsg) {
 
 /** This routine sends a msg to the specified rc server using UDP. */
 static int udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
-  
+
   int len, lenSender, lenSubject, lenType, lenText, lenPayloadText, lenByteArray;
   int err=CMSG_OK, fd, highInt, lowInt, msgType, getResponse, outGoing[19];
   ssize_t sendLen;
@@ -1364,7 +1349,7 @@ int cmsg_rc_sendAndGet(void *domainId, void *sendMsg, const struct timespec *tim
 
 
 /** flush does nothing in the rc domain. */
-int cmsg_rc_flush(void *domainId, const struct timespec *timeout) {  
+int cmsg_rc_flush(void *domainId, const struct timespec *timeout) {
   return(CMSG_OK);
 }
 
@@ -1397,8 +1382,9 @@ int cmsg_rc_flush(void *domainId, const struct timespec *timeout) {
  * @returns CMSG_LOST_CONNECTION if the network connection to the server was closed
  *                               by a call to cMsgDisconnect()
  */   
-int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
-                      void *userArg, cMsgSubscribeConfig *config, void **handle) {
+int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type,
+                      cMsgCallbackFunc *callback, void *userArg,
+                      cMsgSubscribeConfig *config, void **handle) {
 
     int uniqueId, status, err=CMSG_OK, newSub=0;
     cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
@@ -1830,10 +1816,17 @@ int cmsg_rc_disconnect(void **domainId) {
       fprintf(stderr, "cmsg_rc_disconnect: cancel listening & client threads\n");
     }
 
+    /* cancel msg receiving thread */
     pthread_cancel(domain->pendThread);
+
     /* close listening socket */
     close(domain->listenSocket);
-    
+
+    /* Make sure this thread is really dead.
+     * This thread only returns after thread
+     * it spawned returns. */
+    pthread_join(domain->pendThread, &p);
+
     /* terminate all callback threads */
 
     /* Don't want incoming msgs to be delivered to callbacks will removing them. */
@@ -1937,7 +1930,7 @@ int cmsg_rc_disconnect(void **domainId) {
 /**
  * This routine is the default shutdown handler function.
  * @param userArg argument to shutdown handler 
- */   
+ */
 static void defaultShutdownHandler(void *userArg) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "Ran default shutdown handler\n");

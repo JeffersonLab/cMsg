@@ -2,19 +2,19 @@
 Import('env', 'libDir', 'incDir', 'debugSuffix')
 
 fileList = ['cMsg.c',
-            'cMsgCompoundPayload.c',
-            'cMsgDomain.c',
-            'cMsgDomainListenThread.c',
-            'cMsgDomainUtil.c',
-            'cMsgMatching.c',
-            'cMsgNetwork.c',
-            'encode.c',
-            'fileDomain.c',
-            'hash.c',
-            'rcDomain.c',
-            'rcDomainListenThread.c',
-            'rwlock.c',
-            'sunConcurrency.c']
+           'cMsgCompoundPayload.c',
+           'cMsgDomain.c',
+           'cMsgDomainListenThread.c',
+           'cMsgDomainUtil.c',
+           'cMsgMatching.c',
+           'cMsgNetwork.c',
+           'encode.c',
+           'fileDomain.c',
+           'hash.c',
+           'rcDomain.c',
+           'rcDomainListenThread.c',
+           'rwlock.c',
+           'sunConcurrency.c']
 
 env.AppendUnique(CPPPATH = ['.', '#src/regexp'])
 cmsgLib = env.SharedLibrary(target = 'cmsg'+debugSuffix, source = fileList)

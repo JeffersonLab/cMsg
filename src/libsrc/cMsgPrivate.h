@@ -192,7 +192,7 @@ typedef struct domainFunctions_t {
   CONNECT_PTR connect; 
   
   /** This function enables reconnection to a cMsg server. */
-  DISCONNECT_PTR reconnect;
+  START_STOP_PTR reconnect;
   
   /** This function sends a message to a cMsg server. */
   SEND_PTR send;
@@ -266,16 +266,18 @@ typedef struct domainTypeInfo_t {
 
 /** This structure contains information about a domain connection. */
 typedef struct cMsgDomain_t {
-  void *implId;        /**< Pointer set by implementation to identify particular domain connection. */
+  void *implId;         /**< Pointer set by implementation to identify particular domain connection. */
 
   /* other state variables */
-  int receiveState;    /**< Is connection receiving callback messages? 0 = No, 1 = Yes */
-  
-  char *type;          /**< Domain type (eg cMsg, CA, SmartSockets, File, etc). */
-  char *name;          /**< Name of user. */
-  char *udl;           /**< UDL of cMsg name server. */
-  char *description;   /**< User description. */
-  char *UDLremainder;  /**< UDL with initial "cMsg:domain://" stripped off. */
+  int disconnectCalled; /**< Has disconnect been called? 0 = No, 1 = Yes. */
+  int functionsRunning; /**< How many functions (needing access to this mem) currently running? */
+  int receiveState;     /**< Is connection receiving callback messages? 0 = No, 1 = Yes. */
+
+  char *type;           /**< Domain type (eg cMsg, CA, SmartSockets, File, etc). */
+  char *name;           /**< Name of user. */
+  char *udl;            /**< UDL of cMsg name server. */
+  char *description;    /**< User description. */
+  char *UDLremainder;   /**< UDL with initial "cMsg:domain://" stripped off. */
     
   /** Pointer to a structure containing pointers to domain implementation functions. */
   domainFunctions *functions;

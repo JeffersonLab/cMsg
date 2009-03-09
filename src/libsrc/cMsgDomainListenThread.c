@@ -39,17 +39,42 @@
 #include "cMsg.h"
 #include "cMsgDomain.h"
 
+/* defined in cMsgDomain.c */
+extern void* connectPointers[];
 
 /* prototypes */
 static void  cleanUpHandler(void *arg);
 static int   cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static int   cMsgWakeSyncSend(cMsgDomainInfo *domain, int response, int ssid);
 
+
 /** Structure for freeing memory in cleanUpHandler. */
 typedef struct freeMem_t {
     char *buffer;
 } freeMem;
 
+
+/*-------------------------------------------------------------------*/
+
+
+/** This routine disables pthread cancellation. */
+static void disableThreadCancellation() {
+    int status, state;
+    status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);
+    if (status != 0) {
+        cmsg_err_abort(status, "Disabling listening thread cancelability");
+    }
+}
+
+/** This routine enables pthread cancellation. */
+static void enableThreadCancellation() {
+    int status, state;
+    /* enable pthread cancellation */
+    status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
+    if (status != 0) {
+        cmsg_err_abort(status, "Enabling listening thread cancelability");
+    }
+}
 
 
 /*-------------------------------------------------------------------*
@@ -84,18 +109,36 @@ static void cleanUpHandler(void *arg) {
  *-------------------------------------------------------------------*/
 void *cMsgClientListeningThread(void *arg)
 {
+  intptr_t index;
+  void *domainId;
   int  err, size, msgId, connfd;
   int  inComing[2], status, state;
   size_t bufSize;
-  cMsgThreadInfo *info;
   char *buffer;
   freeMem *pfreeMem=NULL;
   cMsgDomainInfo *domain;
   struct timespec wait = {0, 20000000}; /* 0.02 sec */
   
-  info   = (cMsgThreadInfo *) arg;
-  domain = info->domain;
-  free(arg);
+  domainId = arg;
+  index = (intptr_t) domainId;
+  if (index < 0 || index > CMSG_CONNECT_PTRS_ARRAY_SIZE-1) {
+      if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+          fprintf(stderr, "cMsgClientListeningThread: bad value for domain, ending thread (1)\n");
+      }
+      pthread_exit(NULL);
+  }
+  
+  cMsgMemoryMutexLock();
+  domain = connectPointers[index];
+  /* If bad index or disconnect called immediately after connect, bail out. */
+  if (domain == NULL || domain->disconnectCalled) {
+      cMsgMemoryMutexUnlock();
+      if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+          fprintf(stderr, "cMsgClientListeningThread: bad value for domain, ending thread (2)\n");
+      }
+      pthread_exit(NULL);
+  }
+  cMsgMemoryMutexUnlock();
 
   /* increase concurrency for this thread */
   sun_setconcurrency(sun_getconcurrency() + 1);
@@ -104,10 +147,7 @@ void *cMsgClientListeningThread(void *arg)
   pthread_detach(pthread_self());
 
   /* disable pthread cancellation until pointer is set and handler is installed */  
-  status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
-  if (status != 0) {
-    cmsg_err_abort(status, "Disabling client cancelability");
-  }
+  disableThreadCancellation();
   
   /* Create pointer to malloced mem which will hold 2 pointers. */
   pfreeMem = (freeMem *) malloc(sizeof(freeMem));
@@ -136,10 +176,7 @@ void *cMsgClientListeningThread(void *arg)
   pthread_cleanup_push(cleanUpHandler, (void *)pfreeMem);
   
   /* enable pthread cancellation at deferred points like pthread_testcancel */  
-  status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
-  if (status != 0) {
-    cmsg_err_abort(status, "Enabling client cancelability");
-  }
+  enableThreadCancellation();
   
   /*--------------------------------------*/
   /* wait for and process client requests */
@@ -151,15 +188,14 @@ void *cMsgClientListeningThread(void *arg)
     /*
      * First, read the incoming message size. This read is also a pthread
      * cancellation point. pthread_cancel for this thread is called from only
-     * 1) connectDirect, 2) cmsg_cmsg_disconnect, and 3) disconnectFromKeepAlive
+     * 1) connectDirect and 2) connectionShutdown
      */
      
-    
-    /* Set the socket here as it may change if connection to server dies
-     * and is reestablished. */
+    /* Recheck value of socket here as it may change
+     * if connection to server dies and is reestablished. */
     connfd = domain->sendSocket;
-    /*pfreeMem->fd = connfd;*/
-    
+
+    /* pthread cancellation point */
     if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
       /* We're in the middle of failing over, wait
        * so that we don't chew up the CPU. */
@@ -173,10 +209,7 @@ void *cMsgClientListeningThread(void *arg)
     if (size > bufSize) {
       
       /* disable pthread cancellation until pointer is set */      
-      status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
-      if (status != 0) {
-        cmsg_err_abort(status, "Disabling client cancelability");
-      }
+      disableThreadCancellation();
       
       /* free previously allocated memory */
       free((void *) buffer);
@@ -194,11 +227,7 @@ void *cMsgClientListeningThread(void *arg)
       }
       
       /* re-enable pthread cancellation */
-      
-      status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
-      if (status != 0) {
-        cmsg_err_abort(status, "Reenabling client cancelability");
-      }
+      enableThreadCancellation();
     }
         
     /* extract command */
@@ -213,10 +242,7 @@ void *cMsgClientListeningThread(void *arg)
           
           /* disable pthread cancellation until message memory is released or
            * we'll get a mem leak */
-          status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
-          if (status != 0) {
-            cmsg_err_abort(status, "Disabling client cancelability");
-          }
+          disableThreadCancellation();
           
           msg = cMsgCreateMessage();
           message = (cMsgMessage_t *) msg;
@@ -226,21 +252,6 @@ void *cMsgClientListeningThread(void *arg)
             }
             exit(1);
           }
-          /*
-          if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "clientThread: subscribe response received\n");
-          }
-          */
-          /* fill in known message fields */
-          message->next = NULL;
-          clock_gettime(CLOCK_REALTIME, &message->receiverTime);
-          message->domain  = (char *) strdup("cmsg");
-          if (domain->name != NULL) {
-              message->receiver = (char *) strdup(domain->name);
-          }
-          if (domain->myHost != NULL) {
-              message->receiverHost = (char *) strdup(domain->myHost);
-          }
           
           /* read the message */
           if ( cMsgReadMessage(connfd, buffer, message) != CMSG_OK) {
@@ -248,7 +259,19 @@ void *cMsgClientListeningThread(void *arg)
               fprintf(stderr, "clientThread: error reading message\n");
             }
             cMsgFreeMessage(&msg);
+            enableThreadCancellation();
             continue;
+          }
+
+          /* fill in known message fields */
+          message->next = NULL;
+          clock_gettime(CLOCK_REALTIME, &message->receiverTime);
+          message->domain = (char *) strdup("cmsg");
+          if (domain->name != NULL) {
+              message->receiver = (char *) strdup(domain->name);
+          }
+          if (domain->myHost != NULL) {
+              message->receiverHost = (char *) strdup(domain->myHost);
           }
           
           /* run callbacks for this message */
@@ -265,14 +288,12 @@ void *cMsgClientListeningThread(void *arg)
               }
             }
             cMsgFreeMessage(&msg);
+            enableThreadCancellation();
             continue;
           }
           
           /* re-enable pthread cancellation */
-          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
-          if (status != 0) {
-            cmsg_err_abort(status, "Reenabling client cancelability");
-          }
+          enableThreadCancellation();
       }
       break;
 
@@ -284,10 +305,7 @@ void *cMsgClientListeningThread(void *arg)
           
           /* disable pthread cancellation until message memory is released or
            * we'll get a mem leak */
-          status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
-          if (status != 0) {
-            cmsg_err_abort(status, "Disabling client cancelability");
-          }
+          disableThreadCancellation();
           
           msg = cMsgCreateMessage();
           message = (cMsgMessage_t *) msg;
@@ -302,6 +320,16 @@ void *cMsgClientListeningThread(void *arg)
             fprintf(stderr, "clientThread: subscribe response received\n");
           }
           
+          /* read the message */
+          if ( cMsgReadMessage(connfd, buffer, message) != CMSG_OK) {
+            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+              fprintf(stderr, "clientThread: error reading message\n");
+            }
+            cMsgFreeMessage(&msg);
+            enableThreadCancellation();
+            continue;
+          }
+          
           /* fill in known message fields */
           message->next = NULL;
           clock_gettime(CLOCK_REALTIME, &message->receiverTime);
@@ -313,23 +341,11 @@ void *cMsgClientListeningThread(void *arg)
               message->receiverHost = (char *) strdup(domain->myHost);
           }
          
-          /* read the message */
-          if ( cMsgReadMessage(connfd, buffer, message) != CMSG_OK) {
-            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread: error reading message\n");
-            }
-            cMsgFreeMessage(&msg);
-            continue;
-          }
-          
           /* wakeup get caller for this message */
           cMsgWakeGet(domain, message);
           
           /* re-enable pthread cancellation */
-          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);  
-          if (status != 0) {
-            cmsg_err_abort(status, "Reenabling client cancelability");
-          }
+          enableThreadCancellation();
       }
       break;
 
@@ -338,20 +354,14 @@ void *cMsgClientListeningThread(void *arg)
       {
           /* Disable pthread cancellation for safety's sake --
            * never know what is in the shutdown handler. */
-          status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);
-          if (status != 0) {
-            cmsg_err_abort(status, "Disabling client cancelability");
-          }
-
+          disableThreadCancellation();
+          
           if (domain->shutdownHandler != NULL) {
               domain->shutdownHandler(domain->shutdownUserArg);
           }
-
+          
           /* re-enable pthread cancellation */
-          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
-          if (status != 0) {
-            cmsg_err_abort(status, "Reenabling client cancelability");
-          }
+          enableThreadCancellation();
 
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
               fprintf(stderr, "clientThread: told to shutdown\n");
@@ -364,6 +374,8 @@ void *cMsgClientListeningThread(void *arg)
       case  CMSG_SYNC_SEND_RESPONSE:
       {
           int response, ssid;
+              
+          /* this is a pthread cancellation point */
           if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread: error reading sync send response\n");
@@ -379,19 +391,13 @@ void *cMsgClientListeningThread(void *arg)
           /* Disable pthread cancellation until message delivered.
            * This also prevents the thread cancelling with a mutex
            * being held. */
-          status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);
-          if (status != 0) {
-            cmsg_err_abort(status, "Disabling client cancelability");
-          }
+          disableThreadCancellation();
           
           /* notify waiter that sync send response is here */
           cMsgWakeSyncSend(domain, response, ssid);
 
           /* re-enable pthread cancellation */
-          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
-          if (status != 0) {
-            cmsg_err_abort(status, "Reenabling client cancelability");
-          }
+          enableThreadCancellation();
       }
       break;
 
@@ -959,12 +965,14 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
                 cMsgMutexLock(&cb->mutex);
                 cb->fullQ = 1;
                 cMsgMutexUnlock(&cb->mutex);
-                /* Wait here until signaled - meaning message taken off cue or unsubscribed.
+                /* Wait here until signaled - meaning message taken off cue or
+                 * unsubscribed or disconnected.
                  * There is a problem doing a pthread_cancel on this thread because
                  * the only cancellation point is the timedwait which follows. The
                  * cancellation wakes the timewait which locks the mutex and then it
-                 * exits the thread. However, we do NOT want to block cancellation
-                 * here just in case we need to kill things no matter what.
+                 * exits the thread. Even though we do NOT want to block cancellation
+                 * here just in case we need to kill things no matter what, we do it
+                 * anyway to prevent messing up the mutex.
                  */
                 cMsgGetAbsoluteTime(&timeout, &wait);
 /*fprintf(stderr, "cMsgRunCallbacks: cue full, start waiting, will UNLOCK mutex\n"); */
@@ -980,12 +988,14 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
                  * Shouldn't happen, but you never know.
                  */
 
-                /* Check for our callback being unsubscribed first. */
+                /* Check for our callback being unsubscribed/disconnected first.
+                 * In this case the Q has already been emptied. */
                 if (cb->quit == 1) {
 /*printf("cMsgRunCallbacks: Try lock cb mutex\n");*/
                   cMsgMutexLock(&cb->mutex);
 /*printf("cMsgRunCallbacks: Got cb mutex\n");*/
                   cb->fullQ = 0;
+                  /* tell any cleanup handler running that we're done using cb so it may be freed */
                   status = pthread_cond_signal(&cb->cond2);
                   if (status != 0) {
                     cmsg_err_abort(status, "Failed callback condition signal");

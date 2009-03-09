@@ -1473,7 +1473,7 @@ int cMsgAddHistoryToPayloadText(void *vmsg, char *name, char *host,
         err = createStringArrayItem("cMsgSenderHostHistory", newHosts, len+1, 1, 0, &newItems[1]);
         if (err != CMSG_OK) {
             free(newNames); free(newHosts); free(newTimes);
-            // free payload item but not data it contains
+            /* free payload item but not data it contains */
             payloadItemFree(newItems[0], 0);
             free(newItems[0]);
             return(err);
@@ -1483,7 +1483,7 @@ int cMsgAddHistoryToPayloadText(void *vmsg, char *name, char *host,
                                  CMSG_CP_INT64_A, len+1, 1, 0, &newItems[2]);
         if (err != CMSG_OK) {
             free(newNames); free(newHosts); free(newTimes);
-            // free payload item but not data it contains
+            /* free payload item but not data it contains */
             payloadItemFree(newItems[0], 0);
             payloadItemFree(newItems[1], 0);
             free(newItems[0]);

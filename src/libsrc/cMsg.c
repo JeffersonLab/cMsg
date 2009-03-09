@@ -96,12 +96,23 @@
  */
 #define CMSG_MAXHOSTNAMELEN 256
 
+/** Number of local array elements in connectionPointers array. */
+#define LOCAL_ARRAY_SIZE 200
 
 /* local variables */
+
+/* Local array (one element for each connect) holding pointers to allocated memory
+ * containing connection information.
+ * Assume client does no more than LOCAL_ARRAY_SIZE concurrent connects.
+ * Usage protected by generalMutex. */
+static void* connectPointers[LOCAL_ARRAY_SIZE];
+/* Counter to help orderly use of connectPointers array. */
+static int connectPtrsCounter = 0;
+
 /** Is the one-time initialization done? */
 static int oneTimeInitialized = 0;
-/** Pthread mutex serializing calls to cMsgConnect() and cMsgDisconnect(). */
-static pthread_mutex_t connectMutex = PTHREAD_MUTEX_INITIALIZER;
+/** Pthread mutex serializing calls to initialize and free memory. */
+static pthread_mutex_t generalMutex = PTHREAD_MUTEX_INITIALIZER;
 /** Store references to different domains and their cMsg implementations. */
 static domainTypeInfo dTypeInfo[CMSG_MAX_DOMAIN_TYPES];
 /** Excluded characters from subject, type, and description strings. */
@@ -115,7 +126,7 @@ int cMsgDebug = CMSG_DEBUG_ERROR;
 extern domainTypeInfo cmsgDomainTypeInfo;
 extern domainTypeInfo fileDomainTypeInfo;
 extern domainTypeInfo   rcDomainTypeInfo;
-//extern domainTypeInfo   dummyDomainTypeInfo;
+/*extern domainTypeInfo   dummyDomainTypeInfo; */
 
 /**
  * This structure contains the components of a given UDL broken down
@@ -130,6 +141,9 @@ typedef struct parsedUDL_t {
 
 
 /* local prototypes */
+static cMsgDomain* prepareToCallFunc(int index);
+static void        cleanupAfterFunc(int index);
+
 static int   readConfigFile(char *fileName, char **newUDL);
 static int   splitUDL(const char *myUDL, parsedUDL** list, int *count);
 static int   expandConfigFileUDLs(parsedUDL **list, int *count);
@@ -144,8 +158,8 @@ static int   registerDynamicDomains(char *domainType);
 static void  domainInit(cMsgDomain *domain);
 static void  domainFree(cMsgDomain *domain);
 static int   parseUDL(const char *UDL, char **domainType, char **UDLremainder);
-static void  connectMutexLock(void);
-static void  connectMutexUnlock(void);
+static void  generalMutexLock(void);
+static void  generalMutexUnlock(void);
 static void  initMessage(cMsgMessage_t *msg);
 static int   freeMessage(void *vmsg);
 static int   freeMessage_r(void *vmsg);
@@ -281,6 +295,73 @@ int clock_gettime(int clk_id /*ignored*/, struct timespec *tp)
   return 0;
 }
 #endif
+
+
+/*-------------------------------------------------------------------*
+ * Mutex functions
+ *-------------------------------------------------------------------*/
+
+
+/** This routine locks the mutex used to initialize and free memory. */
+static void generalMutexLock(void) {
+    int status = pthread_mutex_lock(&generalMutex);
+    if (status != 0) {
+        cmsg_err_abort(status, "Failed mutex lock");
+    }
+}
+
+
+/** This routine unlocks the mutex used to initialize and free memory. */
+static void generalMutexUnlock(void) {
+    int status = pthread_mutex_unlock(&generalMutex);
+    if (status != 0) {
+        cmsg_err_abort(status, "Failed mutex unlock");
+    }
+}
+
+
+/*-------------------------------------------------------------------*
+ * Misc functions
+ *-------------------------------------------------------------------*/
+
+
+/** This routine does bookkeeping before calling domain-level functions. */
+static cMsgDomain* prepareToCallFunc(int index) {
+    cMsgDomain *domain;
+
+    generalMutexLock();
+    domain = connectPointers[index];
+    if (domain == NULL)
+/*printf("prepareToCallFunc: grabbed 1st mutex, index = %d, domain = %p\n",index, domain);*/
+    /* if bad index or disconnect has already been run, bail out */
+    if (domain == NULL || domain->disconnectCalled) {
+        generalMutexUnlock();
+        return(NULL);
+    }
+    domain->functionsRunning++;
+    generalMutexUnlock();
+    return(domain);
+}
+
+
+/** This routine does bookkeeping after calling domain-level functions. */
+static void cleanupAfterFunc(int index) {
+    cMsgDomain *domain;
+
+    generalMutexLock();
+    domain = connectPointers[index];
+    /* domain should not have been freed since we incremented functionsRunning
+     * before calling this function in prepareToCallFunc.*/
+    domain->functionsRunning--;
+    /* free memory if disconnect was called and no more functions using domain */
+    if (domain->disconnectCalled && domain->functionsRunning < 1) {
+/*printf("cleanupAfterFunc: freeing memory: index = %d, domain = %p\n", index, domain);*/
+        domainFree(domain);
+        free(domain);
+        connectPointers[index] = NULL;
+    }
+    generalMutexUnlock();
+}
 
 
 /*-------------------------------------------------------------------*/
@@ -796,40 +877,50 @@ static int processUDL(const char *myUDL, char **newUDL, char **domainType,
  * This routine resets the UDL (may be a semicolon separated list of single UDLs).
  * If a reconnect is done, the new UDLs will be used in the connection(s).
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  * @param udl new UDL
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if not successful reading file for configFile domain UDL
  * @returns CMSG_BAD_FORMAT if configFile domain file contains UDL of configFile
  *                          domain or if one of the UDLs is not in the correct format
- * @returns CMSG_BAD_ARGUMENT if either arg is NULL or UDL arg has illegal characters
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called or
+ *                            UDL arg has illegal characters or is NULL
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  * @returns CMSG_WRONG_DOMAIN_TYPE one of the domains is of the wrong type
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSetUDL
  */
 int cMsgSetUDL(void *domainId, const char *UDL) {
-    int   err;
+    int err;
+    intptr_t    index; /* int the size of a ptr */
+    cMsgDomain *domain;
     char  *domainType=NULL, *newUDL=NULL, *remainder=NULL;
-    cMsgDomain *domain = (cMsgDomain *) domainId;
-
+    
     /* check args */
-    if (domainId == NULL || UDL == NULL)  {
+    if (UDL == NULL)  {
         return(CMSG_BAD_ARGUMENT);
     }
-  
+
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+    
+
     /* chew on the UDL, transform it */
     if (err = processUDL(UDL, &newUDL, &domainType, &remainder) != CMSG_OK ) {
         return(err);
     }
 
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     if (strcasecmp(domainType, domain->type) != 0) {
         free(newUDL); free(remainder); free(domainType);
+        cleanupAfterFunc(index);
         return(CMSG_WRONG_DOMAIN_TYPE);
     }
-
-    return(domain->functions->setUDL(domain->implId, newUDL, remainder));
+    err = domain->functions->setUDL(domain->implId, newUDL, remainder);
+    cleanupAfterFunc(index);
+    
+    return(err);
 }
 
 
@@ -839,19 +930,30 @@ int cMsgSetUDL(void *domainId, const char *UDL) {
 /**
  * This routine gets the UDL current used in the existing connection.
  *
- * @param domainId id of the domain connection
- * @param udl pointer filled in with current UDL
+ * @param domainId domain connection id
+ * @param udl pointer filled in with current UDL or NULL if no connection
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if either arg is NULL
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called or
+ *                            udl arg is NULL
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgGetConnectState
  */
 int cMsgGetCurrentUDL(void *domainId, char **udl) {
-    cMsgDomain *domain = (cMsgDomain *) domainId;
+    int err;
+    intptr_t    index; /* int the size of a ptr */
+    cMsgDomain *domain;
+    
     /* check args */
-    if (domain == NULL || udl == NULL) return(CMSG_BAD_ARGUMENT);
-    return(domain->functions->getCurrentUDL(domain->implId, udl));
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+    
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    /* dispatch to function registered for this domain type */
+    err = domain->functions->getCurrentUDL(domain->implId, udl);
+    cleanupAfterFunc(index);
+    
+    return(err);
 }
 
 
@@ -882,39 +984,33 @@ int cMsgGetCurrentUDL(void *domainId, char **udl) {
  *                     or circular UDL references
  * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
  * @returns CMSG_BAD_FORMAT if the UDL is formatted incorrectly
- * @returns CMSG_OUT_OF_MEMORY if out of memory
+ * @returns CMSG_OUT_OF_MEMORY if out of memory (allocated or static)
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgConnect
  */   
 int cMsgConnect(const char *myUDL, const char *myName,
                 const char *myDescription, void **domainId) {
 
-  int     i, err, len;
-  char  *domainType=NULL, *newUDL=NULL, *remainder=NULL;
+  intptr_t    index; /* int the size of a ptr (for casting) */
+  int         i, err, len;
+  char       *domainType=NULL, *newUDL=NULL, *remainder=NULL;
   cMsgDomain *domain;
 
   /* check args */
   if ( (checkString(myName)        != CMSG_OK) ||
        (checkString(myDescription) != CMSG_OK) ||
        (domainId                   == NULL   ))  {
-    return(CMSG_BAD_ARGUMENT);
+      return(CMSG_BAD_ARGUMENT);
   }
   
   /* check for colon in name */
   len = strlen(myName);
   for (i=0; i<len; i++) {
-    if (myName[i] == ':') return(CMSG_BAD_ARGUMENT);
+      if (myName[i] == ':') return(CMSG_BAD_ARGUMENT);
   }
 
-  /* chew on the UDL, transform it, and extract info from it */
-  if (err = processUDL(myUDL, &newUDL, &domainType, &remainder) != CMSG_OK ) {
-      return(err);
-  }
-
-  /* First, grab mutex for thread safety. This mutex must be held until
-   * the initialization is completely finished.
-   */
-  connectMutexLock();
+  /* First, grab mutex for thread safety. */
+  generalMutexLock();
 
   /* do one time initialization */
   if (!oneTimeInitialized) {
@@ -926,17 +1022,53 @@ int cMsgConnect(const char *myUDL, const char *myName,
 
     /* register domain types */
     if ( (err = registerPermanentDomains()) != CMSG_OK ) {
-      /* if we can't find the domain lib, or run out of memory, return error */
-      free(newUDL); free(remainder); free(domainType);
-      connectMutexUnlock();
-      return(err);
+        /* if we can't find the domain lib, or run out of memory, return error */
+        generalMutexUnlock();
+        return(err);
+    }
+    
+    for (i=0; i<LOCAL_ARRAY_SIZE; i++) {
+        connectPointers[i] = NULL;
     }
 
     oneTimeInitialized = 1;
   }
+
+  /* look for space in static array to keep connection ptr */
+  index = -1;
+  if (connectPtrsCounter >= LOCAL_ARRAY_SIZE) {
+      connectPtrsCounter = 0;
+  }
   
-  connectMutexUnlock();
+  tryagain:
+  for (i=connectPtrsCounter; i<LOCAL_ARRAY_SIZE; i++) {
+      /* if this index is unused ... */
+      if (connectPointers[i] == NULL) {
+          connectPtrsCounter++;
+          index = i;
+          break;
+      }
+  }
+
+  /* there may be available slots we missed */
+  if (index < 0 && connectPtrsCounter > 0) {
+      connectPtrsCounter = 0;
+      goto tryagain;
+  }
+
+  generalMutexUnlock();
+
   
+  /* if no slots available .. */
+  if (index < 0) {
+      return(CMSG_OUT_OF_MEMORY);
+  }
+  
+      
+  /* chew on the UDL, transform it, and extract info from it */
+  if (err = processUDL(myUDL, &newUDL, &domainType, &remainder) != CMSG_OK ) {
+      return(err);
+  }
   
   /* register dynamic domain types */
   if ( (err = registerDynamicDomains(domainType)) != CMSG_OK ) {
@@ -955,13 +1087,14 @@ int cMsgConnect(const char *myUDL, const char *myName,
   domainInit(domain);  
 
 
-  /* store names, can be changed until server connection established */
+  /* store stuff */
   domain->name         = (char *) strdup(myName);
   domain->udl          = newUDL;
   domain->description  = (char *) strdup(myDescription);
   domain->type         = domainType;
   domain->UDLremainder = remainder;
 
+  connectPointers[index] = (void *)domain;
   
   /* if such a domain type exists, store pointer to functions */
   domain->functions = NULL;
@@ -980,12 +1113,16 @@ int cMsgConnect(const char *myUDL, const char *myName,
   err = domain->functions->connect(newUDL, myName, myDescription,
                                   remainder, &domain->implId);
   if (err != CMSG_OK) {
+      connectPointers[index] = NULL;
       domainFree(domain);
       free(domain);
       return err;
   }  
-  
-  *domainId = (void *)domain;
+/*  printf("cMsgConnect: domainId = %p, domain = %p\n", domainId, domain);
+    printf("           : &domain->implId = %p, domain>implId = %p\n", &domain->implId, domain->implId);
+*/
+
+  *domainId = (void *)index;
   
   return CMSG_OK;
 }
@@ -999,19 +1136,82 @@ int cMsgConnect(const char *myUDL, const char *myName,
  * The domainId argument is created by first calling cMsgConnect()
  * and establishing a connection to a cMsg server
  *
- * @param domainId pointer to id of the domain connection
+ * @param domainId domain connection id
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if domainId is bad or cMsgDisconnect() already called
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgReconnect
  */
-int cMsgReconnect(void **domainId) {
-    cMsgDomain *domain = (cMsgDomain *) (*domainId);
-  
-    if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
+int cMsgReconnect(void *domainId) {
+    int err;
+    intptr_t    index; /* int the size of a ptr */
+    cMsgDomain *domain;
+
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     /* dispatch to function registered for this domain type */
-    return(domain->functions->reconnect(&domain->implId));
+    err = domain->functions->reconnect(domain->implId);
+    cleanupAfterFunc(index);
+
+    return err;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine disconnects the client from the cMsg server.
+ * May only call this once if it succeeds since it frees memory.
+ *
+ * @param domainId address of domain connection id
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if this routine already called for the given domainId
+ * @returns CMSG_BAD_ARGUMENT if the domainId or the pointer it refers to is NULL,
+ *                            or cMsgDisconnect() already called
+ * @returns CMSG_LOST_CONNECTION if no longer connected to domain
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgDisconnect
+ */   
+int cMsgDisconnect(void **domainId) {
+    int err;
+    intptr_t    index; /* int the size of a ptr */
+    cMsgDomain *domain;
+  
+    if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
+    index = (intptr_t) *domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+    
+    generalMutexLock();
+    domain = connectPointers[index];
+    if (domain == NULL || domain->disconnectCalled) {
+        return(CMSG_BAD_ARGUMENT);
+        generalMutexUnlock();
+    }
+    domain->disconnectCalled = 1;
+    domain->functionsRunning++;
+/*printf("cMsgDisconnect: grabbed mutex, index = %d, domain = %p, functionsRunning = %d\n",
+           index, domain, domain->functionsRunning);
+*/
+    generalMutexUnlock();
+    
+    if ( (err = domain->functions->disconnect(&domain->implId)) != CMSG_OK ) {
+        generalMutexLock();
+        domain->disconnectCalled = 0;
+        generalMutexUnlock();
+        return err;
+    }
+
+    cleanupAfterFunc(index);
+  
+    /* make this id unusable from now on (copied id's will not be affected) */
+    *domainId = (void *)(-1);
+
+    return(CMSG_OK);
 }
 
 
@@ -1027,20 +1227,28 @@ int cMsgReconnect(void **domainId) {
  * may be created by calling cMsgCreateMessage(),
  * cMsgCreateNewMessage(), or cMsgCopyMessage().
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  * @param msg pointer to a message structure
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSend
  */
 int cMsgSend(void *domainId, void *msg) {
-    cMsgDomain *domain = (cMsgDomain *) domainId;
-  
-    if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
+    int err;
+    intptr_t    index; /* int the size of a ptr */
+    cMsgDomain *domain;
+    
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     /* dispatch to function registered for this domain type */
-    return(domain->functions->send(domain->implId, msg));
+    err = domain->functions->send(domain->implId, msg);
+    cleanupAfterFunc(index);
+    
+    return err;
 }
 
 
@@ -1056,22 +1264,29 @@ int cMsgSend(void *domainId, void *msg) {
  * may be created by calling cMsgCreateMessage(),
  * cMsgCreateNewMessage(), or cMsgCopyMessage().
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  * @param msg pointer to a message structure
  * @param timeout amount of time to wait for the response
  * @param response integer pointer that gets filled with the response
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSyncSend
  */   
 int cMsgSyncSend(void *domainId, void *msg, const struct timespec *timeout, int *response) {
-  cMsgDomain *domain = (cMsgDomain *) domainId;
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
+    
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
   
-  if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  /* dispatch to function registered for this domain type */
-  return(domain->functions->syncSend(domain->implId, msg, timeout, response));
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->syncSend(domain->implId, msg, timeout, response);
+    cleanupAfterFunc(index);
+
+    return err;
 }
 
 
@@ -1084,19 +1299,27 @@ int cMsgSyncSend(void *domainId, void *msg, const struct timespec *timeout, int 
  * it is being used. In the cMsg domain, this routine does nothing as all server
  * communications are sent immediately upon calling any function.
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  * @param timeout amount of time to wait for completion
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgFlush
  */   
 int cMsgFlush(void *domainId, const struct timespec *timeout) {
-  cMsgDomain *domain = (cMsgDomain *) domainId;
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
   
-  if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  return(domain->functions->flush(domain->implId, timeout));
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+  
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->flush(domain->implId, timeout);
+    cleanupAfterFunc(index);
+  
+    return err;
 }
 
 
@@ -1111,7 +1334,7 @@ int cMsgFlush(void *domainId, const struct timespec *timeout) {
  * Only 1 subscription for a specific combination of subject, type, callback
  * and userArg is allowed.
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  * @param subject subject of messages subscribed to
  * @param type type of messages subscribed to
  * @param callback pointer to callback to be executed on receipt of message
@@ -1121,18 +1344,26 @@ int cMsgFlush(void *domainId, const struct timespec *timeout) {
  *               from this subscription
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSubscribe
  */   
 int cMsgSubscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                   void *userArg, cMsgSubscribeConfig *config, void **handle) {
                     
-  cMsgDomain *domain = (cMsgDomain *) domainId;
+  int err;
+  intptr_t    index;
+  cMsgDomain *domain;
   
-  if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  return(domain->functions->subscribe(domain->implId, subject, type, callback,
-                                        userArg, config, handle));
+  index = (intptr_t) domainId;
+  if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+  if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+  err = domain->functions->subscribe(domain->implId, subject, type,
+                                     callback, userArg, config, handle);
+  cleanupAfterFunc(index);
+  
+  return err;
 }
 
 
@@ -1143,19 +1374,27 @@ int cMsgSubscribe(void *domainId, const char *subject, const char *type, cMsgCal
  * This routine unsubscribes to messages of the given handle (which
  * represents a given subject, type, callback, and user argument).
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  * @param handle void pointer obtained from cMsgSubscribe
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgUnSubscribe
  */   
 int cMsgUnSubscribe(void *domainId, void *handle) {
-  cMsgDomain *domain = (cMsgDomain *) domainId;
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
   
-  if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  return(domain->functions->unsubscribe(domain->implId, handle));
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->unsubscribe(domain->implId, handle);
+    cleanupAfterFunc(index);
+  
+    return err;
 } 
 
 
@@ -1171,22 +1410,29 @@ int cMsgUnSubscribe(void *domainId, void *handle) {
  * to the initial message will have its single response message sent back
  * to the original sender.
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  * @param sendMsg messages to send to all listeners
  * @param timeout amount of time to wait for the response message
  * @param replyMsg message received from the responder
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSendAndGet
  */   
 int cMsgSendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg) {
-    
-  cMsgDomain *domain = (cMsgDomain *) domainId;
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
   
-  if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  return(domain->functions->sendAndGet(domain->implId, sendMsg, timeout, replyMsg));
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->sendAndGet(domain->implId, sendMsg, timeout, replyMsg);
+    cleanupAfterFunc(index);
+  
+    return err;
 }
 
 
@@ -1197,25 +1443,32 @@ int cMsgSendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout
  * This routine gets one message from a one-time subscription to the given
  * subject and type.
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  * @param subject subject of message subscribed to
  * @param type type of message subscribed to
  * @param timeout amount of time to wait for the message
  * @param replyMsg message received
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSendAndGet
  */   
 int cMsgSubscribeAndGet(void *domainId, const char *subject, const char *type,
                         const struct timespec *timeout, void **replyMsg) {
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
   
-  cMsgDomain *domain = (cMsgDomain *) domainId;
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->subscribeAndGet(domain->implId, subject, type,
+                                              timeout, replyMsg);
+    cleanupAfterFunc(index);
   
-  if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  return(domain->functions->subscribeAndGet(domain->implId, subject, type,
-                                                timeout, replyMsg));
+    return err;
 }
 
 
@@ -1228,21 +1481,29 @@ int cMsgSubscribeAndGet(void *domainId, const char *subject, const char *type,
  * The time is data was sent can be obtained by calling cMsgGetSenderTime.
  * The monitoring data in xml format can be obtained by calling cMsgGetText.
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  * @param command string to monitor data collecting routine
  * @param replyMsg message received from the domain containing monitor data
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSendAndGet
  */   
 int cMsgMonitor(void *domainId, const char *command, void **replyMsg) {
     
-  cMsgDomain *domain = (cMsgDomain *) domainId;
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
   
-  if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-  return(domain->functions->monitor(domain->implId, command, replyMsg));
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->monitor(domain->implId, command, replyMsg);
+    cleanupAfterFunc(index);
+  
+    return err;
 }
 
 
@@ -1253,27 +1514,28 @@ int cMsgMonitor(void *domainId, const char *command, void **replyMsg) {
  * This routine enables the receiving of messages and delivery to callbacks.
  * The receiving of messages is disabled by default and must be explicitly enabled.
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgReceiveStart
  */   
 int cMsgReceiveStart(void *domainId) {
 
   int err;
-  cMsgDomain *domain = (cMsgDomain *) domainId;
+  intptr_t    index;
+  cMsgDomain *domain;
   
-  if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
+  index = (intptr_t) domainId;
+  if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-  if ( (err = domain->functions->start(domain->implId)) != CMSG_OK) {
-    return err;
-  }
+  if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+  err = domain->functions->start(domain->implId);
+  if (err == CMSG_OK) domain->receiveState = 1;
+  cleanupAfterFunc(index);
   
-  domain->receiveState = 1;
-  
-  return(CMSG_OK);
+  return err;
 }
 
 
@@ -1285,62 +1547,28 @@ int cMsgReceiveStart(void *domainId) {
  * The receiving of messages is disabled by default. This routine only has an
  * effect when cMsgReceiveStart() was previously called.
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is NULL
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgReceiveStop
  */   
 int cMsgReceiveStop(void *domainId) {
 
-  int err;
-  cMsgDomain *domain = (cMsgDomain *) domainId;
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
+  
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-  if (domain == NULL)     return(CMSG_BAD_ARGUMENT);
-
-  if ( (err = domain->functions->stop(domain->implId)) != CMSG_OK ) {
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->stop(domain->implId);
+    if (err == CMSG_OK) domain->receiveState = 0;
+    cleanupAfterFunc(index);
+  
     return err;
-  }
-  
-  domain->receiveState = 0;
-  
-  return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine disconnects the client from the cMsg server.
- *
- * @param domainId pointer to id of the domain connection
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId or the pointer it points to is NULL
- * @returns CMSG_LOST_CONNECTION if no longer connected to domain
- * @returns any errors returned from the actual domain dependent implemenation
- *          of cMsgDisconnect
- */   
-int cMsgDisconnect(void **domainId) {
-  
-  int err;
-  cMsgDomain *domain;
-  
-  if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
-  domain = (cMsgDomain *) *domainId;
-  if (domain == NULL) return(CMSG_BAD_ARGUMENT);
-    
-  if ( (err = domain->functions->disconnect(&domain->implId)) != CMSG_OK) {
-    return err;
-  }
-  
-  domainFree(domain);
-  free(domain);
-  *domainId = NULL;
-    
-  return(CMSG_OK);
 }
 
 
@@ -1353,19 +1581,28 @@ int cMsgDisconnect(void **domainId) {
  * in this case), indicates client is not connected. The meaning of
  * "connected" may vary with domain.
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  * @param connected integer pointer to be filled in with connection state,
  *                     (1-connected, 0-unconnected)
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if either arg is NULL
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgGetConnectState
  */
 int cMsgGetConnectState(void *domainId, int *connected) {
-  cMsgDomain *domain = (cMsgDomain *) domainId;
-  if (domain == NULL || connected == NULL) return(CMSG_BAD_ARGUMENT);
-  return(domain->functions->isConnected(domain->implId, connected));
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
+  
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->isConnected(domain->implId, connected);
+    cleanupAfterFunc(index);
+  
+    return err;
 }
 
 
@@ -1377,18 +1614,28 @@ int cMsgGetConnectState(void *domainId, int *connected) {
 /**
  * This routine sets the shutdown handler function.
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  * @param handler shutdown handler function
  * @param userArg argument to shutdown handler 
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgDisconnect
  */   
 int cMsgSetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg) {
+    int err; 
+    intptr_t    index;
+    cMsgDomain *domain;
   
-  cMsgDomain *domain = (cMsgDomain *) domainId;
-  return(domain->functions->setShutdownHandler(domain->implId, handler, userArg));
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->setShutdownHandler(domain->implId, handler, userArg);
+    cleanupAfterFunc(index);
+  
+    return err;
 }
 
 /*-------------------------------------------------------------------*/
@@ -1396,7 +1643,7 @@ int cMsgSetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *u
 /**
  * Method to shutdown the given clients.
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  * @param client client(s) to be shutdown
  * @param flag   flag describing the mode of shutdown: 0 to not include self,
  *               CMSG_SHUTDOWN_INCLUDE_ME to include self in shutdown.
@@ -1404,18 +1651,25 @@ int cMsgSetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *u
  * @returns CMSG_OK if successful
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement shutdown
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server
- * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called or
+ *                            flag argument improper value
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgDisconnect
  */
-int cMsgShutdownClients(void *domainId, const char *client, int flag) {
+int cMsgShutdownClients(void *domainId, const char *client, int flag) {  
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
   
-  cMsgDomain *domain = (cMsgDomain *) domainId;
-
-  if (flag != 0 && flag!= CMSG_SHUTDOWN_INCLUDE_ME) return(CMSG_BAD_ARGUMENT);
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+    if (flag != 0 && flag!= CMSG_SHUTDOWN_INCLUDE_ME) return(CMSG_BAD_ARGUMENT);
     
-  return(domain->functions->shutdownClients(domain->implId, client, flag));
-
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->shutdownClients(domain->implId, client, flag);
+    cleanupAfterFunc(index);
+  
+    return err;
 }
 
 /*-------------------------------------------------------------------*/
@@ -1423,7 +1677,7 @@ int cMsgShutdownClients(void *domainId, const char *client, int flag) {
 /**
  * Method to shutdown the given servers.
  *
- * @param domainId id of the domain connection
+ * @param domainId domain connection id
  * @param server server(s) to be shutdown
  * @param flag   flag describing the mode of shutdown: 0 to not include self,
  *               CMSG_SHUTDOWN_INCLUDE_ME to include self in shutdown.
@@ -1431,18 +1685,25 @@ int cMsgShutdownClients(void *domainId, const char *client, int flag) {
  * @returns CMSG_OK if successful
  * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement shutdown
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server
- * @returns CMSG_BAD_ARGUMENT if one of the arguments is bad
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called or
+ *                            flag argument improper value
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgDisconnect
  */
-int cMsgShutdownServers(void *domainId, const char *server, int flag) {
+int cMsgShutdownServers(void *domainId, const char *server, int flag) {  
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
   
-  cMsgDomain *domain = (cMsgDomain *) domainId;
-
-  if (flag != 0 && flag!= CMSG_SHUTDOWN_INCLUDE_ME) return(CMSG_BAD_ARGUMENT);
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+    if (flag != 0 && flag!= CMSG_SHUTDOWN_INCLUDE_ME) return(CMSG_BAD_ARGUMENT);
     
-  return(domain->functions->shutdownServers(domain->implId, server, flag));
-
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->shutdownServers(domain->implId, server, flag);
+    cleanupAfterFunc(index);
+  
+    return err;
 }
 
 /*-------------------------------------------------------------------*/
@@ -1661,7 +1922,7 @@ static int registerPermanentDomains() {
 
 
   /* runcontrol (rc) domain */
-  dTypeInfo[1].type = (char *)strdup(rcDomainTypeInfo.type); 
+  dTypeInfo[1].type = (char *)strdup(rcDomainTypeInfo.type);
   dTypeInfo[1].functions = rcDomainTypeInfo.functions;
 
 
@@ -1762,7 +2023,7 @@ static int registerDynamicDomains(char *domainType) {
       free(lowerCase);
       return(CMSG_ERROR);
   }
-  funcs->reconnect = (DISCONNECT_PTR) pValue;
+  funcs->reconnect = (START_STOP_PTR) pValue;
   
   /* get "send" function from global symbol table */
   sprintf(functionName, "cmsg_%s_send", lowerCase);
@@ -1906,7 +2167,7 @@ static int registerDynamicDomains(char *domainType) {
       free(lowerCase);
       return(CMSG_ERROR);
   }
-  funcs->getCurrentUDL = (SETUDL_PTR) pValue;
+  funcs->getCurrentUDL = (GETUDL_PTR) pValue;
 
 
 #else 
@@ -1943,7 +2204,7 @@ static int registerDynamicDomains(char *domainType) {
       dlclose(libHandle);
       return(CMSG_ERROR);
   }
-  funcs->reconnect = (DISCONNECT_PTR) sym;
+  funcs->reconnect = (START_STOP_PTR) sym;
 
   /* get "send" function */
   sprintf(functionName, "cmsg_%s_send", lowerCase);
@@ -2119,7 +2380,7 @@ static int registerDynamicDomains(char *domainType) {
       dlclose(libHandle);
       return(CMSG_ERROR);
   }
-  funcs->getCurrentUDL = (SETUDL_PTR) sym;
+  funcs->getCurrentUDL = (GETUDL_PTR) sym;
 
 
 #endif  
@@ -2170,38 +2431,6 @@ static void domainFree(cMsgDomain *domain) {
   if (domain->udl          != NULL) {free(domain->udl);          domain->udl          = NULL;}
   if (domain->description  != NULL) {free(domain->description);  domain->description  = NULL;}
   if (domain->UDLremainder != NULL) {free(domain->UDLremainder); domain->UDLremainder = NULL;}
-}
-
-
-/*-------------------------------------------------------------------*
- * Mutex functions
- *-------------------------------------------------------------------*/
-
-
-/**
- * This routine locks the mutex used to prevent cMsgConnect() and
- * cMsgDisconnect() from being called concurrently.
- */   
-static void connectMutexLock(void) {
-  int status = pthread_mutex_lock(&connectMutex);
-  if (status != 0) {
-    cmsg_err_abort(status, "Failed mutex lock");
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine unlocks the mutex used to prevent cMsgConnect() and
- * cMsgDisconnect() from being called concurrently.
- */   
-static void connectMutexUnlock(void) {
-  int status = pthread_mutex_unlock(&connectMutex);
-  if (status != 0) {
-    cmsg_err_abort(status, "Failed mutex unlock");
-  }
 }
 
 
@@ -4587,12 +4816,12 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   sprintf(pchar, "%d%n", msg->userInt, &len); pchar+=len;
   strncpy(pchar,"\"\n",2); pchar+=2;
 
-  // check if getRequest, if so, it cannot also be a getResponse
+  /* check if getRequest, if so, it cannot also be a getResponse */
   if ( msg->info & CMSG_IS_GET_REQUEST ) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
       strncpy(pchar,"getRequest        = \"true\"\n",27); pchar+=27;
   }
-  // check if nullGetResponse, if so, then it's a getResponse too (no need to print)
+  /* check if nullGetResponse, if so, then it's a getResponse too (no need to print) */
   else if ( msg->info & CMSG_IS_NULL_GET_RESPONSE ) {
       strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
       strncpy(pchar,"nullGetResponse   = \"true\"\n",27); pchar+=27;

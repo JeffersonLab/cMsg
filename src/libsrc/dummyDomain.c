@@ -38,12 +38,13 @@
 /* Prototypes of the 17 functions which implement the standard cMsg tasks. */
 int   cmsg_dummy_connect(const char *myUDL, const char *myName, const char *myDescription,
               const char *UDLremainder, void **domainId);
-int   cmsg_dummy_reconnect(void **domainId);
+int   cmsg_dummy_reconnect(void *domainId);
 int   cmsg_dummy_send(void *domainId, void *msg);
 int   cmsg_dummy_syncSend(void *domainId, void *msg, int *response);
 int   cmsg_dummy_flush(void *domainId);
-int   cmsg_dummy_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
-                           void *userArg, cMsgSubscribeConfig *config, void **handle);
+int   cmsg_dummy_subscribe(void *domainId, const char *subject, const char *type,
+                           cMsgCallbackFunc *callback, void *userArg,
+                           cMsgSubscribeConfig *config, void **handle);
 int   cmsg_dummy_unsubscribe(void *domainId, void *handle);
 int   cmsg_dummy_subscribeAndGet(void *domainId, const char *subject, const char *type,
                                  const struct timespec *timeout, void **replyMsg);
@@ -108,7 +109,7 @@ int cmsg_dummy_connect(const char *myUDL, const char *myName, const char *myDesc
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_dummy_reconnect(void **domainId) {
+int cmsg_dummy_reconnect(void *domainId) {
   printf("Reconnect\n");
   return(CMSG_OK);
 }
@@ -165,8 +166,9 @@ int cmsg_dummy_flush(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_dummy_subscribe(void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
-                    void *userArg, cMsgSubscribeConfig *config, void **handle) {
+int cmsg_dummy_subscribe(void *domainId, const char *subject, const char *type,
+                         cMsgCallbackFunc *callback, void *userArg,
+                         cMsgSubscribeConfig *config, void **handle) {
   printf("Subscribe\n");
   return(CMSG_OK);
 }

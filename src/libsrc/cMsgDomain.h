@@ -40,6 +40,10 @@ extern "C" {
 #endif
 
 
+/** Number of array elements in connectPointers array. */
+#define CMSG_CONNECT_PTRS_ARRAY_SIZE 200
+
+
 /**
  * This structure is used to synchronize threads waiting to failover (are
  * calling send or subscribe or something) and the thread which detects
@@ -184,6 +188,8 @@ typedef struct cMsgDomainInfo_t {
                              callbacks (1) or if they are being igmored (0). */
   int gotConnection;    /**< Boolean telling if connection to cMsg server is good. */
   int disconnectCalled; /**< Boolean telling if user called disconnect function. */
+  int functionsRunning; /**< How many functions using this struct are currently running? */
+  int killKAthread;     /**< Boolean telling keep alive thread to die. */
 
   int sendSocket;       /**< File descriptor for TCP socket to send/receive messages/requests on. */
   int sendUdpSocket;    /**< File descriptor for UDP socket to send messages on. */
@@ -293,7 +299,7 @@ typedef struct cMsgDomainInfo_t {
 /** This structure (pointer) is passed as an argument to a callback thread
  *  and also used to unsubscribe. */
 typedef struct cbArg_t {
-  uintptr_t domainId;     /**< Domain identifier. */
+  intptr_t domainId;      /**< Domain identifier. */
   char *key;              /**< Key into hashtable, value = subscription give by sub. */
   subInfo *sub;           /**< Pointer to subscription info structure. */
   subscribeCbInfo *cb;    /**< Pointer to callback info structure. */
@@ -314,6 +320,7 @@ typedef struct cMsgThreadInfo_t {
   int thdstarted; /**< Boolean to indicate client msg receiving thread is running. (1-y, 0-n) */
   int blocking;   /**< Block in accept (CMSG_BLOCKING) or
                       not (CMSG_NONBLOCKING)? */
+  void *domainId; /**<  Domain id (index into array). */
   cMsgDomainInfo *domain;  /**< Pointer to element of domain structure array. */
   struct cMsgThreadInfo_t *arg;  /**< Pointer to same structure. */
 } cMsgThreadInfo;
@@ -353,6 +360,8 @@ void  cMsgCountDownLatchInit(countDownLatch *latch, int count);
 void  cMsgLatchReset(countDownLatch *latch, int count, const struct timespec *timeout);
 int   cMsgLatchCountDown(countDownLatch *latch, const struct timespec *timeout);
 int   cMsgLatchAwait(countDownLatch *latch, const struct timespec *timeout);
+void  cMsgMemoryMutexLock(void);
+void  cMsgMemoryMutexUnlock(void);
 
 /* threads */
 void *cMsgClientListeningThread(void *arg);
