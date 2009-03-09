@@ -357,7 +357,9 @@ public:
   virtual void   flush(const struct timespec *timeout = NULL) throw(cMsgException);
   virtual void   start(void) throw(cMsgException);
   virtual void   stop(void)  throw(cMsgException);
+  virtual void   setUDL(const string &udl) throw(cMsgException);
   virtual string getUDL(void)         const;
+  virtual string getCurrentUDL(void)  const throw(cMsgException);
   virtual string getName(void)        const;
   virtual string getDescription(void) const;
   virtual bool   isConnected(void)    const throw(cMsgException);

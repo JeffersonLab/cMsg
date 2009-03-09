@@ -1660,19 +1660,32 @@ cMsg::~cMsg(void) {
 
 
 /**
- * Connects to cMsg system.
+ * Connects to cMsg system. If a connection has already been made, a reconnection will be
+ * attempted. In a reconnection, if there is no current connection one will be made.
+ * If there is a current, healthy connection and if the UDL to which a connection attempt
+ * will be made is identical to the currentUDL, nothing is done. If there is a current,
+ * healthy connection, and if the UDL to which a connection attempt will be made is
+ * different from the current UDL, the current connection will be disconnected and a
+ * new connection attempted with the new UDL.
+ * 
  * @throws cMsgException
  */
 void cMsg::connect(void) throw(cMsgException) {
+    int stat;
+   
+    // if we're already initialized (called connect once), we want to reconnect
+    if(initialized) {
+        if((stat=cMsgReconnect(myDomainId))!=CMSG_OK) {
+            throw(cMsgException(cMsgPerror(stat),stat));
+        }
+        return;
+    }
 
-  if(initialized)throw(cMsgException(cMsgPerror(CMSG_ALREADY_INIT),CMSG_ALREADY_INIT));
 
-
-  int stat;
-  if((stat=cMsgConnect(myUDL.c_str(),myName.c_str(),myDescr.c_str(),&myDomainId))!=CMSG_OK) {
-    throw(cMsgException(cMsgPerror(stat),stat));
-  }
-  initialized=true;
+    if((stat=cMsgConnect(myUDL.c_str(),myName.c_str(),myDescr.c_str(),&myDomainId))!=CMSG_OK) {
+        throw(cMsgException(cMsgPerror(stat),stat));
+    }
+    initialized=true;
 }
 
 
@@ -2055,8 +2068,52 @@ string cMsg::getName(void) const {
  *
  * @return UDL
  */
-string cMsg::getUDL(void) const{
-  return(myUDL);
+string cMsg::getUDL(void) const {
+    return(myUDL);
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+/**
+ * Sets the connection UDL.
+ * Any subsequent failovers or reconnects will use the new UDL.
+ *
+ * @param udl new UDL
+ * @throws cMsgException
+ */
+void cMsg::setUDL(const string &udl) throw(cMsgException) {
+
+    int stat;
+    if((stat=cMsgSetUDL(myDomainId,udl.c_str()))!=CMSG_OK) {
+        throw(cMsgException(cMsgPerror(stat),stat));
+    }
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+/**
+ * Gets UDL of the current connection, "null" if no connection.
+ *
+ * @return UDL of current connection
+ * @throws cMsgException
+ */
+string cMsg::getCurrentUDL(void) const throw(cMsgException) {
+    const char *s;
+
+    int stat;
+    if((stat=cMsgGetCurrentUDL(myDomainId,&s))!=CMSG_OK) {
+        throw(cMsgException(cMsgPerror(stat),stat));
+    };
+
+    if(s==NULL) {
+        return("null");
+    } else {
+        return(string(s));
+    }
 }
 
 
