@@ -468,24 +468,34 @@ class cMsgDomainServerSelect extends Thread {
         // remove from hashmap (otherwise the cMsgMonitorClient object will try to run this method)
         removeClient(cd);
 
-        // go through Q and remove out-dated requests
+        // Go through Q and remove out-dated requests (from this client).
+        // Do NOT remove any "send"s since they are always valid.
 //System.out.println("buffer size = " + bufferQ.size());
+        int msgId;
+        cMsgHolder hldr;
         if (clientsMax == 1) {
 //System.out.println("clear bufferQ");
-            bufferQ.clear();
+            for (Iterator it = bufferQ.iterator(); it.hasNext();) {
+                hldr = (cMsgHolder)it.next();
+                if (hldr == null) continue;
+                msgId = cMsgUtilities.bytesToInt(hldr.array, 0);
+                // remove any non-sends
+                if (msgId != cMsgConstants.msgSendRequest) {
+                    it.remove();
+                }
+            }
         }
         else {
-            cMsgHolder hldr;
 //System.out.println("Before iterator Q size = " + bufferQ.size());
             for (Iterator it = bufferQ.iterator(); it.hasNext();) {
                 // pick out requests from current client
                 hldr = (cMsgHolder)it.next();
-                if (hldr == null) {
-//System.out.println("NULL IN ITERATOR !!! Q size = " + bufferQ.size());
-                    continue;
+                if (hldr == null || hldr.data != cd) continue;
+                msgId = cMsgUtilities.bytesToInt(hldr.array, 0);
+                // remove any non-sends
+                if (msgId != cMsgConstants.msgSendRequest) {
+                    it.remove();
                 }
-                if (hldr.data != cd) continue;
-                it.remove();
             }
         }
 
@@ -979,13 +989,16 @@ class cMsgDomainServerSelect extends Thread {
                             sendMonitorData(nameServer.fullMonitorXML);
                             break;
 
-                        case cMsgConstants.msgDisconnectRequest: // client disconnecting   BUGBUG
+                        case cMsgConstants.msgDisconnectRequest: // client disconnecting
+                            // BUGBUG if no clients left, then what? shutdown domain server?
+                            deleteClient(info);
+                            break;
                             // need to shutdown this domain server
-                            if (calledShutdown.compareAndSet(false, true)) {
-//System.out.println("SHUTDOWN TO BE RUN BY msgDisconnectRequest");
-                                shutdown();
-                            }
-                            return;
+//                            if (calledShutdown.compareAndSet(false, true)) {
+////System.out.println("SHUTDOWN TO BE RUN BY msgDisconnectRequest");
+//                                shutdown();
+//                            }
+//                            return;
 
                         case cMsgConstants.msgServerShutdownSelf: // tell this name server to shutdown
                             nameServer.shutdown();
