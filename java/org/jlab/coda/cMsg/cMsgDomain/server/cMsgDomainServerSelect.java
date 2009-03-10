@@ -499,25 +499,6 @@ class cMsgDomainServerSelect extends Thread {
             }
         }
 
-        // tell client's subdomain handler to shutdown
-        if (cd.calledSubdomainShutdown.compareAndSet(false,true)) {
-//System.out.println("Try calling subdh handleClientShutdown method");
-            try {cd.subdomainHandler.handleClientShutdown();}
-            catch (cMsgException e) { e.printStackTrace(); }
-        }
-
-        // close all sockets to client
-        try {
-            cd.keepAliveChannel.close();
-            cd.getMessageChannel().close();
-        }
-        catch (IOException e) {}
-
-        // close connection from message deliverer to client
-        if (cd.getDeliverer() != null) {
-            cd.getDeliverer().close();
-        }
-
         // Unsubscribe bridges from all subscriptions if regular client.
         // (Server clients have no subscriptions passed on to other servers
         //  as this would result in infinite loops.)
@@ -607,6 +588,29 @@ class cMsgDomainServerSelect extends Thread {
                 }
             }
         }
+
+        // give request handler thread time to process sends
+        Thread.yield();
+
+        // tell client's subdomain handler to shutdown
+        if (cd.calledSubdomainShutdown.compareAndSet(false,true)) {
+//System.out.println("Try calling subdh handleClientShutdown method");
+            try {cd.subdomainHandler.handleClientShutdown();}
+            catch (cMsgException e) { e.printStackTrace(); }
+        }
+
+        // close all sockets to client
+        try {
+            cd.keepAliveChannel.close();
+            cd.getMessageChannel().close();
+        }
+        catch (IOException e) {}
+
+        // close connection from message deliverer to client
+        if (cd.getDeliverer() != null) {
+            cd.getDeliverer().close();
+        }
+
 //System.out.println(" End");
 
 //System.out.println("\nDomain Server: EXITING deleteClient for " + cd.getName() + "\n" );
