@@ -640,7 +640,7 @@ public class RCServer extends cMsgDomainAdapter {
      * @param obj {@inheritDoc}
      * @throws cMsgException if there is no connection with the rc client; obj is null
      */
-    public void unsubscribe(Object obj)
+    public void unsubscribe(cMsgSubscriptionHandle obj)
             throws cMsgException {
 
         // check arg first

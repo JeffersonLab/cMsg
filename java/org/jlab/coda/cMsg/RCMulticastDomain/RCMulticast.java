@@ -567,7 +567,7 @@ public class RCMulticast extends cMsgDomainAdapter {
      * @param obj {@inheritDoc}
      * @throws cMsgException if there is no connection with rc clients; object is null
      */
-    public void unsubscribe(Object obj) throws cMsgException {
+    public void unsubscribe(cMsgSubscriptionHandle obj) throws cMsgException {
 
         // check arg first
         if (obj == null) {

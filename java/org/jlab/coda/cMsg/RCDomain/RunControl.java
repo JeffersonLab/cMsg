@@ -461,8 +461,9 @@ public class RunControl extends cMsgDomainAdapter {
             throw new cMsgException("invalid UDL");
         }
 
+        System.out.println("Trying to parse: " +   udlRemainder);
 
-        Pattern pattern = Pattern.compile("([^:/]+)?:?(\\d+)?/?(.*)");
+        Pattern pattern = Pattern.compile("([^:/?]+)?:?(\\d+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
         String udlHost, udlPort, remainder;
@@ -522,10 +523,10 @@ public class RunControl extends cMsgDomainAdapter {
                 try { rcMulticastServerAddress = InetAddress.getByName(udlHost); }
                 catch (UnknownHostException e) {}
             }
-//System.out.println("Will unicast to host " + udlHost);
+System.out.println("Will unicast to host " + udlHost);
         }
         else {
-//System.out.println("Will multicast to " + cMsgNetworkConstants.rcMulticast);
+System.out.println("Will multicast to " + cMsgNetworkConstants.rcMulticast);
             try {
                 rcMulticastServerAddress = InetAddress.getByName(cMsgNetworkConstants.rcMulticast); }
             catch (UnknownHostException e) {
@@ -1004,7 +1005,7 @@ public class RunControl extends cMsgDomainAdapter {
      * @param obj {@inheritDoc}
      * @throws cMsgException if there are communication problems with the server; object arg is null
      */
-    public void unsubscribe(Object obj)
+    public void unsubscribe(cMsgSubscriptionHandle obj)
             throws cMsgException {
 
         // check arg first
@@ -1189,7 +1190,8 @@ public class RunControl extends cMsgDomainAdapter {
                 while (true) {
 
                     try {
-//System.out.println("Send multicast packet to RC Multicast server");
+                        System.out.println("Send multicast packet to RC Multicast server, packet = " + packet);
+                        System.out.println("packet address = " + packet.getAddress());
                         multicastUdpSocket.send(packet);
                     }
                     catch (IOException e) {

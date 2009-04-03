@@ -1902,7 +1902,7 @@ System.out.println("connect: Done!");
      * @param obj {@inheritDoc}
      * @throws cMsgException if there are communication problems with the server; object arg is null
      */
-    public void unsubscribe(Object obj)
+    public void unsubscribe(cMsgSubscriptionHandle obj)
             throws cMsgException {
 
         if (!hasUnsubscribe) {

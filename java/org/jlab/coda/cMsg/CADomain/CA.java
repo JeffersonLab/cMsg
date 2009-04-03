@@ -505,7 +505,7 @@ public class CA extends cMsgDomainAdapter {
      * @param obj {@inheritDoc}
      * @throws cMsgException if channel not connected or "monitor off" failed
      */
-    synchronized public void unsubscribe(Object obj)
+    synchronized public void unsubscribe(cMsgSubscriptionHandle obj)
             throws cMsgException {
 
         if (!connected) {
