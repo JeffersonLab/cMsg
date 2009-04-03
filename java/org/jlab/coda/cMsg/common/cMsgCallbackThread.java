@@ -282,6 +282,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
         count         = 1;
         context       = new myContext();
 
+        setDaemon(true);
         start();
     }
 
