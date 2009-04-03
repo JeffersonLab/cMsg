@@ -78,6 +78,7 @@ public class cMsgTestRcServer {
 
         System.out.println("Starting RC Multicast Domain test server");
 
+        //---------------------------------------------------------------------------------------
         // RC Multicast domain UDL is of the form:
         //       cMsg:rcm://<udpPort>?expid=<expid>
         //
@@ -88,6 +89,7 @@ public class cMsgTestRcServer {
         // 2) the experiment id is given by the optional parameter expid. If none is
         //    given, the environmental variable EXPID is used. if that is not defined,
         //    an exception is thrown.
+        //---------------------------------------------------------------------------------------
 
         String UDL = "cMsg:rcm://?expid=carlExp";
 
@@ -115,13 +117,7 @@ public class cMsgTestRcServer {
         // That was the RC multicast domain part,
         // now we go on the RC server domain part.
 
-        // Now that we have a message, we know what TCP host and port
-        // to connect to in the RC Server domain.
-        System.out.println("Starting RC Server Domain test server");
-
-        //try {Thread.sleep(4000);}
-        //catch (InterruptedException e) {}
-
+        //---------------------------------------------------------------------------------------
         // RC Server domain UDL is of the form:
         //       cMsg:rcs://<host>:<tcpPort>?port=<udpPort>
         //
@@ -134,7 +130,15 @@ public class cMsgTestRcServer {
         // 3) tcp port is optional and defaults to cMsgNetworkConstants.rcClientPort
         // 4) the udp port to listen on may be given by the optional port parameter.
         //    if it's not given, the system assigns one
-        
+        //---------------------------------------------------------------------------------------
+
+        // Now that we have a message, we know what TCP host and port
+        // to connect to in the RC Server domain.
+        System.out.println("Starting RC Server Domain test server");
+
+        //try {Thread.sleep(4000);}
+        //catch (InterruptedException e) {}
+
         String rcsUDL = "cMsg:rcs://" + rcClientHost + ":" + rcClientTcpPort;
 
         // Connect to the RC client that just connected with our RC multicast server,
