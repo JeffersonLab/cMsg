@@ -461,8 +461,6 @@ public class RunControl extends cMsgDomainAdapter {
             throw new cMsgException("invalid UDL");
         }
 
-        System.out.println("Trying to parse: " +   udlRemainder);
-
         Pattern pattern = Pattern.compile("([^:/?]+)?:?(\\d+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
@@ -523,10 +521,10 @@ public class RunControl extends cMsgDomainAdapter {
                 try { rcMulticastServerAddress = InetAddress.getByName(udlHost); }
                 catch (UnknownHostException e) {}
             }
-System.out.println("Will unicast to host " + udlHost);
+//System.out.println("Will unicast to host " + udlHost);
         }
         else {
-System.out.println("Will multicast to " + cMsgNetworkConstants.rcMulticast);
+//System.out.println("Will multicast to " + cMsgNetworkConstants.rcMulticast);
             try {
                 rcMulticastServerAddress = InetAddress.getByName(cMsgNetworkConstants.rcMulticast); }
             catch (UnknownHostException e) {
@@ -1190,8 +1188,6 @@ System.out.println("Will multicast to " + cMsgNetworkConstants.rcMulticast);
                 while (true) {
 
                     try {
-                        System.out.println("Send multicast packet to RC Multicast server, packet = " + packet);
-                        System.out.println("packet address = " + packet.getAddress());
                         multicastUdpSocket.send(packet);
                     }
                     catch (IOException e) {
