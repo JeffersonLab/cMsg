@@ -18,7 +18,7 @@ package org.jlab.coda.cMsg.common;
 
 import org.jlab.coda.cMsg.cMsgSubscriptionHandle;
 
-import java.util.ArrayList;
+import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CountDownLatch;
@@ -81,6 +81,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
      */
     public void dieNow(boolean callInterrupt) {
         dieNow = true;
+        clearQueue();
         //System.out.println("CallbackThd: Will interrupt callback thread");
         if (callInterrupt) this.interrupt();
         //System.out.println("CallbackThd: Interrupted callback thread");
@@ -106,7 +107,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
      * queue.
      */
     synchronized public void pause() {
-        if (pause) return;
+        if (pause || dieNow) return;
         // this object is good for only 1 pause/resume cycle
         latch = new CountDownLatch(1);
         pause = true;
@@ -205,20 +206,28 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
     }
 
     /**
-     * Class defining threads which can be run in parallel when many incoming
-     * messages all need to run the same callback.
+     * Class defining threads (which can be run in parallel) that
+     * will run the callback.
      */
-    class SupplementalThread extends Thread {
+    class WorkerThread extends Thread {
 
-        SupplementalThread() {
+        /** Is this a temporary or permanent worker thread? */
+        boolean permanent;
+
+        WorkerThread() {
+            this(false);
+        }
+
+        WorkerThread(boolean permanent) {
+            this.permanent = permanent;
             setDaemon(true);
             start();
         }
 
         /** This method is executed as a thread which runs the callback method */
         public void run() {
-            cMsgMessageFull message;
             int empty;
+            cMsgMessageFull message;
 
             while (true) {
                 empty = 0;
@@ -226,20 +235,30 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
 
                 while (message == null) {
                     // die immediately if commanded to
-                    if (dieNow || ++empty % 10 == 0) {
-                        //System.out.println("t -= " + threads.getAndDecrement());
+                    if (dieNow) {
+//System.out.println("Worker: -1");
                         return;
                     }
 
+                    // remove temp worker thread if no work available
+                    if (!permanent && ++empty % 10 == 0) {
+//System.out.println("Worker: -1");
+                        threads.decrementAndGet();
+                        return;
+                    }
+
+                    // In Java 1.5, don't do a messageQueue.poll() because of a bug -
+                    // a memory leak for a timeout in a LinkedBlockingQueue.
                     try {
                         message = messageQueue.poll(200, TimeUnit.MILLISECONDS);
-                        message.setContext(context);
+                        if (message != null) message.setContext(context);
                     }
                     catch (InterruptedException e) {
                     }
                 }
 
                 if (dieNow) {
+//System.out.println("Worker: -1");
                     return;
                 }
 
@@ -250,7 +269,10 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                         latch.await();
                     }
                     catch (InterruptedException e) {
-                        if (dieNow) return;
+                        if (dieNow) {
+//System.out.println("Worker: -1");
+                            return;
+                        }
                     }
                 }
                 // run callback with copied msg so multiple callbacks don't clobber each other
@@ -259,6 +281,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
             }
         }
     }
+
 
 
     /**
@@ -326,22 +349,36 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
 
     /** This method is executed as a thread which runs the callback method */
     public void run() {
-        cMsgMessageFull message;
-        int threadsAdded, threadsExisting, need, maxToAdd, wantToAdd;
+        boolean qSizeNotChanged;
+        int threadsAdded, threadsExisting, need, maxToAdd, wantToAdd, qSize;
+
+        // start one permanent worker thread
+        new WorkerThread(true);
+        threads.incrementAndGet();
+//System.out.println("Worker: +1");
 
         while (true) {
+
+            if (dieNow) {
+                // all worker threads will die when they wake
+                restart();
+//System.out.println("CB: -1");
+                return;
+            }
+
+            qSize = messageQueue.size();
             threadsExisting = threads.get();
-            threadsAdded = 0;
-            message = null;
+//System.out.println(threadsExisting + " threads, Q size = " + qSize);
 
             if (!callback.mustSerializeMessages() &&
-                threadsExisting < callback.getMaximumQueueSize() &&
-                messageQueue.size() > callback.getMessagesPerThread()) {
+                threadsExisting < callback.getMaximumThreads() &&
+                qSize > callback.getMessagesPerThread()) {
 
                 // find number of threads needed
-                need = messageQueue.size()/callback.getMessagesPerThread();
+                need = qSize/callback.getMessagesPerThread();
+//System.out.println("need  " + need + " threads");
 
-                // at this point, threads may only decrease, it is only increased below
+                // at this point, # of threads may only decrease, it is only increased below
 
                 // add more threads if necessary
                 if (need > threadsExisting) {
@@ -353,57 +390,31 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
 
                     // number of threads that we will add
                     threadsAdded = maxToAdd > wantToAdd ? wantToAdd : maxToAdd;
+//System.out.println("starting " + threadsAdded + " more thread(s)");
 
                     for (int i=0; i < threadsAdded; i++) {
-                        new SupplementalThread();
+                        new WorkerThread();
+                        // Update the number of threads running.
+                        // Do it here instead of in worker thread
+                        // since that takes some time to start up.
+                        threads.incrementAndGet();
+//System.out.println("Worker: +1");
                     }
-
-                    // do the following bookkeeping under mutex protection
-                    //if (threadsAdded > 0) {
-                    //    System.out.println("t += " + threads.getAndAdd(threadsAdded));
-                    //}
                 }
             }
 
-            // While loop only necessary when calling messageQueue.poll.
-            // That call was replaced as it had a mem leak in Java 1.5.
-            while (message == null) {
-                // die immediately if commanded to
-                if (dieNow || Thread.currentThread().isInterrupted()) {
+            // sleep until Q size changes
+            qSizeNotChanged = qSize - messageQueue.size() == 0;
+            while (qSizeNotChanged) {
+                if (dieNow) {
+                    restart();
+//System.out.println("CB: -1");
                     return;
                 }
-
-                // Cannot do a messageQueue.poll(1000, TimeUnit.MILLISECONDS)
-                // because of a bug in Java 1.5 of a memory leak for a timeout in
-                // a LinkedBlockingQueue.
-                // BUGBUG
-                try {
-                    message = messageQueue.take();
-                    message.setContext(context);
-                }
-                catch (InterruptedException e) {
-                    //System.out.println("CallbackThd: Interrupted a messageQueue take");
-                }
+                try {Thread.sleep(10); }
+                catch (InterruptedException e) {}
+                qSizeNotChanged = qSize - messageQueue.size() == 0;
             }
-
-            if (dieNow) {
-                return;
-            }
-
-            // pause if necessary
-            if (pause) {
-                try {
-                    // wait till restart is called
-                    latch.await();
-                }
-                catch (InterruptedException e) {
-                    if (dieNow) return;
-                }
-            }
-
-            // run callback with copied msg so multiple callbacks don't clobber each other
-            msgCount++;
-            callback.callback(message.copy(), arg);
         }
     }
 }
