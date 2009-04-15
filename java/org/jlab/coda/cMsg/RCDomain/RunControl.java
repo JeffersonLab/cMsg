@@ -703,7 +703,7 @@ public class RunControl extends cMsgDomainAdapter {
             }
 
             // length not including first int
-            int totalLength = (4 * 14) + name.length() + subject.length() +
+            int totalLength = (4 * 15) + name.length() + subject.length() +
                     type.length() + payloadLen + textLen + binaryLength;
 
             // total length of msg (not including this int) is 1st item
@@ -807,7 +807,7 @@ public class RunControl extends cMsgDomainAdapter {
         int binaryLength = message.getByteArrayLength();
 
         // total length of msg (not including first int which is this size)
-        int totalLength = (4 * 14) + name.length() + subject.length() +
+        int totalLength = (4 * 15) + name.length() + subject.length() +
                 type.length() + payloadLen + textLen + binaryLength;
 
         if (totalLength > 8192) {
