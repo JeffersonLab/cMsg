@@ -3283,18 +3283,18 @@ System.out.println("ERROR STRING = " + err);
                         try {
                             // quit thread
                             if (killThread) {
-System.out.println("keepAliveThread" + this + ": been told to die, return");
+//System.out.println("keepAliveThread" + this + ": been told to die, return");
                                 return;
                             }
                             getMonitorInfo();
                         }
                         catch (InterruptedIOException e) {
-System.out.println("keepAliveThread: interrupted IO with cMsg server, try reading monitor info again");
+//System.out.println("keepAliveThread: interrupted IO with cMsg server, try reading monitor info again");
                         }
                     }
                 }
                 catch (IOException e) { }
-System.out.println("keepAliveThread" + this + ": IO Exception with cMsg server, try grabbing connectLock");
+//System.out.println("keepAliveThread" + this + ": IO Exception with cMsg server, try grabbing connectLock");
 //System.out.println("keepAliveThread" + this + ": wait for 3 seconds");
 //                try { Thread.sleep(3000); }
 //                catch (InterruptedException e) {
