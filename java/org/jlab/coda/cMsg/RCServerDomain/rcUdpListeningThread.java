@@ -153,12 +153,12 @@ class rcUdpListeningThread extends Thread {
                 // enable the packet to receive all the data
                 packet.setLength(cMsgNetworkConstants.biggestUdpPacketSize);
                 receiveSocket.receive(packet);
-//System.out.println("RECEIVED UDP PACKET!!!");
+//System.out.println("RECEIVED UDP PACKET!!! , packet len = " + packet.getLength());
                 if (killThread) return;
 
                 if (packet.getLength() < 5*4) {
                     if (debug >= cMsgConstants.debugWarn) {
-                        System.out.println("got UDP packet that's too small");
+                        System.out.println("got UDP packet that's too small 1, packet len = " + packet.getLength());
                     }
                     continue;
                 }
@@ -180,9 +180,9 @@ class rcUdpListeningThread extends Thread {
                 int len   = cMsgUtilities.bytesToInt(buf, 12);
                 int msgId = cMsgUtilities.bytesToInt(buf, 16);
 
-                if (packet.getLength() < 5*4 + len) {
+                if (packet.getLength() < 4*4 + len) {
                     if (debug >= cMsgConstants.debugWarn) {
-                        System.out.println("got UDP packet that's too small");
+                        System.out.println("got UDP packet that's too small 2, packet len = " + packet.getLength());
                     }
                     continue;
                 }
