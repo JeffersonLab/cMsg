@@ -63,7 +63,13 @@ extern "C" {
     fprintf (stderr, "%s at \"%s\":%d: %s\n", \
         text, __FILE__, __LINE__, strerror (code)); \
     abort (); \
-    } while (0)
+} while (0)
+
+#define cmsg_err_exit(code,text) do { \
+    fprintf (stderr, "%s at \"%s\":%d\n", \
+        text, __FILE__, __LINE__); \
+    exit (code); \
+} while (0)
 
 #define cmsg_err(text) do { \
     fprintf (stderr, "%s at \"%s\":%d\n", text, __FILE__, __LINE__); \
@@ -180,7 +186,7 @@ typedef int (*ISCONNECTED_PTR)          (void *domainId, int *connected);
 typedef int (*SETUDL_PTR)               (void *domainId, const char *udl, const char *udlRemainder);
 
 /** Typedef for a domain's getCurrentUDL function */
-typedef int (*GETUDL_PTR)               (void *domainId, char **udl);
+typedef int (*GETUDL_PTR)               (void *domainId, const char **udl);
 
 
 
@@ -312,8 +318,8 @@ typedef struct singleStringItem_t {
 
 /** 
  * This structure is used to form a compound payload.
- * It is an item that represents a number, a string, an array of either,
- * binary data, or another cMsg message.
+ * It is an item that represents a number, a string, binary data
+ * a cMsg message, or an array of any of those.
  * It is designed to allowing the marshalling of its string(s) and/or number(s)
  * to a simple format text string. This format allows easy unmarshalling of the
  * text back into its constituent parts.
@@ -321,9 +327,12 @@ typedef struct singleStringItem_t {
 typedef struct payloadItem_t {
     int    type;     /**< Type of item (number, bin, string, msg) stored in this item. */
     int    count;    /**< Number of items in array if array, else 1. */
-    int    length;   /**< Length of text in chars. */
+    int    length;   /**< Length of string representation in chars. */
     int    noHeaderLen; /**< Length of text in chars without header (first) line. */
     int    endian;   /**< Endian value (CMSG_ENDIAN_BIG/LITTLE) if item is binary. */
+    int   *endians;  /**< Endian values (CMSG_ENDIAN_BIG/LITTLE) if item is binary array. */
+    int    size;     /**< Size (in bytes) value if item is binary. */
+    int   *sizes;    /**< Size (in bytes) values if item is binary array. */
 
     char  *text;     /**< String representation for this item, containing name,
                       * - type, count, length, values, etc for wire protocol. */
@@ -438,9 +447,9 @@ typedef struct subscribeConfig_t {
   int    skipSize;      /**< Maximum number of messages to skip over (delete) from the 
                              cue for a callback when the cue size has reached it limit
                              (if maySkip = 1) . */
-  int    maxThreads;    /**< Maximum number of supplemental threads to use for running
+  int    maxThreads;    /**< Maximum number of worker threads to use for running
                              the callback if mustSerialize is 0 (off). */
-  int    msgsPerThread; /**< Enough supplemental threads are started so that there are
+  int    msgsPerThread; /**< Enough worker threads are started so that there are
                              at most this many unprocessed messages for each thread. */
   size_t stackSize;     /**< Stack size in bytes of subscription thread. By default 
                              this is left unspecified (0). */
@@ -449,9 +458,9 @@ typedef struct subscribeConfig_t {
 /* private prototype used in multiple files */
          int  cMsgPayloadSetFieldPointer(const void *vmsg, const char *name, void *p);
          int  cMsgPayloadGetFieldPointer(const void *vmsg, const char *name, void **p);
-unsigned int  cMsg_b64_encode        (const char *src, unsigned int len, char *dst);
+unsigned int  cMsg_b64_encode        (const char *src, unsigned int len, char *dst, int lineBreaks);
          int  cMsg_b64_decode        (const char *src, unsigned int len, char *dst);
-unsigned int  cMsg_b64_encode_len    (const char *src, unsigned int srclen);
+unsigned int  cMsg_b64_encode_len    (const char *src, unsigned int srclen, int lineBreaks);
 unsigned int  cMsg_b64_decode_len    (const char *src, unsigned int srclen);
 unsigned int  cMsg_b64_encode_len_est(const char *src, unsigned int srclen);
 unsigned int  cMsg_b64_decode_len_est(const char *src, unsigned int srclen);
