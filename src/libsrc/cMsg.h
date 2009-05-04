@@ -156,7 +156,7 @@ int clock_gettime(int dummy, struct timespec *t1);
   int   cMsgShutdownServers   (void *domainId, const char *server, int flag);
   int   cMsgGetConnectState   (void *domainId,  int *connectState);
   int   cMsgSetUDL            (void *domainId, const char *udl);
-  int   cMsgGetCurrentUDL     (void *domainId, char **udl);
+  int   cMsgGetCurrentUDL     (void *domainId, const char **udl);
   char *cMsgPerror            (int errorCode);
   
   
@@ -266,7 +266,10 @@ const char *cMsgPayloadFieldDescription(const void *vmsg, const char *name);
   void   cMsgPayloadClear            (      void *vmsg);
   int    cMsgHasPayload              (const void *vmsg, int *hasPayload);
  
-  int    cMsgGetBinary               (const void *vmsg, const char *name, const char **val, int *len, int *endian);
+  int    cMsgGetBinary               (const void *vmsg, const char *name, const char **val,
+                                      int *len, int *endian);
+  int    cMsgGetBinaryArray          (const void *vmsg, const char *name, const char ***vals,
+                                      int **sizes, int **endians, int *count);
 
   int    cMsgGetMessage              (const void *vmsg, const char *name, const void **val);
   int    cMsgGetMessageArray         (const void *vmsg, const char *name, const void ***val, int *len);
