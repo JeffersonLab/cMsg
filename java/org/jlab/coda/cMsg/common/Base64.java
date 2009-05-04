@@ -499,7 +499,8 @@ public class Base64 {
      *
      * @param in Stream from which to read data that needs to be encoded.
      * @param out Stream to which to write encoded data.
-     * @param lineBreaks Whether to insert line breaks every 76 characters in the output.
+     * @param lineBreaks Whether to insert line breaks every 76 characters
+     *        and at end in the output.
      * @throws IOException if there is a problem reading or writing.
      *
      * @since ostermillerutils 1.00.00
