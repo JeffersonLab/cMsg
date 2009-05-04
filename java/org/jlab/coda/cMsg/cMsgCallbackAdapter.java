@@ -14,9 +14,9 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg.common;
+package org.jlab.coda.cMsg;
 
-import org.jlab.coda.cMsg.cMsgMessage;
+import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
 
 /**
  * This class is an adapter which implements the cMsgCallbackInterface.
