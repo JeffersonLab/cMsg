@@ -34,7 +34,7 @@ import java.util.Arrays;
  * that contains the item_name). There may be several spaces between the last 2
  * entries on these lines.<p/>
  *
- *<b><i>for string items:</i></b><p/>
+ *<b><i>for (arrays of) string items:</i></b><p/>
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
  *    string_length_1[nl]
  *    string_characters_1[nl]
@@ -44,19 +44,22 @@ import java.util.Arrays;
  *    string_length_N[nl]
  *    string_characters_N</pre><p/>
  *
- *<b><i>for binary (converted into text) items:</i></b><p/>
- *
- *<pre>    item_name   item_type   original_binary_byte_length   isSystemItem?   item_length[nl]
- *    string_length   endian[nl]
- *    string_characters[nl]</pre><p/>
+ *<b><i>for (arrays of) binary (converted into text) items:</i></b><p>
+ *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
+ *    string_length_1   original_binary_byte_length_1   endian_1[nl]
+ *    string_characters_1[nl]</pre><p>
+ *     .
+ *     .
+ *     .
+ *    string_length_N   original_binary_byte_length_N   endian_N[nl]
+ *    string_characters_N</pre><p>
  *
  *<b><i>for primitive type items:</i></b><p/>
- *
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
  *    value_1   value_2   ...   value_N[nl]</pre><p/>
  *
- *  <b>A cMsg message is formatted as a compound payload. Each message has
- *  a number of fields (payload items).<p/>
+ *<b>A cMsg message is formatted as a compound payload. Each message has
+ *   a number of fields (payload items).<p/>
  *
  *  <i>for message items:</i></b><p/>
  *<pre>                                                                            _
@@ -107,6 +110,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * <LI>{@link cMsgConstants#payloadUint32A}     for an unsigned 32 bit int array
      * <LI>{@link cMsgConstants#payloadUint64A}     for an unsigned 64 bit int array
      * <LI>{@link cMsgConstants#payloadMsgA}        for a  cMsg message array
+     * <LI>{@link cMsgConstants#payloadBinA}        for an array of binary items
      * </UL>
      */
     private int type;
@@ -126,6 +130,9 @@ public final class cMsgPayloadItem implements Cloneable {
 
     /** Endian value if item is binary. */
     private int endian = cMsgConstants.endianBig;
+
+    /** Endian values if item is array of binary arrays. */
+    private int[] endianArray;
 
     /** Is this item part of a hidden system field in the payload? */
     private boolean isSystem;
@@ -166,6 +173,9 @@ public final class cMsgPayloadItem implements Cloneable {
     public Object clone() {
         try {
             cMsgPayloadItem result = (cMsgPayloadItem) super.clone();
+            if (endianArray != null) {
+                result.endianArray = endianArray.clone();
+            }
             // The problem is how to clone the item object.
             // If it's a String, Byte, Short, Integer, Long, Float, Double,
             // or BigInteger, it's immutable and doesn't need explicit cloning.
@@ -181,10 +191,17 @@ public final class cMsgPayloadItem implements Cloneable {
             else if (type == cMsgConstants.payloadUint64A) { result.item = ((BigInteger[]) item).clone(); }
             else if (type == cMsgConstants.payloadMsg)     { result.item = ((cMsgMessage)  item).clone(); }
             else if (type == cMsgConstants.payloadMsgA)    {
-                result.item = ((cMsgMessage[]) item).clone();
                 cMsgMessage[] msgs = (cMsgMessage[]) item;
+                result.item = new cMsgMessage[count];
                 for (int i = 0; i < msgs.length; i++) {
-                    ((cMsgMessage[])result.item)[i] = (cMsgMessage) ((cMsgMessage[]) item)[i].clone();
+                    ((cMsgMessage[])result.item)[i] = (cMsgMessage) msgs[i].clone();
+                }
+            }
+            else if (type == cMsgConstants.payloadBinA)    {
+                byte[][] bb = (byte[][]) item;
+                result.item = new byte[count][];
+                for (int i = 0; i < bb.length; i++) {
+                    ((byte[][])result.item)[i] = (byte[])bb[i].clone();
                 }
             }
             return result;
@@ -267,7 +284,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if name is null, contains illegal characters, starts with
      *                       "cmsg" if not isSystem, or is too long
      */
-    private void validName(String name, boolean isSystem) throws cMsgException {
+    static private void validName(String name, boolean isSystem) throws cMsgException {
         if (name == null) {
             throw new cMsgException("name argument is null");
         }
@@ -334,7 +351,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @return either {@link cMsgConstants#endianBig} or {@link cMsgConstants#endianLittle}
      * @throws cMsgException if endian is an improper value
      */
-    private int checkEndian(int endian) throws cMsgException {
+    static private int checkEndian(int endian) throws cMsgException {
         if (endian != cMsgConstants.endianBig    &&
             endian != cMsgConstants.endianLittle &&
             endian != cMsgConstants.endianLocal  &&
@@ -355,7 +372,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param sb StringBuilder object into which the characters are written
      * @param zeros the number of zeros to be encoded/compressed
      */
-    private void zerosToIntStr(StringBuilder sb, int zeros) {
+    static private void zerosToIntStr(StringBuilder sb, int zeros) {
         sb.append("Z");
         sb.append( toASCII[ zeros >> 24 & 0xff ].charAt(1) );
         sb.append( toASCII[ zeros >> 16 & 0xff ] );
@@ -371,7 +388,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param sb StringBuilder object into which the characters are written
      * @param zeros the number of zeros to be encoded/compressed
      */
-    private void zerosToLongStr(StringBuilder sb, int zeros) {
+    static private void zerosToLongStr(StringBuilder sb, int zeros) {
         sb.append("Z00000000");
         sb.append( toASCII[ zeros >> 24 & 0xff ].charAt(1) );
         sb.append( toASCII[ zeros >> 16 & 0xff ] );
@@ -386,7 +403,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param sb StringBuilder object into which the characters are written
      * @param l the number to transform
      */
-    private void longToStr(StringBuilder sb, long l) {
+    static private void longToStr(StringBuilder sb, long l) {
         sb.append( toASCII[ (int) (l>>56 & 0xffL) ] );
         sb.append( toASCII[ (int) (l>>48 & 0xffL) ] );
         sb.append( toASCII[ (int) (l>>40 & 0xffL) ] );
@@ -404,7 +421,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param sb StringBuilder object into which the characters are written
      * @param i the number to transform
      */
-    private final void intToStr(StringBuilder sb, int i) {
+    static private final void intToStr(StringBuilder sb, int i) {
         sb.append( toASCII[ i>>24 & 0xff ] );
         sb.append( toASCII[ i>>16 & 0xff ] );
         sb.append( toASCII[ i>> 8 & 0xff ] );
@@ -544,6 +561,76 @@ public final class cMsgPayloadItem implements Cloneable {
         endian = checkEndian(end);
         addBinary(name, b, txt, isSystem, noHeadLen);
     }
+
+    /**
+     * Construct a payload item from an array of byte arrays containing binary data.
+     *
+     * @param name name of item
+     * @param b array of byte arrays containing binary data to be part of the payload
+     * @param end array of endian values of the binary data ({@link cMsgConstants#endianBig},
+     *            {@link cMsgConstants#endianLittle}, {@link cMsgConstants#endianLocal}, or
+     *            {@link cMsgConstants#endianNotLocal})
+     * @throws cMsgException if invalid name or endian values, not enough endian values for bin arrays
+     */
+    public cMsgPayloadItem(String name, byte[][] b, int[] end) throws cMsgException {
+        validName(name, false);
+        if (b.length > end.length) {
+            throw new cMsgException("need an endian value for each byte array");
+        }
+        endianArray = new int[b.length];
+        for (int i=0; i<b.length; i++) {
+            endianArray[i] = checkEndian(end[i]);
+        }
+        addBinary(name, b, false);
+    }
+
+    /**
+     * Construct a payload item from an array of byte arrays containing binary data.
+     * Big endian data is assumed.
+     *
+     * @param name name of item
+     * @param b array of byte arrays containing binary data to be part of the payload
+     *            {@link cMsgConstants#endianLittle}, {@link cMsgConstants#endianLocal}, or
+     *            {@link cMsgConstants#endianNotLocal})
+     * @throws cMsgException if invalid name or endian value
+     */
+    public cMsgPayloadItem(String name, byte[][] b) throws cMsgException {
+        validName(name, false);
+        endianArray = new int[b.length];
+        for (int i=0; i<b.length; i++) {
+            endianArray[i] = cMsgConstants.endianBig;
+        }
+        addBinary(name, b, false);
+    }
+
+    /**
+     * Construct a payload item from an array of byte arrays containing binary data.
+     * Used internally when decoding a text representation
+     * of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param b array of byte arrays containing binary data to be part of the payload
+     * @param end array of endian values of the binary data ({@link cMsgConstants#endianBig},
+     *            {@link cMsgConstants#endianLittle}, {@link cMsgConstants#endianLocal}, or
+     *            {@link cMsgConstants#endianNotLocal})
+     * @param txt text representation of the payload item
+     * @param noHeadLen length of the text representation NOT including the header line
+     * @param isSystem is the item a system field (name starts with "cmsg") ?
+     * @throws cMsgException if invalid name or endian values, not enough endian values for bin arrays
+     */
+    cMsgPayloadItem(String name, byte[][] b, int[] end,
+                    String txt, int noHeadLen, boolean isSystem) throws cMsgException {
+        validName(name, isSystem);
+        if (b.length > end.length) {
+            throw new cMsgException("need an endian value for each byte array");
+        }
+        endianArray = new int[b.length];
+        for (int i=0; i<b.length; i++) {
+            endianArray[i] = checkEndian(end[i]);
+        }
+        addBinary(name, b, txt, isSystem, noHeadLen);
+    }
+
 
     //--------------------------
     // Constructors, Message
@@ -837,7 +924,7 @@ public final class cMsgPayloadItem implements Cloneable {
      */
     public cMsgPayloadItem(String name, byte[] b) throws cMsgException {
         validName(name, false);
-        addByte(name, b, false);
+        addByte(name, b, false, true);
     }
 
     /**
@@ -869,7 +956,7 @@ public final class cMsgPayloadItem implements Cloneable {
      */
     public cMsgPayloadItem(String name, short[] s) throws cMsgException {
         validName(name, false);
-        addShort(name, s, false);
+        addShort(name, s, false, true);
     }
 
     /**
@@ -902,7 +989,7 @@ public final class cMsgPayloadItem implements Cloneable {
      */
     public cMsgPayloadItem(String name, int[] i) throws cMsgException {
         validName(name, false);
-        addInt(name, i, false);
+        addInt(name, i, false, true);
     }
 
     /**
@@ -935,7 +1022,7 @@ public final class cMsgPayloadItem implements Cloneable {
      */
     public cMsgPayloadItem(String name, long[] l) throws cMsgException {
         validName(name, false);
-        addLong(name, l, false);
+        addLong(name, l, false, true);
     }
 
     /**
@@ -950,7 +1037,7 @@ public final class cMsgPayloadItem implements Cloneable {
      */
     cMsgPayloadItem(String name, long[] l, boolean isSystem) throws cMsgException {
         validName(name, isSystem);
-        addLong(name, l, isSystem);
+        addLong(name, l, isSystem, false);
     }
 
     /**
@@ -1041,6 +1128,8 @@ public final class cMsgPayloadItem implements Cloneable {
          }
          else if (s.equals("java.lang.Integer")) {
              typ = cMsgConstants.payloadInt32A;
+
+             System.out.println("cMsgPayloadItem constructor: typ = cMsgConstants.payloadInt32A");
          }
          else if (s.equals("java.lang.Long")) {
              typ = cMsgConstants.payloadInt64A;
@@ -1133,7 +1222,7 @@ public final class cMsgPayloadItem implements Cloneable {
      */
     public cMsgPayloadItem(String name, float[] f) throws cMsgException {
         validName(name, false);
-        addFloat(name, f, false);
+        addFloat(name, f, false, true);
     }
 
     /**
@@ -1162,7 +1251,7 @@ public final class cMsgPayloadItem implements Cloneable {
      */
     public cMsgPayloadItem(String name, double[] d) throws cMsgException {
         validName(name, false);
-        addDouble(name, d, false);
+        addDouble(name, d, false, true);
     }
 
     /**
@@ -1200,6 +1289,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param isSystem is the given string (val) a system field?
      */
     private void addString(String name, String val, boolean isSystem) {
+        // String is immutable so we don't have to copy it
         item = val;
         type = cMsgConstants.payloadStr;
         this.name = name;
@@ -1252,7 +1342,8 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param isSystem is the given string array a system field?
      */
     private void addString(String name, String[] vals, boolean isSystem) {
-        item  = vals;
+        // since String is immutable, the clone is fine
+        item  = vals.clone();
         count = vals.length;
         type = cMsgConstants.payloadStrA;
         this.name = name;
@@ -1308,27 +1399,30 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param isSystem is the given byte array a system field?
      */
     private void addBinary(String name, byte[] bin, boolean isSystem) {
-        item = bin;
+        item = bin.clone();
         type = cMsgConstants.payloadBin;
         this.name = name;
         this.isSystem = isSystem;
 
         // Create string to hold all data to be transferred over
         // the network for this item. So first convert binary to
-        // text (with linebreaks every 76 chars).
-        String encodedBin = Base64.encodeToString(bin, true); // newline stuck on end
-        noHeaderLen = numDigits(encodedBin.length()) + encodedBin.length() + 3;  // endian value, space, 1 newline
+        // text (with linebreaks every 76 chars & newline at end).
+        String encodedBin = Base64.encodeToString(bin, true);
+        // 4 = endian value (1 digit) + 2 spaces + 1 newline
+        noHeaderLen += numDigits(encodedBin.length()) +
+                       numDigits(bin.length) +
+                       encodedBin.length()   + 4;
 //        System.out.println("addBinary: encodedBin len = " + encodedBin.length() +
 //                           ", num digits = " + numDigits(encodedBin.length()) +
-//                           ", add 3 for endian len, space, nl");
+//                           ", add 4 for 1 endian len, 2 spaces, 1 nl");
 
         StringBuffer buf = new StringBuffer(noHeaderLen + 100);
         buf.append(name);                 buf.append(" ");
-        buf.append(type);                 buf.append(" ");
-        buf.append(bin.length);           buf.append(" ");
-        buf.append(isSystem ? 1 : 0);     buf.append(" ");
+        buf.append(type);
+        buf.append(isSystem ? " 1 1 " : " 1 0 ");
         buf.append(noHeaderLen);          buf.append("\n");
         buf.append(encodedBin.length());  buf.append(" ");
+        buf.append(bin.length);           buf.append(" ");
         buf.append(endian);               buf.append("\n");
         buf.append(encodedBin);
 
@@ -1336,7 +1430,7 @@ public final class cMsgPayloadItem implements Cloneable {
     }
 
     /**
-     * This method stroes a String (text representation) of a byte array (binary) payload item.
+     * This method stores a String (text representation) of a byte array (binary) payload item.
      * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
      *
      * @param name name of item
@@ -1348,6 +1442,80 @@ public final class cMsgPayloadItem implements Cloneable {
     private void addBinary(String name, byte[] bin, String txt, boolean isSystem, int noHeadLen) {
         item = bin;
         type = cMsgConstants.payloadBin;
+        this.name = name;
+        this.isSystem = isSystem;
+        text = txt;
+        noHeaderLen = noHeadLen;
+    }
+
+    //-----------------
+    // ADD BINARY ARRAY
+    //-----------------
+
+    /**
+     * This method creates a String (text representation) of an array of
+     * byte arrays (array of binary) payload item.
+     *
+     * @param name name of item
+     * @param bin array of byte arrays (array of binary) to be part of the payload
+     * @param isSystem is the given byte array a system field?
+     */
+    private void addBinary(String name, byte[][] bin, boolean isSystem) {
+        // copy multidimensional arrays by hand in Java
+        byte[][] b = new byte[bin.length][];
+        for (int i=0; i<bin.length; i++) {
+            b[i] = bin[i].clone();
+        }
+        item  = b;
+        count = b.length;
+        type  = cMsgConstants.payloadBinA;
+        this.name = name;
+        this.isSystem = isSystem;
+
+        noHeaderLen = 0;
+        String[] encodedStrs = new String[count];
+        for (int i=0; i<count; i++) {
+            // First convert binary to text, where the "true" arg
+            // means put linebreaks in string rep including one at the end
+            encodedStrs[i] = Base64.encodeToString(b[i], true);
+            // 4 = endian value (1 digit) + 2 spaces + 1 newline
+            noHeaderLen += numDigits(encodedStrs[i].length()) +
+                           numDigits(b[i].length) +
+                           encodedStrs[i].length()  + 4;
+        }
+
+        StringBuffer buf = new StringBuffer(noHeaderLen + 100);
+        // header line
+        buf.append(name);                      buf.append(" ");
+        buf.append(type);                      buf.append(" ");
+        buf.append(count);
+        buf.append(isSystem ? " 1 " : " 0 ");
+        buf.append(noHeaderLen);               buf.append("\n");
+        // non header lines
+        for (int i=0; i<count; i++) {
+            buf.append(encodedStrs[i].length());  buf.append(" ");
+            buf.append(b[i].length);              buf.append(" ");
+            buf.append(endianArray[i]);           buf.append("\n");
+            buf.append(encodedStrs[i]);
+        }
+
+        text = buf.toString();
+    }
+
+    /**
+     * This method stores a String (text representation) of an array of byte arrays (binary) payload item.
+     * Used internally when decoding a text representation of the payload into cMsgPayloadItems.
+     *
+     * @param name name of item
+     * @param bin array of byte arrays (binary) to be part of the payload
+     * @param txt text representation of the payload item
+     * @param isSystem is the given string a system field?
+     * @param noHeadLen length of the text representation NOT including the header line
+     */
+    private void addBinary(String name, byte[][] bin, String txt, boolean isSystem, int noHeadLen) {
+        item = bin;
+        count = bin.length;
+        type = cMsgConstants.payloadBinA;
         this.name = name;
         this.isSystem = isSystem;
         text = txt;
@@ -1369,7 +1537,7 @@ public final class cMsgPayloadItem implements Cloneable {
      *          of a String payload item
      */
     private void systemStringToBuf(String name, StringBuilder buf, String s) {
-        int len = numDigits(s.length()) +s.length() + 2; // 2 newlines
+        int len = numDigits(s.length()) + s.length() + 2; // 2 newlines
         buf.append(name);       buf.append(" ");
         buf.append(cMsgConstants.payloadStr);
         buf.append(" 1 1 ");
@@ -1405,7 +1573,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param isSystem is the given string a system field?
      */
     private void addMessage(String name, cMsgMessage msg, boolean isSystem) {
-        item = msg;
+        item = msg.clone();
         type = cMsgConstants.payloadMsg;
         this.name = name;
         this.isSystem = isSystem;
@@ -1502,15 +1670,18 @@ public final class cMsgPayloadItem implements Cloneable {
 //System.out.println("ADDING BIN TO PAYLOAD MSG");
             String encodedBin = Base64.encodeToString(msg.getByteArray(), msg.getByteArrayOffset(),
                                                       msg.getByteArrayLength(), true);
-            int len = numDigits(encodedBin.length()) + encodedBin.length() + 4;  // endian value, space, 2 newlines
+            int len = numDigits(encodedBin.length()) +
+                      numDigits(msg.getByteArrayLength()) +
+                      encodedBin.length() + 4;  // 1 endian value, 2 spaces, 1 newline
 
             buf.append("cMsgBinary ");
             buf.append(cMsgConstants.payloadBin);
             buf.append(" 1 1 ");
             buf.append(len);                       buf.append("\n");
             buf.append(encodedBin.length());       buf.append(" ");
+            buf.append(msg.getByteArrayLength());  buf.append(" ");
             buf.append(msg.getByteArrayEndian());  buf.append("\n");
-            buf.append(encodedBin);                buf.append("\n");
+            buf.append(encodedBin);
             fieldCount++;
         }
 
@@ -1564,8 +1735,13 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param isSystem is the given string a system field?
      */
     private void addMessage(String name, cMsgMessage[] msgs, boolean isSystem) {
-        item  = msgs;
-        count = msgs.length;
+        // copy array by hand in Java
+        cMsgMessage[] m = new cMsgMessage[msgs.length];
+        for (int i=0; i<m.length; i++) {
+            m[i] = (cMsgMessage)msgs[i].clone();
+        }
+        item  = m;
+        count = m.length;
         type  = cMsgConstants.payloadMsgA;
         this.name = name;
         this.isSystem = isSystem;
@@ -1581,7 +1757,7 @@ public final class cMsgPayloadItem implements Cloneable {
         // Add 2k extra for cushion.
         int size = 2048;
 
-        for (int i=0; i<msgs.length; i++) {
+        for (int i=0; i<count; i++) {
             if (msgs[i].getItemsText() != null) size += msgs[i].getItemsText().length();
             if (msgs[i].getText() != null) size += msgs[i].getText().length();
             size += msgs[i].getByteArrayLength() * 1.4 + 1024;
@@ -1666,17 +1842,21 @@ public final class cMsgPayloadItem implements Cloneable {
 
             // send the byte array
             if (msg.getByteArrayLength() > 0) {
+//System.out.println("ADDING BIN TO PAYLOAD MSG");
                 String encodedBin = Base64.encodeToString(msg.getByteArray(), msg.getByteArrayOffset(),
                                                           msg.getByteArrayLength(), true);
-                int len = numDigits(encodedBin.length()) + encodedBin.length() + 4;  // endian value, space, 2 newlines
+                int len = numDigits(encodedBin.length()) +
+                          numDigits(msg.getByteArrayLength()) +
+                          encodedBin.length() + 4;  // 1 endian value, 2 spaces, 1 newline
 
                 buf.append("cMsgBinary ");
                 buf.append(cMsgConstants.payloadBin);
                 buf.append(" 1 1 ");
                 buf.append(len);                       buf.append("\n");
                 buf.append(encodedBin.length());       buf.append(" ");
+                buf.append(msg.getByteArrayLength());  buf.append(" ");
                 buf.append(msg.getByteArrayEndian());  buf.append("\n");
-                buf.append(encodedBin);                buf.append("\n");
+                buf.append(encodedBin);
             }
 
             // add payload items of this message
@@ -2015,6 +2195,7 @@ public final class cMsgPayloadItem implements Cloneable {
     // ADD NUMBER ARRAYS
     //-------------------
 
+
     /**
      * This method creates a String (text representation) of a payload item consisting of an array of objects
      * implementing the Number interface. The objects must be one of either {@link Byte}, {@link Short},
@@ -2030,33 +2211,45 @@ public final class cMsgPayloadItem implements Cloneable {
         // store in a primitive form if Byte, Short, Integer, Long, Float, or Double
         if (type == cMsgConstants.payloadInt8A) {
             byte[] b = new byte[t.length];
-            System.arraycopy(t, 0, b, 0, t.length);
-            addByte(name, b, isSystem);
+            for (int j=0; j<t.length; j++) {
+                b[j] = (Byte)t[j];
+            }
+            addByte(name, b, isSystem, false);
         }
         else if (type == cMsgConstants.payloadInt16A) {
             short[] s = new short[t.length];
-            System.arraycopy(t, 0, s, 0, t.length);
-            addShort(name, s, isSystem);
+            for (int j=0; j<t.length; j++) {
+                s[j] = (Short)t[j];
+            }
+            addShort(name, s, isSystem, false);
         }
         else if (type == cMsgConstants.payloadInt32A) {
             int[] i = new int[t.length];
-            System.arraycopy(t, 0, i, 0, t.length);
-            addInt(name, i, isSystem);
+            for (int j=0; j<t.length; j++) {
+                i[j] = (Integer)t[j];
+            }
+            addInt(name, i, isSystem, false);
         }
         else if (type == cMsgConstants.payloadInt64A) {
             long[] l = new long[t.length];
-            System.arraycopy(t, 0, l, 0, t.length);
-            addLong(name, l, isSystem);
+            for (int j=0; j<t.length; j++) {
+                l[j] = (Long)t[j];
+            }
+            addLong(name, l, isSystem, false);
         }
         else if (type == cMsgConstants.payloadFltA) {
             float[] f = new float[t.length];
-            System.arraycopy(t, 0, f, 0, t.length);
-            addFloat(name, f, isSystem);
+            for (int j=0; j<t.length; j++) {
+                f[j] = (Float)t[j];
+            }
+            addFloat(name, f, isSystem, false);
         }
         else if (type == cMsgConstants.payloadDblA) {
             double[] d = new double[t.length];
-            System.arraycopy(t, 0, d, 0, t.length);
-            addDouble(name, d, isSystem);
+            for (int j=0; j<t.length; j++) {
+                d[j] = (Double)t[j];
+            }
+            addDouble(name, d, isSystem, false);
         }
         else if (type == cMsgConstants.payloadUint64A) {
             addBigInt(name, (BigInteger[]) t, isSystem);
@@ -2091,21 +2284,27 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param name name of item
      * @param b byte array (8-bit integer array) to be part of the payload
      * @param isSystem is the given string a system field?
+     * @param copy if true make full copy of array else only copy reference
      */
-    private void addByte(String name, byte[] b, boolean isSystem) {
-        item  = b;
+    private void addByte(String name, byte[] b, boolean isSystem, boolean copy) {
+        if (copy) {
+            item  = b.clone();
+        }
+        else {
+            item  = b;
+        }
         count = b.length;
         type  = cMsgConstants.payloadInt8A;
         this.name = name;
         this.isSystem = isSystem;
 
         // guess at how much memory we need
-        noHeaderLen = (2+1)*b.length; // (length - 1)spaces + 1 newline
+        noHeaderLen = (2+1)*count; // (length - 1)spaces + 1 newline
         StringBuilder sb = new StringBuilder(noHeaderLen + 100);
 
-        for (int i = 0; i < b.length; i++) {
+        for (int i = 0; i < count; i++) {
             sb.append( toASCII[ b[i] & 0xff ] );
-            if (i < b.length-1) {
+            if (i < count-1) {
                 sb.append(" ");
             } else {
                 sb.append("\n");
@@ -2133,7 +2332,7 @@ public final class cMsgPayloadItem implements Cloneable {
         if (unsigned) {
             originalText = txt;
             originalType = cMsgConstants.payloadUint8A;
-            addShort(name, s, isSystem);
+            addShort(name, s, isSystem, false);
             return;
         }
 
@@ -2153,16 +2352,22 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param name name of item
      * @param s short array (16-bit integer array) to be part of the payload
      * @param isSystem is the given string a system field?
+     * @param copy if true make full copy of array else only copy reference
      */
-    private void addShort(String name, short[] s, boolean isSystem) {
-        item  = s;
+    private void addShort(String name, short[] s, boolean isSystem, boolean copy) {
+        if (copy) {
+            item  = s.clone();
+        }
+        else {
+            item  = s;
+        }
         count = s.length;
         type  = cMsgConstants.payloadInt16A;
         this.name = name;
         this.isSystem = isSystem;
 
         // guess at how much memory we need
-        int lenGuess = (4+1)*s.length; // (length - 1)spaces + 1 newline
+        int lenGuess = (4+1)*count; // (length - 1)spaces + 1 newline
         StringBuilder sb = new StringBuilder(lenGuess + 100);
 
         // Add each array element as a string of 4 hex characters.
@@ -2171,11 +2376,11 @@ public final class cMsgPayloadItem implements Cloneable {
         short j16;
         boolean thisOneZero=false;
 
-        for (int i = 0; i < s.length; i++) {
+        for (int i = 0; i < count; i++) {
             j16 = s[i];
 
             if (j16 == 0) {
-                if ((++zeros < 0xfff) && (i < s.length-1)) {
+                if ((++zeros < 0xfff) && (i < count-1)) {
                     continue;
                 }
                 thisOneZero = true;
@@ -2199,7 +2404,7 @@ public final class cMsgPayloadItem implements Cloneable {
                 }
 
                 if (thisOneZero) {
-                    if (i < s.length - 1) {
+                    if (i < count - 1) {
                         sb.append(" ");
                         zeros = 0;
                         thisOneZero = false;
@@ -2219,14 +2424,14 @@ public final class cMsgPayloadItem implements Cloneable {
             sb.append( toASCII[ j16>> 8 & 0xff ] );
             sb.append( toASCII[ j16     & 0xff ] );
 
-            if (i < s.length-1) {
+            if (i < count-1) {
                 sb.append(" ");
             } else {
                 sb.append("\n");
             }
         }
 
-        noHeaderLen = (4+1)*(s.length - suppressed);
+        noHeaderLen = (4+1)*(count - suppressed);
         addArray(sb);
     }
 
@@ -2248,7 +2453,7 @@ public final class cMsgPayloadItem implements Cloneable {
         if (unsigned) {
             originalText = txt;
             originalType = cMsgConstants.payloadUint16A;
-            addInt(name, i, isSystem);
+            addInt(name, i, isSystem, false);
             return;
         }
 
@@ -2268,16 +2473,22 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param name name of item
      * @param i int array (32-bit integer array) to be part of the payload
      * @param isSystem is the given string a system field?
+     * @param copy if true make full copy of array else only copy reference
      */
-    private void addInt(String name, int[] i, boolean isSystem) {
-        item  = i;
+    private void addInt(String name, int[] i, boolean isSystem, boolean copy) {
+        if (copy) {
+            item  = i.clone();
+        }
+        else {
+            item  = i;
+        }
         count = i.length;
         type  = cMsgConstants.payloadInt32A;
         this.name = name;
         this.isSystem = isSystem;
 
         // guess at how much memory we need
-        int lenGuess = (8+1)*i.length; // (length - 1)spaces + 1 newline
+        int lenGuess = (8+1)*count; // (length - 1)spaces + 1 newline
         StringBuilder sb = new StringBuilder(lenGuess + 100);
 
         // Add each array element as a string of 8 hex characters.
@@ -2285,11 +2496,11 @@ public final class cMsgPayloadItem implements Cloneable {
         int j32, zeros=0, suppressed=0;
         boolean thisOneZero=false;
 
-        for (int j = 0; j < i.length; j++) {
+        for (int j = 0; j < count; j++) {
             j32 = i[j];
 
             if (j32 == 0) {
-                if ((++zeros < 0xfffffff) && (j < i.length-1)) {
+                if ((++zeros < 0xfffffff) && (j < count-1)) {
                     continue;
                 }
                 thisOneZero = true;
@@ -2315,7 +2526,7 @@ public final class cMsgPayloadItem implements Cloneable {
                 }
 
                 if (thisOneZero) {
-                    if (j < i.length - 1) {
+                    if (j < count - 1) {
                         sb.append(" ");
                         zeros = 0;
                         thisOneZero = false;
@@ -2337,14 +2548,14 @@ public final class cMsgPayloadItem implements Cloneable {
             sb.append( toASCII[ j32>> 8 & 0xff ] );
             sb.append( toASCII[ j32     & 0xff ] );
 
-            if (j < i.length-1) {
+            if (j < count-1) {
                 sb.append(" ");
             } else {
                 sb.append("\n");
             }
         }
 
-        noHeaderLen = (8+1)*(i.length - suppressed);
+        noHeaderLen = (8+1)*(count - suppressed);
         addArray(sb);
     }
 
@@ -2366,7 +2577,7 @@ public final class cMsgPayloadItem implements Cloneable {
         if (unsigned) {
             originalText = txt;
             originalType = cMsgConstants.payloadUint32A;
-            addLong(name, l, isSystem);
+            addLong(name, l, isSystem, false);
             return;
         }
 
@@ -2386,16 +2597,22 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param name name of item
      * @param l long array (64-bit integer array) to be part of the payload
      * @param isSystem is the given string a system field?
+     * @param copy if true make full copy of array else only copy reference
      */
-    private void addLong(String name, long[] l, boolean isSystem) {
-        item  = l;
+    private void addLong(String name, long[] l, boolean isSystem, boolean copy) {
+        if (copy) {
+            item  = l.clone();
+        }
+        else {
+            item  = l;
+        }
         count = l.length;
         type  = cMsgConstants.payloadInt64A;
         this.name = name;
         this.isSystem = isSystem;
 
         // guess at how much memory we need
-        int lenGuess = (16+1)*l.length; // (length - 1)spaces + 1 newline
+        int lenGuess = (16+1)*count; // (length - 1)spaces + 1 newline
         StringBuilder sb = new StringBuilder(lenGuess + 100);
 
         // Add each array element as a string of 16 hex characters.
@@ -2404,11 +2621,11 @@ public final class cMsgPayloadItem implements Cloneable {
         boolean thisOneZero=false;
         long j64;
 
-        for (int i = 0; i < l.length; i++) {
+        for (int i = 0; i < count; i++) {
             j64 = l[i];
 
             if (j64 == 0L) {
-                if ((++zeros < 0xfffffff) && (i < l.length-1)) {
+                if ((++zeros < 0xfffffff) && (i < count-1)) {
                     continue;
                 }
                 thisOneZero = true;
@@ -2434,7 +2651,7 @@ public final class cMsgPayloadItem implements Cloneable {
                 }
 
                 if (thisOneZero) {
-                    if (i < l.length - 1) {
+                    if (i < count - 1) {
                         sb.append(" ");
                         zeros = 0;
                         thisOneZero = false;
@@ -2460,14 +2677,14 @@ public final class cMsgPayloadItem implements Cloneable {
             sb.append( toASCII[ (int) (j64>> 8 & 0xffL) ] );
             sb.append( toASCII[ (int) (j64     & 0xffL) ] );
 
-            if (i < l.length-1) {
+            if (i < count-1) {
                 sb.append(" ");
             } else {
                 sb.append("\n");
             }
         }
 
-        noHeaderLen = (16+1)*(l.length - suppressed);
+        noHeaderLen = (16+1)*(count - suppressed);
         addArray(sb);
     }
 
@@ -2501,14 +2718,14 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param isSystem is the given string a system field?
      */
     private void addBigInt(String name, BigInteger[] bigs, boolean isSystem) {
-        item  = bigs;
+        item  = bigs.clone();
         count = bigs.length;
         type  = cMsgConstants.payloadUint64A;
         this.name = name;
         this.isSystem = isSystem;
 
         // guess at how much memory we need
-        int lenGuess = (16+1)*bigs.length; // (length - 1)spaces + 1 newline
+        int lenGuess = (16+1)*count; // (length - 1)spaces + 1 newline
         StringBuilder sb = new StringBuilder(lenGuess + 100);
 
         // Add each array element as a string of 16 hex characters.
@@ -2517,11 +2734,11 @@ public final class cMsgPayloadItem implements Cloneable {
         boolean thisOneZero=false;
         long j64;
 
-        for (int i = 0; i < bigs.length; i++) {
+        for (int i = 0; i < count; i++) {
             j64 = bigs[i].longValue();
 
             if (j64 == 0L) {
-                if ((++zeros < 0xfffffff) && (i < bigs.length-1)) {
+                if ((++zeros < 0xfffffff) && (i < count-1)) {
                     continue;
                 }
                 thisOneZero = true;
@@ -2547,7 +2764,7 @@ public final class cMsgPayloadItem implements Cloneable {
                 }
 
                 if (thisOneZero) {
-                    if (i < bigs.length - 1) {
+                    if (i < count - 1) {
                         sb.append(" ");
                         zeros = 0;
                         thisOneZero = false;
@@ -2573,14 +2790,14 @@ public final class cMsgPayloadItem implements Cloneable {
             sb.append( toASCII[ (int) (j64>> 8 & 0xffL) ] );
             sb.append( toASCII[ (int) (j64     & 0xffL) ] );
 
-            if (i < bigs.length-1) {
+            if (i < count-1) {
                 sb.append(" ");
             } else {
                 sb.append("\n");
             }
         }
 
-        noHeaderLen = (16+1)*(bigs.length - suppressed);
+        noHeaderLen = (16+1)*(count - suppressed);
         addArray(sb);
     }
 
@@ -2613,16 +2830,22 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param name name of item
      * @param f float array to be part of the payload
      * @param isSystem is the given string a system field?
+     * @param copy if true make full copy of array else only copy reference
      */
-    private void addFloat(String name, float[] f, boolean isSystem) {
-        item  = f;
+    private void addFloat(String name, float[] f, boolean isSystem, boolean copy) {
+        if (copy) {
+            item  = f.clone();
+        }
+        else {
+            item  = f;
+        }
         count = f.length;
         type  = cMsgConstants.payloadFltA;
         this.name = name;
         this.isSystem = isSystem;
 
         // guess at how much memory we need
-        int lenGuess = (8+1)*f.length; // (length - 1)spaces + 1 newline
+        int lenGuess = (8+1)*count; // (length - 1)spaces + 1 newline
         StringBuilder sb = new StringBuilder(lenGuess + 100);
 
         // Add each array element as a string of 16 hex characters.
@@ -2630,13 +2853,13 @@ public final class cMsgPayloadItem implements Cloneable {
         int j32, zeros=0, suppressed=0;
         boolean thisOneZero=false;
 
-        for (int i = 0; i < f.length; i++) {
+        for (int i = 0; i < count; i++) {
             // bit pattern of float written into int
             j32 = Float.floatToIntBits(f[i]);
 
             // both values are zero in IEEE754
             if (j32 == 0 || j32 == 0x80000000) {
-                if ((++zeros < 0xfffffff) && (i < f.length-1)) {
+                if ((++zeros < 0xfffffff) && (i < count-1)) {
                     continue;
                 }
                 thisOneZero = true;
@@ -2662,7 +2885,7 @@ public final class cMsgPayloadItem implements Cloneable {
                 }
 
                 if (thisOneZero) {
-                    if (i < f.length - 1) {
+                    if (i < count - 1) {
                         sb.append(" ");
                         zeros = 0;
                         thisOneZero = false;
@@ -2684,14 +2907,14 @@ public final class cMsgPayloadItem implements Cloneable {
             sb.append( toASCII[ j32>> 8 & 0xff ] );
             sb.append( toASCII[ j32     & 0xff ] );
 
-            if (i < f.length-1) {
+            if (i < count-1) {
                 sb.append(" ");
             } else {
                 sb.append("\n");
             }
         }
 
-        noHeaderLen = (8+1)*(f.length - suppressed);
+        noHeaderLen = (8+1)*(count - suppressed);
         addArray(sb);
     }
 
@@ -2725,16 +2948,22 @@ public final class cMsgPayloadItem implements Cloneable {
      * @param name name of item
      * @param d double array to be part of the payload
      * @param isSystem is the given string a system field?
+     * @param copy if true make full copy of array else only copy reference
      */
-    private void addDouble(String name, double[] d, boolean isSystem) {
-        item  = d;
+    private void addDouble(String name, double[] d, boolean isSystem, boolean copy) {
+        if (copy) {
+            item  = d.clone();
+        }
+        else {
+            item  = d;
+        }
         count = d.length;
         type  = cMsgConstants.payloadDblA;
         this.name = name;
         this.isSystem = isSystem;
 
         // guess at how much memory we need
-        int lenGuess = (16+1)*d.length; // (length - 1)spaces + 1 newline
+        int lenGuess = (16+1)*count; // (length - 1)spaces + 1 newline
         StringBuilder sb = new StringBuilder(lenGuess + 100);
 
         // Add each array element as a string of 16 hex characters.
@@ -2743,13 +2972,13 @@ public final class cMsgPayloadItem implements Cloneable {
         boolean thisOneZero=false;
         long j64;
 
-        for (int i = 0; i < d.length; i++) {            
+        for (int i = 0; i < count; i++) {            
             // bit pattern of double written into long
             j64 = Double.doubleToLongBits(d[i]);
 
             // both values are zero in IEEE754
             if (j64 == 0L || j64 == 0x8000000000000000L) {
-                if ((++zeros < 0xfffffff) && (i < d.length-1)) {
+                if ((++zeros < 0xfffffff) && (i < count-1)) {
                     continue;
                 }
                 thisOneZero = true;
@@ -2775,7 +3004,7 @@ public final class cMsgPayloadItem implements Cloneable {
                 }
 
                 if (thisOneZero) {
-                    if (i < d.length - 1) {
+                    if (i < count - 1) {
                         sb.append(" ");
                         zeros = 0;
                         thisOneZero = false;
@@ -2801,14 +3030,14 @@ public final class cMsgPayloadItem implements Cloneable {
             sb.append( toASCII[ (int) (j64>> 8 & 0xffL) ] );
             sb.append( toASCII[ (int) (j64     & 0xffL) ] );
 
-            if (i < d.length-1) {
+            if (i < count-1) {
                 sb.append(" ");
             } else {
                 sb.append("\n");
             }
         }
 
-        noHeaderLen = (16+1)*(d.length - suppressed);
+        noHeaderLen = (16+1)*(count - suppressed);
         addArray(sb);
     }
 
@@ -2880,6 +3109,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * <LI>{@link cMsgConstants#payloadUint32A}     for an unsigned 32 bit int array
      * <LI>{@link cMsgConstants#payloadUint64A}     for an unsigned 64 bit int array
      * <LI>{@link cMsgConstants#payloadMsgA}        for a  cMsg message array
+     * <LI>{@link cMsgConstants#payloadBinA}        for an array of binary items
      * </UL>
      *
      * @return type of this payload item
@@ -2912,6 +3142,15 @@ public final class cMsgPayloadItem implements Cloneable {
         return endian;
     }
 
+    /**
+     * Get the array of endian values if this payload item is an array of byte arrays containing binary data.
+     * @return array of endian values if this payload item is an array of byte arrays containing binary data,
+     *         else meaningless
+     */
+    public int[] getEndianArray() {
+        return endianArray;
+    }
+
     //----------------
     // GET STRINGS
     //----------------
@@ -2935,7 +3174,7 @@ public final class cMsgPayloadItem implements Cloneable {
      */
     public String[] getStringArray() throws cMsgException {
         if (type == cMsgConstants.payloadStrA)  {
-            return (String[])item;
+            return ((String[])item).clone();
         }
         throw new cMsgException("Wrong type");
     }
@@ -2951,7 +3190,27 @@ public final class cMsgPayloadItem implements Cloneable {
      */
     public byte[] getBinary() throws cMsgException {
         if (type == cMsgConstants.payloadBin)  {
-            return (byte[])item;
+            return ((byte[])item).clone();
+        }
+        throw new cMsgException("Wrong type");
+    }
+
+    //-----------------
+    // GET BINARY ARRAY
+    //-----------------
+
+    /**
+     * Gets the payload item as an array of byte array objects holding binary data.
+     * @return  payload item as an array of byte array objects holding binary data
+     * @throws cMsgException if payload item is not of type {@link cMsgConstants#payloadBinA}
+     */
+    public byte[][] getBinaryArray() throws cMsgException {
+        if (type == cMsgConstants.payloadBinA)  {
+            byte[][] b = new byte[count][];
+            for (int i=0; i<count; i++) {
+                b[i] = ((byte[][])item)[i].clone();
+            }
+            return b;
         }
         throw new cMsgException("Wrong type");
     }
@@ -2967,7 +3226,7 @@ public final class cMsgPayloadItem implements Cloneable {
      */
     public cMsgMessage getMessage() throws cMsgException {
         if (type == cMsgConstants.payloadMsg)  {
-            return (cMsgMessage)item;
+            return (cMsgMessage)((cMsgMessage)item).clone();
         }
         throw new cMsgException("Wrong type");
     }
@@ -2979,7 +3238,11 @@ public final class cMsgPayloadItem implements Cloneable {
      */
     public cMsgMessage[] getMessageArray() throws cMsgException {
         if (type == cMsgConstants.payloadMsgA)  {
-            return (cMsgMessage[])item;
+            cMsgMessage[] m = new cMsgMessage[count];
+            for (int i=0; i<count; i++) {
+                m[i] = (cMsgMessage)((cMsgMessage[])item)[i].clone();
+            }
+            return m;
         }
         throw new cMsgException("Wrong type");
     }
@@ -3178,7 +3441,7 @@ public final class cMsgPayloadItem implements Cloneable {
     public byte[] getByteArray() throws cMsgException {
 
         if (type == cMsgConstants.payloadInt8A)  {
-            return (byte[])item;
+            return ((byte[])item).clone();
         }
         else if (type == cMsgConstants.payloadInt16A || type == cMsgConstants.payloadUint8A)  {
             short[] S = (short[]) item;
@@ -3250,7 +3513,7 @@ public final class cMsgPayloadItem implements Cloneable {
             return s;
         }
         else if (type == cMsgConstants.payloadInt16A || type == cMsgConstants.payloadUint8A)  {
-            return (short[]) item;
+            return ((short[])item).clone();
         }
         else if (type == cMsgConstants.payloadInt32A || type == cMsgConstants.payloadUint16A) {
             int[] I  = (int[])item;
@@ -3317,7 +3580,7 @@ public final class cMsgPayloadItem implements Cloneable {
             return i;
         }
         else if (type == cMsgConstants.payloadInt32A || type == cMsgConstants.payloadUint16A) {
-            return (int[])item;
+            return ((int[])item).clone();
         }
         else if (type == cMsgConstants.payloadInt64A || type == cMsgConstants.payloadUint32A) {
             long[] L = (long[]) item;
@@ -3380,7 +3643,7 @@ public final class cMsgPayloadItem implements Cloneable {
             return l;
         }
         else if (type == cMsgConstants.payloadInt64A || type == cMsgConstants.payloadUint32A) {
-            return (long[])item;
+            return ((long[])item).clone();
         }
         else if (type == cMsgConstants.payloadUint64A) {
             BigInteger[] big = (BigInteger[])item;
@@ -3437,7 +3700,10 @@ public final class cMsgPayloadItem implements Cloneable {
             return bi;
         }
         else if (type == cMsgConstants.payloadUint64A) {
-            return (BigInteger[])item;
+            BigInteger[] bi = new BigInteger[count];
+            // BigInts are immutable so don't clone
+            for (int i=0; i<count; i++) { bi[i] = ((BigInteger[])item)[i]; }
+            return bi;
         }
         throw new cMsgException("Wrong type");
     }
@@ -3504,7 +3770,7 @@ public final class cMsgPayloadItem implements Cloneable {
      */
     public float[] getFloatArray() throws cMsgException {
         if (type == cMsgConstants.payloadFltA)  {
-            return (float[])item;
+            return ((float[])item).clone();
         }
         else if (type == cMsgConstants.payloadDblA) {
             double[] D = (double[]) item;
@@ -3536,7 +3802,7 @@ public final class cMsgPayloadItem implements Cloneable {
              return d;
          }
          else if (type == cMsgConstants.payloadDblA) {
-             return (double[])item;
+             return ((double[])item).clone();
          }
          throw new cMsgException("Wrong type");
      }
