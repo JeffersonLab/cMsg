@@ -17,7 +17,7 @@
 package org.jlab.coda.cMsg.test;
 
 import org.jlab.coda.cMsg.cMsg;
-import org.jlab.coda.cMsg.common.cMsgCallbackAdapter;
+import org.jlab.coda.cMsg.cMsgCallbackAdapter;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgSubscriptionHandle;
