@@ -303,6 +303,8 @@ public class cMsgConstants {
     public static final int payloadUint64A = 33;
     /** cMsg message array in cMsg message payload. */
     public static final int payloadMsgA    = 34;
+    /** Array of binary arrays in cMsg message payload. */
+    public static final int payloadBinA    = 35;
 
 
 }
