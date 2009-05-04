@@ -172,7 +172,10 @@ public:
   //
   // Methods to get a payload item's value
   //
-  virtual void getBinary(const string &name, const char **val, int &len, int &endian) const throw(cMsgException);
+  virtual void getBinary(const string &name, const char **val, int &len, int &endian)
+               const throw(cMsgException);
+  virtual void getBinaryArray(const string &name, const char ***vals, int **lens, int **endians, int &count)
+               const throw(cMsgException);
 
   virtual cMsgMessage *getMessage(const string &name)       const throw(cMsgException);
   virtual vector<cMsgMessage*> *getMessageVector(const string &name) const throw(cMsgException);
@@ -210,6 +213,8 @@ public:
   //
 
   virtual void add(const string &name, const char *src, int size, int endian);
+  virtual void add(const string &name, const char *src[], int number,
+                   const int size[], const int endian[]);
   
   virtual void add(const string &name, const string &s);
   virtual void add(const string &name, const string *s);

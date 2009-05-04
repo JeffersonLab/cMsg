@@ -287,20 +287,45 @@ namespace cmsg {
  * This method returns the value of the given field as a binary array if it exists.
  *
  * @param name name of field to get
- * @param val address of pointer to data which sets the pointer to converted binary
+ * @param val address of pointer to data which sets the pointer to binary
  * @param len int reference which gets set to the number of bytes in binary array
  * @param endian int reference which gets set to endian of data (CMSG_ENDIAN_BIG/LITTLE)
  *
  * @throws cMsgException if no payload/field exists or field is not right type,
  *                        or if any arg is NULL
- */   
-void cMsgMessage::getBinary(const string &name, const char **val, int &len, int &endian) const throw(cMsgException) {
-  int err = cMsgGetBinary(myMsgPointer, name.c_str(), val, &len, &endian);
-  if (err != CMSG_OK) {
-    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
-  }
-  return;
+ */
+void cMsgMessage::getBinary(const string &name, const char **val, int &len, int &endian)
+        const throw(cMsgException) {
+    int err = cMsgGetBinary(myMsgPointer, name.c_str(), val, &len, &endian);
+    if (err != CMSG_OK) {
+        if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type"));
+        else throw(cMsgException("No payload item of that name"));
+    }
+    return;
+}
+
+/**
+ * This method returns the value of the given field as a binary array if it exists.
+ *
+ * @param name name of field to get
+ * @param vals address of array of binary arrays which sets the array pointer
+ * @param lens pointer to array filled with the number of bytes in each binary array
+ * @param endians pointer to array filled in with the endianness of data
+ *                (CMSG_ENDIAN_BIG/LITTLE) in each binary array
+ * @param count int reference which gets set to number of binary arrays returned
+ *
+ * @throws cMsgException if no payload/field exists or field is not right type,
+ *                        or if any arg is NULL
+ */
+void cMsgMessage::getBinaryArray(const string &name, const char ***vals,
+                                 int **lens, int **endians, int &count)
+        const throw(cMsgException) {
+    int err = cMsgGetBinaryArray(myMsgPointer, name.c_str(), vals, lens, endians, &count);
+    if (err != CMSG_OK) {
+        if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type"));
+        else throw(cMsgException("No payload item of that name"));
+    }
+    return;
 }
 
 //-------------------------------------------------------------------
@@ -918,6 +943,36 @@ void cMsgMessage::add(const string &name, const char *src, int size, int endian)
     else throw(cMsgException("Error")); 
   }
 }
+
+/**
+ * This method adds a named binary field to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than
+ * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param srcs  pointer to array of binary data arrays to add
+ * @param number number of arrays of binary data to add
+ * @param sizes array of sizes in bytes of binary data arrays to add
+ * @param endians array of endian values of binary data arrays, may be
+ *               {@link CMSG_ENDIAN_BIG}, {@link CMSG_ENDIAN_LITTLE},
+ *               {@link CMSG_ENDIAN_LOCAL}, or {@link CMSG_ENDIAN_NOTLOCAL}
+ *
+ * @throws cMsgException if no memory, error in binary-to-text conversion, name already used,
+ *                       improper name, src is null, size < 1, or endian improper value
+ */
+void cMsgMessage::add(const string &name, const char *srcs[], int number,
+                      const int sizes[], const int endians[]) {
+    int err = cMsgAddBinaryArray(myMsgPointer, name.c_str(), srcs, number, sizes, endians);
+    if (err != CMSG_OK) {
+        if (err == CMSG_BAD_FORMAT) throw(cMsgException("Improper name or if error in binary-to-text conversion"));
+        else if (err == CMSG_BAD_ARGUMENT)   throw(cMsgException("srcs or name null, sizes < 1, or endians improper value"));
+        else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
+        else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
+        else throw(cMsgException("Error"));
+    }
+}
+
+
 
 //-------------------------------------------------------------------
 // CMSG STRINGS
