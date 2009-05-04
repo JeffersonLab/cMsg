@@ -624,6 +624,33 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
                     if (debug) System.out.println("Payload binary node \"" + itemType + "\", value = \n" + itemValue);
                 }
 
+                else if (itemType.equals("binary_array")) {
+                    // itemCount = number of byte arrays to follow
+                    itemCount = Integer.parseInt(el.getAttribute("count"));
+                    int itemBytes, ind=0;
+                    int[] endians = new int[itemCount];
+                    byte[][] bArray = new byte[itemCount][];
+                    aList = el.getChildNodes();
+                    if (aList == null) continue;
+                    if (debug) System.out.println("Payload binary_array node \"" + itemType + "\"");
+                    for (int j=0; j < aList.getLength(); j++) {
+                        if (aList.item(j).getNodeType() != Node.ELEMENT_NODE) continue;
+                        el = (Element) aList.item(j);
+                        itemValue    = el.getFirstChild().getNodeValue();
+                        itemBytes    = Integer.parseInt(el.getAttribute("nbytes"));
+                        endians[ind] = el.getAttribute("endian").equals("big") ?
+                                       cMsgConstants.endianBig : cMsgConstants.endianLittle;
+                        try {bArray[ind] = Base64.decodeToBytes(itemValue, "US-ASCII");}
+                        catch (UnsupportedEncodingException e) {/* never happen */}
+                        if (bArray[ind].length != itemBytes) {
+                            System.out.println("Reconstituted binary array is different size !!!");
+                        }
+                        if (true) System.out.println("  bin[" + ind + "] = " + itemValue);
+                        ind++;
+                    }
+                    payloadItem = new cMsgPayloadItem(itemName, bArray, endians);
+                }
+
                 else if (itemType.equals("cMsgMessage")) {
                     cMsgMessageFull newMsg = new cMsgMessageFull();
                     fillMsgFromElement(newMsg, el);
