@@ -43,19 +43,22 @@
   * It places a new line after each 76 characters.  User can 
   * calculate the size of the needed output buffer by calling routine
   * {@link cMsg_b64_encode_len}.
+  * Carl Timmer modified this so and ending '\n' is always there.
   *
   * @param src pointer to input binary buffer
   * @param len number of bytes in src array to encode
   * @param dst pointer to output character array. Must be large enough
   *            to hold the encoding. Calculate necessary size with
   *            routine {@link cMsg_b64_encode_len}
+  * @param lineBreaks Whether to insert line breaks every 76 characters
+  *                   and at end in the output.
   *
   * @return number of characters in resulting character array
   */
  unsigned int
- cMsg_b64_encode(const char *src, unsigned int len, char *dst)
+ cMsg_b64_encode(const char *src, unsigned int len, char *dst, int lineBreaks)
  {
-     char       *p,
+     char       *p, *oldEnd,
                 *lend = dst + 76;
      const char *s,
                 *end = src + len;
@@ -64,16 +67,18 @@
  
      s = src;
      p = dst;
+     oldEnd = p;
  
      while (s < end)
      {
+         /* For pos = 2,1,0 we get right shifts (in successive 3 bytes) of 16,8,0 */
          buf |= (unsigned char) *s << (pos << 3);
          pos--;
          s++;
  
          /* write it out */
          if (pos < 0)
-         {
+         {   /* The 3 bytes are left shifted 4 times and the bottom 6 bits masked in */
              *p++ = _base64[(buf >> 18) & 0x3f];
              *p++ = _base64[(buf >> 12) & 0x3f];
              *p++ = _base64[(buf >> 6) & 0x3f];
@@ -82,12 +87,14 @@
              pos = 2;
              buf = 0;
          }
-         if (p >= lend)
+         if (lineBreaks && p >= lend)
          {
              *p++ = '\n';
+             oldEnd = p;
              lend = p + 76;
          }
      }
+     /* pos == 2 means # of chars exactly matches # bytes */
      if (pos != 2)
      {
          *p++ = _base64[(buf >> 18) & 0x3f];
@@ -95,7 +102,11 @@
          *p++ = (pos == 0) ? _base64[(buf >> 6) & 0x3f] : '=';
          *p++ = '=';
      }
- 
+     if (lineBreaks && p > oldEnd)
+     {
+         *p++ = '\n';
+     }
+
      return p - dst;
  }
 
@@ -259,34 +270,40 @@
   *
   * @param src pointer to buffer containing binary data
   * @param len length of binary buffer in bytes
+  * @param lineBreaks Whether to insert line breaks every 76 characters
+  *                   and at end in the output.
   *
   * @return number of characters needed to encode given binary array
   */
  unsigned int
- cMsg_b64_encode_len(const char *src, unsigned int len)
+ cMsg_b64_encode_len(const char *src, unsigned int len, int lineBreaks)
  {
      const char   *s = src,
                   *end = src + len;
-     unsigned int count = 0, lend = 76;
+     unsigned int count = 0, lend = 76, oldEnd = 0;
               int pos = 2;
   
      while (s < end) {
          pos--;
          s++;
  
-         /* write 4 bytes here */
+         /* write 4 chars (in 3 bytes) here */
          if (pos < 0) {
              count += 4; 
              pos = 2;
          }
          /* add newline here */
-         if (count >= lend) {
+         if (lineBreaks && count >= lend) {
              count++;
+             oldEnd = count;
              lend = count + 76;
          }
      }
      if (pos != 2) {
          count += 4; 
+     }
+     if (lineBreaks && count > oldEnd) {
+         count++;
      }
  
      return count;
@@ -309,8 +326,8 @@
  unsigned int
  cMsg_b64_encode_len_est(const char *src, unsigned int srclen)
  {
-     /* 3 bytes will be converted to 4, linefeed after 76 chars */
-     return (srclen + 2) * 4 / 3 + srclen / (76 * 3 / 4);
+     /* 3 bytes will be converted to 4, linefeed after 76 chars & 1 at end */
+     return (srclen + 2) * 4 / 3 + srclen / (76 * 3 / 4) + 1;
  }
  
  
