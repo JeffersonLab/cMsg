@@ -17,7 +17,7 @@
 package org.jlab.coda.cMsg.test;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.common.cMsgCallbackAdapter;
+import org.jlab.coda.cMsg.cMsgCallbackAdapter;
 import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
 
 /**
@@ -138,8 +138,8 @@ public class cMsgTestRcClient {
          System.out.println("Send subby, typey with UDP");
          cmsg.send(msg);
 
-         System.out.println("Sleep for 12 sec");
-         try {Thread.sleep(12000); }
+         System.out.println("Sleep for 4 sec");
+         try {Thread.sleep(4000); }
          catch (InterruptedException e) {}
 
          cmsg.stop();
