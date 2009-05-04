@@ -327,6 +327,8 @@ const char *cMsgPayloadFieldDescription(const void *vmsg, const char *name);
   int    cMsgAddDoubleArray          (      void *vmsg, const char *name, const double vals[], int len);
 
   int    cMsgAddBinary               (      void *vmsg, const char *name, const char *src, int size, int endian);
+  int    cMsgAddBinaryArray          (      void *vmsg, const char *name, const char *src[], int number,
+                                            const int size[], const int endian[]);
   int    cMsgAddMessage              (      void *vmsg, const char *name, const void *vmessage);
   int    cMsgAddMessageArray         (      void *vmsg, const char *name, const void *vmessage[], int len);
 
