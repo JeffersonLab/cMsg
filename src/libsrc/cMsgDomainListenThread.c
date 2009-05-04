@@ -64,6 +64,7 @@ static void disableThreadCancellation() {
     if (status != 0) {
         cmsg_err_abort(status, "Disabling listening thread cancelability");
     }
+/*printf("CANCELABILITY OFF\n");*/
 }
 
 /** This routine enables pthread cancellation. */
@@ -74,6 +75,7 @@ static void enableThreadCancellation() {
     if (status != 0) {
         cmsg_err_abort(status, "Enabling listening thread cancelability");
     }
+/*printf("CANCELABILITY ON\n");*/
 }
 
 
@@ -144,7 +146,7 @@ void *cMsgClientListeningThread(void *arg)
   sun_setconcurrency(sun_getconcurrency() + 1);
   
   /* release system resources when thread finishes */
-  pthread_detach(pthread_self());
+  /* pthread_detach(pthread_self()); */
 
   /* disable pthread cancellation until pointer is set and handler is installed */  
   disableThreadCancellation();
@@ -243,7 +245,7 @@ void *cMsgClientListeningThread(void *arg)
           /* disable pthread cancellation until message memory is released or
            * we'll get a mem leak */
           disableThreadCancellation();
-          
+
           msg = cMsgCreateMessage();
           message = (cMsgMessage_t *) msg;
           if (message == NULL) {
@@ -291,7 +293,7 @@ void *cMsgClientListeningThread(void *arg)
             enableThreadCancellation();
             continue;
           }
-          
+
           /* re-enable pthread cancellation */
           enableThreadCancellation();
       }
@@ -442,7 +444,7 @@ void *cMsgClientListeningThread(void *arg)
 int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg) {
 
   uint64_t llTime;
-  int  err, hasPayload, stringLen, lengths[7], inComing[17];
+  int  i, err, hasPayload, stringLen, lengths[7], inComing[17];
   char *pchar, *tmp;
 
   if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
@@ -599,6 +601,7 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
   /* read payloadText string */
   /*-------------------------*/
   if (lengths[4] > 0) {
+      //char *pt = pchar;
       err = cMsgPayloadSetAllFieldsFromText(msg, pchar);
       if (err != CMSG_OK) {
           if (msg->sender != NULL)     free((void *) msg->sender);
@@ -612,6 +615,10 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
           return(err);
       }
       pchar += lengths[4];
+      //pchar = '\0';
+      //printf("*****   Payload text = \n%s", pt);
+      //cMsgGetPayloadText(msg, &pt);
+      //printf("*****   Payload text = \n%s", pt);
   }
   else {
       msg->payload      = NULL;
@@ -619,9 +626,9 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
       msg->payloadCount = 0;
   }
 
-  /*--------------------------------------------------*/
-  /* read text string & compound payload if it exists */
-  /*--------------------------------------------------*/
+  /*-------------------------------*/
+  /* read text string if it exists */
+  /*-------------------------------*/
   if (lengths[5] > 0) {
       if ( (tmp = (char *) malloc(lengths[5]+1)) == NULL) {
         if (msg->sender != NULL)     free((void *) msg->sender);
@@ -686,14 +693,14 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
     msg->byteArray       = tmp;
     msg->byteArrayOffset = 0;
     msg->byteArrayLength = lengths[6];
+    msg->byteArrayLengthFull = lengths[6];
     msg->bits |= CMSG_BYTE_ARRAY_IS_COPIED; /* byte array is COPIED */
     /*
-    for (;i<lengths[6]; i++) {
+    for (i=0; i<lengths[6]; i++) {
         printf("%d ", (int)msg->byteArray[i]);
     }
     printf("\n");
     */
-
   }
 
   return(CMSG_OK);
@@ -807,6 +814,7 @@ static int cMsgWakeSyncSend(cMsgDomainInfo *domain, int response, int ssid) {
  * callbacks when a message arrives from the server.
  * 
  * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if disconnect was called while message queue full and blocked
  * @returns CMSG_OUT_OF_MEMORY if all available memory has been used
  */
 int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
@@ -822,7 +830,7 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
   void *p;
 
   /* wait 10 sec between warning messages for a full cue */
-  struct timespec timeout = {10, 0};
+  struct timespec timeout = {12, 0};
 
   /* for each subscribeAndGet ... */
   cMsgSubAndGetMutexLock(domain); /* serialize access to subAndGet hash table */
@@ -897,8 +905,27 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
     return (CMSG_OK);
   }
    
-  /* Don't want subscriptions added or removed while iterating through them. */
-  cMsgSubscribeMutexLock(domain);
+  /*
+   * Don't want subscriptions added or removed while iterating through them.
+   * WHILE THE FOLLOWING MUTEX IS HELD, NO SUBSCRIBES OR UNSUBSCRIBES CAN BE DONE
+   * AND NO DISCONNECTS CAN BE COMPLETED. This mutex is actually released when
+   * a callback cue is full, allowing unsubscribes and disconnects to empty
+   * the cue.
+   * Also, the server update thread only iterates/reads subscription info.
+   * This routine iterates through the subscriptions but also changes 2 hash tables
+   * which are part of the subscription. Fortunately, this is the only place those
+   * hash tables are modified. Thus both the server update thread and the pend thread
+   * (which calls this routine) can simultaneously access the subscriptions with a
+   * read lock. This allows us to avoid the problem of not being able to send our
+   * keep alives to the server if a blocking callback's queue should fill up.
+   *
+   * NOTE: If a blocking callback's queue should fill up, no subscribes, unsubscribes
+   * can be done and disconnects will block part way through when attempting to
+   * remove all subscriptions.
+   */
+  cMsgSubscribeReadLock(domain);
+/*  printf("in runCallbacks\n");*/
+  disableThreadCancellation();
 
   /* get client subscriptions */
   hashGetAll(&domain->subscribeTable, &entries, &tblSize);
@@ -926,23 +953,24 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
           /* copy message so each callback has its own copy */
           message = (cMsgMessage_t *) cMsgCopyMessage((void *)msg);
           if (message == NULL) {
-            cMsgSubscribeMutexUnlock(domain);
+            cMsgSubscribeReadUnlock(domain);
             if (cMsgDebug >= CMSG_DEBUG_INFO) {
               fprintf(stderr, "cMsgRunCallbacks: out of memory\n");
             }
             return(CMSG_OUT_OF_MEMORY);
           }
 
+          /* lock mutex before messing with callback stuff */
+          /*fprintf(stderr, "cMsgRunCallbacks: will grab mutex, %p\n", &cb->mutex);*/
+          cMsgMutexLock(&cb->mutex);
+          /*fprintf(stderr, "cMsgRunCallbacks: grabbed mutex\n");*/
+
           /* check to see if there are too many messages in the cue */
           if (cb->messages >= cb->config.maxCueSize) {
+
             /* if we may skip messages, dump oldest */
             if (cb->config.maySkip) {
-/* fprintf(stderr, "cMsgRunCallbacks: cue full, skipping\n");
-   fprintf(stderr, "cMsgRunCallbacks: will grab mutex, %p\n", &cb->mutex); */
-              /* lock mutex before messing with linked list */
-              cMsgMutexLock(&cb->mutex);
-/* fprintf(stderr, "cMsgRunCallbacks: grabbed mutex\n"); */
-
+/* fprintf(stderr, "cMsgRunCallbacks: cue full, skipping\n"); */
               for (k=0; k < cb->config.skipSize; k++) {
                 oldHead = cb->head;
                 cb->head = cb->head->next;
@@ -952,63 +980,31 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
                 if (cb->head == NULL) break;
               }
 
-              cMsgMutexUnlock(&cb->mutex);
-
               if (cMsgDebug >= CMSG_DEBUG_INFO) {
                 fprintf(stderr, "cMsgRunCallbacks: skipped %d messages\n", (k+1));
               }
             }
+            /* if we may NOT skip messages, wait for messages to be pulled off the list */
             else {
               goToNextCallback = 0;
 
               while (cb->messages >= cb->config.maxCueSize) {
-                cMsgMutexLock(&cb->mutex);
+                /* Wait here until signaled - meaning message taken off cue
+                 * by callback worker thread.
+                 *
+                 * NOTE: The pend thread (which calls this function) has disabled
+                 * thread cancellation so we cannot be pthread_cancelled.
+                 */
                 cb->fullQ = 1;
-                cMsgMutexUnlock(&cb->mutex);
-                /* Wait here until signaled - meaning message taken off cue or
-                 * unsubscribed or disconnected.
-                 * There is a problem doing a pthread_cancel on this thread because
-                 * the only cancellation point is the timedwait which follows. The
-                 * cancellation wakes the timewait which locks the mutex and then it
-                 * exits the thread. Even though we do NOT want to block cancellation
-                 * here just in case we need to kill things no matter what, we do it
-                 * anyway to prevent messing up the mutex.
-                 */
                 cMsgGetAbsoluteTime(&timeout, &wait);
-/*fprintf(stderr, "cMsgRunCallbacks: cue full, start waiting, will UNLOCK mutex\n"); */
+/*fprintf(stderr, "cMsgRunCallbacks: cue full, start waiting, will UNLOCK cb mutex\n"); */
 /*fprintf(stderr, "cMsgRunCallbacks: cue full (%d, %p), waiting\n", cb->messages, cb);*/
-                status = pthread_cond_timedwait(&domain->subscribeCond, &domain->subscribeMutex, &wait);
-/*fprintf(stderr, "cMsgRunCallbacks: done waiting (%p), subcribe mutex LOCKED\n", cb);*/
-                                    
-                /* BUGBUG
-                 * There is a race condition here. If an unsubscribe of the current
-                 * callback was done during the above wait there may be a problem.
-                 * As the callback thread is being terminated (cb->quit == 1),
-                 * we have 1 second (minimum) to use the cb struct before it's freed.
-                 * Shouldn't happen, but you never know.
-                 */
-
-                /* Check for our callback being unsubscribed/disconnected first.
-                 * In this case the Q has already been emptied. */
-                if (cb->quit == 1) {
-/*printf("cMsgRunCallbacks: Try lock cb mutex\n");*/
-                  cMsgMutexLock(&cb->mutex);
-/*printf("cMsgRunCallbacks: Got cb mutex\n");*/
-                  cb->fullQ = 0;
-                  /* tell any cleanup handler running that we're done using cb so it may be freed */
-                  status = pthread_cond_signal(&cb->cond2);
-                  if (status != 0) {
-                    cmsg_err_abort(status, "Failed callback condition signal");
-                  }
-                  cMsgMutexUnlock(&cb->mutex);
-                  /* since there is no callback anymore, dump message, look at next callback */
-                  p = (void *)message; /* get rid of compiler warnings */
-                  cMsgFreeMessage(&p);
-                  goToNextCallback = 1;
-/* fprintf(stderr, "cMsgRunCallbacks: unsubscribe during pthread_cond_wait\n"); */
-                  break;
+                status = pthread_cond_timedwait(&cb->takeFromQ, &cb->mutex, &wait);
+                if (status != 0) {
+                    cmsg_err_abort(status, "Failed callback cond wait");
                 }
-
+/*fprintf(stderr, "cMsgRunCallbacks: done waiting (%p), cb mutex LOCKED\n", cb);*/
+                                    
                 /* if the wait timed out ... */
                 if (status == ETIMEDOUT) {
                   if (cMsgDebug >= CMSG_DEBUG_WARN) {
@@ -1019,26 +1015,27 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
                 else if (status != 0) {
                   cmsg_err_abort(status, "Failed callback cond wait");
                 }
+                else if (domain->disconnectCalled) {
+                    fprintf(stderr, "cMsgRunCallbacks: disconnect called so return\n");
+                    cMsgMutexUnlock(&cb->mutex);
+                    free(entries);
+                    cMsgFreeMessage((void **)&message);
+                    cMsgSubscribeReadUnlock(domain);
+                    return(CMSG_ERROR);
+                }
                 /* else woken up 'cause msg taken off cue */
                 else if (cb->messages < cb->config.maxCueSize) {
-                  cMsgMutexLock(&cb->mutex);
                   cb->fullQ = 0;
-                  cMsgMutexUnlock(&cb->mutex);
                   break;
                 }
-                /* else woken up 'cause of unsubscribe of another callback so ignore */
-                /*
-                else {
-                  fprintf(stderr, "cMsgRunCallbacks: WOKEN UP DUE TO ANOTHER CALLBACK (%p)\n", cb);
-                }
-                */
               } /* while (cb->messages >= cb->config.maxCueSize) */
               
 /* fprintf(stderr, "cMsgRunCallbacks: cue was full, wokenup, there's room now!\n"); */
               if (goToNextCallback) {
-                /* next callback */
-                cb = cb->next;
-                continue;
+                  cMsgMutexUnlock(&cb->mutex);
+                  /* next callback */
+                  cb = cb->next;
+                  continue;
               }
             } /* may not skip messages */
           } /* if too many messages in cue */
@@ -1053,8 +1050,6 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
            * It will now be the responsibility of message consumer
            * to free the msg allocated here.
            */
-
-          cMsgMutexLock(&cb->mutex);
 
           /* if there are no messages ... */
           if (cb->head == NULL) {
@@ -1071,32 +1066,42 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
 /*printf("cMsgRunCallbacks: increase cue size = %d\n", cb->messages);*/
           message->next = NULL;
 
-          /* unlock mutex */
-/* printf("cMsgRunCallbacks: messge put on cue\n");
-   printf("cMsgRunCallbacks: will UNLOCK mutex\n"); */
-          cMsgMutexUnlock(&cb->mutex);
-/* printf("cMsgRunCallbacks: mutex is UNLOCKED, msg taken off cue, broadcast to callback thd\n"); */
+          /* If there is a possibility that the callback thread will need to
+           * start another thread to handle more msgs, then tell it to check. */
+          if (!cb->config.mustSerialize) {
+              status = pthread_cond_signal(&cb->checkQ);
+              if (status != 0) {
+                  cmsg_err_abort(status, "Failed callback condition signal");
+              }
+          }
 
-          /* wakeup callback thread */
-          status = pthread_cond_broadcast(&cb->cond);
+          /* wakeup one of the worker threads */
+          status = pthread_cond_signal(&cb->addToQ);
           if (status != 0) {
             cmsg_err_abort(status, "Failed callback condition signal");
           }
+          
+          /* unlock mutex */
+          /*printf("cMsgRunCallbacks: will UNLOCK mutex\n"); */
+          cMsgMutexUnlock(&cb->mutex);
+          /* printf("cMsgRunCallbacks: mutex is UNLOCKED, msg put on cue, broadcast to callback thd\n"); */          
 
           /* go to the next callback */
           cb = cb->next;
 
         } /* for each callback */
+        
       } /* if matching subscription */      
     } /* for each subscription */
     
     free(entries);
   } /* if there are subscriptions */
     
-  cMsgSubscribeMutexUnlock(domain);
+  cMsgSubscribeReadUnlock(domain);
+/*printf("done runCallbacks\n");*/
 
   /* Need to free up msg allocated by client's listening thread */
-  cMsgFreeMessage(&msgArg);
-  
+  cMsgFreeMessage((void **)&msgArg);
+
   return (CMSG_OK);
 }

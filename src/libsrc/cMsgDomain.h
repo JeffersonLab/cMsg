@@ -78,21 +78,21 @@ typedef struct monitorData_t {
 typedef struct subscribeCbInfo_t {
   int               fullQ;    /**< Boolean telling if this callback msg queue is full. */
   int               messages; /**< Number of messages in list. */
-  int               threads;  /**< Number of supplemental threads to run callback if
+  int               threads;  /**< Number of worker threads to run callback if
                                *   config allows parallelizing (mustSerialize = 0). */
+  int               started;  /**< Boolean telling if thread started or not. */
   int               quit;     /**< Boolean telling thread to end. */
   uint64_t          msgCount; /**< Number of messages passed to callback. */
+  void             *cbarg;    /**< Pointer to mem that must be freed on disconnect if unsubscribe not done. */
   void             *userArg;  /**< User argument to be passed to the callback. */
   cMsgCallbackFunc *callback; /**< Callback function (or C++ callback class instance) to be called. */
   cMsgMessage_t    *head;     /**< Head of linked list of messages given to callback. */
   cMsgMessage_t    *tail;     /**< Tail of linked list of messages given to callback. */
   subscribeConfig   config;   /**< Subscription configuration info. */
   pthread_t         thread;   /**< Thread running callback. */
-  pthread_cond_t    cond;     /**< Condition variable callback thread is waiting on. */
-  pthread_cond_t    cond2;    /**< Condition variable cleanup thread is waiting on for runCallbacks
-                               *   to figure out that it's time to quit. */
-  pthread_cond_t    cond3;    /**< Condition variable cleanup thread is waiting on for supplemental
-                               *   threads to finish. */
+  pthread_cond_t    addToQ;   /**< Condition variable for adding msg to callback queue. */
+  pthread_cond_t    checkQ;   /**< Condition variable for callback thread to add worker threads or quit as needed. */
+  pthread_cond_t    takeFromQ;/**< Condition variable for removing msg from callback queue. */
   pthread_mutex_t   mutex;    /**< Mutex callback thread is waiting on. */
   struct subscribeCbInfo_t *next; /**< Pointer allows struct to be part of linked list. */
 } subscribeCbInfo;
@@ -240,16 +240,12 @@ typedef struct cMsgDomainInfo_t {
   pthread_t updateServerThread; /**< Thread sending keep alives (monitor data) to server. */
   pthread_t clientThread;       /**< Thread handling rc server connection to rc client (created by pendThread). */
   
-  /**
-   * Read/write lock to prevent connect or disconnect from being
-   * run simultaneously with any other function.
-   */
-  rwLock_t connectLock;
-  pthread_mutex_t socketMutex;    /**< Mutex to ensure thread-safety of socket use. */
-  pthread_mutex_t subscribeMutex; /**< Mutex to ensure thread-safety of (un)subscribes. */
-  pthread_cond_t  subscribeCond;  /**< Condition variable used for waiting on clogged callback cue. */
-  
-  pthread_mutex_t subAndGetMutex; /**< Mutex to ensure thread-safety of subAndGet hash table. */
+
+  rwLock_t connectLock;        /**< Read/write lock to prevent connect or disconnect from being
+                                    run simultaneously with any other function. */
+  rwLock_t subscribeLock;      /**< Read/write lock to ensure thread-safety of (un)subscribes. */
+  pthread_mutex_t socketMutex;     /**< Mutex to ensure thread-safety of socket use. */
+  pthread_mutex_t subAndGetMutex;  /**< Mutex to ensure thread-safety of subAndGet hash table. */
   pthread_mutex_t sendAndGetMutex; /**< Mutex to ensure thread-safety of sendAndGet hash table. */
   pthread_mutex_t syncSendMutex;   /**< Mutex to ensure thread-safety of syncSend hash table. */
 
@@ -299,11 +295,11 @@ typedef struct cMsgDomainInfo_t {
 /** This structure (pointer) is passed as an argument to a callback thread
  *  and also used to unsubscribe. */
 typedef struct cbArg_t {
-  intptr_t domainId;      /**< Domain identifier. */
-  char *key;              /**< Key into hashtable, value = subscription give by sub. */
-  subInfo *sub;           /**< Pointer to subscription info structure. */
-  subscribeCbInfo *cb;    /**< Pointer to callback info structure. */
-  cMsgDomainInfo *domain; /**< Pointer to element of domain structure array. */
+    intptr_t domainId;     /**< Domain identifier. */
+    char *key;              /**< Key into hashtable, value = subscription give by sub. */
+    subInfo *sub;           /**< Pointer to subscription info structure. */
+    subscribeCbInfo *cb;    /**< Pointer to callback info structure. */
+    cMsgDomainInfo *domain; /**< Pointer to element of domain structure array. */
 } cbArg;
 
 
@@ -341,25 +337,36 @@ int   cMsgSubscriptionMatches(subInfo *sub, char *msgSubject, char *msgType);
 /* mutexes and read/write locks */
 void  cMsgMutexLock(pthread_mutex_t *mutex);
 void  cMsgMutexUnlock(pthread_mutex_t *mutex);
+
 void  cMsgConnectReadLock(cMsgDomainInfo *domain);
 void  cMsgConnectReadUnlock(cMsgDomainInfo *domain);
 void  cMsgConnectWriteLock(cMsgDomainInfo *domain);
 void  cMsgConnectWriteUnlock(cMsgDomainInfo *domain);
+
 void  cMsgSocketMutexLock(cMsgDomainInfo *domain);
 void  cMsgSocketMutexUnlock(cMsgDomainInfo *domain);
+
 void  cMsgSubAndGetMutexLock(cMsgDomainInfo *domain);
 void  cMsgSubAndGetMutexUnlock(cMsgDomainInfo *domain);
+
 void  cMsgSendAndGetMutexLock(cMsgDomainInfo *domain);
 void  cMsgSendAndGetMutexUnlock(cMsgDomainInfo *domain);
+
 void  cMsgSyncSendMutexLock(cMsgDomainInfo *domain);
 void  cMsgSyncSendMutexUnlock(cMsgDomainInfo *domain);
-void  cMsgSubscribeMutexLock(cMsgDomainInfo *domain);
-void  cMsgSubscribeMutexUnlock(cMsgDomainInfo *domain);
+
+void  cMsgSubscribeReadLock(cMsgDomainInfo *domain);
+void  cMsgSubscribeReadUnlock(cMsgDomainInfo *domain);
+void  cMsgSubscribeWriteLock(cMsgDomainInfo *domain);
+void  cMsgSubscribeWriteUnlock(cMsgDomainInfo *domain);
+
 void  cMsgCountDownLatchFree(countDownLatch *latch);
 void  cMsgCountDownLatchInit(countDownLatch *latch, int count);
+
 void  cMsgLatchReset(countDownLatch *latch, int count, const struct timespec *timeout);
 int   cMsgLatchCountDown(countDownLatch *latch, const struct timespec *timeout);
 int   cMsgLatchAwait(countDownLatch *latch, const struct timespec *timeout);
+
 void  cMsgMemoryMutexLock(void);
 void  cMsgMemoryMutexUnlock(void);
 
@@ -367,6 +374,7 @@ void  cMsgMemoryMutexUnlock(void);
 void *cMsgClientListeningThread(void *arg);
 void *cMsgCallbackThread(void *arg);
 void *cMsgSupplementalThread(void *arg);
+void *cMsgCallbackWorkerThread(void *arg);
 
 /* initialization and freeing */
 void  cMsgSubscribeInfoInit(subInfo *info);

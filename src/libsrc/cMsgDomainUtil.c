@@ -86,16 +86,88 @@ void cMsgMutexUnlock(pthread_mutex_t *mutex) {
 
 /**
  * This routine locks the read lock used to allow simultaneous
+ * writing of the update server thread, and distribution of messages
+ * to callbacks, but to NOT allow simultaneous
+ * addition or removal of subscriptions.
+ */
+void cMsgSubscribeReadLock(cMsgDomainInfo *domain) {
+
+    int status = rwl_readlock(&domain->subscribeLock);
+    if (status != 0) {
+        cmsg_err_abort(status, "Failed subscribe read lock");
+    }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine unlocks the read lock used to allow simultaneous
+ * writing of the update server thread, and distribution of messages
+ * to callbacks, but to NOT allow simultaneous
+ * addition or removal of subscriptions.
+ */
+void cMsgSubscribeReadUnlock(cMsgDomainInfo *domain) {
+
+    int status = rwl_readunlock(&domain->subscribeLock);
+    if (status != 0) {
+        cmsg_err_abort(status, "Failed subscribe read unlock");
+    }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine locks the write lock used to allow simultaneous
+ * writing of the update server thread, and distribution of messages
+ * to callbacks, but to NOT allow simultaneous
+ * addition or removal of subscriptions.
+ */
+void cMsgSubscribeWriteLock(cMsgDomainInfo *domain) {
+
+    int status = rwl_writelock(&domain->subscribeLock);
+    if (status != 0) {
+        cmsg_err_abort(status, "Failed subscribe read lock");
+    }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine unlocks the write lock used to allow simultaneous
+ * writing of the update server thread, and distribution of messages
+ * to callbacks, but to NOT allow simultaneous
+ * addition or removal of subscriptions.
+ */
+void cMsgSubscribeWriteUnlock(cMsgDomainInfo *domain) {
+
+    int status = rwl_writeunlock(&domain->subscribeLock);
+    if (status != 0) {
+        cmsg_err_abort(status, "Failed subscribe read unlock");
+    }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine locks the read lock used to allow simultaneous
  * execution of send, syncSend, subscribe, unsubscribe,
  * sendAndGet, and subscribeAndGet, but NOT allow simultaneous
  * execution of those routines with disconnect.
  */
 void cMsgConnectReadLock(cMsgDomainInfo *domain) {
 
-  int status = rwl_readlock(&domain->connectLock);
-  if (status != 0) {
-    cmsg_err_abort(status, "Failed read lock");
-  }
+    int status = rwl_readlock(&domain->connectLock);
+    if (status != 0) {
+        cmsg_err_abort(status, "Failed read lock");
+    }
 }
 
 
@@ -110,10 +182,10 @@ void cMsgConnectReadLock(cMsgDomainInfo *domain) {
  */
 void cMsgConnectReadUnlock(cMsgDomainInfo *domain) {
 
-  int status = rwl_readunlock(&domain->connectLock);
-  if (status != 0) {
-    cmsg_err_abort(status, "Failed read unlock");
-  }
+    int status = rwl_readunlock(&domain->connectLock);
+    if (status != 0) {
+        cmsg_err_abort(status, "Failed read unlock");
+    }
 }
 
 
@@ -128,10 +200,10 @@ void cMsgConnectReadUnlock(cMsgDomainInfo *domain) {
  */
 void cMsgConnectWriteLock(cMsgDomainInfo *domain) {
 
-  int status = rwl_writelock(&domain->connectLock);
-  if (status != 0) {
-    cmsg_err_abort(status, "Failed read lock");
-  }
+    int status = rwl_writelock(&domain->connectLock);
+    if (status != 0) {
+        cmsg_err_abort(status, "Failed read lock");
+    }
 }
 
 
@@ -146,10 +218,10 @@ void cMsgConnectWriteLock(cMsgDomainInfo *domain) {
  */
 void cMsgConnectWriteUnlock(cMsgDomainInfo *domain) {
 
-  int status = rwl_writeunlock(&domain->connectLock);
-  if (status != 0) {
-    cmsg_err_abort(status, "Failed read unlock");
-  }
+    int status = rwl_writeunlock(&domain->connectLock);
+    if (status != 0) {
+        cmsg_err_abort(status, "Failed read unlock");
+    }
 }
 
 
@@ -277,38 +349,6 @@ void cMsgSyncSendMutexUnlock(cMsgDomainInfo *domain) {
   int status = pthread_mutex_unlock(&domain->syncSendMutex);
   if (status != 0) {
     cmsg_err_abort(status, "Failed syncSend mutex unlock");
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine locks the pthread mutex used to serialize
- * subscribe and unsubscribe calls.
- */
-void cMsgSubscribeMutexLock(cMsgDomainInfo *domain) {
-
-  int status = pthread_mutex_lock(&domain->subscribeMutex);
-  if (status != 0) {
-    cmsg_err_abort(status, "Failed subscribe mutex lock");
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine unlocks the pthread mutex used to serialize
- * subscribe and unsubscribe calls.
- */
-void cMsgSubscribeMutexUnlock(cMsgDomainInfo *domain) {
-
-  int status = pthread_mutex_unlock(&domain->subscribeMutex);
-  if (status != 0) {
-    cmsg_err_abort(status, "Failed subscribe mutex unlock");
   }
 }
 
@@ -564,6 +604,7 @@ void cMsgCallbackInfoInit(subscribeCbInfo *info) {
     info->quit     = 0;
     info->msgCount = 0;
     info->callback = NULL;
+    info->cbarg    = NULL;
     info->userArg  = NULL;
     info->head     = NULL;
     info->tail     = NULL;
@@ -571,25 +612,25 @@ void cMsgCallbackInfoInit(subscribeCbInfo *info) {
     info->config.init          = 0;
     info->config.maySkip       = 0;
     info->config.mustSerialize = 1;
-    info->config.maxCueSize    = 100;
-    info->config.skipSize      = 20;
-    info->config.maxThreads    = 100;
-    info->config.msgsPerThread = 150;
+    info->config.maxCueSize    = 10000;
+    info->config.skipSize      = 2000;
+    info->config.maxThreads    = 20;
+    info->config.msgsPerThread = 500;
     info->config.stackSize     = 0;
 
-    status = pthread_cond_init(&info->cond,  NULL);
+    status = pthread_cond_init(&info->addToQ,  NULL);
     if (status != 0) {
-      cmsg_err_abort(status, "cMsgCallbackInfoInit:initializing condition var");
+        cmsg_err_abort(status, "cMsgCallbackInfoInit:initializing condition var");
     }
 
-    status = pthread_cond_init(&info->cond2,  NULL);
+    status = pthread_cond_init(&info->checkQ,  NULL);
     if (status != 0) {
-      cmsg_err_abort(status, "cMsgCallbackInfoInit:initializing condition var2");
+        cmsg_err_abort(status, "cMsgCallbackInfoInit:initializing condition var");
     }
 
-    status = pthread_cond_init(&info->cond3,  NULL);
+    status = pthread_cond_init(&info->takeFromQ,  NULL);
     if (status != 0) {
-      cmsg_err_abort(status, "cMsgCallbackInfoInit:initializing condition var3");
+        cmsg_err_abort(status, "cMsgCallbackInfoInit:initializing condition var");
     }
 
     status = pthread_mutex_init(&info->mutex, NULL);
@@ -614,21 +655,21 @@ void cMsgCallbackInfoFree(subscribeCbInfo *info) {
     /* cannot destroy mutexes and cond vars in vxworks & apparently Linux */
     int status;
 
-      status = pthread_cond_destroy (&info->cond);
+      status = pthread_cond_destroy (&info->addToQ);
       if (status != 0) {
-        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var");
+          cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var");
       }
-  
-      status = pthread_cond_destroy (&info->cond2);
+
+      status = pthread_cond_destroy (&info->checkQ);
       if (status != 0) {
-        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var2");
+          cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var");
       }
-  
-      status = pthread_cond_destroy (&info->cond3);
+
+      status = pthread_cond_destroy (&info->takeFromQ);
       if (status != 0) {
-        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var3");
+          cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var");
       }
-  
+
       status = pthread_mutex_destroy(&info->mutex);
       if (status != 0) {
         cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying mutex");
@@ -774,7 +815,12 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
     
   status = rwl_init(&domain->connectLock);
   if (status != 0) {
-    cmsg_err_abort(status, "cMsgDomainInit:initializing connect read/write lock");
+      cmsg_err_abort(status, "cMsgDomainInit:initializing connect read/write lock");
+  }
+  
+  status = rwl_init(&domain->subscribeLock);
+  if (status != 0) {
+      cmsg_err_abort(status, "cMsgDomainInit:initializing subscribe read/write lock");
   }
   
   status = pthread_mutex_init(&domain->socketMutex, NULL);
@@ -797,16 +843,6 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
     cmsg_err_abort(status, "cMsgDomainInit:initializing syncSend mutex");
   }
   
-  status = pthread_mutex_init(&domain->subscribeMutex, NULL);
-  if (status != 0) {
-    cmsg_err_abort(status, "cMsgDomainInit:initializing subscribe mutex");
-  }
-  
-  status = pthread_cond_init (&domain->subscribeCond,  NULL);
-  if (status != 0) {
-    cmsg_err_abort(status, "cMsgDomainInit:initializing condition var");
-  }
-      
   status = pthread_mutex_init(&domain->rcConnectMutex, NULL);
   if (status != 0) {
     cmsg_err_abort(status, "cMsgDomainInit:initializing rc connect mutex");
@@ -908,6 +944,17 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
 
 #ifndef VXWORKS
   /* cannot destroy mutexes in vxworks & Linux(?) */
+
+  status = rwl_destroy(&domain->connectLock);
+  if (status != 0) {
+      cmsg_err_abort(status, "cMsgDomainFree:destroying connect read/write lock");
+  }
+  
+  status = rwl_destroy(&domain->subscribeLock);
+  if (status != 0) {
+      cmsg_err_abort(status, "cMsgDomainFree:destroying subscribe read/write lock");
+  }
+  
   status = pthread_mutex_destroy(&domain->socketMutex);
   if (status != 0) {
     cmsg_err_abort(status, "cMsgDomainFree:destroying socket mutex");
@@ -928,16 +975,6 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
     cmsg_err_abort(status, "cMsgDomainInit:destroying syncSend mutex");
   }
   
-  status = pthread_mutex_destroy(&domain->subscribeMutex);
-  if (status != 0) {
-    cmsg_err_abort(status, "cMsgDomainFree:destroying subscribe mutex");
-  }
-  
-  status = pthread_cond_destroy (&domain->subscribeCond);
-  if (status != 0) {
-    cmsg_err_abort(status, "cMsgDomainFree:destroying cond var");
-  }
-    
   status = pthread_mutex_destroy(&domain->rcConnectMutex);
   if (status != 0) {
     cmsg_err_abort(status, "cMsgDomainFree:destroying rc connect mutex");
@@ -1469,288 +1506,298 @@ void cMsgLatchReset(countDownLatch *latch, int count, const struct timespec *tim
 /*-------------------------------------------------------------------*/
 
 
-/**
- * cMsgCallbackThread needs a pthread cancellation cleanup handler.
- * This handler will be called when the cMsgCallbackThread is
- * cancelled. It's task is to free memory allocated for the
- * callback thread.
- */
-static void cleanUpHandler(void *arg) {
-  int status;
-  subscribeCbInfo *cb = (subscribeCbInfo *)arg;
-  struct timespec wait, fullQ_TO, supp_TO;
-
-  /* wait 3 sec for runCallbacks to signal if full Q */
-  fullQ_TO.tv_sec  = 3;
-  fullQ_TO.tv_nsec = 0;
-
-  /* wait .5 sec to check if all supplemental threads are done */
-  supp_TO.tv_sec  = 0;
-  supp_TO.tv_nsec = 500000000; /* .5 */
-
-  /*
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "  cleanUpHandler: in (for %p)\n", cb);
-  }
-  */
-  /* release any messages held in callback thread's queue */
-  cMsgMutexLock(&cb->mutex);
-
-  /* If the callback's queue is full, runCallbacks should be sending us a signal
-   * that it got the signal to quit waiting for that callback (and that it is
-   * done using the "cb" structure so we can free it).
-   */
-  if (cb->fullQ) {
-    cMsgGetAbsoluteTime(&fullQ_TO, &wait);
-    fprintf(stderr, "  cleanUpHandler: wait for cond2 sig (for %p)\n", cb);
-    status = pthread_cond_timedwait(&cb->cond2, &cb->mutex, &wait);
-    /* if the wait timed out ... */
-    if (status == ETIMEDOUT) {
-      /*
-      if (cMsgDebug >= CMSG_DEBUG_WARN) {
-        fprintf(stderr, "  cleanUpHandler: waited 3 seconds for runCallbacks to respond (%p)\n",cb);
-      }
-      */
-    }
-    /* else if error */
-    else if (status != 0) {
-      cmsg_err_abort(status, "Failed callback cond2 wait");
-    }
-    /*
-    else {
-      fprintf(stderr, "  cleanUpHandler: got cond2 sig (for %p)\n", cb);
-    }
-    */
-  }
-    
-  /* now wait for all supplemental threads to finish */
-  while (cb->threads > 0) {
-    cMsgGetAbsoluteTime(&supp_TO, &wait);
-    /*fprintf(stderr, "  cleanUpHandler: # supp thds (%d, %p), waiting\n", cb->threads, cb);*/
-    status = pthread_cond_timedwait(&cb->cond3, &cb->mutex, &wait);
-    if (status != ETIMEDOUT && status != 0) {
-      cmsg_err_abort(status, "Failed callback cond3 timed wait");
-    }
-    /*fprintf(stderr, "  cleanUpHandler: # supp thds (%d, %p), done waiting\n", cb->threads, cb);*/
-  }
-
-  cMsgMutexUnlock(&cb->mutex);
-  
-  /* decrease concurrency as callback thread disappears */
-  sun_setconcurrency(sun_getconcurrency() - 1);
-
-  /* release memory */
-  /*
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "  cleanUpHandler: try to free stuff (for cb %p)\n", cb);
-  }
-  */
-  cMsgCallbackInfoFree(cb);
-  free(cb);
-}
+/** This structure (pointer) is passed as an arg to a callback worker thread. */
+typedef struct cbWorkerArg_t {
+    pthread_t       *threads;  /**< Array of thread ids of worker threads. */
+    int             *used;     /**< Array of ints storing if threads element is used (1) or not (0). */
+    int              index;    /**< Index into arrays - threads & used. */
+    char            *subject;  /**< Subject of subscription. */
+    char            *type;     /**< Type of subscription. */
+    char            *udl;      /**< Udl of connection. */
+    subscribeCbInfo *cb;       /**< Pointer to callback info structure. */
+} cbWorkerArg;
 
 
-/*-------------------------------------------------------------------*/
-
-
-/** This routine is run as a thread in which a single callback is executed. */
+/** This routine is run as a thread which controls a single subscription's callback. */
 void *cMsgCallbackThread(void *arg)
 {
     /* subscription information passed in thru arg */
-    cbArg *cbarg = (cbArg *) arg;
+    cbArg *cbarg           = (cbArg *) arg;
     cMsgDomainInfo *domain = cbarg->domain;
     subInfo *sub           = cbarg->sub;
-    subscribeCbInfo *cb = cbarg->cb;
-    int i, status, need, threadsAdded, maxToAdd, wantToAdd, state;
-    int con, numMsgs, numThreads, quit;
+    subscribeCbInfo *cb    = cbarg->cb;
+    int i, nextIndex, freeIndex, status, need, threadsAdded, maxToAdd, wantToAdd, state, con;
+    int *used;
     cMsgMessage_t *msg;
-    pthread_t thd;
-
+    pthread_t *threads;
+    cbWorkerArg *workerArg;
+    char *subject, *type, *udl;
+    void *p;
     
-    /* Install a cleanup handler for this thread's cancellation. 
-     * Give it a pointer which points to the memory which must
-     * be freed upon cancelling this thread.
-     */
-    pthread_cleanup_push(cleanUpHandler, (void *)cb);
-    
+           
     /* release system resources when thread finishes */
     pthread_detach(pthread_self());
-    
-    /* time_t now, t; *//* for printing msg cue size periodically */
     
     /* increase concurrency for this thread for early Solaris */
     con = sun_getconcurrency();
     sun_setconcurrency(con + 1);
     
-    /* for printing msg cue size periodically */
-    /* now = time(NULL); */
+    /* keep local copies of some strings as they may be freed elsewhere */
+    udl     = strdup(domain->udl);
+    type    = strdup(sub->type);
+    subject = strdup(sub->subject);
+
+    /* allocate array to track threads */
+    /*printf("cb thd: allocating space for %d worker thds\n",cb->config.maxThreads);*/
+    used = (int *) calloc(cb->config.maxThreads,sizeof(int));
+    threads = (pthread_t *) malloc(cb->config.maxThreads*sizeof(pthread_t));
+    if (threads == NULL || used == NULL || udl == NULL || type == NULL || subject == NULL) {
+        cmsg_err_exit(-1, "cMsgCallbackThreadNew: out of memory");
+    }
+
+    /* Tell subscribe that the callback thread has started.
+     * Since we're past using sub & domain they may be freed by disconnect. */
+    cb->started = 1;
     
-    while(1) {
-      /*
-       * Take a current snapshot of the number of threads and messages.
-       * The number of threads may decrease since threads die if there
-       * are no messages to grab, but this is the only place that the
-       * number of threads will be increased.
-       */
-      cMsgMutexLock(&cb->mutex);
-      quit = cb->quit;
-      numMsgs = cb->messages;
-      numThreads = cb->threads;
-      cMsgMutexUnlock(&cb->mutex);
-      threadsAdded = 0;
+    /*************************************/
+    /* spawn one permanent worker thread */
+    /*************************************/
+    used[0] = 1;
+    nextIndex = 1;
+    
+    /* arg to pass to new thread */
+    workerArg = (cbWorkerArg *) malloc(sizeof(cbWorkerArg));
+    if (workerArg == NULL) {
+        cmsg_err_exit(-1, "cMsgCallbackThreadNew: out of memory");
+    }
+    workerArg->cb = cb;
+    workerArg->used = used;
+    workerArg->index = 0;
+    workerArg->threads = threads;
+    workerArg->subject = subject;
+    workerArg->type = type;
+    workerArg->udl = udl;
 
-      /* Check to see if we need more threads to handle the load */      
-      if (!quit &&
-          !cb->config.mustSerialize &&
-          (numThreads < cb->config.maxThreads) &&
-          (numMsgs > cb->config.msgsPerThread)) {
-
-        /* find number of threads needed */
-        need = numMsgs/cb->config.msgsPerThread;
-
-        /* add more threads if necessary */
-        if (need > numThreads) {
-          
-          /* maximum # of threads that can be added w/o exceeding config limit */
-          maxToAdd  = cb->config.maxThreads - numThreads;
-          /* number of threads we want to add to handle the load */
-          wantToAdd = need - numThreads;
-          /* number of threads that we will add */
-          threadsAdded = maxToAdd > wantToAdd ? wantToAdd : maxToAdd;
-                    
-          for (i=0; i < threadsAdded; i++) {
-            status = pthread_create(&thd, NULL, cMsgSupplementalThread, arg);
-            if (status != 0) {
-              cmsg_err_abort(status, "Creating supplemental callback thread");
-            }
-          }
-        }
-      }
-           
-      /* lock mutex */
-/* fprintf(stderr, "  CALLBACK THREAD: will grab mutex %p\n", &cb->mutex); */
-      cMsgMutexLock(&cb->mutex);
-/* fprintf(stderr, "  CALLBACK THREAD: grabbed mutex\n"); */
-
-      /* do the following bookkeeping under mutex protection */
-      cb->threads += threadsAdded;
-
-      if (threadsAdded) {
-        if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          fprintf(stderr, "cMsgCallbackThread:  # thds for cb = %d\n", cb->threads);
-        }
-      }
-      
-      /* wait while there are no messages */
-      while (cb->head == NULL) {
-/* fprintf(stderr, "  CALLBACK THREAD: cond wait, release mutex\n"); */
-        /* Wait until signaled when a message arrives.
-         * This is also a pthread cancellation point and will
-         * be woken up if unsubscribe does a pthread_cancel.
-         */
-        status = pthread_cond_wait(&cb->cond, &cb->mutex);
-        if (status != 0) {
-          cmsg_err_abort(status, "Failed callback cond wait");
-        }
-/* fprintf(stderr, "  CALLBACK THREAD woke up, grabbed mutex\n", cb->quit); */
-      }
-
-      /* get first message in linked list */
-      msg = cb->head;
-
-      /* if there are no more messages ... */
-      if (msg->next == NULL) {
-        cb->head = NULL;
-        cb->tail = NULL;
-      }
-      /* else make the next message the head */
-      else {
-        cb->head = msg->next;
-      }
-      cb->messages--;
-      cb->msgCount++; /* # of msgs passed to callback */
- 
-      /* unlock mutex */
-/* fprintf(stderr, "  CALLBACK THREAD: message taken off cue, cue = %d\n",cb->messages);
-   fprintf(stderr, "  CALLBACK THREAD: release mutex\n"); */
-      cMsgMutexUnlock(&cb->mutex);
-      
-      /* wakeup cMsgRunCallbacks thread if trying to add item to full cue */
-/* fprintf(stderr, "  CALLBACK THREAD: wake up cMsgRunCallbacks thread\n"); */
-      status = pthread_cond_signal(&domain->subscribeCond);
-      if (status != 0) {
-        cmsg_err_abort(status, "Failed callback condition signal");
-      }
-
-      /* print out number of messages in cue */      
-/*       t = time(NULL);
-      if (now + 3 <= t) {
-        printf("  CALLBACK THD: cue size = %d\n",cb->messages);
-        now = t;
-      }
- */      
-
-      /* run callback */
-      msg->context.domain  = (char *) strdup("cMsg");
-      msg->context.subject = (char *) strdup(sub->subject);
-      msg->context.type    = (char *) strdup(sub->type);
-      msg->context.udl     = (char *) strdup(domain->udl);
-      msg->context.cueSize = &cb->messages; /* pointer to cueSize info allows it
-                                               to always be up-to-date in callback */
-      pthread_testcancel();
-      
-      /* Disable pthread cancellation during running of callback.
-       * Since we have no idea what is done in the callback, better
-       * be safe than sorry.
-       */
-      status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);
-      if (status != 0) {
-        cmsg_err_abort(status, "Disabling callback thread cancelability");
-      }
-
-      cb->callback(msg, cb->userArg);
-      
-      /* Renable pthread cancellation at cancellation points like pthread_testcancel */
-      status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
-      if (status != 0) {
-        cmsg_err_abort(status, "Enabling callback thread cancelability");
-      }
+    status = pthread_create(&threads[0], NULL, cMsgCallbackWorkerThread, (void *)workerArg);
+    if (status != 0) {
+        cmsg_err_abort(status, "cMsgCallbackThread: creating worker callback thread");
+    }
+    
+    cMsgMutexLock(&cb->mutex);
+    cb->threads++;
+    cMsgMutexUnlock(&cb->mutex);
   
-      pthread_testcancel();
 
+    while(1) {
+
+        cMsgMutexLock(&cb->mutex);
+
+        if (cb->quit) {
+            /* kill all worker threads */
+            for (i=0; i<cb->config.maxThreads; i++) {
+                if (!used[i]) continue;
+                /*printf("cb thd: cancelling worker #%d\n",i);*/
+                pthread_cancel(threads[i]);
+            }
+            
+            cMsgMutexUnlock(&cb->mutex);
+            
+            /* wait until all worker threads finish before releasing memory */
+            sched_yield();
+            for (i=0; i<cb->config.maxThreads; i++) {
+                if (!used[i]) continue;
+                /*printf("cb thd: try joining worker #%d\n",i);*/
+                pthread_join(threads[i], NULL);
+                if (status != 0 || p != PTHREAD_CANCELED) {
+                    cmsg_err_abort(status, "Failed pend thread join");
+                }
+                /*printf("cb thd: joined worker #%d, status = %d\n",i,status);*/
+            }
+
+            free(used); free(threads); free(subject); free(type); free(udl);
+            /* free callback stuff */
+            cMsgCallbackInfoFree(cb);
+            free(cb);
+
+            /* done */
+            /*printf("cb thd: done\n");*/
+            pthread_exit(NULL);
+        }
+
+        threadsAdded = 0;
+
+        /* Check to see if we need more threads to handle the load */
+        if ( !cb->config.mustSerialize &&
+             (cb->threads < cb->config.maxThreads) &&
+             (cb->messages > cb->config.msgsPerThread)) {
+
+            /* find number of threads needed */
+            need = cb->messages/cb->config.msgsPerThread;
+
+            /* add more threads if necessary */
+            if (need > cb->threads) {
+          
+                /* maximum # of threads that can be added w/o exceeding config limit */
+                maxToAdd  = cb->config.maxThreads - cb->threads;
+                /* number of threads we want to add to handle the load */
+                wantToAdd = need - cb->threads;
+                /* number of threads that we will add */
+                threadsAdded = maxToAdd > wantToAdd ? wantToAdd : maxToAdd;
+                
+                for (i=0; i < threadsAdded; i++) {
+                    /* find free element in array */
+                    freeIndex = -1;
+                    if (nextIndex > cb->config.maxThreads - 1) nextIndex = 0;
+
+                    while (freeIndex < 0) {
+                        for (i=nextIndex; i<cb->config.maxThreads; i++) {
+                            if (!used[i]) {
+                                used[i] = 1;
+                                freeIndex = i;
+                                nextIndex++;
+                                break;
+                            }
+                        }
+                        if (freeIndex < 0 && nextIndex > 0) {
+                            nextIndex = 0;
+                            continue;
+                        }
+                        break;
+                    }
+                
+                    if (freeIndex < 0) {
+                        cmsg_err_exit(-1, "cMsgCallbackThreadNew: no array space for callback worker thread id");
+                    }
+                    
+                    /* arg to pass to new thread */
+                    workerArg = (cbWorkerArg *) malloc(sizeof(cbWorkerArg));
+                    if (workerArg == NULL) {
+                        cmsg_err_exit(-1, "cMsgCallbackThreadNew: out of memory");
+                    }
+                    workerArg->cb = cb;
+                    workerArg->used = used;
+                    workerArg->index = freeIndex;
+                    workerArg->threads = threads;
+                    workerArg->subject = subject;
+                    workerArg->type = type;
+                    workerArg->udl = udl;
+#ifdef VXWORKS
+                    /* zero some memory to avoid funny pthread stuff on vxworks */
+                    memset(&threads[freeIndex], 0, sizeof(pthread_t));
+#endif
+                    status = pthread_create(&threads[freeIndex], NULL,
+                                            cMsgCallbackWorkerThread, (void *)workerArg);
+                    if (status != 0) {
+                        cmsg_err_abort(status, "Creating worker callback thread");
+                    }
+                }
+            }
+        }
+        
+        cb->threads += threadsAdded;
+
+        if (threadsAdded) {
+            if (cMsgDebug >= CMSG_DEBUG_INFO) {
+                fprintf(stderr, "cMsgCallbackThread:  # thds for cb = %d\n", cb->threads);
+            }
+        }
+        
+        /* Wait until message was added to Q or we need to quit. */
+        status = pthread_cond_wait(&cb->checkQ, &cb->mutex);
+        if (status != 0) {
+           cmsg_err_abort(status, "Failed callback cond wait");
+        }
+
+        if (cb->quit) {
+            /*printf("cb thd b: have mutex = %p\n", &cb->mutex);*/
+
+            for (i=0; i<cb->config.maxThreads; i++) {
+                if (!used[i]) continue;
+                /*printf("cb thd b: cancelling worker #%d\n",i);*/
+                pthread_cancel(threads[i]);
+            }
+            cMsgMutexUnlock(&cb->mutex); 
+            /*printf("cb thd b: released mutex = %p\n", &cb->mutex);*/
+
+            /* wait all worker threads to finish before releasing memory */
+            sched_yield();
+            for (i=0; i<cb->config.maxThreads; i++) {
+                if (!used[i]) continue;
+                /*printf("cb thd b: try joining worker #%d\n",i);*/
+                status = pthread_join(threads[i], &p);
+                if (status != 0 || p != PTHREAD_CANCELED) {
+                    cmsg_err_abort(status, "Failed pend thread join");
+                }
+                /*printf("cb thd b: joined worker #%d, status = %d\n",i,status);*/
+            }
+
+            free(used); free(threads); free(subject); free(type); free(udl);
+            cMsgCallbackInfoFree(cb);
+            free(cb);
+   
+            /*printf("cb thd b: done\n");*/
+            pthread_exit(NULL);
+        }
+
+        cMsgMutexUnlock(&cb->mutex);
+      
     } /* while(1) */
       
-    /* On some operating systems (Linux) this call is necessary. The
-     * code never gets here. This thread exits only by unsubscribe or
-     * disconnect calling pthread_cancel. */
-    pthread_cleanup_pop(0);
-  
     pthread_exit(NULL);
-    return NULL;
 }
 
+/*-------------------------------------------------------------------*
+ * cMsgCallbackWorkerThread needs a pthread cancellation cleanup handler
+ * because of a bug in either the Linux kernel or the pthread lib.
+ * When the worker thread is cancelled while it is in a pthread_cond_wait,
+ * it gets cancelled with the mutex still held (boo).
+ * This handler will be called when the cMsgCallbackWorkerThread is
+ * cancelled. It's task is to make sure the mutex is released.
+ *-------------------------------------------------------------------*/
+static void cleanUpHandler(void *arg) {
+    int status;
+    subscribeCbInfo *cb = (subscribeCbInfo *)arg;
+    
+    /* decrease concurrency as this thread disappears */
+    sun_setconcurrency(sun_getconcurrency() - 1);
+  
+    /* release mutex */
+    status = pthread_mutex_trylock(&cb->mutex);
+    /*
+    if (status == EBUSY) {
+        printf("cleanUpHandler: callback mutex is STILL BUSY, so released it, status = %d\n", status);
+    }
+    else {
+        printf("cleanUpHandler: callback mutex is NOT BUSY, status = %d\n", status);
+    }
+    */
+    pthread_mutex_unlock(&cb->mutex);
+}
 
 
 /*-------------------------------------------------------------------*/
 /**
  * This routine is run as a thread in which a callback is executed in
- * parallel with other similar threads. As many supplemental threads
- * are created as needed to keep the callback cue size manageable.
- * 
- * BUGBUG: There is a bit of a race condition here. These supplemental
- * threads are depending on reading "cb->quit" to determine whether to
- * quit or not. When the main callback thread is cancelled, it waits a
- * minimum of 1 second before release the callback's memory. That means
- * if this thread fails to shutdown within 1 second of the main cb
- * thread, we may get a seg fault.
+ * parallel with other similar threads. Worker threads may be created
+ * as needed to keep the callback cue size manageable.
+ *
+ * BUGBUG: There is a bit of a race condition here. These worker
+ * threads either read "cb->quit" to determine whether to
+ * quit or get pthread_cancelled by the callback thread.
+ * When the main callback thread is told to quit, it cancels all worker
+ * threads, then waits 1 second before release the callback's memory.
+ * That means if this thread fails to shutdown within 1 second of the
+ * main cb thread, we may get a seg fault.
  */
-void *cMsgSupplementalThread(void *arg)
+void *cMsgCallbackWorkerThread(void *arg)
 {
     /* subscription information passed in thru arg */
-    cbArg *cbarg = (cbArg *) arg;
-    cMsgDomainInfo *domain = cbarg->domain;
-    subInfo *sub           = cbarg->sub;
-    subscribeCbInfo *cb = cbarg->cb;
+    cbWorkerArg *workerArg = (cbWorkerArg *)arg;
+    subscribeCbInfo *cb = workerArg->cb;
+    int permanentWorker = workerArg->index == 0 ? 1 : 0;
+    int *used = workerArg->used, index = workerArg->index;
+    pthread_t *threads = workerArg->threads;
+    char *subject=workerArg->subject, *type=workerArg->type, *udl=workerArg->udl;
     int status, empty, state;
     cMsgMessage_t *msg;
     struct timespec wait, timeout;
@@ -1761,142 +1808,156 @@ void *cMsgSupplementalThread(void *arg)
     sun_setconcurrency(con + 1);
 
     /* release system resources when thread finishes */
-    pthread_detach(pthread_self());
+    /*pthread_detach(pthread_self());*/
 
     /* wait .2 sec before waking thread up and checking for messages */
     timeout.tv_sec  = 0;
     timeout.tv_nsec = 200000000;
+
+    free(arg);
     
-/*printf("Supplemental Callback Thd: in\n");*/
+    /*printf("Worker Callback Thd #%d started\n", index);*/
+    
+    pthread_cleanup_push(cleanUpHandler, (void *)cb);
 
     while(1) {
       
-      empty = 0;
+        empty = 0;
       
-      /* lock mutex before messing with linked list */
-      cMsgMutexLock(&cb->mutex);
-      
-      /* quit if commanded to */
-      if (cb->quit) {
-        cb->threads--;
-        /*
-        if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          fprintf(stderr, "Supplemental thd: exit1, thds = %d\n", cb->threads);
-        }
-        */
-        status = pthread_cond_signal(&cb->cond3);
-        if (status != 0) {
-          cmsg_err_abort(status, "Failed callback condition signal");
-        }
-        
-        cMsgMutexUnlock(&cb->mutex);
-        goto end;
-      }
-      
-      /* wait while there are no messages */
-      while (cb->head == NULL) {
-        /* wait until signaled or for .2 sec, before
-         * waking thread up and checking for messages
-         */
-        cMsgGetAbsoluteTime(&timeout, &wait);        
-        status = pthread_cond_timedwait(&cb->cond, &cb->mutex, &wait);
-        
-        /* if the wait timed out ... */
-        if (status == ETIMEDOUT) {
-          /* if we wake up 10 times with no messages (2 sec), quit this thread */
-          if (++empty%10 == 0) {
-            cb->threads--;
-            /*
-            if (cMsgDebug >= CMSG_DEBUG_INFO) {
-              fprintf(stderr, "Supplemental thd: exit2, thds = %d\n", cb->threads);
-            }
-            */
-            status = pthread_cond_signal(&cb->cond3);
-            if (status != 0) {
-              cmsg_err_abort(status, "Failed callback condition signal");
-            }
-            
-            /* unlock mutex & kill this thread */
-            cMsgMutexUnlock(&cb->mutex);
-            goto end;
-          }
-        }
-        else if (status != 0) {
-          cmsg_err_abort(status, "Failed callback cond wait");
-        }
-      
+        /* lock mutex before messing with linked list */
+        /*printf("worker: try grab 1, mutex = %p\n", &cb->mutex);*/
+        cMsgMutexLock(&cb->mutex);
+        /*printf("worker: grabbed 1, mutex = %p\n", &cb->mutex);*/
+ 
         /* quit if commanded to */
-        if (cb->quit) {          
-          cb->threads--;
-          /*
-          if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "Supplemental thd: exit3, thds = %d\n", cb->threads);
-          }
-          */
-          status = pthread_cond_signal(&cb->cond3);
-          if (status != 0) {
-            cmsg_err_abort(status, "Failed callback condition signal");
-          }
-          
-          cMsgMutexUnlock(&cb->mutex);
-          goto end;
+        if (cb->quit) {
+            /*printf("Worker Callback Thd a: #%d quiting\n", index);*/
+            cb->threads--;
+            used[index] = 0;
+/*printf("worker: try release 1, mutex = %p\n", &cb->mutex);*/
+            cMsgMutexUnlock(&cb->mutex);
+/*printf("worker: released 1, mutex = %p\n", &cb->mutex);*/
+            goto end;
         }
-      }
+
+        /* wait while there are no messages */
+        while (cb->head == NULL) {
+            /* if this is the one permanent worker thread ... */
+            if (permanentWorker) {
+                /* Wait until signaled when a message arrives.
+                 * This is also a pthread cancellation point and will
+                 * be woken up if disconnect/unsubscribe does a pthread_cancel. */
+                /*printf("worker: try wait 1, mutex = %p\n", &cb->mutex);*/
+                status = pthread_cond_wait(&cb->addToQ, &cb->mutex);
+                if (status != 0) {
+                    cmsg_err_abort(status, "Failed callback cond wait");
+                }
+                /*printf("worker: woken up 1, mutex = %p\n", &cb->mutex);*/
+            }
+            else {
+                /* Wait until signaled when message arrives or for .2 sec, before
+                 * waking thread up and checking status. */
+                cMsgGetAbsoluteTime(&timeout, &wait);
+/*printf("worker: try wait 2, mutex = %p\n", &cb->mutex);*/
+                status = pthread_cond_timedwait(&cb->addToQ, &cb->mutex, &wait);
+/*printf("worker: woken up 2, mutex = %p\n", &cb->mutex);*/
+
+                /* if the wait timed out ... */
+                if (status == ETIMEDOUT) {
+                    /* if we wake up 10 times with no messages (2 sec), quit this thread */
+                    if (++empty%10 == 0) {
+                        cb->threads--;
+                        used[index] = 0;
+                        /* unlock mutex & kill this thread */
+/*printf("worker: try release 2, mutex = %p\n", &cb->mutex);*/
+                        cMsgMutexUnlock(&cb->mutex);
+/*printf("worker: released 2, mutex = %p\n", &cb->mutex);*/
+                        goto end;
+                    }
+                }
+                else if (status != 0) {
+                    cmsg_err_abort(status, "Failed callback cond wait");
+                }
+            }
+      
+            /* quit if commanded to */
+            if (cb->quit) {
+                /*printf("Worker Callback Thd b: #%d quiting\n", index);*/
+                cb->threads--;
+                used[index] = 0;
+/*printf("worker: try release 3, mutex = %p\n", &cb->mutex);*/
+                cMsgMutexUnlock(&cb->mutex);
+/*printf("worker: released 3, mutex = %p\n", &cb->mutex);*/
+                goto end;
+            }
+        }
                   
-      /* get first message in linked list */
-      msg = cb->head;
+        /* get first message in linked list */
+        msg = cb->head;
 
-      /* if there are no more messages ... */
-      if (msg->next == NULL) {
-        cb->head = NULL;
-        cb->tail = NULL;
-      }
-      /* else make the next message the head */
-      else {
-        cb->head = msg->next;
-      }
-      cb->messages--;
-      cb->msgCount++; /* # of msgs passed to callback */
+        /* if there are no more messages ... */
+        if (msg->next == NULL) {
+            cb->head = NULL;
+            cb->tail = NULL;
+        }
+        /* else make the next message the head */
+        else {
+            cb->head = msg->next;
+        }
+        cb->messages--;
+        cb->msgCount++; /* # of msgs passed to callback */
    
-      /* unlock mutex */
-      cMsgMutexUnlock(&cb->mutex);
+        /* wakeup cMsgRunCallbacks thread if trying to add item to full cue */
+        status = pthread_cond_signal(&cb->takeFromQ);
+        if (status != 0) {
+            cmsg_err_abort(status, "Failed callback condition signal");
+        }
+
+        /* unlock mutex */
+/*printf("worker: try release 4, mutex = %p\n", &cb->mutex);*/
+        cMsgMutexUnlock(&cb->mutex);
+/*printf("worker: released 4, mutex = %p\n", &cb->mutex);*/
+
+        /* run callback */
+        msg->context.domain  = (char *) strdup("cMsg");
+        msg->context.subject = (char *) strdup(subject);
+        msg->context.type    = (char *) strdup(type);
+        msg->context.udl     = (char *) strdup(udl);
+        msg->context.cueSize = &cb->messages; /* pointer to cueSize info allows it
+        to always be up-to-date in callback */
+
+        /* Disable pthread cancellation during running of callback.
+         * Since we have no idea what is done in the callback, better
+         * be safe than sorry. */
+        status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);
+        if (status != 0) {
+            cmsg_err_abort(status, "Disabling callback thread cancelability");
+        }
+
+        cb->callback(msg, cb->userArg);
       
-      /* wakeup cMsgRunCallbacks thread if trying to add item to full cue */
-      status = pthread_cond_signal(&domain->subscribeCond);
-      if (status != 0) {
-        cmsg_err_abort(status, "Failed callback condition signal");
-      }
+        /* Renable pthread cancellation at cancellation points like pthread_testcancel */
+        status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
+        if (status != 0) {
+            cmsg_err_abort(status, "Enabling callback thread cancelability");
+        }
 
-      /* run callback */
-      msg->context.domain  = (char *) strdup("cMsg");
-      msg->context.subject = (char *) strdup(sub->subject);
-      msg->context.type    = (char *) strdup(sub->type);
-      msg->context.udl     = (char *) strdup(domain->udl);
-      msg->context.cueSize = &cb->messages; /* pointer to cueSize info allows it
-                                               to always be up-to-date in callback */
-
-      /* Disable pthread cancellation during running of callback.
-      * Since we have no idea what is done in the callback, better
-      * be safe than sorry.
-      */
-      status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);
-      if (status != 0) {
-        cmsg_err_abort(status, "Disabling callback thread cancelability");
-      }
-
-      cb->callback(msg, cb->userArg);
-      
-      /* Renable pthread cancellation at cancellation points like pthread_testcancel */
-      status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
-      if (status != 0) {
-        cmsg_err_abort(status, "Enabling callback thread cancelability");
-      }
+        /* If the callback took a long time, an unsubscribe or disconnect could have taken
+         * place and allocated memory (like cb) could have been freed. Thus, before we do
+         * anything to access that memory, allow us to be cancelled. Pthread_cancel will
+         * have been called for this thread. The only problem here is if pthread_cancel is
+         * called just after the following pthread_testcancel statement. In that case, we
+         * have SLEEP_SEC amount of seconds before the memory we need to access (cb)
+         * disappears. */
+        pthread_testcancel();
     }
     
   end:
           
-    sun_setconcurrency(con);
-    
-    pthread_exit(NULL);
-    return NULL;
+  sun_setconcurrency(con);
+  
+  /* calls cleanup handler */
+  pthread_cleanup_pop(0);
+  
+  pthread_exit(NULL);
 }

@@ -53,13 +53,15 @@ static void  cleanUpClientHandler(void *arg);
 typedef struct freeMem_t {
     char *buffer;
     int   fd;
+    cMsgDomainInfo *domain;
 } freeMem;
 
 
 
 /*-------------------------------------------------------------------*
  * The listening thread needs a pthread cancellation cleanup handler.
- * It will be called when the rcClientListeningThread is cancelled.
+ * It will be called when the rcClientListeningThread is cancelled
+ * (which only happens when user calls disconnect).
  * It's task is to remove all the client threads.
  *-------------------------------------------------------------------*/
 static void cleanUpHandler(void *arg) {
@@ -74,14 +76,8 @@ static void cleanUpHandler(void *arg) {
   /* decrease concurrency as this thread disappears */
   sun_setconcurrency(sun_getconcurrency() - 1);
   
-  /* Nornally we could just cancel the thread and if the subscription
-   * mutex were locked, the reinitialization would free it. However,
-   * in vxWorks, reinitialization of a pthread mutex is not allowed
-   * so we want to kill the thread in a way in which the mutex will
-   * not end up locked.
-   */  
-  domain->killClientThread = 1;
-  pthread_cond_signal(&domain->subscribeCond);
+  /* If we're in this code, the user called disconnect so go ahead and
+   * cancel spawned thread. */
   nanosleep(&sTime,NULL);
   if (threadArg->thdstarted) {
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
@@ -89,7 +85,11 @@ static void cleanUpHandler(void *arg) {
     }
     pthread_cancel(domain->clientThread);
   }
-  domain->killClientThread = 0;
+
+  /* pend thread no longer using domain struct/memory */
+  cMsgMutexLock(&domain->syncSendMutex); /* use mutex unused elsewhere in rc domain */
+  domain->functionsRunning--;
+  cMsgMutexUnlock(&domain->syncSendMutex);
   
   /* free up arg memory */
   free(threadArg);
@@ -108,6 +108,11 @@ static void cleanUpClientHandler(void *arg) {
     fprintf(stderr, "clientThread: in cleanup handler\n");
   }
   
+  /* thread no longer using domain struct/memory */
+  cMsgMutexLock(&pMem->domain->syncSendMutex); /* use mutex unused elsewhere in rc domain */
+  pMem->domain->functionsRunning--;
+  cMsgMutexUnlock(&pMem->domain->syncSendMutex);
+
   /* decrease concurrency as this thread disappears */
   sun_setconcurrency(sun_getconcurrency() - 1);
   
@@ -153,7 +158,7 @@ void *rcClientListeningThread(void *arg)
   sun_setconcurrency(sun_getconcurrency() + 1);
 
   /* release system resources when thread finishes */
-  pthread_detach(pthread_self());
+  /*pthread_detach(pthread_self());*//* this thread joined by disconnect */
 
   addrlen = sizeof(cliaddr);
       
@@ -168,6 +173,11 @@ void *rcClientListeningThread(void *arg)
   
   /* Tell spawning thread that we're up and running */
   threadArg->isRunning = 1;
+  
+  /* we're using domain struct/memory */
+  cMsgMutexLock(&domain->syncSendMutex); /* use mutex unused elsewhere in rc domain */
+  domain->functionsRunning++;
+  cMsgMutexUnlock(&domain->syncSendMutex);
   
   /* spawn threads to deal with each client */
   for ( ; ; ) {
@@ -392,6 +402,7 @@ static void *clientThread(void *arg)
   /* Install a cleanup handler for this thread's cancellation. 
    * Give it a pointer which points to the memory which must
    * be freed upon cancelling this thread. */
+  pfreeMem->domain = domain;
   pfreeMem->buffer = buffer;
   pfreeMem->fd = connfd;
   pthread_cleanup_push(cleanUpClientHandler, (void *)pfreeMem);
@@ -403,6 +414,11 @@ static void *clientThread(void *arg)
     cmsg_err_abort(status, "Enabling client cancelability");
   }
   
+  /* we're using domain struct/memory */
+  cMsgMutexLock(&domain->syncSendMutex); /* use mutex unused elsewhere in rc domain */
+  domain->functionsRunning++;
+  cMsgMutexUnlock(&domain->syncSendMutex);
+
   /*--------------------------------------*/
   /* wait for and process client requests */
   /*--------------------------------------*/
