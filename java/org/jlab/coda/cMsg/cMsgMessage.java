@@ -35,74 +35,77 @@ import java.text.SimpleDateFormat;
 
 
 /**
-  * This class implements a message in the cMsg messaging system.
-  * Each cMsgMessage object contains many different fields. User-settable fields
-  * include a time, an int, a text, and a binary array field. However, the most
-  * complex field (and thus deserving a full explanation) is the compound payload.
-  * In short, the payload allows a string to store messages of arbitrary
-  * length and complexity. All types of ints (1,2,4,8 bytes, BigInteger), 4,8-byte floats,
-  * strings, binary, whole messages and arrays of all these types can be stored
-  * and retrieved from the compound payload. These methods are thread-safe.<p>
-  *
-  * Although XML would be a format well-suited to this task, it takes more time and memory
-  * to decode XML than a simple format. Thus, a simple, easy-to-parse format
-  * was developed to implement the payload. A side benefit is no external XML parsing
-  * package is needed.<p>
-  *
-  * Following is the text format of a complete compound payload (where [nl] means
-  * newline). Each payload consists of a number of items. The very first line is the
-  * number of items in the payload. That is followed by the text representation of
-  * each item. The first line of each item consists of 5 entries.
-  *
-  * Note that there is only 1 space or newline between all entries. The only exception
-  * to the 1 space spacing is between the last two entries on each "header" line (the line
-  * that contains the item_name). There may be several spaces between the last 2
-  * entries on these lines.<p></b>
-  *
-  *<pre>    item_count[nl]</pre><p>
-  *
-  *<b><i>for string items:</i></b><p>
-  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
-  *    string_length_1[nl]
-  *    string_characters_1[nl]
-  *     .
-  *     .
-  *     .
-  *    string_length_N[nl]
-  *    string_characters_N</pre><p>
-  *
-  *<b><i>for binary (converted into text) items:</i></b><p>
-  *
-  *<pre>    item_name   item_type   original_binary_byte_length   isSystemItem?   item_length[nl]
-  *    string_length   endian[nl]
-  *    string_characters[nl]</pre><p>
-  *
-  *<b><i>for primitive type items:</i></b><p>
-  *
-  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
-  *    value_1   value_2   ...   value_N[nl]</pre><p>
-  *
-  *  <b>A cMsg message is formatted as a compound payload. Each message has
-  *  a number of fields (payload items).<p>
-  *
-  *  <i>for message items:</i></b><p>
-  *<pre>                                                                            _
-  *    item_name   item_type   item_count   isSystemItem?   item_length[nl]   /
-  *    message_1_in_compound_payload_text_format[nl]                         <  field_count[nl]
-  *        .                                                                  \ list_of_payload_format_items
-  *        .                                                                   -
-  *        .
-  *    message_N_in_compound_payload_text_format[nl]</pre><p>
-  *
-  * Notice that this format allows a message to store a message which stores a message
-  * which stores a message, ad infinitum. In other words, recursive message storing.
-  * The item_length in each case is the length in bytes of the rest of the item (not
-  * including the newline at the end). Note that accessor methods can return null objects.
-  *
-  * @author Elliott Wolin
-  * @author Carl Timmer
-  * @version 1.0
-  */
+ * This class implements a message in the cMsg messaging system.
+ * Each cMsgMessage object contains many different fields. User-settable fields
+ * include a time, an int, a text, and a binary array field. However, the most
+ * complex field (and thus deserving a full explanation) is the compound payload.
+ * In short, the payload allows a string to store messages of arbitrary
+ * length and complexity. All types of ints (1,2,4,8 bytes, BigInteger), 4,8-byte floats,
+ * strings, binary, whole messages and arrays of all these types can be stored
+ * and retrieved from the compound payload. These methods are thread-safe.<p>
+ *
+ * Although XML would be a format well-suited to this task, it takes more time and memory
+ * to decode XML than a simple format. Thus, a simple, easy-to-parse format
+ * was developed to implement the payload. A side benefit is no external XML parsing
+ * package is needed.<p>
+ *
+ * Following is the text format of a complete compound payload (where [nl] means
+ * newline). Each payload consists of a number of items. The very first line is the
+ * number of items in the payload. That is followed by the text representation of
+ * each item. The first line of each item consists of 5 entries.
+ *
+ * Note that there is only 1 space or newline between all entries. The only exception
+ * to the 1 space spacing is between the last two entries on each "header" line (the line
+ * that contains the item_name). There may be several spaces between the last 2
+ * entries on these lines.<p></b>
+ *
+ *<pre>    item_count[nl]</pre><p>
+ *
+ *<b><i>for (arrays of) string items:</i></b><p/>
+ *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
+ *    string_length_1[nl]
+ *    string_characters_1[nl]
+ *     .
+ *     .
+ *     .
+ *    string_length_N[nl]
+ *    string_characters_N</pre><p/>
+ *
+ *<b><i>for (arrays of) binary (converted into text) items:</i></b><p>
+ *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
+ *    string_length_1   original_binary_byte_length_1   endian_1[nl]
+ *    string_characters_1[nl]</pre><p>
+ *     .
+ *     .
+ *     .
+ *    string_length_N   original_binary_byte_length_N   endian_N[nl]
+ *    string_characters_N</pre><p>
+ *
+ *<b><i>for primitive type items:</i></b><p/>
+ *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
+ *    value_1   value_2   ...   value_N[nl]</pre><p/>
+ *
+ *<b>A cMsg message is formatted as a compound payload. Each message has
+ *   a number of fields (payload items).<p/>
+ *
+ *  <i>for message items:</i></b><p/>
+ *<pre>                                                                            _
+ *    item_name   item_type   item_count   isSystemItem?   item_length[nl]   /
+ *    message_1_in_compound_payload_text_format[nl]                         <  field_count[nl]
+ *        .                                                                  \ list_of_payload_format_items
+ *        .                                                                   -
+ *        .
+ *    message_N_in_compound_payload_text_format[nl]</pre>
+ *
+ * Notice that this format allows a message to store a message which stores a message
+ * which stores a message, ad infinitum. In other words, recursive message storing.
+ * The item_length in each case is the length in bytes of the rest of the item (not
+ * including the newline at the end). Note that accessor methods can return null objects.
+ *
+ * @author Elliott Wolin
+ * @author Carl Timmer
+ * @version 1.0
+ */
 public class cMsgMessage implements Cloneable, Serializable {
 
     /**
@@ -244,7 +247,7 @@ public class cMsgMessage implements Cloneable, Serializable {
 
     // payload quantities
 
-    /** List of payload items. */
+    /** List of payload items. BUGBUG why create it here? for clone? */
     transient protected ConcurrentHashMap<String, cMsgPayloadItem> items =
                              new ConcurrentHashMap<String, cMsgPayloadItem>();
     /** Buffer to help build the text represenation of the payload to send over network. */
@@ -291,13 +294,15 @@ public class cMsgMessage implements Cloneable, Serializable {
     public Object clone() {
         try {
             cMsgMessage result = (cMsgMessage) super.clone();
-            for (Map.Entry<String, cMsgPayloadItem> entry : items.entrySet()) {
-                result.items.put(entry.getKey(), (cMsgPayloadItem)entry.getValue().clone());
-            }
+            result.context = new cMsgMessageContextDefault();
+//            for (Map.Entry<String, cMsgPayloadItem> entry : items.entrySet()) {
+//                result.items.put(entry.getKey(), (cMsgPayloadItem)entry.getValue().clone());
+//            }
             if (bytes != null) {
                 // Making a clone means this object must be independent
                 // of the object being cloned. Thus we MUST copy the byte array.
                 result.bytes = bytes.clone();
+                byteArrayCopied = true;
             }
             return result;
         }
@@ -310,8 +315,8 @@ public class cMsgMessage implements Cloneable, Serializable {
     /** The constructor for a blank message. */
     public cMsgMessage() {
         version = cMsgConstants.version;
-        items   = new ConcurrentHashMap<String, cMsgPayloadItem>();
-        buffer  = new StringBuilder(512);
+        //items   = new ConcurrentHashMap<String, cMsgPayloadItem>();
+        //buffer  = new StringBuilder(512);
         info   |= expandedPayload;
         historyLengthMax = historyLengthInit;
     }
@@ -352,6 +357,7 @@ public class cMsgMessage implements Cloneable, Serializable {
         dst.text                = src.text;
         dst.userInt             = src.userInt;
         dst.userTime            = src.userTime;
+        dst.byteArrayCopied     = src.byteArrayCopied;
         if (src.bytes != null) {
             if (src.byteArrayCopied) {
                 dst.bytes       = src.bytes.clone();
@@ -365,8 +371,8 @@ public class cMsgMessage implements Cloneable, Serializable {
 
         // payload
         dst.payloadText         = src.payloadText;
-        dst.buffer              = new StringBuilder(512);
-        dst.items               = new ConcurrentHashMap<String, cMsgPayloadItem>();
+        //dst.buffer              = new StringBuilder(512);
+        //dst.items               = new ConcurrentHashMap<String, cMsgPayloadItem>();
         for (Map.Entry<String, cMsgPayloadItem> entry : src.items.entrySet()) {
             dst.items.put(entry.getKey(), (cMsgPayloadItem)entry.getValue().clone());
         }
@@ -1680,6 +1686,51 @@ public class cMsgMessage implements Cloneable, Serializable {
                          sb.append(indent); sb.append(offsett);
                          sb.append("</string_array>\n");
                      } break;
+
+                    case cMsgConstants.payloadBinA:
+                      {   byte[][] b   = item.getBinaryArray();
+                          int[] endian = item.getEndianArray();
+
+                          sb.append(indent); sb.append(offsett);
+                          sb.append("<binary_array name=\""); sb.append(name); sb.append("\" count=\"");
+                          sb.append(b.length); sb.append("\">\n");
+
+                          for (int i=0; i<b.length; i++) {
+                              sb.append(indent);sb.append(offsett);sb.append(offsett);
+
+                              if (endian[i] == cMsgConstants.endianBig) {
+                                  sb.append("<binary endian=\"big\"");
+                              }
+                              else {
+                                  sb.append("<binary endian=\"little\"");
+                              }
+                              sb.append(" nbytes=\""); sb.append(b[i].length);
+                              if (!binary) {
+                                  sb.append("\" />\n");
+                              }
+                              else {
+                                  // put in line breaks after 76 chars (57 bytes)
+                                  if (b[i].length > 57) {
+                                      sb.append("\">\n");
+                                      sb.append(Base64.encodeToString(b[i], true));
+                                      sb.append(indent);sb.append(offsett);sb.append(offsett);
+                                      sb.append("</binary>\n");
+                                  }
+                                  else {
+                                      sb.append("\">");
+                                      sb.append(Base64.encodeToString(b[i], false));
+                                      sb.append("</binary>\n");
+                                  }
+                              }
+                          }
+
+                          sb.append(indent); sb.append(offsett);
+                          sb.append("</binary_array>\n");
+
+                      } break;
+
+                    default:
+
                 } // switch
             } // for each entry
         }
@@ -2042,6 +2093,11 @@ public class cMsgMessage implements Cloneable, Serializable {
      * given history parameters made into payload items together. Used when generating a text
      * representation of the payload to be sent over the network containing additions for sender
      * history of names, times, hosts.
+     * <p>
+     * When a client sends the same message over and over again, we do <b>NOT</b> want the history
+     * to change. To ensure this, we follow a simple principle: the sender history needs to go
+     * into the sent message (ie. over the wire), but must not be added to the local one.
+     * Thus, if I send a message, its local sender history will not change.
      *
      * @param sendersName name to be added to history of senders
      * @param sendersHost host to be added to history of sender hosts
@@ -2279,7 +2335,7 @@ if (debug) System.out.println("FIELD #" + i + ": name = " + name + ", type = " +
 
             if (name.length() < 1 || count < 1 || noHeaderLen < 1 ||
                     dataType < cMsgConstants.payloadStr ||
-                    dataType > cMsgConstants.payloadMsgA) throw new cMsgException("bad format5");
+                    dataType > cMsgConstants.payloadBinA) throw new cMsgException("bad format5");
 
             // ignore certain fields (by convention, system fields start with "cmsg")
             ignore = isSystem;                  // by default ignore system fields, flag == payloadFieldsOnly
@@ -2312,6 +2368,10 @@ if (debug) System.out.println("  skipped field");
             // binary data
             else if (dataType == cMsgConstants.payloadBin) {
                 addBinaryFromText(name, count, isSystem, text, index1, firstIndex, noHeaderLen);
+            }
+            // arrays of binary data
+            else if (dataType == cMsgConstants.payloadBinA) {
+                addBinaryArrayFromText(name, count, isSystem, text, index1, firstIndex, noHeaderLen);
             }
             // double or float
             else if (dataType == cMsgConstants.payloadDbl ||
@@ -2462,7 +2522,7 @@ if (debug) System.out.println("  skipped field");
         }
 
         // get full text representation of item so it doesn't need to be recalculated
-        // when creating the payload item (+1 includes last newline)
+        // when creating the payload item
         String textRep = txt.substring(fullIndex, index1);
 //System.out.println("addStringArrayFromText textRep len = " + textRep.length() + ", text =\n" + textRep);
 
@@ -2494,13 +2554,16 @@ if (debug) System.out.println("  skipped field");
                                    int index1, int fullIndex, int noHeadLen)
             throws cMsgException {
 
-        // start after header line, first items are length of string and endian
+        // start after header line, the next 3 items are:
+        // length of string, length of original binary, and endian
         int index2 = txt.indexOf('\n', index1);
         if (index2 < 1) throw new cMsgException("bad format");
         String[] stuff = txt.substring(index1, index2).split(" ");
         int base64StrLen = Integer.parseInt(stuff[0]);
         if (base64StrLen < 1) throw new cMsgException("bad format");
-        int endian = Integer.parseInt(stuff[1]);
+        int binLen = Integer.parseInt(stuff[1]);
+        if (binLen < 1) throw new cMsgException("bad format");
+        int endian = Integer.parseInt(stuff[2]);
 
         // next is string value of this payload item
         index1 = index2 + 1;
@@ -2511,6 +2574,10 @@ if (debug) System.out.println("  skipped field");
         byte[] b = null;
         try  { b = Base64.decodeToBytes(val, "US-ASCII"); }
         catch (UnsupportedEncodingException e) {/*never happen*/}
+
+        if (b.length != binLen) {
+            System.out.println("reconstituted binary is different length than original binary");
+        }
 
         // is regular field in msg
         if (isSystem && name.equals("cMsgBinary")) {
@@ -2525,10 +2592,82 @@ if (debug) System.out.println("  skipped field");
 
         // get full text representation of item so it doesn't need to be recalculated
         // when creating the payload item
-        String textRep = txt.substring(fullIndex, index2+1);
+        String textRep = txt.substring(fullIndex, index2);
 
         // create payload item to add to msg  & store in payload
         addPayloadItem(new cMsgPayloadItem(name, b, endian, textRep, noHeadLen, isSystem));
+
+        return;
+    }
+
+
+    /**
+     * This method adds a named field of a string array to the compound payload
+     * of a message. The text representation of the payload item is copied in
+     * (doesn't need to be generated).
+     *
+     * @param name name of field to add
+     * @param count size in bytes of original binary data
+     * @param isSystem if = 0, add item to payload, else set system parameters
+     * @param txt string read in over wire for message's text field
+     * @param index1 index into txt after the item's header line
+     * @param fullIndex index into txt at beginning of item (before header line)
+     * @param noHeadLen len of txt in ASCII chars NOT including header (first) line
+     *
+     * @throws cMsgException if txt is in a bad format
+     */
+    private void addBinaryArrayFromText(String name, int count, boolean isSystem, String txt,
+                                   int index1, int fullIndex, int noHeadLen)
+            throws cMsgException {
+
+//System.out.println("addBinaryArrayFromText, txt = " + txt);
+
+        // start after header line, first items are length of string and endian
+        int index2, base64StrLen, binLen, endian;
+        String val, stuff[];
+        int[] endians = new int[count];
+        byte[][] vals = new byte[count][];
+
+        for (int i = 0; i < count; i++) {
+            // start after header line, items are: length of string, len of binary, and endian
+            index2 = txt.indexOf('\n', index1);
+            if (index2 < 1) throw new cMsgException("bad format");
+//System.out.println("parsing: " + txt.substring(index1, index2));
+            stuff = txt.substring(index1, index2).split(" ");
+//for (int j=0; j<stuff.length; j++) {
+//    System.out.println("stuf[" + j + "] = " + stuff[j]);
+//}
+            base64StrLen = Integer.parseInt(stuff[0]);
+            if (base64StrLen < 1) throw new cMsgException("bad format");
+            binLen = Integer.parseInt(stuff[1]);
+            if (binLen < 1) throw new cMsgException("bad format");
+            endians[i] = Integer.parseInt(stuff[2]);
+
+            // next is string value of this payload item
+            index1 = index2 + 1;
+            index2 = index1 + base64StrLen;
+            val = txt.substring(index1, index2);
+//System.out.println("val = " + val);
+
+            // decode string into binary (wrong characters are ignored)
+            try  { vals[i] = Base64.decodeToBytes(val, "US-ASCII"); }
+            catch (UnsupportedEncodingException e) {/*never happen*/}
+            
+            if (vals[i].length != binLen) {
+                System.out.println("reconstituted binary is different length than original binary");
+            }
+
+            index1 = index2;
+        }
+
+        // Get full text representation of item so it doesn't need to be recalculated
+        // when creating the payload item.
+        String textRep = txt.substring(fullIndex, index1);
+//System.out.println("addBinaryArrayFromText textRep len = " + textRep.length() + ", text =\n" + textRep);
+
+        // Create payload item to add to msg & store in payload.
+        // In this case, system fields are passed on untouched.
+        addPayloadItem(new cMsgPayloadItem(name, vals, endians, textRep, noHeadLen, isSystem));
 
         return;
     }
@@ -3149,10 +3288,27 @@ if (debug) System.out.println("  skipped field");
                      int end = item.getEndian();
                      // only print up to 1kB
                      sz = sb = b.length; if (sb > 1024) {sb = 1024;}
-                     String enc = Base64.encodeToString(b);
-                     if (end == cMsgConstants.endianBig) System.out.println(" (binary, big endian):\n" + indent + enc.substring(0, sb));
-                     else System.out.println(" (binary, little endian):\n" + indent + enc.substring(0, sb));
-                     if (sz > sb) {System.out.println(indent + "... " + (sz-sb) + " bytes more binary not printed here ...");}
+                     String enc = Base64.encodeToString(b,0,sb,true);
+                     if (end == cMsgConstants.endianBig)
+                          System.out.print(" (binary, big endian):\n" + indent + enc);
+                     else System.out.print(" (binary, little endian):\n" + indent + enc);
+                     if (sz > sb) {System.out.println(indent + "... " + (sz-sb) + " more bytes of binary not printed here ...");}
+                    } break;
+
+                  case cMsgConstants.payloadBinA:
+                    {int sb,sz; String enc;
+                     byte[][] b = item.getBinaryArray();
+                     int[] end  = item.getEndianArray();
+                     // only print up to 1kB
+                     System.out.println(":");
+                     for (j=0; j<b.length; j++) {
+                       sz = sb = b[j].length; if (sb > 1024) {sb = 1024;}
+                       enc = Base64.encodeToString(b[j],0,sb,true);
+                       if (end[j] == cMsgConstants.endianBig)
+                            System.out.print("  binary[" + j + "], big endian = \n" + indent + enc);
+                       else System.out.print("  binary[" + j + "], little endian = \n" + indent + enc);
+                       if (sz > sb) {System.out.println(indent + "... " + (sz-sb) + " more bytes of binary not printed here ...");}
+                     }
                     } break;
 
                   case cMsgConstants.payloadMsg:
