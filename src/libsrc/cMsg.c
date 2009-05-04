@@ -939,7 +939,7 @@ int cMsgSetUDL(void *domainId, const char *UDL) {
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgGetConnectState
  */
-int cMsgGetCurrentUDL(void *domainId, char **udl) {
+int cMsgGetCurrentUDL(void *domainId, const char **udl) {
     int err;
     intptr_t    index; /* int the size of a ptr */
     cMsgDomain *domain;
@@ -2743,7 +2743,8 @@ static void initMessage(cMsgMessage_t *msg) {
     msg->type        = NULL;
     msg->text        = NULL;
     msg->byteArray   = NULL;
-    
+    msg->next        = NULL;
+
     msg->byteArrayOffset     = 0;
     msg->byteArrayLength     = 0;
     msg->byteArrayLengthFull = 0;
@@ -4494,7 +4495,8 @@ static int messageStringSize(const void *vmsg, int margin, int binary,
         if(msg->text!=NULL)          totalLen += strlen(msg->text);
     
         if (binary && msg->byteArray != NULL && msg->byteArrayLength > 0) {
-            totalLen += cMsg_b64_encode_len(msg->byteArray + msg->byteArrayOffset, msg->byteArrayLength);
+            totalLen += cMsg_b64_encode_len(msg->byteArray + msg->byteArrayOffset,
+                                            msg->byteArrayLength, 1);
         }
     }
     /* calculate payload length */
@@ -4515,12 +4517,20 @@ static int messageStringSize(const void *vmsg, int margin, int binary,
                 payloadLen += item->length + formatItemStrLen;
             }
             else if (item->type == CMSG_CP_STR_A) {
-                payloadLen += item->length + formatItemNumLen + formatItemStrLen * item->count;
+                payloadLen += item->length + formatItemNumLen + (formatItemStrLen + 5) * item->count;
             }
             else if (item->type == CMSG_CP_BIN) {
+                payloadLen += formatItemBinLen;
                 if (binary) {
                     /* this has already been converted into text and size is at most item->length */
-                    payloadLen += item->length + formatItemBinLen;
+                    payloadLen += item->length;
+                }
+            }
+            else if (item->type == CMSG_CP_BIN_A) {
+                payloadLen += formatItemBALen + 10 + (formatItemBinLen + 5) * item->count; 
+                if (binary) {
+                    /* this has already been converted into text and size is at most item->length */
+                    payloadLen += item->length;
                 }
             }
             else if (item->type == CMSG_CP_MSG) {
@@ -4772,7 +4782,9 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   if (level < 1) {
       level = 0;
       /* find msg size */
-      slen = messageStringSize(vmsg, margin, binary, compactPayload, 0) + 1000;
+      slen = messageStringSize(vmsg, margin, binary, compactPayload, 0);
+      /* add 5% (plus 100 bytes for little msgs) */
+      slen += slen*5/100 + 100;
       /*printf("cMsgToStringImpl: length of buffer needed = %d\n", slen);*/
       pchar = buf = (char*)calloc(1, slen);
       if (buf == NULL) {
@@ -5041,10 +5053,19 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
       }
       strncpy(pchar,"\" nbytes=\"",10); pchar+=10;
       sprintf(pchar, "%d%n", msg->byteArrayLength, &len); pchar+=len;
-      strncpy(pchar,"\">\n",3); pchar+=3;
-      count = cMsg_b64_encode(msg->byteArray + msg->byteArrayOffset, msg->byteArrayLength, pchar); pchar+=count;
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
-      strncpy(pchar,"</binary>\n",10); pchar+=10;
+
+      /* put in line breaks after 76 chars (57 bytes) */
+      if (msg->byteArrayLength > 57) {
+          strncpy(pchar,"\">\n",3); pchar+=3;
+          count = cMsg_b64_encode(msg->byteArray + msg->byteArrayOffset, msg->byteArrayLength, pchar, 1); pchar+=count;
+          strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+          strncpy(pchar,"</binary>\n",10);  pchar+=10;
+      }
+      else {
+          strncpy(pchar,"\">",2); pchar+=2;
+          count = cMsg_b64_encode(msg->byteArray + msg->byteArrayOffset, msg->byteArrayLength, pchar, 0); pchar+=count;
+          strncpy(pchar,"</binary>\n",10); pchar+=10;
+      }
   }
 
   /* Payload */
@@ -5181,7 +5202,7 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
       pchar  = *string;
       buffer = pchar;
   }
-  
+ 
   /* if we're here, there is a payload and we want it in full XML format */
   strncpy(pchar,indent,indentLen); pchar+=indentLen;
   strncpy(pchar,"<payload compact=\"false\">\n",26); pchar+=26;
@@ -5350,11 +5371,18 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
              strncpy(pchar,"\" />\n",5); pchar+=5;
          }
          else {
-             strncpy(pchar,"\">\n",3);              pchar+=3;
-             count = cMsg_b64_encode(s, sz, pchar); pchar += count;
-             strncpy(pchar,"\n",1);                 pchar+=1;
-             strncpy(pchar,offsett,offsetLen);      pchar+=offsetLen;
-             strncpy(pchar,"</binary>\n",10);       pchar+=10;
+             /* put in line breaks after 76 chars (57 bytes) */
+             if (sz > 57) {
+                strncpy(pchar,"\">\n",3);              pchar+=3;
+                count = cMsg_b64_encode(s, sz, pchar, 1); pchar += count;
+                strncpy(pchar,offsett,offsetLen);      pchar+=offsetLen;
+                strncpy(pchar,"</binary>\n",10);       pchar+=10;
+             }
+             else {
+                 strncpy(pchar,"\">",2);                pchar+=2;
+                 count = cMsg_b64_encode(s, sz, pchar, 0); pchar += count;
+                 strncpy(pchar,"</binary>\n",10);       pchar+=10;
+             }
          }
         } break;
  
@@ -5386,6 +5414,52 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
          strncpy(pchar,"</cMsgMessage_array>\n",21); pchar+=21;
         } break;
          
+      case CMSG_CP_BIN_A:
+        {const char **s; int *sizes, *endians, count, nchars; char *endianTxt;
+         ok=cMsgGetBinaryArray(msg, name, &s, &sizes, &endians, &count); if(ok!=CMSG_OK) {
+         if(level < 1){free(buffer);} free(offsett);free(offset5);if(margin>0){free(indent);} return(CMSG_ERROR);}
+         strncpy(pchar,offsett,offsetLen);           pchar+=offsetLen;
+         strncpy(pchar,"<binary_array name=\"",20);  pchar+=20;
+         slen = strlen(name);
+         strncpy(pchar,name,slen);                   pchar+=slen;
+         strncpy(pchar,"\" count=\"",9);             pchar+=9;
+         sprintf(pchar,"%d%n",count,&len);           pchar+=len;
+         strncpy(pchar,"\">\n",3);                   pchar+=3;
+         for(j=0;j<count;j++) {
+             strncpy(pchar,offsett,offsetLen);        pchar+=offsetLen;
+             strncpy(pchar,offset5,offset5Len);       pchar+=offset5Len;
+             if (endians[j] == CMSG_ENDIAN_BIG) {
+                 strncpy(pchar,"<binary endian=\"big\"",20);     pchar+=20;
+             }
+             else {
+                 strncpy(pchar,"<binary endian=\"little\"",23);  pchar+=23;
+             }
+             strncpy(pchar," nbytes=\"",9);             pchar+=9;
+             sprintf(pchar,"%d%n",sizes[j],&len);       pchar+=len;
+             
+             if (!binary) {
+                 strncpy(pchar,"\" />\n",5);            pchar+=5;
+             }
+             else {
+                 /* put in line breaks after 76 chars (57 bytes) */
+                 if (sizes[j]> 57) {
+                     strncpy(pchar,"\">\n",3);              pchar+=3;
+                     nchars = cMsg_b64_encode(s[j], sizes[j], pchar, 1); pchar += nchars;
+                     strncpy(pchar,offsett,offsetLen);      pchar+=offsetLen;
+                     strncpy(pchar,offset5,offset5Len);     pchar+=offset5Len;
+                     strncpy(pchar,"</binary>\n",10);       pchar+=10;
+                 }
+                 else {
+                     strncpy(pchar,"\">",2);                pchar+=2;
+                     nchars = cMsg_b64_encode(s[j], sizes[j], pchar, 0); pchar += nchars;
+                     strncpy(pchar,"</binary>\n",10);       pchar+=10;
+                 }
+             }
+         }
+         strncpy(pchar,offsett,offsetLen);              pchar+=offsetLen;
+         strncpy(pchar,"</binary_array>\n",16);         pchar+=16;
+        } break;
+ 
       case CMSG_CP_INT8_A:
         {const int8_t *i; ok=cMsgGetInt8Array(msg, name, &i, &count); if(ok!=CMSG_OK) {
          if(level < 1){free(buffer);} free(offsett);free(offset5);if(margin>0){free(indent);} return(CMSG_ERROR);}
@@ -5834,7 +5908,7 @@ int cMsgGetReliableSend(void *vmsg, int *boolean) {
  * - may skip up to 2000 messages at once if skipping is enabled
  * - maximum number of threads when parallelizing calls to the callback
  *   function is 100
- * - enough supplemental threads are started so that there are
+ * - enough worker threads are started so that there are
  *   at most 150 unprocessed messages for each thread
  *
  * Note that this routine allocates memory and cMsgSubscribeConfigDestroy()
@@ -5852,17 +5926,17 @@ cMsgSubscribeConfig *cMsgSubscribeConfigCreate(void) {
   }
   
   /* default configuration for a subscription */
-  sc->maxCueSize = 10000;  /* maximum number of messages to cue for callback */
-  sc->skipSize   =  2000;  /* number of messages to skip over (delete) from the cue
-                            * for a callback when the cue size has reached it limit */
-  sc->maySkip        = 0;  /* may NOT skip messages if too many are piling up in cue */
-  sc->mustSerialize  = 1;  /* messages must be processed in order */
-  sc->init           = 1;  /* done intializing structure */
-  sc->maxThreads   = 100;  /* max number of supplemental threads to run callback
-                            * if mustSerialize = 0 */
-  sc->msgsPerThread = 150; /* enough supplemental threads are started so that there are
-                            * at most this many unprocessed messages for each thread */
-  sc->stackSize     = 0;   /* normally only used in vxworks  */
+  sc->maxCueSize = 10000;   /* maximum number of messages to cue for callback */
+  sc->skipSize   =  2000;   /* number of messages to skip over (delete) from the cue
+                             * for a callback when the cue size has reached it limit */
+  sc->maySkip        = 0;   /* may NOT skip messages if too many are piling up in cue */
+  sc->mustSerialize  = 1;   /* messages must be processed in order */
+  sc->init           = 1;   /* done intializing structure */
+  sc->maxThreads     = 20;  /* max number of worker threads to run callback
+                             * if mustSerialize = 0 */
+  sc->msgsPerThread  = 500; /* enough worker threads are started so that there are
+                             * at most this many unprocessed messages for each thread */
+  sc->stackSize      = 0;   /* normally only used in vxworks  */
 
   return (cMsgSubscribeConfig*) sc;
 
@@ -6115,7 +6189,7 @@ int cMsgSubscribeSetMaxThreads(cMsgSubscribeConfig *config, int threads) {
     return CMSG_NOT_INITIALIZED;
   }
    
-  if (config == NULL || threads < 0)  {
+  if (config == NULL || threads < 1)  {
     return CMSG_BAD_ARGUMENT;
   }
   
