@@ -275,6 +275,23 @@ namespace cmsg {
     }
 
 
+    //-------------------------------------------------------------------
+
+    /**
+     * This method sets the maximum number of entries this message keeps
+     * of its history of various parameters (sender's name, host, time).
+     *
+     * @param len max number of entries this message keeps
+     *            of its history of various parameters
+     *
+     * @throws cMsgException if len < 0 or > CMSG_HISTORY_LENGTH_ABS_MAX
+     */
+    void cMsgMessage::setHistoryLengthMax(int len) const throw(cMsgException) {
+        int err = cMsgSetHistoryLengthMax(myMsgPointer, len);
+        if (err != CMSG_OK) throw (cMsgException("len must be >= 0 and < CMSG_HISTORY_LENGTH_ABS_MAX"));
+    }
+
+
 //-------------------------------------------------------------------
 // GET VALUE METHODS
 //-------------------------------------------------------------------
@@ -960,7 +977,7 @@ void cMsgMessage::add(const string &name, const char *src, int size, int endian)
  * @throws cMsgException if no memory, error in binary-to-text conversion, name already used,
  *                       improper name, src is null, size < 1, or endian improper value
  */
-void cMsgMessage::add(const string &name, const char *srcs[], int number,
+void cMsgMessage::add(const string &name, const char **srcs, int number,
                       const int sizes[], const int endians[]) {
     int err = cMsgAddBinaryArray(myMsgPointer, name.c_str(), srcs, number, sizes, endians);
     if (err != CMSG_OK) {
