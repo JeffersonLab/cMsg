@@ -1257,7 +1257,7 @@ int cMsgPayloadUpdateText(const void *vmsg) {
 static int createPayloadText(const cMsgMessage_t *msg, payloadItem **pItems, int count, char **pTxt)
 {
     char *s, *pBuf;
-    int i, len, gotMsg=1, gotItems=1, totalCount;
+    int i, len, skip, gotMsg=1, gotItems=1, totalCount=0;
     size_t totalLen=0;
     payloadItem *item;
   
@@ -1281,15 +1281,23 @@ static int createPayloadText(const cMsgMessage_t *msg, payloadItem **pItems, int
         item = msg->payload;
         while (item != NULL) {
             /* ignore duplicates (eg history items) */
+            skip = 0;
             if (gotItems) {
                 for (i=0; i<count; i++) {
+/*printf("createPayloadText: compare in len (%s) to adding (%s)\n", item->name, pItems[i]->name);*/
                     if (strcmp(item->name, pItems[i]->name) == 0) {
-                        item = item->next;
-                        continue;
+/*printf("                 : skipping existing payload item in len (%s)\n", item->name);*/
+                        skip++;
+                        break;
                     }
                 }
             }
-            totalLen += item->length;
+            
+            if (!skip) {
+                totalLen += item->length;
+                totalCount++;
+            }
+            
             item = item->next;
         }
     }
@@ -1298,10 +1306,11 @@ static int createPayloadText(const cMsgMessage_t *msg, payloadItem **pItems, int
     if (gotItems) {
         for (i=0; i<count; i++) {
             totalLen += pItems[i]->length;
+            totalCount++;
         }
     }
   
-    totalCount = msg->payloadCount + count;
+    /*totalCount = msg->payloadCount + count;*/
     totalLen += numDigits(totalCount, 0) + 1; /* send count & newline first */
     totalLen += 1; /* for null terminator */
 
@@ -1321,16 +1330,23 @@ static int createPayloadText(const cMsgMessage_t *msg, payloadItem **pItems, int
         item = msg->payload;
         while (item != NULL) {
             /* ignore duplicates (eg history items) */
+            skip = 0;
             if (gotItems) {
                 for (i=0; i<count; i++) {
+/*printf("createPayloadText: compare in text (%s) to adding (%s)\n", item->name, pItems[i]->name);*/
                     if (strcmp(item->name, pItems[i]->name) == 0) {
-                        item = item->next;
-                        continue;
+/*printf("createPayloadText: skipping existing payload item in text (%s)\n", item->name);*/
+                        skip++;
+                        break;
                     }
                 }
             }
-            sprintf(s, "%s%n", item->text, &len);
-            s += len;
+            
+            if (!skip) {
+                sprintf(s, "%s%n", item->text, &len);
+                s += len;
+            }
+            
             item = item->next;
         }
     }
@@ -1338,6 +1354,7 @@ static int createPayloadText(const cMsgMessage_t *msg, payloadItem **pItems, int
     /* add extra fields */
     if (gotItems) {
         for (i=0; i<count; i++) {
+/*printf("createPayloadText: adding payload item in text (%s)\n", pItems[i]->name);*/
             sprintf(s, "%s%n", pItems[i]->text, &len);
             s += len;
         }
@@ -1429,6 +1446,7 @@ int cMsgAddHistoryToPayloadText(void *vmsg, char *name, char *host,
     len = len1;
 
     if (!exists) {
+/*printf("cMsgAddHistoryToPayloadText: no history exists!\n");*/
         err = createStringArrayItem("cMsgSenderNameHistory", names, 1, 1, 0, &newItems[0]);
         if (err != CMSG_OK) {return(err);}
 
@@ -1450,6 +1468,7 @@ int cMsgAddHistoryToPayloadText(void *vmsg, char *name, char *host,
         }
     }
     else {
+/*printf("cMsgAddHistoryToPayloadText: history exists so add to it!\n");*/
         /* keep only historyLength number of the latest names */
         index = 0;
         if (len1 >= msg->historyLengthMax) {
@@ -3757,7 +3776,7 @@ static int addBinary(void *vmsg, const char *name, const char *src, int size,
       return(CMSG_BAD_FORMAT);  
   }
 /*printf("addBinary: actually add bytes = %u\n", numChars);*/
-printf("addBinary: total text rep =\n%s", item->text);
+/*printf("addBinary: total text rep =\n%s", item->text);*/
     
   item->length = strlen(item->text);
 /*printf("addBinary: total string len = %d\n", item->length);*/
