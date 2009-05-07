@@ -35,14 +35,18 @@
 
 /******************************************************************/
 static void usage() {
-    printf("Usage:  producer [-a <size> | -b <size>] -n <name> -u <UDL> -s <subject> -t <type> -delay <delay_in_sec> -d\n");
+    printf("\nUsage:  producer [-d | -p | -r | -a <size> | -b <size>] | -n <name> |\n");
+    printf("                  -u <UDL> | -s <subject> | -t <type> | -udp | -delay <sec>]\n\n");
+    printf("                  -d turns on debug output\n");
+    printf("                  -p gives message a payload\n");
+    printf("                  -r receives own messages\n");
     printf("                  -a sets the byte size for ascii data, or\n");
     printf("                  -b sets the byte size for binary data\n");
-    printf("                  -s sets the subscription subject\n");
-    printf("                  -t sets the subscription type\n");
     printf("                  -n sets the client name\n");
     printf("                  -u sets the connection UDL\n");
-    printf("                  -d turns on debug output\n");
+    printf("                  -s sets the subscription subject\n");
+    printf("                  -t sets the subscription type\n");
+    printf("                  -udp sends messages with UDP instead of TCP\n");
     printf("                  -delay sets the delay between sends in seconds\n");
 }
 
@@ -88,7 +92,7 @@ int main(int argc,char **argv) {
   char *bytes         = NULL;
   char *UDL           = "cMsg://localhost/cMsg/myNameSpace";
   char *p;
-  int   i, j, err, debug=0, msgSize=0, mainloops=2000;
+  int   i, j, err, udp=0, payload=0, receives=0, debug=0, msgSize=0, mainloops=2000;
   int8_t    i1vals[3];
   int16_t   i2vals[3];
   int32_t   i3vals[3];
@@ -146,7 +150,6 @@ int main(int argc,char **argv) {
             }
             *p = '\0';
             /*printf("Text = %s\n", text);*/
-         
         }
         else if (strcmp("-b", argv[i]) == 0) {
          if (argc < i+2) {
@@ -167,7 +170,6 @@ int main(int argc,char **argv) {
            *p = j%255;
            p++;
          }
-
        }
        else if (strcmp(argv[i], "-n") == 0) {
          if (argc < i+2) {
@@ -198,7 +200,16 @@ int main(int argc,char **argv) {
          UDL = argv[++i];
        }
        else if (strcmp(argv[i], "-d") == 0) {
-         debug = 1;
+           debug = 1;
+       }
+       else if (strcmp(argv[i], "-p") == 0) {
+           payload = 1;
+       }
+       else if (strcmp(argv[i], "-r") == 0) {
+           receives = 1;
+       }
+       else if (strcmp(argv[i], "-udp") == 0) {
+           udp = 1;
        }
        else if (strcmp(argv[i], "-h") == 0) {
          usage();
@@ -230,31 +241,31 @@ int main(int argc,char **argv) {
   /* start receiving messages */
   cMsgReceiveStart(domainId);
   
-  /* set the subscribe configuration */
-  /*
-  config = cMsgSubscribeConfigCreate();
-  cMsgSetDebugLevel(CMSG_DEBUG_INFO);
-  */
-  /* subscribe - receive own messages */
-  /*
-  err = cMsgSubscribe(domainId, subject, type, callback, NULL, config, &unSubHandle);
-  if (err != CMSG_OK) {
-      if (debug) {
-          printf("cMsgSubscribe: %s\n",cMsgPerror(err));
+  if (receives) {
+      /* set the subscribe configuration */
+      config = cMsgSubscribeConfigCreate();
+
+      /* subscribe - receive own messages */
+      err = cMsgSubscribe(domainId, subject, type, callback, NULL, config, &unSubHandle);
+      if (err != CMSG_OK) {
+          if (debug) {
+              printf("cMsgSubscribe: %s\n",cMsgPerror(err));
+          }
+          exit(1);
       }
-      exit(1);
+      cMsgSubscribeConfigDestroy(config);
   }
-  cMsgSubscribeConfigDestroy(config);
-  */
   
   /* create message to be sent */
   msg = cMsgCreateMessage();    /* allocating mem here */
   cMsgSetSubject(msg, subject); /* allocating mem here */
   cMsgSetType(msg, type);       /* allocating mem here */
   cMsgSetText(msg, "~!@#$%^&*()_-+=,.<>?/|\\;:[]{}`");
-  cMsgSetHistoryLengthMax(msg, 4);
+  cMsgSetHistoryLengthMax(msg, 0); /* no history by default */
 
-  /*cMsgSetReliableSend(msg, 0);*/
+  if (udp) {
+    cMsgSetReliableSend(msg, 0);
+  }
 
   /* set compound payload fields */
   binArray = (char *) malloc(256);
@@ -262,93 +273,98 @@ int main(int argc,char **argv) {
       binArray[j] = (char)j%255;
   }
  cMsgAddBinary(msg, "binaryArray", binArray, 58, CMSG_ENDIAN_LOCAL);
- cMsgSetByteArrayNoCopy(msg, binArray, 58);
 
- cMsgAddFloat (msg, "flt", -1.23456e-05);
- cMsgAddDouble(msg, "dbl", -1.23456789101012e-195);
+ if (payload) {
+      /* keep only the 4 most recent entries of history */
+     cMsgSetHistoryLengthMax(msg, 4);
 
- cMsgAddString (msg, "str", "string");
+     cMsgSetByteArrayNoCopy(msg, binArray, 58);
 
- vals[0] = "zero\nzero";
- vals[1] = "one\none";
- vals[2] = "two\ntwo";
- cMsgAddStringArray(msg, "strA", (const char **) vals, 3);
+     cMsgAddFloat (msg, "flt", -1.23456e-05);
+     cMsgAddDouble(msg, "dbl", -1.23456789101012e-195);
 
- fvals[0] = -1234567;
- fvals[1] = +234.;
- fvals[2] = -12.3456e-35;
- cMsgAddFloatArray(msg,  "fltA", fvals, 3);
+     cMsgAddString (msg, "str", "string");
 
- dvals[0] = -1234567;
- dvals[1] = +234.678910;
- dvals[2] = -12.3456789101012e-301;
- cMsgAddDoubleArray(msg,  "dblA", dvals, 3);
+     vals[0] = "zero\nzero";
+     vals[1] = "one\none";
+     vals[2] = "two\ntwo";
+     cMsgAddStringArray(msg, "strA", (const char **) vals, 3);
 
- cMsgAddInt8   (msg, "int8",  SCHAR_MIN);
- cMsgAddInt16  (msg, "int16", SHRT_MIN);
- cMsgAddInt32  (msg, "int32", INT_MIN);
- cMsgAddInt64  (msg, "int64", -9223372036854775807LL);
+     fvals[0] = -1234567;
+     fvals[1] = +234.;
+     fvals[2] = -12.3456e-35;
+     cMsgAddFloatArray(msg,  "fltA", fvals, 3);
 
- cMsgAddUint8   (msg, "uint8",  UCHAR_MAX);
- cMsgAddUint16  (msg, "uint16", USHRT_MAX);
- cMsgAddUint32  (msg, "uint32", UINT_MAX);
- cMsgAddUint64  (msg, "uint64", 18446744073709551615ULL);
+     dvals[0] = -1234567;
+     dvals[1] = +234.678910;
+     dvals[2] = -12.3456789101012e-301;
+     cMsgAddDoubleArray(msg,  "dblA", dvals, 3);
 
- i1vals[0] = -128;
- i1vals[1] = 127;
- i1vals[2] = 255;
- cMsgAddInt8Array(msg, "int8A", i1vals, 3);
+     cMsgAddInt8   (msg, "int8",  SCHAR_MIN);
+     cMsgAddInt16  (msg, "int16", SHRT_MIN);
+     cMsgAddInt32  (msg, "int32", INT_MIN);
+     cMsgAddInt64  (msg, "int64", -9223372036854775807LL);
 
- i2vals[0] = -32768;
- i2vals[1] = 32767;
- i2vals[2] = 65535;
- cMsgAddInt16Array(msg, "int16A", i2vals, 3);
+     cMsgAddUint8   (msg, "uint8",  UCHAR_MAX);
+     cMsgAddUint16  (msg, "uint16", USHRT_MAX);
+     cMsgAddUint32  (msg, "uint32", UINT_MAX);
+     cMsgAddUint64  (msg, "uint64", 18446744073709551615ULL);
 
- i3vals[0] = -2147483648;
- i3vals[1] = 2147483647;
- i3vals[2] = 4294967295;
- cMsgAddInt32Array(msg, "int32A", i3vals, 3);
+     i1vals[0] = -128;
+     i1vals[1] = 127;
+     i1vals[2] = 255;
+     cMsgAddInt8Array(msg, "int8A", i1vals, 3);
 
- i4vals[0] = -9223372036854775807LL;
- i4vals[1] = 9223372036854775807LL;
- i4vals[2] = 18446744073709551615ULL;
- cMsgAddInt64Array(msg, "int64A", i4vals, 3);
+     i2vals[0] = -32768;
+     i2vals[1] = 32767;
+     i2vals[2] = 65535;
+     cMsgAddInt16Array(msg, "int16A", i2vals, 3);
 
- i5vals[0] = 0;
- i5vals[1] = 255;
- i5vals[2] = -1;
- cMsgAddUint8Array(msg, "uint8A", i5vals, 3);
+     i3vals[0] = -2147483648;
+     i3vals[1] = 2147483647;
+     i3vals[2] = 4294967295;
+     cMsgAddInt32Array(msg, "int32A", i3vals, 3);
 
- i6vals[0] = 0;
- i6vals[1] = 65535;
- i6vals[2] = -1;
- cMsgAddUint16Array(msg, "uint16A", i6vals, 3);
+     i4vals[0] = -9223372036854775807LL;
+     i4vals[1] = 9223372036854775807LL;
+     i4vals[2] = 18446744073709551615ULL;
+     cMsgAddInt64Array(msg, "int64A", i4vals, 3);
 
- i7vals[0] = 0U;
- i7vals[1] = 4294967295U;
- i7vals[2] = -1;
- cMsgAddUint32Array(msg, "uint32A", i7vals, 3);
+     i5vals[0] = 0;
+     i5vals[1] = 255;
+     i5vals[2] = -1;
+     cMsgAddUint8Array(msg, "uint8A", i5vals, 3);
 
- i8vals[0] = 0ULL;
- i8vals[1] = 18446744073709551615ULL;
- i8vals[2] = -1;
- cMsgAddUint64Array(msg, "uint64A", i8vals, 3);
+     i6vals[0] = 0;
+     i6vals[1] = 65535;
+     i6vals[2] = -1;
+     cMsgAddUint16Array(msg, "uint16A", i6vals, 3);
 
- /* create message for payload */
- msg2 = cMsgCreateMessage();    /* allocating mem here */
- cMsgSetSubject(msg2, subject); /* allocating mem here */
- cMsgSetType(msg2, type);       /* allocating mem here */
- cMsgSetText(msg2, "TEXT FIELD IN MSG");       /* allocating mem here */
- cMsgAddFloat (msg2, "flt", -1.23456e-05);
- cMsgAddDouble(msg2, "dbl", -1.23456789101012e-195);
- cMsgAddString (msg2, "str", "HEY, HEY, YOU THERE!!!");
+     i7vals[0] = 0U;
+     i7vals[1] = 4294967295U;
+     i7vals[2] = -1;
+     cMsgAddUint32Array(msg, "uint32A", i7vals, 3);
 
- /* create array of msgs for payload */
- cMsgAddMessage(msg, "myMessage", msg2);
- msgs[0] = msg2;
- msgs[1] = msg2;
- cMsgAddMessageArray(msg, "msgArray", msgs, 2);
+     i8vals[0] = 0ULL;
+     i8vals[1] = 18446744073709551615ULL;
+     i8vals[2] = -1;
+     cMsgAddUint64Array(msg, "uint64A", i8vals, 3);
 
+     /* create message for payload */
+     msg2 = cMsgCreateMessage();    /* allocating mem here */
+     cMsgSetSubject(msg2, subject); /* allocating mem here */
+     cMsgSetType(msg2, type);       /* allocating mem here */
+     cMsgSetText(msg2, "TEXT FIELD IN MSG");       /* allocating mem here */
+     cMsgAddFloat (msg2, "flt", -1.23456e-05);
+     cMsgAddDouble(msg2, "dbl", -1.23456789101012e-195);
+     cMsgAddString (msg2, "str", "HEY, HEY, YOU THERE!!!");
+
+     /* create array of msgs for payload */
+     cMsgAddMessage(msg, "myMessage", msg2);
+     msgs[0] = msg2;
+     msgs[1] = msg2;
+     cMsgAddMessageArray(msg, "msgArray", msgs, 2);
+ }
  /*
   cMsgToString(msg, &p);
   printf("XML message:\n%s", p);
