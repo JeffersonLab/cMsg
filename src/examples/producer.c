@@ -104,7 +104,8 @@ int main(int argc,char **argv) {
   char       *vals[3];
   float      fvals[3];
   double     dvals[3];
-  char      *binArray;
+  char       binArray[256], *bins[3], b1[3], b2[3], b3[3];
+  int        sizes[3], endians[3];
   cMsgSubscribeConfig *config;
   void *unSubHandle;
 
@@ -261,24 +262,39 @@ int main(int argc,char **argv) {
   cMsgSetSubject(msg, subject); /* allocating mem here */
   cMsgSetType(msg, type);       /* allocating mem here */
   cMsgSetText(msg, "~!@#$%^&*()_-+=,.<>?/|\\;:[]{}`");
+  /*cMsgSetText(msg, "A<![CDATA[B]]><![CDATA[C]]>]]>D");*/
   cMsgSetHistoryLengthMax(msg, 0); /* no history by default */
 
   if (udp) {
     cMsgSetReliableSend(msg, 0);
   }
 
-  /* set compound payload fields */
-  binArray = (char *) malloc(256);
+  /* define binary arrays */
   for (j=0; j < 256; j++) {
       binArray[j] = (char)j%255;
   }
- cMsgAddBinary(msg, "binaryArray", binArray, 58, CMSG_ENDIAN_LOCAL);
 
- if (payload) {
+  //bins[0]    = bins[1]    = bins[2]    = binArray;
+  //sizes[0]   = sizes[1]   = sizes[2]   = 256;
+
+  b1[0] = (char)-1;  b1[1] = (char)-2;  b1[2] = (char)-3;
+  b2[0] = (char)10;  b2[1] = (char)20;  b2[2] = (char)30;
+  b3[0] = (char)-7;  b3[1] = (char)-8;  b3[2] = (char)-9;
+  
+  bins[0] = b1; bins[1] = b2; bins[2] = b3;
+  sizes[0] = sizes[1] = sizes[2] = 3;
+  endians[0] = endians[1] = endians[2] = CMSG_ENDIAN_LITTLE;
+
+  /* set the byte array */
+  cMsgSetByteArrayNoCopy(msg, binArray, 58);
+
+  if (payload) {
       /* keep only the 4 most recent entries of history */
      cMsgSetHistoryLengthMax(msg, 4);
 
-     cMsgSetByteArrayNoCopy(msg, binArray, 58);
+     cMsgAddBinary(msg, "binaryArray", binArray, 58, CMSG_ENDIAN_LOCAL);
+
+     cMsgAddBinaryArray(msg, "array_of_bin_arrays", bins, 3, sizes, endians);
 
      cMsgAddFloat (msg, "flt", -1.23456e-05);
      cMsgAddDouble(msg, "dbl", -1.23456789101012e-195);
@@ -364,14 +380,15 @@ int main(int argc,char **argv) {
      msgs[0] = msg2;
      msgs[1] = msg2;
      cMsgAddMessageArray(msg, "msgArray", msgs, 2);
- }
- /*
+  }
+  
+  /*
   cMsgToString(msg, &p);
   printf("XML message:\n%s", p);
   free(p);
   cMsgGetPayloadText(msg, &p);
   printf("\n\n\npayload text:\n%s", p);
- */
+  */
 
   while (mainloops-- > 0) {
       count = 0;
