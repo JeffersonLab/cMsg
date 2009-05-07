@@ -167,6 +167,7 @@ public:
   virtual int    payloadGetCount()                              const;
   virtual bool   payloadContainsName (const string &name)       const;
   virtual int    payloadGetType      (const string &name)       const throw(cMsgException);
+  virtual void   setHistoryLengthMax (int len)                  const throw(cMsgException);
   
 
   //
@@ -213,8 +214,8 @@ public:
   //
 
   virtual void add(const string &name, const char *src, int size, int endian);
-  virtual void add(const string &name, const char *src[], int number,
-                   const int size[], const int endian[]);
+  virtual void add(const string &name, const char **srcs, int number,
+                   const int sizes[], const int endians[]);
   
   virtual void add(const string &name, const string &s);
   virtual void add(const string &name, const string *s);
