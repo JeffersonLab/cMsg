@@ -18,7 +18,7 @@ package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgCallbackAdapter;
-import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
+import org.jlab.coda.cMsg.cMsgCallbackInterface;
 
 /**
  * This is an example class which creates a client designed to respond to

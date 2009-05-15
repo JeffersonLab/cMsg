@@ -22,7 +22,7 @@
 package org.jlab.coda.cMsg.CADomain;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
+import org.jlab.coda.cMsg.cMsgCallbackInterface;
 import org.jlab.coda.cMsg.common.cMsgDomainAdapter;
 import org.jlab.coda.cMsg.common.cMsgMessageFull;
 
