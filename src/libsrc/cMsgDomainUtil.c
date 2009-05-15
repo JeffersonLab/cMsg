@@ -760,7 +760,8 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
   domain->sendPort            = 0;
   domain->sendUdpPort         = 0;
   domain->listenPort          = 0; /* rc domain only */
-  
+  domain->localPort           = 0;
+
   domain->hasSend             = 0;
   domain->hasSyncSend         = 0;
   domain->hasSubscribeAndGet  = 0;
