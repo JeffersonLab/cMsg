@@ -20,6 +20,7 @@ import org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsgMessageDeliverer;
 
 import java.lang.*;
 import java.nio.channels.SocketChannel;
+import java.net.InetSocketAddress;
 
 
 /**
@@ -276,6 +277,7 @@ public class cMsgClientInfo {
     }
 
     //-----------------------------------------------------------------------------------
+
     /**
      * Gets the SocketChannel used to send messages to and receives messages/requests from this client.
      * @return the SocketChannel used to send messages to and receives messages/requests from this client
@@ -293,6 +295,15 @@ public class cMsgClientInfo {
         this.messageChannel = messageChannel;
     }
 
+    /**
+     * Gets the InetAddress object of the client end of the socket the client uses for
+     * sending/receiving messages to/from server.
+     * @return InetAddress object of the client end of the socket the client uses for
+     *         sending/receiving messages to/from server
+     */
+    public InetSocketAddress getMessageChannelRemoteSocketAddress() {
+        return (InetSocketAddress)messageChannel.socket().getRemoteSocketAddress();
+    }
 
     //-----------------------------------------------------------------------------------
     /**
