@@ -17,7 +17,7 @@
 package org.jlab.coda.cMsg;
 
 
-import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
+import org.jlab.coda.cMsg.cMsgCallbackInterface;
 import org.jlab.coda.cMsg.common.cMsgDomainInterface;
 import org.jlab.coda.cMsg.common.cMsgShutdownHandlerInterface;
 
