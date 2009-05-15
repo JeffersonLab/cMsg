@@ -200,7 +200,8 @@ typedef struct cMsgDomainInfo_t {
   int sendPort;         /**< Port to send messages to. */
   int sendUdpPort;      /**< Port to send messages to with UDP protocol. */
   int listenPort;       /**< Port this program listens on for this domain's TCP connections (rcDomain). */
-   
+  int localPort;        /**< Local (client side) port of the sendSocket. */
+
   /* subdomain handler attributes */
   int hasSend;            /**< Does this subdomain implement a send function? (1-y, 0-n) */
   int hasSyncSend;        /**< Does this subdomain implement a syncSend function? (1-y, 0-n) */
