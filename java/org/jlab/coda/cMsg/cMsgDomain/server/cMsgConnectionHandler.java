@@ -233,6 +233,7 @@ class cMsgConnectionHandler extends Thread {
                                 // for End-of-stream ...
                                 if (bytes == -1) {
                                     it.remove();
+                                    channel.close();
                                     continue keyLoop;
                                 }
                                 bytesRead += bytes;
@@ -249,6 +250,7 @@ class cMsgConnectionHandler extends Thread {
                                         magic3 != cMsgNetworkConstants.magicNumbers[2])  {
 //System.out.println("ConnectionHandler:  Magic numbers did NOT match");
                                         it.remove();
+                                        channel.close();
                                         continue keyLoop;
                                     }
                                 }
@@ -257,6 +259,7 @@ class cMsgConnectionHandler extends Thread {
                                     if (++loops > 10) {
 //System.out.println("ConnectionHandler:  Client taking too long to send 3 ints, terminate connection");
                                         it.remove();
+                                        channel.close();
                                         continue keyLoop;
                                     }
                                     try { Thread.sleep(10); }
