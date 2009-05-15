@@ -18,7 +18,7 @@ package org.jlab.coda.cMsg.cMsgDomain.server;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgCallbackAdapter;
-import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
+import org.jlab.coda.cMsg.cMsgCallbackInterface;
 import org.jlab.coda.cMsg.common.cMsgMessageFull;
 
 import java.util.Set;
