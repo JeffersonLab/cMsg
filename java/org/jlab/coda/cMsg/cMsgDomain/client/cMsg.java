@@ -1094,7 +1094,7 @@ System.out.println("connect: Done!");
             connectLock.unlock();
         }
 
-//System.out.println("\nReached end of localDisconnect method");
+//System.out.println("\nReached end of disconnect method");
     }
 
 
@@ -1487,7 +1487,8 @@ System.out.println("connect: Done!");
 
         int binaryLength = message.getByteArrayLength();
 
-        // total length of msg (not including first int which is this size & the magic #s)
+        // total length of msg (not including first int which is this size,
+        // the magic #s, & local port)
         int totalLength = 4*15 + subject.length() + type.length() + payloadLen +
                                  textLen + binaryLength;
         if (totalLength > cMsgNetworkConstants.biggestUdpBufferSize) {
@@ -1507,7 +1508,15 @@ System.out.println("connect: Done!");
                 out.writeInt(cMsgNetworkConstants.magicNumbers[0]); // cMsg
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]); // is
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]); // cool
-                
+
+                // For the server to identify which client is sending this UDP msg, send the
+                // messaging-sending socket TCP port here as ID that the server can recognize.
+                // Since the server can get the sending host of this UDP packet, and since
+                // it already knows the ports on the TCP sockets already made, it can put
+                // these 2 pieces of info together to uniquely identify the client sending
+                // this msg.
+                out.writeInt(domainOutSocket.getLocalPort()); // TCP port of domainOutSocket
+
                 out.writeInt(totalLength); // total length of msg (not including this int)
                 out.writeInt(cMsgConstants.msgSendRequest);
                 out.writeInt(0); // reserved for future use
@@ -3283,18 +3292,18 @@ System.out.println("ERROR STRING = " + err);
                         try {
                             // quit thread
                             if (killThread) {
-//System.out.println("keepAliveThread" + this + ": been told to die, return");
+System.out.println("keepAliveThread" + this + ": been told to die, return");
                                 return;
                             }
                             getMonitorInfo();
                         }
                         catch (InterruptedIOException e) {
-//System.out.println("keepAliveThread: interrupted IO with cMsg server, try reading monitor info again");
+System.out.println("keepAliveThread: interrupted IO with cMsg server, try reading monitor info again");
                         }
                     }
                 }
                 catch (IOException e) { }
-//System.out.println("keepAliveThread" + this + ": IO Exception with cMsg server, try grabbing connectLock");
+System.out.println("keepAliveThread" + this + ": IO Exception with cMsg server, try grabbing connectLock");
 //System.out.println("keepAliveThread" + this + ": wait for 3 seconds");
 //                try { Thread.sleep(3000); }
 //                catch (InterruptedException e) {
