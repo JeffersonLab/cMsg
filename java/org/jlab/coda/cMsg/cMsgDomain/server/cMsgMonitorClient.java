@@ -211,7 +211,7 @@ class cMsgMonitorClient extends Thread {
 
             for (cMsgDomainServerSelect dss : server.domainServersSelect.keySet()) {
 
-                if (dss.info.isServer()) {
+                if (dss.clientIsServer()) {
                     outBuf = outBuffer2;
                 }
                 else {
