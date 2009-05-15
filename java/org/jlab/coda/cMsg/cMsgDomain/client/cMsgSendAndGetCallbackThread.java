@@ -17,7 +17,7 @@
 package org.jlab.coda.cMsg.cMsgDomain.client;
 
 import org.jlab.coda.cMsg.common.cMsgMessageFull;
-import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
+import org.jlab.coda.cMsg.cMsgCallbackInterface;
 
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.Callable;
