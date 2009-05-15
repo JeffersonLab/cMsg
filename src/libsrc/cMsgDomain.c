@@ -1332,7 +1332,7 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
   /* first connect to server host & port (default send & rcv buf sizes) */  
   if ( (err = cMsgTcpConnect(domain->currentUDL.nameServerHost,
                             (unsigned short) domain->currentUDL.nameServerPort,
-                             0, 0, &serverfd)) != CMSG_OK) {
+                             0, 0, &serverfd, NULL)) != CMSG_OK) {
     cMsgRestoreSignals(domain);
     /* err = CMSG_SOCKET_ERROR if socket could not be created or socket options could not be set.
              CMSG_NETWORK_ERROR if host name could not be resolved or could not connect */
@@ -1372,7 +1372,7 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
                               CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE,
-                              &domain->sendSocket)) != CMSG_OK) {
+                              &domain->sendSocket, &domain->localPort)) != CMSG_OK) {
     cMsgRestoreSignals(domain);
     return(err);
   }  
@@ -1412,7 +1412,7 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
   /* create keep alive socket and store (default send & rcv buf sizes) */
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
-                              0, 0, &domain->keepAliveSocket)) != CMSG_OK) {
+                              0, 0, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
     cMsgRestoreSignals(domain);
     close(domain->sendSocket);
     pthread_cancel(domain->pendThread);
@@ -1600,7 +1600,7 @@ static int reconnect(void *domainId) {
   /*-----------------------------------------------------*/
   if ( (err = cMsgTcpConnect(domain->currentUDL.nameServerHost,
         (unsigned short) domain->currentUDL.nameServerPort,
-        0, 0, &serverfd)) != CMSG_OK) {
+        0, 0, &serverfd, NULL)) != CMSG_OK) {
             return(err);
   }
   
@@ -1633,7 +1633,7 @@ static int reconnect(void *domainId) {
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
                               CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE,
-                              &domain->sendSocket)) != CMSG_OK) {
+                              &domain->sendSocket, &domain->localPort)) != CMSG_OK) {
     return(err);
   }
 
@@ -1657,7 +1657,7 @@ static int reconnect(void *domainId) {
   /* create keep alive socket and store (default send & rcv buf sizes) */
   if ( (err = cMsgTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
-                              0, 0, &domain->keepAliveSocket)) != CMSG_OK) {
+                              0, 0, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
     close(domain->sendSocket);
     return(err);
   }
@@ -1996,7 +1996,7 @@ static int udpSend(cMsgDomainInfo *domain, intptr_t index, cMsgMessage_t *msg) {
   
   char *payloadText;
   int err, len, lenSubject, lenType, lenPayloadText, lenText, lenByteArray;
-  int fd, highInt, lowInt, outGoing[19];
+  int fd, highInt, lowInt, outGoing[20];
   ssize_t sendLen;
   uint64_t llTime;
   struct timespec now;
@@ -2052,54 +2052,62 @@ static int udpSend(cMsgDomainInfo *domain, intptr_t index, cMsgMessage_t *msg) {
     outGoing[1] = htonl(CMSG_MAGIC_INT2); /*  is  */
     outGoing[2] = htonl(CMSG_MAGIC_INT3); /* cool */
     
+    /* For the server to identify which client is sending this UDP msg, send the
+     * messaging-sending socket TCP port here as ID that the server can recognize.
+     * Since the server can get the sending host of this UDP packet, and since
+     * it already knows the ports on the TCP sockets already made, it can put
+     * these 2 pieces of info together to uniquely identify the client sending
+     * this msg. */
+    outGoing[3] = htonl(domain->localPort);
+
     /* message id (in network byte order) to domain server */
-    outGoing[4] = htonl(CMSG_SEND_REQUEST);
+    outGoing[5] = htonl(CMSG_SEND_REQUEST);
     /* reserved for future use */
-    outGoing[5] = 0;
+    outGoing[6] = 0;
     /* user int */
-    outGoing[6] = htonl(msg->userInt);
+    outGoing[7] = htonl(msg->userInt);
     /* system msg id */
-    outGoing[7] = htonl(msg->sysMsgId);
+    outGoing[8] = htonl(msg->sysMsgId);
     /* sender token */
-    outGoing[8] = htonl(msg->senderToken);
+    outGoing[9] = htonl(msg->senderToken);
     /* bit info */
-    outGoing[9] = htonl(msg->info);
+    outGoing[10] = htonl(msg->info);
 
     highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
     lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
-    outGoing[10] = htonl(highInt);
-    outGoing[11] = htonl(lowInt);
+    outGoing[11] = htonl(highInt);
+    outGoing[12] = htonl(lowInt);
 
     /* user time */
     llTime  = ((uint64_t)msg->userTime.tv_sec * 1000) +
               ((uint64_t)msg->userTime.tv_nsec/1000000);
     highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
     lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
-    outGoing[12]  = htonl(highInt);
-    outGoing[13] = htonl(lowInt);
+    outGoing[13]  = htonl(highInt);
+    outGoing[14] = htonl(lowInt);
 
     /* length of "subject" string */
     lenSubject   = strlen(msg->subject);
-    outGoing[14] = htonl(lenSubject);
+    outGoing[15] = htonl(lenSubject);
     
     /* length of "type" string */
     lenType      = strlen(msg->type);
-    outGoing[15] = htonl(lenType);
+    outGoing[16] = htonl(lenType);
 
     /* length of "payloadText" string */
-    outGoing[16] = htonl(lenPayloadText);
+    outGoing[17] = htonl(lenPayloadText);
 
     /* length of "text" string, include payload (if any) as text here */
-    outGoing[17] = htonl(lenText);
+    outGoing[18] = htonl(lenText);
 
     /* length of byte array */
     lenByteArray = msg->byteArrayLength;
-    outGoing[18] = htonl(lenByteArray);
+    outGoing[19] = htonl(lenByteArray);
 
-    /* total length of message (minus first int) is first item sent */
-    len = sizeof(outGoing) - sizeof(int) + lenSubject + lenType +
+    /* total length of message (ignoring first 5 ints sent) is first item sent */
+    len = sizeof(outGoing) - 5*sizeof(int) + lenSubject + lenType +
           lenPayloadText + lenText + lenByteArray;
-    outGoing[3] = htonl(len);
+    outGoing[4] = htonl(len);
 
     if (msg->udpSend && len > CMSG_BIGGEST_UDP_BUFFER_SIZE) {
       cMsgConnectReadUnlock(domain);
@@ -4356,10 +4364,8 @@ static int partialShutdown(void *domainId) {
  * This routine is called when disconnecting from the server permanently.
  * It always closes sockets, stops the message-listening and
  * server-update threads and wakes up all sub&Gets, send&Gets & syncSends.
- * If the removeSubscriptions flag it set it also removes subscriptions
- * and stops callback threads.
- * Subscriptions must be retained if a reconnect is to be done (ie only a
- * partial shutdown). <b>This routine is always called with the cMsgConnectWriteLock
+ * It also removes subscriptions and stops callback threads.
+ * <b>This routine is always called with the cMsgConnectWriteLock
  * held.</b>
  *
  * @param domainId id of the domain connection
@@ -4459,16 +4465,19 @@ static int totalShutdown(void *domainId) {
     /* stop thread writing keep alives to server */
     /*printf("  totalShutdown: cancel updateServer thd\n");*/
     status = pthread_cancel(domain->updateServerThread);
+    /*
     if (status != 0) {
         cmsg_err_abort(status, "Failed updateServer thread cancellation");
-    }
-   
+    }*/
+
     /* wait here until thread writing keep alives returns */
     sched_yield();
     status = pthread_join(domain->updateServerThread, &p);
+    /*
     if (status != 0 || p != PTHREAD_CANCELED) {
         cmsg_err_abort(status, "Failed updateServer thread join");
     }
+    */
     /*printf("  totalShutdown: joined updateServer thread\n");*/
 
     /* Theoretically the stuck pend thread is free now so go ahead and cancel it. */
@@ -4476,17 +4485,21 @@ static int totalShutdown(void *domainId) {
     /* stop msg receiving thread */
     /*printf("  totalShutdown: cancel pend thd = %p\n",&domain->pendThread);*/
     status = pthread_cancel(domain->pendThread);
+    /*
     if (status != 0) {
         cmsg_err_abort(status, "Failed pend thread cancellation");
     }
+    */
     
     /* wait here until msg receiving thread returns */
     sched_yield();
     /*printf("  totalShutdown: try joining pend thread = %p\n",&domain->pendThread);*/
     status = pthread_join(domain->pendThread, &p);
+    /*
     if (status != 0 || p != PTHREAD_CANCELED) {
         cmsg_err_abort(status, "Failed pend thread join");
     }
+    */
     /*printf("  totalShutdown: joined pend thread\n");*/
 
     /* Don't want incoming msgs to be delivered to callbacks, remove them. */
