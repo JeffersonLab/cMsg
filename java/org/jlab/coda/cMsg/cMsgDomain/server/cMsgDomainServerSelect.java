@@ -50,10 +50,12 @@ class cMsgDomainServerSelect extends Thread {
 
     /**
      * Object containing information about the client this object is connected to.
-     * Certain members of info can only be filled in by this thread,
+     * This is relevant only if this object has a single client - which is the case
+     * when it is a another cMsg server.
+     * Certain members of this object can only be filled in by this thread,
      * such as the listening port.
      */
-    cMsgClientData info;
+    cMsgClientData myClientInfo;
 
     /** Boolean specifying if this object creates and listens on a udp socket. */
     private boolean noUdp;
@@ -73,22 +75,20 @@ class cMsgDomainServerSelect extends Thread {
     /** Selector object each client's channel is registered with. */
     Selector selector;
 
-    /** Channel to receive UDP sends from the client. */
+    /** Channel to receive UDP sends from the clients. */
     private DatagramChannel udpChannel;
 
-    /** Socket to receive UDP sends from the client. */
+    /** Socket to receive UDP sends from the clients. */
     private DatagramSocket udpSocket;
 
     /**
      * Thread-safe queue to hold cMsgHolder objects of
-     * requests from the client.
+     * requests from the clients.
      * These are grabbed and processed by waiting worker thread.
      */
     private LinkedBlockingQueue<cMsgHolder> bufferQ;
 
-    /**
-     * Thread that handles all client requests.
-     */
+    /** Thread that handles all clients' requests. */
     private RequestHandler requestHandlerThread;
 
     /** A pool of threads to execute all the subscribeAndGet calls which come in. */
@@ -100,11 +100,28 @@ class cMsgDomainServerSelect extends Thread {
     /** Keep track of whether the shutdown method of this object has already been called. */
     AtomicBoolean calledShutdown = new AtomicBoolean();
 
-    /** Hashtable of all sendAndGetter objects of this client. */
+    /** Hashtable of all sendAndGetter objects of these clients. */
     private ConcurrentHashMap<Integer, cMsgServerSendAndGetter> sendAndGetters;
 
     /** Kill main thread if true. */
     private volatile boolean killMainThread;
+
+
+    /**
+     * Gets the maximum number of clients this object communicates with.
+     * @return the maximum number of clients this object communicates with
+     */
+    int getClientsMax() {
+        return clientsMax;
+    }
+
+    /**
+     * Sets the maximum number of clients this object communicates with.
+     * @param clientsMax the maximum number of clients this object communicates with
+     */
+    void setClientsMax(int clientsMax) {
+        this.clientsMax = clientsMax;
+    }
 
     /**
      * Getter for the UDP port being used.
@@ -115,11 +132,60 @@ class cMsgDomainServerSelect extends Thread {
     }
 
     /**
-     * Getter for the subdomain handler object.
-     * @return subdomain handler object
+     * Is the single client served by this object is a cMsg server?
+     * @return true if the single client served by this object is a cMsg server, else false
      */
-    public cMsgSubdomainInterface getSubdomainHandler() {
-        return info.subdomainHandler;
+    boolean clientIsServer() {
+        if (myClientInfo == null || clients.size() != 1) {
+            return false;
+        }
+        return myClientInfo.isServer();
+    }
+
+    /**
+     * Gets the client data object (if there is one) of the client identified by
+     * the tcpPort and addr given in the args. If there is none, return null.
+     * Used to identify the client which just sent a message with UDP.
+     *
+     * @param sockAddr address object from UDP sending client (from system)
+     * @param tcpPort TCP port of UDP sending client (from data in packet)
+     * @return client data object of client identified by tcpPort & addr or null if none
+     */
+    private cMsgClientData getClient(InetSocketAddress sockAddr, int tcpPort) {
+        if (clients.size() < 1) return null;
+
+        String host;
+        InetSocketAddress clientAddr;
+
+        // Scan through our list of known clients to see if the sender of the
+        // recently received UDP message is on that list.
+        for (cMsgClientData cd : clients.keySet()) {
+            // The first known client in our list has the following socket address
+            clientAddr = cd.getMessageChannelRemoteSocketAddress();
+
+           // Check to see if the ports are the same
+            if (clientAddr.getPort() != tcpPort) {
+                continue;
+            }
+
+            // Make sure they are on the same host (not necessarily the same
+            // IP address since a single host may have multiple IP addresses).
+
+            // Compare the list of IP addresses (from other end of TCP socket)
+            // with the IP address from UDP message just received.
+            host = clientAddr.getAddress().getCanonicalHostName();
+            try {
+                for (InetAddress addr : InetAddress.getAllByName(host)) {
+                    if (addr.equals(sockAddr.getAddress())) {
+                        // we have a match
+//System.out.println(" found UDP match, client = \"" + cd.getName() + "\"");
+                        return cd;
+                    }
+                }
+            }
+            catch (UnknownHostException e) { return null; }
+        }
+        return null;
     }
 
 
@@ -127,9 +193,10 @@ class cMsgDomainServerSelect extends Thread {
     /** This method prints out the sizes of all objects which store other objects. */
     private void printSizes() {
         System.out.println("\n\nSIZES:");
-        System.out.println("     request   cue   = " + bufferQ.size());
-        System.out.println("     sendAndGetters  = " + sendAndGetters.size());
-        System.out.println("     clients         = " + clients.size());
+        System.out.println("     request   cue    = " + bufferQ.size());
+        System.out.println("     sendAndGetters   = " + sendAndGetters.size());
+        System.out.println("     clients          = " + clients.size());
+        System.out.println("     clients2register = " + clients2register.size());
 
 //        System.out.println();
 //
@@ -213,6 +280,7 @@ class cMsgDomainServerSelect extends Thread {
                 udpSocket.setReceiveBufferSize(cMsgNetworkConstants.biggestUdpBufferSize);
             }
             catch (IOException ex) {
+                if (udpChannel != null) udpChannel.close();
                 ex.printStackTrace();
                 cMsgException e = new cMsgException("Exiting Server: cannot create socket to listen on");
                 e.setReturnCode(cMsgConstants.errorSocket);
@@ -238,7 +306,7 @@ class cMsgDomainServerSelect extends Thread {
     }
 
 
-    synchronized private int numberOfClients() {
+    synchronized int numberOfClients() {
         return clients.size();
     }
 
@@ -277,7 +345,7 @@ class cMsgDomainServerSelect extends Thread {
             clients.put(info, "");
         }
 
-        this.info = info;
+        myClientInfo = info;
 
         // Fill in info members so this data can be sent back
         if (!noUdp) {
@@ -338,17 +406,14 @@ class cMsgDomainServerSelect extends Thread {
         requestHandlerThread.interrupt();
 
         // close udp socket
-        if (!udpSocket.isClosed()) {
+        if (!noUdp) {
              udpSocket.close();
         }
 
         // close all sockets to clients
         for (cMsgClientData cd : clients.keySet()) {
-            try {
-                cd.keepAliveChannel.close();
-                cd.getMessageChannel().close();
-            }
-            catch (IOException e) {}
+            try { cd.keepAliveChannel.close(); }    catch (IOException e) {}
+            try { cd.getMessageChannel().close(); } catch (IOException e) {}
         }
 
         // give threads a chance to shutdown
@@ -455,6 +520,11 @@ class cMsgDomainServerSelect extends Thread {
         subAndGetThreadPool.shutdownNow();
         sendAndGetThreadPool.shutdownNow();
 
+        clients.clear();
+        clients2register.clear();
+        sendAndGetters.clear();
+        myClientInfo = null;
+     
 //System.out.println("\nDomain Server: EXITING SHUTDOWN\n");
     }
 
@@ -464,7 +534,8 @@ class cMsgDomainServerSelect extends Thread {
      * @param cd client data object
      */
     synchronized void deleteClient(cMsgClientData cd) {
-//System.out.println("DELETING CLIENT " + cd.getName());
+System.out.println("DELETING CLIENT " + cd.getName());
+//        Thread.dumpStack();
         // remove from hashmap (otherwise the cMsgMonitorClient object will try to run this method)
         removeClient(cd);
 
@@ -473,29 +544,15 @@ class cMsgDomainServerSelect extends Thread {
 //System.out.println("buffer size = " + bufferQ.size());
         int msgId;
         cMsgHolder hldr;
-        if (clientsMax == 1) {
-//System.out.println("clear bufferQ");
-            for (Iterator it = bufferQ.iterator(); it.hasNext();) {
-                hldr = (cMsgHolder)it.next();
-                if (hldr == null) continue;
-                msgId = cMsgUtilities.bytesToInt(hldr.array, 0);
-                // remove any non-sends
-                if (msgId != cMsgConstants.msgSendRequest) {
-                    it.remove();
-                }
-            }
-        }
-        else {
-//System.out.println("Before iterator Q size = " + bufferQ.size());
-            for (Iterator it = bufferQ.iterator(); it.hasNext();) {
-                // pick out requests from current client
-                hldr = (cMsgHolder)it.next();
-                if (hldr == null || hldr.data != cd) continue;
-                msgId = cMsgUtilities.bytesToInt(hldr.array, 0);
-                // remove any non-sends
-                if (msgId != cMsgConstants.msgSendRequest) {
-                    it.remove();
-                }
+//System.out.println("Before request removal Q size = " + bufferQ.size());
+        for (Iterator it = bufferQ.iterator(); it.hasNext();) {
+            // pick out requests from current client
+            hldr = (cMsgHolder)it.next();
+            if (hldr == null || hldr.data != cd) continue;
+            msgId = cMsgUtilities.bytesToInt(hldr.array, 0);
+            // remove any non-sends
+            if (msgId != cMsgConstants.msgSendRequest) {
+                it.remove();
             }
         }
 
@@ -589,8 +646,21 @@ class cMsgDomainServerSelect extends Thread {
             }
         }
 
-        // give request handler thread time to process sends
-        Thread.yield();
+        // Give request handler thread time to process all remaining sends
+        // before shutting down the subdomain handler (within limits)
+        int iterations = 100;
+        iter: while ( iterations-- > 0 ) {
+            // Look for this client's remaining entries on bufferQ.
+            // If there are none, continue on, else wait.
+            for (cMsgHolder holder : bufferQ) {
+                if (cd == holder.data) {
+//System.out.println("\n*** WAITING ***\n");
+                    try { Thread.sleep(1); }
+                    catch (InterruptedException e) {}
+                    continue iter;
+                }
+            }
+        }
 
         // tell client's subdomain handler to shutdown
         if (cd.calledSubdomainShutdown.compareAndSet(false,true)) {
@@ -599,19 +669,22 @@ class cMsgDomainServerSelect extends Thread {
             catch (cMsgException e) { e.printStackTrace(); }
         }
 
-        // close all sockets to client
-        try {
-            cd.keepAliveChannel.close();
-            cd.getMessageChannel().close();
-        }
-        catch (IOException e) {}
+        // close all sockets to client and cancels selection keys (removes from select)
+        try { cd.keepAliveChannel.close(); }    catch (IOException e) {}
+        try { cd.getMessageChannel().close(); } catch (IOException e) {}
 
         // close connection from message deliverer to client
         if (cd.getDeliverer() != null) {
             cd.getDeliverer().close();
         }
 
-//System.out.println(" End");
+        // What if the last client is gone?
+        if (clients.size() < 1) {
+            myClientInfo = null;
+        }
+
+//System.out.println("DELETING CLIENT End, clients.size = " + clients.size() + ", cli2reg,sz = " +
+//clients2register.size());
 
 //System.out.println("\nDomain Server: EXITING deleteClient for " + cd.getName() + "\n" );
     }
@@ -623,21 +696,25 @@ class cMsgDomainServerSelect extends Thread {
     public void run() {
 
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println(">>    DS: Running Domain Server");
+            System.out.println("DDS: Running Domain Server");
         }
 
-        int bytes;
+        int n, bytes, tcpPort;
         SelectableChannel selChannel;
         SocketChannel sockChannel;
+        cMsgClientData clientData;
+        InetSocketAddress udpSender;
 
         try {
-
             // No UDP use if we're handling a server client
             if (!noUdp) {
                 // set nonblocking mode for the udp socket
                 udpChannel.configureBlocking(false);
                 // register the channel with the selector for reading
-                udpChannel.register(selector, SelectionKey.OP_READ, info);
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("DSS: Registering udp socket");
+                }
+                udpChannel.register(selector, SelectionKey.OP_READ);
             }
 
             // direct byte Buffer for UDP IO use
@@ -646,22 +723,32 @@ class cMsgDomainServerSelect extends Thread {
             while (true) {
                 
                 // 1 second timeout
-                int n = selector.select(1000);
+                n = selector.select(1000);
 
                 // register any clients waiting for it
                 if (clients2register.size() > 0) {
-                    for (cMsgClientData cli : clients2register.keySet()) {
-//System.out.println("DSS: Registering client " + cli.getName() + " with selector");
-                        cli.getMessageChannel().register(selector, SelectionKey.OP_READ, cli);
-                        clients2register.remove(cli);
+                    for (Iterator it = clients2register.keySet().iterator(); it.hasNext();) {
+                        clientData = (cMsgClientData)it.next();
+                        if (debug >= cMsgConstants.debugInfo) {
+                            System.out.println("DSS: Registering client " + clientData.getName() + " with selector");
+                        }
+                        clientData.getMessageChannel().register(selector, SelectionKey.OP_READ, clientData);
+                        it.remove();
                     }
                 }
 
                 // first check to see if we've been commanded to die
-                if (killMainThread) return;
+                if (killMainThread) {
+                    selector.close();
+                    return;
+                }
 
                 // if no channels (sockets) are ready, listen some more
-                if (n == 0) continue;
+                if (n < 1) {
+//System.out.println("  selector woke up with no ready channels");
+                    selector.selectedKeys().clear();
+                    continue;
+                }
 
                 // get an iterator of selected keys (ready sockets)
                 Iterator it = selector.selectedKeys().iterator();
@@ -674,81 +761,83 @@ class cMsgDomainServerSelect extends Thread {
                     if (key.isValid() && key.isReadable()) {
 
                         // read message and put on queue
-                        cMsgClientData info = (cMsgClientData) key.attachment();
-//System.out.println("client " + info.getName() + " is readable");
                         selChannel = key.channel();
 
                         // TCP channel being read
-                        if (selChannel != udpChannel) {
+                        clientData = (cMsgClientData) key.attachment();
+
+                        if (clientData != null) {
+                        //if (selChannel != udpChannel) {
+//System.out.println("  TCP client " + clientData.getName() + " is readable");
                             sockChannel = (SocketChannel) selChannel;
                             // first read size of incoming data
-                            if (info.readingSize) {
+                            if (clientData.readingSize) {
 //System.out.println("  try reading size");
-                                info.buffer.limit(4);
-                                bytes = sockChannel.read(info.buffer);
+                                clientData.buffer.limit(4);
+                                bytes = sockChannel.read(clientData.buffer);
 //System.out.println("  done reading size, bytes = " + bytes);
                                 // for End-of-stream ...
                                 if (bytes == -1) {
                                     // error handling
-//System.out.println("  Error reading size for channel = " + sockChannel);
-                                    deleteClient(info);
+//System.out.println("  TCP ERROR reading size for channel = " + sockChannel);
+                                    deleteClient(clientData);
                                     it.remove();
                                     continue;
                                 }
                                 // if we've read 4 bytes ...
-                                if (info.buffer.position() > 3) {
-                                    info.buffer.flip();
-                                    info.size =info. buffer.getInt();
+                                if (clientData.buffer.position() > 3) {
+                                    clientData.buffer.flip();
+                                    clientData.size = clientData. buffer.getInt();
 //System.out.println("  read size = " + info.size);
-                                    info.buffer.clear();
-                                    if (info.size > info.buffer.capacity()) {
+                                    clientData.buffer.clear();
+                                    if (clientData.size > clientData.buffer.capacity()) {
 //System.out.println("  create new, large direct bytebuffer");
-                                        info.buffer = ByteBuffer.allocateDirect(info.size);
-                                        info.buffer.clear();
+                                        clientData.buffer = ByteBuffer.allocateDirect(clientData.size);
+                                        clientData.buffer.clear();
                                     }
-                                    info.buffer.limit(info.size);
-                                    info.readingSize = false;
+                                    clientData.buffer.limit(clientData.size);
+                                    clientData.readingSize = false;
                                 }
                             }
 
                             // read the rest of the data
-                            if (!info.readingSize) {
+                            if (!clientData.readingSize) {
 //System.out.println("  try reading rest of buffer");
 //System.out.println("  buffer capacity = " + info.buffer.capacity() + ", limit = " +
 //                      info.buffer.limit() + ", position = " + info.buffer.position() );
-                                bytes = sockChannel.read(info.buffer);
+                                bytes = sockChannel.read(clientData.buffer);
                                 // for End-of-stream ...
                                 if (bytes == -1) {
                                     // error handling
-//System.out.println("  Error reading data for channel = " + sockChannel);
-                                    deleteClient(info);
+//System.out.println("TCP ERROR reading data for channel = " + sockChannel);
+                                    deleteClient(clientData);
                                     it.remove();
                                     continue;
                                 }
-                                info.bytesRead += bytes;
+                                clientData.bytesRead += bytes;
 //System.out.println("  bytes read = " + info.bytesRead);
 
                                 // if we've read everything ...
-                                if (info.bytesRead >= info.size) {
+                                if (clientData.bytesRead >= clientData.size) {
                                     // put on Q, this will block if Q full
                                     try {
-                                        byte[] b = new byte[info.bytesRead];
-                                        info.buffer.flip();
-                                        info.buffer.get(b, 0, info.bytesRead);
+                                        byte[] b = new byte[clientData.bytesRead];
+                                        clientData.buffer.flip();
+                                        clientData.buffer.get(b, 0, clientData.bytesRead);
 //System.out.println("  read request, putting buffer in Q");
 //                                        if (bufferQ.remainingCapacity() == 0) {
 //                                            System.out.println("   " + info.getName() + " has a FULL Q -> blocking");
 //                                        }
-                                        bufferQ.put(new cMsgHolder(b, info, false));
+                                        bufferQ.put(new cMsgHolder(b, clientData, false));
                                     }
                                     catch (InterruptedException e) {
                                         if (killMainThread) {
                                             return;
                                         }
                                     }
-                                    info.buffer.clear();
-                                    info.bytesRead = 0;
-                                    info.readingSize = true;
+                                    clientData.buffer.clear();
+                                    clientData.bytesRead = 0;
+                                    clientData.readingSize = true;
                                     //it.remove();
                                     //continue;
                                 }
@@ -758,9 +847,14 @@ class cMsgDomainServerSelect extends Thread {
                         // UDP channel being read
                         else {
                             try {
-//System.out.println("client " + info.getName() + " is UDP readable");
-                                udpChannel.receive(udpBuffer);
+//System.out.println("  UDP client " + info.getName() + " is UDP readable");
+                                udpBuffer.clear();
+                                udpSender = (InetSocketAddress)udpChannel.receive(udpBuffer);
                                 udpBuffer.flip();
+                                if (udpBuffer.limit() < 20) {
+//System.out.println("  CAUGHT SMALL BUFFER, limit = " + udpBuffer.limit());
+                                    continue;
+                                }
                                 if (udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[0] ||
                                     udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[1] ||
                                     udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[2]) {
@@ -770,36 +864,53 @@ class cMsgDomainServerSelect extends Thread {
                                     it.remove();
                                     continue;
                                 }
+                                java.nio.BufferUnderflowException ex;
 //                                else {
 //                                    System.out.println("passed magic # test");
 //                                }
-                                info.size = udpBuffer.getInt();
+
+                                // Find out which client this UDP packet came from.
+                                // Since it's a UDP socket we're reading, unlike TCP,
+                                // we don't know simply by the socket id who is on the
+                                // other end.
+                                tcpPort = udpBuffer.getInt();
+
+                                clientData = getClient(udpSender, tcpPort);
+                                if (clientData == null) {
+                                    // there is no match with current clients so ignore it
+//System.out.println("  UDP host/port does NOT match current clients, ignore it");
+                                    continue;
+                                }
+
+                                clientData.size = udpBuffer.getInt();
 //System.out.println("  read size in UDP = " + info.size);
                                 // if packet is too big, ignore it
-                                if (4 + info.size > udpBuffer.capacity()) {
+                                if (4 + clientData.size > udpBuffer.capacity()) {
                                     it.remove();
+//System.out.println("  packet is too big, ignore it");
                                     continue;
                                 }
 
                                 try {
-                                    byte[] b = new byte[info.size];
-                                    udpBuffer.get(b, 0, info.size);
+                                    byte[] b = new byte[clientData.size];
+                                    udpBuffer.get(b, 0, clientData.size);
 //System.out.println("  read UDP request, putting udpBuffer in Q");
-                                    bufferQ.put(new cMsgHolder(b, info, true));
+                                    bufferQ.put(new cMsgHolder(b, clientData, true));
                                 }
                                 catch (InterruptedException e) {
                                     if (killMainThread) {
                                         return;
                                     }
                                 }
-                                udpBuffer.clear();
-                                info.bytesRead = 0;
-                                info.readingSize = true;
+                                //udpBuffer.clear();
+                                clientData.bytesRead = 0;
+                                clientData.readingSize = true;
                                 //it.remove();
                                 //continue;
                             }
-                            catch (IOException e) {
+                            catch (Exception e) {
                                 // something wrong with packet, so just ignore it
+//System.out.println("  CAUGHT EXCEPTION !!!");
                             }
                         }
                     }
@@ -990,11 +1101,12 @@ class cMsgDomainServerSelect extends Thread {
 
 
                         case cMsgConstants.msgMonitorRequest: // client requesting monitor data   BUGBUG
-                            sendMonitorData(nameServer.fullMonitorXML);
+                            sendMonitorData(info, nameServer.fullMonitorXML);
                             break;
 
                         case cMsgConstants.msgDisconnectRequest: // client disconnecting
                             // BUGBUG if no clients left, then what? shutdown domain server?
+System.out.println("Call deleteClient 0");
                             deleteClient(info);
                             break;
                             // need to shutdown this domain server
@@ -1114,16 +1226,17 @@ class cMsgDomainServerSelect extends Thread {
                                 System.out.println("dServer handleClient: can't understand your message " + info.getName());
                             }
 //System.out.println("Remove connection to client " + info.getName() + " since unknown command received");
-//System.out.println("Call deleteClient 1");
+System.out.println("Call deleteClient 1");
                             deleteClient(info);
                     }
                 }
                 catch (cMsgException ex) {
-//System.out.println("Call deleteClient 2");
+System.out.println("Call deleteClient 2");
+                    ex.printStackTrace();
                     deleteClient(info);
                 }
                 catch (IOException ex) {
-//System.out.println("Call deleteClient 3");
+System.out.println("Call deleteClient 3");
                     deleteClient(info);
                 }
             }
@@ -1246,7 +1359,7 @@ class cMsgDomainServerSelect extends Thread {
          * @param xml data string in xml format
          * @throws IOException If socket read or write error
          */
-        private void sendMonitorData(String xml) throws IOException {
+        private void sendMonitorData(cMsgClientData info, String xml) throws IOException {
             // send the time in milliseconds as 2, 32 bit integers
             long now = new Date().getTime();
             info.streamToClient.writeInt((int) (now >>> 32)); // higher 32 bits
