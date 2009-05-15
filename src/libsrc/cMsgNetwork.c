@@ -229,6 +229,7 @@ int cMsgGetListeningSocket(int blocking, unsigned short startingPort, int *final
  * @param sendBufSize size of socket's send buffer in bytes
  * @param rcvBufSize  size of socket's receive buffer in bytes
  * @param fd pointer to file descriptor which get filled in
+ * @param localPort pointer to local (ephemeral) port number which get filled in
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if ip_adress or fd args are NULL
@@ -238,7 +239,7 @@ int cMsgGetListeningSocket(int blocking, unsigned short startingPort, int *final
  *
  */
 int cMsgTcpConnect(const char *ip_address, unsigned short port,
-                   int sendBufSize, int rcvBufSize, int *fd)
+                   int sendBufSize, int rcvBufSize, int *fd, int *localPort)
 {
   int                 sockfd, err=0;
   const int           on=1;
@@ -315,6 +316,20 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port,
     if (cMsgDebug >= CMSG_DEBUG_INFO) fprintf(stderr, "cMsgTcpConnect: connected to server\n");
   }   
 
+  /* find & return the local port number of this socket */
+  if (localPort != NULL) {
+      int prt, len;
+      struct sockaddr_in ss;
+      
+      len = sizeof(ss);
+      if (getsockname(sockfd, (SA *) &ss, &len) == 0) {
+          *localPort = (int) ntohs(ss.sin_port);
+      }
+      else {
+          *localPort = 0;
+      }
+  }
+
 /*
  * Need to make things reentrant so use gethostbyname_r.
  * Unfortunately the linux folks defined the function 
@@ -361,7 +376,23 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port,
     }
   }
 
-#elif defined linux || defined Darwin
+  /* if there's no error, find & return the local port number of this socket */
+  if (err != -1 && localPort != NULL) {
+      int prt;
+      socklen_t len;
+      struct sockaddr_in ss;
+      
+      len = sizeof(ss);
+      if (getsockname(sockfd, (SA *) &ss, &len) == 0) {
+          *localPort = (int) ntohs(ss.sin_port);
+      }
+      else {
+          *localPort = 0;
+      }
+  }
+   
+/*#elif defined linux || defined Darwin*/
+#else
 
 /*
  * There seem to be serious bugs with Linux implementation of
@@ -404,15 +435,28 @@ int cMsgTcpConnect(const char *ip_address, unsigned short port,
       break;
     }
   }
+
+  /* if there's no error, find & return the local port number of this socket */
+  if (err != -1 && localPort != NULL) {
+      int prt;
+      socklen_t len;
+      struct sockaddr_in ss;
+      
+      len = sizeof(ss);
+      if (getsockname(sockfd, (SA *) &ss, &len) == 0) {
+          *localPort = (int) ntohs(ss.sin_port);
+      }
+      else {
+          *localPort = 0;
+      }
+  }
    
   status = pthread_mutex_unlock(&getHostByNameMutex);
   if (status != 0) {
     cmsg_err_abort(status, "Unlock gethostbyname Mutex");
   }
     
-#else
-  return(CMSG_NETWORK_ERROR);
-#endif 
+#endif
   
   if (err == -1) {
     close(sockfd);

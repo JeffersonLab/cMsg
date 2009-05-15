@@ -183,7 +183,7 @@ extern int   cMsgTcpListen(int blocking, unsigned short port, int *listenFd);
 extern int   cMsgGetListeningSocket(int blocking, unsigned short startingPort,
                                     int *finalPort, int *fd);
 extern int   cMsgTcpConnect(const char *ip_address, unsigned short port,
-                            int rcvBufSize, int sendBufSize, int *fd);
+                            int rcvBufSize, int sendBufSize, int *fd, int *localPort);
 extern int   cMsgAccept(int fd, struct sockaddr *sa, socklen_t *salenptr);
 
 extern int   cMsgTcpRead(int fd, void *vptr, int n);

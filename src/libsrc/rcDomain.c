@@ -693,7 +693,7 @@ printf("EXPID is not set!\n");
     /* create TCP sending socket and store */
     if ( (err = cMsgTcpConnect(domain->sendHost,
                                (unsigned short) domain->sendPort,
-                               CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket)) != CMSG_OK) {
+                               CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket, NULL)) != CMSG_OK) {
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
