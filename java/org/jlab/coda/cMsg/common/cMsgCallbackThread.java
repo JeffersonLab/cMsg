@@ -17,6 +17,7 @@
 package org.jlab.coda.cMsg.common;
 
 import org.jlab.coda.cMsg.cMsgSubscriptionHandle;
+import org.jlab.coda.cMsg.cMsgCallbackInterface;
 
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;

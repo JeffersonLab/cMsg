@@ -24,6 +24,7 @@ package org.jlab.coda.cMsg.common;
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgMessage;
 import org.jlab.coda.cMsg.cMsgSubscriptionHandle;
+import org.jlab.coda.cMsg.cMsgCallbackInterface;
 
 import java.lang.*;
 import java.util.concurrent.TimeoutException;
