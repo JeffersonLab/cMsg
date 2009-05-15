@@ -19,7 +19,7 @@
 *                                                                            *
 *----------------------------------------------------------------------------*/
 
-package org.jlab.coda.cMsg.common;
+package org.jlab.coda.cMsg;
 
 import org.jlab.coda.cMsg.cMsgMessage;
 
