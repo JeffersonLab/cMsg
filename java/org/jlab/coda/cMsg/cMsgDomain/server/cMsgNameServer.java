@@ -1039,7 +1039,7 @@ public class cMsgNameServer extends Thread {
                             bytes = channel.read(buffer);
                             // for End-of-stream ...
                             if (bytes == -1) {
-System.out.println("cMsgNameServer: closing bad channel");
+//System.out.println("cMsgNameServer: closing bad channel");
                                 channel.close();
                                 it.remove();
                                 continue keyLoop;
@@ -1062,8 +1062,7 @@ System.out.println("cMsgNameServer: closing bad channel");
                                     buffer.put(respond);
                                     buffer.flip();
                                     channel.write(buffer);
-
-System.out.println("cMsgNameServer: closing bad channel");
+//System.out.println("cMsgNameServer: closing bad channel");
                                     channel.close();
                                     it.remove();
                                     continue keyLoop;
@@ -1596,8 +1595,12 @@ System.out.println("Main server IO error");
                 // client should make a couple connections to domain server (1 sec timeout)
                 if (!connectionThread.gotConnections()) {
                     try {
-                        if (info.keepAliveChannel    != null) info.keepAliveChannel.close();
-                        if (info.getMessageChannel() != null) info.getMessageChannel().close();
+                        if (info.keepAliveChannel    != null) {
+                            info.keepAliveChannel.close();
+                        }
+                        if (info.getMessageChannel() != null) {
+                            info.getMessageChannel().close();
+                        }
                     }
                     catch (IOException e) {}
                     // failed to get proper connections from server client, so abort
@@ -1868,6 +1871,23 @@ System.out.println("Main server IO error");
                 subdomainHandler.registerClient(info);
             }
 
+            // Run through all existing domain server select objects and remove the
+            // excess -- those not serving any clients over a given limit.
+            int dsLimit = 20;
+            cMsgDomainServerSelect ds;
+            synchronized (availableDomainServers) {
+                if (availableDomainServers.size() > 0) {
+                    for (ListIterator it = availableDomainServers.listIterator(); it.hasNext();) {
+                        ds = (cMsgDomainServerSelect)it.next();
+                        if (ds.numberOfClients() < 1) {
+                            if (dsLimit-- > 0) continue;
+                            it.remove();
+                            ds.shutdown();
+//System.out.println("REMOVE EXISTING EMPTY Subdomain Server Select Object");
+                        }
+                    }
+                }
+            }
 
             // Create or find the domain server object. The server's udp socket is
             // created with the object and it's port # will be available to send
@@ -1879,11 +1899,19 @@ System.out.println("Main server IO error");
                 // first look for an available domain server with room for another client
                 synchronized (availableDomainServers) {
                     if (availableDomainServers.size() > 0) {
-                        // Take this domain server out of list so other clients cannot use
-                        // it simultaneously. It will be added back to the list if it
-                        // hasn't hit the max # of clients (in server.add method)
-//System.out.println("GRAB EXISTING Subdomain Server Select Object for " + info.getName());
-                        dsServer = availableDomainServers.remove(0);
+                        for (ListIterator it = availableDomainServers.listIterator(); it.hasNext();) {
+                            ds = (cMsgDomainServerSelect)it.next();
+                            if (ds.numberOfClients() < clientsMax) {
+                                dsServer = ds;
+                                ds.setClientsMax(clientsMax);
+                                // Take this domain server out of list so other clients cannot use
+                                // it simultaneously. It will be added back to the list if it
+                                // hasn't hit the max # of clients (in dsServer.addClient method).
+                                it.remove();
+//System.out.println("GRAB EXISTING EMPTY Subdomain Server Select Object for " + info.getName());
+                                break;
+                            }
+                        }
                     }
                 }
 
@@ -1897,10 +1925,26 @@ System.out.println("Main server IO error");
                 info.setDomainUdpPort(dsServer.getUdpPort());
             }
             else if (regime == cMsgConstants.regimeMedium) {
-                dsServer = new cMsgDomainServerSelect(cMsgNameServer.this,
-                                                       1, debug, false);
-//System.out.println("Create new Subdomain Server Select Object for " + info.getName() + ", p = " + dsServer);
+                // first look for an available domain server with no current client
+                synchronized (availableDomainServers) {
+                    if (availableDomainServers.size() > 0) {
+                        for (ListIterator it = availableDomainServers.listIterator(); it.hasNext();) {
+                            ds = (cMsgDomainServerSelect)it.next();
+                            if (ds.numberOfClients() < 1) {
+                                dsServer = ds;
+                                ds.setClientsMax(1);
+                                it.remove();
+//System.out.println("GRAB EXISTING EMPTY Subdomain Server Select Object for " + info.getName());
+                                break;
+                            }
+                        }
+                    }
+                }
 
+                if (dsServer == null) {
+                    dsServer = new cMsgDomainServerSelect(cMsgNameServer.this, 1, debug, false);
+//System.out.println("Create NEW Subdomain Server Select Object for " + info.getName() + ", p = " + dsServer);
+                }
                 info.setDomainUdpPort(dsServer.getUdpPort());
             }
             else {
@@ -1920,8 +1964,12 @@ System.out.println("Main server IO error");
 //System.out.println("registerClient: client did not make connections to domain server, throw exception");
                     // failed to get proper connections from client, so abort
                     try {
-                        if (info.keepAliveChannel    != null) info.keepAliveChannel.close();
-                        if (info.getMessageChannel() != null) info.getMessageChannel().close();
+                        if (info.keepAliveChannel    != null) {
+                            info.keepAliveChannel.close();
+                        }
+                        if (info.getMessageChannel() != null) {
+                            info.getMessageChannel().close();
+                        }
                         subdomainHandler.handleClientShutdown();
                         deliverer.close();
                     }
@@ -1935,21 +1983,21 @@ System.out.println("Main server IO error");
             if (regime != cMsgConstants.regimeHigh) {
                 // if threads haven't been started yet ...
                 if (!dsServer.isAlive()) {
+//System.out.println("registerClient: STARTING UP DSS threads !!!");
                     // kill this thread too if name server thread quits
                     dsServer.setDaemon(true);
-                    //dsServer.start();
-//System.out.println("Start Subdomain Server Select Object's threads for " + info.getName() + ", p = " + dsServer);
+                    dsServer.addClient(info); /* deliverer gets message channel */
                     dsServer.startThreads();
                     // store ref to this domain server
                     domainServersSelect.put(dsServer, "");
                 }
-
-                dsServer.addClient(info);
+                else {
+                    dsServer.addClient(info); /* deliverer gets message channel */
+                }
             }
             else {
                 // kill this thread too if name server thread quits
                 dServer.setDaemon(true);
-                //dServer.start();
 //System.out.println("Create new Subdomain Server Object's threads for " + info.getName());
                 dServer.startThreads();
                 // store ref to this domain server
